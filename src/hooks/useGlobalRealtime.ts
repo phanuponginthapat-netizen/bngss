@@ -151,8 +151,26 @@ export function useGlobalRealtime() {
 
     let channel = supabase.channel(`role-rt-${role}-${userId}`);
 
+    // ── Coalesce invalidations ── ป้องกัน refetch พายุ เมื่อมี insert หลาย row ติดกัน
+    // (เช่น import DMC 500 คน หรือ face scan รัวๆ ตอนเข้าแถว 8:00)
+    // รวม invalidate ต่อ queryKey เป็นรอบเดียวใน 400ms
+    const pendingInvalidations = new Map<string, string[]>();
+    let invalidationTimer: number | null = null;
+    const scheduleInvalidate = (keys: string[][]) => {
+      for (const key of keys) {
+        const sig = JSON.stringify(key);
+        if (!pendingInvalidations.has(sig)) pendingInvalidations.set(sig, key);
+      }
+      if (invalidationTimer !== null) return;
+      invalidationTimer = window.setTimeout(() => {
+        invalidationTimer = null;
+        const batch = Array.from(pendingInvalidations.values());
+        pendingInvalidations.clear();
+        for (const key of batch) qc.invalidateQueries({ queryKey: key });
+      }, 400);
+    };
+
     for (const table of tables) {
-      // Filter notifications/inbox to current user only — drastically reduces payload
       const filter =
         table === "notifications" || table === "inbox_items"
           ? { event: "*", schema: "public", table, filter: `user_id=eq.${userId}` }
@@ -162,12 +180,10 @@ export function useGlobalRealtime() {
         "postgres_changes" as any,
         filter,
         (payload: any) => {
-          // Always invalidate by table name
-          qc.invalidateQueries({ queryKey: [table] });
+          const keys: string[][] = [[table]];
           const extra = extraKeys[table];
-          if (extra) {
-            for (const key of extra) qc.invalidateQueries({ queryKey: key });
-          }
+          if (extra) keys.push(...extra);
+          scheduleInvalidate(keys);
 
           // ===== Live toast + sound for incoming items =====
           if (payload?.eventType !== "INSERT") return;
