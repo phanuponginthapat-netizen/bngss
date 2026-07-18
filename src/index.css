@@ -151,8 +151,9 @@ a[href*="lovable.dev"][href*="utm"] {
   }
 
   .gradient-primary {
-    background: linear-gradient(135deg, hsl(217 91% 50%), hsl(199 89% 48%));
+    background: linear-gradient(135deg, hsl(199 89% 58%), hsl(199 100% 72%));
   }
+
   .gradient-sidebar {
     background: linear-gradient(180deg, hsl(222 30% 11%), hsl(222 35% 7%));
   }
