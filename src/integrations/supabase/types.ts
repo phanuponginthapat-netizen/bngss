@@ -10124,6 +10124,45 @@ export type Database = {
         }
         Relationships: []
       }
+      role_notification_defaults: {
+        Row: {
+          category: string
+          gchat: boolean
+          id: string
+          in_app: boolean
+          line: boolean
+          min_severity: string
+          push: boolean
+          role: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          category: string
+          gchat?: boolean
+          id?: string
+          in_app?: boolean
+          line?: boolean
+          min_severity?: string
+          push?: boolean
+          role: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          category?: string
+          gchat?: boolean
+          id?: string
+          in_app?: boolean
+          line?: boolean
+          min_severity?: string
+          push?: boolean
+          role?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       room_bookings: {
         Row: {
           approval_notes: string | null
