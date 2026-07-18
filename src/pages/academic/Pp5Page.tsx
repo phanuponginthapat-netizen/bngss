@@ -1945,7 +1945,7 @@ const Pp5Page = () => {
       </div>
 
       <Tabs defaultValue="entry">
-        <TabsList>
+        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap whitespace-nowrap max-w-full">
           <TabsTrigger value="entry" className="gap-2">
             <BookOpen className="w-4 h-4" />
             บันทึกคะแนน
