@@ -70,30 +70,39 @@
 
   <body>
     <div id="root">
-      <div id="app-loader" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9999;background:linear-gradient(135deg,#2563EB,#1d4ed8,#0ea5e9);font-family:'IBM Plex Sans Thai','Inter',sans-serif;">
+      <div id="app-loader" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9999;background:linear-gradient(135deg,#e0f2fe 0%,#f0f9ff 45%,#fecaca 100%);font-family:'Figtree','IBM Plex Sans Thai',system-ui,sans-serif;overflow:hidden;">
         <style>
-          @keyframes loaderPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.7;transform:scale(.95)}}
-          @keyframes loaderFadeText{0%,100%{opacity:.6}50%{opacity:1}}
-          @keyframes loaderRing{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-          .ldr-card{background:rgba(255,255,255,.15);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.25);border-radius:24px;padding:40px 48px;display:flex;flex-direction:column;align-items:center;gap:20px;box-shadow:0 25px 50px -12px rgba(0,0,0,.25)}
-          .ldr-ring{width:64px;height:64px;border-radius:50%;border:4px solid rgba(255,255,255,.2);border-top-color:#fff;animation:loaderRing 1s linear infinite}
-          .ldr-logo{width:96px;height:96px;border-radius:18px;object-fit:contain;animation:loaderPulse 2s ease-in-out infinite}
-          .ldr-icon{width:56px;height:56px;color:#fff;animation:loaderPulse 2s ease-in-out infinite}
-          .ldr-name{color:#fff;font-size:20px;font-weight:700;letter-spacing:.02em;text-align:center;max-width:280px;line-height:1.3}
-          .ldr-text{color:rgba(255,255,255,.9);font-size:15px;font-weight:500;letter-spacing:.02em;animation:loaderFadeText 2s ease-in-out infinite}
-          .ldr-dots{display:inline-flex;gap:4px;margin-left:6px}
-          .ldr-dots span{width:6px;height:6px;background:#fff;border-radius:50%;display:inline-block;animation:loaderPulse 1.4s ease-in-out infinite both}
-          .ldr-dots span:nth-child(1){animation-delay:0s}
-          .ldr-dots span:nth-child(2){animation-delay:.2s}
-          .ldr-dots span:nth-child(3){animation-delay:.4s}
+          @keyframes ldrFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+          @keyframes ldrPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.75;transform:scale(.95)}}
+          @keyframes ldrFade{0%,100%{opacity:.6}50%{opacity:1}}
+          @keyframes ldrSlide{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
+          @keyframes ldrBlob{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(20px,-15px) scale(1.05)}}
+          .ldr-blob{position:absolute;border-radius:50%;filter:blur(60px);opacity:.55;animation:ldrBlob 6s ease-in-out infinite}
+          .ldr-card{position:relative;background:rgba(255,255,255,.7);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.9);border-radius:32px;padding:36px 40px;display:flex;flex-direction:column;align-items:center;gap:18px;box-shadow:0 25px 60px -20px rgba(56,189,248,.45);max-width:340px;margin:0 16px}
+          .ldr-logo-wrap{position:relative;animation:ldrFloat 3s ease-in-out infinite}
+          .ldr-logo-glow{position:absolute;inset:0;border-radius:50%;background:linear-gradient(135deg,#7dd3fc,#fecaca);filter:blur(20px);opacity:.7;animation:ldrPulse 2s ease-in-out infinite}
+          .ldr-logo{position:relative;width:96px;height:96px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,.95);padding:8px;box-shadow:0 8px 20px rgba(0,0,0,.08);border:4px solid #fff}
+          .ldr-icon{position:relative;width:56px;height:56px;color:#0284c7}
+          .ldr-name{color:#1e293b;font-size:18px;font-weight:700;letter-spacing:-.01em;text-align:center;max-width:260px;line-height:1.35;font-family:'Outfit','IBM Plex Sans Thai',sans-serif}
+          .ldr-bar{width:220px;height:8px;border-radius:999px;background:#e0f2fe;overflow:hidden}
+          .ldr-bar-fill{width:50%;height:100%;border-radius:999px;background:linear-gradient(90deg,#38bdf8,#7dd3fc,#fecaca);animation:ldrSlide 1.4s ease-in-out infinite}
+          .ldr-text{color:#475569;font-size:14px;font-weight:500;letter-spacing:.01em;display:flex;align-items:center;gap:6px;animation:ldrFade 2s ease-in-out infinite}
+          .ldr-dots{display:inline-flex;gap:4px;margin-left:4px}
+          .ldr-dots span{width:6px;height:6px;border-radius:50%;display:inline-block;animation:ldrPulse 1.4s ease-in-out infinite both}
+          .ldr-dots span:nth-child(1){background:#38bdf8;animation-delay:0s}
+          .ldr-dots span:nth-child(2){background:#fca5a5;animation-delay:.15s}
+          .ldr-dots span:nth-child(3){background:#7dd3fc;animation-delay:.3s}
         </style>
+        <div class="ldr-blob" style="width:380px;height:380px;background:#7dd3fc;top:-80px;left:-80px"></div>
+        <div class="ldr-blob" style="width:440px;height:440px;background:#fecaca;bottom:-120px;right:-100px;animation-delay:1.5s"></div>
         <div class="ldr-card">
           <div id="ldr-brand" style="display:none"></div>
           <div id="ldr-name" class="ldr-name" style="display:none"></div>
-          <div class="ldr-ring"></div>
+          <div class="ldr-bar"><div class="ldr-bar-fill"></div></div>
           <div class="ldr-text">กำลังโหลดระบบ<span class="ldr-dots"><span></span><span></span><span></span></span></div>
         </div>
       </div>
+
       <script>
         // โหลด branding จาก CMS ให้หน้า loading ใช้ค่าจริงตั้งแต่ก่อน React เริ่มทำงาน
         (function () {
