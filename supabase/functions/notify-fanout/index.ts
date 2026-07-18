@@ -325,21 +325,32 @@ Deno.serve(async (req) => {
           urgent: severity === "critical" || severity === "warning",
         };
 
-        await Promise.all((subs ?? []).map(async (s: any) => {
-          let r = await pushOne(s, pushPayload);
-          // retry once on transient failure
-          if (!r.ok && !r.gone && (r.status === 429 || (r.status && r.status >= 500))) {
-            await new Promise((res) => setTimeout(res, 400));
-            r = await pushOne(s, pushPayload);
-          }
-          if (r.ok) {
-            pushCount++;
-            log(s.user_id, "push", "sent");
-          } else {
-            if (r.gone) await admin.from("push_subscriptions").delete().eq("id", s.id);
-            log(s.user_id, "push", r.gone ? "gone" : "failed", `${r.status ?? "?"}: ${r.error ?? "unknown"}`);
-          }
-        }));
+        // Batch push in chunks of 50 to avoid overwhelming push service / CPU spikes
+        // when a single fanout targets hundreds of subscriptions.
+        const PUSH_CHUNK = 50;
+        const allSubs = subs ?? [];
+        const goneIds: string[] = [];
+        for (let i = 0; i < allSubs.length; i += PUSH_CHUNK) {
+          const chunk = allSubs.slice(i, i + PUSH_CHUNK);
+          await Promise.all(chunk.map(async (s: any) => {
+            let r = await pushOne(s, pushPayload);
+            if (!r.ok && !r.gone && (r.status === 429 || (r.status && r.status >= 500))) {
+              await new Promise((res) => setTimeout(res, 400));
+              r = await pushOne(s, pushPayload);
+            }
+            if (r.ok) {
+              pushCount++;
+              log(s.user_id, "push", "sent");
+            } else {
+              if (r.gone) goneIds.push(s.id);
+              log(s.user_id, "push", r.gone ? "gone" : "failed", `${r.status ?? "?"}: ${r.error ?? "unknown"}`);
+            }
+          }));
+        }
+        // Batch-delete dead subscriptions once instead of N deletes
+        if (goneIds.length > 0) {
+          try { await admin.from("push_subscriptions").delete().in("id", goneIds); } catch (_) {}
+        }
       }
     }
 
