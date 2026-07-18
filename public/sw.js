@@ -1,5 +1,5 @@
 // Service Worker — Web Push notifications (no app-shell caching)
-const SW_VERSION = "v5-push";
+const SW_VERSION = "v6-push";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -16,6 +16,29 @@ self.addEventListener("activate", (e) => {
   })());
 });
 
+// Dedup: จำ tag ที่เพิ่งแสดงไปในหน้าต่างสั้น ๆ เพื่อกันแจ้งเตือนซ้ำ
+// (กรณี server ยิงซ้ำ / realtime + push มาพร้อมกัน)
+const recentTags = new Map(); // tag → timestamp
+const DEDUP_WINDOW_MS = 8000;
+
+function seenRecently(tag) {
+  const now = Date.now();
+  // ล้างของเก่า
+  for (const [k, t] of recentTags) if (now - t > DEDUP_WINDOW_MS) recentTags.delete(k);
+  if (recentTags.has(tag)) return true;
+  recentTags.set(tag, now);
+  return false;
+}
+
+async function hasVisibleClient() {
+  try {
+    const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    return clients.some((c) => c.visibilityState === "visible" && c.focused);
+  } catch (_) {
+    return false;
+  }
+}
+
 // Receive push events
 self.addEventListener("push", (event) => {
   let data = {};
@@ -28,36 +51,44 @@ self.addEventListener("push", (event) => {
   const title = data.title || "แจ้งเตือนใหม่";
   const tag = data.tag || `n-${Date.now()}`;
   const isUrgent = data.urgent === true || data.severity === "critical";
-  const options = {
-    body: data.body || "",
-    icon: data.icon || "/icon-192.png",
-    badge: "/icon-192.png",
-    image: data.image || undefined,
-    tag,
-    renotify: true,                  // เสียง/สั่นทุกครั้งแม้ tag เดิม (แนวโซเชียลแอป)
-    // ค่าตั้งต้น = ไม่สติ๊กกี้ ให้ auto-dismiss เหมือน LINE/Facebook/Messenger
-    // เฉพาะเหตุเร่งด่วน/critical เท่านั้นที่ค้างจนกว่าจะกด
-    requireInteraction: data.requireInteraction === true || isUrgent,
-    silent: false,
-    timestamp: Date.now(),
-    vibrate: isUrgent ? [300, 100, 300, 100, 300] : [120, 60, 120],
-    data: { url: data.url || "/dashboard", receivedAt: Date.now() },
-    actions: [
-      { action: "open", title: "เปิด" },
-      { action: "dismiss", title: "ปิด" },
-    ],
-  };
 
-  // แสดง notification ทันที ไม่รอ post-message ให้ client — เร็วขึ้นชัดเจน
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil((async () => {
+    // Dedup — ถ้า tag เดียวกันเพิ่งแสดงไปใน 8 วิ ให้ข้าม (ยกเว้น urgent)
+    if (!isUrgent && seenRecently(tag)) {
+      return;
+    }
 
-  // ส่ง message ให้แท็บที่เปิดอยู่แบบ non-blocking (เล่นเสียง/อัปเดต UI)
-  (async () => {
+    // ถ้าผู้ใช้กำลังเปิดแอปอยู่ (visible + focused) → ไม่ต้องเด้ง OS notification
+    // ให้ realtime toast ในแอปจัดการแทน (กันเห็นซ้ำสองที่)
+    const focused = await hasVisibleClient();
+
+    if (!focused || isUrgent) {
+      const options = {
+        body: data.body || "",
+        icon: data.icon || "/icon-192.png",
+        badge: "/icon-192.png",
+        image: data.image || undefined,
+        tag,
+        renotify: true, // เสียง/สั่นทุกครั้งแม้ tag เดิม
+        requireInteraction: data.requireInteraction === true || isUrgent,
+        silent: false,
+        timestamp: Date.now(),
+        vibrate: isUrgent ? [400, 120, 400, 120, 400, 120, 400] : [200, 80, 200, 80, 200],
+        data: { url: data.url || "/dashboard", receivedAt: Date.now(), tag },
+        actions: [
+          { action: "open", title: "เปิด" },
+          { action: "dismiss", title: "ปิด" },
+        ],
+      };
+      await self.registration.showNotification(title, options);
+    }
+
+    // แจ้งทุกแท็บให้เล่นเสียง / อัปเดต UI (ทำเสมอ ทั้งเปิดอยู่และไม่เปิด)
     try {
       const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-      for (const c of clients) c.postMessage({ type: "push", payload: data, urgent: isUrgent });
+      for (const c of clients) c.postMessage({ type: "push", payload: data, urgent: isUrgent, tag });
     } catch (_) {}
-  })();
+  })());
 });
 
 
@@ -94,14 +125,12 @@ self.addEventListener("pushsubscriptionchange", (event) => {
 });
 
 // Periodic Background Sync — ให้ OS (Android Chrome PWA) ปลุก SW เป็นระยะเพื่อตรวจ subscription
-// ช่วยให้แอปไม่ถูก "หลับสนิท" จน push channel หลุดเงียบ ๆ
 self.addEventListener("periodicsync", (event) => {
   if (event.tag !== "keep-push-alive") return;
   event.waitUntil((async () => {
     try {
       const sub = await self.registration.pushManager.getSubscription();
       const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-      // ถ้า subscription หาย → บอก client ให้ subscribe ใหม่ครั้งถัดที่เปิดแอป
       if (!sub) {
         for (const c of clients) c.postMessage({ type: "resubscribe" });
       }
@@ -109,7 +138,7 @@ self.addEventListener("periodicsync", (event) => {
   })());
 });
 
-// Background Sync — retry งานที่ค้างเมื่อกลับมาออนไลน์ (ช่วยให้การส่ง/อ่านแจ้งเตือนไม่หล่นหาย)
+// Background Sync — retry งานที่ค้างเมื่อกลับมาออนไลน์
 self.addEventListener("sync", (event) => {
   if (event.tag !== "flush-notifications") return;
   event.waitUntil((async () => {
