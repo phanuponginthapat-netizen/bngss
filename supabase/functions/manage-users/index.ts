@@ -804,7 +804,7 @@ serve(async (req) => {
       }
 
       // Student record update — applies when target user is a student (or being made one)
-      const targetRole = role || (await adminClient.from("user_roles").select("role").eq("user_id", user_id).maybeSingle()).data?.role;
+      const targetRole = role || (await adminClient.from("user_roles").select("role").eq("user_id", user_id).limit(1).maybeSingle()).data?.role;
       if (targetRole === "student") {
         const studentUpdate: any = {};
         if (first_name !== undefined) studentUpdate.first_name = first_name;
@@ -872,8 +872,8 @@ serve(async (req) => {
       if (!user_id) throw new Error("user_id required");
       const { data: { user: targetUser } } = await adminClient.auth.admin.getUserById(user_id);
       const { data: profile } = await adminClient.from("profiles").select("*").eq("id", user_id).maybeSingle();
-      const { data: roleRow } = await adminClient.from("user_roles").select("role").eq("user_id", user_id).maybeSingle();
-      const role = roleRow?.role;
+      const { data: roleRows } = await adminClient.from("user_roles").select("role").eq("user_id", user_id);
+      const role = (roleRows || []).map((r: any) => r.role).find((r: string) => ["student", "teacher", "director", "admin"].includes(r)) || (roleRows || [])[0]?.role;
       let personnel = null, student = null, classroom = null;
       if (targetUser?.email) {
         const { data } = await adminClient.from("personnel").select("*").eq("email", targetUser.email).maybeSingle();

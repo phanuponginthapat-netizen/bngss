@@ -26,8 +26,8 @@ export async function announceGrades(opts: AnnounceGradesOptions) {
   if (userErr || !userData?.user) throw new Error("Unauthorized");
   const caller = userData.user;
 
-  const { data: role } = await admin.from("user_roles").select("role").eq("user_id", caller.id).maybeSingle();
-  if (!["admin", "director", "teacher"].includes((role as any)?.role)) {
+  const { data: role } = await admin.from("user_roles").select("role").eq("user_id", caller.id).in("role", ["admin", "director", "teacher", "super_admin"]).limit(1).maybeSingle();
+  if (!role) {
     throw new Error("Only teacher/director/admin can announce");
   }
 

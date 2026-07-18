@@ -65,8 +65,8 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "Unauthorized" }, 401);
 
     const admin = createClient(url, service);
-    const { data: roleRow } = await admin.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
-    if ((roleRow as any)?.role !== "admin") return json({ error: "Forbidden — admin only" }, 403);
+    const { data: roleRow } = await admin.from("user_roles").select("role").eq("user_id", user.id).in("role", ["admin", "super_admin"]).limit(1).maybeSingle();
+    if (!roleRow) return json({ error: "Forbidden — admin only" }, 403);
 
     const { personnel_id, file_base64, mime_type, academic_year, semester, replace_existing } = await req.json();
     if (!personnel_id || !file_base64 || !mime_type) return json({ error: "missing fields" }, 400);
