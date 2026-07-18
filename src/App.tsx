@@ -26,6 +26,7 @@ const UserManagement = lazy(() => import("./pages/UserManagement"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const NotificationSettingsPage = lazy(() => import("./pages/NotificationSettingsPage"));
 const NotificationDeliveryDashboard = lazy(() => import("./pages/admin/NotificationDeliveryDashboard"));
+const NotificationMatrixPage = lazy(() => import("./pages/admin/NotificationMatrixPage"));
 const TeacherCredentialsPage = lazy(() => import("./pages/admin/TeacherCredentialsPage"));
 const PublicSDQPage = lazy(() => import("./pages/PublicSDQPage"));
 const PublicAssetPage = lazy(() => import("./pages/PublicAssetPage"));
