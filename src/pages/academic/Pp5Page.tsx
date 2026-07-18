@@ -622,7 +622,7 @@ const ScoreEntryTab = () => {
         <Card><CardContent className="p-8 text-center text-muted-foreground">{gradeLevel ? "กรุณาเลือกรายวิชาที่จะบันทึกคะแนน" : "กรุณาเลือกระดับชั้นก่อน"}</CardContent></Card>
       ) : (
         <Tabs defaultValue="scores" className="space-y-4">
-          <TabsList>
+          <TabsList className="w-full justify-start overflow-x-auto flex-nowrap whitespace-nowrap max-w-full">
             <TabsTrigger value="scores" className="gap-1.5"><BookOpen className="w-3.5 h-3.5" /> บันทึกคะแนน</TabsTrigger>
             <TabsTrigger value="attendance" className="gap-1.5"><CalendarClock className="w-3.5 h-3.5" /> เวลาเรียน</TabsTrigger>
             <TabsTrigger value="summary" className="gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> สรุปผล</TabsTrigger>
@@ -1772,7 +1772,7 @@ const AssessmentTab = () => {
         </Card>
       ) : (
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="space-y-4">
-          <TabsList>
+          <TabsList className="w-full justify-start overflow-x-auto flex-nowrap whitespace-nowrap max-w-full">
             {ASSESSMENT_CATEGORIES.map(cat => (
               <TabsTrigger key={cat.value} value={cat.value} className="gap-1.5">
                 <cat.icon className="w-3.5 h-3.5" /> {cat.label}
@@ -1945,7 +1945,7 @@ const Pp5Page = () => {
       </div>
 
       <Tabs defaultValue="entry">
-        <TabsList>
+        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap whitespace-nowrap max-w-full">
           <TabsTrigger value="entry" className="gap-2">
             <BookOpen className="w-4 h-4" />
             บันทึกคะแนน
