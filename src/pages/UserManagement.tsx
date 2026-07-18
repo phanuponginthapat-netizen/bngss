@@ -842,10 +842,11 @@ const UserManagement = () => {
             return fmt(y, +m[2], +m[1]) ?? v;
           }
 
-          // Thai text: "4 มิถุนายน 2562" / "4 มิ.ย. 62"
-          const tm = s.match(/^(\d{1,2})\s*([ก-๙.]+)\s*(\d{2,4})$/);
+          // Thai text: "4 มิถุนายน 2562" / "4 มิ.ย. 62" / "4/ก.ค./2554" / "09/ ม.ค. /2554" / "4- ก.ค. -2554"
+          const tm = s.match(/^(\d{1,2})\s*[\/\-.\s]?\s*([ก-๙]+(?:\.[ก-๙]+)?\.?)\s*[\/\-.\s]?\s*(\d{2,4})$/);
           if (tm) {
-            const mon = TH_MONTHS[tm[2]];
+            const monKey = tm[2].replace(/\s+/g, "");
+            const mon = TH_MONTHS[monKey];
             if (mon) {
               let y = parseInt(tm[3], 10);
               if (y < 100) y += y >= 50 ? 2400 : 2500; // Thai 2-digit assumed BE
