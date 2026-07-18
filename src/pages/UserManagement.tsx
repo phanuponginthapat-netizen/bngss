@@ -981,6 +981,14 @@ const UserManagement = () => {
           }
 
           mapped.password = mapped.password || "School@1234";
+          // Normalize grade_level from full Thai (e.g. "มัธยมศึกษาปีที่ 3") → short ("ม.3")
+          if (mapped.grade_level && typeof mapped.grade_level === "string") {
+            mapped.grade_level = mapped.grade_level
+              .replace(/^อนุบาลปีที่\s*/, "อ.")
+              .replace(/^ประถมศึกษาปีที่\s*/, "ป.")
+              .replace(/^มัธยมศึกษาปีที่\s*/, "ม.")
+              .trim();
+          }
           mapped.department = mapped.department || mapped.grade_level || "";
 
           return mapped;
