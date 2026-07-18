@@ -210,8 +210,9 @@
       </script>
     </div>
     <script type="module">
-      await (window.__cmsLoaderReady || Promise.resolve());
-      import("/src/main.tsx");
+      (window.__cmsLoaderReady || Promise.resolve()).then(function () {
+        import("/src/main.tsx");
+      });
     </script>
   </body>
 </html>

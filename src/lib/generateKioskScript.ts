@@ -44,7 +44,7 @@ export function generateKioskSetupScript(cfg: KioskScriptConfig): string {
 
   // แทนที่ค่า default ในบรรทัด env (KIOSK_URL/DAILY_REBOOT ปรากฏ 2 ครั้งใน branch door/student → ใช้ /g)
   out = out.replace(
-    /KIOSK_URL="\$\{KIOSK_URL:-[^"]*"\}/g,
+    /KIOSK_URL="\$\{KIOSK_URL:-[^"]*\}"/g,
     `KIOSK_URL="\${KIOSK_URL:-${escape(cfg.kioskUrl)}}"`,
   );
   if (cfg.kioskUser) {
