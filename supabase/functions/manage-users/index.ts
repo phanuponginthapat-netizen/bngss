@@ -804,7 +804,7 @@ serve(async (req) => {
       }
 
       // Student record update — applies when target user is a student (or being made one)
-      const targetRole = role || (await adminClient.from("user_roles").select("role").eq("user_id", user_id).maybeSingle()).data?.role;
+      const targetRole = role || (await adminClient.from("user_roles").select("role").eq("user_id", user_id).limit(1).maybeSingle()).data?.role;
       if (targetRole === "student") {
         const studentUpdate: any = {};
         if (first_name !== undefined) studentUpdate.first_name = first_name;
