@@ -11,10 +11,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { ScanAttendanceFlow, AttendanceStatus } from "./ScanAttendanceFlow";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 const toDbAcademicYear = (year?: number) => {
   if (!year || year <= 0) return undefined;
-  return year > 2400 ? year - 543 : year;
+  return year > 2400 ? year - BE_OFFSET : year;
 };
 
 interface Props {

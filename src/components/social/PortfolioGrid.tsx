@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Pin, Trash2 } from "lucide-react";
 import MediaRenderer from "./MediaRenderer";
 import type { MediaType } from "@/lib/media";
-import { confirmDelete } from "@/lib/confirmAction";
 
 interface Portfolio {
   id: string;
@@ -63,7 +62,7 @@ export default function PortfolioGrid({
     await supabase.from("portfolio_items").update({ is_pinned: !it.is_pinned }).eq("id", it.id);
   };
   const remove = async (it: Portfolio) => {
-    if (!(await confirmDelete("ลบผลงานนี้?"))) return;
+    if (!confirm("ลบผลงานนี้?")) return;
     await supabase.from("portfolio_items").delete().eq("id", it.id);
   };
 
@@ -79,7 +78,7 @@ export default function PortfolioGrid({
             <div className="flex items-start gap-2">
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold flex items-center gap-2">
-                  {it.is_pinned && <Pin className="w-3 h-3 text-warning" />}
+                  {it.is_pinned && <Pin className="w-3 h-3 text-amber-500" />}
                   {it.title}
                 </h3>
                 {it.category && <Badge variant="secondary" className="mt-1">{it.category}</Badge>}
@@ -87,7 +86,7 @@ export default function PortfolioGrid({
               {ownerView && (
                 <>
                   <Button size="icon" variant="ghost" onClick={() => togglePin(it)} title="ปักหมุด">
-                    <Pin className={`w-4 h-4 ${it.is_pinned ? "text-warning fill-warning" : ""}`} />
+                    <Pin className={`w-4 h-4 ${it.is_pinned ? "text-amber-500 fill-amber-500" : ""}`} />
                   </Button>
                   <Button size="icon" variant="ghost" onClick={() => remove(it)}>
                     <Trash2 className="w-4 h-4 text-destructive" />

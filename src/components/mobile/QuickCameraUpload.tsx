@@ -47,7 +47,7 @@ export function QuickCameraUpload({
         <>
           <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handle} />
           <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => cameraRef.current?.click()} className="gap-1.5">
-            <Camera className="w-4 h-4 text-success" />
+            <Camera className="w-4 h-4 text-emerald-600" />
             <span>{L("ถ่ายภาพ", "Camera")}</span>
           </Button>
         </>
@@ -56,7 +56,7 @@ export function QuickCameraUpload({
         <>
           <input ref={galleryRef} type="file" accept={accept} multiple={multiple} className="hidden" onChange={handle} />
           <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => galleryRef.current?.click()} className="gap-1.5">
-            <ImageIcon className="w-4 h-4 text-info" />
+            <ImageIcon className="w-4 h-4 text-blue-600" />
             <span>{L("รูปภาพ", "Gallery")}</span>
           </Button>
         </>
@@ -65,7 +65,7 @@ export function QuickCameraUpload({
         <>
           <input ref={fileRef} type="file" multiple={multiple} className="hidden" onChange={handle} />
           <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => fileRef.current?.click()} className="gap-1.5">
-            <Paperclip className="w-4 h-4 text-info" />
+            <Paperclip className="w-4 h-4 text-violet-600" />
             <span>{L("ไฟล์แนบ", "File")}</span>
           </Button>
         </>

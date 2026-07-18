@@ -4,10 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { aiCall } from "../_shared/aiCall.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 function json(b: any, s = 200) {
   return new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -71,51 +68,43 @@ Deno.serve(async (req) => {
     const { data: roleRow } = await admin.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
     if ((roleRow as any)?.role !== "admin") return json({ error: "Forbidden — admin only" }, 403);
 
-    const body = await req.json();
-    const { personnel_id, file_base64, mime_type, academic_year, semester, replace_existing, bulk } = body;
-    if (!file_base64 || !mime_type) return json({ error: "missing fields" }, 400);
-    if (!bulk && !personnel_id) return json({ error: "missing personnel_id" }, 400);
+    const { personnel_id, file_base64, mime_type, academic_year, semester, replace_existing } = await req.json();
+    if (!personnel_id || !file_base64 || !mime_type) return json({ error: "missing fields" }, 400);
 
-    // Personnel list for matching (bulk) or single-teacher info
-    const { data: allPersonnel } = await admin.from("personnel").select("id, prefix, first_name, last_name, employee_code").eq("status", "active");
-    let teacher: any = null;
-    let teacherDisplay = "";
-    if (!bulk) {
-      const { data: t, error: tErr } = await admin.from("personnel").select("*").eq("id", personnel_id).single();
-      if (tErr || !t) return json({ error: "ไม่พบข้อมูลครู" }, 404);
-      teacher = t;
-      teacherDisplay = `${t.prefix || "ครู"}${t.first_name}${t.last_name && t.last_name !== "-" ? " " + t.last_name : ""}`.trim();
-    }
+    // Get teacher info
+    const { data: teacher, error: tErr } = await admin.from("personnel").select("*").eq("id", personnel_id).single();
+    if (tErr || !teacher) return json({ error: "ไม่พบข้อมูลครู" }, 404);
 
-    const rowSchema = `{ "day_of_week": 1-7, "period": <int>, "duration_periods": <int default 1>, "start_time": "HH:MM:SS", "end_time": "HH:MM:SS", "subject_name": "<ชื่อวิชาเต็ม>", "classroom_name": "<เช่น ป.1/1 หรือ ป.1 ตามที่เขียน — ห้ามใส่เลขห้องเข้าไป>", "grade_level": "<เช่น ป.1>", "room": "<เลขห้องในวงเล็บ เช่น 211, 222 หรือชื่อสถานที่ เช่น The Click, Learning Center>", "co_teachers": ["<ชื่อครูร่วม>"] }`;
-    const prompt = `คุณเป็นผู้ช่วยอ่านเอกสารตารางสอน${bulk ? "หลายหน้า (1 ครู ต่อ 1 หน้า)" : `ของครู "${teacherDisplay}"`} โรงเรียนไทย
-หน้าที่: แตกตารางเป็น JSON
-${bulk
-  ? `{ "teachers": [ { "teacher_name": "<ชื่อครูจากหัวตาราง เช่น ครูจิณห์วรา คำจันทร์>", "rows": [ ${rowSchema} ] } ] }`
-  : `{ "rows": [ ${rowSchema} ] }`}
+    const teacherDisplay = `${teacher.prefix || "ครู"}${teacher.first_name}${teacher.last_name && teacher.last_name !== "-" ? " " + teacher.last_name : ""}`.trim();
 
-กฎสำคัญ:
-- day_of_week: จันทร์=1 อังคาร=2 พุธ=3 พฤหัสบดี=4 ศุกร์=5 เสาร์=6 อาทิตย์=7
-- **start_time/end_time**: อ่านจากแถว "เวลา" ของหัวตาราง map ตรงกับ "คาบ N" (เช่น คาบ 1: 08:30-09:30)
-- **เซลผสาน**: วิชาเดียวกินหลายคาบ → แตกเป็น row แยกทุกคาบ ตั้ง duration_periods = จำนวนคาบรวม start_time/end_time แต่ละ row ใช้เวลาเฉพาะคาบนั้น
-- **เลขห้องในวงเล็บ**: ป้าย "ป.3(211)", "ป.4 (221)", "ม.1/1(305)" — เลข 211/221/305 คือเลขห้อง ให้ใส่ใน room (string)
-- ถ้าวงเล็บเป็นชื่อสถานที่ เช่น "(The Click)", "(Learning Center)", "(ห้องคอม)" ก็ใส่ใน room
-- classroom_name: เอาเฉพาะส่วน "ป.X" / "ป.X/Y" / "ม.X" / "ม.X/Y" ก่อนวงเล็บ ห้ามใส่เลขห้อง
-- **ครูสอนร่วม**: ถ้ามีครู >1 ใน 1 ช่อง ใส่ชื่อครูคนอื่นใน co_teachers (ห้ามใส่ชื่อครูเจ้าของตาราง)
-- **คาบควบหลายห้อง**: "ม.6/1,6/2" → 1 row ต่อ 1 ห้อง
-- **รวมทุกอย่าง**: รวมกิจกรรมด้วย เช่น หน้าเสาธง โฮมรูม สวดมนต์ พักเที่ยง ลูกเสือ-เนตรนารี ชุมนุม แนะแนว ซ่อมเสริม Maker PLC ประชุม กิจกรรมพัฒนาผู้เรียน
-- ข้ามเฉพาะ: ช่องว่างที่ไม่มีข้อความใด ๆ
-- ใส่ subject_name ตามที่เขียนในตาราง เช่น "พักเที่ยง", "หน้าเสาธง", "โฮมรูม" หากเป็นกิจกรรม
-- ตอบ JSON object เดียว`;
+    // Build prompt
+    const prompt = `คุณเป็นผู้ช่วยอ่านเอกสารตารางสอนของครู "${teacherDisplay}" จากโรงเรียนไทย
+หน้าที่: แตกตารางสอนของครูคนนี้เป็น JSON array แต่ละ row คือ 1 คาบ
+รูปแบบที่ตอบ:
+{ "rows": [ { "day_of_week": 1-7, "period": <int>, "start_time": "HH:MM:SS", "end_time": "HH:MM:SS", "subject_name": "<ชื่อวิชาเต็ม>", "classroom_name": "<ต้องเป็นห้องเฉพาะเช่น ป.1/1 หรือ ม.2/1 ห้ามตัดเลขห้องออก>", "grade_level": "<เช่น ป.1>", "room": "<สถานที่/ห้องที่ใช้สอน เช่น 'Learning Center', 'ห้องคอม 1', 'โรงยิม' ถ้าไม่ระบุให้เป็น null>" } ] }
+กฎ:
+- day_of_week: จันทร์=1, อังคาร=2, พุธ=3, พฤหัสบดี=4, ศุกร์=5, เสาร์=6, อาทิตย์=7
+- แตก 1 row ต่อ 1 คาบ ห้ามรวม
+- classroom_name: ใส่ตามที่ปรากฏในเอกสาร เช่น "ป.1" หรือ "ป.1/1" หรือ "ม.2/2" ถ้าเอกสารระบุแค่ระดับชั้น (เช่น "ป.1") ก็ให้ใส่ "ป.1" ไม่ต้องเติม "/1" เอง (ระบบจะจับคู่ห้องให้)
+- room: ห้อง/สถานที่ที่ใช้สอนคาบนั้น (ไม่ใช่ชื่อชั้นเรียน) เช่น "Learning Center", "ห้องวิทยาศาสตร์", "ห้อง LAB", "โรงยิม", "ห้องประชุม" ถ้าเอกสารไม่ระบุให้ตอบ null
+- ต้องมี subject_name และ classroom_name ครบทุก row (อ่านจาก header/ช่องในเอกสาร) ห้ามใส่ "undefined" หรือเว้นว่าง
+- ถ้าไม่มีเวลา ให้เว้น start_time/end_time เป็น null
+- คาบพักกลางวัน/Maker/ชุมนุม/แนะแนว/ลูกเสือ ก็นับเป็น row ปกติ ใช้ subject_name ตามที่ปรากฏ
+- ตอบ JSON object เดียวเท่านั้น`;
 
+    // Use aiCall with vision+fallback chain (จะลอง provider ตัวถัดไปอัตโนมัติถ้า Lovable credit หมด)
     const aiResult = await aiCall({
-      vision: true, json: true, temperature: 0.2,
+      vision: true,
+      json: true,
+      temperature: 0.2,
       functionName: "import-teacher-schedule",
       userId: user.id,
-      messages: [{ role: "user", content: [
-        { type: "text", text: prompt },
-        { type: "image_url", image_url: { url: `data:${mime_type};base64,${file_base64}` } },
-      ] }],
+      messages: [
+        { role: "user", content: [
+          { type: "text", text: prompt },
+          { type: "image_url", image_url: { url: `data:${mime_type};base64,${file_base64}` } },
+        ] },
+      ],
     });
     const content = aiResult.content || "{}";
     let parsed: any = {};
@@ -123,28 +112,9 @@ ${bulk
       const m = content.match(/\{[\s\S]*\}/);
       if (m) { try { parsed = JSON.parse(m[0]); } catch {} }
     }
+    const rows: any[] = Array.isArray(parsed.rows) ? parsed.rows : [];
 
-    type Group = { display: string; personnelId: string | null; rows: any[] };
-    const groups: Group[] = [];
-    if (bulk) {
-      const arr: any[] = Array.isArray(parsed.teachers) ? parsed.teachers : [];
-      for (const t of arr) {
-        const name = String(t.teacher_name || "").trim();
-        if (!name || !Array.isArray(t.rows) || t.rows.length === 0) continue;
-        const nk = norm(name).replace(/^ครู|^teacher|^t\./i, "");
-        const match = (allPersonnel || []).find((p: any) => {
-          const full = norm(`${p.first_name || ""}${p.last_name && p.last_name !== "-" ? p.last_name : ""}`);
-          const first = norm(p.first_name || "");
-          return (full && (nk.includes(full) || full.includes(nk))) || (first && nk.includes(first));
-        });
-        groups.push({ display: name, personnelId: match?.id || null, rows: t.rows });
-      }
-    } else {
-      const rows: any[] = Array.isArray(parsed.rows) ? parsed.rows : [];
-      groups.push({ display: teacherDisplay, personnelId: personnel_id, rows });
-    }
-
-    if (groups.length === 0 || groups.every(g => g.rows.length === 0)) return json({ error: "ไม่พบข้อมูลตารางในเอกสาร" }, 400);
+    if (rows.length === 0) return json({ error: "ไม่พบข้อมูลตารางในเอกสาร" }, 400);
 
     // Preload classrooms + subjects
     const { data: classrooms } = await admin.from("classrooms").select("id, name, grade_level");
@@ -198,81 +168,83 @@ ${bulk
     const warnings: string[] = [];
     let inserted = 0;
     let skipped = 0;
-    let updated = 0;
-    const perTeacher: any[] = [];
+    // Normalize academic_year to CE (DB convention). UI sometimes passes BE.
     const rawYr = Number(academic_year);
     const yr = rawYr > 2400 ? rawYr - 543 : (rawYr || (new Date().getFullYear() - (new Date().getMonth() >= 4 ? 0 : 1)));
     const sem = Number(semester) || 1;
 
-    for (const grp of groups) {
-      if (!grp.personnelId) { warnings.push(`ข้ามครู "${grp.display}": ไม่พบในระบบบุคลากร (กรุณาเพิ่มก่อน)`); continue; }
-      const gpDisplay = grp.display;
-      const gpPid = grp.personnelId;
-
-      // Optionally remove old schedules for this teacher
-      if (replace_existing) {
-        await admin.from("schedules").delete().eq("teacher_id", gpPid).eq("academic_year", yr).eq("semester", sem);
-      }
-
-      const toInsert: any[] = [];
-      for (const r of grp.rows) {
-        let day = Number(r.day_of_week);
-        if (!day && r.day) day = DAY_MAP[String(r.day).trim()] || 0;
-        const period = Number(r.period);
-        if (!day || !period) { skipped++; warnings.push(`[${gpDisplay}] ข้ามแถวที่ไม่มีวัน/คาบ`); continue; }
-
-        // Strip "(123)" tail from classroom_name → put numeric/place into room if missing
-        let rawName = r.classroom_name ? String(r.classroom_name).trim() : "";
-        let extractedRoom = "";
-        const parenMatch = rawName.match(/\(([^)]+)\)\s*$/);
-        if (parenMatch) {
-          extractedRoom = parenMatch[1].trim();
-          rawName = rawName.replace(/\s*\([^)]+\)\s*$/, "").trim();
-        }
-        const classroomName = (rawName && rawName.toLowerCase() !== "undefined" && rawName.toLowerCase() !== "null") ? rawName : "";
-        const gradeHint = (r.grade_level ? String(r.grade_level).trim() : "") || gradeOf(classroomName);
-        const lookupName = classroomName || gradeHint;
-        const cid = lookupName ? await findClassroom(lookupName, gradeHint) : null;
-        if (!cid) { skipped++; warnings.push(`[${gpDisplay}] ไม่พบห้อง "${classroomName || gradeHint || "?"}"`); continue; }
-
-        const rawSubjectName = r.subject_name ? String(r.subject_name).trim() : "";
-        const sid = findSubject(rawSubjectName, r.grade_level || null);
-        if (!sid && rawSubjectName) {
-          warnings.push(`[${gpDisplay}] ยังไม่มีในหลักสูตร: "${rawSubjectName}" (${r.grade_level || "-"})`);
-        }
-
-        const rawRoomField = r.room ? String(r.room).trim() : "";
-        const roomVal = rawRoomField || extractedRoom;
-        const room = (roomVal && roomVal.toLowerCase() !== "undefined" && roomVal.toLowerCase() !== "null") ? roomVal : null;
-
-        toInsert.push({
-          classroom_id: cid, subject_id: sid,
-          subject_name_raw: sid ? null : (rawSubjectName || null),
-          day_of_week: day, period,
-          duration_periods: Math.max(1, Number(r.duration_periods) || 1),
-          start_time: r.start_time || null, end_time: r.end_time || null,
-          teacher_name: gpDisplay, teacher_id: gpPid,
-          academic_year: yr, semester: sem, room,
-        });
-      }
-
-      let ti = 0, tu = 0;
-      for (const row of toInsert) {
-        const { data: mine } = await admin.from("schedules").select("id")
-          .match({ classroom_id: row.classroom_id, day_of_week: row.day_of_week, period: row.period, academic_year: row.academic_year, semester: row.semester, teacher_id: gpPid });
-        if (mine && mine.length) {
-          await admin.from("schedules").delete().in("id", mine.map((r: any) => r.id));
-          tu++;
-        }
-        const { error } = await admin.from("schedules").insert(row);
-        if (error) { warnings.push(`[${gpDisplay}] insert: ${error.message}`); skipped++; continue; }
-        if (!mine?.length) ti++;
-      }
-      inserted += ti; updated += tu;
-      perTeacher.push({ teacher: gpDisplay, personnel_id: gpPid, inserted: ti, updated: tu, total_rows: grp.rows.length });
+    // Optionally remove old schedules for this teacher in same year/semester
+    if (replace_existing) {
+      await admin.from("schedules").delete().eq("teacher_id", personnel_id).eq("academic_year", yr).eq("semester", sem);
     }
 
-    return json({ inserted, updated, skipped, total: groups.reduce((a, g) => a + g.rows.length, 0), warnings, teacher: bulk ? `${perTeacher.length} ครู` : teacherDisplay, per_teacher: perTeacher });
+    const toInsert: any[] = [];
+    for (const r of rows) {
+      let day = Number(r.day_of_week);
+      if (!day && r.day) day = DAY_MAP[String(r.day).trim()] || 0;
+      const period = Number(r.period);
+      if (!day || !period) { skipped++; warnings.push(`ข้ามแถวที่ไม่มีวัน/คาบ: ${JSON.stringify(r)}`); continue; }
+
+      const rawName = r.classroom_name ? String(r.classroom_name).trim() : "";
+      const classroomName = (rawName && rawName.toLowerCase() !== "undefined" && rawName.toLowerCase() !== "null") ? rawName : "";
+      const gradeHint = (r.grade_level ? String(r.grade_level).trim() : "") || gradeOf(classroomName);
+      const lookupName = classroomName || gradeHint;
+      const cid = lookupName ? await findClassroom(lookupName, gradeHint) : null;
+      if (!cid) { skipped++; warnings.push(`ไม่พบห้อง "${classroomName || gradeHint || "?"}" (ระดับ ${gradeHint || "-"})`); continue; }
+
+      const rawSubjectName = r.subject_name ? String(r.subject_name).trim() : "";
+      const sid = findSubject(rawSubjectName, r.grade_level || null);
+      if (!sid && rawSubjectName) {
+        warnings.push(`ยังไม่มีในหลักสูตร: "${rawSubjectName}" (ระดับ ${r.grade_level || "-"}) — บันทึกลงตารางเป็นชื่อก่อน รอจับคู่ภายหลัง`);
+      }
+
+      const rawRoom = r.room ? String(r.room).trim() : "";
+      const room = (rawRoom && rawRoom.toLowerCase() !== "undefined" && rawRoom.toLowerCase() !== "null") ? rawRoom : null;
+
+      toInsert.push({
+        classroom_id: cid,
+        subject_id: sid,
+        subject_name_raw: sid ? null : (rawSubjectName || null),
+        day_of_week: day,
+        period,
+        start_time: r.start_time || null,
+        end_time: r.end_time || null,
+        teacher_name: teacherDisplay,
+        teacher_id: personnel_id,
+        academic_year: yr,
+        semester: sem,
+        room,
+      });
+
+    }
+
+    // Upsert per slot — ลบเฉพาะ row ของครูคนนี้เท่านั้น (ไม่ทับครูคนอื่น)
+    let updated = 0;
+    for (const row of toInsert) {
+      // 1) ถ้ามี slot เดียวกันของครูคนนี้อยู่ → ลบก่อน (อัพเดต)
+      const { data: mine } = await admin.from("schedules")
+        .select("id")
+        .match({ classroom_id: row.classroom_id, day_of_week: row.day_of_week, period: row.period, academic_year: row.academic_year, semester: row.semester, teacher_id: personnel_id });
+      if (mine && mine.length) {
+        await admin.from("schedules").delete().in("id", mine.map((r: any) => r.id));
+        updated++;
+      }
+
+      // 2) เช็คว่ามีครูคนอื่นใช้ slot นี้ไหม → ถ้ามี ให้ warning แต่ยังคงบันทึก (รองรับ team teaching)
+      const { data: others } = await admin.from("schedules")
+        .select("id, teacher_name")
+        .match({ classroom_id: row.classroom_id, day_of_week: row.day_of_week, period: row.period, academic_year: row.academic_year, semester: row.semester })
+        .neq("teacher_id", personnel_id);
+      if (others && others.length) {
+        warnings.push(`คาบ ${row.day_of_week}/${row.period} มีครูอื่นสอนอยู่: ${others.map((o: any) => o.teacher_name).join(", ")} — บันทึกซ้อนสำหรับครู ${teacherDisplay}`);
+      }
+
+      const { error } = await admin.from("schedules").insert(row);
+      if (error) { warnings.push(`insert error: ${error.message}`); skipped++; continue; }
+      if (!mine?.length) inserted++;
+    }
+
+    return json({ inserted, updated, skipped, total: rows.length, warnings, teacher: teacherDisplay });
   } catch (e: any) {
     console.error("import-teacher-schedule error:", e);
     return json({ error: e.message || String(e) }, 500);

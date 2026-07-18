@@ -2,12 +2,12 @@ import { swal } from "@/lib/swal";
 /**
  * OBEC-Standard Print Utility
  * สไตล์เอกสารมาตรฐาน สพฐ. สำหรับพิมพ์และ PDF
- * ฟอนต์: TH SarabunIT๙ / TH Sarabun New ขนาด 16pt ตามมาตรฐานหนังสือราชการ
+ * ฟอนต์: Sarabun / TH Sarabun New ขนาด 21px ตามมาตรฐานหนังสือราชการ
  */
 
-export const OBEC_PRINT_CSS = `
+const OBEC_PRINT_CSS = `
   @font-face {
-    font-family: 'TH Sarabun New';
+    font-family: 'Sarabun';
     src: url('__LOVABLE_ORIGIN__/fonts/thsarabunnew-webfont.woff') format('woff');
     font-weight: 400;
     font-style: normal;
@@ -15,7 +15,7 @@ export const OBEC_PRINT_CSS = `
   }
 
   @font-face {
-    font-family: 'TH Sarabun New';
+    font-family: 'Sarabun';
     src: url('__LOVABLE_ORIGIN__/fonts/thsarabunnew_bold-webfont.woff') format('woff');
     font-weight: 700;
     font-style: normal;
@@ -23,7 +23,7 @@ export const OBEC_PRINT_CSS = `
   }
 
   @font-face {
-    font-family: 'TH Sarabun New';
+    font-family: 'Sarabun';
     src: url('__LOVABLE_ORIGIN__/fonts/thsarabunnew_italic-webfont.woff') format('woff');
     font-weight: 400;
     font-style: italic;
@@ -31,22 +31,22 @@ export const OBEC_PRINT_CSS = `
   }
 
   @font-face {
-    font-family: 'TH Sarabun New';
+    font-family: 'Sarabun';
     src: url('__LOVABLE_ORIGIN__/fonts/thsarabunnew_bolditalic-webfont.woff') format('woff');
     font-weight: 700;
     font-style: italic;
     font-display: block;
   }
 
-  /* ระเบียบสำนักนายกฯ: บน 2.5cm, ล่าง ≥2cm, ซ้าย 3cm, ขวา ≥2cm */
+  /* ค่าเริ่มต้นของระบบพิมพ์เดิม: ให้แต่ละ template คุมระยะเอง */
   @page {
     size: A4;
-    margin: 1.5cm 2cm 1.5cm 3cm;
+    margin: 0;
   }
 
   @page landscape {
     size: A4 landscape;
-    margin: 1.5cm 1.5cm;
+    margin: 0;
   }
 
   * {
@@ -61,19 +61,85 @@ export const OBEC_PRINT_CSS = `
   }
 
   body {
-    font-family: 'TH Sarabun New', 'TH SarabunIT๙', 'Sarabun', 'TH SarabunPSK', sans-serif;
+    margin: 0;
+    font-family: 'Sarabun', 'Sarabun', 'Sarabun', 'Sarabun', sans-serif;
     color: #000;
-    font-size: 16pt;
+    font-size: 21px;
     line-height: 1.4;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
+  /* ค่าตั้งต้น (ใช้กรณี wrapper ไม่ได้ embed inline style) — สอดคล้องกับ EFORM_PAGE_STYLE */
+  .eform-print-page {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 25mm 20mm 20mm 30mm;
+    box-sizing: border-box;
+    margin: 0 auto;
+    color: #000;
+    font-family: 'Sarabun', sans-serif;
+    font-size: 21px;
+    line-height: 1.5;
+    overflow-wrap: break-word;
+  }
+
+  .eform-print-page p {
+    max-width: 100%;
+    margin: 0 0 8px 0;
+    line-height: 1.4;
+  }
+
+  .eform-print-page h1,
+  .eform-print-page h2,
+  .eform-print-page h3 {
+    margin: 0 0 16px 0;
+    line-height: 1.35;
+  }
+
+  .eform-print-page div {
+    max-width: 100%;
+  }
+
+  .eform-print-page table {
+    border-collapse: collapse;
+    max-width: 100%;
+  }
+
+  .eform-print-page td,
+  .eform-print-page th {
+    position: relative;
+    box-sizing: border-box;
+    min-width: 1em;
+    vertical-align: top;
+  }
+
+  .eform-print-page td[style*="height"] > p,
+  .eform-print-page th[style*="height"] > p,
+  .eform-print-page tr[style*="height"] td > p,
+  .eform-print-page tr[style*="height"] th > p {
+    margin: 0 !important;
+    line-height: 1.1;
+  }
+
+  .eform-print-page td[style*="height"],
+  .eform-print-page th[style*="height"] {
+    overflow: hidden;
+  }
+
+  .eform-print-page [data-eform-field]:not([data-eform-field-type="image"]) {
+    display: inline-block;
+    min-width: 28mm;
+    max-width: 100%;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+  }
+
   /* === HEADER === */
   .obec-header {
     text-align: center;
-    padding-bottom: 10pt;
-    margin-bottom: 14pt;
+    padding-bottom: 13px;
+    margin-bottom: 19px;
     border-bottom: 1.5px solid #333;
     position: relative;
   }
@@ -83,7 +149,7 @@ export const OBEC_PRINT_CSS = `
     align-items: center;
     justify-content: center;
     gap: 16px;
-    margin-bottom: 6pt;
+    margin-bottom: 8px;
   }
 
   .obec-header .header-emblem img {
@@ -93,48 +159,48 @@ export const OBEC_PRINT_CSS = `
   }
 
   .obec-header .school-name {
-    font-size: 18pt;
+    font-size: 24px;
     font-weight: 700;
   }
 
   .obec-header .school-address {
-    font-size: 16pt;
+    font-size: 21px;
     color: #000;
-    margin-top: 2pt;
+    margin-top: 3px;
   }
 
   .obec-header .doc-title {
-    font-size: 18pt;
+    font-size: 24px;
     font-weight: 700;
-    margin-top: 8pt;
+    margin-top: 11px;
   }
 
   .obec-header .doc-subtitle {
-    font-size: 16pt;
+    font-size: 21px;
     color: #000;
-    margin-top: 2pt;
+    margin-top: 3px;
   }
 
   .obec-header .doc-ref {
-    font-size: 16pt;
+    font-size: 21px;
     color: #000;
-    margin-top: 4pt;
+    margin-top: 5px;
   }
 
   /* === INFO BOX === */
   .obec-info-box {
     border: 1px solid #999;
     border-radius: 0;
-    padding: 8pt 12pt;
-    margin: 10pt 0;
+    padding: 11px 16px;
+    margin: 13px 0;
     background: #fafafa;
   }
 
   .obec-info-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 2pt 20pt;
-    font-size: 16pt;
+    gap: 3px 27px;
+    font-size: 21px;
     line-height: 1.5;
   }
 
@@ -149,7 +215,7 @@ export const OBEC_PRINT_CSS = `
   }
 
   .obec-info-single {
-    font-size: 16pt;
+    font-size: 21px;
     line-height: 1.5;
   }
 
@@ -157,14 +223,14 @@ export const OBEC_PRINT_CSS = `
   .obec-table {
     width: 100%;
     border-collapse: collapse;
-    margin: 10pt 0;
-    font-size: 16pt;
+    margin: 13px 0;
+    font-size: 21px;
   }
 
   .obec-table th,
   .obec-table td {
     border: 1px solid #555;
-    padding: 3pt 6pt;
+    padding: 4px 8px;
     text-align: left;
     vertical-align: middle;
   }
@@ -172,7 +238,7 @@ export const OBEC_PRINT_CSS = `
   .obec-table th {
     background: #f0f0f0;
     font-weight: 700;
-    font-size: 16pt;
+    font-size: 21px;
     text-align: center;
     white-space: nowrap;
   }
@@ -192,7 +258,7 @@ export const OBEC_PRINT_CSS = `
 
   .obec-table td.mono {
     font-family: 'Courier New', monospace;
-    font-size: 14pt;
+    font-size: 19px;
   }
 
   .obec-table tr:nth-child(even) {
@@ -207,42 +273,42 @@ export const OBEC_PRINT_CSS = `
 
   /* === SECTION === */
   .obec-section-title {
-    font-size: 16pt;
+    font-size: 21px;
     font-weight: 700;
-    margin: 16pt 0 8pt;
-    padding-bottom: 3pt;
+    margin: 21px 0 11px;
+    padding-bottom: 4px;
     border-bottom: 1px solid #999;
   }
 
   .obec-subsection-title {
-    font-size: 16pt;
+    font-size: 21px;
     font-weight: 700;
-    margin: 12pt 0 6pt;
+    margin: 16px 0 8px;
   }
 
   /* === GPA BOX === */
   .obec-summary-box {
     border: 2px solid #333;
-    padding: 8pt 14pt;
-    margin: 14pt 0;
+    padding: 11px 19px;
+    margin: 19px 0;
     display: flex;
-    gap: 28pt;
+    gap: 37px;
     align-items: center;
     background: #f9f9f9;
   }
 
   .obec-summary-box .summary-label {
-    font-size: 16pt;
+    font-size: 21px;
   }
 
   .obec-summary-box .summary-value {
-    font-size: 18pt;
+    font-size: 24px;
     font-weight: 700;
   }
 
   /* === SIGNATURE === */
   .obec-signatures {
-    margin-top: 40pt;
+    margin-top: 53px;
     page-break-inside: avoid;
   }
 
@@ -250,7 +316,7 @@ export const OBEC_PRINT_CSS = `
     display: flex;
     justify-content: space-around;
     flex-wrap: wrap;
-    gap: 20pt;
+    gap: 27px;
   }
 
   .obec-sig-item {
@@ -261,53 +327,53 @@ export const OBEC_PRINT_CSS = `
   .obec-sig-line {
     width: 180px;
     border-bottom: 1px dotted #333;
-    margin: 36pt auto 4pt;
+    margin: 48px auto 5px;
   }
 
   .obec-sig-name {
-    font-size: 16pt;
+    font-size: 21px;
     font-weight: 700;
   }
 
   .obec-sig-title {
-    font-size: 16pt;
+    font-size: 21px;
     color: #000;
   }
 
   .obec-sig-grid-2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 24pt 14pt;
-    margin-top: 8pt;
+    gap: 32px 19px;
+    margin-top: 11px;
   }
 
   .obec-sig-grid-3 {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    gap: 20pt;
-    margin-top: 8pt;
+    gap: 27px;
+    margin-top: 11px;
   }
 
   /* === DATE === */
   .obec-date {
     text-align: center;
-    margin-top: 16pt;
-    font-size: 16pt;
+    margin-top: 21px;
+    font-size: 21px;
   }
 
   .obec-date-right {
     text-align: right;
-    margin-top: 8pt;
-    font-size: 16pt;
+    margin-top: 11px;
+    font-size: 21px;
   }
 
   /* === GRADE BADGE === */
   .obec-grade {
     display: inline-block;
-    padding: 1pt 8pt;
+    padding: 1px 11px;
     border: 1px solid #666;
     border-radius: 2px;
-    font-size: 16pt;
+    font-size: 21px;
     font-weight: 700;
     min-width: 28px;
     text-align: center;
@@ -315,7 +381,7 @@ export const OBEC_PRINT_CSS = `
 
   /* === BODY TEXT === */
   .obec-body {
-    font-size: 16pt;
+    font-size: 21px;
     line-height: 1.5;
     text-align: justify;
   }
@@ -330,7 +396,7 @@ export const OBEC_PRINT_CSS = `
     height: 70px;
     border: 2px solid #999;
     border-radius: 50%;
-    margin: 14pt auto;
+    margin: 19px auto;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -346,31 +412,31 @@ export const OBEC_PRINT_CSS = `
   /* === COMMENT BOX === */
   .obec-comment-box {
     border: 1px solid #999;
-    padding: 10pt;
-    min-height: 60pt;
-    margin: 6pt 0;
-    font-size: 16pt;
+    padding: 13px;
+    min-height: 80px;
+    margin: 8px 0;
+    font-size: 21px;
   }
 
   /* === SCORE CRITERIA BOX === */
   .obec-criteria-box {
     border: 1px solid #999;
-    padding: 8pt 12pt;
-    margin: 10pt 0;
+    padding: 11px 16px;
+    margin: 13px 0;
   }
 
   .obec-criteria-box .criteria-title {
-    font-size: 16pt;
+    font-size: 21px;
     font-weight: 700;
-    margin-bottom: 4pt;
+    margin-bottom: 5px;
   }
 
   /* === ATTENDANCE BOX === */
   .obec-att-box {
     border: 1px solid #999;
-    padding: 6pt 12pt;
-    margin: 8pt 0;
-    font-size: 16pt;
+    padding: 8px 16px;
+    margin: 11px 0;
+    font-size: 21px;
   }
 
   /* === PHOTO GRID === */
@@ -378,7 +444,7 @@ export const OBEC_PRINT_CSS = `
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
-    margin: 10pt 0;
+    margin: 13px 0;
   }
 
   .obec-photo-grid img {
@@ -402,7 +468,7 @@ export const OBEC_PRINT_CSS = `
     width: 100%;
     max-width: 16cm;
     margin: 0 auto;
-    font-size: 16pt;
+    font-size: 21px;
     line-height: 1.4;
     color: #000;
   }
@@ -437,7 +503,7 @@ export const OBEC_PRINT_CSS = `
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%) rotate(-45deg);
-    font-size: 72pt;
+    font-size: 96px;
     color: rgba(0, 0, 0, 0.03);
     font-weight: 700;
     z-index: -1;
@@ -451,9 +517,9 @@ export const OBEC_PRINT_CSS = `
     left: 0;
     right: 0;
     text-align: center;
-    font-size: 14pt;
+    font-size: 19px;
     color: #999;
-    padding: 4pt;
+    padding: 5px;
     border-top: 1px solid #ddd;
   }
 `;
@@ -467,6 +533,7 @@ export interface PrintOptions {
 
 export const openPrintWindow = (htmlContent: string, options: PrintOptions = {}) => {
   const { title = "เอกสาร", landscape = false } = options;
+  const isEFormDocument = htmlContent.includes("eform-print-page");
 
   const w = window.open("", "_blank");
   if (!w) {
@@ -477,7 +544,36 @@ export const openPrintWindow = (htmlContent: string, options: PrintOptions = {})
   const landscapeCss = landscape
     ? `@page { size: A4 landscape; margin: 15mm 15mm; }`
     : "";
-  const printCss = `${OBEC_PRINT_CSS}${landscapeCss}`.replace(/__LOVABLE_ORIGIN__/g, window.location.origin);
+  const eFormPrintCss = isEFormDocument
+    ? `
+      /* E-Form ต้องใช้ @page margin ตอนพิมพ์ เพื่อให้หัว/ท้ายกระดาษถูกกันไว้ซ้ำทุกหน้า
+         ไม่ใช่ padding บน wrapper ซึ่งมีผลแค่หน้าแรกและทำให้เนื้อหาล้นเข้า footer/header ในหน้าถัดไป */
+      @page { size: ${landscape ? "A4 landscape" : "A4"}; margin: 25mm 20mm 20mm 30mm; }
+      @media print {
+        html, body { width: auto; min-height: auto; background: #fff; }
+        .eform-print-page {
+          width: auto !important;
+          min-height: auto !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          box-shadow: none !important;
+          break-inside: auto;
+          page-break-inside: auto;
+        }
+        .eform-print-page h1,
+        .eform-print-page h2,
+        .eform-print-page h3,
+        .eform-print-page tr,
+        .eform-print-page td,
+        .eform-print-page th,
+        .eform-print-page img {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+      }
+    `
+    : "";
+  const printCss = `${OBEC_PRINT_CSS}${landscapeCss}${eFormPrintCss}`.replace(/__LOVABLE_ORIGIN__/g, window.location.origin);
 
   const waitForPrintAssets = async () => {
     const fontPromise = w.document.fonts?.ready?.catch(() => undefined) ?? Promise.resolve();
@@ -536,4 +632,11 @@ export const formatThaiDate = (dateStr?: string): string => {
 
 export const currentThaiDate = (): string => {
   return new Date().toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" });
+};
+
+/** แปลงเลขอารบิกเป็นเลขไทย ตามมาตรฐานหนังสือราชการ/สพฐ. */
+export const toThaiDigits = (input: string | number | null | undefined): string => {
+  if (input === null || input === undefined) return "";
+  const map = ["๐", "๑", "๒", "๓", "๔", "๕", "๖", "๗", "๘", "๙"];
+  return String(input).replace(/[0-9]/g, (d) => map[Number(d)]);
 };

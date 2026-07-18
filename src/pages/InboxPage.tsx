@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -13,9 +13,9 @@ import { formatDistanceToNow } from "date-fns";
 import { th } from "date-fns/locale";
 import { toast } from "sonner";
 import { routeForNotification } from "@/lib/notificationRoute";
-import { EmptyState, ListSkeleton } from "@/components/shared";
 
 const EFormInboxPage = lazy(() => import("./EFormInboxPage"));
+const DocumentInboxPage = lazy(() => import("./DocumentInboxPage"));
 
 type UnifiedItem = {
   id: string;
@@ -33,8 +33,8 @@ type UnifiedItem = {
 };
 
 const priorityColor: Record<string, string> = {
-  urgent: "bg-danger text-white",
-  high: "bg-warning text-white",
+  urgent: "bg-red-500 text-white",
+  high: "bg-orange-500 text-white",
   normal: "bg-primary/10 text-primary",
   low: "bg-muted text-muted-foreground",
 };
@@ -49,10 +49,18 @@ const typeIcon: Record<string, any> = {
 export default function InboxPage() {
   const { userId, role } = useUserRole();
   const canUseEForm = role === "admin" || role === "director" || role === "teacher";
+  const canUseDocuments = !!role;
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [topTab, setTopTab] = useState<"messages" | "eform">("messages");
+  const [searchParams] = useSearchParams();
+  const initialTopTab = searchParams.get("tab") === "eform" ? "eform" : searchParams.get("tab") === "documents" ? "documents" : "messages";
+  const [topTab, setTopTab] = useState<"messages" | "documents" | "eform">(initialTopTab);
   const [tab, setTab] = useState<"all" | "unread">("all");
+
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t === "eform" || t === "documents" || t === "messages") setTopTab(t);
+  }, [searchParams]);
 
 
   const { data: inboxRows = [], isLoading: l1 } = useQuery({
@@ -206,12 +214,25 @@ export default function InboxPage() {
               </Badge>
             )}
           </TabsTrigger>
+          {canUseDocuments && (
+            <TabsTrigger value="documents" className="gap-1.5">
+              <FileText className="w-4 h-4" /> เอกสารรับ
+            </TabsTrigger>
+          )}
           {canUseEForm && (
             <TabsTrigger value="eform" className="gap-1.5">
               <Mail className="w-4 h-4" /> E-Form
             </TabsTrigger>
           )}
         </TabsList>
+
+        {canUseDocuments && (
+          <TabsContent value="documents" className="mt-4">
+            <Suspense fallback={<div className="text-center py-12 text-muted-foreground">กำลังโหลด...</div>}>
+              <DocumentInboxPage />
+            </Suspense>
+          </TabsContent>
+        )}
 
         {canUseEForm && (
           <TabsContent value="eform" className="mt-4">
@@ -241,15 +262,14 @@ export default function InboxPage() {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <ListSkeleton rows={6} />
+                <div className="text-center py-12 text-muted-foreground">กำลังโหลด...</div>
               ) : filtered.length === 0 ? (
-                <EmptyState
-                  icon={Inbox}
-                  title={tab === "unread" ? "อ่านครบทุกข้อความแล้ว" : "ยังไม่มีข้อความ"}
-                  description={tab === "unread" ? "เยี่ยม! คุณจัดการกล่องข้อความหมดแล้ว" : "เมื่อมีการแจ้งเตือนใหม่ จะแสดงที่นี่"}
-                />
+                <div className="text-center py-12 text-muted-foreground">
+                  <Inbox className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p>{tab === "unread" ? "อ่านครบทุกข้อความแล้ว" : "ไม่มีข้อความ"}</p>
+                </div>
               ) : (
-                <ScrollArea className="h-[600px] pr-3">
+                <div className="pr-1">
                   <div className="space-y-1">
                     {filtered.map(item => {
                       const Icon = typeIcon[item.item_type] || Bell;
@@ -261,10 +281,9 @@ export default function InboxPage() {
                           tabIndex={0}
                           onClick={() => {
                             if (unread) markRead.mutate(item);
-                            const r = routeForNotification(item as any, role) || "/dashboard/inbox";
-                            navigate(r);
+                            const r = routeForNotification(item as any, role);
+                            if (r) navigate(r);
                           }}
-
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") (e.currentTarget as HTMLDivElement).click();
                           }}
@@ -313,7 +332,7 @@ export default function InboxPage() {
                       );
                     })}
                   </div>
-                </ScrollArea>
+                </div>
               )}
             </CardContent>
           </Card>

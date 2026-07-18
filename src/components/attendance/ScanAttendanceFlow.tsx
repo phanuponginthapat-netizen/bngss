@@ -1,17 +1,17 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { ScanLine, CheckCircle2, XCircle, Clock, Send, RotateCcw, FlagOff, Keyboard } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ScanLine, CheckCircle2, XCircle, Clock, Send, RotateCcw, FlagOff, ListChecks, Users2 } from "lucide-react";
 import { toast } from "sonner";
 import BarcodeScanner from "@/components/BarcodeScanner";
+import { cn } from "@/lib/utils";
 
 export type AttendanceStatus = "present" | "absent" | "late" | "sick" | "leave";
 
@@ -37,15 +37,16 @@ interface Props {
 }
 
 const STATUS_META: Record<AttendanceStatus, { th: string; en: string; cls: string }> = {
-  present: { th: "มา", en: "Present", cls: "bg-success-soft text-success-soft-foreground" },
-  absent: { th: "ขาด", en: "Absent", cls: "bg-danger-soft text-danger-soft-foreground" },
-  late: { th: "สาย", en: "Late", cls: "bg-warning-soft text-warning-soft-foreground" },
-  sick: { th: "ป่วย", en: "Sick", cls: "bg-info-soft text-info-soft-foreground" },
-  leave: { th: "ลา", en: "Leave", cls: "bg-info-soft text-info-soft-foreground" },
+  present: { th: "มา", en: "Present", cls: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+  absent: { th: "ขาด", en: "Absent", cls: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+  late: { th: "สาย", en: "Late", cls: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" },
+  sick: { th: "ป่วย", en: "Sick", cls: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+  leave: { th: "ลา", en: "Leave", cls: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" },
 };
 
 export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSubmit, contextLabel }: Props) {
   const { lang } = useLanguage();
+  const [mode, setMode] = useState<"scan" | "manual">("scan");
   const [scanOpen, setScanOpen] = useState(autoOpen && students.length > 0);
   const [scanned, setScanned] = useState<Record<string, AttendanceStatus>>({}); // present/late
   const [scanLog, setScanLog] = useState<{ id: string; name: string; at: number }[]>([]);
@@ -53,8 +54,36 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
   const [unscannedStatus, setUnscannedStatus] = useState<Record<string, AttendanceStatus>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [manualCode, setManualCode] = useState("");
-  const manualInputRef = useRef<HTMLInputElement>(null);
+  // Manual mode: default all to present, teacher ticks off exceptions
+  const [manualStatus, setManualStatus] = useState<Record<string, AttendanceStatus>>({});
+  const getManual = (id: string): AttendanceStatus => manualStatus[id] || "present";
+  const setOneManual = (id: string, v: AttendanceStatus) =>
+    setManualStatus(p => ({ ...p, [id]: v }));
+  const bulkSetManual = (v: AttendanceStatus) => {
+    const m: Record<string, AttendanceStatus> = {};
+    students.forEach(s => { m[s.id] = v; });
+    setManualStatus(m);
+  };
+  const manualSummary = useMemo(() => {
+    const c: Record<AttendanceStatus, number> = { present: 0, absent: 0, late: 0, sick: 0, leave: 0 };
+    students.forEach(s => { c[getManual(s.id)]++; });
+    return c;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [students, manualStatus]);
+
+  const handleManualSubmit = async () => {
+    setSubmitting(true);
+    try {
+      const map: Record<string, AttendanceStatus> = {};
+      students.forEach(s => { map[s.id] = getManual(s.id); });
+      await onSubmit(map);
+      setManualStatus({});
+      setConfirmOpen(false);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
 
   const studentByCode = useMemo(() => {
     const m: Record<string, Student> = {};
@@ -127,12 +156,108 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
 
   return (
     <div className="space-y-4">
+      {contextLabel && (
+        <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm font-medium">{contextLabel}</div>
+      )}
+
+      <Tabs value={mode} onValueChange={(v) => setMode(v as "scan" | "manual")}>
+        <TabsList>
+          <TabsTrigger value="scan">
+            <ScanLine className="w-4 h-4 mr-1" />
+            {lang === "th" ? "แสกน QR" : "Scan"}
+          </TabsTrigger>
+          <TabsTrigger value="manual">
+            <ListChecks className="w-4 h-4 mr-1" />
+            {lang === "th" ? "ติ๊กด้วยตนเอง" : "Manual Tick"}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="manual" className="space-y-3">
+          <Card>
+            <CardContent className="pt-4 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className="gap-1">
+                  <Users2 className="w-3 h-3" />
+                  {lang === "th" ? "รวม" : "Total"} {students.length}
+                </Badge>
+                {(Object.keys(STATUS_META) as AttendanceStatus[]).map(k => (
+                  <Badge key={k} variant="outline" className={STATUS_META[k].cls}>
+                    {STATUS_META[k][lang === "th" ? "th" : "en"]}: {manualSummary[k]}
+                  </Badge>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => bulkSetManual("present")}>
+                  {lang === "th" ? "ทำเครื่องหมายมาทั้งหมด" : "Mark all present"}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => bulkSetManual("absent")}>
+                  {lang === "th" ? "ทำเครื่องหมายขาดทั้งหมด" : "Mark all absent"}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setManualStatus({})}>
+                  <RotateCcw className="w-4 h-4 mr-1" />
+                  {lang === "th" ? "ล้าง" : "Reset"}
+                </Button>
+                <div className="flex-1" />
+                <Button onClick={() => setConfirmOpen(true)} disabled={students.length === 0}>
+                  <Send className="w-4 h-4 mr-1" />
+                  {lang === "th" ? "บันทึกเช็คชื่อ" : "Submit"}
+                </Button>
+              </div>
+
+              <div className="border rounded-md overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead className="w-24">{lang === "th" ? "รหัส" : "Code"}</TableHead>
+                      <TableHead>{lang === "th" ? "ชื่อ-สกุล" : "Name"}</TableHead>
+                      <TableHead className="w-[280px]">{lang === "th" ? "สถานะ" : "Status"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {students.map((s, i) => {
+                      const cur = getManual(s.id);
+                      return (
+                        <TableRow key={s.id}>
+                          <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                          <TableCell className="font-mono text-xs">{s.student_code}</TableCell>
+                          <TableCell>{s.prefix || ""}{s.first_name} {s.last_name}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {(Object.keys(STATUS_META) as AttendanceStatus[]).map(k => (
+                                <button
+                                  key={k}
+                                  type="button"
+                                  onClick={() => setOneManual(s.id, k)}
+                                  className={cn(
+                                    "px-2 py-1 rounded-md text-xs font-medium border transition-all",
+                                    cur === k
+                                      ? STATUS_META[k].cls + " border-transparent ring-2 ring-primary/40"
+                                      : "border-border bg-background text-muted-foreground hover:bg-muted"
+                                  )}
+                                >
+                                  {STATUS_META[k][lang === "th" ? "th" : "en"]}
+                                </button>
+                              ))}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="scan" className="space-y-3">
+
       {/* Status card */}
       <Card>
         <CardContent className="pt-4 space-y-3">
-          {contextLabel && (
-            <p className="text-sm font-medium text-foreground">{contextLabel}</p>
-          )}
+          {/* context shown above */}
+
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="gap-1">
               <ScanLine className="w-3 h-3" />
@@ -163,69 +288,6 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
             )}
           </div>
 
-          {/* Shortcut: ข้ามการแสกน — เปิด review พร้อมเติมสถานะให้ทุกคนในคลิกเดียว */}
-          {Object.keys(scanned).length === 0 && students.length > 0 && (
-            <div className="rounded-md border border-dashed bg-success-soft/30 p-2.5">
-              <p className="text-xs font-medium text-muted-foreground mb-1.5">
-                {lang === "th"
-                  ? `กรอกเร็ว — ตั้งสถานะทั้งห้อง (${students.length} คน) แล้วปรับเฉพาะรายคนทีหลัง:`
-                  : `Quick fill — set status for the whole class (${students.length}) then adjust:`}
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {(["present","absent","leave","sick","late"] as AttendanceStatus[]).map(st => (
-                  <Button
-                    key={st}
-                    size="sm"
-                    variant="outline"
-                    className={`h-7 text-xs ${STATUS_META[st].cls}`}
-                    onClick={() => {
-                      const next: Record<string, AttendanceStatus> = {};
-                      students.forEach(s => { next[s.id] = st; });
-                      setUnscannedStatus(next);
-                      setReviewOpen(true);
-                    }}
-                  >
-                    {lang === "th" ? `${STATUS_META[st].th}ทั้งห้อง` : `All ${STATUS_META[st].en}`}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Manual student-code entry (fallback / no camera) */}
-          <div className="rounded-md border border-dashed bg-muted/20 p-3">
-            <Label className="text-xs flex items-center gap-1.5 mb-1.5">
-              <Keyboard className="w-3.5 h-3.5" />
-              {lang === "th" ? "ป้อนรหัสประจำตัวนักเรียน (สำรองตอนกล้องไม่พร้อม)" : "Enter student code (camera fallback)"}
-            </Label>
-            <form
-              className="flex gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const code = manualCode.trim();
-                if (!code) return;
-                handleScan(code);
-                setManualCode("");
-                manualInputRef.current?.focus();
-              }}
-            >
-              <Input
-                ref={manualInputRef}
-                value={manualCode}
-                onChange={(e) => setManualCode(e.target.value)}
-                placeholder={lang === "th" ? "เช่น 12345" : "e.g. 12345"}
-                autoComplete="off"
-                inputMode="numeric"
-                className="font-mono"
-                disabled={students.length === 0}
-              />
-              <Button type="submit" variant="secondary" disabled={!manualCode.trim() || students.length === 0}>
-                <CheckCircle2 className="w-4 h-4 mr-1" />
-                {lang === "th" ? "บันทึก" : "Add"}
-              </Button>
-            </form>
-          </div>
-
           {scanLog.length > 0 && (
             <div className="rounded-md border bg-muted/30 p-2">
               <p className="text-xs font-medium text-muted-foreground mb-1">
@@ -234,7 +296,7 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
               <ScrollArea className="max-h-32">
                 <ul className="space-y-0.5">
                   {scanLog.slice(0, 20).map(e => (
-                    <li key={e.id + e.at} className="text-sm text-success dark:text-success">
+                    <li key={e.id + e.at} className="text-sm text-green-700 dark:text-green-400">
                       ✓ {e.name}
                     </li>
                   ))}
@@ -259,47 +321,12 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
           </p>
           <ul className="space-y-0.5">
             {scanLog.slice(0, 10).map(e => (
-              <li key={e.id + e.at} className="text-sm text-success dark:text-success font-medium">
+              <li key={e.id + e.at} className="text-sm text-green-600 dark:text-green-400 font-medium">
                 ✓ {e.name}
               </li>
             ))}
           </ul>
         </div>
-
-        {/* Manual entry inside scanner dialog (works even when camera not available) */}
-        <div className="rounded-md border border-dashed bg-muted/20 p-2 mt-2">
-          <Label className="text-xs flex items-center gap-1.5 mb-1.5">
-            <Keyboard className="w-3.5 h-3.5" />
-            {lang === "th" ? "ป้อนรหัสนักเรียน" : "Enter student code"}
-          </Label>
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const code = manualCode.trim();
-              if (!code) return;
-              handleScan(code);
-              setManualCode("");
-              manualInputRef.current?.focus();
-            }}
-          >
-            <Input
-              ref={manualInputRef}
-              value={manualCode}
-              onChange={(e) => setManualCode(e.target.value)}
-              placeholder={lang === "th" ? "เช่น 12345" : "e.g. 12345"}
-              autoComplete="off"
-              inputMode="numeric"
-              className="font-mono h-9"
-              autoFocus
-            />
-            <Button type="submit" variant="secondary" size="sm" disabled={!manualCode.trim()}>
-              <CheckCircle2 className="w-4 h-4 mr-1" />
-              {lang === "th" ? "เพิ่ม" : "Add"}
-            </Button>
-          </form>
-        </div>
-
         <Button onClick={handleFinishScan} className="w-full mt-2">
           <CheckCircle2 className="w-4 h-4 mr-1" />
           {lang === "th" ? "เสร็จสิ้นการแสกน" : "Finish"}
@@ -308,7 +335,7 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
 
       {/* Review dialog: unscanned → absent/leave/sick */}
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogContent className="sm:max-w-2xl sm:max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{lang === "th" ? "ผลการแสกน" : "Scan Results"}</DialogTitle>
             <DialogDescription>
@@ -325,39 +352,6 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
               </Badge>
             ))}
           </div>
-
-          {/* Quick bulk-fill: ตั้งสถานะทุกคนที่ยังไม่แสกนพร้อมกัน */}
-          {unscanned.length > 0 && (
-            <div className="rounded-md border bg-muted/30 p-2 space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground">
-                {lang === "th"
-                  ? `เติมสถานะให้คนที่ยังไม่แสกน (${unscanned.length} คน) เร็วๆ:`
-                  : `Bulk-fill unscanned (${unscanned.length}):`}
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {(["present","absent","leave","sick","late"] as AttendanceStatus[]).map(st => (
-                  <Button
-                    key={st}
-                    size="sm"
-                    variant="outline"
-                    className={`h-7 text-xs ${STATUS_META[st].cls}`}
-                    onClick={() => {
-                      const next: Record<string, AttendanceStatus> = {};
-                      unscanned.forEach(s => { next[s.id] = st; });
-                      setUnscannedStatus(next);
-                      toast.success(
-                        lang === "th"
-                          ? `ตั้ง "${STATUS_META[st].th}" ให้ ${unscanned.length} คน`
-                          : `Set ${STATUS_META[st].en} for ${unscanned.length}`
-                      );
-                    }}
-                  >
-                    {lang === "th" ? `${STATUS_META[st].th}ทุกคน` : `All ${STATUS_META[st].en}`}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
 
           {unscanned.length > 0 ? (
             <ScrollArea className="flex-1 min-h-0 max-h-[55vh] border rounded-md">
@@ -396,7 +390,7 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
               </Table>
             </ScrollArea>
           ) : (
-            <p className="text-sm text-center text-success py-4">
+            <p className="text-sm text-center text-green-600 py-4">
               ✅ {lang === "th" ? "แสกนครบทุกคนแล้ว" : "All scanned"}
             </p>
           )}
@@ -413,10 +407,13 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+      </Tabs>
 
-      {/* Confirm dialog */}
+
+      {/* Confirm dialog (mode-aware) */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{lang === "th" ? "ยืนยันการส่งข้อมูลเช็คชื่อ" : "Confirm submission"}</DialogTitle>
             <DialogDescription>
@@ -429,7 +426,7 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
                 <Badge variant="outline" className={STATUS_META[k].cls}>
                   {STATUS_META[k][lang === "th" ? "th" : "en"]}
                 </Badge>
-                <span className="font-mono">{summary[k]} {lang === "th" ? "คน" : ""}</span>
+                <span className="font-mono">{(mode === "manual" ? manualSummary : summary)[k]} {lang === "th" ? "คน" : ""}</span>
               </div>
             ))}
             <div className="flex justify-between items-center text-sm pt-2 border-t font-semibold">
@@ -441,7 +438,7 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
             <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={submitting}>
               {lang === "th" ? "ยกเลิก" : "Cancel"}
             </Button>
-            <Button onClick={handleConfirmSubmit} disabled={submitting}>
+            <Button onClick={mode === "manual" ? handleManualSubmit : handleConfirmSubmit} disabled={submitting}>
               <Send className="w-4 h-4 mr-1" />
               {submitting ? (lang === "th" ? "กำลังส่ง..." : "Sending...") : (lang === "th" ? "ส่งข้อมูล" : "Submit")}
             </Button>
@@ -451,3 +448,4 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
     </div>
   );
 }
+

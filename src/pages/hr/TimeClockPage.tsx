@@ -12,24 +12,19 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { swal } from "@/lib/swal";
-import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Trash2, Clock, UserCheck, MapPin, Settings, CheckCircle, Loader2, History, Camera, X, BarChart3, AlertTriangle, RefreshCw, Briefcase, FileText } from "lucide-react";
+import { Trash2, Clock, UserCheck, MapPin, Settings, CheckCircle, Loader2, History, Camera, X, BarChart3, AlertTriangle, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useUserRole } from "@/hooks/useUserRole";
 import MapPicker from "@/components/MapPicker";
 import { StatCard } from "@/components/shared";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { OffsiteRequestsTab } from "@/components/hr/OffsiteRequestsTab";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  normal: { label: "ปกติ", color: "bg-success-soft text-success" },
-  late: { label: "มาสาย", color: "bg-warning-soft text-warning" },
-  absent: { label: "ขาด", color: "bg-danger-soft text-danger" },
-  leave: { label: "ลา", color: "bg-info-soft text-info" },
-  official: { label: "ไปราชการ", color: "bg-info-soft text-info" },
+  normal: { label: "ปกติ", color: "bg-emerald-100 text-emerald-800" },
+  late: { label: "มาสาย", color: "bg-amber-100 text-amber-800" },
+  absent: { label: "ขาด", color: "bg-red-100 text-red-800" },
+  leave: { label: "ลา", color: "bg-blue-100 text-blue-800" },
+  official: { label: "ไปราชการ", color: "bg-purple-100 text-purple-800" },
 };
 
 const TimeClockPage = () => {
@@ -40,11 +35,6 @@ const TimeClockPage = () => {
   const [saving, setSaving] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [clockError, setClockError] = useState<{ title: string; message: string; kind: "gps" | "range" | "photo" | "other" } | null>(null);
-
-  // Off-site clock-in dialog
-  const [offsiteOpen, setOffsiteOpen] = useState(false);
-  const [offsiteReason, setOffsiteReason] = useState("");
-  const [offsiteLocation, setOffsiteLocation] = useState("");
 
   // Camera state
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -173,7 +163,7 @@ const TimeClockPage = () => {
       const { data } = await supabase.from("school_settings").select("*").in("setting_key", [
         "clock_latitude", "clock_longitude", "clock_radius",
         "clock_in_start", "clock_in_end", "clock_out_start", "clock_out_end", "clock_late_threshold",
-        "gps_enforcement_enabled", "clock_min_work_minutes",
+        "gps_enforcement_enabled",
       ]);
       const map: Record<string, string> = {};
       (data || []).forEach((s: any) => { map[s.setting_key] = s.setting_value; });
@@ -320,46 +310,21 @@ const TimeClockPage = () => {
         return;
       }
 
-      // ===== Time-window enforcement =====
+      // ===== Time-window (basic) — รายละเอียดเข้า/ออก อยู่ใน saveClockRecord (อิง DB จริง) =====
       const nowChk = new Date();
       const curStr = `${String(nowChk.getHours()).padStart(2, "0")}:${String(nowChk.getMinutes()).padStart(2, "0")}`;
-      const inStart = gpsSettings?.clock_in_start || clockInStart || "07:00";
-      const inEnd = gpsSettings?.clock_in_end || clockInEnd || "08:30";
-      const outStart = gpsSettings?.clock_out_start || clockOutStart || "15:30";
-      const outEnd = gpsSettings?.clock_out_end || clockOutEnd || "17:00";
-      const hasOpenRecord = !!(myTodayRecord && !myTodayRecord.clock_out);
-      const isClockOut = hasOpenRecord;
-      if (isClockOut) {
-        if (curStr < outStart || curStr > outEnd) {
-          setClockError({
-            kind: "other",
-            title: "อยู่นอกช่วงเวลาลงเวลาออก",
-            message: `เวลาปัจจุบัน ${curStr} น. — อนุญาตให้ลงเวลาออกได้ระหว่าง ${outStart} - ${outEnd} น. เท่านั้น`,
-          });
-          setSaving(false);
-          return;
-        }
-      } else {
-        // clock-in: อนุญาตตั้งแต่ inStart ถึง outStart (เลย inEnd จะถูกบันทึกเป็น "สาย")
-        if (curStr < inStart) {
-          setClockError({
-            kind: "other",
-            title: "ยังไม่ถึงเวลาลงเวลาเข้า",
-            message: `เวลาปัจจุบัน ${curStr} น. — สามารถลงเวลาเข้าได้ตั้งแต่ ${inStart} น. เป็นต้นไป`,
-          });
-          setSaving(false);
-          return;
-        }
-        if (curStr > outStart) {
-          setClockError({
-            kind: "other",
-            title: "เลยเวลาลงเวลาเข้าแล้ว",
-            message: `เวลาปัจจุบัน ${curStr} น. — เลยช่วงลงเวลาเข้า (${inStart} - ${outStart} น.) แล้ว กรุณาติดต่อผู้ดูแลระบบ`,
-          });
-          setSaving(false);
-          return;
-        }
+      const inStartChk = ((gpsSettings?.clock_in_start || clockInStart || "07:00") as string).slice(0, 5);
+      const outEndChk = ((gpsSettings?.clock_out_end || clockOutEnd || "17:00") as string).slice(0, 5);
+      if (curStr < inStartChk || curStr > outEndChk) {
+        setClockError({
+          kind: "other",
+          title: "อยู่นอกช่วงเวลาลงเวลา",
+          message: `เวลาปัจจุบัน ${curStr} น. — อนุญาตให้ลงเวลาได้ระหว่าง ${inStartChk} - ${outEndChk} น. เท่านั้น`,
+        });
+        setSaving(false);
+        return;
       }
+
 
 
       // GPS check (ข้ามถ้าผู้ดูแลปิดสวิตช์ gps_enforcement_enabled)
@@ -420,7 +385,7 @@ const TimeClockPage = () => {
           .from("profiles")
           .select("employee_code, student_code, first_name, last_name, position_title, department, google_email")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
 
         // ใช้ employee_code ก่อน — ถ้าไม่มีให้ fallback ไปที่ student_code
         // (กรณีบัญชีถูกสร้างผ่าน login code เดียวแล้วเก็บไว้ใน student_code)
@@ -486,9 +451,6 @@ const TimeClockPage = () => {
     setSaving(false);
   };
 
-  // นาทีขั้นต่ำที่ต้องผ่านระหว่างเวลาเข้า → เวลาออก (กันลงเข้า-ออกในวินาทีเดียวกัน)
-  const MIN_WORK_MINUTES = Number(gpsSettings?.clock_min_work_minutes || 60);
-
   const saveClockRecord = async (target: any, userLat: number, userLng: number) => {
     const now = new Date();
     const hours = now.getHours();
@@ -497,14 +459,8 @@ const TimeClockPage = () => {
     const threshold = gpsSettings?.clock_late_threshold || "08:30";
     const clockStatus = currentTimeStr > threshold ? "late" : "normal";
 
-    // กฎเวลา (ดึงจากตั้งค่าระบบ)
-    const inStart = gpsSettings?.clock_in_start || "07:00";
-    const inEnd = gpsSettings?.clock_in_end || "08:30";
-    const outStart = gpsSettings?.clock_out_start || "15:30";
-    const outEnd = gpsSettings?.clock_out_end || "17:00";
-
-    // ใช้วันที่ตามเขตเวลา Asia/Bangkok ให้ตรงกับ myTodayRecord (กันบั๊กกรณีลงเวลาเข้าช่วงเช้ามืดแล้ว UTC ยังเป็นวันก่อน ทำให้หาเรคคอร์ดวันนี้ไม่เจอตอนลงเวลาออก)
-    const today = todayBangkok();
+    // ใช้วันที่ตามเขตเวลา Asia/Bangkok (กัน clock_date เพี้ยน 1 วันก่อน 07:00)
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 
     // Check if already clocked in today
     const { data: existing } = await supabase.from("time_clock")
@@ -513,47 +469,62 @@ const TimeClockPage = () => {
       .eq("clock_date", today)
       .maybeSingle();
 
+    // normalize เป็น HH:MM (settings อาจเก็บเป็น HH:MM:SS)
+    const hhmm = (s?: string | null) => (s || "").slice(0, 5);
+    const inStart = hhmm(gpsSettings?.clock_in_start || clockInStart) || "07:00";
+    const inEnd = hhmm(gpsSettings?.clock_in_end || clockInEnd) || "08:30";
+    const outStart = hhmm(gpsSettings?.clock_out_start || clockOutStart) || "15:30";
+    const outEnd = hhmm(gpsSettings?.clock_out_end || clockOutEnd) || "17:00";
+
     if (existing) {
       if (existing.clock_out) {
         swal.toast.info("คุณลงเวลาเข้า-ออกครบแล้ววันนี้");
         return;
       }
-      // ── เงื่อนไขลงเวลาออก ──
-      // 1) ต้องอยู่ในช่วงเวลาเลิกงานที่กำหนด
+      // ===== Clock-OUT: ต้องอยู่ในช่วงออกงานเท่านั้น =====
       if (currentTimeStr < outStart || currentTimeStr > outEnd) {
-        throw new Error(`อยู่นอกช่วงเวลาลงเวลาออก (อนุญาต ${outStart} - ${outEnd} น.) — เวลาปัจจุบัน ${currentTimeStr} น.`);
+        setClockError({
+          kind: "other",
+          title: "อยู่นอกช่วงเวลาลงเวลาออก",
+          message: `เวลาปัจจุบัน ${currentTimeStr} น. — อนุญาตให้ลงเวลาออกได้ระหว่าง ${outStart} - ${outEnd} น. เท่านั้น`,
+        });
+        return;
       }
-      // 2) ต้องผ่านเวลาเข้างานมาแล้วอย่างน้อย MIN_WORK_MINUTES นาที
-      const inAt = new Date(existing.clock_in as any);
-      const diffMin = Math.floor((now.getTime() - inAt.getTime()) / 60000);
-      if (diffMin < MIN_WORK_MINUTES) {
-        const remain = MIN_WORK_MINUTES - diffMin;
-        throw new Error(`ยังไม่สามารถลงเวลาออกได้ — ต้องผ่านเวลาเข้างานอย่างน้อย ${MIN_WORK_MINUTES} นาที (เหลืออีก ${remain} นาที)`);
+      // ป้องกันบันทึกเข้า/ออกในเวลาใกล้กันเกินไป (ห่างกันอย่างน้อย 1 นาที)
+      const inAt = new Date(existing.clock_in).getTime();
+      const gapMin = (now.getTime() - inAt) / 60000;
+      if (gapMin < 1) {
+        setClockError({
+          kind: "other",
+          title: "ลงเวลาออกเร็วเกินไป",
+          message: `เพิ่งลงเวลาเข้าไปเมื่อ ${Math.max(0, Math.round(gapMin * 60))} วินาทีที่แล้ว กรุณารออย่างน้อย 1 นาที`,
+        });
+        return;
       }
       // Upload clock-out photo
       const outPhotoUrl = await uploadPhoto(capturedPhoto!, target.employee_code || target.id, "out");
-      // Clock out
       const { error } = await supabase.from("time_clock")
         .update({
           clock_out: now.toISOString(),
           notes: `ออกงาน ${currentTimeStr} น.`,
           clock_out_photo_url: outPhotoUrl,
         } as any)
-        .eq("id", existing.id);
+        .eq("id", existing.id)
+        .is("clock_out", null); // กันชนกับการอัพเดทพร้อมกัน
       if (error) throw new Error(error.message);
       swal.toast.success(`ลงเวลาออกสำเร็จ! เวลา ${currentTimeStr} น.`);
     } else {
-      // ── เงื่อนไขลงเวลาเข้า ──
-      // ต้องอยู่ในช่วง inStart..outStart (เลย inEnd ถือว่าสาย แต่ยังให้ลงได้)
-      if (currentTimeStr < inStart) {
-        throw new Error(`ยังไม่ถึงเวลาลงเวลาเข้า — เริ่ม ${inStart} น. (ปัจจุบัน ${currentTimeStr} น.)`);
-      }
-      if (currentTimeStr > outStart) {
-        throw new Error(`เลยช่วงลงเวลาเข้าแล้ว (${inStart} - ${outStart} น.) — กรุณาติดต่อผู้ดูแลระบบ`);
+      // ===== Clock-IN: ต้องอยู่ในช่วงเข้างาน (ไม่เกิน outStart) =====
+      if (currentTimeStr < inStart || currentTimeStr >= outStart) {
+        setClockError({
+          kind: "other",
+          title: "อยู่นอกช่วงเวลาลงเวลาเข้า",
+          message: `เวลาปัจจุบัน ${currentTimeStr} น. — อนุญาตให้ลงเวลาเข้าได้ระหว่าง ${inStart} - ${inEnd} น. (เลย ${inEnd} จะถูกบันทึกเป็นสาย)`,
+        });
+        return;
       }
       // Upload clock-in photo
       const inPhotoUrl = await uploadPhoto(capturedPhoto!, target.employee_code || target.id, "in");
-      // Clock in
       const { error } = await supabase.from("time_clock").insert({
         personnel_id: target.id,
         clock_date: today,
@@ -569,85 +540,15 @@ const TimeClockPage = () => {
       swal.toast.success(`ลงเวลาเข้าสำเร็จ! เวลา ${currentTimeStr} น. สถานะ: ${STATUS_MAP[clockStatus]?.label}`);
     }
 
+
     // Reset photo + camera
     setCapturedPhoto(null);
     stopCamera();
     qc.invalidateQueries({ queryKey: ["time_clock"] });
   };
 
-
-  // Off-site clock-in: bypasses GPS, requires reason + location, photo still recommended
-  const handleOffsiteClockIn = async () => {
-    if (!myPersonnel?.id) { toast.error("ไม่พบข้อมูลบุคลากร"); return; }
-    if (!offsiteReason.trim()) { toast.error("กรุณาระบุเหตุผล/หมายเหตุ"); return; }
-    if (!offsiteLocation.trim()) { toast.error("กรุณาระบุสถานที่"); return; }
-    if (!capturedPhoto) { toast.error("กรุณาถ่ายภาพยืนยันก่อนลงเวลา"); return; }
-    setSaving(true);
-    try {
-      const now = new Date();
-      const today = todayBangkok();
-      const currentTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-
-      const photoUrl: string | null = await uploadPhoto(
-        capturedPhoto, myPersonnel.employee_code || myPersonnel.id, "in"
-      );
-
-      const { data: existing } = await supabase.from("time_clock")
-        .select("id, clock_in, clock_out")
-        .eq("personnel_id", myPersonnel.id)
-        .eq("clock_date", today)
-        .maybeSingle();
-
-      if (existing && !existing.clock_out) {
-        // กันลงเข้า-ออกในเวลาเดียวกัน — ต้องผ่านอย่างน้อย MIN_WORK_MINUTES นาที
-        const inAt = new Date(existing.clock_in as any);
-        const diffMin = Math.floor((now.getTime() - inAt.getTime()) / 60000);
-        if (diffMin < MIN_WORK_MINUTES) {
-          toast.error(`ยังไม่สามารถลงเวลาออกได้ — ต้องผ่านเวลาเข้าอย่างน้อย ${MIN_WORK_MINUTES} นาที (เหลืออีก ${MIN_WORK_MINUTES - diffMin} นาที)`);
-          return;
-        }
-        const { error } = await supabase.from("time_clock").update({
-          clock_out: now.toISOString(),
-          clock_out_photo_url: photoUrl,
-          notes: `ออกงานนอกสถานที่ ${currentTimeStr} น. - ${offsiteReason}`,
-        } as any).eq("id", existing.id);
-        if (error) throw error;
-        swal.toast.success("ลงเวลาออก (นอกสถานที่) สำเร็จ");
-      } else if (!existing) {
-        const { error } = await supabase.from("time_clock").insert({
-          personnel_id: myPersonnel.id,
-          clock_date: today,
-          clock_in: now.toISOString(),
-          status: "official",
-          is_offsite: true,
-          offsite_reason: offsiteReason,
-          offsite_location: offsiteLocation,
-          gps_verified: false,
-          notes: `ลงเวลา ณ ${offsiteLocation} - ${offsiteReason}`,
-          clock_in_photo_url: photoUrl,
-        } as any);
-        if (error) throw error;
-        swal.toast.success("ลงเวลานอกสถานที่สำเร็จ");
-      } else {
-        swal.toast.info("ลงเวลาเข้า-ออกครบแล้ววันนี้");
-      }
-
-      setOffsiteOpen(false);
-      setOffsiteReason("");
-      setOffsiteLocation("");
-      setCapturedPhoto(null);
-      stopCamera();
-      qc.invalidateQueries({ queryKey: ["time_clock"] });
-    } catch (e: any) {
-      toast.error(e.message || "เกิดข้อผิดพลาด");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("time_clock").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    await supabase.from("time_clock").delete().eq("id", id);
     qc.invalidateQueries({ queryKey: ["time_clock"] });
   };
 
@@ -742,9 +643,8 @@ const TimeClockPage = () => {
       </div>
 
       <Tabs defaultValue="clock" className="space-y-4">
-        <TabsList className="flex-wrap h-auto">
+        <TabsList>
           <TabsTrigger value="clock"><MapPin className="w-4 h-4 mr-2" />ลงเวลา (GPS)</TabsTrigger>
-          <TabsTrigger value="offsite"><FileText className="w-4 h-4 mr-2" />คำขอนอกสถานที่ / ไปราชการ</TabsTrigger>
           <TabsTrigger value="records"><Clock className="w-4 h-4 mr-2" />{isAdmin ? "ประวัติทั้งหมด" : "ประวัติของฉัน"}</TabsTrigger>
           {isAdmin && <TabsTrigger value="settings"><Settings className="w-4 h-4 mr-2" />ตั้งค่า GPS & เวลา</TabsTrigger>}
         </TabsList>
@@ -771,8 +671,8 @@ const TimeClockPage = () => {
 
               {/* Today's status */}
               {myTodayRecord && (
-                <div className="mx-auto max-w-md p-3 rounded-xl bg-success-soft dark:bg-success/20 border border-success/30 dark:border-success/30">
-                  <div className="flex items-center gap-2 text-success dark:text-success">
+                <div className="mx-auto max-w-md p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                  <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
                     <CheckCircle className="w-5 h-5" />
                     <div>
                       <p className="font-medium text-sm">
@@ -816,8 +716,8 @@ const TimeClockPage = () => {
                   )}
                   {capturedPhoto && (
                     <div className="space-y-3">
-                      <div className="relative aspect-square rounded-2xl overflow-hidden border-2 border-success/30">
-                        <img src={capturedPhoto} alt="ภาพลงเวลา" className="w-full h-full object-cover" />
+                      <div className="relative aspect-square rounded-2xl overflow-hidden border-2 border-emerald-500">
+                        <img loading="lazy" decoding="async" src={capturedPhoto} alt="ภาพลงเวลา" className="w-full h-full object-cover" />
                       </div>
                       <Button onClick={() => { setCapturedPhoto(null); startCamera(); }} variant="outline" className="w-full">
                         <Camera className="w-4 h-4 mr-2" />ถ่ายใหม่
@@ -864,9 +764,9 @@ const TimeClockPage = () => {
 
                 {/* Big GPS clock-in button */}
                 {myTodayRecord?.clock_out ? (
-                  <div className="w-full max-w-md rounded-2xl border-2 border-success/30 bg-success-soft dark:bg-success/30 dark:border-success/30 p-6 text-center space-y-2">
-                    <CheckCircle className="w-12 h-12 text-success mx-auto" />
-                    <p className="font-semibold text-success dark:text-success">ลงเวลาเข้า-ออกครบแล้ววันนี้</p>
+                  <div className="w-full max-w-md rounded-2xl border-2 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-900 p-6 text-center space-y-2">
+                    <CheckCircle className="w-12 h-12 text-emerald-600 mx-auto" />
+                    <p className="font-semibold text-emerald-700 dark:text-emerald-300">ลงเวลาเข้า-ออกครบแล้ววันนี้</p>
                     <p className="text-sm text-muted-foreground">
                       เข้า {formatTime(myTodayRecord.clock_in)} น. · ออก {formatTime(myTodayRecord.clock_out)} น.
                     </p>
@@ -876,7 +776,7 @@ const TimeClockPage = () => {
                     onClick={handleClockIn}
                     size="lg"
                     disabled={saving || !capturedPhoto}
-                    className="bg-success hover:bg-success text-white h-16 px-10 text-base"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white h-16 px-10 text-base"
                   >
                     {saving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CheckCircle className="w-5 h-5 mr-2" />}
                     {saving
@@ -884,19 +784,6 @@ const TimeClockPage = () => {
                       : myTodayRecord && !myTodayRecord.clock_out
                         ? "ลงเวลาออก (GPS)"
                         : "ลงเวลาเข้า (GPS)"}
-                  </Button>
-                )}
-
-                {/* Off-site clock-in button (skips GPS) */}
-                {!isAdmin && myPersonnel && !myTodayRecord?.clock_out && (
-                  <Button
-                    onClick={() => setOffsiteOpen(true)}
-                    size="lg"
-                    variant="outline"
-                    className="border-info/30 text-info hover:bg-info-soft dark:hover:bg-info/30 h-14 px-8"
-                  >
-                    <Briefcase className="w-5 h-5 mr-2" />
-                    ลงเวลานอกสถานที่ / ไปราชการ
                   </Button>
                 )}
 
@@ -925,11 +812,6 @@ const TimeClockPage = () => {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* Off-site requests Tab */}
-        <TabsContent value="offsite">
-          <OffsiteRequestsTab isAdmin={isAdmin} myPersonnel={myPersonnel} />
         </TabsContent>
 
         {/* Records Tab */}
@@ -965,12 +847,12 @@ const TimeClockPage = () => {
                         <div className="flex gap-1">
                           {r.clock_in_photo_url && (
                             <a href={r.clock_in_photo_url} target="_blank" rel="noopener noreferrer">
-                              <img src={r.clock_in_photo_url} alt="เข้า" className="w-10 h-10 rounded object-cover border" />
+                              <img loading="lazy" decoding="async" src={r.clock_in_photo_url} alt="เข้า" className="w-10 h-10 rounded object-cover border" />
                             </a>
                           )}
                           {r.clock_out_photo_url && (
                             <a href={r.clock_out_photo_url} target="_blank" rel="noopener noreferrer">
-                              <img src={r.clock_out_photo_url} alt="ออก" className="w-10 h-10 rounded object-cover border" />
+                              <img loading="lazy" decoding="async" src={r.clock_out_photo_url} alt="ออก" className="w-10 h-10 rounded object-cover border" />
                             </a>
                           )}
                           {!r.clock_in_photo_url && !r.clock_out_photo_url && <span className="text-xs text-muted-foreground">-</span>}
@@ -1049,8 +931,8 @@ const TimeClockPage = () => {
                 <CardContent className="space-y-4">
                   <p className="text-sm text-muted-foreground">กำหนดช่วงเวลาที่อนุญาตให้ลงเวลาเข้า-ออก</p>
                   <div className="space-y-4">
-                    <div className="p-3 rounded-lg border bg-success/50 dark:bg-success/10 space-y-3">
-                      <p className="text-sm font-semibold text-success dark:text-success">⏰ ช่วงเวลาเข้างาน</p>
+                    <div className="p-3 rounded-lg border bg-emerald-50/50 dark:bg-emerald-900/10 space-y-3">
+                      <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">⏰ ช่วงเวลาเข้างาน</p>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <Label className="text-xs">เริ่มต้น</Label>
@@ -1063,16 +945,16 @@ const TimeClockPage = () => {
                       </div>
                     </div>
 
-                    <div className="p-3 rounded-lg border bg-warning/50 dark:bg-warning/10 space-y-3">
-                      <p className="text-sm font-semibold text-warning dark:text-warning">⏱️ เกณฑ์มาสาย</p>
+                    <div className="p-3 rounded-lg border bg-amber-50/50 dark:bg-amber-900/10 space-y-3">
+                      <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">⏱️ เกณฑ์มาสาย</p>
                       <div>
                         <Label className="text-xs">หลังเวลานี้ถือว่ามาสาย</Label>
                         <Time24Input value={lateThreshold} onChange={(v) => setLateThreshold(v)} />
                       </div>
                     </div>
 
-                    <div className="p-3 rounded-lg border bg-info/50 dark:bg-info/10 space-y-3">
-                      <p className="text-sm font-semibold text-info dark:text-info">🏠 ช่วงเวลาออกงาน</p>
+                    <div className="p-3 rounded-lg border bg-blue-50/50 dark:bg-blue-900/10 space-y-3">
+                      <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">🏠 ช่วงเวลาออกงาน</p>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <Label className="text-xs">เริ่มต้น</Label>
@@ -1098,95 +980,6 @@ const TimeClockPage = () => {
           </TabsContent>
         )}
       </Tabs>
-
-      {/* Off-site clock-in dialog */}
-      <Dialog open={offsiteOpen} onOpenChange={(o) => { setOffsiteOpen(o); if (!o) { setCapturedPhoto(null); stopCamera(); } }}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Briefcase className="w-5 h-5 text-info" />ลงเวลานอกสถานที่</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              ใช้สำหรับลงเวลากรณีไปราชการหรือปฏิบัติงานนอกพื้นที่โรงเรียน (ระบบจะข้ามการตรวจสอบ GPS แต่ต้องถ่ายภาพยืนยันทุกครั้ง ทั้งเข้าและออก)
-            </p>
-            <div>
-              <Label>เหตุผล / หมายเหตุ *</Label>
-              <Select value={offsiteReason} onValueChange={setOffsiteReason}>
-                <SelectTrigger><SelectValue placeholder="เลือกเหตุผล" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ไปราชการ">ไปราชการ</SelectItem>
-                  <SelectItem value="ประชุมนอกสถานที่">ประชุมนอกสถานที่</SelectItem>
-                  <SelectItem value="อบรม/สัมมนา">อบรม/สัมมนา</SelectItem>
-                  <SelectItem value="พานักเรียนไปกิจกรรม">พานักเรียนไปกิจกรรม</SelectItem>
-                  <SelectItem value="เยี่ยมบ้านนักเรียน">เยี่ยมบ้านนักเรียน</SelectItem>
-                  <SelectItem value="ปฏิบัติงานนอกพื้นที่">ปฏิบัติงานนอกพื้นที่</SelectItem>
-                </SelectContent>
-              </Select>
-              <Textarea
-                className="mt-2"
-                placeholder="หรือพิมพ์เหตุผลเพิ่มเติม..."
-                value={offsiteReason}
-                onChange={(e) => setOffsiteReason(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>สถานที่ *</Label>
-              <Input
-                placeholder="เช่น สพป.เขต 1 / โรงแรม XYZ"
-                value={offsiteLocation}
-                onChange={(e) => setOffsiteLocation(e.target.value)}
-              />
-            </div>
-
-            {/* Camera / Photo — required */}
-            <div className="space-y-2">
-              <Label>ภาพยืนยัน * {myTodayRecord && !myTodayRecord.clock_out ? "(สำหรับลงเวลาออก)" : "(สำหรับลงเวลาเข้า)"}</Label>
-              {!cameraOpen && !capturedPhoto && (
-                <Button type="button" onClick={startCamera} variant="outline" className="w-full h-12">
-                  <Camera className="w-4 h-4 mr-2" />เปิดกล้องเพื่อถ่ายภาพ
-                </Button>
-              )}
-              {cameraOpen && !capturedPhoto && (
-                <div className="space-y-2">
-                  <div className="relative aspect-square rounded-xl overflow-hidden bg-black border-2 border-primary/30">
-                    <video ref={videoRef} playsInline muted className="w-full h-full object-cover" />
-                    {!cameraReady && (
-                      <div className="absolute inset-0 flex items-center justify-center text-white text-sm">
-                        <Loader2 className="w-6 h-6 mr-2 animate-spin" /> กำลังเปิดกล้อง...
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="button" onClick={() => capturePhoto()} disabled={!cameraReady} className="flex-1">
-                      <Camera className="w-4 h-4 mr-2" />ถ่ายภาพ
-                    </Button>
-                    <Button type="button" onClick={stopCamera} variant="outline" size="icon">
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-              {capturedPhoto && (
-                <div className="space-y-2">
-                  <div className="relative aspect-square rounded-xl overflow-hidden border-2 border-success/30">
-                    <img src={capturedPhoto} alt="ภาพยืนยัน" className="w-full h-full object-cover" />
-                  </div>
-                  <Button type="button" onClick={() => { setCapturedPhoto(null); startCamera(); }} variant="outline" className="w-full">
-                    <Camera className="w-4 h-4 mr-2" />ถ่ายใหม่
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOffsiteOpen(false)}>ยกเลิก</Button>
-            <Button onClick={handleOffsiteClockIn} disabled={saving || !capturedPhoto} className="bg-info hover:bg-info">
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" />}
-              {myTodayRecord && !myTodayRecord.clock_out ? "ลงเวลาออก" : "ลงเวลาเข้า"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

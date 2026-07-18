@@ -1,9 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
 function toIcsDate(dateStr: string, allDay = true): string {
@@ -24,9 +20,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, serviceKey);
+    const supabase = makeAdmin();
 
     const { data: events, error } = await supabase
       .from('academic_events')

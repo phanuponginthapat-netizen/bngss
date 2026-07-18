@@ -1,0 +1,25 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Globe } from "lucide-react";
+import BrowserShortcutsGrid from "@/components/browser/BrowserShortcutsGrid";
+import { useLanguage } from "@/contexts/LanguageContext";
+
+/**
+ * การ์ดทางลัดเว็บสำหรับหน้า Dashboard ทุก role
+ * ข้อมูลดึงจาก browser_shortcuts (admin จัดการที่เดียว)
+ */
+export default function BrowserShortcutsCard() {
+  const { lang } = useLanguage();
+  return (
+    <Card className="shadow-elevated">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Globe className="w-4 h-4 text-primary" />
+          {lang === "th" ? "ทางลัดเว็บ" : "Web Shortcuts"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <BrowserShortcutsGrid />
+      </CardContent>
+    </Card>
+  );
+}

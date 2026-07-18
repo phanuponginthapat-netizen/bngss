@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import DOMPurify from "dompurify";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,23 +12,30 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Inbox, Send, CheckCircle2, PenLine, XCircle, Paperclip, Download, History, FileEdit } from "lucide-react";
+import { FileText, Inbox, Send, CheckCircle2, PenLine, XCircle, Paperclip, Download, History, FileEdit, Printer } from "lucide-react";
+import { printByCode } from "@/lib/printTemplate";
+import { EFORM_PAGE_STYLE, isEFormPrintWrapped, wrapEFormPrintHtml } from "@/lib/eformLayout";
 import { EFormStatusBadge } from "@/components/eform/EFormStatusBadge";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, X } from "lucide-react";
 import { isDataUrl, openDataUrl } from "@/lib/uploadFallback";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
+import { openPrintWindow } from "@/lib/printUtils";
+import { useSchoolReport } from "@/hooks/useSchoolReport";
+import { replaceSchoolAssetTokens } from "@/lib/eformSchoolAssets";
+
+
 
 const fmtDate = (d: string) => new Date(d).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
 
 const recipientStatusBadge = (s: string) => {
   const map: Record<string, { label: string; cls: string }> = {
-    pending: { label: "ยังไม่อ่าน", cls: "bg-warning-soft text-warning" },
-    read: { label: "อ่านแล้ว", cls: "bg-info-soft text-info" },
-    replied: { label: "ตอบกลับแล้ว", cls: "bg-info-soft text-info" },
-    signed: { label: "ลงนามแล้ว", cls: "bg-success-soft text-success" },
-    rejected: { label: "ปฏิเสธ", cls: "bg-danger-soft text-danger" },
+    pending: { label: "ยังไม่อ่าน", cls: "bg-yellow-100 text-yellow-800" },
+    read: { label: "อ่านแล้ว", cls: "bg-blue-100 text-blue-800" },
+    replied: { label: "ตอบกลับแล้ว", cls: "bg-purple-100 text-purple-800" },
+    signed: { label: "ลงนามแล้ว", cls: "bg-green-100 text-green-800" },
+    rejected: { label: "ปฏิเสธ", cls: "bg-red-100 text-red-800" },
   };
   const m = map[s] || map.pending;
   return <Badge className={m.cls}>{m.label}</Badge>;
@@ -36,6 +44,9 @@ const recipientStatusBadge = (s: string) => {
 const EFormInboxPage = () => {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { info: schoolInfo } = useSchoolReport();
+  const schoolAssets = { garuda_emblem: schoolInfo.garuda_emblem, school_seal: schoolInfo.school_seal, school_logo: schoolInfo.school_logo };
+
   const [openItem, setOpenItem] = useState<any | null>(null);
   const [reply, setReply] = useState("");
   const [signature, setSignature] = useState("");
@@ -72,7 +83,7 @@ const EFormInboxPage = () => {
 
   const { userId } = useUserRole();
 
-  const { data: inbox = [] } = useQuery({
+  const { data: inbox = [], isLoading: inboxLoading, error: inboxError } = useQuery({
     queryKey: ["eform-inbox", userId],
     enabled: !!userId,
     queryFn: async () => {
@@ -85,6 +96,48 @@ const EFormInboxPage = () => {
       return data ?? [];
     },
   });
+
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase
+      .channel(`eform-inbox-${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "eform_recipients", filter: `recipient_id=eq.${userId}` },
+        () => qc.invalidateQueries({ queryKey: ["eform-inbox", userId] }),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "eforms" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["eform-inbox", userId] });
+          qc.invalidateQueries({ queryKey: ["eform-sent", userId] });
+          qc.invalidateQueries({ queryKey: ["eform-drafts", userId] });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, qc]);
+
+  useEffect(() => {
+    const docId = searchParams.get("doc");
+    if (!docId || !inbox.length) return;
+    const match = (inbox as any[]).find(
+      (r) => r.id === docId || r.eform_id === docId || r?.eforms?.id === docId,
+    );
+    if (match) {
+      openDetail(match);
+      const sp = new URLSearchParams(searchParams);
+      sp.delete("doc");
+      setSearchParams(sp, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, inbox]);
 
   const { data: sent = [] } = useQuery({
     queryKey: ["eform-sent", userId],
@@ -216,6 +269,35 @@ const EFormInboxPage = () => {
     setOpenItem(null);
   };
 
+  const handlePrint = async () => {
+    if (!openItem) return;
+    const eform = openItem.eforms || openItem;
+    // Load school info for header
+    const { data: school } = await supabase.from("schools").select("*").limit(1).maybeSingle();
+    const data = {
+      school: school || {},
+      form: {
+        title: eform.title,
+        body: wrapEFormPrintHtml(eform.content_html || "", "", schoolAssets),
+        signer: openItem.signature_text || eform.sender_name || "",
+        signed_at: openItem.signed_at || null,
+        sender_name: eform.sender_name || "",
+        created_at: eform.created_at,
+      },
+      recipient: {
+        name: openItem.recipient_name || "",
+        status: openItem.status || "",
+      },
+      attachments,
+    };
+    const used = await printByCode("eform_generic", data);
+    if (used) return;
+    openPrintWindow(
+      wrapEFormPrintHtml(`${eform.content_html || ""}${openItem.signature_text ? `<p style="margin-top:40pt">ลงนาม: ${openItem.signature_text}</p>` : ""}`, "", schoolAssets),
+      { title: eform.title || "เอกสาร" },
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -270,6 +352,12 @@ const EFormInboxPage = () => {
 
         <TabsContent value="inbox" className="space-y-2">
           {(() => {
+            if (inboxLoading) return (
+              <Card><CardContent className="p-8 text-center text-muted-foreground">กำลังโหลดเอกสารที่ได้รับ...</CardContent></Card>
+            );
+            if (inboxError) return (
+              <Card><CardContent className="p-8 text-center text-destructive">โหลดเอกสารที่ได้รับไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</CardContent></Card>
+            );
             const filtered = inbox.filter((item: any) =>
               matchesFilters(item.eforms, item.eforms?.sender_name || "", item.created_at, item.status)
             );
@@ -319,8 +407,8 @@ const EFormInboxPage = () => {
                   </CardHeader>
                   <CardContent className="pb-4 flex flex-wrap gap-2 text-xs">
                     <Badge variant="outline">อ่านแล้ว {read}/{recs.length}</Badge>
-                    <Badge variant="outline" className="bg-success-soft">ลงนาม {signed}/{recs.length}</Badge>
-                    {rejected > 0 && <Badge variant="outline" className="bg-danger-soft">ปฏิเสธ {rejected}</Badge>}
+                    <Badge variant="outline" className="bg-green-50">ลงนาม {signed}/{recs.length}</Badge>
+                    {rejected > 0 && <Badge variant="outline" className="bg-red-50">ปฏิเสธ {rejected}</Badge>}
                   </CardContent>
                 </Card>
               );
@@ -369,19 +457,24 @@ const EFormInboxPage = () => {
       </Tabs>
 
       <Dialog open={!!openItem} onOpenChange={(v) => !v && setOpenItem(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-3xl sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center gap-2 flex-wrap">
               <DialogTitle>{openItem?.eforms?.title}</DialogTitle>
               {openItem?.eforms?.status && <EFormStatusBadge status={openItem.eforms.status} />}
+              <Button size="sm" variant="outline" className="ml-auto" onClick={handlePrint}>
+                <Printer className="w-4 h-4 mr-1" /> พิมพ์ตามฟอร์ม
+              </Button>
             </div>
             <p className="text-xs text-muted-foreground">จาก {openItem?.eforms?.sender_name} • {openItem && fmtDate(openItem.created_at)}</p>
           </DialogHeader>
 
           {openItem && (
             <div className="space-y-4">
-              <div className="border rounded-md bg-white text-black p-4 max-h-[400px] overflow-y-auto" style={{ fontFamily: "'TH Sarabun New', 'Sarabun', sans-serif" }}>
-                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(openItem.eforms?.content_html || "") }} />
+              <div className="border rounded-md bg-muted/30 max-h-[520px] overflow-auto p-3">
+                <div className={isEFormPrintWrapped(openItem.eforms?.content_html) ? "mx-auto shadow-sm" : "eform-preview-page mx-auto shadow-sm"} style={isEFormPrintWrapped(openItem.eforms?.content_html) ? undefined : EFORM_PAGE_STYLE}>
+                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(replaceSchoolAssetTokens(openItem.eforms?.content_html || "", schoolAssets)) }} />
+                </div>
               </div>
 
               {attachments.length > 0 && (
@@ -417,7 +510,7 @@ const EFormInboxPage = () => {
                       disabled={!!openItem.signed_at}
                     />
                     {openItem.signed_at && (
-                      <p className="text-xs text-success flex items-center gap-1">
+                      <p className="text-xs text-green-700 flex items-center gap-1">
                         <CheckCircle2 className="w-3 h-3" /> ลงนามเมื่อ {fmtDate(openItem.signed_at)}
                       </p>
                     )}
@@ -433,7 +526,7 @@ const EFormInboxPage = () => {
               )}
 
               {openItem.rejected_at && (
-                <div className="p-3 bg-danger-soft border border-danger/30 rounded-md text-sm text-danger">
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">
                   <p className="font-medium flex items-center gap-1"><XCircle className="w-4 h-4" /> ปฏิเสธแล้ว</p>
                   <p className="text-xs mt-1">เหตุผล: {openItem.reject_reason || "-"}</p>
                 </div>

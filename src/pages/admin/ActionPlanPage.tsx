@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { toCE } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,10 +25,10 @@ import { swal } from "@/lib/swal";
 
 const DEPARTMENTS = ["วิชาการ", "กิจการนักเรียน", "บริหารทั่วไป", "งบประมาณและบุคคล", "ConnextED"];
 const STATUSES = [
-  { value: "plan", label: "Plan (วางแผน)", color: "bg-info" },
-  { value: "do", label: "Do (ดำเนินการ)", color: "bg-warning" },
-  { value: "check", label: "Check (ตรวจสอบ)", color: "bg-warning" },
-  { value: "act", label: "Act (ปรับปรุง)", color: "bg-success" },
+  { value: "plan", label: "Plan (วางแผน)", color: "bg-blue-500" },
+  { value: "do", label: "Do (ดำเนินการ)", color: "bg-yellow-500" },
+  { value: "check", label: "Check (ตรวจสอบ)", color: "bg-orange-500" },
+  { value: "act", label: "Act (ปรับปรุง)", color: "bg-green-500" },
   { value: "completed", label: "เสร็จสิ้น", color: "bg-primary" },
 ];
 
@@ -35,6 +36,7 @@ const ActionPlanPage = () => {
   const { lang } = useLanguage();
   const { isAdmin, isDirector, isTeacher } = useUserRole();
   const { currentAcademicYear: academicYear } = useAcademicYear();
+  const academicYearCE = toCE(academicYear);
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -58,7 +60,7 @@ const ActionPlanPage = () => {
       const { data, error } = await supabase
         .from("action_plans")
         .select("*")
-        .eq("academic_year", academicYear)
+        .eq("academic_year", academicYearCE)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -69,7 +71,7 @@ const ActionPlanPage = () => {
     mutationFn: async (values: typeof form) => {
       const payload = {
         ...values,
-        academic_year: academicYear,
+        academic_year: academicYearCE,
         budget_amount: Number(values.budget_amount),
         start_date: values.start_date || null,
         end_date: values.end_date || null,
@@ -121,7 +123,7 @@ const ActionPlanPage = () => {
 
   const getStatusBadge = (status: string) => {
     const s = STATUSES.find(x => x.value === status);
-    return <Badge variant="outline" className="gap-1"><span className={`w-2 h-2 rounded-full ${s?.color || "bg-neutral"}`} />{s?.label || status}</Badge>;
+    return <Badge variant="outline" className="gap-1"><span className={`w-2 h-2 rounded-full ${s?.color || "bg-gray-400"}`} />{s?.label || status}</Badge>;
   };
 
   const getProgress = (status: string) => {
@@ -216,7 +218,7 @@ const ActionPlanPage = () => {
             <DialogTrigger asChild>
               <Button><Plus className="w-4 h-4 mr-1" />{L("เพิ่มแผนงาน", "Add Plan")}</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-2xl sm:max-h-[85vh] overflow-y-auto">
               <DialogHeader><DialogTitle>{editId ? L("แก้ไขแผนงาน", "Edit Plan") : L("เพิ่มแผนงาน/โครงการ", "New Plan/Project")}</DialogTitle></DialogHeader>
               <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(form); }} className="space-y-3">
                 <Tabs defaultValue="info">
@@ -225,7 +227,7 @@ const ActionPlanPage = () => {
                     <TabsTrigger value="pdca" className="flex-1">PDCA</TabsTrigger>
                   </TabsList>
                   <TabsContent value="info" className="space-y-3 mt-3">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>{L("รหัสแผน", "Plan Code")}</Label><Input value={form.plan_code} onChange={e => setForm(f => ({ ...f, plan_code: e.target.value }))} placeholder="เช่น AC-001" /></div>
                       <div><Label>{L("ฝ่ายงาน", "Department")}</Label>
                         <Select value={form.department} onValueChange={v => setForm(f => ({ ...f, department: v }))}>
@@ -236,20 +238,20 @@ const ActionPlanPage = () => {
                     </div>
                     <div><Label>{L("ชื่อโครงการ/แผนงาน", "Project Title")}</Label><Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} required /></div>
                     <div><Label>{L("รายละเอียด", "Description")}</Label><Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} /></div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>{L("กลยุทธ์", "Strategy")}</Label><Input value={form.strategy} onChange={e => setForm(f => ({ ...f, strategy: e.target.value }))} /></div>
                       <div><Label>{L("วัตถุประสงค์", "Objective")}</Label><Input value={form.objective} onChange={e => setForm(f => ({ ...f, objective: e.target.value }))} /></div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>{L("ตัวชี้วัด (KPI)", "KPI Indicator")}</Label><Input value={form.kpi_indicator} onChange={e => setForm(f => ({ ...f, kpi_indicator: e.target.value }))} /></div>
                       <div><Label>{L("เป้าหมาย", "Target")}</Label><Input value={form.kpi_target} onChange={e => setForm(f => ({ ...f, kpi_target: e.target.value }))} /></div>
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div><Label>{L("ผู้รับผิดชอบ", "Responsible")}</Label><Input value={form.responsible_person} onChange={e => setForm(f => ({ ...f, responsible_person: e.target.value }))} /></div>
                       <div><Label>{L("งบประมาณ (฿)", "Budget")}</Label><Input type="number" value={form.budget_amount} onChange={e => setForm(f => ({ ...f, budget_amount: Number(e.target.value) }))} /></div>
                       <div><Label>{L("แหล่งงบ", "Source")}</Label><Input value={form.budget_source} onChange={e => setForm(f => ({ ...f, budget_source: e.target.value }))} /></div>
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div><Label>{L("วันเริ่ม", "Start")}</Label><BEDatePicker value={form.start_date} onChange={(v) => setForm(f => ({ ...f, start_date: v }))} /></div>
                       <div><Label>{L("วันสิ้นสุด", "End")}</Label><BEDatePicker value={form.end_date} onChange={(v) => setForm(f => ({ ...f, end_date: v }))} /></div>
                       <div><Label>{L("สถานะ", "Status")}</Label>
@@ -262,20 +264,20 @@ const ActionPlanPage = () => {
                   </TabsContent>
                   <TabsContent value="pdca" className="space-y-3 mt-3">
                     <div className="grid grid-cols-1 gap-3">
-                      <div className="border-l-4 border-info/30 pl-3">
-                        <Label className="text-info font-semibold">P - Plan ({L("วางแผน", "Planning")})</Label>
+                      <div className="border-l-4 border-blue-500 pl-3">
+                        <Label className="text-blue-600 font-semibold">P - Plan ({L("วางแผน", "Planning")})</Label>
                         <Textarea value={form.plan_details} onChange={e => setForm(f => ({ ...f, plan_details: e.target.value }))} rows={3} placeholder={L("รายละเอียดขั้นตอนการวางแผน...", "Planning details...")} />
                       </div>
-                      <div className="border-l-4 border-warning/30 pl-3">
-                        <Label className="text-warning font-semibold">D - Do ({L("ดำเนินการ", "Implementation")})</Label>
+                      <div className="border-l-4 border-yellow-500 pl-3">
+                        <Label className="text-yellow-600 font-semibold">D - Do ({L("ดำเนินการ", "Implementation")})</Label>
                         <Textarea value={form.do_details} onChange={e => setForm(f => ({ ...f, do_details: e.target.value }))} rows={3} placeholder={L("รายละเอียดการดำเนินงาน...", "Implementation details...")} />
                       </div>
-                      <div className="border-l-4 border-warning/30 pl-3">
-                        <Label className="text-warning font-semibold">C - Check ({L("ตรวจสอบ", "Evaluation")})</Label>
+                      <div className="border-l-4 border-orange-500 pl-3">
+                        <Label className="text-orange-600 font-semibold">C - Check ({L("ตรวจสอบ", "Evaluation")})</Label>
                         <Textarea value={form.check_details} onChange={e => setForm(f => ({ ...f, check_details: e.target.value }))} rows={3} placeholder={L("ผลการตรวจสอบ/ประเมินผล...", "Evaluation results...")} />
                       </div>
-                      <div className="border-l-4 border-success/30 pl-3">
-                        <Label className="text-success font-semibold">A - Act ({L("ปรับปรุง", "Improvement")})</Label>
+                      <div className="border-l-4 border-green-500 pl-3">
+                        <Label className="text-green-600 font-semibold">A - Act ({L("ปรับปรุง", "Improvement")})</Label>
                         <Textarea value={form.act_details} onChange={e => setForm(f => ({ ...f, act_details: e.target.value }))} rows={3} placeholder={L("แนวทางการปรับปรุง/พัฒนา...", "Improvement actions...")} />
                       </div>
                       <div><Label>{L("ผลลัพธ์ภาพรวม", "Overall Result")}</Label><Textarea value={form.overall_result} onChange={e => setForm(f => ({ ...f, overall_result: e.target.value }))} rows={2} /></div>
@@ -293,14 +295,14 @@ const ActionPlanPage = () => {
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card><CardContent className="pt-4 flex items-center gap-3"><div className="p-2 rounded-lg bg-primary/10"><ClipboardCheck className="w-5 h-5 text-primary" /></div><div><p className="text-xs text-muted-foreground">{L("แผนงานทั้งหมด", "Total Plans")}</p><p className="text-xl font-bold">{records.length}</p></div></CardContent></Card>
-        <Card><CardContent className="pt-4 flex items-center gap-3"><div className="p-2 rounded-lg bg-success/10"><CheckCircle2 className="w-5 h-5 text-success" /></div><div><p className="text-xs text-muted-foreground">{L("เสร็จสิ้น", "Completed")}</p><p className="text-xl font-bold">{completedCount}/{records.length}</p></div></CardContent></Card>
-        <Card><CardContent className="pt-4 flex items-center gap-3"><div className="p-2 rounded-lg bg-warning/10"><DollarSign className="w-5 h-5 text-warning" /></div><div><p className="text-xs text-muted-foreground">{L("งบประมาณรวม", "Total Budget")}</p><p className="text-xl font-bold">฿{totalBudget.toLocaleString()}</p></div></CardContent></Card>
-        <Card><CardContent className="pt-4 flex items-center gap-3"><div className="p-2 rounded-lg bg-info/10"><BarChart3 className="w-5 h-5 text-info" /></div><div><p className="text-xs text-muted-foreground">{L("อัตราสำเร็จ", "Success Rate")}</p><p className="text-xl font-bold">{records.length > 0 ? Math.round(completedCount / records.length * 100) : 0}%</p></div></CardContent></Card>
+        <Card><CardContent className="pt-4 flex items-center gap-3"><div className="p-2 rounded-lg bg-green-500/10"><CheckCircle2 className="w-5 h-5 text-green-600" /></div><div><p className="text-xs text-muted-foreground">{L("เสร็จสิ้น", "Completed")}</p><p className="text-xl font-bold">{completedCount}/{records.length}</p></div></CardContent></Card>
+        <Card><CardContent className="pt-4 flex items-center gap-3"><div className="p-2 rounded-lg bg-orange-500/10"><DollarSign className="w-5 h-5 text-orange-600" /></div><div><p className="text-xs text-muted-foreground">{L("งบประมาณรวม", "Total Budget")}</p><p className="text-xl font-bold">฿{totalBudget.toLocaleString()}</p></div></CardContent></Card>
+        <Card><CardContent className="pt-4 flex items-center gap-3"><div className="p-2 rounded-lg bg-blue-500/10"><BarChart3 className="w-5 h-5 text-blue-600" /></div><div><p className="text-xs text-muted-foreground">{L("อัตราสำเร็จ", "Success Rate")}</p><p className="text-xl font-bold">{records.length > 0 ? Math.round(completedCount / records.length * 100) : 0}%</p></div></CardContent></Card>
       </div>
 
       {/* Detail Dialog */}
       <Dialog open={!!detailId} onOpenChange={() => setDetailId(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl sm:max-h-[85vh] overflow-y-auto">
           {detailRecord && (
             <>
               <DialogHeader><DialogTitle>{detailRecord.title}</DialogTitle></DialogHeader>
@@ -312,7 +314,7 @@ const ActionPlanPage = () => {
                 </div>
                 <Progress value={getProgress(detailRecord.status)} className="h-2" />
                 {detailRecord.description && <p className="text-sm text-muted-foreground">{detailRecord.description}</p>}
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   {detailRecord.objective && <div><span className="text-muted-foreground">{L("วัตถุประสงค์", "Objective")}:</span> {detailRecord.objective}</div>}
                   {detailRecord.kpi_indicator && <div><span className="text-muted-foreground">KPI:</span> {detailRecord.kpi_indicator} → {detailRecord.kpi_target}</div>}
                   {detailRecord.responsible_person && <div><span className="text-muted-foreground">{L("ผู้รับผิดชอบ", "Responsible")}:</span> {detailRecord.responsible_person}</div>}
@@ -320,10 +322,10 @@ const ActionPlanPage = () => {
                 </div>
                 <div className="space-y-3">
                   {[
-                    { key: "plan_details", label: "P - Plan", color: "border-info/30" },
-                    { key: "do_details", label: "D - Do", color: "border-warning/30" },
-                    { key: "check_details", label: "C - Check", color: "border-warning/30" },
-                    { key: "act_details", label: "A - Act", color: "border-success/30" },
+                    { key: "plan_details", label: "P - Plan", color: "border-blue-500" },
+                    { key: "do_details", label: "D - Do", color: "border-yellow-500" },
+                    { key: "check_details", label: "C - Check", color: "border-orange-500" },
+                    { key: "act_details", label: "A - Act", color: "border-green-500" },
                   ].map(({ key, label, color }) => (
                     (detailRecord as any)[key] && (
                       <div key={key} className={`border-l-4 ${color} pl-3`}>

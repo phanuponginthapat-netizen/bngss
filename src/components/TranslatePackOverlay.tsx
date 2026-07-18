@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, Languages } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 const PACK_STATUS_EVENT = "app:translate-pack-status";
 
@@ -56,6 +57,7 @@ export const TranslatePackOverlay = () => {
     };
   }, []);
 
+  useBodyScrollLock(status.loading);
   if (!status.loading) return null;
 
   const langLabel = status.lang ? LANG_LABELS[status.lang] ?? status.lang.toUpperCase() : "";

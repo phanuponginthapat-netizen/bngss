@@ -39,12 +39,6 @@ function fileToDataUrl(file: Blob): Promise<string> {
   });
 }
 
-async function looksLikeHeic(input: Blob): Promise<boolean> {
-  const head = new Uint8Array(await input.slice(0, 32).arrayBuffer());
-  const text = String.fromCharCode(...head);
-  return text.includes("ftypheic") || text.includes("ftypheix") || text.includes("ftyphevc") || text.includes("ftyphevx") || text.includes("ftypmif1");
-}
-
 /** Compress an image File or Blob. Returns a new File with same name. */
 export async function compressImage(
   input: File | Blob,
@@ -52,26 +46,17 @@ export async function compressImage(
 ): Promise<File> {
   const o = { ...DEFAULTS, ...opts };
   const originalName = input instanceof File ? input.name : "image.jpg";
-  const isHeic = await looksLikeHeic(input);
 
   // Skip non-images and already-tiny files
   if (input.type && !input.type.startsWith("image/")) return input as File;
-  if (!isHeic && input.size <= (o.maxSizeKB ?? 150) * 1024 && input.type === o.mimeType) {
+  if (input.size <= (o.maxSizeKB ?? 150) * 1024 && input.type === o.mimeType) {
     return input as File;
   }
   // PNG with transparency edge case → keep PNG
   const targetType = o.mimeType;
 
   const dataUrl = await fileToDataUrl(input);
-  let img: HTMLImageElement;
-  try {
-    img = await loadImage(dataUrl);
-  } catch (error) {
-    if (isHeic) {
-      throw new Error("ไฟล์ HEIC จาก iPhone เปิดบนเบราว์เซอร์นี้ไม่ได้ กรุณาเลือกรูป JPG/PNG หรือเปิดตั้งค่ากล้องเป็น Most Compatible");
-    }
-    throw error;
-  }
+  const img = await loadImage(dataUrl);
 
   let { width, height } = img;
   const ratio = Math.min(o.maxWidth / width, o.maxHeight / height, 1);

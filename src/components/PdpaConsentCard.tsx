@@ -24,7 +24,7 @@ export const PdpaConsentCard = ({ acceptedAt, version, showLink = true }: PdpaCo
         {acceptedAt ? (
           <>
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge className="bg-success-soft text-success hover:bg-success-soft border-success/30">
+              <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">
                 <CheckCircle2 className="w-3 h-3 mr-1" />
                 {lang === "th" ? "ยอมรับแล้ว" : "Accepted"}
               </Badge>
@@ -36,17 +36,16 @@ export const PdpaConsentCard = ({ acceptedAt, version, showLink = true }: PdpaCo
             <p className="text-xs text-muted-foreground mt-1">
               {lang === "th" ? "วันที่ยอมรับ" : "Accepted on"}:{" "}
               <strong className="text-foreground">
-                {new Date(acceptedAt).toLocaleString(lang === "th" ? "th-TH" : "en-GB", {
+                {new Date(acceptedAt).toLocaleString(lang === "th" ? "th-TH" : "en-US", {
                   dateStyle: "long",
                   timeStyle: "short",
-                  hour12: false,
                 })}
               </strong>
             </p>
           </>
         ) : (
           <>
-            <Badge variant="outline" className="border-warning/30 text-warning">
+            <Badge variant="outline" className="border-amber-300 text-amber-700">
               <AlertTriangle className="w-3 h-3 mr-1" />
               {lang === "th" ? "ยังไม่ยอมรับ" : "Not accepted"}
             </Badge>

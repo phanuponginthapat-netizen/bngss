@@ -141,8 +141,8 @@ export default function HealthTrendPage() {
       </div>
 
       {isFiltered && (
-        <div className="flex items-start gap-2 p-3 rounded-md bg-success-soft dark:bg-success/30 border border-success/30 dark:border-success/30 text-sm">
-          <Info className="h-4 w-4 mt-0.5 text-success shrink-0" />
+        <div className="flex items-start gap-2 p-3 rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 text-sm">
+          <Info className="h-4 w-4 mt-0.5 text-emerald-600 shrink-0" />
           <div>
             {hasHomeroom ? (
               <>กำลังแสดงเฉพาะนักเรียนในห้องประจำชั้นของ <b>{teacherFullName}</b> ({scoped.length} คน)</>

@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 const CHOICE_FORMATS: Record<string, string[]> = {
   abcd: ["A", "B", "C", "D"],
@@ -60,12 +61,12 @@ export default function ExamPaperPrintPage() {
   const fmt = (sheet?.layout_config as any)?.choice_format || "abcd";
   const labels = CHOICE_FORMATS[fmt] || CHOICE_FORMATS.abcd;
   const academicYear = exam.academic_year
-    ? `${exam.academic_year + 543}`
-    : `${new Date().getFullYear() + 543}`;
+    ? `${exam.academic_year + BE_OFFSET}`
+    : `${new Date().getFullYear() + BE_OFFSET}`;
   const qs = questions as any[];
 
   return (
-    <div className="bg-neutral-soft min-h-screen p-4 print:bg-white print:p-0">
+    <div className="bg-gray-100 min-h-screen p-4 print:bg-white print:p-0">
       <div className="max-w-3xl mx-auto mb-4 flex justify-end print:hidden">
         <Button onClick={() => window.print()}>
           <Printer className="w-4 h-4 mr-1" /> พิมพ์ข้อสอบ
@@ -93,7 +94,7 @@ export default function ExamPaperPrintPage() {
               <p>ชื่อ-นามสกุล: <span className="border-b border-dotted inline-block w-60">&nbsp;</span></p>
               <p>เลขที่: <span className="border-b border-dotted inline-block w-12">&nbsp;</span> ห้อง: <span className="border-b border-dotted inline-block w-16">&nbsp;</span></p>
             </div>
-            <p className="text-xs text-neutral mt-2 text-left">คำชี้แจง: ข้อสอบเป็นแบบปรนัย {labels.length} ตัวเลือก จงเลือกคำตอบที่ถูกต้องที่สุดเพียงข้อเดียว แล้วฝนคำตอบลงในกระดาษคำตอบ</p>
+            <p className="text-xs text-gray-600 mt-2 text-left">คำชี้แจง: ข้อสอบเป็นแบบปรนัย {labels.length} ตัวเลือก จงเลือกคำตอบที่ถูกต้องที่สุดเพียงข้อเดียว แล้วฝนคำตอบลงในกระดาษคำตอบ</p>
           </div>
         </div>
 
@@ -122,14 +123,14 @@ export default function ExamPaperPrintPage() {
           <h2 className="text-lg font-bold text-center border-b-2 border-black pb-2 mb-4">
             เฉลย — {exam.title}
           </h2>
-          <p className="text-xs text-neutral mb-3">เอกสารสำหรับครูผู้ตรวจเท่านั้น (ปีการศึกษา {academicYear})</p>
+          <p className="text-xs text-gray-600 mb-3">เอกสารสำหรับครูผู้ตรวจเท่านั้น (ปีการศึกษา {academicYear})</p>
           <div className="grid grid-cols-5 gap-2 text-sm">
             {qs.map((q) => {
               const idx = ["A","B","C","D"].indexOf((q.correct_answer || "A").toUpperCase());
               return (
                 <div key={q.id} className="border rounded px-2 py-1 flex justify-between">
                   <span className="font-semibold">{q.question_no}.</span>
-                  <span className="font-bold text-success">{labels[idx >= 0 ? idx : 0]}</span>
+                  <span className="font-bold text-green-700">{labels[idx >= 0 ? idx : 0]}</span>
                 </div>
               );
             })}
@@ -153,12 +154,12 @@ export default function ExamPaperPrintPage() {
               <h3 className="font-semibold mt-6 mb-2 border-t pt-3">
                 ตารางตัวชี้วัด — อ้างอิงหลักสูตรแกนกลาง สพฐ. (พ.ศ. 2551 ฉบับปรับปรุง 2560) และหลักสูตรของโรงเรียน
               </h3>
-              <p className="text-[11px] text-neutral mb-2">
+              <p className="text-[11px] text-gray-600 mb-2">
                 สรุปว่าข้อสอบแต่ละข้อวัดตัวชี้วัด/มาตรฐานการเรียนรู้ใด เพื่อใช้ในการวิเคราะห์ผลและรายงานต่อฝ่ายวิชาการ
               </p>
               <table className="w-full text-[11px] border-collapse">
                 <thead>
-                  <tr className="bg-neutral-soft">
+                  <tr className="bg-gray-100">
                     <th className="border px-2 py-1 w-12 text-center">ข้อที่</th>
                     <th className="border px-2 py-1 w-40 text-left">รหัสตัวชี้วัด</th>
                     <th className="border px-2 py-1 text-left">คำอธิบายตัวชี้วัด</th>
@@ -171,7 +172,7 @@ export default function ExamPaperPrintPage() {
                       <td className="border px-2 py-1 text-center font-semibold">{q.question_no}</td>
                       <td className="border px-2 py-1 font-mono">{q.indicator_code || "-"}</td>
                       <td className="border px-2 py-1">{q.indicator_description || "-"}</td>
-                      <td className="border px-2 py-1 text-center text-neutral">{q.bloom_level || "-"}</td>
+                      <td className="border px-2 py-1 text-center text-gray-700">{q.bloom_level || "-"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -195,7 +196,7 @@ export default function ExamPaperPrintPage() {
                           <span className="font-mono font-semibold">{code}</span>
                           {g.desc ? ` — ${g.desc}` : ""}
                           {" "}
-                          <span className="text-neutral">({g.nos.length} ข้อ: ข้อ {g.nos.join(", ")})</span>
+                          <span className="text-gray-700">({g.nos.length} ข้อ: ข้อ {g.nos.join(", ")})</span>
                         </li>
                       ))}
                     </ul>

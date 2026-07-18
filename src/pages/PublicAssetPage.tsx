@@ -78,7 +78,7 @@ const PublicAssetPage = () => {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center space-y-3">
-            <AlertTriangle className="w-12 h-12 text-warning mx-auto" />
+            <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto" />
             <h2 className="text-xl font-bold">ไม่พบข้อมูลทรัพย์สิน</h2>
             <p className="text-sm text-muted-foreground">QR Code นี้อาจไม่ถูกต้อง หรือทรัพย์สินถูกลบออกจากระบบแล้ว</p>
             <Link to="/"><Button variant="outline"><ArrowLeft className="w-4 h-4 mr-2" />กลับหน้าหลัก</Button></Link>
@@ -168,7 +168,7 @@ const PublicAssetPage = () => {
                 </div>
                 <Progress
                   value={usagePercent}
-                  className={`h-2 ${usagePercent >= 100 ? "[&>div]:bg-danger" : usagePercent >= 75 ? "[&>div]:bg-warning" : "[&>div]:bg-success"}`}
+                  className={`h-2 ${usagePercent >= 100 ? "[&>div]:bg-red-500" : usagePercent >= 75 ? "[&>div]:bg-amber-500" : "[&>div]:bg-emerald-500"}`}
                 />
               </div>
             )}
@@ -299,11 +299,11 @@ const PublicAssetPage = () => {
             </CardContent>
           </Card>
         ) : (
-          <Card className="bg-success-soft border-success/30">
+          <Card className="bg-emerald-50 border-emerald-200">
             <CardContent className="pt-6 text-center space-y-2">
-              <CheckCircle2 className="w-12 h-12 text-success mx-auto" />
-              <h3 className="font-bold text-success">แจ้งสำเร็จแล้ว</h3>
-              <p className="text-sm text-success">เจ้าหน้าที่จะดำเนินการต่อไป</p>
+              <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
+              <h3 className="font-bold text-emerald-800">แจ้งสำเร็จแล้ว</h3>
+              <p className="text-sm text-emerald-700">เจ้าหน้าที่จะดำเนินการต่อไป</p>
             </CardContent>
           </Card>
         )}

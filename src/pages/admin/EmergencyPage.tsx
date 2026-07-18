@@ -35,7 +35,7 @@ const EmergencyPage = () => {
 
   const handleDelete = async (id: string) => { await supabase.from("emergency_broadcasts").delete().eq("id", id); qc.invalidateQueries({ queryKey: ["emergency_broadcasts"] }); };
 
-  const sevColors: Record<string, string> = { info: "bg-info-soft text-info", warning: "bg-warning-soft text-warning", critical: "bg-danger-soft text-danger" };
+  const sevColors: Record<string, string> = { info: "bg-blue-100 text-blue-800", warning: "bg-yellow-100 text-yellow-800", critical: "bg-red-100 text-red-800" };
 
   return (
     <div className="space-y-6">

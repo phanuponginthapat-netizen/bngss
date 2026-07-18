@@ -31,7 +31,7 @@ const SubsidyPage = () => {
   const { data: students = [] } = useQuery({
     queryKey: ["students"],
     queryFn: async () => {
-      const { data } = await supabase.from("students").select("*, classrooms!students_classroom_id_fkey(name, grade_level)").eq("status", "active").order("student_code");
+      const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level)").eq("status", "active").order("student_code");
       return data || [];
     },
   });
@@ -97,7 +97,7 @@ const SubsidyPage = () => {
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" />บันทึกเงินอุดหนุน</Button></DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader><DialogTitle>บันทึกเงินอุดหนุนนักเรียน</DialogTitle></DialogHeader>
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
               <div>
@@ -126,7 +126,7 @@ const SubsidyPage = () => {
                   <SelectContent>{SUBSIDY_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><Label>จำนวนเงิน (บาท) *</Label><Input type="number" value={amount} onChange={e => setAmount(e.target.value)} /></div>
                 <div><Label>รายได้ครอบครัว/เดือน</Label><Input type="number" value={incomePerMonth} onChange={e => setIncomePerMonth(e.target.value)} /></div>
               </div>
@@ -149,8 +149,8 @@ const SubsidyPage = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">จำนวนผู้รับทุน</p><p className="text-2xl font-bold text-primary">{records.length} คน</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">เงินอุดหนุนรวม</p><p className="text-2xl font-bold text-success">฿{formatMoney(totalAmount)}</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">ยากจนพิเศษ</p><p className="text-2xl font-bold text-warning">{records.filter((r: any) => r.screening_result === "ยากจนพิเศษ").length} คน</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">เงินอุดหนุนรวม</p><p className="text-2xl font-bold text-emerald-600">฿{formatMoney(totalAmount)}</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">ยากจนพิเศษ</p><p className="text-2xl font-bold text-amber-600">{records.filter((r: any) => r.screening_result === "ยากจนพิเศษ").length} คน</p></CardContent></Card>
       </div>
 
       <Card><CardContent className="p-0">
@@ -173,8 +173,8 @@ const SubsidyPage = () => {
                 <TableCell>{r.students?.classrooms?.name || "-"}</TableCell>
                 <TableCell><Badge variant="outline">{r.subsidy_type}</Badge></TableCell>
                 <TableCell className="text-right font-mono">฿{formatMoney(Number(r.amount))}</TableCell>
-                <TableCell><Badge className={r.screening_result === "ยากจนพิเศษ" ? "bg-danger-soft text-danger" : r.screening_result === "ยากจน" ? "bg-warning-soft text-warning" : "bg-success-soft text-success"}>{r.screening_result || "-"}</Badge></TableCell>
-                <TableCell><Badge className={r.status === "approved" ? "bg-success-soft text-success" : "bg-warning-soft text-warning"}>{r.status === "approved" ? "อนุมัติ" : "รอดำเนินการ"}</Badge></TableCell>
+                <TableCell><Badge className={r.screening_result === "ยากจนพิเศษ" ? "bg-red-100 text-red-800" : r.screening_result === "ยากจน" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}>{r.screening_result || "-"}</Badge></TableCell>
+                <TableCell><Badge className={r.status === "approved" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}>{r.status === "approved" ? "อนุมัติ" : "รอดำเนินการ"}</Badge></TableCell>
                 <TableCell><Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button></TableCell>
               </TableRow>
             ))}

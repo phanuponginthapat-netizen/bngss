@@ -10,31 +10,39 @@ import {
 
 interface Props {
   userId?: string | null;
+  personnelId?: string | null;
   personnelFullName?: string;
   homeroomClassroomIds?: string[];
 }
 
 const DAY_NAMES = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
 
-export const TeacherDailyBriefing = ({ userId, personnelFullName, homeroomClassroomIds }: Props) => {
+export const TeacherDailyBriefing = ({ userId, personnelId, personnelFullName, homeroomClassroomIds }: Props) => {
   const navigate = useNavigate();
   const today = new Date();
   const todayISO = today.toISOString().split("T")[0];
   const dow = today.getDay();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["teacher_daily_briefing", userId, personnelFullName, homeroomClassroomIds],
+    queryKey: ["teacher_daily_briefing", userId, personnelId, personnelFullName, homeroomClassroomIds],
     enabled: !!userId,
     queryFn: async () => {
-      // Today's schedule
+      // Today's schedule — ใช้ teacher_id เป็นหลัก, fallback teacher_name
       let todaySchedules: any[] = [];
-      if (personnelFullName) {
-        const { data: sched } = await supabase
+      if (personnelId || personnelFullName) {
+        let q = supabase
           .from("schedules")
-          .select("id, period, start_time, end_time, classroom_id, subject_id, classrooms(name), subjects(name_th, code)")
-          .eq("teacher_name", personnelFullName)
+          .select("id, period, start_time, end_time, classroom_id, subject_id, teacher_id, teacher_name, classrooms(name), subjects(name_th, code)")
           .eq("day_of_week", dow)
           .order("period", { ascending: true });
+        if (personnelId && personnelFullName) {
+          q = q.or(`teacher_id.eq.${personnelId},teacher_name.eq.${personnelFullName}`);
+        } else if (personnelId) {
+          q = q.eq("teacher_id", personnelId);
+        } else if (personnelFullName) {
+          q = q.eq("teacher_name", personnelFullName);
+        }
+        const { data: sched } = await q;
         todaySchedules = sched || [];
       }
 
@@ -158,7 +166,7 @@ export const TeacherDailyBriefing = ({ userId, personnelFullName, homeroomClassr
             ) : (
               <div className="space-y-1.5">
                 {data.todaySchedules.map((s: any) => (
-                  <div key={s.id} className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30">
+                  <button type="button" key={s.id} onClick={() => navigate("/dashboard/academic/schedule")} className="w-full text-left flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 hover:bg-muted/60 transition-colors">
                     <div className="w-9 h-9 rounded-lg bg-primary/10 flex flex-col items-center justify-center shrink-0">
                       <span className="text-[9px] text-muted-foreground leading-none">คาบ</span>
                       <span className="text-sm font-bold text-primary leading-tight">{s.period}</span>
@@ -182,7 +190,7 @@ export const TeacherDailyBriefing = ({ userId, personnelFullName, homeroomClassr
                         )}
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -193,7 +201,7 @@ export const TeacherDailyBriefing = ({ userId, personnelFullName, homeroomClassr
             icon={<ListTodo className="w-3.5 h-3.5" />}
             title="การบ้านที่ต้องตรวจ"
             count={data?.hwToReview?.length || 0}
-            onMore={() => navigate("/dashboard/academic/pp5")}
+            onMore={() => navigate("/dashboard/homework")}
           >
             {isLoading ? (
               <SkeletonRows />
@@ -202,7 +210,7 @@ export const TeacherDailyBriefing = ({ userId, personnelFullName, homeroomClassr
             ) : (
               <div className="space-y-1.5">
                 {data.hwToReview.map((hw: any) => (
-                  <div key={hw.id} className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30">
+                  <button type="button" key={hw.id} onClick={() => navigate("/dashboard/homework")} className="w-full text-left flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 hover:bg-muted/60 transition-colors">
                     <div className="w-9 h-9 rounded-lg gradient-warning flex items-center justify-center shrink-0">
                       <BookOpen className="w-4 h-4 text-primary-foreground" />
                     </div>
@@ -218,7 +226,7 @@ export const TeacherDailyBriefing = ({ userId, personnelFullName, homeroomClassr
                     <Badge className="bg-warning/15 text-warning border-0 text-[10px] shrink-0">
                       {hw._pending} รอตรวจ
                     </Badge>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -240,7 +248,7 @@ export const TeacherDailyBriefing = ({ userId, personnelFullName, homeroomClassr
             ) : (
               <div className="space-y-1.5">
                 {data.issues.map((i: any) => (
-                  <div key={i.id} className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30">
+                  <button type="button" key={i.id} onClick={() => navigate(i.kind === "behavior" ? "/dashboard/student/behavior" : "/dashboard/student/attendance")} className="w-full text-left flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 hover:bg-muted/60 transition-colors">
                     <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
                       i.kind === "behavior"
                         ? "bg-destructive/15"
@@ -258,7 +266,7 @@ export const TeacherDailyBriefing = ({ userId, personnelFullName, homeroomClassr
                         {i.detail} · {new Date(i.date).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}
                       </p>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}

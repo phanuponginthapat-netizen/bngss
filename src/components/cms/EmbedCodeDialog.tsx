@@ -60,7 +60,7 @@ const EmbedCodeDialog = ({ onInsert, triggerClassName }: EmbedCodeDialogProps) =
           <Code2 className="w-4 h-4" />
         </button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl sm:max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileCode className="w-5 h-5 text-primary" />

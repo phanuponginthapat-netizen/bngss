@@ -6,10 +6,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { pushOne } from "../_shared/webPush.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 type Severity = "info" | "success" | "warning" | "critical";
 type LinePrefKey = "face_scan_alerts" | "attendance_alerts" | "behavior_alerts" | "grade_alerts" | "news_alerts";
@@ -26,11 +23,43 @@ interface FanoutRequest {
   channels?: Array<"in_app" | "push" | "line" | "gchat">;  // optional override
   // Google Chat
   gchat_categories?: string[];              // webhook categories to also post to
+  fields?: Record<string, string>;          // extra key/value details rendered in the gchat card
+  image_url?: string | null;                // preview image (gchat card, in-app)
+
   // dedup
   dedup_key?: string;                       // prevent duplicate within 60s
 }
 
 const SEVERITY_RANK: Record<Severity, number> = { info: 0, success: 0, warning: 1, critical: 2 };
+
+type RoutingCategory =
+  | "critical" | "score" | "health" | "ict" | "attendance"
+  | "behavior" | "homework" | "eform" | "leave" | "news" | "other";
+
+// LINE push messages ใช้โควตาจาก LINE OA (นับเป็น "token") ดังนั้น default
+// เปิดเฉพาะประเภทที่ "ต้องรู้ทันที / ต้องดำเนินการ" เท่านั้น
+// ประเภทข้อมูลทั่วไป (ข่าว/การบ้าน/คะแนน/เข้าเรียน/พฤติกรรม/สุขภาพ/ict/อื่นๆ)
+// จะไม่ push ผ่าน LINE — ผู้ใช้ยังเห็นใน in-app + PWA push อยู่ และเข้ามาถาม
+// บอทเมื่อไรก็ได้ผ่าน webhook reply (ไม่กินโควตา)
+const DEFAULT_ROUTING: Record<"gchat" | "line", Record<RoutingCategory, boolean>> = {
+  gchat: { critical: true, score: true, health: true, ict: true, attendance: true, behavior: true, homework: true, eform: true, leave: true, news: true, other: true },
+  line:  { critical: true, score: false, health: false, ict: false, attendance: false, behavior: false, homework: false, eform: true, leave: true, news: false, other: false },
+};
+
+function categoryOf(type: string, severity: Severity): RoutingCategory {
+  const t = (type || "").toLowerCase();
+  if (severity === "critical" || t.includes("emergency")) return "critical";
+  if (t.includes("grade") || t.includes("score") || t.includes("assessment")) return "score";
+  if (t.includes("health") || t.includes("vaccine") || t.includes("measurement")) return "health";
+  if (t.includes("ict") || t.includes("loan") || t.includes("asset")) return "ict";
+  if (t.includes("attendance") || t.startsWith("face_scan")) return "attendance";
+  if (t.includes("behavior")) return "behavior";
+  if (t.includes("homework")) return "homework";
+  if (t.includes("eform") || t.includes("document")) return "eform";
+  if (t.includes("leave")) return "leave";
+  if (t.includes("news")) return "news";
+  return "other";
+}
 
 function getLinePrefKey(type: string): LinePrefKey | null {
   const normalized = type.toLowerCase();
@@ -76,10 +105,29 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      serviceKey,
     );
+
+    // Require authentication: either the service-role key (internal callers like
+    // other edge functions / cron) or a valid authenticated user JWT.
+    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization") || "";
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    if (!token) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (token !== serviceKey) {
+      const { data: userData, error: userErr } = await admin.auth.getUser(token);
+      if (userErr || !userData?.user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     const payload = (await req.json()) as FanoutRequest;
     if (!payload?.title || !Array.isArray(payload.user_ids)) {
@@ -88,15 +136,37 @@ Deno.serve(async (req) => {
       });
     }
 
-    // NOTE: LINE push is intentionally OFF by default to save LINE Messaging API quota/tokens.
-    // Reactive replies still go out via the line-webhook chatbot (free).
-    // Callers may still opt-in per call by passing `channels: [..., "line"]`.
-    const channels = new Set(payload.channels ?? ["in_app", "push"]);
+    const channels = new Set(payload.channels ?? ["in_app", "push", "line"]);
     const type = payload.type || "notification";
     const severity: Severity = payload.severity ?? "info";
     const sevRank = SEVERITY_RANK[severity] ?? 0;
+    // Critical events always fan out to Google Chat so admins/directors see them,
+    // even if the caller didn't opt-in to gchat.
+    if (severity === "critical") channels.add("gchat");
+
+    // School-wide per-category routing (admin controlled). Skip channel entirely
+    // when this category is disabled in school_settings.channel_category_routing.
+    const category = categoryOf(type, severity);
+    let routing = DEFAULT_ROUTING;
+    try {
+      const { data: routingRow } = await admin
+        .from("school_settings")
+        .select("setting_value")
+        .eq("setting_key", "channel_category_routing")
+        .maybeSingle();
+      const v = routingRow?.setting_value as any;
+      if (v && typeof v === "object") {
+        routing = {
+          gchat: { ...DEFAULT_ROUTING.gchat, ...(v.gchat || {}) },
+          line:  { ...DEFAULT_ROUTING.line,  ...(v.line  || {}) },
+        };
+      }
+    } catch (_) { /* fall back to defaults */ }
+    if (channels.has("gchat") && routing.gchat[category] === false) channels.delete("gchat");
+    if (channels.has("line")  && routing.line[category]  === false) channels.delete("line");
 
     const userIds = [...new Set(payload.user_ids.filter(Boolean))];
+
 
     // Dedup (best-effort)
     if (payload.dedup_key) {
@@ -184,6 +254,9 @@ Deno.serve(async (req) => {
     };
 
     // 1) In-app inserts (batch)
+    // We set push_sent=true so the DB trigger (trigger_push_notification) skips
+    // firing a duplicate push — this call handles push directly with the full URL.
+    const willSendPush = channels.has("push");
     if (channels.has("in_app")) {
       const rows = userIds
         .filter((u) => shouldSend(u, "in_app"))
@@ -194,6 +267,7 @@ Deno.serve(async (req) => {
           type,
           reference_id: payload.reference_id ?? null,
           reference_type: payload.reference_type ?? null,
+          push_sent: willSendPush && shouldSend(u, "push"),
         }));
       if (rows.length > 0) {
         const { error } = await admin.from("notifications").insert(rows);
@@ -219,7 +293,10 @@ Deno.serve(async (req) => {
           body: payload.body ?? "",
           url: payload.url ?? "/dashboard",
           tag: type,
+          severity,
+          urgent: severity === "critical" || severity === "warning",
         };
+
         await Promise.all((subs ?? []).map(async (s: any) => {
           let r = await pushOne(s, pushPayload);
           // retry once on transient failure
@@ -238,35 +315,46 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 3) LINE — forward to notify-line with line_user_ids
-    if (channels.has("line")) {
-      const lineRecipients = userIds
-        .filter((u) => shouldSend(u, "line"))
-        .map((u) => {
-          const line_user_ids = (lineIdsByUser.get(u) ?? []).filter((lineUserId) => {
-            if (!linePrefKey) return true;
-            const prefs = linePrefMap.get(lineUserId);
-            return prefs?.[linePrefKey] !== false;
-          });
-          return { user_id: u, line_user_ids };
-        })
-        .filter((entry) => entry.line_user_ids.length > 0);
-      const usersWithoutLineLink = userIds
-        .filter((u) => shouldSend(u, "line"))
-        .filter((u) => (lineIdsByUser.get(u) ?? []).length === 0);
-      usersWithoutLineLink.forEach((u) => log(u, "line", "skipped", "no linked LINE account"));
+    // 3+4) LINE + Google Chat + delivery log — run in background AFTER response.
+    // In-app + Web Push (steps 1-2) already fired synchronously above, so users see
+    // the notification "ปุ๊บปั๊บ" while slower channels finish out-of-band.
+    const runSlowChannels = async () => {
+      // LINE
+      if (channels.has("line")) {
+        const lineRecipients = userIds
+          .filter((u) => shouldSend(u, "line"))
+          .map((u) => {
+            const line_user_ids = (lineIdsByUser.get(u) ?? []).filter((lineUserId) => {
+              if (!linePrefKey) return true;
+              const prefs = linePrefMap.get(lineUserId);
+              return prefs?.[linePrefKey] !== false;
+            });
+            return { user_id: u, line_user_ids };
+          })
+          .filter((entry) => entry.line_user_ids.length > 0);
+        const usersWithoutLineLink = userIds
+          .filter((u) => shouldSend(u, "line"))
+          .filter((u) => (lineIdsByUser.get(u) ?? []).length === 0);
+        usersWithoutLineLink.forEach((u) => log(u, "line", "skipped", "no linked LINE account"));
 
-      if (lineRecipients.length > 0) {
-        const uniqueLineIds = [...new Set(lineRecipients.flatMap((entry) => entry.line_user_ids))];
-        try {
-          const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/notify-line`, {
+        if (lineRecipients.length > 0) {
+          const uniqueLineIds = [...new Set(lineRecipients.flatMap((entry) => entry.line_user_ids))];
+          const lineBody: string = (() => {
+            const parts: string[] = [payload.body || payload.title];
+            if (payload.fields) {
+              const entries = Object.entries(payload.fields).filter(([, v]) => v != null && String(v).length > 0);
+              if (entries.length > 0) parts.push(entries.map(([k, v]) => `• ${k}: ${v}`).join("\n"));
+            }
+            return parts.join("\n\n");
+          })();
+          const doPost = () => fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/notify-line`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
             },
             body: JSON.stringify({
-              message: payload.body || payload.title,
+              message: lineBody,
               title: payload.title,
               line_user_ids: uniqueLineIds,
               notification_type: type,
@@ -276,57 +364,79 @@ Deno.serve(async (req) => {
               action_label: payload.url ? "เปิดดู" : undefined,
             }),
           });
-          const lineResult = await res.json().catch(() => null);
-          if (res.ok) {
-            if (lineResult?.message === "LINE notifications are disabled") {
-              lineRecipients.forEach((entry) => log(entry.user_id, "line", "skipped", "LINE notifications disabled"));
-            } else {
-              lineCount = Number(lineResult?.sent ?? uniqueLineIds.length) || 0;
-              lineRecipients.forEach((entry) => log(entry.user_id, "line", lineCount > 0 ? "sent" : "skipped", lineCount > 0 ? undefined : "LINE sent 0 recipients"));
+          try {
+            let res = await doPost();
+            if (!res.ok && (res.status === 429 || res.status >= 500)) {
+              await new Promise((r) => setTimeout(r, 500));
+              res = await doPost();
             }
-          } else {
-            const text = typeof lineResult === "string" ? lineResult : JSON.stringify(lineResult);
-            lineRecipients.forEach((entry) => log(entry.user_id, "line", "failed", text.slice(0, 200)));
+            const lineResult = await res.json().catch(() => null);
+            if (res.ok) {
+              if (lineResult?.message === "LINE notifications are disabled") {
+                lineRecipients.forEach((entry) => log(entry.user_id, "line", "skipped", "LINE notifications disabled"));
+              } else {
+                const sent = Number(lineResult?.sent ?? uniqueLineIds.length) || 0;
+                lineRecipients.forEach((entry) => log(entry.user_id, "line", sent > 0 ? "sent" : "skipped", sent > 0 ? undefined : "LINE sent 0 recipients"));
+              }
+            } else {
+              const text = typeof lineResult === "string" ? lineResult : JSON.stringify(lineResult);
+              lineRecipients.forEach((entry) => log(entry.user_id, "line", "failed", `status:${res.status} ${text}`.slice(0, 200)));
+            }
+          } catch (e: any) {
+            lineRecipients.forEach((entry) => log(entry.user_id, "line", "failed", e?.message));
           }
-        } catch (e: any) {
-          lineRecipients.forEach((entry) => log(entry.user_id, "line", "failed", e?.message));
         }
       }
-    }
 
-    // 4) Google Chat (department-based broadcast)
-    if (channels.has("gchat")) {
-      try {
-        await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/notify-google-chat`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
-          },
-          body: JSON.stringify({
-            title: payload.title,
-            message: payload.body || payload.title,
-            notification_type: type,
-            severity,
-            url: payload.url,
-            department: payload.gchat_categories?.[0] || "all",
-            reference_id: payload.reference_id,
-            reference_table: payload.reference_type,
-          }),
-        });
-        log(null, "gchat", "sent");
-      } catch (e: any) {
-        log(null, "gchat", "failed", e?.message);
+      // Google Chat
+      if (channels.has("gchat")) {
+        const categories = payload.gchat_categories && payload.gchat_categories.length > 0
+          ? [...new Set(payload.gchat_categories)]
+          : ["all"];
+        await Promise.all(categories.map(async (dept) => {
+          try {
+            const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/notify-google-chat`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
+              },
+              body: JSON.stringify({
+                title: payload.title,
+                message: payload.body || payload.title,
+                notification_type: type,
+                severity,
+                url: payload.url,
+                image_url: payload.image_url,
+                department: dept,
+                fields: payload.fields,
+                reference_id: payload.reference_id,
+                reference_table: payload.reference_type,
+              }),
+            });
+            log(null, "gchat", res.ok ? "sent" : "failed", res.ok ? `dept:${dept}` : `dept:${dept} status:${res.status}`);
+          } catch (e: any) {
+            log(null, "gchat", "failed", `dept:${dept} ${e?.message}`);
+          }
+        }));
       }
-    }
 
-    // Write logs (non-blocking semantics OK)
-    if (logRows.length > 0) {
-      await admin.from("notification_delivery_log").insert(logRows);
+      if (logRows.length > 0) {
+        try { await admin.from("notification_delivery_log").insert(logRows); } catch (_) {}
+      }
+    };
+
+    // Deno Deploy: keep the isolate alive to finish slow channels after we respond.
+    const anyRuntime = (globalThis as any).EdgeRuntime;
+    if (anyRuntime?.waitUntil) {
+      anyRuntime.waitUntil(runSlowChannels());
+    } else {
+      // Fallback for local dev without EdgeRuntime — fire and forget
+      runSlowChannels().catch(() => {});
     }
 
     return new Response(
-      JSON.stringify({ ok: true, recipients: userIds.length, in_app: inAppCount, push: pushCount, line: lineCount }),
+      JSON.stringify({ ok: true, recipients: userIds.length, in_app: inAppCount, push: pushCount, line_deferred: channels.has("line"), gchat_deferred: channels.has("gchat") }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err: any) {
@@ -335,3 +445,4 @@ Deno.serve(async (req) => {
     });
   }
 });
+

@@ -6,19 +6,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Printer, FileSpreadsheet } from "lucide-react";
-import { toast } from "sonner";
-import { exportPP6Book } from "@/lib/exporters/officialPpBook";
-import { useSchoolInfo, signatureImgHtml } from "@/components/documents/DocumentHeader";
-import { SignatureBlock } from "@/components/documents/SignatureBlock";
+import { Printer } from "lucide-react";
+import { useSchoolInfo } from "@/components/documents/DocumentHeader";
 import StudentSelector from "@/components/documents/StudentSelector";
 import { openPrintWindow, currentThaiDate } from "@/lib/printUtils";
 import { formatFullNameHtml, formatFullName, formatFullNamePlain } from "@/lib/nameFormat";
+import { BE_OFFSET } from "@/lib/dateBE";
+import { useStudentsWithClass } from "@/hooks/useStudentsWithClass";
 
 const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
   const [studentCode, setStudentCode] = useState("");
   const [semester, setSemester] = useState("1");
-  const [academicYear] = useState(String(new Date().getFullYear() + 543));
+  const [academicYear] = useState(String(new Date().getFullYear() + BE_OFFSET));
   const schoolInfo = useSchoolInfo();
 
   const { data: classrooms = [] } = useQuery({
@@ -28,7 +27,7 @@ const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
       return data || [];
     },
   });
-  const { data: students = [] } = useQuery({ queryKey: ["students_with_class"], queryFn: async () => { const { data } = await supabase.from("students").select("*, classrooms!students_classroom_id_fkey(*)").eq("status", "active").order("student_code"); return data || []; } });
+  const { data: students = [] } = useStudentsWithClass();
   const { data: subjects = [] } = useQuery({ queryKey: ["subjects"], queryFn: async () => { const { data } = await supabase.from("subjects").select("*"); return data || []; } });
   const { data: scores = [] } = useQuery({
     queryKey: ["report_scores", studentCode, semester],
@@ -89,8 +88,9 @@ const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
     }
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     if (!student) return;
+    const { printByCode } = await import("@/lib/printTemplate");
     const cls = (student as any).classrooms;
 
     const buildAssessmentTable = (title: string, data: any[]) => {
@@ -180,7 +180,6 @@ const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
             <div class="obec-sig-title">(ผู้ปกครอง)</div>
           </div>
           <div class="obec-sig-item">
-            ${signatureImgHtml(schoolInfo.director_signature_url, 44)}
             <div class="obec-sig-line"></div>
             <div class="obec-sig-name">${schoolInfo.director_name ? `(${schoolInfo.director_name})` : "(ลงชื่อ)"}</div>
             <div class="obec-sig-title">${schoolInfo.director_title}</div>
@@ -188,7 +187,9 @@ const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
         </div>
       </div>
     `;
-    openPrintWindow(html, { title: `ปพ.6 - ${formatFullNamePlain(undefined, student.first_name, student.last_name)}` });
+    const tplData = { school: schoolInfo, student, class: (student as any).classrooms, today: new Date().toISOString() };
+    const used = await printByCode("report_card", tplData);
+    if (!used) openPrintWindow(html, { title: `ปพ.6 - ${formatFullNamePlain(undefined, student.first_name, student.last_name)}` });
   };
 
   return (
@@ -199,37 +200,11 @@ const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
             <h1 className="text-2xl font-bold text-foreground">สมุดรายงานผลการพัฒนาคุณภาพผู้เรียน (ปพ.6)</h1>
             <p className="text-sm text-muted-foreground">รายงานผลการเรียน คุณลักษณะ และสมรรถนะ รายภาคเรียน</p>
           </div>
-          <div className="flex gap-2">
-            {studentCode && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร</Button>}
-            {studentCode && student && (
-              <Button variant="default" onClick={async () => {
-                try {
-                  const grade = (student as any).classrooms?.grade_level || "";
-                  const level = grade.startsWith("ม.4") || grade.startsWith("ม.5") || grade.startsWith("ม.6")
-                    ? "มัธยมศึกษาตอนปลาย"
-                    : grade.startsWith("ม.") ? "มัธยมศึกษาตอนต้น" : "ประถมศึกษา";
-                  await exportPP6Book({
-                    school: { school_name: schoolInfo.school_name, affiliation: schoolInfo.affiliation, director_name: schoolInfo.director_name, director_title: schoolInfo.director_title, school_logo: schoolInfo.school_logo, garuda_emblem: schoolInfo.garuda_emblem },
-                    director_name: schoolInfo.director_name,
-                    director_title: schoolInfo.director_title,
-                    homeroom_teacher: "",
-                    semester,
-                    academic_year: academicYear,
-                    grade_level: grade,
-                    education_level: level,
-                    students: [{ no: 1, student_code: student.student_code, full_name: `${student.prefix || ""}${student.first_name} ${student.last_name}` }],
-                  }, `ปพ.6_${student.student_code}_${student.first_name}.xlsx`);
-                  toast.success("สร้างสมุดรายงาน ปพ.6 (รายบุคคล) แล้ว");
-                } catch (e: any) { toast.error(e?.message || "ส่งออกไม่สำเร็จ"); }
-              }}>
-                <FileSpreadsheet className="w-4 h-4 mr-2" />เล่ม ปพ.6 (เทมเพลตราชการ)
-              </Button>
-            )}
-          </div>
+          {studentCode && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร</Button>}
         </div>
       )}
       {embedded && studentCode && (
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end">
           <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร</Button>
         </div>
       )}
@@ -348,7 +323,7 @@ const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
               </div>
               <div className="text-center">
                 <div className="w-40 border-b border-foreground/60 mb-2 mx-auto" />
-                <p className="text-xs text-muted-foreground">(ผู้อำนวยการโรงเรียน)</p>
+                <p className="text-xs text-muted-foreground">({schoolInfo.director_title || "ผู้อำนวยการโรงเรียน"})</p>
               </div>
             </div>
           </CardContent>

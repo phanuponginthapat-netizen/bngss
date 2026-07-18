@@ -14,6 +14,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import { Plus, Users, UserPlus, BookOpen, Trash2, School, Search } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 interface Classroom { id: string; name: string; grade_level: string; academic_year: number; homeroom_teacher: string | null; capacity: number | null; }
 interface Student { id: string; student_code: string; prefix: string | null; first_name: string; last_name: string; classroom_id: string | null; status: string; }
@@ -46,7 +47,7 @@ const EnrollmentPage = () => {
   const [classroomForm, setClassroomForm] = useState({ name: "", grade_level: "", homeroom_teacher: "", capacity: "40" });
   const [studentForm, setStudentForm] = useState({ student_code: "", prefix: "ด.ช.", first_name: "", last_name: "", classroom_id: "" });
   const [enrollSemester, setEnrollSemester] = useState("1");
-  const [enrollYear, setEnrollYear] = useState(String(new Date().getFullYear() + 543));
+  const [enrollYear, setEnrollYear] = useState(String(new Date().getFullYear() + BE_OFFSET));
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
 
   // Filter subjects by selected semester and classroom's grade level
@@ -62,9 +63,12 @@ const EnrollmentPage = () => {
   useEffect(() => {
     fetchClassrooms();
     fetchSubjects();
+  }, []);
 
-    // Realtime sync
-    const channel = supabase.channel("enrollment-rt")
+  // Realtime sync — re-bind when selection changes so closures capture current ids
+  useEffect(() => {
+    const channel = supabase
+      .channel(`enrollment-rt-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "classrooms" }, () => fetchClassrooms())
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "subjects" }, () => fetchSubjects())
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "students" }, () => { if (selectedClassroom) fetchStudentsByClassroom(selectedClassroom); })
@@ -72,7 +76,7 @@ const EnrollmentPage = () => {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [selectedClassroom, selectedSubject]);
 
   useEffect(() => {
     if (selectedClassroom) fetchStudentsByClassroom(selectedClassroom);
@@ -93,12 +97,12 @@ const EnrollmentPage = () => {
   };
 
   const fetchStudentsByClassroom = async (classroomId: string) => {
-    const { data } = await supabase.from("students").select("*").eq("classroom_id", classroomId).order("student_code");
+    const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name, classroom_id, status").eq("classroom_id", classroomId).order("student_code");
     setStudents(data || []);
   };
 
   const fetchAllStudents = async () => {
-    const { data } = await supabase.from("students").select("*").eq("status", "active").order("student_code");
+    const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name, classroom_id, status").eq("status", "active").order("student_code");
     return data || [];
   };
 
@@ -153,7 +157,7 @@ const EnrollmentPage = () => {
       subject_id: selectedSubject,
       classroom_id: selectedClassroom,
       semester: parseInt(enrollSemester),
-      academic_year: parseInt(enrollYear) - 543,
+      academic_year: parseInt(enrollYear) - BE_OFFSET,
       enrollment_type: "classroom" as const,
     }));
 
@@ -172,7 +176,7 @@ const EnrollmentPage = () => {
       subject_id: selectedSubject,
       classroom_id: selectedClassroom || null,
       semester: parseInt(enrollSemester),
-      academic_year: parseInt(enrollYear) - 543,
+      academic_year: parseInt(enrollYear) - BE_OFFSET,
       enrollment_type: "individual" as const,
     }));
 
@@ -225,7 +229,7 @@ const EnrollmentPage = () => {
             <DialogContent>
               <DialogHeader><DialogTitle>{lang === "th" ? "เพิ่มห้องเรียนใหม่" : "Add New Classroom"}</DialogTitle></DialogHeader>
               <div className="space-y-3 pt-2">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>{lang === "th" ? "ชื่อห้อง" : "Classroom"}</Label>
                     <Input placeholder="ม.1/1" value={classroomForm.name} onChange={(e) => setClassroomForm({ ...classroomForm, name: e.target.value })} />
@@ -235,7 +239,7 @@ const EnrollmentPage = () => {
                     <Input placeholder="ม.1" value={classroomForm.grade_level} onChange={(e) => setClassroomForm({ ...classroomForm, grade_level: e.target.value })} />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>{lang === "th" ? "ครูประจำชั้น" : "Homeroom Teacher"}</Label>
                     <Input value={classroomForm.homeroom_teacher} onChange={(e) => setClassroomForm({ ...classroomForm, homeroom_teacher: e.target.value })} />
@@ -260,7 +264,7 @@ const EnrollmentPage = () => {
             <DialogContent>
               <DialogHeader><DialogTitle>{lang === "th" ? "เพิ่มนักเรียนใหม่" : "Add New Student"}</DialogTitle></DialogHeader>
               <div className="space-y-3 pt-2">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>{lang === "th" ? "รหัสนักเรียน" : "Student Code"}</Label>
                     <Input placeholder="65001" value={studentForm.student_code} onChange={(e) => setStudentForm({ ...studentForm, student_code: e.target.value })} />
@@ -278,7 +282,7 @@ const EnrollmentPage = () => {
                     </Select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>{lang === "th" ? "ชื่อจริง" : "First Name"}</Label>
                     <Input value={studentForm.first_name} onChange={(e) => setStudentForm({ ...studentForm, first_name: e.target.value })} />
@@ -587,7 +591,7 @@ const EnrollmentPage = () => {
                               {e.enrollment_type === "classroom" ? (lang === "th" ? "รายห้อง" : "Classroom") : (lang === "th" ? "รายบุคคล" : "Individual")}
                             </Badge>
                           </TableCell>
-                          <TableCell>{e.semester}/{(e.academic_year || 0) + 543}</TableCell>
+                          <TableCell>{e.semester}/{(e.academic_year || 0) + BE_OFFSET}</TableCell>
                           <TableCell>
                             <Badge variant="secondary" className="bg-success/10 text-success">
                               {e.status === "active" ? (lang === "th" ? "ปกติ" : "Active") : e.status}

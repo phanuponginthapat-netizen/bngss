@@ -2,10 +2,7 @@
 // คืน session tokens ให้ client เรียก supabase.auth.setSession()
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX = 10;
@@ -39,15 +36,15 @@ Deno.serve(async (req) => {
 
   try {
     const ip = clientIp(req);
-    if (!rateOk(ip)) return respond({ error: "rate_limited" });
+    if (!rateOk(ip)) return respond({ error: "rate_limited" }, 429);
 
     const { identifier, password } = await req.json().catch(() => ({}));
     if (!identifier || typeof identifier !== "string" || !password || typeof password !== "string") {
-      return respond({ error: "invalid_input" });
+      return respond({ error: "invalid_input" }, 400);
     }
     const id = identifier.trim();
     if (id.length < 2 || id.length > 100 || password.length < 1 || password.length > 200) {
-      return respond({ error: "invalid_input" });
+      return respond({ error: "invalid_input" }, 400);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -61,7 +58,7 @@ Deno.serve(async (req) => {
     if (isEmail(id)) {
       email = id.toLowerCase();
     } else {
-      if (!/^[A-Za-z0-9_\-./]+$/.test(id)) return respond({ error: "invalid_input" });
+      if (!/^[A-Za-z0-9_\-./]+$/.test(id)) return respond({ error: "invalid_input" }, 400);
 
       // personnel by employee_code
       const { data: personnel } = await admin
@@ -106,13 +103,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (!email) return respond({ error: "not_found" });
+    if (!email) return respond({ error: "not_found" }, 404);
 
     // 2) ลอง signInWithPassword ด้วย anon client → คืน session
     const anon = createClient(supabaseUrl, anonKey);
     const { data, error } = await anon.auth.signInWithPassword({ email, password });
     if (error || !data?.session) {
-      return respond({ error: "invalid_credentials" });
+      return respond({ error: "invalid_credentials" }, 401);
     }
 
     return respond({
@@ -121,6 +118,6 @@ Deno.serve(async (req) => {
       refresh_token: data.session.refresh_token,
     });
   } catch (_e) {
-    return respond({ error: "internal_error" });
+    return respond({ error: "internal_error" }, 500);
   }
 });

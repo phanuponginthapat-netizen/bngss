@@ -62,7 +62,7 @@ export default function MascotBuilder({ userId, open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" /> ออกแบบมาสคอทของคุณ
@@ -80,7 +80,7 @@ export default function MascotBuilder({ userId, open, onOpenChange }: Props) {
                 <img src={previewUrl} alt="Preview" className="w-full h-full object-contain p-4" />
               ) : <div className="text-muted-foreground">เลือกค่าเพื่อดูตัวอย่าง</div>}
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {moods.map((m) => (
                 <div key={m} className="rounded-lg border bg-card p-2">
                   <img src={buildMascotUrl(cfg, m)} alt={m} className="w-full aspect-square object-contain" />
@@ -151,7 +151,7 @@ export default function MascotBuilder({ userId, open, onOpenChange }: Props) {
             </div>
 
             {cfg.style === "avataaars" && (
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t">
                 {([
                   ["top", "ทรงผม/หมวก"],
                   ["accessories", "แว่นตา"],

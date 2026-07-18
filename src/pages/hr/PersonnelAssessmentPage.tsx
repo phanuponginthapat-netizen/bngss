@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Brain, ClipboardCheck, Eye, AlertTriangle, Heart, Shield, Flame } from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 // ==========================================
 // Section 1: DISC (16 ข้อ) — cross-validated
@@ -185,25 +186,25 @@ const DISC_LABELS: Record<string, { label: string; desc: string; color: string; 
   D: {
     label: "D - Dominance (ผู้นำ)",
     desc: "กล้าตัดสินใจ มุ่งผลสำเร็จ ขับเคลื่อนองค์กร",
-    color: "bg-danger-soft text-danger",
+    color: "bg-red-100 text-red-800",
     suitableFor: "เหมาะกับ: หัวหน้าฝ่าย, ผู้ช่วย ผอ., ประธานโครงการ, หัวหน้ากลุ่มสาระ",
   },
   I: {
     label: "I - Influence (ผู้สร้างแรงบันดาลใจ)",
     desc: "สื่อสารเก่ง มีเสน่ห์ กระตือรือร้น สร้างบรรยากาศดี",
-    color: "bg-warning-soft text-warning",
+    color: "bg-yellow-100 text-yellow-800",
     suitableFor: "เหมาะกับ: ฝ่ายกิจการนักเรียน, ประชาสัมพันธ์, ครูที่ปรึกษา, กิจกรรมพัฒนาผู้เรียน",
   },
   S: {
     label: "S - Steadiness (ผู้สนับสนุน)",
     desc: "อดทน ใจเย็น เชื่อถือได้ ทำงานสม่ำเสมอ",
-    color: "bg-success-soft text-success",
+    color: "bg-green-100 text-green-800",
     suitableFor: "เหมาะกับ: ครูประจำชั้น, งานแนะแนว, ดูแลนักเรียนพิเศษ, งานห้องสมุด",
   },
   C: {
     label: "C - Conscientiousness (ผู้วิเคราะห์)",
     desc: "ละเอียดรอบคอบ มีระบบ ทำงานมีคุณภาพ",
-    color: "bg-info-soft text-info",
+    color: "bg-blue-100 text-blue-800",
     suitableFor: "เหมาะกับ: ฝ่ายวิชาการ, งานทะเบียน/วัดผล, งบประมาณ, งานวิจัย/SAR",
   },
 };
@@ -234,11 +235,11 @@ const calcMhScores = (answers: Record<number, number>) => {
   for (const [domain, scores] of Object.entries(domains)) {
     const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
     let level: string, color: string;
-    if (avg <= 1.5) { level = "ปกติ"; color = "bg-success-soft text-success"; }
-    else if (avg <= 2.5) { level = "เล็กน้อย"; color = "bg-info-soft text-info"; }
-    else if (avg <= 3.5) { level = "ปานกลาง"; color = "bg-warning-soft text-warning"; }
-    else if (avg <= 4.0) { level = "สูง"; color = "bg-warning-soft text-warning"; }
-    else { level = "สูงมาก — ควรได้รับการดูแล"; color = "bg-danger-soft text-danger"; }
+    if (avg <= 1.5) { level = "ปกติ"; color = "bg-green-100 text-green-800"; }
+    else if (avg <= 2.5) { level = "เล็กน้อย"; color = "bg-blue-100 text-blue-800"; }
+    else if (avg <= 3.5) { level = "ปานกลาง"; color = "bg-yellow-100 text-yellow-800"; }
+    else if (avg <= 4.0) { level = "สูง"; color = "bg-orange-100 text-orange-800"; }
+    else { level = "สูงมาก — ควรได้รับการดูแล"; color = "bg-red-100 text-red-800"; }
     result[domain as MhDomain] = { avg, level, color };
   }
   return result;
@@ -251,10 +252,10 @@ const getOverallMhRisk = (mhScores: ReturnType<typeof calcMhScores>) => {
   const protective = (["resilience", "interpersonal"] as MhDomain[]).reduce((sum, d) => sum + (mhScores[d]?.avg || 0), 0) / 2;
   // Lower protective = worse (because reversed items flip)
   const combined = avgRisk - (5 - protective) * 0.3;
-  if (combined <= 2) return { level: "สุขภาพจิตดี", color: "text-success", emoji: "😊" };
-  if (combined <= 3) return { level: "พอใช้ — ควรดูแลตัวเอง", color: "text-warning", emoji: "😐" };
-  if (combined <= 3.8) return { level: "เสี่ยง — ควรได้รับการสนับสนุน", color: "text-warning", emoji: "😟" };
-  return { level: "เสี่ยงสูง — ควรปรึกษาผู้เชี่ยวชาญ", color: "text-danger", emoji: "🆘" };
+  if (combined <= 2) return { level: "สุขภาพจิตดี", color: "text-green-600", emoji: "😊" };
+  if (combined <= 3) return { level: "พอใช้ — ควรดูแลตัวเอง", color: "text-yellow-600", emoji: "😐" };
+  if (combined <= 3.8) return { level: "เสี่ยง — ควรได้รับการสนับสนุน", color: "text-orange-600", emoji: "😟" };
+  return { level: "เสี่ยงสูง — ควรปรึกษาผู้เชี่ยวชาญ", color: "text-red-600", emoji: "🆘" };
 };
 
 // ==========================================
@@ -268,7 +269,7 @@ const PersonnelAssessmentPage = () => {
   const [section, setSection] = useState<"disc" | "mh">("disc");
   const [discAnswers, setDiscAnswers] = useState<Record<number, string>>({});
   const [mhAnswers, setMhAnswers] = useState<Record<number, number>>({});
-  const [yearFilter, setYearFilter] = useState(String(new Date().getFullYear() + 543));
+  const [yearFilter, setYearFilter] = useState(String(new Date().getFullYear() + BE_OFFSET));
 
   const isAdminOrDirector = role === "admin" || role === "director";
 
@@ -294,7 +295,7 @@ const PersonnelAssessmentPage = () => {
       const { data } = await supabase
         .from("personnel_assessments")
         .select("*")
-        .eq("academic_year", parseInt(yearFilter) - 543)
+        .eq("academic_year", parseInt(yearFilter) - BE_OFFSET)
         .order("created_at", { ascending: false });
       return data || [];
     },
@@ -442,10 +443,10 @@ const PersonnelAssessmentPage = () => {
                         if (!info) return null;
                         const val = Number(avg);
                         let level: string, color: string;
-                        if (val <= 1.5) { level = "ปกติ"; color = "bg-success-soft text-success"; }
-                        else if (val <= 2.5) { level = "เล็กน้อย"; color = "bg-info-soft text-info"; }
-                        else if (val <= 3.5) { level = "ปานกลาง"; color = "bg-warning-soft text-warning"; }
-                        else { level = "สูง"; color = "bg-warning-soft text-warning"; }
+                        if (val <= 1.5) { level = "ปกติ"; color = "bg-green-100 text-green-800"; }
+                        else if (val <= 2.5) { level = "เล็กน้อย"; color = "bg-blue-100 text-blue-800"; }
+                        else if (val <= 3.5) { level = "ปานกลาง"; color = "bg-yellow-100 text-yellow-800"; }
+                        else { level = "สูง"; color = "bg-orange-100 text-orange-800"; }
                         return (
                           <div key={domain} className="p-2 rounded border text-center">
                             <p className="text-xs text-muted-foreground">{info.label}</p>
@@ -472,7 +473,7 @@ const PersonnelAssessmentPage = () => {
                   <p className="text-sm font-semibold">ตอนที่ 1: DISC ({Object.keys(discAnswers).length}/{DISC_QUESTIONS.length})</p>
                 </div>
                 <Progress value={discProgress} className="h-2 mt-2" />
-                {discComplete && <p className="text-xs text-success mt-1">✓ ครบแล้ว</p>}
+                {discComplete && <p className="text-xs text-green-600 mt-1">✓ ครบแล้ว</p>}
               </CardContent>
             </Card>
             <Card className={`cursor-pointer border-2 ${section === "mh" ? "border-primary" : "border-transparent"}`} onClick={() => setSection("mh")}>
@@ -482,7 +483,7 @@ const PersonnelAssessmentPage = () => {
                   <p className="text-sm font-semibold">ตอนที่ 2: สุขภาพจิต ({Object.keys(mhAnswers).length}/{MH_QUESTIONS.length})</p>
                 </div>
                 <Progress value={mhProgress} className="h-2 mt-2" />
-                {mhComplete && <p className="text-xs text-success mt-1">✓ ครบแล้ว</p>}
+                {mhComplete && <p className="text-xs text-green-600 mt-1">✓ ครบแล้ว</p>}
               </CardContent>
             </Card>
           </div>
@@ -591,9 +592,9 @@ const PersonnelAssessmentPage = () => {
                 <p className="text-2xl font-bold">{discStats[type as keyof typeof discStats]}</p>
               </CardContent></Card>
             ))}
-            <Card className="border-danger/30"><CardContent className="pt-4 text-center">
+            <Card className="border-red-200"><CardContent className="pt-4 text-center">
               <p className="text-xs text-muted-foreground">⚠️ เสี่ยงสุขภาพจิต</p>
-              <p className="text-2xl font-bold text-danger">{mhRiskCounts.risk + mhRiskCounts.high}</p>
+              <p className="text-2xl font-bold text-red-600">{mhRiskCounts.risk + mhRiskCounts.high}</p>
             </CardContent></Card>
           </div>
 
@@ -631,9 +632,9 @@ const PersonnelAssessmentPage = () => {
                   const mhBadge = (val: number) => {
                     if (!val && val !== 0) return <span className="text-xs text-muted-foreground">-</span>;
                     const v = Number(val);
-                    let color = "bg-success-soft text-success";
-                    if (v > 3.5) color = "bg-danger-soft text-danger";
-                    else if (v > 2.5) color = "bg-warning-soft text-warning";
+                    let color = "bg-green-100 text-green-800";
+                    if (v > 3.5) color = "bg-red-100 text-red-800";
+                    else if (v > 2.5) color = "bg-yellow-100 text-yellow-800";
                     return <Badge className={color + " text-xs"}>{v.toFixed(1)}</Badge>;
                   };
                   return (

@@ -1,8 +1,6 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Paperclip, X, Loader2, Camera } from "lucide-react";
-import VoiceRecorder from "@/components/VoiceRecorder";
-import { isNative, pickNativePhoto } from "@/lib/native";
+import { Paperclip, X, Loader2 } from "lucide-react";
 import { uploadHomeworkFile, type Attachment } from "@/lib/homeworkStorage";
 import { toast } from "sonner";
 
@@ -14,17 +12,11 @@ interface Props {
   maxSizeMB?: number;
   accept?: string;
   label?: string;
-  /** แสดงปุ่ม "ถ่ายรูป" (เปิดกล้องบนมือถือ) */
-  enableCamera?: boolean;
-  /** แสดงปุ่ม "อัดเสียง" — แนบเป็นไฟล์เสียง */
-  enableVoice?: boolean;
 }
 
 export default function AttachmentUploader({
   folder, value, onChange, maxFiles = 5, maxSizeMB = 25, accept, label = "แนบไฟล์",
-  enableCamera = true, enableVoice = false,
 }: Props) {
-  const camRef = useRef<HTMLInputElement>(null);
   const ref = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
 
@@ -70,49 +62,6 @@ export default function AttachmentUploader({
           {busy ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Paperclip className="w-4 h-4 mr-1" />}
           {label}
         </Button>
-        {enableCamera && (
-          <>
-            <input
-              ref={camRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => handleFiles(e.target.files)}
-            />
-            <Button
-              type="button" size="sm" variant="outline" disabled={busy}
-              onClick={async () => {
-                if (isNative()) {
-                  try {
-                    const file = await pickNativePhoto({ source: "camera" });
-                    if (file) await handleFiles({ 0: file, length: 1, item: () => file } as any);
-                  } catch (e: any) {
-                    if (!/cancel/i.test(e?.message || "")) toast.error(e?.message || "เปิดกล้องไม่ได้");
-                  }
-                } else {
-                  camRef.current?.click();
-                }
-              }}
-            >
-              <Camera className="w-4 h-4 mr-1" /> ถ่ายรูป
-            </Button>
-          </>
-        )}
-        {enableVoice && (
-          <VoiceRecorder
-            label="อัดเสียง"
-            onRecorded={async (file) => {
-              if (value.length >= maxFiles) { toast.error(`แนบได้สูงสุด ${maxFiles} ไฟล์`); return; }
-              try {
-                const att = await uploadHomeworkFile(file, folder);
-                onChange([...value, att]);
-              } catch (e: any) {
-                toast.error(`อัปโหลดเสียงล้มเหลว: ${e?.message || e}`);
-              }
-            }}
-          />
-        )}
         <span className="text-xs text-muted-foreground">PDF/รูป/ไฟล์ ไม่เกิน {maxSizeMB}MB · สูงสุด {maxFiles} ไฟล์</span>
       </div>
       {value.length > 0 && (

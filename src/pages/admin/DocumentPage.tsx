@@ -36,7 +36,7 @@ const DocumentPage = () => {
   const [fromDept, setFromDept] = useState("");
   const [docType, setDocType] = useState("outgoing");
   const [notes, setNotes] = useState("");
-  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -44,7 +44,7 @@ const DocumentPage = () => {
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyRecipient, setReplyRecipient] = useState<any>(null);
   const [replyMessage, setReplyMessage] = useState("");
-  const [replyFiles, setReplyFiles] = useState<File[]>([]);
+  const [replyFile, setReplyFile] = useState<File | null>(null);
   const [replyUploading, setReplyUploading] = useState(false);
   const replyFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -114,7 +114,16 @@ const DocumentPage = () => {
     let effectivePersonnelIds: string[] = [];
     if (recipientMode === "department") {
       if (selectedDepts.length === 0) { toast.error("กรุณาเลือกผู้รับอย่างน้อย 1 ฝ่าย"); return; }
+      // Expand departments → individual personnel so they receive both the recipient row and the push/LINE notification
+      const deptMembers = (personnelList as any[]).filter(p => selectedDepts.includes(p.department));
+      if (deptMembers.length === 0) { toast.error("ไม่พบบุคลากรในฝ่ายที่เลือก"); return; }
+      effectivePersonnelIds = deptMembers.map(p => p.id);
       selectedDepts.forEach(d => allRecipients.push({ type: "department", name: d }));
+      deptMembers.forEach(p => allRecipients.push({
+        type: "personnel",
+        name: `${p.prefix || ""}${p.first_name} ${p.last_name}`,
+        personnelId: p.id,
+      }));
     } else if (recipientMode === "all") {
       if (personnelList.length === 0) { toast.error("ไม่พบรายชื่อบุคลากร"); return; }
       effectivePersonnelIds = (personnelList as any[]).map(p => p.id);
@@ -134,23 +143,23 @@ const DocumentPage = () => {
 
     setUploading(true);
 
-    // Upload files if attached
-    const uploadedFiles: { path: string; name: string }[] = [];
-    for (const f of attachedFiles) {
-      const safe = f.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const path = `outgoing/${Date.now()}_${Math.random().toString(36).slice(2, 6)}_${safe}`;
-      const upload = await uploadPrivateFileWithFallback("document-files", path, f, { upsert: true });
-      uploadedFiles.push({ path: upload.path, name: f.name });
+    // Upload file if attached
+    let fileUrl: string | null = null;
+    let fileName: string | null = null;
+    if (attachedFile) {
+      const safe = attachedFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `outgoing/${Date.now()}_${safe}`;
+      const upload = await uploadPrivateFileWithFallback("document-files", path, attachedFile, { upsert: true });
+      fileUrl = upload.path; // store path; we'll create signed URL on download, or data URL while storage is unavailable
+      fileName = attachedFile.name;
     }
 
     const toDeptStr = allRecipients.map(r => r.name).join(", ");
 
     const insertData: any = { doc_number: docNumber, title, from_department: fromDept, to_department: toDeptStr, doc_type: docType, notes, created_by: currentUserId };
-    if (uploadedFiles.length > 0) {
-      // Backward-compat: keep first file in file_url/file_name
-      insertData.file_url = uploadedFiles[0].path;
-      insertData.file_name = uploadedFiles[0].name;
-      insertData.file_urls = uploadedFiles;
+    if (fileUrl) {
+      insertData.file_url = fileUrl;
+      insertData.file_name = fileName;
     }
 
     const { data: doc, error } = await supabase.from("documents").insert(insertData).select("id").single();
@@ -175,7 +184,8 @@ const DocumentPage = () => {
     await supabase.from("document_recipients" as any).insert(recipientRows as any);
 
     // Fan-out notification to recipients (in-app + push + LINE) via unified notify()
-    if (recipientMode === "personnel" || recipientMode === "all") {
+    // Works for personnel / all / department modes — department mode now resolves to member personnel above
+    if (effectivePersonnelIds.length > 0) {
       const recipientUserIds: string[] = [];
       effectivePersonnelIds.forEach(pid => {
         const person = personnelList.find((x: any) => x.id === pid);
@@ -192,7 +202,7 @@ const DocumentPage = () => {
           severity: "info",
           reference_id: doc.id,
           reference_type: "documents",
-          url: "/dashboard/admin/document",
+          url: `/dashboard/inbox?tab=documents&doc=${doc.id}`,
         });
       }
     }
@@ -209,7 +219,7 @@ const DocumentPage = () => {
     setDocNumber(""); setTitle(""); setFromDept(""); setNotes("");
     setDocType("outgoing"); setRecipientMode("department");
     setSelectedDepts([]); setSelectedPersonnel([]);
-    setAttachedFiles([]); setPersonnelSearch(""); setDeptFilter("");
+    setAttachedFile(null); setPersonnelSearch(""); setDeptFilter("");
   };
 
   const downloadFile = async (pathOrUrl: string, name?: string) => {
@@ -233,35 +243,30 @@ const DocumentPage = () => {
   const openReply = (rec: any) => {
     setReplyRecipient(rec);
     setReplyMessage(rec.reply_message || "");
-    setReplyFiles([]);
+    setReplyFile(null);
     setReplyOpen(true);
   };
 
   const handleSendReply = async () => {
     if (!replyRecipient) return;
-    if (!replyMessage.trim() && replyFiles.length === 0) {
+    if (!replyMessage.trim() && !replyFile) {
       toast.error("กรุณาระบุข้อความหรือแนบไฟล์อย่างน้อย 1 อย่าง");
       return;
     }
     setReplyUploading(true);
-    // Existing files (from previous reply)
-    const existing: { path: string; name: string }[] = Array.isArray(replyRecipient.reply_file_urls) && replyRecipient.reply_file_urls.length
-      ? replyRecipient.reply_file_urls
-      : (replyRecipient.reply_file_url ? [{ path: replyRecipient.reply_file_url, name: replyRecipient.reply_file_name || "ไฟล์" }] : []);
-    const uploaded: { path: string; name: string }[] = [];
-    for (const f of replyFiles) {
-      const safe = f.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    let filePath: string | null = replyRecipient.reply_file_url || null;
+    let fileName: string | null = replyRecipient.reply_file_name || null;
+    if (replyFile) {
+      const safe = replyFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
       const path = `replies/${replyRecipient.document_id}/${Date.now()}_${safe}`;
-      const upload = await uploadPrivateFileWithFallback("document-files", path, f, { upsert: true });
-      uploaded.push({ path: upload.path, name: f.name });
+      const upload = await uploadPrivateFileWithFallback("document-files", path, replyFile, { upsert: true });
+      filePath = upload.path;
+      fileName = replyFile.name;
     }
-    const allFiles = [...existing, ...uploaded];
     const { error } = await supabase.from("document_recipients" as any).update({
       reply_message: replyMessage,
-      reply_file_urls: allFiles,
-      // backward compat: keep first file in old columns
-      reply_file_url: allFiles[0]?.path ?? null,
-      reply_file_name: allFiles[0]?.name ?? null,
+      reply_file_url: filePath,
+      reply_file_name: fileName,
       replied_at: new Date().toISOString(),
       is_read: true,
       read_at: replyRecipient.read_at || new Date().toISOString(),
@@ -276,7 +281,7 @@ const DocumentPage = () => {
     setReplyOpen(false);
     setReplyRecipient(null);
     setReplyMessage("");
-    setReplyFiles([]);
+    setReplyFile(null);
     setReplyUploading(false);
   };
 
@@ -318,7 +323,7 @@ const DocumentPage = () => {
           <DialogTrigger asChild>
             <Button><Plus className="w-4 h-4 mr-2" />{lang === "th" ? "สร้างเอกสาร" : "New Document"}</Button>
           </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-lg sm:max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Send className="w-5 h-5 text-primary" />
@@ -326,7 +331,7 @@ const DocumentPage = () => {
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label>เลขที่เอกสาร</Label>
                     <Input value={docNumber} onChange={e => setDocNumber(e.target.value)} placeholder="เช่น ศธ 04001/001" />
@@ -359,41 +364,29 @@ const DocumentPage = () => {
                   <Label className="text-sm font-semibold flex items-center gap-2">
                     <Paperclip className="w-4 h-4 text-primary" /> แนบไฟล์เอกสาร
                   </Label>
-                  <div className="space-y-2">
+                  <div className="flex items-center gap-2">
                     <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                      <Paperclip className="w-3 h-3 mr-1" /> เลือกไฟล์ (เลือกได้หลายไฟล์)
+                      <Paperclip className="w-3 h-3 mr-1" /> เลือกไฟล์
                     </Button>
                     <input
                       ref={fileInputRef}
                       type="file"
-                      multiple
                       accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                       className="hidden"
-                      onChange={e => {
-                        const list = Array.from(e.target.files ?? []);
-                        if (list.length) setAttachedFiles(prev => [...prev, ...list]);
-                        e.target.value = "";
-                      }}
+                      onChange={e => setAttachedFile(e.target.files?.[0] || null)}
                     />
-                    {attachedFiles.length > 0 && (
-                      <div className="space-y-1">
-                        {attachedFiles.map((f, i) => (
-                          <div key={i} className="flex items-center gap-2 text-sm bg-muted/40 rounded px-2 py-1">
-                            <File className="w-3 h-3 text-primary shrink-0" />
-                            <span className="truncate flex-1">{f.name}</span>
-                            <span className="text-[10px] text-muted-foreground">{(f.size/1024).toFixed(0)} KB</span>
-                            <Button type="button" variant="ghost" size="sm" className="h-5 w-5 p-0"
-                              onClick={() => setAttachedFiles(prev => prev.filter((_, idx) => idx !== i))}>
-                              <Trash2 className="w-3 h-3 text-destructive" />
-                            </Button>
-                          </div>
-                        ))}
+                    {attachedFile && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <File className="w-3 h-3 text-primary" />
+                        <span className="truncate max-w-[200px]">{attachedFile.name}</span>
+                        <Button type="button" variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setAttachedFile(null)}>
+                          <Trash2 className="w-3 h-3 text-destructive" />
+                        </Button>
                       </div>
                     )}
                   </div>
-                  <p className="text-[10px] text-muted-foreground">รองรับ PDF, รูปภาพ (JPG, PNG), Word (.doc, .docx) — แนบได้หลายไฟล์</p>
+                  <p className="text-[10px] text-muted-foreground">รองรับ PDF, รูปภาพ (JPG, PNG), Word (.doc, .docx)</p>
                 </div>
-
 
                 {/* Recipient selection */}
                 <div className="space-y-3 border border-border rounded-lg p-3">
@@ -418,7 +411,7 @@ const DocumentPage = () => {
                   )}
 
                   {recipientMode === "department" && (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {departments.map(dept => (
                         <label key={dept} className="flex items-center gap-2 text-sm p-2 rounded-lg bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors">
                           <Checkbox checked={selectedDepts.includes(dept)} onCheckedChange={() => toggleDept(dept)} />
@@ -572,7 +565,7 @@ const DocumentPage = () => {
                       <div className="flex flex-wrap gap-1 max-w-[200px]">
                         {docRecipients.length > 0 ? docRecipients.map((rec: any, i: number) => (
                           <Badge key={i} variant="secondary" className="text-[10px] flex items-center gap-1">
-                            {rec.is_read && <CheckCircle2 className="w-2.5 h-2.5 text-success" />}
+                            {rec.is_read && <CheckCircle2 className="w-2.5 h-2.5 text-green-600" />}
                             {rec.recipient_name}
                           </Badge>
                         )) : (
@@ -581,22 +574,14 @@ const DocumentPage = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {(() => {
-                        const list: { path: string; name?: string }[] = Array.isArray((r as any).file_urls) && (r as any).file_urls.length
-                          ? (r as any).file_urls
-                          : (r.file_url ? [{ path: r.file_url, name: r.file_name }] : []);
-                        if (list.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
-                        return (
-                          <div className="flex flex-col gap-0.5">
-                            {list.map((f, i) => (
-                              <button key={i} onClick={() => downloadFile(f.path, f.name)} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                                <Download className="w-3 h-3" />
-                                <span className="truncate max-w-[120px]">{f.name || `ไฟล์ ${i + 1}`}</span>
-                              </button>
-                            ))}
-                          </div>
-                        );
-                      })()}
+                      {r.file_url ? (
+                        <button onClick={() => downloadFile(r.file_url, r.file_name)} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                          <Download className="w-3 h-3" />
+                          <span className="truncate max-w-[80px]">{r.file_name || "ดาวน์โหลด"}</span>
+                        </button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                       {/* Show replies summary for sender/admin */}
                       {(isAdmin || isDirector || r.created_by === currentUserId) && (() => {
                         const replies = docRecipients.filter((rc: any) => rc.replied_at);
@@ -605,18 +590,13 @@ const DocumentPage = () => {
                           <div className="mt-1 space-y-0.5">
                             {replies.map((rc: any) => (
                               <div key={rc.id} className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                <Reply className="w-2.5 h-2.5 text-success" />
+                                <Reply className="w-2.5 h-2.5 text-green-600" />
                                 <span className="truncate max-w-[120px]">{rc.recipient_name}</span>
-                                {(() => {
-                                  const rfiles: { path: string; name?: string }[] = Array.isArray(rc.reply_file_urls) && rc.reply_file_urls.length
-                                    ? rc.reply_file_urls
-                                    : (rc.reply_file_url ? [{ path: rc.reply_file_url, name: rc.reply_file_name }] : []);
-                                  return rfiles.map((rf, i) => (
-                                    <button key={i} onClick={() => downloadFile(rf.path, rf.name)} className="text-primary hover:underline" title={rf.name}>
-                                      📎
-                                    </button>
-                                  ));
-                                })()}
+                                {rc.reply_file_url && (
+                                  <button onClick={() => downloadFile(rc.reply_file_url, rc.reply_file_name)} className="text-primary hover:underline">
+                                    📎
+                                  </button>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -638,9 +618,9 @@ const DocumentPage = () => {
                         </Select>
                       ) : (
                         <Badge className={
-                          r.status === "completed" ? "bg-success-soft text-success" :
-                          r.status === "in_progress" ? "bg-info-soft text-info" :
-                          "bg-warning-soft text-warning"
+                          r.status === "completed" ? "bg-green-100 text-green-800" :
+                          r.status === "in_progress" ? "bg-blue-100 text-blue-800" :
+                          "bg-yellow-100 text-yellow-800"
                         }>
                           {statusLabels[r.status] || r.status}
                         </Badge>
@@ -654,7 +634,7 @@ const DocumentPage = () => {
                           if (!myRec) return null;
                           return (
                             <Button variant="ghost" size="sm" onClick={() => openReply(myRec)} title="ตอบกลับ">
-                              <Reply className={`w-4 h-4 ${myRec.replied_at ? "text-success" : "text-primary"}`} />
+                              <Reply className={`w-4 h-4 ${myRec.replied_at ? "text-green-600" : "text-primary"}`} />
                             </Button>
                           );
                         })()}
@@ -683,7 +663,7 @@ const DocumentPage = () => {
 
       {/* Reply Dialog */}
       <Dialog open={replyOpen} onOpenChange={setReplyOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Reply className="w-5 h-5 text-primary" />
@@ -704,48 +684,29 @@ const DocumentPage = () => {
               <Label className="text-sm font-semibold flex items-center gap-2">
                 <Paperclip className="w-4 h-4 text-primary" /> แนบไฟล์ตอบกลับ (ถ้ามี)
               </Label>
-              <div className="space-y-2">
+              <div className="flex items-center gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => replyFileInputRef.current?.click()}>
-                  <Paperclip className="w-3 h-3 mr-1" /> เลือกไฟล์ (เลือกได้หลายไฟล์)
+                  <Paperclip className="w-3 h-3 mr-1" /> เลือกไฟล์
                 </Button>
                 <input
                   ref={replyFileInputRef}
                   type="file"
-                  multiple
                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
                   className="hidden"
-                  onChange={e => {
-                    const list = Array.from(e.target.files ?? []);
-                    if (list.length) setReplyFiles(prev => [...prev, ...list]);
-                    e.target.value = "";
-                  }}
+                  onChange={e => setReplyFile(e.target.files?.[0] || null)}
                 />
-                {replyFiles.length > 0 && (
-                  <div className="space-y-1">
-                    {replyFiles.map((f, i) => (
-                      <div key={i} className="flex items-center gap-2 text-sm bg-muted/40 rounded px-2 py-1">
-                        <File className="w-3 h-3 text-primary shrink-0" />
-                        <span className="truncate flex-1">{f.name}</span>
-                        <span className="text-[10px] text-muted-foreground">{(f.size/1024).toFixed(0)} KB</span>
-                        <Button type="button" variant="ghost" size="sm" className="h-5 w-5 p-0"
-                          onClick={() => setReplyFiles(prev => prev.filter((_, idx) => idx !== i))}>
-                          <Trash2 className="w-3 h-3 text-destructive" />
-                        </Button>
-                      </div>
-                    ))}
+                {replyFile && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <File className="w-3 h-3 text-primary" />
+                    <span className="truncate max-w-[180px]">{replyFile.name}</span>
+                    <Button type="button" variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setReplyFile(null)}>
+                      <Trash2 className="w-3 h-3 text-destructive" />
+                    </Button>
                   </div>
                 )}
-                {(() => {
-                  const existing: { path: string; name: string }[] = Array.isArray(replyRecipient?.reply_file_urls) && replyRecipient.reply_file_urls.length
-                    ? replyRecipient.reply_file_urls
-                    : (replyRecipient?.reply_file_url ? [{ path: replyRecipient.reply_file_url, name: replyRecipient.reply_file_name || "ไฟล์" }] : []);
-                  if (existing.length === 0) return null;
-                  return (
-                    <div className="text-[11px] text-muted-foreground">
-                      ไฟล์เดิม: {existing.map(e => e.name).join(", ")}
-                    </div>
-                  );
-                })()}
+                {!replyFile && replyRecipient?.reply_file_name && (
+                  <span className="text-xs text-muted-foreground">ไฟล์เดิม: {replyRecipient.reply_file_name}</span>
+                )}
               </div>
             </div>
             <Button onClick={handleSendReply} disabled={replyUploading} className="w-full">

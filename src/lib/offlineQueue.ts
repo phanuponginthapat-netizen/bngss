@@ -132,6 +132,7 @@ export async function flush(): Promise<{ ok: number; failed: number }> {
 }
 
 let installed = false;
+let retryIntervalId: ReturnType<typeof setInterval> | null = null;
 export function installOfflineSync() {
   if (installed || typeof window === "undefined") return;
   installed = true;
@@ -143,7 +144,8 @@ export function installOfflineSync() {
     if (navigator.onLine) flush().catch(() => {});
   });
   // periodic retry every 60s when online
-  setInterval(() => {
+  if (retryIntervalId) clearInterval(retryIntervalId);
+  retryIntervalId = setInterval(() => {
     if (navigator.onLine) flush().catch(() => {});
   }, 60_000);
 }

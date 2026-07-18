@@ -28,7 +28,7 @@ type RedeemLine = { reward: Reward; qty: number };
 function HolderBar({ holder, points, onClear }: { holder: Holder; points: number; onClear: () => void }) {
   const Icon = holder.kind === "student" ? GraduationCap : Briefcase;
   return (
-    <Card className="bg-gradient-to-r from-primary/15 to-success/15 border-primary/30">
+    <Card className="bg-gradient-to-r from-primary/15 to-emerald-500/15 border-primary/30">
       <CardContent className="p-4 flex items-center gap-4">
         <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center"><Icon className="w-7 h-7 text-primary" /></div>
         <div className="flex-1 min-w-0">
@@ -37,7 +37,7 @@ function HolderBar({ holder, points, onClear }: { holder: Holder; points: number
             {holder.kind === "student" ? "นักเรียน" : "บุคลากร"} • รหัส {holder.code} • {holder.sub || "-"}
           </div>
         </div>
-        <Badge className="text-base px-3 py-1.5 bg-warning hover:bg-warning"><Coins className="w-4 h-4 mr-1" />{points.toLocaleString()}</Badge>
+        <Badge className="text-base px-3 py-1.5 bg-amber-500 hover:bg-amber-500"><Coins className="w-4 h-4 mr-1" />{points.toLocaleString()}</Badge>
         <Button size="sm" variant="ghost" onClick={onClear}>เปลี่ยน</Button>
       </CardContent>
     </Card>
@@ -60,7 +60,7 @@ function ProductCard({ image, name, footer, disabled, onClick, selected }: {
     >
       <div className="aspect-square bg-muted/40 flex items-center justify-center overflow-hidden">
         {image ? (
-          <img src={image} alt={name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+          <img loading="lazy" decoding="async" src={image} alt={name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
         ) : (
           <ImageIcon className="w-12 h-12 text-muted-foreground/40" />
         )}
@@ -287,7 +287,7 @@ export default function GarbageCounterPage() {
 
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-4 max-w-6xl">
-      <h1 className="text-2xl font-bold flex items-center gap-2"><Recycle className="text-success" /> Bank Counter — เคาน์เตอร์ธนาคารขยะ</h1>
+      <h1 className="text-2xl font-bold flex items-center gap-2"><Recycle className="text-emerald-500" /> Bank Counter — เคาน์เตอร์ธนาคารขยะ</h1>
 
       {!holder ? (
         <Card>
@@ -354,7 +354,7 @@ export default function GarbageCounterPage() {
           <HolderBar holder={holder} points={points} onClear={() => { setHolder(null); setDepositCart([]); setRedeemCart([]); }} />
 
           <Tabs defaultValue="deposit">
-            <TabsList className="grid grid-cols-2 w-full md:w-96">
+            <TabsList className="grid grid-cols-1 sm:grid-cols-2 w-full md:w-96">
               <TabsTrigger value="deposit"><Recycle className="w-4 h-4 mr-1" />ฝากขยะ</TabsTrigger>
               <TabsTrigger value="redeem"><Gift className="w-4 h-4 mr-1" />แลกรางวัล</TabsTrigger>
             </TabsList>
@@ -373,7 +373,7 @@ export default function GarbageCounterPage() {
                           image={i.image_url}
                           name={i.name}
                           onClick={() => { setPickedItem(i); setQty(""); }}
-                          footer={<div className="text-xs text-success dark:text-success font-semibold">{i.points_per_unit} แต้ม / {i.unit}</div>}
+                          footer={<div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">{i.points_per_unit} แต้ม / {i.unit}</div>}
                         />
                       ))}
                     </div>
@@ -391,10 +391,10 @@ export default function GarbageCounterPage() {
                         <div className="space-y-2 max-h-80 overflow-y-auto">
                           {depositCart.map((l, idx) => (
                             <div key={idx} className="flex items-center gap-2 p-2 rounded bg-muted/40">
-                              {l.item.image_url && <img src={l.item.image_url} className="w-10 h-10 rounded object-cover" alt="" />}
+                              {l.item.image_url && <img loading="lazy" decoding="async" src={l.item.image_url} className="w-10 h-10 rounded object-cover" alt="" />}
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium truncate">{l.item.name}</div>
-                                <div className="text-xs text-muted-foreground">{l.qty} {l.item.unit} × {l.item.points_per_unit} = <span className="font-bold text-success">+{Math.round(l.qty * l.item.points_per_unit)}</span></div>
+                                <div className="text-xs text-muted-foreground">{l.qty} {l.item.unit} × {l.item.points_per_unit} = <span className="font-bold text-emerald-600">+{Math.round(l.qty * l.item.points_per_unit)}</span></div>
                               </div>
                               <Button size="icon" variant="ghost" aria-label="ลบรายการ" className="h-7 w-7" onClick={() => removeDepositLine(idx)}><Trash2 className="w-3 h-3" /></Button>
                             </div>
@@ -403,7 +403,7 @@ export default function GarbageCounterPage() {
                         <div className="border-t pt-3">
                           <div className="flex justify-between items-center">
                             <span className="text-sm">รวมแต้มที่จะได้รับ</span>
-                            <Badge className="text-base px-3 py-1 bg-success hover:bg-success">+{depositTotal}</Badge>
+                            <Badge className="text-base px-3 py-1 bg-emerald-500 hover:bg-emerald-500">+{depositTotal}</Badge>
                           </div>
                         </div>
                         <div className="flex gap-2">
@@ -422,7 +422,7 @@ export default function GarbageCounterPage() {
                   <DialogHeader><DialogTitle>เพิ่ม: {pickedItem?.name}</DialogTitle></DialogHeader>
                   {pickedItem && (
                     <div className="space-y-3">
-                      {pickedItem.image_url && <img src={pickedItem.image_url} className="w-32 h-32 mx-auto rounded-lg object-cover" alt="" />}
+                      {pickedItem.image_url && <img loading="lazy" decoding="async" src={pickedItem.image_url} className="w-32 h-32 mx-auto rounded-lg object-cover" alt="" />}
                       <div className="text-center text-sm text-muted-foreground">อัตรา {pickedItem.points_per_unit} แต้ม / {pickedItem.unit}</div>
                       <div>
                         <Label>จำนวน ({pickedItem.unit})</Label>
@@ -430,9 +430,9 @@ export default function GarbageCounterPage() {
                           onKeyDown={(e) => e.key === "Enter" && qty && Number(qty) > 0 && addDeposit()} />
                       </div>
                       {qty && Number(qty) > 0 && (
-                        <div className="p-4 rounded-lg bg-success-soft dark:bg-success/30 text-center">
+                        <div className="p-4 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-center">
                           <div className="text-xs text-muted-foreground">จะได้รับ</div>
-                          <div className="text-3xl font-bold text-success dark:text-success">+{Math.round(Number(qty) * pickedItem.points_per_unit)} แต้ม</div>
+                          <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">+{Math.round(Number(qty) * pickedItem.points_per_unit)} แต้ม</div>
                         </div>
                       )}
                     </div>
@@ -467,7 +467,7 @@ export default function GarbageCounterPage() {
                             onClick={() => addToRedeem(r)}
                             footer={
                               <div className="space-y-0.5">
-                                <div className={cn("text-xs font-semibold flex items-center gap-1", tooExpensive ? "text-destructive" : "text-warning dark:text-warning")}>
+                                <div className={cn("text-xs font-semibold flex items-center gap-1", tooExpensive ? "text-destructive" : "text-amber-600 dark:text-amber-400")}>
                                   <Coins className="w-3 h-3" />{r.points_cost} แต้ม
                                 </div>
                                 <div className="text-[10px] text-muted-foreground">เหลือ {r.stock} ชิ้น</div>
@@ -490,7 +490,7 @@ export default function GarbageCounterPage() {
                         <div className="space-y-2 max-h-80 overflow-y-auto">
                           {redeemCart.map((l) => (
                             <div key={l.reward.id} className="flex items-center gap-2 p-2 rounded bg-muted/40">
-                              {l.reward.image_url && <img src={l.reward.image_url} className="w-10 h-10 rounded object-cover" alt="" />}
+                              {l.reward.image_url && <img loading="lazy" decoding="async" src={l.reward.image_url} className="w-10 h-10 rounded object-cover" alt="" />}
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium truncate">{l.reward.name}</div>
                                 <div className="text-xs text-muted-foreground">{l.reward.points_cost * l.qty} แต้ม</div>

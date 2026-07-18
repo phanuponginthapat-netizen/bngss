@@ -29,15 +29,15 @@ export default function SystemUpdatePage() {
     },
   });
 
-  const exportBundle = async () => {
-    setLoading("export");
+  const exportBundle = async (scope: "template" | "full" = "template") => {
+    setLoading(`export-${scope}`);
     try {
-      const { data, error } = await supabase.functions.invoke("system-update", { body: { action: "export" } });
+      const { data, error } = await supabase.functions.invoke("system-update", { body: { action: "export", scope } });
       if (error) throw error;
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `smart-school-config-${todayBangkok()}.json`;
+      a.download = `smart-school-${scope}-${todayBangkok()}.json`;
       a.click();
       toast.success(lang === "th" ? "ดาวน์โหลด bundle แล้ว" : "Bundle downloaded");
     } catch (e: any) {
@@ -45,11 +45,13 @@ export default function SystemUpdatePage() {
     } finally { setLoading(null); }
   };
 
-  const fullBackup = async () => {
-    setLoading("backup");
+  const downloadBackup = async (mode: "tables" | "storage", bucket?: string) => {
+    const key = bucket ? `backup-${bucket}` : `backup-${mode}`;
+    setLoading(key);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const url = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/system-backup`;
+      const qs = mode === "storage" ? `?mode=storage&bucket=${encodeURIComponent(bucket!)}` : `?mode=tables`;
+      const url = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/system-backup${qs}`;
       const res = await fetch(url, {
         method: "POST",
         headers: {
@@ -61,13 +63,24 @@ export default function SystemUpdatePage() {
       const blob = await res.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `smart-school-backup-${todayBangkok()}.zip`;
+      const tag = bucket ? `storage-${bucket}` : "tables";
+      a.download = `smart-school-${tag}-${todayBangkok()}.zip`;
       a.click();
-      toast.success(lang === "th" ? "ดาวน์โหลด backup สำเร็จ" : "Backup downloaded");
+      toast.success(lang === "th" ? "ดาวน์โหลดสำเร็จ" : "Downloaded");
     } catch (e: any) {
       toast.error(e.message);
     } finally { setLoading(null); }
   };
+
+  const { data: buckets = [] } = useQuery({
+    queryKey: ["storage_buckets"],
+    queryFn: async () => {
+      const { data, error } = await supabase.storage.listBuckets();
+      if (error) return [];
+      return (data || []).map((b) => b.name);
+    },
+  });
+
 
   const applyFromUrl = async () => {
     if (!url) return toast.error(lang === "th" ? "ใส่ลิงก์ก่อน" : "Enter URL");
@@ -120,21 +133,34 @@ export default function SystemUpdatePage() {
           </CardTitle>
           <CardDescription>
             {lang === "th"
-              ? "ดาวน์โหลดข้อมูลทั้งหมด: ทุกตาราง + ไฟล์ในที่เก็บข้อมูล (รูป/PDF/เอกสาร) เป็นไฟล์ .zip เดียว"
-              : "Download EVERYTHING: all DB tables + all storage files (images/PDFs) as one .zip"}
+              ? "แยกดาวน์โหลดเพื่อเลี่ยง timeout: ตาราง 1 ไฟล์, ไฟล์เก็บข้อมูลแยกตาม bucket"
+              : "Split downloads to avoid timeout: tables in one zip, each storage bucket separately"}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Button onClick={fullBackup} disabled={loading === "backup"} variant="default">
+        <CardContent className="space-y-3">
+          <Button onClick={() => downloadBackup("tables")} disabled={loading === "backup-tables"} variant="default">
             <Database className="h-4 w-4 mr-2" />
-            {loading === "backup"
-              ? (lang === "th" ? "กำลังสำรองข้อมูล..." : "Backing up...")
-              : (lang === "th" ? "สำรองข้อมูลทั้งระบบ (.zip)" : "Backup Full System (.zip)")}
+            {loading === "backup-tables"
+              ? (lang === "th" ? "กำลังสำรอง..." : "Backing up...")
+              : (lang === "th" ? "สำรองตารางทั้งหมด (.zip)" : "Backup All Tables (.zip)")}
           </Button>
-          <p className="text-xs text-muted-foreground mt-2">
+          {buckets.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium">{lang === "th" ? "ที่เก็บข้อมูล (เลือกทีละ bucket)" : "Storage (one bucket at a time)"}</p>
+              <div className="flex flex-wrap gap-2">
+                {buckets.map((b) => (
+                  <Button key={b} size="sm" variant="outline" onClick={() => downloadBackup("storage", b)} disabled={loading === `backup-${b}`}>
+                    <Download className="h-3 w-3 mr-1" />
+                    {loading === `backup-${b}` ? "..." : b}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
             {lang === "th"
-              ? "อาจใช้เวลาสักครู่หากข้อมูลเยอะ — กรุณาอย่าปิดหน้านี้"
-              : "May take a while for large datasets — don't close this page"}
+              ? "แต่ละ request ต้องเสร็จภายใน 150 วินาที — ถ้า bucket ใหญ่มาก ใช้หน้า External Backup แทน"
+              : "Each request must finish within 150s — for very large buckets use External Backup"}
           </p>
         </CardContent>
       </Card>
@@ -144,15 +170,33 @@ export default function SystemUpdatePage() {
           <CardTitle>{lang === "th" ? "ส่งออกค่าตั้ง (Config Bundle)" : "Export Config Bundle"}</CardTitle>
           <CardDescription>
             {lang === "th"
-              ? "ดาวน์โหลด bundle ของค่าตั้งระบบ (CMS, school settings, รายการ API keys โดยไม่รวมค่า secret)"
-              : "Download config bundle (CMS, school settings, API key names — values excluded)"}
+              ? "แยก 2 แบบเพื่อไม่ทับข้อมูลของ รร. ปลายทาง"
+              : "Two scopes to avoid overwriting destination school data"}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Button onClick={exportBundle} disabled={loading === "export"} variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            {loading === "export" ? "..." : (lang === "th" ? "ดาวน์โหลด Bundle" : "Download Bundle")}
-          </Button>
+        <CardContent className="space-y-3">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={() => exportBundle("template")} disabled={loading === "export-template"} variant="default">
+              <Download className="h-4 w-4 mr-2" />
+              {loading === "export-template" ? "..." : (lang === "th" ? "Template (ปลอดภัย)" : "Template (safe)")}
+            </Button>
+            <Button onClick={() => exportBundle("full")} disabled={loading === "export-full"} variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              {loading === "export-full" ? "..." : (lang === "th" ? "Full (clone ครั้งแรก)" : "Full (initial clone)")}
+            </Button>
+          </div>
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p>
+              <span className="font-semibold text-foreground">Template</span> {lang === "th"
+                ? "= เกณฑ์ประเมิน, ตัวชี้วัด, ชื่อ API key (ใช้สำหรับ auto-pull ทุก 6 ชม.)"
+                : "= rubrics, indicators, API key names (use for 6h auto-pull)"}
+            </p>
+            <p>
+              <span className="font-semibold text-foreground">Full</span> {lang === "th"
+                ? "= รวม logo, ชื่อระบบ, CMS, ข่าว, ห้องเรียน, รายวิชา — ใช้ตอน clone รร. ใหม่ครั้งแรกเท่านั้น (จะทับของเดิม)"
+                : "= includes logo, school name, CMS, news, classrooms, subjects — ONLY for first-time clone (overwrites existing)"}
+            </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -212,7 +256,7 @@ export default function SystemUpdatePage() {
               <div>
                 <div className="font-mono text-sm">{h.version}</div>
                 <div className="text-xs text-muted-foreground">
-                  {new Date(h.created_at).toLocaleString("th-TH", { hour12: false })}
+                  {new Date(h.created_at).toLocaleString()}
                   {h.source_url && <> • {h.source_url}</>}
                 </div>
               </div>

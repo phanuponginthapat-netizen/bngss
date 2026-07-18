@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCmsValue } from "@/hooks/useCmsSettings";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { useStudentData } from "@/hooks/useStudentData";
@@ -20,12 +21,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Plus, Trash2, Power, BarChart3, Users, User, Eye } from "lucide-react";
+import { BE_OFFSET } from "@/lib/dateBE";
+import { notifyStudentEvent } from "@/lib/notifyStudentEvent";
 
 const SDQPage = () => {
   const { lang } = useLanguage();
-  const { role, userId } = useUserRole();
+  const { role } = useUserRole();
   const { user: authUser } = useAuthSession();
-  const canManageAll = role === "admin" || role === "director";
   const studentData = useStudentData();
   const { currentAcademicYear, currentSemester, academicYearOptions } = useAcademicYear();
   const [academicYear, setAcademicYear] = useState(0);
@@ -54,14 +56,9 @@ const SDQPage = () => {
   const [peer, setPeer] = useState("0");
   const [prosocial, setProsocial] = useState("0");
 
-  // SDQ enabled toggle
-  const { data: sdqEnabled } = useQuery({
-    queryKey: ["sdq_enabled"],
-    queryFn: async () => {
-      const { data } = await supabase.from("cms_settings").select("value").eq("key", "sdq_enabled").maybeSingle();
-      return data?.value === "true";
-    },
-  });
+  // SDQ enabled toggle — read via bulk cache
+  const sdqEnabledRaw = useCmsValue("sdq_enabled");
+  const sdqEnabled = sdqEnabledRaw === "true";
 
   const toggleSDQ = async () => {
     const newVal = sdqEnabled ? "false" : "true";
@@ -71,7 +68,7 @@ const SDQPage = () => {
     } else {
       await supabase.from("cms_settings").insert({ key: "sdq_enabled", value: newVal } as any);
     }
-    qc.invalidateQueries({ queryKey: ["sdq_enabled"] });
+    qc.invalidateQueries({ queryKey: ["cms_settings_bulk"] });
     toast.success(newVal === "true" ? "เปิดระบบประเมิน SDQ สำหรับผู้ปกครอง" : "ปิดระบบประเมิน SDQ สำหรับผู้ปกครอง");
   };
 
@@ -80,7 +77,7 @@ const SDQPage = () => {
     enabled: !!authUser?.id,
     queryFn: async () => {
       if (!authUser?.id) return null;
-      const { data } = await supabase.from("profiles").select("*").eq("id", authUser.id).single();
+      const { data } = await supabase.from("profiles").select("*").eq("id", authUser.id).maybeSingle();
       return data;
     },
   });
@@ -110,7 +107,7 @@ const SDQPage = () => {
         q = q.eq("assessment_type", filterType);
       }
       if (academicYear > 0) {
-        q = q.eq("academic_year", academicYear - 543);
+        q = q.eq("academic_year", academicYear - BE_OFFSET);
       }
       // Apply homeroom scope first
       if (scopedStudentIds) {
@@ -153,18 +150,38 @@ const SDQPage = () => {
     return { normal, borderline, abnormal, total, teacherRecords: teacherRecords.length, parentRecords: parentRecords.length };
   }, [records]);
 
-  // Per-student summary for individual view
+  // Roster per-student — start from filtered students so "ยังไม่ประเมิน" ก็ขึ้น
+  const rosterStudents = useMemo(() => {
+    let list = studentData.students as any[];
+    if (studentData.homeroomClassroomIds) {
+      list = list.filter((s: any) => studentData.homeroomClassroomIds!.includes(s.classroom_id));
+    }
+    if (filterGrade !== "all") {
+      const ids = new Set(filteredClassrooms.map((c: any) => c.id));
+      list = list.filter((s: any) => ids.has(s.classroom_id));
+    }
+    if (filterClassroom && filterClassroom !== "all") {
+      list = list.filter((s: any) => s.classroom_id === filterClassroom);
+    }
+    return list;
+  }, [studentData.students, studentData.homeroomClassroomIds, filterGrade, filterClassroom, filteredClassrooms]);
+
   const studentSummary = useMemo(() => {
     const map = new Map<string, { student: any; teacher: any[]; parent: any[] }>();
+    rosterStudents.forEach((s: any) => {
+      map.set(s.id, { student: s, teacher: [], parent: [] });
+    });
     records.forEach((r: any) => {
-      const sid = r.student_id;
-      if (!map.has(sid)) map.set(sid, { student: r.students, teacher: [], parent: [] });
-      const entry = map.get(sid)!;
+      let entry = map.get(r.student_id);
+      if (!entry) {
+        entry = { student: r.students, teacher: [], parent: [] };
+        map.set(r.student_id, entry);
+      }
       if (r.assessment_type === "parent") entry.parent.push(r);
       else entry.teacher.push(r);
     });
     return Array.from(map.values());
-  }, [records]);
+  }, [records, rosterStudents]);
 
   // Individual student records for detail view
   const viewStudentRecords = useMemo(() => {
@@ -183,7 +200,7 @@ const SDQPage = () => {
   const handleAdd = async () => {
     if (!studentId) { toast.error("กรุณาเลือกนักเรียน"); return; }
     const total = [emotional, conduct, hyper, peer].reduce((a, b) => a + parseInt(b || "0"), 0);
-    const { error } = await supabase.from("sdq_records").insert({
+    const { data: inserted, error } = await supabase.from("sdq_records").insert({
       student_id: studentId,
       emotional_score: parseInt(emotional || "0"),
       conduct_score: parseInt(conduct || "0"),
@@ -193,19 +210,32 @@ const SDQPage = () => {
       total_difficulty: total,
       assessment_by: assessor,
       assessment_type: assessmentType,
-      academic_year: academicYear > 0 ? academicYear - 543 : undefined,
-    } as any);
+      academic_year: academicYear > 0 ? academicYear - BE_OFFSET : undefined,
+    } as any).select("id").single();
     if (error) { toast.error(error.message); return; }
     toast.success("บันทึกสำเร็จ");
     qc.invalidateQueries({ queryKey: ["sdq_records"] });
+
+    // Spider-web: notify parents + homeroom teacher, especially if score is in risk zone (17+)
+    const isRisk = total >= 17;
+    notifyStudentEvent({
+      student_id: studentId,
+      title: isRisk ? "⚠️ ผล SDQ มีความเสี่ยง" : "บันทึกผล SDQ ใหม่",
+      body: `คะแนนรวม ${total}/40${isRisk ? " (อยู่ในเกณฑ์เสี่ยง)" : ""}`,
+      type: "sdq",
+      severity: isRisk ? "warning" : "info",
+      reference_id: inserted?.id,
+      reference_type: "sdq_records",
+      url: "/dashboard/student/sdq",
+      audience: { student: false, parents: true, homeroom: true },
+    });
+
     setOpen(false);
     resetForm();
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("sdq_records").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
-    toast.success("ลบสำเร็จ");
+    await supabase.from("sdq_records").delete().eq("id", id);
     qc.invalidateQueries({ queryKey: ["sdq_records"] });
   };
 
@@ -234,7 +264,7 @@ const SDQPage = () => {
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           {academicYear > 0 && <AcademicYearFilter compact academicYear={academicYear} onAcademicYearChange={setAcademicYear} semester={semester} onSemesterChange={setSemester} academicYearOptions={academicYearOptions} allowAllSemesters />}
-          {role === "admin" && (
+          {(role === "admin" || role === "director") && (
             <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2">
               <Power className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">เปิดให้ผู้ปกครอง</span>
@@ -247,7 +277,7 @@ const SDQPage = () => {
               <DialogHeader><DialogTitle>บันทึกแบบประเมิน SDQ</DialogTitle></DialogHeader>
               <div className="space-y-4">
                 <Card><CardContent className="pt-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div><Label>ระดับชั้น/ห้อง</Label>
                       <Select value={formClassroom} onValueChange={(v) => { setFormClassroom(v); setStudentId(""); }}>
                         <SelectTrigger><SelectValue placeholder="เลือกห้องเรียน" /></SelectTrigger>
@@ -259,7 +289,7 @@ const SDQPage = () => {
                         <SelectContent>{students.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.student_code} - {s.prefix}{s.first_name} {s.last_name}</SelectItem>)}</SelectContent>
                       </Select></div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div><Label>ผู้ประเมิน</Label>
                       <Input value={assessor} onChange={(e) => setAssessor(e.target.value)} /></div>
                     <div><Label>ประเภท</Label>
@@ -272,7 +302,7 @@ const SDQPage = () => {
                         </SelectContent></Select></div>
                   </div>
                 </CardContent></Card>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>อารมณ์ (0-10)</Label><Input type="number" min="0" max="10" value={emotional} onChange={(e) => setEmotional(e.target.value)} /></div>
                   <div><Label>ความประพฤติ (0-10)</Label><Input type="number" min="0" max="10" value={conduct} onChange={(e) => setConduct(e.target.value)} /></div>
                   <div><Label>สมาธิ/ไฮเปอร์ (0-10)</Label><Input type="number" min="0" max="10" value={hyper} onChange={(e) => setHyper(e.target.value)} /></div>
@@ -333,17 +363,17 @@ const SDQPage = () => {
               <p className="text-3xl font-bold text-foreground">{summary.total}</p>
               <p className="text-xs text-muted-foreground">ประเมินทั้งหมด</p>
             </CardContent></Card>
-            <Card className="border-success/30"><CardContent className="pt-4 text-center">
-              <p className="text-3xl font-bold text-success">{summary.normal}</p>
+            <Card className="border-green-200"><CardContent className="pt-4 text-center">
+              <p className="text-3xl font-bold text-green-600">{summary.normal}</p>
               <p className="text-xs text-muted-foreground">ปกติ</p>
               {summary.total > 0 && <Progress value={(summary.normal / summary.total) * 100} className="mt-2 h-1.5" />}
             </CardContent></Card>
-            <Card className="border-warning/30"><CardContent className="pt-4 text-center">
-              <p className="text-3xl font-bold text-warning">{summary.borderline}</p>
+            <Card className="border-yellow-200"><CardContent className="pt-4 text-center">
+              <p className="text-3xl font-bold text-yellow-600">{summary.borderline}</p>
               <p className="text-xs text-muted-foreground">เสี่ยง</p>
               {summary.total > 0 && <Progress value={(summary.borderline / summary.total) * 100} className="mt-2 h-1.5" />}
             </CardContent></Card>
-            <Card className="border-danger/30"><CardContent className="pt-4 text-center">
+            <Card className="border-red-200"><CardContent className="pt-4 text-center">
               <p className="text-3xl font-bold text-destructive">{summary.abnormal}</p>
               <p className="text-xs text-muted-foreground">ผิดปกติ</p>
               {summary.total > 0 && <Progress value={(summary.abnormal / summary.total) * 100} className="mt-2 h-1.5" />}
@@ -457,7 +487,7 @@ const SDQPage = () => {
                     <TableRow key={r.id}>
                       <TableCell className="font-mono text-xs">{getStudentCode(r)}</TableCell>
                       <TableCell>{getStudentName(r)}</TableCell>
-                      <TableCell>{(r.academic_year || 0) + 543}</TableCell>
+                      <TableCell>{(r.academic_year || 0) + BE_OFFSET}</TableCell>
                       <TableCell>{r.assessment_by || "-"}</TableCell>
                       <TableCell><Badge variant="outline" className="text-xs">{r.assessment_type === "parent" ? "ผู้ปกครอง" : r.assessment_type === "self" ? "ตนเอง" : "ครู"}</Badge></TableCell>
                       <TableCell>{r.emotional_score}</TableCell>
@@ -467,7 +497,7 @@ const SDQPage = () => {
                       <TableCell>{r.prosocial_score}</TableCell>
                       <TableCell className="font-bold">{r.total_difficulty}</TableCell>
                       <TableCell><Badge variant={lv.variant}>{lv.label}</Badge></TableCell>
-                      <TableCell>{(canManageAll || (r as any).created_by === userId) && (<Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>)}</TableCell>
+                      <TableCell><Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button></TableCell>
                     </TableRow>
                   );
                 })}
@@ -480,7 +510,7 @@ const SDQPage = () => {
 
       {/* Individual Student Detail Dialog */}
       <Dialog open={!!viewStudent} onOpenChange={(v) => !v && setViewStudent(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               ผลประเมิน SDQ - {viewStudentRecords.student ? `${viewStudentRecords.student.prefix || ""}${viewStudentRecords.student.first_name} ${viewStudentRecords.student.last_name}` : ""}

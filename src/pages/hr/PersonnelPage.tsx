@@ -9,9 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Search, Building2, UserCheck, TrendingUp, AlertTriangle, Crown } from "lucide-react";
-import DepartmentManagementPage from "@/pages/admin/DepartmentManagementPage";
-
+import { Users, Search, Building2, UserCheck, TrendingUp, AlertTriangle } from "lucide-react";
 import { CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 
@@ -79,8 +77,8 @@ const PersonnelPage = () => {
     const academicStanding = personnel?.academic_standing || "";
     const combined = `${rawPosition} ${academicStanding}`;
 
-    if (combined.includes("รองผู้อำนวยการ") || combined.includes("รองผอ")) return "รองผู้อำนวยการ";
     if (combined.includes("ผู้อำนวยการ")) return "ผู้อำนวยการ";
+    if (combined.includes("รองผู้อำนวยการ")) return "รองผู้อำนวยการ";
     if (combined.includes("คศ.3")) return "ครู คศ.3";
     if (combined.includes("คศ.2")) return "ครู คศ.2";
     if (combined.includes("คศ.1")) return "ครู คศ.1";
@@ -89,7 +87,7 @@ const PersonnelPage = () => {
     if (combined.includes("ลูกจ้างชั่วคราว")) return "ลูกจ้างชั่วคราว";
     if (combined.includes("ครูอัตราจ้าง")) return "ครูอัตราจ้าง";
     if (combined.includes("นักการภารโรง")) return "นักการภารโรง";
-    if (role === "director") return rawPosition?.includes("รอง") ? "รองผู้อำนวยการ" : "ผู้อำนวยการ";
+    if (role === "director") return "ผู้อำนวยการ";
     if (role === "admin") return rawPosition || "ผู้ดูแลระบบ";
     return rawPosition || "ครู";
   };
@@ -154,17 +152,16 @@ const PersonnelPage = () => {
     return true;
   });
 
-  const roleLabel = (r: string, position?: string) => {
-    if (r === "director" && position?.includes("รอง")) return "รองผู้อำนวยการ";
+  const roleLabel = (r: string) => {
     const map: Record<string, string> = { admin: "ผู้ดูแลระบบ", teacher: "ครู", director: "ผู้อำนวยการ" };
     return map[r] || r;
   };
 
   const roleColor = (r: string) => {
     const map: Record<string, string> = {
-      admin: "bg-danger-soft text-danger",
-      director: "bg-info-soft text-info",
-      teacher: "bg-info-soft text-info",
+      admin: "bg-red-100 text-red-800",
+      director: "bg-purple-100 text-purple-800",
+      teacher: "bg-blue-100 text-blue-800",
     };
     return map[r] || "";
   };
@@ -220,17 +217,16 @@ const PersonnelPage = () => {
         <TabsList>
           <TabsTrigger value="personnel"><Users className="w-4 h-4 mr-1" /> ข้อมูลบุคลากร</TabsTrigger>
           <TabsTrigger value="workforce"><TrendingUp className="w-4 h-4 mr-1" /> อัตรากำลัง</TabsTrigger>
-          <TabsTrigger value="departments"><Crown className="w-4 h-4 mr-1" /> ฝ่าย & หัวหน้าหมวด</TabsTrigger>
         </TabsList>
 
         <TabsContent value="personnel" className="space-y-6">
           {/* Summary */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">บุคลากรทั้งหมด</p><p className="text-2xl font-bold text-primary">{mergedStaff.length}</p></CardContent></Card>
-            <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">ครูผู้สอน</p><p className="text-2xl font-bold text-info">{mergedStaff.filter((s: any) => s.role === "teacher").length}</p></CardContent></Card>
-            <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">ผู้บริหาร</p><p className="text-2xl font-bold text-info">{mergedStaff.filter((s: any) => s.role === "director").length}</p></CardContent></Card>
+            <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">ครูผู้สอน</p><p className="text-2xl font-bold text-blue-600">{mergedStaff.filter((s: any) => s.role === "teacher").length}</p></CardContent></Card>
+            <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">ผู้บริหาร</p><p className="text-2xl font-bold text-purple-600">{mergedStaff.filter((s: any) => s.role === "director").length}</p></CardContent></Card>
             <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">ฝ่ายงาน</p><p className="text-2xl font-bold text-foreground">{DEPARTMENTS.length}</p></CardContent></Card>
-            <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">ใกล้เกษียณ</p><p className="text-2xl font-bold text-warning">{retiringSoon}</p></CardContent></Card>
+            <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">ใกล้เกษียณ</p><p className="text-2xl font-bold text-orange-600">{retiringSoon}</p></CardContent></Card>
           </div>
 
           {/* Search & Filter */}
@@ -268,7 +264,7 @@ const PersonnelPage = () => {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {s.avatar_url ? (
-                          <img src={s.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                          <img loading="lazy" decoding="async" src={s.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
                         ) : (
                           <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium flex-shrink-0">{(s.first_name || "?")[0]}</div>
                         )}
@@ -277,14 +273,14 @@ const PersonnelPage = () => {
                     </TableCell>
                     <TableCell>{s.position}</TableCell>
                     <TableCell>{s.dept}</TableCell>
-                    <TableCell><Badge className={roleColor(s.role)}>{roleLabel(s.role, s.position)}</Badge></TableCell>
+                    <TableCell><Badge className={roleColor(s.role)}>{roleLabel(s.role)}</Badge></TableCell>
                     <TableCell className="text-xs">{s.hireDate ? new Date(s.hireDate).toLocaleDateString("th-TH") : "-"}</TableCell>
                     <TableCell>{s.phone || "-"}</TableCell>
                     <TableCell>
                       {s.leaveDate ? (
                         <Badge variant="outline" className="text-muted-foreground">พ้นราชการ</Badge>
                       ) : (
-                        <Badge className="bg-success-soft text-success">ปฏิบัติงาน</Badge>
+                        <Badge className="bg-emerald-100 text-emerald-800">ปฏิบัติงาน</Badge>
                       )}
                     </TableCell>
                   </TableRow>
@@ -304,14 +300,14 @@ const PersonnelPage = () => {
               <p className="text-3xl font-bold text-primary">{activeCount}</p>
             </CardContent></Card>
             <Card><CardContent className="pt-6 text-center">
-              <Users className="w-8 h-8 text-info mx-auto mb-2" />
+              <Users className="w-8 h-8 text-blue-600 mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">ทั้งหมด (รวมพ้นราชการ)</p>
               <p className="text-3xl font-bold">{totalPositions}</p>
             </CardContent></Card>
             <Card><CardContent className="pt-6 text-center">
-              <AlertTriangle className="w-8 h-8 text-warning mx-auto mb-2" />
+              <AlertTriangle className="w-8 h-8 text-orange-500 mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">ใกล้เกษียณ (อายุ ≥ 58)</p>
-              <p className="text-3xl font-bold text-warning">{retiringSoon}</p>
+              <p className="text-3xl font-bold text-orange-600">{retiringSoon}</p>
             </CardContent></Card>
             <Card><CardContent className="pt-6 text-center">
               <Building2 className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
@@ -367,10 +363,6 @@ const PersonnelPage = () => {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="departments" className="space-y-6">
-          <DepartmentManagementPage />
         </TabsContent>
       </Tabs>
     </div>

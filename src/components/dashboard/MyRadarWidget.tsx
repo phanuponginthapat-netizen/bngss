@@ -9,6 +9,7 @@ import {
 import { TrendingUp, TrendingDown, Trophy, AlertTriangle, BarChart3 } from "lucide-react";
 import { SUBJECT_GROUPS, type SubjectGroup } from "@/lib/obecStandards";
 import { useUserRole } from "@/hooks/useUserRole";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 /**
  * MyRadarWidget — กราฟใยแมงมุมคะแนนของ "นักเรียน/ลูก" คนนี้ แยกตาม 8 กลุ่มสาระ
@@ -122,7 +123,7 @@ export default function MyRadarWidget({ studentCode: propStudentCode }: Props) {
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-info to-danger flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
               <BarChart3 className="w-3.5 h-3.5 text-primary-foreground" />
             </div>
             คะแนนของฉันตามกลุ่มสาระ
@@ -130,7 +131,7 @@ export default function MyRadarWidget({ studentCode: propStudentCode }: Props) {
           <div className="flex items-center gap-2 text-[10px]">
             <span className="flex items-center gap-1">
               <span className="w-3 h-2 rounded-sm bg-primary" />
-              <span className="text-muted-foreground">ปี {currentAcademicYear + 543}</span>
+              <span className="text-muted-foreground">ปี {currentAcademicYear + BE_OFFSET}</span>
             </span>
             <span className="flex items-center gap-1">
               <span className="w-3 h-2 rounded-sm bg-primary/25" />
@@ -157,7 +158,7 @@ export default function MyRadarWidget({ studentCode: propStudentCode }: Props) {
                 <Radar name={`ปี ${currentAcademicYear + 542}`} dataKey="previous"
                   stroke="hsl(var(--primary))" strokeOpacity={0.35} strokeDasharray="4 3"
                   fill="hsl(var(--primary))" fillOpacity={0.12} />
-                <Radar name={`ปี ${currentAcademicYear + 543}`} dataKey="current"
+                <Radar name={`ปี ${currentAcademicYear + BE_OFFSET}`} dataKey="current"
                   stroke="hsl(var(--primary))" strokeWidth={2}
                   fill="hsl(var(--primary))" fillOpacity={0.45} />
                 <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
@@ -178,7 +179,7 @@ export default function MyRadarWidget({ studentCode: propStudentCode }: Props) {
               <div className="rounded-lg bg-muted/40 p-2">
                 <div className="text-muted-foreground">เทียบปีก่อน</div>
                 <div className={`text-base font-semibold flex items-center justify-center gap-1 ${
-                  delta > 0 ? "text-success" : delta < 0 ? "text-danger" : "text-muted-foreground"
+                  delta > 0 ? "text-emerald-600" : delta < 0 ? "text-rose-600" : "text-muted-foreground"
                 }`}>
                   {delta > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : delta < 0 ? <TrendingDown className="w-3.5 h-3.5" /> : null}
                   {delta > 0 ? "+" : ""}{delta || "—"}
@@ -192,8 +193,8 @@ export default function MyRadarWidget({ studentCode: propStudentCode }: Props) {
 
             <div className="grid grid-cols-2 gap-2 text-xs">
               {top && (
-                <div className="rounded-lg border border-success/60 bg-success/40 dark:bg-success/20 p-2">
-                  <div className="flex items-center gap-1 text-success dark:text-success font-medium">
+                <div className="rounded-lg border border-emerald-200/60 bg-emerald-50/40 dark:bg-emerald-950/20 p-2">
+                  <div className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-medium">
                     <Trophy className="w-3.5 h-3.5" />จุดแข็ง
                   </div>
                   <div className="truncate">{SUBJECT_GROUPS.find((g) => g.key === top.key)?.name}</div>
@@ -201,8 +202,8 @@ export default function MyRadarWidget({ studentCode: propStudentCode }: Props) {
                 </div>
               )}
               {low && (
-                <div className="rounded-lg border border-warning/60 bg-warning/40 dark:bg-warning/20 p-2">
-                  <div className="flex items-center gap-1 text-warning dark:text-warning font-medium">
+                <div className="rounded-lg border border-amber-200/60 bg-amber-50/40 dark:bg-amber-950/20 p-2">
+                  <div className="flex items-center gap-1 text-amber-700 dark:text-amber-400 font-medium">
                     <AlertTriangle className="w-3.5 h-3.5" />ควรพัฒนา
                   </div>
                   <div className="truncate">{SUBJECT_GROUPS.find((g) => g.key === low.key)?.name}</div>
@@ -226,7 +227,7 @@ export default function MyRadarWidget({ studentCode: propStudentCode }: Props) {
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-muted-foreground tabular-nums">{r.current || "—"}</span>
                       {diff !== null && diff !== 0 && (
-                        <span className={`tabular-nums text-[10px] ${diff > 0 ? "text-success" : "text-danger"}`}>
+                        <span className={`tabular-nums text-[10px] ${diff > 0 ? "text-emerald-600" : "text-rose-600"}`}>
                           {diff > 0 ? "+" : ""}{diff}
                         </span>
                       )}

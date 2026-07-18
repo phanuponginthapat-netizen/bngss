@@ -171,8 +171,8 @@ export default function IoTDevicesPage() {
                     {!d.is_active && <Badge variant="secondary">ปิดใช้งาน</Badge>}
                     {d.last_status && (
                       <Badge variant="outline" className={
-                        d.last_status === "online" ? "text-success border-success/30"
-                        : d.last_status === "error" ? "text-danger border-danger/30"
+                        d.last_status === "online" ? "text-emerald-600 border-emerald-500/30"
+                        : d.last_status === "error" ? "text-rose-600 border-rose-500/30"
                         : ""
                       }>{d.last_status}</Badge>
                     )}
@@ -194,7 +194,7 @@ export default function IoTDevicesPage() {
                     <Pencil className="h-4 w-4" />
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => remove(d.id)}>
-                    <Trash2 className="h-4 w-4 text-danger" />
+                    <Trash2 className="h-4 w-4 text-rose-500" />
                   </Button>
                 </div>
               </CardContent>
@@ -207,7 +207,7 @@ export default function IoTDevicesPage() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{form.id ? "แก้ไขอุปกรณ์" : "เพิ่มอุปกรณ์ IoT"}</DialogTitle>
           </DialogHeader>

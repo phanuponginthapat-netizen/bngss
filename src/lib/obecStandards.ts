@@ -24,14 +24,14 @@ export interface SubjectGroup {
 }
 
 export const SUBJECT_GROUPS: SubjectGroup[] = [
-  { code: "ท", key: "thai",    name: "ภาษาไทย",                          nameEn: "Thai Language",        color: "bg-cat-1-soft text-cat-1" },
-  { code: "ค", key: "math",    name: "คณิตศาสตร์",                        nameEn: "Mathematics",          color: "bg-cat-2-soft text-cat-2" },
-  { code: "ว", key: "science", name: "วิทยาศาสตร์และเทคโนโลยี",          nameEn: "Science & Technology", color: "bg-cat-3-soft text-cat-3" },
-  { code: "ส", key: "social",  name: "สังคมศึกษา ศาสนา และวัฒนธรรม",     nameEn: "Social Studies",       color: "bg-cat-4-soft text-cat-4" },
-  { code: "พ", key: "health",  name: "สุขศึกษาและพลศึกษา",               nameEn: "Health & PE",          color: "bg-cat-5-soft text-cat-5" },
-  { code: "ศ", key: "art",     name: "ศิลปะ",                            nameEn: "Arts",                 color: "bg-cat-6-soft text-cat-6" },
-  { code: "ง", key: "career",  name: "การงานอาชีพ",                      nameEn: "Occupations",          color: "bg-cat-7-soft text-cat-7" },
-  { code: "อ", key: "foreign", name: "ภาษาต่างประเทศ",                   nameEn: "Foreign Languages",    color: "bg-cat-8-soft text-cat-8" },
+  { code: "ท", key: "thai",    name: "ภาษาไทย",                          nameEn: "Thai Language",        color: "bg-rose-100 text-rose-700" },
+  { code: "ค", key: "math",    name: "คณิตศาสตร์",                        nameEn: "Mathematics",          color: "bg-blue-100 text-blue-700" },
+  { code: "ว", key: "science", name: "วิทยาศาสตร์และเทคโนโลยี",          nameEn: "Science & Technology", color: "bg-emerald-100 text-emerald-700" },
+  { code: "ส", key: "social",  name: "สังคมศึกษา ศาสนา และวัฒนธรรม",     nameEn: "Social Studies",       color: "bg-amber-100 text-amber-700" },
+  { code: "พ", key: "health",  name: "สุขศึกษาและพลศึกษา",               nameEn: "Health & PE",          color: "bg-orange-100 text-orange-700" },
+  { code: "ศ", key: "art",     name: "ศิลปะ",                            nameEn: "Arts",                 color: "bg-pink-100 text-pink-700" },
+  { code: "ง", key: "career",  name: "การงานอาชีพ",                      nameEn: "Occupations",          color: "bg-stone-100 text-stone-700" },
+  { code: "อ", key: "foreign", name: "ภาษาต่างประเทศ",                   nameEn: "Foreign Languages",    color: "bg-indigo-100 text-indigo-700" },
 ];
 
 /**

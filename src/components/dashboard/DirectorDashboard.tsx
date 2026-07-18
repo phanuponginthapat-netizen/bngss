@@ -70,13 +70,15 @@ const DirectorDashboard = () => {
         supabase.from("documents").select("id, status"),
       ]);
 
-      const totalAtt = attendance.data?.length || 0;
-      const present = attendance.data?.filter(a => a.status === "present").length || 0;
-      const absent = attendance.data?.filter(a => a.status === "absent").length || 0;
-      const late = attendance.data?.filter(a => a.status === "late").length || 0;
+      const today = new Date().toISOString().split("T")[0];
+      const todayRows = attendance.data?.filter(a => a.attendance_date === today) || [];
+      const totalAtt = todayRows.length;
+      const present = todayRows.filter(a => a.status === "present").length;
+      const absent = todayRows.filter(a => a.status === "absent").length;
+      const late = todayRows.filter(a => a.status === "late").length;
       const rate = totalAtt > 0 ? (present / totalAtt) * 100 : 0;
 
-      // 30-day attendance trend
+      // 14-day attendance trend (context)
       const dayMap: Record<string, { p: number; t: number }> = {};
       attendance.data?.forEach(a => {
         const k = a.attendance_date;
@@ -124,8 +126,11 @@ const DirectorDashboard = () => {
         upcomingEvents: events.data || [],
       };
     },
-    refetchInterval: 120_000,
-    staleTime: 60_000,
+    refetchInterval: 10 * 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   const getGreeting = () => {
@@ -139,6 +144,13 @@ const DirectorDashboard = () => {
     (stats?.pendingStudentLeaves || 0) +
     (stats?.pendingStaffLeaves || 0) +
     (stats?.pendingDocs || 0);
+
+  const capacity = stats?.classrooms
+    ? Math.round((stats.students || 0) / stats.classrooms)
+    : 0;
+  const homeroomCoverage = stats?.classrooms
+    ? Math.round(((stats.classroomsWithTeacher || 0) / stats.classrooms) * 100)
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -176,16 +188,33 @@ const DirectorDashboard = () => {
             </div>
 
             {weather.hasCoords && !weather.isLoading && weather.temperature !== null && (
-              <div className="hidden sm:flex items-center gap-3 bg-white/15 backdrop-blur-sm rounded-xl px-4 py-2.5">
+              <div className="hidden sm:flex items-center gap-3 bg-white/15 backdrop-blur-sm rounded-xl px-4 py-2.5 shrink-0">
                 <Thermometer className="w-4 h-4" />
-                <span className="text-lg font-bold">{weather.temperature?.toFixed(1)}°C</span>
+                <span className="text-lg font-bold tabular-nums">{weather.temperature?.toFixed(1)}°C</span>
                 <div className="w-px h-8 bg-white/30" />
                 <Wind className="w-4 h-4" />
-                <span className="text-xs font-semibold">
+                <span className="text-xs font-semibold tabular-nums">
                   PM2.5 {weather.pm25 !== null ? `${weather.pm25.toFixed(0)}` : "N/A"}
                 </span>
               </div>
             )}
+          </div>
+
+          {/* Executive snapshot — 3 ตัวเลขสำคัญสุดเห็นทันที */}
+          <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
+            <SnapshotStat
+              label={L("เข้าเรียนวันนี้", "Attendance today")}
+              value={`${stats?.attendanceRate ?? "0"}%`}
+            />
+            <SnapshotStat
+              label={L("ห้องมีครูประจำ", "Homeroom coverage")}
+              value={`${homeroomCoverage}%`}
+            />
+            <SnapshotStat
+              label={L("รออนุมัติทั้งหมด", "Pending approvals")}
+              value={String(pendingTotal)}
+              highlight={pendingTotal > 0}
+            />
           </div>
 
           {pendingTotal > 0 && (
@@ -195,7 +224,7 @@ const DirectorDashboard = () => {
                   onClick={() => navigate("/dashboard/hr/leave")}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 transition text-xs font-medium backdrop-blur-sm"
                 >
-                  <ClipboardList className="w-3 h-3" /> {L("รออนุมัติลาบุคลากร", "Staff leaves pending")} {stats?.pendingStaffLeaves}
+                  <ClipboardList className="w-3 h-3" /> {L("ลาบุคลากร", "Staff leaves")} {stats?.pendingStaffLeaves}
                 </button>
               )}
               {(stats?.pendingStudentLeaves || 0) > 0 && (
@@ -203,7 +232,7 @@ const DirectorDashboard = () => {
                   onClick={() => navigate("/dashboard/student/leave")}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 transition text-xs font-medium backdrop-blur-sm"
                 >
-                  <ClipboardList className="w-3 h-3" /> {L("รออนุมัติลานักเรียน", "Student leaves pending")} {stats?.pendingStudentLeaves}
+                  <ClipboardList className="w-3 h-3" /> {L("ลานักเรียน", "Student leaves")} {stats?.pendingStudentLeaves}
                 </button>
               )}
               {(stats?.pendingDocs || 0) > 0 && (
@@ -211,7 +240,7 @@ const DirectorDashboard = () => {
                   onClick={() => navigate("/dashboard/admin/document")}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 transition text-xs font-medium backdrop-blur-sm"
                 >
-                  <FileText className="w-3 h-3" /> {L("เอกสารรอลงนาม", "Documents pending")} {stats?.pendingDocs}
+                  <FileText className="w-3 h-3" /> {L("เอกสารรอลงนาม", "Documents")} {stats?.pendingDocs}
                 </button>
               )}
             </div>
@@ -227,9 +256,9 @@ const DirectorDashboard = () => {
             <>
               <KpiCard
                 icon={Users}
-                label={L("นักเรียน", "Students")}
+                label={L("นักเรียนทั้งหมด", "Total Students")}
                 value={stats?.students || 0}
-                sub={L(`ช ${stats?.male} · ญ ${stats?.female}`, `M ${stats?.male} · F ${stats?.female}`)}
+                sub={L(`ช ${stats?.male} · ญ ${stats?.female} · ~${capacity}/ห้อง`, `M ${stats?.male} · F ${stats?.female} · ~${capacity}/class`)}
                 gradient="gradient-primary"
                 onClick={() => navigate("/dashboard/academic/all-students")}
               />
@@ -237,33 +266,34 @@ const DirectorDashboard = () => {
                 icon={GraduationCap}
                 label={L("บุคลากร", "Personnel")}
                 value={stats?.personnel || 0}
-                sub={L(`${stats?.classrooms} ห้องเรียน`, `${stats?.classrooms} classrooms`)}
+                sub={L(`${stats?.classroomsWithTeacher}/${stats?.classrooms} ห้องมีครูประจำ`, `${stats?.classroomsWithTeacher}/${stats?.classrooms} homerooms staffed`)}
                 gradient="gradient-accent"
                 onClick={() => navigate("/dashboard/hr/personnel")}
               />
               <KpiCard
                 icon={UserCheck}
-                label={L("อัตราเข้าเรียน 30 วัน", "Attendance 30d")}
+                label={L("อัตราเข้าเรียนวันนี้", "Attendance today")}
                 value={`${stats?.attendanceRate}%`}
                 gradient="gradient-success"
                 progress={parseFloat(stats?.attendanceRate || "0")}
                 onClick={() => navigate("/dashboard/student/attendance")}
               />
               <KpiCard
-                icon={Award}
-                label={L("PA ที่อนุมัติ", "PA Approved")}
-                value={`${stats?.paApproved || 0}/${stats?.paTotal || 0}`}
-                sub={L("ข้อตกลงพัฒนางาน", "Performance Agreements")}
-                gradient="gradient-warning"
-                onClick={() => navigate("/dashboard/hr/evaluation")}
+                icon={ClipboardList}
+                label={L("รออนุมัติ", "Pending Actions")}
+                value={pendingTotal}
+                sub={L(`PA ${stats?.paApproved ?? 0}/${stats?.paTotal ?? 0} · ประเมิน ${stats?.evalTotal ?? 0}`, `PA ${stats?.paApproved ?? 0}/${stats?.paTotal ?? 0} · Evals ${stats?.evalTotal ?? 0}`)}
+                gradient={pendingTotal > 0 ? "gradient-warning" : "gradient-info"}
+                onClick={() => navigate("/dashboard/hr/leave")}
               />
             </>
           )}
       </div>
 
+
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="border border-border/50 shadow-elevated rounded-2xl lg:col-span-2">
+        <Card onClick={() => navigate("/dashboard/student/attendance")} className="border border-border/50 shadow-elevated rounded-2xl lg:col-span-2 cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardHeader className="pb-0">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg gradient-success flex items-center justify-center">
@@ -297,13 +327,13 @@ const DirectorDashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="border border-border/50 shadow-elevated rounded-2xl">
+        <Card onClick={() => navigate("/dashboard/student/attendance")} className="border border-border/50 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardHeader className="pb-0">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center">
                 <ChartBar className="w-3.5 h-3.5 text-primary-foreground" />
               </div>
-              {L("สัดส่วนการเข้าเรียน", "Attendance Mix")}
+              {L("สัดส่วนการเข้าเรียนวันนี้", "Today's Attendance Mix")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -337,7 +367,7 @@ const DirectorDashboard = () => {
 
       {/* Quality & approvals + News/Events */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="border border-border/50 shadow-elevated rounded-2xl">
+        <Card onClick={() => navigate("/dashboard/hub/student-health")} className="border border-border/50 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg gradient-accent flex items-center justify-center">
@@ -379,7 +409,7 @@ const DirectorDashboard = () => {
         </Card>
 
         <div className="space-y-4">
-          <Card className="border border-border/50 shadow-elevated rounded-2xl">
+          <Card onClick={() => navigate("/dashboard/admin/news")} className="border border-border/50 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
             <CardContent className="p-3">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -392,14 +422,10 @@ const DirectorDashboard = () => {
               ) : stats?.recentNews?.length ? (
                 <div className="space-y-0.5">
                   {stats.recentNews.slice(0, 4).map((n: any) => (
-                    <button
-                      key={n.id}
-                      onClick={() => navigate(`/dashboard/news/${n.id}`)}
-                      className="w-full flex items-center gap-2 py-1 text-left hover:bg-muted/50 rounded px-1 -mx-1 transition-colors"
-                    >
+                    <div key={n.id} className="flex items-center gap-2 py-1">
                       <div className="w-1 h-1 rounded-full bg-primary shrink-0" />
                       <span className="text-[11px] text-foreground truncate leading-tight">{n.title}</span>
-                    </button>
+                    </div>
                   ))}
                 </div>
               ) : (
@@ -408,7 +434,7 @@ const DirectorDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="border border-border/50 shadow-elevated rounded-2xl">
+          <Card onClick={() => navigate("/dashboard/academic/calendar")} className="border border-border/50 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
             <CardContent className="p-3">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-6 h-6 rounded-lg gradient-warning flex items-center justify-center">
@@ -421,22 +447,17 @@ const DirectorDashboard = () => {
               ) : stats?.upcomingEvents?.length ? (
                 <div className="space-y-1">
                   {stats.upcomingEvents.slice(0, 4).map((e: any) => (
-                    <button
-                      key={e.id}
-                      onClick={() => navigate("/dashboard/academic/calendar")}
-                      className="w-full flex items-center gap-2 py-1 text-left hover:bg-muted/50 rounded px-1 -mx-1 transition-colors"
-                    >
+                    <div key={e.id} className="flex items-center gap-2 py-1">
                       <div className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
                         {new Date(e.event_date).toLocaleDateString(lang === "th" ? "th-TH" : "en-US", { day: "numeric", month: "short" })}
                       </div>
                       <span className="text-[11px] text-foreground truncate">{e.title}</span>
-                    </button>
+                    </div>
                   ))}
                 </div>
               ) : (
                 <p className="text-muted-foreground text-[11px] text-center py-6">{L("ไม่มีกิจกรรม", "No events")}</p>
               )}
-
             </CardContent>
           </Card>
         </div>
@@ -494,8 +515,8 @@ const KpiCard = ({ icon: Icon, label, value, sub, gradient, onClick, progress }:
           <Icon className="w-5 h-5 text-primary-foreground" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] text-muted-foreground font-medium">{label}</p>
-          <p className="text-xl font-bold text-foreground leading-tight mt-0.5">{value}</p>
+          <p className="text-[11px] text-muted-foreground font-medium truncate">{label}</p>
+          <p className="text-xl font-bold text-foreground leading-tight mt-0.5 tabular-nums truncate">{value}</p>
           {progress !== undefined && <Progress value={progress} className="h-1.5 mt-2" />}
           {sub && <p className="text-[10px] text-muted-foreground mt-1 truncate">{sub}</p>}
         </div>
@@ -513,5 +534,13 @@ const StatRow = ({ icon: Icon, label, value, color }: { icon: React.ComponentTyp
     <span className={`text-sm font-bold ${color || "text-foreground"}`}>{value}</span>
   </div>
 );
+
+const SnapshotStat = ({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) => (
+  <div className={`rounded-xl px-3 py-2 backdrop-blur-sm min-w-0 ${highlight ? "bg-white/25 ring-1 ring-white/40" : "bg-white/10"}`}>
+    <p className="text-[10px] uppercase tracking-wide opacity-75 truncate">{label}</p>
+    <p className="text-lg sm:text-xl font-bold tabular-nums truncate leading-tight">{value}</p>
+  </div>
+);
+
 
 export default DirectorDashboard;

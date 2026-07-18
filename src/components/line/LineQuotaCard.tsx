@@ -96,11 +96,11 @@ export default function LineQuotaCard({ enabled }: { enabled: boolean }) {
         {enabled && data && (
           <>
             {unlimited ? (
-              <div className="flex items-center gap-3 p-4 rounded-lg bg-success-soft dark:bg-success/30 border border-success/30 dark:border-success/30">
-                <InfinityIcon className="w-8 h-8 text-success" />
+              <div className="flex items-center gap-3 p-4 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900">
+                <InfinityIcon className="w-8 h-8 text-emerald-600" />
                 <div>
                   <p className="text-sm text-muted-foreground">{isTh ? "แพ็กเกจ" : "Plan"}</p>
-                  <p className="text-lg font-bold text-success dark:text-success">
+                  <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
                     {isTh ? "ไม่จำกัด (Unlimited)" : "Unlimited"}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">

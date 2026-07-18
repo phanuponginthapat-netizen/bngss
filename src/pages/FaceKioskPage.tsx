@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { todayBangkok } from "@/lib/dateBE";
 import { attachStreamToVideo } from "@/lib/cameraIos";
 import Hls from "hls.js";
@@ -7,9 +7,8 @@ import { useQuery } from "@tanstack/react-query";
 import {
   loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame,
   detectorOptionsHQ, applyCameraAutoTune, preprocessFrame, estimateFaceSharpness,
-  type KnownFace, type MatchResult,
+  type KnownFace,
 } from "@/lib/faceApi";
-import { loadArcFace, computeArcFaceEmbedding, matchArcFace, ARCFACE_GRADE, type KnownArcFace } from "@/lib/arcface";
 import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText } from "@/lib/faceScanAudio";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +21,22 @@ import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { CheckCircle2 } from "lucide-react";
 import { uploadFaceScanSnapshot } from "@/lib/faceScanUpload";
 import { useAutoScanMode } from "@/hooks/useAutoScanMode";
-import { resolveDisplayImageUrl, useResolvedImageUrl } from "@/lib/storageUrl";
+import KioskScreensaver from "@/components/facescan/KioskScreensaver";
+import KioskHelloAi from "@/components/facescan/KioskHelloAi";
+import { useCmsValues } from "@/hooks/useCmsSettings";
+import { wakeKioskScreen } from "@/lib/kioskWake";
+
+// ===== Helper: hex → rgba with alpha (สำหรับใช้ theme สีจาก CMS) =====
+const hexA = (hex: string, a: number): string => {
+  const m = /^#?([a-f\d]{3}|[a-f\d]{6})$/i.exec(hex || "");
+  if (!m) return `rgba(0,0,0,${a})`;
+  let h = m[1];
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
+};
 
 interface RecentScan {
   studentId: string;
@@ -35,12 +49,6 @@ interface RecentScan {
   confidence: number;
   scanType?: "entry" | "exit";
 }
-
-const RecentAvatar = ({ src, alt }: { src?: string | null; alt: string }) => {
-  const resolved = useResolvedImageUrl(src);
-  if (!resolved) return <div className="w-full h-full flex items-center justify-center text-[8px] text-neutral">-</div>;
-  return <img src={resolved} alt={alt} className="w-full h-full object-cover" />;
-};
 
 // ScanMode type is provided by useAutoScanMode
 
@@ -67,6 +75,9 @@ const FaceKioskPage = () => {
   const [modelStatus, setModelStatus] = useState("กำลังโหลดโมเดล...");
   const [recent, setRecent] = useState<RecentScan[]>([]);
   const [todayCounts, setTodayCounts] = useState<{ entry: number; exit: number }>({ entry: 0, exit: 0 });
+  // โหมด QR เท่านั้น — ไม่โหลด/รันโมเดลใบหน้า ประหยัด CPU สำหรับเครื่องสเปกต่ำ (Pavilion x2 / Atom / Celeron)
+  const [qrOnly, setQrOnly] = useState<boolean>(() => localStorage.getItem("face_kiosk_qr_only") === "1");
+  useEffect(() => { localStorage.setItem("face_kiosk_qr_only", qrOnly ? "1" : "0"); }, [qrOnly]);
   const { selection: scanModeSelection, setSelection: setScanModeSelection, effective: scanMode, effectiveRef: scanModeRef, cutoff: modeCutoff, checkWindow, entryWindow, exitWindow } = useAutoScanMode();
   const [camMode, setCamMode] = useState<CamMode>("standard");
   const [screensaver, setScreensaver] = useState(false);
@@ -80,11 +91,45 @@ const FaceKioskPage = () => {
 
   const { value: thresholdSetting } = useSchoolSetting("face_scan_threshold");
   const { value: voiceSetting } = useSchoolSetting("face_scan_voice");
+  const { value: idleSecSetting } = useSchoolSetting("kiosk_idle_timeout_sec");
+  const { value: helloAiSetting } = useSchoolSetting("kiosk_hello_ai_enabled");
+  const { value: powerSaveSetting } = useSchoolSetting("kiosk_power_save");
+  const { value: wakeWordSetting } = useSchoolSetting("kiosk_wake_word_enabled");
   const threshold = parseFloat(thresholdSetting || "0.48");
   const voiceEnabled = voiceSetting !== "false";
+  const idleMs = Math.max(15, parseInt(idleSecSetting || "60", 10) || 60) * 1000;
+  const helloAiEnabled = helloAiSetting !== "false";
+  const powerSave = powerSaveSetting !== "false";
+  const wakeWordEnabled = wakeWordSetting === "true";
+  const [helloAiOpen, setHelloAiOpen] = useState(false);
+  const [helloAiAutoListen, setHelloAiAutoListen] = useState(false);
   const geofence = useSchoolGeofence();
   const [geoStatus, setGeoStatus] = useState<{ ok: boolean; distance: number | null }>({ ok: !geofence.configured, distance: null });
   const { schoolName, schoolLogo } = useSystemSettings();
+
+  // ===== ธีมสีจาก CMS (theme_primary_color = สีหลัก/แถบเข้า, theme_accent_color = สีรอง/พื้นหลัง/แถบออก) =====
+  const cmsColors = useCmsValues(["theme_primary_color", "theme_accent_color"]);
+  const themePrimary = /^#?[0-9a-f]{3,6}$/i.test(cmsColors.theme_primary_color || "") ? cmsColors.theme_primary_color : "#059669"; // emerald-600
+  const themeAccent = /^#?[0-9a-f]{3,6}$/i.test(cmsColors.theme_accent_color || "") ? cmsColors.theme_accent_color : "#ec4899"; // pink-500
+  const pageBgStyle: React.CSSProperties = {
+    background: `linear-gradient(135deg, ${hexA(themeAccent, 0.08)} 0%, ${hexA(themeAccent, 0.12)} 50%, ${hexA(themeAccent, 0.2)} 100%)`,
+  };
+  const headerBannerStyle: React.CSSProperties = {
+    background: `linear-gradient(90deg, ${hexA(themePrimary, 0.1)} 0%, ${hexA(themePrimary, 0.14)} 50%, ${hexA(themePrimary, 0.22)} 100%)`,
+    borderBottom: `2px solid ${hexA(themePrimary, 0.35)}`,
+  };
+  const cameraPanelStyle: React.CSSProperties = { border: `2px solid ${hexA(themeAccent, 0.35)}` };
+  const sidePanelStyle: React.CSSProperties = { border: `2px solid ${hexA(themeAccent, 0.35)}` };
+  const sideHeaderStyle: React.CSSProperties = {
+    backgroundColor: hexA(themeAccent, 0.18),
+    borderBottom: `1px solid ${hexA(themeAccent, 0.3)}`,
+    color: themeAccent,
+  };
+  const bottomBarStyle: React.CSSProperties = {
+    background: `linear-gradient(to top, ${hexA(themeAccent, 0.4)} 0%, transparent 100%)`,
+  };
+  const clockCardStyle: React.CSSProperties = { border: `2px solid ${hexA(themePrimary, 0.5)}` };
+
 
   const verifyLocation = useCallback(async (): Promise<boolean> => {
     if (!geofence.configured) {
@@ -137,43 +182,22 @@ const FaceKioskPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("student_face_descriptors")
-        .select("student_id, descriptor, embedding_v2, model_version, students!inner(id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name))");
+        .select("student_id, descriptor, students!inner(id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name))");
       if (error) throw error;
-      type Row = KnownFace & { descriptorsV2: number[][]; name: string; classroom: string; avatar?: string | null; studentCode: string };
-      const map = new Map<string, Row>();
+      const map = new Map<string, KnownFace & { name: string; classroom: string; avatar?: string | null; studentCode: string }>();
       for (const row of data as any[]) {
         const id = row.student_id;
         const s = row.students;
         const name = `${s.prefix || ""}${s.first_name} ${s.last_name}`.trim();
         const cls = s.classrooms ? `${s.classrooms.grade_level || ""}/${s.classrooms.name || ""}` : "-";
         const existing = map.get(id);
-        if (existing) {
-          existing.descriptors.push(row.descriptor as number[]);
-          if (row.embedding_v2) existing.descriptorsV2.push(row.embedding_v2 as number[]);
-        } else {
-          map.set(id, {
-            studentId: id,
-            descriptors: [row.descriptor as number[]],
-            descriptorsV2: row.embedding_v2 ? [row.embedding_v2 as number[]] : [],
-            name, classroom: cls, avatar: s.photo_url ? await resolveDisplayImageUrl(s.photo_url) || s.photo_url : null, studentCode: s.student_code || "",
-          });
-        }
+        if (existing) existing.descriptors.push(row.descriptor as number[]);
+        else map.set(id, { studentId: id, descriptors: [row.descriptor as number[]], name, classroom: cls, avatar: s.photo_url, studentCode: s.student_code || "" });
       }
       return Array.from(map.values());
     },
     staleTime: 60_000,
   });
-
-  // ArcFace (DeepFace-grade) — non-blocking; fallback to face-api if it fails
-  const [arcReady, setArcReady] = useState(false);
-  useEffect(() => {
-    loadArcFace().then(() => setArcReady(true)).catch(() => setArcReady(false));
-  }, []);
-  const knownV2List: KnownArcFace[] = useMemo(
-    () => (known as any[]).filter((k) => k.descriptorsV2?.length > 0)
-                          .map((k) => ({ studentId: k.studentId, embeddings: k.descriptorsV2 })),
-    [known],
-  );
 
   useEffect(() => {
     (async () => {
@@ -193,9 +217,14 @@ const FaceKioskPage = () => {
   }, []);
 
   useEffect(() => {
+    if (qrOnly) {
+      setModelStatus("โหมด QR เท่านั้น — ประหยัด CPU");
+      setModelReady(false);
+      return;
+    }
     loadFaceModels(setModelStatus).then(() => setModelReady(true))
       .catch((e) => setModelStatus("โหลดล้มเหลว: " + e.message));
-  }, []);
+  }, [qrOnly]);
 
   const startCamera = useCallback(async (mode: CamMode = camMode) => {
     const ok = await verifyLocation();
@@ -300,6 +329,8 @@ const FaceKioskPage = () => {
     const now = Date.now();
     const mode = scanModeRef.current;
     const modeLabel = mode === "exit" ? "ออก" : "เข้า";
+    // Kiosk ในตู้ล็อก: ปลุกจอ (DPMS) ผ่าน local daemon เมื่อเจอคนสแกน
+    wakeKioskScreen();
     const win = checkWindow(mode);
     if (win.allowed === false) {
       const wkey = `${studentId}:window`;
@@ -324,6 +355,41 @@ const FaceKioskPage = () => {
       cooldownRef.current.set(cdKey, now);
       return;
     }
+
+    // ===== ป้องกันบันทึก "ออก" ใกล้เวลา "เข้า" เกินไป =====
+    if (mode === "exit") {
+      if (!seenTodayRef.current.entry.has(studentId)) {
+        const wkey = `${studentId}:no-entry`;
+        const lastNotice = duplicateNoticeRef.current.get(wkey) || 0;
+        if (now - lastNotice > 5_000) {
+          duplicateNoticeRef.current.set(wkey, now);
+          playDuplicateSound();
+          toast.warning("ปฏิเสธการสแกน", { description: `${name} ยังไม่ได้บันทึกเข้าโรงเรียนวันนี้`, duration: 2200 });
+        }
+        return;
+      }
+      // ดูเวลา entry ล่าสุดจาก DB เพื่อกัน race / state stale
+      const { data: lastEntry } = await supabase.from("face_scan_logs")
+        .select("scan_time").eq("student_id", studentId).eq("scan_date", todayBangkok())
+        .eq("scan_type", "entry").order("scan_time", { ascending: false }).limit(1).maybeSingle();
+      if (lastEntry?.scan_time) {
+        const gapMin = (now - new Date(lastEntry.scan_time).getTime()) / 60000;
+        if (gapMin < 30) {
+          const wkey = `${studentId}:gap`;
+          const lastNotice = duplicateNoticeRef.current.get(wkey) || 0;
+          if (now - lastNotice > 5_000) {
+            duplicateNoticeRef.current.set(wkey, now);
+            playDuplicateSound();
+            toast.warning("ปฏิเสธการสแกน", {
+              description: `${name} เพิ่งสแกนเข้าเมื่อ ${Math.round(gapMin)} นาทีที่แล้ว — ต้องห่างอย่างน้อย 30 นาทีจึงสแกนออกได้`,
+              duration: 2500,
+            });
+          }
+          return;
+        }
+      }
+    }
+
 
     const last = cooldownRef.current.get(cdKey) || 0;
     if (now - last < 30_000) {
@@ -369,7 +435,7 @@ const FaceKioskPage = () => {
   }, [voiceEnabled]);
 
   useEffect(() => {
-    if (!streaming || !modelReady || screensaver) return;
+    if (!streaming || !modelReady || screensaver || qrOnly) return;
     let cancelled = false;
     // input ใหญ่ขึ้น = เก็บรายละเอียดใบหน้าได้มาก จับใบหน้าระยะไกล/เล็กได้ดี
     const opts = detectorOptionsHQ(camMode === "wide" ? 608 : 608, 0.35);
@@ -404,11 +470,6 @@ const FaceKioskPage = () => {
 
     const loop = async () => {
       if (cancelled || !videoRef.current) return;
-      // 🔋 หยุดทำงานเมื่อหน้าจอ tablet ถูกซ่อน/สลับแอป — กันแบตหมดและเครื่องร้อน
-      if (document.hidden) {
-        detectionLoopRef.current = window.setTimeout(loop, 1500);
-        return;
-      }
       try {
         // ตรวจจับจากเฟรมที่ผ่าน preprocess (contrast/brightness) — ช่วยกล้องคุณภาพต่ำ
         const video = videoRef.current;
@@ -440,35 +501,9 @@ const FaceKioskPage = () => {
               const sharpness = estimateFaceSharpness(video, box);
               const tooBlurry = sharpness < MIN_SHARPNESS;
 
-              // ===== Hybrid matching: ArcFace (~99.4%) first, face-api fallback =====
-              let m: MatchResult;
-              let usedArcFace = false;
-              if (arcReady && knownV2List.length > 0) {
-                let v2: Float32Array | null = null;
-                try { v2 = await computeArcFaceEmbedding(video, det.landmarks); } catch { v2 = null; }
-                if (v2) {
-                  const am = matchArcFace(v2, knownV2List, ARCFACE_GRADE.MATCH_THRESHOLD);
-                  if (am.studentId && am.margin >= ARCFACE_GRADE.MIN_MARGIN) {
-                    usedArcFace = true;
-                    m = {
-                      studentId: am.studentId,
-                      distance: 1 - am.similarity,
-                      confidence: Math.max(MIN_CONFIDENCE, am.similarity),
-                      secondDistance: 1 - am.secondSimilarity,
-                      margin: am.margin,
-                    };
-                  } else {
-                    m = matchDescriptor(det.descriptor, known, threshold);
-                  }
-                } else {
-                  m = matchDescriptor(det.descriptor, known, threshold);
-                }
-              } else {
-                m = matchDescriptor(det.descriptor, known, threshold);
-              }
-              const effMargin = usedArcFace ? ARCFACE_GRADE.MIN_MARGIN : MIN_MARGIN;
-              const ambiguous = m.studentId != null && m.margin < effMargin;
-              const lowConfidence = !usedArcFace && m.studentId != null && m.confidence < MIN_CONFIDENCE;
+              const m = matchDescriptor(det.descriptor, known, threshold);
+              const ambiguous = m.studentId != null && m.margin < MIN_MARGIN;
+              const lowConfidence = m.studentId != null && m.confidence < MIN_CONFIDENCE;
               const matchedId = !tooSmall && !tooBlurry && !ambiguous && !lowConfidence ? m.studentId : null;
               const found = matchedId ? known.find((k: any) => k.studentId === matchedId) as any : null;
 
@@ -522,17 +557,14 @@ const FaceKioskPage = () => {
       } catch (e) {
         console.error("kiosk detect err", e);
       }
-      // 🔋 Adaptive cadence — ไม่เจอใบหน้านาน → ลูปช้าลง (ลด CPU/ความร้อน)
-      const idleMs = Date.now() - lastDetectedAtRef.current;
-      const wait = idleMs > 5_000 ? 900 : 200;
-      if (!cancelled) detectionLoopRef.current = window.setTimeout(loop, wait);
+      if (!cancelled) detectionLoopRef.current = window.setTimeout(loop, 200);
     };
     loop();
     return () => {
       cancelled = true;
       if (detectionLoopRef.current) clearTimeout(detectionLoopRef.current);
     };
-  }, [streaming, modelReady, screensaver, known, knownV2List, arcReady, threshold, recordScan, camMode]);
+  }, [streaming, modelReady, screensaver, known, threshold, recordScan, camMode, qrOnly]);
 
   // ===== QR Code fallback scan (รองรับกรณีสแกนหน้าไม่ติด) =====
   // อ่าน QR จากเฟรมวิดีโอเดียวกัน ใช้ native BarcodeDetector ถ้ามี
@@ -562,91 +594,118 @@ const FaceKioskPage = () => {
     const codeMap = new Map<string, any>();
     (known as any[]).forEach((k) => { if (k.studentCode) codeMap.set(String(k.studentCode).trim(), k); });
 
+    const processCode = async (raw: string, tNow: number) => {
+      if (!raw || raw.length < 3) return;
+      if (/[\x00-\x1f]/.test(raw)) return;
+      let code = raw;
+      try {
+        if (/^https?:\/\//i.test(raw)) {
+          const u = new URL(raw);
+          const q = u.searchParams.get("code") || u.searchParams.get("sid") || u.searchParams.get("student");
+          if (q) code = q;
+          else {
+            const parts = u.pathname.split("/").filter(Boolean);
+            if (parts.length) code = parts[parts.length - 1];
+          }
+        } else {
+          const m = raw.match(/(?:code|student|sid)[=/:]([A-Za-z0-9_-]+)/i);
+          if (m) code = m[1];
+        }
+      } catch {}
+      code = code.trim();
+      if (!code || code.length < 3) return;
+
+      const lastQr = qrCooldownRef.current.get(code) || 0;
+      if (tNow - lastQr < 3000) return;
+      qrCooldownRef.current.set(code, tNow);
+
+      let student = codeMap.get(code);
+      if (!student) {
+        const { data } = await supabase
+          .from("students")
+          .select("id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name)")
+          .eq("student_code", code)
+          .maybeSingle();
+        if (!data) {
+          if (tNow - unknownBeepRef.current > 4000) {
+            unknownBeepRef.current = tNow;
+            playUnknownSound();
+            toast.error(`QR ไม่พบรหัส ${code} ในระบบ`, { duration: 1800 });
+          }
+          return;
+        }
+        const cls = (data as any).classrooms ? `${(data as any).classrooms.grade_level || ""}/${(data as any).classrooms.name || ""}` : "-";
+        student = {
+          studentId: (data as any).id,
+          studentCode: (data as any).student_code || code,
+          name: `${(data as any).prefix || ""}${(data as any).first_name} ${(data as any).last_name}`.trim(),
+          classroom: cls,
+          avatar: (data as any).photo_url,
+        };
+      }
+
+      await recordScan(student.studentId, student.studentCode, student.name, student.classroom, student.avatar || null, 1, undefined);
+    };
+
+    // ตรวจ CPU: navigator.hardwareConcurrency ≤ 4 = low-end (Atom/Celeron/RPi) → ลด passes
+    const isLowEnd = (navigator.hardwareConcurrency || 4) <= 4;
+
+    const scanJsQrMulti = (video: HTMLVideoElement): string[] => {
+      if (!jsQR || !scanCtx || !video.videoWidth) return [];
+      const W = video.videoWidth, H = video.videoHeight;
+      // Low-end: 2 passes (เต็ม + กลาง) / High-end: 5 passes (เต็ม + 4 มุม)
+      const passes = isLowEnd
+        ? [
+            { sx: 0, sy: 0, sw: W, sh: H, maxW: 640 },
+            { sx: W * 0.2, sy: H * 0.2, sw: W * 0.6, sh: H * 0.6, maxW: 640 },
+          ]
+        : [
+            { sx: 0, sy: 0, sw: W, sh: H, maxW: 800 },
+            { sx: 0, sy: 0, sw: W * 0.55, sh: H * 0.55, maxW: 640 },
+            { sx: W * 0.45, sy: 0, sw: W * 0.55, sh: H * 0.55, maxW: 640 },
+            { sx: 0, sy: H * 0.45, sw: W * 0.55, sh: H * 0.55, maxW: 640 },
+            { sx: W * 0.45, sy: H * 0.45, sw: W * 0.55, sh: H * 0.55, maxW: 640 },
+          ];
+      const found = new Set<string>();
+      for (const p of passes) {
+        const scale = Math.min(1, p.maxW / p.sw);
+        const w = Math.max(1, Math.floor(p.sw * scale));
+        const h = Math.max(1, Math.floor(p.sh * scale));
+        scanCanvas.width = w; scanCanvas.height = h;
+        scanCtx.imageSmoothingEnabled = false;
+        scanCtx.drawImage(video, p.sx, p.sy, p.sw, p.sh, 0, 0, w, h);
+        const img = scanCtx.getImageData(0, 0, w, h);
+        const res = jsQR(img.data, w, h, { inversionAttempts: isLowEnd ? "dontInvert" : "attemptBoth" });
+        if (res?.data) found.add(res.data);
+      }
+      return [...found];
+    };
+
     const loop = async () => {
       if (cancelled || !videoRef.current || videoRef.current.readyState < 2) {
         if (!cancelled) setTimeout(loop, 600);
         return;
       }
       try {
-        let codes = [];
+        let rawCodes: string[] = [];
         if (detector) {
-          codes = await detector.detect(videoRef.current);
-        } else if (jsQR && scanCtx && videoRef.current.videoWidth) {
-          const video = videoRef.current;
-          const maxW = 800;
-          const scale = Math.min(1, maxW / video.videoWidth);
-          const w = Math.floor(video.videoWidth * scale);
-          const h = Math.floor(video.videoHeight * scale);
-          scanCanvas.width = w; scanCanvas.height = h;
-          scanCtx.drawImage(video, 0, 0, w, h);
-          const img = scanCtx.getImageData(0, 0, w, h);
-          const res = jsQR(img.data, w, h, { inversionAttempts: "attemptBoth" });
-          if (res?.data) codes = [{ rawValue: res.data }];
+          const codes = await detector.detect(videoRef.current);
+          rawCodes = (codes || []).map((c: any) => String(c.rawValue || "").trim());
+        } else {
+          rawCodes = scanJsQrMulti(videoRef.current);
         }
         const tNow = Date.now();
-        for (const c of codes || []) {
-          const raw = String(c.rawValue || "").trim();
-          if (!raw || raw.length < 3) continue;
-          // กรองค่าที่มีตัวควบคุม (ลด false positive)
-          if (/[\x00-\x1f]/.test(raw)) continue;
-          // แยกรหัสนักเรียน — รองรับทั้งรหัสตรง ๆ และ URL ที่มี ?code= / /student/<code>
-          let code = raw;
-          try {
-            if (/^https?:\/\//i.test(raw)) {
-              const u = new URL(raw);
-              const q = u.searchParams.get("code") || u.searchParams.get("sid") || u.searchParams.get("student");
-              if (q) code = q;
-              else {
-                const parts = u.pathname.split("/").filter(Boolean);
-                if (parts.length) code = parts[parts.length - 1];
-              }
-            } else {
-              const m = raw.match(/(?:code|student|sid)[=/:]([A-Za-z0-9_-]+)/i);
-              if (m) code = m[1];
-            }
-          } catch {}
-          code = code.trim();
-          if (!code || code.length < 3) continue;
-
-          // กันสแกน QR ซ้ำติด ๆ
-          const lastQr = qrCooldownRef.current.get(code) || 0;
-          if (tNow - lastQr < 3000) continue;
-          qrCooldownRef.current.set(code, tNow);
-
-          let student = codeMap.get(code);
-          if (!student) {
-            // fallback: query DB
-            const { data } = await supabase
-              .from("students")
-              .select("id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name)")
-              .eq("student_code", code)
-              .maybeSingle();
-            if (!data) {
-              if (tNow - unknownBeepRef.current > 4000) {
-                unknownBeepRef.current = tNow;
-                playUnknownSound();
-                toast.error(`QR ไม่พบรหัส ${code} ในระบบ`, { duration: 1800 });
-              }
-              continue;
-            }
-            const cls = (data as any).classrooms ? `${(data as any).classrooms.grade_level || ""}/${(data as any).classrooms.name || ""}` : "-";
-            student = {
-              studentId: (data as any).id,
-              studentCode: (data as any).student_code || code,
-              name: `${(data as any).prefix || ""}${(data as any).first_name} ${(data as any).last_name}`.trim(),
-              classroom: cls,
-              avatar: (data as any).photo_url ? await resolveDisplayImageUrl((data as any).photo_url) || (data as any).photo_url : null,
-            };
-          }
-
-          await recordScan(student.studentId, student.studentCode, student.name, student.classroom, student.avatar || null, 1, undefined);
-        }
+        await Promise.all(rawCodes.map((r) => processCode(r, tNow)));
       } catch (e) {
         // ignore frame errors
       }
-      if (!cancelled) setTimeout(loop, 250);
+      // BarcodeDetector: 120ms / Desktop jsQR: 250ms / Low-end (Atom): 350ms
+      const interval = detector ? 120 : (isLowEnd ? 350 : 250);
+      if (!cancelled) setTimeout(loop, interval);
     };
     loop();
+
+
     return () => { cancelled = true; };
   }, [streaming, screensaver, known, recordScan]);
 
@@ -666,26 +725,58 @@ const FaceKioskPage = () => {
     return wins.some((w) => now >= w.start - 5 && now < w.end);
   }, [entryWindow, exitWindow]);
 
+  // เช็คว่าอยู่นอกช่วงเวลาสแกนทั้งหมดหรือไม่ (ถ้าตั้งช่วงเวลาไว้)
+  const isOutsideAllScanWindows = useCallback(() => {
+    const wins = [entryWindow, exitWindow].filter(Boolean) as Array<{ start: number; end: number }>;
+    if (wins.length === 0) return false; // ไม่ได้ตั้ง = สแกนได้ตลอด → ไม่บังคับพัก
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hour12: false,
+    }).formatToParts(new Date());
+    const hh = parseInt(parts.find((p) => p.type === "hour")?.value || "0", 10);
+    const mm = parseInt(parts.find((p) => p.type === "minute")?.value || "0", 10);
+    const now = hh * 60 + mm;
+    // นอก "ทุก" หน้าต่าง (รวม buffer 5 นาทีก่อนเริ่ม)
+    return wins.every((w) => now < w.start - 5 || now >= w.end);
+  }, [entryWindow, exitWindow]);
+
   useEffect(() => {
-    if (!streaming) return;
+    if (!streaming && !screensaver) return;
     const check = window.setInterval(() => {
-      const idleMs = Date.now() - lastDetectedAtRef.current;
+      const idleFor = Date.now() - lastDetectedAtRef.current;
       const nearWin = isNearScanWindow();
+      const outside = isOutsideAllScanWindows();
       // ปลุกหน้าจอเมื่อใกล้เวลาสแกน 5 นาที (หรืออยู่ในช่วง)
       if (nearWin && screensaver) {
         lastDetectedAtRef.current = Date.now();
         setScreensaver(false);
+        // ถ้า power save ปิดกล้องไว้ → เปิดกลับเมื่อถึงเวลาสแกน
+        if (powerSave && !streaming) startCamera().catch(() => {});
         return;
       }
-      // พักหน้าจอเมื่อไม่เจอใบหน้าใด ๆ ติดต่อกัน 2 นาที (แต่ห้ามพักช่วงใกล้เวลาสแกน)
-      if (idleMs > 120_000 && !screensaver && !nearWin) setScreensaver(true);
+      // นอกเวลาสแกนทั้งหมด → บังคับพักหน้าจอทันที
+      if (outside && !screensaver && streaming) {
+        setScreensaver(true);
+        return;
+      }
+      // ไม่มีใบหน้า/แตะ นานเกินกำหนด = พักหน้าจอ (ห้ามพักช่วงใกล้เวลาสแกน)
+      if (streaming && idleFor > idleMs && !screensaver && !nearWin) setScreensaver(true);
     }, 5_000);
     idleTimerRef.current = check;
     return () => clearInterval(check);
-  }, [streaming, screensaver, isNearScanWindow]);
+  }, [streaming, screensaver, isNearScanWindow, isOutsideAllScanWindows, idleMs, powerSave, startCamera]);
 
+  // Power save: ปิดกล้อง+AI ระหว่างพักหน้าจอ (โน๊ตบุ๊คเก่า) — ปลุกเมื่อออกจาก screensaver
+  useEffect(() => {
+    if (!powerSave) return;
+    if (screensaver && streaming) {
+      stopCamera();
+    }
+  }, [screensaver, powerSave, streaming, stopCamera]);
+
+  // Wake-loop: ตรวจใบหน้าเบา ๆ ตอนพักหน้าจอ (เฉพาะเมื่อไม่ได้ power save เพราะกล้องปิด)
   useEffect(() => {
     if (!screensaver) return;
+    if (powerSave) return; // กล้องปิดอยู่ ใช้การแตะปลุกแทน
     if (!streaming || !modelReady) return;
     let cancelled = false;
     const opts = detectorOptionsHQ(320, 0.5);
@@ -699,11 +790,11 @@ const FaceKioskPage = () => {
           return;
         }
       } catch { /* noop */ }
-      if (!cancelled) setTimeout(wakeLoop, 1500);
+      if (!cancelled) setTimeout(wakeLoop, 2000);
     };
     wakeLoop();
     return () => { cancelled = true; };
-  }, [screensaver, streaming, modelReady]);
+  }, [screensaver, streaming, modelReady, powerSave]);
 
   useEffect(() => () => stopCamera(), [stopCamera]);
 
@@ -712,27 +803,44 @@ const FaceKioskPage = () => {
     if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
   };
 
+  const wakeFromScreensaver = useCallback(() => {
+    lastDetectedAtRef.current = Date.now();
+    setScreensaver(false);
+    // ถ้า power save ปิดกล้องไว้ + ยังอยู่ในหรือใกล้ช่วงสแกน → เปิดกล้องกลับมา
+    if (powerSave && !streaming && (isNearScanWindow() || !isOutsideAllScanWindows())) {
+      startCamera().catch(() => {});
+    }
+  }, [powerSave, streaming, isNearScanWindow, isOutsideAllScanWindows, startCamera]);
+
   const handleTap = () => {
     lastDetectedAtRef.current = Date.now();
-    if (screensaver) setScreensaver(false);
+    if (screensaver) wakeFromScreensaver();
   };
 
+  const outsideAll = isOutsideAllScanWindows();
+  const screensaverReason = outsideAll ? "นอกช่วงเวลาสแกน" : "พักหน้าจออัตโนมัติ";
+
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-danger via-danger to-danger text-neutral overflow-hidden select-none" onClick={handleTap}>
+    <div className="fixed inset-0 text-slate-800 overflow-hidden select-none" style={pageBgStyle} onClick={handleTap}>
       {screensaver && (
-        <div className="absolute inset-0 z-50 bg-black flex items-center justify-center transition-opacity">
-          <div
-            className="text-center text-white transition-all duration-1000"
-            style={{ position: "absolute", left: `${savedPos.x}%`, top: `${savedPos.y}%`, transform: "translate(-50%,-50%)" }}
-          >
-            <ScanFace className="w-16 h-16 mx-auto mb-4 opacity-30" />
-            <p className="text-6xl font-bold opacity-60 tabular-nums">
-              {now.toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-            </p>
-            <p className="text-sm opacity-30 mt-2">แตะหรือยืนหน้ากล้องเพื่อปลุกเครื่อง</p>
-          </div>
-        </div>
+        <KioskScreensaver
+          onWake={wakeFromScreensaver}
+          onHelloAi={helloAiEnabled && outsideAll ? (source) => {
+            setHelloAiAutoListen(source === "voice");
+            setHelloAiOpen(true);
+          } : undefined}
+          helloAiEnabled={helloAiEnabled && outsideAll}
+          reasonLabel={screensaverReason}
+          wakeWordEnabled={wakeWordEnabled && outsideAll}
+          helloAiOpen={helloAiOpen}
+        />
       )}
+
+      <KioskHelloAi
+        open={helloAiOpen}
+        autoListen={helloAiAutoListen}
+        onClose={() => { setHelloAiOpen(false); setHelloAiAutoListen(false); }}
+      />
 
       {/* Mode toggle — เด่นชัดด้านบน เพื่อให้ครูประจำประตูสลับโหมดเข้า/ออก ได้เร็ว */}
       <div className="absolute top-2 left-2 z-40 flex items-center gap-1 bg-white/85 backdrop-blur-sm rounded-full p-1 border-2 border-white/70 shadow-md" onClick={(e) => e.stopPropagation()}>
@@ -740,7 +848,7 @@ const FaceKioskPage = () => {
           type="button"
           onClick={() => setScanModeSelection("auto")}
           title={`สลับเข้า/ออก อัตโนมัติที่เวลา ${modeCutoff} น. (ตอนนี้: ${scanMode === "exit" ? "ออก" : "เข้า"})`}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold transition ${scanModeSelection === "auto" ? (scanMode === "exit" ? "bg-brand-exit text-brand-exit-foreground shadow" : "bg-brand-entry text-brand-entry-foreground shadow") : "text-muted-foreground hover:bg-muted"}`}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold transition ${scanModeSelection === "auto" ? (scanMode === "exit" ? "bg-rose-600 text-white shadow" : "bg-emerald-600 text-white shadow") : "text-slate-600 hover:bg-slate-100"}`}
         >
           <Clock className="w-4 h-4" /> เข้า-ออก อัตโนมัติ
           {scanModeSelection === "auto" && (
@@ -750,44 +858,58 @@ const FaceKioskPage = () => {
         <button
           type="button"
           onClick={() => setScanModeSelection("entry")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold transition ${scanModeSelection === "entry" ? "bg-brand-entry text-brand-entry-foreground shadow" : "text-muted-foreground hover:bg-brand-entry/10"}`}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold transition ${scanModeSelection === "entry" ? "bg-emerald-600 text-white shadow" : "text-slate-600 hover:bg-emerald-100"}`}
         >
           <LogIn className="w-4 h-4" /> เข้าอย่างเดียว
+        </button>
+        {/* Toggle: Face + QR vs QR-only (สำหรับเครื่องสเปกต่ำ) */}
+        <div className="w-px h-6 bg-slate-300 mx-1" />
+        <button
+          type="button"
+          onClick={() => setQrOnly(false)}
+          title="ใช้กล้องแสกนใบหน้า + QR (ต้องการ CPU แรง)"
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold transition ${!qrOnly ? "bg-indigo-600 text-white shadow" : "text-slate-600 hover:bg-indigo-50"}`}
+        >
+          <ScanFace className="w-4 h-4" /> หน้า+QR
+        </button>
+        <button
+          type="button"
+          onClick={() => setQrOnly(true)}
+          title="แสกน QR อย่างเดียว ประหยัด CPU (Pavilion x2 / Atom / Celeron)"
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold transition ${qrOnly ? "bg-indigo-600 text-white shadow" : "text-slate-600 hover:bg-indigo-50"}`}
+        >
+          <QrCode className="w-4 h-4" /> QR เท่านั้น
         </button>
       </div>
 
       {/* Top control bar (compact) */}
       <div className="absolute top-2 right-2 z-40 flex items-center gap-1.5">
-        <Badge variant="secondary" className="bg-white/80 backdrop-blur-sm border-white/60 text-neutral">
-          <LogIn className="w-3 h-3 mr-1 text-brand-entry" /> เข้า {todayCounts.entry}
+        <Badge variant="secondary" className="bg-white/80 backdrop-blur-sm border-white/60 text-slate-700">
+          <LogIn className="w-3 h-3 mr-1 text-emerald-600" /> เข้า {todayCounts.entry}
         </Badge>
-        <Badge variant="secondary" className="bg-white/80 backdrop-blur-sm border-white/60 text-neutral">
-          <LogOut className="w-3 h-3 mr-1 text-brand-exit" /> ออก {todayCounts.exit}
+        <Badge variant="secondary" className="bg-white/80 backdrop-blur-sm border-white/60 text-slate-700">
+          <LogOut className="w-3 h-3 mr-1 text-rose-600" /> ออก {todayCounts.exit}
         </Badge>
-        <Badge variant="secondary" className="bg-white/80 backdrop-blur-sm border-white/60 text-neutral">
-          <QrCode className="w-3 h-3 mr-1 text-info" /> QR สำรอง
+        <Badge variant="secondary" className={`backdrop-blur-sm border-white/60 ${qrOnly ? "bg-indigo-600 text-white" : "bg-white/80 text-slate-700"}`}>
+          <QrCode className="w-3 h-3 mr-1" /> {qrOnly ? "QR เท่านั้น" : "QR สำรอง"}
         </Badge>
-        <Badge variant="secondary" className={`backdrop-blur-sm border-white/60 ${arcReady ? "bg-success-soft text-success-soft-foreground" : "bg-card/80 text-muted-foreground"}`}>
-          <ScanFace className="w-3 h-3 mr-1" />
-          {arcReady ? `ArcFace • ${knownV2List.length}` : "กำลังโหลด ArcFace..."}
-        </Badge>
-        <Badge variant="secondary" className="bg-white/80 backdrop-blur-sm border-white/60 text-neutral">
-          {online ? <Wifi className="w-3 h-3 mr-1 text-brand-entry" /> : <WifiOff className="w-3 h-3 mr-1 text-warning" />}
+        <Badge variant="secondary" className="bg-white/80 backdrop-blur-sm border-white/60 text-slate-700">
+          {online ? <Wifi className="w-3 h-3 mr-1 text-emerald-600" /> : <WifiOff className="w-3 h-3 mr-1 text-amber-500" />}
           {online ? "ออนไลน์" : "ออฟไลน์"}
         </Badge>
         {geofence.configured && (
-          <Badge className={geoStatus.ok ? "bg-brand-entry" : "bg-danger"}>
+          <Badge className={geoStatus.ok ? "bg-emerald-500" : "bg-red-500"}>
             <MapPin className="w-3 h-3 mr-1" />
             {geoStatus.distance == null ? `รัศมี ${geofence.radius} ม.` : geoStatus.ok ? `${Math.round(geoStatus.distance)} ม.` : `นอก ${Math.round(geoStatus.distance)} ม.`}
           </Badge>
         )}
-        <Button variant="ghost" size="icon" onClick={() => setShowSettings((s) => !s)} className="text-neutral hover:bg-white/50 h-8 w-8">
+        <Button variant="ghost" size="icon" onClick={() => setShowSettings((s) => !s)} className="text-slate-700 hover:bg-white/50 h-8 w-8">
           <SettingsIcon className="w-4 h-4" />
         </Button>
-        <Button variant="ghost" size="icon" onClick={enterFullscreen} className="text-neutral hover:bg-white/50 h-8 w-8">
+        <Button variant="ghost" size="icon" onClick={enterFullscreen} className="text-slate-700 hover:bg-white/50 h-8 w-8">
           <Maximize className="w-4 h-4" />
         </Button>
-        <Button variant="ghost" size="icon" onClick={() => { stopCamera(); window.location.href = "/dashboard/student/face-scan"; }} className="text-neutral hover:bg-white/50 h-8 w-8">
+        <Button variant="ghost" size="icon" onClick={() => { stopCamera(); window.location.href = "/dashboard/student/face-scan"; }} className="text-slate-700 hover:bg-white/50 h-8 w-8">
           <X className="w-4 h-4" />
         </Button>
       </div>
@@ -831,25 +953,26 @@ const FaceKioskPage = () => {
       {/* Main grid: camera (left) + scan list (right) */}
       <div className="absolute inset-0 grid grid-cols-[1fr_360px] gap-3 p-3 pt-12 pb-28">
         {/* Camera panel with school header */}
-        <div className="relative rounded-2xl overflow-hidden bg-white shadow-xl border-2 border-danger/30 flex flex-col">
+        <div className="relative rounded-2xl overflow-hidden bg-white shadow-xl flex flex-col" style={cameraPanelStyle}>
           {/* School header banner */}
-          <div className="flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-success via-success to-success border-b-2 border-success/30">
+          <div className="flex items-center gap-3 px-5 py-3" style={headerBannerStyle}>
             {schoolLogo ? (
               <img src={schoolLogo} alt="logo" className="w-14 h-14 object-contain drop-shadow" />
             ) : (
-              <div className="w-14 h-14 rounded-full bg-success-soft flex items-center justify-center">
-                <ScanFace className="w-7 h-7 text-brand-entry" />
+              <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: hexA(themePrimary, 0.25) }}>
+                <ScanFace className="w-7 h-7" style={{ color: themePrimary }} />
               </div>
             )}
             <div className="leading-tight">
-              <h1 className="text-2xl md:text-3xl font-bold text-brand-entry tracking-tight">
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight" style={{ color: themePrimary }}>
                 {schoolName || "โรงเรียน"}
               </h1>
-              <p className="text-xs md:text-sm text-brand-entry/80 font-medium">
+              <p className="text-xs md:text-sm font-medium" style={{ color: hexA(themePrimary, 0.85) }}>
                 ระบบบันทึกเวลามาเรียนด้วย AI Camera
               </p>
             </div>
           </div>
+
 
           {/* Camera feed */}
           <div className="relative flex-1 bg-black">
@@ -857,10 +980,10 @@ const FaceKioskPage = () => {
             <canvas ref={overlayRef} className="absolute inset-0 w-full h-full pointer-events-none" />
 
             {/* AI camera overlay tag */}
-            <div className="absolute top-3 right-3 z-10 bg-black/50 text-warning-foreground/90 text-xs font-mono px-2 py-1 rounded">
+            <div className="absolute top-3 right-3 z-10 bg-black/50 text-pink-200 text-xs font-mono px-2 py-1 rounded">
               {schoolName ? `${schoolName} · AI Camera No.1` : "AI Camera No.1"}
             </div>
-            <div className="absolute top-3 left-3 z-10 bg-black/50 text-warning-foreground/90 text-xs font-mono px-2 py-1 rounded tabular-nums">
+            <div className="absolute top-3 left-3 z-10 bg-black/50 text-pink-200 text-xs font-mono px-2 py-1 rounded tabular-nums">
               {now.toLocaleDateString("en-GB").replace(/\//g, "-")} {now.toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })}
             </div>
 
@@ -877,33 +1000,42 @@ const FaceKioskPage = () => {
         </div>
 
         {/* Recent scans list */}
-        <div className="rounded-2xl bg-white/80 backdrop-blur border-2 border-danger/30 shadow-xl overflow-hidden flex flex-col">
-          <div className="px-3 py-2 bg-brand-exit-soft border-b border-brand-exit/30">
-            <h2 className="text-sm font-bold text-brand-exit">รายการสแกนล่าสุด</h2>
+        <div className="rounded-2xl bg-white/80 backdrop-blur shadow-xl overflow-hidden flex flex-col" style={sidePanelStyle}>
+          <div className="px-3 py-2" style={sideHeaderStyle}>
+            <h2 className="text-sm font-bold" style={{ color: themeAccent }}>รายการสแกนล่าสุด</h2>
           </div>
+
           <div className="flex-1 overflow-y-auto p-2 space-y-2">
             {recent.length === 0 ? (
-              <p className="text-center text-sm text-neutral py-12">ยังไม่มีการสแกน</p>
+              <p className="text-center text-sm text-slate-400 py-12">ยังไม่มีการสแกน</p>
             ) : (
               recent.map((r, i) => (
-                <div key={i} className={`flex items-center gap-2 rounded-lg p-1.5 border shadow-sm ${r.scanType === "exit" ? "bg-brand-exit-soft border-brand-exit/30" : "bg-card border-brand-exit/30"}`}>
+                <div key={i} className={`flex items-center gap-2 rounded-lg p-1.5 border shadow-sm ${r.scanType === "exit" ? "bg-rose-50 border-rose-200" : "bg-white border-pink-200"}`}>
                   {r.scanType === "exit"
-                    ? <LogOut className="w-4 h-4 text-brand-exit shrink-0" />
-                    : <LogIn className="w-4 h-4 text-brand-entry shrink-0" />}
+                    ? <LogOut className="w-4 h-4 text-rose-600 shrink-0" />
+                    : <LogIn className="w-4 h-4 text-emerald-600 shrink-0" />}
                   <div className="flex items-center shrink-0">
-                    <div className="w-8 h-8 rounded overflow-hidden bg-muted border border-border">
-                      <RecentAvatar src={r.capturedFace} alt="ตรวจพบ" />
+                    <div className="w-8 h-8 rounded overflow-hidden bg-slate-100 border border-slate-200">
+                      {r.capturedFace ? (
+                        <img src={r.capturedFace} alt="ตรวจพบ" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400">-</div>
+                      )}
                     </div>
-                    <div className="w-8 h-8 rounded overflow-hidden bg-muted border border-border -ml-1">
-                      <RecentAvatar src={r.avatar} alt="ลงทะเบียน" />
+                    <div className="w-8 h-8 rounded overflow-hidden bg-slate-100 border border-slate-200 -ml-1">
+                      {r.avatar ? (
+                        <img src={r.avatar} alt="ลงทะเบียน" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400">-</div>
+                      )}
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-bold tabular-nums leading-tight truncate ${r.scanType === "exit" ? "text-brand-exit" : "text-brand-entry"}`}>
-                      <span className={`mr-1 inline-block px-1.5 rounded text-[10px] font-bold ${r.scanType === "exit" ? "bg-brand-exit text-brand-exit-foreground" : "bg-brand-entry text-brand-entry-foreground"}`}>{r.scanType === "exit" ? "ออก" : "เข้า"}</span>
-                      {r.studentCode || "-"} <span className="text-muted-foreground font-normal">· {r.name}</span>
+                    <p className={`text-sm font-bold tabular-nums leading-tight truncate ${r.scanType === "exit" ? "text-rose-700" : "text-emerald-700"}`}>
+                      <span className={`mr-1 inline-block px-1.5 rounded text-[10px] font-bold ${r.scanType === "exit" ? "bg-rose-600 text-white" : "bg-emerald-600 text-white"}`}>{r.scanType === "exit" ? "ออก" : "เข้า"}</span>
+                      {r.studentCode || "-"} <span className="text-slate-600 font-normal">· {r.name}</span>
                     </p>
-                    <p className="text-[10px] text-neutral leading-tight truncate">{r.classroom} · {r.time}</p>
+                    <p className="text-[10px] text-slate-500 leading-tight truncate">{r.classroom} · {r.time}</p>
                   </div>
                 </div>
               ))
@@ -913,22 +1045,23 @@ const FaceKioskPage = () => {
       </div>
 
       {/* Bottom bar: clock + ONLINE */}
-      <div className="absolute bottom-0 inset-x-0 z-30 p-3 flex items-center justify-center gap-3 bg-gradient-to-t from-danger/95 to-transparent">
-        <div className="flex items-center gap-2 bg-white border-2 border-success/30 rounded-xl px-4 py-2 shadow-md">
-          <span className="font-mono text-3xl font-bold tabular-nums text-brand-entry">
+      <div className="absolute bottom-0 inset-x-0 z-30 p-3 flex items-center justify-center gap-3" style={bottomBarStyle}>
+        <div className="flex items-center gap-2 bg-white rounded-xl px-4 py-2 shadow-md" style={clockCardStyle}>
+          <span className="font-mono text-3xl font-bold tabular-nums" style={{ color: themePrimary }}>
             {now.toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           </span>
         </div>
-        <div className="flex items-center gap-2 bg-white border-2 border-success/30 rounded-xl px-4 py-2 shadow-md">
-          <span className={`w-3 h-3 rounded-full ${online ? "bg-success animate-pulse" : "bg-neutral"}`} />
-          <span className="font-bold text-brand-entry">{online ? "ONLINE" : "OFFLINE"}</span>
+        <div className="flex items-center gap-2 bg-white rounded-xl px-4 py-2 shadow-md" style={clockCardStyle}>
+          <span className={`w-3 h-3 rounded-full ${online ? "animate-pulse" : ""}`} style={{ backgroundColor: online ? themePrimary : "#94a3b8" }} />
+          <span className="font-bold" style={{ color: themePrimary }}>{online ? "ONLINE" : "OFFLINE"}</span>
         </div>
         {faceCount > 0 && (
-          <Badge className="bg-success text-success-foreground px-3 py-2 text-sm">
+          <Badge className="text-white px-3 py-2 text-sm" style={{ backgroundColor: themePrimary }}>
             {faceCount} ใบหน้าในเฟรม
           </Badge>
         )}
       </div>
+
     </div>
   );
 };

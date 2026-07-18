@@ -1,4 +1,4 @@
-const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
+import { corsHeaders } from "../_shared/cors.ts";
 import { aiCall } from "../_shared/aiCall.ts";
 
 
@@ -61,7 +61,6 @@ Deno.serve(async (req) => {
   try {
     const { subject, topic, level, count, references, grade_level, indicators } = await req.json();
     const refs = Array.isArray(references) && references.length ? references.join(", ") : "onet";
-    const totalCount = Math.max(1, Math.min(200, Number(count) || 10));
 
     const indicatorList: Array<{ code?: string; title: string; description?: string }> =
       Array.isArray(indicators) ? indicators : [];
@@ -75,87 +74,57 @@ Deno.serve(async (req) => {
           .join("\n")
       : "(ไม่มีตัวชี้วัดเฉพาะ — ให้ AI อ้างอิงตัวชี้วัดแกนกลาง สพฐ. ของวิชา/ระดับชั้นนี้แทน และระบุรหัสตัวชี้วัดมาตรฐาน)";
 
-    // Chunk large requests to avoid token limits & partial responses.
-    const CHUNK = 10;
-    const all: any[] = [];
-    let lastProvider = "";
-    let startNo = 1;
-    let attempts = 0;
-    const MAX_ATTEMPTS = Math.ceil(totalCount / CHUNK) + 3;
-
-    while (all.length < totalCount && attempts < MAX_ATTEMPTS) {
-      attempts++;
-      const remaining = totalCount - all.length;
-      const batchSize = Math.min(CHUNK, remaining);
-
-      const prompt = `วิชา: ${subject || "-"}
+    const prompt = `วิชา: ${subject || "-"}
 หัวข้อ/เนื้อหา: ${topic || "-"}
 ระดับชั้น: ${grade_level || "-"}
 ระดับความยาก: ${level || "medium"}
-จำนวนข้อในชุดนี้: ${batchSize} (ชุดที่ ${attempts} จากทั้งหมด ${totalCount} ข้อ — เริ่มลำดับข้อที่ ${startNo})
+จำนวนข้อ: ${count || 10}
 อ้างอิงแนวข้อสอบ: ${refs}
 
 ตัวชี้วัด/มาตรฐานการเรียนรู้ที่ต้องใช้ในการออกข้อสอบ:
 ${indicatorBlock}
 
-โปรดออกข้อสอบให้ครบ ${batchSize} ข้อในการตอบครั้งนี้ (ห้ามน้อยกว่า):
-- เริ่มเลข question_no ที่ ${startNo}
-- ห้ามซ้ำเนื้อหากับข้อก่อนหน้า พยายามให้เนื้อหา/สถานการณ์แตกต่างกัน
+โปรดออกข้อสอบ ${count} ข้อ:
 - ทุกข้อระบุ indicator_code และ indicator_description
 - กระจายตัวชี้วัดให้ครอบคลุม
 - correct_index = ตำแหน่งคำตอบถูกใน choices (0-3)
-- ⚠️ ห้ามเขียน "A และ C" หรือ "ข้อ 1 และ 3" ในเนื้อหา choices/explanation — ให้เขียนเนื้อหาเต็มๆ เพราะตัวเลือกจะถูกสุ่มสลับ`;
+- ⚠️ ห้ามเขียน "A และ C" หรือ "ข้อ 1 และ 3" ในเนื้อหา choices/explanation — ให้เขียนเนื้อหาเต็มๆ เพราะตัวเลือกจะถูกสุ่มสลับ
+- ตำแหน่งคำตอบถูกในแต่ละข้อ ไม่ต้องพยายามกระจาย — ระบบจะสุ่มให้เอง`;
 
-      const result = await aiCall({
-        messages: [
-          { role: "system", content: SYS },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.85,
-        max_tokens: 8000,
-        json: true,
-        functionName: "exam-generate",
-      });
-      lastProvider = result.provider;
+    const result = await aiCall({
+      messages: [
+        { role: "system", content: SYS },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.8,
+      json: true,
+      functionName: "exam-generate",
+    });
 
-      let parsed: any = {};
-      try { parsed = JSON.parse(result.content); } catch {
-        const m = result.content.match(/\{[\s\S]*\}/);
-        if (m) { try { parsed = JSON.parse(m[0]); } catch { parsed = {}; } }
-      }
-
-      const raw: any[] = Array.isArray(parsed.questions) ? parsed.questions : [];
-      if (raw.length === 0) {
-        // avoid infinite loop if the model returns nothing usable
-        if (attempts >= 2 && all.length === 0) break;
-        continue;
-      }
-
-      for (const q of raw) {
-        if (all.length >= totalCount) break;
-        const choices = Array.isArray(q.choices) ? q.choices.slice(0, 4) : [];
-        if (choices.length < 2) continue;
-        const origIdx = q.correct_index !== undefined
-          ? letterToIndex(q.correct_index)
-          : letterToIndex(q.correct_answer);
-        const { choices: shuffled, correctIdx } = shuffleChoices(choices, origIdx);
-        all.push({
-          ...q,
-          question_no: all.length + 1,
-          choices: shuffled,
-          correct_answer: LETTERS[correctIdx] || "A",
-          correct_index: correctIdx,
-        });
-      }
-      startNo = all.length + 1;
+    let parsed: any = {};
+    try { parsed = JSON.parse(result.content); } catch {
+      const m = result.content.match(/\{[\s\S]*\}/);
+      if (m) parsed = JSON.parse(m[0]);
     }
 
-    return j({
-      questions: all,
-      requested: totalCount,
-      generated: all.length,
-      provider: lastProvider,
+    // Post-process: shuffle choices + remap correct_answer ให้เป็น A/B/C/D
+    const rawQuestions: any[] = Array.isArray(parsed.questions) ? parsed.questions : [];
+    const questions = rawQuestions.map((q) => {
+      const choices = Array.isArray(q.choices) ? q.choices.slice(0, 4) : [];
+      // รับได้ทั้ง correct_index (ใหม่) และ correct_answer (เก่า)
+      const origIdx = q.correct_index !== undefined
+        ? letterToIndex(q.correct_index)
+        : letterToIndex(q.correct_answer);
+      const { choices: shuffled, correctIdx } = shuffleChoices(choices, origIdx);
+      return {
+        ...q,
+        choices: shuffled,
+        correct_answer: LETTERS[correctIdx] || "A", // เก็บเป็น A/B/C/D เสมอ (index-based)
+        correct_index: correctIdx,
+      };
     });
+
+    return j({ questions, provider: result.provider });
   } catch (e: any) {
     return j({ error: e?.message || "internal" }, 500);
   }

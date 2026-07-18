@@ -52,7 +52,7 @@ export default function ExamDetailPage() {
               </div>
               <ul className="ml-6 text-sm space-y-0.5">
                 {(q.choices || []).map((c: string, i: number) => (
-                  <li key={i} className={String.fromCharCode(65 + i) === q.correct_answer ? "text-success font-semibold" : ""}>
+                  <li key={i} className={String.fromCharCode(65 + i) === q.correct_answer ? "text-green-600 font-semibold" : ""}>
                     {String.fromCharCode(65 + i)}. {c}
                   </li>
                 ))}

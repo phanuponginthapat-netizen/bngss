@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { notify } from "@/lib/notify";
@@ -18,6 +19,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Check, X, Clock, FileText, Send, CalendarDays, Paperclip } from "lucide-react";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { uploadLeaveAttachment, openLeaveAttachment } from "@/lib/leaveAttachment";
+import NotificationHighlightScroller from "@/components/NotificationHighlightScroller";
 
 const LEAVE_TYPES = [
   { value: "sick", th: "ลาป่วย", en: "Sick Leave" },
@@ -39,6 +41,8 @@ const StaffLeavePage = () => {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectId, setRejectId] = useState("");
   const [rejectReason, setRejectReason] = useState("");
+  const [tab, setTab] = useState<"pending" | "approved" | "rejected" | "all">("pending");
+  const location = useLocation();
 
   // Form state
   const [personnelId, setPersonnelId] = useState("");
@@ -93,6 +97,20 @@ const StaffLeavePage = () => {
       return data || [];
     },
   });
+
+  // If arriving from a notification with ?highlight=<id>, auto-switch to the tab
+  // containing that record so the user actually sees the request.
+  useEffect(() => {
+    const highlight = new URLSearchParams(location.search).get("highlight");
+    if (!highlight || records.length === 0) return;
+    const found = records.find((r: any) => r.id === highlight);
+    if (found && (found.status === "pending" || found.status === "approved" || found.status === "rejected")) {
+      setTab(found.status);
+    } else {
+      setTab("all");
+    }
+  }, [location.search, records]);
+
 
   const resetForm = () => {
     if (canApprove) setPersonnelId("");
@@ -158,6 +176,7 @@ const StaffLeavePage = () => {
   };
 
   const handleApprove = async (id: string) => {
+    console.log("[StaffLeave] approve clicked", { id, role, canApprove });
     const record = records.find((r: any) => r.id === id);
     const { data: updated, error: updErr } = await supabase
       .from("staff_leaves")
@@ -168,6 +187,8 @@ const StaffLeavePage = () => {
       } as any)
       .eq("id", id)
       .select();
+
+    console.log("[StaffLeave] approve result", { updated, updErr });
 
     if (updErr) {
       toast.error((lang === "th" ? "อนุมัติไม่สำเร็จ: " : "Approve failed: ") + updErr.message);
@@ -294,13 +315,14 @@ const StaffLeavePage = () => {
   };
 
   const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-    pending: { label: lang === "th" ? "รออนุมัติ" : "Pending", color: "bg-warning-soft text-warning border-warning/30", icon: <Clock className="w-3 h-3" /> },
-    approved: { label: lang === "th" ? "อนุมัติ" : "Approved", color: "bg-success-soft text-success border-success/30", icon: <Check className="w-3 h-3" /> },
-    rejected: { label: lang === "th" ? "ไม่อนุมัติ" : "Rejected", color: "bg-danger-soft text-danger border-danger/30", icon: <X className="w-3 h-3" /> },
+    pending: { label: lang === "th" ? "รออนุมัติ" : "Pending", color: "bg-amber-100 text-amber-800 border-amber-200", icon: <Clock className="w-3 h-3" /> },
+    approved: { label: lang === "th" ? "อนุมัติ" : "Approved", color: "bg-emerald-100 text-emerald-800 border-emerald-200", icon: <Check className="w-3 h-3" /> },
+    rejected: { label: lang === "th" ? "ไม่อนุมัติ" : "Rejected", color: "bg-red-100 text-red-800 border-red-200", icon: <X className="w-3 h-3" /> },
   };
 
   const pendingRecords = records.filter((r: any) => r.status === "pending");
-  const processedRecords = records.filter((r: any) => r.status !== "pending");
+  const approvedRecords = records.filter((r: any) => r.status === "approved");
+  const rejectedRecords = records.filter((r: any) => r.status === "rejected");
 
   return (
     <div className="space-y-6 pb-[calc(env(safe-area-inset-bottom)+8rem)] md:pb-0">
@@ -322,7 +344,7 @@ const StaffLeavePage = () => {
               {lang === "th" ? "ยื่นใบลา" : "New Request"}
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Send className="w-5 h-5 text-primary" />
@@ -366,7 +388,7 @@ const StaffLeavePage = () => {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label className="text-sm font-medium">{lang === "th" ? "ตั้งแต่วันที่ *" : "From *"}</Label>
                   <BEDatePicker value={startDate} onChange={(v) => setStartDate(v)} className="mt-1" />
@@ -443,9 +465,9 @@ const StaffLeavePage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">{lang === "th" ? "รออนุมัติ" : "Pending"}</p>
-                <p className="text-3xl font-bold text-warning">{pendingRecords.length}</p>
+                <p className="text-3xl font-bold text-amber-600">{pendingRecords.length}</p>
               </div>
-              <Clock className="w-10 h-10 text-warning" />
+              <Clock className="w-10 h-10 text-amber-200" />
             </div>
           </CardContent>
         </Card>
@@ -454,9 +476,9 @@ const StaffLeavePage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">{lang === "th" ? "อนุมัติแล้ว" : "Approved"}</p>
-                <p className="text-3xl font-bold text-success">{records.filter((r: any) => r.status === "approved").length}</p>
+                <p className="text-3xl font-bold text-emerald-600">{records.filter((r: any) => r.status === "approved").length}</p>
               </div>
-              <Check className="w-10 h-10 text-success" />
+              <Check className="w-10 h-10 text-emerald-200" />
             </div>
           </CardContent>
         </Card>
@@ -474,11 +496,21 @@ const StaffLeavePage = () => {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="pending">
-        <TabsList>
+      <NotificationHighlightScroller />
+      <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+
+        <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="pending" className="gap-1">
             <Clock className="w-3.5 h-3.5" />
             {lang === "th" ? `รออนุมัติ (${pendingRecords.length})` : `Pending (${pendingRecords.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="approved" className="gap-1">
+            <Check className="w-3.5 h-3.5" />
+            {lang === "th" ? `อนุมัติแล้ว (${approvedRecords.length})` : `Approved (${approvedRecords.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="rejected" className="gap-1">
+            <X className="w-3.5 h-3.5" />
+            {lang === "th" ? `ไม่อนุมัติ (${rejectedRecords.length})` : `Rejected (${rejectedRecords.length})`}
           </TabsTrigger>
           <TabsTrigger value="all" className="gap-1">
             <FileText className="w-3.5 h-3.5" />
@@ -490,7 +522,7 @@ const StaffLeavePage = () => {
           {/* Mobile card view - always shows action buttons */}
           <div className="md:hidden space-y-2 pb-20">
             {pendingRecords.map((r: any) => (
-              <Card key={r.id} className="p-3">
+              <Card key={r.id} data-notif-id={r.id} className="p-3">
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <div className="font-medium text-sm">{getPersonnelName(r.personnel_id)}</div>
@@ -511,7 +543,7 @@ const StaffLeavePage = () => {
                 <div className="flex gap-2 pt-2 border-t">
                   {canApprove && (
                     <>
-                      <Button size="sm" className="flex-1 bg-success hover:bg-success text-white gap-1" onClick={() => handleApprove(r.id)}>
+                      <Button size="sm" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white gap-1" onClick={() => handleApprove(r.id)}>
                         <Check className="w-4 h-4" /> {lang === "th" ? "อนุมัติ" : "Approve"}
                       </Button>
                       <Button size="sm" variant="destructive" className="flex-1 gap-1" onClick={() => { setRejectId(r.id); setRejectOpen(true); }}>
@@ -519,11 +551,9 @@ const StaffLeavePage = () => {
                       </Button>
                     </>
                   )}
-                  {(canApprove || r.requester_id === userId) && (
-                    <Button size="sm" variant="ghost" onClick={() => handleDelete(r.id)}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
+                  <Button size="sm" variant="ghost" onClick={() => handleDelete(r.id)}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </Card>
             ))}
@@ -553,7 +583,7 @@ const StaffLeavePage = () => {
                 </TableHeader>
                 <TableBody>
                   {pendingRecords.map((r: any) => (
-                    <TableRow key={r.id}>
+                    <TableRow key={r.id} data-notif-id={r.id}>
                       <TableCell className="font-medium">{getPersonnelName(r.personnel_id)}</TableCell>
                       <TableCell>{getLeaveLabel(r.leave_type)}</TableCell>
                       <TableCell className="text-sm">{r.start_date} → {r.end_date}</TableCell>
@@ -577,19 +607,17 @@ const StaffLeavePage = () => {
                         <div className="flex gap-1">
                           {canApprove && (
                             <>
-                              <Button variant="ghost" size="sm" className="text-success hover:text-success hover:bg-success-soft" onClick={() => handleApprove(r.id)}>
+                              <Button variant="ghost" size="sm" className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" onClick={() => handleApprove(r.id)}>
                                 <Check className="w-4 h-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" className="text-danger hover:text-danger hover:bg-danger-soft" onClick={() => { setRejectId(r.id); setRejectOpen(true); }}>
+                              <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => { setRejectId(r.id); setRejectOpen(true); }}>
                                 <X className="w-4 h-4" />
                               </Button>
                             </>
                           )}
-                          {(canApprove || r.requester_id === userId) && (
-                            <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}>
-                              <Trash2 className="w-4 h-4 text-muted-foreground" />
-                            </Button>
-                          )}
+                          <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}>
+                            <Trash2 className="w-4 h-4 text-muted-foreground" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -608,7 +636,68 @@ const StaffLeavePage = () => {
           </Card>
         </TabsContent>
 
-
+        {(["approved", "rejected"] as const).map((tabKey) => {
+          const list = tabKey === "approved" ? approvedRecords : rejectedRecords;
+          const emptyText = tabKey === "approved"
+            ? (lang === "th" ? "ยังไม่มีรายการที่อนุมัติ" : "No approved requests")
+            : (lang === "th" ? "ยังไม่มีรายการที่ไม่อนุมัติ" : "No rejected requests");
+          return (
+            <TabsContent key={tabKey} value={tabKey}>
+              <Card className="mb-20 md:mb-0">
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{lang === "th" ? "ผู้ยื่นลา" : "Applicant"}</TableHead>
+                        <TableHead>{lang === "th" ? "ประเภท" : "Type"}</TableHead>
+                        <TableHead>{lang === "th" ? "วันที่ลา" : "Leave Dates"}</TableHead>
+                        <TableHead>{lang === "th" ? "จำนวนวัน" : "Days"}</TableHead>
+                        <TableHead>{lang === "th" ? "เหตุผล" : "Reason"}</TableHead>
+                        <TableHead>{lang === "th" ? "สถานะ" : "Status"}</TableHead>
+                        <TableHead>{tabKey === "approved" ? (lang === "th" ? "อนุมัติเมื่อ" : "Approved at") : (lang === "th" ? "เหตุผลปฏิเสธ" : "Reject reason")}</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {list.map((r: any) => (
+                        <TableRow key={r.id} data-notif-id={r.id}>
+                          <TableCell className="font-medium">{getPersonnelName(r.personnel_id)}</TableCell>
+                          <TableCell>{getLeaveLabel(r.leave_type)}</TableCell>
+                          <TableCell className="text-sm">{r.start_date} → {r.end_date}</TableCell>
+                          <TableCell>{getDayCount(r.start_date, r.end_date)}</TableCell>
+                          <TableCell className="max-w-[200px]"><div className="truncate">{r.reason || "-"}</div></TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={`gap-1 ${statusConfig[r.status]?.color}`}>
+                              {statusConfig[r.status]?.icon}
+                              {statusConfig[r.status]?.label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[200px]">
+                            <div className="truncate">
+                              {tabKey === "approved"
+                                ? (r.approved_at ? new Date(r.approved_at).toLocaleString("th-TH") : "-")
+                                : (r.rejected_reason || "-")}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}>
+                              <Trash2 className="w-4 h-4 text-muted-foreground" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {list.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">{emptyText}</TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          );
+        })}
 
         <TabsContent value="all">
           <Card className="mb-20 md:mb-0">
@@ -627,7 +716,7 @@ const StaffLeavePage = () => {
                 </TableHeader>
                 <TableBody>
                   {records.map((r: any) => (
-                    <TableRow key={r.id}>
+                    <TableRow key={r.id} data-notif-id={r.id}>
                       <TableCell className="font-medium">{getPersonnelName(r.personnel_id)}</TableCell>
                       <TableCell>{getLeaveLabel(r.leave_type)}</TableCell>
                       <TableCell className="text-sm">{r.start_date} → {r.end_date}</TableCell>
@@ -647,11 +736,9 @@ const StaffLeavePage = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {(canApprove || r.requester_id === userId) && (
-                          <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}>
-                            <Trash2 className="w-4 h-4 text-muted-foreground" />
-                          </Button>
-                        )}
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}>
+                          <Trash2 className="w-4 h-4 text-muted-foreground" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}

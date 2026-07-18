@@ -1,0 +1,1 @@
+ALTER TABLE public.task_assignments ADD COLUMN IF NOT EXISTS max_score numeric;

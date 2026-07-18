@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import DOMPurify from "dompurify";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import CreditFooter from "@/components/CreditFooter";
 
 
@@ -17,9 +18,11 @@ const sanitizeCmsHtml = (html: string | null | undefined): string =>
     ADD_ATTR: ["target", "allow", "allowfullscreen", "frameborder", "scrolling", "data-embed"],
   });
 import { useSystemSettings } from "@/hooks/useSystemSettings";
+import { useCmsSettingsBulk } from "@/hooks/useCmsSettings";
 import { useModuleToggles } from "@/hooks/useModuleToggles";
 import EmbedRenderer, { isFullHtml } from "@/components/cms/EmbedRenderer";
 import SocialWallWidget from "@/components/social/SocialWallWidget";
+import { BE_OFFSET } from "@/lib/dateBE";
 import {
   icons as lucideIcons,
   GraduationCap, Phone, Mail, MapPin, Menu, X, Search,
@@ -43,7 +46,7 @@ const resolveLucide = (name?: string) => {
 interface CmsMenuItem { id: string; label: string; url: string | null; sort_order: number; }
 interface CmsPage { id: string; slug: string; title: string; content: string | null; }
 interface CmsSettings { [key: string]: string; }
-interface NewsPost { id: string; title: string; content: string | null; published_at: string | null; created_at: string; is_pinned: boolean; pin_order: number | null; cover_image_url: string | null; link_url: string | null; category: string; }
+interface NewsPost { id: string; title: string; content: string | null; published_at: string | null; created_at: string; is_pinned: boolean; category: string; }
 
 const iconMap: Record<string, any> = {
   BookOpen, Users, Shield, Clock, Award, Heart,
@@ -51,19 +54,93 @@ const iconMap: Record<string, any> = {
   CheckCircle, FileText, Layers, Monitor, GraduationCap
 };
 
+const MenuDropdown = ({ menuItems }: { menuItems: CmsMenuItem[] }) => (
+  <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <button
+        className="inline-flex items-center gap-2 h-9 pl-1.5 pr-3.5 rounded-full bg-muted/60 hover:bg-muted border border-border/60 text-sm font-medium text-foreground shadow-sm transition-all hover:shadow-md hover:scale-[1.02]"
+        aria-label="เมนู"
+      >
+        <span className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-sm">
+          <Menu className="w-3 h-3 text-primary-foreground" />
+        </span>
+        <span className="hidden sm:inline">เมนู</span>
+      </button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end" sideOffset={8} className="w-64 rounded-2xl p-2 shadow-xl border-border/60">
+      <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold px-2">
+        ค้นหา
+      </DropdownMenuLabel>
+      <DropdownMenuItem asChild>
+        <Link to="/find" className="flex items-center gap-3 rounded-xl px-2.5 py-2 cursor-pointer">
+          <span className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Search className="w-4 h-4 text-primary" />
+          </span>
+          <div className="flex-1">
+            <div className="text-sm font-medium">ค้นหาบุคคล</div>
+            <div className="text-[11px] text-muted-foreground">ครู · บุคลากร · นักเรียน</div>
+          </div>
+        </Link>
+      </DropdownMenuItem>
+      {menuItems.length > 0 && (
+        <>
+          <DropdownMenuSeparator className="my-1.5" />
+          <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold px-2">
+            เมนูหลัก
+          </DropdownMenuLabel>
+          {menuItems.map((item) => {
+            const url = item.url || "/";
+            const active =
+              typeof window !== "undefined" &&
+              (window.location.pathname === url || (url !== "/" && window.location.pathname.startsWith(url)));
+            return (
+              <DropdownMenuItem key={item.id} asChild>
+                <Link
+                  to={url}
+                  className={`flex items-center gap-3 rounded-xl px-2.5 py-2 cursor-pointer ${
+                    active ? "bg-primary/10 text-primary font-medium" : ""
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${active ? "bg-primary" : "bg-muted-foreground/40"}`} />
+                  <span className="text-sm">{item.label}</span>
+                </Link>
+              </DropdownMenuItem>
+            );
+          })}
+        </>
+      )}
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
+
+
 const Index = () => {
   const { slug } = useParams();
   useSystemSettings(); // dynamically update title & favicon
   const { isModuleEnabled } = useModuleToggles();
   const socialFeedEnabled = isModuleEnabled("social_feed");
   const [menuItems, setMenuItems] = useState<CmsMenuItem[]>([]);
-  const [settings, setSettings] = useState<CmsSettings>({});
+  const { data: settings = {} } = useCmsSettingsBulk();
   const [currentPage, setCurrentPage] = useState<CmsPage | null>(null);
   const [pages, setPages] = useState<CmsPage[]>([]);
   const [newsPosts, setNewsPosts] = useState<NewsPost[]>([]);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
   const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
   const { session } = useAuthSession();
+  const navigate = useNavigate();
+
+  // เมื่อเปิดจาก PWA ที่ติดตั้งแล้ว และผู้ใช้ล็อกอินอยู่ → พาเข้าหน้าระบบทันที
+  // (start_url เป็น "/" เพื่อ identity ที่เสถียร แต่ผู้ใช้ที่ล็อกอินอยู่ไม่ควรค้างที่หน้าประชาสัมพันธ์)
+  useEffect(() => {
+    if (slug) return; // /page/:slug — ไม่ต้อง redirect
+    if (!session?.user) return;
+    const isPwa =
+      window.matchMedia?.("(display-mode: standalone)").matches ||
+      (window.navigator as any).standalone === true ||
+      new URLSearchParams(window.location.search).get("source")?.startsWith("pwa");
+    if (isPwa) navigate("/dashboard", { replace: true });
+  }, [session?.user?.id, slug, navigate]);
+
 
   useEffect(() => {
     const uid = session?.user?.id;
@@ -86,19 +163,11 @@ const Index = () => {
     // fastest one resolves — instead of waiting for the slowest (settings ~2s)
     supabase.from("cms_menu_items").select("*").eq("is_visible", true).order("sort_order")
       .then(({ data }) => { if (data) setMenuItems(data); });
-    supabase.from("cms_settings").select("key,value")
-      .then(({ data }) => {
-        if (!data) return;
-        const map: CmsSettings = {};
-        data.forEach((s: any) => { map[s.key] = s.value || ""; });
-        setSettings(map);
-      });
     supabase.from("cms_pages").select("*").eq("is_published", true).order("sort_order")
       .then(({ data }) => { if (data) setPages(data); });
     supabase.from("news_posts")
-      .select("id, title, content, published_at, created_at, is_pinned, pin_order, cover_image_url, link_url, category")
+      .select("id, title, content, published_at, created_at, is_pinned, category")
       .eq("is_published", true)
-      .order("pin_order", { ascending: true, nullsFirst: false })
       .order("is_pinned", { ascending: false })
       .order("published_at", { ascending: false, nullsFirst: false })
       .limit(6)
@@ -118,8 +187,8 @@ const Index = () => {
 
   const schoolName = get("school_name");
   const schoolLogo = get("school_logo");
-  const heroTitle = get("hero_title") || schoolName || "Smart School System";
-  const heroSubtitle = get("hero_subtitle", "ระบบบริหารจัดการโรงเรียนอัจฉริยะ");
+  const heroTitle = get("hero_title") || schoolName;
+  const heroSubtitle = get("hero_subtitle");
   const heroBackground = get("hero_background");
   const heroBgColor = get("hero_bg_color");
   const showHero = get("show_hero", "true") !== "false";
@@ -234,115 +303,73 @@ const Index = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border/50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-2.5 group shrink-0 min-w-0">
+      <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-xl border-b border-border/40 shadow-[0_1px_20px_-8px_hsl(var(--primary)/0.15)]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16 gap-4">
+          {/* Brand */}
+          <Link to="/" className="flex items-center gap-2.5 group shrink-0">
             {schoolLogo ? (
-              <img src={schoolLogo} alt={schoolName} className="w-10 h-10 rounded-xl object-contain shadow-md group-hover:shadow-lg transition-shadow shrink-0" />
+              <img src={schoolLogo} alt={schoolName} className="w-10 h-10 rounded-xl object-contain shadow-md ring-1 ring-border/40 group-hover:shadow-lg group-hover:scale-105 transition-all" />
             ) : (
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md ring-1 ring-primary/20 group-hover:shadow-lg group-hover:scale-105 transition-all">
                 <GraduationCap className="w-5 h-5 text-primary-foreground" />
               </div>
             )}
-            <span className="font-bold text-foreground text-base sm:text-lg hidden sm:inline tracking-tight truncate max-w-[12rem] lg:max-w-[16rem]">{schoolName}</span>
+            <span className="font-bold text-foreground text-lg hidden sm:inline tracking-tight max-w-[220px] truncate">{schoolName}</span>
           </Link>
 
-          {(() => {
-            // ใช้เมนูจาก CMS ถ้ามี > 1 รายการ (หรือไม่ใช่ชื่อโรงเรียนซ้ำ)
-            // ไม่งั้น fallback เป็นเมนูเริ่มต้นที่จัดวางสวยงาม
-            const norm = (s: string) => (s || "").toLowerCase().replace(/\s+/g, "");
-            const looksLikeBrand = menuItems.length === 1 && norm(menuItems[0].label).includes(norm(schoolName).slice(0, 6));
-            const defaultMenu = [
-              { id: "_home", label: "หน้าแรก", url: "/" },
-              { id: "_news", label: "ข่าวสาร", url: "/#news" },
-              ...pages.slice(0, 3).map(p => ({ id: p.id, label: p.title, url: `/page/${p.slug}` })),
-              { id: "_find", label: "ค้นหาบุคคล", url: "/find" },
-              { id: "_login", label: "เข้าสู่ระบบ", url: "/login" },
-            ];
-            const navList = menuItems.length <= 1 ? defaultMenu : menuItems;
-            return (
-              <nav className="hidden lg:flex items-center gap-0.5 mx-2 flex-1 justify-center max-w-2xl">
-                {navList.slice(0, 6).map(item => (
-                  <Link
-                    key={item.id}
-                    to={item.url || "/"}
-                    className="px-3 py-2 rounded-md text-[13px] font-medium text-foreground/70 hover:text-primary hover:bg-primary/5 transition-colors whitespace-nowrap"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-              </nav>
-            );
-          })()}
 
-          <div className="flex items-center gap-3">
-            <LanguageToggle />
+          {/* Actions */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Language toggle wrapper */}
+            <div className="hidden sm:flex items-center h-9 rounded-full bg-muted/60 border border-border/50 px-1">
+              <LanguageToggle />
+            </div>
+            <div className="sm:hidden">
+              <LanguageToggle />
+            </div>
 
 
+            {/* Auth CTA */}
             {session ? (
-              <div className="flex items-center gap-2">
-                <Link to="/dashboard/profile" className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-muted/60 transition-colors">
+              <div className="flex items-center gap-1.5">
+                <Link to="/dashboard/profile" className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full bg-muted/60 hover:bg-muted border border-border/50 transition-colors">
                   {profile?.avatar_url ? (
                     <img
                       src={profile.avatar_url}
                       alt={profile.full_name || "profile"}
-                      className="w-8 h-8 rounded-full object-cover border border-primary/20"
+                      className="w-7 h-7 rounded-full object-cover ring-1 ring-border/60"
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
-                      <User className="w-4 h-4 text-primary" />
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/20 flex items-center justify-center">
+                      <User className="w-3.5 h-3.5 text-primary" />
                     </div>
                   )}
-                  <span className="hidden sm:inline text-sm font-medium text-foreground max-w-[140px] truncate">
+                  <span className="hidden lg:inline text-sm font-medium text-foreground max-w-[120px] truncate">
                     {profile?.full_name || session.user?.email}
                   </span>
                 </Link>
+                <MenuDropdown menuItems={menuItems} />
                 <Link to="/dashboard">
-                  <Button size="sm" className="rounded-lg font-semibold shadow-sm">
+                  <Button size="sm" className="rounded-full font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02] transition-all">
                     แดชบอร์ด
                   </Button>
                 </Link>
               </div>
             ) : (
-              <Link to="/login">
-                <Button size="sm" className="rounded-lg font-semibold shadow-sm">
-                  {headerLoginText}
-                </Button>
-              </Link>
+              <>
+                <MenuDropdown menuItems={menuItems} />
+                <Link to="/login">
+                  <Button size="sm" className="rounded-full font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02] transition-all">
+                    {headerLoginText}
+                  </Button>
+                </Link>
+              </>
             )}
-            <button className="lg:hidden p-2 rounded-lg hover:bg-muted" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Menu">
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
           </div>
         </div>
-
-        {mobileMenuOpen && (() => {
-          const norm = (s: string) => (s || "").toLowerCase().replace(/\s+/g, "");
-          const looksLikeBrand = menuItems.length === 1 && norm(menuItems[0].label).includes(norm(schoolName).slice(0, 6));
-          const defaultMenu = [
-            { id: "_home", label: "หน้าแรก", url: "/" },
-            { id: "_news", label: "ข่าวสาร", url: "/#news" },
-            ...pages.slice(0, 4).map(p => ({ id: p.id, label: p.title, url: `/page/${p.slug}` })),
-            { id: "_find", label: "ค้นหาบุคคล", url: "/find" },
-            { id: "_login", label: "เข้าสู่ระบบ", url: "/login" },
-          ];
-          const navList = menuItems.length <= 1 ? defaultMenu : menuItems;
-          return (
-            <div className="lg:hidden border-t border-border bg-card px-4 pb-4 pt-2 space-y-0.5">
-              {navList.map(item => (
-                <Link
-                  key={item.id}
-                  to={item.url || "/"}
-                  className="block px-3 py-2.5 rounded-lg text-sm font-medium text-foreground/80 hover:text-primary hover:bg-primary/5"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          );
-        })()}
       </header>
+
+
 
       {isHome ? (
         <>
@@ -618,20 +645,11 @@ const Index = () => {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                     {newsPosts.slice(0, 6).map((n) => (
-                      <Link key={n.id} to={n.link_url || `/dashboard/news/${n.id}`} className="group">
-                        <Card className="h-full border-0 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden">
-                          {n.cover_image_url && (
-                            <div className="aspect-video w-full overflow-hidden bg-muted">
-                              <img src={n.cover_image_url} alt={n.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" />
-                            </div>
-                          )}
+                      <Link key={n.id} to={`/dashboard/news/${n.id}`} className="group">
+                        <Card className="h-full border-0 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                           <CardContent className="p-5">
                             <div className="flex items-center gap-2 mb-3 flex-wrap">
-                              {n.pin_order ? (
-                                <span className="text-xs px-2 py-0.5 rounded bg-primary text-primary-foreground font-bold">📌 อันดับ {n.pin_order}</span>
-                              ) : n.is_pinned && (
-                                <span className="text-xs px-2 py-0.5 rounded bg-warning-soft text-warning font-semibold">📌 ปักหมุด</span>
-                              )}
+                              {n.is_pinned && <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">📌 ปักหมุด</span>}
                               <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">{n.category}</span>
                               <span className="text-xs text-muted-foreground ml-auto">
                                 {new Date(n.published_at || n.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })}
@@ -651,10 +669,10 @@ const Index = () => {
               ) : null,
 
               social: socialFeedEnabled ? (
-                <section ref={animateRef} className="max-w-[1600px] mx-auto px-4 py-16 scroll-animate opacity-0 translate-y-6">
+                <section ref={animateRef} className="max-w-6xl mx-auto px-4 py-16 scroll-animate opacity-0 translate-y-6">
                   <div className="mb-8 flex items-end justify-between gap-4 flex-wrap">
                     <div>
-                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-info/10 text-info dark:text-info text-xs font-medium mb-3">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 text-sky-700 dark:text-sky-300 text-xs font-medium mb-3">
                         <Facebook className="h-3.5 w-3.5" />
                         Facebook Page
                       </div>
@@ -664,7 +682,7 @@ const Index = () => {
                       </p>
                     </div>
                   </div>
-                  <SocialWallWidget limit={6} title="" variant="bare" />
+                  <SocialWallWidget limit={9} title="" variant="bare" />
                 </section>
               ) : null,
 
@@ -757,7 +775,7 @@ const Index = () => {
             </div>
           </div>
           <div className="border-t border-border mt-10 pt-6 text-center text-xs text-muted-foreground">
-            {footerCopyright || `© ${new Date().getFullYear() + 543} ${footerName || schoolName}. All rights reserved.`}
+            {footerCopyright || `© ${new Date().getFullYear() + BE_OFFSET} ${footerName || schoolName}. All rights reserved.`}
           </div>
         </div>
       </footer>

@@ -28,14 +28,14 @@ type Room = {
 const COLORS = ["emerald", "sky", "violet", "amber", "rose", "indigo", "teal", "fuchsia"];
 // Static class maps — dynamic `bg-${color}-500` is purged by Tailwind and won't render.
 const COLOR_SWATCH: Record<string, string> = {
-  emerald: "bg-success", sky: "bg-info", violet: "bg-info", amber: "bg-warning",
-  rose: "bg-danger", indigo: "bg-info", teal: "bg-success", fuchsia: "bg-danger",
+  emerald: "bg-emerald-500", sky: "bg-sky-500", violet: "bg-violet-500", amber: "bg-amber-500",
+  rose: "bg-rose-500", indigo: "bg-indigo-500", teal: "bg-teal-500", fuchsia: "bg-fuchsia-500",
 };
 const COLOR_TILE: Record<string, string> = {
-  emerald: "bg-success/10 text-success", sky: "bg-info/10 text-info",
-  violet: "bg-info/10 text-info", amber: "bg-warning/10 text-warning",
-  rose: "bg-danger/10 text-danger", indigo: "bg-info/10 text-info",
-  teal: "bg-success/10 text-success", fuchsia: "bg-danger/10 text-danger",
+  emerald: "bg-emerald-500/10 text-emerald-500", sky: "bg-sky-500/10 text-sky-500",
+  violet: "bg-violet-500/10 text-violet-500", amber: "bg-amber-500/10 text-amber-500",
+  rose: "bg-rose-500/10 text-rose-500", indigo: "bg-indigo-500/10 text-indigo-500",
+  teal: "bg-teal-500/10 text-teal-500", fuchsia: "bg-fuchsia-500/10 text-fuchsia-500",
 };
 
 export default function SpecialRoomsPage() {
@@ -193,7 +193,7 @@ export default function SpecialRoomsPage() {
                 <TableRow key={r.id}>
                   <TableCell>
                     {r.image_url ? (
-                      <img src={r.image_url} alt={r.name} className="w-14 h-14 object-cover rounded-md border" />
+                      <img loading="lazy" decoding="async" src={r.image_url} alt={r.name} className="w-14 h-14 object-cover rounded-md border" />
                     ) : (
                       <div className={`w-14 h-14 rounded-md border flex items-center justify-center ${COLOR_TILE[r.color || "emerald"] || COLOR_TILE.emerald}`}>
                         <DoorOpen className="w-6 h-6" />
@@ -209,7 +209,7 @@ export default function SpecialRoomsPage() {
                   <TableCell className="text-center text-sm">{r.sort_order}</TableCell>
                   <TableCell className="text-center">
                     <button onClick={() => toggleActive(r)}>
-                      <Badge variant="outline" className={r.is_active ? "bg-success/15 text-success border-success/30" : "bg-muted text-muted-foreground"}>
+                      <Badge variant="outline" className={r.is_active ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/30" : "bg-muted text-muted-foreground"}>
                         {r.is_active ? "เปิดใช้" : "ปิด"}
                       </Badge>
                     </button>
@@ -226,7 +226,7 @@ export default function SpecialRoomsPage() {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-lg sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editing ? "แก้ไขห้องพิเศษ" : "เพิ่มห้องพิเศษ"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
@@ -237,7 +237,7 @@ export default function SpecialRoomsPage() {
               <Label>คำอธิบาย</Label>
               <Textarea rows={3} value={form.description || ""} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="อุปกรณ์ในห้อง สิ่งอำนวยความสะดวก ฯลฯ" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>สถานที่</Label>
                 <Input value={form.location || ""} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="เช่น อาคาร 2 ชั้น 3" />
@@ -247,7 +247,7 @@ export default function SpecialRoomsPage() {
                 <Input type="number" min={0} value={form.capacity ?? ""} onChange={(e) => setForm({ ...form, capacity: e.target.value ? Number(e.target.value) : null })} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>ลำดับการแสดง</Label>
                 <Input type="number" value={form.sort_order ?? 0} onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) })} />
@@ -279,7 +279,7 @@ export default function SpecialRoomsPage() {
               <div className="flex items-center gap-3 mt-1">
                 {photoPreview ? (
                   <div className="relative">
-                    <img src={photoPreview} alt="preview" className="w-24 h-24 rounded-md border object-cover" />
+                    <img loading="lazy" decoding="async" src={photoPreview} alt="preview" className="w-24 h-24 rounded-md border object-cover" />
                     <button type="button" onClick={resetPhoto} className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full p-0.5">
                       <X className="w-3 h-3" />
                     </button>

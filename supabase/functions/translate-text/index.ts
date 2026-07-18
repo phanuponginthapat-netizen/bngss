@@ -1,13 +1,32 @@
 // Translate arbitrary text using optional provider keys when available,
 // otherwise fall back to the admin-managed key pool.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getSecret } from "../_shared/getSecret.ts";
 import { secretKeys } from "../_shared/secretKeys.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { corsHeadersPost as corsHeaders } from "../_shared/cors.ts";
+
+async function requireAuth(req: Request): Promise<Response | null> {
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+  const token = authHeader?.replace(/^Bearer /i, "");
+  if (!token) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+  );
+  const { data, error } = await supabase.auth.getClaims(token);
+  if (error || !data?.claims?.sub) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  return null;
+}
+
 
 const LANG_NAMES: Record<string, string> = {
   th: "Thai",
@@ -244,6 +263,10 @@ function extractTranslations(content: string, expected: number): string[] | null
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const denied = await requireAuth(req);
+  if (denied) return denied;
+
 
   try {
     const { text, texts, target = "en" } = await req.json();

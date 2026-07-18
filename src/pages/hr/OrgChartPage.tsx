@@ -6,10 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Network, Crown, Search, Printer, Users, Building2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Network, Crown, Search, Printer, Users, Building2, BookOpen, Star, Bookmark } from "lucide-react";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { formatDateLongBE } from "@/lib/dateBE";
-import { SUBJECT_GROUP_DEFS, toSubjectGroupCode } from "@/lib/subjectGroupMap";
+import { SUBJECT_GROUPS, SUBJECT_GROUP_COLORS } from "@/hooks/useUserSubjectGroups";
+import type { DeptRole } from "@/hooks/useUserDepartments";
 
 type Person = {
   id: string;
@@ -32,28 +34,20 @@ const DEPARTMENTS = [
   "ฝ่ายวิชาการ",
   "ฝ่ายกิจการนักเรียน",
   "ฝ่ายบริหารทั่วไป",
-  "ฝ่ายงบประมาณและแผน",
-  "ฝ่ายบุคคล",
+  "ฝ่ายงบประมาณและบุคคล",
+  "ฝ่ายอาคารสถานที่",
+  "ฝ่ายแผนงานและประกันคุณภาพ",
   "ConnextED",
 ];
 
-// map enum (user_departments.department) → Thai label used in this chart
-const DEPT_ENUM_TO_LABEL: Record<string, string> = {
-  academic: "ฝ่ายวิชาการ",
-  student_affairs: "ฝ่ายกิจการนักเรียน",
-  general_admin: "ฝ่ายบริหารทั่วไป",
-  budget_planning: "ฝ่ายงบประมาณและแผน",
-  personnel: "ฝ่ายบุคคล",
-};
-
-
 const DEPT_COLORS: Record<string, string> = {
-  "ฝ่ายวิชาการ": "from-info/20 to-info/10 border-info/30",
-  "ฝ่ายกิจการนักเรียน": "from-warning/20 to-warning/10 border-warning/30",
-  "ฝ่ายบริหารทั่วไป": "from-info/20 to-danger/10 border-info/30",
-  "ฝ่ายงบประมาณและแผน": "from-success/20 to-success/10 border-success/30",
-  "ฝ่ายบุคคล": "from-info/20 to-info/10 border-info/30",
-  "ConnextED": "from-success/20 to-info/10 border-success/30",
+  "ฝ่ายวิชาการ": "from-blue-500/20 to-cyan-500/10 border-blue-500/30",
+  "ฝ่ายกิจการนักเรียน": "from-amber-500/20 to-orange-500/10 border-amber-500/30",
+  "ฝ่ายบริหารทั่วไป": "from-purple-500/20 to-fuchsia-500/10 border-purple-500/30",
+  "ฝ่ายงบประมาณและบุคคล": "from-emerald-500/20 to-green-500/10 border-emerald-500/30",
+  "ฝ่ายอาคารสถานที่": "from-rose-500/20 to-pink-500/10 border-rose-500/30",
+  "ฝ่ายแผนงานและประกันคุณภาพ": "from-indigo-500/20 to-violet-500/10 border-indigo-500/30",
+  "ConnextED": "from-teal-500/20 to-cyan-500/10 border-teal-500/30",
 };
 
 // Solid hex colors for the printed report (no Tailwind in print window).
@@ -61,37 +55,18 @@ const DEPT_PRINT_COLORS: Record<string, { bar: string; soft: string }> = {
   "ฝ่ายวิชาการ":            { bar: "#2563eb", soft: "#eff6ff" },
   "ฝ่ายกิจการนักเรียน":      { bar: "#f59e0b", soft: "#fffbeb" },
   "ฝ่ายบริหารทั่วไป":         { bar: "#a855f7", soft: "#faf5ff" },
-  "ฝ่ายงบประมาณและแผน":   { bar: "#10b981", soft: "#ecfdf5" },
-  "ฝ่ายบุคคล":              { bar: "#6366f1", soft: "#eef2ff" },
+  "ฝ่ายงบประมาณและบุคคล":   { bar: "#10b981", soft: "#ecfdf5" },
+  "ฝ่ายอาคารสถานที่":         { bar: "#f43f5e", soft: "#fff1f2" },
+  "ฝ่ายแผนงานและประกันคุณภาพ": { bar: "#6366f1", soft: "#eef2ff" },
   "ConnextED":              { bar: "#14b8a6", soft: "#f0fdfa" },
 };
 
 const fullName = (p: Person) => `${p.prefix || ""}${p.first_name} ${p.last_name}`.trim();
 const initials = (p: Person) => (p.first_name?.[0] || "") + (p.last_name?.[0] || "");
 
-const isDeputy = (p: Person) =>
-  /รองผู้อำนวยการ|รอง\s*ผอ/.test(p.position_title || "") ||
-  /รองผู้อำนวยการ|รอง\s*ผอ/.test(p.position || "");
-const isDirector = (p: Person) => {
-  if (isDeputy(p)) return false;
-  const t = `${p.position_title || ""} ${p.position || ""}`;
-  return /ผู้อำนวยการ|(^|\s)ผอ\.?($|\s)/.test(t);
-};
+const isDirector = (p: Person) => /ผู้อำนวยการ(?!รอง)/.test(p.position_title || "") || /^ผู้อำนวยการ/.test(p.position || "");
+const isDeputy = (p: Person) => /รองผู้อำนวยการ/.test(p.position_title || "") || /รองผู้อำนวยการ/.test(p.position || "");
 const isHead = (p: Person) => /หัวหน้า/.test(p.position_title || "");
-
-const normalizeDepartments = (raw: string | null): string[] => {
-  const s = (raw || "").trim();
-  if (!s) return [];
-  if (/งบประมาณ.*บุคคล|บุคคล.*งบประมาณ/.test(s)) return ["ฝ่ายงบประมาณและแผน", "ฝ่ายบุคคล"];
-  if (/แผนงาน|ประกันคุณภาพ/.test(s)) return ["ฝ่ายงบประมาณและแผน"];
-  if (/งบประมาณ/.test(s)) return ["ฝ่ายงบประมาณและแผน"];
-  if (/บุคคล/.test(s)) return ["ฝ่ายบุคคล"];
-  if (/บริหารทั่วไป|อาคาร|สถานที่|ทั่วไป/.test(s)) return ["ฝ่ายบริหารทั่วไป"];
-  if (/วิชาการ/.test(s)) return ["ฝ่ายวิชาการ"];
-  if (/กิจการนักเรียน|กิจการนร|ปกครอง/.test(s)) return ["ฝ่ายกิจการนักเรียน"];
-  return [s];
-};
-
 
 export default function OrgChartPage() {
   const [search, setSearch] = useState("");
@@ -123,10 +98,51 @@ export default function OrgChartPage() {
     },
   });
 
+  // Load role assignments so หัวหน้า/รอง/หัวหน้าหมวด แสดงถูกต้องแม้ position_title ไม่ระบุ
+  const { data: deptRoles = [] } = useQuery({
+    queryKey: ["orgchart_dept_roles"],
+    queryFn: async () => {
+      const { data } = await supabase.from("user_departments").select("user_id, department, dept_role");
+      return (data || []) as { user_id: string; department: string; dept_role: DeptRole }[];
+    },
+  });
+  const { data: groupRoles = [] } = useQuery({
+    queryKey: ["orgchart_group_roles"],
+    queryFn: async () => {
+      const { data } = await supabase.from("user_subject_groups").select("user_id, subject_group, group_role");
+      return (data || []) as { user_id: string; subject_group: string; group_role: DeptRole }[];
+    },
+  });
+
+  // ฝ่ายเก็บใน personnel เป็นภาษาไทย, ใน user_departments เป็น enum — สร้าง map แปลง
+  const DEPT_ENUM_TO_TH: Record<string, string> = {
+    academic: "ฝ่ายวิชาการ",
+    student_affairs: "ฝ่ายกิจการนักเรียน",
+    general_admin: "ฝ่ายบริหารทั่วไป",
+    finance_personnel: "ฝ่ายงบประมาณและบุคคล",
+    director_office: "สำนักผู้อำนวยการ",
+  };
+
+  // สร้าง lookup: userId+deptTH → role
+  const roleByUserDept = useMemo(() => {
+    const m = new Map<string, DeptRole>();
+    for (const r of deptRoles) {
+      const th = DEPT_ENUM_TO_TH[r.department] || r.department;
+      m.set(`${r.user_id}::${th}`, r.dept_role);
+    }
+    return m;
+  }, [deptRoles]);
+  const roleByUserGroup = useMemo(() => {
+    const m = new Map<string, DeptRole>();
+    for (const r of groupRoles) m.set(`${r.user_id}::${r.subject_group}`, r.group_role);
+    return m;
+  }, [groupRoles]);
+
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return people;
-    return people.filter((p) =>
+    return people.filter(p =>
       fullName(p).toLowerCase().includes(q) ||
       (p.department || "").toLowerCase().includes(q) ||
       (p.subject_group || "").toLowerCase().includes(q) ||
@@ -134,38 +150,15 @@ export default function OrgChartPage() {
     );
   }, [people, search]);
 
-
-  // Load explicit dept positions (head/deputy/assistant/member) per user
-  const { data: deptAssignments = [] } = useQuery({
-    queryKey: ["orgchart_user_departments"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("user_departments")
-        .select("user_id, department, position");
-      return (data || []) as { user_id: string; department: string; position: string }[];
-    },
-  });
-
-  // map: deptLabel → { deputies: Person[], assistants: Person[] } using user_departments
-  const deptRoles = useMemo(() => {
-    const out: Record<string, { deputies: any[]; assistants: any[]; heads: any[] }> = {};
-    for (const d of DEPARTMENTS) out[d] = { deputies: [], assistants: [], heads: [] };
-    const byUser = new Map(people.filter((p) => p.user_id).map((p) => [p.user_id!, p]));
-    for (const a of deptAssignments) {
-      const label = DEPT_ENUM_TO_LABEL[a.department];
-      if (!label || !out[label]) continue;
-      const person = byUser.get(a.user_id);
-      if (!person) continue;
-      if (a.position === "deputy") out[label].deputies.push(person);
-      else if (a.position === "assistant") out[label].assistants.push(person);
-      else if (a.position === "head") out[label].heads.push(person);
-    }
-    return out;
-  }, [deptAssignments, people]);
-
-
   const director = useMemo(() => people.find(isDirector), [people]);
   const deputies = useMemo(() => people.filter(isDeputy), [people]);
+
+  const rankOrder: Record<DeptRole | "none", number> = { head: 0, deputy_head: 1, section_head: 2, member: 3, none: 4 };
+  const getDeptRole = (p: Person, dept: string): DeptRole | null =>
+    (p.user_id ? roleByUserDept.get(`${p.user_id}::${dept}`) : null) ??
+    (isHead(p) ? "head" : null);
+  const getGroupRole = (p: Person, group: string): DeptRole | null =>
+    p.user_id ? roleByUserGroup.get(`${p.user_id}::${group}`) ?? null : null;
 
   const byDept = useMemo(() => {
     const map: Record<string, (Person & { avatar_url: string | null })[]> = {};
@@ -173,18 +166,38 @@ export default function OrgChartPage() {
     const other: (Person & { avatar_url: string | null })[] = [];
     for (const p of filtered) {
       if (isDirector(p) || isDeputy(p)) continue;
-      const depts = normalizeDepartments(p.department);
-      let placed = false;
-      for (const d of depts) {
-        if (map[d]) {
-          map[d].push(p);
-          placed = true;
-        }
-      }
-      if (!placed) other.push(p);
+      const d = (p.department || "").trim();
+      if (d && map[d]) map[d].push(p);
+      else other.push(p);
+    }
+    // เรียงตามตำแหน่ง: หัวหน้าฝ่าย → รอง → หัวหน้าหมวด → สมาชิก
+    for (const d of DEPARTMENTS) {
+      map[d].sort((a, b) => rankOrder[getDeptRole(a, d) ?? "none"] - rankOrder[getDeptRole(b, d) ?? "none"]);
     }
     return { map, other };
-  }, [filtered]);
+  }, [filtered, roleByUserDept]);
+
+  const byGroup = useMemo(() => {
+    const map: Record<string, (Person & { avatar_url: string | null })[]> = {};
+    for (const g of SUBJECT_GROUPS) map[g] = [];
+    const other: (Person & { avatar_url: string | null })[] = [];
+    for (const p of filtered) {
+      if (isDirector(p) || isDeputy(p)) continue;
+      // ผูกจาก user_subject_groups ก่อน — ถ้าไม่มีข้อมูล ใช้ personnel.subject_group เป็น fallback
+      const explicit = groupRoles.filter((r) => r.user_id === p.user_id).map((r) => r.subject_group);
+      const groups = explicit.length ? explicit : (p.subject_group ? [p.subject_group] : []);
+      if (groups.length === 0) { other.push(p); continue; }
+      for (const g of groups) {
+        if (map[g]) map[g].push(p);
+        else other.push(p);
+      }
+    }
+    for (const g of SUBJECT_GROUPS) {
+      map[g].sort((a, b) => rankOrder[getGroupRole(a, g) ?? "none"] - rankOrder[getGroupRole(b, g) ?? "none"]);
+    }
+    return { map, other };
+  }, [filtered, groupRoles, roleByUserGroup]);
+
 
   const handlePrint = () => {
     const esc = (s: string | null | undefined) =>
@@ -196,7 +209,7 @@ export default function OrgChartPage() {
 
     const avatarHtml = (p: Person & { avatar_url: string | null }, size: number) => {
       if (p.avatar_url) {
-        return `<img src="${esc(p.avatar_url)}" alt="" style="width:${size}px;height:${size}px;border-radius:9999px;object-fit:cover;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.15);" />`;
+        return `<img loading="lazy" decoding="async" src="${esc(p.avatar_url)}" alt="" style="width:${size}px;height:${size}px;border-radius:9999px;object-fit:cover;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.15);" />`;
       }
       return `<div style="width:${size}px;height:${size}px;border-radius:9999px;background:#eef2ff;color:#3b3b8c;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${Math.round(size * 0.36)}px;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.15);">${esc(initials(p))}</div>`;
     };
@@ -336,7 +349,7 @@ export default function OrgChartPage() {
 </style></head><body>
 <div class="sheet">
   <header class="doc-h">
-    ${schoolLogo ? `<img class="logo" src="${esc(schoolLogo)}" />` : ""}
+    ${schoolLogo ? `<img loading="lazy" decoding="async" class="logo" src="${esc(schoolLogo)}" />` : ""}
     <div class="htxt">
       <h1>${esc(orgName)}</h1>
       <div class="sub">ผังโครงสร้างองค์กรและบุคลากร</div>
@@ -401,7 +414,7 @@ export default function OrgChartPage() {
   );
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 w-full space-y-6 print:p-0">
+    <div className="p-6 max-w-7xl mx-auto space-y-6 print:p-0">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl gradient-primary flex items-center justify-center shadow-elegant">
@@ -421,225 +434,208 @@ export default function OrgChartPage() {
         </div>
       </div>
 
-      {/* Director + Deputies (tree top) */}
-      <div className="org-tree flex flex-col items-center">
-        {director && (
-          <Card className="w-full max-w-md border-2 border-warning/40 bg-gradient-to-br from-warning/20 via-warning/10 to-transparent shadow-elegant">
-            <CardContent className="pt-5 pb-4 flex flex-col items-center gap-2 text-center">
-              <Crown className="w-5 h-5 text-warning" />
-              <Avatar className="w-20 h-20 ring-4 ring-warning/30">
+      {/* Director */}
+      {director && (
+        <div className="flex flex-col items-center gap-2">
+          <Card className="w-full max-w-md border-2 border-amber-500/40 bg-gradient-to-br from-amber-500/20 to-yellow-500/10 shadow-elegant">
+            <CardContent className="pt-6 pb-5 flex flex-col items-center gap-2 text-center">
+              <Crown className="w-6 h-6 text-amber-500" />
+              <Avatar className="w-20 h-20 ring-4 ring-amber-500/30">
                 <AvatarImage src={(director as any).avatar_url || undefined} />
-                <AvatarFallback className="text-lg font-bold bg-warning/20 text-warning">{initials(director)}</AvatarFallback>
+                <AvatarFallback className="text-lg font-bold bg-amber-500/20 text-amber-700">{initials(director)}</AvatarFallback>
               </Avatar>
               <div className="font-bold text-lg">{fullName(director)}</div>
-              <Badge className="bg-warning text-white border-0 text-[10px]">ผู้อำนวยการสถานศึกษา</Badge>
+              <Badge className="bg-amber-500 text-white border-0">ผู้อำนวยการสถานศึกษา</Badge>
+              {director.subject_group && <div className="text-xs text-muted-foreground">{director.subject_group}</div>}
             </CardContent>
           </Card>
-        )}
 
-        {director && deputies.length > 0 && <div className="w-px h-6 bg-border" />}
-
-        {deputies.length > 0 && (
-          <div className="w-full max-w-5xl">
-            {deputies.length > 1 && <div className="mx-auto h-px bg-border" style={{ width: `${100 - 100 / deputies.length}%` }} />}
-            <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.min(deputies.length, 4)}, minmax(0,1fr))` }}>
-              {deputies.map((d) => (
-                <div key={d.id} className="flex flex-col items-center">
-                  <div className="w-px h-4 bg-border" />
-                  <Card className="w-full border-2 border-warning/30 bg-gradient-to-br from-warning/15 to-warning/5">
-                    <CardContent className="pt-3 pb-3 flex items-center gap-3">
-                      <Avatar className="w-10 h-10 ring-2 ring-warning/30">
+          {deputies.length > 0 && (
+            <>
+              <div className="h-6 w-px bg-border" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-w-3xl">
+                {deputies.map(d => (
+                  <Card key={d.id} className="border-2 border-orange-500/30 bg-gradient-to-br from-orange-500/15 to-amber-500/5">
+                    <CardContent className="pt-4 pb-4 flex items-center gap-3">
+                      <Avatar className="w-12 h-12 ring-2 ring-orange-500/30">
                         <AvatarImage src={(d as any).avatar_url || undefined} />
-                        <AvatarFallback className="text-xs font-bold bg-warning/20 text-warning">{initials(d)}</AvatarFallback>
+                        <AvatarFallback className="text-xs font-bold bg-orange-500/20 text-orange-700">{initials(d)}</AvatarFallback>
                       </Avatar>
                       <div className="min-w-0">
-                        <div className="text-[9px] uppercase tracking-wider text-warning font-bold">รองผู้อำนวยการ</div>
                         <div className="font-semibold text-sm truncate">{fullName(d)}</div>
-                        <div className="text-[10px] text-muted-foreground truncate">{d.position_title || ""}</div>
+                        <div className="text-xs text-muted-foreground truncate">{d.position_title || "รองผู้อำนวยการ"}</div>
                       </div>
                     </CardContent>
                   </Card>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="w-px h-6 bg-border" />
-        <div className="w-full max-w-[95%] h-px bg-border" />
-      </div>
-
-      {/* Departments – responsive grid that fits the page */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-3">
-        {DEPARTMENTS.map((dept) => {
-          const members = byDept.map[dept];
-          const head = members.find(isHead) || deptRoles[dept]?.heads[0];
-          const deputies = deptRoles[dept]?.deputies || [];
-          const assistants = deptRoles[dept]?.assistants || [];
-          const leaderIds = new Set([head?.id, ...deputies.map((d: any) => d.id), ...assistants.map((a: any) => a.id)].filter(Boolean));
-          const others = members.filter((m) => !leaderIds.has(m.id));
-          const accent = DEPT_COLORS[dept] || "from-muted to-muted/50 border-border";
-          return (
-            <Card key={dept} className={`border-2 bg-gradient-to-br ${accent} backdrop-blur shadow-elegant flex flex-col`}>
-              <CardHeader className="pb-2 pt-3">
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="flex items-center gap-2 text-sm">
-                    <Building2 className="w-4 h-4" />
-                    {dept}
-                  </CardTitle>
-                  <Badge variant="secondary" className="gap-1 text-[10px]">
-                    <Users className="w-3 h-3" /> {members.length}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-2 pb-3 flex-1">
-                {head && (
-                  <div className="rounded-lg bg-background/80 border-2 border-primary/30 p-2 flex items-center gap-2 shadow-sm">
-                    <Avatar className="w-10 h-10 ring-2 ring-primary/40">
-                      <AvatarImage src={(head as any).avatar_url || undefined} />
-                      <AvatarFallback className="text-xs font-bold bg-primary/15 text-primary">{initials(head)}</AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[9px] uppercase tracking-wider text-primary font-bold">หัวหน้าฝ่าย</div>
-                      <div className="font-semibold text-xs truncate">{fullName(head)}</div>
-                    </div>
-                  </div>
-                )}
-                {deputies.length > 0 && (
-                  <div className="grid grid-cols-1 gap-1.5">
-                    {deputies.map((d: any) => (
-                      <div key={d.id} className="rounded-lg bg-background/70 border border-secondary/40 p-1.5 flex items-center gap-2">
-                        <Avatar className="w-8 h-8 ring-1 ring-secondary/40">
-                          <AvatarImage src={d.avatar_url || undefined} />
-                          <AvatarFallback className="text-[10px] font-bold">{initials(d)}</AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[9px] uppercase tracking-wider text-secondary-foreground/80 font-bold">รองหัวหน้าฝ่าย</div>
-                          <div className="font-semibold text-xs truncate">{fullName(d)}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {assistants.length > 0 && (
-                  <div className="grid grid-cols-1 gap-1.5">
-                    {assistants.map((a: any) => (
-                      <div key={a.id} className="rounded-lg bg-background/60 border border-muted-foreground/20 p-1.5 flex items-center gap-2">
-                        <Avatar className="w-8 h-8">
-                          <AvatarImage src={a.avatar_url || undefined} />
-                          <AvatarFallback className="text-[10px] font-bold">{initials(a)}</AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">ผู้ช่วยฝ่าย</div>
-                          <div className="font-semibold text-xs truncate">{fullName(a)}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {others.length === 0 && !head && deputies.length === 0 && assistants.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-4">ยังไม่มีบุคลากร</p>
-                )}
-                {others.map((p) => <PersonCard key={p.id} p={p} />)}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Unassigned */}
-      {byDept.other.length > 0 && (
-        <Card className="border-dashed">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base text-muted-foreground flex items-center gap-2">
-              <Users className="w-4 h-4" /> ยังไม่ระบุฝ่ายงาน ({byDept.other.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-            {byDept.other.map(p => <PersonCard key={p.id} p={p} />)}
-          </CardContent>
-        </Card>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       )}
 
-      {/* Subject Groups */}
-      <SubjectGroupSection people={people} />
+      {/* Tabs: ฝ่ายงาน / กลุ่มสาระ */}
+      <Tabs defaultValue="departments">
+        <TabsList className="grid grid-cols-2 w-full max-w-md print:hidden">
+          <TabsTrigger value="departments" className="gap-1.5">
+            <Building2 className="w-4 h-4" />
+            ฝ่ายงาน
+          </TabsTrigger>
+          <TabsTrigger value="groups" className="gap-1.5">
+            <BookOpen className="w-4 h-4" />
+            กลุ่มสาระ
+          </TabsTrigger>
+        </TabsList>
 
-    </div>
-  );
-}
+        {/* ==================== TAB: ฝ่ายงาน ==================== */}
+        <TabsContent value="departments" className="mt-4 space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 print:grid-cols-2">
+            {DEPARTMENTS.map(dept => {
+              const members = byDept.map[dept];
+              const head = members.find(m => getDeptRole(m, dept) === "head");
+              const deputyList = members.filter(m => getDeptRole(m, dept) === "deputy_head");
+              const sectionHeads = members.filter(m => getDeptRole(m, dept) === "section_head");
+              const others = members.filter(m => m.id !== head?.id && !deputyList.includes(m) && !sectionHeads.includes(m));
+              const accent = DEPT_COLORS[dept] || "from-muted to-muted/50 border-border";
+              return (
+                <Card key={dept} className={`border-2 bg-gradient-to-br ${accent} backdrop-blur shadow-elegant overflow-hidden`}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <Building2 className="w-4 h-4" />
+                        {dept}
+                      </CardTitle>
+                      <Badge variant="secondary" className="gap-1 text-xs">
+                        <Users className="w-3 h-3" /> {members.length}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {head && (
+                      <div className="rounded-xl bg-background/80 border-2 border-amber-500/40 p-3 flex items-center gap-3 shadow-sm">
+                        <Avatar className="w-12 h-12 ring-2 ring-amber-500/40">
+                          <AvatarImage src={(head as any).avatar_url || undefined} />
+                          <AvatarFallback className="text-xs font-bold bg-amber-500/20 text-amber-700">{initials(head)}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-300 font-bold flex items-center gap-1"><Crown className="w-3 h-3" /> หัวหน้าฝ่าย</div>
+                          <div className="font-semibold text-sm truncate">{fullName(head)}</div>
+                          <div className="text-xs text-muted-foreground truncate">{head.position_title || head.position}</div>
+                        </div>
+                      </div>
+                    )}
+                    {deputyList.map(dp => (
+                      <div key={dp.id} className="rounded-xl bg-background/70 border border-violet-500/30 p-2.5 flex items-center gap-3">
+                        <Avatar className="w-10 h-10 ring-2 ring-violet-500/25">
+                          <AvatarImage src={(dp as any).avatar_url || undefined} />
+                          <AvatarFallback className="text-xs font-bold bg-violet-500/15 text-violet-700">{initials(dp)}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[10px] uppercase tracking-wider text-violet-700 dark:text-violet-300 font-bold flex items-center gap-1"><Star className="w-3 h-3" /> รองหัวหน้าฝ่าย</div>
+                          <div className="font-medium text-sm truncate">{fullName(dp)}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {sectionHeads.map(sh => (
+                      <div key={sh.id} className="rounded-xl bg-background/60 border border-blue-500/30 p-2.5 flex items-center gap-3">
+                        <Avatar className="w-9 h-9 ring-2 ring-blue-500/25">
+                          <AvatarImage src={(sh as any).avatar_url || undefined} />
+                          <AvatarFallback className="text-xs font-bold bg-blue-500/15 text-blue-700">{initials(sh)}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[10px] uppercase tracking-wider text-blue-700 dark:text-blue-300 font-bold flex items-center gap-1"><Bookmark className="w-3 h-3" /> หัวหน้าหมวด</div>
+                          <div className="font-medium text-sm truncate">{fullName(sh)}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {members.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-6">ยังไม่มีบุคลากรในฝ่ายนี้</p>
+                    )}
+                    {others.map(p => (
+                      <PersonCard key={p.id} p={p} />
+                    ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
 
-// --- Subject group section (กลุ่มสาระการเรียนรู้) -----------------------------
+          {byDept.other.length > 0 && (
+            <Card className="border-dashed">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base text-muted-foreground flex items-center gap-2">
+                  <Users className="w-4 h-4" /> ยังไม่ระบุฝ่ายงาน ({byDept.other.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                {byDept.other.map(p => <PersonCard key={p.id} p={p} />)}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
-function SubjectGroupSection({ people }: { people: (Person & { avatar_url: string | null })[] }) {
-  const { data: sghRows = [] } = useQuery({
-    queryKey: ["orgchart_subject_group_heads"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("subject_group_heads")
-        .select("user_id, subject_group, position");
-      return (data || []) as any[];
-    },
-  });
-  const posByGroup = useMemo(() => {
-    const m = new Map<string, Map<string, "head" | "deputy" | "secretary">>();
-    for (const r of sghRows as any[]) {
-      const inner = m.get(r.subject_group) || new Map();
-      inner.set(r.user_id, r.position as any);
-      m.set(r.subject_group, inner);
-    }
-    return m;
-  }, [sghRows]);
-  const groups = useMemo(() => {
-    return SUBJECT_GROUP_DEFS.map((def) => {
-      const members = people.filter((p) => p.user_id && toSubjectGroupCode(p.subject_group) === def.code);
-      const inner = posByGroup.get(def.code) || new Map();
-      const pick = (pos: "head" | "deputy" | "secretary") =>
-        members.filter((m) => inner.get(m.user_id!) === pos);
-      const heads = pick("head"), deputies = pick("deputy"), secretaries = pick("secretary");
-      const leaderIds = new Set([...heads, ...deputies, ...secretaries].map((m) => m.id));
-      const others = members.filter((m) => !leaderIds.has(m.id));
-      return { def, heads, deputies, secretaries, others, total: members.length };
-    });
-  }, [people, posByGroup]);
-  if (groups.every((g) => g.total === 0)) return null;
-  const LeaderRow = ({ p, label, accent }: { p: Person & { avatar_url: string | null }; label: string; accent: string }) => (
-    <div className={`rounded-lg bg-background/80 border ${accent} p-1.5 flex items-center gap-2`}>
-      <Avatar className="w-8 h-8"><AvatarImage src={p.avatar_url || undefined} /><AvatarFallback className="text-[10px] font-bold">{initials(p)}</AvatarFallback></Avatar>
-      <div className="min-w-0 flex-1">
-        <div className="text-[9px] uppercase tracking-wider font-bold opacity-70">{label}</div>
-        <div className="font-semibold text-xs truncate">{fullName(p)}</div>
-      </div>
-    </div>
-  );
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3 border-l-4 border-primary pl-3">
-        <Network className="w-5 h-5 text-primary" />
-        <h2 className="text-lg font-semibold">ผังกลุ่มสาระการเรียนรู้</h2>
-      </div>
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        {groups.filter((g) => g.total > 0).map(({ def, heads, deputies, secretaries, others, total }) => (
-          <Card key={def.code} className="border-2 bg-gradient-to-br from-primary/5 to-transparent backdrop-blur shadow-elegant flex flex-col">
-            <CardHeader className="pb-2 pt-3">
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle className="flex items-center gap-2 text-sm">{def.th}</CardTitle>
-                <Badge variant="secondary" className="gap-1 text-[10px]"><Users className="w-3 h-3" /> {total}</Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2 pb-3 flex-1">
-              {heads.map((p) => <LeaderRow key={p.id} p={p} label="หัวหน้ากลุ่มสาระ" accent="border-warning/40" />)}
-              {deputies.map((p) => <LeaderRow key={p.id} p={p} label="รองหัวหน้ากลุ่มสาระ" accent="border-info/40" />)}
-              {secretaries.map((p) => <LeaderRow key={p.id} p={p} label="เลขานุการกลุ่มสาระ" accent="border-secondary/40" />)}
-              {others.map((p) => (
-                <div key={p.id} className="flex items-center gap-2 p-1.5 rounded-lg bg-card/60 border">
-                  <Avatar className="w-7 h-7"><AvatarImage src={p.avatar_url || undefined} /><AvatarFallback className="text-[9px] font-bold">{initials(p)}</AvatarFallback></Avatar>
-                  <div className="text-xs truncate">{fullName(p)}</div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+        {/* ==================== TAB: กลุ่มสาระ ==================== */}
+        <TabsContent value="groups" className="mt-4 space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            {SUBJECT_GROUPS.map(group => {
+              const members = byGroup.map[group];
+              const head = members.find(m => getGroupRole(m, group) === "head");
+              const others = members.filter(m => m.id !== head?.id);
+              const accent = SUBJECT_GROUP_COLORS[group] || "from-muted to-muted/50 border-border";
+              return (
+                <Card key={group} className={`border-2 bg-gradient-to-br ${accent} backdrop-blur shadow-elegant overflow-hidden`}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <CardTitle className="flex items-center gap-2 text-sm">
+                        <BookOpen className="w-4 h-4" />
+                        {group}
+                      </CardTitle>
+                      <Badge variant="secondary" className="gap-1 text-xs">
+                        <Users className="w-3 h-3" /> {members.length}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {head && (
+                      <div className="rounded-xl bg-background/80 border-2 border-amber-500/40 p-3 flex items-center gap-3 shadow-sm">
+                        <Avatar className="w-12 h-12 ring-2 ring-amber-500/40">
+                          <AvatarImage src={(head as any).avatar_url || undefined} />
+                          <AvatarFallback className="text-xs font-bold bg-amber-500/20 text-amber-700">{initials(head)}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-300 font-bold flex items-center gap-1"><Crown className="w-3 h-3" /> หัวหน้ากลุ่มสาระ</div>
+                          <div className="font-semibold text-sm truncate">{fullName(head)}</div>
+                          <div className="text-xs text-muted-foreground truncate">{head.position_title || head.position}</div>
+                        </div>
+                      </div>
+                    )}
+                    {members.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-6">ยังไม่มีบุคลากรในกลุ่มสาระนี้</p>
+                    )}
+                    {others.map(p => (
+                      <PersonCard key={p.id} p={p} />
+                    ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {byGroup.other.length > 0 && (
+            <Card className="border-dashed">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base text-muted-foreground flex items-center gap-2">
+                  <Users className="w-4 h-4" /> ยังไม่ระบุกลุ่มสาระ ({byGroup.other.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                {byGroup.other.map(p => <PersonCard key={p.id} p={p} />)}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
+
     </div>
   );
 }

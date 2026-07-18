@@ -3,13 +3,11 @@
 // คืน: { plans: [ { table, summary, confidence, notes, rows: [...] } ], allowed_tables }
 import { aiCall } from "../_shared/aiCall.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { TABLE_ALIAS_MAP, normalizeRowKeys } from "../_shared/importAliases.ts";
 
 declare const EdgeRuntime: { waitUntil: (promise: Promise<unknown>) => void };
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 const JOB_BUCKET = "ai-import-temp";
 
@@ -316,15 +314,18 @@ async function analyzeImport(admin: any, input: any) {
     if (Array.isArray(parsed.plans)) plans = parsed.plans;
     else if (parsed.table) plans = [parsed];
 
-    // กรองคอลัมน์ที่ไม่อยู่ใน schema
+    // Normalize row keys ผ่าน alias map ก่อนกรอง (กัน AI คืน key ภาษาไทย/พิมพ์ใหญ่)
+    // แล้วค่อยกรองคอลัมน์ที่ไม่อยู่ใน schema
     plans = plans
       .filter((p) => p && ALLOWED_TABLES[p.table])
       .map((p) => {
         const schema = ALLOWED_TABLES[p.table];
         const allowed = new Set(Object.keys(schema.columns));
+        const aliasMap = TABLE_ALIAS_MAP[p.table];
         const rows = (Array.isArray(p.rows) ? p.rows : []).slice(0, 500).map((r: any) => {
+          const normalized = aliasMap ? normalizeRowKeys(r || {}, aliasMap) : (r || {});
           const clean: any = {};
-          for (const k of Object.keys(r || {})) if (allowed.has(k)) clean[k] = r[k];
+          for (const k of Object.keys(normalized)) if (allowed.has(k)) clean[k] = (normalized as any)[k];
           return clean;
         }).filter((r: any) => Object.keys(r).length > 0);
         return { ...p, rows };

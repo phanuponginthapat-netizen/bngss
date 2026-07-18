@@ -4,21 +4,20 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useViewMode } from "@/hooks/useViewMode";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { ScanAttendanceFlow, AttendanceStatus } from "./ScanAttendanceFlow";
-import { ManualRosterCheck } from "./ManualRosterCheck";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { sortGrades } from "@/lib/gradeOrder";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ListChecks, ScanLine } from "lucide-react";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 const toDbAcademicYear = (year?: number) => {
   if (!year || year <= 0) return undefined;
-  return year > 2400 ? year - 543 : year;
+  return year > 2400 ? year - BE_OFFSET : year;
 };
 
 interface Props {
@@ -32,7 +31,10 @@ export function SubjectPeriodCheckTab({ students, classrooms, academicYear, seme
   const { lang } = useLanguage();
   const qc = useQueryClient();
   const { userId, isAdmin, isDirector, isTeacher } = useUserRole();
-  const canSeeAll = isAdmin || isDirector;
+  const { viewMode } = useViewMode();
+  // ★ ถ้าอยู่ฝั่ง admin (viewMode = admin) → เห็นทุกวิชา
+  //   ถ้าสลับมาเป็นครู (viewMode = teacher) → เห็นเฉพาะวิชาที่ตนสอน
+  const canSeeAll = (isAdmin || isDirector) && viewMode === "admin";
 
   const [checkDate, setCheckDate] = useState(todayBangkok());
   const [gradeFilter, setGradeFilter] = useState<string>("");
@@ -43,7 +45,7 @@ export function SubjectPeriodCheckTab({ students, classrooms, academicYear, seme
   // Get current teacher's full name
   const { data: personnel } = useQuery({
     queryKey: ["my_personnel_subject", userId],
-    enabled: !!userId,
+    enabled: isTeacher && !!userId,
     queryFn: async () => {
       const { data } = await supabase
         .from("personnel")
@@ -54,54 +56,52 @@ export function SubjectPeriodCheckTab({ students, classrooms, academicYear, seme
     },
   });
   const teacherName = personnel ? `${personnel.prefix || ""}${personnel.first_name} ${personnel.last_name}` : null;
+  const firstName = personnel?.first_name?.trim() || "";
+  const lastName = personnel?.last_name?.trim() || "";
 
-  // Schedules for this date — used to show period number if available
+  // Fetch teacher's schedules for this date — used to derive subject + classroom options
   const dayOfWeek = useMemo(() => {
     const js = new Date(checkDate).getDay();
     return js === 0 ? 7 : js;
   }, [checkDate]);
 
   const { data: mySchedules = [] } = useQuery({
-    queryKey: ["my-schedules-day", dayOfWeek, academicYear, semester, personnel?.id, teacherName],
-    enabled: !!checkDate && !!personnel?.id,
+    queryKey: ["my-schedules-day", dayOfWeek, academicYear, semester, personnel?.id, firstName, lastName, canSeeAll],
+    enabled: !!checkDate && (canSeeAll || !!personnel?.id || !!firstName),
     queryFn: async () => {
+      // ★ ใช้ teacher_id (FK → personnel.id) เป็นหลัก
+      //   fallback: teacher_name substring match สำหรับแถวเก่าที่ยังไม่มี teacher_id
       let q = supabase
         .from("schedules")
-        .select("id, subject_id, classroom_id, period, teacher_name, teacher_id")
+        .select("id, subject_id, classroom_id, period, teacher_id, teacher_name, subjects(id, name_th, code, grade_level), classrooms(id, name, grade_level)")
         .eq("day_of_week", dayOfWeek)
         .order("period");
       if (dbAcademicYear) q = q.eq("academic_year", dbAcademicYear);
       if (semester && semester > 0) q = q.eq("semester", semester);
-      const orParts = [`teacher_id.eq.${personnel!.id}`];
-      if (teacherName) orParts.push(`teacher_name.eq.${teacherName}`);
-      orParts.push(`teacher_name.eq.ครู${personnel!.first_name}`);
-      orParts.push(`teacher_name.eq.${personnel!.first_name} ${personnel!.last_name}`);
-      q = q.or(orParts.join(","));
       const { data } = await q;
-      return data || [];
+      const rows = data || [];
+      if (canSeeAll) return rows;
+      const pid = personnel?.id;
+      return rows.filter((r: any) => {
+        if (pid && r.teacher_id === pid) return true;
+        if (r.teacher_id) return false; // มี teacher_id แต่ไม่ตรง → ข้าม
+        // fallback สำหรับแถวเก่าที่ teacher_id = null
+        const t = String(r.teacher_name || "");
+        if (!firstName || !t.includes(firstName)) return false;
+        if (lastName && t.length > firstName.length + 3) {
+          const hasSpace = t.trim().includes(" ");
+          if (hasSpace && !t.includes(lastName)) return false;
+        }
+        return true;
+      });
     },
   });
 
-  // Source of truth: teacher_assignments (วิชา/ห้องที่ครูรับมอบหมาย) — ไม่ขึ้นกับวันในสัปดาห์
-  const { data: myAssignments = [] } = useQuery({
-    queryKey: ["my-teacher-assignments", personnel?.id, dbAcademicYear, semester],
-    enabled: !!personnel?.id,
-    queryFn: async () => {
-      let q = supabase
-        .from("teacher_assignments")
-        .select("subject_id, classroom_id, subjects(id, name_th, code, grade_level), classrooms(id, name, grade_level)")
-        .eq("personnel_id", personnel!.id);
-      if (dbAcademicYear) q = q.eq("academic_year", dbAcademicYear);
-      if (semester && semester > 0) q = q.eq("semester", semester);
-      const { data } = await q;
-      return data || [];
-    },
-  });
-
+  // Derive grade options & subject/classroom options from schedules (role-scoped)
   const allowedClassrooms = useMemo(() => {
-    const ids = new Set(myAssignments.map((a: any) => a.classroom_id).filter(Boolean));
+    const ids = new Set(mySchedules.map((s: any) => s.classroom_id).filter(Boolean));
     return classrooms.filter((c: any) => ids.has(c.id));
-  }, [myAssignments, classrooms]);
+  }, [mySchedules, classrooms]);
 
   const gradeOptions = useMemo(
     () => sortGrades([...new Set(allowedClassrooms.map((c: any) => c.grade_level as string).filter(Boolean))]),
@@ -124,9 +124,9 @@ export function SubjectPeriodCheckTab({ students, classrooms, academicYear, seme
 
   const subjectsForClass = useMemo(() => {
     if (!classroomId) return [];
-    const subs = myAssignments
-      .filter((a: any) => a.classroom_id === classroomId)
-      .map((a: any) => a.subjects)
+    const subs = mySchedules
+      .filter((s: any) => s.classroom_id === classroomId)
+      .map((s: any) => s.subjects)
       .filter(Boolean);
     const seen = new Set<string>();
     return subs.filter((sub: any) => {
@@ -134,7 +134,7 @@ export function SubjectPeriodCheckTab({ students, classrooms, academicYear, seme
       seen.add(sub.id);
       return true;
     });
-  }, [myAssignments, classroomId]);
+  }, [mySchedules, classroomId]);
 
   const periodForSelected = useMemo(() => {
     const found = mySchedules.find((s: any) => s.classroom_id === classroomId && s.subject_id === subjectId);
@@ -151,10 +151,7 @@ export function SubjectPeriodCheckTab({ students, classrooms, academicYear, seme
   const classroomName = classrooms.find((c: any) => c.id === classroomId)?.name || "";
   const subjectName = subjectsForClass.find((s: any) => s.id === subjectId)?.name_th || "";
 
-  const handleSubmit = async (
-    statusMap: Record<string, AttendanceStatus>,
-    notesMap?: Record<string, string>,
-  ) => {
+  const handleSubmit = async (statusMap: Record<string, AttendanceStatus>) => {
     if (!classroomId || !subjectId || classStudents.length === 0) return;
     try {
       const studentIds = classStudents.map((s: any) => s.id);
@@ -167,8 +164,8 @@ export function SubjectPeriodCheckTab({ students, classrooms, academicYear, seme
         student_id: s.id,
         subject_id: subjectId,
         attendance_date: checkDate,
-        status: statusMap[s.id] || "present",
-        notes: notesMap?.[s.id]?.trim() || null,
+        status: statusMap[s.id] || "absent",
+        notes: null,
         recorded_by: `subject_teacher:${teacherName || "user"}`,
         academic_year: dbAcademicYear,
         semester: semester && semester > 0 ? semester : undefined,
@@ -182,10 +179,10 @@ export function SubjectPeriodCheckTab({ students, classrooms, academicYear, seme
     }
   };
 
-  if (!personnel) {
+  if (isTeacher && !canSeeAll && !teacherName) {
     return (
       <Card><CardContent className="py-12 text-center text-muted-foreground">
-        {lang === "th" ? "ไม่พบข้อมูลบุคลากรของคุณ — กรุณาเชื่อมโยงบัญชีบุคลากรเพื่อดูตารางสอน" : "No personnel record linked"}
+        {lang === "th" ? "ไม่พบข้อมูลบุคลากรของคุณ — กรุณาเชื่อมโยงบัญชี" : "No personnel record linked"}
       </CardContent></Card>
     );
   }
@@ -242,39 +239,15 @@ export function SubjectPeriodCheckTab({ students, classrooms, academicYear, seme
       </Card>
 
       {classroomId && subjectId && classStudents.length > 0 ? (
-        <Tabs defaultValue="manual">
-          <TabsList>
-            <TabsTrigger value="manual">
-              <ListChecks className="w-4 h-4 mr-1" />
-              {lang === "th" ? "เช็คชื่อรายบุคคล" : "Roster Check"}
-            </TabsTrigger>
-            <TabsTrigger value="scan">
-              <ScanLine className="w-4 h-4 mr-1" />
-              {lang === "th" ? "แสกน QR" : "Scan QR"}
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="manual" className="mt-3">
-            <ManualRosterCheck
-              key={`m-${classroomId}-${subjectId}-${checkDate}`}
-              students={classStudents}
-              contextLabel={lang === "th"
-                ? `${subjectName} • ${classroomName}${periodForSelected ? ` • คาบ ${periodForSelected}` : ""} • ${checkDate} • ${classStudents.length} คน`
-                : `${subjectName} • ${classroomName} • ${checkDate}`}
-              onSubmit={handleSubmit}
-            />
-          </TabsContent>
-          <TabsContent value="scan" className="mt-3">
-            <ScanAttendanceFlow
-              key={`s-${classroomId}-${subjectId}-${checkDate}`}
-              students={classStudents}
-              scanTitle={lang === "th" ? `แสกน QR — ${subjectName} • ${classroomName}` : `Scan — ${subjectName}`}
-              contextLabel={lang === "th"
-                ? `${subjectName} • ${classroomName}${periodForSelected ? ` • คาบ ${periodForSelected}` : ""} • ${checkDate} • ${classStudents.length} คน`
-                : `${subjectName} • ${classroomName} • ${checkDate}`}
-              onSubmit={handleSubmit}
-            />
-          </TabsContent>
-        </Tabs>
+        <ScanAttendanceFlow
+          key={`${classroomId}-${subjectId}-${checkDate}`}
+          students={classStudents}
+          scanTitle={lang === "th" ? `แสกน QR — ${subjectName} • ${classroomName}` : `Scan — ${subjectName}`}
+          contextLabel={lang === "th"
+            ? `${subjectName} • ${classroomName}${periodForSelected ? ` • คาบ ${periodForSelected}` : ""} • ${checkDate} • ${classStudents.length} คน`
+            : `${subjectName} • ${classroomName} • ${checkDate}`}
+          onSubmit={handleSubmit}
+        />
       ) : (
         <Card><CardContent className="py-12 text-center text-muted-foreground">
           {lang === "th" ? "เลือกระดับชั้น ห้อง และวิชา เพื่อเริ่มเช็คชื่อ" : "Select grade, classroom, and subject"}

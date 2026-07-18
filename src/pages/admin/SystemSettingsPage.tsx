@@ -11,6 +11,7 @@ import { Loader2, ShieldAlert, Database, Trash2, Activity, RefreshCw, Archive, H
 import ConfigBackupCard from "@/components/admin/ConfigBackupCard";
 import CreditFooter from "@/components/CreditFooter";
 import { swal } from "@/lib/swal";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 /**
  * Unified system settings: feature flags + cloud usage + data maintenance.
@@ -102,7 +103,7 @@ const SystemSettingsPage = () => {
     const total = Object.entries(purgePreview)
       .filter(([k]) => k !== "cutoff_year")
       .reduce((s, [, v]) => s + (Number(v) || 0), 0);
-    if (!(await swal.confirm({ title: `⚠️ จะลบข้อมูลก่อนปี พ.ศ. ${(purgePreview.cutoff_year + 543)} จำนวนรวม ${total.toLocaleString()} เรคคอร์ด\n\nการลบนี้ไม่สามารถย้อนกลับได้! ยืนยัน?`, danger: true }))) return;
+    if (!(await swal.confirm({ title: `⚠️ จะลบข้อมูลก่อนปี พ.ศ. ${(purgePreview.cutoff_year + BE_OFFSET)} จำนวนรวม ${total.toLocaleString()} เรคคอร์ด\n\nการลบนี้ไม่สามารถย้อนกลับได้! ยืนยัน?`, danger: true }))) return;
     setPurging(true);
     const { data, error } = await supabase.rpc("archive_and_purge_old_data" as any, { _retention_years: 3 });
     setPurging(false);
@@ -112,6 +113,29 @@ const SystemSettingsPage = () => {
     setPurgePreview(null);
     refetchUsage();
     qc.invalidateQueries({ queryKey: ["archive_logs"] });
+  };
+
+  const [resetting, setResetting] = useState(false);
+  const runContentReset = async () => {
+    const ok1 = await swal.confirm({
+      title: "⚠️ ล้างข้อมูลเนื้อหา/ธุรกรรมทั้งหมด?",
+      text: "จะคงไว้: ผู้ใช้, บุคลากร, นักเรียน, ห้องเรียน, รายวิชา, ตารางสอน, การตั้งค่าโรงเรียน, CMS, ข่าวสาร, การเชื่อมต่อภายนอก\nจะลบ: เช็คชื่อ, พฤติกรรม, ลา, สุขภาพ, คะแนน/ปพ., เอกสาร/E-Form, แจ้งเตือน/Inbox, log ทั้งหมด, social/portfolio, garbage, จองห้อง, ยืม-คืน, การเงิน, ประเมิน, PA, exam, hub projects, time clock, face scan, อาหารกลางวัน/นม, action plans",
+      danger: true,
+    });
+    if (!ok1) return;
+    const ok2 = await swal.confirm({
+      title: "ยืนยันอีกครั้ง: การลบนี้ไม่สามารถย้อนกลับได้!",
+      danger: true,
+    });
+    if (!ok2) return;
+    setResetting(true);
+    const { data, error } = await supabase.rpc("reset_content_data" as any);
+    setResetting(false);
+    if (error) { toast.error(error.message); return; }
+    const r = data as any;
+    const total = Object.values(r?.summary || {}).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
+    toast.success(`ล้างข้อมูลสำเร็จ — ลบรวม ${total.toLocaleString()} เรคคอร์ด`);
+    qc.invalidateQueries();
   };
 
   // ประวัติการ archive
@@ -346,7 +370,7 @@ const SystemSettingsPage = () => {
             {purgePreview && (
               <Button onClick={runPurge3Years} disabled={purging} variant="destructive">
                 {purging ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                ลบข้อมูลก่อน พ.ศ. {purgePreview.cutoff_year + 543}
+                ลบข้อมูลก่อน พ.ศ. {purgePreview.cutoff_year + BE_OFFSET}
               </Button>
             )}
           </div>
@@ -378,6 +402,28 @@ const SystemSettingsPage = () => {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Factory Reset (content only) */}
+      <Card className="border-2 border-destructive/40">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <Eraser className="h-5 w-5" />
+            ล้างข้อมูลเนื้อหาทั้งระบบ (เริ่มบันทึกใหม่)
+          </CardTitle>
+          <CardDescription>
+            ลบข้อมูลธุรกรรม/เนื้อหาทั้งหมด เพื่อเริ่มบันทึกใหม่โดย<strong>ไม่ต้อง setup ระบบใหม่</strong>
+            <br />✅ คงไว้: ผู้ใช้, บุคลากร, นักเรียน, ห้องเรียน, รายวิชา, ตารางสอน, การตั้งค่าโรงเรียน, CMS, ข่าวสาร, การเชื่อมต่อภายนอก (LINE/Google Chat/AI providers)
+            <br />❌ ลบ: เช็คชื่อ, พฤติกรรม, ลา, สุขภาพ, คะแนน/ปพ.5/ปพ.6, เอกสาร/E-Form, แจ้งเตือน/Inbox, log ทั้งหมด, social/wall/portfolio, garbage, จองห้อง, ยืม-คืน, การเงิน, ประเมิน/PA, exam, hub projects, time clock, face scan, อาหารกลางวัน/นม, action plans
+            <br />⚠️ ไม่สามารถย้อนกลับได้ — เหมาะกับการเริ่มต้นปีการศึกษาใหม่
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={runContentReset} disabled={resetting} variant="destructive">
+            {resetting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Eraser className="h-4 w-4 mr-2" />}
+            ล้างข้อมูลเนื้อหาทั้งหมด
+          </Button>
         </CardContent>
       </Card>
 

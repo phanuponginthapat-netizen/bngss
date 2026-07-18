@@ -54,9 +54,9 @@ export const SCORE_LEVELS = [
 
 export const RESULT_LEVELS = [
   { min: 0, max: 1.49, label: "ปรับปรุง", color: "text-destructive" },
-  { min: 1.5, max: 2.49, label: "พอใช้", color: "text-warning" },
-  { min: 2.5, max: 3.24, label: "ดี", color: "text-info" },
-  { min: 3.25, max: 3.74, label: "ดีมาก", color: "text-success" },
+  { min: 1.5, max: 2.49, label: "พอใช้", color: "text-orange-500" },
+  { min: 2.5, max: 3.24, label: "ดี", color: "text-blue-500" },
+  { min: 3.25, max: 3.74, label: "ดีมาก", color: "text-emerald-500" },
   { min: 3.75, max: 4, label: "ดีเด่น", color: "text-primary" },
 ];
 

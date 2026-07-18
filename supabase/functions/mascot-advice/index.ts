@@ -1,7 +1,7 @@
 // Mascot speech-bubble advice — on-demand endpoint with weekly cache
 // ⚡ ใช้ cache รายสัปดาห์ — ยิง AI แค่ 1 ครั้ง/คน/7 วัน เพื่อประหยัด token
 // refresh แบบ batch ทำผ่าน cron `refresh-mascot-advice-weekly`
-const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
+import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { generateMascotMessages } from "../_shared/mascotAdvice.ts";
 

@@ -10,7 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { GraduationCap, IdCard, MessageCircle, LogOut } from "lucide-react";
 import { useAuthSession } from "@/hooks/useAuthSession";
-import { useSystemSettings } from "@/hooks/useSystemSettings";
 
 
 const LinkAccount = () => {
@@ -21,7 +20,6 @@ const LinkAccount = () => {
   const navigate = useNavigate();
   const { lang } = useLanguage();
   const { isReady, session } = useAuthSession();
-  const { appName, schoolName, schoolLogo } = useSystemSettings();
 
   useEffect(() => {
     if (!isReady) return;
@@ -78,15 +76,11 @@ const LinkAccount = () => {
 
       <Card className="w-full max-w-md shadow-card-hover border-0 relative z-10">
         <CardHeader className="text-center pb-2 pt-8">
-          {schoolLogo ? (
-            <img src={schoolLogo} alt={schoolName || appName} className="mx-auto w-20 h-20 object-contain mb-4 drop-shadow-md" />
-          ) : (
-            <div className="mx-auto w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mb-4 shadow-lg">
-              <GraduationCap className="w-8 h-8 text-primary-foreground" />
-            </div>
-          )}
+          <div className="mx-auto w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mb-4 shadow-lg">
+            <GraduationCap className="w-8 h-8 text-primary-foreground" />
+          </div>
           <h1 className="text-2xl font-bold text-foreground">
-            {lang === "th" ? `ผูกบัญชีกับ${schoolName || "โรงเรียน"}` : `Link Your Account${schoolName ? ` to ${schoolName}` : ""}`}
+            {lang === "th" ? "ผูกบัญชีกับโรงเรียน" : "Link Your Account"}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {lang === "th"

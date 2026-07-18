@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 const DIGITS = ["0","1","2","3","4","5","6","7","8","9"];
 const LETTERS = ["A","B","C","D"];
@@ -45,8 +46,8 @@ export default function ExamAnswerSheetPage() {
   const count = exam.question_count || 20;
   const digits = sheet?.student_code_digits || 5;
   const academicYear = exam.academic_year
-    ? `${exam.academic_year + 543}`
-    : `${new Date().getFullYear() + 543}`;
+    ? `${exam.academic_year + BE_OFFSET}`
+    : `${new Date().getFullYear() + BE_OFFSET}`;
 
   // ArUco-like fiducial: solid black with inner white square, plus surrounding quiet zone
   const Fiducial = ({ pos, orientation }: { pos: string; orientation?: boolean }) => (
@@ -78,10 +79,10 @@ export default function ExamAnswerSheetPage() {
             <p className="text-[11px] leading-tight">กระดาษคำตอบ — {exam.title}</p>
           </div>
         </div>
-        <p className="text-[10px] text-neutral leading-tight">
+        <p className="text-[10px] text-gray-700 leading-tight">
           วิชา: {exam.subjects?.name_th || "-"} · ห้อง: {exam.classrooms?.name || "-"} · {count} ข้อ
         </p>
-        <p className="text-[10px] text-neutral leading-tight">
+        <p className="text-[10px] text-gray-700 leading-tight">
           ปีการศึกษา {academicYear} · ครูผู้ออกข้อสอบ: {teacher || "-"}
         </p>
       </div>
@@ -163,7 +164,7 @@ export default function ExamAnswerSheetPage() {
 
 
   return (
-    <div className="bg-neutral-soft min-h-screen p-4 print:bg-white print:p-0 print:m-0">
+    <div className="bg-gray-100 min-h-screen p-4 print:bg-white print:p-0 print:m-0">
       <div className="max-w-5xl mx-auto mb-4 flex justify-end gap-2 print:hidden">
         <Button onClick={() => window.print()}>
           <Printer className="w-4 h-4 mr-1" /> พิมพ์กระดาษคำตอบ
@@ -185,9 +186,9 @@ export default function ExamAnswerSheetPage() {
           className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 pointer-events-none flex flex-col items-center justify-between"
           aria-hidden
         >
-          <span className="text-[8px] text-neutral rotate-90 mt-2">✂ พับ/ตัดตรงนี้</span>
-          <div className="w-px h-full border-l border-dashed border-neutral/30" />
-          <span className="text-[8px] text-neutral rotate-90 mb-2">✂ พับ/ตัดตรงนี้</span>
+          <span className="text-[8px] text-gray-500 rotate-90 mt-2">✂ พับ/ตัดตรงนี้</span>
+          <div className="w-px h-full border-l border-dashed border-gray-500" />
+          <span className="text-[8px] text-gray-500 rotate-90 mb-2">✂ พับ/ตัดตรงนี้</span>
         </div>
         <HalfSheet />
       </div>

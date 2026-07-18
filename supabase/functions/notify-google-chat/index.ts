@@ -1,11 +1,7 @@
-import { isAuthorizedUserOrCron, unauthorized } from "../_shared/cronAuth.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 type Severity = "info" | "success" | "warning" | "critical";
 
@@ -57,6 +53,7 @@ function buildCardV2(opts: {
   notificationType?: string;
   fields?: Record<string, string> | null;
   url?: string | null;
+  imageUrl?: string | null;
   prefix?: string;
 }) {
   const meta = SEVERITY_META[opts.severity] ?? SEVERITY_META.info;
@@ -80,6 +77,22 @@ function buildCardV2(opts: {
     headWidgets.push({ textParagraph: { text: opts.message.replace(/\n/g, "<br>") } });
   }
   sections.push({ widgets: headWidgets });
+
+  // Section: Image (if any) — full-width preview
+  if (opts.imageUrl) {
+    sections.push({
+      widgets: [
+        {
+          image: {
+            imageUrl: opts.imageUrl,
+            ...(opts.url ? { onClick: { openLink: { url: opts.url } } } : {}),
+          },
+        },
+      ],
+    });
+  }
+
+
 
   // Section 2: Details grid (if any)
   if (opts.fields && Object.keys(opts.fields).length > 0) {
@@ -144,8 +157,6 @@ function buildCardV2(opts: {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (!(await isAuthorizedUserOrCron(req))) return unauthorized();
-
 
   try {
     const body = await req.json();
@@ -156,6 +167,7 @@ serve(async (req) => {
       notification_type,
       severity = "info",
       url,
+      image_url,
       fields,
       reference_table,
       reference_id,
@@ -170,6 +182,45 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    // Resolve absolute public site URL — Google Chat button requires https:// and
+    // we don't want links pointing at the preview/lovableproject domain.
+    async function resolvePublicSiteUrl(): Promise<string> {
+      const { data } = await supabaseAdmin
+        .from("school_settings")
+        .select("setting_value")
+        .eq("setting_key", "site_url")
+        .maybeSingle();
+      const configured = (data?.setting_value || "").trim();
+      if (configured) return configured.replace(/\/+$/, "");
+      // Fallback: published Lovable URL for this project
+      return "https://bngss.lovable.app";
+    }
+
+    function toAbsolute(raw: string | null | undefined, base: string): string | null {
+      if (!raw) return null;
+      const s = String(raw).trim();
+      if (!s) return null;
+      // Replace preview/lovableproject/localhost origins with the public site
+      const previewRe = /^https?:\/\/[^/]*(lovableproject\.com|lovable\.app\/preview|localhost(:\d+)?)/i;
+      if (previewRe.test(s)) {
+        try {
+          const u = new URL(s);
+          // Skip published domain
+          if (!/bngss\.lovable\.app/i.test(u.host)) {
+            return `${base}${u.pathname}${u.search}${u.hash}`;
+          }
+        } catch { /* fallthrough */ }
+      }
+      if (/^https?:\/\//i.test(s)) return s;
+      if (s.startsWith("/")) return `${base}${s}`;
+      return `${base}/${s}`;
+    }
+
+    const siteBase = await resolvePublicSiteUrl();
+    const absUrl = toAbsolute(url, siteBase);
+    const absImage = toAbsolute(image_url, siteBase);
+
 
     let query = supabaseAdmin.from("google_chat_webhooks").select("*").eq("is_active", true);
     if (department && department !== "all") {
@@ -217,9 +268,11 @@ serve(async (req) => {
           severity: sev,
           notificationType: notification_type,
           fields: fields || null,
-          url: url || null,
+          url: absUrl,
+          imageUrl: absImage,
           prefix,
         });
+
 
         let httpStatus = 0;
         let errorText: string | null = null;

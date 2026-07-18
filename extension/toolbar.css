@@ -1,0 +1,98 @@
+#__sb_toolbar {
+  position: fixed !important;
+  top: 0; left: 0; right: 0;
+  height: 44px !important;
+  z-index: 2147483647 !important;
+  background: linear-gradient(90deg,#0ea5e9,#6366f1) !important;
+  color: #fff !important;
+  font: 13px/1 system-ui, -apple-system, "Segoe UI", sans-serif !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,.2) !important;
+}
+#__sb_toolbar .sb-inner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 12px; height: 100%;
+  box-sizing: border-box;
+}
+#__sb_toolbar .sb-brand { font-weight: 700; white-space: nowrap; display: flex; align-items: center; gap: 6px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+#__sb_toolbar .sb-logo { height: 26px; width: 26px; object-fit: contain; border-radius: 4px; background: #fff; padding: 2px; }
+#__sb_toolbar .sb-school { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#__sb_toolbar .sb-addr-form {
+  flex: 1; display: flex; align-items: center; gap: 4px;
+  background: rgba(255,255,255,.95);
+  border-radius: 999px; padding: 2px 4px 2px 12px;
+  min-width: 200px;
+}
+#__sb_toolbar .sb-addr {
+  flex: 1; border: 0 !important; outline: 0 !important;
+  background: transparent !important; color: #0f172a !important;
+  font: 13px ui-monospace, monospace !important;
+  padding: 6px 4px !important; min-width: 0 !important;
+}
+#__sb_toolbar .sb-go {
+  background: #0ea5e9 !important; color: #fff !important;
+  border: 0 !important; border-radius: 999px !important;
+  width: 28px; height: 28px; cursor: pointer;
+}
+#__sb_toolbar .sb-user, #__sb_toolbar .sb-clock {
+  white-space: nowrap; opacity: .95; font-size: 12px;
+  padding: 4px 8px; background: rgba(255,255,255,.15); border-radius: 6px;
+}
+#__sb_toolbar .sb-user b, #__sb_toolbar .sb-clock b { font-weight: 600; }
+#__sb_toolbar .sb-btn {
+  background: rgba(255,255,255,.18) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255,255,255,.35) !important;
+  padding: 6px 10px !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  font: inherit !important;
+  white-space: nowrap;
+}
+#__sb_toolbar .sb-btn:hover { background: rgba(255,255,255,.3) !important; }
+#__sb_toolbar .sb-apps { display: inline-flex !important; align-items: center; justify-content: center; padding: 6px 8px !important; }
+#__sb_toolbar .sb-apps svg { display: block; }
+
+#__sb_toolbar .sb-apps-panel {
+  position: absolute !important;
+  top: 48px; right: 12px;
+  width: 360px; max-height: 480px; overflow-y: auto;
+  background: #fff !important; color: #0f172a !important;
+  border-radius: 16px !important;
+  box-shadow: 0 20px 50px -10px rgba(0,0,0,.35), 0 4px 12px rgba(0,0,0,.15) !important;
+  padding: 16px !important;
+  z-index: 2147483647 !important;
+}
+#__sb_toolbar .sb-apps-panel[hidden] { display: none !important; }
+#__sb_toolbar .sb-apps-title {
+  font-size: 14px !important; font-weight: 600 !important;
+  color: #0f172a !important; margin: 0 0 12px 4px !important;
+}
+#__sb_toolbar .sb-apps-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 6px !important;
+}
+#__sb_toolbar .sb-app {
+  display: flex !important; flex-direction: column; align-items: center; gap: 6px;
+  padding: 12px 6px !important; border-radius: 10px !important;
+  text-decoration: none !important; color: #0f172a !important;
+  transition: background .15s ease;
+}
+#__sb_toolbar .sb-app:hover { background: #f1f5f9 !important; }
+#__sb_toolbar .sb-app-icon {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: #f8fafc; display: flex; align-items: center; justify-content: center;
+  font-size: 22px; overflow: hidden;
+}
+#__sb_toolbar .sb-app-icon img { width: 100%; height: 100%; object-fit: cover; }
+#__sb_toolbar .sb-app-label {
+  font-size: 12px !important; text-align: center; line-height: 1.2;
+  max-width: 88px; word-break: break-word;
+}
+#__sb_toolbar .sb-apps-empty {
+  padding: 24px 8px !important; text-align: center;
+  color: #64748b !important; font-size: 13px !important;
+}
+
+html { scroll-padding-top: 44px !important; }
+body { margin-top: 44px !important; }

@@ -118,7 +118,7 @@ export default function AnnotateImageDialog({ open, onOpenChange, imageUrl, init
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-5xl sm:max-h-[95vh] overflow-y-auto">
         <DialogHeader><DialogTitle>ตรวจการบ้าน — ขีด / วง / ใส่ข้อความบนรูป</DialogTitle></DialogHeader>
 
         <div className="flex flex-wrap items-center gap-2 p-2 rounded-lg border border-border bg-muted/30">

@@ -21,9 +21,9 @@ const EmergencyViewPage = () => {
   });
 
   const sevColors: Record<string, string> = {
-    info: "bg-info-soft text-info border-info/30",
-    warning: "bg-warning-soft text-warning border-warning/30",
-    critical: "bg-danger-soft text-danger border-danger/30",
+    info: "bg-blue-100 text-blue-800 border-blue-200",
+    warning: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    critical: "bg-red-100 text-red-800 border-red-200",
   };
   const sevLabel: Record<string, string> = {
     info: lang === "th" ? "แจ้งเตือน" : "Info",
@@ -61,7 +61,7 @@ const EmergencyViewPage = () => {
               </div>
               <p className="text-sm whitespace-pre-wrap">{r.message}</p>
               <p className="text-xs text-muted-foreground">
-                {new Date(r.sent_at || r.created_at).toLocaleString(lang === "th" ? "th-TH" : "en-GB", { hour12: false })}
+                {new Date(r.sent_at || r.created_at).toLocaleString(lang === "th" ? "th-TH" : "en-US")}
               </p>
             </CardContent>
           </Card>

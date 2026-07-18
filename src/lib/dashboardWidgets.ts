@@ -26,8 +26,6 @@ export interface WidgetDef {
 
 export const DASHBOARD_WIDGETS: WidgetDef[] = [
   { key: "hero", titleTh: "ส่วนหัว/ทักทาย", titleEn: "Hero greeting", group: "overview", defaultSize: "lg", defaultColor: "primary", allowedSizes: ["lg", "xl"], required: true, defaultEnabled: true },
-  { key: "today_actions", titleTh: "ต้องทำวันนี้", titleEn: "Today's Actions", group: "overview", defaultSize: "md", defaultColor: "primary", allowedSizes: ["md", "lg", "xl"], defaultEnabled: true },
-  { key: "ai_insights", titleTh: "AI วิเคราะห์", titleEn: "AI Insights", group: "overview", defaultSize: "md", defaultColor: "violet", allowedSizes: ["md", "lg", "xl"], defaultEnabled: true },
   { key: "mascot_hero", titleTh: "การ์ดมาสคอต", titleEn: "Mascot Card", group: "overview", defaultSize: "lg", defaultColor: "primary", allowedSizes: ["md", "lg", "xl"], defaultEnabled: true },
   { key: "alerts", titleTh: "แจ้งเตือนด่วน", titleEn: "Quick alerts", group: "overview", defaultSize: "md", defaultColor: "info", allowedSizes: ["md", "lg", "xl"], defaultEnabled: true },
 
@@ -49,7 +47,7 @@ export const DASHBOARD_WIDGETS: WidgetDef[] = [
   { key: "mini_apps", titleTh: "มินิแอป (ทางลัด)", titleEn: "Mini Apps", group: "shortcut", defaultSize: "xl", defaultColor: "primary", allowedSizes: ["lg", "xl"], defaultEnabled: true },
   
   { key: "iot_summary", titleTh: "IoT", titleEn: "IoT", group: "shortcut", defaultSize: "md", defaultColor: "info", allowedSizes: ["md", "lg"], defaultEnabled: true },
-  
+  { key: "module_hub", titleTh: "Hub โมดูล", titleEn: "Module Hub", group: "shortcut", defaultSize: "md", defaultColor: "violet", allowedSizes: ["md", "lg"], defaultEnabled: true },
   { key: "social_wall", titleTh: "Social Wall", titleEn: "Social Wall", group: "info", defaultSize: "lg", defaultColor: "info", allowedSizes: ["md", "lg", "xl"], defaultEnabled: true },
 ];
 
@@ -59,10 +57,10 @@ export const COLOR_THEMES: Record<WidgetColor, { gradient: string; soft: string;
   accent: { gradient: "gradient-accent", soft: "bg-accent/10", text: "text-accent", ring: "ring-accent/30", label: "ม่วงเขียว", labelEn: "Teal" },
   success: { gradient: "gradient-success", soft: "bg-success/15", text: "text-success", ring: "ring-success/30", label: "เขียว", labelEn: "Green" },
   warning: { gradient: "gradient-warning", soft: "bg-warning/15", text: "text-warning", ring: "ring-warning/30", label: "ส้ม", labelEn: "Orange" },
-  info: { gradient: "gradient-info", soft: "bg-info/10", text: "text-info", ring: "ring-info/30", label: "ฟ้าน้ำทะเล", labelEn: "Sky" },
-  rose: { gradient: "bg-gradient-to-br from-danger to-danger", soft: "bg-danger/10", text: "text-danger", ring: "ring-danger/30", label: "ชมพู", labelEn: "Rose" },
-  violet: { gradient: "bg-gradient-to-br from-info to-danger", soft: "bg-info/10", text: "text-info", ring: "ring-info/30", label: "ม่วง", labelEn: "Violet" },
-  neutral: { gradient: "bg-gradient-to-br from-neutral to-neutral", soft: "bg-neutral/10", text: "text-neutral dark:text-neutral", ring: "ring-neutral/30", label: "เทา", labelEn: "Slate" },
+  info: { gradient: "gradient-info", soft: "bg-sky-500/10", text: "text-sky-600", ring: "ring-sky-400/30", label: "ฟ้าน้ำทะเล", labelEn: "Sky" },
+  rose: { gradient: "bg-gradient-to-br from-rose-500 to-pink-500", soft: "bg-rose-500/10", text: "text-rose-600", ring: "ring-rose-400/30", label: "ชมพู", labelEn: "Rose" },
+  violet: { gradient: "bg-gradient-to-br from-violet-500 to-fuchsia-500", soft: "bg-violet-500/10", text: "text-violet-600", ring: "ring-violet-400/30", label: "ม่วง", labelEn: "Violet" },
+  neutral: { gradient: "bg-gradient-to-br from-slate-500 to-slate-700", soft: "bg-slate-500/10", text: "text-slate-700 dark:text-slate-300", ring: "ring-slate-400/30", label: "เทา", labelEn: "Slate" },
 };
 
 // Map widget size → col-span on a 6-col lg grid (mobile is 2-col base)

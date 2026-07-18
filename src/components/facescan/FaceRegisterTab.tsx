@@ -1,144 +1,48 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 import { attachStreamToVideo } from "@/lib/cameraIos";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { Input } from "@/components/ui/input";
-import {
-  ScanFace, CheckCircle2, ArrowLeft, ArrowRight, ArrowUp, ArrowDown,
-  Sparkles, Camera, Loader2, RotateCcw, ShieldCheck, SwitchCamera,
-  Smile, Eye, Send, AlertCircle, ZoomIn, UserCircle2, Search,
-} from "lucide-react";
+import { RefreshCw, Sparkles, CheckCircle2, XCircle, Image as ImageIcon, Camera, Save, Upload, ShieldCheck, History, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  loadFaceModels, detectFaceWithLandmarks, applyCameraAutoTune, estimateFaceSharpness,
-} from "@/lib/faceApi";
-import { loadArcFace, computeArcFaceEmbedding, isArcFaceReady, ARCFACE_GRADE } from "@/lib/arcface";
+import { loadFaceModels, getDescriptorFromImage, loadImageFromUrl, detectorOptionsHQ, detectFaceWithLandmarks, assessFaceQuality, BANK_GRADE, type QualityReport } from "@/lib/faceApi";
+import * as faceapi from "@vladmandic/face-api";
 import { toast } from "sonner";
-import { useAuthSession } from "@/hooks/useAuthSession";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useUserRole } from "@/hooks/useUserRole";
 
-/**
- * ลงทะเบียนใบหน้าแบบ Liveness Wizard (เข้มงวดที่สุด — แบบแอปธนาคาร / ตู้ตม.)
- *
- * - นักเรียน: ลงทะเบียนตัวเองจากมือถือได้ทันที (ไม่ต้องรอแอดมิน)
- * - ครู/แอดมิน: เลือกนักเรียนแล้วช่วยลงทะเบียนผ่าน wizard เดียวกัน
- *
- * 9 ขั้นตอน + 4 color challenge = สูงสุด ~12 ภาพ/คน
- *   center → close-up → blink → mouth-open → left → right → up → down → color → done
- */
-
-type StepKey =
-  | "center" | "close" | "blink" | "mouth"
-  | "left" | "right" | "up" | "down"
-  | "color" | "done";
-
-interface Step {
-  key: StepKey;
-  label: string;
-  hint: string;
-  icon: typeof ScanFace;
-}
-
-const STEPS: Step[] = [
-  { key: "center", label: "1. จัดหน้าให้ตรงกรอบ",   hint: "มองตรงเข้ากล้อง อยู่นิ่ง ๆ",                icon: ScanFace },
-  { key: "close",  label: "2. ขยับเข้าใกล้อีกหน่อย", hint: "ให้หน้าเต็มกรอบประมาณ 30–40 ซม. จากกล้อง",  icon: ZoomIn },
-  { key: "blink",  label: "3. กะพริบตา",             hint: "หลับตา 1 ครั้งช้า ๆ แล้วลืมตา",           icon: Eye },
-  { key: "mouth",  label: "4. อ้าปากค้างไว้",         hint: "อ้าปากกว้างประมาณ 1 วินาที",              icon: Smile },
-  { key: "left",   label: "5. หันหน้าไปทางซ้าย",     hint: "หันช้า ๆ ประมาณ 30–40°",                  icon: ArrowLeft },
-  { key: "right",  label: "6. หันหน้าไปทางขวา",      hint: "หันช้า ๆ ประมาณ 30–40°",                  icon: ArrowRight },
-  { key: "up",     label: "7. เงยหน้าขึ้นเล็กน้อย",  hint: "เงยขึ้นนิดเดียว มองที่กล้อง",              icon: ArrowUp },
-  { key: "down",   label: "8. ก้มหน้าลงเล็กน้อย",    hint: "ก้มลงนิดเดียว มองที่กล้อง",                icon: ArrowDown },
-  { key: "color",  label: "9. ตรวจสีกันรูปปลอม",     hint: "หน้าจอจะเปลี่ยนสี ให้มองตรงกล้องค้างไว้",   icon: Sparkles },
-  { key: "done",   label: "เสร็จสมบูรณ์",             hint: "กดยืนยันบันทึกข้อมูล",                    icon: CheckCircle2 },
-];
-
-const CHALLENGE_COLORS = ["#ef4444", "#22c55e", "#3b82f6", "#ffffff"];
-
-// Banking-grade strict gates
-const MIN_SHARPNESS = 95;
-const MIN_FACE_FRAC = 0.16;
-const MAX_FACE_FRAC = 0.62;
-
-interface CapturedSample {
-  descriptor: Float32Array;          // face-api 128-dim (v1, fallback)
-  descriptorV2: Float32Array | null; // ArcFace 512-dim (v2, primary — DeepFace-grade)
-  image: string;
-  metrics: {
-    stepKey: StepKey;
-    faceWidthPx: number;
-    faceHeightPx: number;
-    faceFrac: number;
-    sharpness: number;
-    yaw: number;
-    pitch: number;
-    ear: number;
-    hasArcFace: boolean;
-  };
-}
 
 const FaceRegisterTab = () => {
   const qc = useQueryClient();
-  const { user } = useAuthSession();
-  const userId = user?.id ?? null;
-  const { isStudent } = useUserRole();
-
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const overlayRef = useRef<HTMLCanvasElement>(null);
-  const flashRef = useRef<HTMLDivElement>(null);
-  const loopRef = useRef<number | null>(null);
-  const busyRef = useRef(false);
-  const detectMetaRef = useRef({ misses: 0, stableHits: 0 });
-  const blinkRef = useRef({ openSeen: false, closeFrames: 0, reopenFrames: 0 });
-  const mouthStateRef = useRef<{ openFrames: number; baseline: number; samples: number[] }>({
-    openFrames: 0, baseline: 0, samples: [],
-  });
-
+  const { isAdmin, isDirector } = useUserRole();
+  const canApproveDirectly = isAdmin || isDirector;
   const [modelReady, setModelReady] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [progress, setProgress] = useState({ done: 0, total: 0, ok: 0, fail: 0 });
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [failedList, setFailedList] = useState<Array<{ id: string; name: string; reason: string }>>([]);
+  const autoRan = useRef(false);
+
+  // Manual capture / upload
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [streaming, setStreaming] = useState(false);
-  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
-  const [stepIdx, setStepIdx] = useState(0);
-  const [statusMsg, setStatusMsg] = useState("");
-  const [samples, setSamples] = useState<CapturedSample[]>([]);
-  const [colorFrameIdx, setColorFrameIdx] = useState(0);
-  const [submitting, setSubmitting] = useState(false);
-  const [reason, setReason] = useState("");
-
-  // student picker (for teacher/admin mode)
-  const [pickedStudentId, setPickedStudentId] = useState<string | null>(null);
+  const [studentId, setStudentId] = useState("");
   const [search, setSearch] = useState("");
+  const [reason, setReason] = useState("");
+  const [shots, setShots] = useState<Array<{ canvas: HTMLCanvasElement; desc: Float32Array; source: "camera" | "upload"; quality: QualityReport }>>([]);
+  const [lastQuality, setLastQuality] = useState<QualityReport | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const [arcReady, setArcReady] = useState(false);
-  const [arcStatus, setArcStatus] = useState<string>("");
-  useEffect(() => {
-    loadFaceModels().then(() => setModelReady(true));
-    // Load ArcFace in parallel — non-blocking (face-api works as fallback if it fails)
-    loadArcFace((msg) => setArcStatus(msg))
-      .then(() => { setArcReady(true); setArcStatus("AI ใบหน้าระดับ DeepFace พร้อมใช้งาน"); })
-      .catch((e) => { setArcStatus(`ArcFace โหลดไม่สำเร็จ (ใช้โหมดเดิมต่อ): ${e.message}`); });
-  }, []);
+  useEffect(() => { loadFaceModels().then(() => setModelReady(true)); }, []);
 
-  // นักเรียน — หาตัวเอง
-  const { data: myStudent, isLoading: meLoading } = useQuery({
-    queryKey: ["my-student-record", userId],
-    enabled: !!userId && isStudent,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("students")
-        .select("id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name)")
-        .eq("auth_user_id", userId!)
-        .maybeSingle();
-      return data;
-    },
-  });
 
-  // ครู/แอดมิน — รายชื่อนักเรียนทั้งหมด
   const { data: students = [] } = useQuery({
     queryKey: ["students-list-face-register"],
-    enabled: !isStudent,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("students")
@@ -150,45 +54,111 @@ const FaceRegisterTab = () => {
     },
   });
 
-  const targetStudent: any = isStudent ? myStudent : students.find((s: any) => s.id === pickedStudentId);
-  const targetId = targetStudent?.id || null;
-
-  const { data: existing } = useQuery({
-    queryKey: ["face-registered-for", targetId],
-    enabled: !!targetId,
+  const { data: existing = [] } = useQuery({
+    queryKey: ["face-registered-ids"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("student_face_descriptors")
-        .select("id")
-        .eq("student_id", targetId!);
+      const { data, error } = await supabase.from("student_face_descriptors").select("student_id");
+      if (error) throw error;
       return data || [];
     },
   });
-  const isRegistered = (existing?.length || 0) > 0;
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    const list = q
-      ? students.filter((s: any) => [s.first_name, s.last_name, s.student_code]
-          .some((v) => String(v || "").toLowerCase().includes(q)))
-      : students;
-    return list.slice(0, 30);
-  }, [students, search]);
+  const registeredIds = new Set(existing.map((r: any) => r.student_id));
+  const withAvatar = students.filter((s: any) => s.photo_url);
+  const pending = withAvatar.filter((s: any) => !registeredIds.has(s.id));
 
-  // ===== Camera =====
-  const startCamera = async (mode: "user" | "environment" = facingMode) => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: mode }, width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
-      if (videoRef.current) {
-        await attachStreamToVideo(videoRef.current, stream);
-        setStreaming(true);
-        try { applyCameraAutoTune(stream); } catch { /* ignore */ }
+  const detectRobust = async (img: HTMLImageElement): Promise<Float32Array | null> => {
+    // 1) Standard
+    let desc = await getDescriptorFromImage(img);
+    if (desc) return desc;
+    // 2) HQ: larger input + lower threshold
+    for (const size of [512, 608] as const) {
+      for (const thr of [0.35, 0.25, 0.15]) {
+        const res = await faceapi
+          .detectSingleFace(img as any, detectorOptionsHQ(size, thr))
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+        if (res?.descriptor) return res.descriptor;
       }
-    } catch (e: any) {
-      toast.error("เปิดกล้องไม่สำเร็จ: " + e.message);
     }
+    return null;
+  };
+
+  const runAutoSync = async (force = false) => {
+    if (!modelReady) { toast.error("AI Model ยังไม่พร้อม"); return; }
+    setSyncing(true);
+    setFailedList([]);
+    const targets = force ? withAvatar : pending;
+    setProgress({ done: 0, total: targets.length, ok: 0, fail: 0 });
+    if (targets.length === 0) {
+      toast.info("ข้อมูลใบหน้าซิงค์ครบทุกคนแล้ว");
+      setSyncing(false);
+      setLastSyncedAt(new Date().toISOString());
+      return;
+    }
+    const { data: { user } } = await supabase.auth.getUser();
+    let ok = 0, fail = 0, done = 0;
+    const fails: Array<{ id: string; name: string; reason: string }> = [];
+    for (const s of targets as any[]) {
+      const fullName = `${s.prefix || ""}${s.first_name || ""} ${s.last_name || ""}`.trim();
+      try {
+        const img = await loadImageFromUrl(s.photo_url).catch((e) => {
+          throw new Error("โหลดรูปไม่ได้ (CORS/404)");
+        });
+        const desc = await detectRobust(img);
+        if (!desc) {
+          fail++;
+          fails.push({ id: s.id, name: fullName, reason: "ตรวจไม่พบใบหน้าในรูป (เบลอ/มุมเอียง/หลายคน)" });
+        } else {
+          if (force) {
+            await supabase.from("student_face_descriptors").delete().eq("student_id", s.id).eq("source", "profile_avatar");
+          }
+          const { error } = await supabase.from("student_face_descriptors").insert({
+            student_id: s.id, sample_index: 0,
+            descriptor: Array.from(desc), captured_by: user?.id, source: "profile_avatar",
+          });
+          if (error) { fail++; fails.push({ id: s.id, name: fullName, reason: "DB: " + error.message }); }
+          else ok++;
+        }
+      } catch (e: any) {
+        fail++;
+        fails.push({ id: s.id, name: fullName, reason: e?.message || "unknown error" });
+      }
+      done++;
+      setProgress({ done, total: targets.length, ok, fail });
+    }
+    setFailedList(fails);
+    setLastSyncedAt(new Date().toISOString());
+    setSyncing(false);
+    toast.success(`ซิงค์เสร็จ: สำเร็จ ${ok} • ล้มเหลว ${fail}`);
+    qc.invalidateQueries({ queryKey: ["face-registered-ids"] });
+    qc.invalidateQueries({ queryKey: ["face-known"] });
+    qc.invalidateQueries({ queryKey: ["face-db"] });
+  };
+
+  // Auto-run on first mount when there are pending
+  useEffect(() => {
+    if (autoRan.current) return;
+    if (!modelReady) return;
+    if (students.length === 0) return;
+    if (pending.length === 0) return;
+    autoRan.current = true;
+    runAutoSync(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modelReady, students.length, pending.length]);
+
+  // ====== Manual capture ======
+  const filtered = students.filter((s: any) => {
+    const q = search.toLowerCase().trim();
+    if (!q) return true;
+    return [s.first_name, s.last_name, s.student_code].some((v) => String(v || "").toLowerCase().includes(q));
+  }).slice(0, 100);
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+      if (videoRef.current) { await attachStreamToVideo(videoRef.current, stream); setStreaming(true); }
+    } catch (e: any) { toast.error("เปิดกล้องไม่สำเร็จ: " + e.message); }
   };
   const stopCamera = () => {
     const s = videoRef.current?.srcObject as MediaStream | null;
@@ -196,652 +166,412 @@ const FaceRegisterTab = () => {
     if (videoRef.current) videoRef.current.srcObject = null;
     setStreaming(false);
   };
-  const switchCamera = async () => {
-    const next = facingMode === "user" ? "environment" : "user";
-    setFacingMode(next);
-    stopCamera();
-    setTimeout(() => startCamera(next), 150);
-  };
-
-  useEffect(() => () => { stopCamera(); if (loopRef.current) clearTimeout(loopRef.current); }, []);
-
-  const captureSample = useCallback(
-    async (data: NonNullable<Awaited<ReturnType<typeof detectFaceWithLandmarks>>>, stepKey: StepKey): Promise<CapturedSample> => {
-      const v = videoRef.current!;
-      const vw = v.videoWidth, vh = v.videoHeight;
-      const { box, ear, yaw, pitch, descriptor, landmarks } = data;
-      const pad = 0.25;
-      const sx = Math.max(0, box.x - box.width * pad);
-      const sy = Math.max(0, box.y - box.height * pad);
-      const sw = Math.min(vw - sx, box.width * (1 + pad * 2));
-      const sh = Math.min(vh - sy, box.height * (1 + pad * 2));
-      const c = document.createElement("canvas");
-      const targetW = 320;
-      c.width = targetW;
-      c.height = Math.round((sh / sw) * targetW);
-      const ctx = c.getContext("2d");
-      if (ctx) {
-        if (facingMode === "user") { ctx.translate(c.width, 0); ctx.scale(-1, 1); }
-        ctx.drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
-      }
-      // Compute ArcFace (DeepFace-grade) embedding in parallel with capture.
-      // Uses landmarks from the original video frame — not the cropped/mirrored canvas.
-      let descriptorV2: Float32Array | null = null;
-      if (isArcFaceReady()) {
-        try { descriptorV2 = await computeArcFaceEmbedding(v, landmarks); } catch { descriptorV2 = null; }
-      }
-      return {
-        descriptor,
-        descriptorV2,
-        image: c.toDataURL("image/jpeg", 0.88),
-        metrics: {
-          stepKey,
-          faceWidthPx: Math.round(box.width),
-          faceHeightPx: Math.round(box.height),
-          faceFrac: +(box.width / vw).toFixed(3),
-          sharpness: Math.round(estimateFaceSharpness(v, box)),
-          yaw: +yaw.toFixed(3),
-          pitch: +pitch.toFixed(3),
-          ear: +ear.toFixed(3),
-          hasArcFace: descriptorV2 !== null,
-        },
-      };
-    },
-    [facingMode],
-  );
-
-  // Async helper that captures + pushes a sample, used inside the step machine.
-  const pushSample = useCallback(async (
-    data: NonNullable<Awaited<ReturnType<typeof detectFaceWithLandmarks>>>,
-    stepKey: StepKey,
-  ) => {
-    const sm = await captureSample(data, stepKey);
-    setSamples((s) => [...s, sm]);
-  }, [captureSample]);
-
-  const drawOverlay = useCallback((data: Awaited<ReturnType<typeof detectFaceWithLandmarks>> | null) => {
-    const v = videoRef.current; const cv = overlayRef.current;
-    if (!v || !cv) return;
-    const vw = v.videoWidth, vh = v.videoHeight;
-    if (!vw || !vh) return;
-    if (cv.width !== vw || cv.height !== vh) { cv.width = vw; cv.height = vh; }
-    const ctx = cv.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, vw, vh);
-    if (!data) return;
-    ctx.strokeStyle = "rgba(16, 185, 129, 0.9)";
-    ctx.lineWidth = Math.max(2, vw / 320);
-    ctx.strokeRect(data.box.x, data.box.y, data.box.width, data.box.height);
-  }, []);
-
-  const runStep = useCallback(async () => {
-    const next = () => { loopRef.current = window.setTimeout(runStep, 120) as unknown as number; };
-    if (busyRef.current) { next(); return; }
-    if (!videoRef.current || !modelReady || !streaming) { next(); return; }
-    if (videoRef.current.readyState < 2 || !videoRef.current.videoWidth) {
-      setStatusMsg("กำลังเปิดภาพจากกล้อง..."); next(); return;
-    }
-    busyRef.current = true;
-    const step = STEPS[stepIdx];
-    let data: Awaited<ReturnType<typeof detectFaceWithLandmarks>> | null = null;
-    try { data = await detectFaceWithLandmarks(videoRef.current); } catch { data = null; }
-    finally { busyRef.current = false; }
-
-    if (!data) {
-      detectMetaRef.current.misses += 1;
-      detectMetaRef.current.stableHits = 0;
-      drawOverlay(null);
-      setStatusMsg(detectMetaRef.current.misses > 12
-        ? "ยังไม่เจอใบหน้า — ขยับเข้าใกล้กล้อง, เพิ่มแสง และหันหน้าตรง"
-        : "ไม่พบใบหน้า — กรุณาขยับเข้าหากล้อง");
-      next(); return;
-    }
-    detectMetaRef.current.misses = 0;
-    drawOverlay(data);
-
-    const { yaw, pitch, ear, box } = data;
-    const vw = videoRef.current.videoWidth;
-    const faceFrac = box.width / vw;
-    const sharpness = estimateFaceSharpness(videoRef.current, box);
-
-    // Banking-grade gates (strict)
-    if (faceFrac < MIN_FACE_FRAC) {
-      detectMetaRef.current.stableHits = 0;
-      setStatusMsg("ใบหน้าเล็กเกินไป — เข้าใกล้กล้องอีกนิด");
-      next(); return;
-    }
-    if (faceFrac > MAX_FACE_FRAC) {
-      detectMetaRef.current.stableHits = 0;
-      setStatusMsg("ใบหน้าใหญ่เกินไป — ถอยห่างอีกนิด");
-      next(); return;
-    }
-    if (sharpness < MIN_SHARPNESS) {
-      detectMetaRef.current.stableHits = 0;
-      setStatusMsg(`ภาพยังเบลอ (${Math.round(sharpness)}/${MIN_SHARPNESS}) — อยู่นิ่ง ๆ หรือเช็ดกล้องก่อน`);
-      next(); return;
-    }
-
-    switch (step.key) {
-      case "center": {
-        if (faceFrac < 0.20) { detectMetaRef.current.stableHits = 0; setStatusMsg("เข้าใกล้กล้องอีกหน่อย"); break; }
-        if (Math.abs(yaw) > 0.10 || Math.abs(pitch) > 0.12) {
-          detectMetaRef.current.stableHits = 0;
-          setStatusMsg("หันหน้าตรงกล้องให้นิ่ง");
-          break;
-        }
-        detectMetaRef.current.stableHits += 1;
-        if (detectMetaRef.current.stableHits < 6) {
-          setStatusMsg(`ตรงแล้ว — ค้างนิ่ง (${detectMetaRef.current.stableHits}/6)`);
-          break;
-        }
-        setStatusMsg("ตรงแล้ว! กำลังบันทึก...");
-        detectMetaRef.current.stableHits = 0;
-        await pushSample(data!, "center");
-        setStepIdx((i) => i + 1);
-        break;
-      }
-      case "close": {
-        if (faceFrac < 0.32) {
-          detectMetaRef.current.stableHits = 0;
-          setStatusMsg(`เข้าใกล้กล้องอีกนิด (${Math.round(faceFrac * 100)}% / ต้องการ ≥ 32%)`);
-          break;
-        }
-        if (Math.abs(yaw) > 0.15) { detectMetaRef.current.stableHits = 0; setStatusMsg("หันหน้าตรงกล้องด้วย"); break; }
-        detectMetaRef.current.stableHits += 1;
-        if (detectMetaRef.current.stableHits < 4) {
-          setStatusMsg(`ใกล้พอแล้ว — ค้างนิ่ง (${detectMetaRef.current.stableHits}/4)`);
-          break;
-        }
-        detectMetaRef.current.stableHits = 0;
-        await pushSample(data!, "close");
-        setStepIdx((i) => i + 1);
-        break;
-      }
-      case "blink": {
-        const b = blinkRef.current;
-        // require: see open → close → reopen
-        if (!b.openSeen) {
-          if (ear > 0.27) b.openSeen = true;
-          setStatusMsg("ลืมตาก่อน แล้วค่อยกะพริบ 1 ครั้ง");
-          break;
-        }
-        if (b.closeFrames < 2) {
-          if (ear < 0.18) b.closeFrames += 1; else b.closeFrames = 0;
-          setStatusMsg(`หลับตา 1 ครั้ง (EAR ${ear.toFixed(2)})`);
-          break;
-        }
-        if (ear > 0.27) {
-          b.reopenFrames += 1;
-          if (b.reopenFrames >= 2) {
-            await pushSample(data!, "blink");
-            setStepIdx((i) => i + 1);
-            blinkRef.current = { openSeen: false, closeFrames: 0, reopenFrames: 0 };
-          } else {
-            setStatusMsg("ลืมตาอีกนิด...");
-          }
-        } else {
-          setStatusMsg("ลืมตา");
-        }
-        break;
-      }
-      case "mouth": {
-        const st = mouthStateRef.current;
-        const mouth = data.landmarks.getMouth();
-        const left = mouth[0], right = mouth[6];
-        const topInner = mouth[14] ?? mouth[3];
-        const botInner = mouth[18] ?? mouth[9];
-        const horiz = Math.hypot(right.x - left.x, right.y - left.y) || 1;
-        const vert = Math.hypot(topInner.x - botInner.x, topInner.y - botInner.y);
-        const mar = vert / horiz;
-        if (st.baseline === 0) {
-          st.samples.push(mar);
-          if (st.samples.length < 8) { setStatusMsg(`กำลังปรับค่ากล้อง... (${st.samples.length}/8) ปิดปากปกติ`); break; }
-          const sorted = [...st.samples].sort((a, b) => a - b);
-          const low = sorted.slice(0, Math.ceil(sorted.length * 0.6));
-          st.baseline = low.reduce((s, v) => s + v, 0) / low.length;
-        }
-        const openThr = Math.max(0.42, st.baseline + 0.28);
-        const openPct = Math.max(0, Math.min(100, Math.round(((mar - st.baseline) / 0.45) * 100)));
-        if (mar > openThr) {
-          st.openFrames += 1;
-          setStatusMsg(`อ้าปากดีแล้ว — ค้างไว้... (${st.openFrames}/5)`);
-          if (st.openFrames >= 5) {
-            await pushSample(data!, "mouth");
-            setStepIdx((i) => i + 1);
-          }
-        } else {
-          st.openFrames = 0;
-          setStatusMsg(`อ้าปากกว้าง ๆ ค้างไว้ (${openPct}% / ต้องการ ≥ 70%)`);
-        }
-        break;
-      }
-      case "left": {
-        if (yaw > 0.38) {
-          detectMetaRef.current.stableHits += 1;
-          if (detectMetaRef.current.stableHits < 4) { setStatusMsg(`ดีแล้ว — ค้างไว้ (${detectMetaRef.current.stableHits}/4)`); break; }
-          detectMetaRef.current.stableHits = 0;
-          await pushSample(data!, "left");
-          setStepIdx((i) => i + 1);
-        } else {
-          detectMetaRef.current.stableHits = 0;
-          setStatusMsg(`หันซ้ายอีก (${Math.round(Math.max(0, yaw) * 100)}% / ต้องการ ≥ 38%)`);
-        }
-        break;
-      }
-      case "right": {
-        if (yaw < -0.38) {
-          detectMetaRef.current.stableHits += 1;
-          if (detectMetaRef.current.stableHits < 4) { setStatusMsg(`ดีแล้ว — ค้างไว้ (${detectMetaRef.current.stableHits}/4)`); break; }
-          detectMetaRef.current.stableHits = 0;
-          await pushSample(data!, "right");
-          setStepIdx((i) => i + 1);
-        } else {
-          detectMetaRef.current.stableHits = 0;
-          setStatusMsg(`หันขวาอีก (${Math.round(Math.max(0, -yaw) * 100)}% / ต้องการ ≥ 38%)`);
-        }
-        break;
-      }
-      case "up": {
-        if (pitch < -0.18) {
-          detectMetaRef.current.stableHits += 1;
-          if (detectMetaRef.current.stableHits < 3) { setStatusMsg(`ดีแล้ว — ค้างไว้ (${detectMetaRef.current.stableHits}/3)`); break; }
-          detectMetaRef.current.stableHits = 0;
-          await pushSample(data!, "up");
-          setStepIdx((i) => i + 1);
-        } else {
-          detectMetaRef.current.stableHits = 0;
-          setStatusMsg(`เงยขึ้นอีกนิด (pitch ${pitch.toFixed(2)} / ต้องการ ≤ -0.18)`);
-        }
-        break;
-      }
-      case "down": {
-        if (pitch > 0.18) {
-          detectMetaRef.current.stableHits += 1;
-          if (detectMetaRef.current.stableHits < 3) { setStatusMsg(`ดีแล้ว — ค้างไว้ (${detectMetaRef.current.stableHits}/3)`); break; }
-          detectMetaRef.current.stableHits = 0;
-          await pushSample(data!, "down");
-          setStepIdx((i) => i + 1);
-        } else {
-          detectMetaRef.current.stableHits = 0;
-          setStatusMsg(`ก้มลงอีกนิด (pitch ${pitch.toFixed(2)} / ต้องการ ≥ 0.18)`);
-        }
-        break;
-      }
-      case "color": {
-        if (Math.abs(yaw) < 0.20) {
-          if (samples.length < 8 + colorFrameIdx + 1) { await pushSample(data!, "color"); }
-        }
-        setStatusMsg(`Color ${colorFrameIdx + 1}/${CHALLENGE_COLORS.length} — มองที่กล้อง`);
-        break;
-      }
-    }
-    next();
-  }, [stepIdx, modelReady, streaming, colorFrameIdx, samples.length, pushSample, drawOverlay]);
-
-  useEffect(() => {
-    if (!streaming || !modelReady) return;
-    if (STEPS[stepIdx].key === "done") return;
-    loopRef.current = window.setTimeout(runStep, 120) as unknown as number;
-    return () => { if (loopRef.current) clearTimeout(loopRef.current); };
-  }, [streaming, modelReady, stepIdx, runStep]);
-
-  useEffect(() => {
-    if (STEPS[stepIdx].key !== "color") return;
-    setColorFrameIdx(0);
-    let i = 0;
-    const tick = () => {
-      const el = flashRef.current;
-      if (el) el.style.background = CHALLENGE_COLORS[i];
-      i++;
-      setColorFrameIdx(i);
-      if (i >= CHALLENGE_COLORS.length) {
-        setTimeout(() => {
-          if (el) el.style.background = "transparent";
-          setStepIdx((idx) => idx + 1);
-          stopCamera();
-        }, 800);
-        clearInterval(t);
-      }
-    };
-    tick();
-    const t = setInterval(tick, 1200);
-    return () => { clearInterval(t); if (flashRef.current) flashRef.current.style.background = "transparent"; };
-  }, [stepIdx]);
-
-  const reset = () => {
-    setStepIdx(0); setSamples([]); setColorFrameIdx(0); setStatusMsg("");
-    detectMetaRef.current = { misses: 0, stableHits: 0 };
-    blinkRef.current = { openSeen: false, closeFrames: 0, reopenFrames: 0 };
-    mouthStateRef.current = { openFrames: 0, baseline: 0, samples: [] };
-  };
-
-  const submit = async () => {
-    if (!targetId) { toast.error("กรุณาเลือกนักเรียนก่อน"); return; }
-    if (samples.length === 0) { toast.error("กรุณาทำขั้นตอน Liveness ให้ครบก่อน"); return; }
-    if (isRegistered && !reason.trim()) { toast.error("กรุณาระบุเหตุผลการลงทะเบียนใหม่"); return; }
-    setSubmitting(true);
+  const captureShot = async () => {
+    if (!videoRef.current || !modelReady) return;
+    setBusy(true);
     try {
-      if (isRegistered) {
-        await supabase.from("student_face_descriptors").delete().eq("student_id", targetId);
+      const det = await detectFaceWithLandmarks(videoRef.current);
+      if (!det) { setLastQuality(null); toast.error("ไม่พบใบหน้าในภาพ"); return; }
+      const q = assessFaceQuality(videoRef.current, det, "register");
+      setLastQuality(q);
+      if (!q.ok && !canApproveDirectly) {
+        toast.error("คุณภาพภาพไม่ผ่านมาตรฐาน", { description: q.reasons[0] });
+        return;
       }
-      const hasV2Count = samples.filter((sm) => sm.descriptorV2).length;
-      const modelVersion = hasV2Count > 0 ? ARCFACE_GRADE.MODEL_VERSION : "face-api-v1";
-      const rows = samples.map((sm, i) => ({
-        student_id: targetId,
-        sample_index: i,
-        descriptor: Array.from(sm.descriptor),
-        embedding_v2: sm.descriptorV2 ? Array.from(sm.descriptorV2) : null,
-        model_version: sm.descriptorV2 ? ARCFACE_GRADE.MODEL_VERSION : "face-api-v1",
-        quality_score: sm.metrics.sharpness,
-        face_image: sm.image,
-        metrics: { ...sm.metrics, reason: reason.trim() || null },
-        captured_by: userId!,
-        source: "liveness_wizard",
-      }));
-      const { error } = await supabase.from("student_face_descriptors").insert(rows as any);
+      if (!q.ok) {
+        toast.warning(`คุณภาพ ${q.score}/100 (บันทึกได้แต่แนะนำให้ถ่ายใหม่)`, { description: q.reasons[0] });
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      canvas.getContext("2d")?.drawImage(videoRef.current, 0, 0);
+      setShots((s) => [...s, { canvas, desc: det.descriptor, source: "camera", quality: q }]);
+    } finally { setBusy(false); }
+  };
+
+  const handleUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0 || !modelReady) return;
+    setBusy(true);
+    let ok = 0, fail = 0, lowQ = 0;
+    const lowQReasons: string[] = [];
+    try {
+      for (const file of Array.from(files)) {
+        try {
+          const url = URL.createObjectURL(file);
+          const img = await loadImageFromUrl(url);
+          const det = await detectFaceWithLandmarks(img);
+          URL.revokeObjectURL(url);
+          if (!det) { fail++; continue; }
+          const q = assessFaceQuality(img, det, "register");
+          if (!q.ok && !canApproveDirectly) {
+            lowQ++;
+            if (lowQReasons.length < 2) lowQReasons.push(`${file.name}: ${q.reasons[0]}`);
+            continue;
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          canvas.getContext("2d")?.drawImage(img, 0, 0);
+          setShots((s) => [...s, { canvas, desc: det.descriptor, source: "upload", quality: q }]);
+          ok++;
+        } catch { fail++; }
+      }
+      const parts = [];
+      if (ok) parts.push(`เพิ่ม ${ok} รูป`);
+      if (fail) parts.push(`ไม่พบใบหน้า ${fail} รูป`);
+      if (lowQ) parts.push(`คุณภาพต่ำ ${lowQ} รูป`);
+      if (ok > 0) toast.success(parts.join(" • "), lowQ ? { description: lowQReasons.join("\n") } : undefined);
+      else if (lowQ > 0) toast.error("รูปคุณภาพไม่ผ่าน", { description: lowQReasons.join("\n") });
+      else if (fail > 0) toast.error(`ไม่พบใบหน้าในไฟล์ที่อัปโหลด (${fail} รูป)`);
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const dataUrlToBlob = (dataUrl: string): Blob => {
+    const [meta, b64] = dataUrl.split(",");
+    const mime = /data:(.*?);/.exec(meta)?.[1] || "image/jpeg";
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  };
+
+  const uploadShotsToStorage = async (sid: string): Promise<string[]> => {
+    const urls: string[] = [];
+    const ts = Date.now();
+    for (let i = 0; i < shots.length; i++) {
+      const dataUrl = shots[i].canvas.toDataURL("image/jpeg", 0.85);
+      const blob = dataUrlToBlob(dataUrl);
+      const path = `requests/${sid}/${ts}_${i}_${shots[i].source}.jpg`;
+      const { error } = await supabase.storage.from("face-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
       if (error) throw error;
-      void modelVersion; // computed for analytics; per-row version is canonical
+      urls.push(path);
+    }
+    return urls;
+  };
 
-      // history log (best-effort)
-      await supabase.from("face_registration_history").insert({
-        student_id: targetId,
-        action: isRegistered ? "liveness_replace" : "liveness_add",
-        previous_count: existing?.length || 0,
-        new_count: rows.length,
-        photo_urls: [],
+  const submitRequest = async () => {
+    if (!studentId || shots.length === 0) { toast.error("เลือกนักเรียนและเพิ่มอย่างน้อย 1 ภาพ"); return; }
+    setBusy(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("กรุณาเข้าสู่ระบบ");
+      const isRereg = registeredIds.has(studentId);
+      if (isRereg && !reason.trim()) {
+        toast.error("กรุณาระบุเหตุผลการลงทะเบียนใหม่ (เช่น ตัดผม / ใส่แว่น / โตขึ้น)");
+        setBusy(false);
+        return;
+      }
+
+      const photo_urls = await uploadShotsToStorage(studentId);
+      const descriptors = shots.map((s) => Array.from(s.desc));
+
+      const { error } = await supabase.from("face_registration_requests").insert({
+        student_id: studentId,
+        requested_by: user.id,
+        request_type: isRereg ? "reregister" : "initial",
         reason: reason.trim() || null,
-        notes: `Liveness Wizard (${rows.length} samples, ${STEPS.length - 1} steps)`,
-        performed_by: userId!,
-      }).then(() => {}, () => {});
+        photo_urls,
+        descriptors,
+        status: "pending",
+      });
+      if (error) throw error;
+      toast.success("ส่งคำขออนุมัติให้แอดมินแล้ว");
+      setShots([]); setReason("");
+      qc.invalidateQueries({ queryKey: ["face-pending-requests"] });
+    } catch (e: any) { toast.error(e.message); } finally { setBusy(false); }
+  };
 
-      toast.success(`ลงทะเบียนใบหน้าสำเร็จ ${rows.length} ภาพ — ใช้สแกนเข้าโรงเรียนได้เลย 🎉`);
-      reset(); setReason("");
-      qc.invalidateQueries({ queryKey: ["face-registered-for", targetId] });
+  const saveDirectly = async () => {
+    if (!studentId || shots.length === 0) return;
+    if (!canApproveDirectly) { toast.error("เฉพาะแอดมิน/ผู้อำนวยการเท่านั้น"); return; }
+    setBusy(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const isRereg = registeredIds.has(studentId);
+      const { data: prev } = await supabase.from("student_face_descriptors")
+        .select("id").eq("student_id", studentId);
+      const previous_count = prev?.length ?? 0;
+
+      if (isRereg) {
+        await supabase.from("student_face_descriptors").delete().eq("student_id", studentId);
+      }
+      const startIdx = isRereg ? 0 : previous_count;
+      const rows = shots.map((s, i) => ({
+        student_id: studentId, sample_index: startIdx + i,
+        descriptor: Array.from(s.desc), captured_by: user?.id, source: s.source,
+      }));
+      const { error } = await supabase.from("student_face_descriptors").insert(rows);
+      if (error) throw error;
+
+      const photo_urls = await uploadShotsToStorage(studentId).catch(() => [] as string[]);
+      await supabase.from("face_registration_history").insert({
+        student_id: studentId,
+        action: isRereg ? "direct_replace" : "direct_add",
+        previous_count,
+        new_count: rows.length + (isRereg ? 0 : previous_count),
+        photo_urls,
+        reason: reason.trim() || null,
+        notes: isRereg ? "บันทึกใหม่ทั้งหมด (แทนที่ของเดิม)" : "เพิ่มภาพใบหน้าตรง",
+        performed_by: user?.id,
+      });
+
+      toast.success(`บันทึก ${shots.length} ภาพสำเร็จ`);
+      setShots([]); setReason("");
       qc.invalidateQueries({ queryKey: ["face-known"] });
       qc.invalidateQueries({ queryKey: ["face-db"] });
       qc.invalidateQueries({ queryKey: ["face-registered-ids"] });
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setSubmitting(false);
-    }
+      qc.invalidateQueries({ queryKey: ["face-history"] });
+    } catch (e: any) { toast.error(e.message); } finally { setBusy(false); }
   };
 
-  // ===== render =====
-  if (isStudent && meLoading) {
-    return (
-      <div className="flex items-center justify-center py-12 text-muted-foreground">
-        <Loader2 className="w-5 h-5 animate-spin mr-2" /> กำลังโหลดข้อมูล...
-      </div>
-    );
-  }
-  if (isStudent && !myStudent) {
-    return (
-      <Card className="border-warning/30 bg-warning/5">
-        <CardContent className="p-5 flex items-start gap-3 text-sm">
-          <AlertCircle className="w-5 h-5 text-warning mt-0.5" />
-          <div>
-            <p className="font-semibold">ไม่พบข้อมูลนักเรียนของคุณ</p>
-            <p className="text-muted-foreground text-xs mt-1">
-              บัญชีนี้ยังไม่ได้ผูกกับข้อมูลนักเรียน — กรุณาติดต่อครูประจำชั้น/แอดมินเพื่อเชื่อมบัญชี
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
-  // ครู/แอดมิน — ยังไม่เลือกนักเรียน
-  if (!isStudent && !targetStudent) {
-    return (
-      <div className="space-y-4">
-        <Card className="gradient-primary text-primary-foreground border-0">
-          <CardContent className="p-5 space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold">ลงทะเบียนใบหน้าแบบ Liveness Wizard</h3>
-                <p className="text-sm opacity-90">เก็บใบหน้าหลายมุม + ตรวจของจริง (กระพริบตา / อ้าปาก / ตรวจสี) แบบแอปธนาคาร</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <UserCircle2 className="w-5 h-5 text-primary" />
-              <h4 className="font-semibold">เลือกนักเรียนที่ต้องการลงทะเบียน</h4>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="ค้นหาชื่อ / นามสกุล / รหัส..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <div className="max-h-[55vh] overflow-y-auto divide-y rounded-lg border">
-              {filtered.map((s: any) => (
-                <button
-                  key={s.id}
-                  onClick={() => setPickedStudentId(s.id)}
-                  className="w-full flex items-center gap-3 p-3 hover:bg-muted/50 text-left"
-                >
-                  <div className="w-10 h-10 rounded-full bg-muted overflow-hidden flex-shrink-0">
-                    {s.photo_url ? (
-                      <img src={s.photo_url} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted-foreground"><UserCircle2 className="w-6 h-6" /></div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{s.prefix}{s.first_name} {s.last_name}</p>
-                    <p className="text-xs text-muted-foreground">{s.student_code} {(s as any).classrooms ? ` • ${(s as any).classrooms.name}` : ""}</p>
-                  </div>
-                </button>
-              ))}
-              {filtered.length === 0 && (
-                <div className="p-6 text-center text-sm text-muted-foreground">ไม่พบนักเรียนที่ตรงกับคำค้น</div>
-              )}
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              💡 แนะนำ: ส่งลิงก์นี้ให้นักเรียนล็อกอินบนมือถือตัวเอง — ระบบจะเปิดในโหมด "ลงทะเบียนตัวเอง" ให้อัตโนมัติ
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const fullName = `${targetStudent.prefix || ""}${targetStudent.first_name || ""} ${targetStudent.last_name || ""}`.trim();
-  const classroom = (targetStudent as any).classrooms ? `${(targetStudent as any).classrooms.name}` : "";
-  const step = STEPS[stepIdx];
-  const StepIcon = step.icon;
-  const progress = (stepIdx / (STEPS.length - 1)) * 100;
-  const isDone = step.key === "done";
+  const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
     <div className="space-y-4">
-      {/* Hero */}
+      {/* Auto-sync hero card */}
       <Card className="gradient-primary text-primary-foreground border-0">
-        <CardContent className="p-5 space-y-3">
+        <CardContent className="p-5 space-y-4">
           <div className="flex items-start gap-3">
-            <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center overflow-hidden">
-              {targetStudent.photo_url ? (
-                <img src={targetStudent.photo_url} alt={fullName} className="w-full h-full object-cover" />
-              ) : (<ScanFace className="w-7 h-7" />)}
+            <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
+              <Sparkles className="w-6 h-6" />
             </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-bold truncate">{fullName}</h3>
-              <p className="text-sm opacity-90">
-                {targetStudent.student_code}{classroom ? ` • ${classroom}` : ""}
+            <div className="flex-1">
+              <h3 className="text-lg font-bold">ซิงค์ใบหน้าอัตโนมัติจากรูปโปรไฟล์ผู้ใช้</h3>
+              <p className="text-sm opacity-90">ระบบดึงรูปโปรไฟล์นักเรียนจากฐานข้อมูลผู้ใช้มาประมวลผลใบหน้าให้อัตโนมัติ ไม่ต้องลงทะเบียนใหม่</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 gap-2">
+            <div className="bg-white/15 rounded-xl p-3 text-center">
+              <p className="text-2xl font-bold">{students.length}</p>
+              <p className="text-xs opacity-90">นักเรียนทั้งหมด</p>
+            </div>
+            <div className="bg-white/15 rounded-xl p-3 text-center">
+              <p className="text-2xl font-bold">{withAvatar.length}</p>
+              <p className="text-xs opacity-90">มีรูปโปรไฟล์</p>
+            </div>
+            <div className="bg-white/15 rounded-xl p-3 text-center">
+              <p className="text-2xl font-bold">{registeredIds.size}</p>
+              <p className="text-xs opacity-90">พร้อมสแกน</p>
+            </div>
+            <div className="bg-white/15 rounded-xl p-3 text-center">
+              <p className="text-2xl font-bold">
+                {students.length ? Math.round((registeredIds.size / students.length) * 100) : 0}%
               </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {isRegistered ? (
-                  <Badge className="bg-success/90 hover:bg-success text-success-foreground border-0 gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> ลงทะเบียนแล้ว ({existing?.length} ภาพ)
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary" className="bg-white/20 text-primary-foreground border-0">ยังไม่ลงทะเบียน</Badge>
-                )}
-                <Badge className="bg-white/20 text-primary-foreground border-0 gap-1">
-                  <ShieldCheck className="w-3 h-3" /> Banking-grade Liveness
-                </Badge>
-                <Badge className="bg-white/20 text-primary-foreground border-0">
-                  9 ขั้นตอน • ~12 ภาพ
-                </Badge>
-                {arcReady ? (
-                  <Badge className="bg-success/70 hover:bg-success text-success-foreground border-0 gap-1">
-                    <Sparkles className="w-3 h-3" /> ArcFace (DeepFace-grade)
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary" className="bg-white/20 text-primary-foreground border-0 gap-1">
-                    <Loader2 className="w-3 h-3 animate-spin" /> โหลด AI ใบหน้า…
-                  </Badge>
-                )}
+              <p className="text-xs opacity-90">ความพร้อมระบบ</p>
+            </div>
+          </div>
+          {students.length > 0 && students.length - withAvatar.length > 0 && (
+            <p className="text-xs opacity-90">
+              ℹ️ มีนักเรียน {students.length - withAvatar.length} คน ที่ยังไม่มีรูปโปรไฟล์ — ต้องอัปโหลดรูปก่อนถึงจะซิงค์ได้
+            </p>
+          )}
+
+          {syncing && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>กำลังประมวลผล... {progress.done}/{progress.total}</span>
+                <span>{pct}%</span>
+              </div>
+              <Progress value={pct} className="bg-white/20" />
+              <div className="flex gap-3 text-xs">
+                <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3" />สำเร็จ {progress.ok}</span>
+                <span className="flex items-center gap-1"><XCircle className="w-3 h-3" />ล้มเหลว {progress.fail}</span>
               </div>
             </div>
-            {!isStudent && (
-              <Button variant="secondary" size="sm" className="bg-white/15 hover:bg-white/25 text-white border-0"
-                onClick={() => { reset(); setReason(""); setPickedStudentId(null); stopCamera(); }}>
-                เปลี่ยนคน
-              </Button>
-            )}
+          )}
+
+          <div className="flex gap-2 flex-wrap">
+            <Button onClick={() => runAutoSync(false)} disabled={syncing || !modelReady} variant="secondary">
+              <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "กำลังซิงค์..." : pending.length > 0 ? `ซิงค์ ${pending.length} คนใหม่` : "ซิงค์ครบแล้ว"}
+            </Button>
+            <Button onClick={() => runAutoSync(true)} disabled={syncing || !modelReady} variant="outline" className="bg-white/10 border-white/30 text-primary-foreground hover:bg-white/20">
+              <Sparkles className="w-4 h-4 mr-2" />ซิงค์ใหม่ทั้งหมด
+            </Button>
           </div>
-          <p className="text-xs opacity-90">
-            ทำตามขั้นตอนที่ระบบบอกทีละข้อ — ระบบจะจับภาพให้อัตโนมัติเมื่อท่าทางถูกต้องและภาพชัดเพียงพอ (ไม่ต้องอัปโหลดไฟล์เอง)
-          </p>
+
+          {!modelReady && <p className="text-xs opacity-80">⏳ กำลังโหลด AI Model...</p>}
+          {lastSyncedAt && <p className="text-xs opacity-80">ซิงค์ล่าสุด: {new Date(lastSyncedAt).toLocaleString("th-TH")}</p>}
         </CardContent>
       </Card>
 
-      {/* Wizard */}
+      {/* Failed list — diagnose why sync ไม่สำเร็จ */}
+      {failedList.length > 0 && (
+        <Card className="border-destructive/30">
+          <CardContent className="p-4 space-y-2">
+            <h4 className="font-semibold flex items-center gap-2 text-destructive">
+              <XCircle className="w-4 h-4" />ซิงค์ไม่สำเร็จ ({failedList.length})
+            </h4>
+            <p className="text-xs text-muted-foreground">
+              สาเหตุที่พบบ่อย: รูปโปรไฟล์เบลอ/มืดเกินไป, ใบหน้าเล็กเกินไป, มุมเอียงมาก, มีหลายคนในรูป, หรือเป็นรูปการ์ตูน/โลโก้ — แนะนำให้อัปโหลดรูปหน้าตรงชัดๆ ใหม่ แล้วกดซิงค์อีกครั้ง หรือลงทะเบียนใบหน้าด้วยกล้องในแท็บนี้
+            </p>
+            <div className="max-h-64 overflow-y-auto divide-y rounded-lg border">
+              {failedList.map((f) => (
+                <div key={f.id} className="flex items-start justify-between gap-3 p-2 text-sm">
+                  <span className="font-medium truncate">{f.name}</span>
+                  <span className="text-xs text-muted-foreground text-right">{f.reason}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Pending list preview */}
+      {pending.length > 0 && !syncing && (
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold flex items-center gap-2"><ImageIcon className="w-4 h-4" />รอซิงค์ ({pending.length})</h4>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {pending.slice(0, 20).map((s: any) => (
+                <div key={s.id} className="flex-shrink-0 w-20 text-center">
+                  <img src={s.photo_url} alt="" className="w-20 h-20 rounded-lg object-cover border" />
+                  <p className="text-xs mt-1 truncate">{s.first_name}</p>
+                </div>
+              ))}
+              {pending.length > 20 && <div className="flex items-center px-3 text-xs text-muted-foreground">+{pending.length - 20}</div>}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Students without avatar warning */}
+      {students.length - withAvatar.length > 0 && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardContent className="p-4 text-sm">
+            <p className="font-semibold mb-1">⚠️ มีนักเรียน {students.length - withAvatar.length} คนยังไม่มีรูปโปรไฟล์</p>
+            <p className="text-muted-foreground text-xs">โปรดอัปโหลดรูปในเมนู "ข้อมูลนักเรียน" หรือใช้กล้องถ่ายเพิ่มด้านล่าง</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Manual capture (optional) */}
       <Card>
         <CardContent className="p-4 space-y-3">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Badge variant="secondary" className="gap-1">
-                <StepIcon className="w-3 h-3" />ขั้นที่ {stepIdx + 1}/{STEPS.length}
-              </Badge>
-              <span className="text-xs text-muted-foreground">{samples.length} ตัวอย่าง</span>
-            </div>
-            <Progress value={progress} className="h-2" />
-            <p className="text-sm font-semibold">{step.label}</p>
-            <p className="text-xs text-muted-foreground">{step.hint}</p>
-          </div>
+          <h3 className="font-semibold flex items-center gap-2"><Camera className="w-4 h-4" />ลงทะเบียนใบหน้า (ถ่าย / อัปโหลด)</h3>
+          <p className="text-xs text-muted-foreground">
+            เพิ่มภาพได้ทั้งจากกล้องและการอัปโหลด — รองรับ JPG/PNG หลายไฟล์พร้อมกัน
+            {!canApproveDirectly && " • คำขอจะถูกส่งให้แอดมินอนุมัติก่อนเริ่มใช้งาน"}
+          </p>
+          <Input placeholder="ค้นหาชื่อ/รหัส..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Select value={studentId} onValueChange={setStudentId}>
+            <SelectTrigger><SelectValue placeholder="-- เลือกนักเรียน --" /></SelectTrigger>
+            <SelectContent>
+              {filtered.map((s: any) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.prefix}{s.first_name} {s.last_name} ({s.student_code})
+                  {registeredIds.has(s.id) && <Badge variant="secondary" className="ml-2 text-xs">มีแล้ว</Badge>}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-          {isRegistered && (
+          {studentId && registeredIds.has(studentId) && (
             <div className="space-y-1">
               <label className="text-xs font-medium">เหตุผลการลงทะเบียนใหม่ <span className="text-destructive">*</span></label>
               <Textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="เช่น ตัดผมสั้น / ใส่แว่นใหม่ / รูปเดิมจำไม่ได้ / โตขึ้น..."
+                placeholder="เช่น ตัดผมสั้น / ใส่แว่นใหม่ / รูปเดิมไม่ชัด / โตขึ้นมาก..."
                 rows={2}
               />
             </div>
           )}
 
-          <div className="relative bg-black rounded-lg overflow-hidden aspect-[3/4] sm:aspect-[4/5] max-h-[70vh] mx-auto w-full">
-            <video
-              ref={videoRef}
-              className="w-full h-full object-cover"
-              muted playsInline
-              style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
-            />
-            <canvas
-              ref={overlayRef}
-              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-              style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
-            />
-            <div ref={flashRef} className="absolute inset-0 mix-blend-screen opacity-60 transition-colors duration-300 pointer-events-none" />
-
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className={`w-[75%] aspect-[3/4] max-h-[85%] rounded-[50%] border-4 ${
-                statusMsg.includes("ดีมาก") || statusMsg.includes("ตรงแล้ว") || statusMsg.includes("ใกล้พอแล้ว")
-                  ? "border-success/30" : "border-white/60"
-              } transition-colors`} />
-            </div>
-
-            {streaming && (
-              <Button
-                onClick={switchCamera}
-                size="icon" variant="secondary"
-                className="absolute top-3 right-3 rounded-full bg-black/60 hover:bg-black/80 text-white border-0 h-10 w-10"
-                title="สลับกล้องหน้า/หลัง"
-              >
-                <SwitchCamera className="w-5 h-5" />
-              </Button>
-            )}
-
-            {statusMsg && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/70 text-white text-sm px-4 py-2 rounded-full max-w-[90%] text-center">
-                {statusMsg}
-              </div>
-            )}
-
-            {!streaming && !isDone && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Button onClick={() => startCamera()} disabled={!modelReady} size="lg" className="gradient-primary">
-                  {!modelReady ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Camera className="w-4 h-4 mr-2" />}
-                  {!modelReady ? "กำลังโหลดโมเดล..." : "เริ่มลงทะเบียน"}
-                </Button>
-              </div>
-            )}
+          <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
+            <video ref={videoRef} className="w-full h-full object-contain" muted playsInline />
+            {!streaming && <div className="absolute inset-0 flex items-center justify-center text-white/60"><Camera className="w-12 h-12" /></div>}
           </div>
-
-          {samples.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground">ภาพที่จับได้ ({samples.length})</p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {samples.map((sm, idx) => (
-                  <div key={idx} className="relative rounded-lg overflow-hidden border bg-muted/40">
-                    <img src={sm.image} alt={`sample-${idx + 1}`} className="w-full aspect-square object-cover" />
-                    <div className="absolute top-1 left-1">
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{sm.metrics.stepKey}</Badge>
-                    </div>
-                    <div className="absolute bottom-0 inset-x-0 bg-black/65 text-white text-[10px] leading-tight px-1.5 py-1">
-                      คม {sm.metrics.sharpness} · yaw {sm.metrics.yaw}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {isDone && (
-            <div className="rounded-lg border border-success/30 bg-brand-entry/5 p-4 text-sm">
-              <div className="flex items-center gap-2 text-brand-entry font-semibold mb-1">
-                <CheckCircle2 className="w-5 h-5" /> ผ่าน Liveness Check ครบทุกขั้น
-              </div>
-              <p className="text-xs text-muted-foreground">
-                ระบบจับได้ {samples.length} ภาพจาก {STEPS.length - 1} ขั้นตอน — กด "บันทึกลงทะเบียน" เพื่อใช้สแกนได้ทันที
-              </p>
-            </div>
-          )}
 
           <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" onClick={() => { reset(); }} disabled={submitting}>
-              <RotateCcw className="w-4 h-4 mr-2" />เริ่มใหม่
+            {!streaming ? (
+              <Button onClick={startCamera} disabled={!modelReady} size="sm" variant="outline"><Camera className="w-4 h-4 mr-2" />เปิดกล้อง</Button>
+            ) : (
+              <>
+                <Button onClick={captureShot} disabled={busy} size="sm" className="gradient-primary">
+                  <Camera className="w-4 h-4 mr-2" />ถ่าย
+                </Button>
+                <Button onClick={stopCamera} variant="outline" size="sm">ปิดกล้อง</Button>
+              </>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => handleUpload(e.target.files)}
+            />
+            <Button onClick={() => fileRef.current?.click()} disabled={!modelReady || busy} size="sm" variant="outline">
+              <Upload className="w-4 h-4 mr-2" />อัปโหลดรูปภาพ
             </Button>
-            <Button
-              onClick={submit}
-              disabled={submitting || !isDone || samples.length === 0}
-              className="flex-1 gradient-primary"
-            >
-              {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-              บันทึกลงทะเบียน ({samples.length} ภาพ)
-            </Button>
+            {shots.length > 0 && (
+              <Button onClick={() => setShots([])} variant="ghost" size="sm"><RefreshCw className="w-4 h-4 mr-2" />ล้าง ({shots.length})</Button>
+            )}
           </div>
 
-          <p className="text-[11px] text-muted-foreground text-center">
-            💡 ใช้การตรวจจับใบหน้าจริง (Liveness Check) แบบเดียวกับแอปธนาคาร/ตู้ตม. — กันการใช้รูปถ่ายปลอม
+          {lastQuality && (
+            <div className={`rounded-lg border p-3 text-xs ${lastQuality.ok ? "bg-emerald-500/5 border-emerald-500/30" : "bg-amber-500/5 border-amber-500/30"}`}>
+              <div className="flex items-center justify-between font-semibold">
+                <span>คุณภาพภาพล่าสุด</span>
+                <span>{lastQuality.score}/100 {lastQuality.ok ? "✓ ผ่าน" : "⚠ ต้องแก้"}</span>
+              </div>
+              {lastQuality.reasons.length > 0 && (
+                <ul className="mt-1 list-disc pl-4 space-y-0.5 text-muted-foreground">
+                  {lastQuality.reasons.map((r, i) => <li key={i}>{r}</li>)}
+                </ul>
+              )}
+              <div className="mt-1 text-[10px] text-muted-foreground">
+                ชัด {Math.round(lastQuality.metrics.sharpness)} • แสง {Math.round(lastQuality.metrics.brightness)} • หน้า {Math.round(lastQuality.metrics.faceSize)}px • yaw {lastQuality.metrics.yaw.toFixed(2)} • pitch {lastQuality.metrics.pitch.toFixed(2)}
+              </div>
+            </div>
+          )}
+
+          <p className="text-[11px] text-muted-foreground">
+            💡 เพื่อความแม่นยำระดับธนาคาร แนะนำเก็บอย่างน้อย <b>3 มุม</b> (หน้าตรง / เอียงซ้ายเล็กน้อย / เอียงขวาเล็กน้อย) ภายใต้แสงเดียวกับจุดสแกนจริง
           </p>
+
+          {shots.length > 0 && (
+            <div className="grid grid-cols-4 gap-2">
+              {shots.map((s, i) => (
+                <div key={i} className="relative">
+                  <img src={s.canvas.toDataURL()} alt={`ภาพถ่ายลงทะเบียนใบหน้า ${i + 1}`} className="rounded border w-full aspect-square object-cover" />
+                  <Badge variant="secondary" className="absolute top-1 right-1 text-[10px] px-1 py-0">
+                    {s.source === "camera" ? "📷" : "📁"}
+                  </Badge>
+                  <Badge variant={s.quality.ok ? "default" : "secondary"} className="absolute bottom-1 left-1 text-[10px] px-1 py-0">
+                    {s.quality.score}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              onClick={submitRequest}
+              disabled={busy || shots.length === 0 || !studentId}
+              variant={canApproveDirectly ? "outline" : "default"}
+              className={canApproveDirectly ? "" : "flex-1 gradient-primary"}
+            >
+              <Send className="w-4 h-4 mr-2" />ส่งคำขออนุมัติ ({shots.length})
+            </Button>
+            {canApproveDirectly && (
+              <Button onClick={saveDirectly} disabled={busy || shots.length === 0 || !studentId} className="flex-1 gradient-primary">
+                <ShieldCheck className="w-4 h-4 mr-2" />บันทึกทันที (แอดมิน)
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
+
     </div>
   );
 };

@@ -5,26 +5,39 @@ import { useQuery } from "@tanstack/react-query";
 import { useStudentData } from "@/hooks/useStudentData";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, History } from "lucide-react";
+import { BarChart3, History, BookOpen, LayoutDashboard } from "lucide-react";
 import { AcademicYearFilter } from "@/components/AcademicYearFilter";
 import { AttendanceReportTab } from "@/components/attendance/AttendanceReportTab";
 import { AttendanceHistoryTab } from "@/components/attendance/AttendanceHistoryTab";
+import { SubjectPeriodCheckTab } from "@/components/attendance/SubjectPeriodCheckTab";
+import { SubjectScanDashboardTab } from "@/components/attendance/SubjectScanDashboardTab";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useParentChildren } from "@/hooks/useParentChildren";
+import { Card, CardContent } from "@/components/ui/card";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 const toDbAcademicYear = (year: number) => {
   if (!year || year <= 0) return undefined;
-  return year > 2400 ? year - 543 : year;
+  return year > 2400 ? year - BE_OFFSET : year;
 };
 
 const AttendancePage = () => {
   const { lang } = useLanguage();
   const sd = useStudentData();
   const { currentAcademicYear, currentSemester, academicYearOptions } = useAcademicYear();
-  const { isParent } = useUserRole();
+  const { isAdmin, isDirector, isTeacher, isParent } = useUserRole();
   const { childIds } = useParentChildren();
+  const canSeeAll = isAdmin || isDirector;
+  const canCheckSubject = !isParent && (canSeeAll || isTeacher);
+  const defaultTab = isParent ? "report" : (canCheckSubject ? "subject" : "dashboard");
 
-  const [activeTab, setActiveTab] = useState<string>("report");
+  const [activeTab, setActiveTab] = useState<string>(defaultTab);
+
+  useEffect(() => {
+    setActiveTab(defaultTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canCheckSubject, isParent]);
+
   const [academicYear, setAcademicYear] = useState<number>(0);
   const [semester, setSemester] = useState<number>(0);
 
@@ -43,52 +56,25 @@ const AttendancePage = () => {
       .map((s: any) => s.id);
   }, [isParent, childIds, sd.homeroomClassroomIds, sd.students]);
 
-  // ใช้เฉพาะข้อมูลแสกนเข้าโรงเรียน (face_scan_logs) เท่านั้น
   const { data: records = [] } = useQuery({
-    queryKey: ["attendance-scan", academicYear, semester, scopedStudentIds?.join(",") || "all"],
+    queryKey: ["attendance", academicYear, semester, scopedStudentIds?.join(",") || "all"],
     queryFn: async () => {
-      // เกณฑ์เวลาสาย
-      const thresholdRes = await supabase
-        .from("school_settings").select("setting_key,setting_value")
-        .in("setting_key", ["face_scan_late_threshold", "clock_late_threshold"]);
-      const rows = thresholdRes.data || [];
-      const lateThreshold =
-        (rows.find((r: any) => r.setting_key === "face_scan_late_threshold")?.setting_value as string) ||
-        (rows.find((r: any) => r.setting_key === "clock_late_threshold")?.setting_value as string) ||
-        "08:30";
+      let query = supabase
+        .from("attendance")
+        .select("*, students(student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level)), subjects(id, name_th, code)")
+        .order("created_at", { ascending: false })
+        .limit(2000);
 
-      let q = supabase
-        .from("face_scan_logs")
-        .select("id, student_id, scan_date, scan_time, students(id, student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level))")
-        .order("scan_time", { ascending: true })
-        .limit(20000);
-
+      const dbAcademicYear = toDbAcademicYear(academicYear);
+      if (dbAcademicYear) query = query.eq("academic_year", dbAcademicYear);
+      if (semester > 0) query = query.eq("semester", semester);
       if (scopedStudentIds) {
         if (scopedStudentIds.length === 0) return [];
-        q = q.in("student_id", scopedStudentIds);
+        query = query.in("student_id", scopedStudentIds);
       }
 
-      const { data } = await q;
-      const fmt = (d: Date) => new Intl.DateTimeFormat("en-GB", {
-        timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hour12: false,
-      }).format(d);
-
-      // ยุบเป็น 1 record ต่อ (นักเรียน, วัน) ใช้เวลาแสกนแรก
-      const byKey = new Map<string, any>();
-      (data || []).forEach((r: any) => {
-        const key = `${r.student_id}__${r.scan_date}`;
-        if (byKey.has(key)) return;
-        const status = fmt(new Date(r.scan_time)) > lateThreshold ? "late" : "present";
-        byKey.set(key, {
-          id: r.id,
-          student_id: r.student_id,
-          attendance_date: r.scan_date,
-          status,
-          scan_time: r.scan_time,
-          students: r.students,
-        });
-      });
-      return Array.from(byKey.values());
+      const { data } = await query;
+      return data || [];
     },
     enabled: academicYear > 0,
   });
@@ -109,12 +95,12 @@ const AttendancePage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">
-            {lang === "th" ? "รายงานการมาเรียน" : "Attendance Report"}
+            {lang === "th" ? "เช็คชื่อนักเรียน (รายคาบวิชา)" : "Student Attendance (Per Period)"}
           </h1>
           <p className="text-sm text-muted-foreground">
             {lang === "th"
-              ? "รายงานคำนวณจากการแสกนเข้าโรงเรียน (face scan) เท่านั้น — เกินเวลาที่กำหนด = สาย, ไม่มีแสกนในวันที่เปิดเรียน = ขาด"
-              : "Reports are computed from school-entry face scans only — past threshold = Late, no scan on a school day = Absent"}
+              ? "ครูประจำวิชาเช็คชื่อรายคาบ — แสกน QR หรือติ๊กสถานะด้วยตนเอง"
+              : "Subject teachers check per-period — scan QR or tick status manually"}
           </p>
         </div>
         {academicYear > 0 && (
@@ -131,6 +117,16 @@ const AttendancePage = () => {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
+          {canCheckSubject && (
+            <TabsTrigger value="subject">
+              <BookOpen className="w-4 h-4 mr-1" />
+              {lang === "th" ? "เช็คชื่อรายคาบ" : "Per Period"}
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="dashboard">
+            <LayoutDashboard className="w-4 h-4 mr-1" />
+            {lang === "th" ? "แดชบอร์ด" : "Dashboard"}
+          </TabsTrigger>
           <TabsTrigger value="report">
             <BarChart3 className="w-4 h-4 mr-1" />
             {lang === "th" ? "รายงาน" : "Report"}
@@ -141,6 +137,20 @@ const AttendancePage = () => {
           </TabsTrigger>
         </TabsList>
 
+        {canCheckSubject && (
+          <TabsContent value="subject">
+            <SubjectPeriodCheckTab
+              students={sd.students}
+              classrooms={sd.classrooms}
+              academicYear={academicYear}
+              semester={semester}
+            />
+          </TabsContent>
+        )}
+
+        <TabsContent value="dashboard">
+          <SubjectScanDashboardTab records={records} students={sd.students} />
+        </TabsContent>
 
         <TabsContent value="report">
           <AttendanceReportTab {...sharedProps} records={records} />
@@ -150,6 +160,14 @@ const AttendancePage = () => {
           <AttendanceHistoryTab {...sharedProps} records={records} />
         </TabsContent>
       </Tabs>
+
+      {!canCheckSubject && isTeacher && (
+        <Card><CardContent className="py-4 text-sm text-muted-foreground">
+          {lang === "th"
+            ? "ℹ️ คุณยังไม่ได้รับมอบหมายเป็นครูประจำวิชาในตารางสอน — สามารถดูแดชบอร์ด รายงาน และประวัติได้"
+            : "ℹ️ You are not assigned as a subject teacher yet — view-only access."}
+        </CardContent></Card>
+      )}
     </div>
   );
 };

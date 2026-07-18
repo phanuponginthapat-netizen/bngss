@@ -1,0 +1,1 @@
+ALTER TABLE public.home_visits ADD COLUMN IF NOT EXISTS kosor01_data jsonb;

@@ -12,8 +12,17 @@ export type Attachment = {
 
 const BUCKET = "homework-files";
 
-const safeName = (name: string) =>
-  name.replace(/[^\w.\-]+/g, "_").replace(/_+/g, "_").slice(-120);
+const safeName = (name: string) => {
+  const dot = name.lastIndexOf(".");
+  const base = (dot > 0 ? name.slice(0, dot) : name)
+    .normalize("NFKD")
+    .replace(/[^\w.\-]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^[._-]+|[._-]+$/g, "");
+  const ext = dot > 0 ? name.slice(dot + 1).replace(/[^\w]+/g, "").toLowerCase() : "";
+  const safe = (base || "file") + (ext ? `.${ext}` : "");
+  return safe.slice(-120);
+};
 
 export async function uploadHomeworkFile(file: File, folder: string): Promise<Attachment> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -49,10 +58,12 @@ export async function downloadHomeworkBlob(path: string): Promise<Blob> {
   return data;
 }
 
-export const isImageMime = (m?: string) => !!m && m.startsWith("image/");
-export const isPdfMime = (m?: string) => m === "application/pdf";
-
 const ext = (name?: string) => (name || "").toLowerCase().split(".").pop() || "";
+
+export const isImageMime = (m?: string, name?: string) =>
+  (!!m && m.startsWith("image/")) || ["jpg", "jpeg", "png", "gif", "webp", "avif", "bmp", "svg", "heic", "heif"].includes(ext(name));
+export const isPdfMime = (m?: string, name?: string) =>
+  m === "application/pdf" || ext(name) === "pdf";
 
 export const isDocxMime = (m?: string, name?: string) =>
   m === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || ext(name) === "docx";
@@ -67,4 +78,4 @@ export const isOfficeMime = (m?: string, name?: string) =>
   isDocxMime(m, name) || isXlsxMime(m, name) || isPptxMime(m, name);
 
 export const isEditableMime = (m?: string, name?: string) =>
-  isImageMime(m) || isPdfMime(m) || isOfficeMime(m, name);
+  isImageMime(m, name) || isPdfMime(m, name) || isOfficeMime(m, name);

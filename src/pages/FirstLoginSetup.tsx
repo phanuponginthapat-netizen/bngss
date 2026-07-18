@@ -34,7 +34,7 @@ const POSITION_LEVELS = [
   "ค.ศ. 3 (ชำนาญการพิเศษ)", "ค.ศ. 4 (เชี่ยวชาญ)", "ค.ศ. 5 (เชี่ยวชาญพิเศษ)",
 ];
 
-const DEPARTMENTS = ["วิชาการ", "กิจการนักเรียน", "บริหารทั่วไป", "งบประมาณ", "บุคคล", "ConnextED"];
+const DEPARTMENTS = ["วิชาการ", "กิจการนักเรียน", "บริหารทั่วไป", "งบประมาณและบุคคล", "ConnextED"];
 
 const PREFIXES_MALE = ["เด็กชาย", "นาย"];
 const PREFIXES_FEMALE = ["เด็กหญิง", "นางสาว", "นาง"];
@@ -323,7 +323,7 @@ const FirstLoginSetup = ({ userId, onComplete }: FirstLoginSetupProps) => {
       forbidden: [user?.email?.split("@")[0] || "", generatedCode, firstName, lastName].filter(Boolean),
     });
     if (!policy.valid) {
-      toast.error(lang === "th" ? "รหัสผ่านยังไม่ผ่านเกณฑ์ความปลอดภัย" : "Password does not meet policy");
+      toast.error(lang === "th" ? "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร" : "Password must be at least 6 characters");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -333,29 +333,7 @@ const FirstLoginSetup = ({ userId, onComplete }: FirstLoginSetupProps) => {
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) {
-      const msg = (error.message || "").toLowerCase();
-      if (msg.includes("different from the old") || msg.includes("same_password") || msg.includes("should be different")) {
-        toast.error(
-          lang === "th"
-            ? "รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านเดิม (รวมรหัสชั่วคราวที่แอดมินตั้งให้) — กรุณาตั้งรหัสใหม่ที่ไม่เคยใช้มาก่อน"
-            : "New password must be different from the previous one (including the temp password). Please choose a new password.",
-        );
-      } else if (
-        msg.includes("known to be weak") ||
-        msg.includes("weak and easy to guess") ||
-        msg.includes("weak password") ||
-        msg.includes("easy to guess") ||
-        msg.includes("have i been pwned") ||
-        msg.includes("hibp")
-      ) {
-        toast.error(
-          lang === "th"
-            ? "รหัสผ่านนี้ไม่ปลอดภัยหรือเดาง่ายเกินไป แม้จะไม่ซ้ำรหัสเดิมก็ตาม กรุณาเปลี่ยนเป็นรหัสที่คาดเดายากขึ้น เช่น ใช้อักษรพิมพ์ใหญ่-เล็ก ตัวเลข และสัญลักษณ์ผสมกัน และหลีกเลี่ยงคำที่พบบ่อย"
-            : "This password is too weak or easy to guess, even if it is different from the old one. Please choose a stronger password with mixed upper/lowercase letters, numbers, and symbols, and avoid common words.",
-        );
-      } else {
-        toast.error(error.message);
-      }
+      toast.error(error.message);
       setLoading(false);
       return;
     }
@@ -488,8 +466,8 @@ const FirstLoginSetup = ({ userId, onComplete }: FirstLoginSetupProps) => {
           {step === 2 && (
             <div className="space-y-3">
               {prefilled && (firstName || lastName || existingStudentCode || existingEmployeeCode) && (
-                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-success/10 border border-success/30">
-                  <CheckCircle className="w-4 h-4 text-success mt-0.5 shrink-0" />
+                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-green-500/10 border border-green-500/30">
+                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
                   <div className="text-xs text-foreground/80">
                     {lang === "th"
                       ? "ดึงข้อมูลเดิมของท่านมาให้แล้ว ตรวจสอบและแก้ไขได้หากต้องการ"
@@ -655,9 +633,9 @@ const FirstLoginSetup = ({ userId, onComplete }: FirstLoginSetupProps) => {
                   forbidden: [user?.email?.split("@")[0] || "", generatedCode, firstName, lastName].filter(Boolean),
                 });
                 const barColor =
-                  policy.score <= 1 ? "bg-danger" :
-                  policy.score === 2 ? "bg-warning" :
-                  policy.score === 3 ? "bg-info" : "bg-success";
+                  policy.score <= 1 ? "bg-red-500" :
+                  policy.score === 2 ? "bg-yellow-500" :
+                  policy.score === 3 ? "bg-blue-500" : "bg-green-600";
                 return (
                   <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
                     <div className="flex items-center justify-between text-xs">
@@ -671,7 +649,7 @@ const FirstLoginSetup = ({ userId, onComplete }: FirstLoginSetupProps) => {
                       {policy.rules.map((r) => (
                         <li
                           key={r.id}
-                          className={`flex items-center gap-1.5 ${r.passed ? "text-success" : r.required ? "text-muted-foreground" : "text-muted-foreground/70"}`}
+                          className={`flex items-center gap-1.5 ${r.passed ? "text-green-700" : r.required ? "text-muted-foreground" : "text-muted-foreground/70"}`}
                         >
                           {r.passed
                             ? <CheckCircle className="w-3.5 h-3.5 shrink-0" />
@@ -686,7 +664,7 @@ const FirstLoginSetup = ({ userId, onComplete }: FirstLoginSetupProps) => {
                         </li>
                       ))}
                       {confirmPassword && (
-                        <li className={`flex items-center gap-1.5 ${newPassword === confirmPassword ? "text-success" : "text-danger"}`}>
+                        <li className={`flex items-center gap-1.5 ${newPassword === confirmPassword ? "text-green-700" : "text-red-600"}`}>
                           {newPassword === confirmPassword
                             ? <CheckCircle className="w-3.5 h-3.5 shrink-0" />
                             : <XCircle className="w-3.5 h-3.5 shrink-0" />}

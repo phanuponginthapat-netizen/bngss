@@ -7,12 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Printer } from "lucide-react";
-import { useSchoolInfo, signatureImgHtml } from "@/components/documents/DocumentHeader";
-import { SignatureBlock } from "@/components/documents/SignatureBlock";
+import { useSchoolInfo } from "@/components/documents/DocumentHeader";
 import StudentSelector from "@/components/documents/StudentSelector";
 import { openPrintWindow, currentThaiDate } from "@/lib/printUtils";
-import { ExportMenu } from "@/components/academic/ExportMenu";
-import { exportPP7Sgs, exportPP7SchoolMis } from "@/lib/exporters/pp7Certificate";
+import { useStudentsWithClass } from "@/hooks/useStudentsWithClass";
 
 const Pp7Page = () => {
   const [studentCode, setStudentCode] = useState("");
@@ -26,7 +24,7 @@ const Pp7Page = () => {
       return data || [];
     },
   });
-  const { data: students = [] } = useQuery({ queryKey: ["students_with_class"], queryFn: async () => { const { data } = await supabase.from("students").select("*, classrooms!students_classroom_id_fkey(*)").eq("status", "active").order("student_code"); return data || []; } });
+  const { data: students = [] } = useStudentsWithClass();
   const { data: scores = [] } = useQuery({
     queryKey: ["pp7_scores", studentCode],
     queryFn: async () => {
@@ -58,8 +56,9 @@ const Pp7Page = () => {
 
   const assessmentPassed = assessmentScores.length > 0 && assessmentScores.every((a: any) => a.level !== "needs_improvement");
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     if (!student) return;
+    const { printByCode } = await import("@/lib/printTemplate");
     const cls = (student as any).classrooms;
 
     const html = `
@@ -109,7 +108,6 @@ const Pp7Page = () => {
             <div class="obec-sig-title">(นายทะเบียน)</div>
           </div>
           <div class="obec-sig-item">
-            ${signatureImgHtml(schoolInfo.director_signature_url, 44)}
             <div class="obec-sig-line"></div>
             <div class="obec-sig-name">${schoolInfo.director_name ? `(${schoolInfo.director_name})` : "(ลงชื่อ)"}</div>
             <div class="obec-sig-title">${schoolInfo.director_title}</div>
@@ -118,16 +116,10 @@ const Pp7Page = () => {
         <div class="obec-date">วันที่ ${currentThaiDate()}</div>
       </div>
     `;
-    openPrintWindow(html, { title: `ปพ.7 - ${student.first_name} ${student.last_name}` });
+    const tplData = { school: schoolInfo, student, class: (student as any).classrooms, scores, gpa, totalCredits, assessmentScores, purpose, today: new Date().toISOString() };
+    const used = await printByCode("pp7", tplData);
+    if (!used) openPrintWindow(html, { title: `ปพ.7 - ${student.first_name} ${student.last_name}` });
   };
-
-  const pp7Row = student ? [{
-    student_code: student.student_code,
-    prefix: student.prefix, first_name: student.first_name, last_name: student.last_name,
-    classroom: (student as any).classrooms ? `${(student as any).classrooms.grade_level} ${(student as any).classrooms.name}` : "",
-    status: student.status === "active" ? "กำลังศึกษาอยู่" : "สำเร็จการศึกษา",
-    gpa, total_credits: totalCredits, purpose, national_id: student.national_id,
-  }] : [];
 
   return (
     <div className="space-y-6">
@@ -136,19 +128,7 @@ const Pp7Page = () => {
           <h1 className="text-2xl font-bold text-foreground">ใบรับรองผลการศึกษา (ปพ.7)</h1>
           <p className="text-sm text-muted-foreground">ใบรับรองผลการศึกษาสำหรับใช้ประกอบการสมัครเรียนต่อหรืออื่นๆ</p>
         </div>
-        {studentCode && (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร</Button>
-            <ExportMenu
-              templateCode="pp7"
-              templateTitle="ปพ.7 — ใบรับรองผลการเรียน"
-              actions={[
-                { key: "sgs", label: "Excel (SGS)", icon: "xlsx", onClick: () => exportPP7Sgs(schoolInfo as any, pp7Row) },
-                { key: "smis", label: "Excel (SchoolMIS)", icon: "xlsx", onClick: () => exportPP7SchoolMis(schoolInfo as any, pp7Row) },
-              ]}
-            />
-          </div>
-        )}
+        {studentCode && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร</Button>}
       </div>
 
       <div className="flex gap-3 items-end">
@@ -200,7 +180,11 @@ const Pp7Page = () => {
                 <div className="w-36 border-b border-foreground/60 mb-2 mx-auto" />
                 <p className="text-xs text-muted-foreground">(นายทะเบียน)</p>
               </div>
-              <SignatureBlock size="md" fallbackPosition={schoolInfo.director_title} />
+              <div className="text-center">
+                <div className="w-40 border-b border-foreground/60 mb-2 mx-auto" />
+                <p className="text-sm font-medium text-foreground">{schoolInfo.director_name ? `(${schoolInfo.director_name})` : "(ลงชื่อ)"}</p>
+                <p className="text-xs text-muted-foreground">{schoolInfo.director_title}</p>
+              </div>
             </div>
           </CardContent>
         </Card>

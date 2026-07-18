@@ -1,46 +1,88 @@
-## ขอบเขต
+## เป้าหมาย
+ออกแบบโครงสร้างหมวดเมนู sidebar ใหม่ให้สั้น เข้าใจง่าย และตรงกับงานของแต่ละ role โดยไม่ตัดเมนูออก แค่ "จัดกลุ่มใหม่ + เรียงลำดับใหม่ + ซ่อนหมวดที่ไม่จำเป็นกับ role นั้น"
 
-คุณเลือก "ทั้งหมด (ทำเป็นชุดใหญ่)" — ผมจะแบ่งเป็น 3 เฟส ทำต่อเนื่อง ไม่ต้องรออนุมัติระหว่างเฟส
-
-### เฟส 1 — Security (บังคับ, ทำก่อน)
-เปลี่ยน 3 storage bucket จาก public → private แล้วให้โค้ดเรียกผ่าน signed URL:
-- `exam-scans` — ใบคำตอบสอบ (มีชื่อ/ลายมือนักเรียน)
-- `pp5-files` — ไฟล์ ปพ.5 (เฉพาะครู/ผอ.)
-- `wall-media` — สื่อบน wall ที่เป็น school/private
-
-จุดที่ต้องแก้โค้ด: ที่ไหนที่ใช้ `getPublicUrl()` กับ 3 bucket นี้ จะเปลี่ยนเป็น `createSignedUrl(path, 3600)` และ cache 1 ชม.
-
-### เฟส 2 — UI/UX Layer กลาง (กระทบทุกหน้า)
-1. **Header/Layout** (`DashboardLayout.tsx`)
-   - จัด spacing header ให้สม่ำเสมอ, ลด jitter บน mobile, safe-area สมบูรณ์
-   - avatar+ชื่อ กด area ใหญ่ขึ้น 44×44
-2. **PageHeader + SectionCard** (`components/shared/`)
-   - เพิ่ม variant density (compact/default), skeleton state, breadcrumb slot
-3. **EmptyState / StatCard** — เพิ่ม illustration slot, loading skeleton, error state
-4. **Toast + Notification popup** — จัด z-index, animation smoother, dismiss gesture บน mobile
-5. **Form primitives** — error message consistent, required indicator, focus ring
-6. **Table wrapper** — sticky header, empty/loading/error state ครบ, horizontal scroll hint บน mobile
-
-### เฟส 3 — หน้าหลักที่ผู้ใช้เจอบ่อย
-1. Dashboard (Director/Teacher/Student) — grid responsive, card hierarchy, mobile stack
-2. Inbox / Notifications — filter chips, group by date, read/unread affordance
-3. Attendance (Face scan + manual) — camera framing, feedback states
-4. Documents / E-Form — status badge สีสม่ำเสมอ, action bar sticky bottom บน mobile
-5. Profile — tab overflow บน mobile, sticky sub-nav
-
-## รายละเอียดทางเทคนิค
-
-- ไม่เพิ่ม dependency ใหม่
-- ใช้ design token (`--primary`, `--muted`, `--border`) เท่านั้น ห้าม hard-code สี
-- ทุกจุด interactive ≥ 44×44 บน mobile
-- ทุก loading ต้องมี skeleton (ไม่ใช้แค่ spinner)
-- ทุก list ต้องมี empty state ที่ actionable
-
-## ไม่ทำในรอบนี้
-- ไม่ redesign brand/สี/ฟอนต์ (ยึด IBM Plex Sans Thai + gradient เดิมตาม memory)
-- ไม่แตะ business logic / RLS / schema
-- ไม่ทำหน้ารายงาน PDF (ใช้ TH Sarabun ตามมาตรฐาน ปพ.)
+ไฟล์ที่แก้: `src/components/AppSidebar.tsx` ไฟล์เดียว (ไม่กระทบ route หรือ DB)
 
 ---
 
-พร้อมเริ่มเฟส 1 ทันทีเมื่อคุณกด Approve ครับ ถ้าอยากตัดเฟสไหนออก บอกได้เลย
+## โครงสร้างหมวดมาตรฐาน (ใช้ร่วมกัน)
+
+จัดเหลือ **6 กลุ่มหลัก** + กลุ่ม "ทั่วไป" ด้านบน:
+
+```text
+⭐ ทั่วไป         Dashboard / Profile / Inbox / Feed / Portfolio / Members / เว็บไซต์
+📚 งานวิชาการ     ห้องเรียน วิชา ตาราง ปพ.1-8 ปฏิทิน การบ้าน ตรวจข้อสอบ
+🧑‍🎓 ดูแลนักเรียน  เช็คชื่อ พฤติกรรม ใบลา คัดกรอง สุขภาพ โฮมรูม SDQ เยี่ยมบ้าน วัคซีน
+📢 งานสารบรรณ     ข่าว หนังสือ E-Form แจ้งเหตุฉุกเฉิน อาหาร นม PDCA
+👥 บุคลากร & HR   ทะเบียน org-chart มาทำงาน DPA เงินเดือน ID Plan ลา สอนแทน
+💰 งบ & พัสดุ     งบประมาณ จัดซื้อ ทรัพย์สิน อุดหนุน Hub Project
+🧰 บริการ         ♻️ ธนาคารขยะ · 🚪 ห้องพิเศษ · 📦 ICT ยืม-คืน · 🌐 IoT
+⚙️ ผู้ดูแลระบบ    รวม 4 หมวดเก่า (เนื้อหา & ผู้ใช้, การเชื่อมต่อ & AI, ตั้งค่าระบบ,
+                  การตรวจสอบ & รายงาน) เป็น 4 sub-group ภายใต้ Administration เดียว
+```
+
+---
+
+## การจัดเรียง/ซ่อนหมวดต่อ role
+
+### 👑 Admin (เห็นทุกหมวด, เน้นงานระบบขึ้นก่อน)
+1. ⭐ ทั่วไป
+2. ⚙️ ผู้ดูแลระบบ (เปิด default)
+3. 📚 งานวิชาการ
+4. 🧑‍🎓 ดูแลนักเรียน
+5. 📢 งานสารบรรณ
+6. 👥 บุคลากร & HR
+7. 💰 งบ & พัสดุ
+8. 🧰 บริการ
+
+### 🎓 Director (เน้นภาพรวมและรายงาน)
+1. ⭐ ทั่วไป
+2. 📚 งานวิชาการ
+3. 🧑‍🎓 ดูแลนักเรียน
+4. 👥 บุคลากร & HR
+5. 💰 งบ & พัสดุ
+6. 📢 งานสารบรรณ
+7. ⚙️ ผู้ดูแลระบบ (เห็นทุก sub-group ยกเว้น AI Import)
+8. 🧰 บริการ
+
+### 👩‍🏫 Teacher (ตัดงานระบบทิ้ง, โฟกัสห้องเรียน)
+1. ⭐ ทั่วไป + ลงเวลา + สแกนนักเรียน
+2. 📚 งานวิชาการ (เฉพาะที่ teacher เห็น)
+3. 🧑‍🎓 ดูแลนักเรียน
+4. 📢 งานสารบรรณ (ข่าว/หนังสือ/E-Form/แจ้งเหตุ)
+5. 👥 งานบุคลากรของฉัน (ลา, สอนแทน, ID Plan, DPA, org chart, สรุปการมาทำงานของตัวเอง)
+6. 🧰 บริการ (ขยะ/ห้องพิเศษ/ICT/IoT)
+   ไม่เห็น: ⚙️ ผู้ดูแลระบบ, 💰 งบ & พัสดุ
+
+### 🧑‍🎓 Student (แบนเหมือนเดิม แต่จัดเป็น 3 กลุ่มสั้น ๆ)
+- ⭐ ของฉัน: Dashboard, Profile, Portfolio, Inbox, Feed, Members
+- 📚 การเรียน: ตารางเรียน, ปฏิทิน, การบ้าน, ปพ.5 (ดู), ใบลา
+- 🧰 บริการ: ธนาคารขยะ (แต้มของฉัน), ICT (ยืม/ประวัติ), ความสำเร็จ
+- (ตัด collapsible ออก ใช้ section label แบบสั้น)
+
+### 👨‍👩‍👧 Parent (compact 3 กลุ่ม)
+- ⭐ ของฉัน: Dashboard, Profile, Inbox, Feed
+- 👶 ลูกของฉัน: การมาเรียน, พฤติกรรม, ใบลา, สุขภาพ, การบ้าน, ตารางเรียน
+- 🏫 โรงเรียน: ปฏิทิน, สมาชิก
+
+### 🎓 Alumni (compact 2 กลุ่ม)
+- ⭐ ของฉัน: Dashboard, Profile, Portfolio
+- 🏫 โรงเรียน: Feed, Members, ปฏิทิน (เพิ่มเข้าไป)
+
+---
+
+## รายละเอียดทางเทคนิค
+- เพิ่มฟิลด์ `key` ให้ Department เพื่อใช้อ้างแทน label (กัน i18n เพี้ยน)
+- รวม 4 admin sub-categories เป็น Department เดียวชื่อ "ผู้ดูแลระบบ" แล้วใช้ `subgroups: { label, items[] }[]` render เป็น sub-heading เล็ก ๆ ภายใน collapsible
+- เปลี่ยน `roleOrder` ให้ใช้ key แทน label
+- ขยายแบบ compact (parent/alumni/student) ให้รับ `sections: { label, items[] }[]` แทน flat array เดียว
+- ไม่แตะ route, ไม่แตะ DB, ไม่แตะ permission อื่น
+
+---
+
+## ผลลัพธ์ที่คาดหวัง
+- Admin/Director เห็นหมวดน้อยลง (จาก 11+ เหลือ 8) แต่ครอบคลุมเท่าเดิม
+- Teacher ไม่เจอเมนูระบบที่ทำไม่ได้
+- Student/Parent/Alumni มี section label แบ่งกลุ่มชัด อ่านง่ายในมือถือ
+
+ขอยืนยันก่อนเริ่มแก้ครับ — หรือถ้าอยากปรับชื่อหมวด/ลำดับใด ๆ บอกได้เลย

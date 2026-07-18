@@ -1,15 +1,13 @@
-// Full system backup: dump every public table as JSON + all storage files into a single ZIP.
-// POST /system-backup  -> returns application/zip stream
+// Backup: tables (fast) or a single storage bucket (per request).
+// Splitting avoids the 150s edge-function timeout when storage is large.
+// POST /system-backup?mode=tables                  -> zip of all tables as JSON
+// POST /system-backup?mode=storage&bucket=NAME     -> zip of one bucket's files
+// POST /system-backup?mode=buckets                 -> { buckets: [{name,fileCount?}] }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import JSZip from "https://esm.sh/jszip@3.10.1";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { corsHeadersPost as corsHeaders } from "../_shared/cors.ts";
 
-// All user-data tables in public schema (kept in sync with project schema).
 const TABLES = [
   "academic_events","account_balances","action_plans","admissions",
   "app_secrets","archive_logs","assessment_criteria","asset_damage_reports","assets",
@@ -51,72 +49,72 @@ Deno.serve(async (req) => {
   const ok = (roles || []).some((r: any) => r.role === "admin" || r.role === "director");
   if (!ok) return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+  const url = new URL(req.url);
+  const mode = url.searchParams.get("mode") || "tables";
+  const bucketName = url.searchParams.get("bucket") || "";
   const admin = createClient(supaUrl, srv);
-  const zip = new JSZip();
-  const manifest: any = { version: new Date().toISOString(), tables: {}, storage: {}, errors: [] };
 
-  // 1) Dump tables (paginated to bypass the default 1000-row PostgREST cap)
-  const tablesDir = zip.folder("tables")!;
-  for (const t of TABLES) {
-    try {
-      const all: any[] = [];
-      const pageSize = 1000;
-      let from = 0;
-      while (true) {
-        const { data, error } = await admin.from(t).select("*").range(from, from + pageSize - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        all.push(...data);
-        if (data.length < pageSize) break;
-        from += pageSize;
-      }
-      tablesDir.file(`${t}.json`, JSON.stringify(all, null, 2));
-      manifest.tables[t] = all.length;
-    } catch (e: any) {
-      manifest.errors.push({ table: t, error: e.message });
-    }
+  // List buckets (fast)
+  if (mode === "buckets") {
+    const { data: buckets } = await admin.storage.listBuckets();
+    return new Response(JSON.stringify({ buckets: (buckets || []).map((b) => ({ name: b.name })) }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
-  // 2) Dump storage: every bucket, every file
-  const storageDir = zip.folder("storage")!;
-  try {
-    const { data: buckets } = await admin.storage.listBuckets();
-    for (const b of buckets || []) {
-      const bucketDir = storageDir.folder(b.name)!;
-      let count = 0;
-      const walk = async (prefix: string) => {
-        const { data: items, error } = await admin.storage.from(b.name).list(prefix, { limit: 1000 });
-        if (error) { manifest.errors.push({ bucket: b.name, prefix, error: error.message }); return; }
-        for (const it of items || []) {
-          const path = prefix ? `${prefix}/${it.name}` : it.name;
-          // Folder entries have no id/metadata
-          if (!it.id && !(it as any).metadata) {
-            await walk(path);
-            continue;
-          }
-          const { data: blob, error: dErr } = await admin.storage.from(b.name).download(path);
-          if (dErr || !blob) { manifest.errors.push({ bucket: b.name, path, error: dErr?.message }); continue; }
-          bucketDir.file(path, new Uint8Array(await blob.arrayBuffer()));
-          count++;
+  const zip = new JSZip();
+  const manifest: any = { version: new Date().toISOString(), mode, errors: [] };
+
+  if (mode === "tables") {
+    manifest.tables = {};
+    const tablesDir = zip.folder("tables")!;
+    for (const t of TABLES) {
+      try {
+        const all: any[] = [];
+        const pageSize = 1000;
+        let from = 0;
+        while (true) {
+          const { data, error } = await admin.from(t).select("*").range(from, from + pageSize - 1);
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          all.push(...data);
+          if (data.length < pageSize) break;
+          from += pageSize;
         }
-      };
-      await walk("");
-      manifest.storage[b.name] = count;
+        tablesDir.file(`${t}.json`, JSON.stringify(all));
+        manifest.tables[t] = all.length;
+      } catch (e: any) {
+        manifest.errors.push({ table: t, error: e.message });
+      }
     }
-  } catch (e: any) {
-    manifest.errors.push({ stage: "storage", error: e.message });
+  } else if (mode === "storage") {
+    if (!bucketName) {
+      return new Response(JSON.stringify({ error: "bucket required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    manifest.bucket = bucketName;
+    manifest.files = 0;
+    const bucketDir = zip.folder(bucketName)!;
+    const walk = async (prefix: string) => {
+      const { data: items, error } = await admin.storage.from(bucketName).list(prefix, { limit: 1000 });
+      if (error) { manifest.errors.push({ prefix, error: error.message }); return; }
+      for (const it of items || []) {
+        const path = prefix ? `${prefix}/${it.name}` : it.name;
+        if (!it.id && !(it as any).metadata) { await walk(path); continue; }
+        const { data: blob, error: dErr } = await admin.storage.from(bucketName).download(path);
+        if (dErr || !blob) { manifest.errors.push({ path, error: dErr?.message }); continue; }
+        bucketDir.file(path, new Uint8Array(await blob.arrayBuffer()));
+        manifest.files++;
+      }
+    };
+    await walk("");
+  } else {
+    return new Response(JSON.stringify({ error: "invalid mode" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
   zip.file("manifest.json", JSON.stringify(manifest, null, 2));
-  zip.file("README.txt",
-    "Smart School Full Backup\n" +
-    `Generated: ${manifest.version}\n` +
-    `Tables: ${Object.keys(manifest.tables).length}\n` +
-    `Storage buckets: ${Object.keys(manifest.storage).length}\n` +
-    "Restore: ใช้หน้า 'อัพเดทระบบ' หรือ system-update edge function เพื่อ apply ข้อมูลกลับเข้าระบบ\n");
-
   const zipBuf = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
-  const filename = `smart-school-backup-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.zip`;
+  const tag = mode === "storage" ? `storage-${bucketName}` : "tables";
+  const filename = `smart-school-${tag}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.zip`;
 
   return new Response(zipBuf, {
     status: 200,

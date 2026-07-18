@@ -11,11 +11,11 @@ import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 const SC: Record<string, string> = {
-  present: "bg-success-soft text-success-soft-foreground",
-  absent: "bg-danger-soft text-danger-soft-foreground",
-  late: "bg-warning-soft text-warning-soft-foreground",
-  sick: "bg-info-soft text-info-soft-foreground",
-  leave: "bg-info-soft text-info-soft-foreground",
+  present: "bg-green-100 text-green-800",
+  absent: "bg-red-100 text-red-800",
+  late: "bg-yellow-100 text-yellow-800",
+  sick: "bg-blue-100 text-blue-800",
+  leave: "bg-purple-100 text-purple-800",
 };
 const SL: Record<string, Record<string, string>> = {
   present: { th: "มา", en: "Present" },

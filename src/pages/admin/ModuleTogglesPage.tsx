@@ -30,7 +30,7 @@ export default function ModuleTogglesPage() {
   const grouped = useMemo(() => {
     const q = search.trim().toLowerCase();
     const out: Record<ModuleGroup, typeof MODULES> = {
-      academic: [], student: [], general: [], finance: [], operations: [], hr: [], integrations: [], security: [], extras: [],
+      academic: [], student: [], general: [], finance: [], hr: [], integrations: [], extras: [],
     };
     for (const m of MODULES) {
       if (q && !m.label.toLowerCase().includes(q) && !m.labelEn.toLowerCase().includes(q) && !m.desc.toLowerCase().includes(q)) continue;

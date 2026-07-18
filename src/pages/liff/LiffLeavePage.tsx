@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import LiffShell from "./LiffShell";
 import { uploadLeaveAttachment } from "@/lib/leaveAttachment";
 import { Paperclip } from "lucide-react";
-import { DateInput } from "@/components/ui/date-input";
 
 function LeaveForm({ lineUserId }: { lineUserId: string }) {
   const [type, setType] = useState("sick");
@@ -34,9 +33,12 @@ function LeaveForm({ lineUserId }: { lineUserId: string }) {
       }
 
       // ส่งไป edge function (service role) — bypass RLS เพราะ LIFF ไม่มี Supabase session
+      // ส่ง LINE access token ผ่าน Authorization header ให้ฝั่ง server ตรวจสอบและดึง userId เอง
+      const lineAccessToken: string = (window as any).liff?.getAccessToken?.() || "";
+      if (!lineAccessToken) throw new Error("ยังไม่ได้ล็อกอิน LINE");
       const { data, error } = await supabase.functions.invoke("liff-submit-leave", {
+        headers: { Authorization: `Bearer ${lineAccessToken}` },
         body: {
-          line_user_id: lineUserId,
           leave_type: type,
           start_date: start,
           end_date: end,
@@ -70,8 +72,8 @@ function LeaveForm({ lineUserId }: { lineUserId: string }) {
         </Select>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div><Label>วันที่เริ่ม</Label><DateInput value={start} onChange={(e) => setStart(e.target.value)} /></div>
-        <div><Label>วันที่สิ้นสุด</Label><DateInput value={end} onChange={(e) => setEnd(e.target.value)} /></div>
+        <div><Label>วันที่เริ่ม</Label><Input type="date" value={start} onChange={(e) => setStart(e.target.value)} /></div>
+        <div><Label>วันที่สิ้นสุด</Label><Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} /></div>
       </div>
       <div>
         <Label>เหตุผล</Label>

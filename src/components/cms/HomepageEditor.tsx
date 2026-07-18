@@ -8,7 +8,6 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
-import { PhotoUploadField } from "@/components/ui/photo-upload-field";
 import {
   Upload, Plus, Trash2, GripVertical,
   PanelTop, Image as ImageIcon, BarChart3, LayoutGrid, Megaphone, PanelBottom, Code2, ArrowUpDown
@@ -247,7 +246,7 @@ const HomepageEditor = () => {
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center bg-muted/30 overflow-hidden">
                 {get("school_logo") ? (
-                  <img src={get("school_logo")} alt="Logo" className="w-full h-full object-contain" />
+                  <img loading="lazy" decoding="async" src={get("school_logo")} alt="Logo" className="w-full h-full object-contain" />
                 ) : <ImageIcon className="w-6 h-6 text-muted-foreground" />}
               </div>
               <Button size="sm" variant="outline" onClick={() => uploadImage("logo", url => set("school_logo", url))}>
@@ -318,20 +317,12 @@ const HomepageEditor = () => {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label>รูปภาพปุ่มหลัก</Label>
-              <PhotoUploadField
-                value={get("hero_cta_primary_image")}
-                onChange={(url) => set("hero_cta_primary_image", url || "")}
-                folder="hero-cta"
-              />
+              <Label>รูปภาพปุ่มหลัก (URL)</Label>
+              <Input value={get("hero_cta_primary_image")} onChange={e => set("hero_cta_primary_image", e.target.value)} placeholder="https://... (ถ้าใส่จะแทนข้อความ)" />
             </div>
             <div className="space-y-1.5">
-              <Label>รูปภาพปุ่มรอง</Label>
-              <PhotoUploadField
-                value={get("hero_cta_secondary_image")}
-                onChange={(url) => set("hero_cta_secondary_image", url || "")}
-                folder="hero-cta"
-              />
+              <Label>รูปภาพปุ่มรอง (URL)</Label>
+              <Input value={get("hero_cta_secondary_image")} onChange={e => set("hero_cta_secondary_image", e.target.value)} placeholder="https://... (ถ้าใส่จะแทนข้อความ)" />
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -369,7 +360,7 @@ const HomepageEditor = () => {
             <div className="flex items-center gap-4">
               <div className="w-40 h-24 rounded-lg border-2 border-dashed border-border flex items-center justify-center bg-muted/30 overflow-hidden">
                 {get("hero_background") ? (
-                  <img src={get("hero_background")} alt="BG" className="w-full h-full object-cover" />
+                  <img loading="lazy" decoding="async" src={get("hero_background")} alt="BG" className="w-full h-full object-cover" />
                 ) : <span className="text-xs text-muted-foreground">ใช้สีพื้นหลัง</span>}
               </div>
               <div className="space-y-2">
@@ -600,7 +591,7 @@ const HomepageEditor = () => {
                   <Label>ภาพที่ {i + 1}</Label>
                   <div className="w-full h-32 rounded-lg border-2 border-dashed border-border flex items-center justify-center bg-muted/30 overflow-hidden">
                     {get(key) ? (
-                      <img src={get(key)} alt={`Banner ${i + 1}`} className="w-full h-full object-cover" />
+                      <img loading="lazy" decoding="async" src={get(key)} alt={`Banner ${i + 1}`} className="w-full h-full object-cover" />
                     ) : <ImageIcon className="w-8 h-8 text-muted-foreground" />}
                   </div>
                   <div className="flex gap-2">
@@ -794,9 +785,9 @@ const HomepageEditor = () => {
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center bg-muted/30 overflow-hidden">
                 {get("footer_logo") ? (
-                  <img src={get("footer_logo")} alt="Footer Logo" className="w-full h-full object-contain" />
+                  <img loading="lazy" decoding="async" src={get("footer_logo")} alt="Footer Logo" className="w-full h-full object-contain" />
                 ) : get("school_logo") ? (
-                  <img src={get("school_logo")} alt="Logo" className="w-full h-full object-contain opacity-50" />
+                  <img loading="lazy" decoding="async" src={get("school_logo")} alt="Logo" className="w-full h-full object-contain opacity-50" />
                 ) : <ImageIcon className="w-6 h-6 text-muted-foreground" />}
               </div>
               <div className="space-y-2">

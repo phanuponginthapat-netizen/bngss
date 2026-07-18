@@ -65,18 +65,9 @@ export async function getAppServer(): Promise<webpush.ApplicationServer> {
 }
 
 export type StoredSub = { id: string; endpoint: string; p256dh: string; auth: string };
-export type PushPayload = { title: string; body?: string; url?: string; tag?: string; urgent?: boolean };
+export type PushPayload = { title: string; body?: string; url?: string; tag?: string };
 
 export type PushResult = { ok: boolean; gone: boolean; status?: number; error?: string };
-
-// Web-push Topic header: must be URL-safe base64, ≤32 chars. Used by push services
-// (FCM/APNs/Mozilla) to collapse duplicate pending messages — new push with same topic
-// replaces the older undelivered one, like LINE/Messenger collapsing repeated alerts.
-function toTopicHeader(tag?: string): string | undefined {
-  if (!tag) return undefined;
-  const cleaned = tag.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 32);
-  return cleaned || undefined;
-}
 
 export async function pushOne(sub: StoredSub, payload: PushPayload): Promise<PushResult> {
   try {
@@ -92,16 +83,9 @@ export async function pushOne(sub: StoredSub, payload: PushPayload): Promise<Pus
       body: payload.body ?? "",
       url: payload.url ?? "/dashboard",
       tag: payload.tag ?? "general",
-      urgent: !!payload.urgent,
     });
 
-    // High urgency + 1d TTL keeps message queued while device is offline (like FCM defaults).
-    // Topic collapses stale duplicates so users don't get a backlog when phone wakes up.
-    await subscriber.pushTextMessage(body, {
-      urgency: "high",
-      ttl: 86400,
-      topic: toTopicHeader(payload.tag),
-    } as any);
+    await subscriber.pushTextMessage(body, { urgency: "high", ttl: 86400 });
     return { ok: true, gone: false };
   } catch (e: any) {
     const msg = String(e?.message || e || "");

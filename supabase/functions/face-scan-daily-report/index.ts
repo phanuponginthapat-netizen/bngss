@@ -1,13 +1,10 @@
-import { isAuthorizedCron, unauthorized } from "../_shared/cronAuth.ts";
 // รายงานสรุปการสแกนหน้าประจำวัน — ส่งเข้า LINE OA ให้ครู/ผอ/แอดมิน
 // เรียกอัตโนมัติทุกวัน 09:00 น. (Asia/Bangkok) ผ่าน pg_cron
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { requireCronOrAdmin } from "../_shared/requireCron.ts";
+import { corsHeadersWithCron as corsHeaders } from "../_shared/cors.ts";
+import { makeAdmin } from "../_shared/supabaseAdmin.ts";
+import { notifyLine } from "../_shared/fanout.ts";
 
 // เกณฑ์เริ่มถือว่า "สาย" (เวลาท้องถิ่นไทย HH:MM)
 const DEFAULT_LATE_THRESHOLD = "08:00";
@@ -29,8 +26,8 @@ function bangkokTimeHHMM(d: Date): string {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (!(await isAuthorizedCron(req))) return unauthorized();
-
+  const denied = await requireCronOrAdmin(req, corsHeaders);
+  if (denied) return denied;
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -38,21 +35,15 @@ serve(async (req) => {
     const lateThreshold: string = body.late_threshold || DEFAULT_LATE_THRESHOLD;
     const sendLine: boolean = body.send_line !== false;
 
-    const sb = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const sb = makeAdmin();
 
     // โหลดเกณฑ์สายจาก school_settings ถ้ามี
-    const { data: settingRows } = await sb
+    const { data: setting } = await sb
       .from("school_settings")
-      .select("setting_key,setting_value")
-      .in("setting_key", ["face_scan_late_threshold", "clock_late_threshold"]);
-    const _rows = settingRows || [];
-    const threshold =
-      (_rows.find((r: any) => r.setting_key === "face_scan_late_threshold")?.setting_value as string) ||
-      (_rows.find((r: any) => r.setting_key === "clock_late_threshold")?.setting_value as string) ||
-      lateThreshold;
+      .select("setting_value")
+      .eq("setting_key", "face_scan_late_threshold")
+      .maybeSingle();
+    const threshold = (setting?.setting_value as string) || lateThreshold;
 
     // 1) นักเรียน active ทั้งหมด
     const { data: students, error: stuErr } = await sb
@@ -139,23 +130,15 @@ serve(async (req) => {
     let lineResult: any = { skipped: true };
     if (sendLine) {
       // ส่งให้ ครู / ผอ / แอดมิน ผ่าน notify-line (จะใช้ LINE ID ที่ผูกบัญชีไว้)
-      const resp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/notify-line`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-        },
-        body: JSON.stringify({
-          title, message,
-          roles: ["teacher", "director", "admin"],
-          use_flex: true,
-          severity: "info",
-          notification_type: "face_scan_daily_report",
-          action_url: reportUrl,
-          action_label: "เปิดรายงานบน Dashboard",
-        }),
+      lineResult = await notifyLine({
+        title, message,
+        roles: ["teacher", "director", "admin"],
+        use_flex: true,
+        severity: "info",
+        notification_type: "face_scan_daily_report",
+        action_url: reportUrl,
+        action_label: "เปิดรายงานบน Dashboard",
       });
-      lineResult = await resp.json().catch(() => ({ ok: resp.ok, status: resp.status }));
     }
 
     return new Response(

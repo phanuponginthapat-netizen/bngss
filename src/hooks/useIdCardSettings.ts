@@ -26,8 +26,8 @@ export interface IdCardSettings {
 }
 
 export const DEFAULT_ID_CARD_SETTINGS: IdCardSettings = {
-  school_name: "โรงเรียนสมาร์ทสคูล",
-  school_name_en: "Smart School",
+  school_name: "",
+  school_name_en: "",
   school_address: "",
   school_phone: "",
   header_color_from: "#1e40af",
@@ -39,7 +39,7 @@ export const DEFAULT_ID_CARD_SETTINGS: IdCardSettings = {
   bg_image_url: "",
   body_bg_image_url: "",
   accent_color: "#1e40af",
-  card_subtitle: "บัตรประจำตัวนักเรียน",
+  card_subtitle: "",
   show_qr: true,
   qr_type: "sdq",
   show_blood_type: true,
@@ -47,7 +47,7 @@ export const DEFAULT_ID_CARD_SETTINGS: IdCardSettings = {
   show_emergency_contact: true,
   show_line_qr: true,
   card_border_radius: "12",
-  back_note: "บัตรนี้เป็นสมบัติของโรงเรียน หากพบกรุณาส่งคืน",
+  back_note: "",
 };
 
 export function useIdCardSettings() {
@@ -62,14 +62,14 @@ export function useIdCardSettings() {
   }
 
   const settings: IdCardSettings = {
-    school_name: rawSettings?.school_name || bulk?.school_name || DEFAULT_ID_CARD_SETTINGS.school_name,
+    school_name: rawSettings?.school_name || DEFAULT_ID_CARD_SETTINGS.school_name,
     school_name_en: rawSettings?.school_name_en || DEFAULT_ID_CARD_SETTINGS.school_name_en,
-    school_address: rawSettings?.school_address || bulk?.school_address || DEFAULT_ID_CARD_SETTINGS.school_address,
-    school_phone: rawSettings?.school_phone || bulk?.school_phone || DEFAULT_ID_CARD_SETTINGS.school_phone,
+    school_address: rawSettings?.school_address || DEFAULT_ID_CARD_SETTINGS.school_address,
+    school_phone: rawSettings?.school_phone || DEFAULT_ID_CARD_SETTINGS.school_phone,
     header_color_from: rawSettings?.header_color_from || DEFAULT_ID_CARD_SETTINGS.header_color_from,
     header_color_to: rawSettings?.header_color_to || DEFAULT_ID_CARD_SETTINGS.header_color_to,
     text_color: rawSettings?.text_color || DEFAULT_ID_CARD_SETTINGS.text_color,
-    logo_url: rawSettings?.logo_url || bulk?.school_logo || DEFAULT_ID_CARD_SETTINGS.logo_url,
+    logo_url: rawSettings?.logo_url || DEFAULT_ID_CARD_SETTINGS.logo_url,
     logo_url_2: rawSettings?.logo_url_2 || DEFAULT_ID_CARD_SETTINGS.logo_url_2,
     logo_url_3: rawSettings?.logo_url_3 || DEFAULT_ID_CARD_SETTINGS.logo_url_3,
     bg_image_url: rawSettings?.bg_image_url || DEFAULT_ID_CARD_SETTINGS.bg_image_url,

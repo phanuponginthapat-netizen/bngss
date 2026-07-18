@@ -12,5 +12,7 @@ export const secretKeys = {
   cron: buildKey("CRON", "SECRET"),
   vapidPublic: buildKey("VAPID", "PUBLIC", "KEY"),
   vapidPrivate: buildKey("VAPID", "PRIVATE", "KEY"),
+  fbPageAccessToken: buildKey("FB", "PAGE", "ACCESS", "TOKEN"),
+  fbPageId: buildKey("FB", "PAGE", "ID"),
   lovable: buildKey("LOVABLE", "API", "KEY"),
 } as const;

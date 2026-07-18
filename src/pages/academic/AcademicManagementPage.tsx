@@ -19,10 +19,10 @@ const AcademicManagementPage = () => {
             </div>
             <div>
               <CardTitle className="text-2xl">
-                {lang === "th" ? "วิชาการ" : "Academic"}
+                {lang === "th" ? "จัดการวิชาการ" : "Academic Setup"}
               </CardTitle>
               <CardDescription>
-                {lang === "th" ? "รายวิชา ครูผู้สอน ห้องเรียน และการลงทะเบียน" : "Subjects, teachers, classrooms and enrollment"}
+                {lang === "th" ? "รายวิชา ครูผู้สอน ห้องเรียน และการลงทะเบียน" : "Subjects, teachers, classrooms & enrollment"}
               </CardDescription>
             </div>
           </div>

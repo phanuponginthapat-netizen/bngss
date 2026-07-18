@@ -14,8 +14,56 @@ const ALLOWED_MIME = ["image/png", "image/jpeg", "image/jpg", "image/webp", "ima
 
 // cache ผลลัพธ์ใน session เดียว เพื่อไม่ต้องครอปซ้ำ
 const squareCache = new Map<string, string>();
+const BRAND_CACHE_KEY = "cms_branding_cache";
+
+function hexToHsl(hex: string): string | null {
+  if (!hex) return null;
+  const m = hex.trim().replace(/^#/, "");
+  const h = m.length === 3 ? m.split("").map((c) => c + c).join("") : m;
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let hh = 0, s = 0; const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) hh = ((g - b) / d + (g < b ? 6 : 0));
+    else if (max === g) hh = ((b - r) / d + 2);
+    else hh = ((r - g) / d + 4);
+    hh *= 60;
+  }
+  return `${Math.round(hh)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
+
+function applyThemeVars(themeColor: string) {
+  const hsl = hexToHsl(themeColor);
+  if (!hsl) return;
+  const root = document.documentElement;
+  root.style.setProperty("--primary", hsl);
+  root.style.setProperty("--ring", hsl);
+  root.style.setProperty("--sidebar-primary", hsl);
+  root.style.setProperty("--sidebar-ring", hsl);
+}
+
+function hydrateFromCache() {
+  try {
+    const raw = localStorage.getItem(BRAND_CACHE_KEY);
+    if (!raw) return;
+    const b = JSON.parse(raw);
+    if (b?.name) document.title = b.name;
+    if (b?.themeColor) {
+      setMeta("theme-color", b.themeColor);
+      applyThemeVars(b.themeColor);
+    }
+    if (b?.logo) setLink("icon", b.logo);
+    (window as any).__branding = b;
+  } catch {}
+}
 
 export async function applyDynamicBranding() {
+  hydrateFromCache();
   try {
     const [cmsRes, schoolRes] = await Promise.all([
       supabase
@@ -26,9 +74,6 @@ export async function applyDynamicBranding() {
           "school_short_name",
           "school_logo",
           "school_logo_512",
-          "theme_primary_color",
-          "theme_secondary_color",
-          "theme_accent_color",
           "primary_color",
           "theme_color",
           "background_color",
@@ -58,8 +103,7 @@ export async function applyDynamicBranding() {
       map.school_short_name ||
       school.short_name ||
       (name.length > 12 ? name.slice(0, 12) : name);
-    const themeColor =
-      map.theme_primary_color || map.theme_color || map.primary_color || "#2563EB";
+    const themeColor = map.theme_color || map.primary_color || "#2563EB";
     const bgColor = map.background_color || "#FFFFFF";
     const description =
       map.school_description ||
@@ -80,36 +124,52 @@ export async function applyDynamicBranding() {
     setMeta("application-name", shortName);
     setMeta("og:title", name, "property");
     setMeta("og:description", description, "property");
-    // og:image / twitter:image — ใช้โลโก้ 512 ของโรงเรียนถ้าตั้งไว้
-    if (logo512) {
-      setMeta("og:image", logo512, "property");
-      setMeta("twitter:image", logo512);
-      setMeta("twitter:card", "summary_large_image");
-    }
     setLink("apple-touch-icon", logo192);
     setLink("apple-touch-icon", logo192, "180x180");
     setLink("apple-touch-icon", logo192, "192x192");
     setLink("apple-touch-icon", logo512, "512x512");
     setLink("icon", logo192);
 
-    // NOTE: ตัว manifest.json ถูกเสิร์ฟแบบ dynamic โดย edge function `dynamic-manifest` แล้ว
-    // (อ้างใน index.html) จึงไม่ต้องสร้าง blob URL ทับที่นี่อีก — เพราะ PC Chrome อ่าน manifest
-    // ตอนโหลดหน้าเพื่อตัดสินใจติดตั้ง PWA ทันที ก่อน JS รัน ถ้าเรา replace ทีหลังจะไม่ทัน
+    // Manifest แบบไดนามิก: ชี้ <link rel="manifest"> ไปที่ edge function ที่อ่านค่าจาก CMS
+    // — URL คงที่ (identity เสถียร, Android WebAPK ไม่ถอนติดตั้งเอง)
+    // — เนื้อหา name/short_name/icons/theme_color เปลี่ยนตาม CMS
+    // ส่ง ?origin= เพื่อให้ start_url/scope อยู่ same-origin กับหน้าเว็บตามสเปก PWA
+    const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL as string | undefined;
+    if (supabaseUrl) {
+      // URL คงที่ (ไม่มี cache-buster) เพื่อให้ Android WebAPK คง identity เดิมทุกครั้งที่เปิด
+      const manifestUrl = `${supabaseUrl}/functions/v1/manifest?origin=${encodeURIComponent(window.location.origin)}`;
+      let link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+      if (!link) {
+        link = document.createElement("link");
+        link.rel = "manifest";
+        document.head.appendChild(link);
+      }
+      // manifest อยู่คนละ origin — ต้องใส่ crossorigin แบบ anonymous (ตรงกับ CORS: * ที่ฝั่ง edge)
+      link.crossOrigin = "anonymous";
+      if (link.href !== manifestUrl) link.href = manifestUrl;
+    }
 
-    (window as any).__branding = { name, shortName, logo: logo192, themeColor };
-    window.dispatchEvent(new CustomEvent("branding:ready", { detail: (window as any).__branding }));
+
+
+    const branding = { name, shortName, logo: logo192, themeColor };
+    (window as any).__branding = branding;
+    applyThemeVars(themeColor);
+    try { localStorage.setItem(BRAND_CACHE_KEY, JSON.stringify(branding)); } catch {}
+    window.dispatchEvent(new CustomEvent("branding:ready", { detail: branding }));
   } catch (e) {
     console.warn("applyDynamicBranding failed", e);
   }
 }
 
 /**
- * ตรวจสอบ + ครอป "ตรงกลาง" ให้เป็นสี่เหลี่ยมจัตุรัส แล้วย่อ/ขยายเป็น size×size
+ * ปรับโลโก้ให้พอดี canvas สี่เหลี่ยมจัตุรัสขนาด size×size แบบ "contain" (ไม่ครอป)
+ * และ**คงพื้นหลังโปร่งใส** — ไม่มีสีทับ ให้เห็นโลโก้ล้วน ๆ ตามที่อัปโหลด
+ * (ใช้กับ PWA icon / apple-touch-icon เพื่อไม่ให้เห็นกรอบสี่เหลี่ยม)
  */
-async function prepareSquareLogo(src: string | undefined | null, size: number, bgColor: string): Promise<string> {
+async function prepareSquareLogo(src: string | undefined | null, size: number, _bgColor: string): Promise<string> {
   if (!src) throw new Error("no-src");
 
-  const cacheKey = `${src}::${size}::${bgColor}`;
+  const cacheKey = `${src}::${size}::transparent`;
   const cached = squareCache.get(cacheKey);
   if (cached) return cached;
 
@@ -132,9 +192,17 @@ async function prepareSquareLogo(src: string | undefined | null, size: number, b
   const h = img.naturalHeight || size;
   if (!w || !h) throw new Error("invalid-image");
 
-  const side = Math.min(w, h);
-  const sx = (w - side) / 2;
-  const sy = (h - side) / 2;
+  // ถ้าโลโก้เป็นสี่เหลี่ยมจัตุรัสอยู่แล้ว → ใช้ต้นฉบับเลย (คงคุณภาพ + ความโปร่งใส)
+  if (Math.abs(w - h) <= 2 && (w === size || (isData && !src.startsWith("data:image/svg")))) {
+    return src;
+  }
+
+  // Fit-contain: จัดโลโก้ให้พอดี canvas โดยไม่ครอป ที่ว่างเป็น "โปร่งใส"
+  const scale = Math.min(size / w, size / h);
+  const dw = w * scale;
+  const dh = h * scale;
+  const dx = (size - dw) / 2;
+  const dy = (size - dh) / 2;
 
   const canvas = document.createElement("canvas");
   canvas.width = size;
@@ -142,11 +210,11 @@ async function prepareSquareLogo(src: string | undefined | null, size: number, b
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("no-canvas");
 
-  ctx.fillStyle = bgColor || "#FFFFFF";
-  ctx.fillRect(0, 0, size, size);
+  // ⚠️ ห้าม fillRect — ต้องคงพื้นหลังใส (transparent) เพื่อให้เห็นโลโก้ล้วนไม่มีกรอบสี
+  ctx.clearRect(0, 0, size, size);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+  ctx.drawImage(img, 0, 0, w, h, dx, dy, dw, dh);
 
   let dataUrl: string;
   try {
@@ -155,6 +223,7 @@ async function prepareSquareLogo(src: string | undefined | null, size: number, b
     console.warn("[branding] canvas tainted, ใช้รูปต้นฉบับแทน", e);
     return src;
   }
+
 
   squareCache.set(cacheKey, dataUrl);
   return dataUrl;

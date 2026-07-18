@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { BE_OFFSET } from "@/lib/dateBE";
 import {
   formatDateBE,
   parseDateBE,
@@ -121,8 +122,8 @@ export function BEDatePicker({
             toYear={toYear}
             formatters={{
               formatCaption: (date) =>
-                `${TH_MONTHS[date.getMonth()]} ${date.getFullYear() + 543}`,
-              formatYearCaption: (date) => `${date.getFullYear() + 543}`,
+                `${TH_MONTHS[date.getMonth()]} ${date.getFullYear() + BE_OFFSET}`,
+              formatYearCaption: (date) => `${date.getFullYear() + BE_OFFSET}`,
             }}
             initialFocus
             className={cn("p-3 pointer-events-auto")}

@@ -87,10 +87,10 @@ function CheckIn({ lineUserId }: { lineUserId: string }) {
   if (!students.length) return <p className="text-muted-foreground">ไม่มีนักเรียน</p>;
 
   const colors: Record<Status, string> = {
-    present: "bg-success text-white",
-    absent: "bg-danger text-white",
-    late: "bg-warning text-white",
-    leave: "bg-info text-white",
+    present: "bg-emerald-500 text-white",
+    absent: "bg-rose-500 text-white",
+    late: "bg-amber-500 text-white",
+    leave: "bg-sky-500 text-white",
   };
 
   return (

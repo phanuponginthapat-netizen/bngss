@@ -13,14 +13,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { Plus, FolderKanban, Wallet, TrendingUp, Calendar, Search, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
-import { DateInput } from "@/components/ui/date-input";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 const STATUSES = [
-  { value: "planning", label: "วางแผน", color: "bg-neutral-soft text-neutral" },
-  { value: "active", label: "ดำเนินการ", color: "bg-info-soft text-info" },
-  { value: "paused", label: "พักไว้", color: "bg-warning-soft text-warning" },
-  { value: "completed", label: "เสร็จสิ้น", color: "bg-success-soft text-success" },
-  { value: "cancelled", label: "ยกเลิก", color: "bg-danger-soft text-danger" },
+  { value: "planning", label: "วางแผน", color: "bg-slate-100 text-slate-700" },
+  { value: "active", label: "ดำเนินการ", color: "bg-blue-100 text-blue-700" },
+  { value: "paused", label: "พักไว้", color: "bg-yellow-100 text-yellow-700" },
+  { value: "completed", label: "เสร็จสิ้น", color: "bg-emerald-100 text-emerald-700" },
+  { value: "cancelled", label: "ยกเลิก", color: "bg-red-100 text-red-700" },
 ];
 
 const fmtBaht = (n: number | null | undefined) =>
@@ -31,12 +31,10 @@ export default function HubProjectsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [yearFilter, setYearFilter] = useState<string>("all");
-  const [deptFilter, setDeptFilter] = useState<string>("all");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     name: "", description: "", category: "", hub_project_code: "",
-    fiscal_year: new Date().getFullYear() + 543,
+    fiscal_year: new Date().getFullYear() + BE_OFFSET,
     start_date: "", end_date: "", responsible_person: "",
     target_beneficiaries: "", goals: "",
   });
@@ -88,16 +86,11 @@ export default function HubProjectsPage() {
   const filtered = projects.filter((p: any) => {
     if (statusFilter !== "all" && p.status !== statusFilter) return false;
     if (yearFilter !== "all" && String(p.fiscal_year) !== yearFilter) return false;
-    if (deptFilter !== "all" && (p.department || "") !== deptFilter) return false;
-    if (categoryFilter !== "all" && (p.category || "") !== categoryFilter) return false;
-    if (search && !`${p.name} ${p.hub_project_code || ""} ${p.category || ""} ${p.department || ""} ${p.responsible_person || ""}`.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search && !`${p.name} ${p.hub_project_code || ""} ${p.category || ""}`.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
-  const years = Array.from(new Set(projects.map((p: any) => p.fiscal_year).filter(Boolean))).sort((a: any, b: any) => b - a);
-  const departments = Array.from(new Set(projects.map((p: any) => p.department).filter(Boolean))).sort();
-  const categories = Array.from(new Set(projects.map((p: any) => p.category).filter(Boolean))).sort();
-
+  const years = Array.from(new Set(projects.map((p: any) => p.fiscal_year))).sort((a: any, b: any) => b - a);
 
   // KPI totals
   const totals = filtered.reduce(
@@ -150,7 +143,7 @@ export default function HubProjectsPage() {
           <DialogTrigger asChild>
             <Button size="lg" className="gap-2"><Plus className="h-4 w-4" /> เพิ่มโครงการ</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="sm:max-w-2xl">
             <DialogHeader><DialogTitle>เพิ่มโครงการใหม่</DialogTitle></DialogHeader>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="md:col-span-2"><Label>ชื่อโครงการ *</Label>
@@ -165,9 +158,9 @@ export default function HubProjectsPage() {
               <div><Label>ผู้รับผิดชอบ</Label>
                 <Input value={form.responsible_person} onChange={(e) => setForm({ ...form, responsible_person: e.target.value })} /></div>
               <div><Label>วันเริ่ม</Label>
-                <DateInput value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
+                <Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
               <div><Label>วันสิ้นสุด</Label>
-                <DateInput value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></div>
+                <Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></div>
               <div><Label>จำนวนผู้ได้รับประโยชน์</Label>
                 <Input type="number" value={form.target_beneficiaries} onChange={(e) => setForm({ ...form, target_beneficiaries: e.target.value })} /></div>
               <div className="md:col-span-2"><Label>รายละเอียดโครงการ</Label>
@@ -192,11 +185,11 @@ export default function HubProjectsPage() {
         </CardContent></Card>
         <Card><CardContent className="p-4">
           <div className="text-xs text-muted-foreground flex items-center gap-1"><Wallet className="h-3 w-3" /> งบที่ได้รับรวม</div>
-          <div className="text-xl font-bold text-success">{fmtBaht(totals.received)}</div>
+          <div className="text-xl font-bold text-emerald-600">{fmtBaht(totals.received)}</div>
         </CardContent></Card>
         <Card><CardContent className="p-4">
           <div className="text-xs text-muted-foreground flex items-center gap-1"><TrendingUp className="h-3 w-3" /> ค่าใช้จ่ายรวม</div>
-          <div className="text-xl font-bold text-warning">{fmtBaht(totals.spent)}</div>
+          <div className="text-xl font-bold text-orange-600">{fmtBaht(totals.spent)}</div>
         </CardContent></Card>
         <Card><CardContent className="p-4">
           <div className="text-xs text-muted-foreground">งบคงเหลือ</div>
@@ -227,27 +220,7 @@ export default function HubProjectsPage() {
             {years.map((y: any) => (<SelectItem key={y} value={String(y)}>พ.ศ. {y}</SelectItem>))}
           </SelectContent>
         </Select>
-        <Select value={deptFilter} onValueChange={setDeptFilter}>
-          <SelectTrigger className="w-44"><SelectValue placeholder="หน่วยงาน/ฝ่ายงาน" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">ทุกหน่วยงาน</SelectItem>
-            {departments.map((d: any) => (<SelectItem key={d} value={d}>{d}</SelectItem>))}
-          </SelectContent>
-        </Select>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="หมวด/ประเภท" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">ทุกหมวด</SelectItem>
-            {categories.map((c: any) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
-          </SelectContent>
-        </Select>
-        {(search || statusFilter !== "all" || yearFilter !== "all" || deptFilter !== "all" || categoryFilter !== "all") && (
-          <Button variant="ghost" size="sm" onClick={() => {
-            setSearch(""); setStatusFilter("all"); setYearFilter("all"); setDeptFilter("all"); setCategoryFilter("all");
-          }}>ล้างตัวกรอง</Button>
-        )}
       </CardContent></Card>
-
 
       {/* Project cards */}
       {isLoading ? (
@@ -277,11 +250,11 @@ export default function HubProjectsPage() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                       <div><div className="text-muted-foreground">ได้รับ</div>
-                        <div className="font-semibold text-success">{fmtBaht(p.budget_received)}</div></div>
+                        <div className="font-semibold text-emerald-600">{fmtBaht(p.budget_received)}</div></div>
                       <div><div className="text-muted-foreground">ใช้ไป</div>
-                        <div className="font-semibold text-warning">{fmtBaht(p.budget_spent)}</div></div>
+                        <div className="font-semibold text-orange-600">{fmtBaht(p.budget_spent)}</div></div>
                     </div>
                     <Progress value={used} className="h-2" />
                     <div className="text-xs text-muted-foreground flex justify-between">

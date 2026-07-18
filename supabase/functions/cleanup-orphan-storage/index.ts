@@ -3,11 +3,7 @@
 // - Check if object name/URL is referenced in any known table column
 // - If unreferenced AND older than minAgeDays → delete (or report in dry-run)
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 // Bucket → list of (table, column) where its URL/path may be referenced.
 // Conservative: only buckets we know. Unknown buckets are skipped.

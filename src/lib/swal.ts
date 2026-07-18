@@ -27,6 +27,10 @@ const base = (opts: SweetAlertOptions = {}): SweetAlertOptions => ({
   buttonsStyling: false,
   customClass: baseClass,
   reverseButtons: true,
+  heightAuto: false,
+  target: "body",
+  focusConfirm: true,
+  returnFocus: false,
   ...opts,
 });
 

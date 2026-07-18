@@ -1,23 +1,19 @@
-import { isAuthorizedCron, unauthorized } from "../_shared/cronAuth.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { requireCronOrAdmin } from "../_shared/requireCron.ts";
+import { corsHeadersWithCron as corsHeaders } from "../_shared/cors.ts";
+import { makeAdmin } from "../_shared/supabaseAdmin.ts";
+import { notifyGChat } from "../_shared/fanout.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
-  if (!(await isAuthorizedCron(req))) return unauthorized();
+
+  const denied = await requireCronOrAdmin(req, corsHeaders);
+  if (denied) return denied;
 
   try {
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supabaseAdmin = makeAdmin();
 
     // Get tomorrow's date
     const tomorrow = new Date();
@@ -57,19 +53,6 @@ serve(async (req) => {
     const allEvents = [...(events || []), ...(multiDayEvents || [])];
     const uniqueEvents = allEvents.filter((e, i, arr) => arr.findIndex(x => x.id === e.id) === i);
 
-    // Get active webhooks for academic notifications
-    const { data: webhooks } = await supabaseAdmin
-      .from("google_chat_webhooks")
-      .select("*")
-      .eq("is_active", true);
-
-    if (!webhooks || webhooks.length === 0) {
-      return new Response(
-        JSON.stringify({ message: "No active webhooks configured", notified: 0 }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const typeLabels: Record<string, string> = {
       activity: "🎯 กิจกรรม",
       exam: "📝 สอบ",
@@ -80,50 +63,37 @@ serve(async (req) => {
       other: "📌 อื่นๆ",
     };
 
-    // Send notification for each event
+    // Route through notify-google-chat so cards use proper templates,
+    // respect per-webhook notification_types filter, and log to google_chat_logs.
+    const projectId = Deno.env.get("SUPABASE_PROJECT_ID");
+    const siteUrl = projectId ? `https://${projectId}.lovableproject.com` : "https://bngss.lovable.app";
     let notifiedCount = 0;
+
     for (const event of uniqueEvents) {
       const dateLabel = new Date(event.event_date + "T00:00:00").toLocaleDateString("th-TH", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        weekday: "long",
+        year: "numeric", month: "long", day: "numeric", weekday: "long",
       });
-
       const typeLabel = typeLabels[event.event_type] || "📌 กิจกรรม";
-      let message = `🔔 *แจ้งเตือนกิจกรรมพรุ่งนี้*\n\n`;
-      message += `${typeLabel}: *${event.title}*\n`;
-      message += `📅 วันที่: ${dateLabel}\n`;
-      if (event.location) message += `📍 สถานที่: ${event.location}\n`;
+      const fields: Record<string, string> = { "ประเภท": typeLabel, "วันที่": dateLabel };
+      if (event.location) fields["สถานที่"] = event.location;
       if (event.end_date && event.end_date !== event.event_date) {
-        const endLabel = new Date(event.end_date + "T00:00:00").toLocaleDateString("th-TH", {
-          day: "numeric", month: "long",
+        fields["ถึงวันที่"] = new Date(event.end_date + "T00:00:00").toLocaleDateString("th-TH", {
+          day: "numeric", month: "long", year: "numeric",
         });
-        message += `➡️ ถึงวันที่: ${endLabel}\n`;
       }
-      if (event.description) message += `\n📝 ${event.description}`;
 
-      // Send to all active webhooks
-      const results = await Promise.allSettled(
-        webhooks.map(async (webhook: any) => {
-          const response = await fetch(webhook.webhook_url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json; charset=UTF-8" },
-            body: JSON.stringify({ text: message }),
-          });
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-          }
-        })
-      );
-
-      const sent = results.filter(r => r.status === "fulfilled").length;
-      if (sent > 0) {
-        // Mark as notified
-        await supabaseAdmin
-          .from("academic_events")
-          .update({ is_notified: true })
-          .eq("id", event.id);
+      const { ok, data: result } = await notifyGChat({
+        title: `🔔 แจ้งเตือนกิจกรรมพรุ่งนี้: ${event.title}`,
+        message: event.description || "",
+        notification_type: "event",
+        severity: event.event_type === "exam" ? "warning" : "info",
+        fields,
+        url: `${siteUrl}/dashboard/calendar`,
+        reference_table: "academic_events",
+        reference_id: event.id,
+      });
+      if (ok && (result?.sent ?? 0) > 0) {
+        await supabaseAdmin.from("academic_events").update({ is_notified: true }).eq("id", event.id);
         notifiedCount++;
       }
     }

@@ -2,11 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { BlobWriter, TextReader, ZipWriter } from "https://deno.land/x/zipjs@v2.7.32/index.js";
 import { rateLimit } from "../_shared/rateLimit.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
+const corsHeaders = buildCorsHeaders([], "POST, GET, OPTIONS");
 
 // Tables to snapshot — order doesn't matter, all dumped as CSV
 const TABLES = [

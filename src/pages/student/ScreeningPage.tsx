@@ -51,6 +51,37 @@ const ScreeningPage = () => {
   const [protectionStatus, setProtectionStatus] = useState("");
   const [notes, setNotes] = useState("");
   const [filterType, setFilterType] = useState("all");
+  // Dialog-local picker state (แยกจากตัวกรองตารางด้านนอก — กันไม่ให้ dropdown เหลือคนเดียว)
+  const [dlgSearch, setDlgSearch] = useState("");
+  const [dlgGrade, setDlgGrade] = useState("all");
+  const [dlgClassroom, setDlgClassroom] = useState("all");
+
+  const dlgFilteredClassrooms = useMemo(() => {
+    if (dlgGrade === "all") return studentData.availableClassrooms;
+    return studentData.availableClassrooms.filter((c: any) => c.grade_level === dlgGrade);
+  }, [studentData.availableClassrooms, dlgGrade]);
+  const dlgFilteredStudents = useMemo(() => {
+    let list = studentData.students as any[];
+    if (studentData.isFiltered && studentData.homeroomClassroomIds) {
+      list = list.filter((s: any) => studentData.homeroomClassroomIds!.includes(s.classroom_id));
+    }
+    const q = dlgSearch.trim().toLowerCase();
+    if (q) {
+      list = list.filter((s: any) =>
+        s.student_code?.toLowerCase().includes(q) ||
+        `${s.prefix || ""}${s.first_name || ""} ${s.last_name || ""}`.toLowerCase().includes(q)
+      );
+    } else {
+      if (dlgGrade !== "all") {
+        const ids = new Set(dlgFilteredClassrooms.map((c: any) => c.id));
+        list = list.filter((s: any) => ids.has(s.classroom_id));
+      }
+      if (dlgClassroom !== "all") {
+        list = list.filter((s: any) => s.classroom_id === dlgClassroom);
+      }
+    }
+    return list;
+  }, [studentData.students, studentData.isFiltered, studentData.homeroomClassroomIds, dlgSearch, dlgGrade, dlgClassroom, dlgFilteredClassrooms]);
 
   // Scope: teachers only see screenings of students in their homeroom
   const scopedStudentIds = useMemo(() => {
@@ -73,26 +104,40 @@ const ScreeningPage = () => {
     },
   });
 
-  const filteredRecords = useMemo(() => {
-    let result = records;
-    const studentIds = new Set(studentData.filteredStudents.map((s: any) => s.id));
-    if (studentData.search || studentData.gradeFilter !== "all" || studentData.classroomFilter !== "all") {
-      result = result.filter((r: any) => studentIds.has(r.student_id));
+  // Build roster: one row per student, with their latest screening (if any)
+  const latestByStudent = useMemo(() => {
+    const m = new Map<string, any>();
+    for (const r of records as any[]) {
+      // records ordered by created_at desc — first wins = latest
+      if (!m.has(r.student_id)) m.set(r.student_id, r);
     }
-    if (filterType !== "all") {
-      result = result.filter((r: any) => r.screening_type === filterType);
-    }
-    return result;
-  }, [records, studentData.filteredStudents, studentData.search, studentData.gradeFilter, studentData.classroomFilter, filterType]);
-
-  // Stats
-  const stats = useMemo(() => {
-    const total = records.length;
-    const normal = records.filter((r: any) => r.category === "normal").length;
-    const risk = records.filter((r: any) => r.category === "risk").length;
-    const problem = records.filter((r: any) => r.category === "problem").length;
-    return { total, normal, risk, problem };
+    return m;
   }, [records]);
+
+  const rosterRows = useMemo(() => {
+    return (studentData.filteredStudents as any[]).map((s: any) => ({
+      student: s,
+      record: latestByStudent.get(s.id) || null,
+    }));
+  }, [studentData.filteredStudents, latestByStudent]);
+
+  const filteredRosterRows = useMemo(() => {
+    if (filterType === "all") return rosterRows;
+    return rosterRows.filter((row) => row.record?.screening_type === filterType);
+  }, [rosterRows, filterType]);
+
+  // Stats (latest screening per student ในขอบเขตปัจจุบัน)
+  const stats = useMemo(() => {
+    const total = rosterRows.length;
+    let normal = 0, risk = 0, problem = 0;
+    for (const row of rosterRows) {
+      const c = row.record?.category;
+      if (c === "normal") normal++;
+      else if (c === "risk") risk++;
+      else if (c === "problem") problem++;
+    }
+    return { total, normal, risk, problem };
+  }, [rosterRows]);
 
   const handleAdd = async () => {
     if (!studentId) return;
@@ -111,13 +156,11 @@ const ScreeningPage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("student_screenings").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
-    toast.success(lang === "th" ? "ลบสำเร็จ" : "Deleted");
+    await supabase.from("student_screenings").delete().eq("id", id);
     qc.invalidateQueries({ queryKey: ["student_screenings"] });
   };
 
-  const catColors: Record<string, string> = { normal: "bg-success-soft text-success", risk: "bg-warning-soft text-warning", problem: "bg-danger-soft text-danger" };
+  const catColors: Record<string, string> = { normal: "bg-green-100 text-green-800", risk: "bg-yellow-100 text-yellow-800", problem: "bg-red-100 text-red-800" };
   const catLabels: Record<string, any> = { normal: { th: "ปกติ", en: "Normal" }, risk: { th: "กลุ่มเสี่ยง", en: "At Risk" }, problem: { th: "มีปัญหา", en: "Problem" } };
 
   return (
@@ -143,46 +186,46 @@ const ScreeningPage = () => {
                 <div className="flex gap-2 mb-2">
                   <Input
                     placeholder={lang === "th" ? "พิมพ์รหัสหรือชื่อนักเรียน..." : "Type code or name..."}
-                    value={studentData.search}
+                    value={dlgSearch}
                     onChange={e => {
-                      studentData.setSearch(e.target.value);
+                      setDlgSearch(e.target.value);
                       const v = e.target.value.trim();
                       const exact = studentData.students.find((s: any) => s.student_code === v);
                       if (exact) setStudentId(exact.id);
                     }}
                   />
                   <ScanSearchButton onScan={(code) => {
-                    studentData.setSearch(code);
-                    const exact = studentData.filteredStudents.find((s: any) => s.student_code === code);
+                    setDlgSearch(code);
+                    const exact = studentData.students.find((s: any) => s.student_code === code);
                     if (exact) setStudentId(exact.id);
                   }} />
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 mb-2">
-                  <Select value={studentData.gradeFilter} onValueChange={v => { studentData.setGradeFilter(v); studentData.setClassroomFilter("all"); }}>
+                  <Select value={dlgGrade} onValueChange={v => { setDlgGrade(v); setDlgClassroom("all"); }}>
                     <SelectTrigger className="w-full sm:w-[140px]"><SelectValue placeholder={lang === "th" ? "ระดับชั้น" : "Grade"} /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">{lang === "th" ? "ทุกชั้น" : "All"}</SelectItem>
                       {studentData.gradeOptions.map((g: string) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <Select value={studentData.classroomFilter} onValueChange={studentData.setClassroomFilter}>
+                  <Select value={dlgClassroom} onValueChange={setDlgClassroom}>
                     <SelectTrigger className="w-full sm:w-[160px]"><SelectValue placeholder={lang === "th" ? "ห้อง" : "Room"} /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">{lang === "th" ? "ทุกห้อง" : "All"}</SelectItem>
-                      {studentData.filteredClassrooms.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      {dlgFilteredClassrooms.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <Select value={studentId} onValueChange={setStudentId}>
-                  <SelectTrigger><SelectValue placeholder={lang === "th" ? "เลือกนักเรียน" : "Select student"} /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={lang === "th" ? `เลือกนักเรียน (${dlgFilteredStudents.length} คน)` : `Select student (${dlgFilteredStudents.length})`} /></SelectTrigger>
                   <SelectContent>
-                    {studentData.filteredStudents.map((s: any) => (
+                    {dlgFilteredStudents.map((s: any) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.student_code} - {s.prefix || ""}{s.first_name} {s.last_name}
                         {s.classrooms && <span className="text-muted-foreground"> ({s.classrooms.name})</span>}
                       </SelectItem>
                     ))}
-                    {studentData.filteredStudents.length === 0 && (
+                    {dlgFilteredStudents.length === 0 && (
                       <div className="px-3 py-4 text-center text-sm text-muted-foreground">{lang === "th" ? "ไม่พบนักเรียน" : "No students found"}</div>
                     )}
                   </SelectContent>
@@ -264,11 +307,11 @@ const ScreeningPage = () => {
         </CardContent></Card>
         <Card className="border-0 shadow-card"><CardContent className="p-3 sm:p-4 text-center">
           <p className="text-xs text-muted-foreground">{lang === "th" ? "ปกติ" : "Normal"}</p>
-          <p className="text-xl sm:text-2xl font-bold text-success">{stats.normal}</p>
+          <p className="text-xl sm:text-2xl font-bold text-green-600">{stats.normal}</p>
         </CardContent></Card>
         <Card className="border-0 shadow-card"><CardContent className="p-3 sm:p-4 text-center">
           <p className="text-xs text-muted-foreground">{lang === "th" ? "กลุ่มเสี่ยง" : "At Risk"}</p>
-          <p className="text-xl sm:text-2xl font-bold text-warning">{stats.risk}</p>
+          <p className="text-xl sm:text-2xl font-bold text-yellow-600">{stats.risk}</p>
         </CardContent></Card>
         <Card className="border-0 shadow-card"><CardContent className="p-3 sm:p-4 text-center">
           <p className="text-xs text-muted-foreground">{lang === "th" ? "มีปัญหา" : "Problem"}</p>
@@ -320,25 +363,32 @@ const ScreeningPage = () => {
             <TableHead></TableHead>
           </TableRow></TableHeader>
           <TableBody>
-            {filteredRecords.map((r: any) => {
-              const s = r.students;
-              return (
-                <TableRow key={r.id}>
-                  <TableCell className="font-medium">
-                    <div>{s ? `${s.student_code} ${s.prefix || ""}${s.first_name} ${s.last_name}` : "—"}</div>
-                    {s?.classrooms?.name && <span className="text-xs text-muted-foreground">{s.classrooms.name}</span>}
-                  </TableCell>
-                  <TableCell>
+            {filteredRosterRows.map(({ student: s, record: r }) => (
+              <TableRow key={s.id}>
+                <TableCell className="font-medium">
+                  <div>{`${s.student_code} ${s.prefix || ""}${s.first_name} ${s.last_name}`}</div>
+                  {s?.classrooms?.name && <span className="text-xs text-muted-foreground">{s.classrooms.name}</span>}
+                </TableCell>
+                <TableCell>
+                  {r ? (
                     <Badge variant="outline" className="text-xs">{screeningTypeLabelMap[r.screening_type] || r.screening_type}</Badge>
-                  </TableCell>
-                  <TableCell><Badge className={catColors[r.category] || ""}>{catLabels[r.category]?.[lang] || r.category}</Badge></TableCell>
-                  <TableCell className="hidden sm:table-cell text-sm">{r.economic_status || "—"}</TableCell>
-                  <TableCell className="hidden md:table-cell max-w-[150px] truncate text-sm">{r.notes || "—"}</TableCell>
-                  <TableCell><Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button></TableCell>
-                </TableRow>
-              );
-            })}
-            {filteredRecords.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{lang === "th" ? "ไม่มีข้อมูล" : "No data"}</TableCell></TableRow>}
+                  ) : <span className="text-xs text-muted-foreground">—</span>}
+                </TableCell>
+                <TableCell>
+                  {r ? (
+                    <Badge className={catColors[r.category] || ""}>{catLabels[r.category]?.[lang] || r.category}</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs text-muted-foreground">{lang === "th" ? "ยังไม่คัดกรอง" : "Not screened"}</Badge>
+                  )}
+                </TableCell>
+                <TableCell className="hidden sm:table-cell text-sm">{r?.economic_status || "—"}</TableCell>
+                <TableCell className="hidden md:table-cell max-w-[150px] truncate text-sm">{r?.notes || "—"}</TableCell>
+                <TableCell>
+                  {r && <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>}
+                </TableCell>
+              </TableRow>
+            ))}
+            {filteredRosterRows.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{lang === "th" ? "ไม่มีข้อมูล" : "No data"}</TableCell></TableRow>}
           </TableBody>
         </Table>
       </CardContent></Card>

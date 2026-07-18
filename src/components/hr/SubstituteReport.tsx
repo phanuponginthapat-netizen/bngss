@@ -1,14 +1,17 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useUserRole } from "@/hooks/useUserRole";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BarChart3, Download, Clock, Users, CalendarRange, Trophy } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { BarChart3, Download, Clock, Users, CalendarRange, Trophy, Trash2 } from "lucide-react";
 
 const HOURS_PER_PERIOD = 1; // 1 คาบ = 1 ชั่วโมงสอนแทน
 
@@ -28,6 +31,9 @@ function thisMonthYm() {
 
 export default function SubstituteReport() {
   const { lang } = useLanguage();
+  const { isAdmin, isDirector } = useUserRole();
+  const canDelete = isAdmin || isDirector;
+  const qc = useQueryClient();
   const [month, setMonth] = useState(thisMonthYm());
   const { start, end } = useMemo(() => ymToRange(month), [month]);
 
@@ -47,12 +53,11 @@ export default function SubstituteReport() {
   const byTeacher = useMemo(() => {
     const map = new Map<string, { name: string; periods: number; days: Set<string>; withProof: number }>();
     rows.forEach((r: any) => {
-      const key = (r.substitute_teacher || "").trim();
-      if (!key) return; // ข้ามแถวที่ไม่มีชื่อผู้สอนแทน
+      const key = r.substitute_teacher || "-";
       if (!map.has(key)) map.set(key, { name: key, periods: 0, days: new Set(), withProof: 0 });
       const x = map.get(key)!;
       x.periods += 1;
-      if (r.teaching_date) x.days.add(r.teaching_date);
+      x.days.add(r.teaching_date);
       if (r.proof_photo_url) x.withProof += 1;
     });
     return Array.from(map.values())
@@ -84,6 +89,17 @@ export default function SubstituteReport() {
     a.download = `substitute-report-${month}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from("substitute_teaching").delete().eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(lang === "th" ? "ลบประวัติแล้ว" : "Record deleted");
+    qc.invalidateQueries({ queryKey: ["substitute_teaching_report"] });
+    qc.invalidateQueries({ queryKey: ["substitute_teaching"] });
   };
 
   return (
@@ -137,7 +153,7 @@ export default function SubstituteReport() {
                 byTeacher.map((t, idx) => (
                   <TableRow key={t.name}>
                     <TableCell className="text-muted-foreground">
-                      {idx === 0 ? <Trophy className="w-4 h-4 text-warning" /> : idx + 1}
+                      {idx === 0 ? <Trophy className="w-4 h-4 text-amber-500" /> : idx + 1}
                     </TableCell>
                     <TableCell className="font-medium">{t.name}</TableCell>
                     <TableCell className="text-right tabular-nums">{t.periods}</TableCell>
@@ -170,6 +186,7 @@ export default function SubstituteReport() {
                   <TableHead>{lang === "th" ? "วิชา" : "Subject"}</TableHead>
                   <TableHead>{lang === "th" ? "ห้อง" : "Class"}</TableHead>
                   <TableHead>{lang === "th" ? "หลักฐาน" : "Proof"}</TableHead>
+                  {canDelete && <TableHead className="w-12 text-right">{lang === "th" ? "ลบ" : ""}</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -183,11 +200,38 @@ export default function SubstituteReport() {
                     <TableCell>{r.classrooms ? `${r.classrooms.grade_level} ${r.classrooms.name}` : "-"}</TableCell>
                     <TableCell>
                       {r.proof_photo_url ? (
-                        <Badge className="bg-success-soft text-success">{lang === "th" ? "มี" : "Yes"}</Badge>
+                        <Badge className="bg-green-100 text-green-800">{lang === "th" ? "มี" : "Yes"}</Badge>
                       ) : (
                         <Badge variant="outline">{lang === "th" ? "ไม่มี" : "No"}</Badge>
                       )}
                     </TableCell>
+                    {canDelete && (
+                      <TableCell className="text-right">
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" title={lang === "th" ? "ลบประวัติ" : "Delete"}>
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>{lang === "th" ? "ลบประวัติการสอนแทน?" : "Delete substitute record?"}</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                {lang === "th"
+                                  ? `${r.teaching_date} · คาบ ${r.period} · ${r.substitute_teacher} — การกระทำนี้ย้อนกลับไม่ได้`
+                                  : `${r.teaching_date} · period ${r.period} · ${r.substitute_teacher} — this cannot be undone.`}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>{lang === "th" ? "ยกเลิก" : "Cancel"}</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDelete(r.id)} className="bg-destructive hover:bg-destructive/90">
+                                {lang === "th" ? "ลบ" : "Delete"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

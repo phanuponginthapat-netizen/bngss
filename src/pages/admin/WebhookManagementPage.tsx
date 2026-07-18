@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Plus, Trash2, Webhook, Send, MessageSquare, Settings, Edit, BarChart3 } from "lucide-react";
+import ChannelCategoryRoutingCard from "@/components/admin/ChannelCategoryRoutingCard";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const DEPARTMENTS = [
@@ -101,14 +102,12 @@ const WebhookManagementPage = () => {
   };
 
   const handleToggle = async (id: string, isActive: boolean) => {
-    const { error } = await supabase.from("google_chat_webhooks" as any).update({ is_active: !isActive } as any).eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    await supabase.from("google_chat_webhooks" as any).update({ is_active: !isActive } as any).eq("id", id);
     qc.invalidateQueries({ queryKey: ["google_chat_webhooks"] });
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("google_chat_webhooks" as any).delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    await supabase.from("google_chat_webhooks" as any).delete().eq("id", id);
     qc.invalidateQueries({ queryKey: ["google_chat_webhooks"] });
     toast.success(lang === "th" ? "ลบสำเร็จ" : "Deleted");
   };
@@ -192,7 +191,7 @@ const WebhookManagementPage = () => {
               <Button className="gap-2"><Plus className="w-4 h-4" />{lang === "th" ? "เพิ่ม Webhook" : "Add Webhook"}</Button>
             </DialogTrigger>
           </div>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-lg sm:max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{lang === "th" ? "เพิ่ม Google Chat Webhook" : "Add Google Chat Webhook"}</DialogTitle>
             </DialogHeader>
@@ -229,7 +228,7 @@ const WebhookManagementPage = () => {
                     {selectedTypes.length === ALL_TYPES.length ? (lang === "th" ? "ยกเลิกทั้งหมด" : "Deselect All") : (lang === "th" ? "เลือกทั้งหมด" : "Select All")}
                   </Button>
                 </div>
-                <div className="grid grid-cols-2 gap-1.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                   {NOTIFICATION_TYPES.map(nt => (
                     <label key={nt.value} className="flex items-center gap-2 text-xs p-2 rounded-lg bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors">
                       <Checkbox checked={selectedTypes.includes(nt.value)} onCheckedChange={() => toggleType(nt.value, selectedTypes, setSelectedTypes)} />
@@ -264,6 +263,9 @@ const WebhookManagementPage = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Per-category channel routing (Google Chat / LINE OA) */}
+      <ChannelCategoryRoutingCard />
 
       {/* Webhook List */}
       <Card>
@@ -354,7 +356,7 @@ const WebhookManagementPage = () => {
 
       {/* Edit Dialog for notification types & custom messages */}
       <Dialog open={!!editWebhook} onOpenChange={(v) => { if (!v) setEditWebhook(null); }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-lg sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings className="w-5 h-5 text-primary" />

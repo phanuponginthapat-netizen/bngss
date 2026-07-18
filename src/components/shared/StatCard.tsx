@@ -54,13 +54,13 @@ export function StatCard({
         className,
       )}
     >
-      <CardContent className="p-3 sm:p-4 sm:pt-6">
-        <div className="flex items-center justify-between gap-2">
+      <CardContent className="pt-6">
+        <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-xs sm:text-sm text-muted-foreground truncate">{label}</p>
+            <p className="text-sm text-muted-foreground truncate">{label}</p>
             <p
               className={cn(
-                "text-xl sm:text-2xl font-bold leading-tight tabular-nums truncate",
+                "text-2xl font-bold leading-tight tabular-nums truncate",
                 styles.value,
               )}
             >
@@ -68,7 +68,7 @@ export function StatCard({
             </p>
             {hint && <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{hint}</p>}
           </div>
-          {Icon && <Icon className={cn("w-5 h-5 sm:w-8 sm:h-8 shrink-0", styles.icon)} aria-hidden="true" />}
+          {Icon && <Icon className={cn("w-8 h-8 shrink-0", styles.icon)} aria-hidden="true" />}
         </div>
       </CardContent>
     </Card>

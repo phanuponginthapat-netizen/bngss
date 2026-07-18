@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { TrendingUp, TrendingDown, Trophy, AlertTriangle, BarChart3 } from "lucide-react";
 import { SUBJECT_GROUPS, type SubjectGroup } from "@/lib/obecStandards";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 /**
  * SchoolRadarWidget — คะแนนเฉลี่ยนักเรียนแยกตาม 8 กลุ่มสาระ
@@ -135,7 +136,7 @@ export default function SchoolRadarWidget() {
           <div className="flex items-center gap-2 text-xs">
             <span className="flex items-center gap-1">
               <span className="w-3 h-2 rounded-sm bg-primary" />
-              <span className="text-muted-foreground">ปี {currentAcademicYear + 543}</span>
+              <span className="text-muted-foreground">ปี {currentAcademicYear + BE_OFFSET}</span>
             </span>
             <span className="flex items-center gap-1">
               <span className="w-3 h-2 rounded-sm bg-primary/25" />
@@ -180,7 +181,7 @@ export default function SchoolRadarWidget() {
                 />
                 {/* ปีปัจจุบัน — สีเข้ม */}
                 <Radar
-                  name={`ปี ${currentAcademicYear + 543}`}
+                  name={`ปี ${currentAcademicYear + BE_OFFSET}`}
                   dataKey="current"
                   stroke="hsl(var(--primary))"
                   strokeWidth={2}
@@ -215,9 +216,9 @@ export default function SchoolRadarWidget() {
                 <div
                   className={`text-base font-semibold flex items-center justify-center gap-1 ${
                     delta > 0
-                      ? "text-success"
+                      ? "text-emerald-600"
                       : delta < 0
-                        ? "text-danger"
+                        ? "text-rose-600"
                         : "text-muted-foreground"
                   }`}
                 >
@@ -240,8 +241,8 @@ export default function SchoolRadarWidget() {
 
             <div className="grid grid-cols-2 gap-2 text-xs">
               {top && (
-                <div className="rounded-lg border border-success/60 bg-success/40 dark:bg-success/20 p-2">
-                  <div className="flex items-center gap-1 text-success dark:text-success font-medium">
+                <div className="rounded-lg border border-emerald-200/60 bg-emerald-50/40 dark:bg-emerald-950/20 p-2">
+                  <div className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-medium">
                     <Trophy className="w-3.5 h-3.5" />
                     สูงสุด
                   </div>
@@ -252,8 +253,8 @@ export default function SchoolRadarWidget() {
                 </div>
               )}
               {low && (
-                <div className="rounded-lg border border-warning/60 bg-warning/40 dark:bg-warning/20 p-2">
-                  <div className="flex items-center gap-1 text-warning dark:text-warning font-medium">
+                <div className="rounded-lg border border-amber-200/60 bg-amber-50/40 dark:bg-amber-950/20 p-2">
+                  <div className="flex items-center gap-1 text-amber-700 dark:text-amber-400 font-medium">
                     <AlertTriangle className="w-3.5 h-3.5" />
                     ควรพัฒนา
                   </div>
@@ -288,7 +289,7 @@ export default function SchoolRadarWidget() {
                       {diff !== null && diff !== 0 && (
                         <span
                           className={`tabular-nums text-[10px] ${
-                            diff > 0 ? "text-success" : "text-danger"
+                            diff > 0 ? "text-emerald-600" : "text-rose-600"
                           }`}
                         >
                           {diff > 0 ? "+" : ""}

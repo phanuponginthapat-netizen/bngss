@@ -6,93 +6,60 @@ export type SchoolDepartment =
   | "academic"
   | "student_affairs"
   | "general_admin"
-  | "personnel"
-  | "budget_planning"
-  | "director_office"
-  | "finance_personnel"; // deprecated
+  | "finance_personnel"
+  | "director_office";
 
-export type DeptPosition = "head" | "deputy" | "assistant" | "member";
+export type DeptRole = "member" | "head" | "deputy_head" | "section_head";
 
-const POSITION_RANK: Record<DeptPosition, number> = {
-  member: 0,
-  assistant: 1,
-  deputy: 2,
-  head: 3,
+export const DEPT_ROLE_LABEL_TH: Record<DeptRole, string> = {
+  member: "สมาชิก",
+  head: "หัวหน้าฝ่าย",
+  deputy_head: "รองหัวหน้าฝ่าย",
+  section_head: "หัวหน้าหมวด",
 };
 
 /**
- * โหลดฝ่ายงานของ user ปัจจุบัน พร้อมตำแหน่งในฝ่าย
- * - admin/director ถือว่ามีทุกฝ่ายในตำแหน่ง head
- * - role อื่นใช้ user_departments เป็นเกณฑ์
+ * โหลดฝ่ายงานของ user ปัจจุบัน
+ * - admin/director มองเห็นทุกอย่างเสมอ (ถือว่ามีทุกฝ่าย)
+ * - role อื่น ๆ ใช้ user_departments เป็นเกณฑ์
  */
 export function useUserDepartments() {
   const { userId, role, loading: roleLoading } = useUserRole();
 
-  const isPrivileged = role === "admin" || role === "director";
-
   const q = useQuery({
     queryKey: ["my-departments", userId],
-    enabled: !!userId && !roleLoading && !!role && !isPrivileged,
+    enabled: !!userId,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_departments")
-        .select("department, is_head, position")
+        .select("department, is_head, dept_role")
         .eq("user_id", userId!);
       if (error) return [];
-      return (data || []) as {
-        department: SchoolDepartment;
-        is_head: boolean;
-        position: DeptPosition;
-      }[];
+      return (data || []) as { department: SchoolDepartment; is_head: boolean; dept_role: DeptRole }[];
     },
   });
 
-  const allDepts: SchoolDepartment[] = [
-    "academic",
-    "student_affairs",
-    "general_admin",
-    "personnel",
-    "budget_planning",
-    "director_office",
-  ];
-
+  const isPrivileged = role === "admin" || role === "director";
   const departments: SchoolDepartment[] = isPrivileged
-    ? allDepts
+    ? ["academic", "student_affairs", "general_admin", "finance_personnel", "director_office"]
     : (q.data || []).map((d) => d.department);
 
-  const positionMap = new Map<SchoolDepartment, DeptPosition>(
-    isPrivileged
-      ? allDepts.map((d) => [d, "head" as DeptPosition])
-      : (q.data || []).map((d) => [d.department, (d.position || "member") as DeptPosition])
+  const headOf = new Set((q.data || []).filter((d) => d.is_head).map((d) => d.department));
+  const roleByDept = new Map<SchoolDepartment, DeptRole>(
+    (q.data || []).map((d) => [d.department, d.dept_role])
   );
-
-  const headOf = new Set(
-    Array.from(positionMap.entries())
-      .filter(([, p]) => p === "head")
-      .map(([d]) => d)
-  );
-
-  const meetsPosition = (d: SchoolDepartment, min: DeptPosition) => {
-    if (isPrivileged) return true;
-    const p = positionMap.get(d);
-    if (!p) return false;
-    return POSITION_RANK[p] >= POSITION_RANK[min];
-  };
 
   return {
     departments,
     headOf,
-    positionMap,
-    positionIn: (d: SchoolDepartment): DeptPosition | null =>
-      positionMap.get(d) || (isPrivileged ? "head" : null),
     hasDepartment: (d: SchoolDepartment) => isPrivileged || departments.includes(d),
     isHeadOf: (d: SchoolDepartment) => isPrivileged || headOf.has(d),
-    isDeputyOf: (d: SchoolDepartment) => meetsPosition(d, "deputy"),
-    isAssistantOf: (d: SchoolDepartment) => meetsPosition(d, "assistant"),
-    /** มีสิทธิ์บริหาร (head หรือ deputy) ในฝ่ายนี้ */
-    canManageDept: (d: SchoolDepartment) => meetsPosition(d, "deputy"),
+    isDeputyOf: (d: SchoolDepartment) => roleByDept.get(d) === "deputy_head",
+    isSectionHeadOf: (d: SchoolDepartment) => roleByDept.get(d) === "section_head",
+    roleIn: (d: SchoolDepartment): DeptRole | null =>
+      isPrivileged ? "head" : roleByDept.get(d) ?? null,
     isPrivileged,
-    loading: roleLoading || (!isPrivileged && q.isLoading),
+    loading: roleLoading || q.isLoading,
   };
 }

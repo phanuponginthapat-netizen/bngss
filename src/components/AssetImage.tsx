@@ -9,5 +9,5 @@ interface Props extends Omit<ImgHTMLAttributes<HTMLImageElement>, "src"> {
 /** <img> wrapper that resolves asset-photos private bucket URLs to a signed URL on render. */
 export function AssetImage({ src, fallback, alt, ...rest }: Props) {
   const resolved = useAssetPhotoUrl(src);
-  return <img src={resolved || fallback || ""} alt={alt || ""} {...rest} />;
+  return <img src={resolved || fallback || ""} alt={alt || ""} loading="lazy" decoding="async" {...rest} />;
 }

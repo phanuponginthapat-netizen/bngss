@@ -1,1 +1,0 @@
-ALTER TABLE public.behavior_records ADD COLUMN IF NOT EXISTS images jsonb NOT NULL DEFAULT '[]'::jsonb;

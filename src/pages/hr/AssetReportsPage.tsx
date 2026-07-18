@@ -331,11 +331,11 @@ const AssetReportsPage = () => {
         </CardContent></Card>
         <Card><CardContent className="p-4">
           <div className="text-xs text-muted-foreground">มูลค่าคงเหลือ</div>
-          <div className="text-lg font-bold mt-1 text-success">฿{formatMoney(totalValue)}</div>
+          <div className="text-lg font-bold mt-1 text-emerald-600">฿{formatMoney(totalValue)}</div>
         </CardContent></Card>
         <Card><CardContent className="p-4">
           <div className="text-xs text-muted-foreground">ชำรุด</div>
-          <div className="text-2xl font-bold mt-1 text-warning">{damagedQty}</div>
+          <div className="text-2xl font-bold mt-1 text-amber-600">{damagedQty}</div>
         </CardContent></Card>
       </div>
 
@@ -466,7 +466,7 @@ const AssetReportsPage = () => {
                       <TableCell className="text-right">{g.count}</TableCell>
                       <TableCell className="text-right font-semibold text-primary">{g.quantity.toLocaleString()}</TableCell>
                       <TableCell className="text-right font-mono text-xs">฿{formatMoney(g.cost)}</TableCell>
-                      <TableCell className="text-right font-mono text-xs text-success">฿{formatMoney(g.value)}</TableCell>
+                      <TableCell className="text-right font-mono text-xs text-emerald-600">฿{formatMoney(g.value)}</TableCell>
                       <TableCell className="text-right text-xs">{totalQty > 0 ? Math.round((g.quantity / totalQty) * 100) : 0}%</TableCell>
                     </TableRow>
                   ))}
@@ -480,7 +480,7 @@ const AssetReportsPage = () => {
                       <TableCell className="text-right">{totalItems}</TableCell>
                       <TableCell className="text-right text-primary">{totalQty.toLocaleString()}</TableCell>
                       <TableCell className="text-right font-mono text-xs">฿{formatMoney(totalCost)}</TableCell>
-                      <TableCell className="text-right font-mono text-xs text-success">฿{formatMoney(totalValue)}</TableCell>
+                      <TableCell className="text-right font-mono text-xs text-emerald-600">฿{formatMoney(totalValue)}</TableCell>
                       <TableCell className="text-right">100%</TableCell>
                     </TableRow>
                   )}
@@ -518,7 +518,7 @@ const AssetReportsPage = () => {
                       <TableCell className="text-xs"><span className="inline-flex items-center gap-0.5"><MapPin className="w-3 h-3" />{r.location || "-"}</span></TableCell>
                       <TableCell className="text-xs">{r.responsible_person || "-"}</TableCell>
                       <TableCell><Badge variant="outline" className="text-xs">{r.condition}</Badge></TableCell>
-                      <TableCell className="text-right font-mono text-xs text-success">฿{formatMoney(Number(r.current_value || 0))}</TableCell>
+                      <TableCell className="text-right font-mono text-xs text-emerald-600">฿{formatMoney(Number(r.current_value || 0))}</TableCell>
                     </TableRow>
                   ))}
                   {filtered.length === 0 && (

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,20 +13,26 @@ import { toast } from "sonner";
 import { GraduationCap, Lock, User, Calendar, Users, ScanLine } from "lucide-react";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
+import { resolvePostLoginRedirect } from "@/lib/postLoginRedirect";
 
 const Login = () => {
   const navigateEarly = useNavigate();
+  const [searchParams] = useSearchParams();
+  const nextParam = searchParams.get("next");
+  const safeNext = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : null;
+  const postLoginTarget = safeNext ?? "/dashboard";
 
   // If already signed in, skip the login form entirely.
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigateEarly("/dashboard", { replace: true });
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session) navigateEarly("/dashboard", { replace: true });
-    });
+    const go = async () => {
+      const t = await resolvePostLoginRedirect(postLoginTarget);
+      navigateEarly(t, { replace: true });
+    };
+    supabase.auth.getSession().then(({ data: { session } }) => { if (session) go(); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => { if (session) go(); });
     return () => subscription.unsubscribe();
-  }, [navigateEarly]);
+  }, [navigateEarly, postLoginTarget]);
+
 
   // Auto-bootstrap initial admin on first run (idempotent server-side).
   useEffect(() => {
@@ -48,6 +55,9 @@ const Login = () => {
   const [pDob, setPDob] = useState("");
   const [pLoading, setPLoading] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
+  const [userScanOpen, setUserScanOpen] = useState(false);
+  const [qrLoading, setQrLoading] = useState(false);
+
 
   const navigate = useNavigate();
   const { t, lang } = useLanguage();
@@ -71,7 +81,7 @@ const Login = () => {
           toast.error(lang === "th" ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง" : error.message);
         } else {
           import("@/lib/auditLog").then(({ logAudit }) => logAudit({ action: "login", details: { method: "password" } }));
-          navigate("/dashboard", { replace: true });
+          navigate(await resolvePostLoginRedirect(postLoginTarget), { replace: true });
         }
       } else {
         // เข้าผ่านรหัสนักเรียน/บุคลากร — ใช้ edge function เพื่อหา email จริง + signIn ฝั่ง server
@@ -100,7 +110,7 @@ const Login = () => {
           toast.error(setErr.message);
         } else {
           import("@/lib/auditLog").then(({ logAudit }) => logAudit({ action: "login", details: { method: "code" } }));
-          navigate("/dashboard", { replace: true });
+          navigate(await resolvePostLoginRedirect(postLoginTarget), { replace: true });
         }
       }
     } catch (err) {
@@ -109,6 +119,47 @@ const Login = () => {
 
     setLoading(false);
   };
+
+  const handleQrLogin = async (qr: string) => {
+    const clean = (qr || "").trim();
+    if (!clean) return;
+    setUserScanOpen(false);
+    setQrLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("qr-login", { body: { qr: clean } });
+      const code = (data as any)?.error;
+      if (error || !data?.success || !data?.access_token) {
+        const msg =
+          code === "not_found"
+            ? lang === "th" ? "ไม่พบผู้ใช้ตาม QR นี้" : "User not found for this QR"
+            : code === "inactive"
+            ? lang === "th" ? "บัญชีถูกระงับ" : "Account inactive"
+            : code === "invalid_qr" || code === "invalid_input"
+            ? lang === "th" ? "QR ไม่ถูกต้อง" : "Invalid QR code"
+            : code === "rate_limited"
+            ? lang === "th" ? "พยายามบ่อยเกินไป รอสักครู่" : "Too many attempts"
+            : lang === "th" ? "เข้าระบบด้วย QR ไม่สำเร็จ" : "QR login failed";
+        toast.error(msg);
+        setQrLoading(false);
+        return;
+      }
+      const { error: setErr } = await supabase.auth.setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+      });
+      if (setErr) {
+        toast.error(setErr.message);
+        setQrLoading(false);
+        return;
+      }
+      import("@/lib/auditLog").then(({ logAudit }) => logAudit({ action: "login", details: { method: "qr" } }));
+      navigate(await resolvePostLoginRedirect(postLoginTarget), { replace: true });
+    } catch (err) {
+      toast.error((err as Error).message || "QR login failed");
+      setQrLoading(false);
+    }
+  };
+
 
 
   const handleParentLogin = async (e: React.FormEvent) => {
@@ -146,7 +197,7 @@ const Login = () => {
         return;
       }
       import("@/lib/auditLog").then(({ logAudit }) => logAudit({ action: "login", details: { method: "parent_magiclink" } }));
-      navigate("/dashboard", { replace: true });
+      navigate(await resolvePostLoginRedirect(postLoginTarget), { replace: true });
     } catch (err) {
       toast.error((err as Error).message || "Login failed");
       setPLoading(false);
@@ -164,15 +215,15 @@ const Login = () => {
 
       <Card className="w-full max-w-md shadow-card-hover border-0 relative z-10">
         <CardHeader className="text-center pb-2 pt-8">
-          {schoolLogo ? (
-            <img src={schoolLogo} alt={schoolName || appName} className="mx-auto w-20 h-20 object-contain mb-4 drop-shadow-md" />
-          ) : (
-            <div className="mx-auto w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mb-4 shadow-lg">
+          <div className="mx-auto w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mb-4 shadow-lg overflow-hidden">
+            {schoolLogo ? (
+              <img src={schoolLogo} alt={appName} className="w-full h-full object-contain" />
+            ) : (
               <GraduationCap className="w-8 h-8 text-primary-foreground" />
-            </div>
-          )}
+            )}
+          </div>
           <h1 className="text-2xl font-bold text-foreground">{appName || t("app.name")}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{schoolName && schoolName !== appName ? schoolName : t("app.subtitle")}</p>
+          <p className="text-sm text-muted-foreground mt-1">{schoolName || t("app.subtitle")}</p>
         </CardHeader>
         <CardContent className="pt-4 pb-8">
           <Tabs defaultValue="user" className="w-full">
@@ -221,14 +272,35 @@ const Login = () => {
                     />
                   </div>
                 </div>
-                <Button type="submit" className="w-full h-11 gradient-primary text-primary-foreground font-semibold" disabled={loading}>
+                <Button type="submit" className="w-full h-11 gradient-primary text-primary-foreground font-semibold" disabled={loading || qrLoading}>
                   {loading ? "..." : t("login")}
                 </Button>
               </form>
+
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                <div className="relative flex justify-center text-[11px] uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">{lang === "th" ? "หรือ" : "or"}</span>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-11"
+                onClick={() => setUserScanOpen(true)}
+                disabled={qrLoading || loading}
+              >
+                <ScanLine className="w-4 h-4 mr-2" />
+                {qrLoading
+                  ? (lang === "th" ? "กำลังเข้าระบบ..." : "Signing in...")
+                  : (lang === "th" ? "สแกน QR บัตรนักเรียน/บุคลากรเพื่อเข้าระบบ" : "Scan student or staff ID QR to sign in")}
+              </Button>
+
               <p className="text-center text-xs text-muted-foreground mt-3">
                 {lang === "th" ? "ลืมรหัสผ่าน? กรุณาติดต่อผู้ดูแลระบบ (Admin)" : "Forgot password? Please contact your administrator (Admin)"}
               </p>
             </TabsContent>
+
 
             <TabsContent value="parent">
               <form onSubmit={handleParentLogin} className="space-y-4">
@@ -313,6 +385,14 @@ const Login = () => {
         }}
         title={lang === "th" ? "สแกน QR จากบัตรนักเรียน" : "Scan QR from student ID card"}
       />
+
+      <BarcodeScanner
+        open={userScanOpen}
+        onClose={() => setUserScanOpen(false)}
+        onScan={(code) => handleQrLogin(code)}
+        title={lang === "th" ? "สแกน QR บัตรนักเรียน/บุคลากรเพื่อเข้าระบบ" : "Scan student or staff ID QR to sign in"}
+      />
+
     </div>
   );
 };

@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Plus, Trash2, Banknote, Award } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 const MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
@@ -28,7 +29,7 @@ const SalaryPage = () => {
   const [open, setOpen] = useState(false);
   const [personnelId, setPersonnelId] = useState("");
   const [month, setMonth] = useState(String(new Date().getMonth() + 1));
-  const [year, setYear] = useState(String(new Date().getFullYear() + 543));
+  const [year, setYear] = useState(String(new Date().getFullYear() + BE_OFFSET));
   const [baseSalary, setBaseSalary] = useState("");
   const [posAllowance, setPosAllowance] = useState("0");
   const [otherAllowance, setOtherAllowance] = useState("0");
@@ -90,7 +91,7 @@ const SalaryPage = () => {
     const ded = parseFloat(deductions);
     const net = base + pos + other - ded;
     const { error } = await supabase.from("salary_records").insert({
-      personnel_id: targetPersonnelId, salary_month: parseInt(month), salary_year: parseInt(year) - 543,
+      personnel_id: targetPersonnelId, salary_month: parseInt(month), salary_year: parseInt(year) - BE_OFFSET,
       base_salary: base, position_allowance: pos, other_allowance: other, deductions: ded,
       net_salary: net, salary_step: salaryStep, promotion_round: promotionRound,
       decoration_request: decorationRequest, notes,
@@ -136,7 +137,7 @@ const SalaryPage = () => {
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" />บันทึกเงินเดือน</Button></DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader><DialogTitle>บันทึกเงินเดือน{canManageAll ? "บุคลากร" : "ของฉัน"}</DialogTitle></DialogHeader>
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
               {canManageAll ? (
@@ -152,7 +153,7 @@ const SalaryPage = () => {
                   {!myPersonnel?.id && <p className="text-destructive text-xs mt-1">⚠ ยังไม่พบข้อมูลบุคลากรของคุณในระบบ กรุณาติดต่อผู้ดูแลระบบ</p>}
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><Label>เดือน</Label>
                   <Select value={month} onValueChange={setMonth}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -161,15 +162,15 @@ const SalaryPage = () => {
                 </div>
                 <div><Label>ปี พ.ศ.</Label><Input value={year} onChange={e => setYear(e.target.value)} /></div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><Label>เงินเดือน *</Label><Input type="number" value={baseSalary} onChange={e => setBaseSalary(e.target.value)} /></div>
                 <div><Label>เงินประจำตำแหน่ง</Label><Input type="number" value={posAllowance} onChange={e => setPosAllowance(e.target.value)} /></div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><Label>เงินอื่นๆ</Label><Input type="number" value={otherAllowance} onChange={e => setOtherAllowance(e.target.value)} /></div>
                 <div><Label>หักรายการ</Label><Input type="number" value={deductions} onChange={e => setDeductions(e.target.value)} /></div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><Label>ขั้นเงินเดือน</Label><Input value={salaryStep} onChange={e => setSalaryStep(e.target.value)} placeholder="เช่น ค.ศ.2 ขั้น 20,000" /></div>
                 <div><Label>รอบเลื่อนขั้น</Label>
                   <Select value={promotionRound} onValueChange={setPromotionRound}>
@@ -210,7 +211,7 @@ const SalaryPage = () => {
                 <TableCell className="font-mono text-xs">{r.personnel?.employee_code || "-"}</TableCell>
                 <TableCell>{r.personnel ? `${r.personnel.prefix || ""}${r.personnel.first_name} ${r.personnel.last_name}` : "-"}</TableCell>
                 <TableCell>{r.personnel?.position || "-"}</TableCell>
-                <TableCell>{MONTHS[(r.salary_month || 1) - 1]} {(r.salary_year || 0) + 543}</TableCell>
+                <TableCell>{MONTHS[(r.salary_month || 1) - 1]} {(r.salary_year || 0) + BE_OFFSET}</TableCell>
                 <TableCell className="text-right font-mono">฿{formatMoney(Number(r.base_salary))}</TableCell>
                 <TableCell className="text-right font-mono font-bold">฿{formatMoney(Number(r.net_salary))}</TableCell>
                 <TableCell>{r.salary_step || "-"}</TableCell>

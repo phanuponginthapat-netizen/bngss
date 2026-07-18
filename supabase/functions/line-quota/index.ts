@@ -1,33 +1,45 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import { makeAdmin } from "../_shared/supabaseAdmin.ts";
+import { getLineToken } from "../_shared/lineApi.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supabase = makeAdmin();
 
-    const { data: tokenRow } = await supabase
-      .from("school_settings")
-      .select("setting_value")
-      .eq("setting_key", "line_channel_access_token")
-      .maybeSingle();
+    // AuthN + AuthZ: admin/director only
+    const authHeader = req.headers.get("authorization") || "";
+    const jwt = authHeader.replace(/^Bearer\s+/i, "");
+    if (!jwt) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
+    if (userErr || !userData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { data: roles } = await supabase
+      .from("user_roles").select("role").eq("user_id", userData.user.id);
+    const roleSet = new Set((roles || []).map((r: any) => r.role));
+    if (!roleSet.has("admin") && !roleSet.has("director")) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    const token = tokenRow?.setting_value;
+    const token = await getLineToken(supabase);
     if (!token) {
       return new Response(JSON.stringify({ error: "LINE token not configured" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
 
     const headers = { Authorization: `Bearer ${token}` };
 

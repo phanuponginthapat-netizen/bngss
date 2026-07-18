@@ -7,14 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Printer, FileDown } from "lucide-react";
-import { useSchoolInfo, signatureImgHtml } from "@/components/documents/DocumentHeader";
-import { SignatureBlock } from "@/components/documents/SignatureBlock";
+import { useSchoolInfo } from "@/components/documents/DocumentHeader";
 import StudentSelector from "@/components/documents/StudentSelector";
 import { openPrintWindow, formatThaiDate, currentThaiDate } from "@/lib/printUtils";
 import { formatFullNameHtml, formatFullName, formatFullNamePlain } from "@/lib/nameFormat";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
-import { ExportMenu } from "@/components/academic/ExportMenu";
-import { exportPP2Sgs, exportPP2SchoolMis, printPP2 } from "@/lib/exporters/pp2Certificate";
+import { useStudentsWithClass } from "@/hooks/useStudentsWithClass";
 
 const CertificatePage = () => {
   const [studentCode, setStudentCode] = useState("");
@@ -29,10 +27,10 @@ const CertificatePage = () => {
       return data || [];
     },
   });
-  const { data: students = [] } = useQuery({ queryKey: ["students_with_class"], queryFn: async () => { const { data } = await supabase.from("students").select("*, classrooms!students_classroom_id_fkey(*)").eq("status", "active").order("student_code"); return data || []; } });
+  const { data: students = [] } = useStudentsWithClass();
   const student = students.find((s: any) => s.student_code === studentCode);
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     if (!student) return;
     const html = `
       <div class="obec-header">
@@ -73,7 +71,6 @@ const CertificatePage = () => {
       <div class="obec-signatures">
         <div class="obec-sig-row">
           <div class="obec-sig-item">
-            ${signatureImgHtml(schoolInfo.director_signature_url, 50)}
             <div class="obec-sig-line"></div>
             <div class="obec-sig-name">${schoolInfo.director_name ? `(${schoolInfo.director_name})` : "(ลงชื่อ)"}</div>
             <div class="obec-sig-title">${schoolInfo.director_title}</div>
@@ -94,22 +91,10 @@ const CertificatePage = () => {
           <h1 className="text-2xl font-bold text-foreground">ประกาศนียบัตร (ปพ.2)</h1>
           <p className="text-sm text-muted-foreground">หลักฐานแสดงวุฒิการศึกษาตามหลักสูตรแกนกลางการศึกษาขั้นพื้นฐาน</p>
         </div>
-        {studentCode && student && (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handlePrint}>
-              <Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร
-            </Button>
-            <ExportMenu templateCode="pp2" templateTitle="ปพ.2 — ประกาศนียบัตร" actions={[
-              { key: "sgs", label: "Excel (SGS)", icon: "xlsx", onClick: () => exportPP2Sgs(schoolInfo as any, gradeLevel, [{
-                student_code: student.student_code, prefix: student.prefix, first_name: student.first_name, last_name: student.last_name,
-                grade_level: gradeLevel, completion_date: completionDate, national_id: student.national_id,
-              }]) },
-              { key: "smis", label: "Excel (SchoolMIS)", icon: "xlsx", onClick: () => exportPP2SchoolMis(schoolInfo as any, gradeLevel, [{
-                student_code: student.student_code, prefix: student.prefix, first_name: student.first_name, last_name: student.last_name,
-                grade_level: gradeLevel, completion_date: completionDate, national_id: student.national_id,
-              }]) },
-            ]} />
-          </div>
+        {studentCode && (
+          <Button variant="outline" onClick={handlePrint}>
+            <Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร
+          </Button>
         )}
       </div>
 
@@ -160,8 +145,10 @@ const CertificatePage = () => {
               </div>
             </div>
 
-            <div className="mt-12 pt-8 flex justify-center">
-              <SignatureBlock size="md" fallbackPosition={schoolInfo.director_title} />
+            <div className="mt-12 pt-8 text-center">
+              <div className="w-40 border-b border-foreground/60 mb-2 mx-auto" />
+              <p className="text-sm font-medium text-foreground">{schoolInfo.director_name ? `(${schoolInfo.director_name})` : "(ลงชื่อ)"}</p>
+              <p className="text-xs text-muted-foreground">{schoolInfo.director_title}</p>
             </div>
           </CardContent>
         </Card>

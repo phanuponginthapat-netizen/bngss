@@ -1,0 +1,2 @@
+ALTER TABLE public.classrooms ADD COLUMN IF NOT EXISTS reference_grade_level text;
+COMMENT ON COLUMN public.classrooms.reference_grade_level IS 'For special-needs classrooms: the actual grade level (ป.1-ม.6) the students belong to for reporting/aggregation. NULL means use grade_level directly.';

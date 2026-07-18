@@ -1,11 +1,8 @@
 // สรุปการสแกนหน้า → ส่งเข้า Google Chat (CardV2 แบบตาราง)
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import { makeAdmin } from "../_shared/supabaseAdmin.ts";
+import { notifyGChat } from "../_shared/fanout.ts";
 
 type Period = "day" | "week" | "month" | "term";
 
@@ -66,7 +63,7 @@ serve(async (req) => {
       : getRange(period, ref);
     const broadcast = body.broadcast !== false;
 
-    const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const sb = makeAdmin();
 
     // เกณฑ์สาย
     const { data: setting } = await sb
@@ -178,21 +175,12 @@ serve(async (req) => {
 
     const message = `${tableText}`;
 
-    const notifyRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/notify-google-chat`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-      },
-      body: JSON.stringify({
-        title, message,
-        severity: "info",
-        notification_type: "face_scan",
-        department: broadcast ? "all" : "all",
-        fields,
-      }),
+    const { data: notifyData } = await notifyGChat({
+      title, message,
+      severity: "info",
+      notification_type: "face_scan",
+      fields,
     });
-    const notifyData = await notifyRes.json().catch(() => ({}));
 
     return new Response(
       JSON.stringify({ ok: true, period, range: r, stats: { rows, sum, pct }, gchat: notifyData }),

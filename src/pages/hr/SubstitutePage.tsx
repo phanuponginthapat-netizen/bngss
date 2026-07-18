@@ -8,13 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { CalendarCheck, UserCheck, Clock, AlertTriangle, Users, Grid3x3, CheckCircle2, ChevronDown, X, Sparkles, BookOpen, DoorOpen, Lock, Camera, Eye, Image as ImageIcon, Upload, Star } from "lucide-react";
+import { CalendarCheck, UserCheck, Clock, AlertTriangle, Users, Grid3x3, CheckCircle2, ChevronDown, X, Sparkles, BookOpen, DoorOpen, Lock, Camera, Eye, Image as ImageIcon, Upload, Star, Trash2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useUserRole } from "@/hooks/useUserRole";
 import SubstituteReport from "@/components/hr/SubstituteReport";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 const dayNames = {
   th: ["", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"],
@@ -83,10 +85,6 @@ const SubstitutePage = () => {
     });
   }, [detailSub]);
 
-  // Thumbnails for proof photos across the history table
-  const [proofThumbs, setProofThumbs] = useState<Record<string, string>>({});
-
-
   const { data: approvedLeaves = [] } = useQuery({
     queryKey: ["staff_leaves_approved"],
     queryFn: async () => {
@@ -133,30 +131,6 @@ const SubstitutePage = () => {
       return data || [];
     },
   });
-
-  // Batch-resolve signed thumbnail URLs for every row that has a proof photo
-  useEffect(() => {
-    const rows = (existingSubs as any[]).filter((r) => r.proof_photo_url && !proofThumbs[r.id]);
-    if (rows.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      const entries = await Promise.all(
-        rows.map(async (r) => {
-          const { data } = await supabase.storage.from("substitute-proof").createSignedUrl(r.proof_photo_url, 3600);
-          return [r.id, data?.signedUrl || ""] as const;
-        })
-      );
-      if (cancelled) return;
-      setProofThumbs((prev) => {
-        const next = { ...prev };
-        for (const [id, url] of entries) if (url) next[id] = url;
-        return next;
-      });
-    })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existingSubs]);
-
 
 
   // Unique weekday list across all leaves — hide dates that have already passed
@@ -521,10 +495,10 @@ const SubstitutePage = () => {
   };
 
   const statusColors: Record<string, string> = {
-    pending: "bg-warning-soft text-warning",
-    confirmed: "bg-success-soft text-success",
-    completed: "bg-info-soft text-info",
-    no_substitute: "bg-neutral-soft text-neutral",
+    pending: "bg-yellow-100 text-yellow-800",
+    confirmed: "bg-green-100 text-green-800",
+    completed: "bg-blue-100 text-blue-800",
+    no_substitute: "bg-gray-200 text-gray-700",
   };
   const statusLabels: Record<string, { th: string; en: string }> = {
     pending: { th: "รอดำเนินการ", en: "Pending" },
@@ -564,13 +538,13 @@ const SubstitutePage = () => {
                 <div className="text-2xl font-bold">{totalGapsToday}</div>
                 <div className="text-[11px] text-muted-foreground">{lang === "th" ? "คาบที่ต้องจัด" : "Periods"}</div>
               </div>
-              <div className="rounded-xl bg-success-soft dark:bg-success/30 border border-success/30 dark:border-success/30 px-4 py-2 text-center min-w-[88px]">
-                <div className="text-2xl font-bold text-success dark:text-success">{assignedGapsToday}</div>
-                <div className="text-[11px] text-success/80 dark:text-success/80">{lang === "th" ? "จัดแล้ว" : "Assigned"}</div>
+              <div className="rounded-xl bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 px-4 py-2 text-center min-w-[88px]">
+                <div className="text-2xl font-bold text-green-700 dark:text-green-400">{assignedGapsToday}</div>
+                <div className="text-[11px] text-green-700/80 dark:text-green-400/80">{lang === "th" ? "จัดแล้ว" : "Assigned"}</div>
               </div>
-              <div className="rounded-xl bg-warning-soft dark:bg-warning/30 border border-warning/30 dark:border-warning/30 px-4 py-2 text-center min-w-[88px]">
-                <div className="text-2xl font-bold text-warning dark:text-warning">{pendingGapsToday}</div>
-                <div className="text-[11px] text-warning/80 dark:text-warning/80">{lang === "th" ? "ค้างจัด" : "Pending"}</div>
+              <div className="rounded-xl bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-900 px-4 py-2 text-center min-w-[88px]">
+                <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-400">{pendingGapsToday}</div>
+                <div className="text-[11px] text-yellow-700/80 dark:text-yellow-400/80">{lang === "th" ? "ค้างจัด" : "Pending"}</div>
               </div>
             </div>
           )}
@@ -584,9 +558,9 @@ const SubstitutePage = () => {
 
       {/* งานสอนแทนของฉัน — visible only when the current user has assignments */}
       {myAssignments.length > 0 && (
-        <Card className="border-info/30 dark:border-info/30 bg-info/40 dark:bg-info/20">
+        <Card className="border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2 text-info dark:text-info">
+            <CardTitle className="text-base flex items-center gap-2 text-blue-900 dark:text-blue-200">
               <Camera className="w-5 h-5" />
               {lang === "th" ? "งานสอนแทนของฉัน" : "My substitute assignments"}
               <Badge variant="secondary" className="ml-1">{myAssignments.length}</Badge>
@@ -605,7 +579,7 @@ const SubstitutePage = () => {
                   <li key={s.id}>
                     <button
                       onClick={() => setDetailSub(s)}
-                      className="w-full p-3 flex items-center gap-3 hover:bg-info/40 dark:hover:bg-info/30 transition-colors text-left"
+                      className="w-full p-3 flex items-center gap-3 hover:bg-blue-100/40 dark:hover:bg-blue-950/30 transition-colors text-left"
                     >
                       <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex flex-col items-center justify-center flex-shrink-0">
                         <div className="text-[10px] leading-none">{lang === "th" ? "คาบ" : "P."}</div>
@@ -618,12 +592,12 @@ const SubstitutePage = () => {
                         <div className="text-xs text-muted-foreground">{s.teaching_date}</div>
                       </div>
                       {hasProof ? (
-                        <Badge className="bg-success-soft text-success dark:bg-success dark:text-success gap-1">
+                        <Badge className="bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300 gap-1">
                           <CheckCircle2 className="w-3 h-3" />
                           {lang === "th" ? "มีรูปแล้ว" : "Photo uploaded"}
                         </Badge>
                       ) : (
-                        <Badge className="bg-warning-soft text-warning dark:bg-warning dark:text-warning gap-1">
+                        <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 gap-1">
                           <Upload className="w-3 h-3" />
                           {lang === "th" ? "แนบรูป" : "Upload"}
                         </Badge>
@@ -647,7 +621,7 @@ const SubstitutePage = () => {
         {allLeaveDates.length === 0 ? (
           <Card>
             <CardContent className="p-8 text-center text-sm text-muted-foreground">
-              <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-success" />
+              <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-green-500" />
               {lang === "th" ? "ไม่มีใบลาที่อนุมัติในขณะนี้ — ไม่ต้องจัดสอนแทน" : "No approved leaves — nothing to substitute"}
             </CardContent>
           </Card>
@@ -662,7 +636,7 @@ const SubstitutePage = () => {
               const monthsTh = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
               const monthsEn = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
               const fullDateLabel = lang === "th"
-                ? `${dayNames.th[dow]} ${dateObj.getDate()} ${monthsTh[dateObj.getMonth()]} ${dateObj.getFullYear() + 543}`
+                ? `${dayNames.th[dow]} ${dateObj.getDate()} ${monthsTh[dateObj.getMonth()]} ${dateObj.getFullYear() + BE_OFFSET}`
                 : `${dayNames.en[dow]} ${dateObj.getDate()} ${monthsEn[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
               return (
                 <button
@@ -738,7 +712,7 @@ const SubstitutePage = () => {
                             </div>
                           </div>
                         </div>
-                        <Badge className={allDone ? "bg-success-soft text-success dark:bg-success dark:text-success" : "bg-warning-soft text-warning dark:bg-warning dark:text-warning"}>
+                        <Badge className={allDone ? "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300" : "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300"}>
                           {allDone && <CheckCircle2 className="w-3 h-3 mr-1" />}
                           {doneCount}/{gaps.length} {lang === "th" ? "คาบ" : "periods"}
                         </Badge>
@@ -807,25 +781,25 @@ const SubstitutePage = () => {
                                       {lang === "th" ? "ไม่มีการสอนแทน" : "No substitute"}
                                     </div>
                                   ) : assigned && assignedSub ? (
-                                    <div className="flex items-center gap-2 rounded-lg bg-success-soft dark:bg-success/30 border border-success/30 dark:border-success/30 px-3 py-1.5">
-                                      <UserCheck className="w-4 h-4 text-success" />
-                                      <span className="text-sm font-medium text-success dark:text-success">
+                                    <div className="flex items-center gap-2 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 px-3 py-1.5">
+                                      <UserCheck className="w-4 h-4 text-green-600" />
+                                      <span className="text-sm font-medium text-green-800 dark:text-green-300">
                                         {isPastDate(selectedDate) ? (lang === "th" ? "มีการจัดสอนแทน" : "Substituted") : assignedSub.substitute_teacher}
                                       </span>
                                       <button
                                         onClick={() => setDetailSub(assignedSub)}
-                                        className="ml-1 w-5 h-5 rounded-full hover:bg-success-soft text-success flex items-center justify-center"
+                                        className="ml-1 w-5 h-5 rounded-full hover:bg-green-200 text-green-700 flex items-center justify-center"
                                         title={lang === "th" ? "ดูรายละเอียด" : "View"}
                                       >
                                         <Eye className="w-3.5 h-3.5" />
                                       </button>
                                       {(assignedSub as any).proof_photo_url && (
-                                        <ImageIcon className="w-3.5 h-3.5 text-success" />
+                                        <ImageIcon className="w-3.5 h-3.5 text-green-700" />
                                       )}
                                       {!isPastDate(selectedDate) && (
                                         <button
                                           onClick={() => handleRemoveSub(assignedSub.id)}
-                                          className="ml-1 w-5 h-5 rounded-full hover:bg-danger-soft text-danger flex items-center justify-center"
+                                          className="ml-1 w-5 h-5 rounded-full hover:bg-red-100 text-red-600 flex items-center justify-center"
                                           title={lang === "th" ? "ยกเลิก" : "Remove"}
                                         >
                                           <X className="w-3.5 h-3.5" />
@@ -833,120 +807,114 @@ const SubstitutePage = () => {
                                       )}
                                     </div>
                                   ) : pending ? (
-                                    <div className="flex items-center gap-2 rounded-lg bg-warning-soft dark:bg-warning/30 border border-dashed border-warning/30 dark:border-warning/30 px-3 py-1.5">
-                                      <Clock className="w-4 h-4 text-warning" />
-                                      <span className="text-sm font-medium text-warning dark:text-warning">
+                                    <div className="flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-dashed border-amber-300 dark:border-amber-800 px-3 py-1.5">
+                                      <Clock className="w-4 h-4 text-amber-600" />
+                                      <span className="text-sm font-medium text-amber-800 dark:text-amber-300">
                                         ครู{pending.teacher.first_name}
                                       </span>
-                                      <span className="text-[10px] uppercase tracking-wide text-warning/80 dark:text-warning/80">
+                                      <span className="text-[10px] uppercase tracking-wide text-amber-700/80 dark:text-amber-400/80">
                                         {lang === "th" ? "รอยืนยัน" : "draft"}
                                       </span>
                                       <button
                                         onClick={() => handleRemovePending(gap.id)}
-                                        className="ml-1 w-5 h-5 rounded-full hover:bg-danger-soft text-danger flex items-center justify-center"
+                                        className="ml-1 w-5 h-5 rounded-full hover:bg-red-100 text-red-600 flex items-center justify-center"
                                         title={lang === "th" ? "ลบ" : "Remove"}
                                       >
                                         <X className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
                                   ) : available.length === 0 ? (
-                                    <div className="flex items-center gap-1.5 text-xs text-warning dark:text-warning bg-warning-soft dark:bg-warning/30 border border-warning/30 dark:border-warning/30 rounded-lg px-3 py-1.5">
+                                    <div className="flex items-center gap-1.5 text-xs text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-900 rounded-lg px-3 py-1.5">
                                       <AlertTriangle className="w-3.5 h-3.5" />
                                       {lang === "th" ? "ไม่มีครูว่าง" : "No free teacher"}
                                     </div>
                                   ) : (
-                                    (() => {
-                                      // Rule: prioritize teachers in same subject group or teaching same subject.
-                                      // Show top 3 priority teachers first, then "เพิ่มเติม" to pick others.
-                                      const priority = annotated.filter((a) => a.sameSubject || a.sameGroup);
-                                      const others = annotated.filter((a) => !a.sameSubject && !a.sameGroup);
-                                      const primary = priority.slice(0, 3);
-                                      const rest = [...priority.slice(3), ...others];
-                                      return (
-                                        <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-[420px]">
-                                          {primary.length === 0 && (
-                                            <span className="text-[11px] text-muted-foreground italic mr-1">
-                                              {lang === "th" ? "ไม่มีครูในหมวด/วิชาเดียวกันที่ว่าง" : "No priority match free"}
-                                            </span>
-                                          )}
-                                          {primary.map(({ teacher: t, sameSubject, sameGroup }) => {
-                                            const tip = sameSubject
-                                              ? (lang === "th" ? "สอนวิชาเดียวกัน" : "Teaches same subject")
-                                              : (lang === "th" ? "หมวดเดียวกัน" : "Same subject group");
-                                            return (
-                                              <Button
-                                                key={t.id}
-                                                size="sm"
-                                                variant="default"
-                                                className="h-8 text-xs bg-primary text-primary-foreground"
-                                                onClick={() => handlePickDraft(absentName, gap, t)}
-                                                title={tip}
-                                              >
-                                                {sameSubject ? (
-                                                  <Star className="w-3 h-3 mr-1 fill-current" />
-                                                ) : (
-                                                  <Sparkles className="w-3 h-3 mr-1" />
-                                                )}
-                                                ครู{t.first_name}
-                                                <span className="ml-1 text-[9px] px-1 rounded bg-primary-foreground/20">
-                                                  {sameSubject
-                                                    ? (lang === "th" ? "วิชาเดียวกัน" : "Same subj.")
-                                                    : (lang === "th" ? "หมวดเดียวกัน" : "Same group")}
-                                                </span>
-                                              </Button>
-                                            );
-                                          })}
-                                          {rest.length > 0 && (
-                                            <Popover>
-                                              <PopoverTrigger asChild>
-                                                <Button size="sm" variant="outline" className="h-8 text-xs">
-                                                  {lang === "th" ? `เพิ่มเติม (+${rest.length})` : `More (+${rest.length})`}
-                                                  <ChevronDown className="w-3 h-3 ml-1" />
-                                                </Button>
-                                              </PopoverTrigger>
-                                              <PopoverContent className="w-72 p-0" align="end">
-                                                <Command>
-                                                  <CommandInput placeholder={lang === "th" ? "ค้นหาครู..." : "Search teacher..."} />
-                                                  <CommandList>
-                                                    <CommandEmpty>{lang === "th" ? "ไม่พบ" : "Not found"}</CommandEmpty>
-                                                    <CommandGroup heading={lang === "th" ? `ครูว่างเพิ่มเติม ${rest.length} คน` : `${rest.length} more free teachers`}>
-                                                      {rest.map(({ teacher: t, sameSubject, sameGroup }) => (
-                                                        <CommandItem
-                                                          key={t.id}
-                                                          value={fullName(t)}
-                                                          onSelect={() => handlePickDraft(absentName, gap, t)}
-                                                        >
-                                                          {sameSubject ? (
-                                                            <Star className="w-3.5 h-3.5 mr-2 text-primary fill-current" />
-                                                          ) : sameGroup ? (
-                                                            <Sparkles className="w-3.5 h-3.5 mr-2 text-primary" />
-                                                          ) : (
-                                                            <UserCheck className="w-3.5 h-3.5 mr-2" />
-                                                          )}
-                                                          <span className="flex-1">{fullName(t)}</span>
-                                                          {sameSubject && (
-                                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary">
-                                                              {lang === "th" ? "วิชาเดียวกัน" : "Same subj."}
-                                                            </span>
-                                                          )}
-                                                          {!sameSubject && sameGroup && (
-                                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                                                              {lang === "th" ? "หมวดเดียวกัน" : "Same group"}
-                                                            </span>
-                                                          )}
-                                                        </CommandItem>
-                                                      ))}
-                                                    </CommandGroup>
-                                                  </CommandList>
-                                                </Command>
-                                              </PopoverContent>
-                                            </Popover>
-                                          )}
-                                        </div>
-                                      );
-                                    })()
-                                  )}
+                                    <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-[420px]">
+                                      {annotated.slice(0, 5).map(({ teacher: t, sameSubject, sameGroup }) => {
+                                        const recommended = sameSubject || sameGroup;
+                                        const tip = sameSubject
+                                          ? (lang === "th" ? "สอนวิชาเดียวกัน" : "Teaches same subject")
+                                          : sameGroup
+                                            ? (lang === "th" ? "หมวดเดียวกัน" : "Same subject group")
+                                            : "";
+                                        return (
+                                          <Button
+                                            key={t.id}
+                                            size="sm"
+                                            variant={recommended ? "default" : "outline"}
+                                            className={`h-8 text-xs ${recommended ? "bg-primary text-primary-foreground" : "hover:bg-primary hover:text-primary-foreground"}`}
+                                            onClick={() => handlePickDraft(absentName, gap, t)}
+                                            title={tip}
+                                          >
+                                            {sameSubject ? (
+                                              <Star className="w-3 h-3 mr-1 fill-current" />
+                                            ) : sameGroup ? (
+                                              <Sparkles className="w-3 h-3 mr-1" />
+                                            ) : (
+                                              <Sparkles className="w-3 h-3 mr-1 opacity-60" />
+                                            )}
+                                            ครู{t.first_name}
+                                            {sameSubject && (
+                                              <span className="ml-1 text-[9px] px-1 rounded bg-primary-foreground/20">
+                                                {lang === "th" ? "วิชาเดียวกัน" : "Same subj."}
+                                              </span>
+                                            )}
+                                            {!sameSubject && sameGroup && (
+                                              <span className="ml-1 text-[9px] px-1 rounded bg-primary-foreground/20">
+                                                {lang === "th" ? "หมวดเดียวกัน" : "Same group"}
+                                              </span>
+                                            )}
+                                          </Button>
+                                        );
+                                      })}
+                                      {annotated.length > 5 && (
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <Button size="sm" variant="ghost" className="h-8 text-xs">
+                                              +{annotated.length - 5} <ChevronDown className="w-3 h-3 ml-1" />
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-72 p-0" align="end">
+                                            <Command>
+                                              <CommandInput placeholder={lang === "th" ? "ค้นหาครู..." : "Search teacher..."} />
+                                              <CommandList>
+                                                <CommandEmpty>{lang === "th" ? "ไม่พบ" : "Not found"}</CommandEmpty>
+                                                <CommandGroup heading={lang === "th" ? `ครูว่าง ${annotated.length} คน — เรียงตามความเหมาะสม` : `${annotated.length} free — sorted by best match`}>
+                                                  {annotated.map(({ teacher: t, sameSubject, sameGroup }) => (
+                                                    <CommandItem
+                                                      key={t.id}
+                                                      value={fullName(t)}
+                                                      onSelect={() => handlePickDraft(absentName, gap, t)}
+                                                    >
+                                                      {sameSubject ? (
+                                                        <Star className="w-3.5 h-3.5 mr-2 text-primary fill-current" />
+                                                      ) : sameGroup ? (
+                                                        <Sparkles className="w-3.5 h-3.5 mr-2 text-primary" />
+                                                      ) : (
+                                                        <UserCheck className="w-3.5 h-3.5 mr-2" />
+                                                      )}
+                                                      <span className="flex-1">{fullName(t)}</span>
+                                                      {sameSubject && (
+                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                                                          {lang === "th" ? "วิชาเดียวกัน" : "Same subj."}
+                                                        </span>
+                                                      )}
+                                                      {!sameSubject && sameGroup && (
+                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                                                          {lang === "th" ? "หมวดเดียวกัน" : "Same group"}
+                                                        </span>
+                                                      )}
+                                                    </CommandItem>
+                                                  ))}
+                                                </CommandGroup>
+                                              </CommandList>
+                                            </Command>
+                                          </PopoverContent>
 
+                                        </Popover>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </li>
                             );
@@ -990,7 +958,7 @@ const SubstitutePage = () => {
                     {freeTeachersGrid.map((row: any, idx: number) => {
                       const s = row.schedule;
                       return (
-                        <TableRow key={`${s.id}-${idx}`} className={row.isAbsent ? "bg-warning/50 dark:bg-warning/20" : ""}>
+                        <TableRow key={`${s.id}-${idx}`} className={row.isAbsent ? "bg-yellow-50/50 dark:bg-yellow-950/20" : ""}>
                           <TableCell className="font-bold text-center">{row.period}</TableCell>
                           <TableCell className="text-sm">
                             {s.classrooms ? `${s.classrooms.grade_level} - ${s.classrooms.name}` : "-"}
@@ -1007,7 +975,7 @@ const SubstitutePage = () => {
                             <div className="text-xs text-muted-foreground flex items-center gap-1">
                               {s.teacher_name || "-"}
                               {row.isAbsent && (
-                                <Badge variant="outline" className="text-[10px] border-warning/30 text-warning">
+                                <Badge variant="outline" className="text-[10px] border-yellow-400 text-yellow-700">
                                   {lang === "th" ? "ลา" : "Absent"}
                                 </Badge>
                               )}
@@ -1069,57 +1037,56 @@ const SubstitutePage = () => {
                     <TableHead>{lang === "th" ? "ครูที่ลา" : "Original"}</TableHead>
                     <TableHead>{lang === "th" ? "ครูสอนแทน" : "Substitute"}</TableHead>
                     <TableHead>{lang === "th" ? "คาบ" : "Period"}</TableHead>
-                    <TableHead>{lang === "th" ? "หลักฐาน" : "Proof"}</TableHead>
                     <TableHead>{lang === "th" ? "สถานะ" : "Status"}</TableHead>
+                    <TableHead className="w-12 text-right">{lang === "th" ? "ลบ" : ""}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {existingSubs.map((r: any) => {
-                    const thumb = proofThumbs[r.id];
-                    return (
-                      <TableRow
-                        key={r.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => setDetailSub(r)}
-                      >
-                        <TableCell>{r.teaching_date}</TableCell>
-                        <TableCell>{r.original_teacher}</TableCell>
-                        <TableCell className="font-medium">
-                          <span className="inline-flex items-center gap-1.5">
-                            {r.substitute_teacher}
-                            {r.proof_photo_url && <ImageIcon className="w-3.5 h-3.5 text-success" />}
-                          </span>
-                        </TableCell>
-                        <TableCell>{r.period}</TableCell>
-                        <TableCell>
-                          {r.proof_photo_url ? (
-                            thumb ? (
-                              <a
-                                href={thumb}
-                                target="_blank"
-                                rel="noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-block"
-                              >
-                                <img
-                                  src={thumb}
-                                  alt="proof"
-                                  className="w-14 h-14 rounded-md object-cover border hover:ring-2 hover:ring-primary transition"
-                                />
-                              </a>
-                            ) : (
-                              <div className="w-14 h-14 rounded-md border bg-muted animate-pulse" />
-                            )
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={statusColors[r.status] || ""}>{statusLabels[r.status]?.[lang === "th" ? "th" : "en"] || r.status}</Badge>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {existingSubs.map((r: any) => (
+                    <TableRow
+                      key={r.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => setDetailSub(r)}
+                    >
+                      <TableCell>{r.teaching_date}</TableCell>
+                      <TableCell>{r.original_teacher}</TableCell>
+                      <TableCell className="font-medium">
+                        <span className="inline-flex items-center gap-1.5">
+                          {r.substitute_teacher}
+                          {r.proof_photo_url && <ImageIcon className="w-3.5 h-3.5 text-green-700" />}
+                        </span>
+                      </TableCell>
+                      <TableCell>{r.period}</TableCell>
+                      <TableCell>
+                        <Badge className={statusColors[r.status] || ""}>{statusLabels[r.status]?.[lang === "th" ? "th" : "en"] || r.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" title={lang === "th" ? "ลบประวัติ" : "Delete"}>
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>{lang === "th" ? "ลบประวัติการสอนแทน?" : "Delete substitute record?"}</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                {lang === "th"
+                                  ? `${r.teaching_date} · คาบ ${r.period} · ${r.substitute_teacher} — การกระทำนี้ย้อนกลับไม่ได้`
+                                  : `${r.teaching_date} · period ${r.period} · ${r.substitute_teacher} — this cannot be undone.`}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>{lang === "th" ? "ยกเลิก" : "Cancel"}</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleRemoveSub(r.id)} className="bg-destructive hover:bg-destructive/90">
+                                {lang === "th" ? "ลบ" : "Delete"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </TableCell>
+                    </TableRow>
+                  ))}
 
                   {existingSubs.length === 0 && (
                     <TableRow>
@@ -1130,7 +1097,6 @@ const SubstitutePage = () => {
                   )}
                 </TableBody>
               </Table>
-
             </CardContent>
           </CollapsibleContent>
         </Card>
@@ -1141,7 +1107,7 @@ const SubstitutePage = () => {
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(680px,calc(100vw-2rem))]">
           <div className="rounded-2xl border-2 border-primary/30 bg-background/95 backdrop-blur shadow-2xl p-4 flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2 flex-1 min-w-[180px]">
-              <div className="w-10 h-10 rounded-full bg-warning-soft dark:bg-warning text-warning dark:text-warning flex items-center justify-center font-bold">
+              <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold">
                 {Object.keys(pendingPicks).length}
               </div>
               <div>
@@ -1183,10 +1149,10 @@ const SubstitutePage = () => {
 
       {/* Detail / Proof dialog */}
       <Dialog open={!!detailSub} onOpenChange={(o) => !o && setDetailSub(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <UserCheck className="w-5 h-5 text-success" />
+              <UserCheck className="w-5 h-5 text-green-600" />
               {lang === "th" ? "รายละเอียดการสอนแทน" : "Substitute details"}
             </DialogTitle>
             <DialogDescription>
@@ -1241,7 +1207,7 @@ const SubstitutePage = () => {
 
             return (
               <div className="space-y-4 text-sm">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div className="rounded-lg bg-muted/40 p-3">
                     <div className="text-[11px] text-muted-foreground">{lang === "th" ? "ครูที่ลา" : "Original"}</div>
                     <div className="font-medium">{detailSub.original_teacher}</div>
@@ -1296,13 +1262,13 @@ const SubstitutePage = () => {
                                 {classroomLabel || "-"}
                               </div>
                               {r ? (
-                                <div className="text-xs mt-1 flex items-center gap-1.5 text-success dark:text-success">
+                                <div className="text-xs mt-1 flex items-center gap-1.5 text-green-700 dark:text-green-400">
                                   <UserCheck className="w-3.5 h-3.5" />
                                   {r.substitute_teacher}
                                   {r.proof_photo_url && <ImageIcon className="w-3.5 h-3.5" />}
                                 </div>
                               ) : (
-                                <div className="text-xs mt-1 flex items-center gap-1.5 text-warning dark:text-warning">
+                                <div className="text-xs mt-1 flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
                                   <AlertTriangle className="w-3.5 h-3.5" />
                                   {lang === "th" ? "ยังไม่ได้จัดสอนแทน" : "Not assigned yet"}
                                 </div>
@@ -1313,7 +1279,7 @@ const SubstitutePage = () => {
                                 {statusLabels[r.status]?.[lang === "th" ? "th" : "en"] || r.status}
                               </Badge>
                             ) : (
-                              <Badge variant="outline" className="text-warning border-warning/30">
+                              <Badge variant="outline" className="text-amber-700 border-amber-300">
                                 {lang === "th" ? "ว่าง" : "Open"}
                               </Badge>
                             )}
@@ -1356,7 +1322,7 @@ const SubstitutePage = () => {
                                 <DoorOpen className="w-3.5 h-3.5" />
                                 {classroomLabel || "-"}
                               </div>
-                              <div className="text-xs mt-1 flex items-center gap-1.5 text-success dark:text-success">
+                              <div className="text-xs mt-1 flex items-center gap-1.5 text-green-700 dark:text-green-400">
                                 <UserCheck className="w-3.5 h-3.5" />
                                 {r.substitute_teacher}
                               </div>
@@ -1380,7 +1346,7 @@ const SubstitutePage = () => {
                   </div>
                   {detailPhotoUrl ? (
                     <a href={detailPhotoUrl} target="_blank" rel="noreferrer" className="block">
-                      <img src={detailPhotoUrl} alt="proof" className="w-full max-h-72 object-cover rounded-lg border" />
+                      <img loading="lazy" decoding="async" src={detailPhotoUrl} alt="proof" className="w-full max-h-72 object-cover rounded-lg border" />
                     </a>
                   ) : (
                     <div className="rounded-lg border-2 border-dashed p-6 text-center text-xs text-muted-foreground">

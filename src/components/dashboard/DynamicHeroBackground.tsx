@@ -37,15 +37,15 @@ export default function DynamicHeroBackground({ weatherCode, isRainy, temperatur
 
   // Weather-aware tint
   let tint = "from-primary/70 via-primary/55 to-primary/80"; // default
-  if (isRainy) tint = "from-neutral/75 via-info/60 to-neutral/80";
+  if (isRainy) tint = "from-slate-900/75 via-blue-900/60 to-slate-800/80";
   else if (weatherCode !== null && [0, 1].includes(weatherCode) && (temperature ?? 0) >= 32)
-    tint = "from-warning/65 via-warning/50 to-danger/70"; // hot & sunny
+    tint = "from-orange-600/65 via-amber-500/50 to-rose-600/70"; // hot & sunny
   else if (weatherCode !== null && [0, 1, 2].includes(weatherCode))
-    tint = "from-info/65 via-primary/55 to-info/75"; // clear/mostly clear
+    tint = "from-sky-600/65 via-primary/55 to-indigo-700/75"; // clear/mostly clear
   else if (weatherCode !== null && [45, 48].includes(weatherCode))
-    tint = "from-neutral/75 via-neutral/60 to-neutral/80"; // fog/haze
+    tint = "from-slate-700/75 via-slate-600/60 to-slate-800/80"; // fog/haze
   else if ((temperature ?? 99) <= 20)
-    tint = "from-info/75 via-info/60 to-info/75"; // cold
+    tint = "from-indigo-800/75 via-blue-700/60 to-cyan-700/75"; // cold
 
   if (images.length === 0) return null;
 

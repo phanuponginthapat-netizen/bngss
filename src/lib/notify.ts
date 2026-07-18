@@ -41,8 +41,14 @@ export async function notifyRole(
   role: "admin" | "director" | "teacher" | "student" | "parent" | "alumni",
   opts: Omit<NotifyOptions, "user_ids">,
 ): Promise<void> {
-  const { data } = await supabase.from("user_roles").select("user_id").eq("role", role);
-  const ids = (data ?? []).map((r: any) => r.user_id).filter(Boolean);
-  if (ids.length === 0) return;
-  await notify({ ...opts, user_ids: ids });
+  try {
+    const { data, error } = await supabase.from("user_roles").select("user_id").eq("role", role);
+    if (error) throw error;
+    const ids = (data ?? []).map((r: any) => r.user_id).filter(Boolean);
+    if (ids.length === 0) return;
+    await notify({ ...opts, user_ids: ids });
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn("[notifyRole] failed", e);
+  }
 }

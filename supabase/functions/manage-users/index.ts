@@ -1,15 +1,31 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
+const corsHeaders = buildCorsHeaders(['x-supabase-client-platform', 'x-supabase-client-platform-version', 'x-supabase-client-runtime', 'x-supabase-client-runtime-version']);
 
-async function ensureSingleRole(adminClient: any, userId: string, role: "admin" | "teacher" | "student" | "director" | "alumni") {
+type ManagedRole = "admin" | "teacher" | "student" | "director" | "alumni" | "parent";
+
+async function ensureSingleRole(adminClient: any, userId: string, role: ManagedRole) {
   await adminClient.from("user_roles").delete().eq("user_id", userId);
   const { error } = await adminClient.from("user_roles").insert({ user_id: userId, role });
   if (error) throw error;
+}
+
+async function findAuthUserByEmail(adminClient: any, email: string) {
+  const target = String(email || "").trim().toLowerCase();
+  if (!target) return null;
+  let page = 1;
+  while (page <= 50) {
+    const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw error;
+    const users = (data as any)?.users || [];
+    const found = users.find((u: any) => String(u.email || "").trim().toLowerCase() === target);
+    if (found) return found;
+    if (users.length < 200) break;
+    page++;
+  }
+  return null;
 }
 
 // Strip null / undefined / empty-string so we never wipe existing data with blanks
@@ -88,38 +104,20 @@ async function createOrUpdatePersonnelRecord(adminClient: any, opts: {
   }
   let employeeCode = existing?.employee_code;
   if (!existing) {
-    // Compute next code by scanning the max EMP-#### value, then retry on conflict
-    // to avoid race conditions where multiple inserts pick the same number.
-    const { data: allCodes } = await adminClient
-      .from("personnel")
-      .select("employee_code");
-    let maxNum = 0;
-    for (const row of allCodes ?? []) {
-      const m = /^EMP-(\d+)$/.exec((row.employee_code as string) || "");
-      if (m) {
-        const n = parseInt(m[1], 10);
-        if (n > maxNum) maxNum = n;
-      }
-    }
-    let lastErr: any = null;
-    for (let attempt = 0; attempt < 10; attempt++) {
-      maxNum += 1;
-      employeeCode = `EMP-${String(maxNum).padStart(4, "0")}`;
-      const { error: insErr } = await adminClient.from("personnel").insert({
-        employee_code: employeeCode, first_name: opts.firstName, last_name: opts.lastName,
-        email: opts.email || null, prefix: opts.prefix || "นาย",
-        department: opts.department || "วิชาการ", position: opts.position || "ครู",
-        academic_standing: opts.academicStanding || null, status: "active",
-        phone: opts.phone || null,
-        subject_group: opts.subjectGroup || null,
-        user_id: opts.userId,
-      });
-      if (!insErr) { lastErr = null; break; }
-      lastErr = insErr;
-      // 23505 = unique_violation — try next number
-      if ((insErr as any).code !== "23505" && !/duplicate key/i.test(insErr.message)) break;
-    }
-    if (lastErr) throw new Error(`บันทึกข้อมูลบุคลากรไม่สำเร็จ: ${lastErr.message}`);
+    const { data: lastPersonnel } = await adminClient.from("personnel").select("employee_code").order("created_at", { ascending: false }).limit(1);
+    const lastCode = (lastPersonnel?.[0]?.employee_code as string) || "EMP-0000";
+    const lastNum = parseInt(lastCode.replace(/\D/g, "") || "0");
+    employeeCode = `EMP-${String(lastNum + 1).padStart(4, "0")}`;
+    const { error: insErr } = await adminClient.from("personnel").insert({
+      employee_code: employeeCode, first_name: opts.firstName, last_name: opts.lastName,
+      email: opts.email || null, prefix: opts.prefix || "นาย",
+      department: opts.department || "วิชาการ", position: opts.position || "ครู",
+      academic_standing: opts.academicStanding || null, status: "active",
+      phone: opts.phone || null,
+      subject_group: opts.subjectGroup || null,
+      user_id: opts.userId,
+    });
+    if (insErr) throw new Error(`บันทึกข้อมูลบุคลากรไม่สำเร็จ: ${insErr.message}`);
   } else {
     const updates: any = { user_id: opts.userId };
     if (opts.position) updates.position = opts.position;
@@ -326,8 +324,7 @@ async function createStudentRecord(adminClient: any, opts: {
     last_name: opts.lastName,
     prefix: opts.prefix || "ด.ช.",
     classroom_id: classroomId,
-    // นำเข้าใหม่ผ่าน DMC: ตั้งเป็น 'pending' รออนุมัติ; existing records จะไม่ถูกเขียนทับ (ดูส่วน merge)
-    status: "pending",
+    status: "active",
     national_id: opts.nationalId || null,
     gender: opts.gender || null,
     date_of_birth: opts.dateOfBirth || null,
@@ -374,8 +371,6 @@ async function createStudentRecord(adminClient: any, opts: {
     } else {
       delete (merged as any).student_code;
     }
-    // ห้ามเขียนทับ status ของ record ที่มีอยู่แล้ว — ให้คงสถานะเดิม (active/graduated/etc.)
-    delete (merged as any).status;
     const filled = Object.keys(merged);
     if (filled.length > 0) {
       const { error: updateErr } = await adminClient
@@ -469,19 +464,63 @@ serve(async (req) => {
       if (!email || !password || !first_name || !last_name) throw new Error("Missing required fields");
       const assignedRole = role || "teacher";
 
+      const normalizedEmail = String(email || "").trim();
+      let targetUser: any = null;
+      let recoveredExistingAuthUser = false;
+
+      const isWeakPasswordError = (err: any) =>
+        /weak|known to be weak|pwned|compromised/i.test(err?.message || "") ||
+        err?.code === "weak_password" || err?.name === "AuthWeakPasswordError";
+      const weakPwMsg = "รหัสผ่านนี้ไม่ปลอดภัย (พบในฐานข้อมูลรหัสผ่านที่รั่วไหล) กรุณาใช้รหัสผ่านที่คาดเดายากขึ้น เช่น ผสมตัวอักษรใหญ่/เล็ก ตัวเลข และสัญลักษณ์ อย่างน้อย 10 ตัว";
+
       const { data: newUser, error } = await adminClient.auth.admin.createUser({
-        email, password, email_confirm: true,
+        email: normalizedEmail, password, email_confirm: true,
         user_metadata: { first_name, last_name },
       });
-      if (error) throw error;
 
-      await ensureSingleRole(adminClient, newUser.user.id, assignedRole);
+      if (error) {
+        if (isWeakPasswordError(error)) throw new Error(weakPwMsg);
+        const isDuplicateEmail = /already been registered|already exists|email_exists/i.test(error.message || "");
+        if (!isDuplicateEmail) throw error;
+
+        targetUser = await findAuthUserByEmail(adminClient, normalizedEmail);
+        if (!targetUser?.id) throw error;
+        recoveredExistingAuthUser = true;
+
+        let passwordSkippedWeak = false;
+        const { error: updateErr } = await adminClient.auth.admin.updateUserById(targetUser.id, {
+          password,
+          email_confirm: true,
+          user_metadata: { ...(targetUser.user_metadata || {}), first_name, last_name },
+        });
+        if (updateErr) {
+          if (isWeakPasswordError(updateErr)) {
+            // Existing auth user already had a password; skip the weak update
+            // and continue linking profile/role/student so the account is fully usable.
+            console.warn("manage-users: weak password rejected on recovery; keeping existing password", { user_id: targetUser.id });
+            passwordSkippedWeak = true;
+            const { error: metaErr } = await adminClient.auth.admin.updateUserById(targetUser.id, {
+              email_confirm: true,
+              user_metadata: { ...(targetUser.user_metadata || {}), first_name, last_name },
+            });
+            if (metaErr && !isWeakPasswordError(metaErr)) throw metaErr;
+          } else {
+            throw updateErr;
+          }
+        }
+        (targetUser as any).__passwordSkippedWeak = passwordSkippedWeak;
+      } else {
+        targetUser = newUser.user;
+      }
+
+      await ensureSingleRole(adminClient, targetUser.id, assignedRole);
 
       await ensureProfileRecord(adminClient, {
-        userId: newUser.user.id,
+        userId: targetUser.id,
         firstName: first_name,
         lastName: last_name,
-        department: department || null,
+        department: department || grade_level || null,
+        studentCode: assignedRole === "student" ? (student_code || null) : null,
         phone: phone || null,
         gender: gender || null,
         dateOfBirth: date_of_birth || null,
@@ -489,7 +528,7 @@ serve(async (req) => {
 
       if (assignedRole === "teacher" || assignedRole === "director" || assignedRole === "admin") {
         await createOrUpdatePersonnelRecord(adminClient, {
-          userId: newUser.user.id, firstName: first_name, lastName: last_name, email,
+          userId: targetUser.id, firstName: first_name, lastName: last_name, email: normalizedEmail,
           department: department || "วิชาการ", prefix: prefix || "นาย",
           position: position || (assignedRole === "director" ? "ผู้อำนวยการ" : assignedRole === "admin" ? "ผู้ดูแลระบบ" : "ครู"),
           academicStanding: academic_standing,
@@ -502,13 +541,19 @@ serve(async (req) => {
 
       if (assignedRole === "student" && student_code) {
         await createStudentRecord(adminClient, {
-          userId: newUser.user.id, firstName: first_name, lastName: last_name,
+          userId: targetUser.id, firstName: first_name, lastName: last_name,
           studentCode: student_code, gradeLevel: grade_level || "",
           prefix: prefix || "ด.ช.", nationalId: national_id, gender, dateOfBirth: date_of_birth, phone,
         });
       }
 
-      return ok({ success: true, user_id: newUser.user.id });
+      return ok({
+        success: true,
+        user_id: targetUser.id,
+        recovered: recoveredExistingAuthUser,
+        password_kept: !!(targetUser as any).__passwordSkippedWeak,
+        warning: (targetUser as any).__passwordSkippedWeak ? weakPwMsg : undefined,
+      });
     }
 
     if (action === "reset_password") {
@@ -599,172 +644,7 @@ serve(async (req) => {
         }
       }
       return ok({ success: true, total: userIds.length, results });
-     }
-
-    if (action === "bulk_reset_students") {
-      // Reset all students to a fixed password. Default: School@1234
-      const newPassword: string = (body.new_password || "School@1234").toString();
-      const forceChange: boolean = body.force_change === true; // default false (students keep this pwd)
-      if (newPassword.length < 6) throw new Error("Password must be at least 6 characters");
-
-      const { data: roleRows, error: roleErr } = await adminClient
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "student");
-      if (roleErr) throw roleErr;
-      const userIds = [...new Set((roleRows ?? []).map((r: any) => r.user_id).filter(Boolean))];
-      if (userIds.length === 0) return ok({ success: true, results: [], total: 0 });
-
-      const results: any[] = await Promise.all(userIds.map(async (uid) => {
-        try {
-          const { error: updErr } = await adminClient.auth.admin.updateUserById(uid, { password: newPassword });
-          if (updErr) throw updErr;
-          await adminClient.from("profiles").update({ must_change_password: forceChange } as any).eq("id", uid);
-          return { user_id: uid, success: true };
-        } catch (e: any) {
-          return { user_id: uid, success: false, error: e?.message || String(e) };
-        }
-      }));
-      const ok_count = results.filter((r) => r.success).length;
-      const fail_count = results.length - ok_count;
-      return ok({ success: true, total: userIds.length, ok: ok_count, failed: fail_count, results });
-
     }
-
-    if (action === "sign_out_all_users") {
-      // Force-logout all non-admin users by revoking their sessions via Auth Admin REST API.
-      // ใช้เพื่อรีเซ็ตการเชื่อมต่อทั้งหมดเมื่อระบบโหลด/ล็อก session ค้าง
-      const excludeAdmins: boolean = body.exclude_admins !== false; // default true
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-      let excludeIds: string[] = [];
-      if (excludeAdmins) {
-        const { data: adminRows } = await adminClient.from("user_roles").select("user_id").eq("role", "admin");
-        excludeIds = [...new Set((adminRows ?? []).map((r: any) => r.user_id).filter(Boolean))];
-      }
-
-      // List all auth users (paginated)
-      const allIds: string[] = [];
-      let page = 1;
-      const perPage = 1000;
-      while (true) {
-        const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage });
-        if (error) throw error;
-        const users = data?.users ?? [];
-        for (const u of users) allIds.push(u.id);
-        if (users.length < perPage) break;
-        page++;
-        if (page > 50) break; // safety
-      }
-      const targetIds = allIds.filter((id) => !excludeIds.includes(id));
-
-      const results = await Promise.all(targetIds.map(async (uid) => {
-        try {
-          const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${uid}/logout`, {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${serviceKey}`,
-              "apikey": serviceKey,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ scope: "global" }),
-          });
-          if (!res.ok && res.status !== 404) {
-            const t = await res.text();
-            return { user_id: uid, success: false, error: `${res.status}: ${t}` };
-          }
-          return { user_id: uid, success: true };
-        } catch (e: any) {
-          return { user_id: uid, success: false, error: e?.message || String(e) };
-        }
-      }));
-      const ok_count = results.filter((r) => r.success).length;
-      return ok({ success: true, total: targetIds.length, ok: ok_count, failed: results.length - ok_count });
-    }
-
-    if (action === "provision_missing_student_accounts") {
-      // สร้าง auth account ให้นักเรียนทุกคนที่ยังไม่มี auth_user_id
-      // email = <student_code><email_domain>, password = ค่าที่ส่งมา (default School@12345)
-      const newPassword: string = (body.new_password || "School@12345").toString();
-      if (newPassword.length < 6) throw new Error("Password must be at least 6 characters");
-
-      // โดเมนอีเมลของโรงเรียน
-      const { data: domainRow } = await adminClient
-        .from("school_settings").select("setting_value").eq("setting_key", "email_domain").maybeSingle();
-      let domain: string = (domainRow?.setting_value || "@school.local").toString().trim();
-      if (!domain.startsWith("@")) domain = "@" + domain;
-
-      // นักเรียน active ที่ยังไม่มี auth
-      const { data: students, error: stErr } = await adminClient
-        .from("students")
-        .select("id, student_code, prefix, first_name, last_name, classroom_id, classrooms!students_classroom_id_fkey(grade_level)")
-        .is("auth_user_id", null)
-        .eq("status", "active");
-      if (stErr) throw stErr;
-
-      const targets = (students ?? []).filter((s: any) => s.student_code);
-      const concurrency = 8;
-      const results: any[] = [];
-      for (let i = 0; i < targets.length; i += concurrency) {
-        const batch = targets.slice(i, i + concurrency);
-        const batchResults = await Promise.all(batch.map(async (s: any) => {
-          const email = `${s.student_code}${domain}`.toLowerCase();
-          try {
-            // หา auth user เดิม (อาจเคยสร้างค้างไว้)
-            let userId: string | null = null;
-            const { data: existing } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1, email } as any);
-            const found = (existing?.users || []).find((u: any) => (u.email || "").toLowerCase() === email);
-            if (found) {
-              userId = found.id;
-              // อัปเดตรหัสผ่านให้ตรง
-              await adminClient.auth.admin.updateUserById(userId, { password: newPassword, email_confirm: true });
-            } else {
-              const { data: created, error: cErr } = await adminClient.auth.admin.createUser({
-                email, password: newPassword, email_confirm: true,
-                user_metadata: { first_name: s.first_name, last_name: s.last_name, student_code: s.student_code },
-              });
-              if (cErr) throw cErr;
-              userId = created?.user?.id || null;
-            }
-            if (!userId) throw new Error("no user id");
-
-            // profile + role + students.auth_user_id
-            await ensureProfileRecord(adminClient, {
-              userId,
-              firstName: s.first_name || "",
-              lastName: s.last_name || "",
-              studentCode: s.student_code,
-              department: s.classrooms?.grade_level || null,
-              isApproved: true,
-            });
-            await ensureSingleRole(adminClient, userId, "student");
-            await adminClient.from("students").update({ auth_user_id: userId, auth_email: email }).eq("id", s.id);
-            await adminClient.from("profiles").update({ must_change_password: false } as any).eq("id", userId);
-
-            return { student_code: s.student_code, email, success: true };
-          } catch (e: any) {
-            return { student_code: s.student_code, email, success: false, error: e?.message || String(e) };
-          }
-        }));
-        results.push(...batchResults);
-      }
-
-      const ok_count = results.filter((r) => r.success).length;
-      return ok({
-        success: true,
-        domain,
-        total_students_missing_auth: targets.length,
-        ok: ok_count,
-        failed: results.length - ok_count,
-        results: results.slice(0, 50), // preview only
-      });
-    }
-
-
-
-
-
 
 
     if (action === "list_teachers_for_export") {
@@ -852,76 +732,6 @@ serve(async (req) => {
         student_status,
       } = body;
       if (!user_id) throw new Error("user_id required");
-
-      // Handle synthetic IDs for orphan personnel / student rows (no auth user yet)
-      if (typeof user_id === "string" && (user_id.startsWith("personnel:") || user_id.startsWith("student:"))) {
-        const [kind, rowId] = user_id.split(":");
-        if (kind === "personnel") {
-          const upd: any = {};
-          if (first_name !== undefined) upd.first_name = first_name;
-          if (last_name !== undefined) upd.last_name = last_name;
-          if (prefix !== undefined) upd.prefix = prefix || null;
-          if (email !== undefined) upd.email = email || null;
-          if (phone !== undefined) upd.phone = phone || null;
-          if (department !== undefined) upd.department = department || null;
-          if (position !== undefined) upd.position = position || null;
-          if (academic_standing !== undefined) upd.academic_standing = academic_standing || null;
-          if (subject_group !== undefined) upd.subject_group = subject_group || null;
-          if (employee_code !== undefined && employee_code) upd.employee_code = employee_code;
-          if (hire_date !== undefined) upd.hire_date = hire_date || null;
-          if (Object.keys(upd).length > 0) {
-            const { error } = await adminClient.from("personnel").update(upd).eq("id", rowId);
-            if (error) throw error;
-          }
-          return ok({ success: true, synthetic: "personnel" });
-        }
-        if (kind === "student") {
-          const upd: any = {};
-          if (first_name !== undefined) upd.first_name = first_name;
-          if (last_name !== undefined) upd.last_name = last_name;
-          if (prefix !== undefined) upd.prefix = prefix || null;
-          if (student_code !== undefined && student_code) upd.student_code = student_code;
-          if (national_id !== undefined) upd.national_id = national_id || null;
-          if (gender !== undefined) upd.gender = gender || null;
-          if (date_of_birth !== undefined) upd.date_of_birth = date_of_birth || null;
-          if (phone !== undefined) upd.phone = phone || null;
-          if (address !== undefined) upd.address = address || null;
-          if (nationality !== undefined) upd.nationality = nationality || null;
-          if (ethnicity !== undefined) upd.ethnicity = ethnicity || null;
-          if (religion !== undefined) upd.religion = religion || null;
-          if (blood_type !== undefined) upd.blood_type = blood_type || null;
-          if (weight !== undefined) upd.weight = weight === "" || weight === null ? null : Number(weight);
-          if (height !== undefined) upd.height = height === "" || height === null ? null : Number(height);
-          if (birth_province !== undefined) upd.birth_province = birth_province || null;
-          if (special_needs !== undefined) upd.special_needs = special_needs || null;
-          if (previous_school !== undefined) upd.previous_school = previous_school || null;
-          if (admission_date !== undefined) upd.admission_date = admission_date || null;
-          if (father_name !== undefined) upd.father_name = father_name || null;
-          if (father_phone !== undefined) upd.father_phone = father_phone || null;
-          if (father_id !== undefined) upd.father_id = father_id || null;
-          if (father_occupation !== undefined) upd.father_occupation = father_occupation || null;
-          if (mother_name !== undefined) upd.mother_name = mother_name || null;
-          if (mother_phone !== undefined) upd.mother_phone = mother_phone || null;
-          if (mother_id !== undefined) upd.mother_id = mother_id || null;
-          if (mother_occupation !== undefined) upd.mother_occupation = mother_occupation || null;
-          if (guardian_name !== undefined) upd.guardian_name = guardian_name || null;
-          if (guardian_phone !== undefined) upd.guardian_phone = guardian_phone || null;
-          if (guardian_relation !== undefined) upd.guardian_relation = guardian_relation || null;
-          if (emergency_contact !== undefined) upd.emergency_contact = emergency_contact || null;
-          if (emergency_phone !== undefined) upd.emergency_phone = emergency_phone || null;
-          if (student_status !== undefined && student_status) upd.status = student_status;
-          if (classroom_id !== undefined) {
-            upd.classroom_id = classroom_id || null;
-          } else if (grade_level !== undefined) {
-            upd.classroom_id = await resolveClassroomId(adminClient, grade_level, classroom_name);
-          }
-          if (Object.keys(upd).length > 0) {
-            const { error } = await adminClient.from("students").update(upd).eq("id", rowId);
-            if (error) throw error;
-          }
-          return ok({ success: true, synthetic: "student" });
-        }
-      }
 
       const updateData: any = {};
       if (first_name || last_name) {
@@ -1176,8 +986,6 @@ serve(async (req) => {
               phone: u.phone || null,
               gender: u.gender || null,
               dateOfBirth: u.date_of_birth || null,
-              // นำเข้า DMC: นักเรียนใหม่ต้องรอ admin อนุมัติก่อน
-              isApproved: assignedRole === "student" ? false : true,
             });
           }
 

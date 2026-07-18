@@ -90,7 +90,7 @@ export default function LegacyEvaluationTab() {
       <div className="flex justify-end">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button variant="outline"><Plus className="w-4 h-4 mr-2" />บันทึกการประเมิน</Button></DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader><DialogTitle>บันทึกการประเมินทั่วไป</DialogTitle></DialogHeader>
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
               {canManageAll ? (
@@ -108,7 +108,7 @@ export default function LegacyEvaluationTab() {
                 </Select>
               </div>
               <div><Label>ผู้ประเมิน *</Label><Input value={evaluator} onChange={e => setEvaluator(e.target.value)} /></div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><Label>คะแนนที่ได้</Label><Input type="number" value={score} onChange={e => setScore(e.target.value)} /></div>
                 <div><Label>คะแนนเต็ม</Label><Input type="number" value={maxScore} onChange={e => setMaxScore(e.target.value)} /></div>
               </div>

@@ -143,7 +143,7 @@ const StudentDashboard = () => {
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-4 min-w-0">
               {data?.student?.photo_url ? (
-                <img src={data.student.photo_url} alt="" className="w-16 h-16 rounded-2xl object-cover ring-2 ring-white/40" />
+                <img loading="lazy" decoding="async" src={data.student.photo_url} alt="" className="w-16 h-16 rounded-2xl object-cover ring-2 ring-white/40" />
               ) : (
                 <div className="w-16 h-16 rounded-2xl bg-white/15 flex items-center justify-center">
                   <UserIcon className="w-8 h-8" />
@@ -175,7 +175,7 @@ const StudentDashboard = () => {
                   <Wind className="w-4 h-4" />
                   <div className="text-xs">
                     <span className="font-semibold">PM2.5</span>
-                    <span className={`block font-bold ${weather.pm25 !== null && weather.pm25 > 75 ? "text-danger" : weather.pm25 !== null && weather.pm25 > 37.5 ? "text-warning" : ""}`}>
+                    <span className={`block font-bold ${weather.pm25 !== null && weather.pm25 > 75 ? "text-red-200" : weather.pm25 !== null && weather.pm25 > 37.5 ? "text-yellow-200" : ""}`}>
                       {weather.pm25 !== null ? `${weather.pm25.toFixed(0)} µg/m³` : "N/A"}
                     </span>
                   </div>
@@ -236,7 +236,7 @@ const StudentDashboard = () => {
       {/* Today schedule + Homework */}
       {data?.student && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Card className="border border-border/50 shadow-elevated rounded-2xl">
+          <Card onClick={() => navigate("/dashboard/academic/schedule")} className="border border-border/50 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center">
@@ -334,7 +334,7 @@ const StudentDashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="border border-border/50 shadow-elevated rounded-2xl">
+        <Card onClick={() => navigate("/dashboard/academic/calendar")} className="border border-border/50 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg gradient-warning flex items-center justify-center">
@@ -347,18 +347,13 @@ const StudentDashboard = () => {
             {isLoading ? <Skeleton className="h-24" /> : data?.events?.length ? (
               <div className="space-y-1.5">
                 {data.events.map((e: any) => (
-                  <button
-                    key={e.id}
-                    onClick={() => navigate("/dashboard/academic/calendar")}
-                    className="w-full text-left flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition"
-                  >
+                  <div key={e.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/40 transition">
                     <div className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded shrink-0">
                       {new Date(e.event_date).toLocaleDateString(lang === "th" ? "th-TH" : "en-US", { day: "numeric", month: "short" })}
                     </div>
                     <span className="text-xs truncate">{e.title}</span>
-                  </button>
+                  </div>
                 ))}
-
               </div>
             ) : <p className="text-muted-foreground text-xs text-center py-6">{L("ไม่มีกิจกรรม", "No events")}</p>}
           </CardContent>
@@ -450,10 +445,10 @@ const HomeworkRow = ({ h, lang, L, userId, studentName }: {
 
   return (
     <>
-      <div className={`flex items-start gap-2 p-2 rounded-lg ${reviewed ? "bg-primary/5 border border-primary/30" : submitted ? "bg-success-soft dark:bg-success/20" : overdue ? "bg-danger-soft dark:bg-danger/20" : "bg-muted/40"}`}>
+      <div className={`flex items-start gap-2 p-2 rounded-lg ${reviewed ? "bg-primary/5 border border-primary/30" : submitted ? "bg-emerald-50 dark:bg-emerald-950/20" : overdue ? "bg-rose-50 dark:bg-rose-950/20" : "bg-muted/40"}`}>
         {reviewed ? <Sparkles className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
-          : submitted ? <CheckCircle2 className="w-3.5 h-3.5 text-success mt-0.5 shrink-0" />
-          : overdue ? <XCircle className="w-3.5 h-3.5 text-danger mt-0.5 shrink-0" />
+          : submitted ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
+          : overdue ? <XCircle className="w-3.5 h-3.5 text-rose-600 mt-0.5 shrink-0" />
           : <ClipboardList className="w-3.5 h-3.5 text-warning mt-0.5 shrink-0" />}
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold truncate">{h.title}</p>
@@ -471,7 +466,7 @@ const HomeworkRow = ({ h, lang, L, userId, studentName }: {
         </Button>
       </div>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-lg sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{h.title}</DialogTitle></DialogHeader>
           {h.description && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{h.description}</p>}
 
@@ -479,14 +474,14 @@ const HomeworkRow = ({ h, lang, L, userId, studentName }: {
           {reviewed && isImageUrl(h.annotated_file_url) && (
             <div className="space-y-1">
               <p className="text-xs font-semibold text-primary">📝 {L("รูปที่ครูตรวจ", "Teacher's review")}</p>
-              <img src={h.annotated_file_url} alt="reviewed" className="w-full rounded border border-primary/40" />
+              <img loading="lazy" decoding="async" src={h.annotated_file_url} alt="reviewed" className="w-full rounded border border-primary/40" />
             </div>
           )}
           {h.submission_file_url && (
             <div className="space-y-1">
               <p className="text-[10px] text-muted-foreground">{L("ไฟล์ที่ส่ง", "Your submission")}</p>
               {isImageUrl(h.submission_file_url) ? (
-                <img src={h.submission_file_url} alt="submission" className="w-full max-h-60 object-contain rounded border border-border bg-muted/30" />
+                <img loading="lazy" decoding="async" src={h.submission_file_url} alt="submission" className="w-full max-h-60 object-contain rounded border border-border bg-muted/30" />
               ) : (
                 <a href={h.submission_file_url} target="_blank" rel="noreferrer" className="text-xs text-primary underline">📎 {L("เปิดไฟล์", "Open file")}</a>
               )}

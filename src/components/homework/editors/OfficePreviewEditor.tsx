@@ -101,7 +101,7 @@ export default function OfficePreviewEditor({ open, attachment, onClose, onSave 
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-6xl">
+      <DialogContent className="sm:max-w-6xl">
         <DialogHeader>
           <DialogTitle className="truncate">แก้ไข {kind}: {attachment?.name}</DialogTitle>
         </DialogHeader>

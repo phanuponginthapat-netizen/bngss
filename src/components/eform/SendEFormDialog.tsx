@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-
 import { supabase } from "@/integrations/supabase/client";
 import { notify } from "@/lib/notify";
 import { Button } from "@/components/ui/button";
@@ -11,10 +10,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Search, Paperclip, X, Save, FileEdit } from "lucide-react";
+import { Send, Search, Paperclip, X, Save } from "lucide-react";
 import { uploadPrivateFileWithFallback } from "@/lib/uploadFallback";
-import RichDocEditor from "@/components/editor/RichDocEditor";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { swal } from "@/lib/swal";
 
 interface Props {
   open: boolean;
@@ -25,9 +23,7 @@ interface Props {
   category?: string;
   formData?: Record<string, string>;
   urgency?: string;
-  initialFiles?: File[];
 }
-
 
 interface Recipient {
   user_id: string;
@@ -35,21 +31,12 @@ interface Recipient {
   role: string;
 }
 
-export const SendEFormDialog = ({ open, onOpenChange, title, contentHtml, templateId, category, formData, urgency, initialFiles }: Props) => {
+export const SendEFormDialog = ({ open, onOpenChange, title, contentHtml, templateId, category, formData, urgency }: Props) => {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [files, setFiles] = useState<File[]>(initialFiles ?? []);
+  const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
-  const [editedHtml, setEditedHtml] = useState(contentHtml);
-  useEffect(() => {
-    if (open) {
-      setEditedHtml(contentHtml);
-      if (initialFiles?.length) setFiles(initialFiles);
-    }
-  }, [open, initialFiles, contentHtml]);
-
-
 
   const { data: recipients = [], isLoading } = useQuery({
     queryKey: ["eform-recipients-list"],
@@ -93,16 +80,25 @@ export const SendEFormDialog = ({ open, onOpenChange, title, contentHtml, templa
   const removeFile = (idx: number) => setFiles((prev) => prev.filter((_, i) => i !== idx));
 
   const persist = async (status: "draft" | "sent") => {
+    if (status === "sent" && selected.size === 0) {
+      await swal.warning("กรุณาเลือกผู้รับ", "ต้องเลือกผู้รับอย่างน้อย 1 คนก่อนส่ง");
+      return;
+    }
+    if (status === "sent") {
+      const totalSize = files.reduce((s, f) => s + f.size, 0);
+      const ok = await swal.confirm({
+        title: `ยืนยันส่งเอกสาร?`,
+        text: `ส่งให้ผู้รับ ${selected.size} คน${files.length ? ` พร้อมไฟล์แนบ ${files.length} ไฟล์ (${(totalSize/1024).toFixed(0)} KB)` : ""}`,
+        confirmText: "ส่งเลย",
+        icon: "question",
+      });
+      if (!ok) return;
+    }
     setBusy(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      if (status === "sent" && selected.size === 0) {
-        toast({ title: "กรุณาเลือกผู้รับ", variant: "destructive" });
-        setBusy(false);
-        return;
-      }
 
       const { data: profile } = await supabase
         .from("profiles").select("first_name, last_name").eq("id", user.id).maybeSingle();
@@ -114,7 +110,7 @@ export const SendEFormDialog = ({ open, onOpenChange, title, contentHtml, templa
           sender_id: user.id,
           sender_name: senderName,
           title,
-          content_html: editedHtml,
+          content_html: contentHtml,
           template_id: templateId,
           category,
           form_data: formData ?? {},
@@ -152,26 +148,6 @@ export const SendEFormDialog = ({ open, onOpenChange, title, contentHtml, templa
         const { error: recErr } = await supabase.from("eform_recipients").insert(rows);
         if (recErr) throw recErr;
 
-        // === Saraban register: บันทึกเข้าทะเบียนสารบรรณอัตโนมัติ ===
-        try {
-          const toDept = rows.map((r) => r.recipient_name).filter(Boolean).join(", ");
-          await supabase.from("saraban_documents").insert({
-            direction: "internal",
-            doc_no: `EFORM-${eform.id.slice(0, 8).toUpperCase()}`,
-            doc_date: new Date().toISOString().slice(0, 10),
-            subject: title,
-            from_org: senderName || "ระบบ",
-            to_dept: toDept || null,
-            urgency: urgency || "normal",
-            secrecy: "normal",
-            status: "received",
-            created_by: user.id,
-            notes: `อ้างอิง E-Form: ${eform.id}`,
-          });
-        } catch (sErr) {
-          console.warn("[saraban] auto-register failed:", sErr);
-        }
-
         // Fan-out notification to recipients (in-app + push + LINE)
         await notify({
           user_ids: Array.from(selected),
@@ -181,7 +157,7 @@ export const SendEFormDialog = ({ open, onOpenChange, title, contentHtml, templa
           severity: "info",
           reference_id: eform.id,
           reference_type: "eforms",
-          url: "/dashboard/inbox",
+          url: `/dashboard/inbox?tab=eform&doc=${eform.id}`,
           channels: ["in_app", "push", "line"],
         });
       }
@@ -202,68 +178,59 @@ export const SendEFormDialog = ({ open, onOpenChange, title, contentHtml, templa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>ส่งเอกสารในระบบ — {title}</DialogTitle>
+          <DialogTitle>ส่งเอกสารในระบบ</DialogTitle>
         </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">ชื่อเอกสาร</Label>
+            <p className="text-sm font-medium">{title}</p>
+          </div>
 
-        <Tabs defaultValue="edit" className="w-full">
-          <TabsList className="grid grid-cols-2 w-full">
-            <TabsTrigger value="edit"><FileEdit className="w-4 h-4 mr-1" />แก้ไขเอกสาร</TabsTrigger>
-            <TabsTrigger value="send"><Send className="w-4 h-4 mr-1" />ผู้รับ & ส่ง</TabsTrigger>
-          </TabsList>
+          <div>
+            <Label className="text-xs flex items-center gap-1"><Paperclip className="w-3 h-3" /> ไฟล์แนบ</Label>
+            <Input type="file" multiple onChange={onPickFiles} className="h-9 text-xs" />
+            {files.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {files.map((f, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs bg-muted px-2 py-1 rounded">
+                    <span className="truncate">{f.name} <span className="text-muted-foreground">({(f.size/1024).toFixed(0)} KB)</span></span>
+                    <button onClick={() => removeFile(i)} className="text-destructive ml-2"><X className="w-3 h-3" /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-          <TabsContent value="edit" className="space-y-2 mt-3">
-            <p className="text-xs text-muted-foreground">ปรับแต่งเนื้อหาเอกสารก่อนส่ง (เครื่องมือครบแบบ Word)</p>
-            <RichDocEditor value={editedHtml} onChange={setEditedHtml} minHeight="50vh" />
-          </TabsContent>
-
-          <TabsContent value="send" className="space-y-3 mt-3">
-            <div>
-              <Label className="text-xs flex items-center gap-1"><Paperclip className="w-3 h-3" /> ไฟล์แนบ</Label>
-              <Input type="file" multiple onChange={onPickFiles} className="h-9 text-xs" />
-              {files.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  {files.map((f, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs bg-muted px-2 py-1 rounded">
-                      <span className="truncate">{f.name} <span className="text-muted-foreground">({(f.size/1024).toFixed(0)} KB)</span></span>
-                      <button onClick={() => removeFile(i)} className="text-destructive ml-2"><X className="w-3 h-3" /></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="ค้นหาผู้รับ..." className="pl-8 h-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">เลือกแล้ว {selected.size} / {filtered.length}</span>
-              <button onClick={toggleAll} className="text-primary hover:underline">
-                {selected.size === filtered.length && filtered.length > 0 ? "ยกเลิกทั้งหมด" : "เลือกทั้งหมด"}
-              </button>
-            </div>
-            <ScrollArea className="h-[240px] border rounded-md p-2">
-              {isLoading ? (
-                <p className="text-sm text-muted-foreground p-4 text-center">กำลังโหลด...</p>
-              ) : filtered.length === 0 ? (
-                <p className="text-sm text-muted-foreground p-4 text-center">ไม่พบผู้รับ</p>
-              ) : (
-                <div className="space-y-1">
-                  {filtered.map((r) => (
-                    <label key={r.user_id} className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer">
-                      <Checkbox checked={selected.has(r.user_id)} onCheckedChange={() => toggle(r.user_id)} />
-                      <div className="flex-1 min-w-0"><p className="text-sm truncate">{r.full_name}</p></div>
-                      <Badge variant="outline" className="text-[10px]">{r.role}</Badge>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-          </TabsContent>
-        </Tabs>
-
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 w-4 h-4 text-muted-foreground" />
+            <Input placeholder="ค้นหาผู้รับ..." className="pl-8 h-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">เลือกแล้ว {selected.size} / {filtered.length}</span>
+            <button onClick={toggleAll} className="text-primary hover:underline">
+              {selected.size === filtered.length && filtered.length > 0 ? "ยกเลิกทั้งหมด" : "เลือกทั้งหมด"}
+            </button>
+          </div>
+          <ScrollArea className="h-[240px] border rounded-md p-2">
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground p-4 text-center">กำลังโหลด...</p>
+            ) : filtered.length === 0 ? (
+              <p className="text-sm text-muted-foreground p-4 text-center">ไม่พบผู้รับ</p>
+            ) : (
+              <div className="space-y-1">
+                {filtered.map((r) => (
+                  <label key={r.user_id} className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer">
+                    <Checkbox checked={selected.has(r.user_id)} onCheckedChange={() => toggle(r.user_id)} />
+                    <div className="flex-1 min-w-0"><p className="text-sm truncate">{r.full_name}</p></div>
+                    <Badge variant="outline" className="text-[10px]">{r.role}</Badge>
+                  </label>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </div>
         <DialogFooter className="gap-2 flex-wrap">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>ยกเลิก</Button>
           <Button variant="secondary" onClick={() => persist("draft")} disabled={busy}>

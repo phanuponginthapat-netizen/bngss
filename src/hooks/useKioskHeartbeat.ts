@@ -1,0 +1,114 @@
+import { useEffect, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { getDeviceId, getDeviceHostnameHint } from "@/lib/deviceId";
+
+type HeartbeatInput = {
+  enabled?: boolean;
+  status?: "online" | "locked" | "sharing" | "offline";
+  kioskMode?: "door" | "student" | null;
+  configUpdatedAt?: string | null;
+  extensionInstalled?: boolean;
+  uptimeSec?: number;
+};
+
+/**
+ * ดึงค่า room ที่แอดมินตั้งไว้ให้กับเครื่องนี้จาก kiosk_devices.meta.room
+ * ใช้ใน StudentAgentPage เพื่อรวมไว้ใน presence
+ */
+export async function fetchDeviceRoom(): Promise<string | null> {
+  try {
+    const device_id = getDeviceId();
+    const { data } = await supabase
+      .from("kiosk_devices")
+      .select("meta")
+      .eq("device_id", device_id)
+      .maybeSingle();
+    const room = (data as any)?.meta?.room;
+    return typeof room === "string" && room.trim() ? room.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * ส่ง heartbeat ไปยังตาราง kiosk_devices ทุก 30 วิ
+ * เมื่อออกจากหน้า → set status = offline
+ */
+export function useKioskHeartbeat(input: HeartbeatInput) {
+  const {
+    enabled = true,
+    status = "online",
+    kioskMode = null,
+    configUpdatedAt = null,
+    extensionInstalled = false,
+    uptimeSec = 0,
+  } = input;
+
+  const lastPingRef = useRef<number>(0);
+
+  // main heartbeat loop
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+
+    const ping = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || cancelled) return;
+        const device_id = getDeviceId();
+        const payload = {
+          device_id,
+          user_id: user.id,
+          hostname: getDeviceHostnameHint(),
+          user_agent: navigator.userAgent,
+          status,
+          kiosk_mode: kioskMode,
+          config_updated_at: configUpdatedAt,
+          uptime_sec: uptimeSec,
+          screen_resolution: `${window.screen.width}x${window.screen.height}`,
+          extension_installed: extensionInstalled,
+          last_seen_at: new Date().toISOString(),
+        };
+        // NOTE: ไม่แตะ meta — admin เป็นคนตั้ง room ผ่าน KioskDevicesLiveCard
+        await supabase
+          .from("kiosk_devices")
+          .upsert([payload], { onConflict: "device_id" });
+        lastPingRef.current = Date.now();
+      } catch (e) {
+        // silent
+      }
+    };
+
+    ping();
+    const iv = window.setInterval(ping, 30_000);
+
+    // ping ตอน visibilitychange (กลับมาที่ tab)
+    const onVis = () => { if (document.visibilityState === "visible") ping(); };
+    document.addEventListener("visibilitychange", onVis);
+
+    // set offline เมื่อออก
+    const onBeforeUnload = () => {
+      try {
+        const device_id = getDeviceId();
+        const body = JSON.stringify({
+          device_id,
+          status: "offline",
+          last_seen_at: new Date().toISOString(),
+        });
+        // beacon (best-effort)
+        const url = `${(import.meta as any).env?.VITE_SUPABASE_URL || ""}/rest/v1/kiosk_devices?device_id=eq.${encodeURIComponent(device_id)}`;
+        if (url && navigator.sendBeacon) {
+          navigator.sendBeacon(url, body);
+        }
+      } catch { /* ignore */ }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(iv);
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+  }, [enabled, status, kioskMode, configUpdatedAt, extensionInstalled, uptimeSec]);
+}

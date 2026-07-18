@@ -23,26 +23,10 @@ const CATEGORIES = [
   { value: "activity", label: "กิจกรรม", labelEn: "Activity" },
 ];
 
-const AUDIENCES = [
-  { value: "all", label: "ทุกคน", labelEn: "Everyone" },
-  { value: "staff", label: "บุคลากร (ผู้ดูแล/ผอ./ครู)", labelEn: "Staff only" },
-  { value: "students", label: "นักเรียน", labelEn: "Students" },
-  { value: "parents", label: "ผู้ปกครอง", labelEn: "Parents" },
-  { value: "alumni", label: "ศิษย์เก่า", labelEn: "Alumni" },
-];
-
-const AUDIENCE_TO_ROLES: Record<string, string[]> = {
-  all: ["admin", "director", "teacher", "student", "parent", "alumni"],
-  staff: ["admin", "director", "teacher"],
-  students: ["student"],
-  parents: ["parent"],
-  alumni: ["alumni"],
-};
-
 const SEVERITIES = [
-  { value: "info", label: "แจ้งเตือน", labelEn: "Info", color: "bg-info-soft text-info" },
-  { value: "warning", label: "เตือนภัย", labelEn: "Warning", color: "bg-warning-soft text-warning" },
-  { value: "critical", label: "วิกฤต", labelEn: "Critical", color: "bg-danger-soft text-danger" },
+  { value: "info", label: "แจ้งเตือน", labelEn: "Info", color: "bg-blue-100 text-blue-800" },
+  { value: "warning", label: "เตือนภัย", labelEn: "Warning", color: "bg-yellow-100 text-yellow-800" },
+  { value: "critical", label: "วิกฤต", labelEn: "Critical", color: "bg-red-100 text-red-800" },
 ];
 
 const NewsPage = () => {
@@ -52,20 +36,17 @@ const NewsPage = () => {
   const canManageAll = isAdmin || isDirector;
   const [tab, setTab] = useState("news");
   const [search, setSearch] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   // News state
   const [newsOpen, setNewsOpen] = useState(false);
   const [newsTitle, setNewsTitle] = useState("");
   const [newsContent, setNewsContent] = useState("");
   const [newsCategory, setNewsCategory] = useState("general");
-  const [newsAudience, setNewsAudience] = useState("all");
 
   // Emergency state
   const [emerOpen, setEmerOpen] = useState(false);
   const [emerTitle, setEmerTitle] = useState("");
   const [emerMessage, setEmerMessage] = useState("");
   const [emerSeverity, setEmerSeverity] = useState("info");
-
 
   const { data: newsRecords = [] } = useQuery({
     queryKey: ["news_posts"],
@@ -84,48 +65,40 @@ const NewsPage = () => {
   });
 
   const handleAddNews = async () => {
-    if (!newsTitle || submitting) return;
-    setSubmitting(true);
-    try {
-      const { data: inserted, error } = await supabase.from("news_posts").insert({
-        title: newsTitle,
-        content: newsContent,
-        category: newsCategory,
-        audience: newsAudience,
-        author_id: userId,
-      } as any).select("id").single();
-      if (error) { toast.error(error.message); return; }
-      toast.success(lang === "th" ? "เพิ่มข่าวสำเร็จ" : "News added");
-      qc.invalidateQueries({ queryKey: ["news_posts"] });
-      setNewsOpen(false); setNewsTitle(""); setNewsContent(""); setNewsCategory("general"); setNewsAudience("all");
+    if (!newsTitle) return;
+    const { data: inserted, error } = await supabase.from("news_posts").insert({
+      title: newsTitle,
+      content: newsContent,
+      category: newsCategory,
+      author_id: userId,
+    } as any).select("id").single();
+    if (error) { toast.error(error.message); return; }
+    toast.success(lang === "th" ? "เพิ่มข่าวสำเร็จ" : "News added");
+    qc.invalidateQueries({ queryKey: ["news_posts"] });
+    setNewsOpen(false); setNewsTitle(""); setNewsContent(""); setNewsCategory("general");
 
-      // Fan-out: notify all active users that a draft news was created (admin only get this)
-      // Real broadcast happens when published.
-      if (inserted?.id) {
-        try {
-          const { data: admins } = await supabase.from("user_roles").select("user_id").in("role", ["admin", "director"]);
-          const ids = [...new Set((admins ?? []).map((r: any) => r.user_id))].filter(Boolean);
-          if (ids.length) {
-            await notify({
-              user_ids: ids,
-              title: `📰 ข่าวใหม่ (ร่าง): ${newsTitle}`,
-              body: newsContent?.slice(0, 120) || "",
-              type: "news_draft",
-              severity: "info",
-              reference_id: inserted.id,
-              reference_type: "news_posts",
-              url: `/dashboard/news/${inserted.id}`,
-              channels: ["in_app"],
-              dedup_key: `news-draft-${inserted.id}`,
-            });
-          }
-        } catch {/* non-blocking */}
-      }
-    } finally {
-      setSubmitting(false);
+    // Fan-out: notify all active users that a draft news was created (admin only get this)
+    // Real broadcast happens when published.
+    if (inserted?.id) {
+      try {
+        const { data: admins } = await supabase.from("user_roles").select("user_id").in("role", ["admin", "director"]);
+        const ids = [...new Set((admins ?? []).map((r: any) => r.user_id))].filter(Boolean);
+        if (ids.length) {
+          await notify({
+            user_ids: ids,
+            title: `📰 ข่าวใหม่ (ร่าง): ${newsTitle}`,
+            body: newsContent?.slice(0, 120) || "",
+            type: "news_draft",
+            severity: "info",
+            reference_id: inserted.id,
+            reference_type: "news_posts",
+            url: `/dashboard/news/${inserted.id}`,
+            channels: ["in_app"],
+          });
+        }
+      } catch {/* non-blocking */}
     }
   };
-
 
   const handlePublish = async (id: string, pub: boolean) => {
     const willPublish = !pub;
@@ -135,11 +108,8 @@ const NewsPage = () => {
     if (willPublish) {
       try {
         const post = (newsRecords as any[]).find((r) => r.id === id);
-        const aud = (post?.audience as string) || "all";
-        const roles = AUDIENCE_TO_ROLES[aud] || AUDIENCE_TO_ROLES.all;
-        const { data: targetUsers } = await supabase
-          .from("user_roles").select("user_id").in("role", roles as any);
-        const ids = [...new Set((targetUsers ?? []).map((r: any) => r.user_id))].filter(Boolean);
+        const { data: allUsers } = await supabase.from("user_roles").select("user_id");
+        const ids = [...new Set((allUsers ?? []).map((r: any) => r.user_id))].filter(Boolean);
         if (post && ids.length) {
           await notify({
             user_ids: ids,
@@ -160,20 +130,11 @@ const NewsPage = () => {
   };
 
   const togglePinNews = async (id: string, pinned: boolean) => {
-    const { error } = await supabase.from("news_posts").update({ is_pinned: !pinned, pin_order: pinned ? null : 1 } as any).eq("id", id);
+    const { error } = await supabase.from("news_posts").update({ is_pinned: !pinned } as any).eq("id", id);
     if (error) { toast.error(error.message); return; }
     toast.success(!pinned ? (lang === "th" ? "ปักหมุดแล้ว" : "Pinned") : (lang === "th" ? "ยกเลิกปักหมุด" : "Unpinned"));
     qc.invalidateQueries({ queryKey: ["news_posts"] });
   };
-
-  const setPinOrder = async (id: string, order: number | null) => {
-    const { error } = await supabase.from("news_posts")
-      .update({ pin_order: order, is_pinned: order != null } as any).eq("id", id);
-    if (error) { toast.error(error.message); return; }
-    toast.success(order ? `ปักหมุดเป็นอันดับ ${order}` : "ยกเลิกปักหมุด");
-    qc.invalidateQueries({ queryKey: ["news_posts"] });
-  };
-
 
   const togglePinEmer = async (id: string, pinned: boolean) => {
     const { error } = await supabase.from("emergency_broadcasts").update({ is_pinned: !pinned } as any).eq("id", id);
@@ -187,46 +148,40 @@ const NewsPage = () => {
   };
 
   const handleAddEmergency = async () => {
-    if (!emerTitle || !emerMessage || submitting) return;
-    setSubmitting(true);
+    if (!emerTitle || !emerMessage) return;
+    const { data: inserted, error } = await supabase.from("emergency_broadcasts").insert({
+      title: emerTitle,
+      message: emerMessage,
+      severity: emerSeverity,
+      author_id: userId,
+    } as any).select("id").single();
+    if (error) { toast.error(error.message); return; }
+    toast.success(lang === "th" ? "ส่งประกาศสำเร็จ" : "Broadcast sent");
+    qc.invalidateQueries({ queryKey: ["emergency_broadcasts"] });
+    setEmerOpen(false); setEmerTitle(""); setEmerMessage(""); setEmerSeverity("info");
+
+    // Fan-out emergency to everyone via all channels (critical bypasses quiet hours)
     try {
-      const { data: inserted, error } = await supabase.from("emergency_broadcasts").insert({
-        title: emerTitle,
-        message: emerMessage,
-        severity: emerSeverity,
-        author_id: userId,
-      } as any).select("id").single();
-      if (error) { toast.error(error.message); return; }
-      toast.success(lang === "th" ? "ส่งประกาศสำเร็จ" : "Broadcast sent");
-      qc.invalidateQueries({ queryKey: ["emergency_broadcasts"] });
-      setEmerOpen(false); setEmerTitle(""); setEmerMessage(""); setEmerSeverity("info");
-
-      // Fan-out emergency to everyone via all channels (critical bypasses quiet hours)
-      try {
-        const { data: allUsers } = await supabase.from("user_roles").select("user_id");
-        const ids = [...new Set((allUsers ?? []).map((r: any) => r.user_id))].filter(Boolean);
-        if (inserted?.id && ids.length) {
-          const sev = (emerSeverity === "critical" ? "critical" : emerSeverity === "warning" ? "warning" : "info") as any;
-          await notify({
-            user_ids: ids,
-            title: `🚨 ${emerTitle}`,
-            body: emerMessage,
-            type: "emergency",
-            severity: sev,
-            reference_id: inserted.id,
-            reference_type: "emergency_broadcasts",
-            url: `/dashboard`,
-            gchat_categories: ["all"],
-            channels: ["in_app", "push", "line", "gchat"],
-            dedup_key: `emergency-${inserted.id}`,
-          });
-        }
-      } catch {/* non-blocking */}
-    } finally {
-      setSubmitting(false);
-    }
+      const { data: allUsers } = await supabase.from("user_roles").select("user_id");
+      const ids = [...new Set((allUsers ?? []).map((r: any) => r.user_id))].filter(Boolean);
+      if (inserted?.id && ids.length) {
+        const sev = (emerSeverity === "critical" ? "critical" : emerSeverity === "warning" ? "warning" : "info") as any;
+        await notify({
+          user_ids: ids,
+          title: `🚨 ${emerTitle}`,
+          body: emerMessage,
+          type: "emergency",
+          severity: sev,
+          reference_id: inserted.id,
+          reference_type: "emergency_broadcasts",
+          url: `/dashboard`,
+          gchat_categories: ["all"],
+          channels: ["in_app", "push", "line", "gchat"],
+          dedup_key: `emergency-${inserted.id}`,
+        });
+      }
+    } catch {/* non-blocking */}
   };
-
 
   const handleDeleteEmergency = async (id: string) => {
     await supabase.from("emergency_broadcasts").delete().eq("id", id);
@@ -240,8 +195,6 @@ const NewsPage = () => {
       !q || r.title?.toLowerCase().includes(q) || r.content?.toLowerCase().includes(q)
     );
     return [...list].sort((a, b) => {
-      const ao = a.pin_order ?? 99, bo = b.pin_order ?? 99;
-      if (ao !== bo) return ao - bo;
       if (!!b.is_pinned !== !!a.is_pinned) return b.is_pinned ? 1 : -1;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
@@ -318,24 +271,8 @@ const NewsPage = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label>{lang === "th" ? "กลุ่มผู้รับข่าว" : "Audience"}</Label>
-                    <Select value={newsAudience} onValueChange={setNewsAudience}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {AUDIENCES.map(a => (
-                          <SelectItem key={a.value} value={a.value}>{lang === "th" ? a.label : a.labelEn}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      {lang === "th"
-                        ? "เลือกว่าใครเห็นและได้รับแจ้งเตือนข่าวนี้"
-                        : "Controls who can see and be notified about this news"}
-                    </p>
-                  </div>
                   <div><Label>{lang === "th" ? "เนื้อหา" : "Content"}</Label><Textarea value={newsContent} onChange={e => setNewsContent(e.target.value)} rows={4} /></div>
-                  <Button onClick={handleAddNews} disabled={submitting} className="w-full">{submitting ? (lang === "th" ? "กำลังบันทึก..." : "Saving...") : (lang === "th" ? "บันทึก" : "Save")}</Button>
+                  <Button onClick={handleAddNews} className="w-full">{lang === "th" ? "บันทึก" : "Save"}</Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -358,25 +295,17 @@ const NewsPage = () => {
                   <TableRow key={r.id} className={r.is_pinned ? "bg-primary/5" : ""}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
-                        {r.pin_order && (
-                          <span className="text-[10px] font-bold bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center">
-                            {r.pin_order}
-                          </span>
-                        )}
-                        {r.is_pinned && !r.pin_order && <Pin className="w-3.5 h-3.5 text-primary fill-primary" />}
+                        {r.is_pinned && <Pin className="w-3.5 h-3.5 text-primary fill-primary" />}
                         {r.title}
                       </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{CATEGORIES.find(c => c.value === r.category)?.[lang === "th" ? "label" : "labelEn"] || r.category}</Badge>
-                      <Badge variant="secondary" className="ml-1">
-                        {AUDIENCES.find(a => a.value === (r.audience || "all"))?.[lang === "th" ? "label" : "labelEn"] || r.audience}
-                      </Badge>
                     </TableCell>
                     <TableCell>{new Date(r.created_at).toLocaleDateString("th-TH")}</TableCell>
                     <TableCell>
                       <Badge
-                        className={r.is_published ? "bg-success-soft text-success cursor-pointer" : "bg-muted text-muted-foreground cursor-pointer"}
+                        className={r.is_published ? "bg-green-100 text-green-800 cursor-pointer" : "bg-muted text-muted-foreground cursor-pointer"}
                         onClick={() => handlePublish(r.id, r.is_published)}
                       >
                         {r.is_published ? (lang === "th" ? "เผยแพร่" : "Published") : (lang === "th" ? "ฉบับร่าง" : "Draft")}
@@ -386,17 +315,6 @@ const NewsPage = () => {
                       <div className="flex items-center gap-1">
                         {(canManageAll || r.author_id === userId) && (
                           <>
-                            <select
-                              value={r.pin_order ?? ""}
-                              onChange={(e) => setPinOrder(r.id, e.target.value === "" ? null : Number(e.target.value))}
-                              className="text-xs border rounded px-1 py-0.5 bg-background"
-                              title="ปักหมุดอันดับ"
-                            >
-                              <option value="">— อันดับ —</option>
-                              <option value="1">📌 อันดับ 1</option>
-                              <option value="2">📌 อันดับ 2</option>
-                              <option value="3">📌 อันดับ 3</option>
-                            </select>
                             <Button variant="ghost" size="sm" title={r.is_pinned ? "ยกเลิกปักหมุด" : "ปักหมุด"} onClick={() => togglePinNews(r.id, r.is_pinned)}>
                               {r.is_pinned ? <PinOff className="w-4 h-4 text-primary" /> : <Pin className="w-4 h-4" />}
                             </Button>
@@ -435,7 +353,7 @@ const NewsPage = () => {
                     </Select>
                   </div>
                   <div><Label>{lang === "th" ? "ข้อความ" : "Message"}</Label><Textarea value={emerMessage} onChange={e => setEmerMessage(e.target.value)} rows={4} /></div>
-                  <Button variant="destructive" onClick={handleAddEmergency} disabled={submitting} className="w-full">{submitting ? (lang === "th" ? "กำลังส่ง..." : "Sending...") : (lang === "th" ? "ส่งประกาศ" : "Send")}</Button>
+                  <Button variant="destructive" onClick={handleAddEmergency} className="w-full">{lang === "th" ? "ส่งประกาศ" : "Send"}</Button>
                 </div>
               </DialogContent>
             </Dialog>

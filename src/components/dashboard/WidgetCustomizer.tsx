@@ -111,7 +111,7 @@ function SortableRow({ w, onChange, lang }: RowProps) {
                   key={c}
                   onClick={() => onChange({ widget_key: w.key, color_theme: c })}
                   className={cn(
-                    "w-6 h-6 shrink-0 aspect-square rounded-full transition-all ring-offset-1 ring-offset-background",
+                    "w-6 h-6 rounded-full transition-all ring-offset-1 ring-offset-background",
                     COLOR_THEMES[c].gradient,
                     w.color === c ? "ring-2 ring-foreground scale-110" : "hover:scale-105"
                   )}

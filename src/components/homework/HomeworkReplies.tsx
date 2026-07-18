@@ -35,10 +35,10 @@ const roleLabel: Record<Reply["by_role"], string> = {
 };
 const roleColor: Record<Reply["by_role"], string> = {
   teacher: "bg-primary/10 text-primary",
-  student: "bg-success-soft text-success",
-  parent: "bg-warning-soft text-warning",
-  admin: "bg-danger-soft text-danger",
-  director: "bg-info-soft text-info",
+  student: "bg-emerald-100 text-emerald-700",
+  parent: "bg-amber-100 text-amber-700",
+  admin: "bg-rose-100 text-rose-700",
+  director: "bg-purple-100 text-purple-700",
 };
 
 export default function HomeworkReplies({
@@ -140,8 +140,6 @@ export default function HomeworkReplies({
             value={pending}
             onChange={setPending}
             maxFiles={5}
-            enableCamera
-            enableVoice
             label="แนบไฟล์คำตอบ"
           />
           <Button size="sm" onClick={() => sendReply()} disabled={busy || (!text.trim() && pending.length === 0)}>

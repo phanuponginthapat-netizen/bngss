@@ -6,34 +6,55 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Printer, BookOpen } from "lucide-react";
+import { CardGridSkeleton } from "@/components/shared";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { useSchoolInfo } from "@/components/documents/DocumentHeader";
+import { openPrintWindow, currentThaiDate } from "@/lib/printUtils";
+import { printByCode } from "@/lib/printTemplate";
+import { buildHeader, buildTable, buildSignatures, buildSectionTitle, wrapA4Page } from "@/lib/obecReportBuilder";
+import { BE_OFFSET } from "@/lib/dateBE";
 
-const GRADE_LEVELS = ["ป.1","ป.2","ป.3","ป.4","ป.5","ป.6","ม.1","ม.2","ม.3","ม.4","ม.5","ม.6"];
+const GRADE_LEVELS = ["อ.1","อ.2","อ.3","ป.1","ป.2","ป.3","ป.4","ป.5","ป.6","ม.1","ม.2","ม.3","ม.4","ม.5","ม.6"];
 
 const Pp4Page = () => {
   const { lang } = useLanguage();
   const { currentAcademicYear } = useAcademicYear();
+  const schoolInfo = useSchoolInfo();
   const [semester, setSemester] = useState("1");
+  const [academicYearBE, setAcademicYearBE] = useState<number | null>(null);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const L = (th: string, en: string) => lang === "th" ? th : en;
 
+  // เลือกได้เฉพาะปีปัจจุบัน + ย้อนหลัง 3 ปี (สอดคล้องระบบศิษย์เก่า)
+  const yearOptionsBE = useMemo(() => {
+    if (!currentAcademicYear) return [];
+    return [0, 1, 2, 3].map((i) => currentAcademicYear - i);
+  }, [currentAcademicYear]);
+
   useEffect(() => {
+    if (currentAcademicYear && academicYearBE == null) setAcademicYearBE(currentAcademicYear);
+  }, [currentAcademicYear, academicYearBE]);
+
+  const yearBE = academicYearBE ?? currentAcademicYear;
+
+  useEffect(() => {
+    if (!yearBE) return;
     const fetchSubjects = async () => {
       setLoading(true);
       const { data } = await supabase
         .from("subjects")
         .select("*")
         .eq("semester", parseInt(semester))
-        .eq("academic_year", currentAcademicYear - 543)
+        .eq("academic_year", yearBE - BE_OFFSET)
         .order("grade_level")
         .order("code");
       setSubjects(data || []);
       setLoading(false);
     };
     fetchSubjects();
-  }, [semester, currentAcademicYear]);
+  }, [semester, yearBE]);
 
   const byGrade = useMemo(() => {
     const map = new Map<string, any[]>();
@@ -47,6 +68,49 @@ const Pp4Page = () => {
     return map;
   }, [subjects]);
 
+  const handlePrint = async () => {
+    const sections = GRADE_LEVELS.map((g) => {
+      const rows = byGrade.get(g) || [];
+      if (rows.length === 0) return "";
+      const tableHtml = buildTable(
+        [
+          { label: "ลำดับ", align: "center", width: "8%" },
+          { label: "รหัสวิชา", align: "center", width: "14%" },
+          { label: "ชื่อวิชา", align: "left" },
+          { label: "หน่วยกิต", align: "center", width: "10%" },
+          { label: "ชม./สัปดาห์", align: "center", width: "12%" },
+          { label: "ครูผู้สอน", align: "left", width: "22%" },
+        ],
+        rows.map((s: any, i: number) => [
+          String(i + 1),
+          s.code || "-",
+          s.name_th || s.name || "-",
+          String(s.credits ?? "-"),
+          String(s.hours_per_week ?? "-"),
+          s.teacher_name || "-",
+        ]),
+      );
+      return buildSectionTitle(`แผนการเรียน ${g} ภาคเรียนที่ ${semester} ปีการศึกษา ${yearBE}`) + tableHtml;
+    }).join("");
+
+    const header = buildHeader({
+      schoolName: schoolInfo.school_name,
+      schoolAddress: schoolInfo.school_address,
+      logoUrl: schoolInfo.school_logo,
+      garudaUrl: schoolInfo.garuda_emblem,
+      documentTitle: "ปพ.4 แบบแสดงผลการเรียนรายวิชา",
+      subtitle: `ภาคเรียนที่ ${semester} ปีการศึกษา ${yearBE}`,
+    });
+    const sig = buildSignatures([
+      { name: schoolInfo.director_name, title: schoolInfo.director_title || "ผู้อำนวยการโรงเรียน", signatureUrl: schoolInfo.director_signature },
+    ], currentThaiDate());
+
+    const html = wrapA4Page(header + sections + sig);
+    const tplData = { school: schoolInfo, semester, year: yearBE, sections_html: sections, today: new Date().toISOString() };
+    await printByCode("pp4", tplData, () => openPrintWindow(html, { title: `ปพ.4 ${semester}/${yearBE}` }));
+  };
+
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -55,6 +119,14 @@ const Pp4Page = () => {
           {L("ปพ.4 (แบบแสดงผลการเรียนรายวิชา) - ทุกระดับชั้น", "PP.4 (Course Record) - All Grades")}
         </h1>
         <div className="flex items-center gap-2">
+          <Select value={String(yearBE ?? "")} onValueChange={(v) => setAcademicYearBE(Number(v))}>
+            <SelectTrigger className="w-40"><SelectValue placeholder={L("ปีการศึกษา","Year")} /></SelectTrigger>
+            <SelectContent>
+              {yearOptionsBE.map((y) => (
+                <SelectItem key={y} value={String(y)}>{L(`ปีการศึกษา ${y}`, `Year ${y}`)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={semester} onValueChange={setSemester}>
             <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -62,14 +134,14 @@ const Pp4Page = () => {
               <SelectItem value="2">{L("ภาคเรียน 2", "Semester 2")}</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={() => window.print()} size="sm" variant="outline">
+          <Button onClick={handlePrint} size="sm" variant="outline">
             <Printer className="w-4 h-4 mr-1" /> {L("พิมพ์", "Print")}
           </Button>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div>
+        <CardGridSkeleton count={3} />
       ) : (
         GRADE_LEVELS.map((g) => {
           const rows = byGrade.get(g) || [];
@@ -77,8 +149,8 @@ const Pp4Page = () => {
             <Card key={g}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">
-                  {L(`แผนการเรียน ${g} ภาคเรียนที่ ${semester} ปีการศึกษา ${currentAcademicYear}`,
-                     `Course Plan ${g} Semester ${semester} Year ${currentAcademicYear}`)}
+                  {L(`แผนการเรียน ${g} ภาคเรียนที่ ${semester} ปีการศึกษา ${yearBE}`,
+                     `Course Plan ${g} Semester ${semester} Year ${yearBE}`)}
                 </CardTitle>
               </CardHeader>
               <CardContent>
