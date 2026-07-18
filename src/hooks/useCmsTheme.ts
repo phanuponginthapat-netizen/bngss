@@ -57,9 +57,9 @@ export function useCmsTheme() {
 
     // key ใน cms_settings → CSS variables ที่ต้องอัปเดต + ตัวแปรสี foreground
     const map: Array<{ hexKey: string; vars: string[]; fgVar?: string }> = [
-      { hexKey: "theme_primary_color", vars: ["--primary", "--ring", "--sidebar-primary", "--sidebar-ring"], fgVar: "--primary-foreground" },
+      { hexKey: "theme_primary_color", vars: ["--primary", "--ring", "--sidebar-primary", "--sidebar-ring", "--primary-glow", "--info"], fgVar: "--primary-foreground" },
       { hexKey: "theme_secondary_color", vars: ["--secondary"], fgVar: "--secondary-foreground" },
-      { hexKey: "theme_accent_color", vars: ["--accent"], fgVar: "--accent-foreground" },
+      { hexKey: "theme_accent_color", vars: ["--accent", "--sidebar-accent"], fgVar: "--accent-foreground" },
       { hexKey: "theme_success_color", vars: ["--success"], fgVar: "--success-foreground" },
       { hexKey: "theme_warning_color", vars: ["--warning"], fgVar: "--warning-foreground" },
       { hexKey: "theme_info_color", vars: ["--info"], fgVar: "--info-foreground" },
@@ -75,14 +75,30 @@ export function useCmsTheme() {
         else root.style.removeProperty(v);
       }
       if (hexKey === "theme_primary_color") {
-        // primary ต้อง sync กับ sidebar-primary-foreground ด้วย
         if (fg) root.style.setProperty("--sidebar-primary-foreground", fg);
         else root.style.removeProperty("--sidebar-primary-foreground");
+        if (fg) root.style.setProperty("--info-foreground", fg);
+      }
+      if (hexKey === "theme_accent_color") {
+        if (fg) root.style.setProperty("--sidebar-accent-foreground", fg);
+        else root.style.removeProperty("--sidebar-accent-foreground");
       }
       if (fgVar) {
         if (fg) root.style.setProperty(fgVar, fg);
         else root.style.removeProperty(fgVar);
       }
+    }
+
+    // ตั้ง meta theme-color ให้ตรงกับสีหลัก (address bar บนมือถือ)
+    const primaryHex = (settings as any)?.theme_primary_color;
+    if (primaryHex) {
+      let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
+      if (!meta) {
+        meta = document.createElement("meta");
+        meta.name = "theme-color";
+        document.head.appendChild(meta);
+      }
+      meta.content = primaryHex;
     }
   }, [
     (settings as any)?.theme_primary_color,
