@@ -204,7 +204,8 @@ const DashboardLayout = () => {
               minHeight: "calc(3.5rem + env(safe-area-inset-top))",
             }}
           >
-            <SidebarTrigger className="shrink-0" />
+
+
 
             {location.pathname !== "/dashboard" && (
               <BackButton />
