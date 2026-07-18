@@ -33,7 +33,7 @@ export const template = {
   subject: 'แจ้งเตือนครูเวรประจำวัน',
   displayName: 'Duty Schedule Notice',
   previewData: { name: 'สมชาย', dateLabel: 'พรุ่งนี้ (จันทร์ 2026-01-01)', items: ['• หน้าประตู 07:00–08:00', '• โรงอาหาร 11:30–12:30'] },
-} satisfies TemplateEntry
+} as const
 
 const main = { backgroundColor: '#ffffff', fontFamily: 'Sarabun, Arial, sans-serif' }
 const container = { padding: '24px 28px', maxWidth: '560px' }
