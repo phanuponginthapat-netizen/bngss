@@ -919,6 +919,7 @@ export function AppSidebar() {
           </>
         )}
       </SidebarContent>
+      <SidebarAccountFooter />
     </Sidebar>
   );
 }
