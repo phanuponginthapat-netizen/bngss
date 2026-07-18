@@ -249,9 +249,22 @@ Deno.serve(async (req) => {
     let inAppCount = 0, pushCount = 0, lineCount = 0;
 
     // Helper: should send to a channel for this user
-    const shouldSend = (uid: string, ch: "in_app" | "push" | "line") => {
+    // Precedence: user preference (explicit off) → role matrix default → true
+    const shouldSend = (uid: string, ch: "in_app" | "push" | "line" | "gchat") => {
+      // 1) Role matrix default (baseline)
+      const role = roleByUser.get(uid);
+      const matrix = role ? matrixByRole.get(role) : null;
+      if (matrix) {
+        if (ch === "in_app" && matrix.in_app === false) return false;
+        if (ch === "push"   && matrix.push   === false) return false;
+        if (ch === "line"   && matrix.line   === false) return false;
+        if (ch === "gchat"  && matrix.gchat  === false) return false;
+        const minRank = SEVERITY_RANK[(matrix.min_severity as Severity) || "info"];
+        if (sevRank < minRank && severity !== "critical") return false;
+      }
+      // 2) Per-user preference (can further disable, cannot re-enable if matrix says off)
       const p = prefsMap.get(uid);
-      if (!p) return true; // default on
+      if (!p) return true;
       const override = (p.type_overrides as Record<string, boolean> | null)?.[type];
       if (override === false) return false;
       if (ch === "in_app" && p.in_app_enabled === false) return false;
