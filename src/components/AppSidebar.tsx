@@ -588,7 +588,7 @@ export function AppSidebar() {
   if (role === "parent") return parentSidebar;
 
   return (
-    <Sidebar collapsible="icon" className="gradient-sidebar border-r-0">
+    <Sidebar side="right" collapsible="icon" className="gradient-sidebar border-l-0">
       <SidebarHeader className={`${collapsed ? 'px-1.5' : 'px-3'} py-4 border-b border-sidebar-border/70 bg-gradient-to-b from-sidebar-accent/20 to-transparent transition-all`}>
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} mb-3`}>
           <div className="relative">
