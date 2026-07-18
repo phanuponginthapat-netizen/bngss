@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { toThaiError, toThaiErrorSync } from "./errorMessage";
+import { toThaiErrorDetailed, toThaiErrorDetailedSync, type ThaiErrorDetail } from "./errorMessage";
 import { toast } from "sonner";
 
 
@@ -47,12 +47,17 @@ export function installGlobalErrorHandlers() {
   // กันการเด้ง toast ซ้ำๆข้อความเดียวกันติดต่อกัน
   let lastMsg = "";
   let lastAt = 0;
-  const showThaiToast = (msg: string) => {
+  const showThaiToast = (d: ThaiErrorDetail) => {
     const now = Date.now();
-    if (msg === lastMsg && now - lastAt < 3000) return;
-    lastMsg = msg;
+    if (d.reason === lastMsg && now - lastAt < 3000) return;
+    lastMsg = d.reason;
     lastAt = now;
-    try { toast.error(msg, { duration: 5000 }); } catch {}
+    try {
+      toast.error(d.reason, {
+        description: `💡 ${d.hint}`,
+        duration: 6000,
+      });
+    } catch {}
   };
 
   window.addEventListener("error", (e) => {
@@ -62,7 +67,7 @@ export function installGlobalErrorHandlers() {
       source: "window.error",
       context: { filename: e.filename, lineno: e.lineno, colno: e.colno },
     });
-    showThaiToast(toThaiErrorSync(e.error || e.message));
+    showThaiToast(toThaiErrorDetailedSync(e.error || e.message));
   });
 
   window.addEventListener("unhandledrejection", (e) => {
@@ -73,8 +78,8 @@ export function installGlobalErrorHandlers() {
       stack: r?.stack,
       source: "unhandledrejection",
     });
-    // ดึง body จาก edge function response ถ้ามี → แสดงเป็น toast ไทย
-    toThaiError(r).then(showThaiToast).catch(() => showThaiToast(toThaiErrorSync(r)));
+    // ดึง body จาก edge function response ถ้ามี → แสดง toast ไทย
+    toThaiErrorDetailed(r).then(showThaiToast).catch(() => showThaiToast(toThaiErrorDetailedSync(r)));
   });
 }
 

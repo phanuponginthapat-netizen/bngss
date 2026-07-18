@@ -1,6 +1,8 @@
 import Swal, { SweetAlertOptions, SweetAlertResult } from "sweetalert2";
-import { toThaiError, toThaiErrorSync } from "./errorMessage";
+import { toThaiErrorDetailed, toThaiErrorDetailedSync } from "./errorMessage";
 
+const escapeHtml = (s: string) =>
+  s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
 
 /**
  * SweetAlert popup helpers — ใช้ font + theme ของระบบ (รองรับ dark mode)
@@ -55,11 +57,18 @@ export const swal = {
    * ถ้าเป็น object จะแปลงเป็นข้อความไทยอัตโนมัติ (รวมถึงดึง body จาก Edge Function response)
    */
   error: async (title: string, textOrError?: string | unknown) => {
-    let text: string | undefined;
-    if (textOrError == null) text = undefined;
-    else if (typeof textOrError === "string") text = toThaiErrorSync(textOrError);
-    else text = await toThaiError(textOrError);
-    return Swal.fire(base({ icon: "error", title, text, confirmButtonText: "ตกลง" }));
+    let html: string | undefined;
+    if (textOrError != null) {
+      const d = typeof textOrError === "string"
+        ? toThaiErrorDetailedSync(textOrError)
+        : await toThaiErrorDetailed(textOrError);
+      html = `
+        <div class="text-left space-y-2">
+          <div class="text-foreground text-sm"><span class="font-semibold">สาเหตุ:</span> ${escapeHtml(d.reason)}</div>
+          <div class="text-muted-foreground text-sm"><span class="font-semibold">คำแนะนำ:</span> ${escapeHtml(d.hint)}</div>
+        </div>`;
+    }
+    return Swal.fire(base({ icon: "error", title, html, confirmButtonText: "ตกลง" }));
   },
 
 
