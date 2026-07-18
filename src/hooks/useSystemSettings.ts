@@ -40,6 +40,22 @@ export function useSystemSettings() {
     // (dynamicManifest.ts จะเป็นตัวจัดการ link[rel=manifest] แล้ว)
   }, [settings?.app_favicon_url, settings?.school_logo, settings?.app_name, settings?.app_short_name]);
 
+  // Cache branding for the initial HTML loader (index.html reads this before React mounts)
+  useEffect(() => {
+    if (!settings) return;
+    try {
+      const logo = settings.app_favicon_url || settings.school_logo || "";
+      const name = settings.app_name || settings.school_name || "";
+      const themeColor = (settings as any).theme_color || (settings as any).app_theme_color || "";
+      if (logo || name || themeColor) {
+        localStorage.setItem(
+          "cms_branding_cache",
+          JSON.stringify({ logo, name, themeColor }),
+        );
+      }
+    } catch {}
+  }, [settings?.app_favicon_url, settings?.school_logo, settings?.app_name, settings?.school_name]);
+
   const schoolName = settings?.school_name || "";
   const appName = settings?.app_name || schoolName || "Smart School";
   return {

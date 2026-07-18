@@ -84,9 +84,7 @@
           .ldr-dots span:nth-child(3){animation-delay:.4s}
         </style>
         <div class="ldr-card">
-          <div id="ldr-brand">
-            <img class="ldr-logo" src="/icon-192.png" alt="App logo"/>
-          </div>
+          <div id="ldr-brand" style="display:none"></div>
           <div id="ldr-name" class="ldr-name" style="display:none"></div>
           <div class="ldr-ring"></div>
           <div class="ldr-text">กำลังโหลดระบบ<span class="ldr-dots"><span></span><span></span><span></span></span></div>
@@ -110,7 +108,7 @@
             }
             if (b.logo) {
               var brand = document.getElementById("ldr-brand");
-              if (brand) brand.innerHTML = '<img class="ldr-logo" src="' + b.logo + '" alt="logo"/>';
+              if (brand) { brand.style.display = "block"; brand.innerHTML = '<img class="ldr-logo" src="' + b.logo + '" alt="logo"/>'; }
               var ic = document.querySelector('link[rel="icon"]');
               if (ic) ic.setAttribute("href", b.logo);
             }
