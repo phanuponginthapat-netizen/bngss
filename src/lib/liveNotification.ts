@@ -79,14 +79,19 @@ export function setTitleBadge(count: number) {
 
 /** Show a Facebook-style live notification. */
 export function showLiveNotification(opts: LiveNotifyOpts) {
+  // Cross-channel dedup — ถ้า Web Push SW เพิ่งแสดง tag นี้ ไม่ต้องแสดงซ้ำ
+  const tag = opts.tag || opts.title;
+  if (wasNotificationSeen(tag)) return;
+  markNotificationSeen(tag);
+
   // Sound + haptic
-  playNotificationSound({ urgent: opts.urgent });
+  playNotificationSound({ urgent: opts.urgent, tag });
   haptic(opts.urgent ? "warning" : "light");
 
   // Native notification when hidden (or PWA in background)
   const hidden = typeof document !== "undefined" && document.visibilityState !== "visible";
   if (hidden) {
-    void tryNativeNotification(opts);
+    void tryNativeNotification({ ...opts, tag });
     return;
   }
 
