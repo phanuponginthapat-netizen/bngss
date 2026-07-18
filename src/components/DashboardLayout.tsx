@@ -28,6 +28,7 @@ import OfflineIndicator from "@/components/OfflineIndicator";
 import PWAInstallButton from "@/components/PWAInstallButton";
 import AiChatBubble from "@/components/ai/AiChatBubble";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
+import { useSessionKeepAlive } from "@/hooks/useSessionKeepAlive";
 import { useRadixOverlayCleanup } from "@/hooks/useRadixOverlayCleanup";
 import { useForceLogoutListener } from "@/hooks/useForceLogoutListener";
 
