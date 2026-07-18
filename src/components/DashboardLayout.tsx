@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ModuleGuard } from "@/components/ModuleGuard";
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUserRole } from "@/hooks/useUserRole";
-import { LogOut, User, Settings, Shield, Inbox, Search } from "lucide-react";
+import { LogOut, User, Settings, Shield, Inbox, Search, PanelLeft } from "lucide-react";
 import NotificationDropdown from "@/components/NotificationDropdown";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -30,6 +30,25 @@ import AiChatBubble from "@/components/ai/AiChatBubble";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { useRadixOverlayCleanup } from "@/hooks/useRadixOverlayCleanup";
 import { useForceLogoutListener } from "@/hooks/useForceLogoutListener";
+
+/** Menu item ที่ใช้ toggle sidebar — ต้องอยู่ใต้ SidebarProvider */
+function SidebarToggleItem() {
+  const { toggleSidebar, state, isMobile, openMobile } = useSidebar();
+  const { lang } = useLanguage();
+  const isOpen = isMobile ? openMobile : state === "expanded";
+  const label = isOpen
+    ? (lang === "th" ? "ซ่อนแถบเมนูด้านข้าง" : "Hide sidebar")
+    : (lang === "th" ? "แสดงแถบเมนูด้านข้าง" : "Show sidebar");
+  return (
+    <DropdownMenuItem
+      onSelect={(e) => { e.preventDefault(); toggleSidebar(); }}
+      className="cursor-pointer gap-2"
+    >
+      <PanelLeft className="w-4 h-4" /> {label}
+    </DropdownMenuItem>
+  );
+}
+
 
 const DashboardLayout = () => {
   const navigate = useNavigate();
@@ -204,7 +223,8 @@ const DashboardLayout = () => {
               minHeight: "calc(3.5rem + env(safe-area-inset-top))",
             }}
           >
-            <SidebarTrigger className="shrink-0" />
+
+
 
             {location.pathname !== "/dashboard" && (
               <BackButton />
@@ -272,6 +292,8 @@ const DashboardLayout = () => {
                       {badge && <Badge variant={badge.variant} className="w-fit text-xs">{badge.label}</Badge>}
                     </div>
                   </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <SidebarToggleItem />
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link to="/dashboard/profile" className="cursor-pointer gap-2">
