@@ -11,7 +11,13 @@ import { supabase } from "@/integrations/supabase/client";
 
 const DB_NAME = "offline-queue";
 const STORE = "actions";
-const VERSION = 1;
+const COMPLETED_STORE = "completed_ops";
+const VERSION = 2;
+
+/** ระยะจำ operationId ที่ยิงสำเร็จแล้ว — กันย้อนซ้ำถ้า SW/แท็บอื่นมา flush ซ้อน */
+const COMPLETED_TTL_MS = 10 * 60 * 1000; // 10 นาที
+/** ถือว่ายัง "กำลังยิง" ถ้า processingAt อยู่ในช่วงนี้ — กัน race หลาย flush ยิง item เดียวกัน */
+const PROCESSING_LOCK_MS = 45 * 1000;
 
 export type QueueAction = {
   id?: number;
@@ -30,7 +36,18 @@ export type QueueAction = {
   nextRetryAt?: number;
   /** ทำเครื่องหมายว่า "dead" เมื่อเกินจำนวนครั้งสูงสุด — เก็บไว้ให้ผู้ใช้ดู/ลบเอง */
   dead?: boolean;
+  /** UUID สร้างครั้งเดียวตอน enqueue — ใช้เป็น idempotency key ป้องกันการยิงซ้ำข้ามการ flush */
+  operationId?: string;
+  /** epoch ms ตอนเริ่มยิงล่าสุด — ล็อคไม่ให้ flush อื่นหยิบไปยิงพร้อมกัน */
+  processingAt?: number;
 };
+
+function newOperationId(): string {
+  try {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  } catch (_) {}
+  return `op-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 // ─── นโยบาย retry ───────────────────────────────────────────────
 export const MAX_RETRY_ATTEMPTS = 8;          // ~ครอบคลุม backoff รวมหลายชั่วโมง
