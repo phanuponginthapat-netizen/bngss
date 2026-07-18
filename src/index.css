@@ -151,14 +151,14 @@ a[href*="lovable.dev"][href*="utm"] {
   }
 
   .gradient-primary {
-    background: linear-gradient(135deg, hsl(199 89% 58%), hsl(199 100% 72%));
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
   }
 
   .gradient-sidebar {
-    background: linear-gradient(180deg, hsl(222 30% 11%), hsl(222 35% 7%));
+    background: linear-gradient(180deg, hsl(var(--sidebar-background)), hsl(var(--sidebar-background) / 0.85));
   }
   .gradient-hero {
-    background: linear-gradient(135deg, hsl(217 91% 50%), hsl(217 85% 42%), hsl(199 89% 48%));
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.85), hsl(var(--accent)));
   }
   .gradient-success {
     background: linear-gradient(135deg, hsl(152 69% 42%), hsl(162 63% 41%));
