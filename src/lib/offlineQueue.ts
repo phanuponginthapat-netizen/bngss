@@ -143,14 +143,20 @@ export async function count(): Promise<number> {
 
 let syncing = false;
 
-export async function flush(): Promise<{ ok: number; failed: number }> {
-  if (syncing || !navigator.onLine) return { ok: 0, failed: 0 };
+export async function flush(): Promise<{ ok: number; failed: number; dropped: number }> {
+  if (syncing || !navigator.onLine) return { ok: 0, failed: 0, dropped: 0 };
   syncing = true;
   let ok = 0;
   let failed = 0;
+  let dropped = 0;
+  const now = Date.now();
   try {
     const items = await list();
     for (const item of items) {
+      // ข้าม item ที่ยังไม่ถึงเวลา retry / ที่ตายแล้ว
+      if (item.dead) continue;
+      if (item.nextRetryAt && item.nextRetryAt > now) continue;
+
       try {
         const q = supabase.from(item.table as never);
         const { error } = item.onConflict
@@ -160,23 +166,39 @@ export async function flush(): Promise<{ ok: number; failed: number }> {
         if (item.id !== undefined) await remove(item.id);
         ok++;
       } catch (e) {
-        failed++;
-        if (item.id !== undefined) {
-          await update({
-            ...item,
-            attempts: (item.attempts ?? 0) + 1,
-            lastError: (e as Error).message,
-          });
+        if (item.id === undefined) { failed++; continue; }
+        const nextAttempts = (item.attempts ?? 0) + 1;
+        const message = (e as Error).message ?? String(e);
+
+        // Permanent → ทิ้งทันที (ไม่ retry ให้ชนซ้ำ)
+        if (isPermanentError(e)) {
+          await remove(item.id);
+          dropped++;
+          continue;
         }
+        // เกินจำนวนครั้ง → mark dead แต่ไม่ลบ (ให้ user เห็น/ตัดสินใจเอง)
+        if (nextAttempts >= MAX_RETRY_ATTEMPTS) {
+          await update({ ...item, attempts: nextAttempts, lastError: message, dead: true });
+          dropped++;
+          continue;
+        }
+        // Retryable → กำหนดเวลาถัดไปด้วย exponential backoff
+        await update({
+          ...item,
+          attempts: nextAttempts,
+          lastError: message,
+          nextRetryAt: Date.now() + computeBackoffMs(nextAttempts),
+        });
+        failed++;
       }
     }
   } finally {
     syncing = false;
   }
-  if (ok > 0) {
-    window.dispatchEvent(new CustomEvent("offline-queue:synced", { detail: { ok, failed } }));
+  if (ok > 0 || dropped > 0) {
+    window.dispatchEvent(new CustomEvent("offline-queue:synced", { detail: { ok, failed, dropped } }));
   }
-  return { ok, failed };
+  return { ok, failed, dropped };
 }
 
 let installed = false;
