@@ -454,7 +454,7 @@ ${strictNoAnswer ? `🚫 ผู้ใช้คนนี้เป็น **นั�
           Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
         );
         // resolve user role snapshot
-        const { data: roleRow } = await sb.from("user_roles").select("role").eq("user_id", identifier).maybeSingle();
+        const { data: roleRow } = await sb.from("user_roles").select("role").eq("user_id", identifier).limit(1).maybeSingle();
         const userRole = (roleRow as any)?.role || null;
         const cls = classify(lastUser);
         const baseCreatedAt = Date.now();
