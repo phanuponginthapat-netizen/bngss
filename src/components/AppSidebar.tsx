@@ -152,6 +152,7 @@ export function AppSidebar() {
           </SidebarGroup>
         ))}
       </SidebarContent>
+      <SidebarAccountFooter />
     </Sidebar>
   );
 
