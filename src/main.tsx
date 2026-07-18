@@ -65,6 +65,10 @@ if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     await registerServiceWorker();
     await ensurePushAliveInBackground();
+    // ปลุก SW ให้ flush offline queue ที่ค้างจาก session ก่อนหน้า
+    import("./lib/swBackgroundSync").then(({ requestBackgroundFlush }) => {
+      requestBackgroundFlush().catch(() => {});
+    }).catch(() => {});
   });
 
   // ทุกครั้งที่ผู้ใช้กลับเข้าแอป ให้ตรวจ subscription อีกที — ป้องกันแจ้งเตือนเงียบหลังพักแอปนาน
