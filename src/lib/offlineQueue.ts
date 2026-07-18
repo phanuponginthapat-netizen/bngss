@@ -142,8 +142,14 @@ let retryIntervalId: ReturnType<typeof setInterval> | null = null;
 export function installOfflineSync() {
   if (installed || typeof window === "undefined") return;
   installed = true;
+  const requestSw = () => {
+    import("./swBackgroundSync").then(({ requestBackgroundFlush }) => {
+      requestBackgroundFlush().catch(() => {});
+    }).catch(() => {});
+  };
   window.addEventListener("online", () => {
     flush().catch(() => {});
+    requestSw();
   });
   // retry on focus too
   window.addEventListener("focus", () => {
@@ -154,4 +160,15 @@ export function installOfflineSync() {
   retryIntervalId = setInterval(() => {
     if (navigator.onLine) flush().catch(() => {});
   }, 60_000);
+  // รับสัญญาณจาก Service Worker ว่า flush เสร็จแล้ว (เคสปิดแท็บแล้วเปิดใหม่ / อีกแท็บ)
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", (event) => {
+      const msg = event.data;
+      if (msg && msg.type === "offline-queue-synced") {
+        window.dispatchEvent(new CustomEvent("offline-queue:synced", {
+          detail: { ok: msg.ok ?? 0, failed: msg.failed ?? 0 },
+        }));
+      }
+    });
+  }
 }
