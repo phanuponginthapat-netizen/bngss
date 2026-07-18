@@ -100,6 +100,10 @@
           var CACHE_KEY = "cms_branding_cache";
           var backendUrl = "%VITE_SUPABASE_URL%";
           var publishableKey = "%VITE_SUPABASE_PUBLISHABLE_KEY%";
+          var readyDone = false;
+          var readyResolve = null;
+          var bootstrapTimer = null;
+          window.__cmsLoaderReady = new Promise(function (resolve) { readyResolve = resolve; });
           var keys = [
             "app_name",
             "app_short_name",
@@ -155,13 +159,26 @@
             try { window.dispatchEvent(new CustomEvent("branding:ready", { detail: b })); } catch (e) {}
           }
 
+          function finishBootstrap() {
+            if (readyDone) return;
+            readyDone = true;
+            if (bootstrapTimer) clearTimeout(bootstrapTimer);
+            if (readyResolve) readyResolve();
+          }
+
           try { applyBranding(JSON.parse(localStorage.getItem(CACHE_KEY) || "null")); } catch (e) {}
 
-          if (!backendUrl || backendUrl.indexOf("%") === 0 || !publishableKey || publishableKey.indexOf("%") === 0) return;
+          if (!backendUrl || backendUrl.indexOf("%") === 0 || !publishableKey || publishableKey.indexOf("%") === 0) {
+            finishBootstrap();
+            return;
+          }
 
           try {
             var controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-            var timer = controller ? setTimeout(function () { controller.abort(); }, 2500) : null;
+            bootstrapTimer = setTimeout(function () {
+              try { if (controller) controller.abort(); } catch (e) {}
+              finishBootstrap();
+            }, 1800);
             var headers = { apikey: publishableKey };
             if (publishableKey.indexOf("sb_publishable_") !== 0) headers.Authorization = "Bearer " + publishableKey;
             fetch(backendUrl + "/rest/v1/cms_settings?select=key,value&key=in.(" + keys.join(",") + ")", {
@@ -187,11 +204,14 @@
                 }
               })
               .catch(function () {})
-              .finally(function () { if (timer) clearTimeout(timer); });
-          } catch (e) {}
+              .finally(finishBootstrap);
+          } catch (e) { finishBootstrap(); }
         })();
       </script>
     </div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module">
+      await (window.__cmsLoaderReady || Promise.resolve());
+      import("/src/main.tsx");
+    </script>
   </body>
 </html>
