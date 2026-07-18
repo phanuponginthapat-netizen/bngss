@@ -293,6 +293,7 @@ const App = () => (
                 <Route path="profile" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "alumni", "parent"]}><ProfilePage /></ProtectedRoute>} />
                 <Route path="settings/notifications" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "alumni", "parent"]}><NotificationSettingsPage /></ProtectedRoute>} />
                 <Route path="admin/notifications" element={<ProtectedRoute allowedRoles={["admin", "director"]}><NotificationDeliveryDashboard /></ProtectedRoute>} />
+                <Route path="admin/notification-matrix" element={<ProtectedRoute allowedRoles={["admin", "director"]}><NotificationMatrixPage /></ProtectedRoute>} />
                 <Route path="admin/teacher-credentials" element={<ProtectedRoute allowedRoles={["admin", "director"]}><TeacherCredentialsPage /></ProtectedRoute>} />
                 <Route path="inbox" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><InboxPage /></ProtectedRoute>} />
                 <Route path="news/:id" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "alumni", "parent"]}><NewsDetailPage /></ProtectedRoute>} />
