@@ -318,7 +318,7 @@ Deno.serve(async (req) => {
     let earlyUserRole: string | null = null;
     try {
       const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-      const { data: roleRow } = await sb.from("user_roles").select("role").eq("user_id", identifier).maybeSingle();
+      const { data: roleRow } = await sb.from("user_roles").select("role").eq("user_id", identifier).limit(1).maybeSingle();
       earlyUserRole = (roleRow as any)?.role || null;
     } catch (_) {}
 
