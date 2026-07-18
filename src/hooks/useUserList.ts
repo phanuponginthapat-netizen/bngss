@@ -118,6 +118,15 @@ export function useUserList() {
 
   const filteredUsers = useMemo(() => {
     const q = search.toLowerCase();
+    // Map short grade code (e.g. "ม.3") → full Thai form ("มัธยมศึกษาปีที่ 3")
+    const expandGrade = (g: string): string[] => {
+      if (!g || g === "all") return [];
+      const m = g.match(/^(อ|ป|ม)\.(\d+)$/);
+      if (!m) return [g];
+      const prefix = m[1] === "อ" ? "อนุบาลปีที่" : m[1] === "ป" ? "ประถมศึกษาปีที่" : "มัธยมศึกษาปีที่";
+      return [g, `${prefix} ${m[2]}`];
+    };
+    const gradeVariants = expandGrade(filterGrade);
     return users.filter((u) => {
       const matchSearch =
         u.first_name?.toLowerCase().includes(q) ||
@@ -126,7 +135,10 @@ export function useUserList() {
         u.student_code?.toLowerCase().includes(q) ||
         u.employee_code?.toLowerCase().includes(q);
       const matchRole = filterRole === "all" || u.role === filterRole;
-      const matchGrade = filterGrade === "all" || u.department === filterGrade;
+      const matchGrade =
+        filterGrade === "all" ||
+        gradeVariants.includes(u.department || "") ||
+        gradeVariants.includes(u.grade_level || "");
       return matchSearch && matchRole && matchGrade;
     });
   }, [users, search, filterRole, filterGrade]);
