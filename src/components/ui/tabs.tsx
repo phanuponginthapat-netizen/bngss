@@ -19,27 +19,72 @@ const TabsList = React.forwardRef<
     [ref],
   );
 
-  // Auto-scroll the active tab into view (center) whenever it changes.
+  // Center the active tab reliably across Chrome, Safari, Firefox — including RTL.
+  // Uses getBoundingClientRect (layout-space) instead of offsetLeft/scrollLeft,
+  // which differ in sign/origin between WebKit, Blink, and Firefox when dir="rtl".
   React.useEffect(() => {
     const el = innerRef.current;
     if (!el) return;
-    const scrollActiveIntoView = () => {
+    const centerActive = () => {
       const active = el.querySelector<HTMLElement>('[data-state="active"]');
       if (!active) return;
-      // scrollIntoView handles both LTR and RTL scroll math correctly across browsers.
-      active.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+      const cRect = el.getBoundingClientRect();
+      const aRect = active.getBoundingClientRect();
+      const delta = (aRect.left + aRect.width / 2) - (cRect.left + cRect.width / 2);
+      if (Math.abs(delta) < 2) return;
+      try {
+        el.scrollBy({ left: delta, behavior: "smooth" });
+      } catch {
+        el.scrollLeft += delta; // older Safari fallback
+      }
     };
-    scrollActiveIntoView();
-    const observer = new MutationObserver(scrollActiveIntoView);
+    // Delay one frame so layout is settled before measuring.
+    const raf = requestAnimationFrame(centerActive);
+    const observer = new MutationObserver(() => requestAnimationFrame(centerActive));
     observer.observe(el, { attributes: true, subtree: true, attributeFilter: ["data-state"] });
-    return () => observer.disconnect();
+    return () => {
+      cancelAnimationFrame(raf);
+      observer.disconnect();
+    };
+  }, []);
+
+  // Pointer-drag to scroll (desktop mouse + trackpad). Touch is handled natively
+  // by the browser via `touch-pan-x`, which is the most consistent path on iOS/Android.
+  React.useEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+    let down = false;
+    let startX = 0;
+    let startScroll = 0;
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse") return; // let touch use native momentum
+      down = true;
+      startX = e.clientX;
+      startScroll = el.scrollLeft;
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!down) return;
+      el.scrollLeft = startScroll - (e.clientX - startX);
+    };
+    const onUp = () => { down = false; };
+    el.addEventListener("pointerdown", onDown, { passive: true });
+    el.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerup", onUp, { passive: true });
+    window.addEventListener("pointercancel", onUp, { passive: true });
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
   }, []);
 
   return (
     <TabsPrimitive.List
       ref={setRefs}
       className={cn(
-        "relative inline-flex h-auto min-h-10 max-w-full items-center justify-start overflow-x-auto overscroll-x-contain snap-x snap-mandatory scroll-smooth touch-pan-x [-webkit-overflow-scrolling:touch] rounded-md bg-muted p-1 text-muted-foreground rtl:[direction:rtl] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30",
+        // snap-proximity (not mandatory) — Safari iOS momentum & Firefox Android stay smooth.
+        "relative inline-flex h-auto min-h-10 max-w-full items-center justify-start overflow-x-auto overflow-y-hidden overscroll-x-contain snap-x [scroll-snap-type:x_proximity] scroll-smooth touch-pan-x [-webkit-overflow-scrolling:touch] [scroll-behavior:smooth] rounded-md bg-muted p-1 text-muted-foreground [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30",
         className,
       )}
       {...props}
@@ -47,6 +92,7 @@ const TabsList = React.forwardRef<
   );
 });
 TabsList.displayName = TabsPrimitive.List.displayName;
+
 
 const TabsTrigger = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Trigger>,
