@@ -86,32 +86,6 @@ export function SidebarAccountFooter() {
       <SidebarMenu className="gap-0.5">
         <SidebarMenuItem>
           <SidebarMenuButton
-            asChild
-            tooltip={lang === "th" ? "โปรไฟล์" : "Profile"}
-            className={collapsed ? "justify-center w-10 h-10 mx-auto" : ""}
-          >
-            <Link to="/dashboard/profile" onClick={closeMobile} className="text-sidebar-foreground/85">
-              <User className="w-4 h-4" />
-              {!collapsed && <span>{lang === "th" ? "โปรไฟล์" : "Profile"}</span>}
-            </Link>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-        {(role === "admin" || role === "director") && (
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              tooltip={lang === "th" ? "จัดการผู้ใช้" : "User Management"}
-              className={collapsed ? "justify-center w-10 h-10 mx-auto" : ""}
-            >
-              <Link to="/dashboard/users" onClick={closeMobile} className="text-sidebar-foreground/85">
-                <Shield className="w-4 h-4" />
-                {!collapsed && <span>{lang === "th" ? "จัดการผู้ใช้" : "User Management"}</span>}
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        )}
-        <SidebarMenuItem>
-          <SidebarMenuButton
             onClick={handleLogout}
             tooltip={t("logout")}
             className={`text-destructive hover:text-destructive ${collapsed ? "justify-center w-10 h-10 mx-auto" : ""}`}
