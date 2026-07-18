@@ -1772,7 +1772,7 @@ const AssessmentTab = () => {
         </Card>
       ) : (
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="space-y-4">
-          <TabsList>
+          <TabsList className="w-full justify-start overflow-x-auto flex-nowrap whitespace-nowrap max-w-full">
             {ASSESSMENT_CATEGORIES.map(cat => (
               <TabsTrigger key={cat.value} value={cat.value} className="gap-1.5">
                 <cat.icon className="w-3.5 h-3.5" /> {cat.label}
