@@ -44,7 +44,7 @@ function openDb(): Promise<IDBDatabase> {
 
 export async function enqueue(action: Omit<QueueAction, "id" | "createdAt" | "attempts">) {
   const db = await openDb();
-  return new Promise<number>((resolve, reject) => {
+  const id = await new Promise<number>((resolve, reject) => {
     const tx = db.transaction(STORE, "readwrite");
     const req = tx.objectStore(STORE).add({
       ...action,
@@ -54,6 +54,11 @@ export async function enqueue(action: Omit<QueueAction, "id" | "createdAt" | "at
     req.onsuccess = () => resolve(req.result as number);
     req.onerror = () => reject(req.error);
   });
+  // ขอให้ SW flush ผ่าน Background Sync — ทำงานได้แม้ปิดแท็บ
+  import("./swBackgroundSync").then(({ requestBackgroundFlush }) => {
+    requestBackgroundFlush().catch(() => {});
+  }).catch(() => {});
+  return id;
 }
 
 export async function list(): Promise<QueueAction[]> {
