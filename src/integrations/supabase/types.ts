@@ -8761,6 +8761,7 @@ export type Database = {
         Row: {
           allow_guest_post: boolean
           background: string | null
+          classroom_id: string | null
           created_at: string
           description: string | null
           id: string
@@ -8768,12 +8769,14 @@ export type Database = {
           layout: string
           owner_id: string
           share_code: string | null
+          subject_id: string | null
           title: string
           updated_at: string
         }
         Insert: {
           allow_guest_post?: boolean
           background?: string | null
+          classroom_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -8781,12 +8784,14 @@ export type Database = {
           layout?: string
           owner_id: string
           share_code?: string | null
+          subject_id?: string | null
           title: string
           updated_at?: string
         }
         Update: {
           allow_guest_post?: boolean
           background?: string | null
+          classroom_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -8794,6 +8799,7 @@ export type Database = {
           layout?: string
           owner_id?: string
           share_code?: string | null
+          subject_id?: string | null
           title?: string
           updated_at?: string
         }
@@ -8801,6 +8807,7 @@ export type Database = {
       }
       padlet_notes: {
         Row: {
+          attachments: Json
           author_id: string | null
           author_name: string | null
           board_id: string
@@ -8816,6 +8823,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          attachments?: Json
           author_id?: string | null
           author_name?: string | null
           board_id: string
@@ -8831,6 +8839,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          attachments?: Json
           author_id?: string | null
           author_name?: string | null
           board_id?: string
@@ -12520,6 +12529,7 @@ export type Database = {
           feedback: string | null
           grade: number | null
           id: string
+          max_score: number | null
           notes: string | null
           replies: Json
           status: string
@@ -12547,6 +12557,7 @@ export type Database = {
           feedback?: string | null
           grade?: number | null
           id?: string
+          max_score?: number | null
           notes?: string | null
           replies?: Json
           status?: string
@@ -12574,6 +12585,7 @@ export type Database = {
           feedback?: string | null
           grade?: number | null
           id?: string
+          max_score?: number | null
           notes?: string | null
           replies?: Json
           status?: string
