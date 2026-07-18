@@ -31,21 +31,32 @@ import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { useRadixOverlayCleanup } from "@/hooks/useRadixOverlayCleanup";
 import { useForceLogoutListener } from "@/hooks/useForceLogoutListener";
 
-/** Menu item ที่ใช้ toggle sidebar — ต้องอยู่ใต้ SidebarProvider */
-function SidebarToggleItem() {
+/** ปุ่ม avatar ที่ toggle sidebar (แทน dropdown เดิม) */
+function AvatarSidebarToggle({ avatarUrl, fullName, userEmail }: { avatarUrl: string | null; fullName: string; userEmail: string }) {
   const { toggleSidebar, state, isMobile, openMobile } = useSidebar();
   const { lang } = useLanguage();
   const isOpen = isMobile ? openMobile : state === "expanded";
-  const label = isOpen
-    ? (lang === "th" ? "ซ่อนแถบเมนูด้านข้าง" : "Hide sidebar")
-    : (lang === "th" ? "แสดงแถบเมนูด้านข้าง" : "Show sidebar");
+  const aria = isOpen
+    ? (lang === "th" ? "ซ่อนแถบเมนู" : "Hide sidebar")
+    : (lang === "th" ? "แสดงแถบเมนู" : "Show sidebar");
   return (
-    <DropdownMenuItem
-      onSelect={(e) => { e.preventDefault(); toggleSidebar(); }}
-      className="cursor-pointer gap-2"
+    <Button
+      variant="ghost"
+      onClick={toggleSidebar}
+      aria-label={aria}
+      aria-expanded={isOpen}
+      title={aria}
+      className="gap-2 px-2 sm:px-3 max-w-[200px] rounded-full hover:bg-card"
     >
-      <PanelLeft className="w-4 h-4" /> {label}
-    </DropdownMenuItem>
+      {avatarUrl ? (
+        <img src={avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover ring-2 ring-primary/30" />
+      ) : (
+        <span className="w-7 h-7 rounded-full bg-primary/10 ring-2 ring-primary/30 flex items-center justify-center">
+          <User className="w-4 h-4 text-primary" />
+        </span>
+      )}
+      <span className="hidden sm:inline text-sm truncate font-medium">{fullName || userEmail}</span>
+    </Button>
   );
 }
 
