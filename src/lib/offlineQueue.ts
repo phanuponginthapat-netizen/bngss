@@ -95,18 +95,73 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE)) {
         db.createObjectStore(STORE, { keyPath: "id", autoIncrement: true });
       }
+      if (!db.objectStoreNames.contains(COMPLETED_STORE)) {
+        // key = operationId, value = { completedAt }
+        db.createObjectStore(COMPLETED_STORE);
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
 
-export async function enqueue(action: Omit<QueueAction, "id" | "createdAt" | "attempts">) {
+async function markCompleted(operationId: string | undefined) {
+  if (!operationId) return;
+  try {
+    const db = await openDb();
+    const tx = db.transaction(COMPLETED_STORE, "readwrite");
+    tx.objectStore(COMPLETED_STORE).put({ completedAt: Date.now() }, operationId);
+    await new Promise<void>((r) => { tx.oncomplete = () => r(); tx.onerror = () => r(); });
+  } catch (_) {}
+}
+
+async function isCompleted(operationId: string | undefined): Promise<boolean> {
+  if (!operationId) return false;
+  try {
+    const db = await openDb();
+    const tx = db.transaction(COMPLETED_STORE, "readonly");
+    const rec = await new Promise<any>((resolve) => {
+      const r = tx.objectStore(COMPLETED_STORE).get(operationId);
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => resolve(null);
+    });
+    if (!rec) return false;
+    if (Date.now() - rec.completedAt > COMPLETED_TTL_MS) return false;
+    return true;
+  } catch (_) { return false; }
+}
+
+async function purgeCompleted() {
+  try {
+    const db = await openDb();
+    const tx = db.transaction(COMPLETED_STORE, "readwrite");
+    const store = tx.objectStore(COMPLETED_STORE);
+    const cursorReq = store.openCursor();
+    const now = Date.now();
+    await new Promise<void>((resolve) => {
+      cursorReq.onsuccess = () => {
+        const cur = cursorReq.result;
+        if (!cur) { resolve(); return; }
+        const v = cur.value as { completedAt: number };
+        if (!v || now - v.completedAt > COMPLETED_TTL_MS) cur.delete();
+        cur.continue();
+      };
+      cursorReq.onerror = () => resolve();
+    });
+  } catch (_) {}
+}
+
+/** in-memory guard — กันสอง flush ในแท็บเดียวกันหยิบ operationId เดียวกัน */
+const inFlightOps = new Set<string>();
+
+export async function enqueue(action: Omit<QueueAction, "id" | "createdAt" | "attempts" | "operationId"> & { operationId?: string }) {
   const db = await openDb();
+  const operationId = action.operationId || newOperationId();
   const id = await new Promise<number>((resolve, reject) => {
     const tx = db.transaction(STORE, "readwrite");
     const req = tx.objectStore(STORE).add({
       ...action,
+      operationId,
       createdAt: Date.now(),
       attempts: 0,
     } satisfies QueueAction);
