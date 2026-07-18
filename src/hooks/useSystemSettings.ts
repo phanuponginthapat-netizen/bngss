@@ -44,17 +44,34 @@ export function useSystemSettings() {
   useEffect(() => {
     if (!settings) return;
     try {
-      const logo = settings.app_favicon_url || settings.school_logo || "";
+      const logo = settings.school_logo || settings.app_favicon_url || "";
+      const favicon = settings.app_favicon_url || settings.school_logo || "";
       const name = settings.app_name || settings.school_name || "";
-      const themeColor = (settings as any).theme_color || (settings as any).app_theme_color || "";
-      if (logo || name || themeColor) {
-        localStorage.setItem(
-          "cms_branding_cache",
-          JSON.stringify({ logo, name, themeColor }),
-        );
+      const shortName = settings.app_short_name || (settings as any).school_short_name || name;
+      const themeColor =
+        (settings as any).theme_color ||
+        (settings as any).primary_color ||
+        (settings as any).theme_primary_color ||
+        (settings as any).app_theme_color ||
+        "";
+      if (logo || favicon || name || themeColor) {
+        const branding = { logo, favicon, name, shortName, themeColor };
+        (window as any).__branding = branding;
+        localStorage.setItem("cms_branding_cache", JSON.stringify(branding));
+        window.dispatchEvent(new CustomEvent("branding:ready", { detail: branding }));
       }
     } catch {}
-  }, [settings?.app_favicon_url, settings?.school_logo, settings?.app_name, settings?.school_name]);
+  }, [
+    settings?.app_favicon_url,
+    settings?.school_logo,
+    settings?.app_name,
+    settings?.app_short_name,
+    settings?.school_name,
+    (settings as any)?.school_short_name,
+    (settings as any)?.theme_color,
+    (settings as any)?.primary_color,
+    (settings as any)?.theme_primary_color,
+  ]);
 
   const schoolName = settings?.school_name || "";
   const appName = settings?.app_name || schoolName || "Smart School";

@@ -70,12 +70,16 @@ export async function applyDynamicBranding() {
         .from("cms_settings")
         .select("key, value")
         .in("key", [
+          "app_name",
+          "app_short_name",
+          "app_favicon_url",
           "school_name",
           "school_short_name",
           "school_logo",
           "school_logo_512",
           "primary_color",
           "theme_color",
+          "theme_primary_color",
           "background_color",
           "school_description",
         ]),
@@ -96,20 +100,22 @@ export async function applyDynamicBranding() {
 
     // CMS → schools → ค่าทั่วไป (ไม่ผูกชื่อโรงเรียนใดในโค้ด)
     const name =
+      map.app_name ||
       map.school_name ||
       school.school_name ||
       "ระบบจัดการโรงเรียน";
     const shortName =
+      map.app_short_name ||
       map.school_short_name ||
       school.short_name ||
       (name.length > 12 ? name.slice(0, 12) : name);
-    const themeColor = map.theme_color || map.primary_color || "#2563EB";
+    const themeColor = map.theme_color || map.primary_color || map.theme_primary_color || "#2563EB";
     const bgColor = map.background_color || "#FFFFFF";
     const description =
       map.school_description ||
       `${name} — ระบบบริหารจัดการโรงเรียน`;
 
-    const source = map.school_logo_512 || map.school_logo || school.logo_url;
+    const source = map.school_logo || map.school_logo_512 || map.app_favicon_url || school.logo_url;
 
     const [logo192, logo512] = await Promise.all([
       prepareSquareLogo(source, 192, bgColor).catch(() => DEFAULT_ICON_192),
@@ -151,7 +157,7 @@ export async function applyDynamicBranding() {
 
 
 
-    const branding = { name, shortName, logo: logo192, themeColor };
+    const branding = { name, shortName, logo: logo192, favicon: map.app_favicon_url || logo192, themeColor };
     (window as any).__branding = branding;
     applyThemeVars(themeColor);
     try { localStorage.setItem(BRAND_CACHE_KEY, JSON.stringify(branding)); } catch {}
