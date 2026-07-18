@@ -26,10 +26,8 @@ const TabsList = React.forwardRef<
     const scrollActiveIntoView = () => {
       const active = el.querySelector<HTMLElement>('[data-state="active"]');
       if (!active) return;
-      const elRect = el.getBoundingClientRect();
-      const aRect = active.getBoundingClientRect();
-      const offset = aRect.left - elRect.left - (elRect.width - aRect.width) / 2;
-      el.scrollTo({ left: el.scrollLeft + offset, behavior: "smooth" });
+      // scrollIntoView handles both LTR and RTL scroll math correctly across browsers.
+      active.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
     };
     scrollActiveIntoView();
     const observer = new MutationObserver(scrollActiveIntoView);
