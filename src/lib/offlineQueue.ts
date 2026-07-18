@@ -26,7 +26,49 @@ export type QueueAction = {
   createdAt: number;
   attempts?: number;
   lastError?: string;
+  /** epoch ms — จะไม่ retry ก่อนเวลานี้ (exponential backoff) */
+  nextRetryAt?: number;
+  /** ทำเครื่องหมายว่า "dead" เมื่อเกินจำนวนครั้งสูงสุด — เก็บไว้ให้ผู้ใช้ดู/ลบเอง */
+  dead?: boolean;
 };
+
+// ─── นโยบาย retry ───────────────────────────────────────────────
+export const MAX_RETRY_ATTEMPTS = 8;          // ~ครอบคลุม backoff รวมหลายชั่วโมง
+const BASE_BACKOFF_MS = 30 * 1000;             // 30s
+const MAX_BACKOFF_MS = 6 * 60 * 60 * 1000;     // 6h cap
+
+/** exponential backoff + jitter: 30s → 1m → 2m → 4m → … cap 6h */
+export function computeBackoffMs(attempts: number): number {
+  const exp = Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * Math.pow(2, Math.max(0, attempts - 1)));
+  const jitter = Math.floor(Math.random() * Math.min(exp * 0.2, 30_000)); // ≤20% หรือ 30s
+  return exp + jitter;
+}
+
+/**
+ * แยก error ที่ "ไม่มีทางสำเร็จ" (permanent) ออก — เช่น 400/401/403/404/409/422
+ * ให้ทิ้งทันทีเพื่อไม่ให้คิวค้าง/ชนซ้ำ ส่วน 408/429/5xx/เน็ตพัง = retryable
+ */
+export function isPermanentError(err: unknown): boolean {
+  if (!err) return false;
+  const msg = (err as Error).message || String(err);
+  // Postgres/PostgREST codes ที่บ่งบอกว่า payload ผิดโครงสร้าง / RLS / duplicate
+  if (/\b(23505|23502|23503|23514|42\d{3}|PGRST\d+)\b/.test(msg)) return true;
+  const status = (err as { status?: number; code?: number }).status
+    ?? (err as { code?: number }).code;
+  if (typeof status === "number") {
+    if (status === 408 || status === 429) return false;
+    if (status >= 400 && status < 500) return true;
+  }
+  // ดึงเลข status จากข้อความ "HTTP 4xx …"
+  const m = msg.match(/HTTP\s+(\d{3})/i);
+  if (m) {
+    const s = parseInt(m[1], 10);
+    if (s === 408 || s === 429) return false;
+    if (s >= 400 && s < 500) return true;
+  }
+  return false;
+}
+
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
