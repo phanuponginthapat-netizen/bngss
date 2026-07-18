@@ -404,6 +404,7 @@ export function AppSidebar() {
       roles: ["admin", "director", "teacher"],
       items: [
         { title: L("บุคลากร (HR)", "Personnel (HR)"), url: "/dashboard/hub/hr", icon: Users, color: "text-purple-400", roles: ["admin", "director", "teacher"], desc: L("ทะเบียน โครงสร้าง เวลา ลา สอนแทน ประเมิน เงินเดือน ID Plan", "Records, org, attendance, leave, sub, eval, salary, ID Plan") },
+        { title: L("ครูเวรประจำวัน", "Duty Teachers"), url: "/dashboard/admin/duty-teachers", icon: ShieldCheck, color: "text-amber-400", roles: ["admin", "director"], desc: L("จัดเวร · จุดเวร · บันทึกเหตุการณ์ · แจ้งเตือนอัตโนมัติ", "Schedule · locations · logs · auto-notify") },
       ],
     },
     {
