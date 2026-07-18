@@ -903,26 +903,29 @@ serve(async (req) => {
           .map((u: any) => [String(u.email).toLowerCase(), u]),
       );
 
-      const results: any[] = [];
-      for (const u of users) {
+      // Process users with bounded parallelism to speed up DMC imports.
+      // Each iteration is I/O-bound (auth admin API + several DB round-trips).
+      const CONCURRENCY = 6;
+      const results: any[] = new Array(users.length);
+
+      const processOne = async (u: any, idx: number) => {
         const rowName = [u.prefix, u.first_name, u.last_name].filter(Boolean).join(" ");
         try {
           const assignedRole = u.role || "teacher";
 
-          // Skip rows missing the minimum identity required for either path
           if (!u.first_name || !u.last_name) {
-            results.push({
+            results[idx] = {
               email: u.email || "", name: rowName, success: false, action: "skipped",
               skip_reason: "ไม่มีชื่อ/นามสกุล",
-            });
-            continue;
+            };
+            return;
           }
           if (assignedRole === "student" && !u.student_code && !(u.first_name && u.last_name)) {
-            results.push({
+            results[idx] = {
               email: u.email || "", name: rowName, success: false, action: "skipped",
               skip_reason: "ไม่มีรหัสนักเรียนและไม่มีชื่อ-นามสกุลครบ",
-            });
-            continue;
+            };
+            return;
           }
 
           const email = String(u.email || "").trim().toLowerCase();
@@ -952,32 +955,29 @@ serve(async (req) => {
               user_metadata: { first_name: u.first_name, last_name: u.last_name },
             });
             if (userUpdateErr) {
-              results.push({ email, name: rowName, success: false, error: userUpdateErr.message, action: "failed" });
-              continue;
+              results[idx] = { email, name: rowName, success: false, error: userUpdateErr.message, action: "failed" };
+              return;
             }
           }
 
           if (email && !userId) {
-            {
-              const { data: newUser, error } = await adminClient.auth.admin.createUser({
-                email,
-                password: u.password || "School@1234",
-                email_confirm: true,
-                user_metadata: { first_name: u.first_name, last_name: u.last_name },
-              });
-              if (error) {
-                results.push({ email, name: rowName, success: false, error: error.message, action: "failed" });
-                continue;
-              }
-              userId = newUser.user.id;
-              existingUserByEmail.set(email, newUser.user as any);
-              authAction = "created";
+            const { data: newUser, error } = await adminClient.auth.admin.createUser({
+              email,
+              password: u.password || "School@1234",
+              email_confirm: true,
+              user_metadata: { first_name: u.first_name, last_name: u.last_name },
+            });
+            if (error) {
+              results[idx] = { email, name: rowName, success: false, error: error.message, action: "failed" };
+              return;
             }
+            userId = newUser.user.id;
+            existingUserByEmail.set(email, newUser.user as any);
+            authAction = "created";
           }
 
           if (userId) {
             await ensureSingleRole(adminClient, userId, assignedRole);
-
             await ensureProfileRecord(adminClient, {
               userId,
               firstName: u.first_name,
@@ -1044,18 +1044,29 @@ serve(async (req) => {
             filledFields = r.filled_fields;
           }
 
-          results.push({
+          results[idx] = {
             email, name: rowName, success: true, user_id: userId,
             action: recordAction,
             matched_by: matchedBy,
             filled_fields: filledFields,
             filled_count: filledFields.length,
             student_code: u.student_code || null,
-          });
+          };
         } catch (e: any) {
-          results.push({ email: u.email, name: rowName, success: false, error: e.message, action: "failed" });
+          results[idx] = { email: u.email, name: rowName, success: false, error: e.message, action: "failed" };
         }
-      }
+      };
+
+      // Worker pool
+      let cursor = 0;
+      const workers = Array.from({ length: Math.min(CONCURRENCY, users.length) }, async () => {
+        while (true) {
+          const i = cursor++;
+          if (i >= users.length) return;
+          await processOne(users[i], i);
+        }
+      });
+      await Promise.all(workers);
       return ok({ success: true, results });
     }
 
