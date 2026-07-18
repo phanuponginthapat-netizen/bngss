@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { toThaiError, toThaiErrorSync } from "./errorMessage";
+import { toThaiErrorDetailed, toThaiErrorDetailedSync, type ThaiErrorDetail } from "./errorMessage";
 import { toast } from "sonner";
 
 
