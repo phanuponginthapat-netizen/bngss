@@ -165,25 +165,45 @@ async function resolveClassroomId(
 
   const normalizedRoom = String(room || "").trim();
 
-  if (normalizedRoom) {
-    const targetName = normalizedRoom.includes("/") ? normalizedRoom : `${gradeLevel}/${normalizedRoom}`;
-    const { data: exact } = await adminClient
+  // Helper: safe find-or-create that survives race conditions & existing duplicates
+  const findOrCreate = async (name: string): Promise<string | null> => {
+    // Find first (order by created_at to pick the "keeper" if duplicates ever slip in)
+    const { data: found } = await adminClient
       .from("classrooms")
       .select("id")
       .eq("grade_level", gradeLevel)
-      .eq("name", targetName)
+      .eq("name", name)
+      .order("created_at", { ascending: true })
+      .limit(1)
       .maybeSingle();
+    if (found?.id) return found.id;
 
-    if (exact?.id) return exact.id;
-
+    // Try insert; on unique-violation (23505) re-query
     const { data: created, error: createErr } = await adminClient
       .from("classrooms")
-      .insert({ name: targetName, grade_level: gradeLevel, capacity: 40 })
+      .insert({ name, grade_level: gradeLevel, capacity: 40 })
       .select("id")
       .maybeSingle();
+    if (!createErr && created?.id) return created.id;
+
+    // Race lost — someone else just created it. Look it up again.
+    const { data: retry } = await adminClient
+      .from("classrooms")
+      .select("id")
+      .eq("grade_level", gradeLevel)
+      .eq("name", name)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (retry?.id) return retry.id;
 
     if (createErr) throw createErr;
-    return created?.id ?? null;
+    return null;
+  };
+
+  if (normalizedRoom) {
+    const targetName = normalizedRoom.includes("/") ? normalizedRoom : `${gradeLevel}/${normalizedRoom}`;
+    return await findOrCreate(targetName);
   }
 
   const { data: classrooms } = await adminClient
@@ -202,27 +222,11 @@ async function resolveClassroomId(
 
       if ((count || 0) < (cr.capacity || 40)) return cr.id;
     }
-
     const nextSection = classrooms.length + 1;
-    const newName = `${gradeLevel}/${nextSection}`;
-    const { data: newCr, error: insertErr } = await adminClient
-      .from("classrooms")
-      .insert({ name: newName, grade_level: gradeLevel, capacity: 40 })
-      .select("id")
-      .maybeSingle();
-
-    if (insertErr) throw insertErr;
-    return newCr?.id ?? null;
+    return await findOrCreate(`${gradeLevel}/${nextSection}`);
   }
 
-  const { data: newCr, error: createErr } = await adminClient
-    .from("classrooms")
-    .insert({ name: `${gradeLevel}/1`, grade_level: gradeLevel, capacity: 40 })
-    .select("id")
-    .maybeSingle();
-
-  if (createErr) throw createErr;
-  return newCr?.id ?? null;
+  return await findOrCreate(`${gradeLevel}/1`);
 }
 
 function buildStudentCodeVariants(studentCode?: string | null) {
