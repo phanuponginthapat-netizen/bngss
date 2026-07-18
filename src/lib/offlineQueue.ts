@@ -15,7 +15,8 @@ const VERSION = 1;
 
 export type QueueAction = {
   id?: number;
-  type: "attendance" | "behavior";
+  /** type ใช้จัดกลุ่ม/ดูสถิติ — รองรับได้ทุกชนิด */
+  type: "attendance" | "behavior" | "notify" | "generic" | string;
   /** table to insert/upsert into */
   table: string;
   /** payload to send to supabase */
