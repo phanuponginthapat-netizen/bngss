@@ -104,7 +104,7 @@ var list_inbox_default = defineTool3({
 });
 
 // src/lib/mcp/index.ts
-var projectRef = "oyvnhjzseyjcclhpqfbs";
+var projectRef = "dlkyxvhnnffblerwedjz";
 var mcp_default = defineMcp({
   name: "school-mcp",
   title: "School Management MCP",
