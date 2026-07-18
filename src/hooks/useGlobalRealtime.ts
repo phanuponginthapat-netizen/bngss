@@ -266,16 +266,23 @@ export function useGlobalRealtime() {
       );
     }
 
+    let didFirstSubscribe = false;
     channel.subscribe((status) => {
-      // Auto-resync on (re)connect so we never miss data after sleep/offline
-      if (status === "SUBSCRIBED") {
-        qc.invalidateQueries();
+      // On reconnect only: invalidate the hot user-scoped queries, not the whole cache.
+      // (Blanket invalidateQueries() with 500+ users online = refetch storm)
+      if (status === "SUBSCRIBED" && didFirstSubscribe) {
+        scheduleInvalidate([["notifications"], ["inbox_items"], ["dashboard_stats_v2"]]);
       }
+      if (status === "SUBSCRIBED") didFirstSubscribe = true;
     });
 
-    // Force resync when tab becomes visible or network restored
+    // Force resync when tab becomes visible or network restored — throttled
+    let lastResync = 0;
     const resync = () => {
-      qc.invalidateQueries();
+      const now = Date.now();
+      if (now - lastResync < 5000) return; // ≤ 1 resync ต่อ 5 วิ
+      lastResync = now;
+      scheduleInvalidate([["notifications"], ["inbox_items"]]);
     };
     const onVisible = () => {
       if (document.visibilityState === "visible") resync();
@@ -286,6 +293,7 @@ export function useGlobalRealtime() {
     return () => {
       window.removeEventListener("online", resync);
       document.removeEventListener("visibilitychange", onVisible);
+      if (invalidationTimer !== null) clearTimeout(invalidationTimer);
       supabase.removeChannel(channel);
     };
   }, [qc, role, userId, navigate]);
