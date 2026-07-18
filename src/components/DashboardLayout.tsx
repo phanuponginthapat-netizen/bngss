@@ -30,6 +30,26 @@ import AiChatBubble from "@/components/ai/AiChatBubble";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { useRadixOverlayCleanup } from "@/hooks/useRadixOverlayCleanup";
 import { useForceLogoutListener } from "@/hooks/useForceLogoutListener";
+import { useLanguage as _useLang } from "@/contexts/LanguageContext";
+
+/** Menu item ที่ใช้ toggle sidebar — ต้องอยู่ใต้ SidebarProvider */
+function SidebarToggleItem() {
+  const { toggleSidebar, state, isMobile, openMobile } = useSidebar();
+  const { lang } = _useLang();
+  const isOpen = isMobile ? openMobile : state === "expanded";
+  const label = isOpen
+    ? (lang === "th" ? "ซ่อนแถบเมนูด้านข้าง" : "Hide sidebar")
+    : (lang === "th" ? "แสดงแถบเมนูด้านข้าง" : "Show sidebar");
+  return (
+    <DropdownMenuItem
+      onSelect={(e) => { e.preventDefault(); toggleSidebar(); }}
+      className="cursor-pointer gap-2"
+    >
+      <PanelLeft className="w-4 h-4" /> {label}
+    </DropdownMenuItem>
+  );
+}
+
 
 const DashboardLayout = () => {
   const navigate = useNavigate();
