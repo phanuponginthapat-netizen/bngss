@@ -294,6 +294,8 @@ const DashboardLayout = () => {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <SidebarToggleItem />
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link to="/dashboard/profile" className="cursor-pointer gap-2">
                       <User className="w-4 h-4" /> {lang === "th" ? "โปรไฟล์" : "Profile"}
