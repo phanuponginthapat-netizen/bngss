@@ -43,6 +43,18 @@ const isNoise = (msg: string | undefined | null) =>
 export function installGlobalErrorHandlers() {
   if (installed || typeof window === "undefined") return;
   installed = true;
+
+  // กันการเด้ง toast ซ้ำๆข้อความเดียวกันติดต่อกัน
+  let lastMsg = "";
+  let lastAt = 0;
+  const showThaiToast = (msg: string) => {
+    const now = Date.now();
+    if (msg === lastMsg && now - lastAt < 3000) return;
+    lastMsg = msg;
+    lastAt = now;
+    try { toast.error(msg, { duration: 5000 }); } catch {}
+  };
+
   window.addEventListener("error", (e) => {
     if (isNoise(e.message)) return;
     logError(e.message || "window.error", {
@@ -50,7 +62,9 @@ export function installGlobalErrorHandlers() {
       source: "window.error",
       context: { filename: e.filename, lineno: e.lineno, colno: e.colno },
     });
+    showThaiToast(toThaiErrorSync(e.error || e.message));
   });
+
   window.addEventListener("unhandledrejection", (e) => {
     const r: any = e.reason;
     const msg = typeof r === "string" ? r : r?.message ?? "unhandledrejection";
@@ -59,6 +73,9 @@ export function installGlobalErrorHandlers() {
       stack: r?.stack,
       source: "unhandledrejection",
     });
+    // ดึง body จาก edge function response ถ้ามี → แสดงเป็น toast ไทย
+    toThaiError(r).then(showThaiToast).catch(() => showThaiToast(toThaiErrorSync(r)));
   });
 }
+
 
