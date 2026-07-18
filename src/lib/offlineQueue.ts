@@ -141,6 +141,24 @@ export async function count(): Promise<number> {
   });
 }
 
+/** ล้างเฉพาะ item ที่ตายแล้ว (เกิน MAX_RETRY_ATTEMPTS) — ให้ UI เรียกได้ */
+export async function clearDead(): Promise<number> {
+  const items = await list();
+  let n = 0;
+  for (const it of items) {
+    if (it.dead && it.id !== undefined) { await remove(it.id); n++; }
+  }
+  return n;
+}
+
+/** นับเฉพาะ item ที่ยัง active (ไม่ dead) */
+export async function countActive(): Promise<number> {
+  const items = await list();
+  return items.filter((i) => !i.dead).length;
+}
+
+
+
 let syncing = false;
 
 export async function flush(): Promise<{ ok: number; failed: number; dropped: number }> {
