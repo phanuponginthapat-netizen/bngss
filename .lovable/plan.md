@@ -1,88 +1,58 @@
-## เป้าหมาย
-ออกแบบโครงสร้างหมวดเมนู sidebar ใหม่ให้สั้น เข้าใจง่าย และตรงกับงานของแต่ละ role โดยไม่ตัดเมนูออก แค่ "จัดกลุ่มใหม่ + เรียงลำดับใหม่ + ซ่อนหมวดที่ไม่จำเป็นกับ role นั้น"
+# แผนงาน: จัดการแจ้งเตือน + สิทธิ์ตาม role + รองรับ 500–1,000 คนพร้อมกัน
 
-ไฟล์ที่แก้: `src/components/AppSidebar.tsx` ไฟล์เดียว (ไม่กระทบ route หรือ DB)
-
----
-
-## โครงสร้างหมวดมาตรฐาน (ใช้ร่วมกัน)
-
-จัดเหลือ **6 กลุ่มหลัก** + กลุ่ม "ทั่วไป" ด้านบน:
-
-```text
-⭐ ทั่วไป         Dashboard / Profile / Inbox / Feed / Portfolio / Members / เว็บไซต์
-📚 งานวิชาการ     ห้องเรียน วิชา ตาราง ปพ.1-8 ปฏิทิน การบ้าน ตรวจข้อสอบ
-🧑‍🎓 ดูแลนักเรียน  เช็คชื่อ พฤติกรรม ใบลา คัดกรอง สุขภาพ โฮมรูม SDQ เยี่ยมบ้าน วัคซีน
-📢 งานสารบรรณ     ข่าว หนังสือ E-Form แจ้งเหตุฉุกเฉิน อาหาร นม PDCA
-👥 บุคลากร & HR   ทะเบียน org-chart มาทำงาน DPA เงินเดือน ID Plan ลา สอนแทน
-💰 งบ & พัสดุ     งบประมาณ จัดซื้อ ทรัพย์สิน อุดหนุน Hub Project
-🧰 บริการ         ♻️ ธนาคารขยะ · 🚪 ห้องพิเศษ · 📦 ICT ยืม-คืน · 🌐 IoT
-⚙️ ผู้ดูแลระบบ    รวม 4 หมวดเก่า (เนื้อหา & ผู้ใช้, การเชื่อมต่อ & AI, ตั้งค่าระบบ,
-                  การตรวจสอบ & รายงาน) เป็น 4 sub-group ภายใต้ Administration เดียว
-```
+Roles ที่ active: `admin` `director` `teacher` `student` `parent` `alumni`
+(บวก view-mode override: admin ที่มี personnel → สลับเป็น teacher ได้)
 
 ---
 
-## การจัดเรียง/ซ่อนหมวดต่อ role
+## เฟส 1 — Notification Role Matrix (ต่อ role × category)
+**เป้าหมาย:** กำหนดค่าเริ่มต้นว่า role ไหนควรได้ notification ประเภทไหน ผ่านช่องทางไหน โดยที่ผู้ใช้ยัง override เองได้
 
-### 👑 Admin (เห็นทุกหมวด, เน้นงานระบบขึ้นก่อน)
-1. ⭐ ทั่วไป
-2. ⚙️ ผู้ดูแลระบบ (เปิด default)
-3. 📚 งานวิชาการ
-4. 🧑‍🎓 ดูแลนักเรียน
-5. 📢 งานสารบรรณ
-6. 👥 บุคลากร & HR
-7. 💰 งบ & พัสดุ
-8. 🧰 บริการ
+- ตารางใหม่ `role_notification_defaults(role, category, in_app, push, line, gchat, min_severity)`
+  - Seed ค่าเริ่มต้นตาม best practice:
+    - `admin/director` → รับทุก category (critical/attendance/behavior/health/ict/finance/eform/leave/homework/news)
+    - `teacher` → รับ homework, eform, leave (นักเรียนตัวเอง), behavior, attendance
+    - `parent` → เฉพาะข้อมูลลูก (homework, attendance, behavior, health, grade, news)
+    - `student` → homework, grade, attendance, news, eform ที่ตัวเองต้องทำ
+    - `alumni` → news เท่านั้น
+- แก้ `supabase/functions/notify-fanout/index.ts` ให้อ่าน matrix ก่อนตัดสินว่าจะยิงช่องทางไหน (user preference ทับ matrix ได้)
+- หน้า admin สำหรับปรับ matrix (reuse `channel_category_routing` UI pattern)
 
-### 🎓 Director (เน้นภาพรวมและรายงาน)
-1. ⭐ ทั่วไป
-2. 📚 งานวิชาการ
-3. 🧑‍🎓 ดูแลนักเรียน
-4. 👥 บุคลากร & HR
-5. 💰 งบ & พัสดุ
-6. 📢 งานสารบรรณ
-7. ⚙️ ผู้ดูแลระบบ (เห็นทุก sub-group ยกเว้น AI Import)
-8. 🧰 บริการ
+## เฟส 2 — Permission / RLS Hardening
+- ใช้ `security--run_security_scan` + `supabase--linter` วิเคราะห์ทั้งหมด
+- แก้ policies ที่มีช่อง privilege escalation หรือ leak ข้าม school
+- ทำ security-definer helper: `is_admin_or_director()`, `is_teacher_of_student(student_id)`, `is_parent_of_student(student_id)` เพื่อลด duplicate logic และแก้ครั้งเดียวมีผลทั้งระบบ
+- เอกสาร role-permission matrix (ใน `mem://features/role-permissions.md`)
 
-### 👩‍🏫 Teacher (ตัดงานระบบทิ้ง, โฟกัสห้องเรียน)
-1. ⭐ ทั่วไป + ลงเวลา + สแกนนักเรียน
-2. 📚 งานวิชาการ (เฉพาะที่ teacher เห็น)
-3. 🧑‍🎓 ดูแลนักเรียน
-4. 📢 งานสารบรรณ (ข่าว/หนังสือ/E-Form/แจ้งเหตุ)
-5. 👥 งานบุคลากรของฉัน (ลา, สอนแทน, ID Plan, DPA, org chart, สรุปการมาทำงานของตัวเอง)
-6. 🧰 บริการ (ขยะ/ห้องพิเศษ/ICT/IoT)
-   ไม่เห็น: ⚙️ ผู้ดูแลระบบ, 💰 งบ & พัสดุ
+## เฟส 3 — หน้า Admin จัดการสิทธิ์รวมศูนย์
+- หน้า `/dashboard/admin/permissions`:
+  - Tab 1: **Notification Matrix** (role × category)
+  - Tab 2: **Module Toggles** ต่อ role (จาก `useModuleToggles`)
+  - Tab 3: **Extra Grants** (`admin_permission_grants` — ให้ admin คนใดคนหนึ่งเข้าถึงโมดูลพิเศษ)
+  - Audit log ทุกการเปลี่ยนแปลง
 
-### 🧑‍🎓 Student (แบนเหมือนเดิม แต่จัดเป็น 3 กลุ่มสั้น ๆ)
-- ⭐ ของฉัน: Dashboard, Profile, Portfolio, Inbox, Feed, Members
-- 📚 การเรียน: ตารางเรียน, ปฏิทิน, การบ้าน, ปพ.5 (ดู), ใบลา
-- 🧰 บริการ: ธนาคารขยะ (แต้มของฉัน), ICT (ยืม/ประวัติ), ความสำเร็จ
-- (ตัด collapsible ออก ใช้ section label แบบสั้น)
-
-### 👨‍👩‍👧 Parent (compact 3 กลุ่ม)
-- ⭐ ของฉัน: Dashboard, Profile, Inbox, Feed
-- 👶 ลูกของฉัน: การมาเรียน, พฤติกรรม, ใบลา, สุขภาพ, การบ้าน, ตารางเรียน
-- 🏫 โรงเรียน: ปฏิทิน, สมาชิก
-
-### 🎓 Alumni (compact 2 กลุ่ม)
-- ⭐ ของฉัน: Dashboard, Profile, Portfolio
-- 🏫 โรงเรียน: Feed, Members, ปฏิทิน (เพิ่มเข้าไป)
+## เฟส 4 — Scale to 500–1,000 concurrent users
+1. **Database indexes** (hot paths):
+   - `notifications(user_id, created_at DESC) WHERE read_at IS NULL`
+   - `notification_delivery_log(notification_type, reason, created_at DESC)` — dedup ปัจจุบันเป็น full scan
+   - `push_subscriptions(user_id)` (มีอยู่แล้ว — verify)
+   - `attendance(student_id, date DESC)`, `face_scan_logs(created_at DESC)`
+2. **Realtime channels**:
+   - รวม channel ต่อ user (1 channel/user แทน 1 channel/table) → ลด WebSocket connections
+   - ใช้ Postgres `NOTIFY` + broadcast แทน `postgres_changes` สำหรับ non-critical
+3. **notify-fanout batching**:
+   - Batch push subscriptions 50 endpoints/รอบ (ตอนนี้ Promise.all ทั้งหมดในครั้งเดียว)
+   - ใช้ `EdgeRuntime.waitUntil` (มีแล้ว) + retry queue
+4. **Client throttling**:
+   - `useGlobalRealtime`: debounce 500ms + batch invalidateQueries
+   - React Query: `staleTime` >= 30s สำหรับ list queries
+5. **Face scan concurrency**: verify test `face-scan-concurrency.test.ts` ยัง pass
 
 ---
 
-## รายละเอียดทางเทคนิค
-- เพิ่มฟิลด์ `key` ให้ Department เพื่อใช้อ้างแทน label (กัน i18n เพี้ยน)
-- รวม 4 admin sub-categories เป็น Department เดียวชื่อ "ผู้ดูแลระบบ" แล้วใช้ `subgroups: { label, items[] }[]` render เป็น sub-heading เล็ก ๆ ภายใน collapsible
-- เปลี่ยน `roleOrder` ให้ใช้ key แทน label
-- ขยายแบบ compact (parent/alumni/student) ให้รับ `sections: { label, items[] }[]` แทน flat array เดียว
-- ไม่แตะ route, ไม่แตะ DB, ไม่แตะ permission อื่น
-
----
-
-## ผลลัพธ์ที่คาดหวัง
-- Admin/Director เห็นหมวดน้อยลง (จาก 11+ เหลือ 8) แต่ครอบคลุมเท่าเดิม
-- Teacher ไม่เจอเมนูระบบที่ทำไม่ได้
-- Student/Parent/Alumni มี section label แบ่งกลุ่มชัด อ่านง่ายในมือถือ
-
-ขอยืนยันก่อนเริ่มแก้ครับ — หรือถ้าอยากปรับชื่อหมวด/ลำดับใด ๆ บอกได้เลย
+## ลำดับการ ship
+1. เฟส 1 (migration + edge function) — commit เดียว
+2. เฟส 4.1 (indexes) — migration เดียว (safe, ไม่กระทบ API)
+3. เฟส 2 (RLS audit) — commit ตาม scan findings
+4. เฟส 4.2–4.4 (realtime + batching) — client + edge function
+5. เฟส 3 (Admin UI) — สุดท้าย เพราะพึ่ง schema จากเฟส 1-2
