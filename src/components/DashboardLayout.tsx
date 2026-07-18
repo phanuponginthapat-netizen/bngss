@@ -211,7 +211,6 @@ const DashboardLayout = () => {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen min-h-[100svh] w-full bg-background">
-        <AppSidebar />
         <main className="flex-1 flex flex-col min-w-0">
 
           <header
