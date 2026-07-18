@@ -1016,22 +1016,38 @@ const UserManagement = () => {
     if (bulkUsers.length === 0) return;
     setSaving(true);
     try {
-      const BATCH_SIZE = 8;
-      const allResults: any[] = [];
-      const totalBatches = Math.ceil(bulkUsers.length / BATCH_SIZE);
-
+      // Larger batches + parallel invocations. Server-side also parallelizes per row.
+      const BATCH_SIZE = 25;
+      const PARALLEL_BATCHES = 3;
+      const batches: any[][] = [];
       for (let i = 0; i < bulkUsers.length; i += BATCH_SIZE) {
-        const batch = bulkUsers.slice(i, i + BATCH_SIZE);
-        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-        swal.toast.info(`กำลังนำเข้า batch ${batchNum}/${totalBatches} (${batch.length} คน)...`);
+        batches.push(bulkUsers.slice(i, i + BATCH_SIZE));
+      }
+      const totalBatches = batches.length;
+      const allResults: any[] = [];
+      let done = 0;
 
+      const runBatch = async (batch: any[], idx: number) => {
         const { data, error } = await supabase.functions.invoke("manage-users", {
           body: { action: "bulk_create", users: batch },
         });
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
         allResults.push(...(data?.results || []));
-      }
+        done++;
+        swal.toast.info(`นำเข้าแล้ว ${done}/${totalBatches} batch (${allResults.length}/${bulkUsers.length} คน)...`);
+      };
+
+      // Run batches with bounded concurrency
+      let cursor = 0;
+      const workers = Array.from({ length: Math.min(PARALLEL_BATCHES, batches.length) }, async () => {
+        while (true) {
+          const i = cursor++;
+          if (i >= batches.length) return;
+          await runBatch(batches[i], i);
+        }
+      });
+      await Promise.all(workers);
 
       const success = allResults.filter((r: any) => r.success).length;
       const failed = allResults.filter((r: any) => !r.success).length;
