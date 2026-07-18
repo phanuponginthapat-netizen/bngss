@@ -224,11 +224,33 @@ async function updateQueueItem(item) {
   } catch (_) {}
 }
 
+// ─── นโยบาย retry (ให้ตรงกับ src/lib/offlineQueue.ts) ───────────
+const SW_MAX_ATTEMPTS = 8;
+const SW_BASE_BACKOFF_MS = 30 * 1000;
+const SW_MAX_BACKOFF_MS = 6 * 60 * 60 * 1000;
+
+function swBackoffMs(attempts) {
+  const exp = Math.min(SW_MAX_BACKOFF_MS, SW_BASE_BACKOFF_MS * Math.pow(2, Math.max(0, attempts - 1)));
+  const jitter = Math.floor(Math.random() * Math.min(exp * 0.2, 30000));
+  return exp + jitter;
+}
+
+function isPermanentHttpStatus(status) {
+  if (status === 408 || status === 429) return false;
+  return status >= 400 && status < 500;
+}
+
 let swFlushing = false;
 async function flushOfflineQueueFromSW() {
   if (swFlushing) return;
+  // ถ้าออฟไลน์ → throw เพื่อให้ browser retry sync ให้เองเมื่อกลับมา online
+  if (self.navigator && self.navigator.onLine === false) {
+    throw new Error("offline");
+  }
   swFlushing = true;
-  let ok = 0, failed = 0;
+  let ok = 0, failed = 0, dropped = 0;
+  const now = Date.now();
+  let hasPending = false;
   try {
     const cfg = await readSwConfig();
     if (!cfg || !cfg.supabaseUrl || !cfg.apiKey) return;
@@ -236,6 +258,9 @@ async function flushOfflineQueueFromSW() {
     if (!items.length) return;
 
     for (const item of items) {
+      if (item.dead) continue;
+      if (item.nextRetryAt && item.nextRetryAt > now) { hasPending = true; continue; }
+
       try {
         const url = `${cfg.supabaseUrl}/rest/v1/${encodeURIComponent(item.table)}`;
         const headers = {
@@ -243,7 +268,6 @@ async function flushOfflineQueueFromSW() {
           "apikey": cfg.apiKey,
           "Prefer": item.onConflict ? "resolution=merge-duplicates,return=minimal" : "return=minimal",
         };
-        // ใช้ access token ของผู้ใช้ ถ้ามี (สำหรับผ่าน RLS)
         if (cfg.accessToken) headers["Authorization"] = `Bearer ${cfg.accessToken}`;
         const qs = item.onConflict ? `?on_conflict=${encodeURIComponent(item.onConflict)}` : "";
         const res = await fetch(url + qs, {
@@ -253,27 +277,50 @@ async function flushOfflineQueueFromSW() {
         });
         if (!res.ok) {
           const text = await res.text().catch(() => "");
-          throw new Error(`HTTP ${res.status} ${text.slice(0, 200)}`);
+          const err = new Error(`HTTP ${res.status} ${text.slice(0, 200)}`);
+          err.status = res.status;
+          throw err;
         }
         if (item.id !== undefined) await removeQueueItem(item.id);
         ok++;
       } catch (e) {
-        failed++;
-        if (item.id !== undefined) {
-          await updateQueueItem({
-            ...item,
-            attempts: (item.attempts || 0) + 1,
-            lastError: String(e && e.message ? e.message : e),
-          });
+        if (item.id === undefined) { failed++; continue; }
+        const status = e && e.status;
+        const nextAttempts = (item.attempts || 0) + 1;
+        const message = String(e && e.message ? e.message : e);
+
+        // Permanent error → ทิ้ง กันชนซ้ำ / คิวค้าง
+        if (typeof status === "number" && isPermanentHttpStatus(status)) {
+          await removeQueueItem(item.id);
+          dropped++;
+          continue;
         }
+        // เกินจำนวนครั้งสูงสุด → mark dead แต่ไม่ลบ
+        if (nextAttempts >= SW_MAX_ATTEMPTS) {
+          await updateQueueItem({ ...item, attempts: nextAttempts, lastError: message, dead: true });
+          dropped++;
+          continue;
+        }
+        // Retryable → ตั้งเวลาถัดไป (exponential backoff)
+        await updateQueueItem({
+          ...item,
+          attempts: nextAttempts,
+          lastError: message,
+          nextRetryAt: Date.now() + swBackoffMs(nextAttempts),
+        });
+        failed++;
+        hasPending = true;
       }
     }
   } finally {
     swFlushing = false;
   }
-  // แจ้ง client ที่ยังเปิดอยู่ (ถ้ามี) ว่ามีการซิงก์
   try {
     const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-    for (const c of clients) c.postMessage({ type: "offline-queue-synced", ok, failed });
+    for (const c of clients) c.postMessage({ type: "offline-queue-synced", ok, failed, dropped });
   } catch (_) {}
+  // ยังมี item ที่รอเวลาถัดไป → ขอ browser ปลุก sync อีกครั้ง
+  if (hasPending) {
+    try { await self.registration.sync.register("flush-offline-queue"); } catch (_) {}
+  }
 }
