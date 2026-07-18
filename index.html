@@ -154,7 +154,7 @@
             if (brand) {
               if (b.logo) {
                 brand.style.display = "block";
-                brand.innerHTML = '<img class="ldr-logo" src="' + escapeHtml(b.logo) + '" alt="logo"/>';
+                brand.innerHTML = '<div class="ldr-logo-wrap"><div class="ldr-logo-glow"></div><img class="ldr-logo" src="' + escapeHtml(b.logo) + '" alt="logo"/></div>';
               } else {
                 brand.style.display = "none";
                 brand.innerHTML = "";
