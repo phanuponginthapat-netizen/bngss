@@ -450,8 +450,9 @@ serve(async (req) => {
     }
     const caller = userData.user;
 
-    const { data: callerRole } = await adminClient.from("user_roles").select("role").eq("user_id", caller.id).maybeSingle();
-    if (!["admin", "director"].includes(callerRole?.role)) {
+    const { data: callerRoles } = await adminClient.from("user_roles").select("role").eq("user_id", caller.id);
+    const roleList = (callerRoles || []).map((r: any) => r.role);
+    if (!roleList.some((r: string) => ["admin", "director", "super_admin"].includes(r))) {
       throw new Error("Admin or director access required");
     }
 
