@@ -188,9 +188,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Load user preferences and resolve LINE IDs from the actual linked profile/student records.
-    const [prefsRes, profileLineRes, studentLineRes] = await Promise.all([
+    // Load user preferences, roles, matrix, and LINE IDs in parallel.
+    const [prefsRes, rolesRes, matrixRes, profileLineRes, studentLineRes] = await Promise.all([
       admin.from("notification_preferences").select("*").in("user_id", userIds),
+      admin.from("user_roles").select("user_id,role").in("user_id", userIds),
+      admin.from("role_notification_defaults").select("role,category,in_app,push,line,gchat,min_severity").eq("category", category),
       admin.from("profiles").select("id,line_user_id").in("id", userIds).not("line_user_id", "is", null),
       admin
         .from("students")
@@ -199,6 +201,15 @@ Deno.serve(async (req) => {
         .not("auth_user_id", "is", null),
     ]);
     const prefsMap = new Map<string, any>((prefsRes.data ?? []).map((p: any) => [p.user_id, p]));
+    const roleByUser = new Map<string, string>();
+    (rolesRes.data ?? []).forEach((r: any) => {
+      // ถ้าผู้ใช้มีหลาย role เก็บสิทธิ์สูงสุด (admin > director > teacher > parent > student > alumni)
+      const rank: Record<string, number> = { admin: 6, director: 5, teacher: 4, parent: 3, student: 2, alumni: 1 };
+      const cur = roleByUser.get(r.user_id);
+      if (!cur || (rank[r.role] ?? 0) > (rank[cur] ?? 0)) roleByUser.set(r.user_id, r.role);
+    });
+    const matrixByRole = new Map<string, any>((matrixRes.data ?? []).map((m: any) => [m.role, m]));
+
     const lineIdsByUser = new Map<string, string[]>();
     (profileLineRes.data ?? []).forEach((row: any) => {
       addLineIds(lineIdsByUser, row.id, [row.line_user_id]);
