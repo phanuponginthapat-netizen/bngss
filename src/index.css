@@ -115,11 +115,17 @@ a[href*="lovable.dev"][href*="utm"] {
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'IBM Plex Sans Thai', 'Inter', sans-serif;
+    font-family: 'Figtree', 'IBM Plex Sans Thai', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
   }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    letter-spacing: -0.01em;
+  }
+
 
   /* Better touch targets on mobile */
   @media (max-width: 640px) {
