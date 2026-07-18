@@ -9,10 +9,12 @@ import { applyDynamicBranding } from "./lib/dynamicManifest";
 import { installGlobalErrorHandlers } from "./lib/errorLogger";
 import { initNativeShell } from "./lib/nativeShell";
 import { installCrossTabSync } from "./lib/crossTabSync";
+import { installSwBackgroundSync } from "./lib/swBackgroundSync";
 
 installGlobalErrorHandlers();
 initNativeShell();
 installCrossTabSync();
+installSwBackgroundSync();
 
 // จับ event ติดตั้ง PWA ตั้งแต่ต้น เพื่อเก็บไว้ให้ปุ่ม "ติดตั้งลงหน้าจอหลัก" ใช้ภายหลัง
 window.addEventListener("beforeinstallprompt", (e: Event) => {
