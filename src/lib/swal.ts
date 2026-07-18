@@ -1,6 +1,8 @@
 import Swal, { SweetAlertOptions, SweetAlertResult } from "sweetalert2";
 import { toThaiErrorDetailed, toThaiErrorDetailedSync } from "./errorMessage";
 
+const escapeHtml = (s: string) =>
+  s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
 
 /**
  * SweetAlert popup helpers — ใช้ font + theme ของระบบ (รองรับ dark mode)
