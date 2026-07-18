@@ -1,5 +1,5 @@
 import Swal, { SweetAlertOptions, SweetAlertResult } from "sweetalert2";
-import { toThaiError, toThaiErrorSync } from "./errorMessage";
+import { toThaiErrorDetailed, toThaiErrorDetailedSync } from "./errorMessage";
 
 
 /**
