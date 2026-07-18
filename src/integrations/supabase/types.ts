@@ -3801,6 +3801,175 @@ export type Database = {
           },
         ]
       }
+      duty_assignments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          day_of_week: number | null
+          duty_date: string | null
+          end_time: string | null
+          id: string
+          location_id: string
+          notes: string | null
+          role_label: string | null
+          school_id: string | null
+          start_time: string | null
+          teacher_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          day_of_week?: number | null
+          duty_date?: string | null
+          end_time?: string | null
+          id?: string
+          location_id: string
+          notes?: string | null
+          role_label?: string | null
+          school_id?: string | null
+          start_time?: string | null
+          teacher_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          day_of_week?: number | null
+          duty_date?: string | null
+          end_time?: string | null
+          id?: string
+          location_id?: string
+          notes?: string | null
+          role_label?: string | null
+          school_id?: string | null
+          start_time?: string | null
+          teacher_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "duty_assignments_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "duty_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "duty_assignments_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "personnel"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      duty_locations: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          order_index: number
+          school_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          order_index?: number
+          school_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          order_index?: number
+          school_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      duty_logs: {
+        Row: {
+          assignment_id: string | null
+          attachments: Json | null
+          category: string | null
+          content: string
+          created_at: string
+          id: string
+          location_id: string | null
+          log_date: string
+          log_time: string
+          reported_by: string | null
+          school_id: string | null
+          teacher_id: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          assignment_id?: string | null
+          attachments?: Json | null
+          category?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          log_date?: string
+          log_time?: string
+          reported_by?: string | null
+          school_id?: string | null
+          teacher_id?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assignment_id?: string | null
+          attachments?: Json | null
+          category?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          log_date?: string
+          log_time?: string
+          reported_by?: string | null
+          school_id?: string | null
+          teacher_id?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "duty_logs_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "duty_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "duty_logs_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "duty_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "duty_logs_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "personnel"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       early_childhood_dev: {
         Row: {
           academic_year: number | null
