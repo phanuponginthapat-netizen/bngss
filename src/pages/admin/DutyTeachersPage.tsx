@@ -112,7 +112,7 @@ export default function DutyTeachersPage() {
   }
   async function deleteLocation(id: string) {
     const c = await swalConfirm("ลบจุดเวรนี้?", "การจัดเวรและบันทึกจะเชื่อมโยงกัน");
-    if (!c.isConfirmed) return;
+    if (!c) return;
     const { error } = await supabase.from("duty_locations").delete().eq("id", id);
     if (error) return swalError("ลบไม่สำเร็จ", error.message);
     swalSuccess("ลบแล้ว"); fetchAll();
@@ -144,7 +144,7 @@ export default function DutyTeachersPage() {
   }
   async function deleteAssignment(id: string) {
     const c = await swalConfirm("ลบการจัดเวรนี้?");
-    if (!c.isConfirmed) return;
+    if (!c) return;
     const { error } = await supabase.from("duty_assignments").delete().eq("id", id);
     if (error) return swalError("ลบไม่สำเร็จ", error.message);
     swalSuccess("ลบแล้ว"); fetchAll();
