@@ -67,34 +67,35 @@ export function SidebarAccountFooter() {
   const badge = role ? roleBadgeMap[role] : null;
 
   return (
-    <SidebarFooter className="border-t border-sidebar-border/70 bg-gradient-to-t from-sidebar-accent/20 to-transparent p-2">
+    <SidebarFooter className="mt-auto border-t border-sidebar-border/70 bg-gradient-to-t from-sidebar-accent/20 to-transparent p-1.5">
       {!collapsed && (
-        <div className="px-2 py-2 flex items-center gap-2 min-w-0">
+        <div className="px-1.5 py-1 flex items-center gap-2 min-w-0">
           {avatarUrl ? (
-            <img src={avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover ring-2 ring-primary/30 flex-shrink-0" />
+            <img src={avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover ring-2 ring-primary/30 flex-shrink-0" />
           ) : (
-            <span className="w-9 h-9 rounded-full bg-primary/10 ring-2 ring-primary/30 flex items-center justify-center flex-shrink-0">
-              <User className="w-4 h-4 text-primary" />
+            <span className="w-7 h-7 rounded-full bg-primary/10 ring-2 ring-primary/30 flex items-center justify-center flex-shrink-0">
+              <User className="w-3.5 h-3.5 text-primary" />
             </span>
           )}
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium text-sidebar-foreground truncate">{fullName || userEmail}</div>
-            {badge && <Badge variant={badge.variant} className="mt-0.5 text-[10px] h-4 px-1.5">{badge.label}</Badge>}
+          <div className="min-w-0 flex-1 flex items-center gap-1.5">
+            <div className="text-xs font-medium text-sidebar-foreground truncate">{fullName || userEmail}</div>
+            {badge && <Badge variant={badge.variant} className="text-[9px] h-3.5 px-1 leading-none">{badge.label}</Badge>}
           </div>
         </div>
       )}
-      <SidebarMenu className="gap-0.5">
+      <SidebarMenu className="gap-0">
         <SidebarMenuItem>
           <SidebarMenuButton
             onClick={handleLogout}
             tooltip={t("logout")}
-            className={`text-destructive hover:text-destructive ${collapsed ? "justify-center w-10 h-10 mx-auto" : ""}`}
+            className={`h-8 text-destructive hover:text-destructive ${collapsed ? "justify-center w-10 h-8 mx-auto" : ""}`}
           >
             <LogOut className="w-4 h-4" />
-            {!collapsed && <span>{t("logout")}</span>}
+            {!collapsed && <span className="text-sm">{t("logout")}</span>}
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
     </SidebarFooter>
+
   );
 }
