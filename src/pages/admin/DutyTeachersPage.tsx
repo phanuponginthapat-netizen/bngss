@@ -11,7 +11,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Calendar, FileText, MapPin, Users } from "lucide-react";
-import { swalError, swalSuccess, swalConfirm } from "@/lib/swal";
+import { swal } from "@/lib/swal";
+const swalError = (t: string, x?: string) => swal.error(t, x);
+const swalSuccess = (t: string, x?: string) => swal.success(t, x);
+const swalConfirm = (title: string, text?: string) => swal.confirm({ title, text });
 import { format } from "date-fns";
 
 type Location = { id: string; name: string; description: string | null; active: boolean; order_index: number };
