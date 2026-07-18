@@ -108,7 +108,7 @@
             }
             if (b.logo) {
               var brand = document.getElementById("ldr-brand");
-              if (brand) brand.innerHTML = '<img class="ldr-logo" src="' + b.logo + '" alt="logo"/>';
+              if (brand) { brand.style.display = "block"; brand.innerHTML = '<img class="ldr-logo" src="' + b.logo + '" alt="logo"/>'; }
               var ic = document.querySelector('link[rel="icon"]');
               if (ic) ic.setAttribute("href", b.logo);
             }
