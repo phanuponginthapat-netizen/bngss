@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { createElement } from "react";
 import { playNotificationSound } from "@/lib/notificationSound";
 import { haptic } from "@/lib/haptics";
+import { markNotificationSeen, wasNotificationSeen } from "@/lib/notificationDedup";
 
 export type LiveNotifyOpts = {
   title: string;
