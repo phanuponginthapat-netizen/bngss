@@ -282,47 +282,7 @@ const DashboardLayout = () => {
               <LanguageToggle />
               <NotificationDropdown />
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="gap-2 px-2 sm:px-3 max-w-[200px] rounded-full hover:bg-card">
-                    {avatarUrl ? (
-                      <img src={avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover ring-2 ring-primary/30" />
-                    ) : (
-                      <span className="w-7 h-7 rounded-full bg-primary/10 ring-2 ring-primary/30 flex items-center justify-center">
-                        <User className="w-4 h-4 text-primary" />
-                      </span>
-                    )}
-                    <span className="hidden sm:inline text-sm truncate font-medium">{fullName || userEmail}</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-sm">{fullName || userEmail}</span>
-                      {badge && <Badge variant={badge.variant} className="w-fit text-xs">{badge.label}</Badge>}
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <SidebarToggleItem />
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link to="/dashboard/profile" className="cursor-pointer gap-2">
-                      <User className="w-4 h-4" /> {lang === "th" ? "โปรไฟล์" : "Profile"}
-                    </Link>
-                  </DropdownMenuItem>
-                  {(role === "admin" || role === "director") && (
-                    <DropdownMenuItem asChild>
-                      <Link to="/dashboard/users" className="cursor-pointer gap-2">
-                        <Shield className="w-4 h-4" /> {lang === "th" ? "จัดการผู้ใช้" : "User Management"}
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive gap-2 cursor-pointer">
-                    <LogOut className="w-4 h-4" /> {t("logout")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <AvatarSidebarToggle avatarUrl={avatarUrl} fullName={fullName} userEmail={userEmail} />
             </div>
           </header>
           <div
