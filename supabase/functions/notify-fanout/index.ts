@@ -227,10 +227,10 @@ Deno.serve(async (req) => {
     };
 
     // For dedup marker
-    if (payload.dedup_key) {
+    if (autoDedupKey) {
       logRows.push({
         user_id: null, channel: "system", status: "skipped",
-        reason: `dedup:${payload.dedup_key}`,
+        reason: `dedup:${autoDedupKey}`,
         notification_type: type, title: payload.title,
       });
     }
