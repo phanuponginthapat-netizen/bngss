@@ -1,4 +1,6 @@
 import Swal, { SweetAlertOptions, SweetAlertResult } from "sweetalert2";
+import { toThaiError, toThaiErrorSync } from "./errorMessage";
+
 
 /**
  * SweetAlert popup helpers — ใช้ font + theme ของระบบ (รองรับ dark mode)
@@ -48,8 +50,18 @@ export const swal = {
   success: (title: string, text?: string) =>
     Swal.fire(base({ icon: "success", title, text, timer: 2500, showConfirmButton: false, timerProgressBar: true })),
 
-  error: (title: string, text?: string) =>
-    Swal.fire(base({ icon: "error", title, text, confirmButtonText: "ตกลง" })),
+  /**
+   * แสดง error dialog — รับได้ทั้ง string ธรรมดา หรือ Error/unknown object
+   * ถ้าเป็น object จะแปลงเป็นข้อความไทยอัตโนมัติ (รวมถึงดึง body จาก Edge Function response)
+   */
+  error: async (title: string, textOrError?: string | unknown) => {
+    let text: string | undefined;
+    if (textOrError == null) text = undefined;
+    else if (typeof textOrError === "string") text = toThaiErrorSync(textOrError);
+    else text = await toThaiError(textOrError);
+    return Swal.fire(base({ icon: "error", title, text, confirmButtonText: "ตกลง" }));
+  },
+
 
   warning: (title: string, text?: string) =>
     Swal.fire(base({ icon: "warning", title, text, confirmButtonText: "ตกลง" })),
