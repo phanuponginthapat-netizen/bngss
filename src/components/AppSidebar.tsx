@@ -113,7 +113,7 @@ export function AppSidebar() {
 
   // Compact sidebar with section headings — used by alumni and parent
   const renderCompactSidebar = (sections: CompactSection[]) => (
-    <Sidebar collapsible="icon" className="gradient-sidebar border-r-0">
+    <Sidebar side="right" collapsible="icon" className="gradient-sidebar border-l-0">
       <SidebarHeader className={`${collapsed ? 'px-1.5' : 'px-4'} py-5 border-b border-sidebar-border transition-all`}>
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
           <LogoMark />
