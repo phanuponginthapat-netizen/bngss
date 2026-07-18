@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Plus, Trash2, Search, Calendar, Users, BookOpen, ClipboardList, Eye } from "lucide-react";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 // หัวข้อกิจกรรมโฮมรูมตาม สพฐ (OBEC)
 const OBEC_TOPICS = [
@@ -43,8 +44,7 @@ const topicLabelMap = Object.fromEntries(OBEC_TOPICS.map(t => [t.value, t.label]
 
 const HomeroomPage = () => {
   const { lang } = useLanguage();
-  const { role, userId } = useUserRole();
-  const canManageAll = role === "admin" || role === "director";
+  const { role } = useUserRole();
   const studentData = useStudentData();
   const { currentAcademicYear, currentSemester, academicYearOptions } = useAcademicYear();
   const [academicYear, setAcademicYear] = useState(0);
@@ -82,7 +82,7 @@ const HomeroomPage = () => {
         .order("homeroom_date", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(500);
-      if (academicYear > 0) q = q.eq("academic_year", academicYear - 543);
+      if (academicYear > 0) q = q.eq("academic_year", academicYear - BE_OFFSET);
       if (semester > 0) q = q.eq("semester", semester);
       const { data } = await q;
       return data || [];
@@ -139,7 +139,7 @@ const HomeroomPage = () => {
       parent_contact: parentContact,
       student_count: parseInt(studentCount) || 0,
       absent_students: absentStudents,
-      academic_year: academicYear > 0 ? academicYear - 543 : undefined,
+      academic_year: academicYear > 0 ? academicYear - BE_OFFSET : undefined,
       semester: semester > 0 ? semester : undefined,
     } as any);
     if (error) { toast.error(error.message); return; }
@@ -150,8 +150,7 @@ const HomeroomPage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("homeroom_records").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    await supabase.from("homeroom_records").delete().eq("id", id);
     qc.invalidateQueries({ queryKey: ["homeroom_records"] });
     toast.success("ลบสำเร็จ");
   };
@@ -177,12 +176,12 @@ const HomeroomPage = () => {
           <DialogTrigger asChild>
             <Button><Plus className="w-4 h-4 mr-2" />{lang === "th" ? "บันทึกกิจกรรม" : "Record Activity"}</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-lg sm:max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{lang === "th" ? "บันทึกกิจกรรมโฮมรูม" : "Record Homeroom Activity"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label>{lang === "th" ? "ห้องเรียน" : "Classroom"} *</Label>
                   <Select value={classroomId} onValueChange={setClassroomId}>
@@ -229,7 +228,7 @@ const HomeroomPage = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label>{lang === "th" ? "จำนวนนักเรียนเข้าร่วม" : "Students Present"}</Label>
                   <Input type="number" value={studentCount} onChange={e => setStudentCount(e.target.value)} />
@@ -280,8 +279,8 @@ const HomeroomPage = () => {
         </Card>
         <Card className="border-0 shadow-sm">
           <CardContent className="pt-4 pb-3 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
-              <Users className="w-5 h-5 text-success" />
+            <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+              <Users className="w-5 h-5 text-green-600" />
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{classrooms.length}</p>
@@ -291,8 +290,8 @@ const HomeroomPage = () => {
         </Card>
         <Card className="border-0 shadow-sm">
           <CardContent className="pt-4 pb-3 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
-              <BookOpen className="w-5 h-5 text-warning" />
+            <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
+              <BookOpen className="w-5 h-5 text-orange-600" />
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{Object.keys(stats.topicCounts).length}</p>
@@ -302,8 +301,8 @@ const HomeroomPage = () => {
         </Card>
         <Card className="border-0 shadow-sm">
           <CardContent className="pt-4 pb-3 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-info" />
+            <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-blue-600" />
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{filteredRecords.length}</p>
@@ -394,11 +393,9 @@ const HomeroomPage = () => {
                         <Button variant="ghost" size="sm" onClick={() => setViewRecord(r)}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        {(canManageAll || (r as any).teacher_id === userId || (r as any).created_by === userId) && (
-                          <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}>
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        )}
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}>
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -453,13 +450,13 @@ const HomeroomPage = () => {
 
       {/* View Detail Dialog */}
       <Dialog open={!!viewRecord} onOpenChange={() => setViewRecord(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>รายละเอียดกิจกรรมโฮมรูม</DialogTitle>
           </DialogHeader>
           {viewRecord && (
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs text-muted-foreground">วันที่</Label>
                   <p className="font-medium">{viewRecord.homeroom_date || viewRecord.visit_date || "—"}</p>
@@ -481,7 +478,7 @@ const HomeroomPage = () => {
                 <Label className="text-xs text-muted-foreground">รายละเอียดกิจกรรม</Label>
                 <p className="text-sm bg-muted/30 p-3 rounded-lg">{viewRecord.activity_details || "—"}</p>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs text-muted-foreground">จำนวนเข้าร่วม</Label>
                   <p className="font-medium">{viewRecord.student_count || 0} คน</p>

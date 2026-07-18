@@ -46,9 +46,7 @@ export default function ExamScanPage() {
       const path = sanitizeStorageKey(`${exam.id}/${Date.now()}-${file.name}`);
       const up = await supabase.storage.from("exam-scans").upload(path, file, { upsert: false });
       if (up.error) throw up.error;
-      // Bucket is private — signed URL (1y) so persisted links still work
-      const { data: scanSigned } = await supabase.storage.from("exam-scans").createSignedUrl(path, 60 * 60 * 24 * 365);
-      const scanUrl = scanSigned?.signedUrl || "";
+      const scanUrl = supabase.storage.from("exam-scans").getPublicUrl(path).data.publicUrl;
 
       // Call OCR
       const { data, error } = await supabase.functions.invoke("exam-grade", {
@@ -73,8 +71,7 @@ export default function ExamScanPage() {
       const gradedBlob = await (await fetch(graded)).blob();
       const gradedPath = `${exam.id}/${Date.now()}-graded.png`;
       await supabase.storage.from("exam-scans").upload(gradedPath, gradedBlob, { upsert: false, contentType: "image/png" });
-      const { data: gradedSigned } = await supabase.storage.from("exam-scans").createSignedUrl(gradedPath, 60 * 60 * 24 * 365);
-      const gradedUrl = gradedSigned?.signedUrl || "";
+      const gradedUrl = supabase.storage.from("exam-scans").getPublicUrl(gradedPath).data.publicUrl;
 
       // Lookup student by code
       let studentId: string | null = null;
@@ -134,7 +131,7 @@ export default function ExamScanPage() {
 
       {result && (
         <Card className="p-6 space-y-3">
-          <div className="flex items-center gap-2 text-success">
+          <div className="flex items-center gap-2 text-green-600">
             <CheckCircle2 className="w-6 h-6"/>
             <h2 className="text-xl font-bold">{result.score} / {result.total} ({result.pct.toFixed(1)}%)</h2>
           </div>
@@ -166,6 +163,7 @@ function CameraDialog({ open, onClose, onCapture, busy, lastResult }: { open: bo
           audio: false,
         });
         streamRef.current = s;
+        try { const { applyCameraFocus } = await import("@/lib/cameraFocus"); await applyCameraFocus(s, "close"); } catch {}
         const v = videoRef.current;
         if (v) {
           v.setAttribute("playsinline", "true");
@@ -205,7 +203,7 @@ function CameraDialog({ open, onClose, onCapture, busy, lastResult }: { open: bo
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-3xl p-0 overflow-hidden">
         <DialogHeader className="p-4 pb-2">
           <DialogTitle>ถ่ายภาพกระดาษคำตอบ (โหมดต่อเนื่อง){count > 0 ? ` · ตรวจแล้ว ${count}` : ""}</DialogTitle>
         </DialogHeader>
@@ -213,16 +211,16 @@ function CameraDialog({ open, onClose, onCapture, busy, lastResult }: { open: bo
           <video ref={videoRef} playsInline muted autoPlay className="absolute inset-0 w-full h-full object-contain" />
 
           <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute inset-[2%] border-2 border-success/30 rounded-md">
+            <div className="absolute inset-[2%] border-2 border-green-400 rounded-md">
               {[
                 "top-0 left-0 border-t-4 border-l-4",
                 "top-0 right-0 border-t-4 border-r-4",
                 "bottom-0 left-0 border-b-4 border-l-4",
                 "bottom-0 right-0 border-b-4 border-r-4",
               ].map((p, i) => (
-                <div key={i} className={`absolute w-8 h-8 border-success/30 ${p}`} />
+                <div key={i} className={`absolute w-8 h-8 border-green-300 ${p}`} />
               ))}
-              <div className="absolute -top-7 left-1/2 -translate-x-1/2 text-success text-xs whitespace-nowrap bg-black/60 px-2 py-0.5 rounded">
+              <div className="absolute -top-7 left-1/2 -translate-x-1/2 text-green-300 text-xs whitespace-nowrap bg-black/60 px-2 py-0.5 rounded">
                 จัดให้จุดดำ 4 มุมพอดีกับกรอบ
               </div>
             </div>
@@ -235,7 +233,7 @@ function CameraDialog({ open, onClose, onCapture, busy, lastResult }: { open: bo
             </div>
           )}
           {lastResult && !busy && (
-            <div className="absolute top-2 left-2 bg-success/90 text-white text-xs px-2 py-1 rounded">
+            <div className="absolute top-2 left-2 bg-green-600/90 text-white text-xs px-2 py-1 rounded">
               ล่าสุด: {lastResult.score}/{lastResult.total} {lastResult.studentCode ? `· ${lastResult.studentCode}` : ""}
             </div>
           )}

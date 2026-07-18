@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Activity, Plus, TrendingUp, Sparkles, Loader2 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, ReferenceLine } from "recharts";
-import { DateInput } from "@/components/ui/date-input";
 
 interface Measurement {
   id: string;
@@ -52,11 +51,11 @@ export default function HealthTrendChart({ studentId, student }: { studentId: st
     return +(w / (hm * hm)).toFixed(2);
   })();
   const liveCat = liveBmi == null ? null
-    : liveBmi < 18.5 ? { label: "ต่ำกว่าเกณฑ์ (ผอม)", cls: "bg-warning-soft text-warning" }
-    : liveBmi < 23 ? { label: "ตรงเกณฑ์ (ปกติ)", cls: "bg-success-soft text-success" }
-    : liveBmi < 25 ? { label: "ท้วม", cls: "bg-warning-soft text-warning" }
-    : liveBmi < 30 ? { label: "เกินเกณฑ์ (อ้วน)", cls: "bg-danger-soft text-danger" }
-    : { label: "อ้วนมาก", cls: "bg-danger-soft text-danger" };
+    : liveBmi < 18.5 ? { label: "ต่ำกว่าเกณฑ์ (ผอม)", cls: "bg-orange-100 text-orange-800" }
+    : liveBmi < 23 ? { label: "ตรงเกณฑ์ (ปกติ)", cls: "bg-green-100 text-green-800" }
+    : liveBmi < 25 ? { label: "ท้วม", cls: "bg-yellow-100 text-yellow-800" }
+    : liveBmi < 30 ? { label: "เกินเกณฑ์ (อ้วน)", cls: "bg-red-100 text-red-800" }
+    : { label: "อ้วนมาก", cls: "bg-red-200 text-red-900" };
 
   const load = async () => {
     const { data, error } = await supabase
@@ -170,7 +169,7 @@ export default function HealthTrendChart({ studentId, student }: { studentId: st
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
           <div>
             <Label>วันที่ชั่ง</Label>
-            <DateInput value={date} onChange={(e) => setDate(e.target.value)} />
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div>
             <Label>น้ำหนัก (kg)</Label>
@@ -209,7 +208,7 @@ export default function HealthTrendChart({ studentId, student }: { studentId: st
             {latest.weight_kg && <span className="px-2 py-1 rounded bg-muted">น้ำหนัก {latest.weight_kg} kg</span>}
             {latest.height_cm && <span className="px-2 py-1 rounded bg-muted">ส่วนสูง {latest.height_cm} cm</span>}
             {latest.bmi && (
-              <span className={`px-2 py-1 rounded ${latest.bmi < BMI_NORMAL_MIN ? "bg-warning-soft text-warning" : latest.bmi > BMI_NORMAL_MAX ? "bg-danger-soft text-danger" : "bg-success-soft text-success"}`}>
+              <span className={`px-2 py-1 rounded ${latest.bmi < BMI_NORMAL_MIN ? "bg-orange-100 text-orange-800" : latest.bmi > BMI_NORMAL_MAX ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
                 BMI {latest.bmi} {latest.bmi < BMI_NORMAL_MIN ? "ผอม" : latest.bmi > BMI_NORMAL_MAX ? "เกินเกณฑ์" : "เกณฑ์ปกติ"}
               </span>
             )}

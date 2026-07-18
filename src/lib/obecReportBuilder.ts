@@ -24,6 +24,8 @@ export interface ReportTableColumn {
 export interface ReportSignature {
   name?: string;
   title: string;
+  /** URL ของลายเซ็นดิจิทัล (ถ้ามี) แสดงเหนือเส้นลงชื่อ */
+  signatureUrl?: string;
 }
 
 /** Build OBEC-standard header HTML */
@@ -52,12 +54,13 @@ export const buildInfoGrid = (items: { label: string; value: string }[]): string
 
 /** Build OBEC table */
 export const buildTable = (columns: ReportTableColumn[], rows: string[][], footer?: string[]): string => {
-  const ths = columns.map(c => `<th style="${c.width ? `width:${c.width}` : ""};text-align:${c.align || "center"}">${c.label}</th>`).join("");
+  const nl2br = (s: string) => String(s ?? "").replace(/\n/g, "<br>");
+  const ths = columns.map(c => `<th style="${c.width ? `width:${c.width};` : ""}text-align:${c.align || "center"};white-space:normal;line-height:1.2">${nl2br(c.label)}</th>`).join("");
   const trs = rows.map(row => {
-    const tds = row.map((cell, i) => `<td style="text-align:${columns[i]?.align || "left"}">${cell}</td>`).join("");
+    const tds = row.map((cell, i) => `<td style="text-align:${columns[i]?.align || "left"};vertical-align:middle">${nl2br(cell)}</td>`).join("");
     return `<tr>${tds}</tr>`;
   }).join("");
-  const tfoot = footer ? `<tfoot><tr>${footer.map((f, i) => `<td style="text-align:${columns[i]?.align || "left"}">${f}</td>`).join("")}</tr></tfoot>` : "";
+  const tfoot = footer ? `<tfoot><tr>${footer.map((f, i) => `<td style="text-align:${columns[i]?.align || "left"}">${nl2br(f)}</td>`).join("")}</tr></tfoot>` : "";
   return `<table class="obec-table"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody>${tfoot}</table>`;
 };
 
@@ -65,6 +68,7 @@ export const buildTable = (columns: ReportTableColumn[], rows: string[][], foote
 export const buildSignatures = (signers: ReportSignature[], date?: string): string => {
   const items = signers.map(s => `
     <div class="obec-sig-item">
+      ${s.signatureUrl ? `<img src="${s.signatureUrl}" alt="ลายเซ็น" style="height:48px;object-fit:contain;margin:0 auto 4px;display:block;">` : `<div style="height:48px"></div>`}
       <div class="obec-sig-line"></div>
       <div class="obec-sig-name">${s.name ? `(${s.name})` : "(ลงชื่อ)"}</div>
       <div class="obec-sig-title">${s.title}</div>

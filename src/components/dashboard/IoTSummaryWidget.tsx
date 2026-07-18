@@ -28,7 +28,9 @@ export function IoTSummaryWidget() {
       if (error) throw error;
       return data as IoTDevice[];
     },
-    refetchInterval: 60000,
+    refetchInterval: 5 * 60_000,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
@@ -47,7 +49,7 @@ export function IoTSummaryWidget() {
     <Card className="h-full border border-border/50 shadow-elevated rounded-2xl ring-1 ring-black/[0.02] dark:ring-white/[0.04]">
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <Cpu className="h-4 w-4 text-info" /> IoT
+          <Cpu className="h-4 w-4 text-cyan-500" /> IoT
         </CardTitle>
         <Link to="/dashboard/iot" className="text-xs text-muted-foreground hover:text-primary inline-flex items-center">
           ดูทั้งหมด <ChevronRight className="h-3 w-3" />
@@ -56,10 +58,10 @@ export function IoTSummaryWidget() {
       <CardContent className="space-y-3">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <Badge variant="outline" className="gap-1">
-            <Wifi className="h-3 w-3 text-success" /> ออนไลน์ {online}
+            <Wifi className="h-3 w-3 text-emerald-500" /> ออนไลน์ {online}
           </Badge>
           {errors > 0 && (
-            <Badge variant="outline" className="gap-1 text-danger border-danger/30">
+            <Badge variant="outline" className="gap-1 text-rose-600 border-rose-500/30">
               <AlertCircle className="h-3 w-3" /> ผิดพลาด {errors}
             </Badge>
           )}

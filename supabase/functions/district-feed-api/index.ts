@@ -21,11 +21,8 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-api-key, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
+const corsHeaders = buildCorsHeaders(['x-api-key'], "GET, OPTIONS");
 
 const json = (body: unknown, status = 200, cacheSeconds = 0) =>
   new Response(JSON.stringify(body), {
@@ -679,12 +676,30 @@ Deno.serve(async (req) => {
         const allow = ["students", "personnel", "schools", "classrooms", "subjects",
           "news_posts", "academic_events", "attendance", "documents", "enrollments",
           "behavior_records", "student_leaves", "health_records", "assets"];
+        // Per-table column allow-list — strips PII (national_id, parent ids, phones, addresses, auth_user_id, symptoms/treatment, attachments, reasons)
+        const columnMap: Record<string, string> = {
+          students: "id, school_id, student_code, first_name, last_name, grade_level, classroom_id, gender, status, enrollment_date, updated_at",
+          personnel: "id, school_id, first_name, last_name, position, department, status, updated_at",
+          schools: "id, school_name, school_code, obec_code, province, district, sub_district, postcode, latitude, longitude, updated_at",
+          classrooms: "id, school_id, name, grade_level, academic_year, homeroom_teacher_id, updated_at",
+          subjects: "id, school_id, code, name, grade_level, credits, updated_at",
+          news_posts: "id, school_id, title, content, category, is_pinned, is_published, published_at, updated_at",
+          academic_events: "id, school_id, title, description, event_date, end_date, event_type, updated_at",
+          attendance: "id, school_id, student_id, attendance_date, status, period, updated_at",
+          documents: "id, school_id, title, doc_type, doc_number, doc_date, status, updated_at",
+          enrollments: "id, school_id, student_id, classroom_id, academic_year, status, updated_at",
+          behavior_records: "id, school_id, student_id, category, score, record_date, updated_at",
+          student_leaves: "id, school_id, student_id, leave_type, start_date, end_date, status, updated_at",
+          health_records: "id, school_id, student_id, record_type, recorded_at, updated_at",
+          assets: "id, school_id, asset_code, name, category, status, acquired_at, updated_at",
+        };
         const requested = (url.searchParams.get("tables") || "").split(",").map(s => s.trim()).filter(Boolean);
         const tables = requested.length ? requested.filter(t => allow.includes(t)) : allow;
         const result: Record<string, { count: number; rows: any[] }> = {};
         for (const t of tables) {
           if (!requireScope(t) && !requireScope("*")) continue;
-          let q: any = supabase.from(t).select("*", { count: "exact" })
+          const cols = columnMap[t] || "id, school_id, updated_at";
+          let q: any = supabase.from(t).select(cols, { count: "exact" })
             .gte("updated_at", since)
             .order("updated_at", { ascending: true })
             .limit(pageSize);
@@ -843,7 +858,7 @@ Deno.serve(async (req) => {
       body = { page, page_size: pageSize, total: count ?? 0, measurements: data || [] };
     } else if (path === "/vaccines") {
       if (!requireScope("*") && !requireScope("students") && !requireScope("stats")) return json({ error: "scope_denied" }, 403);
-      let q = supabase.from("vaccine_records").select("*", { count: "exact" })
+      let q = supabase.from("vaccine_records").select("id, school_id, student_id, vaccine_name, dose_number, vaccinated_at, updated_at", { count: "exact" })
         .order("vaccinated_at", { ascending: false }).range(offset, offset + pageSize - 1);
       if (schoolIdParam) q = q.eq("school_id", schoolIdParam);
       const { data, count } = await q;
@@ -859,7 +874,7 @@ Deno.serve(async (req) => {
       body = { school_id: schoolIdParam, sdq: { total: rows.length, by_category: byCat } };
     } else if (path === "/leaves/students") {
       if (!requireScope("*") && !requireScope("students") && !requireScope("stats")) return json({ error: "scope_denied" }, 403);
-      let q = supabase.from("student_leaves").select("*", { count: "exact" })
+      let q = supabase.from("student_leaves").select("id, school_id, student_id, leave_type, start_date, end_date, status, updated_at", { count: "exact" })
         .order("start_date", { ascending: false }).range(offset, offset + pageSize - 1);
       if (schoolIdParam) q = q.eq("school_id", schoolIdParam);
       if (fromParam) q = q.gte("start_date", fromParam);
@@ -868,7 +883,7 @@ Deno.serve(async (req) => {
       body = { page, page_size: pageSize, total: count ?? 0, leaves: data || [] };
     } else if (path === "/leaves/staff") {
       if (!requireScope("*") && !requireScope("personnel") && !requireScope("stats")) return json({ error: "scope_denied" }, 403);
-      let q = supabase.from("staff_leaves").select("*", { count: "exact" })
+      let q = supabase.from("staff_leaves").select("id, school_id, user_id, leave_type, start_date, end_date, status, updated_at", { count: "exact" })
         .order("start_date", { ascending: false }).range(offset, offset + pageSize - 1);
       if (schoolIdParam) q = q.eq("school_id", schoolIdParam);
       if (fromParam) q = q.gte("start_date", fromParam);
@@ -1185,8 +1200,9 @@ Deno.serve(async (req) => {
       body = { error: "endpoint_not_found", path };
     }
   } catch (err) {
+    console.error("district-feed-api error:", err);
     statusCode = 500;
-    body = { error: "internal_error", message: err instanceof Error ? err.message : String(err) };
+    body = { error: "internal_error", message: "An internal error occurred. Please contact support." };
   }
 
   // Audit log (fire-and-forget)

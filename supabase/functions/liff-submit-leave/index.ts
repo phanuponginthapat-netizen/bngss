@@ -2,11 +2,7 @@
 // ผู้ใช้ LIFF ไม่ได้ sign-in Supabase Auth จึง insert ผ่าน anon client ไม่ได้ (RLS บล็อก)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { corsHeadersPost as corsHeaders } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -14,8 +10,6 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const {
-      line_user_id,
-      liff_id_token,
       leave_type,
       start_date,
       end_date,
@@ -23,38 +17,49 @@ Deno.serve(async (req) => {
       attachment_url,
     } = body || {};
 
-    if (!line_user_id || !leave_type || !start_date || !end_date) {
+    if (!leave_type || !start_date || !end_date) {
       return json({ error: "missing required fields" }, 400);
     }
 
-    // Validate LINE user-id format (prevents PostgREST filter injection via .or())
-    if (!/^U[0-9a-f]{32}$/i.test(String(line_user_id))) {
-      return json({ error: "invalid line_user_id format" }, 400);
+    // Verify LINE access token from Authorization header — derive line_user_id server-side
+    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization") || "";
+    const accessToken = authHeader.toLowerCase().startsWith("bearer ")
+      ? authHeader.slice(7).trim()
+      : "";
+    if (!accessToken) {
+      return json({ error: "missing_line_access_token" }, 401);
     }
 
-    // Verify the caller actually holds this LINE identity via a LIFF ID token.
-    // Without this, anyone who knows a LINE user-id could submit fake leaves.
-    if (!liff_id_token || typeof liff_id_token !== "string") {
-      return json({ error: "missing liff_id_token" }, 401);
+    // Validate token audience/expiry via LINE verify endpoint
+    const verifyRes = await fetch(
+      `https://api.line.me/oauth2/v2.1/verify?access_token=${encodeURIComponent(accessToken)}`,
+    );
+    if (!verifyRes.ok) {
+      return json({ error: "invalid_line_access_token" }, 401);
     }
-    try {
-      const form = new URLSearchParams({ id_token: liff_id_token });
-      const liffChannelId = Deno.env.get("LIFF_CHANNEL_ID") ?? "";
-      if (liffChannelId) form.set("client_id", liffChannelId);
-      const verify = await fetch("https://api.line.me/oauth2/v2.1/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: form.toString(),
-      });
-      if (!verify.ok) return json({ error: "invalid liff_id_token" }, 401);
-      const claims = await verify.json();
-      if (!claims?.sub || String(claims.sub) !== String(line_user_id)) {
-        return json({ error: "liff_id_token does not match line_user_id" }, 401);
-      }
-    } catch {
-      return json({ error: "liff_id_token verification failed" }, 401);
+    const verifyData = await verifyRes.json().catch(() => null) as
+      | { client_id?: string; expires_in?: number }
+      | null;
+    if (!verifyData || typeof verifyData.expires_in !== "number" || verifyData.expires_in <= 0) {
+      return json({ error: "invalid_line_access_token" }, 401);
+    }
+    const expectedChannelId = Deno.env.get("LINE_LIFF_CHANNEL_ID") || Deno.env.get("LINE_LOGIN_CHANNEL_ID") || "";
+    if (expectedChannelId && verifyData.client_id && verifyData.client_id !== expectedChannelId) {
+      return json({ error: "invalid_line_access_token_audience" }, 401);
     }
 
+    // Derive the LINE user id from the verified token (never trust client-supplied value)
+    const profileRes = await fetch("https://api.line.me/v2/profile", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!profileRes.ok) {
+      return json({ error: "invalid_line_access_token" }, 401);
+    }
+    const profile = await profileRes.json().catch(() => null) as { userId?: string } | null;
+    const line_user_id = profile?.userId || "";
+    if (!/^U[0-9a-f]{32}$/i.test(line_user_id)) {
+      return json({ error: "invalid_line_user_id" }, 401);
+    }
 
     const sb = createClient(
       Deno.env.get("SUPABASE_URL")!,

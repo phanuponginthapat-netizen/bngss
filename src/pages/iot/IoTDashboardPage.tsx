@@ -48,13 +48,15 @@ export default function IoTDashboardPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("iot_devices")
-        .select("id,name,description,device_type,icon,unit,source_type,base_url,entity_id,request_path,json_path,poll_interval_seconds,location,dashboard_group,display_order,is_active,last_value,last_value_numeric,last_status,last_error,last_fetched_at,meta,system_category,color,created_by,created_at,updated_at")
+        .select("*")
         .eq("is_active", true)
         .order("display_order", { ascending: true });
       if (error) throw error;
       return data as IoTDevice[];
     },
-    refetchInterval: 15000,
+    refetchInterval: 5 * 60_000,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   // Recent readings (last 2h) for sparklines
@@ -71,7 +73,9 @@ export default function IoTDashboardPage() {
       if (error) throw error;
       return data as Reading[];
     },
-    refetchInterval: 30000,
+    refetchInterval: 5 * 60_000,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const readingsByDevice = useMemo(() => {
@@ -159,8 +163,8 @@ export default function IoTDashboardPage() {
       {/* Overall summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <SummaryCard label="ทั้งหมด" value={overall.total} icon={<Activity className="h-5 w-5" />} />
-        <SummaryCard label="ออนไลน์" value={overall.online} icon={<Wifi className="h-5 w-5 text-success" />} />
-        <SummaryCard label="ข้อผิดพลาด" value={overall.error} icon={<AlertCircle className="h-5 w-5 text-danger" />} />
+        <SummaryCard label="ออนไลน์" value={overall.online} icon={<Wifi className="h-5 w-5 text-emerald-500" />} />
+        <SummaryCard label="ข้อผิดพลาด" value={overall.error} icon={<AlertCircle className="h-5 w-5 text-rose-500" />} />
         <SummaryCard label="ออฟไลน์" value={overall.offline} icon={<WifiOff className="h-5 w-5 text-muted-foreground" />} />
       </div>
 
@@ -185,8 +189,8 @@ export default function IoTDashboardPage() {
                   <Badge variant="secondary">{s.total}</Badge>
                 </div>
                 <div className="mt-2 flex gap-3 text-xs text-muted-foreground">
-                  <span className="text-success">● {s.online}</span>
-                  <span className="text-danger">● {s.error}</span>
+                  <span className="text-emerald-600">● {s.online}</span>
+                  <span className="text-rose-600">● {s.error}</span>
                   <span>● {s.offline}</span>
                 </div>
               </button>
@@ -248,8 +252,8 @@ function DeviceCard({ device, history }: { device: IoTDevice; history: Reading[]
   const cat = getCategory(device.system_category);
   const Icon = cat.icon;
   const statusColor =
-    status === "online" ? "bg-success/15 text-success border-success/30"
-    : status === "error" ? "bg-danger/15 text-danger border-danger/30"
+    status === "online" ? "bg-emerald-500/15 text-emerald-600 border-emerald-500/30"
+    : status === "error" ? "bg-rose-500/15 text-rose-600 border-rose-500/30"
     : "bg-muted text-muted-foreground";
 
   const chartData = history
@@ -308,7 +312,7 @@ function DeviceCard({ device, history }: { device: IoTDevice; history: Reading[]
             : "ยังไม่เคยอ่านค่า"}
         </div>
         {device.last_error && (
-          <p className="text-xs text-danger mt-1 line-clamp-2">{device.last_error}</p>
+          <p className="text-xs text-rose-600 mt-1 line-clamp-2">{device.last_error}</p>
         )}
       </CardContent>
     </Card>

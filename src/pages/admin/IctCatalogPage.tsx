@@ -21,20 +21,20 @@ type Device = {
 };
 
 const CATEGORIES = [
-  { value: "all", label: "ทั้งหมด", icon: ShoppingBag, color: "from-info to-danger" },
-  { value: "notebook", label: "โน้ตบุ๊ก", icon: Laptop, color: "from-info to-info" },
-  { value: "tablet", label: "แท็บเล็ต", icon: Tablet, color: "from-success to-success" },
-  { value: "mobile", label: "มือถือ", icon: Smartphone, color: "from-warning to-warning" },
-  { value: "camera", label: "กล้อง", icon: Camera, color: "from-danger to-danger" },
-  { value: "projector", label: "โปรเจกเตอร์", icon: Projector, color: "from-info to-info" },
-  { value: "other", label: "อื่นๆ", icon: Package, color: "from-neutral to-neutral" },
+  { value: "all", label: "ทั้งหมด", icon: ShoppingBag, color: "from-violet-500 to-fuchsia-500" },
+  { value: "notebook", label: "โน้ตบุ๊ก", icon: Laptop, color: "from-sky-500 to-blue-600" },
+  { value: "tablet", label: "แท็บเล็ต", icon: Tablet, color: "from-emerald-500 to-teal-600" },
+  { value: "mobile", label: "มือถือ", icon: Smartphone, color: "from-amber-500 to-orange-600" },
+  { value: "camera", label: "กล้อง", icon: Camera, color: "from-rose-500 to-pink-600" },
+  { value: "projector", label: "โปรเจกเตอร์", icon: Projector, color: "from-indigo-500 to-purple-600" },
+  { value: "other", label: "อื่นๆ", icon: Package, color: "from-slate-500 to-zinc-600" },
 ];
 
 const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
-  available: { label: "พร้อมยืม", cls: "bg-success/15 text-success border-success/30" },
-  borrowed: { label: "ถูกยืม", cls: "bg-warning/15 text-warning border-warning/30" },
-  maintenance: { label: "ซ่อมบำรุง", cls: "bg-info/15 text-info border-info/30" },
-  lost: { label: "สูญหาย", cls: "bg-danger/15 text-danger border-danger/30" },
+  available: { label: "พร้อมยืม", cls: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30" },
+  borrowed: { label: "ถูกยืม", cls: "bg-amber-500/15 text-amber-500 border-amber-500/30" },
+  maintenance: { label: "ซ่อมบำรุง", cls: "bg-sky-500/15 text-sky-500 border-sky-500/30" },
+  lost: { label: "สูญหาย", cls: "bg-rose-500/15 text-rose-500 border-rose-500/30" },
   retired: { label: "ปลดระวาง", cls: "bg-muted text-muted-foreground border-border" },
 };
 

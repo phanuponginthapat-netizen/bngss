@@ -27,6 +27,7 @@ import {
   PieChart, Pie, Cell, AreaChart, Area,
 } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageSkeleton } from "@/components/shared";
 import { useNavigate } from "react-router-dom";
 import { toBE } from "@/lib/utils";
 import { useWeatherData } from "@/hooks/useWeatherData";
@@ -46,9 +47,8 @@ const DynamicHeroBackground = lazy(() => import("@/components/dashboard/DynamicH
 const SocialWallWidget = lazy(() => import("@/components/social/SocialWallWidget"));
 const SuperAppShortcuts = lazy(() => import("@/components/dashboard/SuperAppShortcuts"));
 const MascotHeroWidget = lazy(() => import("@/components/dashboard/widgets/MascotHeroWidget"));
-const TodayActionWidget = lazy(() => import("@/components/dashboard/widgets/TodayActionWidget"));
-const AIInsightsWidget = lazy(() => import("@/components/dashboard/widgets/AIInsightsWidget"));
-
+import SuperAppSearchBar from "@/components/dashboard/SuperAppSearchBar";
+import BrowserShortcutsCard from "@/components/dashboard/BrowserShortcutsCard";
 
 const COLORS = [
   "hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--warning))",
@@ -85,25 +85,54 @@ const Dashboard = () => {
 
   // Global realtime is handled by DashboardLayout's useGlobalRealtime()
 
-  // Heavy admin stats — only fetch when user is admin/super_admin.
-  // Avoids running 17 count(*) queries for students/teachers/parents (200+ concurrent users).
-  const isAdminRole = role === "admin";
   const { data: stats, isLoading } = useQuery({
-    enabled: isAdminRole,
+    enabled: true,
     queryKey: ["dashboard_stats_v2"],
-    staleTime: 60_000,
     queryFn: async () => {
-      // ✅ รวมเป็น 1 RPC call (เดิม 16+ queries) — ลดภาระ DB หลายเท่า
-      const { data: s, error } = await supabase.rpc("get_admin_dashboard_stats");
-      if (error || !s) throw error || new Error("no stats");
-      const stats: any = s;
+      const [
+        students, personnel, classrooms, subjects, attendance, healthRecords,
+        studentLeaves, staffLeaves, news, events, damageReports,
+        budgetTx, assets, behaviorRecords, sdqRecords,
+        enrollments, homeroomRecords, homeVisits, documents,
+      ] = await Promise.all([
+        supabase.from("students").select("id, status, gender, prefix, classroom_id", { count: "exact" }).eq("status", "active"),
+        supabase.from("personnel").select("id, department, status, position, user_id", { count: "exact" }),
+        supabase.from("classrooms").select("id, grade_level, name, homeroom_teacher", { count: "exact" }),
+        supabase.from("subjects").select("id", { count: "exact", head: true }),
+        supabase.from("attendance").select("id, status, attendance_date, student_id").eq("attendance_date", todayBangkok()),
+        supabase.from("health_records").select("id", { count: "exact", head: true }),
+        supabase.from("student_leaves").select("id, status", { count: "exact" }),
+        supabase.from("staff_leaves").select("id, status", { count: "exact" }),
+        supabase.from("news_posts").select("id, title, category, published_at, is_published").order("created_at", { ascending: false }).limit(5),
+        supabase.from("academic_events").select("*").gte("event_date", todayBangkok()).order("event_date", { ascending: true }).limit(5),
+        supabase.from("asset_damage_reports").select("id, status", { count: "exact" }),
+        supabase.from("budget_transactions").select("id, transaction_type, amount, transaction_date"),
+        supabase.from("assets").select("id, condition, current_value", { count: "exact" }),
+        supabase.from("behavior_records").select("id, behavior_type", { count: "exact" }),
+        supabase.from("sdq_records").select("id", { count: "exact", head: true }),
+        supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("status", "active"),
+        supabase.from("homeroom_records").select("id", { count: "exact", head: true }),
+        supabase.from("home_visits").select("id", { count: "exact", head: true }),
+        supabase.from("documents").select("id, status", { count: "exact" }),
+      ]);
 
-      // คำนวณสถานะวันนี้จาก face_scan + attendance (ทำฝั่ง client เพราะใช้ threshold/format)
-      const lateThreshold: string = stats.late_threshold || "08:30";
+      // รวมการแสกนหน้าของวันนี้เข้ากับการเช็คชื่อ
+      const todayISO = todayBangkok();
+      const lateThresholdSetting = await supabase
+        .from("school_settings").select("setting_value")
+        .eq("setting_key", "face_scan_late_threshold").maybeSingle();
+      const lateThreshold = (lateThresholdSetting.data?.setting_value as string) || "08:00";
+      const faceLogs = await supabase
+        .from("face_scan_logs").select("student_id, scan_time").eq("scan_date", todayISO);
+
       const statusByStudent = new Map<string, "present" | "late" | "absent">();
+      attendance.data?.forEach(a => {
+        if (a.student_id && (a.status === "present" || a.status === "late" || a.status === "absent")) {
+          statusByStudent.set(a.student_id, a.status as any);
+        }
+      });
       const firstScan = new Map<string, Date>();
-      (stats.today_face_scans || []).forEach((x: any) => {
-        if (!x.student_id || !x.scan_time) return;
+      (faceLogs.data || []).forEach((x: any) => {
         const t = new Date(x.scan_time);
         const prev = firstScan.get(x.student_id);
         if (!prev || t < prev) firstScan.set(x.student_id, t);
@@ -112,15 +141,16 @@ const Dashboard = () => {
         timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hour12: false,
       }).format(d);
       firstScan.forEach((t, sid) => {
+        // ถ้ามีเช็คชื่อแล้วไม่ทับ
+        if (statusByStudent.has(sid)) return;
         statusByStudent.set(sid, fmtHHMM(t) > lateThreshold ? "late" : "present");
       });
-      // ใช้เฉพาะ face_scan_logs เป็นแหล่งข้อมูลเดียว (ให้ตรงกับ FaceReportTab)
-
 
       const presentCount = Array.from(statusByStudent.values()).filter(s => s === "present").length;
       const lateCount = Array.from(statusByStudent.values()).filter(s => s === "late").length;
       const explicitAbsent = Array.from(statusByStudent.values()).filter(s => s === "absent").length;
-      const totalStudentsForAtt = stats.students_total || 0;
+      // ใช้จำนวนนักเรียนจริงเป็นฐาน — คนที่ยังไม่เช็คชื่อ/แสกน นับเป็นขาด
+      const totalStudentsForAtt = students.count || 0;
       const absentCount = Math.max(explicitAbsent, totalStudentsForAtt - presentCount - lateCount);
       const totalAtt = Math.max(totalStudentsForAtt, presentCount + lateCount + explicitAbsent);
       const attendanceRate = totalAtt > 0 ? ((presentCount / totalAtt) * 100) : 0;
@@ -131,55 +161,114 @@ const Dashboard = () => {
         { name: lang === "th" ? "มาสาย" : "Late", value: lateCount, fill: "hsl(var(--warning))" },
       ].filter(d => d.value > 0);
 
+      const deptMap: Record<string, number> = {};
+      personnel.data?.forEach(p => { deptMap[p.department] = (deptMap[p.department] || 0) + 1; });
+      const deptData = Object.entries(deptMap).map(([name, value]) => ({ name, value }));
+
+      const malePrefixes = ["ด.ช.", "เด็กชาย", "นาย", "ดช", "ดช."];
+      const femalePrefixes = ["ด.ญ.", "เด็กหญิง", "นาง", "นางสาว", "น.ส.", "ดญ", "ดญ."];
+      const genderOf = (s: any): "male" | "female" | "unknown" => {
+        const g = s.gender;
+        if (g === "ช" || g === "ชาย" || g === "male") return "male";
+        if (g === "ญ" || g === "หญิง" || g === "female") return "female";
+        const p = (s.prefix || "").replace(/\s+/g, "");
+        if (malePrefixes.includes(p)) return "male";
+        if (femalePrefixes.includes(p)) return "female";
+        return "unknown";
+      };
+      const maleStudents = students.data?.filter(s => genderOf(s) === "male").length || 0;
+      const femaleStudents = students.data?.filter(s => genderOf(s) === "female").length || 0;
+      const activeStudents = students.count || 0;
+
+      const totalIncome = budgetTx.data?.filter(t => t.transaction_type === "income").reduce((s, t) => s + Number(t.amount), 0) || 0;
+      const totalExpense = budgetTx.data?.filter(t => t.transaction_type === "expense").reduce((s, t) => s + Number(t.amount), 0) || 0;
+
+      const monthlyData: Record<string, { income: number; expense: number }> = {};
+      const now = new Date();
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        monthlyData[key] = { income: 0, expense: 0 };
+      }
+      budgetTx.data?.forEach(tx => {
+        const key = tx.transaction_date?.substring(0, 7);
+        if (key && monthlyData[key]) {
+          if (tx.transaction_type === "income") monthlyData[key].income += Number(tx.amount);
+          else monthlyData[key].expense += Number(tx.amount);
+        }
+      });
       const MONTHS_TH = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
       const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       const monthNames = lang === "th" ? MONTHS_TH : MONTHS_EN;
-      const budgetTrend = (stats.budget_trend || []).map((b: any) => ({
-        name: monthNames[parseInt(b.month.split("-")[1]) - 1],
-        income: Number(b.income) || 0,
-        expense: Number(b.expense) || 0,
+      const budgetTrend = Object.entries(monthlyData).map(([key, val]) => ({
+        name: monthNames[parseInt(key.split("-")[1]) - 1],
+        income: val.income,
+        expense: val.expense,
       }));
 
+      const pendingStudentLeaves = studentLeaves.data?.filter(l => l.status === "pending").length || 0;
+      const pendingStaffLeaves = staffLeaves.data?.filter(l => l.status === "pending").length || 0;
+      const pendingDamage = damageReports.data?.filter(r => r.status === "pending").length || 0;
+      const totalAssetValue = assets.data?.reduce((s, a) => s + Number(a.current_value || 0), 0) || 0;
+      const damagedAssets = assets.data?.filter(a => a.condition === "ชำรุด").length || 0;
+      const positiveB = behaviorRecords.data?.filter(b => b.behavior_type === "positive").length || 0;
+      const negativeB = behaviorRecords.data?.filter(b => b.behavior_type === "negative").length || 0;
+      const pendingDocs = documents.data?.filter((d: any) => d.status === "pending").length || 0;
+
+      // Personnel linked to auth users
+      const linkedPersonnel = personnel.data?.filter((p: any) => p.user_id).length || 0;
+      
+      // Classrooms with homeroom teachers assigned
+      const classroomsWithTeacher = classrooms.data?.filter((c: any) => c.homeroom_teacher).length || 0;
+
+      const gradeMap: Record<string, number> = {};
+      classrooms.data?.forEach(c => { gradeMap[c.grade_level] = (gradeMap[c.grade_level] || 0) + 1; });
+      const gradeData = Object.entries(gradeMap).map(([name, value]) => ({ name, value }));
+
       return {
-        students: stats.students_total || 0,
-        activeStudents: stats.students_total || 0,
-        maleStudents: stats.students_male || 0,
-        femaleStudents: stats.students_female || 0,
-        personnel: stats.personnel_total || 0,
-        linkedPersonnel: stats.personnel_linked || 0,
-        classrooms: stats.classrooms_total || 0,
-        classroomsWithTeacher: stats.classrooms_with_teacher || 0,
-        subjects: stats.subjects_total || 0,
+        students: students.count || 0,
+        activeStudents,
+        maleStudents,
+        femaleStudents,
+        personnel: personnel.count || 0,
+        linkedPersonnel,
+        classrooms: classrooms.count || 0,
+        classroomsWithTeacher,
+        subjects: subjects.count || 0,
         attendanceRate: attendanceRate.toFixed(1),
         scannedToday: firstScan.size,
         attData,
-        deptData: stats.dept_data || [],
-        gradeData: stats.grade_data || [],
-        healthRecords: stats.health_records_total || 0,
-        pendingStudentLeaves: stats.pending_student_leaves || 0,
-        pendingStaffLeaves: stats.pending_staff_leaves || 0,
-        totalIncome: Number(stats.income_total) || 0,
-        totalExpense: Number(stats.expense_total) || 0,
+        deptData,
+        gradeData,
+        healthRecords: healthRecords.count || 0,
+        pendingStudentLeaves,
+        pendingStaffLeaves,
+        totalIncome,
+        totalExpense,
         budgetTrend,
-        pendingDamage: stats.pending_damage || 0,
-        pendingDocs: stats.pending_docs || 0,
-        totalAssetValue: Number(stats.total_asset_value) || 0,
-        damagedAssets: stats.damaged_assets || 0,
-        totalAssets: stats.total_assets || 0,
-        positiveB: stats.positive_b || 0,
-        negativeB: stats.negative_b || 0,
-        sdqCount: stats.sdq_count || 0,
-        enrollments: stats.enrollments_active || 0,
-        homeroomRecords: stats.homeroom_records_total || 0,
-        homeVisits: stats.home_visits_total || 0,
-        totalDocuments: stats.total_documents || 0,
-        recentNews: stats.recent_news || [],
-        upcomingEvents: stats.upcoming_events || [],
+        pendingDamage,
+        pendingDocs,
+        totalAssetValue,
+        damagedAssets,
+        totalAssets: assets.count || 0,
+        positiveB,
+        negativeB,
+        sdqCount: sdqRecords.count || 0,
+        enrollments: enrollments.count || 0,
+        homeroomRecords: homeroomRecords.count || 0,
+        homeVisits: homeVisits.count || 0,
+        totalDocuments: documents.count || 0,
+        recentNews: news.data || [],
+        upcomingEvents: events.data || [],
       };
     },
-    refetchInterval: 120_000,
+    // realtime invalidate ผ่าน useGlobalRealtime แล้ว — ไม่ต้อง poll ถี่
+    refetchInterval: 10 * 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
-
 
   const formatMoney = (n: number) => {
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -210,18 +299,27 @@ const Dashboard = () => {
 
   // เฉพาะ admin เท่านั้นที่ใช้ merged admin-style dashboard
   // role อื่นๆ (director/teacher/student/alumni/parent) กลับไปใช้ dashboard ตาม role เหมือนเดิม
+  const RoleDashboardWithShortcuts = ({ children }: { children: React.ReactNode }) => (
+    <Suspense fallback={<PageSkeleton />}>
+      {children}
+      <div className="px-3 sm:px-6 pb-6">
+        <BrowserShortcutsCard />
+      </div>
+    </Suspense>
+  );
   if (role === "director") {
-    return <Suspense fallback={<div className="flex items-center justify-center min-h-[200px]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}><DirectorDashboard /></Suspense>;
+    return <RoleDashboardWithShortcuts><DirectorDashboard /></RoleDashboardWithShortcuts>;
   }
   if (role === "teacher") {
-    return <Suspense fallback={<div className="flex items-center justify-center min-h-[200px]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}><TeacherDashboard /></Suspense>;
+    return <RoleDashboardWithShortcuts><TeacherDashboard /></RoleDashboardWithShortcuts>;
   }
   if (role === "student" || role === "parent") {
-    return <Suspense fallback={<div className="flex items-center justify-center min-h-[200px]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}><StudentDashboard /></Suspense>;
+    return <RoleDashboardWithShortcuts><StudentDashboard /></RoleDashboardWithShortcuts>;
   }
   if (role === "alumni") {
-    return <Suspense fallback={<div className="flex items-center justify-center min-h-[200px]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}><AlumniDashboard /></Suspense>;
+    return <RoleDashboardWithShortcuts><AlumniDashboard /></RoleDashboardWithShortcuts>;
   }
+
 
 
   const todayBE = new Date().toLocaleDateString(lang === "th" ? "th-TH-u-ca-buddhist" : "en-GB", { day: "numeric", month: "long", year: "numeric" });
@@ -237,61 +335,46 @@ const Dashboard = () => {
   // ── Widget render map (admin dashboard) ──
   const widgetRenderers: Record<string, (color: WidgetColor) => React.ReactNode> = {
     hero: () => (
-      <div className="gradient-hero rounded-[1.5rem] sm:rounded-[2rem] p-5 sm:p-9 text-primary-foreground relative overflow-hidden min-h-[180px] sm:min-h-[220px] h-full shadow-elevated">
+      <div className="gradient-hero rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-8 text-primary-foreground relative overflow-hidden min-h-[180px] sm:min-h-[220px] h-full shadow-elevated">
         <Suspense fallback={null}>
           <DynamicHeroBackground weatherCode={weather.weatherCode} isRainy={weather.isRainy} temperature={weather.temperature} />
         </Suspense>
-        {/* Refined ambient glow — fewer, softer orbs */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -right-24 -top-24 w-72 h-72 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute -left-16 -bottom-20 w-56 h-56 rounded-full bg-white/5 blur-3xl" />
+        <div className="absolute inset-0 opacity-100 pointer-events-none">
+          <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-white/15 blur-2xl" />
+          <div className="absolute right-12 top-6 w-16 h-16 rounded-full bg-white/20 blur-xl animate-pulse" />
+          <div className="absolute -left-6 -bottom-6 w-32 h-32 rounded-full bg-white/10 blur-2xl" />
+          <div className="absolute left-1/3 bottom-4 w-10 h-10 rounded-full bg-white/15 blur-md" />
         </div>
-        <div className="relative z-10 flex flex-col h-full min-w-0 gap-3">
-          <div className="inline-flex items-center gap-2 self-start bg-white/12 backdrop-blur-md rounded-full pl-2.5 pr-3.5 py-1 ring-1 ring-white/15 max-w-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_8px_2px_rgba(110,231,183,0.6)]" />
-            <span className="text-[10px] sm:text-[11px] font-semibold opacity-95 tracking-[0.12em] uppercase truncate">{appName} · {L("ภาพรวม", "Overview")}</span>
+        <div className="relative z-10 flex flex-col h-full min-w-0">
+          <div className="inline-flex items-center gap-2 mb-2 self-start bg-white/15 backdrop-blur-md rounded-full px-3 py-1 max-w-full">
+            <Sparkles className="w-3.5 h-3.5 opacity-90 animate-pulse shrink-0" />
+            <span className="text-[11px] font-semibold opacity-95 tracking-wide uppercase truncate">{appName} {L("ภาพรวม", "Dashboard")}</span>
           </div>
-          <div className="space-y-1.5">
-            <p className="text-[11px] sm:text-xs font-medium opacity-80 tracking-wide">{getGreeting()}</p>
-            <h1 className="text-2xl sm:text-[2.25rem] font-bold tracking-tight leading-[1.15] drop-shadow-sm break-words">
-              {displayName || L("ยินดีต้อนรับ", "Welcome back")}
-            </h1>
-            <p className="text-xs sm:text-sm opacity-85 font-medium break-words">
-              {todayBE} · {L("ปีการศึกษา", "Academic Year")} {currentBE}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-1.5 mt-auto pt-2">
+          <h1 className="text-2xl sm:text-4xl font-extrabold mb-1 tracking-tight drop-shadow-sm break-words">
+            {getGreeting()}{displayName ? `, ${displayName}` : ""} <span className="inline-block animate-bounce">👋</span>
+          </h1>
+          <p className="text-xs sm:text-sm opacity-90 font-medium break-words">{L("ภาพรวมโรงเรียน • ปีการศึกษา", "School Overview • Academic Year")} {currentBE} · {todayBE}</p>
+          <div className="flex flex-wrap gap-2 mt-3">
             {weather.hasCoords && weather.temperature !== null && (
-              <span className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-md rounded-lg px-2.5 py-1 text-[11px] font-semibold ring-1 ring-white/15">
+              <span className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-md rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-white/20">
                 <Thermometer className="w-3.5 h-3.5" />{weather.temperature?.toFixed(1)}°C
               </span>
             )}
             {weather.pm25 !== null && (
-              <span className={`inline-flex items-center gap-1.5 backdrop-blur-md rounded-lg px-2.5 py-1 text-[11px] font-semibold ring-1 ring-white/20 ${weather.pm25 > 75 ? "bg-danger/25" : weather.pm25 > 37.5 ? "bg-warning/25" : "bg-success/25"}`}>
-                <Wind className="w-3.5 h-3.5" />PM2.5 {weather.pm25.toFixed(0)}
+              <span className={`inline-flex items-center gap-1.5 backdrop-blur-sm rounded-full px-3 py-1 text-xs font-medium ${weather.pm25 > 75 ? "bg-red-500/30" : weather.pm25 > 37.5 ? "bg-yellow-500/30" : "bg-emerald-500/30"}`}>
+                <Wind className="w-3.5 h-3.5" />PM2.5 {weather.pm25.toFixed(0)} µg/m³
               </span>
             )}
             {weather.recommendations.slice(0, 2).map((rec, i) => (
-              <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-lg bg-white/10 backdrop-blur-md text-[11px] font-medium ring-1 ring-white/10">{rec}</span>
+              <span key={i} className="inline-flex items-center px-3 py-1 rounded-full bg-white/15 backdrop-blur-sm text-xs font-medium">{rec}</span>
             ))}
           </div>
         </div>
       </div>
     ),
-
     mascot_hero: () => (
       <Suspense fallback={<Skeleton className="h-72 rounded-2xl" />}>
         <MascotHeroWidget />
-      </Suspense>
-    ),
-    today_actions: () => (
-      <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
-        <TodayActionWidget />
-      </Suspense>
-    ),
-    ai_insights: () => (
-      <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
-        <AIInsightsWidget />
       </Suspense>
     ),
     alerts: () => (
@@ -353,7 +436,7 @@ const Dashboard = () => {
     attendance_donut: (color) => {
       const theme = COLOR_THEMES[color];
       return (
-        <Card className="border border-border/50 shadow-elevated rounded-2xl h-full">
+        <Card onClick={() => navigate("/dashboard/student/attendance")} className="border border-border/50 shadow-elevated rounded-2xl h-full cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <span className={`w-1.5 h-4 rounded-full ${theme.gradient}`} />
@@ -386,7 +469,7 @@ const Dashboard = () => {
     budget_trend: (color) => {
       const theme = COLOR_THEMES[color];
       return (
-        <Card className="border border-border/50 shadow-elevated rounded-2xl h-full">
+        <Card onClick={() => navigate("/dashboard/finance/budget")} className="border border-border/50 shadow-elevated rounded-2xl h-full cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -431,7 +514,7 @@ const Dashboard = () => {
     news: (color) => {
       const theme = COLOR_THEMES[color];
       return (
-        <Card className="border border-border/50 shadow-elevated rounded-2xl h-full">
+        <Card onClick={() => navigate("/dashboard/admin/news")} className="border border-border/50 shadow-elevated rounded-2xl h-full cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <div className={`w-7 h-7 rounded-lg ${theme.soft} flex items-center justify-center`}>
@@ -446,7 +529,7 @@ const Dashboard = () => {
                 {stats.recentNews.slice(0, 4).map((n: any) => {
                   const d = new Date(n.published_at || n.created_at || Date.now());
                   return (
-                    <button key={n.id} onClick={() => navigate(`/dashboard/news/${n.id}`)} className="w-full text-left group block">
+                    <button key={n.id} onClick={(e) => { e.stopPropagation(); navigate(`/news/${n.id}`); }} className="w-full text-left group block">
                       <p className={`text-[10px] ${theme.text} font-medium mb-0.5`}>
                         {d.toLocaleDateString(lang === "th" ? "th-TH-u-ca-buddhist" : "en-GB", { day: "numeric", month: "short" })}
                       </p>
@@ -454,7 +537,7 @@ const Dashboard = () => {
                     </button>
                   );
                 })}
-                <button onClick={() => navigate("/dashboard/admin/news")} className={`w-full text-[11px] ${theme.text} font-medium pt-2 border-t flex items-center justify-center gap-1 hover:gap-2 transition-all`}>
+                <button onClick={(e) => { e.stopPropagation(); navigate("/dashboard/admin/news"); }} className={`w-full text-[11px] ${theme.text} font-medium pt-2 border-t flex items-center justify-center gap-1 hover:gap-2 transition-all`}>
                   {L("ดูทั้งหมด", "View all")} <ArrowRight className="w-3 h-3" />
                 </button>
               </>
@@ -466,7 +549,7 @@ const Dashboard = () => {
     calendar: (color) => {
       const theme = COLOR_THEMES[color];
       return (
-        <Card className="border border-border/50 shadow-elevated rounded-2xl h-full">
+        <Card onClick={() => navigate("/dashboard/academic/calendar")} className="border border-border/50 shadow-elevated rounded-2xl h-full cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <div className={`w-7 h-7 rounded-lg ${theme.gradient} flex items-center justify-center`}>
@@ -484,7 +567,7 @@ const Dashboard = () => {
     student_care: (color) => {
       const theme = COLOR_THEMES[color];
       return (
-        <Card className="border border-border/50 shadow-elevated rounded-2xl h-full">
+        <Card onClick={() => navigate("/dashboard/hub/student-health")} className="border border-border/50 shadow-elevated rounded-2xl h-full cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <div className={`w-7 h-7 rounded-lg ${theme.gradient} flex items-center justify-center`}>
@@ -494,14 +577,15 @@ const Dashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2.5">
-            <StatRow icon={Heart} label={L("บันทึกสุขภาพ", "Health Records")} value={stats?.healthRecords || 0} />
-            <StatRow icon={CheckCircle2} label={L("พฤติกรรมดี", "Positive Behavior")} value={stats?.positiveB || 0} color="text-success" />
-            <StatRow icon={XCircle} label={L("พฤติกรรมเชิงลบ", "Negative Behavior")} value={stats?.negativeB || 0} color="text-destructive" />
-            <StatRow icon={ClipboardList} label="SDQ" value={stats?.sdqCount || 0} />
-            <StatRow icon={Users} label={L("เยี่ยมบ้าน", "Home Visits")} value={stats?.homeVisits || 0} />
-            <StatRow icon={FileText} label={L("เอกสารรอดำเนินการ", "Pending Docs")} value={stats?.pendingDocs || 0} color={stats?.pendingDocs ? "text-warning" : undefined} />
+            <StatRow icon={Heart} label={L("บันทึกสุขภาพ", "Health Records")} value={stats?.healthRecords || 0} onClick={() => navigate("/dashboard/student/health")} />
+            <StatRow icon={CheckCircle2} label={L("พฤติกรรมดี", "Positive Behavior")} value={stats?.positiveB || 0} color="text-success" onClick={() => navigate("/dashboard/student/behavior")} />
+            <StatRow icon={XCircle} label={L("พฤติกรรมเชิงลบ", "Negative Behavior")} value={stats?.negativeB || 0} color="text-destructive" onClick={() => navigate("/dashboard/student/behavior")} />
+            <StatRow icon={ClipboardList} label="SDQ" value={stats?.sdqCount || 0} onClick={() => navigate("/dashboard/student/sdq")} />
+            <StatRow icon={Users} label={L("เยี่ยมบ้าน", "Home Visits")} value={stats?.homeVisits || 0} onClick={() => navigate("/dashboard/student/home-visits")} />
+            <StatRow icon={FileText} label={L("เอกสารรอดำเนินการ", "Pending Docs")} value={stats?.pendingDocs || 0} color={stats?.pendingDocs ? "text-warning" : undefined} onClick={() => navigate("/dashboard/inbox")} />
           </CardContent>
         </Card>
+
       );
     },
     mini_apps: () => (
@@ -539,7 +623,7 @@ const Dashboard = () => {
     },
     social_wall: () => (
       <Suspense fallback={<Skeleton className="h-48 rounded-2xl" />}>
-        <SocialWallWidget limit={6} title="" variant="bare" />
+        <SocialWallWidget limit={6} title={L("ข่าวจากเพจโรงเรียน", "From School Page")} />
       </Suspense>
     ),
   };
@@ -567,7 +651,7 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-4 pb-24 sm:pb-4 [scrollbar-gutter:stable]">
-      
+      <SuperAppSearchBar />
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground truncate">
 
@@ -585,23 +669,52 @@ const Dashboard = () => {
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => setDraggingId(null)}>
           <SortableContext items={enabledWidgets.map(w => w.key)} strategy={rectSortingStrategy}>
-            <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-5 lg:gap-6 grid-flow-dense items-stretch">
-              {enabledWidgets.map((w) => {
+            {(() => {
+              // จัดกลุ่ม widgets ตาม group field เพื่อให้แต่ละ section การ์ดสัดส่วนเสมอกัน ไม่มีช่องว่างจาก dense flow
+              const GROUP_ORDER: Array<"overview" | "kpi" | "chart" | "info" | "shortcut"> = ["overview", "kpi", "chart", "info", "shortcut"];
+              const byGroup = new Map<string, typeof enabledWidgets>();
+              enabledWidgets.forEach((w) => {
+                const g = w.def.group;
+                if (!byGroup.has(g)) byGroup.set(g, []);
+                byGroup.get(g)!.push(w);
+              });
+              // ใช้ flex-wrap + flex-grow ตามขนาด เพื่อให้แต่ละแถวยืดเต็มความกว้างเสมอ ไม่มีช่องว่าง
+              const SIZE_FLEX: Record<string, string> = {
+                sm: "basis-[140px] grow",
+                md: "basis-[260px] grow-[2]",
+                lg: "basis-[380px] grow-[3]",
+                xl: "basis-full grow",
+              };
+              const renderWidget = (w: typeof enabledWidgets[number]) => {
                 const render = widgetRenderers[w.key];
                 if (!render) return null;
                 return (
-                  <SortableWidget key={w.key} id={w.key} className={`${SIZE_CLASSES[w.size]} min-w-0 h-full`}>
+                  <SortableWidget key={w.key} id={w.key} className={`${SIZE_FLEX[w.size]} min-w-0 flex`}>
                     {render(w.color)}
                   </SortableWidget>
                 );
-              })}
-            </div>
-
+              };
+              return (
+                <div className="space-y-4 sm:space-y-5">
+                  {GROUP_ORDER.map((g) => {
+                    const items = byGroup.get(g);
+                    if (!items || items.length === 0) return null;
+                    return (
+                      <div key={g} className="flex flex-wrap gap-3 sm:gap-5 lg:gap-6 items-stretch">
+                        {items.map(renderWidget)}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </SortableContext>
           <TrashDropZone visible={!!draggingId} lang={lang} />
         </DndContext>
       )}
+      <BrowserShortcutsCard />
     </div>
+
   );
 };
 
@@ -615,7 +728,7 @@ const SortableWidget = ({ id, className, children }: { id: string; className: st
     zIndex: isDragging ? 50 : "auto",
   };
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`${className} touch-pan-y ${isDragging ? "scale-95" : ""} transition-transform [&>*]:h-full`}>
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`${className} touch-pan-y ${isDragging ? "scale-95" : ""} transition-transform [&>*]:h-full [&>*]:w-full`}>
       {children}
     </div>
 
@@ -710,43 +823,59 @@ const KpiCard = React.forwardRef<HTMLDivElement, KpiCardProps>(
   ({ icon: Icon, label, value, sub, gradient, onClick, progress }, ref) => (
     <Card
       ref={ref}
-      className="relative border border-border/50 bg-card/80 backdrop-blur-xl shadow-sm rounded-2xl cursor-pointer hover:shadow-lg hover:-translate-y-0.5 hover:border-border active:translate-y-0 transition-all duration-200 group overflow-hidden"
+      className="relative border-0 bg-card shadow-elevated rounded-[1.75rem] cursor-pointer hover:shadow-card-hover hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] transition-all duration-300 group overflow-hidden ring-1 ring-border/40"
       onClick={onClick}
     >
-      <div className={`absolute -top-16 -right-16 w-32 h-32 rounded-full ${gradient} opacity-[0.08] blur-2xl group-hover:opacity-[0.14] transition-opacity`} />
-      <div className={`absolute top-0 left-0 h-[2px] w-12 ${gradient} opacity-70 rounded-r-full`} />
-      <CardContent className="p-5 relative">
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className={`w-10 h-10 rounded-xl ${gradient} flex items-center justify-center shrink-0 shadow-md shadow-black/5 ring-1 ring-white/20`}>
-            <Icon className="w-5 h-5 text-primary-foreground" />
+      <div className={`absolute -top-10 -right-10 w-28 h-28 rounded-full ${gradient} opacity-10 blur-2xl group-hover:opacity-20 transition-opacity`} />
+      <CardContent className="p-4 relative">
+        <div className="flex items-start gap-3">
+          <div className={`w-12 h-12 rounded-2xl ${gradient} flex items-center justify-center shrink-0 shadow-lg ring-4 ring-background group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300`}>
+            <Icon className="w-6 h-6 text-primary-foreground" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] text-muted-foreground font-semibold tracking-wide">{label}</p>
+            <p className="text-2xl font-extrabold text-foreground leading-tight mt-0.5 tabular-nums">{value}</p>
+            {progress !== undefined && <Progress value={progress} className="h-1.5 mt-2 rounded-full" />}
+            {sub && <p className="text-[10px] text-muted-foreground mt-1 truncate">{sub}</p>}
           </div>
         </div>
-        <p className="text-[11px] text-muted-foreground font-semibold tracking-[0.08em] uppercase">{label}</p>
-        <p className="text-[1.75rem] font-bold text-foreground leading-none mt-1.5 tabular-nums tracking-tight">{value}</p>
-        {progress !== undefined && <Progress value={progress} className="h-1 mt-3 rounded-full" />}
-        {sub && <p className="text-[11px] text-muted-foreground mt-2 truncate font-medium">{sub}</p>}
       </CardContent>
     </Card>
   )
 );
 KpiCard.displayName = "KpiCard";
 
-
 interface StatRowProps {
   icon: React.ComponentType<any>;
   label: string;
   value: number;
   color?: string;
+  onClick?: () => void;
 }
 
-const StatRow = ({ icon: Icon, label, value, color }: StatRowProps) => (
-  <div className="flex items-center justify-between text-sm">
-    <div className="flex items-center gap-2 text-muted-foreground">
-      <Icon className={`w-3.5 h-3.5 ${color || ""}`} /> {label}
-    </div>
-    <span className={`font-semibold ${color || "text-foreground"}`}>{value}</span>
-  </div>
-);
+const StatRow = ({ icon: Icon, label, value, color, onClick }: StatRowProps) => {
+  const content = (
+    <>
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Icon className={`w-3.5 h-3.5 ${color || ""}`} /> {label}
+      </div>
+      <span className={`font-semibold ${color || "text-foreground"}`}>{value}</span>
+    </>
+  );
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onClick(); }}
+        className="w-full flex items-center justify-between text-sm rounded-md px-1.5 py-1 -mx-1.5 hover:bg-muted/60 transition-colors text-left"
+      >
+        {content}
+      </button>
+    );
+  }
+  return <div className="flex items-center justify-between text-sm">{content}</div>;
+};
+
 
 /* ── Mini Calendar ── */
 const DAYS_TH = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];

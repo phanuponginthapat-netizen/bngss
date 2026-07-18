@@ -7,6 +7,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContai
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { th } from "date-fns/locale";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 type Stats = {
   studentsTotal: number;
@@ -66,7 +67,7 @@ export default function GarbageDashboardPage() {
     const to = period === "month" ? endOfMonth(now) : endOfYear(now);
     const label = period === "month"
       ? format(now, "MMMM yyyy", { locale: th })
-      : `ปี พ.ศ. ${now.getFullYear() + 543}`;
+      : `ปี พ.ศ. ${now.getFullYear() + BE_OFFSET}`;
 
     const [{ data: deps }, { data: reds }] = await Promise.all([
       supabase.from("garbage_deposits")
@@ -142,21 +143,21 @@ export default function GarbageDashboardPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Recycle className="text-success" /> ธนาคารขยะ — ภาพรวม</h1>
+        <h1 className="text-2xl font-bold flex items-center gap-2"><Recycle className="text-emerald-500" /> ธนาคารขยะ — ภาพรวม</h1>
         <p className="text-muted-foreground text-sm">สถิติแบบเรียลไทม์ของระบบรับฝากขยะและแลกของรางวัล</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card><CardContent className="p-4 flex items-center gap-3">
-          <Users className="w-10 h-10 text-info" />
+          <Users className="w-10 h-10 text-blue-500" />
           <div><div className="text-2xl font-bold">{stats.studentsTotal.toLocaleString()}</div><div className="text-sm text-muted-foreground">นักเรียนทั้งหมด</div></div>
         </CardContent></Card>
         <Card><CardContent className="p-4 flex items-center gap-3">
-          <Coins className="w-10 h-10 text-warning" />
+          <Coins className="w-10 h-10 text-amber-500" />
           <div><div className="text-2xl font-bold">{stats.pointsTotal.toLocaleString()}</div><div className="text-sm text-muted-foreground">แต้มรวมทั้งระบบ</div></div>
         </CardContent></Card>
         <Card><CardContent className="p-4 flex items-center gap-3">
-          <Recycle className="w-10 h-10 text-success" />
+          <Recycle className="w-10 h-10 text-emerald-500" />
           <div><div className="text-2xl font-bold">{stats.itemsByType.reduce((s, i) => s + i.quantity, 0).toLocaleString()}</div><div className="text-sm text-muted-foreground">ปริมาณขยะที่รับฝาก (รวม)</div></div>
         </CardContent></Card>
       </div>
@@ -177,25 +178,25 @@ export default function GarbageDashboardPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <div className="p-3 rounded-lg border bg-success/5">
+            <div className="p-3 rounded-lg border bg-emerald-500/5">
               <div className="text-xs text-muted-foreground">รายการฝาก</div>
-              <div className="text-xl font-bold text-success">{periodSummary.deposits.toLocaleString()}</div>
+              <div className="text-xl font-bold text-emerald-600">{periodSummary.deposits.toLocaleString()}</div>
             </div>
-            <div className="p-3 rounded-lg border bg-warning/5">
+            <div className="p-3 rounded-lg border bg-amber-500/5">
               <div className="text-xs text-muted-foreground">รายการแลก</div>
-              <div className="text-xl font-bold text-warning">{periodSummary.redemptions.toLocaleString()}</div>
+              <div className="text-xl font-bold text-amber-600">{periodSummary.redemptions.toLocaleString()}</div>
             </div>
-            <div className="p-3 rounded-lg border bg-success/5">
+            <div className="p-3 rounded-lg border bg-green-500/5">
               <div className="text-xs text-muted-foreground">แต้มเข้า</div>
-              <div className="text-xl font-bold text-success">+{periodSummary.pointsIn.toLocaleString()}</div>
+              <div className="text-xl font-bold text-green-600">+{periodSummary.pointsIn.toLocaleString()}</div>
             </div>
-            <div className="p-3 rounded-lg border bg-danger/5">
+            <div className="p-3 rounded-lg border bg-rose-500/5">
               <div className="text-xs text-muted-foreground">แต้มออก</div>
-              <div className="text-xl font-bold text-danger">-{periodSummary.pointsOut.toLocaleString()}</div>
+              <div className="text-xl font-bold text-rose-600">-{periodSummary.pointsOut.toLocaleString()}</div>
             </div>
-            <div className="p-3 rounded-lg border bg-success/5">
+            <div className="p-3 rounded-lg border bg-teal-500/5">
               <div className="text-xs text-muted-foreground">ปริมาณรวม</div>
-              <div className="text-xl font-bold text-success">{periodSummary.totalQty.toLocaleString(undefined, { maximumFractionDigits: 1 })}</div>
+              <div className="text-xl font-bold text-teal-600">{periodSummary.totalQty.toLocaleString(undefined, { maximumFractionDigits: 1 })}</div>
             </div>
           </div>
 
@@ -250,7 +251,7 @@ export default function GarbageDashboardPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><Trophy className="text-warning" /> Top 5 นักเรียนแต้มสูงสุด</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Trophy className="text-amber-500" /> Top 5 นักเรียนแต้มสูงสุด</CardTitle></CardHeader>
         <CardContent>
           <Table>
             <TableHeader><TableRow><TableHead>อันดับ</TableHead><TableHead>ชื่อ-สกุล</TableHead><TableHead>ห้องเรียน</TableHead><TableHead className="text-right">แต้ม</TableHead></TableRow></TableHeader>

@@ -15,6 +15,7 @@ import { SubjectEditDialog } from "./SubjectEditDialog";
 import { ProxySubjectMapDialog } from "./ProxySubjectMapDialog";
 import { TeacherScheduleImportDialog } from "./TeacherScheduleImportDialog";
 import { useUserRole } from "@/hooks/useUserRole";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 interface SubjectsTabProps {
   subjects: any[];
@@ -40,7 +41,7 @@ export const SubjectsTab = ({ subjects, onUploadOpen }: SubjectsTabProps) => {
 
   const [subjectForm, setSubjectForm] = useState({
     code: "", name_th: "", name_en: "", credits: "1.0", hours_per_week: "1",
-    grade_level: "", semester: "0", academic_year: String(new Date().getFullYear() + 543), subject_type: "required"
+    grade_level: "", semester: "0", academic_year: String(new Date().getFullYear() + BE_OFFSET), subject_type: "required"
   });
 
   const gradeLevels = useMemo(() => {
@@ -68,12 +69,12 @@ export const SubjectsTab = ({ subjects, onUploadOpen }: SubjectsTabProps) => {
       code: subjectForm.code, name_th: subjectForm.name_th, name_en: subjectForm.name_en || null,
       credits: parseFloat(subjectForm.credits), hours_per_week: parseInt(subjectForm.hours_per_week) || 1,
       grade_level: subjectForm.grade_level || null, semester: parseInt(subjectForm.semester),
-      academic_year: parseInt(subjectForm.academic_year) - 543, subject_type: subjectForm.subject_type,
+      academic_year: parseInt(subjectForm.academic_year) - BE_OFFSET, subject_type: subjectForm.subject_type,
     });
     if (error) { toast.error(error.message); return; }
     toast.success("เพิ่มรายวิชาสำเร็จ");
     setSubjectOpen(false);
-    setSubjectForm({ code: "", name_th: "", name_en: "", credits: "1.0", hours_per_week: "1", grade_level: "", semester: "0", academic_year: String(new Date().getFullYear() + 543), subject_type: "required" });
+    setSubjectForm({ code: "", name_th: "", name_en: "", credits: "1.0", hours_per_week: "1", grade_level: "", semester: "0", academic_year: String(new Date().getFullYear() + BE_OFFSET), subject_type: "required" });
     qc.invalidateQueries({ queryKey: ["subjects"] });
   };
 
@@ -131,17 +132,17 @@ export const SubjectsTab = ({ subjects, onUploadOpen }: SubjectsTabProps) => {
           <DialogContent>
             <DialogHeader><DialogTitle>เพิ่มรายวิชาใหม่</DialogTitle></DialogHeader>
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><Label>รหัสวิชา</Label><Input placeholder="ค21101" value={subjectForm.code} onChange={e => setSubjectForm({...subjectForm, code: e.target.value})} /></div>
                 <div><Label>หน่วยกิต</Label><Input type="number" step="0.5" value={subjectForm.credits} onChange={e => setSubjectForm({...subjectForm, credits: e.target.value})} /></div>
               </div>
               <div><Label>ชื่อวิชา (ไทย)</Label><Input value={subjectForm.name_th} onChange={e => setSubjectForm({...subjectForm, name_th: e.target.value})} /></div>
               <div><Label>ชื่อวิชา (อังกฤษ)</Label><Input value={subjectForm.name_en} onChange={e => setSubjectForm({...subjectForm, name_en: e.target.value})} /></div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><Label>ชั่วโมง/สัปดาห์</Label><Input type="number" min="1" value={subjectForm.hours_per_week} onChange={e => setSubjectForm({...subjectForm, hours_per_week: e.target.value})} /></div>
                 <div><Label>ระดับชั้น</Label><Input placeholder="ม.1" value={subjectForm.grade_level} onChange={e => setSubjectForm({...subjectForm, grade_level: e.target.value})} /></div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><Label>ภาคเรียน</Label>
                   <Select value={subjectForm.semester} onValueChange={v => setSubjectForm({...subjectForm, semester: v})}>
                     <SelectTrigger><SelectValue /></SelectTrigger>

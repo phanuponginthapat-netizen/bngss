@@ -1,9 +1,11 @@
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "./useUserRole";
-import { playNotificationSound } from "@/lib/notificationSound";
+import { routeForNotification } from "@/lib/notificationRoute";
+import { showLiveNotification } from "@/lib/liveNotification";
+
 
 /**
  * Global realtime subscription that invalidates react-query caches
@@ -13,9 +15,14 @@ import { playNotificationSound } from "@/lib/notificationSound";
 export function useGlobalRealtime() {
   const qc = useQueryClient();
   const { role, userId } = useUserRole();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (!userId) return;
+    // Wait for both userId and role to resolve before subscribing.
+    // Subscribing as "anon" then re-subscribing as the real role caused a redundant
+    // mass invalidateQueries() on the first connect.
+    if (!userId || !role) return;
+
 
     // Tables every authenticated user needs (notifications/inbox/news/eforms/social wall)
     const baseTables = [
@@ -23,7 +30,6 @@ export function useGlobalRealtime() {
       "emergency_broadcasts", "profiles", "eforms", "eform_recipients",
       "documents", "document_recipients", "face_scan_logs",
       "social_posts", "wall_posts", "wall_post_comments", "wall_post_reactions",
-      "learning_contents", "learning_views",
     ];
 
     // Admin/Director: full system view
@@ -32,7 +38,8 @@ export function useGlobalRealtime() {
       "students", "classrooms", "personnel", "user_roles",
       // Attendance & Student Affairs
       "attendance", "behavior_records", "student_leaves", "student_screenings",
-      "sdq_records", "home_visits", "homeroom_records", "health_records",
+      "sdq_records", "home_visits", "home_visit_summaries", "homeroom_records",
+      "health_records", "health_measurements", "vaccine_records",
       // Academic
       "enrollments", "student_scores", "student_column_scores", "subject_score_columns",
       "subjects", "schedules", "homework_assignments", "task_assignments", "assessment_criteria",
@@ -43,13 +50,15 @@ export function useGlobalRealtime() {
       "staff_leaves", "staff_evaluations", "salary_records", "personnel_assessments",
       "id_plan_records", "pa_agreements", "pa_indicator_scores",
       "budget_transactions", "account_balances", "assets", "asset_damage_reports",
-      "procurement_records", "procurement_advances", "procurement_documents", "student_subsidies",
+      "procurement_records", "student_subsidies",
       // Admin
       "admissions", "school_settings", "cms_settings", "cms_pages", "google_chat_webhooks",
       // Misc
       "school_lunch_records", "school_milk_records",
       "action_plans", "pp5_files", "pp6_files",
       "time_clock", "substitute_teaching", "inbox_items",
+      // Teaching Excellence
+      "lesson_plans", "teaching_logbook",
       // Garbage / ICT / Learning center
       "garbage_deposits", "garbage_redemptions", "ict_loans", "learning_center_bookings",
     ];
@@ -57,19 +66,29 @@ export function useGlobalRealtime() {
     // Teacher: classroom/academic/HR-self
     const teacherTables = [
       "students", "classrooms", "attendance", "behavior_records", "student_leaves",
+      "sdq_records", "home_visits", "home_visit_summaries", "health_measurements", "vaccine_records",
       "homeroom_records", "enrollments", "student_scores", "student_column_scores",
       "subject_score_columns", "subjects", "schedules", "homework_assignments", "task_assignments",
       "documents", "document_recipients", "staff_leaves", "pa_agreements",
       "personnel", "asset_damage_reports", "time_clock", "substitute_teaching",
+      "lesson_plans", "teaching_logbook",
       "garbage_deposits", "garbage_redemptions", "ict_loans", "learning_center_bookings",
     ];
 
     // Student/Alumni: personal data
     const studentTables = [
       "attendance", "behavior_records", "student_leaves", "enrollments",
-      "student_scores", "student_column_scores", "schedules", "homework_assignments", "task_assignments",
+      "student_scores", "student_column_scores", "schedules", "homework_assignments",
+      "homework_submissions", "task_assignments",
       "homeroom_records",
       "garbage_deposits", "garbage_redemptions", "ict_loans",
+    ];
+
+    // Parent: ดูข้อมูลลูก (เช็คชื่อ/พฤติกรรม/ลา/คะแนน/การบ้าน)
+    const parentTables = [
+      "attendance", "behavior_records", "student_leaves",
+      "student_scores", "student_column_scores", "homework_assignments", "homework_submissions",
+      "schedules",
     ];
 
 
@@ -77,6 +96,7 @@ export function useGlobalRealtime() {
     if (role === "admin" || role === "director") tables = [...baseTables, ...adminTables];
     else if (role === "teacher") tables = [...baseTables, ...teacherTables];
     else if (role === "student" || role === "alumni") tables = [...baseTables, ...studentTables];
+    else if (role === "parent") tables = [...baseTables, ...parentTables];
     else tables = baseTables;
 
     // Dedupe
@@ -90,11 +110,7 @@ export function useGlobalRealtime() {
       personnel: [["my_personnel"], ["dashboard_stats_v2"]],
       news_posts: [["dashboard_stats_v2"]],
       academic_events: [["dashboard_stats_v2"]],
-      face_scan_logs: [
-        ["dashboard_stats_v2"], ["mascot_stats"],
-        ["face-logs-range"], ["face-chart"], ["face-report-accurate"],
-        ["face-scan-today"], ["face-scan-recent"],
-      ],
+      face_scan_logs: [["dashboard_stats_v2"], ["mascot_stats"]],
       notifications: [["notifications"]],
       profiles: [["dashboard_user_profile"]],
       student_scores: [["student_scores"]],
@@ -104,6 +120,9 @@ export function useGlobalRealtime() {
       staff_leaves: [["staff_leaves"]],
       behavior_records: [["behavior_records"]],
       home_visits: [["home_visits"]],
+      home_visit_summaries: [["home_visit_summaries"]],
+      vaccine_records: [["vaccine_records"]],
+      health_measurements: [["health_measurements"], ["health_trend"]],
       homeroom_records: [["homeroom_records"]],
       student_screenings: [["student_screenings"]],
       sdq_records: [["sdq_records"]],
@@ -111,6 +130,8 @@ export function useGlobalRealtime() {
       subjects: [["subjects"]],
       schedules: [["schedules"]],
       task_assignments: [["homework-list"], ["teacher-tasks"], ["student-tasks"]],
+      homework_assignments: [["homework-list"], ["homework_assignments"], ["subject_score_columns"], ["student_column_scores"]],
+      homework_submissions: [["hw-submissions"], ["homework_submissions"], ["student_column_scores"]],
       documents: [["documents"]],
       assets: [["assets"]],
       asset_damage_reports: [["asset_damage_reports"], ["damage_reports"]],
@@ -128,7 +149,7 @@ export function useGlobalRealtime() {
       school_settings: [["school_settings_bulk"]],
     };
 
-    let channel = supabase.channel(`role-realtime-${role || "anon"}`);
+    let channel = supabase.channel(`role-rt-${role}-${userId}`);
 
     for (const table of tables) {
       // Filter notifications/inbox to current user only — drastically reduces payload
@@ -152,31 +173,77 @@ export function useGlobalRealtime() {
           if (payload?.eventType !== "INSERT") return;
           const row = payload.new || {};
 
+          const notify = (o: {
+            title: string;
+            body?: string;
+            route?: string | null;
+            urgent?: boolean;
+            icon?: string;
+          }) =>
+            showLiveNotification({
+              title: o.title,
+              body: o.body,
+              route: o.route,
+              urgent: o.urgent,
+              icon: o.icon,
+              tag: `${table}-${row.id ?? ""}`,
+              onNavigate: (r) => navigate(r),
+            });
+
           if (table === "notifications" && row.user_id === userId) {
-            playNotificationSound();
-            toast(row.title || "การแจ้งเตือนใหม่", {
-              description: row.message || undefined,
+            notify({
+              title: row.title || "การแจ้งเตือนใหม่",
+              body: row.message || undefined,
+              route: routeForNotification(row, role) || "/dashboard/inbox",
+              icon: "🔔",
             });
           } else if (table === "inbox_items" && row.user_id === userId) {
-            playNotificationSound({ urgent: row.priority === "high" });
-            toast(row.title || "ข้อความใหม่", {
-              description: row.message || undefined,
+            notify({
+              title: row.title || "ข้อความใหม่",
+              body: row.message || undefined,
+              urgent: row.priority === "high",
+              route: routeForNotification(row, role) || "/dashboard/inbox",
+              icon: "✉️",
             });
           } else if (table === "emergency_broadcasts") {
-            playNotificationSound({ urgent: true });
-            toast.error("🚨 " + (row.title || "ประกาศฉุกเฉิน"), {
-              description: row.message || undefined,
-              duration: 10000,
+            notify({
+              title: "🚨 " + (row.title || "ประกาศฉุกเฉิน"),
+              body: row.message || undefined,
+              urgent: true,
+              route: "/dashboard/emergency",
+              icon: "🚨",
             });
           } else if (table === "news_posts" && row.is_published) {
-            playNotificationSound();
-            toast(`📢 ${row.title || "ข่าวใหม่"}`);
+            notify({
+              title: row.title || "ข่าวใหม่",
+              route: row.id ? `/dashboard/news/${row.id}` : "/dashboard/admin/news",
+              icon: "📢",
+            });
           } else if (table === "eform_recipients" && row.recipient_id === userId) {
-            playNotificationSound();
-            toast("📄 มีเอกสาร E-Form ใหม่ถึงคุณ");
+            notify({
+              title: "มีเอกสาร E-Form ใหม่ถึงคุณ",
+              route: row.eform_id ? `/dashboard/inbox?tab=eform&doc=${row.eform_id}` : "/dashboard/inbox?tab=eform",
+              icon: "📄",
+            });
           } else if (table === "document_recipients" && row.recipient_user_id === userId) {
-            playNotificationSound();
-            toast("📨 มีเอกสารใหม่ในกล่องรับ");
+            notify({
+              title: "มีเอกสารใหม่ในกล่องรับ",
+              route: row.document_id ? `/dashboard/inbox?tab=documents&doc=${row.document_id}` : "/dashboard/inbox?tab=documents",
+              icon: "📨",
+            });
+          } else if (table === "wall_post_comments") {
+            notify({
+              title: "มีความคิดเห็นใหม่",
+              body: row.content || undefined,
+              route: row.post_id ? `/dashboard/wall#post-${row.post_id}` : "/dashboard/wall",
+              icon: "💬",
+            });
+          } else if (table === "wall_post_reactions") {
+            notify({
+              title: "มีคนกดถูกใจโพสต์ของคุณ",
+              route: row.post_id ? `/dashboard/wall#post-${row.post_id}` : "/dashboard/wall",
+              icon: "❤️",
+            });
           }
 
         }
@@ -205,5 +272,5 @@ export function useGlobalRealtime() {
       document.removeEventListener("visibilitychange", onVisible);
       supabase.removeChannel(channel);
     };
-  }, [qc, role, userId]);
+  }, [qc, role, userId, navigate]);
 }

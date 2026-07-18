@@ -4,7 +4,8 @@ import { GraduationCap, User, Calendar, Droplets, Phone, MapPin } from "lucide-r
 import { LineLinkQR } from "@/components/LineLinkQR";
 import type { IdCardSettings } from "@/hooks/useIdCardSettings";
 import AutoFitText from "@/components/AutoFitText";
-import { useResolvedImageUrl } from "@/lib/storageUrl";
+import { BE_OFFSET } from "@/lib/dateBE";
+import { useCmsValue } from "@/hooks/useCmsSettings";
 
 interface CardPersonData {
   name: string;
@@ -35,7 +36,7 @@ const formatThaiDob = (s?: string) => {
   if (!m) return s;
   const [, y, mo, d] = m;
   const monthName = TH_MONTHS_SHORT[parseInt(mo, 10)] || mo;
-  return `${parseInt(d, 10)} ${monthName} ${parseInt(y, 10) + 543}`;
+  return `${parseInt(d, 10)} ${monthName} ${parseInt(y, 10) + BE_OFFSET}`;
 };
 
 const SmartCardName = ({ name }: { name: string }) => {
@@ -144,7 +145,6 @@ const ScaledCard = ({
 
 export const IdCardFront = ({ cs, person, width = 360, className = "", id }: IdCardFrontProps) => {
   const radius = `${cs.card_border_radius}px`;
-  const avatarUrl = useResolvedImageUrl(person.avatarUrl);
 
   return (
     <ScaledCard width={width} id={id} className={className}>
@@ -167,7 +167,7 @@ export const IdCardFront = ({ cs, person, width = 360, className = "", id }: IdC
         )}
         <div className="relative z-10 flex items-center gap-3">
           {cs.logo_url ? (
-            <img src={cs.logo_url} alt="Logo" className="w-11 h-11 object-contain" />
+            <img src={cs.logo_url} alt="Logo" className="w-11 h-11 object-contain rounded-full" />
           ) : (
             <div className="w-11 h-11 rounded-full bg-white/20 flex items-center justify-center">
               <GraduationCap className="w-6 h-6" />
@@ -235,9 +235,9 @@ export const IdCardFront = ({ cs, person, width = 360, className = "", id }: IdC
               className="w-[88px] h-[118px] rounded-lg overflow-hidden border-2 shadow-md flex items-center justify-center shrink-0"
               style={{ borderColor: cs.accent_color, background: `linear-gradient(135deg, ${cs.accent_color}20, ${cs.accent_color}05)` }}
             >
-              {avatarUrl ? (
+              {person.avatarUrl ? (
                 <img
-                  src={avatarUrl}
+                  src={person.avatarUrl}
                   alt={person.name}
                   loading="eager"
                   decoding="sync"
@@ -290,9 +290,9 @@ export const IdCardFront = ({ cs, person, width = 360, className = "", id }: IdC
                 </div>
               )}
               {person.className && (
-                <div className="min-w-0">
+                <div className="min-w-0 col-span-2 -ml-0.5">
                   <p className="text-[9px] leading-tight mb-0.5" style={{ color: "#555" }}>ชั้น</p>
-                  <p className="font-bold" style={{ fontSize: 11, lineHeight: 1.5, color: "#000", whiteSpace: "nowrap", overflow: "visible" }}>
+                  <p className="font-bold text-left" style={{ fontSize: 11, lineHeight: 1.3, color: "#000", wordBreak: "break-word" }}>
                     {person.className}
                   </p>
                 </div>
@@ -352,6 +352,7 @@ interface IdCardBackProps {
 
 export const IdCardBack = ({ cs, person, width = 360, className = "", id }: IdCardBackProps) => {
   const radius = `${cs.card_border_radius}px`;
+  const directorTitle = useCmsValue("director_title") || "ผู้อำนวยการโรงเรียน";
 
   return (
     <ScaledCard width={width} id={id} className={className}>
@@ -404,7 +405,7 @@ export const IdCardBack = ({ cs, person, width = 360, className = "", id }: IdCa
         <div className="pt-1.5 mt-0.5 border-t border-dashed border-border">
           <div className="text-center space-y-0.5">
             <div className="w-20 mx-auto border-b border-dotted border-foreground/30 pb-4"></div>
-            <p className="text-[9px] text-muted-foreground">ลงชื่อ ผู้อำนวยการโรงเรียน</p>
+            <p className="text-[9px] text-muted-foreground">ลงชื่อ {directorTitle}</p>
           </div>
         </div>
 

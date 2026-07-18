@@ -8,19 +8,6 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { swal } from "@/lib/swal";
-import { useResolvedImageUrl } from "@/lib/storageUrl";
-
-const StudentPhoto = ({ src, fallback }: { src?: string | null; fallback?: string }) => {
-  const resolved = useResolvedImageUrl(src);
-  if (!resolved) {
-    return (
-      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-xs">
-        {fallback}
-      </div>
-    );
-  }
-  return <img src={resolved} alt="" className="w-12 h-12 rounded-full object-cover border" />;
-};
 
 const FaceDatabaseTab = () => {
   const qc = useQueryClient();
@@ -79,7 +66,13 @@ const FaceDatabaseTab = () => {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {filtered.map((s: any) => (
               <div key={s.id} className="p-3 rounded-lg border bg-card flex items-center gap-3">
-                <StudentPhoto src={s.photo_url} fallback={s.first_name?.[0]} />
+                {s.photo_url ? (
+                  <img src={s.photo_url} alt="" className="w-12 h-12 rounded-full object-cover border" />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-xs">
+                    {s.first_name?.[0]}
+                  </div>
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-sm truncate">{s.prefix}{s.first_name} {s.last_name}</p>
                   <p className="text-xs text-muted-foreground">{s.student_code} • ชั้น {s.classrooms?.grade_level || "-"}/{s.classrooms?.name || "-"}</p>

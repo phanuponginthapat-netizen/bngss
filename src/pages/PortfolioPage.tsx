@@ -22,8 +22,6 @@ const CATEGORIES = [
   "อื่นๆ",
 ];
 
-const MAX_FILE_MB = 50;
-
 export default function PortfolioPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [mode, setMode] = useState<"upload" | "link">("upload");
@@ -33,9 +31,7 @@ export default function PortfolioPage() {
   const [url, setUrl] = useState("");
   const [displayMode, setDisplayMode] = useState<"preview" | "download" | "embed">("preview");
   const [file, setFile] = useState<File | null>(null);
-  const [fileInputKey, setFileInputKey] = useState(0);
   const [saving, setSaving] = useState(false);
-  const [progress, setProgress] = useState<string>("");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
@@ -43,8 +39,6 @@ export default function PortfolioPage() {
 
   const reset = () => {
     setTitle(""); setDescription(""); setUrl(""); setFile(null);
-    setFileInputKey((k) => k + 1);
-    setProgress("");
   };
 
   const submit = async () => {
@@ -59,25 +53,13 @@ export default function PortfolioPage() {
 
       if (mode === "upload") {
         if (!file) { toast.error("เลือกไฟล์"); setSaving(false); return; }
-        if (file.size > MAX_FILE_MB * 1024 * 1024) {
-          toast.error(`ไฟล์ใหญ่เกิน ${MAX_FILE_MB}MB — กรุณาบีบอัดหรือใช้โหมดลิงก์ (YouTube/Drive)`);
-          setSaving(false); return;
-        }
-        if (file.size === 0) {
-          toast.error("ไฟล์ว่างเปล่าหรืออ่านไม่ได้");
-          setSaving(false); return;
-        }
-        setProgress("กำลังอัปโหลดไฟล์...");
         const path = sanitizeStorageKey(`${userId}/${Date.now()}-${file.name}`);
-        const { error: upErr } = await supabase.storage
+        const { error: upErr } = await supabase.storage.from("portfolio").upload(path, file);
+        if (upErr) throw upErr;
+        const { data: signed } = await supabase.storage
           .from("portfolio")
-          .upload(path, file, { contentType: file.type || undefined, upsert: false });
-        if (upErr) {
-          console.error("[portfolio upload]", upErr);
-          throw new Error(`อัปโหลดไม่สำเร็จ: ${upErr.message}`);
-        }
-        // เก็บ path แทน signed URL (กันลิงก์หมดอายุ) — resolve ตอนแสดง
-        mediaUrl = `portfolio://${path}`;
+          .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+        mediaUrl = signed?.signedUrl || "";
         mediaType = detectTypeFromFile(file);
         fileName = file.name;
         fileSize = file.size;
@@ -87,7 +69,6 @@ export default function PortfolioPage() {
         mediaType = detectMediaTypeFromUrl(mediaUrl);
       }
 
-      setProgress("กำลังบันทึก...");
       const { error } = await supabase.from("portfolio_items").insert({
         user_id: userId,
         title: title.trim(),
@@ -103,11 +84,9 @@ export default function PortfolioPage() {
       toast.success("เพิ่มผลงานเรียบร้อย");
       reset();
     } catch (e: any) {
-      console.error("[portfolio submit]", e);
-      toast.error(e?.message || "เกิดข้อผิดพลาด");
+      toast.error(e.message || "เกิดข้อผิดพลาด");
     } finally {
       setSaving(false);
-      setProgress("");
     }
   };
 
@@ -154,9 +133,8 @@ export default function PortfolioPage() {
 
           {mode === "upload" ? (
             <div>
-              <Label>เลือกไฟล์ (PDF / รูป / วิดีโอ — สูงสุด {MAX_FILE_MB}MB)</Label>
+              <Label>เลือกไฟล์ (PDF / รูป / วิดีโอ)</Label>
               <Input
-                key={fileInputKey}
                 type="file"
                 accept=".pdf,image/*,video/*"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
@@ -186,10 +164,7 @@ export default function PortfolioPage() {
             </Select>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Button onClick={submit} disabled={saving}>{saving ? "กำลังบันทึก..." : "เพิ่มผลงาน"}</Button>
-            {progress && <span className="text-xs text-muted-foreground">{progress}</span>}
-          </div>
+          <Button onClick={submit} disabled={saving}>{saving ? "กำลังบันทึก..." : "เพิ่มผลงาน"}</Button>
         </CardContent>
       </Card>
 

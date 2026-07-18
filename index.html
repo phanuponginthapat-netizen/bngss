@@ -2,11 +2,9 @@
 <html lang="th">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#2563EB" />
-    <link rel="manifest" href="https://iervfpqtvdzijlxcvkvs.supabase.co/functions/v1/dynamic-manifest" crossorigin="anonymous" />
-
-
+    <link rel="manifest" href="/manifest.json" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
@@ -19,19 +17,19 @@
     <meta name="apple-mobile-web-app-title" content="School" />
     <meta name="application-name" content="School" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <title>ระบบบริหารจัดการโรงเรียน MIS CHEARAVANONT2</title>
-    <meta name="description" content="ระบบบริหารจัดการโรงเรียน MIS CHEARAVANONT2 โรงเรียนเจียรวนนท์อุทิศ 2">  
+    <title>ระบบจัดการโรงเรียน</title>
+    <meta name="description" content="ระบบบริหารจัดการโรงเรียน">
     <meta name="author" content="Lovable" />
 
     <!-- TODO: Update og:title to match your application name -->
     
     
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://iervfpqtvdzijlxcvkvs.supabase.co/functions/v1/og-image" />
+    <meta property="og:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/zYkp7QSZd5S9Tc2gtVc6xUAY6fE3/social-images/social-1780743255892-Gemini_Generated_Image_i3g00wi3g00wi3g0.webp">
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@Lovable" />
-    <meta name="twitter:image" content="https://iervfpqtvdzijlxcvkvs.supabase.co/functions/v1/og-image" />
+    <meta name="twitter:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/zYkp7QSZd5S9Tc2gtVc6xUAY6fE3/social-images/social-1780743255892-Gemini_Generated_Image_i3g00wi3g00wi3g0.webp">
   
   
   
@@ -60,40 +58,25 @@
   
   
   
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  <meta property="og:title" content="ระบบบริหารจัดการโรงเรียน MIS CHEARAVANONT2">
-  <meta name="twitter:title" content="ระบบบริหารจัดการโรงเรียน MIS CHEARAVANONT2">
-  <meta property="og:description" content="ระบบบริหารจัดการโรงเรียน MIS CHEARAVANONT2 โรงเรียนเจียรวนนท์อุทิศ 2">
-  <meta name="twitter:description" content="ระบบบริหารจัดการโรงเรียน MIS CHEARAVANONT2 โรงเรียนเจียรวนนท์อุทิศ 2">
+  <meta property="og:title" content="ระบบจัดการโรงเรียนอัจฉริยะ | Smart Management System">
+  <meta name="twitter:title" content="ระบบจัดการโรงเรียนอัจฉริยะ | Smart Management System">
+  <meta property="og:description" content="ระบบจัดการโรงเรียนอัจฉริยะ Smart School Management System">
+  <meta name="twitter:description" content="ระบบจัดการโรงเรียนอัจฉริยะ Smart School Management System">
 </head>
 
   <body>
     <div id="root">
       <div id="app-loader" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9999;background:linear-gradient(135deg,#2563EB,#1d4ed8,#0ea5e9);font-family:'IBM Plex Sans Thai','Inter',sans-serif;">
         <style>
-          @keyframes loaderSpin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
           @keyframes loaderPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.7;transform:scale(.95)}}
           @keyframes loaderFadeText{0%,100%{opacity:.6}50%{opacity:1}}
           @keyframes loaderRing{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
           .ldr-card{background:rgba(255,255,255,.15);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.25);border-radius:24px;padding:40px 48px;display:flex;flex-direction:column;align-items:center;gap:20px;box-shadow:0 25px 50px -12px rgba(0,0,0,.25)}
           .ldr-ring{width:64px;height:64px;border-radius:50%;border:4px solid rgba(255,255,255,.2);border-top-color:#fff;animation:loaderRing 1s linear infinite}
+          .ldr-logo{width:96px;height:96px;border-radius:18px;object-fit:contain;animation:loaderPulse 2s ease-in-out infinite}
           .ldr-icon{width:56px;height:56px;color:#fff;animation:loaderPulse 2s ease-in-out infinite}
-          .ldr-text{color:#fff;font-size:18px;font-weight:500;letter-spacing:.02em;animation:loaderFadeText 2s ease-in-out infinite}
+          .ldr-name{color:#fff;font-size:20px;font-weight:700;letter-spacing:.02em;text-align:center;max-width:280px;line-height:1.3}
+          .ldr-text{color:rgba(255,255,255,.9);font-size:15px;font-weight:500;letter-spacing:.02em;animation:loaderFadeText 2s ease-in-out infinite}
           .ldr-dots{display:inline-flex;gap:4px;margin-left:6px}
           .ldr-dots span{width:6px;height:6px;background:#fff;border-radius:50%;display:inline-block;animation:loaderPulse 1.4s ease-in-out infinite both}
           .ldr-dots span:nth-child(1){animation-delay:0s}
@@ -101,11 +84,39 @@
           .ldr-dots span:nth-child(3){animation-delay:.4s}
         </style>
         <div class="ldr-card">
-          <svg class="ldr-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"/></svg>
+          <div id="ldr-brand">
+            <img class="ldr-logo" src="/icon-192.png" alt="App logo"/>
+          </div>
+          <div id="ldr-name" class="ldr-name" style="display:none"></div>
           <div class="ldr-ring"></div>
           <div class="ldr-text">กำลังโหลดระบบ<span class="ldr-dots"><span></span><span></span><span></span></span></div>
         </div>
       </div>
+      <script>
+        // ใช้ branding ที่ cache ไว้จากรอบก่อน เพื่อไม่ให้แสดง default ก่อน CMS โหลด
+        try {
+          var b = JSON.parse(localStorage.getItem("cms_branding_cache") || "null");
+          if (b) {
+            if (b.themeColor) {
+              document.getElementById("app-loader").style.background =
+                "linear-gradient(135deg," + b.themeColor + ",#1d4ed8,#0ea5e9)";
+              var tc = document.querySelector('meta[name="theme-color"]');
+              if (tc) tc.setAttribute("content", b.themeColor);
+            }
+            if (b.name) {
+              document.title = b.name;
+              var n = document.getElementById("ldr-name");
+              if (n) { n.textContent = b.name; n.style.display = "block"; }
+            }
+            if (b.logo) {
+              var brand = document.getElementById("ldr-brand");
+              if (brand) brand.innerHTML = '<img class="ldr-logo" src="' + b.logo + '" alt="logo"/>';
+              var ic = document.querySelector('link[rel="icon"]');
+              if (ic) ic.setAttribute("href", b.logo);
+            }
+          }
+        } catch (e) {}
+      </script>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

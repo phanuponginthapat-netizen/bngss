@@ -56,10 +56,10 @@ function getRecommendations(temp: number | null, pm25: number | null, weatherCod
 
 function getPm25Color(pm25: number | null): string {
   if (pm25 === null) return "text-muted-foreground";
-  if (pm25 <= 25) return "text-success";
-  if (pm25 <= 37.5) return "text-warning";
-  if (pm25 <= 75) return "text-warning";
-  return "text-danger";
+  if (pm25 <= 25) return "text-green-400";
+  if (pm25 <= 37.5) return "text-yellow-400";
+  if (pm25 <= 75) return "text-orange-400";
+  return "text-red-400";
 }
 
 function getPm25Label(pm25: number | null): string {

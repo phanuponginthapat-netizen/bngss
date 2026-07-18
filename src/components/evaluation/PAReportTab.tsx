@@ -8,6 +8,7 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Printer, BarChart3, Users, Award, TrendingUp } from "lucide-react";
 import { getResultLevel, RESULT_LEVELS } from "@/lib/paIndicators";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 export default function PAReportTab() {
   const [yearFilter, setYearFilter] = useState<string>("all");
@@ -25,7 +26,7 @@ export default function PAReportTab() {
 
   const filtered = yearFilter === "all"
     ? agreements
-    : agreements.filter((a: any) => String((a.academic_year || 0) + 543) === yearFilter);
+    : agreements.filter((a: any) => String((a.academic_year || 0) + BE_OFFSET) === yearFilter);
 
   const approved = filtered.filter((a: any) => a.status === "approved");
   const avgScore = approved.length > 0
@@ -43,7 +44,7 @@ export default function PAReportTab() {
     }).length,
   }));
 
-  const years = [...new Set(agreements.map((a: any) => String((a.academic_year || 0) + 543)))].sort().reverse();
+  const years = [...new Set(agreements.map((a: any) => String((a.academic_year || 0) + BE_OFFSET)))].sort().reverse();
 
   const handlePrint = () => {
     const el = reportRef.current;
@@ -92,15 +93,15 @@ export default function PAReportTab() {
             <div><p className="text-xs text-muted-foreground">ส่ง PA แล้ว</p><p className="text-2xl font-bold">{filtered.length}</p></div>
           </CardContent></Card>
           <Card><CardContent className="pt-4 pb-3 flex items-center gap-3">
-            <Award className="w-8 h-8 text-success" />
-            <div><p className="text-xs text-muted-foreground">อนุมัติแล้ว</p><p className="text-2xl font-bold text-success">{approved.length}</p></div>
+            <Award className="w-8 h-8 text-emerald-200" />
+            <div><p className="text-xs text-muted-foreground">อนุมัติแล้ว</p><p className="text-2xl font-bold text-emerald-600">{approved.length}</p></div>
           </CardContent></Card>
           <Card><CardContent className="pt-4 pb-3 flex items-center gap-3">
-            <TrendingUp className="w-8 h-8 text-info" />
+            <TrendingUp className="w-8 h-8 text-blue-200" />
             <div><p className="text-xs text-muted-foreground">คะแนนเฉลี่ย</p><p className="text-2xl font-bold">{avgScore > 0 ? avgScore.toFixed(2) : "-"}</p></div>
           </CardContent></Card>
           <Card><CardContent className="pt-4 pb-3 flex items-center gap-3">
-            <Award className="w-8 h-8 text-warning" />
+            <Award className="w-8 h-8 text-amber-200" />
             <div><p className="text-xs text-muted-foreground">ระดับเฉลี่ย</p>
               <p className={`text-lg font-bold ${avgScore > 0 ? getResultLevel(avgScore).color : ""}`}>
                 {avgScore > 0 ? getResultLevel(avgScore).label : "-"}

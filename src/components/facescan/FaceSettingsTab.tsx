@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Time24Input } from "@/components/ui/time24-input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Settings, Save, Clock } from "lucide-react";
+import { Settings, Save, Clock, Monitor, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -30,6 +30,10 @@ const FaceSettingsTab = () => {
   const [exitEnabled, setExitEnabled] = useState(false);
   const [entryWin, setEntryWin] = useState<Win>(DEFAULT_ENTRY);
   const [exitWin, setExitWin] = useState<Win>(DEFAULT_EXIT);
+  const [idleTimeout, setIdleTimeout] = useState("60"); // วินาที
+  const [helloAiEnabled, setHelloAiEnabled] = useState(true);
+  const [powerSave, setPowerSave] = useState(true); // ปิดกล้อง/AI นอกเวลาสแกน (โน๊ตบุ๊คเก่า)
+  const [wakeWordEnabled, setWakeWordEnabled] = useState(false); // ปลุกด้วยเสียง "สวัสดี AI"
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -40,6 +44,7 @@ const FaceSettingsTab = () => {
         .in("setting_key", [
           "face_scan_threshold", "face_scan_cutoff_time", "face_scan_mode_cutoff",
           "face_scan_entry_window", "face_scan_exit_window",
+          "kiosk_idle_timeout_sec", "kiosk_hello_ai_enabled", "kiosk_power_save", "kiosk_wake_word_enabled",
         ]);
       for (const r of data || []) {
         if (r.setting_key === "face_scan_threshold") setThreshold(r.setting_value || "0.5");
@@ -53,6 +58,10 @@ const FaceSettingsTab = () => {
           const w = parseWindow(r.setting_value);
           if (w) { setExitWin(w); setExitEnabled(true); }
         }
+        if (r.setting_key === "kiosk_idle_timeout_sec") setIdleTimeout(r.setting_value || "60");
+        if (r.setting_key === "kiosk_hello_ai_enabled") setHelloAiEnabled(r.setting_value !== "false");
+        if (r.setting_key === "kiosk_power_save") setPowerSave(r.setting_value !== "false");
+        if (r.setting_key === "kiosk_wake_word_enabled") setWakeWordEnabled(r.setting_value === "true");
       }
     })();
   }, []);
@@ -80,12 +89,17 @@ const FaceSettingsTab = () => {
         toast.error("ช่วงเวลาสแกนออก: เวลาสิ้นสุดต้องหลังเวลาเริ่ม"); return;
       }
 
+      const idleSec = Math.max(15, Math.min(600, parseInt(idleTimeout, 10) || 60));
       const { error } = await supabase.from("school_settings").upsert([
         { setting_key: "face_scan_threshold", setting_value: String(t) },
         { setting_key: "face_scan_cutoff_time", setting_value: cutoffTimeHm },
         { setting_key: "face_scan_mode_cutoff", setting_value: modeCutoffHm },
         { setting_key: "face_scan_entry_window", setting_value: entryEnabled ? fmtWindow(entryWin) : "" },
         { setting_key: "face_scan_exit_window", setting_value: exitEnabled ? fmtWindow(exitWin) : "" },
+        { setting_key: "kiosk_idle_timeout_sec", setting_value: String(idleSec) },
+        { setting_key: "kiosk_hello_ai_enabled", setting_value: helloAiEnabled ? "true" : "false" },
+        { setting_key: "kiosk_power_save", setting_value: powerSave ? "true" : "false" },
+        { setting_key: "kiosk_wake_word_enabled", setting_value: wakeWordEnabled ? "true" : "false" },
       ], { onConflict: "setting_key" });
       if (error) throw error;
       toast.success("บันทึกแล้ว");
@@ -120,9 +134,9 @@ const FaceSettingsTab = () => {
         </div>
 
         {/* ช่วงเวลาที่อนุญาตให้สแกน (กันสแกนนอกเวลา) */}
-        <div className="rounded-lg border border-brand-entry/30 bg-brand-entry/5 p-3 space-y-3">
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-3">
           <div className="flex items-center justify-between">
-            <Label className="flex items-center gap-2 text-success dark:text-success">
+            <Label className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
               <Clock className="w-4 h-4" /> ช่วงเวลาสแกน "เข้าโรงเรียน"
             </Label>
             <Switch checked={entryEnabled} onCheckedChange={setEntryEnabled} />
@@ -144,9 +158,9 @@ const FaceSettingsTab = () => {
           </p>
         </div>
 
-        <div className="rounded-lg border border-brand-exit/30 bg-brand-exit/5 p-3 space-y-3">
+        <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-3 space-y-3">
           <div className="flex items-center justify-between">
-            <Label className="flex items-center gap-2 text-danger dark:text-danger">
+            <Label className="flex items-center gap-2 text-rose-700 dark:text-rose-400">
               <Clock className="w-4 h-4" /> ช่วงเวลาสแกน "ออกจากโรงเรียน"
             </Label>
             <Switch checked={exitEnabled} onCheckedChange={setExitEnabled} />
@@ -167,6 +181,61 @@ const FaceSettingsTab = () => {
             ถ้าเปิด — สแกนนอกช่วงเวลานี้จะถูกปฏิเสธ (เช่น 14:00–18:00 กันสแกนเล่นกลางคืน)
           </p>
         </div>
+
+        {/* ===== Kiosk Mode settings ===== */}
+        <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 space-y-3">
+          <Label className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400 font-semibold">
+            <Monitor className="w-4 h-4" /> โหมดคีออส (Kiosk)
+          </Label>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">ระยะเวลาก่อนพักหน้าจอ (วินาที)</Label>
+            <Input
+              type="number" min="15" max="600" step="15"
+              value={idleTimeout}
+              onChange={(e) => setIdleTimeout(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              ไม่พบใบหน้า/ไม่มีการแตะ เกินเวลานี้จะเข้าสู่หน้าพักหน้าจอ (แสดงโลโก้ ข่าวประชาสัมพันธ์ นาฬิกา)
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-purple-500" /> เปิดโหมด Hello AI
+              </Label>
+              <p className="text-[11px] text-muted-foreground">
+                ให้ปุ่มคุยกับ AI แสดงบนหน้าพักหน้าจอ (ใช้ได้เฉพาะนอกช่วงเวลาสแกน)
+              </p>
+            </div>
+            <Switch checked={helloAiEnabled} onCheckedChange={setHelloAiEnabled} />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>โหมดประหยัดพลังงาน (โน๊ตบุ๊คเก่า)</Label>
+              <p className="text-[11px] text-muted-foreground">
+                ปิดกล้อง + หยุด AI ตอนอยู่หน้าพักหน้าจอ/นอกเวลาสแกน (ลด CPU/พัดลม)
+              </p>
+            </div>
+            <Switch checked={powerSave} onCheckedChange={setPowerSave} />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-emerald-500" /> ปลุกด้วยเสียง “สวัสดี AI”
+              </Label>
+              <p className="text-[11px] text-muted-foreground">
+                ไม่ต้องแตะจอ (เหมาะกับเครื่องในตู้) — เมื่ออยู่หน้าพักหน้าจอ ให้พูดว่า “สวัสดี AI” เพื่อเรียก Hello AI
+                <br />ต้องอนุญาตไมโครโฟนที่เบราว์เซอร์ครั้งแรก และใช้งานได้ดีที่สุดบน Chrome/Edge
+              </p>
+            </div>
+            <Switch checked={wakeWordEnabled} onCheckedChange={setWakeWordEnabled} />
+          </div>
+        </div>
+
 
         <Button onClick={save} disabled={busy} className="gradient-primary">
           <Save className="w-4 h-4 mr-2" />{busy ? "กำลังบันทึก..." : "บันทึก"}

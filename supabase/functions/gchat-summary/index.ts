@@ -1,12 +1,9 @@
-import { isAuthorizedCron, unauthorized } from "../_shared/cronAuth.ts";
 // Google Chat summary report: daily / monthly / term
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireCronOrAdmin } from "../_shared/requireCron.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeadersWithCron as corsHeaders } from "../_shared/cors.ts";
 
 type Period = "daily" | "monthly" | "term";
 
@@ -61,8 +58,8 @@ async function notify(supabaseUrl: string, serviceKey: string, body: any) {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (!(await isAuthorizedCron(req))) return unauthorized();
-
+  const denied = await requireCronOrAdmin(req, corsHeaders);
+  if (denied) return denied;
 
   try {
     const { period = "daily" } = await req.json().catch(() => ({}));

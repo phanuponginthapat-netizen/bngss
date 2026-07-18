@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Bell, Smartphone, Share, Plus, BellOff, CheckCircle2, AlertTriangle, Download, ArrowLeft, SkipForward } from "lucide-react";
 import { toast } from "sonner";
+import BackButton from "@/components/BackButton";
 import {
   subscribeToPush,
   unsubscribeFromPush,
@@ -80,21 +81,19 @@ export default function InstallPage() {
   return (
     <div className="container max-w-2xl mx-auto py-8 space-y-6">
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-          <ArrowLeft className="w-4 h-4 mr-2" /> ย้อนกลับ
-        </Button>
+        <BackButton fallback="/dashboard" />
         <Button variant="outline" size="sm" onClick={handleSkip}>
           ข้ามไปหน้าระบบ <SkipForward className="w-4 h-4 ml-2" />
         </Button>
       </div>
       <div className="text-center space-y-2">
-        {branding.logo && branding.logo !== "/icon-192.png" ? (
-          <img src={branding.logo} alt={branding.name} className="mx-auto w-20 h-20 object-contain mb-2 drop-shadow-md" />
-        ) : (
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground mb-2">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground mb-2 overflow-hidden">
+          {branding.logo && branding.logo !== "/icon-192.png" ? (
+            <img src={branding.logo} alt={branding.name} className="w-full h-full object-contain" />
+          ) : (
             <Smartphone className="w-8 h-8" />
-          </div>
-        )}
+          )}
+        </div>
         <h1 className="text-3xl font-bold">ติดตั้งแอป {branding.name}</h1>
         <p className="text-muted-foreground">รับแจ้งเตือนเรียลไทม์บนมือถือ ฟรีไม่จำกัด ไม่ต้องผ่าน LINE</p>
       </div>
@@ -171,8 +170,18 @@ export default function InstallPage() {
                   </li>
                 </ol>
               )}
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle className="text-sm">แนะนำ: ใช้ Google Chrome เพื่อความเสถียร</AlertTitle>
+                <AlertDescription className="text-xs space-y-1">
+                  <p>• Chrome จะสร้าง <strong>WebAPK</strong> (แอปจริง) ที่ไม่หายเมื่อรีสตาร์ทเครื่อง</p>
+                  <p>• Samsung Internet / Firefox / Edge จะสร้างแค่ <strong>ทางลัด (Shortcut)</strong> ซึ่ง Samsung/Xiaomi/Huawei อาจล้างทิ้งเมื่อรีบูต</p>
+                  <p>• หากไอคอนหายบ่อย → ถอนติดตั้งแล้วเปิดเว็บนี้ผ่าน <strong>Chrome</strong> แล้วติดตั้งใหม่</p>
+                </AlertDescription>
+              </Alert>
             </div>
           )}
+
         </CardContent>
       </Card>
 

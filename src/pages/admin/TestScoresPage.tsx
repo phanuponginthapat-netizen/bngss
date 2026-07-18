@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, BarChart3, Pencil, Sparkles, Upload, Loader2, FileText } from "lucide-react";
 import { swal } from "@/lib/swal";
 import { Textarea } from "@/components/ui/textarea";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 const TEST_TYPES = [
   { value: "onet", label: "O-NET" },
@@ -27,7 +28,7 @@ const GRADE_LEVELS = ["ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6", "ม
 
 const empty = {
   id: null as string | null,
-  academic_year: new Date().getFullYear() + 543,
+  academic_year: new Date().getFullYear() + BE_OFFSET,
   test_type: "onet",
   grade_level: "ป.6",
   subject: "ภาษาไทย",
@@ -183,7 +184,7 @@ export default function TestScoresPage() {
     setAiSaving(true);
     const payload = aiRows.map((r) => ({
       school_id: schoolId,
-      academic_year: Number(r.academic_year) || new Date().getFullYear() + 543,
+      academic_year: Number(r.academic_year) || new Date().getFullYear() + BE_OFFSET,
       test_type: r.test_type,
       grade_level: r.grade_level,
       subject: String(r.subject || "").trim(),
@@ -217,7 +218,7 @@ export default function TestScoresPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setAiOpen(true)}>
-            <Sparkles className="w-4 h-4 mr-1 text-danger" /> AI กรอกให้
+            <Sparkles className="w-4 h-4 mr-1 text-fuchsia-500" /> AI กรอกให้
           </Button>
           <Button onClick={openAdd}><Plus className="w-4 h-4 mr-1" /> เพิ่มคะแนน</Button>
         </div>
@@ -307,7 +308,7 @@ export default function TestScoresPage() {
             <DialogTitle>{form.id ? "แก้ไขคะแนน" : "เพิ่มคะแนนสอบ"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>ปีการศึกษา (พ.ศ.)</Label>
                 <Input type="number" value={form.academic_year} onChange={(e) => setForm({ ...form, academic_year: parseInt(e.target.value) || 0 })} />
@@ -365,10 +366,10 @@ export default function TestScoresPage() {
 
       {/* === AI Import Dialog === */}
       <Dialog open={aiOpen} onOpenChange={(v) => { setAiOpen(v); if (!v) { setAiRows(null); } }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-danger" /> AI กรอกคะแนนสอบให้อัตโนมัติ
+              <Sparkles className="w-5 h-5 text-fuchsia-500" /> AI กรอกคะแนนสอบให้อัตโนมัติ
             </DialogTitle>
           </DialogHeader>
 

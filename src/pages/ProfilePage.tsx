@@ -28,9 +28,7 @@ import { useIdCardSettings } from "@/hooks/useIdCardSettings";
 import { IdCardFront, IdCardBack } from "@/components/IdCardRenderer";
 import { PdpaConsentCard } from "@/components/PdpaConsentCard";
 import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
-import { useResolvedImageUrl } from "@/lib/storageUrl";
 import MyPostsTab from "@/components/profile/MyPostsTab";
-import StudentEnrollmentHistory from "@/components/profile/StudentEnrollmentHistory";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { formatDateBE } from "@/lib/dateBE";
 
@@ -68,20 +66,9 @@ const SUBJECT_GROUPS = [
 
 const DEPARTMENTS = [
   "ฝ่ายวิชาการ", "ฝ่ายกิจการนักเรียน", "ฝ่ายบริหารทั่วไป",
-  "ฝ่ายบุคคล", "ฝ่ายงบประมาณและแผน",
+  "ฝ่ายงบประมาณและบุคคล", "ฝ่ายอาคารสถานที่", "ฝ่ายแผนงานและประกันคุณภาพ",
   "ConnextED",
 ];
-
-// Thai dept label → enum value used by user_departments / RLS
-const DEPT_LABEL_TO_ENUM: Record<string, "academic" | "student_affairs" | "general_admin" | "personnel" | "budget_planning" | "director_office"> = {
-  "ฝ่ายวิชาการ": "academic",
-  "ฝ่ายกิจการนักเรียน": "student_affairs",
-  "ฝ่ายบริหารทั่วไป": "general_admin",
-  "ฝ่ายบุคคล": "personnel",
-  "ฝ่ายงบประมาณและแผน": "budget_planning",
-  "ฝ่ายงบประมาณและบุคคล": "personnel",
-  "ฝ่ายแผนงานและประกันคุณภาพ": "budget_planning",
-};
 
 const POSITIONS = [
   "ครู", "ครูผู้ช่วย", "ครูอัตราจ้าง", "พนักงานราชการ",
@@ -422,30 +409,22 @@ const ProfilePage = () => {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
-    try {
-      const url = await uploadImage(file, "avatar");
-      if (url) {
-        setProfile({ ...profile, avatar_url: url });
-        await supabase.from("profiles").update({ avatar_url: url }).eq("id", userId!);
-        toast.success("อัปโหลดรูปโปรไฟล์สำเร็จ");
-      }
-    } catch (error: any) {
-      toast.error(error?.message || "อัปโหลดรูปโปรไฟล์ไม่สำเร็จ");
+    const url = await uploadImage(file, "avatar");
+    if (url) {
+      setProfile({ ...profile, avatar_url: url });
+      await supabase.from("profiles").update({ avatar_url: url }).eq("id", userId!);
+      toast.success("อัปโหลดรูปโปรไฟล์สำเร็จ");
     }
   };
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
-    try {
-      const url = await uploadImage(file, "cover");
-      if (url) {
-        setProfile({ ...profile, cover_photo_url: url });
-        await supabase.from("profiles").update({ cover_photo_url: url }).eq("id", userId!);
-        toast.success("อัปโหลดรูปปกสำเร็จ");
-      }
-    } catch (error: any) {
-      toast.error(error?.message || "อัปโหลดรูปปกไม่สำเร็จ");
+    const url = await uploadImage(file, "cover");
+    if (url) {
+      setProfile({ ...profile, cover_photo_url: url });
+      await supabase.from("profiles").update({ cover_photo_url: url }).eq("id", userId!);
+      toast.success("อัปโหลดรูปปกสำเร็จ");
     }
   };
 
@@ -483,32 +462,11 @@ const ProfilePage = () => {
       personnelErr = pErr;
     }
 
-    // Sync user_departments (สำหรับการคุมสิทธิ์ตามฝ่าย) — เพิ่มเป็น member ในฝ่ายที่เลือก
-    try {
-      const deptEnum = profile.department ? DEPT_LABEL_TO_ENUM[profile.department] : null;
-      if (deptEnum && (role === "teacher" || role === "director" || role === "admin")) {
-        // ลบสังกัดเดิม "ที่ user ตั้งเอง" คือ position=member is_head=false ออกก่อน (ไม่แตะสังกัด head/deputy/assistant ที่ admin ตั้งให้)
-        await supabase
-          .from("user_departments")
-          .delete()
-          .eq("user_id", userId)
-          .eq("position", "member")
-          .eq("is_head", false);
-        await supabase
-          .from("user_departments")
-          .upsert(
-            { user_id: userId, department: deptEnum, position: "member", is_head: false } as any,
-            { onConflict: "user_id,department" }
-          );
-      }
-    } catch {}
-
     if (error || personnelErr) toast.error((error || personnelErr)!.message);
     else {
       toast.success("บันทึกข้อมูลสำเร็จ");
       setEditing(false);
       queryClient.invalidateQueries({ queryKey: ["profile_linked_personnel", userId] });
-      queryClient.invalidateQueries({ queryKey: ["my-departments", userId] });
     }
     toast.dismiss(__tid_save_1);
     setSaving(false);
@@ -523,7 +481,7 @@ const ProfilePage = () => {
   };
   const roleColors: Record<string, string> = {
     admin: "bg-destructive text-destructive-foreground", teacher: "bg-primary text-primary-foreground",
-    student: "bg-success text-white", director: "bg-warning text-white",
+    student: "bg-green-600 text-white", director: "bg-amber-600 text-white",
   };
 
   const dayNames = ["", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์"];
@@ -573,11 +531,6 @@ const ProfilePage = () => {
     }
   }, [profile]);
 
-  const fullName = profile ? [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "ไม่ระบุชื่อ" : "ไม่ระบุชื่อ";
-  const initials = profile ? (profile.first_name?.[0] || "") + (profile.last_name?.[0] || "") : "";
-  const avatarUrl = useResolvedImageUrl(profile?.avatar_url);
-  const coverPhotoUrl = useResolvedImageUrl(profile?.cover_photo_url);
-
   if (!profile) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -586,13 +539,16 @@ const ProfilePage = () => {
     );
   }
 
+  const fullName = [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "ไม่ระบุชื่อ";
+  const initials = (profile.first_name?.[0] || "") + (profile.last_name?.[0] || "");
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Cover Photo + Avatar */}
       <div className="relative rounded-2xl overflow-hidden shadow-lg">
         <div
           className="h-48 sm:h-64 bg-gradient-to-br from-primary/80 via-primary/60 to-accent/40 relative"
-          style={coverPhotoUrl ? { backgroundImage: `url(${coverPhotoUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+          style={profile.cover_photo_url ? { backgroundImage: `url(${profile.cover_photo_url})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
         >
           <button onClick={() => coverInputRef.current?.click()} className="absolute top-3 right-3 bg-black/40 hover:bg-black/60 text-white rounded-full p-2 transition-colors">
             <Camera className="w-4 h-4" />
@@ -603,8 +559,8 @@ const ProfilePage = () => {
           <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-16 sm:-mt-20">
             <div className="relative group">
               <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full border-4 border-card bg-muted shadow-xl overflow-hidden">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt={fullName} className="w-full h-full object-cover" />
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} alt={fullName} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
                     <span className="text-3xl sm:text-4xl font-bold text-primary-foreground">{initials || "?"}</span>
@@ -645,7 +601,7 @@ const ProfilePage = () => {
 
       {/* Content Tabs */}
       <Tabs defaultValue="info" className="space-y-4">
-        <div className="w-full overflow-x-auto scrollbar-thin -mx-1 px-1 sticky top-0 z-20 bg-background/80 backdrop-blur-md py-1">
+        <div className="w-full overflow-x-auto scrollbar-thin -mx-1 px-1">
           <TabsList className="inline-flex h-auto w-max gap-1 p-1 bg-muted/60 backdrop-blur-sm rounded-xl">
             <TabsTrigger value="info" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><User className="w-4 h-4 mr-1.5" /> ข้อมูลส่วนตัว</TabsTrigger>
             <TabsTrigger value="contact" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><Phone className="w-4 h-4 mr-1.5" /> การติดต่อ</TabsTrigger>
@@ -654,7 +610,6 @@ const ProfilePage = () => {
             {role === "student" && <TabsTrigger value="teachers" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><Users className="w-4 h-4 mr-1.5" /> ครูผู้สอน</TabsTrigger>}
             {role === "student" && <TabsTrigger value="sdq" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><ClipboardList className="w-4 h-4 mr-1.5" /> ประเมิน SDQ</TabsTrigger>}
             {role === "student" && <TabsTrigger value="tasks" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><ListTodo className="w-4 h-4 mr-1.5" /> ภาระงาน</TabsTrigger>}
-            {role === "student" && <TabsTrigger value="history" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><GraduationCap className="w-4 h-4 mr-1.5" /> ประวัติการเรียน</TabsTrigger>}
             {(role === "director" || role === "admin") && <TabsTrigger value="overview" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><BarChart3 className="w-4 h-4 mr-1.5" /> ภาพรวมโรงเรียน</TabsTrigger>}
             <TabsTrigger value="documents" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><FileText className="w-4 h-4 mr-1.5" /> เอกสารของฉัน</TabsTrigger>
             <TabsTrigger value="myposts" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><MessageSquare className="w-4 h-4 mr-1.5" /> โพสต์ของฉัน</TabsTrigger>
@@ -707,9 +662,10 @@ const ProfilePage = () => {
                 <Briefcase className="w-4 h-4 text-primary" /> ข้อมูลการทำงาน / การศึกษา
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="รหัสนักเรียน" icon={<GraduationCap className="w-4 h-4" />} value={profile.student_code || ""} editing={editing && role === "admin"} onChange={v => update("student_code", v)} />
+                <Field label="รหัสนักเรียน" icon={<GraduationCap className="w-4 h-4" />} value={profile.student_code || ""} editing={editing && (role === "admin" || role === "director")} onChange={v => update("student_code", v)} />
+
                 {(role === "admin" || role === "director" || role === "teacher") && (
-                  <Field label="รหัสบุคลากร" icon={<Briefcase className="w-4 h-4" />} value={profile.employee_code || ""} editing={editing && role === "admin"} onChange={v => update("employee_code", v)} />
+                  <Field label="รหัสบุคลากร" icon={<Briefcase className="w-4 h-4" />} value={profile.employee_code || ""} editing={editing && (role === "admin" || role === "director")} onChange={v => update("employee_code", v)} />
                 )}
                 {(role === "admin" || role === "director" || role === "teacher") && (
                   <div className="space-y-1.5">
@@ -1001,7 +957,7 @@ const ProfilePage = () => {
                             <TableCell>
                               <Badge variant="outline" className="font-bold">{s.grade || "—"}</Badge>
                             </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">{s.academic_year ? (s.academic_year + 543) : "—"}/{s.semester}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{s.academic_year || "—"}/{s.semester}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -1122,11 +1078,11 @@ const ProfilePage = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 {[
-                  { icon: Users, label: "นักเรียน", value: directorStats?.students || 0, color: "from-info to-info" },
-                  { icon: Briefcase, label: "บุคลากร", value: directorStats?.personnel || 0, color: "from-success to-success" },
-                  { icon: Building, label: "ห้องเรียน", value: directorStats?.classrooms || 0, color: "from-info to-info" },
-                  { icon: BookOpen, label: "รายวิชา", value: directorStats?.subjects || 0, color: "from-warning to-warning" },
-                  { icon: ClipboardList, label: "อัตราเข้าเรียน", value: `${directorStats?.attendanceRate || 0}%`, color: "from-danger to-danger" },
+                  { icon: Users, label: "นักเรียน", value: directorStats?.students || 0, color: "from-blue-500 to-blue-600" },
+                  { icon: Briefcase, label: "บุคลากร", value: directorStats?.personnel || 0, color: "from-emerald-500 to-emerald-600" },
+                  { icon: Building, label: "ห้องเรียน", value: directorStats?.classrooms || 0, color: "from-purple-500 to-purple-600" },
+                  { icon: BookOpen, label: "รายวิชา", value: directorStats?.subjects || 0, color: "from-orange-500 to-orange-600" },
+                  { icon: ClipboardList, label: "อัตราเข้าเรียน", value: `${directorStats?.attendanceRate || 0}%`, color: "from-rose-500 to-rose-600" },
                 ].map((item, i) => (
                   <Card key={i} className="border-0 shadow-lg overflow-hidden">
                     <div className={`bg-gradient-to-br ${item.color} p-4 text-white`}>
@@ -1236,9 +1192,9 @@ const ProfilePage = () => {
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <Badge className={
-                            doc.status === "completed" ? "bg-success-soft text-success" :
-                            doc.status === "in_progress" ? "bg-info-soft text-info" :
-                            "bg-warning-soft text-warning"
+                            doc.status === "completed" ? "bg-green-100 text-green-800" :
+                            doc.status === "in_progress" ? "bg-blue-100 text-blue-800" :
+                            "bg-yellow-100 text-yellow-800"
                           }>
                             {doc.status === "completed" ? "เสร็จสิ้น" : doc.status === "in_progress" ? "ดำเนินการ" : "รอดำเนินการ"}
                           </Badge>
@@ -1247,7 +1203,7 @@ const ProfilePage = () => {
                               <Eye className="w-3 h-3 mr-1" /> อ่านแล้ว
                             </Button>
                           )}
-                          {doc._isRead && <FileCheck className="w-4 h-4 text-success" />}
+                          {doc._isRead && <FileCheck className="w-4 h-4 text-green-600" />}
                         </div>
                       </div>
                     </div>
@@ -1368,20 +1324,9 @@ const ProfilePage = () => {
           </TabsContent>
         )}
 
-        {role === "student" && studentRecord && (
-          <TabsContent value="history">
-            <StudentEnrollmentHistory
-              studentId={studentRecord.id}
-              studentCode={studentRecord.student_code}
-            />
-          </TabsContent>
-        )}
-
-
-
         {/* ID Card */}
         <TabsContent value="card">
-          <div className="flex justify-end gap-2 mb-4">
+          <div className="flex justify-end mb-4">
             <Button onClick={handlePrintIdCard} className="gap-2">
               <Download className="w-4 h-4" /> พิมพ์บัตรเป็น PDF
             </Button>

@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Laptop, Smartphone, Camera, Tablet, Projector, Package, Upload, ImageIcon, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Laptop, Smartphone, Camera, Tablet, Projector, Package, Upload, ImageIcon, X, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { swal } from "@/lib/swal";
 
@@ -35,10 +35,10 @@ const CATEGORIES = [
 ];
 
 const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
-  available: { label: "พร้อมยืม", cls: "bg-success/15 text-success border-success/30" },
-  borrowed: { label: "ถูกยืม", cls: "bg-warning/15 text-warning border-warning/30" },
-  maintenance: { label: "ซ่อมบำรุง", cls: "bg-info/15 text-info border-info/30" },
-  lost: { label: "สูญหาย", cls: "bg-danger/15 text-danger border-danger/30" },
+  available: { label: "พร้อมยืม", cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  borrowed: { label: "ถูกยืม", cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  maintenance: { label: "ซ่อมบำรุง", cls: "bg-sky-500/15 text-sky-400 border-sky-500/30" },
+  lost: { label: "สูญหาย", cls: "bg-rose-500/15 text-rose-400 border-rose-500/30" },
   retired: { label: "ปลดระวาง", cls: "bg-muted text-muted-foreground border-border" },
 };
 
@@ -52,7 +52,7 @@ export default function IctDevicesPage() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [bulkCount, setBulkCount] = useState<number>(1);
+  const [bulkItems, setBulkItems] = useState<{ asset_code: string; serial_number: string }[]>([{ asset_code: "", serial_number: "" }]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
@@ -74,13 +74,29 @@ export default function IctDevicesPage() {
   const openNew = () => {
     setEditing(null);
     setForm({ category: "notebook", status: "available" });
-    setBulkCount(1);
+    setBulkItems([{ asset_code: "", serial_number: "" }]);
     resetPhoto();
     setOpen(true);
   };
   const openEdit = (d: Device) => {
     setEditing(d);
     setForm(d);
+    setBulkItems([{ asset_code: d.asset_code, serial_number: d.serial_number || "" }]);
+    resetPhoto();
+    setPhotoPreview(d.photo_url || null);
+    setOpen(true);
+  };
+  const openAddMore = (d: Device) => {
+    setEditing(null);
+    setForm({
+      category: d.category,
+      status: "available",
+      name: d.name,
+      brand: d.brand,
+      model: d.model,
+      photo_url: d.photo_url,
+    });
+    setBulkItems([{ asset_code: "", serial_number: "" }]);
     resetPhoto();
     setPhotoPreview(d.photo_url || null);
     setOpen(true);
@@ -111,8 +127,20 @@ export default function IctDevicesPage() {
 
 
   const save = async () => {
-    if (!form.asset_code || !form.name) {
-      toast.error("กรุณากรอกรหัสครุภัณฑ์และชื่ออุปกรณ์");
+    if (!form.name) {
+      toast.error("กรุณากรอกชื่ออุปกรณ์");
+      return;
+    }
+    const items = editing
+      ? [{ asset_code: (form.asset_code || "").trim(), serial_number: (form.serial_number || "").trim() }]
+      : bulkItems.map((b) => ({ asset_code: b.asset_code.trim(), serial_number: b.serial_number.trim() })).filter((b) => b.asset_code);
+    if (items.length === 0) {
+      toast.error("กรุณากรอกรหัสครุภัณฑ์อย่างน้อย 1 รายการ");
+      return;
+    }
+    const codes = items.map((i) => i.asset_code);
+    if (new Set(codes).size !== codes.length) {
+      toast.error("รหัสครุภัณฑ์ซ้ำกันในรายการ");
       return;
     }
     setUploading(true);
@@ -124,40 +152,28 @@ export default function IctDevicesPage() {
     } else if (!photoPreview) {
       photo_url = null;
     }
-    const payload: any = {
-      asset_code: form.asset_code?.trim(),
+    const base: any = {
       name: form.name?.trim(),
       category: form.category || "notebook",
       brand: form.brand || null,
       model: form.model || null,
-      serial_number: form.serial_number || null,
       status: form.status || "available",
       notes: form.notes || null,
       photo_url,
     };
     if (editing) {
-      const { error } = await supabase.from("ict_devices").update(payload).eq("id", editing.id);
+      const { error } = await supabase.from("ict_devices").update({
+        ...base,
+        asset_code: items[0].asset_code,
+        serial_number: items[0].serial_number || null,
+      }).eq("id", editing.id);
       if (error) { setUploading(false); return toast.error(error.message); }
       toast.success("อัปเดตอุปกรณ์เรียบร้อย");
-    } else if (bulkCount > 1) {
-      // === เพิ่มหลายเครื่องพร้อมกัน (อุปกรณ์เหมือนกัน) — ต่อท้ายรหัสด้วย -01, -02 ... ===
-      const baseCode = payload.asset_code;
-      const baseSn = payload.serial_number;
-      const rows = Array.from({ length: bulkCount }).map((_, i) => {
-        const suffix = String(i + 1).padStart(2, "0");
-        return {
-          ...payload,
-          asset_code: `${baseCode}-${suffix}`,
-          serial_number: baseSn ? `${baseSn}-${suffix}` : null,
-        };
-      });
+    } else {
+      const rows = items.map((it) => ({ ...base, asset_code: it.asset_code, serial_number: it.serial_number || null }));
       const { error } = await supabase.from("ict_devices").insert(rows);
       if (error) { setUploading(false); return toast.error(error.message); }
-      toast.success(`เพิ่มอุปกรณ์ ${bulkCount} เครื่องเรียบร้อย`);
-    } else {
-      const { error } = await supabase.from("ict_devices").insert(payload);
-      if (error) { setUploading(false); return toast.error(error.message); }
-      toast.success("เพิ่มอุปกรณ์เรียบร้อย");
+      toast.success(`เพิ่มอุปกรณ์เรียบร้อย ${rows.length} เครื่อง`);
     }
     setUploading(false);
     setOpen(false);
@@ -196,9 +212,9 @@ export default function IctDevicesPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">ทั้งหมด</div><div className="text-2xl font-bold">{stats.total}</div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">พร้อมยืม</div><div className="text-2xl font-bold text-success">{stats.available}</div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">ถูกยืม</div><div className="text-2xl font-bold text-warning">{stats.borrowed}</div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">ซ่อมบำรุง</div><div className="text-2xl font-bold text-info">{stats.maintenance}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">พร้อมยืม</div><div className="text-2xl font-bold text-emerald-400">{stats.available}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">ถูกยืม</div><div className="text-2xl font-bold text-amber-400">{stats.borrowed}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">ซ่อมบำรุง</div><div className="text-2xl font-bold text-sky-400">{stats.maintenance}</div></CardContent></Card>
       </div>
 
       <Card>
@@ -235,7 +251,7 @@ export default function IctDevicesPage() {
                   <TableRow key={d.id}>
                     <TableCell>
                       {d.photo_url ? (
-                        <img src={d.photo_url} alt={d.name} className="w-12 h-12 rounded-md object-cover border border-border" />
+                        <img loading="lazy" decoding="async" src={d.photo_url} alt={d.name} className="w-12 h-12 rounded-md object-cover border border-border" />
                       ) : (
                         <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center text-muted-foreground"><Icon className="w-5 h-5" /></div>
                       )}
@@ -247,6 +263,7 @@ export default function IctDevicesPage() {
                     <TableCell className="text-sm">{[d.brand, d.model].filter(Boolean).join(" ") || "-"}</TableCell>
                     <TableCell><Badge variant="outline" className={st.cls}>{st.label}</Badge></TableCell>
                     <TableCell className="text-right">
+                      <Button size="icon" variant="ghost" onClick={() => openAddMore(d)} title="เพิ่มเครื่องในรุ่นนี้"><Copy className="w-4 h-4" /></Button>
                       <Button size="icon" variant="ghost" onClick={() => openEdit(d)}><Pencil className="w-4 h-4" /></Button>
                       <Button size="icon" variant="ghost" onClick={() => remove(d)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                     </TableCell>
@@ -259,16 +276,16 @@ export default function IctDevicesPage() {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-lg sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editing ? "แก้ไขอุปกรณ์" : "เพิ่มอุปกรณ์ ICT"}</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="col-span-2">
               <Label>รูปภาพอุปกรณ์</Label>
               <div className="mt-1 flex items-start gap-3">
                 <div className="relative w-28 h-28 rounded-lg border border-dashed border-border bg-muted/30 flex items-center justify-center overflow-hidden">
                   {photoPreview ? (
                     <>
-                      <img src={photoPreview} alt="preview" className="w-full h-full object-cover" />
+                      <img loading="lazy" decoding="async" src={photoPreview} alt="preview" className="w-full h-full object-cover" />
                       <button type="button" onClick={resetPhoto} className="absolute top-1 right-1 p-0.5 rounded-full bg-background/80 hover:bg-background border border-border">
                         <X className="w-3 h-3" />
                       </button>
@@ -286,14 +303,23 @@ export default function IctDevicesPage() {
                 </div>
               </div>
             </div>
-            <div className="col-span-2">
-              <Label>รหัสครุภัณฑ์ *</Label>
-              <Input value={form.asset_code || ""} onChange={(e) => setForm({ ...form, asset_code: e.target.value })} placeholder="เช่น ICT-NB-001" />
-            </div>
-            <div className="col-span-2">
-              <Label>ชื่ออุปกรณ์ *</Label>
-              <Input value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="เช่น Notebook Lenovo ThinkPad" />
-            </div>
+            {editing ? (
+              <>
+                <div className="col-span-2">
+                  <Label>รหัสครุภัณฑ์ *</Label>
+                  <Input value={form.asset_code || ""} onChange={(e) => setForm({ ...form, asset_code: e.target.value })} placeholder="เช่น ICT-NB-001" />
+                </div>
+                <div className="col-span-2">
+                  <Label>ชื่ออุปกรณ์ *</Label>
+                  <Input value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="เช่น Notebook Lenovo ThinkPad" />
+                </div>
+              </>
+            ) : (
+              <div className="col-span-2">
+                <Label>ชื่ออุปกรณ์ / รุ่น *</Label>
+                <Input value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="เช่น Notebook Lenovo ThinkPad" />
+              </div>
+            )}
             <div>
               <Label>หมวด</Label>
               <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
@@ -318,32 +344,61 @@ export default function IctDevicesPage() {
               <Label>รุ่น</Label>
               <Input value={form.model || ""} onChange={(e) => setForm({ ...form, model: e.target.value })} />
             </div>
-            <div className="col-span-2">
-              <Label>Serial Number (S/N)</Label>
-              <Input value={form.serial_number || ""} onChange={(e) => setForm({ ...form, serial_number: e.target.value })} placeholder="ใช้สแกนตอนยืม-คืน" />
-            </div>
+            {editing ? (
+              <div className="col-span-2">
+                <Label>Serial Number (S/N)</Label>
+                <Input value={form.serial_number || ""} onChange={(e) => setForm({ ...form, serial_number: e.target.value })} placeholder="ใช้สแกนตอนยืม-คืน" />
+              </div>
+            ) : (
+              <div className="col-span-2 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>รายการเครื่อง (รหัสครุภัณฑ์ + S/N) *</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setBulkItems([...bulkItems, { asset_code: "", serial_number: "" }])}>
+                    <Plus className="w-3 h-3 mr-1" /> เพิ่มแถว
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">บันทึกหลายเครื่องในรุ่นเดียวกันได้พร้อมกัน</p>
+                <div className="space-y-2">
+                  {bulkItems.map((it, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <Input
+                        placeholder={`รหัสครุภัณฑ์ #${idx + 1}`}
+                        value={it.asset_code}
+                        onChange={(e) => {
+                          const next = [...bulkItems];
+                          next[idx] = { ...next[idx], asset_code: e.target.value };
+                          setBulkItems(next);
+                        }}
+                        className="font-mono text-sm"
+                      />
+                      <Input
+                        placeholder="S/N (ถ้ามี)"
+                        value={it.serial_number}
+                        onChange={(e) => {
+                          const next = [...bulkItems];
+                          next[idx] = { ...next[idx], serial_number: e.target.value };
+                          setBulkItems(next);
+                        }}
+                        className="font-mono text-sm"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        disabled={bulkItems.length === 1}
+                        onClick={() => setBulkItems(bulkItems.filter((_, i) => i !== idx))}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="col-span-2">
               <Label>หมายเหตุ</Label>
               <Input value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </div>
-            {!editing && (
-              <div className="col-span-2 rounded-lg border border-dashed bg-muted/30 p-3">
-                <Label className="text-sm font-semibold">เพิ่มหลายเครื่องพร้อมกัน (อุปกรณ์เหมือนกัน)</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={bulkCount}
-                    onChange={(e) => setBulkCount(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
-                    className="w-24"
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    เครื่อง (รหัสจะต่อท้ายด้วย -01, -02, ... อัตโนมัติ)
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)} disabled={uploading}>ยกเลิก</Button>

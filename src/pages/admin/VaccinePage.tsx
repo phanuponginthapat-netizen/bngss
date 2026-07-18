@@ -15,7 +15,8 @@ import { toast } from "sonner";
 import { Plus, Trash2, Search, Syringe } from "lucide-react";
 import { ScanSearchButton } from "@/components/student/ScanSearchButton";
 import { useStudentFilter } from "@/components/student/StudentSearchFilter";
-import { useUserRole } from "@/hooks/useUserRole";
+import { useStudentsWithClass } from "@/hooks/useStudentsWithClass";
+import { notifyStudentEvent } from "@/lib/notifyStudentEvent";
 
 // วัคซีนตามโปรแกรม สพฐ./กระทรวงสาธารณสุข
 const OBEC_VACCINES = [
@@ -37,8 +38,6 @@ const OBEC_VACCINES = [
 const VaccinePage = () => {
   const { lang } = useLanguage();
   const qc = useQueryClient();
-  const { isAdmin, isDirector } = useUserRole();
-  const canManage = isAdmin || isDirector;
   const [open, setOpen] = useState(false);
   const [studentId, setStudentId] = useState("");
   const [vaccineName, setVaccineName] = useState("");
@@ -48,13 +47,7 @@ const VaccinePage = () => {
   const [notes, setNotes] = useState("");
   const [filterVaccine, setFilterVaccine] = useState("all");
 
-  const { data: students = [] } = useQuery({
-    queryKey: ["students_with_class"],
-    queryFn: async () => {
-      const { data } = await supabase.from("students").select("*, classrooms!students_classroom_id_fkey(name, grade_level)").eq("status", "active").order("student_code");
-      return data || [];
-    },
-  });
+  const { data: students = [] } = useStudentsWithClass();
   const { data: classrooms = [] } = useQuery({
     queryKey: ["classrooms"],
     queryFn: async () => {
@@ -72,17 +65,16 @@ const VaccinePage = () => {
 
   const filter = useStudentFilter(students, classrooms);
 
-  const filteredRecords = useMemo(() => {
-    let result = records;
-    const studentIds = new Set(filter.filteredStudents.map((s: any) => s.id));
-    if (filter.search || filter.gradeFilter !== "all" || filter.classroomFilter !== "all") {
-      result = result.filter((r: any) => studentIds.has(r.student_id));
-    }
-    if (filterVaccine !== "all") {
-      result = result.filter((r: any) => r.vaccine_name === filterVaccine || r.vaccine_name?.includes(filterVaccine));
-    }
-    return result;
-  }, [records, filter.filteredStudents, filter.search, filter.gradeFilter, filter.classroomFilter, filterVaccine]);
+  // Roster view: one row per filtered student + their vaccine records
+  const rosterRows = useMemo(() => {
+    return (filter.filteredStudents as any[]).map((s: any) => {
+      let studentRecs = (records as any[]).filter((r) => r.student_id === s.id);
+      if (filterVaccine !== "all") {
+        studentRecs = studentRecs.filter((r) => r.vaccine_name === filterVaccine || r.vaccine_name?.includes(filterVaccine));
+      }
+      return { student: s, records: studentRecs, latest: studentRecs[0] || null, count: studentRecs.length };
+    });
+  }, [records, filter.filteredStudents, filterVaccine]);
 
   const stats = useMemo(() => {
     const vaccineCount: Record<string, number> = {};
@@ -95,23 +87,35 @@ const VaccinePage = () => {
   const handleAdd = async () => {
     const finalName = vaccineName === "other" ? customVaccine : (OBEC_VACCINES.find(v => v.value === vaccineName)?.label || vaccineName);
     if (!studentId || !finalName) return;
-    const { error } = await supabase.from("vaccine_records").insert({
+    const { data: inserted, error } = await supabase.from("vaccine_records").insert({
       student_id: studentId,
       vaccine_name: finalName,
       dose_number: parseInt(dose),
       lot_number: lot || null,
       notes: notes || null,
-    } as any);
+    } as any).select("id").single();
     if (error) { toast.error(error.message); return; }
     toast.success(lang === "th" ? "บันทึกสำเร็จ" : "Saved");
     qc.invalidateQueries({ queryKey: ["vaccine_records"] });
+
+    // Spider-web: แจ้งผู้ปกครองว่าลูกได้รับวัคซีน
+    notifyStudentEvent({
+      student_id: studentId,
+      title: "💉 บันทึกการรับวัคซีน",
+      body: `${finalName} เข็มที่ ${dose}`,
+      type: "vaccine",
+      severity: "info",
+      reference_id: inserted?.id,
+      reference_type: "vaccine_records",
+      url: "/dashboard/admin/vaccine",
+      audience: { student: true, parents: true, homeroom: false },
+    });
+
     setOpen(false); setVaccineName(""); setCustomVaccine(""); setLot(""); setNotes(""); setStudentId("");
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("vaccine_records").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
-    toast.success(lang === "th" ? "ลบสำเร็จ" : "Deleted");
+    await supabase.from("vaccine_records").delete().eq("id", id);
     qc.invalidateQueries({ queryKey: ["vaccine_records"] });
   };
 
@@ -123,7 +127,7 @@ const VaccinePage = () => {
           <p className="text-responsive-subtitle text-muted-foreground">{lang === "th" ? "บันทึกวัคซีนตามโปรแกรมสร้างเสริมภูมิคุ้มกันโรค" : "National immunization program records"}</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
-          {canManage && (<DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" />{lang === "th" ? "บันทึกวัคซีน" : "Add Vaccine"}</Button></DialogTrigger>)}
+          <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" />{lang === "th" ? "บันทึกวัคซีน" : "Add Vaccine"}</Button></DialogTrigger>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader><DialogTitle>{lang === "th" ? "บันทึกการฉีดวัคซีนนักเรียน" : "Record Vaccine"}</DialogTitle></DialogHeader>
             <div className="space-y-4">
@@ -197,7 +201,7 @@ const VaccinePage = () => {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div><Label>{lang === "th" ? "เข็มที่" : "Dose #"}</Label><Input type="number" value={dose} onChange={e => setDose(e.target.value)} min="1" /></div>
                 <div><Label>{lang === "th" ? "Lot No." : "Lot No."}</Label><Input value={lot} onChange={e => setLot(e.target.value)} /></div>
               </div>
@@ -266,35 +270,31 @@ const VaccinePage = () => {
       <Card><CardContent className="p-0">
         <Table>
           <TableHeader><TableRow>
-            <TableHead>{lang === "th" ? "วันที่" : "Date"}</TableHead>
             <TableHead>{lang === "th" ? "นักเรียน" : "Student"}</TableHead>
-            <TableHead>{lang === "th" ? "วัคซีน" : "Vaccine"}</TableHead>
+            <TableHead>{lang === "th" ? "วัคซีนล่าสุด" : "Latest Vaccine"}</TableHead>
             <TableHead>{lang === "th" ? "เข็มที่" : "Dose"}</TableHead>
-            <TableHead className="hidden sm:table-cell">Lot</TableHead>
-            <TableHead className="hidden md:table-cell">{lang === "th" ? "หมายเหตุ" : "Notes"}</TableHead>
+            <TableHead>{lang === "th" ? "วันที่ล่าสุด" : "Latest Date"}</TableHead>
+            <TableHead className="text-center">{lang === "th" ? "จำนวนบันทึก" : "Records"}</TableHead>
             <TableHead></TableHead>
           </TableRow></TableHeader>
           <TableBody>
-            {filteredRecords.map((r: any) => {
-              const s = r.students;
-              return (
-                <TableRow key={r.id}>
-                  <TableCell className="whitespace-nowrap">{r.date_administered}</TableCell>
-                  <TableCell className="font-medium">
-                    <div>{s ? `${s.student_code} ${s.prefix || ""}${s.first_name} ${s.last_name}` : "—"}</div>
-                    {s?.classrooms?.name && <span className="text-xs text-muted-foreground">{s.classrooms.name}</span>}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs">{r.vaccine_name}</Badge>
-                  </TableCell>
-                  <TableCell>{r.dose_number}</TableCell>
-                  <TableCell className="hidden sm:table-cell">{r.lot_number || "—"}</TableCell>
-                  <TableCell className="hidden md:table-cell max-w-[150px] truncate">{r.notes || "—"}</TableCell>
-                  <TableCell>{canManage && (<Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>)}</TableCell>
-                </TableRow>
-              );
-            })}
-            {filteredRecords.length === 0 && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">{lang === "th" ? "ไม่มีข้อมูล" : "No data"}</TableCell></TableRow>}
+            {rosterRows.map(({ student: s, latest: r, count }) => (
+              <TableRow key={s.id}>
+                <TableCell className="font-medium">
+                  <div>{s.student_code} {s.prefix || ""}{s.first_name} {s.last_name}</div>
+                  {s?.classrooms?.name && <span className="text-xs text-muted-foreground">{s.classrooms.name}</span>}
+                </TableCell>
+                <TableCell>
+                  {r ? <Badge variant="outline" className="text-xs">{r.vaccine_name}</Badge>
+                     : <Badge variant="outline" className="text-xs text-muted-foreground">{lang === "th" ? "ยังไม่บันทึก" : "None"}</Badge>}
+                </TableCell>
+                <TableCell>{r?.dose_number || "—"}</TableCell>
+                <TableCell className="whitespace-nowrap">{r?.date_administered || "—"}</TableCell>
+                <TableCell className="text-center">{count}</TableCell>
+                <TableCell>{r && <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>}</TableCell>
+              </TableRow>
+            ))}
+            {rosterRows.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{lang === "th" ? "ไม่มีข้อมูล" : "No data"}</TableCell></TableRow>}
           </TableBody>
         </Table>
       </CardContent></Card>

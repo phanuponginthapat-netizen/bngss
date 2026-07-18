@@ -177,7 +177,7 @@ export default function ExamNewPage() {
                 {(assignments as any[]).map((a) => (
                   <SelectItem key={a.id} value={a.id}>
                     {a.subjects?.name_th || "-"} • {a.classrooms?.name || a.classrooms?.grade_level || "-"}
-                    {a.academic_year ? ` (${a.academic_year + 543}/${a.semester || 1})` : ""}
+                    {a.academic_year ? ` (${a.academic_year}/${a.semester || 1})` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -202,9 +202,9 @@ export default function ExamNewPage() {
             </Select>
           </div>
           <div>
-            <Label>จำนวนข้อ (สูงสุด 200)</Label>
-            <Input type="number" min={1} max={200} value={form.question_count}
-              onChange={(e) => setForm({ ...form, question_count: Math.min(200, Math.max(1, parseInt(e.target.value) || 10)) })} />
+            <Label>จำนวนข้อ</Label>
+            <Input type="number" min={1} max={60} value={form.question_count}
+              onChange={(e) => setForm({ ...form, question_count: parseInt(e.target.value) || 10 })} />
           </div>
           <div>
             <Label>รูปแบบตัวเลือก</Label>
@@ -245,81 +245,35 @@ export default function ExamNewPage() {
           </div>
         </div>
 
-        <div className="flex gap-2 flex-wrap">
-          <Button onClick={generate} disabled={genLoading}>
-            {genLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-            สร้างข้อสอบด้วย AI
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              const blank = Array.from({ length: form.question_count }, (_, i) => ({
-                question_no: questions.length + i + 1,
-                question_text: "",
-                choices: ["", "", "", ""],
-                correct_answer: "A",
-                explanation: "",
-              }));
-              setQuestions([...questions, ...blank]);
-              toast.success(`เพิ่มข้อสอบเปล่า ${blank.length} ข้อ`);
-            }}
-          >
-            เริ่มร่างเปล่า / เพิ่มทีละชุด
-          </Button>
-        </div>
+        <Button onClick={generate} disabled={genLoading} className="w-full md:w-auto">
+          {genLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+          สร้างข้อสอบด้วย AI
+        </Button>
       </Card>
 
       {questions.length > 0 && (
         <Card className="p-5 space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">ข้อสอบที่สร้าง ({questions.length} ข้อ)</h2>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setQuestions([...questions, {
-                    question_no: questions.length + 1,
-                    question_text: "",
-                    choices: ["", "", "", ""],
-                    correct_answer: "A",
-                    explanation: "",
-                  }]);
-                }}
-              >
-                + เพิ่มข้อ
-              </Button>
-              <Button onClick={save} disabled={saving}>
-                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                บันทึกข้อสอบ
-              </Button>
-            </div>
+            <Button onClick={save} disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              บันทึกข้อสอบ
+            </Button>
           </div>
           <div className="space-y-4 max-h-[600px] overflow-y-auto">
             {questions.map((q, i) => (
               <Card key={i} className="p-4 bg-muted/30">
                 <div className="flex items-start gap-2 mb-2">
-                  <span className="font-bold">{i + 1}.</span>
-                  <Textarea value={q.question_text} className="flex-1" placeholder="พิมพ์คำถาม..."
+                  <span className="font-bold">{q.question_no || i + 1}.</span>
+                  <Textarea value={q.question_text} className="flex-1"
                     onChange={(e) => { const c = [...questions]; c[i] = { ...c[i], question_text: e.target.value }; setQuestions(c); }} />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const c = questions.filter((_, idx) => idx !== i).map((x, idx) => ({ ...x, question_no: idx + 1 }));
-                      setQuestions(c);
-                    }}
-                    className="text-destructive"
-                  >
-                    ลบ
-                  </Button>
                 </div>
                 <div className="grid grid-cols-2 gap-2 ml-6">
-                  {(q.choices || ["", "", "", ""]).map((ch: string, ci: number) => (
+                  {(q.choices || []).map((ch: string, ci: number) => (
                     <div key={ci} className="flex items-center gap-2">
                       <span className="font-mono text-sm w-5">{labels[ci] || String.fromCharCode(65 + ci)}.</span>
-                      <Input value={ch} placeholder={`ตัวเลือก ${labels[ci]}`}
-                        onChange={(e) => { const c = [...questions]; const nc = [...(c[i].choices || ["","","",""])]; nc[ci] = e.target.value; c[i] = { ...c[i], choices: nc }; setQuestions(c); }} />
+                      <Input value={ch}
+                        onChange={(e) => { const c = [...questions]; const nc = [...c[i].choices]; nc[ci] = e.target.value; c[i] = { ...c[i], choices: nc }; setQuestions(c); }} />
                     </div>
                   ))}
                 </div>
@@ -343,15 +297,11 @@ export default function ExamNewPage() {
                     <strong>อธิบายตัวชี้วัด:</strong> {q.indicator_description}
                   </div>
                 )}
-                <div className="ml-6 mt-2">
-                  <Label className="text-xs">คำอธิบาย/เหตุผลเฉลย</Label>
-                  <Textarea
-                    value={q.explanation || ""}
-                    placeholder="อธิบายเหตุผลของเฉลย (ไม่บังคับ)"
-                    className="text-xs mt-1"
-                    onChange={(e) => { const c = [...questions]; c[i] = { ...c[i], explanation: e.target.value }; setQuestions(c); }}
-                  />
-                </div>
+                {q.explanation && (
+                  <div className="ml-6 mt-2 text-xs text-muted-foreground bg-background p-2 rounded border">
+                    <strong>เฉลย:</strong> {q.explanation}
+                  </div>
+                )}
               </Card>
             ))}
           </div>

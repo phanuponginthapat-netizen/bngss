@@ -24,22 +24,29 @@ interface OrgPerson {
   sort_rank: number | null;
 }
 
-const DEPT_ORDER = ["บริหาร", "วิชาการ", "บริหารทั่วไป", "งบประมาณและแผน", "บุคคล", "กิจการนักเรียน"];
+const DEPT_ORDER = [
+  "สำนักผู้อำนวยการ",
+  "ฝ่ายวิชาการ",
+  "ฝ่ายบริหารงานทั่วไป",
+  "ฝ่ายงบประมาณและบุคคล",
+  "ฝ่ายกิจการนักเรียน",
+  "ฝ่ายงาน ConnextED",
+];
 
-// แปลงชื่อฝ่ายในฐานข้อมูลให้เป็นกลุ่มมาตรฐาน + แยก "งบประมาณและบุคคล" เป็น 2 ฝ่าย
-const normalizeDepartments = (raw: string | null): string[] => {
-  const s = (raw || "").trim();
-  if (!s) return ["อื่น ๆ"];
-  // ฝ่ายผสม — แสดงในทั้งสองฝ่าย
-  if (/งบประมาณ.*บุคคล|บุคคล.*งบประมาณ/.test(s)) return ["งบประมาณและแผน", "บุคคล"];
-  if (/แผนงาน|ประกันคุณภาพ/.test(s)) return ["งบประมาณและแผน"];
-  if (/งบประมาณ/.test(s)) return ["งบประมาณและแผน"];
-  if (/บุคคล/.test(s)) return ["บุคคล"];
-  if (/วิชาการ/.test(s)) return ["วิชาการ"];
-  if (/ทั่วไป|อาคาร|สถานที่/.test(s)) return ["บริหารทั่วไป"];
-  if (/กิจการนักเรียน|กิจการนร|ปกครอง/.test(s)) return ["กิจการนักเรียน"];
-  if (/^บริหาร$|ผู้บริหาร|ผอ\.|ผู้อำนวยการ|รองผอ/.test(s)) return ["บริหาร"];
-  return [s];
+// รวมชื่อฝ่ายที่เขียนต่างกันให้เป็นมาตรฐานเดียวเพื่อไม่ให้ผังถูกแยกซ้ำ
+const DEPT_ALIAS: Record<string, string> = {
+  "วิชาการ": "ฝ่ายวิชาการ",
+  "บริหารทั่วไป": "ฝ่ายบริหารงานทั่วไป",
+  "งบประมาณและบุคคล": "ฝ่ายงบประมาณและบุคคล",
+  "งบประมาณ": "ฝ่ายงบประมาณและบุคคล",
+  "บุคคล": "ฝ่ายงบประมาณและบุคคล",
+  "กิจการนักเรียน": "ฝ่ายกิจการนักเรียน",
+  "ConnextED": "ฝ่ายงาน ConnextED",
+  "บริหาร": "สำนักผู้อำนวยการ",
+};
+const canonDept = (d?: string | null) => {
+  const k = (d || "").trim();
+  return DEPT_ALIAS[k] || k || "อื่น ๆ";
 };
 
 const PersonCard = ({ p, featured = false }: { p: OrgPerson; featured?: boolean }) => {
@@ -79,43 +86,21 @@ const OrgChartPage = () => {
 
   useEffect(() => {
     document.title = `ผังบุคลากร · ${appName || "โรงเรียน"}`;
-  }, [appName]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const fetchChart = async () => {
+    (async () => {
       const { data } = await (supabase.rpc as any)("get_public_org_chart");
-      if (cancelled) return;
       setPeople((data as OrgPerson[]) || []);
       setLoading(false);
-    };
-    fetchChart();
-
-    const channel = supabase
-      .channel("org-chart-personnel")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "personnel" },
-        () => fetchChart()
-      )
-      .subscribe();
-
-    return () => {
-      cancelled = true;
-      supabase.removeChannel(channel);
-    };
-  }, []);
+    })();
+  }, [appName]);
 
   const { leadership, byDept } = useMemo(() => {
     const lead = people.filter((p) => (p.sort_rank ?? 99) <= 2);
     const rest = people.filter((p) => (p.sort_rank ?? 99) > 2);
     const map = new Map<string, OrgPerson[]>();
     rest.forEach((p) => {
-      const keys = normalizeDepartments(p.department);
-      keys.forEach((k) => {
-        if (!map.has(k)) map.set(k, []);
-        map.get(k)!.push(p);
-      });
+      const k = canonDept(p.department);
+      if (!map.has(k)) map.set(k, []);
+      map.get(k)!.push(p);
     });
     const sorted = Array.from(map.entries()).sort(([a], [b]) => {
       const ai = DEPT_ORDER.indexOf(a);
@@ -191,10 +176,7 @@ const OrgChartPage = () => {
           </section>
         ))}
 
-        <div className="text-center pt-6 flex justify-center gap-2">
-          <Link to="/subject-groups">
-            <Button variant="outline">ผังกลุ่มสาระการเรียนรู้</Button>
-          </Link>
+        <div className="text-center pt-6">
           <Link to="/find">
             <Button variant="outline">ค้นหาบุคคล</Button>
           </Link>

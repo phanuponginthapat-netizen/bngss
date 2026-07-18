@@ -78,10 +78,7 @@ async function loadProviders(vision: boolean): Promise<ProviderRow[]> {
       .eq("enabled", true)
       .order("priority", { ascending: true });
     if (!data) return [];
-    // Exclude Lovable gateway providers — LOVABLE_API_KEY is reserved for Lovable dev only, not runtime AI.
-    let list = (data as ProviderRow[])
-      .filter((p) => p.provider_type !== "lovable")
-      .filter((p) => !vision || p.supports_vision);
+    let list = (data as ProviderRow[]).filter((p) => !vision || p.supports_vision);
 
     // Enforce monthly_call_limit: drop providers that hit cap this month
     const withLimits = list.filter((p) => p.monthly_call_limit && p.monthly_call_limit > 0);
@@ -113,11 +110,12 @@ async function resolveApiKey(p: ProviderRow): Promise<string | undefined> {
   // For everything else, use the api_key column directly (admin pastes vendor key)
   if (p.api_key && p.api_key.trim()) return p.api_key.trim();
   // Optional env fallbacks for common providers
-  if (p.provider_type === "gemini") return (await getSecret(secretKeys.gemini)) || undefined;
   if (p.provider_type === "openrouter") return (await getSecret(secretKeys.openrouter)) || undefined;
   if (p.provider_type === "openai") return (await getSecret(secretKeys.openai)) || undefined;
   if (p.provider_type === "deepseek") return (await getSecret(secretKeys.deepseek)) || undefined;
   if (p.provider_type === "groq") return (await getSecret(secretKeys.groq)) || undefined;
+  if (p.provider_type === "gemini" || p.provider_type === "google") return (await getSecret(secretKeys.gemini)) || undefined;
+  if (p.provider_type === "dashscope") return (await getSecret(secretKeys.dashscope)) || undefined;
   return undefined;
 }
 
@@ -154,9 +152,25 @@ async function logUsage(opts: {
 export async function aiCall(opts: AICallOpts): Promise<AIResult> {
   let providers = await loadProviders(!!opts.vision);
 
-  // No Lovable fallback — admin must configure a real provider (Gemini/OpenRouter/OpenAI/etc.)
+  // Hard fallback if DB empty or no providers configured
   if (providers.length === 0) {
-    throw new Error("No AI provider configured. Admin must add a provider in /dashboard/admin/ai-providers");
+    const lovableKey = await getSecret(secretKeys.lovable);
+    if (lovableKey) {
+      providers = [{
+        id: "default",
+        name: "Lovable (fallback)",
+        provider_type: "lovable",
+        base_url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+        api_key: null,
+        model: opts.vision ? "google/gemini-2.5-pro" : "google/gemini-2.5-pro",
+        priority: 1,
+        enabled: true,
+        supports_vision: true,
+        extra_headers: null,
+      }];
+    } else {
+      throw new Error("No AI provider configured. Admin must add a provider in /dashboard/admin/ai-providers");
+    }
   }
 
   const errors: string[] = [];
@@ -175,20 +189,13 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
       };
       if (opts.max_tokens) body.max_tokens = opts.max_tokens;
       // Only request JSON mode if provider supports it (default true for unknown/legacy rows)
-      if (opts.json && p.supports_json !== false && !(p.provider_type === "openrouter" && p.model === "openrouter/free")) body.response_format = { type: "json_object" };
+      if (opts.json && p.supports_json !== false) body.response_format = { type: "json_object" };
 
-      const headers: Record<string, string> = p.provider_type === "lovable"
-        ? {
-            "Content-Type": "application/json",
-            "Lovable-API-Key": key,
-            "X-Lovable-AIG-SDK": "school-ai-fetch",
-            ...(p.extra_headers || {}),
-          }
-        : {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${key}`,
-            ...(p.extra_headers || {}),
-          };
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+        ...(p.extra_headers || {}),
+      };
       // OpenRouter recommends these
       if (p.provider_type === "openrouter") {
         headers["HTTP-Referer"] = headers["HTTP-Referer"] || "https://lovable.dev";
@@ -260,8 +267,8 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
     }
   }
 
-  // === Final fallback: Key Pool (gemini → groq → openrouter) ===
-  const poolOrder: PoolProvider[] = ["gemini", "groq", "openrouter"];
+  // === Final fallback: Key Pool (openai → gemini → groq → openrouter) ===
+  const poolOrder: PoolProvider[] = ["openai", "gemini", "groq", "openrouter"];
   for (const p of poolOrder) {
     const started = Date.now();
     try {
@@ -314,8 +321,8 @@ export interface CouncilResult extends AIResult {
 }
 
 export async function aiCouncil(opts: CouncilOpts): Promise<CouncilResult> {
-  const providers = opts.providers || ["gemini", "groq", "openrouter"];
-  const synth = opts.synthesizer || "gemini";
+  const providers = opts.providers || ["openai", "gemini", "groq", "openrouter"];
+  const synth = opts.synthesizer || "openai";
 
   const results = await Promise.all(providers.map(async (p) => {
     try {

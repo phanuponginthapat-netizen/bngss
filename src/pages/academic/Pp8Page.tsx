@@ -6,15 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { PageSkeleton } from "@/components/shared";
 import { Printer, FolderOpen, Search } from "lucide-react";
 import { formatFullName } from "@/lib/nameFormat";
 import { formatDateBE } from "@/lib/dateBE";
-import { ExportMenu } from "@/components/academic/ExportMenu";
 import { useSchoolInfo } from "@/components/documents/DocumentHeader";
-import { printPP8, exportPP8Sgs, exportPP8SchoolMis } from "@/lib/exporters/pp8Cumulative";
+import { openPrintWindow, currentThaiDate } from "@/lib/printUtils";
+import { printByCode } from "@/lib/printTemplate";
+import { buildHeader, buildSignatures, buildSectionTitle, buildSummaryBox, wrapA4Page } from "@/lib/obecReportBuilder";
 
 const Pp8Page = () => {
   const { lang } = useLanguage();
+  const schoolInfo = useSchoolInfo();
   const [searchCode, setSearchCode] = useState("");
   const [student, setStudent] = useState<any>(null);
   const [attendance, setAttendance] = useState<any[]>([]);
@@ -70,6 +73,46 @@ const Pp8Page = () => {
     negative: behavior.filter(b => b.behavior_type === "negative").reduce((s, b) => s + (b.points || 0), 0),
   };
 
+  const handlePrint = async () => {
+    if (!student) return;
+    const fullName = formatFullName(student.prefix, student.first_name, student.last_name);
+    const cls = student.classrooms ? `${student.classrooms.grade_level} ${student.classrooms.name || ""}` : "-";
+    const header = buildHeader({
+      schoolName: schoolInfo.school_name,
+      schoolAddress: schoolInfo.school_address,
+      garudaUrl: schoolInfo.garuda_emblem,
+      sealUrl: schoolInfo.school_seal,
+      logoUrl: schoolInfo.school_logo,
+      documentTitle: "ปพ.8 ระเบียนสะสมรายบุคคล",
+      subtitle: `${fullName} (${student.student_code}) ชั้น ${cls}`,
+    });
+    const summary =
+      buildSectionTitle("สรุปการมาเรียน") +
+      buildSummaryBox([
+        { label: "ทั้งหมด", value: String(attendanceSummary.total) },
+        { label: "มาเรียน", value: String(attendanceSummary.present) },
+        { label: "ขาด", value: String(attendanceSummary.absent) },
+        { label: "สาย", value: String(attendanceSummary.late) },
+        { label: "ป่วย/ลา", value: String(attendanceSummary.sick) },
+      ]) +
+      buildSectionTitle("สรุปความประพฤติ") +
+      buildSummaryBox([
+        { label: "คะแนนบวก", value: String(behaviorSummary.positive) },
+        { label: "คะแนนลบ", value: String(behaviorSummary.negative) },
+      ]) +
+      buildSectionTitle("เยี่ยมบ้าน") +
+      `<div class="obec-body">จำนวนครั้ง: ${homeVisits.length}</div>` +
+      buildSectionTitle("บันทึกสุขภาพ") +
+      `<div class="obec-body">จำนวนรายการ: ${healthRecords.length}</div>`;
+    const sig = buildSignatures(
+      [{ name: schoolInfo.director_name, title: schoolInfo.director_title || "ผู้อำนวยการโรงเรียน", signatureUrl: schoolInfo.director_signature }],
+      currentThaiDate(),
+    );
+    const html = wrapA4Page(header + summary + sig);
+    const tplData = { school: schoolInfo, student, attendance: attendanceSummary, behavior: behaviorSummary, home_visits: homeVisits, health: healthRecords };
+    await printByCode("pp8", tplData, () => openPrintWindow(html, { title: `ปพ.8 ${student.student_code}` }));
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -78,12 +121,9 @@ const Pp8Page = () => {
           {L("ปพ.8 (ระเบียนสะสม)", "PP.8 (Cumulative Record)")}
         </h1>
         {student && (
-          <div className="flex gap-2">
-            <Button onClick={() => window.print()} size="sm" variant="outline">
-              <Printer className="w-4 h-4 mr-1" /> {L("พิมพ์", "Print")}
-            </Button>
-            <PP8ExportMenu student={student} attendanceSummary={attendanceSummary} behaviorSummary={behaviorSummary} />
-          </div>
+          <Button onClick={handlePrint} size="sm" variant="outline">
+            <Printer className="w-4 h-4 mr-1" /> {L("พิมพ์", "Print")}
+          </Button>
         )}
       </div>
 
@@ -104,7 +144,7 @@ const Pp8Page = () => {
       </Card>
 
       {loading && (
-        <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div>
+        <PageSkeleton />
       )}
 
       {student && !loading && (
@@ -130,10 +170,10 @@ const Pp8Page = () => {
             <CardContent>
               <div className="grid grid-cols-5 gap-2 text-center text-sm">
                 <div className="p-2 rounded bg-muted"><p className="text-muted-foreground">{L("ทั้งหมด", "Total")}</p><p className="font-bold text-lg">{attendanceSummary.total}</p></div>
-                <div className="p-2 rounded bg-success-soft"><p className="text-success">{L("มา", "Present")}</p><p className="font-bold text-lg text-success">{attendanceSummary.present}</p></div>
-                <div className="p-2 rounded bg-danger-soft"><p className="text-danger">{L("ขาด", "Absent")}</p><p className="font-bold text-lg text-danger">{attendanceSummary.absent}</p></div>
-                <div className="p-2 rounded bg-warning-soft"><p className="text-warning">{L("สาย", "Late")}</p><p className="font-bold text-lg text-warning">{attendanceSummary.late}</p></div>
-                <div className="p-2 rounded bg-warning-soft"><p className="text-warning">{L("ป่วย", "Sick")}</p><p className="font-bold text-lg text-warning">{attendanceSummary.sick}</p></div>
+                <div className="p-2 rounded bg-green-50"><p className="text-green-600">{L("มา", "Present")}</p><p className="font-bold text-lg text-green-700">{attendanceSummary.present}</p></div>
+                <div className="p-2 rounded bg-red-50"><p className="text-red-600">{L("ขาด", "Absent")}</p><p className="font-bold text-lg text-red-700">{attendanceSummary.absent}</p></div>
+                <div className="p-2 rounded bg-yellow-50"><p className="text-yellow-600">{L("สาย", "Late")}</p><p className="font-bold text-lg text-yellow-700">{attendanceSummary.late}</p></div>
+                <div className="p-2 rounded bg-orange-50"><p className="text-orange-600">{L("ป่วย", "Sick")}</p><p className="font-bold text-lg text-orange-700">{attendanceSummary.sick}</p></div>
               </div>
             </CardContent>
           </Card>
@@ -143,13 +183,13 @@ const Pp8Page = () => {
             <CardHeader className="pb-2"><CardTitle className="text-base">{L("สรุปพฤติกรรม", "Behavior Summary")}</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4 text-center">
-                <div className="p-3 rounded bg-success-soft">
-                  <p className="text-success text-sm">{L("คะแนนดี", "Good Points")}</p>
-                  <p className="font-bold text-2xl text-success">+{behaviorSummary.positive}</p>
+                <div className="p-3 rounded bg-green-50">
+                  <p className="text-green-600 text-sm">{L("คะแนนดี", "Good Points")}</p>
+                  <p className="font-bold text-2xl text-green-700">+{behaviorSummary.positive}</p>
                 </div>
-                <div className="p-3 rounded bg-danger-soft">
-                  <p className="text-danger text-sm">{L("คะแนนไม่ดี", "Bad Points")}</p>
-                  <p className="font-bold text-2xl text-danger">{behaviorSummary.negative}</p>
+                <div className="p-3 rounded bg-red-50">
+                  <p className="text-red-600 text-sm">{L("คะแนนไม่ดี", "Bad Points")}</p>
+                  <p className="font-bold text-2xl text-red-700">{behaviorSummary.negative}</p>
                 </div>
               </div>
             </CardContent>
@@ -199,29 +239,6 @@ const Pp8Page = () => {
         <Card><CardContent className="py-8 text-center text-muted-foreground">{L("ไม่พบนักเรียน", "Student not found")}</CardContent></Card>
       )}
     </div>
-  );
-};
-
-const PP8ExportMenu = ({ student, attendanceSummary, behaviorSummary }: any) => {
-  const schoolInfo = useSchoolInfo();
-  const rec = {
-    student_code: student.student_code,
-    prefix: student.prefix, first_name: student.first_name, last_name: student.last_name,
-    grade_level: student.grade_level, classroom: (student.classrooms as any)?.name || "",
-    national_id: student.national_id, date_of_birth: student.date_of_birth, gender: student.gender,
-    attendance: attendanceSummary, behavior: behaviorSummary,
-  };
-  const classroomName = `${student.grade_level || ""} ${(student.classrooms as any)?.name || ""}`.trim() || "class";
-  return (
-    <ExportMenu
-      templateCode="pp8"
-      templateTitle="ปพ.8 — ระเบียนสะสม"
-      actions={[
-        { key: "pdf", label: "PDF (พิมพ์)", icon: "pdf", onClick: () => printPP8(schoolInfo as any, [rec]) },
-        { key: "sgs", label: "Excel (SGS)", icon: "xlsx", onClick: () => exportPP8Sgs(schoolInfo as any, classroomName, [rec]) },
-        { key: "smis", label: "Excel (SchoolMIS)", icon: "xlsx", onClick: () => exportPP8SchoolMis(schoolInfo as any, classroomName, [rec]) },
-      ]}
-    />
   );
 };
 

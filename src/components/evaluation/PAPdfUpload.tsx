@@ -68,7 +68,7 @@ export default function PAPdfUpload({ paId, isEditable, pdfFileUrl, pdfFileName,
       <CardContent>
         {pdfFileUrl ? (
           <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-            <FileText className="w-8 h-8 text-danger flex-shrink-0" />
+            <FileText className="w-8 h-8 text-red-500 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{pdfFileName || "PA Document.pdf"}</p>
               <a href={signedUrl || pdfFileUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">

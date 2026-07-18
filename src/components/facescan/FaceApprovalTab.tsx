@@ -141,20 +141,6 @@ const FaceApprovalTab = () => {
       }).eq("id", req.id);
       if (updErr) throw updErr;
 
-      // Ensure students.photo_url is populated so the student photo shows up
-      // in listings / ID cards after face registration is approved.
-      const firstPhoto = req.photo_urls?.[0];
-      if (firstPhoto) {
-        const currentPhoto = req.students?.photo_url;
-        if (!currentPhoto || req.request_type === "reregister") {
-          await supabase
-            .from("students")
-            .update({ photo_url: firstPhoto })
-            .eq("id", req.student_id);
-        }
-      }
-
-
       await supabase.from("face_registration_history").insert({
         student_id: req.student_id,
         request_id: req.id,

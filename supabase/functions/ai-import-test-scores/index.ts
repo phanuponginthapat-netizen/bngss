@@ -2,10 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { aiCall } from "../_shared/aiCall.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 const PROMPT = `คุณคือผู้ช่วยดึงข้อมูลคะแนนสอบมาตรฐานของโรงเรียนไทย (O-NET / NT / RT / PISA)
 จากเอกสาร/ภาพ/ข้อความ ให้ดึงเป็น JSON array ของรายการคะแนน — 1 รายการ ต่อ 1 (ปี + ประเภท + ระดับชั้น + วิชา)

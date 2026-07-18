@@ -38,7 +38,7 @@ function ItemEditor({ open, onClose, item, onSaved }: { open: boolean; onClose: 
         <div className="space-y-3">
           <div><Label>รูปภาพ</Label><ImageUploadField value={form.image_url} onChange={(url) => setForm({ ...form, image_url: url || undefined })} folder="items" /></div>
           <div><Label>ชื่อขยะ</Label><Input value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="เช่น ขวดพลาสติก" /></div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><Label>หน่วย</Label><Input value={form.unit || ""} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="kg / ชิ้น" /></div>
             <div><Label>แต้มต่อหน่วย</Label><Input type="number" step="0.01" value={form.points_per_unit ?? 0} onChange={(e) => setForm({ ...form, points_per_unit: Number(e.target.value) })} /></div>
           </div>
@@ -72,7 +72,7 @@ function RewardEditor({ open, onClose, reward, onSaved }: { open: boolean; onClo
         <div className="space-y-3">
           <div><Label>รูปภาพ</Label><ImageUploadField value={form.image_url} onChange={(url) => setForm({ ...form, image_url: url || undefined })} folder="rewards" /></div>
           <div><Label>ชื่อสินค้า</Label><Input value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><Label>แต้มที่ใช้แลก</Label><Input type="number" value={form.points_cost ?? 0} onChange={(e) => setForm({ ...form, points_cost: Number(e.target.value) })} /></div>
             <div><Label>สต๊อก</Label><Input type="number" value={form.stock ?? 0} onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })} /></div>
           </div>
@@ -130,7 +130,7 @@ export default function GarbageItemsPage() {
                 <TableBody>
                   {items.map((i) => (
                     <TableRow key={i.id}>
-                      <TableCell>{i.image_url ? <img src={i.image_url} className="w-12 h-12 rounded object-cover" alt="" /> : <div className="w-12 h-12 rounded bg-muted" />}</TableCell>
+                      <TableCell>{i.image_url ? <img loading="lazy" decoding="async" src={i.image_url} className="w-12 h-12 rounded object-cover" alt="" /> : <div className="w-12 h-12 rounded bg-muted" />}</TableCell>
                       <TableCell>{i.name}</TableCell><TableCell>{i.unit}</TableCell><TableCell className="text-right">{i.points_per_unit}</TableCell>
                       <TableCell>{i.is_active ? "ใช้งาน" : "ปิด"}</TableCell>
                       {canEdit && <TableCell className="flex gap-1 justify-end">
@@ -158,7 +158,7 @@ export default function GarbageItemsPage() {
                 <TableBody>
                   {rewards.map((r) => (
                     <TableRow key={r.id}>
-                      <TableCell>{r.image_url ? <img src={r.image_url} className="w-12 h-12 rounded object-cover" alt="" /> : <div className="w-12 h-12 rounded bg-muted" />}</TableCell>
+                      <TableCell>{r.image_url ? <img loading="lazy" decoding="async" src={r.image_url} className="w-12 h-12 rounded object-cover" alt="" /> : <div className="w-12 h-12 rounded bg-muted" />}</TableCell>
                       <TableCell>{r.name}</TableCell><TableCell className="text-right">{r.points_cost}</TableCell><TableCell className="text-right">{r.stock}</TableCell>
                       <TableCell>{r.is_active ? "ใช้งาน" : "ปิด"}</TableCell>
                       {canEdit && <TableCell className="flex gap-1 justify-end">

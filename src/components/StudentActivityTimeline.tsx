@@ -24,12 +24,12 @@ type TimelineItem = {
 };
 
 const typeConfig: Record<TimelineItem["type"], { icon: any; color: string; label: string }> = {
-  attendance: { icon: CheckCircle2, color: "text-info bg-info-soft", label: "เช็คชื่อ" },
-  behavior: { icon: Star, color: "text-warning bg-warning-soft", label: "พฤติกรรม" },
-  leave: { icon: AlertCircle, color: "text-warning bg-warning-soft", label: "ลา" },
-  score: { icon: FileText, color: "text-success bg-success-soft", label: "คะแนน" },
-  homevisit: { icon: Home, color: "text-info bg-info-soft", label: "เยี่ยมบ้าน" },
-  homeroom: { icon: Heart, color: "text-danger bg-danger-soft", label: "โฮมรูม" },
+  attendance: { icon: CheckCircle2, color: "text-blue-600 bg-blue-50", label: "เช็คชื่อ" },
+  behavior: { icon: Star, color: "text-amber-600 bg-amber-50", label: "พฤติกรรม" },
+  leave: { icon: AlertCircle, color: "text-orange-600 bg-orange-50", label: "ลา" },
+  score: { icon: FileText, color: "text-emerald-600 bg-emerald-50", label: "คะแนน" },
+  homevisit: { icon: Home, color: "text-purple-600 bg-purple-50", label: "เยี่ยมบ้าน" },
+  homeroom: { icon: Heart, color: "text-pink-600 bg-pink-50", label: "โฮมรูม" },
 };
 
 export default function StudentActivityTimeline({ studentId, limit = 30 }: Props) {
@@ -107,7 +107,7 @@ export default function StudentActivityTimeline({ studentId, limit = 30 }: Props
         ) : items.length === 0 ? (
           <div className="text-sm text-muted-foreground py-8 text-center">ยังไม่มีข้อมูลกิจกรรม</div>
         ) : (
-          <ScrollArea className="h-[480px] pr-3">
+          <div className="pr-1">
             <div className="space-y-3">
               {items.map(item => {
                 const cfg = typeConfig[item.type];
@@ -136,7 +136,7 @@ export default function StudentActivityTimeline({ studentId, limit = 30 }: Props
                 );
               })}
             </div>
-          </ScrollArea>
+          </div>
         )}
       </CardContent>
     </Card>

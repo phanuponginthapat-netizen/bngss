@@ -132,7 +132,7 @@ const AlumniDashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="border border-border/50 shadow-elevated rounded-2xl">
+        <Card onClick={() => navigate("/dashboard/academic/calendar")} className="border border-border/50 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg gradient-warning flex items-center justify-center">

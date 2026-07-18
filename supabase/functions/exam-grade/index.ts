@@ -1,4 +1,4 @@
-const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
+import { corsHeaders } from "../_shared/cors.ts";
 import { aiCall } from "../_shared/aiCall.ts";
 
 const SYS = `You are an OMR (optical mark recognition) engine for Thai school answer sheets.

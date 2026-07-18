@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { CheckCircle, AlertTriangle, XCircle, ClipboardList } from "lucide-react";
+import { useCmsValue } from "@/hooks/useCmsSettings";
 
 const PublicSDQPage = () => {
   const { studentId } = useParams<{ studentId: string }>();
@@ -27,18 +28,9 @@ const PublicSDQPage = () => {
   const [assessorName, setAssessorName] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Check if SDQ system is enabled
-  const { data: sdqEnabled, isLoading: loadingSettings } = useQuery({
-    queryKey: ["sdq_enabled"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("cms_settings")
-        .select("value")
-        .eq("key", "sdq_enabled")
-        .maybeSingle();
-      return data?.value === "true";
-    },
-  });
+  const sdqEnabledRaw = useCmsValue("sdq_enabled");
+  const sdqEnabled = sdqEnabledRaw === "true";
+  const loadingSettings = false;
 
   // Get student info
   const { data: student, isLoading: loadingStudent } = useQuery({
@@ -57,9 +49,9 @@ const PublicSDQPage = () => {
   const total = [emotional, conduct, hyper, peer].reduce((a, b) => a + parseInt(b || "0"), 0);
 
   const getLevel = (t: number) => {
-    if (t <= 13) return { label: "ปกติ", icon: CheckCircle, color: "text-success", bg: "bg-success-soft border-success/30" };
-    if (t <= 15) return { label: "เสี่ยง", icon: AlertTriangle, color: "text-warning", bg: "bg-warning-soft border-warning/30" };
-    return { label: "ผิดปกติ", icon: XCircle, color: "text-danger", bg: "bg-danger-soft border-danger/30" };
+    if (t <= 13) return { label: "ปกติ", icon: CheckCircle, color: "text-green-600", bg: "bg-green-50 border-green-200" };
+    if (t <= 15) return { label: "เสี่ยง", icon: AlertTriangle, color: "text-yellow-600", bg: "bg-yellow-50 border-yellow-200" };
+    return { label: "ผิดปกติ", icon: XCircle, color: "text-red-600", bg: "bg-red-50 border-red-200" };
   };
 
   const level = getLevel(total);
@@ -97,7 +89,7 @@ const PublicSDQPage = () => {
 
   if (loadingSettings || loadingStudent) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-info to-info">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="animate-pulse text-muted-foreground">กำลังโหลด...</div>
       </div>
     );
@@ -105,10 +97,10 @@ const PublicSDQPage = () => {
 
   if (!sdqEnabled) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-info to-info p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
         <Card className="max-w-md w-full text-center">
           <CardContent className="pt-8 pb-8 space-y-4">
-            <AlertTriangle className="w-16 h-16 text-warning mx-auto" />
+            <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto" />
             <h2 className="text-xl font-bold">ระบบประเมิน SDQ ปิดอยู่</h2>
             <p className="text-muted-foreground">ขณะนี้ยังไม่เปิดรับการประเมิน กรุณาติดต่อโรงเรียนเพื่อสอบถามเพิ่มเติม</p>
           </CardContent>
@@ -119,10 +111,10 @@ const PublicSDQPage = () => {
 
   if (!student) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-info to-info p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
         <Card className="max-w-md w-full text-center">
           <CardContent className="pt-8 pb-8 space-y-4">
-            <XCircle className="w-16 h-16 text-danger mx-auto" />
+            <XCircle className="w-16 h-16 text-red-500 mx-auto" />
             <h2 className="text-xl font-bold">ไม่พบข้อมูลนักเรียน</h2>
             <p className="text-muted-foreground">กรุณาตรวจสอบลิงก์อีกครั้ง</p>
           </CardContent>
@@ -133,10 +125,10 @@ const PublicSDQPage = () => {
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-success to-success p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 p-4">
         <Card className="max-w-md w-full text-center">
           <CardContent className="pt-8 pb-8 space-y-4">
-            <CheckCircle className="w-16 h-16 text-success mx-auto" />
+            <CheckCircle className="w-16 h-16 text-green-500 mx-auto" />
             <h2 className="text-xl font-bold">บันทึกสำเร็จ!</h2>
             <p className="text-muted-foreground">ขอบคุณที่ร่วมประเมิน SDQ ให้กับ {student.prefix}{student.first_name} {student.last_name}</p>
             <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border ${level.bg}`}>
@@ -150,7 +142,7 @@ const PublicSDQPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-info to-info p-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 py-8">
       <div className="max-w-lg mx-auto space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
@@ -177,7 +169,7 @@ const PublicSDQPage = () => {
         {/* Assessor */}
         <Card>
           <CardContent className="pt-4">
-            <Label>ชื่อผู้ประเมิน ({assessorRoleLabel}) <span className="text-danger">*</span></Label>
+            <Label>ชื่อผู้ประเมิน ({assessorRoleLabel}) <span className="text-red-500">*</span></Label>
             <Input className="mt-1" placeholder={`ระบุชื่อ-นามสกุล ${assessorRoleLabel}`} value={assessorName} onChange={(e) => setAssessorName(e.target.value)} />
           </CardContent>
         </Card>

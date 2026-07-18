@@ -2,26 +2,40 @@ import { lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
-import { KeyRound, Sparkles, Layers, Info } from "lucide-react";
+import { KeyRound, Sparkles, Layers, Info, BarChart3 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 // Reuse the existing pages as tab panels — no duplicated logic.
 const SecretsManagementPage = lazy(() => import("./SecretsManagementPage"));
 const AIProvidersPage = lazy(() => import("./AIProvidersPage"));
 const AIKeyPoolPage = lazy(() => import("./AIKeyPoolPage"));
+const AiUsageDashboardPage = lazy(() => import("./AiUsageDashboardPage"));
 
 const TAB_INFO = {
+  dashboard: {
+    icon: BarChart3,
+    th: {
+      title: "แดชบอร์ด",
+      desc: "ภาพรวมการใช้งาน AI: เครดิตคงเหลือในคลัง Key · Token ต่อวัน · ค่าใช้จ่าย · ฟังก์ชันและโมเดลยอดนิยม",
+      hint: "ข้อมูลอัปเดตทุก 30 วินาที รวมทั้งคลัง Key (ai_provider_keys) และ log การใช้งาน (ai_usage_logs) 30 วันย้อนหลัง",
+    },
+    en: {
+      title: "Dashboard",
+      desc: "AI usage overview: remaining pool credits · daily tokens · cost · top functions and models",
+      hint: "Refreshes every 30s. Aggregates key pool + last 30 days of usage logs.",
+    },
+  },
   secrets: {
     icon: KeyRound,
     th: {
       title: "API Keys & Secrets",
-      desc: "เก็บคีย์ลับและตัวแปรเชื่อมต่อภายนอก (เช่น GEMINI_API_KEY, LINE_CHANNEL_ACCESS_TOKEN). ใช้ภายในระบบ — ไม่เปิดเผยให้ผู้ใช้",
+      desc: "เก็บคีย์ลับที่ไม่ใช่ AI — LINE, Facebook, VAPID Push, Google Chat webhooks ฯลฯ (AI Provider ทั้งหมดตั้งในแท็บ 'ผู้ให้บริการ AI')",
       hint:
         "เคล็ดลับ: กดไอคอน ⓘ ข้างชื่อคีย์ที่รู้จัก จะมีคำแนะนำพร้อมลิงก์ไปขอ key. ค่าจะเข้ารหัสบนเซิร์ฟเวอร์เสมอ",
     },
     en: {
       title: "Secrets",
-      desc: "Store private keys & tokens used by the backend (e.g. GEMINI_API_KEY, LINE_CHANNEL_ACCESS_TOKEN). Never exposed to users.",
+      desc: "Non-AI secrets — LINE, Facebook, VAPID Push, Google Chat webhooks etc. (All AI provider keys live in the 'AI Providers' tab.)",
       hint:
         "Tip: click ⓘ next to known keys for step-by-step instructions. Values are always encrypted server-side.",
     },
@@ -63,8 +77,8 @@ type TabKey = keyof typeof TAB_INFO;
 export default function ApiKeysHubPage() {
   const { lang } = useLanguage();
   const [params, setParams] = useSearchParams();
-  const initial = (params.get("tab") as TabKey) || "secrets";
-  const active: TabKey = initial in TAB_INFO ? initial : "secrets";
+  const initial = (params.get("tab") as TabKey) || "dashboard";
+  const active: TabKey = initial in TAB_INFO ? initial : "dashboard";
 
   const setTab = (v: string) => {
     const next = new URLSearchParams(params);
@@ -91,7 +105,7 @@ export default function ApiKeysHubPage() {
       </div>
 
       <Tabs value={active} onValueChange={setTab}>
-        <TabsList className="grid grid-cols-3 w-full max-w-2xl">
+        <TabsList className="grid grid-cols-4 w-full max-w-3xl">
           {(Object.keys(TAB_INFO) as TabKey[]).map((k) => {
             const Icon = TAB_INFO[k].icon;
             return (
@@ -128,6 +142,7 @@ export default function ApiKeysHubPage() {
                 </div>
               }
             >
+              {k === "dashboard" && <AiUsageDashboardPage />}
               {k === "secrets" && <SecretsManagementPage />}
               {k === "providers" && <AIProvidersPage />}
               {k === "pool" && <AIKeyPoolPage />}

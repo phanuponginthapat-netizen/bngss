@@ -11,13 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Activity, Download, RefreshCw } from "lucide-react";
 
 const ACTION_COLOR: Record<string, string> = {
-  login: "bg-success-soft text-success",
-  logout: "bg-neutral-soft text-neutral",
-  create: "bg-info-soft text-info",
-  update: "bg-warning-soft text-warning",
-  delete: "bg-danger-soft text-danger",
-  export: "bg-info-soft text-info",
-  import: "bg-info-soft text-info",
+  login: "bg-emerald-100 text-emerald-800",
+  logout: "bg-slate-100 text-slate-800",
+  create: "bg-blue-100 text-blue-800",
+  update: "bg-amber-100 text-amber-800",
+  delete: "bg-red-100 text-red-800",
+  export: "bg-purple-100 text-purple-800",
+  import: "bg-indigo-100 text-indigo-800",
 };
 
 const fmt = (d: string) => new Date(d).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "medium" });
@@ -147,7 +147,7 @@ export default function AuditLogPage() {
                       <TableCell className="text-sm">{l.user_name || "-"}</TableCell>
                       <TableCell><Badge variant="outline">{l.user_role || "-"}</Badge></TableCell>
                       <TableCell>
-                        <Badge className={ACTION_COLOR[l.action] || "bg-neutral-soft text-neutral"}>{l.action}</Badge>
+                        <Badge className={ACTION_COLOR[l.action] || "bg-slate-100 text-slate-800"}>{l.action}</Badge>
                       </TableCell>
                       <TableCell className="text-xs">
                         {l.target_table ? `${l.target_table}${l.target_id ? `/${String(l.target_id).slice(0, 8)}` : ""}` : "-"}

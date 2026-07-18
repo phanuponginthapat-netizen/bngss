@@ -12,14 +12,14 @@ export type GroundedFacts = {
 
 /** ตรวจว่าคำถามน่าจะเป็น "ข้อเท็จจริงที่ต้องค้นเว็บ" หรือไม่ */
 export function shouldGround(text: string): boolean {
-  const t = (text || "").toLowerCase();
-  if (!t || t.length < 4) return false;
-  // คำที่บ่งชี้คำถามข้อเท็จจริง / ปัจจุบัน / อ้างอิงภายนอก
-  const re = /(ปัจจุบัน|ล่าสุด|วันนี้|เมื่อไหร่|กี่|ใครคือ|ใครเป็น|อะไรคือ|คืออะไร|ที่ไหน|ราคา|ข่าว|อัตรา|กฎหมาย|พ\.?ร\.?บ\.?|พรบ|มาตรา|พ\.ศ\.|ค\.ศ\.|gdp|inflation|when|who is|what is|where|latest|news|price|law|act|regulation|wikipedia|พีดีพีเอ|pdpa|สพฐ|กระทรวง|รัฐบาล|ประวัติ|สูตร|ตัวชี้วัด)/i;
-  if (re.test(t)) return true;
-  // ปีตัวเลข 4 หลัก (เช่น 2024, 2566) มักหมายถึงคำถามข้อเท็จจริง
-  if (/\b(19|20)\d{2}\b|\b2[4-6]\d{2}\b/.test(t)) return true;
-  return false;
+  const t = (text || "").toLowerCase().trim();
+  if (!t || t.length < 3) return false;
+  // ข้อความที่ "ไม่ต้อง" ground: ทักทาย, ระบบ/วิธีใช้แอป, ขอบคุณ, ความรู้สึก
+  const skip = /^(สวัสดี|hi\b|hello|hey|ขอบคุณ|thanks|thank you|โอเค|ok\b|ครับ|ค่ะ|👍|❤️)/i;
+  if (skip.test(t)) return false;
+  if (/ระบบ|วิธีใช้|login|เข้าระบบ|รหัสผ่าน|app|แอป|ปุ่ม|เมนู|setting|ตั้งค่า/i.test(t)) return false;
+  // นอกนั้น ground ทุกอย่าง — ให้ AI ตอบจากข้อเท็จจริงจากเว็บเสมอ
+  return true;
 }
 
 /** เรียก Gemini พร้อม Google Search tool — คืน text + sources */

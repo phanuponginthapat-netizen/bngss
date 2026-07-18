@@ -1,9 +1,13 @@
-// API Key Pool — rotate across multiple keys per provider (gemini/groq/openrouter).
+// API Key Pool — rotate across multiple keys per provider (openai/gemini/groq/openrouter).
 // Picks the active key with the lowest used_today; on 429/402/403 marks cooldown 1h and tries next.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-export type PoolProvider = "gemini" | "groq" | "openrouter";
+export type PoolProvider =
+  | "openai" | "gemini" | "groq" | "openrouter"
+  | "cerebras" | "glm" | "huggingface" | "github" | "sambanova" | "cohere"
+  | "deepseek" | "mistral" | "together" | "xai" | "fireworks" | "nvidia"
+  | "dashscope" | "perplexity" | "anthropic";
 
 interface KeyRow {
   id: string;
@@ -13,7 +17,6 @@ interface KeyRow {
   used_today: number;
   cooldown_until: string | null;
   last_reset_date: string;
-  daily_limit: number | null;
 }
 
 const PROVIDER_CFG: Record<PoolProvider, {
@@ -23,6 +26,18 @@ const PROVIDER_CFG: Record<PoolProvider, {
   buildHeaders: (key: string) => Record<string, string>;
   buildBody: (model: string, messages: any[], opts: { temperature?: number; max_tokens?: number; json?: boolean }) => any;
 }> = {
+  openai: {
+    url: "https://api.openai.com/v1/chat/completions",
+    defaultModel: "gpt-4o-mini",
+    visionModel: "gpt-4o-mini",
+    buildHeaders: (key) => ({ "Content-Type": "application/json", Authorization: `Bearer ${key}` }),
+    buildBody: (model, messages, opts) => {
+      const body: any = { model, messages, temperature: opts.temperature ?? 0.7 };
+      if (opts.max_tokens) body.max_tokens = opts.max_tokens;
+      if (opts.json) body.response_format = { type: "json_object" };
+      return body;
+    },
+  },
   gemini: {
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
     defaultModel: "gemini-2.5-flash",
@@ -49,8 +64,8 @@ const PROVIDER_CFG: Record<PoolProvider, {
   },
   openrouter: {
     url: "https://openrouter.ai/api/v1/chat/completions",
-    defaultModel: "openrouter/free",
-    visionModel: "openrouter/free",
+    defaultModel: "deepseek/deepseek-chat-v3.1:free",
+    visionModel: "qwen/qwen2.5-vl-72b-instruct:free",
     buildHeaders: (key) => ({
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
@@ -64,7 +79,59 @@ const PROVIDER_CFG: Record<PoolProvider, {
       return body;
     },
   },
+  cerebras:    mkOAI("https://api.cerebras.ai/v1/chat/completions", "llama-3.3-70b"),
+  glm:         mkOAI("https://open.bigmodel.cn/api/paas/v4/chat/completions", "glm-4-flash"),
+  huggingface: mkOAI("https://api-inference.huggingface.co/v1/chat/completions", "meta-llama/Llama-3.3-70B-Instruct"),
+  github:      mkOAI("https://models.inference.ai.azure.com/chat/completions", "gpt-4o-mini", "gpt-4o-mini"),
+  sambanova:   mkOAI("https://api.sambanova.ai/v1/chat/completions", "Meta-Llama-3.3-70B-Instruct"),
+  cohere:      mkOAI("https://api.cohere.ai/compatibility/v1/chat/completions", "command-r-plus-08-2024"),
+  deepseek:    mkOAI("https://api.deepseek.com/v1/chat/completions", "deepseek-chat"),
+  mistral:     mkOAI("https://api.mistral.ai/v1/chat/completions", "mistral-small-latest"),
+  together:    mkOAI("https://api.together.xyz/v1/chat/completions", "meta-llama/Llama-3.3-70B-Instruct-Turbo"),
+  xai:         mkOAI("https://api.x.ai/v1/chat/completions", "grok-2-1212", "grok-2-vision-1212"),
+  fireworks:   mkOAI("https://api.fireworks.ai/inference/v1/chat/completions", "accounts/fireworks/models/llama-v3p3-70b-instruct"),
+  nvidia:      mkOAI("https://integrate.api.nvidia.com/v1/chat/completions", "meta/llama-3.3-70b-instruct"),
+  dashscope:   mkOAI("https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions", "qwen-plus", "qwen-vl-plus"),
+  perplexity:  mkOAI("https://api.perplexity.ai/chat/completions", "sonar"),
+  anthropic: {
+    url: "https://api.anthropic.com/v1/messages",
+    defaultModel: "claude-3-5-sonnet-20241022",
+    visionModel: "claude-3-5-sonnet-20241022",
+    buildHeaders: (key) => ({
+      "Content-Type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+    }),
+    buildBody: (model, messages, opts) => {
+      // Extract system + user/assistant for Anthropic format
+      const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
+      const rest = messages.filter((m) => m.role !== "system");
+      const body: any = {
+        model,
+        messages: rest,
+        max_tokens: opts.max_tokens || 4096,
+        temperature: opts.temperature ?? 0.7,
+      };
+      if (system) body.system = system;
+      return body;
+    },
+  },
 };
+
+function mkOAI(url: string, defaultModel: string, visionModel?: string) {
+  return {
+    url,
+    defaultModel,
+    visionModel: visionModel || defaultModel,
+    buildHeaders: (key: string) => ({ "Content-Type": "application/json", Authorization: `Bearer ${key}` }),
+    buildBody: (model: string, messages: any[], opts: { temperature?: number; max_tokens?: number; json?: boolean }) => {
+      const body: any = { model, messages, temperature: opts.temperature ?? 0.7 };
+      if (opts.max_tokens) body.max_tokens = opts.max_tokens;
+      if (opts.json) body.response_format = { type: "json_object" };
+      return body;
+    },
+  };
+}
 
 function sb() {
   return createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -87,13 +154,13 @@ async function loadKeys(provider: PoolProvider): Promise<KeyRow[]> {
     .lt("cooldown_until", new Date().toISOString());
 
   const { data } = await client.from("ai_provider_keys")
-    .select("id,api_key,label,status,used_today,cooldown_until,last_reset_date,daily_limit")
+    .select("id,api_key,label,status,used_today,cooldown_until,last_reset_date")
     .eq("provider_type", provider)
     .eq("status", "active")
     .order("used_today", { ascending: true })
     .limit(20);
 
-  return ((data as KeyRow[]) || []).filter((k) => !k.daily_limit || k.used_today < k.daily_limit);
+  return (data as KeyRow[]) || [];
 }
 
 async function markCooldown(id: string, error: string, minutes = 60) {
@@ -163,7 +230,9 @@ export async function callWithPool(provider: PoolProvider, opts: PoolCallOpts): 
         continue;
       }
       const data = await r.json();
-      const content = data?.choices?.[0]?.message?.content;
+      const content = provider === "anthropic"
+        ? (Array.isArray(data?.content) ? data.content.map((c: any) => c?.text || "").join("") : "")
+        : data?.choices?.[0]?.message?.content;
       if (!content) {
         errors.push(`${k.label || k.id.slice(0, 8)}: empty`);
         continue;

@@ -1,1 +1,0 @@
-ALTER TABLE public.activities ADD COLUMN IF NOT EXISTS allow_alumni boolean NOT NULL DEFAULT false;

@@ -3,21 +3,18 @@
 // that have NOT been retried yet, and attempts one more delivery.
 // Mark each processed row with `retried_at` (in the reason text) so we never retry twice.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { pushOne } from "../_shared/webPush.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { requireCronOrAdmin } from "../_shared/requireCron.ts";
+import { corsHeadersWithCron as corsHeaders } from "../_shared/cors.ts";
+import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const admin = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+  const denied = await requireCronOrAdmin(req, corsHeaders);
+  if (denied) return denied;
+
+  const admin = makeAdmin();
 
   try {
     const since = new Date(Date.now() - 60 * 60_000).toISOString();
@@ -60,16 +57,25 @@ Deno.serve(async (req) => {
     const newLogs: any[] = [];
     const processedIds: string[] = [];
 
+    // Look up latest matching notification row per user to recover body/url
+    const refIds = [...new Set(candidates.map((r: any) => r.reference_id).filter(Boolean))];
+    const { data: notifRows } = refIds.length > 0
+      ? await admin.from("notifications").select("reference_id,message,type").in("reference_id", refIds)
+      : { data: [] as any[] };
+    const bodyByRef = new Map<string, { message: string | null; type: string | null }>();
+    (notifRows ?? []).forEach((n: any) => bodyByRef.set(n.reference_id, { message: n.message, type: n.type }));
+
     for (const row of candidates) {
       const userSubs = subsByUser.get(row.user_id) || [];
       processedIds.push(row.id);
+      const notif = row.reference_id ? bodyByRef.get(row.reference_id) : null;
       for (const s of userSubs) {
         retried++;
         const r = await pushOne(s, {
           title: row.title || "การแจ้งเตือน",
-          body: "",
+          body: notif?.message || "",
           url: "/dashboard",
-          tag: row.notification_type || "general",
+          tag: row.notification_type || notif?.type || "general",
         });
         if (r.ok) {
           success++;

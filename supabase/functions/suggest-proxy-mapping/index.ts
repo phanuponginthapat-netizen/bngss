@@ -2,10 +2,7 @@
 // Input: { proxies: [{id, code, name_th, grade_level}], real: [{id, code, name_th, grade_level}] }
 // Output: { suggestions: { [proxyId]: realId | null } }
 import { aiCall } from "../_shared/aiCall.ts";
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });

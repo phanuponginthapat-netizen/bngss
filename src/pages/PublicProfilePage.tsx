@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { GraduationCap, Building2, Briefcase, ArrowLeft, User, Award } from "lucide-react";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import PortfolioGrid from "@/components/social/PortfolioGrid";
-import { useResolvedImageUrl } from "@/lib/storageUrl";
 
 interface PublicProfile {
   id: string;
@@ -51,8 +50,6 @@ const PublicProfilePage = () => {
 
   const fullName = profile ? `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() || "—" : "";
   const initials = profile ? `${profile.first_name?.[0] ?? ""}${profile.last_name?.[0] ?? ""}`.toUpperCase() || "?" : "?";
-  const avatarUrl = useResolvedImageUrl(profile?.avatar_url);
-  const coverPhotoUrl = useResolvedImageUrl(profile?.cover_photo_url);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center"><div className="text-muted-foreground">กำลังโหลด...</div></div>;
@@ -112,9 +109,9 @@ const PublicProfilePage = () => {
 
       {/* Cover + header */}
       <div className="h-48 md:h-64 gradient-hero relative overflow-hidden">
-        {coverPhotoUrl ? (
+        {profile.cover_photo_url ? (
           <img
-            src={coverPhotoUrl}
+            src={profile.cover_photo_url}
             alt="cover"
             className="absolute inset-0 w-full h-full object-cover"
             loading="eager"
@@ -129,7 +126,7 @@ const PublicProfilePage = () => {
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row items-center md:items-end gap-4">
               <Avatar className="w-32 h-32 border-4 border-background shadow-elevated">
-                <AvatarImage src={avatarUrl ?? undefined} alt={fullName} />
+                <AvatarImage src={profile.avatar_url ?? undefined} alt={fullName} />
                 <AvatarFallback className="text-3xl gradient-primary text-primary-foreground font-bold">{initials}</AvatarFallback>
               </Avatar>
               <div className="flex-1 text-center md:text-left">

@@ -45,26 +45,21 @@ const BackButton = ({
   })();
 
   const handleClick = () => {
-    // 1) ถ้ามี backTo ระบุชัดเจน ใช้เลย
+    // 1) ถ้ามี backTo ระบุชัดเจน ใช้เลย (สำคัญที่สุด)
     if (routeState?.backTo) {
       navigate(routeState.backTo, { replace: true });
       return;
     }
 
-    // 2) ตรวจว่าหน้าก่อนหน้าเป็น route ภายในแอปจริง ๆ หรือไม่
-    //    - มี history มากกว่า 1 entry (location.key !== "default" = ไม่ใช่ entry แรก)
-    //    - referrer มาจาก origin เดียวกัน (กัน external/new-tab → 404)
-    const sameOriginRef =
-      typeof document !== "undefined" &&
-      !!document.referrer &&
-      document.referrer.startsWith(window.location.origin);
-
-    if (location.key !== "default" && window.history.length > 1 && sameOriginRef) {
+    // 2) ถ้ามี SPA history จริง (ไม่ใช่ entry แรกที่ผู้ใช้เปิดตรง) ให้ย้อน history
+    //    location.key === "default" = tab เพิ่งเปิดตรง URL นี้ ไม่มี history ภายใน
+    //    อาศัย location.key อย่างเดียวเพราะ document.referrer ไม่รีเฟรชใน SPA
+    if (location.key !== "default") {
       navigate(-1);
       return;
     }
 
-    // 3) Fallback ปลอดภัย: ไป parent path ของ route ปัจจุบัน
+    // 3) เปิดตรง (deep link / refresh) — ใช้ smart fallback
     navigate(smartFallback, { replace: true });
   };
 

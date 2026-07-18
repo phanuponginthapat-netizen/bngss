@@ -1,20 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { useUserRole } from "@/hooks/useUserRole";
-import { confirmDelete } from "@/lib/confirmAction";
 import { supabase } from "@/integrations/supabase/client";
+import { useUserRole } from "@/hooks/useUserRole";
 import { sanitizeStorageKey } from "@/lib/uploadFallback";
-import { useAuthSession } from "@/hooks/useAuthSession";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Heart, ThumbsUp, MessageCircle, Image as ImageIcon, Send, Trash2, Youtube, X, Loader2 } from "lucide-react";
+import { Heart, ThumbsUp, MessageCircle, Image as ImageIcon, Send, Trash2, Youtube } from "lucide-react";
 import { toast } from "sonner";
 import { detectMediaTypeFromUrl } from "@/lib/media";
 import MediaRenderer from "./MediaRenderer";
-import { checkProfanity, moderateImage, fileToDataUrl } from "@/lib/contentModeration";
 
 interface WallPost {
   id: string;
@@ -28,8 +25,6 @@ interface WallPost {
   created_at: string;
   author?: { first_name?: string | null; last_name?: string | null; avatar_url?: string | null };
   my_reaction?: string | null;
-  like_count?: number;
-  heart_count?: number;
 }
 
 interface Comment {
@@ -46,18 +41,17 @@ const fullName = (a?: any) =>
   `${a?.first_name ?? ""} ${a?.last_name ?? ""}`.trim() || "ผู้ใช้";
 
 export default function WallFeed({ profileUserId }: { profileUserId?: string }) {
-  const { user, isReady } = useAuthSession();
-  const userId = user?.id ?? null;
-  const { isAdmin, isDirector, isTeacher } = useUserRole();
-  const canModerate = isAdmin || isDirector || isTeacher;
+  const [userId, setUserId] = useState<string | null>(null);
   const [posts, setPosts] = useState<WallPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [posting, setPosting] = useState(false);
-  const [pendingMedia, setPendingMedia] = useState<{ path: string; previewUrl: string; kind: "image" | "video" }[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [newPostCount, setNewPostCount] = useState(0);
+  const { isAdmin: _rawA, isDirector: _rawD } = useUserRole(); const isAdmin = _rawA || _rawD;
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
+  }, []);
 
   // Resolve a media value to a usable URL. If it already looks like a URL/data/blob,
   // pass through (compat for legacy rows with stored signed URLs); otherwise sign the storage path.
@@ -95,67 +89,28 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
       })
     );
 
-    // my reactions + per-type counts
+    // my reactions
     let myReactions = new Map<string, string>();
-    const likeCounts = new Map<string, number>();
-    const heartCounts = new Map<string, number>();
-    if (list.length) {
-      const { data: allRxs } = await supabase
+    if (userId && list.length) {
+      const { data: rxs } = await supabase
         .from("wall_post_reactions")
-        .select("post_id, reaction_type, user_id")
+        .select("post_id, reaction_type")
+        .eq("user_id", userId)
         .in("post_id", list.map((p) => p.id));
-      (allRxs || []).forEach((r: any) => {
-        if (r.reaction_type === "heart") heartCounts.set(r.post_id, (heartCounts.get(r.post_id) || 0) + 1);
-        else likeCounts.set(r.post_id, (likeCounts.get(r.post_id) || 0) + 1);
-        if (userId && r.user_id === userId) myReactions.set(r.post_id, r.reaction_type);
-      });
+      (rxs || []).forEach((r: any) => myReactions.set(r.post_id, r.reaction_type));
     }
 
-    setPosts(list.map((p) => ({
-      ...p,
-      author: authors.get(p.author_id),
-      my_reaction: myReactions.get(p.id) ?? null,
-      like_count: likeCounts.get(p.id) || 0,
-      heart_count: heartCounts.get(p.id) || 0,
-    })));
+    setPosts(list.map((p) => ({ ...p, author: authors.get(p.author_id), my_reaction: myReactions.get(p.id) ?? null })));
     setLoading(false);
-  };
-
-  const refreshFeed = async () => {
-    setNewPostCount(0);
-    await load();
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   useEffect(() => {
     load();
     const ch = supabase
       .channel("wall_feed")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "wall_posts" },
-        (payload) => {
-          const row: any = payload.new;
-          if (profileUserId && row?.author_id !== profileUserId) return;
-          // Own posts already inserted optimistically/loaded — don't count them
-          if (row?.author_id === userId) return;
-          setNewPostCount((c) => c + 1);
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "wall_posts" },
-        () => load()
-      )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "wall_posts" },
-        (payload) => {
-          const id = (payload.old as any)?.id;
-          if (id) setPosts((prev) => prev.filter((p) => p.id !== id));
-        }
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "wall_posts" }, () => load())
       .on("postgres_changes", { event: "*", schema: "public", table: "wall_post_reactions" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "wall_post_comments" }, () => load())
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
@@ -165,10 +120,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
 
   const submit = async () => {
     if (!userId) return toast.error("กรุณาเข้าสู่ระบบ");
-    if (!content.trim() && !linkUrl.trim() && pendingMedia.length === 0)
-      return toast.error("เพิ่มข้อความ ลิงก์ หรือรูป/วิดีโอ");
-    const chk = checkProfanity(`${content} ${linkUrl}`);
-    if (!chk.ok) return toast.error(`ไม่สามารถโพสต์ได้ — ${chk.reason}`);
+    if (!content.trim() && !linkUrl.trim()) return toast.error("เพิ่มข้อความหรือลิงก์");
     setPosting(true);
     const link_type = linkUrl ? detectMediaTypeFromUrl(linkUrl) : null;
     const { error } = await supabase.from("wall_posts").insert({
@@ -176,76 +128,47 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
       content: content.trim() || null,
       link_url: linkUrl.trim() || null,
       link_type,
-      media_urls: pendingMedia.map((m) => m.path),
     });
     setPosting(false);
     if (error) return toast.error(error.message);
-    pendingMedia.forEach((m) => URL.revokeObjectURL(m.previewUrl));
-    setPendingMedia([]);
     setContent("");
     setLinkUrl("");
     toast.success("โพสต์เรียบร้อย");
-    load();
   };
 
-  const stageMedia = async (file: File) => {
+  const uploadImage = async (file: File) => {
     if (!userId) return;
-    // ตรวจรูปภาพไม่เหมาะสมก่อนอัปโหลด (เฉพาะรูปภาพ ไม่ตรวจวิดีโอ)
-    if (file.type.startsWith("image/")) {
-      toast.info("กำลังตรวจสอบรูปภาพ...");
-      try {
-        const dataUrl = await fileToDataUrl(file);
-        const mod = await moderateImage(dataUrl);
-        if (!mod.ok) return toast.error(`รูปภาพไม่ผ่านการตรวจสอบ — ${mod.reason}`);
-      } catch (e) {
-        console.warn("image moderation failed", e);
-      }
-    }
-    setUploading(true);
     const path = sanitizeStorageKey(`${userId}/${Date.now()}-${file.name}`);
     const { error: upErr } = await supabase.storage.from("wall-media").upload(path, file);
-    setUploading(false);
     if (upErr) return toast.error(upErr.message);
-    const previewUrl = URL.createObjectURL(file);
-    const kind: "image" | "video" = file.type.startsWith("video/") ? "video" : "image";
-    setPendingMedia((prev) => [...prev, { path, previewUrl, kind }]);
-    toast.success("แนบรูปแล้ว — เพิ่มคำบรรยายแล้วกดโพสต์");
-  };
-
-  const removePending = async (idx: number) => {
-    const m = pendingMedia[idx];
-    if (!m) return;
-    URL.revokeObjectURL(m.previewUrl);
-    setPendingMedia((prev) => prev.filter((_, i) => i !== idx));
-    supabase.storage.from("wall-media").remove([m.path]).catch(() => {});
+    // Store the storage path (not a signed URL) so we can re-sign on read and avoid 365-day expiry.
+    const { error: insErr } = await supabase.from("wall_posts").insert({
+      author_id: userId,
+      content: content.trim() || null,
+      media_urls: [path],
+    });
+    if (insErr) return toast.error(insErr.message);
+    setContent("");
+    toast.success("อัปโหลดรูปภาพแล้ว");
   };
 
   const react = async (post: WallPost, type: string) => {
-    if (!isReady) return;
-    if (!userId) return toast.error("กรุณาเข้าสู่ระบบเพื่อกดถูกใจ");
-    // Optimistic toggle
-    const wasSame = post.my_reaction === type;
+    if (!userId) return toast.error("กรุณาเข้าสู่ระบบ");
+    const wasType = post.my_reaction;
+    const removing = wasType === type;
+    // Optimistic UI
     setPosts((prev) =>
-      prev.map((p) => {
-        if (p.id !== post.id) return p;
-        const prevType = post.my_reaction;
-        const nextType = wasSame ? null : type;
-        let like = p.like_count || 0;
-        let heart = p.heart_count || 0;
-        if (prevType === "like") like = Math.max(0, like - 1);
-        if (prevType === "heart") heart = Math.max(0, heart - 1);
-        if (nextType === "like") like += 1;
-        if (nextType === "heart") heart += 1;
-        return {
-          ...p,
-          my_reaction: nextType,
-          like_count: like,
-          heart_count: heart,
-          reaction_count: like + heart,
-        };
-      })
+      prev.map((p) =>
+        p.id === post.id
+          ? {
+              ...p,
+              my_reaction: removing ? null : type,
+              reaction_count: Math.max(0, (p.reaction_count || 0) + (removing ? -1 : wasType ? 0 : 1)),
+            }
+          : p
+      )
     );
-    if (wasSame) {
+    if (removing) {
       const { error } = await supabase
         .from("wall_post_reactions")
         .delete()
@@ -261,24 +184,9 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
   };
 
   const removePost = async (id: string) => {
-    if (!(await confirmDelete("ลบโพสต์นี้?", "การลบจะลบความคิดเห็น รีแอ็กชัน และไฟล์รูป/วิดีโอที่แนบทั้งหมด"))) return;
-    // Fetch raw storage paths before deleting the row so we can clean up the bucket
-    const { data: row } = await supabase
-      .from("wall_posts")
-      .select("media_urls")
-      .eq("id", id)
-      .maybeSingle();
-    const { error, data } = await supabase.from("wall_posts").delete().eq("id", id).select();
+    if (!confirm("ลบโพสต์นี้?")) return;
+    const { error } = await supabase.from("wall_posts").delete().eq("id", id);
     if (error) return toast.error(error.message);
-    if (!data || data.length === 0) return toast.error("ไม่มีสิทธิ์ลบโพสต์นี้");
-    // Remove media files from storage (skip legacy full URLs — only delete storage paths)
-    const paths = ((row?.media_urls as string[] | null) || []).filter(
-      (v) => v && !/^(https?:|data:|blob:)/.test(v)
-    );
-    if (paths.length) {
-      supabase.storage.from("wall-media").remove(paths).catch((e) => console.warn("storage cleanup failed", e));
-    }
-    setPosts((prev) => prev.filter((p) => p.id !== id));
     toast.success("ลบโพสต์แล้ว");
   };
 
@@ -305,66 +213,19 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
                 <input
                   type="file"
                   accept="image/*,video/*"
-                  multiple
                   className="hidden"
-                  onChange={async (e) => {
-                    const files = Array.from(e.target.files || []);
-                    e.target.value = "";
-                    for (const f of files) await stageMedia(f);
-                  }}
+                  onChange={(e) => e.target.files?.[0] && uploadImage(e.target.files[0])}
                 />
-                <Button asChild size="sm" variant="outline" disabled={uploading}>
-                  <span>
-                    {uploading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <ImageIcon className="w-4 h-4 mr-1" />}
-                    รูป/วิดีโอ
-                  </span>
+                <Button asChild size="sm" variant="outline">
+                  <span><ImageIcon className="w-4 h-4 mr-1" />รูป/วิดีโอ</span>
                 </Button>
               </label>
-              <Button
-                size="sm"
-                onClick={submit}
-                disabled={posting || uploading || (!content.trim() && !linkUrl.trim() && pendingMedia.length === 0)}
-              >
+              <Button size="sm" onClick={submit} disabled={posting}>
                 <Send className="w-4 h-4 mr-1" />โพสต์
               </Button>
             </div>
-
-            {pendingMedia.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t">
-                {pendingMedia.map((m, i) => (
-                  <div key={i} className="relative group rounded-lg overflow-hidden border bg-muted">
-                    {m.kind === "video" ? (
-                      <video src={m.previewUrl} className="w-full h-32 object-cover" />
-                    ) : (
-                      <img src={m.previewUrl} alt="" className="w-full h-32 object-cover" />
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => removePending(i)}
-                      className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1 hover:bg-black"
-                      title="ลบไฟล์นี้"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </CardContent>
         </Card>
-      )}
-
-      {newPostCount > 0 && (
-        <div className="sticky top-2 z-20 flex justify-center pointer-events-none">
-          <Button
-            size="sm"
-            onClick={refreshFeed}
-            className="pointer-events-auto rounded-full shadow-lg bg-primary hover:bg-primary/90 animate-in fade-in slide-in-from-top-2"
-          >
-            <Loader2 className="w-4 h-4 mr-1.5" />
-            มีโพสต์ใหม่ {newPostCount} รายการ — คลิกเพื่อดู
-          </Button>
-        </div>
       )}
 
       {loading && <div className="text-center text-muted-foreground py-8">กำลังโหลด...</div>}
@@ -391,8 +252,8 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
                   {new Date(p.created_at).toLocaleString("th-TH")}
                 </p>
               </div>
-              {(p.author_id === userId || canModerate) && (
-                <Button size="icon" variant="ghost" onClick={() => removePost(p.id)} title={canModerate && p.author_id !== userId ? "ลบโพสต์ (ผู้ดูแล)" : "ลบโพสต์"}>
+              {(p.author_id === userId || isAdmin) && (
+                <Button size="icon" variant="ghost" onClick={() => removePost(p.id)} title={isAdmin && p.author_id !== userId ? "ลบ (แอดมิน)" : "ลบโพสต์"}>
                   <Trash2 className="w-4 h-4 text-destructive" />
                 </Button>
               )}
@@ -427,9 +288,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
                 <Heart className="w-4 h-4 mr-1" />หัวใจ
               </Button>
               <div className="text-xs text-muted-foreground ml-auto">
-                <span className="inline-flex items-center gap-1"><ThumbsUp className="w-3 h-3" />{p.like_count || 0}</span>
-                <span className="inline-flex items-center gap-1 ml-2"><Heart className="w-3 h-3" />{p.heart_count || 0}</span>
-                <span className="ml-2">• {p.comment_count} ความคิดเห็น</span>
+                {p.reaction_count} ถูกใจ • {p.comment_count} ความคิดเห็น
               </div>
             </div>
 
@@ -483,10 +342,7 @@ function CommentSection({ postId, userId }: { postId: string; userId: string | n
   }, [open, postId]);
 
   const submit = async () => {
-    if (!text.trim()) return;
-    if (!userId) return toast.error("กรุณาเข้าสู่ระบบเพื่อแสดงความคิดเห็น");
-    const chk = checkProfanity(text);
-    if (!chk.ok) return toast.error(`ความคิดเห็นไม่เหมาะสม — ${chk.reason}`);
+    if (!userId || !text.trim()) return;
     const { error } = await supabase
       .from("wall_post_comments")
       .insert({ post_id: postId, user_id: userId, content: text.trim() });

@@ -182,10 +182,10 @@ const SchoolLocationPage = () => {
         </CardContent>
       </Card>
 
-      <Card className={enforce ? "border-success/60" : "border-warning/60"}>
+      <Card className={enforce ? "border-emerald-300/60" : "border-amber-300/60"}>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
-            <Satellite className={`w-5 h-5 ${enforce ? "text-success" : "text-warning"}`} />
+            <Satellite className={`w-5 h-5 ${enforce ? "text-emerald-600" : "text-amber-600"}`} />
             บังคับใช้พิกัด GPS ทั้งระบบ
           </CardTitle>
         </CardHeader>
@@ -216,21 +216,21 @@ const SchoolLocationPage = () => {
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div className="flex items-start gap-2">
-            <Clock className="w-4 h-4 mt-0.5 text-warning" />
+            <Clock className="w-4 h-4 mt-0.5 text-amber-500" />
             <div>
               <p className="font-medium">ลงเวลาเข้า-ออกของบุคลากร</p>
               <p className="text-xs text-muted-foreground">บล็อกการลงเวลานอกรัศมีอัตโนมัติ</p>
             </div>
           </div>
           <div className="flex items-start gap-2">
-            <ScanFace className="w-4 h-4 mt-0.5 text-success" />
+            <ScanFace className="w-4 h-4 mt-0.5 text-emerald-500" />
             <div>
               <p className="font-medium">สแกนหน้านักเรียน (รวมโหมดคีออสแทปเลต)</p>
               <p className="text-xs text-muted-foreground">เปิดกล้องและบันทึกสแกนได้เฉพาะเมื่ออยู่ในรัศมี</p>
             </div>
           </div>
           <div className="flex items-start gap-2">
-            <MapPin className="w-4 h-4 mt-0.5 text-info" />
+            <MapPin className="w-4 h-4 mt-0.5 text-blue-500" />
             <div>
               <p className="font-medium">วิดเจ็ตสภาพอากาศและ PM2.5 บนแดชบอร์ด</p>
               <p className="text-xs text-muted-foreground">ดึงข้อมูลตามพิกัดของโรงเรียน</p>

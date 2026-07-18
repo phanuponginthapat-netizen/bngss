@@ -113,11 +113,10 @@ const SidebarProvider = React.forwardRef<
             {
               "--sidebar-width": SIDEBAR_WIDTH,
               "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
-              minHeight: "100svh",
               ...style,
             } as React.CSSProperties
           }
-          className={cn("group/sidebar-wrapper flex w-full has-[[data-variant=inset]]:bg-sidebar", className)}
+          className={cn("group/sidebar-wrapper flex min-h-screen min-h-svh w-full has-[[data-variant=inset]]:bg-sidebar", className)}
           ref={ref}
           {...props}
         >
@@ -138,7 +137,6 @@ const Sidebar = React.forwardRef<
   }
 >(({ side = "left", variant = "sidebar", collapsible = "offcanvas", className, children, ...props }, ref) => {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
-  const [hoverOpen, setHoverOpen] = React.useState(false);
 
   if (collapsible === "none") {
     return (
@@ -173,55 +171,36 @@ const Sidebar = React.forwardRef<
     );
   }
 
-  const actuallyCollapsed = state === "collapsed";
-  const hoverActive = hoverOpen && actuallyCollapsed && collapsible === "icon";
-  const effectiveState = hoverActive ? "expanded" : state;
-  const effectiveCollapsible = hoverActive ? "" : actuallyCollapsed ? collapsible : "";
-
-  // Gap width always reflects real (non-hover) state so layout doesn't shift on hover.
-  const gapWidth = actuallyCollapsed
-    ? collapsible === "offcanvas"
-      ? "0px"
-      : variant === "floating" || variant === "inset"
-        ? `calc(${SIDEBAR_WIDTH_ICON} + 1rem)`
-        : SIDEBAR_WIDTH_ICON
-    : SIDEBAR_WIDTH;
-
-  const handleMouseEnter = () => {
-    if (collapsible === "icon" && actuallyCollapsed) setHoverOpen(true);
-  };
-  const handleMouseLeave = () => setHoverOpen(false);
-
   return (
     <div
       ref={ref}
       className="group peer hidden text-sidebar-foreground md:block"
-      data-state={effectiveState}
-      data-collapsible={effectiveCollapsible}
+      data-state={state}
+      data-collapsible={state === "collapsed" ? collapsible : ""}
       data-variant={variant}
       data-side={side}
-      data-hover-open={hoverActive ? "true" : ""}
     >
       {/* This is what handles the sidebar gap on desktop */}
       <div
         className={cn(
-          "relative h-[100svh] bg-transparent transition-[width] duration-200 ease-linear",
+          "relative h-screen h-svh w-[--sidebar-width] bg-transparent transition-[width] duration-200 ease-linear",
+          "group-data-[collapsible=offcanvas]:w-0",
           "group-data-[side=right]:rotate-180",
+          variant === "floating" || variant === "inset"
+            ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)_+_theme(spacing.4))]"
+            : "group-data-[collapsible=icon]:w-[--sidebar-width-icon]",
         )}
-        style={{ width: gapWidth }}
       />
       <div
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
         className={cn(
-          "fixed inset-y-0 z-10 hidden h-[100svh] w-[--sidebar-width] transition-[left,right,width] duration-200 ease-linear md:flex",
+          "fixed inset-y-0 z-10 hidden h-screen h-svh w-[--sidebar-width] transition-[left,right,width] duration-200 ease-linear md:flex",
           side === "left"
             ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
             : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
+          // Adjust the padding for floating and inset variants.
           variant === "floating" || variant === "inset"
             ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)_+_theme(spacing.4)_+2px)]"
             : "group-data-[collapsible=icon]:w-[--sidebar-width-icon] group-data-[side=left]:border-r group-data-[side=right]:border-l",
-          "group-data-[hover-open=true]:shadow-2xl group-data-[hover-open=true]:z-30",
           className,
         )}
         {...props}

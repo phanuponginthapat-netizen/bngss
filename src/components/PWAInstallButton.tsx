@@ -97,7 +97,7 @@ export default function PWAInstallButton({
       </Button>
 
       <Dialog open={iosOpen} onOpenChange={setIosOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>ติดตั้งลงหน้าจอหลัก (iPhone / iPad)</DialogTitle>
             <DialogDescription>

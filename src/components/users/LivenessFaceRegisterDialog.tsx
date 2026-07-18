@@ -480,7 +480,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) stopCamera(); }}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-primary" />
@@ -523,7 +523,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className={`w-[75%] aspect-[3/4] max-h-[85%] rounded-[50%] border-4 ${
                 statusMsg.includes("ดีมาก") || statusMsg.includes("ตรงแล้ว")
-                  ? "border-success/30" : "border-white/60"
+                  ? "border-emerald-400" : "border-white/60"
               } transition-colors`} />
             </div>
             {/* switch camera button */}
@@ -590,7 +590,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
                   <Loader2 className="w-4 h-4 animate-spin" />กำลังบันทึก...
                 </p>
               ) : (
-                <p className="text-success font-semibold flex items-center justify-center gap-2">
+                <p className="text-emerald-600 font-semibold flex items-center justify-center gap-2">
                   <CheckCircle2 className="w-5 h-5" />ลงทะเบียนสำเร็จ — ผ่าน Liveness Check
                 </p>
               )}

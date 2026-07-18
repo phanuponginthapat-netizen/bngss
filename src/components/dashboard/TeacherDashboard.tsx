@@ -7,7 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
+import { Check, ChevronDown, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +38,150 @@ import { TeacherDailyBriefing } from "./TeacherDailyBriefing";
 import { useWeatherData } from "@/hooks/useWeatherData";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import GpsTrackingCard from "@/components/GpsTrackingCard";
+
+interface SubjectItem {
+  id: string;
+  name_th?: string | null;
+  code?: string | null;
+  grade_level?: string | null;
+  classrooms?: { id: string; name: string; grade_level?: string | null }[];
+}
+
+const SubjectTabsNav = ({
+  hasHomeroom,
+  classroomName,
+  subjects,
+  activeTab,
+  onChange,
+}: {
+  hasHomeroom: boolean;
+  classroomName: string;
+  subjects: SubjectItem[];
+  activeTab: string;
+  onChange: (v: string) => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const activeSubject = subjects.find((s) => `subject-${s.id}` === activeTab);
+  const subjectActive = !!activeSubject;
+
+  // group by grade level
+  const grouped = subjects.reduce<Record<string, SubjectItem[]>>((acc, s) => {
+    const g = s.grade_level || "อื่น ๆ";
+    (acc[g] = acc[g] || []).push(s);
+    return acc;
+  }, {});
+  const gradeOrder = Object.keys(grouped).sort();
+
+  const subjectSummary = activeSubject
+    ? `${activeSubject.name_th || activeSubject.code}${
+        activeSubject.classrooms?.length
+          ? ` · ${activeSubject.classrooms.map((c) => c.name).join(", ")}`
+          : ""
+      }`
+    : `เลือกวิชาที่สอน (${subjects.length})`;
+
+  const inactiveBtn = "bg-muted text-foreground border border-border/60 hover:bg-primary/10 hover:border-primary/40 hover:text-primary";
+  const activeBtn = "bg-gradient-primary text-primary-foreground border border-primary shadow-elevated";
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm">
+      {hasHomeroom && (
+        <button
+          type="button"
+          onClick={() => onChange("homeroom")}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all",
+            activeTab === "homeroom" ? activeBtn : inactiveBtn
+          )}
+        >
+          <Home className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">ประจำชั้น</span>
+          <span>{classroomName}</span>
+        </button>
+      )}
+
+      {subjects.length > 0 && (
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className={cn(
+                "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-all min-w-[220px] justify-between flex-1 max-w-md",
+                subjectActive ? activeBtn : inactiveBtn
+              )}
+            >
+              <span className="inline-flex items-center gap-1.5 truncate">
+                <BookOpen className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{subjectSummary}</span>
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-70" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-[360px] p-0 z-[1000] shadow-2xl border-border"
+            align="start"
+            sideOffset={6}
+          >
+            <Command>
+              <CommandInput placeholder="ค้นหาวิชา / รหัสวิชา / ห้อง..." />
+              <CommandList className="max-h-[380px]">
+                <CommandEmpty>ไม่พบวิชา</CommandEmpty>
+                {gradeOrder.map((grade) => (
+                  <CommandGroup key={grade} heading={grade}>
+                    {grouped[grade].map((s) => {
+                      const isActive = `subject-${s.id}` === activeTab;
+                      return (
+                        <CommandItem
+                          key={s.id}
+                          value={`${s.name_th || ""} ${s.code || ""} ${(s.classrooms || []).map((c) => c.name).join(" ")}`}
+                          onSelect={() => {
+                            onChange(`subject-${s.id}`);
+                            setOpen(false);
+                          }}
+                          className={cn(
+                            "flex items-start gap-2 py-2",
+                            isActive && "bg-primary/10 text-foreground"
+                          )}
+                        >
+                          <Check className={cn("w-4 h-4 mt-0.5 shrink-0", isActive ? "opacity-100 text-primary" : "opacity-0")} />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate text-foreground">
+                              {s.name_th || s.code}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground flex flex-wrap gap-1 mt-0.5">
+                              {s.code && <span>{s.code}</span>}
+                              {(s.classrooms || []).map((c) => (
+                                <span key={c.id} className="px-1.5 py-0.5 rounded bg-muted text-foreground text-[10px]">
+                                  {c.name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                ))}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      )}
+
+      <button
+        type="button"
+        onClick={() => onChange("tasks")}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all ml-auto",
+          activeTab === "tasks" ? activeBtn : inactiveBtn
+        )}
+      >
+        <ListTodo className="w-3.5 h-3.5" />
+        <span>ภาระงาน</span>
+      </button>
+    </div>
+  );
+};
 
 const TeacherDashboard = () => {
   const navigate = useNavigate();
@@ -75,14 +223,10 @@ const TeacherDashboard = () => {
         supabase.from("home_visits").select("id").in("classroom_id", classIds),
         supabase.from("sdq_records").select("id").in("student_id", studentIds),
         supabase.from("face_scan_logs").select("student_id, scan_time").in("student_id", studentIds).eq("scan_date", today),
-        supabase.from("school_settings").select("setting_key,setting_value").in("setting_key", ["face_scan_late_threshold", "clock_late_threshold"]),
+        supabase.from("school_settings").select("setting_value").eq("setting_key", "face_scan_late_threshold").maybeSingle(),
       ]);
 
-      const _ltRows = (lateSetting.data as any[]) || [];
-      const lateThreshold =
-        (_ltRows.find((r: any) => r.setting_key === "face_scan_late_threshold")?.setting_value as string) ||
-        (_ltRows.find((r: any) => r.setting_key === "clock_late_threshold")?.setting_value as string) ||
-        "08:30";
+      const lateThreshold = (lateSetting.data?.setting_value as string) || "08:00";
       const statusByStudent = new Map<string, "present" | "late" | "absent">();
       attendance.data?.forEach((a: any) => {
         if (a.student_id && (a.status === "present" || a.status === "late" || a.status === "absent")) {
@@ -130,6 +274,10 @@ const TeacherDashboard = () => {
         sdqCount: sdq.data?.length || 0,
       };
     },
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   // Subject assignments
@@ -154,8 +302,9 @@ const TeacherDashboard = () => {
       });
 
       const [schedules, news, events] = await Promise.all([
-        supabase.from("schedules").select("id, day_of_week, period, start_time, end_time, classroom_id, subject_id")
-          .eq("teacher_name", fullName),
+        // ★ ใช้ teacher_id เป็นหลัก, fallback ด้วย teacher_name สำหรับแถวเก่า
+        supabase.from("schedules").select("id, day_of_week, period, start_time, end_time, classroom_id, subject_id, teacher_id, teacher_name")
+          .or(`teacher_id.eq.${myPersonnel!.id},teacher_name.eq.${fullName}`),
         supabase.from("news_posts").select("id, title, category, published_at")
           .eq("is_published", true).order("created_at", { ascending: false }).limit(5),
         supabase.from("academic_events").select("id, title, event_date, event_type")
@@ -201,21 +350,16 @@ const TeacherDashboard = () => {
     ? (homeroomClassrooms[0] as any).name
     : "";
 
-  // Build tabs
-  const tabs: { id: string; label: string; icon: React.ReactNode }[] = [];
-  if (hasHomeroom) {
-    tabs.push({ id: "homeroom", label: `ประจำชั้น ${classroomName}`, icon: <Home className="w-3.5 h-3.5" /> });
-  }
-  (subjectData?.subjects || []).forEach((s: any) => {
-    const classNames = (s.classrooms || []).map((c: any) => c?.name).filter(Boolean);
-    const suffix = classNames.length
-      ? ` (${classNames.join(", ")})`
-      : s.grade_level ? ` (${s.grade_level})` : "";
-    tabs.push({ id: `subject-${s.id}`, label: `${s.name_th || s.code}${suffix}`, icon: <BookOpen className="w-3.5 h-3.5" /> });
-  });
-  tabs.push({ id: "tasks", label: "ภาระงาน", icon: <ListTodo className="w-3.5 h-3.5" /> });
+  const defaultTab = hasHomeroom
+    ? "homeroom"
+    : (subjectData?.subjects?.[0] ? `subject-${subjectData.subjects[0].id}` : "tasks");
 
-  const defaultTab = tabs[0]?.id || "tasks";
+  const [activeTab, setActiveTab] = useState<string>(defaultTab);
+  // Keep activeTab valid once data loads
+  if (activeTab === "tasks" && defaultTab !== "tasks" && !isLoading) {
+    // no-op; user chose tasks explicitly
+  }
+
 
   return (
     <div className="space-y-6">
@@ -263,7 +407,7 @@ const TeacherDashboard = () => {
                   <Wind className="w-4 h-4" />
                   <div className="text-xs">
                     <span className="font-semibold">PM2.5</span>
-                    <span className={`block font-bold ${weather.pm25 !== null && weather.pm25 > 75 ? "text-danger" : weather.pm25 !== null && weather.pm25 > 37.5 ? "text-warning" : ""}`}>
+                    <span className={`block font-bold ${weather.pm25 !== null && weather.pm25 > 75 ? "text-red-200" : weather.pm25 !== null && weather.pm25 > 37.5 ? "text-yellow-200" : ""}`}>
                       {weather.pm25 !== null ? `${weather.pm25.toFixed(0)} µg/m³` : "N/A"}
                     </span>
                   </div>
@@ -299,6 +443,7 @@ const TeacherDashboard = () => {
       {/* Daily Briefing */}
       <TeacherDailyBriefing
         userId={userId}
+        personnelId={myPersonnel?.id}
         personnelFullName={displayName || undefined}
         homeroomClassroomIds={homeroomClassroomIds}
       />
@@ -310,14 +455,34 @@ const TeacherDashboard = () => {
           <Skeleton className="h-64 rounded-xl" />
         </div>
       ) : (
-        <Tabs defaultValue={defaultTab} className="space-y-4">
-          <TabsList className="w-full flex-wrap h-auto gap-1 bg-muted/50 p-1">
-            {tabs.map(tab => (
-              <TabsTrigger key={tab.id} value={tab.id} className="gap-1.5 text-xs">
-                {tab.icon} {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-end justify-between gap-3 flex-wrap">
+              <div>
+                <h2 className="text-lg sm:text-xl font-bold tracking-tight flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5 text-primary" />
+                  ห้องเรียนและวิชาของฉัน
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {activeTab === "homeroom" && "ภาพรวมห้องประจำชั้น – นักเรียน, การมาเรียน, และงานที่ต้องดูแล"}
+                  {activeTab.startsWith("subject-") && "รายละเอียดวิชา – ตารางสอน, ห้องที่สอน, และสั่งการบ้าน"}
+                  {activeTab === "tasks" && "รวมภาระงานทั้งหมด – งานที่นักเรียนส่ง และงานที่รอตรวจ"}
+                </p>
+              </div>
+              <span className="text-[11px] text-muted-foreground bg-muted rounded-full px-2.5 py-1">
+                เลือกหัวข้อจากปุ่มด้านล่าง
+              </span>
+            </div>
+            <SubjectTabsNav
+              hasHomeroom={hasHomeroom}
+              classroomName={classroomName}
+              subjects={subjectData?.subjects || []}
+              activeTab={activeTab}
+              onChange={setActiveTab}
+            />
+          </div>
+
+
 
           {/* Homeroom Tab */}
           {hasHomeroom && (
@@ -353,7 +518,7 @@ const TeacherDashboard = () => {
       {/* News + Events */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
-        <Card className="border border-border/50 shadow-elevated rounded-2xl">
+        <Card onClick={() => navigate("/dashboard/admin/news")} className="border border-border/50 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardContent className="p-3">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -365,9 +530,10 @@ const TeacherDashboard = () => {
               <div className="space-y-0.5">
                 {subjectData.news.slice(0, 4).map((n: any) => (
                   <button
+                    type="button"
                     key={n.id}
-                    onClick={() => navigate(`/dashboard/news/${n.id}`)}
-                    className="w-full flex items-center gap-2 py-1 text-left hover:bg-muted/50 rounded px-1 -mx-1 transition-colors"
+                    onClick={(e) => { e.stopPropagation(); navigate(`/news/${n.id}`); }}
+                    className="w-full text-left flex items-center gap-2 py-1 hover:bg-muted/40 rounded px-1"
                   >
                     <div className="w-1 h-1 rounded-full bg-primary shrink-0" />
                     <span className="text-[11px] text-foreground truncate leading-tight">{n.title}</span>
@@ -377,7 +543,7 @@ const TeacherDashboard = () => {
             ) : <p className="text-muted-foreground text-[11px] text-center py-6">ยังไม่มีข่าวสาร</p>}
           </CardContent>
         </Card>
-        <Card className="border border-border/50 shadow-elevated rounded-2xl">
+        <Card onClick={() => navigate("/dashboard/academic/calendar")} className="border border-border/50 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardContent className="p-3">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-6 h-6 rounded-lg gradient-warning flex items-center justify-center">
@@ -388,20 +554,15 @@ const TeacherDashboard = () => {
             {subjectData?.events?.length ? (
               <div className="space-y-1">
                 {subjectData.events.slice(0, 4).map((e: any) => (
-                  <button
-                    key={e.id}
-                    onClick={() => navigate("/dashboard/academic/calendar")}
-                    className="w-full flex items-center gap-2 py-1 text-left hover:bg-muted/50 rounded px-1 -mx-1 transition-colors"
-                  >
+                  <div key={e.id} className="flex items-center gap-2 py-1">
                     <div className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
                       {new Date(e.event_date).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}
                     </div>
                     <span className="text-[11px] text-foreground truncate">{e.title}</span>
-                  </button>
+                  </div>
                 ))}
               </div>
             ) : <p className="text-muted-foreground text-[11px] text-center py-6">ไม่มีกิจกรรม</p>}
-
           </CardContent>
         </Card>
       </div>
@@ -454,7 +615,7 @@ const HomeroomTabContent = ({ data, navigate }: { data: any; navigate: any }) =>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="border border-border/50 shadow-elevated rounded-2xl">
+        <Card onClick={() => navigate("/dashboard/student/attendance")} className="border border-border/50 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardHeader className="pb-0">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg gradient-success flex items-center justify-center">
@@ -487,7 +648,7 @@ const HomeroomTabContent = ({ data, navigate }: { data: any; navigate: any }) =>
           </CardContent>
         </Card>
 
-        <Card className="border border-border/50 shadow-elevated rounded-2xl">
+        <Card onClick={() => navigate("/dashboard/hub/student-health")} className="border border-border/50 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center">
@@ -597,7 +758,7 @@ const SubjectTabContent = ({ subject, enrollmentCount, schedules, navigate, pers
 
       {/* Classrooms taught */}
       {subject.classrooms?.length > 0 && (
-        <Card className="border border-border/50 shadow-elevated rounded-2xl">
+        <Card onClick={() => navigate("/dashboard/academic/management")} className="border border-border/50 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">ห้องเรียนที่สอน</CardTitle>
           </CardHeader>
@@ -613,7 +774,7 @@ const SubjectTabContent = ({ subject, enrollmentCount, schedules, navigate, pers
 
       {/* Schedule */}
       {schedules.length > 0 && (
-        <Card className="border border-border/50 shadow-elevated rounded-2xl">
+        <Card onClick={() => navigate("/dashboard/academic/schedule")} className="border border-border/50 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Clock className="w-4 h-4 text-primary" /> ตารางสอนรายวิชานี้
@@ -652,7 +813,7 @@ const SubjectTabContent = ({ subject, enrollmentCount, schedules, navigate, pers
             <DialogTrigger asChild>
               <Button size="sm"><Plus className="w-4 h-4 mr-1" /> สั่งการบ้าน</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="sm:max-w-md">
               <DialogHeader><DialogTitle>สั่งการบ้าน - {subject.name_th || subject.code}</DialogTitle></DialogHeader>
               <div className="space-y-4">
                 <div>
@@ -759,7 +920,7 @@ interface QuickLinkProps {
 }
 
 const QuickLink = ({ icon: Icon, label, value, color, onClick }: QuickLinkProps) => (
-  <button onClick={onClick} className="flex items-center justify-between w-full text-sm hover:bg-muted/40 rounded-lg px-2 py-1.5 transition-colors">
+  <button onClick={(e) => { e.stopPropagation(); onClick?.(); }} className="flex items-center justify-between w-full text-sm hover:bg-muted/40 rounded-lg px-2 py-1.5 transition-colors">
     <div className="flex items-center gap-2 text-muted-foreground">
       <Icon className={`w-3.5 h-3.5 ${color || ""}`} /> {label}
     </div>
@@ -785,7 +946,7 @@ const HomeworkSubmissionsDialog = ({ title, ids }: { title: string; ids: string[
     queryFn: async () => {
       const { data } = await supabase
         .from("task_assignments")
-        .select("id, submission_text, submission_file_url, annotated_file_url, submitted_at, grade, feedback, status, assigned_to_student_id, replies, students:assigned_to_student_id(prefix, first_name, last_name, student_code)")
+        .select("id, title, description, due_date, submission_text, submission_file_url, annotated_file_url, submitted_at, grade, feedback, status, assigned_to_student_id, replies, students:assigned_to_student_id(prefix, first_name, last_name, student_code)")
         .in("id", ids)
         .order("submitted_at", { ascending: false, nullsFirst: false });
       return data || [];
@@ -808,14 +969,23 @@ const HomeworkSubmissionsDialog = ({ title, ids }: { title: string; ids: string[
     qc.invalidateQueries({ queryKey: ["hw_submissions"] });
   };
 
+  const detail = subs[0];
+
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <Button size="sm" variant="ghost" className="h-7 px-2 text-[10px]">ดู / ตรวจ</Button>
         </DialogTrigger>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-3xl sm:max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>การส่งงาน: {title}</DialogTitle></DialogHeader>
+          {detail && (detail.description || detail.due_date) && (
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1 text-sm">
+              <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">รายละเอียดงานที่ครูสั่ง</div>
+              {detail.description && <p className="whitespace-pre-wrap text-muted-foreground">{detail.description}</p>}
+              {detail.due_date && <p className="text-xs font-medium text-foreground">กำหนดส่ง {new Date(detail.due_date).toLocaleDateString("th-TH")}</p>}
+            </div>
+          )}
           {subs.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">ยังไม่มีนักเรียนคนใดส่งงาน</p>
           ) : (

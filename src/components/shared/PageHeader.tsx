@@ -7,25 +7,14 @@ export interface PageHeaderProps {
   description?: ReactNode;
   icon?: LucideIcon;
   actions?: ReactNode;
-  breadcrumbs?: ReactNode;
-  density?: "default" | "compact";
   className?: string;
 }
 
 /**
  * PageHeader — standard top-of-page header for module screens.
- * Pairs a title (with optional icon) with description, breadcrumb slot, and actions.
+ * Pairs a title (with optional icon) with description and action buttons.
  */
-export function PageHeader({
-  title,
-  description,
-  icon: Icon,
-  actions,
-  breadcrumbs,
-  density = "default",
-  className,
-}: PageHeaderProps) {
-  const compact = density === "compact";
+export function PageHeader({ title, description, icon: Icon, actions, className }: PageHeaderProps) {
   return (
     <header
       className={cn(
@@ -36,25 +25,14 @@ export function PageHeader({
       <div className="flex items-start gap-3 min-w-0">
         {Icon && (
           <div
-            className={cn(
-              "shrink-0 rounded-xl bg-primary/10 text-primary flex items-center justify-center",
-              compact ? "w-9 h-9" : "w-10 h-10",
-            )}
+            className="shrink-0 w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center"
             aria-hidden="true"
           >
-            <Icon className={compact ? "w-4 h-4" : "w-5 h-5"} />
+            <Icon className="w-5 h-5" />
           </div>
         )}
         <div className="min-w-0">
-          {breadcrumbs && (
-            <div className="text-xs text-muted-foreground mb-1 truncate">{breadcrumbs}</div>
-          )}
-          <h1
-            className={cn(
-              "font-bold text-foreground leading-tight tracking-tight",
-              compact ? "text-lg sm:text-xl" : "text-xl sm:text-2xl",
-            )}
-          >
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-tight tracking-tight">
             {title}
           </h1>
           {description && (

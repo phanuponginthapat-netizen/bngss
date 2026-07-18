@@ -14,11 +14,11 @@ type Badge = {
 };
 
 const tierStyle: Record<string, string> = {
-  bronze: "from-warning/20 to-warning/20 border-warning/40 text-warning",
-  silver: "from-neutral/20 to-neutral/20 border-neutral/40 text-neutral",
-  gold: "from-warning/20 to-warning/20 border-warning/40 text-warning",
-  platinum: "from-info/20 to-info/20 border-info/40 text-info",
-  diamond: "from-danger/20 to-info/20 border-danger/40 text-danger",
+  bronze: "from-orange-500/20 to-orange-700/20 border-orange-500/40 text-orange-200",
+  silver: "from-slate-300/20 to-slate-500/20 border-slate-400/40 text-slate-200",
+  gold: "from-amber-400/20 to-yellow-600/20 border-amber-400/40 text-amber-200",
+  platinum: "from-cyan-300/20 to-blue-500/20 border-cyan-400/40 text-cyan-100",
+  diamond: "from-fuchsia-400/20 to-purple-600/20 border-fuchsia-400/40 text-fuchsia-100",
 };
 
 const tierLabel: Record<string, string> = {
@@ -100,7 +100,7 @@ export default function GarbageAchievementsPage() {
   return (
     <div className="space-y-6 p-2 md:p-6">
       <div className="flex items-center gap-3">
-        <Trophy className="w-7 h-7 text-warning" />
+        <Trophy className="w-7 h-7 text-amber-400" />
         <div>
           <h1 className="text-2xl font-bold">เหรียญตรา & อันดับ</h1>
           <p className="text-sm text-muted-foreground">สะสมเหรียญตราจากการฝากขยะและไต่อันดับห้องเรียน</p>
@@ -108,29 +108,29 @@ export default function GarbageAchievementsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-gradient-to-br from-warning/10 to-warning/5 border-warning/30">
+        <Card className="bg-gradient-to-br from-amber-500/10 to-amber-700/5 border-amber-500/30">
           <CardContent className="p-4 flex items-center gap-3">
-            <Award className="w-10 h-10 text-warning" />
+            <Award className="w-10 h-10 text-amber-400" />
             <div>
-              <div className="text-3xl font-bold text-warning">{earnedCount}</div>
+              <div className="text-3xl font-bold text-amber-300">{earnedCount}</div>
               <div className="text-xs text-muted-foreground">เหรียญที่ได้รับ / {badges.length}</div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-success/10 to-success/5 border-success/30">
+        <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-700/5 border-emerald-500/30">
           <CardContent className="p-4 flex items-center gap-3">
-            <Crown className="w-10 h-10 text-success" />
+            <Crown className="w-10 h-10 text-emerald-400" />
             <div>
-              <div className="text-3xl font-bold text-success">{classroomLeaderboard[0]?.name || "-"}</div>
+              <div className="text-3xl font-bold text-emerald-300">{classroomLeaderboard[0]?.name || "-"}</div>
               <div className="text-xs text-muted-foreground">ห้องอันดับ 1</div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-danger/10 to-info/5 border-danger/30">
+        <Card className="bg-gradient-to-br from-fuchsia-500/10 to-purple-700/5 border-fuchsia-500/30">
           <CardContent className="p-4 flex items-center gap-3">
-            <Medal className="w-10 h-10 text-danger" />
+            <Medal className="w-10 h-10 text-fuchsia-400" />
             <div>
-              <div className="text-3xl font-bold text-danger">
+              <div className="text-3xl font-bold text-fuchsia-200">
                 {studentLeaderboard[0] ? `${(studentLeaderboard[0].students?.first_name || "")} ${(studentLeaderboard[0].students?.last_name || "")}` : "-"}
               </div>
               <div className="text-xs text-muted-foreground">นักเรียนแต้มสูงสุด</div>
@@ -173,7 +173,7 @@ export default function GarbageAchievementsPage() {
                           <div className={cn("mt-1 text-sm leading-relaxed", earned ? "opacity-80" : "text-foreground/80")}>
                             {b.description}
                           </div>
-                          {earned && <Badge className="mt-2 bg-success/30 text-success">ได้รับแล้ว</Badge>}
+                          {earned && <Badge className="mt-2 bg-emerald-500/30 text-emerald-100">ได้รับแล้ว</Badge>}
                           {!earned && <Badge className="mt-2 border border-border bg-muted text-foreground">ยังไม่ได้รับ</Badge>}
                         </CardContent>
                       </Card>
@@ -209,7 +209,7 @@ export default function GarbageAchievementsPage() {
                       </TableCell>
                       <TableCell className="font-semibold">{c.name}</TableCell>
                       <TableCell className="text-right">{c.count}</TableCell>
-                      <TableCell className="text-right text-warning font-bold">{c.total.toLocaleString()}</TableCell>
+                      <TableCell className="text-right text-amber-400 font-bold">{c.total.toLocaleString()}</TableCell>
                       <TableCell className="text-right">{c.count ? Math.round(c.total / c.count).toLocaleString() : 0}</TableCell>
                     </TableRow>
                   ))}
@@ -247,7 +247,7 @@ export default function GarbageAchievementsPage() {
                           <div className="text-xs text-muted-foreground">{s.student_code}</div>
                         </TableCell>
                         <TableCell>{s.classrooms?.name || "-"}</TableCell>
-                        <TableCell className="text-right text-warning font-bold">{(row.total_points || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-right text-amber-400 font-bold">{(row.total_points || 0).toLocaleString()}</TableCell>
                       </TableRow>
                     );
                   })}

@@ -34,9 +34,9 @@ const statusLabels: Record<string, any> = {
   rejected: { th: "ไม่อนุมัติ", en: "Rejected" },
 };
 const statusColors: Record<string, string> = {
-  pending: "bg-warning-soft text-warning",
-  approved: "bg-success-soft text-success",
-  rejected: "bg-danger-soft text-danger",
+  pending: "bg-yellow-100 text-yellow-800",
+  approved: "bg-green-100 text-green-800",
+  rejected: "bg-red-100 text-red-800",
 };
 
 /* ─── Student-only Leave Form View ─── */
@@ -166,7 +166,7 @@ const StudentLeaveForm = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>{lang === "th" ? "วันที่เริ่มลา" : "Start Date"}</Label>
                   <BEDatePicker value={startDate} onChange={(v) => setStartDate(v)} />
@@ -260,8 +260,6 @@ const AdminLeaveView = () => {
   const { lang } = useLanguage();
   const qc = useQueryClient();
   const studentData = useStudentData();
-  const { isAdmin, isDirector } = useUserRole();
-  const canApprove = isAdmin || isDirector;
   const { currentAcademicYear, currentSemester, academicYearOptions } = useAcademicYear();
   const [academicYear, setAcademicYear] = useState(0);
   const [semester, setSemester] = useState(0);
@@ -355,9 +353,7 @@ const AdminLeaveView = () => {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("student_leaves").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
-    toast.success(lang === "th" ? "ลบสำเร็จ" : "Deleted");
+    await supabase.from("student_leaves").delete().eq("id", id);
     qc.invalidateQueries({ queryKey: ["student_leaves"] });
   };
 
@@ -396,7 +392,7 @@ const AdminLeaveView = () => {
                     <SelectItem value="personal">{lang === "th" ? "กิจส่วนตัว" : "Personal"}</SelectItem>
                     <SelectItem value="family">{lang === "th" ? "กิจครอบครัว" : "Family"}</SelectItem>
                   </SelectContent></Select></div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div><Label>{lang === "th" ? "จาก" : "From"}</Label><BEDatePicker value={startDate} onChange={(v) => setStartDate(v)} /></div>
                 <div><Label>{lang === "th" ? "ถึง" : "To"}</Label><BEDatePicker value={endDate} onChange={(v) => setEndDate(v)} /></div>
               </div>
@@ -469,8 +465,8 @@ const AdminLeaveView = () => {
                   <TableCell><Badge className={statusColors[r.status] || ""}>{statusLabels[r.status]?.[lang] || r.status}</Badge></TableCell>
                   <TableCell className="flex gap-1">
                     <Button variant="ghost" size="sm" onClick={() => setViewLeave(r)} title={lang === "th" ? "ดูรายละเอียด" : "View details"}><Eye className="w-4 h-4 text-primary" /></Button>
-                    {canApprove && r.status === "pending" && <Button variant="ghost" size="sm" onClick={() => handleApprove(r.id)} title={lang === "th" ? "อนุมัติ" : "Approve"}><Check className="w-4 h-4 text-success" /></Button>}
-                    {canApprove && <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)} title={lang === "th" ? "ลบ" : "Delete"}><Trash2 className="w-4 h-4 text-destructive" /></Button>}
+                    {r.status === "pending" && <Button variant="ghost" size="sm" onClick={() => handleApprove(r.id)} title={lang === "th" ? "อนุมัติ" : "Approve"}><Check className="w-4 h-4 text-green-600" /></Button>}
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)} title={lang === "th" ? "ลบ" : "Delete"}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                   </TableCell>
                 </TableRow>
               );
@@ -482,7 +478,7 @@ const AdminLeaveView = () => {
 
       {/* Leave detail dialog */}
       <Dialog open={!!viewLeave} onOpenChange={(v) => !v && setViewLeave(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="w-5 h-5 text-primary" />
@@ -491,7 +487,7 @@ const AdminLeaveView = () => {
           </DialogHeader>
           {viewLeave && (
             <div className="space-y-4 text-sm">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="col-span-3 p-3 rounded-lg bg-muted/40">
                   <div className="text-xs text-muted-foreground mb-1">{lang === "th" ? "นักเรียน" : "Student"}</div>
                   <div className="font-medium">
@@ -539,7 +535,7 @@ const AdminLeaveView = () => {
               </div>
               {viewLeave.created_at && (
                 <div className="text-xs text-muted-foreground">
-                  {lang === "th" ? "บันทึกเมื่อ" : "Created"}: {new Date(viewLeave.created_at).toLocaleString(lang === "th" ? "th-TH" : "en-GB", { hour12: false })}
+                  {lang === "th" ? "บันทึกเมื่อ" : "Created"}: {new Date(viewLeave.created_at).toLocaleString(lang === "th" ? "th-TH" : "en-US")}
                 </div>
               )}
             </div>

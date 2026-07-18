@@ -195,7 +195,7 @@ export default function PptxEditor({ open, attachment, onClose, onSave }: Props)
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-5xl">
+      <DialogContent className="sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle className="truncate">แก้ไข PowerPoint: {attachment?.name}</DialogTitle>
         </DialogHeader>

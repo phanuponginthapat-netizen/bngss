@@ -33,8 +33,8 @@ type Classroom = { id: string; name: string; grade_level: string };
 
 const riskColor: Record<string, string> = {
   high: "bg-destructive text-destructive-foreground",
-  medium: "bg-warning text-white",
-  low: "bg-warning text-white",
+  medium: "bg-orange-500 text-white",
+  low: "bg-yellow-500 text-white",
   none: "bg-muted text-muted-foreground",
 };
 
@@ -50,14 +50,14 @@ const topicLabel: Record<string, string> = {
 };
 
 const topicColor: Record<string, string> = {
-  academic: "bg-info/10 text-info border-info/30",
-  homework: "bg-info/10 text-info border-info/30",
-  health: "bg-danger/10 text-danger border-danger/30",
-  social: "bg-danger/10 text-danger border-danger/30",
-  personal: "bg-info/10 text-info border-info/30",
-  system: "bg-neutral/10 text-neutral border-neutral/30",
-  news: "bg-warning/10 text-warning border-warning/30",
-  other: "bg-neutral/10 text-neutral border-neutral/30",
+  academic: "bg-blue-500/10 text-blue-700 border-blue-300",
+  homework: "bg-indigo-500/10 text-indigo-700 border-indigo-300",
+  health: "bg-rose-500/10 text-rose-700 border-rose-300",
+  social: "bg-pink-500/10 text-pink-700 border-pink-300",
+  personal: "bg-purple-500/10 text-purple-700 border-purple-300",
+  system: "bg-slate-500/10 text-slate-700 border-slate-300",
+  news: "bg-amber-500/10 text-amber-700 border-amber-300",
+  other: "bg-gray-500/10 text-gray-700 border-gray-300",
 };
 
 type UserBucket = "student" | "staff";
@@ -72,6 +72,7 @@ export default function AiAnalyticsPage() {
   const [allClassrooms, setAllClassrooms] = useState<Classroom[]>([]);
   const [q, setQ] = useState("");
   const [bucket, setBucket] = useState<UserBucket>("student");
+  const [bucketAutoSet, setBucketAutoSet] = useState(false);
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [classroomFilter, setClassroomFilter] = useState<string>("all");
   const [openUid, setOpenUid] = useState<string | null>(null);
@@ -199,6 +200,15 @@ export default function AiAnalyticsPage() {
     });
   }, [stats, profiles, students, personnel, classrooms]);
 
+  // Auto-switch to the bucket that actually has data on first load
+  useEffect(() => {
+    if (bucketAutoSet || loading || allUserRows.length === 0) return;
+    const hasStudents = allUserRows.some((r) => r.bucket === "student");
+    const hasStaff = allUserRows.some((r) => r.bucket === "staff");
+    if (!hasStudents && hasStaff) setBucket("staff");
+    setBucketAutoSet(true);
+  }, [allUserRows, loading, bucketAutoSet]);
+
   const gradesAvailable = useMemo(() => {
     const set = new Set<string>();
     allClassrooms.forEach((c) => { if (c.grade_level) set.add(c.grade_level); });
@@ -253,7 +263,7 @@ export default function AiAnalyticsPage() {
           <div><div className="text-2xl font-bold">{stats.totalMsgs}</div><div className="text-xs text-muted-foreground">ข้อความรวม</div></div>
         </CardContent></Card>
         <Card><CardContent className="p-4 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-info/10"><Users className="w-5 h-5 text-info" /></div>
+          <div className="p-2 rounded-lg bg-blue-500/10"><Users className="w-5 h-5 text-blue-600" /></div>
           <div><div className="text-2xl font-bold">{stats.uniqueUsers}</div><div className="text-xs text-muted-foreground">ผู้ใช้ที่คุย AI</div></div>
         </CardContent></Card>
         <Card><CardContent className="p-4 flex items-center gap-3">
@@ -261,7 +271,7 @@ export default function AiAnalyticsPage() {
           <div><div className="text-2xl font-bold">{stats.highRisk}</div><div className="text-xs text-muted-foreground">ความเสี่ยงสูง</div></div>
         </CardContent></Card>
         <Card><CardContent className="p-4 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-success/10"><TrendingUp className="w-5 h-5 text-success" /></div>
+          <div className="p-2 rounded-lg bg-green-500/10"><TrendingUp className="w-5 h-5 text-green-600" /></div>
           <div>
             <div className="text-lg font-bold">
               {Object.entries(stats.topicCounts).sort((a, b) => b[1] - a[1])[0]?.[0]
@@ -417,7 +427,7 @@ export default function AiAnalyticsPage() {
           <div className="grid gap-3 md:grid-cols-2">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2"><ArrowUpCircle className="w-5 h-5 text-success" />ใช้มากที่สุด</CardTitle>
+                <CardTitle className="text-base flex items-center gap-2"><ArrowUpCircle className="w-5 h-5 text-green-600" />ใช้มากที่สุด</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {usageRanking.top.length === 0 && <p className="text-sm text-muted-foreground">ไม่มีข้อมูล</p>}
@@ -437,7 +447,7 @@ export default function AiAnalyticsPage() {
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2"><ArrowDownCircle className="w-5 h-5 text-info" />ใช้น้อยที่สุด</CardTitle>
+                <CardTitle className="text-base flex items-center gap-2"><ArrowDownCircle className="w-5 h-5 text-blue-600" />ใช้น้อยที่สุด</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {usageRanking.bottom.length === 0 && <p className="text-sm text-muted-foreground">ไม่มีข้อมูล</p>}
@@ -496,7 +506,7 @@ export default function AiAnalyticsPage() {
       </Tabs>
 
       <Dialog open={!!openUid} onOpenChange={(o) => !o && setOpenUid(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-3xl sm:max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>บทสนทนาของ: {openUid && displayName(openUid)}</DialogTitle>
           </DialogHeader>

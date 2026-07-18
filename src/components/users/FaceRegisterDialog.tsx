@@ -267,7 +267,7 @@ const FaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName }: Pr
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) stopCamera(); }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl sm:max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ScanFace className="w-5 h-5 text-primary" />
@@ -408,7 +408,7 @@ const FaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName }: Pr
                 )}
               </div>
               {shots.length > 0 && (
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                   {shots.map((s, i) => (
                     <img key={i} src={s.canvas.toDataURL()} alt={`ภาพถ่ายลงทะเบียนใบหน้า ${i + 1}`} className="rounded border w-full aspect-square object-cover" />
                   ))}
@@ -472,7 +472,7 @@ const FaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName }: Pr
                           alt={u.name}
                           className={`rounded border w-full aspect-square object-cover ${
                             u.status === "ok"
-                              ? "border-success/30 ring-2 ring-success/40"
+                              ? "border-emerald-500 ring-2 ring-emerald-500/40"
                               : u.status === "no-face" || u.status === "error"
                               ? "border-destructive ring-2 ring-destructive/40"
                               : "border-muted-foreground/40"
@@ -483,7 +483,7 @@ const FaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName }: Pr
                             <><Loader2 className="w-3 h-3 animate-spin" />วิเคราะห์...</>
                           )}
                           {u.status === "ok" && (
-                            <><CheckCircle2 className="w-3 h-3 text-success" />เจอใบหน้า</>
+                            <><CheckCircle2 className="w-3 h-3 text-emerald-400" />เจอใบหน้า</>
                           )}
                           {u.status === "no-face" && (
                             <><XCircle className="w-3 h-3 text-destructive" />ไม่พบใบหน้า</>

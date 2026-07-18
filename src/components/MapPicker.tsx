@@ -249,10 +249,10 @@ const MapPicker = ({ lat, lng, radius = 200, onChange, height = 360 }: MapPicker
         {livePos ? (
           <>
             <Badge variant="outline" className="gap-1 font-mono">
-              <Navigation className="w-3 h-3 text-info" />
+              <Navigation className="w-3 h-3 text-blue-500" />
               {livePos.lat.toFixed(6)}, {livePos.lng.toFixed(6)}
             </Badge>
-            <Badge variant="outline" className="text-info border-info/30">
+            <Badge variant="outline" className="text-blue-600 border-blue-200">
               ±{Math.round(livePos.accuracy)} ม.
             </Badge>
             {lat != null && lng != null && (() => {
@@ -265,7 +265,7 @@ const MapPicker = ({ lat, lng, radius = 200, onChange, height = 360 }: MapPicker
               const d = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
               const inRange = d <= radius;
               return (
-                <Badge variant="outline" className={inRange ? "text-success border-success/30" : "text-warning border-warning/30"}>
+                <Badge variant="outline" className={inRange ? "text-emerald-600 border-emerald-300" : "text-amber-600 border-amber-300"}>
                   ห่างจากหมุด {d < 1000 ? `${Math.round(d)} ม.` : `${(d / 1000).toFixed(2)} กม.`}
                   {inRange ? " · ในรัศมี" : " · นอกรัศมี"}
                 </Badge>

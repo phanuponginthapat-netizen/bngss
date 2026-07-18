@@ -1,68 +1,145 @@
-import { useSearchParams } from "react-router-dom";
+import { useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, LayoutDashboard, Wallet, FileText, Coins, FolderKanban } from "lucide-react";
-import { useUserRole } from "@/hooks/useUserRole";
-import WorkflowOverview from "@/components/procurement/WorkflowOverview";
-import AdvanceLoanTab from "@/components/procurement/AdvanceLoanTab";
-import ProcurementListTab from "@/components/procurement/ProcurementListTab";
-import ClearingTab from "@/components/procurement/ClearingTab";
-import HubProjectsPage from "@/pages/projects/HubProjectsPage";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { Plus, Trash2, ShoppingCart } from "lucide-react";
+
+const METHODS = [
+  "เฉพาะเจาะจง", "คัดเลือก", "e-bidding", "สอบราคา", "ประกวดราคา",
+];
+
+const STATUS_MAP: Record<string, { label: string; color: string }> = {
+  draft: { label: "ร่าง", color: "bg-gray-100 text-gray-800" },
+  pending: { label: "รอดำเนินการ", color: "bg-amber-100 text-amber-800" },
+  approved: { label: "อนุมัติ", color: "bg-emerald-100 text-emerald-800" },
+  completed: { label: "เสร็จสิ้น", color: "bg-blue-100 text-blue-800" },
+  cancelled: { label: "ยกเลิก", color: "bg-red-100 text-red-800" },
+};
 
 const ProcurementPage = () => {
-  const { isAdmin, isDirector } = useUserRole();
-  const canManage = isAdmin || isDirector;
-  const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") || "overview";
+  const { lang } = useLanguage();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ procurement_type: "purchase", method: "เฉพาะเจาะจง", description: "", vendor_name: "", amount: "", egp_number: "", contract_number: "", notes: "" });
 
   const { data: records = [] } = useQuery({
     queryKey: ["procurement_records"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("procurement_records")
-        .select("*")
-        .order("procurement_date", { ascending: false });
+      const { data } = await supabase.from("procurement_records").select("*").order("procurement_date", { ascending: false });
       return data || [];
     },
   });
 
-  const { data: advances = [] } = useQuery({
-    queryKey: ["procurement_advances"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("procurement_advances")
-        .select("*")
-        .order("created_at", { ascending: false });
-      return data || [];
-    },
-  });
+  const handleAdd = async () => {
+    if (!form.description || !form.amount) { toast.error("กรุณากรอกข้อมูลให้ครบ"); return; }
+    const { error } = await supabase.from("procurement_records").insert({
+      ...form, amount: parseFloat(form.amount),
+    } as any);
+    if (error) { toast.error(error.message); return; }
+    toast.success("บันทึกสำเร็จ");
+    qc.invalidateQueries({ queryKey: ["procurement_records"] });
+    setOpen(false);
+    setForm({ procurement_type: "purchase", method: "เฉพาะเจาะจง", description: "", vendor_name: "", amount: "", egp_number: "", contract_number: "", notes: "" });
+  };
+
+  const handleDelete = async (id: string) => {
+    await supabase.from("procurement_records").delete().eq("id", id);
+    qc.invalidateQueries({ queryKey: ["procurement_records"] });
+  };
+
+  const formatMoney = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <ShoppingCart className="w-6 h-6 text-primary" />
-          งานงบประมาณ &amp; พัสดุ (e-GP)
-        </h1>
-        <p className="text-sm text-muted-foreground">ตั้งโครงการตามปีงบประมาณ → ยืม/อนุมัติ → จัดซื้อ → ล้างหนี้</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <ShoppingCart className="w-6 h-6 text-primary" />
+            ระบบจัดซื้อจัดจ้าง (e-GP)
+          </h1>
+          <p className="text-sm text-muted-foreground">จัดซื้อจัดจ้างตามระเบียบกรมบัญชีกลาง</p>
+        </div>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" />เพิ่มรายการ</Button></DialogTrigger>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader><DialogTitle>บันทึกการจัดซื้อจัดจ้าง</DialogTitle></DialogHeader>
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+              <div>
+                <Label>ประเภท</Label>
+                <Select value={form.procurement_type} onValueChange={v => setForm(p => ({ ...p, procurement_type: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="purchase">จัดซื้อ</SelectItem>
+                    <SelectItem value="hire">จัดจ้าง</SelectItem>
+                    <SelectItem value="lease">เช่า</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>วิธีการจัดซื้อจัดจ้าง</Label>
+                <Select value={form.method} onValueChange={v => setForm(p => ({ ...p, method: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div><Label>รายละเอียด *</Label><Textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></div>
+              <div><Label>ผู้ขาย/ผู้รับจ้าง</Label><Input value={form.vendor_name} onChange={e => setForm(p => ({ ...p, vendor_name: e.target.value }))} /></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div><Label>จำนวนเงิน (บาท) *</Label><Input type="number" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} /></div>
+                <div><Label>เลขที่ e-GP</Label><Input value={form.egp_number} onChange={e => setForm(p => ({ ...p, egp_number: e.target.value }))} /></div>
+              </div>
+              <div><Label>เลขที่สัญญา</Label><Input value={form.contract_number} onChange={e => setForm(p => ({ ...p, contract_number: e.target.value }))} /></div>
+              <div><Label>หมายเหตุ</Label><Textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} rows={2} /></div>
+              <Button onClick={handleAdd} className="w-full">บันทึก</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setParams({ tab: v })} className="space-y-4">
-        <TabsList className="flex-wrap h-auto">
-          <TabsTrigger value="overview" className="gap-2"><LayoutDashboard className="w-4 h-4" />ภาพรวม</TabsTrigger>
-          <TabsTrigger value="projects" className="gap-2"><FolderKanban className="w-4 h-4" />โครงการพิเศษ / ตามปีงบ</TabsTrigger>
-          <TabsTrigger value="advance" className="gap-2"><Wallet className="w-4 h-4" />ยืมเงินรองราชการ</TabsTrigger>
-          <TabsTrigger value="purchase" className="gap-2"><FileText className="w-4 h-4" />จัดซื้อ/จ้าง</TabsTrigger>
-          <TabsTrigger value="clearing" className="gap-2"><Coins className="w-4 h-4" />ล้างหนี้ EGPEASY</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview"><WorkflowOverview records={records} advances={advances} /></TabsContent>
-        <TabsContent value="projects"><HubProjectsPage /></TabsContent>
-        <TabsContent value="advance"><AdvanceLoanTab canManage={canManage} /></TabsContent>
-        <TabsContent value="purchase"><ProcurementListTab records={records} advances={advances} canManage={canManage} /></TabsContent>
-        <TabsContent value="clearing"><ClearingTab records={records} canManage={canManage} /></TabsContent>
-      </Tabs>
+      <Card><CardContent className="p-0">
+        <Table>
+          <TableHeader><TableRow>
+            <TableHead>วันที่</TableHead>
+            <TableHead>ประเภท</TableHead>
+            <TableHead>วิธีการ</TableHead>
+            <TableHead>รายละเอียด</TableHead>
+            <TableHead>ผู้ขาย</TableHead>
+            <TableHead className="text-right">จำนวนเงิน</TableHead>
+            <TableHead>เลข e-GP</TableHead>
+            <TableHead>สถานะ</TableHead>
+            <TableHead></TableHead>
+          </TableRow></TableHeader>
+          <TableBody>
+            {records.map((r: any) => {
+              const st = STATUS_MAP[r.status] || { label: r.status, color: "" };
+              return (
+                <TableRow key={r.id}>
+                  <TableCell className="whitespace-nowrap">{r.procurement_date}</TableCell>
+                  <TableCell>{r.procurement_type === "purchase" ? "จัดซื้อ" : r.procurement_type === "hire" ? "จัดจ้าง" : "เช่า"}</TableCell>
+                  <TableCell><Badge variant="outline">{r.method}</Badge></TableCell>
+                  <TableCell className="max-w-[200px] truncate">{r.description}</TableCell>
+                  <TableCell>{r.vendor_name || "-"}</TableCell>
+                  <TableCell className="text-right font-mono">฿{formatMoney(Number(r.amount))}</TableCell>
+                  <TableCell className="font-mono text-xs">{r.egp_number || "-"}</TableCell>
+                  <TableCell><Badge className={st.color}>{st.label}</Badge></TableCell>
+                  <TableCell><Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button></TableCell>
+                </TableRow>
+              );
+            })}
+            {records.length === 0 && <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">ไม่มีข้อมูล</TableCell></TableRow>}
+          </TableBody>
+        </Table>
+      </CardContent></Card>
     </div>
   );
 };

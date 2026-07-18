@@ -54,7 +54,7 @@ export default function OfflineIndicator() {
     <Button
       variant="ghost"
       size="sm"
-      className="h-7 gap-1.5 px-2 text-warning hover:text-warning"
+      className="h-7 gap-1.5 px-2 text-amber-600 hover:text-amber-700"
       onClick={async () => {
         const r = await flush();
         if (r.ok === 0 && r.failed === 0) toast.info("ไม่มีรายการรอซิงค์");

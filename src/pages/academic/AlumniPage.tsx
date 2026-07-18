@@ -207,13 +207,13 @@ const AlumniPage = () => {
 
       {/* GPA Detail Dialog */}
       <Dialog open={!!selectedStudent} onOpenChange={open => !open && setSelectedStudent(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl sm:max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>ประวัติผลการเรียน — {selectedStudent?.prefix}{selectedStudent?.first_name} {selectedStudent?.last_name}</DialogTitle>
           </DialogHeader>
           {selectedStudent && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div><span className="text-muted-foreground">รหัสนักเรียน: </span>{selectedStudent.student_code}</div>
                 <div><span className="text-muted-foreground">ระดับที่จบ: </span>{selectedStudent.graduation_level || "-"}</div>
                 <div><span className="text-muted-foreground">ปีที่จบ: </span>{selectedStudent.graduation_year ? `พ.ศ. ${toBE(selectedStudent.graduation_year)}` : "-"}</div>

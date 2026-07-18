@@ -1,1 +1,0 @@
-ALTER TABLE public.offsite_requests ADD COLUMN IF NOT EXISTS photo_url text;

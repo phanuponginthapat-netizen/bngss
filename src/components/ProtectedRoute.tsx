@@ -3,7 +3,6 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthSession } from "@/hooks/useAuthSession";
-import { Button } from "@/components/ui/button";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -11,42 +10,24 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
-  const { isReady, session, error: authError } = useAuthSession();
-  const { role, loading, userId, error: roleError, refetchRole } = useUserRole();
+  const { isReady, session } = useAuthSession();
+  const { role, loading, userId } = useUserRole();
   const location = useLocation();
 
   // Check if user has linked their account (only matters for OAuth users)
-  const profileQuery = useQuery({
+  const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["profile-link-status", userId],
     enabled: isReady && !!userId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("profiles")
         .select("account_linked, employee_code, student_code")
         .eq("id", userId!)
         .maybeSingle();
-      if (error) throw error;
       return data;
     },
     staleTime: 60 * 1000,
   });
-
-  const { data: profile, isLoading: profileLoading } = profileQuery;
-
-  const profileError = profileQuery.error instanceof Error ? profileQuery.error.message : profileQuery.error ? String(profileQuery.error) : null;
-  const guardError = authError || roleError || profileError;
-
-  if (guardError) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center gap-3 px-4">
-        <h2 className="text-2xl font-bold text-destructive">โหลดสิทธิ์การใช้งานไม่สำเร็จ</h2>
-        <p className="text-sm text-muted-foreground max-w-md">
-          ระบบตรวจสอบบัญชีหรือบทบาทไม่ได้ชั่วคราว กรุณาลองใหม่อีกครั้ง หากยังพบปัญหาให้ติดต่อผู้ดูแลระบบ
-        </p>
-        <Button onClick={() => { refetchRole(); profileQuery.refetch(); }}>ลองใหม่</Button>
-      </div>
-    );
-  }
 
   if (!isReady || loading || (userId && profileLoading)) {
     return (
@@ -78,8 +59,7 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Observer can view every dashboard page (read-only — RLS enforces no writes)
-  if (allowedRoles && role !== "observer" && !allowedRoles.includes(role)) {
+  if (allowedRoles && !allowedRoles.includes(role)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
         <h2 className="text-2xl font-bold text-destructive mb-2">ไม่มีสิทธิ์เข้าถึง</h2>

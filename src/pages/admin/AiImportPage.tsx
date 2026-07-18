@@ -282,14 +282,14 @@ export default function AiImportPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-success" /> ผลการนำเข้า
+              <CheckCircle2 className="w-5 h-5 text-green-600" /> ผลการนำเข้า
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {importResults.map((r, i) => {
               const hasIssue = !!r.error || (r.warnings && r.warnings.length > 0) || (r.skipped > 0);
               return (
-                <div key={i} className={`border rounded-lg p-3 space-y-1 ${r.error ? "border-destructive/50 bg-destructive/5" : hasIssue ? "border-warning/50 bg-warning/5" : "border-success/30 bg-success/5"}`}>
+                <div key={i} className={`border rounded-lg p-3 space-y-1 ${r.error ? "border-destructive/50 bg-destructive/5" : hasIssue ? "border-amber-500/50 bg-amber-500/5" : "border-green-500/30 bg-green-500/5"}`}>
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <Badge>{TABLE_LABEL[r.table] || r.table}</Badge>
                     <div className="flex gap-1 flex-wrap">
@@ -308,7 +308,7 @@ export default function AiImportPage() {
                   )}
                   {r.warnings && r.warnings.length > 0 && (
                     <details className="text-xs">
-                      <summary className="cursor-pointer text-warning">คำเตือน ({r.warnings.length})</summary>
+                      <summary className="cursor-pointer text-amber-700">คำเตือน ({r.warnings.length})</summary>
                       <ul className="mt-1 space-y-0.5 max-h-40 overflow-y-auto pl-4">
                         {r.warnings.map((w: string, j: number) => (
                           <li key={j} className="text-muted-foreground list-disc">{w}</li>

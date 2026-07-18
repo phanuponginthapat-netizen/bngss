@@ -9,14 +9,14 @@ export interface IoTCategory {
 }
 
 export const IOT_CATEGORIES: IoTCategory[] = [
-  { value: "water",       label: "ระบบประปา",       icon: Droplet,      color: "text-cat-2",  ring: "border-cat-2/30 bg-cat-2-soft" },
-  { value: "solar",       label: "โซลาร์เซลล์",     icon: Sun,          color: "text-cat-4",  ring: "border-cat-4/30 bg-cat-4-soft" },
-  { value: "cctv",        label: "กล้องวงจรปิด",    icon: Camera,       color: "text-cat-8",  ring: "border-cat-8/30 bg-cat-8-soft" },
-  { value: "energy",      label: "พลังงาน/มิเตอร์", icon: Zap,          color: "text-cat-5",  ring: "border-cat-5/30 bg-cat-5-soft" },
-  { value: "environment", label: "สภาพแวดล้อม",     icon: Thermometer,  color: "text-cat-3",  ring: "border-cat-3/30 bg-cat-3-soft" },
-  { value: "hvac",        label: "แอร์/ระบายอากาศ", icon: Wind,         color: "text-info",   ring: "border-info/30 bg-info-soft" },
-  { value: "security",    label: "ความปลอดภัย",     icon: ShieldAlert,  color: "text-cat-1",  ring: "border-cat-1/30 bg-cat-1-soft" },
-  { value: "access",      label: "ควบคุมการเข้า",   icon: Lock,         color: "text-cat-8",  ring: "border-cat-8/30 bg-cat-8-soft" },
+  { value: "water",       label: "ระบบประปา",       icon: Droplet,      color: "text-sky-500",     ring: "border-sky-500/30 bg-sky-500/5" },
+  { value: "solar",       label: "โซลาร์เซลล์",     icon: Sun,          color: "text-amber-500",   ring: "border-amber-500/30 bg-amber-500/5" },
+  { value: "cctv",        label: "กล้องวงจรปิด",    icon: Camera,       color: "text-violet-500",  ring: "border-violet-500/30 bg-violet-500/5" },
+  { value: "energy",      label: "พลังงาน/มิเตอร์", icon: Zap,          color: "text-yellow-500",  ring: "border-yellow-500/30 bg-yellow-500/5" },
+  { value: "environment", label: "สภาพแวดล้อม",     icon: Thermometer,  color: "text-emerald-500", ring: "border-emerald-500/30 bg-emerald-500/5" },
+  { value: "hvac",        label: "แอร์/ระบายอากาศ", icon: Wind,         color: "text-cyan-500",    ring: "border-cyan-500/30 bg-cyan-500/5" },
+  { value: "security",    label: "ความปลอดภัย",     icon: ShieldAlert,  color: "text-rose-500",    ring: "border-rose-500/30 bg-rose-500/5" },
+  { value: "access",      label: "ควบคุมการเข้า",   icon: Lock,         color: "text-indigo-500",  ring: "border-indigo-500/30 bg-indigo-500/5" },
   { value: "other",       label: "อื่นๆ",            icon: Activity,     color: "text-muted-foreground", ring: "border-border bg-muted/30" },
 ];
 

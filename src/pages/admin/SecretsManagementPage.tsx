@@ -14,13 +14,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { getSecretGuide } from "@/lib/secretGuides";
 
 const CATEGORY_LABEL: Record<string, { th: string; en: string }> = {
-  ai: { th: "ปัญญาประดิษฐ์ (AI)", en: "AI" },
   social: { th: "Social", en: "Social" },
   line: { th: "LINE", en: "LINE" },
   push: { th: "Push Notification", en: "Push Notification" },
   notifications: { th: "การแจ้งเตือน", en: "Notifications" },
   general: { th: "ทั่วไป", en: "General" },
 };
+
+// AI keys อยู่ในแท็บ "ผู้ให้บริการ AI" (ตาราง ai_providers) — ซ่อนจากหน้านี้เพื่อไม่ให้ซ้ำ
+const HIDDEN_CATEGORIES = new Set(["ai"]);
 
 export default function SecretsManagementPage() {
   const qc = useQueryClient();
@@ -42,15 +44,14 @@ export default function SecretsManagementPage() {
     queryKey: ["app_secrets"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("app_secrets" as any)
-        .select("key,description,category,updated_at,value")
+        .from("app_secrets_meta" as any)
+        .select("key,description,category,updated_at,has_value")
         .order("category")
         .order("key");
       if (error) throw error;
-      return (data || []).map((s: any) => ({ ...s, has_value: !!(s.value && s.value.length > 0) })) as any[];
+      return (data || []) as any[];
     },
   });
-
 
 
   const save = async (key: string) => {
@@ -86,10 +87,12 @@ export default function SecretsManagementPage() {
     qc.invalidateQueries({ queryKey: ["app_secrets"] });
   };
 
-  const grouped = secrets.reduce<Record<string, any[]>>((acc, s) => {
-    (acc[s.category] = acc[s.category] || []).push(s);
-    return acc;
-  }, {});
+  const grouped = secrets
+    .filter((s) => !HIDDEN_CATEGORIES.has(s.category))
+    .reduce<Record<string, any[]>>((acc, s) => {
+      (acc[s.category] = acc[s.category] || []).push(s);
+      return acc;
+    }, {});
 
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
@@ -151,7 +154,7 @@ export default function SecretsManagementPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       {hasValue
-                        ? <Badge variant="default" className="bg-success">{lang === "th" ? "ตั้งแล้ว" : "Set"}</Badge>
+                        ? <Badge variant="default" className="bg-green-600">{lang === "th" ? "ตั้งแล้ว" : "Set"}</Badge>
                         : <Badge variant="secondary">{lang === "th" ? "ยังไม่ได้ตั้ง" : "Not set"}</Badge>}
                       <Button variant="ghost" size="icon" onClick={() => remove(s.key)}>
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -162,11 +165,11 @@ export default function SecretsManagementPage() {
                     <div className="relative flex-1">
                       <Input
                         type={visible ? "text" : "password"}
-                        value={draft ?? (s.value ?? "")}
+                        value={draft ?? (hasValue ? "••••••••••••" : "")}
                         onChange={(e) => setDrafts((d) => ({ ...d, [s.key]: e.target.value }))}
+                        onFocus={(e) => { if (draft === undefined) { setDrafts((d) => ({ ...d, [s.key]: "" })); e.currentTarget.value = ""; }}}
                         placeholder={lang === "th" ? "วางค่าที่นี่..." : "Paste value..."}
                       />
-
                       <Button
                         type="button"
                         variant="ghost"

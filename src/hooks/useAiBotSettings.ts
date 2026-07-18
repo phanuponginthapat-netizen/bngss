@@ -12,10 +12,9 @@ export interface AiBotSettings {
 }
 
 const DEFAULTS: AiBotSettings = {
-  name: "น้องโรงเรียน",
+  name: "",
   avatarUrl: "",
-  greeting:
-    "สวัสดีค่ะ 👋 น้องโรงเรียนช่วยอะไรได้บ้างคะ? ถามการบ้าน, วิธีใช้ระบบ, หรือข้อมูลโรงเรียนได้เลยค่ะ",
+  greeting: "",
   userColor: "#2563eb",
   assistantColor: "#f1f5f9",
   bgColor: "#ffffff",

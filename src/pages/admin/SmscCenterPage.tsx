@@ -13,6 +13,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { registerThaiFont } from "@/lib/jspdfThai";
+import { BE_OFFSET } from "@/lib/dateBE";
 import {
   ShieldCheck, GraduationCap, Users, BookOpen, ClipboardCheck, FileText,
   ExternalLink, BarChart3, Award, Calendar, Building2, HeartPulse,
@@ -21,7 +22,7 @@ import {
 } from "lucide-react";
 
 const SINCE_DAYS = 90;
-const toBE = (y: number) => (y < 2500 ? y + 543 : y);
+const toBE = (y: number) => (y < 2500 ? y + BE_OFFSET : y);
 
 interface SmscData {
   schoolName: string;
@@ -181,10 +182,10 @@ const fetchData = async (): Promise<SmscData> => {
 };
 
 const scoreLevel = (n: number) => {
-  if (n >= 80) return { label: "ดีเยี่ยม", color: "text-success", bg: "bg-success" };
-  if (n >= 60) return { label: "ดี", color: "text-info", bg: "bg-info" };
-  if (n >= 40) return { label: "ปานกลาง", color: "text-warning", bg: "bg-warning" };
-  return { label: "ต้องปรับปรุง", color: "text-danger", bg: "bg-danger" };
+  if (n >= 80) return { label: "ดีเยี่ยม", color: "text-emerald-600", bg: "bg-emerald-500" };
+  if (n >= 60) return { label: "ดี", color: "text-blue-600", bg: "bg-blue-500" };
+  if (n >= 40) return { label: "ปานกลาง", color: "text-amber-600", bg: "bg-amber-500" };
+  return { label: "ต้องปรับปรุง", color: "text-rose-600", bg: "bg-rose-500" };
 };
 
 export default function SmscCenterPage() {
@@ -448,12 +449,12 @@ export default function SmscCenterPage() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
             {[
-              { icon: GraduationCap, label: "นักเรียน", value: data.students, c: "text-info" },
-              { icon: Users, label: "บุคลากร", value: data.teachers, c: "text-success" },
-              { icon: Building2, label: "ห้องเรียน", value: data.classrooms, c: "text-warning" },
-              { icon: BookOpen, label: "รายวิชา", value: data.subjects, c: "text-info" },
-              { icon: ClipboardCheck, label: "มาเรียน 90 วัน", value: `${data.attendanceRate}%`, c: "text-success" },
-              { icon: Calendar, label: "ตารางสอน", value: data.schedules, c: "text-danger" },
+              { icon: GraduationCap, label: "นักเรียน", value: data.students, c: "text-blue-500" },
+              { icon: Users, label: "บุคลากร", value: data.teachers, c: "text-emerald-500" },
+              { icon: Building2, label: "ห้องเรียน", value: data.classrooms, c: "text-amber-500" },
+              { icon: BookOpen, label: "รายวิชา", value: data.subjects, c: "text-purple-500" },
+              { icon: ClipboardCheck, label: "มาเรียน 90 วัน", value: `${data.attendanceRate}%`, c: "text-teal-500" },
+              { icon: Calendar, label: "ตารางสอน", value: data.schedules, c: "text-rose-500" },
             ].map((k, i) => {
               const Icon = k.icon;
               return (
@@ -500,7 +501,7 @@ export default function SmscCenterPage() {
         <AccordionItem value="s1" className="rounded-xl border bg-card">
           <AccordionTrigger className="px-4 hover:no-underline">
             <div className="flex items-center gap-3 text-left">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-success text-white font-bold">1</div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-white font-bold">1</div>
               <div>
                 <div className="font-semibold">มาตรฐานที่ 1: คุณภาพของผู้เรียน</div>
                 <div className="text-xs text-muted-foreground">ผลสัมฤทธิ์ + คุณลักษณะอันพึงประสงค์</div>
@@ -537,7 +538,7 @@ export default function SmscCenterPage() {
                 </Table>
               ) : (
                 <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-                  <AlertTriangle className="mx-auto mb-1 h-5 w-5 text-warning" />
+                  <AlertTriangle className="mx-auto mb-1 h-5 w-5 text-amber-500" />
                   ยังไม่ได้กรอกคะแนน O-NET/NT/PISA
                 </div>
               )}
@@ -569,8 +570,8 @@ export default function SmscCenterPage() {
                       {data.topBehaviorStudents.map((s, i) => (
                         <TableRow key={i}>
                           <TableCell>{s.name}</TableCell>
-                          <TableCell className="text-right text-success">{s.positive}</TableCell>
-                          <TableCell className="text-right text-danger">{s.negative}</TableCell>
+                          <TableCell className="text-right text-emerald-600">{s.positive}</TableCell>
+                          <TableCell className="text-right text-rose-600">{s.negative}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -587,7 +588,7 @@ export default function SmscCenterPage() {
         <AccordionItem value="s2" className="rounded-xl border bg-card">
           <AccordionTrigger className="px-4 hover:no-underline">
             <div className="flex items-center gap-3 text-left">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-warning text-white font-bold">2</div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-500 text-white font-bold">2</div>
               <div>
                 <div className="font-semibold">มาตรฐานที่ 2: กระบวนการบริหารและการจัดการ</div>
                 <div className="text-xs text-muted-foreground">แผนพัฒนา · บุคลากร · การมีส่วนร่วม</div>
@@ -650,7 +651,7 @@ export default function SmscCenterPage() {
             <div className="grid gap-2 md:grid-cols-3">
               <Row label="ผลประเมิน 360°" value={data.evaluations} href="/dashboard/hr/evaluations" />
               <Row label="เยี่ยมบ้านนักเรียน" value={data.homeVisits} href="/dashboard/teacher/home-visits" />
-              <Row label="เอกสารระบบ" value={data.documents} href="/dashboard/admin/document" />
+              <Row label="เอกสารระบบ" value={data.documents} href="/dashboard/admin/documents" />
             </div>
           </AccordionContent>
         </AccordionItem>
@@ -659,7 +660,7 @@ export default function SmscCenterPage() {
         <AccordionItem value="s3" className="rounded-xl border bg-card">
           <AccordionTrigger className="px-4 hover:no-underline">
             <div className="flex items-center gap-3 text-left">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-info text-white font-bold">3</div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-purple-500 text-white font-bold">3</div>
               <div>
                 <div className="font-semibold">มาตรฐานที่ 3: กระบวนการจัดการเรียนการสอนที่เน้นผู้เรียน</div>
                 <div className="text-xs text-muted-foreground">หลักสูตร · ตารางสอน · การวัดประเมินผล</div>
@@ -681,7 +682,7 @@ export default function SmscCenterPage() {
       </Accordion>
 
       <div className="rounded-lg border border-dashed bg-muted/30 p-4 text-xs text-muted-foreground">
-        <CheckCircle2 className="mr-1 inline h-3.5 w-3.5 text-success" />
+        <CheckCircle2 className="mr-1 inline h-3.5 w-3.5 text-emerald-500" />
         รายงานนี้ดึงข้อมูลสดจากฐานข้อมูลทุกครั้งที่เปิดหน้า — กดดาวน์โหลด PDF หรือ Excel เพื่อบันทึกเป็นหลักฐาน
       </div>
     </div>

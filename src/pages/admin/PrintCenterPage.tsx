@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Printer, ArrowLeft, Search, Upload, Loader2 } from "lucide-react";
+import { Printer, ArrowLeft, Search, Upload, Loader2, X, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ScanSearchButton } from "@/components/student/ScanSearchButton";
 import { useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
@@ -17,6 +18,7 @@ import jsPDF from "jspdf";
 import { useIdCardSettings } from "@/hooks/useIdCardSettings";
 import { IdCardFront, IdCardBack } from "@/components/IdCardRenderer";
 import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
+import BackButton from "@/components/BackButton";
 import { compressImage } from "@/lib/imageCompress";
 import { gradeRank } from "@/lib/gradeOrder";
 
@@ -60,7 +62,7 @@ const studentToPerson = (s: StudentForCard) => ({
   qrValue: s.student_code || "",
 });
 
-type Scope = "class" | "person";
+type Scope = "class" | "person" | "cart";
 type Layout = "single" | "a4";
 const CARD_WIDTH_MM = 54;
 const CARD_HEIGHT_MM = 86;
@@ -123,7 +125,7 @@ export default function PrintCenterPage({ embedded = false }: { embedded?: boole
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-4 h-4" /></Button>
+        <BackButton size="icon" fallback="/dashboard" />
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Printer className="w-6 h-6 text-primary" />พิมพ์บัตรประจำตัว
@@ -147,6 +149,20 @@ function CardTab() {
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [generating, setGenerating] = useState(false);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  // Cart (multi-student picking across classrooms)
+  const [cartClassroomId, setCartClassroomId] = useState("");
+  const [cartSearch, setCartSearch] = useState("");
+  const [cartStudents, setCartStudents] = useState<StudentForCard[]>([]);
+  const cartIds = useMemo(() => new Set(cartStudents.map((s) => s.id)), [cartStudents]);
+  const addToCart = (list: StudentForCard[]) => {
+    setCartStudents((cur) => {
+      const map = new Map(cur.map((s) => [s.id, s]));
+      list.forEach((s) => map.set(s.id, s));
+      return Array.from(map.values());
+    });
+  };
+  const removeFromCart = (id: string) => setCartStudents((cur) => cur.filter((s) => s.id !== id));
+  const clearCart = () => setCartStudents([]);
   const printRef = useRef<HTMLDivElement>(null);
   const { settings: cs, isLoading: settingsLoading } = useIdCardSettings();
   const qc = useQueryClient();
@@ -204,11 +220,33 @@ function CardTab() {
     queryFn: async () => loadStudents({ search: search.trim() }),
   });
 
+  // Cart-mode lookups: classroom picker + free search — sorted by grade then name
+  const { data: cartClassStudents = [] } = useQuery({
+    queryKey: ["cart_class_students", cartClassroomId],
+    enabled: scope === "cart" && !!cartClassroomId,
+    queryFn: async () => loadStudents({ classroomId: cartClassroomId }),
+  });
+  const { data: cartSearchResults = [] } = useQuery({
+    queryKey: ["cart_search_students", cartSearch],
+    enabled: scope === "cart" && cartSearch.trim().length >= 2,
+    queryFn: async () => loadStudents({ search: cartSearch.trim() }),
+  });
+
   const students = useMemo(() => {
     if (scope === "class") return classStudents;
+    if (scope === "cart") {
+      // Group by classroom/grade then by student_code for a tidy printed sheet
+      return [...cartStudents].sort((a, b) => {
+        const gr = gradeRank(a.classrooms?.grade_level || "") - gradeRank(b.classrooms?.grade_level || "");
+        if (gr !== 0) return gr;
+        const cn = String(a.classrooms?.name || "").localeCompare(String(b.classrooms?.name || ""));
+        if (cn !== 0) return cn;
+        return String(a.student_code || "").localeCompare(String(b.student_code || ""));
+      });
+    }
     if (selectedStudentId) return searchResults.filter((s) => s.id === selectedStudentId);
     return [];
-  }, [scope, classStudents, searchResults, selectedStudentId]);
+  }, [scope, classStudents, cartStudents, searchResults, selectedStudentId]);
 
   const classroom = classrooms.find((c) => c.id === classroomId);
 
@@ -295,7 +333,10 @@ function CardTab() {
         totalPages = sheets * 2;
       }
 
-      const fname = scope === "class" ? (classroom?.name || "classroom") : `student-${students[0]?.student_code || "card"}`;
+      const fname =
+        scope === "class" ? (classroom?.name || "classroom")
+        : scope === "cart" ? `mixed-${students.length}-cards`
+        : `student-${students[0]?.student_code || "card"}`;
       pdf.save(`id-cards-${fname}.pdf`);
       toast.success(`สร้าง PDF สำเร็จ (${students.length} ใบ · ${totalPages} หน้า · ${layout === "a4" ? `A4 ${A4_PER_PAGE} ใบ/แผ่น · ${CARD_WIDTH_MM}×${CARD_HEIGHT_MM}mm` : `${CARD_WIDTH_MM}×${CARD_HEIGHT_MM}mm`})`);
     } catch (e) {
@@ -310,9 +351,10 @@ function CardTab() {
         <CardContent className="p-4 space-y-4">
           <div>
             <Label className="text-xs mb-2 block">โหมดการพิมพ์</Label>
-            <RadioGroup value={scope} onValueChange={(v) => setScope(v as Scope)} className="flex gap-4">
+            <RadioGroup value={scope} onValueChange={(v) => setScope(v as Scope)} className="flex gap-4 flex-wrap">
               <label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="class" className="shrink-0 size-4" /> รายห้อง</label>
               <label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="person" className="shrink-0 size-4" /> รายคน</label>
+              <label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="cart" className="shrink-0 size-4" /> เลือกหลายคน (ข้ามห้องได้)</label>
             </RadioGroup>
           </div>
 
@@ -340,7 +382,7 @@ function CardTab() {
                 </SelectContent>
               </Select>
             </div>
-          ) : (
+          ) : scope === "person" ? (
             <div className="space-y-2">
               <Label className="text-xs">ค้นหานักเรียน (รหัส/ชื่อ)</Label>
               <div className="flex gap-2">
@@ -362,6 +404,113 @@ function CardTab() {
                   ))}
                 </div>
               )}
+            </div>
+          ) : (
+            // scope === "cart" — เลือกหลายคนข้ามห้อง
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs">เพิ่มจากห้องเรียน</Label>
+                  <div className="flex gap-2">
+                    <Select value={cartClassroomId} onValueChange={setCartClassroomId}>
+                      <SelectTrigger><SelectValue placeholder="เลือกห้อง..." /></SelectTrigger>
+                      <SelectContent>
+                        {classrooms.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.grade_level} - {c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {cartClassStudents.length > 0 && (
+                      <Button size="sm" variant="secondary" className="shrink-0 gap-1" onClick={() => addToCart(cartClassStudents)}>
+                        <Plus className="w-3.5 h-3.5" /> เพิ่มทั้งห้อง ({cartClassStudents.length})
+                      </Button>
+                    )}
+                  </div>
+                  {cartClassStudents.length > 0 && (
+                    <div className="border rounded-md max-h-56 overflow-auto divide-y">
+                      {cartClassStudents.map((s) => {
+                        const inCart = cartIds.has(s.id);
+                        return (
+                          <label key={s.id} className={`flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-accent ${inCart ? "bg-primary/5" : ""}`}>
+                            <Checkbox
+                              checked={inCart}
+                              onCheckedChange={(v) => v ? addToCart([s]) : removeFromCart(s.id)}
+                            />
+                            <span className="font-mono text-xs text-muted-foreground">{s.student_code}</span>
+                            <span className="truncate">{s.prefix}{s.first_name} {s.last_name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">หรือค้นหาเพื่อเพิ่มทีละคน</Label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
+                      <Input value={cartSearch} onChange={(e) => setCartSearch(e.target.value)} placeholder="รหัส/ชื่อ..." className="pl-9" />
+                    </div>
+                    <ScanSearchButton onScan={(code) => setCartSearch(code)} />
+                  </div>
+                  {cartSearchResults.length > 0 && (
+                    <div className="border rounded-md max-h-56 overflow-auto divide-y">
+                      {cartSearchResults.map((s) => {
+                        const inCart = cartIds.has(s.id);
+                        return (
+                          <label key={s.id} className={`flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-accent ${inCart ? "bg-primary/5" : ""}`}>
+                            <Checkbox
+                              checked={inCart}
+                              onCheckedChange={(v) => v ? addToCart([s]) : removeFromCart(s.id)}
+                            />
+                            <span className="font-mono text-xs text-muted-foreground">{s.student_code}</span>
+                            <span className="truncate">{s.prefix}{s.first_name} {s.last_name}</span>
+                            <span className="ml-auto text-xs text-muted-foreground shrink-0">{s.classrooms?.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Cart summary */}
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <ShoppingCart className="w-4 h-4 text-primary" />
+                    ตะกร้าที่จะพิมพ์
+                    <Badge variant="secondary">{cartStudents.length} คน</Badge>
+                    {cartStudents.length > 0 && (
+                      <span className="text-xs text-muted-foreground font-normal">
+                        · A4 {Math.ceil(cartStudents.length / A4_PER_PAGE)} แผ่นหน้า + {Math.ceil(cartStudents.length / A4_PER_PAGE)} แผ่นหลัง
+                      </span>
+                    )}
+                  </div>
+                  {cartStudents.length > 0 && (
+                    <Button size="sm" variant="ghost" onClick={clearCart} className="gap-1 text-destructive hover:text-destructive">
+                      <Trash2 className="w-3.5 h-3.5" /> ล้างตะกร้า
+                    </Button>
+                  )}
+                </div>
+                {cartStudents.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">ยังไม่ได้เลือกนักเรียน — ติ๊กจากรายการทางซ้าย/ขวาเพื่อเพิ่ม</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {students.map((s) => (
+                      <span key={s.id} className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full bg-background border text-xs">
+                        <span className="text-muted-foreground">{s.classrooms?.name || "-"}</span>
+                        <span>·</span>
+                        <span className="font-medium">{s.first_name}</span>
+                        <button type="button" onClick={() => removeFromCart(s.id)} className="ml-0.5 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive p-0.5">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

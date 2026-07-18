@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Send, Undo2, CheckCircle2, RotateCcw, History, Paperclip, MessageSquare, Pencil, FileCheck2, FileSpreadsheet } from "lucide-react";
+import { Send, Undo2, CheckCircle2, RotateCcw, History, Paperclip, MessageSquare, Pencil, FileCheck2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -12,7 +11,6 @@ import AttachmentUploader from "./AttachmentUploader";
 import AttachmentList from "./AttachmentList";
 import { uploadHomeworkFile, type Attachment } from "@/lib/homeworkStorage";
 import { notify } from "@/lib/notify";
-import WorksheetPlayer from "@/components/worksheets/WorksheetPlayer";
 
 export type HistoryEntry = {
   at: string;
@@ -25,12 +23,12 @@ export type HistoryEntry = {
 };
 
 const actionMeta: Record<HistoryEntry["action"], { label: string; icon: any; color: string }> = {
-  submitted:    { label: "ส่งงาน",          icon: Send,        color: "bg-info-soft text-info border-info/30" },
-  resubmitted:  { label: "ส่งใหม่ (แก้ไข)", icon: RotateCcw,   color: "bg-info-soft text-info border-info/30" },
-  graded:       { label: "ครูให้คะแนน",     icon: CheckCircle2,color: "bg-success-soft text-success border-success/30" },
-  returned:     { label: "ครูส่งกลับให้แก้",icon: Undo2,       color: "bg-warning-soft text-warning border-warning/30" },
-  annotated:    { label: "ครูแก้ไข/เขียนในไฟล์", icon: Pencil, color: "bg-info-soft text-info border-info/30" },
-  commented:    { label: "คอมเมนต์",        icon: MessageSquare, color: "bg-neutral-soft text-neutral border-neutral/30" },
+  submitted:    { label: "ส่งงาน",          icon: Send,        color: "bg-sky-100 text-sky-700 border-sky-200" },
+  resubmitted:  { label: "ส่งใหม่ (แก้ไข)", icon: RotateCcw,   color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  graded:       { label: "ครูให้คะแนน",     icon: CheckCircle2,color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  returned:     { label: "ครูส่งกลับให้แก้",icon: Undo2,       color: "bg-amber-100 text-amber-700 border-amber-200" },
+  annotated:    { label: "ครูแก้ไข/เขียนในไฟล์", icon: Pencil, color: "bg-purple-100 text-purple-700 border-purple-200" },
+  commented:    { label: "คอมเมนต์",        icon: MessageSquare, color: "bg-slate-100 text-slate-700 border-slate-200" },
 };
 
 function SubmissionTimeline({ history }: { history?: HistoryEntry[] }) {
@@ -54,11 +52,11 @@ function SubmissionTimeline({ history }: { history?: HistoryEntry[] }) {
                   · {h.by === "teacher" ? "ครู" : "นักเรียน"}
                   · {new Date(h.at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
                 </span>
-                {typeof h.grade === "number" && <Badge className="bg-success-soft text-success">คะแนน {h.grade}</Badge>}
+                {typeof h.grade === "number" && <Badge className="bg-emerald-100 text-emerald-700">คะแนน {h.grade}</Badge>}
               </div>
               {h.text && <p className="text-xs mt-1 whitespace-pre-wrap bg-background/60 rounded px-2 py-1 border">{h.text}</p>}
               {h.feedback && (
-                <p className="text-xs mt-1 whitespace-pre-wrap bg-background/60 rounded px-2 py-1 border border-warning/30">
+                <p className="text-xs mt-1 whitespace-pre-wrap bg-background/60 rounded px-2 py-1 border border-amber-200">
                   <MessageSquare className="w-3 h-3 inline mr-1" />{h.feedback}
                 </p>
               )}
@@ -97,13 +95,12 @@ interface StudentProps {
   studentName: string;
   submissions: SubmissionsMap;
   teacherAttachments?: Attachment[];
-  worksheetId?: string | null;
   invalidateKeys?: any[][];
   readOnly?: boolean;
 }
 
 export function StudentSubmissionPanel({
-  taskId, studentId, studentName, submissions, teacherAttachments = [], worksheetId, invalidateKeys = [], readOnly,
+  taskId, studentId, studentName, submissions, teacherAttachments = [], invalidateKeys = [], readOnly,
 }: StudentProps) {
   const qc = useQueryClient();
   const mine = submissions?.[studentId];
@@ -192,11 +189,11 @@ export function StudentSubmissionPanel({
       <div className="space-y-2 text-xs">
         <div className="flex items-center gap-2 flex-wrap">
           {mine.status === "graded" ? (
-            <Badge className="bg-success-soft text-success border-success/30">
+            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
               <CheckCircle2 className="w-3 h-3 mr-1" /> ได้คะแนนแล้ว: {mine.grade ?? "-"}
             </Badge>
           ) : (
-            <Badge className="bg-info-soft text-info border-info/30">
+            <Badge className="bg-sky-100 text-sky-700 border-sky-200">
               <CheckCircle2 className="w-3 h-3 mr-1" /> ส่งแล้ว
             </Badge>
           )}
@@ -240,11 +237,11 @@ export function StudentSubmissionPanel({
   return (
     <div className="space-y-2">
       {mine?.status === "needs_revision" && (
-        <div className="rounded-md border border-warning/30 bg-warning-soft p-2 text-xs space-y-1">
-          <div className="flex items-center gap-1 font-semibold text-warning">
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs space-y-1">
+          <div className="flex items-center gap-1 font-semibold text-amber-800">
             <RotateCcw className="w-3.5 h-3.5" /> ครูส่งกลับให้แก้ไข
           </div>
-          {mine.feedback && <p className="text-warning">ครู: {mine.feedback}</p>}
+          {mine.feedback && <p className="text-amber-900">ครู: {mine.feedback}</p>}
         </div>
       )}
 
@@ -253,35 +250,6 @@ export function StudentSubmissionPanel({
           <div className="text-[11px] text-muted-foreground mb-1">ไฟล์การบ้าน (กดแก้ไขเพื่อพิมพ์/เขียนลงในไฟล์)</div>
           <AttachmentList attachments={teacherAttachments} canEdit onEditedSave={handleEditedSave} dense />
         </div>
-      )}
-
-      {worksheetId && (
-        <WorksheetRunnerButton
-          worksheetId={worksheetId}
-          onComplete={async ({ score, total, answers }) => {
-            const now = new Date().toISOString();
-            const entry: HistoryEntry = {
-              at: now, by: "student", action: mine ? "resubmitted" : "submitted",
-              text: `ทำใบงานออนไลน์ — ${score}/${total}`, grade: score,
-            };
-            const next: SubmissionsMap = {
-              ...(submissions || {}),
-              [studentId]: {
-                status: "graded",
-                submitted_at: now,
-                grade: score,
-                feedback: `ทำใบงานอัตโนมัติ — ${score}/${total}`,
-                text: JSON.stringify({ kind: "worksheet", score, total, answers }),
-                attachments: [],
-                history: [...(mine?.history || []), entry,
-                  { at: now, by: "teacher", action: "graded", grade: score, feedback: "ตรวจอัตโนมัติจากใบงาน" }],
-              },
-            };
-            const { error } = await supabase.from("task_assignments").update({ submissions: next as any }).eq("id", taskId);
-            if (error) { toast.error(error.message); return; }
-            invalidateKeys.forEach((k) => qc.invalidateQueries({ queryKey: k }));
-          }}
-        />
       )}
 
       <Textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์คำตอบ หรือบันทึกถึงครู..." className="text-sm" />
@@ -301,9 +269,24 @@ interface TeacherProps {
   classroomId: string | null;
   submissions: SubmissionsMap;
   invalidateKeys?: any[][];
+  teacherAttachments?: Attachment[];
+  assignmentTitle?: string;
+  assignmentDescription?: string | null;
+  assignmentDueDate?: string | null;
+  assignmentMaxScore?: number | null;
 }
 
-export function TeacherGradingPanel({ taskId, classroomId, submissions, invalidateKeys = [] }: TeacherProps) {
+export function TeacherGradingPanel({
+  taskId,
+  classroomId,
+  submissions,
+  invalidateKeys = [],
+  teacherAttachments = [],
+  assignmentTitle,
+  assignmentDescription,
+  assignmentDueDate,
+  assignmentMaxScore,
+}: TeacherProps) {
   const qc = useQueryClient();
   const { data: students = [] } = useQuery({
     queryKey: ["hw-classroom-students", classroomId],
@@ -420,75 +403,110 @@ export function TeacherGradingPanel({ taskId, classroomId, submissions, invalida
     }
   };
 
+  const [tab, setTab] = useState<"submitted" | "notSubmitted">("submitted");
+
   return (
-    <div className="space-y-3 text-xs">
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <Badge variant="outline">ส่งแล้ว {submitted.length}/{students.length}</Badge>
-        <Badge variant="outline">ยังไม่ส่ง {notSubmitted.length}</Badge>
-      </div>
-
-      {submitted.length === 0 && <p className="text-muted-foreground py-4 text-center">ยังไม่มีนักเรียนส่งงาน</p>}
-
-      {submitted.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3">
-          {/* Left: student list */}
-          <div className="border rounded-md divide-y max-h-[60vh] overflow-auto">
-            {submitted.map((s: any) => {
-              const sub = submissions![s.id];
-              const active = s.id === selectedId;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setSelectedId(s.id)}
-                  className={`w-full text-left px-2 py-1.5 hover:bg-muted/50 ${active ? "bg-primary/10" : ""}`}
-                >
-                  <div className="font-medium truncate">{s.prefix || ""}{s.first_name} {s.last_name}</div>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <span className="text-[10px] text-muted-foreground">{s.student_code}</span>
-                    {sub.status === "graded" && <Badge className="bg-success-soft text-success h-4 text-[10px]">{sub.grade ?? "-"}</Badge>}
-                    {sub.status === "submitted" && <Badge className="bg-info-soft text-info h-4 text-[10px]">รอตรวจ</Badge>}
-                    {sub.status === "needs_revision" && <Badge className="bg-warning-soft text-warning h-4 text-[10px]">ให้แก้</Badge>}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Right: detail / grading */}
-          <div>
-            {selectedStudent && selectedSub ? (
-              <StudentSubmissionRow
-                student={selectedStudent}
-                submission={selectedSub}
-                onGrade={(grade, feedback) => updateSubmission(selectedStudent.id, { status: "graded", grade, feedback, graded_at: new Date().toISOString() })}
-                onReturn={(feedback) => updateSubmission(selectedStudent.id, { status: "needs_revision", feedback, returned_at: new Date().toISOString() })}
-                onAnnotate={(blob, filename) => handleAnnotationSave(selectedStudent.id, blob, filename)}
-                onComment={(comment) => updateSubmission(selectedStudent.id, { feedback: comment }, "commented")}
-              />
-            ) : (
-              <p className="text-muted-foreground p-4 text-center">เลือกนักเรียนเพื่อตรวจงาน</p>
-            )}
+    <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden bg-muted/30 min-h-0 overscroll-contain">
+      {/* Left rail — student roster */}
+      <aside className="w-full lg:w-72 xl:w-80 shrink-0 border-b lg:border-b-0 lg:border-r bg-card flex flex-col max-h-[30dvh] lg:max-h-none">
+        <div className="p-3 shrink-0">
+          <div className="flex gap-1 p-1 bg-muted rounded-xl">
+            <button
+              type="button"
+              onClick={() => setTab("submitted")}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                tab === "submitted" ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              ส่งแล้ว {submitted.length}/{students.length}
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("notSubmitted")}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                tab === "notSubmitted" ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              ยังไม่ส่ง {notSubmitted.length}
+            </button>
           </div>
         </div>
-      )}
 
-      {notSubmitted.length > 0 && (
-        <details className="border rounded-md p-2">
-          <summary className="cursor-pointer text-muted-foreground">ยังไม่ส่ง ({notSubmitted.length})</summary>
-          <ul className="mt-2 space-y-0.5">
-            {notSubmitted.map((s: any) => (
-              <li key={s.id}>• {s.prefix || ""}{s.first_name} {s.last_name} <span className="text-muted-foreground">({s.student_code})</span></li>
-            ))}
-          </ul>
-        </details>
-      )}
+        <div className="flex-1 overflow-y-auto px-2 pb-3 space-y-1.5">
+          {tab === "submitted" && submitted.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-8">ยังไม่มีนักเรียนส่งงาน</p>
+          )}
+          {tab === "submitted" && submitted.map((s: any) => {
+            const sub = submissions![s.id];
+            const active = s.id === selectedId;
+            const statusBadge =
+              sub.status === "graded" ? { cls: "bg-emerald-100 text-emerald-700 ring-emerald-200", label: `คะแนน ${sub.grade ?? "-"}` }
+              : sub.status === "needs_revision" ? { cls: "bg-amber-100 text-amber-700 ring-amber-200", label: "ให้แก้" }
+              : { cls: "bg-sky-100 text-sky-700 ring-sky-200", label: "รอตรวจ" };
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setSelectedId(s.id)}
+                className={`w-full text-left p-3 rounded-xl transition-all relative ${
+                  active
+                    ? "bg-primary/5 border-2 border-primary shadow-sm"
+                    : "border border-transparent hover:bg-muted/60 hover:border-border"
+                }`}
+              >
+                {active && <span className="absolute left-0 top-2 bottom-2 w-1 bg-primary rounded-r" />}
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <span className={`text-sm font-semibold truncate ${active ? "text-primary" : "text-foreground"}`}>
+                    {s.prefix || ""}{s.first_name} {s.last_name}
+                  </span>
+                  <span className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded-full ring-1 ${statusBadge.cls}`}>
+                    {statusBadge.label}
+                  </span>
+                </div>
+                <span className="text-[11px] text-muted-foreground">รหัส {s.student_code}</span>
+              </button>
+            );
+          })}
+          {tab === "notSubmitted" && notSubmitted.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-8">ส่งครบทุกคนแล้ว 🎉</p>
+          )}
+          {tab === "notSubmitted" && notSubmitted.map((s: any) => (
+            <div key={s.id} className="p-3 rounded-xl border border-dashed border-border text-sm">
+              <div className="font-medium text-muted-foreground truncate">{s.prefix || ""}{s.first_name} {s.last_name}</div>
+              <div className="text-[11px] text-muted-foreground/70">รหัส {s.student_code}</div>
+            </div>
+          ))}
+        </div>
+      </aside>
+
+      {/* Main + right sidebar handled inside StudentSubmissionRow */}
+      <div className="flex-none lg:flex-1 flex flex-col lg:flex-row overflow-visible lg:overflow-hidden min-h-0">
+        {selectedStudent && selectedSub ? (
+          <StudentSubmissionRow
+            student={selectedStudent}
+            submission={selectedSub}
+            teacherAttachments={teacherAttachments}
+            onGrade={(grade, feedback) => updateSubmission(selectedStudent.id, { status: "graded", grade, feedback, graded_at: new Date().toISOString() })}
+            onReturn={(feedback) => updateSubmission(selectedStudent.id, { status: "needs_revision", feedback, returned_at: new Date().toISOString() })}
+            onAnnotate={(blob, filename) => handleAnnotationSave(selectedStudent.id, blob, filename)}
+            onComment={(comment) => updateSubmission(selectedStudent.id, { feedback: comment }, "commented")}
+            assignmentTitle={assignmentTitle}
+            assignmentDescription={assignmentDescription}
+            assignmentDueDate={assignmentDueDate}
+            assignmentMaxScore={assignmentMaxScore}
+          />
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-muted-foreground p-6 text-center text-sm">
+            เลือกนักเรียนด้านบนเพื่อเริ่มตรวจงาน
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-export function StudentSubmissionRow({
-  student, submission, onGrade, onReturn, onAnnotate, onComment,
+function StudentSubmissionRow({
+  student, submission, onGrade, onReturn, onAnnotate, onComment, teacherAttachments = [], assignmentTitle, assignmentDescription, assignmentDueDate, assignmentMaxScore,
 }: {
   student: any;
   submission: Submission;
@@ -496,6 +514,11 @@ export function StudentSubmissionRow({
   onReturn: (feedback: string) => Promise<void>;
   onAnnotate?: (blob: Blob, filename: string) => Promise<void>;
   onComment?: (comment: string) => Promise<void>;
+  teacherAttachments?: Attachment[];
+  assignmentTitle?: string;
+  assignmentDescription?: string | null;
+  assignmentDueDate?: string | null;
+  assignmentMaxScore?: number | null;
 }) {
   const [grade, setGrade] = useState<string>(submission.grade?.toString() || "");
   const [feedback, setFeedback] = useState<string>(submission.feedback || "");
@@ -503,124 +526,236 @@ export function StudentSubmissionRow({
   const [busy, setBusy] = useState(false);
 
   return (
-    <div className="border border-border rounded-md p-2 space-y-2 bg-card">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="font-medium">{student.prefix || ""}{student.first_name} {student.last_name}
-          <span className="ml-2 text-[10px] text-muted-foreground">{student.student_code}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          {submission.status === "graded" && <Badge className="bg-success-soft text-success">ตรวจแล้ว {submission.grade ?? "-"}</Badge>}
-          {submission.status === "submitted" && <Badge className="bg-info-soft text-info">รอตรวจ</Badge>}
-          {submission.status === "needs_revision" && <Badge className="bg-warning-soft text-warning">ให้แก้ไข</Badge>}
-        </div>
-      </div>
-      {submission.text && <p className="bg-muted/40 rounded p-1.5 text-foreground whitespace-pre-wrap">{submission.text}</p>}
-      {submission.attachments && submission.attachments.length > 0 && (
-        <div className="space-y-1">
-          <div className="text-[11px] text-muted-foreground">ไฟล์ที่นักเรียนส่ง (กดแก้ไขเพื่อตรวจ/เขียนลงในไฟล์)</div>
-          <AttachmentList
-            attachments={submission.attachments}
-            dense
-            canEdit={!!onAnnotate}
-            onEditedSave={async (blob, filename, src) => {
-              if (onAnnotate) await onAnnotate(blob, `ตรวจ-${filename || src.name}`);
-            }}
-          />
-        </div>
-      )}
-      {submission.teacher_annotations && submission.teacher_annotations.length > 0 && (
-        <div className="space-y-1">
-          <div className="text-[11px] font-semibold text-primary">ไฟล์ที่ครูตรวจแล้ว</div>
-          <AttachmentList
-            attachments={submission.teacher_annotations}
-            dense
-            canEdit={!!onAnnotate}
-            onEditedSave={async (blob, filename, src) => {
-              if (onAnnotate) await onAnnotate(blob, filename || src.name);
-            }}
-          />
-        </div>
-      )}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Input type="number" min={0} max={100} value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="คะแนน" className="h-8 w-24" />
-        <Input value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="คำติชม (ถ้ามี)" className="h-8 flex-1 min-w-[160px]" />
-        <Button size="sm" variant="outline" disabled={busy} onClick={async () => {
-          if (!feedback.trim()) { toast.error("ใส่เหตุผลสั้นๆ ก่อนส่งกลับให้แก้"); return; }
-          setBusy(true); await onReturn(feedback.trim()); setBusy(false);
-          toast.success("ส่งกลับให้นักเรียนแก้ไขแล้ว");
-        }}>
-          <Undo2 className="w-3.5 h-3.5 mr-1" /> ส่งกลับให้แก้
-        </Button>
-        <Button size="sm" disabled={busy} onClick={async () => {
-          const g = Number(grade);
-          if (Number.isNaN(g)) { toast.error("กรอกคะแนนเป็นตัวเลข"); return; }
-          setBusy(true); await onGrade(g, feedback.trim() || undefined); setBusy(false);
-          toast.success("บันทึกคะแนนแล้ว");
-        }}>
-          <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> ให้คะแนน
-        </Button>
-      </div>
-
-      {onComment && (
-        <div className="flex items-center gap-2 pt-1 border-t">
-          <Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="เพิ่มคอมเมนต์ถึงนักเรียน..." className="h-8 flex-1" />
-          <Button size="sm" variant="secondary" disabled={busy || !comment.trim()} onClick={async () => {
-            setBusy(true); await onComment(comment.trim()); setBusy(false); setComment("");
-            toast.success("ส่งคอมเมนต์แล้ว");
-          }}>
-            <MessageSquare className="w-3.5 h-3.5 mr-1" /> ส่งคอมเมนต์
-          </Button>
-        </div>
-      )}
-
-      <SubmissionTimeline history={submission.history} />
-    </div>
-  );
-}
-
-function WorksheetRunnerButton({
-  worksheetId,
-  onComplete,
-}: {
-  worksheetId: string;
-  onComplete: (r: { score: number; total: number; answers: Record<string, string> }) => Promise<void>;
-}) {
-  const [open, setOpen] = useState(false);
-  const [ws, setWs] = useState<any>(null);
-  useEffect(() => {
-    if (!open || ws) return;
-    (async () => {
-      const { data } = await supabase
-        .from("worksheets")
-        .select("id,title,description,grade_level,questions,source_url,source_type")
-        .eq("id", worksheetId)
-        .maybeSingle();
-      setWs(data);
-    })();
-  }, [open, worksheetId, ws]);
-
-  return (
     <>
-      <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)} className="gap-1">
-        <FileSpreadsheet className="w-3.5 h-3.5" /> ทำใบงานออนไลน์
-      </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{ws?.title || "ใบงาน"}</DialogTitle></DialogHeader>
-          {ws ? (
-            <WorksheetPlayer
-              worksheet={ws}
-              hideStudentInfo
-              onSubmitted={async (r) => {
-                await onComplete(r);
-                setTimeout(() => setOpen(false), 1500);
-              }}
-            />
-          ) : (
-            <div className="py-10 text-center text-muted-foreground">กำลังโหลด...</div>
+      {/* Center — submission preview */}
+      <main className="flex-none lg:flex-1 overflow-visible lg:overflow-y-auto bg-background min-h-[42dvh] lg:min-h-0">
+        <div className="max-w-4xl mx-auto p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6">
+          <header className="flex items-end justify-between gap-4 pb-4 border-b">
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <h2 className="text-2xl md:text-3xl font-bold text-foreground">
+                  {student.prefix || ""}{student.first_name} {student.last_name}
+                </h2>
+                <span className="px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-xs font-semibold">
+                  รหัส {student.student_code}
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {submission.status === "graded" && (
+                  <>ตรวจแล้ว · คะแนน <span className="font-bold text-emerald-600">{submission.grade ?? "-"}{assignmentMaxScore != null && assignmentMaxScore > 0 ? ` / ${assignmentMaxScore}` : ""}</span></>
+                )}
+                {submission.status === "submitted" && "รอตรวจ"}
+                {submission.status === "needs_revision" && "ส่งกลับให้แก้ไขแล้ว"}
+                {submission.submitted_at && ` · ส่งเมื่อ ${new Date(submission.submitted_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}`}
+              </p>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {submission.status === "graded" && <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">ตรวจแล้ว</Badge>}
+              {submission.status === "submitted" && <Badge className="bg-sky-100 text-sky-700 border-sky-200">รอตรวจ</Badge>}
+              {submission.status === "needs_revision" && <Badge className="bg-amber-100 text-amber-700 border-amber-200">ให้แก้ไข</Badge>}
+            </div>
+          </header>
+
+          {(assignmentTitle || assignmentDescription || assignmentDueDate) && (
+            <section className="rounded-2xl border bg-card p-4 shadow-sm space-y-2">
+              <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">รายละเอียดงานที่ครูสั่ง</div>
+              {assignmentTitle && <h3 className="text-base font-bold text-foreground leading-snug">{assignmentTitle}</h3>}
+              {assignmentDescription && <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{assignmentDescription}</p>}
+              {assignmentDueDate && (
+                <div className="inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                  กำหนดส่ง {new Date(assignmentDueDate).toLocaleDateString("th-TH")}
+                </div>
+              )}
+            </section>
           )}
-        </DialogContent>
-      </Dialog>
+
+          {submission.text && (
+            <div className="rounded-2xl border bg-card p-4">
+              <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">ข้อความจากนักเรียน</div>
+              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{submission.text}</p>
+            </div>
+          )}
+
+          {submission.attachments && submission.attachments.length > 0 && (
+
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-foreground">
+                  ไฟล์ที่นักเรียนส่ง ({submission.attachments.length})
+                </h3>
+                <span className="text-[11px] text-muted-foreground">กดที่ไฟล์เพื่อแก้ไข/เขียนลงในไฟล์</span>
+              </div>
+              <div className="rounded-2xl border bg-card p-4 shadow-sm">
+                <AttachmentList
+                  attachments={submission.attachments}
+                  canEdit={!!onAnnotate}
+                  onEditedSave={async (blob, filename, src) => {
+                    if (onAnnotate) await onAnnotate(blob, `ตรวจ-${filename || src.name}`);
+                  }}
+                />
+              </div>
+            </section>
+          )}
+
+          {!submission.text && (!submission.attachments || submission.attachments.length === 0) && (
+            <section className="rounded-2xl border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">
+              ยังไม่พบข้อความหรือไฟล์งานที่นักเรียนส่งในรายการนี้
+            </section>
+          )}
+
+          {teacherAttachments.length > 0 && (
+            <section className="space-y-3">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <FileCheck2 className="w-4 h-4 text-primary" /> ใบงาน/ไฟล์ที่ครูให้ ({teacherAttachments.length})
+              </h3>
+              <div className="rounded-2xl border bg-card p-4 shadow-sm">
+                <AttachmentList attachments={teacherAttachments} />
+              </div>
+            </section>
+          )}
+
+          {submission.teacher_annotations && submission.teacher_annotations.length > 0 && (
+            <section className="space-y-3">
+              <h3 className="text-sm font-bold text-primary flex items-center gap-2">
+                <Pencil className="w-4 h-4" /> ไฟล์ที่ครูตรวจแล้ว ({submission.teacher_annotations.length})
+              </h3>
+              <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-4">
+                <AttachmentList
+                  attachments={submission.teacher_annotations}
+                  canEdit={!!onAnnotate}
+                  onEditedSave={async (blob, filename, src) => {
+                    if (onAnnotate) await onAnnotate(blob, filename || src.name);
+                  }}
+                />
+              </div>
+            </section>
+          )}
+
+          {submission.history && submission.history.length > 0 && (
+            <section className="pt-2">
+              <SubmissionTimeline history={submission.history} />
+            </section>
+          )}
+        </div>
+      </main>
+
+      {/* Right — grading sidebar */}
+      <aside className="w-full lg:w-[340px] xl:w-[380px] shrink-0 border-t lg:border-t-0 lg:border-l bg-card flex flex-col lg:overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 flex-1">
+          {(() => {
+            const maxScore = assignmentMaxScore != null && assignmentMaxScore > 0 ? assignmentMaxScore : null;
+            const gNum = grade === "" ? NaN : Number(grade);
+            const overMax = maxScore != null && !Number.isNaN(gNum) && gNum > maxScore;
+            const negative = !Number.isNaN(gNum) && gNum < 0;
+            return (
+              <>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">การให้คะแนน</label>
+                  <div className={`rounded-2xl border bg-background p-5 shadow-sm ${overMax || negative ? "border-red-400 ring-2 ring-red-200" : ""}`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-bold text-foreground">คะแนน</span>
+                      <span className="text-xs text-muted-foreground font-medium">
+                        {maxScore != null ? `เต็ม ${maxScore}` : "ไม่กำหนดคะแนนเต็ม"}
+                      </span>
+                    </div>
+                    <input
+                      type="number"
+                      min={0}
+                      max={maxScore ?? undefined}
+                      step="0.5"
+                      value={grade}
+                      onChange={(e) => setGrade(e.target.value)}
+                      placeholder="0"
+                      className={`w-full text-5xl font-black outline-none border-none p-0 bg-transparent focus:ring-0 ${overMax || negative ? "text-red-600" : "text-primary"} placeholder:text-muted/40`}
+                    />
+                    {overMax && (
+                      <div className="mt-2 text-xs font-semibold text-red-600">
+                        ⚠️ ห้ามให้คะแนนเกิน {maxScore} คะแนน (ตอนนี้ {gNum})
+                      </div>
+                    )}
+                    {negative && (
+                      <div className="mt-2 text-xs font-semibold text-red-600">คะแนนต้องไม่ต่ำกว่า 0</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">คำติชมจากครู</label>
+                  <Textarea
+                    rows={6}
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                    placeholder="เขียนคำแนะนำเพื่อพัฒนา..."
+                    className="resize-none rounded-2xl text-sm leading-relaxed"
+                  />
+                </div>
+              </>
+            );
+          })()}
+        </div>
+
+        <div className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-3 border-t bg-card lg:sticky lg:bottom-0">
+          <Button
+            size="lg"
+            disabled={busy}
+            className="w-full h-14 text-base font-bold rounded-2xl shadow-lg gap-2"
+            onClick={async () => {
+              const g = Number(grade);
+              if (Number.isNaN(g) || grade === "") { toast.error("กรอกคะแนนเป็นตัวเลข"); return; }
+              if (g < 0) { toast.error("คะแนนต้องไม่ต่ำกว่า 0"); return; }
+              const maxScore = assignmentMaxScore != null && assignmentMaxScore > 0 ? assignmentMaxScore : null;
+              if (maxScore != null && g > maxScore) {
+                toast.error(`ห้ามให้คะแนนเกินคะแนนเต็ม (${maxScore})`);
+                return;
+              }
+              setBusy(true); await onGrade(g, feedback.trim() || undefined); setBusy(false);
+              toast.success("บันทึกคะแนนแล้ว");
+            }}
+          >
+            <CheckCircle2 className="w-5 h-5" /> ให้คะแนน
+          </Button>
+
+          <Button
+            size="lg"
+            variant="outline"
+            disabled={busy}
+            className="w-full h-11 font-bold rounded-2xl border-2 border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800 gap-2"
+            onClick={async () => {
+              if (!feedback.trim()) { toast.error("ใส่เหตุผลสั้นๆ ก่อนส่งกลับให้แก้"); return; }
+              setBusy(true); await onReturn(feedback.trim()); setBusy(false);
+              toast.success("ส่งกลับให้นักเรียนแก้ไขแล้ว");
+            }}
+          >
+            <Undo2 className="w-4 h-4" /> ส่งกลับให้แก้ไข
+          </Button>
+
+          {onComment && (
+            <div className="pt-3 border-t space-y-2">
+              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">คอมเมนต์เพิ่มเติม</label>
+              <div className="flex gap-2">
+                <Input
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="พิมพ์คอมเมนต์..."
+                  className="flex-1 rounded-xl"
+                />
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  disabled={busy || !comment.trim()}
+                  className="rounded-xl shrink-0"
+                  onClick={async () => {
+                    setBusy(true); await onComment!(comment.trim()); setBusy(false); setComment("");
+                    toast.success("ส่งคอมเมนต์แล้ว");
+                  }}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </aside>
     </>
   );
 }

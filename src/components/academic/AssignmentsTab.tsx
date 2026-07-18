@@ -10,11 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Plus, Trash2, BookOpen, Users, Pencil, Search, X } from "lucide-react";
+import { Plus, Trash2, BookOpen, Users, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useUserRole } from "@/hooks/useUserRole";
-
+import { BE_OFFSET } from "@/lib/dateBE";
 
 interface AssignmentsTabProps {
   assignments: any[];
@@ -32,66 +32,22 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
   const [personnelId, setPersonnelId] = useState("");
   const [classroomId, setClassroomId] = useState("");
   const [semester, setSemester] = useState("1");
-  const [academicYear, setAcademicYear] = useState(String(new Date().getFullYear() + 543));
+  const [academicYear, setAcademicYear] = useState(String(new Date().getFullYear() + BE_OFFSET));
   const [filterGrade, setFilterGrade] = useState("all");
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
 
-  // Table filters
-  const [tableSearch, setTableSearch] = useState("");
-  const [tableSubjectFilter, setTableSubjectFilter] = useState("all");
-  const [tableClassroomFilter, setTableClassroomFilter] = useState("all");
-  const [tableSemesterFilter, setTableSemesterFilter] = useState("all");
-  const [tableYearFilter, setTableYearFilter] = useState("all");
-
-
-  // Fetch schedules for the selected teacher to restrict subjects/classrooms to what they actually teach
-  const { data: teacherSchedules = [] } = useQuery({
-    queryKey: ["teacher-schedules-for-assign", personnelId],
-    queryFn: async () => {
-      if (!personnelId) return [];
-      const { data } = await supabase
-        .from("schedules")
-        .select("subject_id, classroom_id, semester, academic_year")
-        .eq("teacher_id", personnelId);
-      return data || [];
-    },
-    enabled: !!personnelId,
-    staleTime: 60_000,
-  });
-
-  const scheduleSubjectIds = useMemo(
-    () => new Set(teacherSchedules.map((s: any) => s.subject_id).filter(Boolean)),
-    [teacherSchedules]
-  );
-  const scheduleClassroomIds = useMemo(
-    () => new Set(teacherSchedules.map((s: any) => s.classroom_id).filter(Boolean)),
-    [teacherSchedules]
-  );
-
-  // Only subjects present in the teacher's schedule
-  const teacherSubjects = useMemo(() => {
-    if (!personnelId) return [];
-    return subjects.filter((s: any) => scheduleSubjectIds.has(s.id));
-  }, [subjects, scheduleSubjectIds, personnelId]);
-
-  // Only classrooms present in the teacher's schedule
-  const teacherClassrooms = useMemo(() => {
-    if (!personnelId) return [];
-    return classrooms.filter((c: any) => scheduleClassroomIds.has(c.id));
-  }, [classrooms, scheduleClassroomIds, personnelId]);
-
   const gradeLevels = useMemo(() => {
-    const levels = new Set(teacherSubjects.map((s: any) => s.grade_level).filter(Boolean));
+    const levels = new Set(subjects.map((s: any) => s.grade_level).filter(Boolean));
     return Array.from(levels).sort();
-  }, [teacherSubjects]);
+  }, [subjects]);
 
   const filteredSubjects = useMemo(() => {
-    return teacherSubjects.filter((s: any) => {
+    return subjects.filter((s: any) => {
       const gradeMatch = filterGrade === "all" || s.grade_level === filterGrade;
       const semesterMatch = !s.semester || String(s.semester) === semester;
       return gradeMatch && semesterMatch;
     });
-  }, [teacherSubjects, filterGrade, semester]);
+  }, [subjects, filterGrade, semester]);
 
   const toggleSubject = (id: string) => {
     setSelectedSubjectIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -109,34 +65,6 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
   const resetForm = () => {
     setPersonnelId(""); setClassroomId(""); setSelectedSubjectIds([]); setFilterGrade("all");
   };
-
-  const academicYears = useMemo(() => {
-    const years = new Set(assignments.map((a: any) => a.academic_year).filter(Boolean));
-    return Array.from(years).sort((a, b) => Number(b) - Number(a));
-  }, [assignments]);
-
-  const filteredAssignments = useMemo(() => {
-    const term = tableSearch.trim().toLowerCase();
-    return assignments.filter((a: any) => {
-      const teacherName = a.personnel ? `${a.personnel.prefix || ""}${a.personnel.first_name} ${a.personnel.last_name}`.toLowerCase() : "";
-      const subjectText = a.subjects ? `${a.subjects.code} ${a.subjects.name_th}`.toLowerCase() : "";
-      const searchMatch = !term || teacherName.includes(term) || subjectText.includes(term) || a.classrooms?.name?.toLowerCase().includes(term);
-      const subjectMatch = tableSubjectFilter === "all" || a.subject_id === tableSubjectFilter;
-      const classroomMatch = tableClassroomFilter === "all" || a.classroom_id === tableClassroomFilter;
-      const semesterMatch = tableSemesterFilter === "all" || String(a.semester) === tableSemesterFilter;
-      const yearMatch = tableYearFilter === "all" || String(a.academic_year) === tableYearFilter;
-      return searchMatch && subjectMatch && classroomMatch && semesterMatch && yearMatch;
-    });
-  }, [assignments, tableSearch, tableSubjectFilter, tableClassroomFilter, tableSemesterFilter, tableYearFilter]);
-
-  const resetTableFilters = () => {
-    setTableSearch("");
-    setTableSubjectFilter("all");
-    setTableClassroomFilter("all");
-    setTableSemesterFilter("all");
-    setTableYearFilter("all");
-  };
-
 
   const handleAssign = async () => {
     if (!personnelId || selectedSubjectIds.length === 0 || !classroomId) {
@@ -188,7 +116,7 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
       <div className="flex justify-end">
         <Dialog open={assignOpen} onOpenChange={(o) => { setAssignOpen(o); if (!o) resetForm(); }}>
           <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" /> มอบหมายครูประจำวิชา</Button></DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader><DialogTitle>มอบหมายครูประจำวิชา (เลือกได้หลายวิชา)</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div><Label>ครูผู้สอน</Label>
@@ -199,10 +127,10 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
                   ))}</SelectContent>
                 </Select>
               </div>
-              <div><Label>ห้องเรียน {personnelId && <span className="text-xs text-muted-foreground">(เฉพาะห้องที่ครูมีตารางสอน)</span>}</Label>
-                <Select value={classroomId} onValueChange={setClassroomId} disabled={!personnelId}>
-                  <SelectTrigger><SelectValue placeholder={personnelId ? (teacherClassrooms.length ? "เลือกห้อง" : "ไม่พบห้องในตารางสอน") : "กรุณาเลือกครูก่อน"} /></SelectTrigger>
-                  <SelectContent>{teacherClassrooms.map((c: any) => (
+              <div><Label>ห้องเรียน</Label>
+                <Select value={classroomId} onValueChange={setClassroomId}>
+                  <SelectTrigger><SelectValue placeholder="เลือกห้อง" /></SelectTrigger>
+                  <SelectContent>{classrooms.map((c: any) => (
                     <SelectItem key={c.id} value={c.id}>{c.name} ({c.grade_level})</SelectItem>
                   ))}</SelectContent>
                 </Select>
@@ -222,10 +150,8 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
                   </Button>
                 </div>
                 <ScrollArea className="h-[200px] border rounded-md p-2">
-                  {!personnelId ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">กรุณาเลือกครูก่อน</p>
-                  ) : filteredSubjects.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">ไม่พบรายวิชาในตารางสอนของครูท่านนี้</p>
+                  {filteredSubjects.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">ไม่พบรายวิชา</p>
                   ) : filteredSubjects.map((s: any) => (
                     <label key={s.id} className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted rounded cursor-pointer">
                       <Checkbox checked={selectedSubjectIds.includes(s.id)} onCheckedChange={() => toggleSubject(s.id)} />
@@ -236,7 +162,7 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
                   ))}
                 </ScrollArea>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><Label>ภาคเรียน</Label>
                   <Select value={semester} onValueChange={setSemester}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -268,15 +194,15 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
                 ))}</SelectContent>
               </Select>
             </div>
-            <div><Label>ห้องเรียน {personnelId && <span className="text-xs text-muted-foreground">(เฉพาะห้องที่ครูมีตารางสอน)</span>}</Label>
-              <Select value={classroomId} onValueChange={setClassroomId} disabled={!personnelId}>
-                <SelectTrigger><SelectValue placeholder={personnelId ? (teacherClassrooms.length ? "เลือกห้อง" : "ไม่พบห้องในตารางสอน") : "กรุณาเลือกครูก่อน"} /></SelectTrigger>
-                <SelectContent>{teacherClassrooms.map((c: any) => (
+            <div><Label>ห้องเรียน</Label>
+              <Select value={classroomId} onValueChange={setClassroomId}>
+                <SelectTrigger><SelectValue placeholder="เลือกห้อง" /></SelectTrigger>
+                <SelectContent>{classrooms.map((c: any) => (
                   <SelectItem key={c.id} value={c.id}>{c.name} ({c.grade_level})</SelectItem>
                 ))}</SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><Label>ภาคเรียน</Label>
                 <Select value={semester} onValueChange={setSemester}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -292,74 +218,6 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
 
       <Card>
         <CardContent className="p-0">
-          <div className="p-4 border-b bg-muted/30">
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <Search className="w-4 h-4 text-primary" />
-                ตัวกรองข้อมูล
-              </div>
-              <div className="flex flex-col sm:flex-row flex-wrap gap-3">
-                <div className="relative flex-1 min-w-[200px]">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="ค้นหาครูผู้สอน รายวิชา หรือห้องเรียน..."
-                    value={tableSearch}
-                    onChange={(e) => setTableSearch(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <Select value={tableSubjectFilter} onValueChange={setTableSubjectFilter}>
-                  <SelectTrigger className="w-full sm:w-[180px]">
-                    <SelectValue placeholder="ทุกรายวิชา" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">ทุกรายวิชา</SelectItem>
-                    {subjects.map((s: any) => (
-                      <SelectItem key={s.id} value={s.id}>{s.code} {s.name_th}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={tableClassroomFilter} onValueChange={setTableClassroomFilter}>
-                  <SelectTrigger className="w-full sm:w-[160px]">
-                    <SelectValue placeholder="ทุกห้องเรียน" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">ทุกห้องเรียน</SelectItem>
-                    {classrooms.map((c: any) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name} {c.grade_level ? `(${c.grade_level})` : ""}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={tableSemesterFilter} onValueChange={setTableSemesterFilter}>
-                  <SelectTrigger className="w-full sm:w-[130px]">
-                    <SelectValue placeholder="ทุกภาคเรียน" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">ทุกภาคเรียน</SelectItem>
-                    <SelectItem value="1">1</SelectItem>
-                    <SelectItem value="2">2</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={tableYearFilter} onValueChange={setTableYearFilter}>
-                  <SelectTrigger className="w-full sm:w-[140px]">
-                    <SelectValue placeholder="ทุกปีการศึกษา" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">ทุกปีการศึกษา</SelectItem>
-                    {academicYears.map((y: any) => (
-                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="icon" onClick={resetTableFilters} title="ล้างตัวกรอง">
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                แสดง {filteredAssignments.length} จาก {assignments.length} รายการ
-              </div>
-            </div>
-          </div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -372,11 +230,9 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredAssignments.length === 0 ? (
-                <TableRow><TableCell colSpan={canEdit ? 6 : 5} className="text-center py-8 text-muted-foreground">
-                  {assignments.length === 0 ? "ยังไม่มีการมอบหมาย" : "ไม่พบข้อมูลที่ตรงกับตัวกรอง"}
-                </TableCell></TableRow>
-              ) : filteredAssignments.map((a: any) => (
+              {assignments.length === 0 ? (
+                <TableRow><TableCell colSpan={canEdit ? 6 : 5} className="text-center py-8 text-muted-foreground">ยังไม่มีการมอบหมาย</TableCell></TableRow>
+              ) : assignments.map((a: any) => (
                 <TableRow key={a.id}>
                   <TableCell className="font-medium">
                     {a.personnel ? `${a.personnel.prefix || ""}${a.personnel.first_name} ${a.personnel.last_name}` : "-"}
@@ -388,7 +244,7 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
                     <Badge variant="outline"><Users className="w-3 h-3 mr-1" />{a.classrooms ? a.classrooms.name : "-"}</Badge>
                   </TableCell>
                   <TableCell>{a.semester}</TableCell>
-                  <TableCell>{a.academic_year ? (a.academic_year + 543) : "-"}</TableCell>
+                  <TableCell>{a.academic_year || "-"}</TableCell>
                   {canEdit && (
                   <TableCell>
                     <div className="flex gap-1">
@@ -403,7 +259,6 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
           </Table>
         </CardContent>
       </Card>
-
     </div>
   );
 };

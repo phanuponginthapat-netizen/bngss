@@ -44,7 +44,7 @@ export const AssetBulkQRSheet = ({ open, onClose, assets, onRemove }: Props) => 
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-4xl sm:max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>พิมพ์ QR สติกเกอร์ครุภัณฑ์ ({assets.length} ชิ้น)</DialogTitle>
         </DialogHeader>
@@ -74,7 +74,7 @@ export const AssetBulkQRSheet = ({ open, onClose, assets, onRemove }: Props) => 
                       style={{ position: "absolute", top: 2, right: 2, background: "transparent", border: "none", cursor: "pointer" }}
                       aria-label="ลบ"
                     >
-                      <X className="w-3 h-3 text-danger" />
+                      <X className="w-3 h-3 text-red-500" />
                     </button>
                   )}
                 </div>

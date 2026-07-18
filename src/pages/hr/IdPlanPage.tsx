@@ -12,12 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Trash2, BookOpen, GraduationCap, Sparkles, Lightbulb, Paperclip, FileText, ImageIcon, X, Loader2, FileDown, Pencil, Printer, Send } from "lucide-react";
+import { Plus, Trash2, BookOpen, GraduationCap, Sparkles, Lightbulb, Paperclip, FileText, ImageIcon, X, Loader2 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { StatCard } from "@/components/shared";
-import { TrainingReportDialog } from "@/components/hr/TrainingReportDialog";
-
 
 const PLAN_TYPES = [
   { value: "training", th: "อบรม/สัมมนา" },
@@ -30,10 +28,10 @@ const PLAN_TYPES = [
 ];
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  planned: { label: "วางแผน", color: "bg-info-soft text-info" },
-  in_progress: { label: "กำลังดำเนินการ", color: "bg-warning-soft text-warning" },
-  completed: { label: "สำเร็จ", color: "bg-success-soft text-success" },
-  cancelled: { label: "ยกเลิก", color: "bg-danger-soft text-danger" },
+  planned: { label: "วางแผน", color: "bg-blue-100 text-blue-800" },
+  in_progress: { label: "กำลังดำเนินการ", color: "bg-amber-100 text-amber-800" },
+  completed: { label: "สำเร็จ", color: "bg-emerald-100 text-emerald-800" },
+  cancelled: { label: "ยกเลิก", color: "bg-red-100 text-red-800" },
 };
 
 // PA → ID Plan suggestion mapping based on DISC dominant style + Mental Health weak areas
@@ -85,11 +83,7 @@ const IdPlanPage = () => {
   const { role, userId, isAdmin, isDirector } = useUserRole();
   const canManageAll = isAdmin || isDirector;
   const [open, setOpen] = useState(false);
-  const [reportOpen, setReportOpen] = useState(false);
-  const [editRecordId, setEditRecordId] = useState<string | null>(null);
-  const [reportAction, setReportAction] = useState<"edit" | "pdf" | "send" | null>(null);
   const [personnelId, setPersonnelId] = useState("");
-
   const [planType, setPlanType] = useState("training");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -232,14 +226,9 @@ const IdPlanPage = () => {
             {canManageAll ? "จัดเก็บแผนพัฒนาตนเองและเกียรติบัตรการอบรม" : "บันทึกแผนพัฒนาตนเองและเกียรติบัตรการอบรมของคุณ"}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-        <Button variant="secondary" onClick={() => { setEditRecordId(null); setReportAction(null); setReportOpen(true); }}>
-          <FileDown className="w-4 h-4 mr-2" />บันทึกรายงานการอบรม
-        </Button>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" />เพิ่มแผนพัฒนา</Button></DialogTrigger>
-
-          <DialogContent className="max-w-lg">
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader><DialogTitle>บันทึกแผนพัฒนาตนเอง</DialogTitle></DialogHeader>
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
               {canManageAll ? (
@@ -263,7 +252,7 @@ const IdPlanPage = () => {
               </div>
               <div><Label>หัวข้อ/ชื่อหลักสูตร *</Label><Input value={title} onChange={e => setTitle(e.target.value)} /></div>
               <div><Label>รายละเอียด</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} /></div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><Label>จำนวนชั่วโมง</Label><Input type="number" value={hours} onChange={e => setHours(e.target.value)} /></div>
                 <div><Label>วันที่อบรม</Label><BEDatePicker value={trainingDate} onChange={(v) => setTrainingDate(v)} /></div>
               </div>
@@ -339,26 +328,9 @@ const IdPlanPage = () => {
             </div>
           </DialogContent>
         </Dialog>
-        </div>
       </div>
 
-      <TrainingReportDialog
-        open={reportOpen}
-        onOpenChange={(v) => { setReportOpen(v); if (!v) { setEditRecordId(null); setReportAction(null); } }}
-        personnelId={personnelId || null}
-        myPersonnelId={myPersonnel?.id || null}
-        canManageAll={canManageAll}
-        recordId={editRecordId}
-        initialAction={reportAction}
-        onSaved={() => {
-          qc.invalidateQueries({ queryKey: ["id_plan_records"] });
-          qc.invalidateQueries({ queryKey: ["my_id_plan_records"] });
-        }}
-      />
-
-
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
         <StatCard label="แผนพัฒนาทั้งหมด" value={records.length} icon={BookOpen} tone="primary" />
         <StatCard
           label="สำเร็จแล้ว"
@@ -405,12 +377,12 @@ const IdPlanPage = () => {
                 <button
                   key={c}
                   onClick={() => handleQuickAdd(c)}
-                  className="text-left p-3 rounded-lg border bg-background/60 hover:bg-warning-soft hover:border-warning/30 transition-all flex items-start gap-2 group"
+                  className="text-left p-3 rounded-lg border bg-background/60 hover:bg-amber-50 hover:border-amber-300 transition-all flex items-start gap-2 group"
                 >
-                  <Lightbulb className="w-4 h-4 text-warning mt-0.5 shrink-0" />
+                  <Lightbulb className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-foreground">{c}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5 group-hover:text-warning">+ ด้านสุขภาพจิต · คลิกเพื่อเพิ่ม</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 group-hover:text-amber-700">+ ด้านสุขภาพจิต · คลิกเพื่อเพิ่ม</p>
                   </div>
                 </button>
               ))}
@@ -437,10 +409,6 @@ const IdPlanPage = () => {
               const st = STATUS_MAP[r.status] || { label: r.status, color: "" };
               const pt = PLAN_TYPES.find(t => t.value === r.plan_type);
               const imgs: string[] = r.image_paths || [];
-              const isTrainingReport = !!r.order_ref_type || (Array.isArray(r.objectives) && r.objectives.length > 0);
-              const openReport = (action: "edit" | "pdf" | "send") => {
-                setEditRecordId(r.id); setReportAction(action); setReportOpen(true);
-              };
               return (
                 <TableRow key={r.id}>
                   <TableCell>{r.personnel ? `${r.personnel.prefix || ""}${r.personnel.first_name} ${r.personnel.last_name}` : "-"}</TableCell>
@@ -465,33 +433,11 @@ const IdPlanPage = () => {
                       {!r.order_doc_path && imgs.length === 0 && <span className="text-xs text-muted-foreground">-</span>}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      {isTrainingReport && (
-                        <>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" title="แก้ไขรายงาน" onClick={() => openReport("edit")}>
-                            <Pencil className="w-4 h-4 text-primary" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" title="พิมพ์ PDF" onClick={() => openReport("pdf")}>
-                            <Printer className="w-4 h-4 text-primary" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" title="ส่ง E-Form" onClick={() => openReport("send")}>
-                            <Send className="w-4 h-4 text-primary" />
-                          </Button>
-                        </>
-                      )}
-                      {(canManageAll || (r as any).created_by === userId || (r as any).personnel_id === userId) && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8" title="ลบ" onClick={() => handleDelete(r.id)}>
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
+                  <TableCell><Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button></TableCell>
                 </TableRow>
               );
             })}
-            {records.length === 0 && <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">ไม่มีข้อมูล</TableCell></TableRow>}
-
+            {records.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">ไม่มีข้อมูล</TableCell></TableRow>}
           </TableBody>
         </Table>
       </CardContent></Card>

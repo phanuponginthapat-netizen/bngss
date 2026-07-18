@@ -14,16 +14,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { CalendarDays, Plus, ChevronLeft, ChevronRight, MapPin, Trash2, Edit, ExternalLink, Download } from "lucide-react";
 import { toast } from "sonner";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 const ICS_FEED_URL = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/calendar-ics`;
 
 const EVENT_TYPES = [
-  { value: "activity", label: "กิจกรรม", color: "bg-info-soft text-info" },
-  { value: "exam", label: "สอบ", color: "bg-danger-soft text-danger" },
-  { value: "meeting", label: "ประชุม", color: "bg-info-soft text-info" },
-  { value: "holiday", label: "วันหยุด", color: "bg-success-soft text-success" },
-  { value: "ceremony", label: "พิธีการ", color: "bg-warning-soft text-warning" },
-  { value: "training", label: "อบรม/สัมมนา", color: "bg-success-soft text-success" },
+  { value: "activity", label: "กิจกรรม", color: "bg-blue-100 text-blue-800" },
+  { value: "exam", label: "สอบ", color: "bg-red-100 text-red-800" },
+  { value: "meeting", label: "ประชุม", color: "bg-purple-100 text-purple-800" },
+  { value: "holiday", label: "วันหยุด", color: "bg-green-100 text-green-800" },
+  { value: "ceremony", label: "พิธีการ", color: "bg-amber-100 text-amber-800" },
+  { value: "training", label: "อบรม/สัมมนา", color: "bg-teal-100 text-teal-800" },
   { value: "other", label: "อื่นๆ", color: "bg-muted text-muted-foreground" },
 ];
 
@@ -204,17 +205,17 @@ const AcademicCalendarPage = () => {
             <DialogTrigger asChild>
               <Button size="sm"><Plus className="w-4 h-4 mr-1" /> เพิ่มกิจกรรม</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>{editingEvent ? "แก้ไขกิจกรรม" : "เพิ่มกิจกรรมใหม่"}</DialogTitle>
               </DialogHeader>
               <div className="space-y-3">
                 <div><Label>ชื่อกิจกรรม *</Label><Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="เช่น กิจกรรมวันเด็ก" /></div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>วันที่เริ่ม *</Label><BEDatePicker value={form.event_date} onChange={(v) => setForm({ ...form, event_date: v })} /></div>
                   <div><Label>วันที่สิ้นสุด</Label><BEDatePicker value={form.end_date} onChange={(v) => setForm({ ...form, end_date: v })} /></div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>ประเภท</Label>
                     <Select value={form.event_type} onValueChange={v => setForm({ ...form, event_type: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -240,7 +241,7 @@ const AcademicCalendarPage = () => {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <Button variant="ghost" size="icon" onClick={prevMonth}><ChevronLeft className="w-5 h-5" /></Button>
-              <CardTitle className="text-lg">{THAI_MONTHS[viewMonth]} {viewYear + 543}</CardTitle>
+              <CardTitle className="text-lg">{THAI_MONTHS[viewMonth]} {viewYear + BE_OFFSET}</CardTitle>
               <Button variant="ghost" size="icon" onClick={nextMonth}><ChevronRight className="w-5 h-5" /></Button>
             </div>
           </CardHeader>

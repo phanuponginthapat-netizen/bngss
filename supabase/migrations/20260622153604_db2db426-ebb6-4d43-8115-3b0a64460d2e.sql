@@ -1,0 +1,2 @@
+ALTER TABLE public.subject_score_columns ADD COLUMN IF NOT EXISTS indicator_id uuid REFERENCES public.subject_indicators(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_subject_score_columns_indicator ON public.subject_score_columns(indicator_id);

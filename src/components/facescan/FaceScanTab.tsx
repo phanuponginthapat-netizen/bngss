@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { todayBangkok } from "@/lib/dateBE";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,7 @@ import { ScanFace, Camera, CameraOff, CheckCircle2, AlertCircle, Users, Monitor,
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame, detectorOptionsHQ, applyCameraAutoTune, triggerAutoFocus, preprocessFrame, estimateFaceSharpness, BANK_GRADE, isStrongMatch, isConfirmGrade, landmarkSanityScore, detectFaceWithLandmarks, assessFaceQuality, type KnownFace, type MatchResult } from "@/lib/faceApi";
-import { loadArcFace, isArcFaceReady, computeArcFaceEmbedding, matchArcFace, ARCFACE_GRADE, type KnownArcFace } from "@/lib/arcface";
+import { loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame, detectorOptionsHQ, applyCameraAutoTune, preprocessFrame, estimateFaceSharpness, BANK_GRADE, isStrongMatch, isConfirmGrade, landmarkSanityScore, detectFaceWithLandmarks, assessFaceQuality, type KnownFace } from "@/lib/faceApi";
 import { useUserRole } from "@/hooks/useUserRole";
 import { ShieldCheck } from "lucide-react";
 import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, unlockAudio } from "@/lib/faceScanAudio";
@@ -19,7 +18,6 @@ import { useSchoolGeofence, calcDistanceMeters, getCurrentCoords } from "@/hooks
 import { MapPin } from "lucide-react";
 import { uploadFaceScanSnapshot } from "@/lib/faceScanUpload";
 import { useHomeroomClassrooms } from "@/hooks/useHomeroomClassrooms";
-import { resolveDisplayImageUrl, useResolvedImageUrl } from "@/lib/storageUrl";
 
 interface RecentScan {
   studentId: string;
@@ -35,21 +33,18 @@ interface RecentScan {
   scanType?: "entry" | "exit";
 }
 
-const RecentRegisteredFace = ({ src }: { src?: string }) => {
-  const resolved = useResolvedImageUrl(src);
-  if (!resolved) {
-    return <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">ไม่มีรูป</div>;
-  }
-  return <img src={resolved} alt="ลงทะเบียน" className="w-full h-full object-cover" />;
-};
-
 // ScanMode now lives in useAutoScanMode
 
-// 🔋 หน้านี้ (ในแอป) = สแกน QR อย่างเดียว เพื่อประหยัดแบตและ CPU มือถือ
-// การสแกนใบหน้าให้ใช้ "โหมดคีออส" ที่ตั้งไว้ประจำจุด (แทปเลต/PC เสียบไฟ) เท่านั้น
-const QR_ONLY_MODE = true;
+interface FaceScanTabProps {
+  /**
+   * "face" = โหลดโมเดลใบหน้า + รัน face loop + รัน QR loop (โหมดเต็ม, กินแบต)
+   * "qr"   = สแกน QR อย่างเดียว, ไม่โหลดโมเดลใบหน้า, ไม่รัน face loop → เย็นและประหยัดแบต
+   */
+  mode?: "face" | "qr";
+}
 
-const FaceScanTab = () => {
+const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
+  const qrOnly = mode === "qr";
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const cooldownRef = useRef<Map<string, number>>(new Map());
@@ -72,10 +67,9 @@ const FaceScanTab = () => {
   const MIN_CONFIDENCE = BANK_GRADE.MIN_CONFIDENCE;
   const MIN_LANDMARK_SANITY = 0.55;
   const voiceEnabled = voiceSetting !== "false";
-  const { isAdmin, isDirector, isTeacher, userId, loading: roleLoading } = useUserRole();
+  const { isAdmin, isDirector } = useUserRole();
   const { homeroomClassroomIds, isFiltered } = useHomeroomClassrooms();
   const canConfirm = isAdmin || isDirector;
-  const canUseScanner = !!userId && (isAdmin || isDirector || isTeacher);
   const [confirming, setConfirming] = useState(false);
   // Multi-frame voting: studentId -> {hits, firstAt}
   const voteRef = useRef<Map<string, { hits: number; firstAt: number }>>(new Map());
@@ -178,60 +172,33 @@ const FaceScanTab = () => {
     }
   }, [geofence.configured, geofence.lat, geofence.lng, geofence.radius]);
 
-  // Load known faces from DB (both face-api v1 + ArcFace v2 embeddings)
+  // Load known faces from DB — ข้ามใน QR mode เพราะไม่ใช้ face descriptor
   const { data: known = [], refetch: refetchKnown } = useQuery({
-    queryKey: ["face-known", userId],
-    enabled: !roleLoading && canUseScanner,
+    queryKey: ["face-known"],
+    enabled: !qrOnly,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("student_face_descriptors")
-        .select("student_id, descriptor, embedding_v2, model_version, students!inner(id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name))");
+        .select("student_id, descriptor, students!inner(id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name))");
       if (error) throw error;
-      type RowKnown = KnownFace & { descriptorsV2: number[][]; name: string; classroom: string; studentCode: string; avatarUrl: string | null };
-      const map = new Map<string, RowKnown>();
+      const map = new Map<string, KnownFace & { name: string; classroom: string; studentCode: string; avatarUrl: string | null }>();
       for (const row of data as any[]) {
         const id = row.student_id;
         const s = row.students;
         const name = `${s.prefix || ""}${s.first_name} ${s.last_name}`.trim();
         const cls = s.classrooms ? `${s.classrooms.grade_level || ""}/${s.classrooms.name || ""}` : "-";
         const existing = map.get(id);
-        if (existing) {
-          existing.descriptors.push(row.descriptor as number[]);
-          if (row.embedding_v2) existing.descriptorsV2.push(row.embedding_v2 as number[]);
-        } else {
-          map.set(id, {
-            studentId: id,
-            descriptors: [row.descriptor as number[]],
-            descriptorsV2: row.embedding_v2 ? [row.embedding_v2 as number[]] : [],
-            name, classroom: cls,
-            studentCode: s.student_code || "",
-            avatarUrl: s.photo_url || null,
-          });
-        }
+        if (existing) existing.descriptors.push(row.descriptor as number[]);
+        else map.set(id, { studentId: id, descriptors: [row.descriptor as number[]], name, classroom: cls, studentCode: s.student_code || "", avatarUrl: s.photo_url || null });
       }
       return Array.from(map.values());
     },
     staleTime: 60_000,
   });
 
-  // ArcFace (DeepFace-grade) loader — non-blocking, fallback to face-api if it fails
-  // 🔋 QR-only mode: ข้ามการโหลดโมเดล ArcFace เพื่อประหยัดแรม/แบต
-  const [arcReady, setArcReady] = useState(false);
-  useEffect(() => {
-    if (QR_ONLY_MODE) return;
-    loadArcFace().then(() => setArcReady(true)).catch(() => setArcReady(false));
-  }, []);
-  // Precompute the ArcFace knowledge base — only students with v2 embeddings
-  const knownV2List: KnownArcFace[] = useMemo(
-    () => known.filter((k: any) => k.descriptorsV2?.length > 0)
-                .map((k: any) => ({ studentId: k.studentId, embeddings: k.descriptorsV2 })),
-    [known],
-  );
-
   // Total student denominator: homeroom students for teachers, all active for admin/director
   const [totalStudents, setTotalStudents] = useState<number>(0);
   useEffect(() => {
-    if (roleLoading || !canUseScanner) return;
     (async () => {
       let q = supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "active");
       if (isFiltered) {
@@ -244,13 +211,11 @@ const FaceScanTab = () => {
       const { count } = await q;
       setTotalStudents(count || 0);
     })();
-  }, [roleLoading, canUseScanner, isFiltered, homeroomClassroomIds]);
+  }, [isFiltered, homeroomClassroomIds]);
 
-  // Today's distinct student count + recent history (with realtime updates)
+  // Today's distinct student count + recent history
   useEffect(() => {
-    if (roleLoading || !canUseScanner) return;
-    let cancelled = false;
-    const load = async () => {
+    (async () => {
       const today = todayBangkok();
       const { data } = await supabase
         .from("face_scan_logs")
@@ -270,10 +235,9 @@ const FaceScanTab = () => {
         if (r.scan_type === "exit") exitSet.add(r.student_id);
         else entrySet.add(r.student_id);
       }
-      if (cancelled) return;
       seenTodayRef.current = { entry: entrySet, exit: exitSet };
       setTodayCounts({ entry: entrySet.size, exit: exitSet.size });
-      const history: RecentScan[] = await Promise.all(rows.slice(0, 8).map(async (r) => {
+      const history: RecentScan[] = rows.slice(0, 8).map((r) => {
         const s = r.students || {};
         const cls = s.classrooms ? `${s.classrooms.grade_level || ""}/${s.classrooms.name || ""}` : "-";
         return {
@@ -283,42 +247,30 @@ const FaceScanTab = () => {
           classroom: cls,
           confidence: Number(r.confidence) || 0,
           time: new Date(r.scan_time).toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-          registeredFace: s.photo_url ? await resolveDisplayImageUrl(s.photo_url) || s.photo_url : undefined,
+          registeredFace: s.photo_url || undefined,
           capturedFace: r.captured_face_url || undefined,
           entryMethod: r.entry_method || undefined,
           scanType: r.scan_type === "exit" ? "exit" : "entry",
         };
-      }));
-      if (!cancelled) setRecent(history);
-    };
-    load();
-    // Realtime: refresh whenever anyone inserts a scan today
-    const channel = supabase
-      .channel("face-scan-live")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "face_scan_logs" },
-        () => { load(); }
-      )
-      .subscribe();
-    return () => {
-      cancelled = true;
-      supabase.removeChannel(channel);
-    };
-  }, [roleLoading, canUseScanner, isFiltered, homeroomClassroomIds]);
+      });
+      setRecent(history);
+    })();
+  }, [isFiltered, homeroomClassroomIds]);
 
-
-  // Load model — ข้ามในโหมด QR-only (ประหยัด ~10MB + CPU)
+  // Load model — โหมด QR ไม่ต้องโหลดโมเดลใบหน้า (~28MB) → เปิดกล้องเร็ว + ประหยัดแบต
   useEffect(() => {
-    if (QR_ONLY_MODE) { setModelStatus("โหมด QR — พร้อมสแกน"); setModelReady(true); return; }
+    if (qrOnly) {
+      setModelStatus("โหมดสแกน QR — ประหยัดแบต");
+      setModelReady(true);
+      return;
+    }
     loadFaceModels(setModelStatus)
       .then(() => setModelReady(true))
       .catch((e) => setModelStatus("โหลดโมเดลล้มเหลว: " + e.message));
-  }, []);
+  }, [qrOnly]);
 
   // โหลดชื่อครูที่กำลังเข้าระบบ (ใช้แสดงว่าใครเป็นผู้บันทึก)
   useEffect(() => {
-    if (roleLoading || !userId) return;
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -333,7 +285,7 @@ const FaceScanTab = () => {
       if (pr) setScannerName(`${pr.first_name || ""} ${pr.last_name || ""}`.trim() || user.email || "");
       else setScannerName(user.email || "");
     })();
-  }, [roleLoading, userId]);
+  }, []);
 
   // บันทึกด้วยรหัสนักเรียน (สำรองตอนสแกนหน้า/QR ไม่ติด)
   const submitManualCode = useCallback(async () => {
@@ -354,8 +306,7 @@ const FaceScanTab = () => {
       }
       const cls = (data as any).classrooms ? `${(data as any).classrooms.grade_level || ""}/${(data as any).classrooms.name || ""}` : "-";
       const name = `${data.prefix || ""}${data.first_name} ${data.last_name}`.trim();
-      const registeredFace = data.photo_url ? await resolveDisplayImageUrl(data.photo_url) || data.photo_url : undefined;
-      await recordScan(data.id, data.student_code || code, name, cls, 1, undefined, registeredFace, "manual");
+      await recordScan(data.id, data.student_code || code, name, cls, 1, undefined, data.photo_url, "manual");
       setManualCode("");
     } catch (e: any) {
       toast.error("บันทึกล้มเหลว: " + (e?.message || ""));
@@ -462,24 +413,6 @@ const FaceScanTab = () => {
     if (videoRef.current) videoRef.current.srcObject = null;
     setStreaming(false);
   }, []);
-
-  // 🎯 Periodic autofocus re-trigger — บางรุ่น (Android เก่า, iPad, กล้อง USB) หยุดโฟกัสค้างหลังเปิดกล้อง
-  // เรียก triggerAutoFocus ทุก 3 วิ ระหว่างสแกน QR เพื่อให้ยังคมชัด
-  useEffect(() => {
-    if (!streaming) return;
-    const t = setInterval(() => {
-      const s = videoRef.current?.srcObject as MediaStream | null;
-      triggerAutoFocus(s);
-    }, 3000);
-    return () => clearInterval(t);
-  }, [streaming]);
-
-  // 🎯 Tap-to-focus — ผู้ใช้แตะจอเพื่อบังคับให้กล้องโฟกัสใหม่ทันที (รองรับทุกแพลตฟอร์ม)
-  const handleVideoTap = useCallback(() => {
-    const s = videoRef.current?.srcObject as MediaStream | null;
-    triggerAutoFocus(s);
-  }, []);
-
 
   /**
    * Confirm Mode — ถ่ายรูปสด match กับ DB แล้วเพิ่ม descriptor เข้านักเรียนคนนั้น
@@ -641,24 +574,15 @@ const FaceScanTab = () => {
   }, [voiceEnabled, setLive]);
 
   // Detection loop with HQ multi-face — fast cadence + far-distance + auto snapshot
-  // 🔋 Power-saving: idle throttling + visibility pause + auto-stop after long idle
-  const lastFaceAtRef = useRef<number>(Date.now());
-  const [autoPaused, setAutoPaused] = useState(false);
+  // ⚠️ ข้ามใน QR mode ทั้งหมด → ไม่มี face inference ต่อเฟรม (ประหยัดแบต ~50-70%)
   useEffect(() => {
-    if (QR_ONLY_MODE) return; // 🔋 ไม่รันตรวจใบหน้าในหน้านี้ — ใช้โหมดคีออสเท่านั้น
+    if (qrOnly) return;
     if (!streaming || !modelReady) return;
     let cancelled = false;
-    lastFaceAtRef.current = Date.now();
-    setAutoPaused(false);
     // iOS Safari รับภาระจับใบหน้า + QR พร้อมกันได้จำกัด จึงลดงานฝั่ง face ลงเพื่อให้ QR ติดเสถียรกว่า
     const opts = detectorOptionsHQ(isIOS ? 416 : 608, isIOS ? 0.42 : 0.35);
     const unknownCooldownRef = { current: 0 };
     const snapCanvas = document.createElement("canvas");
-
-    // 🔋 ค่าประหยัดพลังงาน
-    const IDLE_AFTER_MS = 5_000;          // ไม่เจอใบหน้า 5 วิ → เข้าโหมดประหยัด
-    const IDLE_WAIT_MS = 800;             // โหมดประหยัด: ลูปทุก 800ms (จาก ~160ms)
-    const AUTO_STOP_AFTER_MS = 60_000; // ไม่มีคนผ่าน 1 นาที → ปิดกล้องเอง
 
     const captureFaceCrop = (video: HTMLVideoElement, box: { x: number; y: number; width: number; height: number }): string | undefined => {
       try {
@@ -679,20 +603,6 @@ const FaceScanTab = () => {
     const MIN_SHARPNESS = 60;
     const loop = async () => {
       if (cancelled || !videoRef.current || videoRef.current.readyState < 2) { if (!cancelled) setTimeout(loop, 500); return; }
-
-      // 🔋 หยุดทำงานเมื่อสลับไปแท็บอื่น/ล็อกจอ
-      if (document.hidden) {
-        if (!cancelled) setTimeout(loop, 1000);
-        return;
-      }
-
-      // 🔋 ปิดกล้องอัตโนมัติเมื่อไม่มีคนผ่านนาน — กันเครื่องร้อน/แบตหมด
-      if (Date.now() - lastFaceAtRef.current > AUTO_STOP_AFTER_MS) {
-        setAutoPaused(true);
-        stopCamera();
-        return;
-      }
-
       const tStart = performance.now();
       try {
         const video = videoRef.current;
@@ -701,7 +611,6 @@ const FaceScanTab = () => {
         const detections = await getAllDescriptors(pre as any, opts);
         const srcW = pre instanceof HTMLCanvasElement ? pre.width : video.videoWidth;
         const scaleBack = video.videoWidth / Math.max(1, srcW);
-        if (detections.length > 0) lastFaceAtRef.current = Date.now();
         const canvas = overlayRef.current;
         if (canvas && video) {
           canvas.width = video.videoWidth; canvas.height = video.videoHeight;
@@ -724,39 +633,11 @@ const FaceScanTab = () => {
               const notHuman = sanity < MIN_LANDMARK_SANITY;
               const faceTooSmall = Math.min(box.width, box.height) < BANK_GRADE.MIN_FACE_SIZE_SCAN;
 
-              // ===== Hybrid matching: ArcFace (DeepFace-grade, ~99.4%) first, face-api fallback =====
-              let m: MatchResult;
-              let usedArcFace = false;
-              if (arcReady && knownV2List.length > 0) {
-                let v2: Float32Array | null = null;
-                try { v2 = await computeArcFaceEmbedding(video, det.landmarks); } catch { v2 = null; }
-                if (v2) {
-                  const am = matchArcFace(v2, knownV2List, ARCFACE_GRADE.MATCH_THRESHOLD);
-                  if (am.studentId && am.margin >= ARCFACE_GRADE.MIN_MARGIN) {
-                    // Strong ArcFace match — trust it, build a face-api-compatible result
-                    usedArcFace = true;
-                    m = {
-                      studentId: am.studentId,
-                      distance: 1 - am.similarity,
-                      confidence: Math.max(MIN_CONFIDENCE, am.similarity),
-                      secondDistance: 1 - am.secondSimilarity,
-                      margin: am.margin,
-                    };
-                  } else {
-                    m = matchDescriptor(det.descriptor, known, threshold);
-                  }
-                } else {
-                  m = matchDescriptor(det.descriptor, known, threshold);
-                }
-              } else {
-                m = matchDescriptor(det.descriptor, known, threshold);
-              }
-              const ambiguous = m.studentId != null && m.margin < (usedArcFace ? ARCFACE_GRADE.MIN_MARGIN : MIN_MARGIN);
+              const m = matchDescriptor(det.descriptor, known, threshold);
+              const ambiguous = m.studentId != null && m.margin < MIN_MARGIN;
               const lowConfidence = m.studentId != null && m.confidence < MIN_CONFIDENCE;
               const passQuality = !tooBlurry && !notHuman && !faceTooSmall;
-              const passMatch = usedArcFace
-                ? (m.studentId != null && !ambiguous)            // ArcFace already vetted
-                : (!ambiguous && !lowConfidence && isStrongMatch(m));
+              const passMatch = !ambiguous && !lowConfidence && isStrongMatch(m);
               const matchedId = (passQuality && passMatch) ? m.studentId : null;
               const found = matchedId ? known.find((k) => k.studentId === matchedId) as any : null;
 
@@ -819,28 +700,17 @@ const FaceScanTab = () => {
       } catch (e) {
         console.error("detect err", e);
       }
-      // 🔋 Adaptive cadence — ไม่เจอใบหน้านาน → ลูปช้าลง 5 เท่า ลด CPU/แบต
-      const idle = Date.now() - lastFaceAtRef.current > IDLE_AFTER_MS;
+      // ให้ event loop หายใจเสมอ — กล้อง/UI จะลื่นขึ้นมาก (กันลูปวิ่งติดกันจนวิดีโอกระตุก)
       const elapsed = performance.now() - tStart;
-      const wait = idle
-        ? IDLE_WAIT_MS
-        : isIOS
-          ? (elapsed > 180 ? 160 : 240)
-          : Math.max(100, elapsed > 250 ? 100 : 160);
+      const wait = isIOS
+        ? (elapsed > 180 ? 160 : 240)
+        : Math.max(100, elapsed > 250 ? 100 : 160);
       if (!cancelled) setTimeout(loop, wait);
     };
 
-    // 🔋 Resume เร็วขึ้นหลังกลับมาที่แท็บ
-    const onVis = () => { if (!document.hidden) lastFaceAtRef.current = Date.now(); };
-    document.addEventListener("visibilitychange", onVis);
-
     loop();
-    return () => {
-      cancelled = true;
-      document.removeEventListener("visibilitychange", onVis);
-    };
-  }, [streaming, modelReady, known, knownV2List, arcReady, threshold, recordScan, setLive, isIOS, facing]);
-
+    return () => { cancelled = true; };
+  }, [streaming, modelReady, known, threshold, recordScan, setLive, isIOS]);
 
   // QR scanning loop — ใช้ BarcodeDetector ถ้ามี (Chrome/Android) มิฉะนั้น fallback ไป jsQR (Safari/iOS)
   useEffect(() => {
@@ -896,27 +766,27 @@ const FaceScanTab = () => {
       if (data) {
         const cls = (data as any).classrooms ? `${(data as any).classrooms.grade_level || ""}/${(data as any).classrooms.name || ""}` : "-";
         const name = `${data.prefix || ""}${data.first_name} ${data.last_name}`.trim();
-        const registeredFace = data.photo_url ? await resolveDisplayImageUrl(data.photo_url) || data.photo_url : undefined;
-        await recordScan(data.id, data.student_code || code, name, cls, 1, undefined, registeredFace, "qr");
+        await recordScan(data.id, data.student_code || code, name, cls, 1, undefined, data.photo_url, "qr");
       } else {
         toast.error(`ไม่พบนักเรียนรหัส ${code}`);
       }
     };
 
-    const scanWithJsQr = async (video: HTMLVideoElement) => {
-      if (!jsQR || !scanCtx || !video.videoWidth || !video.videoHeight) return null;
+    const scanWithJsQr = async (video: HTMLVideoElement): Promise<string[]> => {
+      if (!jsQR || !scanCtx || !video.videoWidth || !video.videoHeight) return [];
 
+      const W = video.videoWidth, H = video.videoHeight;
+      // Full frame + 4 quadrants + center → รองรับ QR หลายอันในเฟรมเดียว
       const passes = [
-        { sx: 0, sy: 0, sw: video.videoWidth, sh: video.videoHeight, maxW: isIOS ? 960 : 800 },
-        {
-          sx: video.videoWidth * 0.18,
-          sy: video.videoHeight * 0.18,
-          sw: video.videoWidth * 0.64,
-          sh: video.videoHeight * 0.64,
-          maxW: isIOS ? 1100 : 900,
-        },
+        { sx: 0, sy: 0, sw: W, sh: H, maxW: isIOS ? 960 : 800 },
+        { sx: 0, sy: 0, sw: W * 0.55, sh: H * 0.55, maxW: 700 },
+        { sx: W * 0.45, sy: 0, sw: W * 0.55, sh: H * 0.55, maxW: 700 },
+        { sx: 0, sy: H * 0.45, sw: W * 0.55, sh: H * 0.55, maxW: 700 },
+        { sx: W * 0.45, sy: H * 0.45, sw: W * 0.55, sh: H * 0.55, maxW: 700 },
+        { sx: W * 0.2, sy: H * 0.2, sw: W * 0.6, sh: H * 0.6, maxW: isIOS ? 1100 : 900 },
       ];
 
+      const found = new Set<string>();
       for (const pass of passes) {
         const scale = Math.min(1, pass.maxW / pass.sw);
         const w = Math.max(1, Math.floor(pass.sw * scale));
@@ -927,10 +797,10 @@ const FaceScanTab = () => {
         scanCtx.drawImage(video, pass.sx, pass.sy, pass.sw, pass.sh, 0, 0, w, h);
         const img = scanCtx.getImageData(0, 0, w, h);
         const res = jsQR(img.data, w, h, { inversionAttempts: isIOS ? "attemptBoth" : "dontInvert" });
-        if (res?.data) return res.data;
+        if (res?.data) found.add(res.data);
       }
 
-      return null;
+      return [...found];
     };
 
     const loop = async () => {
@@ -939,14 +809,17 @@ const FaceScanTab = () => {
       try {
         if (qrDetectorRef.current) {
           const codes = await qrDetectorRef.current.detect(video);
-          for (const c of codes || []) await handleCode(c.rawValue || "");
+          // ประมวลผลทุก QR ในเฟรมพร้อมกัน
+          await Promise.all((codes || []).map((c: any) => handleCode(c.rawValue || "")));
         } else {
-          const result = await scanWithJsQr(video);
-          if (result) await handleCode(result);
+          const results = await scanWithJsQr(video);
+          await Promise.all(results.map((r) => handleCode(r)));
         }
       } catch {}
-      if (!cancelled) setTimeout(loop, isIOS ? 220 : 300);
+      // Desktop Chromium (BarcodeDetector): 120ms — จับไวขึ้น 2 เท่า
+      if (!cancelled) setTimeout(loop, qrDetectorRef.current ? 120 : (isIOS ? 260 : 320));
     };
+
 
     if (hasBD) {
       loop();
@@ -970,16 +843,9 @@ const FaceScanTab = () => {
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <Badge variant={modelReady ? "default" : "secondary"}>
-                {QR_ONLY_MODE ? "โหมด QR (ประหยัดแบต)" : (modelReady ? "พร้อมสแกน" : modelStatus)}
+                {modelReady ? (qrOnly ? "พร้อมสแกน QR (ประหยัดแบต)" : "พร้อมสแกน") : modelStatus}
               </Badge>
-              {!QR_ONLY_MODE && <Badge variant="outline">{known.length} ใบหน้าในระบบ</Badge>}
-              {!QR_ONLY_MODE && (arcReady ? (
-                <Badge className="bg-brand-entry/15 text-brand-entry border-success/30 gap-1">
-                  <ShieldCheck className="w-3 h-3" /> ArcFace (DeepFace-grade) • {knownV2List.length} คน
-                </Badge>
-              ) : (
-                <Badge variant="secondary" className="gap-1 text-xs">กำลังโหลด ArcFace...</Badge>
-              ))}
+              {!qrOnly && <Badge variant="outline">{known.length} ใบหน้าในระบบ</Badge>}
               {geofence.configured && (
                 <Badge
                   variant={geoStatus.ok ? "default" : "destructive"}
@@ -996,18 +862,17 @@ const FaceScanTab = () => {
               )}
             </div>
             <div className="flex gap-2 flex-wrap">
-              <Button
-                onClick={() => window.open("/face-kiosk", "_blank")}
-                variant="outline"
-                className="gap-2"
-              >
-                <Monitor className="w-4 h-4" />โหมดคีออส (แทปเลต)
-              </Button>
-              {!streaming ? (
-                <Button onClick={() => { unlockAudio(); setAutoPaused(false); startCamera(); }} disabled={!modelReady} className={autoPaused ? "bg-warning text-warning-foreground hover:bg-warning/90" : "gradient-primary"}>
-                  <Camera className="w-4 h-4 mr-2" />
-                  {autoPaused ? "แตะเพื่อกลับมาสแกน (พักอัตโนมัติเพื่อประหยัดแบต)" : "เปิดกล้อง"}
+              {!qrOnly && (
+                <Button
+                  onClick={() => window.open("/face-kiosk", "_blank")}
+                  variant="outline"
+                  className="gap-2"
+                >
+                  <Monitor className="w-4 h-4" />โหมดคีออส (แทปเลต)
                 </Button>
+              )}
+              {!streaming ? (
+                <Button onClick={() => { unlockAudio(); startCamera(); }} disabled={!modelReady} className="gradient-primary"><Camera className="w-4 h-4 mr-2" />เปิดกล้อง</Button>
               ) : (
                 <>
                   <Button onClick={switchCamera} variant="outline" title="สลับกล้องหน้า/หลัง"><SwitchCamera className="w-4 h-4 mr-2" />สลับกล้อง ({facing === "user" ? "หน้า" : "หลัง"})</Button>
@@ -1015,12 +880,12 @@ const FaceScanTab = () => {
                     {isFullscreen ? <Minimize className="w-4 h-4 mr-2" /> : <Maximize className="w-4 h-4 mr-2" />}
                     {isFullscreen ? "ออกเต็มจอ" : "เต็มจอ"}
                   </Button>
-                  {!QR_ONLY_MODE && canConfirm && (
+                  {!qrOnly && canConfirm && (
                     <Button
                       onClick={runConfirmMode}
                       disabled={confirming}
                       variant="outline"
-                      className="border-brand-entry/40 text-brand-entry hover:bg-brand-entry/10"
+                      className="border-emerald-500/40 text-emerald-700 hover:bg-emerald-500/10"
                       title="ถ่ายรูปสด → ระบบจับคู่ → เพิ่ม descriptor เข้าฐานเพื่อเพิ่มความแม่นยำกล้องนี้"
                     >
                       <ShieldCheck className="w-4 h-4 mr-2" />{confirming ? "กำลังยืนยัน..." : "Confirm Mode"}
@@ -1033,12 +898,12 @@ const FaceScanTab = () => {
           </div>
 
           {/* โหมดสแกน: "เข้า-ออก อัตโนมัติ" หรือ "เข้าอย่างเดียว" */}
-          <div className={`grid grid-cols-2 gap-2 p-1.5 rounded-xl border-2 ${scanMode === "exit" ? "border-brand-exit/40 bg-brand-exit/5" : "border-brand-entry/40 bg-brand-entry/5"}`}>
+          <div className={`grid grid-cols-2 gap-2 p-1.5 rounded-xl border-2 ${scanMode === "exit" ? "border-rose-500/40 bg-rose-500/5" : "border-emerald-500/40 bg-emerald-500/5"}`}>
             <button
               type="button"
               onClick={() => setScanModeSelection("auto")}
               title={`สลับเข้า/ออก อัตโนมัติเวลา ${modeCutoff} น. (ตอนนี้: ${scanMode === "exit" ? "ออก" : "เข้า"})`}
-              className={`flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg font-semibold transition ${scanModeSelection === "auto" ? (scanMode === "exit" ? "bg-brand-exit text-brand-exit-foreground shadow-md" : "bg-brand-entry text-brand-entry-foreground shadow-md") : "bg-transparent text-muted-foreground hover:bg-muted/50"}`}
+              className={`flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg font-semibold transition ${scanModeSelection === "auto" ? (scanMode === "exit" ? "bg-rose-600 text-white shadow-md" : "bg-emerald-600 text-white shadow-md") : "bg-transparent text-muted-foreground hover:bg-slate-500/10"}`}
             >
               <span className="flex items-center gap-1.5"><Clock className="w-4 h-4" /> เข้า-ออก อัตโนมัติ</span>
               <span className="text-[10px] opacity-90">
@@ -1048,22 +913,15 @@ const FaceScanTab = () => {
             <button
               type="button"
               onClick={() => setScanModeSelection("entry")}
-              className={`flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg font-semibold transition ${scanModeSelection === "entry" ? "bg-brand-entry text-brand-entry-foreground shadow-md" : "bg-transparent text-muted-foreground hover:bg-brand-entry/10"}`}
+              className={`flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg font-semibold transition ${scanModeSelection === "entry" ? "bg-emerald-600 text-white shadow-md" : "bg-transparent text-muted-foreground hover:bg-emerald-500/10"}`}
             >
               <span className="flex items-center gap-1.5"><LogIn className="w-4 h-4" /> เข้าอย่างเดียว</span>
               <span className="text-[10px] opacity-90">บันทึก "เข้าโรงเรียน" ตลอดวัน</span>
             </button>
           </div>
 
-          {QR_ONLY_MODE && (
-            <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary flex items-center gap-2">
-              <ScanFace className="w-4 h-4" />
-              <span>โหมด <b>สแกน QR อย่างเดียว</b> เพื่อประหยัดแบตและ CPU ของมือถือ · การสแกนใบหน้าให้ใช้ <b>โหมดคีออส</b> (แทปเลตประจำจุด) · แตะที่ภาพเพื่อสั่งโฟกัสใหม่</span>
-            </div>
-          )}
-
           <div ref={videoBoxRef} className={`relative bg-black rounded-xl overflow-hidden ${isFullscreen ? "w-screen h-screen rounded-none" : "aspect-[4/3] md:aspect-video md:max-h-[78vh] md:min-h-[520px] mx-auto w-full"}`}>
-            <video ref={videoRef} onClick={handleVideoTap} className="w-full h-full object-contain cursor-crosshair" muted playsInline />
+            <video ref={videoRef} className="w-full h-full object-contain" muted playsInline />
             <canvas ref={overlayRef} className="absolute inset-0 w-full h-full pointer-events-none" />
             {isFullscreen && (
               <Button onClick={toggleFullscreen} size="sm" variant="secondary" className="absolute top-3 right-3 z-10 gap-1">
@@ -1075,8 +933,8 @@ const FaceScanTab = () => {
               <div className={`absolute left-1/2 -translate-x-1/2 z-10 pointer-events-none ${isFullscreen ? "top-6" : "top-3"}`}>
                 <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/60 backdrop-blur-md text-white text-sm shadow-lg">
                   <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-entry opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-entry" />
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
                   </span>
                   <span className="font-medium">กำลังสแกน{scanMode === "exit" ? "ออก" : "เข้า"}</span>
                   <span className="opacity-70">•</span>
@@ -1089,12 +947,12 @@ const FaceScanTab = () => {
                 <div
                   className={`flex flex-col items-center text-center px-6 py-3 rounded-2xl backdrop-blur-md text-white shadow-2xl border ${
                     liveStatus.kind === "success"
-                      ? "bg-brand-entry/85 border-success/40"
+                      ? "bg-emerald-600/85 border-emerald-300/40"
                       : liveStatus.kind === "duplicate"
-                      ? "bg-warning/85 border-warning/40"
+                      ? "bg-amber-600/85 border-amber-300/40"
                       : liveStatus.kind === "unknown"
-                      ? "bg-brand-exit/85 border-danger/40"
-                      : "bg-neutral/85 border-white/20"
+                      ? "bg-rose-600/85 border-rose-300/40"
+                      : "bg-slate-800/85 border-white/20"
                   } ${isFullscreen ? "text-2xl" : "text-base"}`}
                 >
                   <span className="font-bold leading-tight">{liveStatus.text}</span>
@@ -1142,7 +1000,7 @@ const FaceScanTab = () => {
                 autoComplete="off"
                 inputMode="numeric"
               />
-              <Button type="submit" disabled={manualLoading || !manualCode.trim()} className={scanMode === "exit" ? "bg-brand-exit text-brand-exit-foreground hover:bg-brand-exit/90" : "gradient-primary"}>
+              <Button type="submit" disabled={manualLoading || !manualCode.trim()} className={scanMode === "exit" ? "bg-rose-600 hover:bg-rose-700 text-white" : "gradient-primary"}>
                 {manualLoading ? "กำลังบันทึก..." : scanMode === "exit" ? "บันทึกออกจากโรงเรียน" : "บันทึกเข้าโรงเรียน"}
               </Button>
             </form>
@@ -1155,7 +1013,7 @@ const FaceScanTab = () => {
 
       <Card>
         <CardContent className="p-4 space-y-3">
-          <h3 className="font-semibold flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-brand-entry" />ล่าสุด</h3>
+          <h3 className="font-semibold flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" />ล่าสุด</h3>
           {recent.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8 flex flex-col items-center gap-2">
               <AlertCircle className="w-8 h-8 opacity-50" />
@@ -1164,18 +1022,18 @@ const FaceScanTab = () => {
           ) : (
             <div className="space-y-2 max-h-[560px] overflow-auto">
               {recent.map((r, i) => (
-                <div key={i} className={`p-2 rounded-lg border space-y-2 ${r.scanType === "exit" ? "bg-brand-exit/10 border-brand-exit/30" : "bg-brand-entry/10 border-brand-entry/30"}`}>
+                <div key={i} className={`p-2 rounded-lg border space-y-2 ${r.scanType === "exit" ? "bg-rose-500/10 border-rose-500/30" : "bg-emerald-500/10 border-emerald-500/30"}`}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-medium text-sm truncate flex items-center gap-1.5">
-                        {r.scanType === "exit" ? <LogOut className="w-3.5 h-3.5 text-brand-exit shrink-0" /> : <LogIn className="w-3.5 h-3.5 text-brand-entry shrink-0" />}
+                        {r.scanType === "exit" ? <LogOut className="w-3.5 h-3.5 text-rose-600 shrink-0" /> : <LogIn className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
                         <span className="truncate">{r.name}</span>
                       </p>
                       <p className="text-xs text-muted-foreground">
                         เลขที่ <span className="font-mono font-semibold">{r.studentCode || "-"}</span> • ชั้น {r.classroom} • {r.time}
                       </p>
                       <p className="text-[11px] text-muted-foreground flex items-center gap-1 flex-wrap mt-0.5">
-                        <Badge variant="secondary" className={`text-[10px] h-4 px-1.5 ${r.scanType === "exit" ? "bg-brand-exit text-brand-exit-foreground" : "bg-brand-entry text-brand-entry-foreground"}`}>
+                        <Badge variant="secondary" className={`text-[10px] h-4 px-1.5 ${r.scanType === "exit" ? "bg-rose-600 text-white" : "bg-emerald-600 text-white"}`}>
                           {r.scanType === "exit" ? "ออก" : "เข้า"}
                         </Badge>
                         <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
@@ -1184,13 +1042,17 @@ const FaceScanTab = () => {
                         {r.scannerName && <span>โดย <span className="font-medium text-foreground">{r.scannerName}</span></span>}
                       </p>
                     </div>
-                    <Badge variant="outline" className={`shrink-0 ${r.scanType === "exit" ? "text-brand-exit border-danger/40" : "text-brand-entry border-success/40"}`}>{Math.round(r.confidence * 100)}%</Badge>
+                    <Badge variant="outline" className={`shrink-0 ${r.scanType === "exit" ? "text-rose-600 border-rose-500/40" : "text-emerald-600 border-emerald-500/40"}`}>{Math.round(r.confidence * 100)}%</Badge>
                   </div>
                   {(r.capturedFace || r.registeredFace) && (
                     <div className="grid grid-cols-2 gap-2 pt-1">
                       <div className="text-center">
                         <div className="aspect-square rounded-md overflow-hidden bg-muted border">
-                          <RecentRegisteredFace src={r.registeredFace} />
+                          {r.registeredFace ? (
+                            <img src={r.registeredFace} alt="ลงทะเบียน" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">ไม่มีรูป</div>
+                          )}
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-1">ลงทะเบียน</p>
                       </div>
@@ -1202,7 +1064,7 @@ const FaceScanTab = () => {
                             <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">-</div>
                           )}
                         </div>
-                        <p className="text-[10px] text-brand-entry mt-1 font-medium">ที่ตรวจพบ</p>
+                        <p className="text-[10px] text-emerald-600 mt-1 font-medium">ที่ตรวจพบ</p>
                       </div>
                     </div>
                   )}

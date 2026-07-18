@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { toCE } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Time24Input } from "@/components/ui/time24-input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,8 +18,41 @@ import { Plus, Trash2, BookOpen, Calendar as CalendarIcon, Clock, MapPin, User, 
 import { toast } from "sonner";
 import { swal } from "@/lib/swal";
 import { usePeriodSchedule } from "@/lib/periodSchedule";
-import { DateInput } from "@/components/ui/date-input";
-import { TimeInput } from "@/components/ui/time-input";
+import { notifyRole } from "@/lib/notify";
+import { BE_OFFSET } from "@/lib/dateBE";
+
+function fmtDateTh(s: string) {
+  try {
+    const d = new Date(s + "T00:00:00");
+    return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+  } catch { return s; }
+}
+async function notifyAdminsRoomBooking(opts: {
+  roomName: string;
+  teacherName: string;
+  subjectName?: string | null;
+  dates: string[];
+  start: string;
+  end: string;
+}) {
+  const dateLabel = opts.dates.length === 1
+    ? fmtDateTh(opts.dates[0])
+    : `${fmtDateTh(opts.dates[0])} (+${opts.dates.length - 1} ครั้ง)`;
+  const body = `${opts.teacherName} จอง${opts.subjectName ? ` · ${opts.subjectName}` : ""} · ${dateLabel} · ${opts.start}–${opts.end}`;
+  const payload = {
+    title: `📅 จองห้อง ${opts.roomName}`,
+    body,
+    type: "room_booking",
+    severity: "info" as const,
+    url: "/dashboard/academic/learning-center",
+    channels: ["in_app", "push"] as ("in_app" | "push")[],
+    dedup_key: `room-booking-${opts.roomName}-${opts.dates[0]}-${opts.start}`,
+  };
+  await Promise.all([
+    notifyRole("admin", payload),
+    notifyRole("director", payload),
+  ]);
+}
 
 const DAYS = [
   { val: 1, th: "จันทร์" },
@@ -28,10 +63,10 @@ const DAYS = [
 ];
 // Static Tailwind classes (dynamic `bg-${color}-500/10` would be purged at build)
 const ROOM_TILE: Record<string, string> = {
-  emerald: "bg-success/10 text-success", sky: "bg-info/10 text-info",
-  violet: "bg-info/10 text-info", amber: "bg-warning/10 text-warning",
-  rose: "bg-danger/10 text-danger", indigo: "bg-info/10 text-info",
-  teal: "bg-success/10 text-success", fuchsia: "bg-danger/10 text-danger",
+  emerald: "bg-emerald-500/10 text-emerald-500", sky: "bg-sky-500/10 text-sky-500",
+  violet: "bg-violet-500/10 text-violet-500", amber: "bg-amber-500/10 text-amber-500",
+  rose: "bg-rose-500/10 text-rose-500", indigo: "bg-indigo-500/10 text-indigo-500",
+  teal: "bg-teal-500/10 text-teal-500", fuchsia: "bg-fuchsia-500/10 text-fuchsia-500",
 };
 
 const dayOfWeek = (dateStr: string) => {
@@ -66,7 +101,7 @@ export default function LearningCenterPage() {
   // Compute current semester date range (used by "รายเทอม" booking mode)
   const semesterRange = useMemo(() => {
     const now = new Date();
-    const ceYear = (currentAcademicYear || (now.getFullYear() + 543)) - 543;
+    const ceYear = (currentAcademicYear || (now.getFullYear() + BE_OFFSET)) - BE_OFFSET;
     const sem = currentSemester || 1;
     let startMonth: number, endMonth: number, startYear: number, endYear: number;
     if (sem === 1) {
@@ -190,7 +225,7 @@ export default function LearningCenterPage() {
         .from("schedules")
         .select("subject_id, classroom_id, subjects(id, code, name_th), classrooms(id, name)")
         .eq("teacher_id", myPersonnel!.id)
-        .eq("academic_year", currentAcademicYear || new Date().getFullYear())
+        .eq("academic_year", toCE(currentAcademicYear || new Date().getFullYear() + BE_OFFSET))
         .eq("semester", currentSemester || 1);
       return data || [];
     },
@@ -231,16 +266,63 @@ export default function LearningCenterPage() {
     },
   });
 
-  // Realtime
+  // Nearest upcoming booking for this room — used to guide users when the current week is empty.
+  const { data: nearestBooking } = useQuery({
+    queryKey: ["lcb_nearest_booking", selectedRoomId],
+    enabled: !!selectedRoomId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("learning_center_bookings")
+        .select("id, booking_date, start_time, end_time, period, subject_name, teacher_name")
+        .eq("status", "confirmed")
+        .eq("room_id", selectedRoomId)
+        .gte("booking_date", isoDate(new Date()))
+        .order("booking_date")
+        .order("start_time")
+        .limit(1)
+        .maybeSingle();
+      return data || null;
+    },
+  });
+
+  // Auto-jump weekStart to the first week that has bookings (if current week is empty)
+  const userMovedWeek = useRef(false);
+  useEffect(() => {
+    if (!selectedRoomId || tab !== "week" || userMovedWeek.current) return;
+    (async () => {
+      const { data } = await supabase
+        .from("learning_center_bookings")
+        .select("booking_date")
+        .eq("status", "confirmed")
+        .eq("room_id", selectedRoomId)
+        .gte("booking_date", isoDate(weekStart))
+        .order("booking_date")
+        .limit(1);
+      const first = data?.[0]?.booking_date;
+      if (!first) return;
+      const firstDate = new Date(first + "T00:00:00");
+      if (firstDate > weekEnd) {
+        setWeekStart(startOfWeek(firstDate));
+      }
+    })();
+  }, [selectedRoomId, tab]);
+
+
+  // Realtime — listen for booking changes and refetch
   useEffect(() => {
     const ch = supabase
-      .channel("lcb-realtime")
+      .channel(`lcb-realtime-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "learning_center_bookings" }, () => {
-        qc.invalidateQueries({ queryKey: ["lcb_bookings"] });
+        qc.invalidateQueries({ queryKey: ["lcb_bookings"], refetchType: "active" });
+        qc.invalidateQueries({ queryKey: ["lcb_nearest_booking"], refetchType: "active" });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "special_rooms" }, () => {
+        qc.invalidateQueries({ queryKey: ["special_rooms_active"], refetchType: "active" });
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [qc]);
+
 
   const teacherNames = useMemo(() => {
     const s = new Set<string>();
@@ -321,6 +403,8 @@ export default function LearningCenterPage() {
     }));
 
 
+    let firstVisibleDate: string | null = null;
+
     if (bMode === "single") {
       const { error } = await supabase.from("learning_center_bookings").insert(rows[0]);
       if (error) {
@@ -329,6 +413,7 @@ export default function LearningCenterPage() {
         }
         return toast.error(error.message);
       }
+      firstVisibleDate = rows[0].booking_date;
       toast.success(`จองห้อง ${selectedRoom?.name || ""} เรียบร้อย`);
     } else {
       // Insert each — collect successes/failures so partial conflicts don't block all
@@ -344,6 +429,7 @@ export default function LearningCenterPage() {
           }
         } else {
           ok++;
+          if (!firstVisibleDate) firstVisibleDate = row.booking_date;
         }
       }
       if (ok === 0) {
@@ -356,9 +442,32 @@ export default function LearningCenterPage() {
       }
     }
 
+    // Notify admins/directors of the new booking(s) — fans out to in-app + Web Push
+    try {
+      const successDates = bMode === "single"
+        ? [rows[0].booking_date]
+        : rows.map((r) => r.booking_date).filter((d) => !(/* conflicts captured above */ false));
+      await notifyAdminsRoomBooking({
+        roomName: selectedRoom?.name || "—",
+        teacherName: myTeacherName || "ครู",
+        subjectName: subjectName,
+        dates: successDates,
+        start: bStart,
+        end: bEnd,
+      });
+    } catch (_) { /* notify is fire-and-forget */ }
+
     setOpen(false);
     resetForm();
+    setSelectedRoomId(bRoomId);
+    setTab("week");
+    setFilterTeacher("all");
+    if (firstVisibleDate) {
+      userMovedWeek.current = false;
+      setWeekStart(startOfWeek(new Date(firstVisibleDate + "T00:00:00")));
+    }
     qc.invalidateQueries({ queryKey: ["lcb_bookings"] });
+    qc.invalidateQueries({ queryKey: ["lcb_nearest_booking"] });
   };
 
 
@@ -389,6 +498,12 @@ export default function LearningCenterPage() {
     e.setDate(weekStart.getDate() + 6);
     return `${weekStart.toLocaleDateString("th-TH", { day: "2-digit", month: "short" })} – ${e.toLocaleDateString("th-TH", { day: "2-digit", month: "short", year: "numeric" })}`;
   }, [weekStart]);
+
+  const nearestBookingOutsideWeek = useMemo(() => {
+    if (!nearestBooking?.booking_date) return false;
+    const d = new Date(nearestBooking.booking_date + "T00:00:00");
+    return d < weekStart || d > weekEnd;
+  }, [nearestBooking, weekStart, weekEnd]);
 
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-4">
@@ -473,12 +588,46 @@ export default function LearningCenterPage() {
         <TabsContent value="week" className="mt-4 space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d); }}>← สัปดาห์ก่อน</Button>
-              <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date()))}>วันนี้</Button>
-              <Button variant="outline" size="sm" onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d); }}>สัปดาห์ถัดไป →</Button>
+              <Button variant="outline" size="sm" onClick={() => { userMovedWeek.current = true; const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d); }}>← สัปดาห์ก่อน</Button>
+              <Button variant="outline" size="sm" onClick={() => { userMovedWeek.current = true; setWeekStart(startOfWeek(new Date())); }}>วันนี้</Button>
+              <Button variant="outline" size="sm" onClick={() => { userMovedWeek.current = true; const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d); }}>สัปดาห์ถัดไป →</Button>
+              {nearestBookingOutsideWeek && nearestBooking && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    userMovedWeek.current = true;
+                    setWeekStart(startOfWeek(new Date(nearestBooking.booking_date + "T00:00:00")));
+                  }}
+                >
+                  ไปสัปดาห์ที่มีจอง
+                </Button>
+              )}
             </div>
             <div className="text-sm font-medium text-muted-foreground">สัปดาห์ {weekLabel}</div>
           </div>
+
+          {nearestBookingOutsideWeek && nearestBooking && bookings.length === 0 && (
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="p-3 text-sm flex items-center justify-between gap-3 flex-wrap">
+                <div className="text-muted-foreground">
+                  มีการจองถัดไปวันที่ <span className="font-semibold text-foreground">{fmtDate(nearestBooking.booking_date)}</span>
+                  {" "}เวลา <span className="font-mono text-foreground">{nearestBooking.start_time.slice(0, 5)}–{nearestBooking.end_time.slice(0, 5)}</span>
+                  {nearestBooking.subject_name ? <span> · {nearestBooking.subject_name}</span> : null}
+                  {nearestBooking.teacher_name ? <span> · {nearestBooking.teacher_name}</span> : null}
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    userMovedWeek.current = true;
+                    setWeekStart(startOfWeek(new Date(nearestBooking.booking_date + "T00:00:00")));
+                  }}
+                >
+                  แสดงในตาราง
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Period-grid view — rows = periods (with lunch row), cols = 5 days */}
           <Card>
@@ -508,8 +657,8 @@ export default function LearningCenterPage() {
                     if (slot.kind === "lunch") {
                       return (
                         <tr key={`lunch-${slotIdx}`}>
-                          <td colSpan={DAYS.length + 1} className="border border-border p-2 text-center bg-warning-soft dark:bg-warning/20">
-                            <div className="flex items-center justify-center gap-2 text-sm font-medium text-warning dark:text-warning">
+                          <td colSpan={DAYS.length + 1} className="border border-border p-2 text-center bg-amber-50 dark:bg-amber-950/20">
+                            <div className="flex items-center justify-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-400">
                               <UtensilsCrossed className="w-4 h-4" />
                               พักรับประทานอาหารกลางวัน
                               <span className="text-xs font-normal opacity-80">({slot.start}–{slot.end})</span>
@@ -528,7 +677,13 @@ export default function LearningCenterPage() {
                           const d = new Date(weekStart);
                           d.setDate(weekStart.getDate() + idx);
                           const dateKey = isoDate(d);
-                          const bookings = (byDay[dateKey] || []).filter((b: any) => b.period === slot.period);
+                          const bookings = (byDay[dateKey] || []).filter((b: any) => {
+                            if (b.period != null) return b.period === slot.period;
+                            // No period set — match by time overlap with this slot
+                            const bs = (b.start_time || "").slice(0, 5);
+                            const be = (b.end_time || "").slice(0, 5);
+                            return bs < slot.end && be > slot.start;
+                          });
                           const past = d < new Date(new Date().toDateString());
                           const canBookCell = canBook && !past;
                           return (
@@ -627,7 +782,7 @@ export default function LearningCenterPage() {
       </Tabs>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-lg sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>จองห้องพิเศษ</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
@@ -645,7 +800,7 @@ export default function LearningCenterPage() {
             </div>
             <div>
               <Label>ประเภทการจอง</Label>
-              <div className="grid grid-cols-2 gap-2 mt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
                 <button
                   type="button"
                   onClick={() => setBMode("single")}
@@ -665,11 +820,11 @@ export default function LearningCenterPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {bMode === "single" ? (
                 <div className="col-span-3">
                   <Label>วันที่</Label>
-                  <DateInput value={bDate} onChange={(e) => setBDate(e.target.value)} />
+                  <Input type="date" value={bDate} onChange={(e) => setBDate(e.target.value)} />
                   {bDate && <p className="text-xs text-muted-foreground mt-1">{fmtDate(bDate)}</p>}
                 </div>
               ) : (
@@ -712,11 +867,11 @@ export default function LearningCenterPage() {
               </div>
               <div>
                 <Label>เวลาเริ่ม</Label>
-                <TimeInput value={bStart} onChange={(e) => setBStart(e.target.value)} />
+                <Time24Input withSeconds={false} value={bStart} onChange={(v) => setBStart(v)} />
               </div>
               <div className="col-span-2">
                 <Label>เวลาสิ้นสุด</Label>
-                <TimeInput value={bEnd} onChange={(e) => setBEnd(e.target.value)} />
+                <Time24Input withSeconds={false} value={bEnd} onChange={(v) => setBEnd(v)} />
               </div>
             </div>
 
@@ -726,7 +881,7 @@ export default function LearningCenterPage() {
             <div>
               <Label>วิชาของคุณ</Label>
               {subjectOptions.length === 0 ? (
-                <p className="text-xs text-warning mt-1">ยังไม่มีวิชาที่ได้รับมอบหมาย — สามารถจองได้แต่จะไม่มีวิชาแนบ</p>
+                <p className="text-xs text-amber-600 mt-1">ยังไม่มีวิชาที่ได้รับมอบหมาย — สามารถจองได้แต่จะไม่มีวิชาแนบ</p>
               ) : (
                 <Select value={bSubjectId} onValueChange={setBSubjectId}>
                   <SelectTrigger><SelectValue placeholder="-- เลือกวิชา --" /></SelectTrigger>

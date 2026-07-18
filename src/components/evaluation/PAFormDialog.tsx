@@ -1,238 +1,213 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Save, CheckCircle, FileText, ExternalLink } from "lucide-react";
+import { Save, CheckCircle, Upload, X, Image, FileText, ExternalLink } from "lucide-react";
+import { getIndicators, getResultLevel, SCORE_LEVELS, type PAIndicator } from "@/lib/paIndicators";
+import PAScoreSummary from "./PAScoreSummary";
+import PAIndicatorCard from "./PAIndicatorCard";
+import PAEvaluatorSection from "./PAEvaluatorSection";
+import PAPdfUpload from "./PAPdfUpload";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 interface Props {
   paId: string;
   open: boolean;
   onClose: () => void;
   canManageAll: boolean;
+  onApprove: (id: string, totalScore: number) => void;
 }
 
-// คะแนนเต็มแต่ละช่อง รวม 100
-const MAX = { d1: 20, d2: 20, d3: 20, p2: 40 };
-const TOTAL_MAX = MAX.d1 + MAX.d2 + MAX.d3 + MAX.p2;
+export default function PAFormDialog({ paId, open, onClose, canManageAll, onApprove }: Props) {
+  const qc = useQueryClient();
 
-const DOMAINS = [
-  { key: "d1" as const, label: "1. ด้านการจัดการเรียนการสอน", max: MAX.d1 },
-  { key: "d2" as const, label: "2. ด้านส่งเสริมสนับสนุนการเรียนรู้", max: MAX.d2 },
-  { key: "d3" as const, label: "3. ด้านการพัฒนาตนเองและพัฒนาวิชาชีพ", max: MAX.d3 },
-];
-
-export default function PAFormDialog({ paId, open, onClose, canManageAll }: Props) {
-  const { data: agreement, refetch } = useQuery({
+  const { data: agreement } = useQuery({
     queryKey: ["pa_agreement_detail", paId],
     queryFn: async () => {
-      const { data } = await supabase.from("pa_agreements")
-        .select("*, personnel(prefix, first_name, last_name, employee_code, position)")
-        .eq("id", paId).single();
+      const { data, error } = await supabase.from("pa_agreements")
+        .select("*, personnel(prefix, first_name, last_name, employee_code, position, position_level)")
+        .eq("id", paId).maybeSingle();
+      if (error) throw error;
       return data as any;
+    },
+    enabled: !!paId && open,
+  });
+
+  const { data: scores = [], refetch: refetchScores } = useQuery({
+    queryKey: ["pa_indicator_scores", paId],
+    queryFn: async () => {
+      const { data } = await supabase.from("pa_indicator_scores")
+        .select("*")
+        .eq("pa_agreement_id", paId)
+        .order("domain")
+        .order("indicator_number");
+      return (data || []) as any[];
     },
   });
 
-  const [scores, setScores] = useState({ d1: 0, d2: 0, d3: 0, p2: 0 });
+  const [localScores, setLocalScores] = useState<Record<string, { score: number; evidence: string; evaluator_comment: string; evidence_images: string[] }>>({});
   const [evaluatorName, setEvaluatorName] = useState("");
   const [evaluatorComments, setEvaluatorComments] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [pdfFileUrl, setPdfFileUrl] = useState("");
+  const [pdfFileName, setPdfFileName] = useState("");
+
+  useEffect(() => {
+    if (scores.length > 0) {
+      const map: Record<string, any> = {};
+      scores.forEach((s: any) => {
+        map[s.id] = {
+          score: Number(s.score || 0),
+          evidence: s.evidence || "",
+          evaluator_comment: s.evaluator_comment || "",
+          evidence_images: s.evidence_images || [],
+        };
+      });
+      setLocalScores(map);
+    }
+  }, [scores]);
 
   useEffect(() => {
     if (agreement) {
-      setScores({
-        d1: Number(agreement.part1_d1_score || 0),
-        d2: Number(agreement.part1_d2_score || 0),
-        d3: Number(agreement.part1_d3_score || 0),
-        p2: Number(agreement.part2_score || 0),
-      });
       setEvaluatorName(agreement.evaluator_name || "");
       setEvaluatorComments(agreement.evaluator_comments || "");
+      setPdfFileUrl((agreement as any).pdf_file_url || "");
+      setPdfFileName((agreement as any).pdf_file_name || "");
     }
   }, [agreement]);
 
   if (!agreement) return null;
 
-  const pName = agreement.personnel
-    ? `${agreement.personnel.prefix || ""}${agreement.personnel.first_name} ${agreement.personnel.last_name}`
-    : "-";
-  const totalScore = scores.d1 + scores.d2 + scores.d3 + scores.p2;
-  const pct = (totalScore / TOTAL_MAX) * 100;
-  const isApproved = agreement.status === "approved";
+  const posType = agreement.position_type || "teacher";
+  const indicators = getIndicators(posType);
+  const domains = [...new Set(indicators.map(i => i.domain))];
+  const isEditable = agreement.status === "draft" || (canManageAll && agreement.status === "submitted");
+  const pName = agreement.personnel ? `${agreement.personnel.prefix || ""}${agreement.personnel.first_name} ${agreement.personnel.last_name}` : "-";
 
-  const clamp = (v: number, max: number) => Math.max(0, Math.min(max, Number.isFinite(v) ? v : 0));
+  const allScoreValues = Object.values(localScores).map(s => s.score);
+  const totalAvg = allScoreValues.length > 0 ? allScoreValues.reduce((a, b) => a + b, 0) / allScoreValues.length : 0;
+  const domainAvgs = domains.map(d => {
+    const domainScoreIds = scores.filter((s: any) => s.domain === d).map((s: any) => s.id);
+    const domainValues = domainScoreIds.map(id => localScores[id]?.score || 0);
+    return {
+      domain: d,
+      avg: domainValues.length > 0 ? domainValues.reduce((a: number, b: number) => a + b, 0) / domainValues.length : 0,
+    };
+  });
 
-  const openPdf = async () => {
-    if (!agreement.pdf_file_url) return;
-    const { data } = await supabase.storage.from("pa-files").createSignedUrl(agreement.pdf_file_url, 300);
-    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
-  };
-
-  const handleSave = async (markApproved = false) => {
-    setSaving(true);
-    try {
-      const { error } = await supabase.from("pa_agreements").update({
-        part1_d1_score: scores.d1,
-        part1_d2_score: scores.d2,
-        part1_d3_score: scores.d3,
-        part2_score: scores.p2,
-        total_score: totalScore,
-        evaluator_name: evaluatorName,
-        evaluator_comments: evaluatorComments,
-        ...(markApproved
-          ? { status: "approved", evaluated_at: new Date().toISOString() }
-          : { status: agreement.status === "submitted" ? "evaluated" : agreement.status }),
-      } as any).eq("id", paId);
-      if (error) { toast.error(error.message); return; }
-      toast.success(markApproved ? "อนุมัติ PA แล้ว" : "บันทึกคะแนนสำเร็จ");
-      refetch();
-      if (markApproved) onClose();
-    } finally {
-      setSaving(false);
+  const handleSave = async () => {
+    for (const [id, val] of Object.entries(localScores)) {
+      await supabase.from("pa_indicator_scores").update({
+        score: val.score,
+        evidence: val.evidence,
+        evaluator_comment: val.evaluator_comment,
+        evidence_images: val.evidence_images,
+      } as any).eq("id", id);
     }
+    await supabase.from("pa_agreements").update({
+      evaluator_name: evaluatorName,
+      evaluator_comments: evaluatorComments,
+      total_score: totalAvg,
+      pdf_file_url: pdfFileUrl,
+      pdf_file_name: pdfFileName,
+    } as any).eq("id", paId);
+    toast.success("บันทึกสำเร็จ");
+    refetchScores();
   };
+
+  const handleApproveClick = async () => {
+    await handleSave();
+    onApprove(paId, totalAvg);
+    onClose();
+  };
+
+  const resultLevel = getResultLevel(totalAvg);
 
   return (
     <Dialog open={open} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-4xl sm:max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 flex-wrap">
-            {agreement.title || "(ไม่มีหัวข้อ)"}
-            <Badge variant="secondary">โดย {pName}</Badge>
+            ข้อตกลง PA — {pName}
+            <Badge variant="outline">{posType === "director" ? "ผอ." : posType === "vice_director" ? "รอง ผอ." : "ครู"}</Badge>
+            <Badge variant="secondary">ปี {(agreement.academic_year || 0) + BE_OFFSET}</Badge>
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Score summary */}
-          <Card className="bg-gradient-to-br from-primary/5 to-primary/10">
-            <CardContent className="pt-4 pb-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-muted-foreground">คะแนนรวม</span>
-                <span className="text-2xl font-bold text-primary">
-                  {totalScore.toFixed(1)} / {TOTAL_MAX}
-                </span>
-              </div>
-              <Progress value={pct} className="h-3" />
-            </CardContent>
-          </Card>
+          <PAScoreSummary totalAvg={totalAvg} resultLevel={resultLevel} domainAvgs={domainAvgs} />
 
-          {/* PDF File */}
-          {agreement.pdf_file_url && (
-            <Card>
-              <CardContent className="pt-4 pb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-primary" />
-                  <span className="text-sm">{agreement.pdf_file_name || "ไฟล์แนบ"}</span>
-                </div>
-                <Button variant="outline" size="sm" onClick={openPdf}>
-                  <ExternalLink className="w-4 h-4 mr-1" />เปิดไฟล์
-                </Button>
-              </CardContent>
-            </Card>
+          {/* PDF Upload Section */}
+          <PAPdfUpload
+            paId={paId}
+            isEditable={isEditable}
+            pdfFileUrl={pdfFileUrl}
+            pdfFileName={pdfFileName}
+            onPdfChange={(url, name) => { setPdfFileUrl(url); setPdfFileName(name); }}
+          />
+
+          {/* Indicators by Domain */}
+          {domains.map(d => {
+            const domainIndicators = scores.filter((s: any) => s.domain === d);
+            const domainTitle = indicators.find(i => i.domain === d)?.domainTitle || `ด้านที่ ${d}`;
+            return (
+              <Card key={d}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">ด้านที่ {d}: {domainTitle}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {domainIndicators.map((s: any) => {
+                    const ind = indicators.find(i => i.domain === s.domain && i.number === s.indicator_number);
+                    const val = localScores[s.id] || { score: 0, evidence: "", evaluator_comment: "", evidence_images: [] };
+                    return (
+                      <PAIndicatorCard
+                        key={s.id}
+                        scoreId={s.id}
+                        indicatorNumber={s.indicator_number}
+                        indicatorTitle={s.indicator_title}
+                        description={ind?.description}
+                        value={val}
+                        isEditable={isEditable}
+                        canManageAll={canManageAll}
+                        paId={paId}
+                        onValueChange={(newVal) => setLocalScores(prev => ({ ...prev, [s.id]: newVal }))}
+                      />
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            );
+          })}
+
+          {/* Evaluator Section */}
+          {canManageAll && isEditable && (
+            <PAEvaluatorSection
+              evaluatorName={evaluatorName}
+              evaluatorComments={evaluatorComments}
+              onNameChange={setEvaluatorName}
+              onCommentsChange={setEvaluatorComments}
+            />
           )}
 
-          {/* Part 1: 3 domains */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">ส่วนที่ 1: ผลการปฏิบัติงาน ({MAX.d1 + MAX.d2 + MAX.d3} คะแนน)</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {DOMAINS.map((dom) => (
-                <div key={dom.key} className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-center">
-                  <Label className="text-sm">{dom.label}</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min={0}
-                      max={dom.max}
-                      step="0.5"
-                      disabled={!canManageAll || isApproved}
-                      value={scores[dom.key]}
-                      onChange={(e) => setScores((s) => ({ ...s, [dom.key]: clamp(parseFloat(e.target.value), dom.max) }))}
-                      className="w-24 text-right"
-                    />
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">/ {dom.max}</span>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Part 2 */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">ส่วนที่ 2: ข้อตกลงในการพัฒนางาน — ประเด็นท้าทาย ({MAX.p2} คะแนน)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-center">
-                <Label className="text-sm">คะแนนประเด็นท้าทาย</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min={0}
-                    max={MAX.p2}
-                    step="0.5"
-                    disabled={!canManageAll || isApproved}
-                    value={scores.p2}
-                    onChange={(e) => setScores((s) => ({ ...s, p2: clamp(parseFloat(e.target.value), MAX.p2) }))}
-                    className="w-24 text-right"
-                  />
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">/ {MAX.p2}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Evaluator */}
-          {canManageAll && (
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm">ผู้ประเมิน</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <Label className="text-xs">ชื่อผู้ประเมิน</Label>
-                  <Input value={evaluatorName} disabled={isApproved} onChange={(e) => setEvaluatorName(e.target.value)} />
-                </div>
-                <div>
-                  <Label className="text-xs">ความคิดเห็น</Label>
-                  <Textarea value={evaluatorComments} disabled={isApproved} onChange={(e) => setEvaluatorComments(e.target.value)} rows={3} />
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {!canManageAll && agreement.evaluator_comments && (
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm">ความคิดเห็นผู้ประเมิน</CardTitle></CardHeader>
-              <CardContent>
-                <p className="text-sm whitespace-pre-wrap">{agreement.evaluator_comments}</p>
-                {agreement.evaluator_name && (
-                  <p className="text-xs text-muted-foreground mt-2">— {agreement.evaluator_name}</p>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-2">
+            {isEditable && (
+              <Button onClick={handleSave}><Save className="w-4 h-4 mr-1" />บันทึก</Button>
+            )}
+            {canManageAll && agreement.status === "submitted" && (
+              <Button variant="default" onClick={handleApproveClick} className="bg-emerald-600 hover:bg-emerald-700">
+                <CheckCircle className="w-4 h-4 mr-1" />อนุมัติ
+              </Button>
+            )}
+          </div>
         </div>
-
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose}>ปิด</Button>
-          {canManageAll && !isApproved && (
-            <>
-              <Button variant="secondary" onClick={() => handleSave(false)} disabled={saving}>
-                <Save className="w-4 h-4 mr-1" />บันทึกคะแนน
-              </Button>
-              <Button onClick={() => handleSave(true)} disabled={saving} className="bg-success hover:bg-success">
-                <CheckCircle className="w-4 h-4 mr-1" />บันทึก + อนุมัติ
-              </Button>
-            </>
-          )}
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

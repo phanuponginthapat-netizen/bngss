@@ -14,20 +14,20 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Camera, Upload, X, Eye, Printer, ScanLine, FileText, ClipboardEdit } from "lucide-react";
-import { BarcodeScanner } from "@/components/BarcodeScanner";
+import { Plus, Trash2, MapPin, Camera, Upload, X, Eye, Printer, FileText } from "lucide-react";
 import { openPrintWindow, currentThaiDate } from "@/lib/printUtils";
-import { useSchoolInfo, signatureImgHtml } from "@/components/documents/DocumentHeader";
-import { useUserRole } from "@/hooks/useUserRole";
+import { HomeVisitSummaryDialog } from "@/components/student/HomeVisitSummaryDialog";
+import { useSchoolInfo } from "@/components/documents/DocumentHeader";
 import { useStudentData } from "@/hooks/useStudentData";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { AcademicYearFilter } from "@/components/AcademicYearFilter";
 import { SignedImage } from "@/components/ui/SignedImage";
 import { resolveStorageUrl } from "@/lib/storageUrl";
 import { useAuthSession } from "@/hooks/useAuthSession";
-import PdfTemplatePicker from "@/components/pdf-designer/PdfTemplatePicker";
-import HomeVisitKssDialog from "@/components/student/HomeVisitKssDialog";
-import { printHomeVisitKss01 } from "@/lib/exporters/homeVisitKssPdf";
+import { Kosor01FormSection } from "@/components/student/Kosor01FormSection";
+import { renderKosor01Html } from "@/lib/kosor01";
+import { BE_OFFSET } from "@/lib/dateBE";
+import { notifyStudentEvent } from "@/lib/notifyStudentEvent";
 
 const HomeVisitPage = () => {
   const { lang } = useLanguage();
@@ -35,16 +35,13 @@ const HomeVisitPage = () => {
   const schoolInfo = useSchoolInfo();
   const qc = useQueryClient();
   const studentData = useStudentData();
-  const { isAdmin, isDirector, userId } = useUserRole();
-  const canManageAll = isAdmin || isDirector;
   const { currentAcademicYear, currentSemester, academicYearOptions } = useAcademicYear();
   const [academicYear, setAcademicYear] = useState(0);
   const [semester, setSemester] = useState(0);
   if (academicYear === 0 && currentAcademicYear > 0) { setAcademicYear(currentAcademicYear); setSemester(currentSemester); }
   const [open, setOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [viewRecord, setViewRecord] = useState<any>(null);
-  const [scanOpen, setScanOpen] = useState(false);
-  const [kssRecord, setKssRecord] = useState<any>(null);
 
   // Use studentData for filters
   const filterGrade = studentData.gradeFilter;
@@ -72,6 +69,7 @@ const HomeVisitPage = () => {
   const [longitude, setLongitude] = useState("");
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [kosor01, setKosor01] = useState<Record<string, any>>({});
 
   // Auto-fill visitor from logged-in user profile
   const [visitorName, setVisitorName] = useState("");
@@ -81,7 +79,7 @@ const HomeVisitPage = () => {
     enabled: !!authUser?.id,
     queryFn: async () => {
       if (!authUser?.id) return null;
-      const { data } = await supabase.from("profiles").select("*").eq("id", authUser.id).single();
+      const { data } = await supabase.from("profiles").select("*").eq("id", authUser.id).maybeSingle();
       return data;
     },
   });
@@ -191,6 +189,7 @@ const HomeVisitPage = () => {
     setLatitude("");
     setLongitude("");
     setPhotoFiles([]);
+    setKosor01({});
   };
 
   const handleAdd = async () => {
@@ -207,7 +206,7 @@ const HomeVisitPage = () => {
     try {
       const photoUrls = await uploadPhotos();
 
-      const { error } = await supabase.from("home_visits").insert({
+      const { data: inserted, error } = await supabase.from("home_visits").insert({
         student_id: studentId,
         visitor_name: visitorName,
         home_condition: homeCondition,
@@ -227,7 +226,8 @@ const HomeVisitPage = () => {
         longitude: longitude ? parseFloat(longitude) : null,
         photo_urls: photoUrls,
         classroom_id: selectedClassroom || null,
-      } as any);
+        kosor01_data: kosor01,
+      } as any).select("id").single();
 
       if (error) {
         toast.error(error.message);
@@ -235,6 +235,20 @@ const HomeVisitPage = () => {
       }
       toast.success("บันทึกการเยี่ยมบ้านสำเร็จ");
       qc.invalidateQueries({ queryKey: ["home_visits"] });
+
+      // Spider-web: แจ้งผู้ปกครองว่าครูมาเยี่ยมบ้าน
+      notifyStudentEvent({
+        student_id: studentId,
+        title: "🏡 บันทึกการเยี่ยมบ้าน",
+        body: `เยี่ยมบ้านโดย ${visitorName}`,
+        type: "home_visit",
+        severity: "info",
+        reference_id: inserted?.id,
+        reference_type: "home_visits",
+        url: "/dashboard/student/home-visit",
+        audience: { student: false, parents: true, homeroom: false },
+      });
+
       setOpen(false);
       resetForm();
     } finally {
@@ -243,8 +257,7 @@ const HomeVisitPage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("home_visits").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    await supabase.from("home_visits").delete().eq("id", id);
     qc.invalidateQueries({ queryKey: ["home_visits"] });
     toast.success("ลบข้อมูลแล้ว");
   };
@@ -267,121 +280,49 @@ const HomeVisitPage = () => {
       ? await Promise.all(r.photo_urls.map((p: string) => resolveStorageUrl("home-visit-photos", p)))
       : [];
 
-    const html = `
-      <div class="obec-header">
-        <div class="header-emblem">
-          ${schoolInfo.school_logo ? `<img src="${schoolInfo.school_logo}" alt="Logo" />` : ""}
-        </div>
-        <div class="school-name">${schoolInfo.school_name}</div>
-        ${schoolInfo.school_address ? `<div class="school-address">${schoolInfo.school_address}</div>` : ""}
-        <div class="doc-title">แบบบันทึกการเยี่ยมบ้านนักเรียน</div>
-        <div class="doc-subtitle">ตามระบบการดูแลช่วยเหลือนักเรียน สพฐ.</div>
-      </div>
+    const studentRow = studentData.students.find((s: any) => s.id === r.student_id);
+    const kosor = (r as any).kosor01_data || {};
 
-      <div class="obec-info-box">
-        <div class="obec-info-grid">
-          <div><span class="info-label">ชื่อ-สกุลนักเรียน: </span><span class="info-value">${studentName}</span></div>
-          <div><span class="info-label">ชั้น/ห้อง: </span><span class="info-value">${classroomName}</span></div>
-          <div><span class="info-label">วันที่เยี่ยมบ้าน: </span><span class="info-value">${r.visit_date}</span></div>
-          <div><span class="info-label">ผู้เยี่ยมบ้าน: </span><span class="info-value">${r.visitor_name}</span></div>
-        </div>
-      </div>
+    const formHtml = renderKosor01Html(kosor, {
+      schoolName: schoolInfo.school_name,
+      schoolAddress: schoolInfo.school_address,
+      schoolAffiliation: (schoolInfo as any).school_affiliation || "สำนักงานคณะกรรมการการศึกษาขั้นพื้นฐาน",
+      schoolLogo: schoolInfo.school_logo,
+      semester,
+      academicYear: academicYear ? academicYear + BE_OFFSET : "",
+      studentName,
+      studentCode: studentRow?.student_code,
+      studentNationalId: (studentRow as any)?.national_id || (studentRow as any)?.id_card,
+      classroomName,
+      visitDate: r.visit_date,
+      visitorName: r.visitor_name,
+      directorName: schoolInfo.director_name,
+      directorTitle: schoolInfo.director_title,
+      povertyStatus: r.poverty_status,
+      latitude: r.latitude,
+      longitude: r.longitude,
+    });
 
-      <div class="obec-section-title">ข้อมูลที่พักอาศัย</div>
-      <div class="obec-info-box">
-        <div class="obec-info-grid">
-          <div><span class="info-label">ที่อยู่อาศัย: </span><span class="info-value">${r.house_ownership || "-"}</span></div>
-          <div><span class="info-label">อาศัยอยู่กับ: </span><span class="info-value">${r.living_with || "-"}</span></div>
-          <div><span class="info-label">สมาชิกในครอบครัว: </span><span class="info-value">${r.num_family_members || "-"} คน</span></div>
-          <div><span class="info-label">รายได้/เดือน: </span><span class="info-value">${r.income_per_month ? `${r.income_per_month.toLocaleString()} บาท` : "-"}</span></div>
-          <div><span class="info-label">สถานะยากจน: </span><span class="info-value">${r.poverty_status || "-"}</span></div>
-          <div><span class="info-label">อินเทอร์เน็ต: </span><span class="info-value">${r.has_internet ? "มี" : "ไม่มี"}</span></div>
-          <div><span class="info-label">คอมพิวเตอร์/แท็บเล็ต: </span><span class="info-value">${r.has_computer ? "มี" : "ไม่มี"}</span></div>
-          <div><span class="info-label">การเดินทาง: </span><span class="info-value">${r.travel_method || "-"}</span></div>
-          <div><span class="info-label">ระยะทาง: </span><span class="info-value">${r.distance_to_school ? `${r.distance_to_school} กม.` : "-"}</span></div>
-          ${r.latitude && r.longitude ? `<div><span class="info-label">พิกัด GPS: </span><span class="info-value">${r.latitude}, ${r.longitude}</span></div>` : ""}
-        </div>
-      </div>
-
-      <div class="obec-section-title">สภาพบ้านและนักเรียน</div>
-      <table class="obec-table">
-        <tbody>
-          <tr><td style="width:120px; font-weight:600;">สภาพบ้าน</td><td>${r.home_condition || "-"}</td></tr>
-          <tr><td style="font-weight:600;">สภาพนักเรียน</td><td>${r.student_condition || "-"}</td></tr>
-          <tr><td style="font-weight:600;">สถานะครอบครัว</td><td>${r.family_status || "-"}</td></tr>
-          <tr><td style="font-weight:600;">ข้อเสนอแนะ</td><td>${r.recommendations || "-"}</td></tr>
-        </tbody>
-      </table>
-
+    const extraHtml = `
+      ${(r.home_condition || r.student_condition || r.family_status || r.recommendations) ? `
+        <div class="k-section" style="font-family:'TH Sarabun New',Sarabun,sans-serif;font-size:16pt;">
+          <div class="k-section-title" style="font-weight:700;background:#eef;padding:4px 8px;border-left:4px solid #335;margin:10px 0 6px;">บันทึกเพิ่มเติมจากการเยี่ยมบ้าน</div>
+          ${r.home_condition ? `<div><b>สภาพบ้าน:</b> ${r.home_condition}</div>` : ""}
+          ${r.student_condition ? `<div><b>สภาพนักเรียน:</b> ${r.student_condition}</div>` : ""}
+          ${r.family_status ? `<div><b>สถานะครอบครัว:</b> ${r.family_status}</div>` : ""}
+          ${r.recommendations ? `<div><b>ข้อเสนอแนะ:</b> ${r.recommendations}</div>` : ""}
+        </div>` : ""}
       ${signedPhotos.length > 0 ? `
-        <div class="obec-section-title">รูปภาพประกอบการเยี่ยมบ้าน</div>
-        <div class="obec-photo-grid">
-          ${signedPhotos.map((url: string) => `<img src="${url}" alt="visit" />`).join("")}
-        </div>
-      ` : ""}
-
-      <div class="obec-signatures">
-        <div class="obec-sig-row">
-          <div class="obec-sig-item">
-            <div class="obec-sig-line"></div>
-            <div class="obec-sig-name">(${r.visitor_name})</div>
-            <div class="obec-sig-title">ครูผู้เยี่ยมบ้าน</div>
+        <div class="k-section" style="font-family:'TH Sarabun New',Sarabun,sans-serif;font-size:16pt;">
+          <div class="k-section-title" style="font-weight:700;background:#eef;padding:4px 8px;border-left:4px solid #335;margin:10px 0 6px;">รูปภาพประกอบการเยี่ยมบ้าน</div>
+          <div class="k-photos" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+            ${signedPhotos.map((url: string) => `<img loading="lazy" decoding="async" src="${url}" alt="visit" style="width:100%;height:140px;object-fit:cover;border:1px solid #999;" />`).join("")}
           </div>
-          <div class="obec-sig-item">
-            <div class="obec-sig-line"></div>
-            <div class="obec-sig-title">ผู้ปกครอง</div>
-          </div>
-          <div class="obec-sig-item">
-            ${signatureImgHtml(schoolInfo.director_signature_url, 44)}
-            <div class="obec-sig-line"></div>
-            <div class="obec-sig-name">${schoolInfo.director_name ? `(${schoolInfo.director_name})` : "(ลงชื่อ)"}</div>
-            <div class="obec-sig-title">${schoolInfo.director_title}</div>
-          </div>
-        </div>
-        <div class="obec-date">วันที่ ${currentThaiDate()}</div>
-      </div>
+        </div>` : ""}
+      <div style="font-family:'TH Sarabun New',Sarabun,sans-serif;font-size:14pt;text-align:right;margin-top:12px;">วันที่พิมพ์ ${currentThaiDate()}</div>
     `;
-    openPrintWindow(html, { title: `เยี่ยมบ้าน - ${studentName}` });
-  };
 
-  const handleQrScan = async (code: string) => {
-    setScanOpen(false);
-    const raw = (code || "").trim();
-    if (!raw) return;
-    // Extract student_code: support raw code or a URL containing it as last segment
-    const candidates = [raw];
-    try {
-      const u = new URL(raw);
-      const last = u.pathname.split("/").filter(Boolean).pop();
-      if (last) candidates.push(decodeURIComponent(last));
-    } catch {}
-    let found: any = null;
-    for (const c of candidates) {
-      const { data } = await supabase
-        .from("students")
-        .select("id, classroom_id, prefix, first_name, last_name, student_code")
-        .eq("student_code", c)
-        .maybeSingle();
-      if (data) { found = data; break; }
-    }
-    if (!found) {
-      // fallback: try by id
-      const { data } = await supabase
-        .from("students")
-        .select("id, classroom_id, prefix, first_name, last_name, student_code")
-        .eq("id", raw)
-        .maybeSingle();
-      if (data) found = data;
-    }
-    if (!found) {
-      toast.error(`ไม่พบนักเรียนจาก QR: ${raw}`);
-      return;
-    }
-    resetForm();
-    setSelectedClassroom(found.classroom_id || "");
-    setStudentId(found.id);
-    setOpen(true);
-    toast.success(`พบนักเรียน: ${found.prefix || ""}${found.first_name} ${found.last_name}`);
+    openPrintWindow(formHtml + extraHtml, { title: `กสศ.01 - ${studentName}` });
   };
 
   return (
@@ -396,25 +337,19 @@ const HomeVisitPage = () => {
         </div>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
-        <Button variant="default" onClick={() => setScanOpen(true)}>
-          <ScanLine className="w-4 h-4 mr-2" />{lang === "th" ? "สแกน QR นักเรียน" : "Scan Student QR"}
+        <Button variant="outline" onClick={() => setSummaryOpen(true)}>
+          <FileText className="w-4 h-4 mr-2" />{lang === "th" ? "แบบสรุปรายงานเยี่ยมบ้าน" : "Summary Report"}
         </Button>
-        <BarcodeScanner
-          open={scanOpen}
-          onClose={() => setScanOpen(false)}
-          onScan={handleQrScan}
-          title={lang === "th" ? "สแกน QR บัตรนักเรียน" : "Scan Student ID QR"}
-        />
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
           <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" />{lang === "th" ? "บันทึกเยี่ยมบ้าน" : "New Visit"}</Button></DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh]">
+          <DialogContent className="sm:max-w-2xl sm:max-h-[90vh] flex flex-col">
             <DialogHeader><DialogTitle>{lang === "th" ? "แบบบันทึกการเยี่ยมบ้านนักเรียน" : "Home Visit Record Form"}</DialogTitle></DialogHeader>
-            <ScrollArea className="max-h-[70vh] pr-4">
+            <ScrollArea className="flex-1 min-h-0 pr-4">
               <div className="space-y-6">
                 {/* Section 1: Student Selection */}
                 <Card><CardHeader className="pb-3"><CardTitle className="text-sm font-semibold">ข้อมูลนักเรียน</CardTitle></CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>ระดับชั้น/ห้อง</Label>
                         <Select value={selectedClassroom} onValueChange={(v) => { setSelectedClassroom(v); setStudentId(""); }}>
                           <SelectTrigger><SelectValue placeholder="เลือกห้องเรียน" /></SelectTrigger>
@@ -433,7 +368,7 @@ const HomeVisitPage = () => {
                 {/* Section 2: Home Info */}
                 <Card><CardHeader className="pb-3"><CardTitle className="text-sm font-semibold">สภาพที่อยู่อาศัย</CardTitle></CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>สภาพบ้าน</Label>
                         <Select value={houseOwnership} onValueChange={setHouseOwnership}>
                           <SelectTrigger><SelectValue placeholder="เลือก" /></SelectTrigger>
@@ -455,7 +390,7 @@ const HomeVisitPage = () => {
                             <SelectItem value="อื่นๆ">อื่นๆ</SelectItem>
                           </SelectContent></Select></div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>จำนวนสมาชิกในครอบครัว (คน)</Label>
                         <Input type="number" min="1" value={numFamilyMembers} onChange={(e) => setNumFamilyMembers(e.target.value)} /></div>
                       <div><Label>รายได้ครอบครัว/เดือน (บาท)</Label>
@@ -479,7 +414,7 @@ const HomeVisitPage = () => {
                       <Textarea value={studentCondition} onChange={(e) => setStudentCondition(e.target.value)} placeholder="สุขภาพ, พฤติกรรม, ความเป็นอยู่..." /></div>
                     <div><Label>สถานะครอบครัว</Label>
                       <Textarea value={familyStatus} onChange={(e) => setFamilyStatus(e.target.value)} placeholder="ความสัมพันธ์ในครอบครัว, ปัญหา..." /></div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="flex items-center gap-2"><Switch checked={hasInternet} onCheckedChange={setHasInternet} /><Label>มีอินเทอร์เน็ตที่บ้าน</Label></div>
                       <div className="flex items-center gap-2"><Switch checked={hasComputer} onCheckedChange={setHasComputer} /><Label>มีคอมพิวเตอร์/แท็บเล็ต</Label></div>
                     </div>
@@ -488,7 +423,7 @@ const HomeVisitPage = () => {
                 {/* Section 4: Travel */}
                 <Card><CardHeader className="pb-3"><CardTitle className="text-sm font-semibold">การเดินทาง</CardTitle></CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>วิธีเดินทางมาโรงเรียน</Label>
                         <Select value={travelMethod} onValueChange={setTravelMethod}>
                           <SelectTrigger><SelectValue placeholder="เลือก" /></SelectTrigger>
@@ -509,7 +444,7 @@ const HomeVisitPage = () => {
                 <Card><CardHeader className="pb-3"><CardTitle className="text-sm font-semibold">พิกัด GPS</CardTitle></CardHeader>
                   <CardContent className="space-y-3">
                     <Button type="button" variant="outline" onClick={getGPS}><MapPin className="w-4 h-4 mr-2" />ดึงพิกัดจาก GPS</Button>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>Latitude</Label><Input value={latitude} onChange={(e) => setLatitude(e.target.value)} placeholder="เช่น 13.7563" /></div>
                       <div><Label>Longitude</Label><Input value={longitude} onChange={(e) => setLongitude(e.target.value)} placeholder="เช่น 100.5018" /></div>
                     </div>
@@ -521,7 +456,7 @@ const HomeVisitPage = () => {
                     <div className="flex flex-wrap gap-2">
                       {photoFiles.map((f, i) => (
                         <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden border border-border">
-                          <img src={URL.createObjectURL(f)} alt="" className="w-full h-full object-cover" />
+                          <img loading="lazy" decoding="async" src={URL.createObjectURL(f)} alt="" className="w-full h-full object-cover" />
                           <button onClick={() => removePhoto(i)} className="absolute top-0 right-0 bg-destructive text-white rounded-bl p-0.5"><X className="w-3 h-3" /></button>
                         </div>
                       ))}
@@ -533,7 +468,10 @@ const HomeVisitPage = () => {
                     <p className="text-xs text-muted-foreground">เลือกรูป {photoFiles.length}/10 (ต้องมีอย่างน้อย 3 รูป)</p>
                   </CardContent></Card>
 
-                {/* Section 7: Recommendations */}
+                {/* Section 7: นร./กสศ. 01 */}
+                <Kosor01FormSection value={kosor01} onChange={setKosor01} />
+
+                {/* Section 8: Recommendations */}
                 <div><Label>ข้อเสนอแนะ / สรุปผลการเยี่ยมบ้าน</Label>
                   <Textarea value={recommendations} onChange={(e) => setRecommendations(e.target.value)} rows={3} /></div>
 
@@ -566,92 +504,72 @@ const HomeVisitPage = () => {
         </div>
       </CardContent></Card>
 
-      {/* Records Table */}
+      {/* Records Table (roster view — 1 row per student) */}
       <Card><CardContent className="p-0">
         <Table>
           <TableHeader><TableRow>
-            <TableHead>วันที่</TableHead>
             <TableHead>นักเรียน</TableHead>
             <TableHead>ห้อง</TableHead>
+            <TableHead>วันที่เยี่ยมล่าสุด</TableHead>
             <TableHead>ผู้เยี่ยม</TableHead>
             <TableHead>สถานะยากจน</TableHead>
             <TableHead>GPS</TableHead>
-            <TableHead>รูป</TableHead>
+            <TableHead className="text-center">ครั้ง</TableHead>
             <TableHead></TableHead>
           </TableRow></TableHeader>
           <TableBody>
-            {records.map((r: any) => (
-              <TableRow key={r.id}>
-                <TableCell className="whitespace-nowrap">{r.visit_date}</TableCell>
-                <TableCell>{getStudentName(r)}</TableCell>
-                <TableCell>{getClassroomName(r.classroom_id)}</TableCell>
-                <TableCell>{r.visitor_name}</TableCell>
-                <TableCell>
-                  <Badge variant={r.poverty_status === "ยากจนพิเศษ" ? "destructive" : r.poverty_status === "ยากจน" ? "secondary" : "outline"}>
-                    {r.poverty_status || "-"}
-                  </Badge>
-                </TableCell>
-                <TableCell>{r.latitude && r.longitude ? <MapPin className="w-4 h-4 text-success" /> : "-"}</TableCell>
-                <TableCell>{r.photo_urls?.length || 0} รูป</TableCell>
-                <TableCell className="flex gap-1 flex-wrap">
-                  <Button variant="ghost" size="sm" onClick={() => setViewRecord(r)} title="ดู"><Eye className="w-4 h-4" /></Button>
-                  <Button variant="ghost" size="sm" onClick={() => handlePrintVisit(r)} title="พิมพ์ (สพฐ.)"><Printer className="w-4 h-4" /></Button>
-                  <Button variant="ghost" size="sm" onClick={() => setKssRecord(r)} title="กรอกแบบ กสศ.01"><ClipboardEdit className="w-4 h-4 text-primary" /></Button>
-                  <Button variant="ghost" size="sm" title="พิมพ์ กสศ.01"
-                    onClick={() => printHomeVisitKss01({
-                      record: r,
-                      student: {
-                        prefix: r.students?.prefix, first_name: r.students?.first_name, last_name: r.students?.last_name,
-                        student_code: r.students?.student_code, classroom_name: getClassroomName(r.classroom_id),
-                      },
-                      school: {
-                        school_name: schoolInfo.school_name, school_address: schoolInfo.school_address,
-                        school_logo: schoolInfo.school_logo, director_name: schoolInfo.director_name,
-                        director_signature_url: schoolInfo.director_signature_url,
-                      },
-                      academic_year: academicYear, semester,
-                    })}
-                  ><FileText className="w-4 h-4 text-success" /></Button>
-                  <PdfTemplatePicker
-                    category="home_visit"
-                    buttonLabel=""
-                    buttonVariant="ghost"
-                    data={{
-                      student: { full_name: (r as any).student_name || "", classroom: (r as any).classroom_name || "" },
-                      visit: {
-                        date: (r as any).visit_date, address: (r as any).address,
-                        guardian_name: (r as any).guardian_name, guardian_phone: (r as any).guardian_phone,
-                        relation: (r as any).relation, notes: (r as any).notes, economic: (r as any).economic_status,
-                      },
-                      teacher: { name: (r as any).teacher_name || "" },
-                    }}
-                  />
-                  {(canManageAll || (r as any).created_by === userId) && (
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-            {records.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">ไม่มีข้อมูล</TableCell></TableRow>}
+            {(() => {
+              const rosterRows = (studentData.filteredStudents as any[]).map((s: any) => {
+                const recs = (records as any[]).filter((r) => r.student_id === s.id);
+                return { student: s, latest: recs[0] || null, count: recs.length };
+              });
+              return <>
+                {rosterRows.map(({ student: s, latest: r, count }) => (
+                  <TableRow key={s.id}>
+                    <TableCell className="font-medium">{s.student_code} {s.prefix || ""}{s.first_name} {s.last_name}</TableCell>
+                    <TableCell>{s?.classrooms?.name || getClassroomName(s.classroom_id)}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {r ? r.visit_date : <span className="text-muted-foreground text-xs">ยังไม่เยี่ยม</span>}
+                    </TableCell>
+                    <TableCell>{r?.visitor_name || "—"}</TableCell>
+                    <TableCell>
+                      {r ? (
+                        <Badge variant={r.poverty_status === "ยากจนพิเศษ" ? "destructive" : r.poverty_status === "ยากจน" ? "secondary" : "outline"}>
+                          {r.poverty_status || "-"}
+                        </Badge>
+                      ) : "—"}
+                    </TableCell>
+                    <TableCell>{r?.latitude && r?.longitude ? <MapPin className="w-4 h-4 text-green-600" /> : "—"}</TableCell>
+                    <TableCell className="text-center">{count}</TableCell>
+                    <TableCell className="flex gap-1">
+                      {r && <>
+                        <Button variant="ghost" size="sm" onClick={() => setViewRecord(r)}><Eye className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => handlePrintVisit(r)}><Printer className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                      </>}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {rosterRows.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">ไม่มีข้อมูล</TableCell></TableRow>}
+              </>;
+            })()}
           </TableBody>
         </Table>
       </CardContent></Card>
 
       {/* View Dialog */}
       <Dialog open={!!viewRecord} onOpenChange={(v) => !v && setViewRecord(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh]">
+        <DialogContent className="sm:max-w-2xl sm:max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between">
               <DialogTitle>รายละเอียดการเยี่ยมบ้าน</DialogTitle>
-              <div className="flex items-center gap-2">
-                {viewRecord && <Button variant="outline" size="sm" onClick={() => handlePrintVisit(viewRecord)}><Printer className="w-4 h-4 mr-2" />พิมพ์</Button>}
-              </div>
+              {viewRecord && <Button variant="outline" size="sm" onClick={() => handlePrintVisit(viewRecord)}><Printer className="w-4 h-4 mr-2" />พิมพ์</Button>}
             </div>
           </DialogHeader>
           {viewRecord && (
-            <ScrollArea className="max-h-[70vh]">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   <div><span className="font-semibold">นักเรียน:</span> {getStudentName(viewRecord)}</div>
                   <div><span className="font-semibold">วันที่:</span> {viewRecord.visit_date}</div>
                   <div><span className="font-semibold">ผู้เยี่ยม:</span> {viewRecord.visitor_name}</div>
@@ -680,7 +598,7 @@ const HomeVisitPage = () => {
                 {viewRecord.photo_urls?.length > 0 && (
                   <div>
                     <span className="font-semibold text-sm">รูปภาพ:</span>
-                    <div className="grid grid-cols-3 gap-2 mt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
                       {viewRecord.photo_urls.map((url: string, i: number) => (
                         <SignedImage key={i} bucket="home-visit-photos" path={url} alt={`Visit ${i + 1}`} className="w-full h-32 object-cover rounded-lg border border-border" />
                       ))}
@@ -693,11 +611,11 @@ const HomeVisitPage = () => {
         </DialogContent>
       </Dialog>
 
-      <HomeVisitKssDialog
-        open={!!kssRecord}
-        onOpenChange={(v) => !v && setKssRecord(null)}
-        record={kssRecord}
-        onSaved={() => qc.invalidateQueries({ queryKey: ["home_visits"] })}
+      <HomeVisitSummaryDialog
+        open={summaryOpen}
+        onOpenChange={setSummaryOpen}
+        academicYear={academicYear}
+        semester={semester}
       />
     </div>
   );

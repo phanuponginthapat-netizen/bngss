@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Teachers can manage assessment_criteria" ON public.assessment_criteria;

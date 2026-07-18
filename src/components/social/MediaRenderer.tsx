@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Download, ExternalLink, FileText, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { driveEmbed, youtubeEmbed, type MediaType } from "@/lib/media";
-import { createStorageSignedUrl } from "@/lib/storageUrl";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface Props {
   mediaType: MediaType;
@@ -14,26 +14,13 @@ interface Props {
 
 export default function MediaRenderer({
   mediaType,
-  mediaUrl: rawUrl,
+  mediaUrl,
   displayMode = "preview",
   fileName,
   title,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [mediaUrl, setMediaUrl] = useState<string>(rawUrl?.startsWith("portfolio://") ? "" : rawUrl);
-
-  useEffect(() => {
-    if (rawUrl?.startsWith("portfolio://")) {
-      const path = rawUrl.replace(/^portfolio:\/\//, "");
-      createStorageSignedUrl("portfolio", path, 60 * 60 * 6).then((u) => setMediaUrl(u || ""));
-    } else {
-      setMediaUrl(rawUrl);
-    }
-  }, [rawUrl]);
-
-  if (rawUrl?.startsWith("portfolio://") && !mediaUrl) {
-    return <div className="text-xs text-muted-foreground p-3">กำลังโหลด...</div>;
-  }
+  useBodyScrollLock(open);
 
   if (displayMode === "download" && (mediaType === "pdf" || mediaType === "image" || mediaType === "video")) {
     return (

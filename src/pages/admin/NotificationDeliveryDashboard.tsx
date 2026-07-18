@@ -24,11 +24,11 @@ type LogRow = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  sent: "bg-success-soft text-success border-success/30",
-  failed: "bg-danger-soft text-danger border-danger/30",
-  dlq: "bg-danger-soft text-danger border-danger/30",
-  gone: "bg-neutral-soft text-neutral border-neutral/30",
-  skipped: "bg-warning-soft text-warning border-warning/30",
+  sent: "bg-green-100 text-green-800 border-green-300",
+  failed: "bg-red-100 text-red-800 border-red-300",
+  dlq: "bg-red-200 text-red-900 border-red-400",
+  gone: "bg-gray-100 text-gray-700 border-gray-300",
+  skipped: "bg-yellow-100 text-yellow-800 border-yellow-300",
 };
 
 const CHANNEL_LABEL: Record<string, string> = {
@@ -154,26 +154,26 @@ export default function NotificationDeliveryDashboard() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-xs text-muted-foreground flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3 text-success" /> ส่งสำเร็จ
+              <CheckCircle2 className="w-3 h-3 text-green-600" /> ส่งสำเร็จ
             </div>
-            <div className="text-3xl font-bold text-success">{stats.sent.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-green-700">{stats.sent.toLocaleString()}</div>
             <div className="text-xs text-muted-foreground mt-1">{stats.successRate}% ของทั้งหมด</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-xs text-muted-foreground flex items-center gap-1">
-              <AlertCircle className="w-3 h-3 text-danger" /> ล้มเหลว
+              <AlertCircle className="w-3 h-3 text-red-600" /> ล้มเหลว
             </div>
-            <div className="text-3xl font-bold text-danger">{stats.failed.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-red-700">{stats.failed.toLocaleString()}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-xs text-muted-foreground flex items-center gap-1">
-              <Clock className="w-3 h-3 text-warning" /> ข้าม (Quiet Hours/Pref)
+              <Clock className="w-3 h-3 text-yellow-600" /> ข้าม (Quiet Hours/Pref)
             </div>
-            <div className="text-3xl font-bold text-warning">{stats.skipped.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-yellow-700">{stats.skipped.toLocaleString()}</div>
           </CardContent>
         </Card>
       </div>

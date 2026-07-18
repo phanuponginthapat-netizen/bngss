@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useHomeroomClassrooms } from "@/hooks/useHomeroomClassrooms";
 import { sortGrades } from "@/lib/gradeOrder";
+import { effectiveGrade } from "@/lib/classroomGrade";
+
 
 /**
  * Centralized hook for student-related pages.
@@ -75,13 +77,14 @@ export function useStudentData(options?: {
 
   // ─── Derived data ───
   const gradeOptions = useMemo(() => {
-    return sortGrades([...new Set(availableClassrooms.map((c: any) => c.grade_level as string).filter(Boolean))]);
+    return sortGrades([...new Set(availableClassrooms.map((c: any) => effectiveGrade(c)).filter(Boolean))]);
   }, [availableClassrooms]);
 
   const filteredClassrooms = useMemo(() => {
     if (gradeFilter === "all") return availableClassrooms;
-    return availableClassrooms.filter((c: any) => c.grade_level === gradeFilter);
+    return availableClassrooms.filter((c: any) => effectiveGrade(c) === gradeFilter);
   }, [availableClassrooms, gradeFilter]);
+
 
   const filteredStudents = useMemo(() => {
     let result = students;

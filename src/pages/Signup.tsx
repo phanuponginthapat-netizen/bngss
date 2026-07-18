@@ -9,7 +9,6 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { GraduationCap, Lock, Mail, User } from "lucide-react";
-import { useSystemSettings } from "@/hooks/useSystemSettings";
 
 const Signup = () => {
   const [email, setEmail] = useState("");
@@ -19,7 +18,6 @@ const Signup = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { t, lang } = useLanguage();
-  const { appName, schoolName, schoolLogo } = useSystemSettings();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,15 +54,11 @@ const Signup = () => {
       </div>
       <Card className="w-full max-w-md mx-4 shadow-card-hover border-0 relative z-10">
         <CardHeader className="text-center pb-2 pt-8">
-          {schoolLogo ? (
-            <img src={schoolLogo} alt={schoolName || appName} className="mx-auto w-20 h-20 object-contain mb-4 drop-shadow-md" />
-          ) : (
-            <div className="mx-auto w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mb-4 shadow-lg">
-              <GraduationCap className="w-8 h-8 text-primary-foreground" />
-            </div>
-          )}
-          <h1 className="text-2xl font-bold text-foreground">{appName || t("signup.title")}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{schoolName && schoolName !== appName ? schoolName : t("signup.subtitle")}</p>
+          <div className="mx-auto w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mb-4 shadow-lg">
+            <GraduationCap className="w-8 h-8 text-primary-foreground" />
+          </div>
+          <h1 className="text-2xl font-bold text-foreground">{t("signup.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t("signup.subtitle")}</p>
         </CardHeader>
         <CardContent className="pt-4 pb-8">
           <form onSubmit={handleSignup} className="space-y-4">

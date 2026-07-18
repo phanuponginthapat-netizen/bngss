@@ -29,40 +29,67 @@ type Provider = {
   notes: string | null;
 };
 
-const PRESETS: Record<string, { base_url: string; model: string; type: string }> = {
-  openrouter: { base_url: "https://openrouter.ai/api/v1/chat/completions", model: "deepseek/deepseek-chat-v3.1:free", type: "openrouter" },
-  openai: { base_url: "https://api.openai.com/v1/chat/completions", model: "gpt-4o-mini", type: "openai" },
-  deepseek: { base_url: "https://api.deepseek.com/v1/chat/completions", model: "deepseek-chat", type: "deepseek" },
-  groq: { base_url: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.3-70b-versatile", type: "openai_compatible" },
-  together: { base_url: "https://api.together.xyz/v1/chat/completions", model: "Qwen/Qwen2.5-72B-Instruct-Turbo", type: "openai_compatible" },
-  custom: { base_url: "", model: "", type: "openai_compatible" },
+type PresetDef = {
+  label: string;
+  base_url: string;
+  model: string;
+  type: string;
+  vision?: boolean;
+  hint?: string;
+};
+
+// จัดเรียงตาม tier: ฟรีถาวร → ฟรีจำกัด → ฟรีเครดิต → เสียเงิน
+const PRESETS: Record<string, PresetDef> = {
+  // ---- Free tier (ฟรีถาวร / จำกัดปริมาณ) ----
+  gemini:      { label: "Google Gemini (ฟรี 1,500 req/วัน)", base_url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: "gemini-2.0-flash", type: "openai_compatible", vision: true, hint: "aistudio.google.com/apikey" },
+  groq:        { label: "Groq (ฟรี, เร็วมาก)", base_url: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.3-70b-versatile", type: "openai_compatible", hint: "console.groq.com/keys" },
+  cerebras:    { label: "Cerebras (ฟรี, เร็วสุดใน list)", base_url: "https://api.cerebras.ai/v1/chat/completions", model: "llama-3.3-70b", type: "openai_compatible", hint: "cloud.cerebras.ai" },
+  openrouter:  { label: "OpenRouter (โมเดล :free)", base_url: "https://openrouter.ai/api/v1/chat/completions", model: "deepseek/deepseek-chat-v3.1:free", type: "openrouter", hint: "openrouter.ai/keys" },
+  glm:         { label: "ZhipuAI GLM-4-Flash (ฟรีถาวร)", base_url: "https://open.bigmodel.cn/api/paas/v4/chat/completions", model: "glm-4-flash", type: "openai_compatible", hint: "bigmodel.cn" },
+  huggingface: { label: "HuggingFace Inference", base_url: "https://api-inference.huggingface.co/v1/chat/completions", model: "meta-llama/Llama-3.3-70B-Instruct", type: "openai_compatible", hint: "huggingface.co/settings/tokens" },
+  github:      { label: "GitHub Models (ฟรี ใช้ PAT)", base_url: "https://models.inference.ai.azure.com/chat/completions", model: "gpt-4o-mini", type: "openai_compatible", vision: true, hint: "github.com/settings/tokens" },
+  sambanova:   { label: "SambaNova", base_url: "https://api.sambanova.ai/v1/chat/completions", model: "Meta-Llama-3.3-70B-Instruct", type: "openai_compatible", hint: "cloud.sambanova.ai" },
+  cohere:      { label: "Cohere (trial key)", base_url: "https://api.cohere.ai/compatibility/v1/chat/completions", model: "command-r-plus-08-2024", type: "openai_compatible", hint: "dashboard.cohere.com" },
+  // ---- Free credits (สมัครแล้วได้เครดิต) ----
+  deepseek:    { label: "DeepSeek (มีเครดิตแรกเข้า)", base_url: "https://api.deepseek.com/v1/chat/completions", model: "deepseek-chat", type: "deepseek", hint: "platform.deepseek.com" },
+  mistral:     { label: "Mistral (ฟรี tier)", base_url: "https://api.mistral.ai/v1/chat/completions", model: "mistral-small-latest", type: "openai_compatible", hint: "console.mistral.ai" },
+  together:    { label: "Together AI (เครดิต $5)", base_url: "https://api.together.xyz/v1/chat/completions", model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", type: "openai_compatible", hint: "api.together.xyz" },
+  xai:         { label: "xAI Grok (เครดิต $150/เดือน)", base_url: "https://api.x.ai/v1/chat/completions", model: "grok-2-1212", type: "openai_compatible", vision: true, hint: "console.x.ai" },
+  fireworks:   { label: "Fireworks", base_url: "https://api.fireworks.ai/inference/v1/chat/completions", model: "accounts/fireworks/models/llama-v3p3-70b-instruct", type: "openai_compatible", hint: "fireworks.ai/api-keys" },
+  nvidia:      { label: "NVIDIA NIM (เครดิต 1,000)", base_url: "https://integrate.api.nvidia.com/v1/chat/completions", model: "meta/llama-3.3-70b-instruct", type: "openai_compatible", hint: "build.nvidia.com" },
+  dashscope:   { label: "DashScope Qwen", base_url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions", model: "qwen-plus", type: "openai_compatible", vision: true, hint: "dashscope.console.aliyun.com" },
+  perplexity:  { label: "Perplexity (Sonar)", base_url: "https://api.perplexity.ai/chat/completions", model: "sonar", type: "openai_compatible", hint: "perplexity.ai/settings/api" },
+  // ---- Paid ----
+  openai:      { label: "OpenAI (เสียเงิน)", base_url: "https://api.openai.com/v1/chat/completions", model: "gpt-4o-mini", type: "openai", vision: true, hint: "platform.openai.com/api-keys" },
+  anthropic:   { label: "Anthropic Claude", base_url: "https://api.anthropic.com/v1/messages", model: "claude-3-5-sonnet-20241022", type: "anthropic", vision: true, hint: "console.anthropic.com" },
+  custom:      { label: "Custom (OpenAI-compatible)", base_url: "", model: "", type: "openai_compatible" },
 };
 
 export default function AIProvidersPage() {
   const qc = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [form, setForm] = useState({
-    preset: "openrouter",
+    preset: "gemini",
     name: "",
     api_key: "",
-    base_url: PRESETS.openrouter.base_url,
-    model: PRESETS.openrouter.model,
+    base_url: PRESETS.gemini.base_url,
+    model: PRESETS.gemini.model,
     priority: 50,
-    supports_vision: false,
+    supports_vision: !!PRESETS.gemini.vision,
   });
 
   const { data: providers = [] } = useQuery({
     queryKey: ["ai_providers"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("ai_providers" as any)
-        .select("id,name,provider_type,base_url,api_key,model,priority,enabled,supports_vision,supports_json,monthly_call_limit,notes")
+        .from("ai_providers_meta" as any)
+        .select("id,name,provider_type,base_url,model,priority,enabled,supports_vision,supports_json,monthly_call_limit,notes,has_key")
         .order("priority", { ascending: true });
       if (error) throw error;
-      return (data as unknown as Provider[]);
+      return (data as unknown as Provider[]).map((p: any) => ({ ...p, api_key: p.has_key ? "" : null }));
     },
   });
-
 
   const { data: usage } = useQuery({
     queryKey: ["ai_usage_summary"],
@@ -80,44 +107,41 @@ export default function AIProvidersPage() {
     },
   });
 
-  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const totals = (usage || []).reduce(
     (acc, r) => {
-      const isToday = new Date(r.created_at) >= todayStart;
       acc.calls += 1;
       acc.success += r.success ? 1 : 0;
       acc.cost += Number(r.estimated_cost || 0);
       acc.tokens += (r.tokens_input || 0) + (r.tokens_output || 0);
-      if (isToday) {
-        acc.todayCalls += 1;
-        acc.todayCost += Number(r.estimated_cost || 0);
-        acc.todayTokens += (r.tokens_input || 0) + (r.tokens_output || 0);
-      }
       const k = r.provider_name || "unknown";
-      acc.byProvider[k] = acc.byProvider[k] || { calls: 0, cost: 0, tokens: 0, todayCalls: 0, todayCost: 0 };
+      acc.byProvider[k] = acc.byProvider[k] || { calls: 0, cost: 0, tokens: 0 };
       acc.byProvider[k].calls += 1;
       acc.byProvider[k].cost += Number(r.estimated_cost || 0);
       acc.byProvider[k].tokens += (r.tokens_input || 0) + (r.tokens_output || 0);
-      if (isToday) {
-        acc.byProvider[k].todayCalls += 1;
-        acc.byProvider[k].todayCost += Number(r.estimated_cost || 0);
-      }
       return acc;
     },
-    { calls: 0, success: 0, cost: 0, tokens: 0, todayCalls: 0, todayCost: 0, todayTokens: 0, byProvider: {} as Record<string, { calls: number; cost: number; tokens: number; todayCalls: number; todayCost: number }> },
+    { calls: 0, success: 0, cost: 0, tokens: 0, byProvider: {} as Record<string, { calls: number; cost: number; tokens: number }> },
   );
 
   async function saveNew() {
-    if (!form.name || !form.base_url || !form.model) {
-      toast.error("กรุณากรอกชื่อ, base URL, model");
+    const preset = PRESETS[form.preset];
+    const name = form.name.trim() || preset?.label?.replace(/\s*\(.*\)$/, "") || form.preset;
+    const base_url = form.base_url || preset?.base_url;
+    const model = form.model || preset?.model;
+    if (!base_url || !model) {
+      toast.error("กรุณากรอก base URL และ model");
+      return;
+    }
+    if (!form.api_key) {
+      toast.error("กรุณาใส่ API Key");
       return;
     }
     const { error } = await supabase.from("ai_providers" as any).insert({
-      name: form.name,
-      provider_type: PRESETS[form.preset]?.type || "openai_compatible",
-      base_url: form.base_url,
-      api_key: form.api_key || null,
-      model: form.model,
+      name,
+      provider_type: preset?.type || "openai_compatible",
+      base_url,
+      api_key: form.api_key,
+      model,
       priority: form.priority,
       supports_vision: form.supports_vision,
       enabled: true,
@@ -125,6 +149,7 @@ export default function AIProvidersPage() {
     if (error) return toast.error(error.message);
     toast.success("เพิ่ม Provider แล้ว");
     setShowAdd(false);
+    setShowAdvanced(false);
     setForm({ ...form, name: "", api_key: "" });
     qc.invalidateQueries({ queryKey: ["ai_providers"] });
   }
@@ -142,12 +167,6 @@ export default function AIProvidersPage() {
   async function updateKey(p: Provider, api_key: string) {
     await supabase.from("ai_providers" as any).update({ api_key }).eq("id", p.id);
     toast.success("บันทึก API Key แล้ว");
-    qc.invalidateQueries({ queryKey: ["ai_providers"] });
-  }
-
-  async function updateLimit(p: Provider, monthly_call_limit: number | null) {
-    await supabase.from("ai_providers" as any).update({ monthly_call_limit }).eq("id", p.id);
-    toast.success("บันทึกโควต้าแล้ว");
     qc.invalidateQueries({ queryKey: ["ai_providers"] });
   }
 
@@ -173,95 +192,136 @@ export default function AIProvidersPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-muted-foreground text-sm"><Activity className="h-4 w-4" />Calls วันนี้ / 30 วัน</div>
-            <div className="text-2xl font-bold mt-1">{totals.todayCalls.toLocaleString()} <span className="text-sm text-muted-foreground font-normal">/ {totals.calls.toLocaleString()}</span></div>
-            <div className="text-xs text-muted-foreground">สำเร็จ {totals.success}/{totals.calls}</div>
+            <div className="flex items-center gap-2 text-muted-foreground text-sm"><Activity className="h-4 w-4" />Calls (30d)</div>
+            <div className="text-2xl font-bold mt-1">{totals.calls.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground">สำเร็จ {totals.success}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-muted-foreground text-sm"><Zap className="h-4 w-4" />Tokens (30d)</div>
+            <div className="flex items-center gap-2 text-muted-foreground text-sm"><Zap className="h-4 w-4" />Tokens</div>
             <div className="text-2xl font-bold mt-1">{totals.tokens.toLocaleString()}</div>
-            <div className="text-xs text-muted-foreground">วันนี้ {totals.todayTokens.toLocaleString()}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-muted-foreground text-sm"><Coins className="h-4 w-4" />Cost (est.)</div>
             <div className="text-2xl font-bold mt-1">${totals.cost.toFixed(4)}</div>
-            <div className="text-xs text-muted-foreground">วันนี้ ${totals.todayCost.toFixed(4)}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-muted-foreground text-sm"><AlertCircle className="h-4 w-4" />Active</div>
             <div className="text-2xl font-bold mt-1">{providers.filter(p => p.enabled).length}/{providers.length}</div>
-            <div className="text-xs text-muted-foreground">providers</div>
           </CardContent>
         </Card>
       </div>
 
-
-      {showAdd && (
+      {showAdd && (() => {
+        const preset = PRESETS[form.preset];
+        return (
         <Card>
           <CardHeader>
             <CardTitle>เพิ่ม AI Provider ใหม่</CardTitle>
-            <CardDescription>เชื่อม API key ของเจ้าอื่นได้โดยตรง — ไม่ผ่าน Lovable Gateway</CardDescription>
+            <CardDescription>เลือก Preset แล้วใส่แค่ API Key — ที่เหลือเติมให้อัตโนมัติ</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <Label>Preset</Label>
-                <Select
-                  value={form.preset}
-                  onValueChange={(v) => {
-                    const p = PRESETS[v];
-                    setForm({ ...form, preset: v, base_url: p.base_url, model: p.model });
-                  }}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="openrouter">OpenRouter (DeepSeek/Qwen/Llama ฟรี)</SelectItem>
-                    <SelectItem value="openai">OpenAI direct</SelectItem>
-                    <SelectItem value="deepseek">DeepSeek direct</SelectItem>
-                    <SelectItem value="groq">Groq (เร็วมาก)</SelectItem>
-                    <SelectItem value="together">Together AI</SelectItem>
-                    <SelectItem value="custom">Custom (OpenAI-compatible)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>ชื่อแสดงผล</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="เช่น OpenRouter DeepSeek" />
-              </div>
-              <div className="md:col-span-2">
-                <Label>API Key</Label>
-                <Input type="password" value={form.api_key} onChange={(e) => setForm({ ...form, api_key: e.target.value })} placeholder="sk-..." />
-              </div>
-              <div className="md:col-span-2">
-                <Label>Base URL</Label>
-                <Input value={form.base_url} onChange={(e) => setForm({ ...form, base_url: e.target.value })} />
-              </div>
-              <div>
-                <Label>Model</Label>
-                <Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
-              </div>
-              <div>
-                <Label>Priority (น้อย = ใช้ก่อน)</Label>
-                <Input type="number" value={form.priority} onChange={(e) => setForm({ ...form, priority: +e.target.value })} />
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch checked={form.supports_vision} onCheckedChange={(v) => setForm({ ...form, supports_vision: v })} />
-                <Label>รองรับ Vision/OCR</Label>
-              </div>
+            <div>
+              <Label>Preset</Label>
+              <Select
+                value={form.preset}
+                onValueChange={(v) => {
+                  const p = PRESETS[v];
+                  setForm({ ...form, preset: v, base_url: p.base_url, model: p.model, supports_vision: !!p.vision, name: "" });
+                }}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent className="max-h-80">
+                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">🆓 ฟรี (rate-limited)</div>
+                  {["gemini","groq","cerebras","openrouter","glm","huggingface","github","sambanova","cohere"].map(k =>
+                    <SelectItem key={k} value={k}>{PRESETS[k].label}</SelectItem>)}
+                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground mt-1">💳 ฟรีเครดิต</div>
+                  {["deepseek","mistral","together","xai","fireworks","nvidia","dashscope","perplexity"].map(k =>
+                    <SelectItem key={k} value={k}>{PRESETS[k].label}</SelectItem>)}
+                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground mt-1">💰 เสียเงิน</div>
+                  {["openai","anthropic"].map(k =>
+                    <SelectItem key={k} value={k}>{PRESETS[k].label}</SelectItem>)}
+                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground mt-1">⚙️ อื่นๆ</div>
+                  <SelectItem value="custom">{PRESETS.custom.label}</SelectItem>
+                </SelectContent>
+              </Select>
+              {preset?.hint && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  ขอ API Key ได้ที่ <a href={`https://${preset.hint}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{preset.hint}</a>
+                </p>
+              )}
             </div>
+
+            <div>
+              <Label>API Key <span className="text-destructive">*</span></Label>
+              <Input
+                type="password"
+                value={form.api_key}
+                onChange={(e) => setForm({ ...form, api_key: e.target.value })}
+                placeholder="วางค่า API Key ที่นี่..."
+                autoFocus
+              />
+            </div>
+
+            {form.preset === "custom" && (
+              <>
+                <div>
+                  <Label>Base URL</Label>
+                  <Input value={form.base_url} onChange={(e) => setForm({ ...form, base_url: e.target.value })} placeholder="https://api.example.com/v1/chat/completions" />
+                </div>
+                <div>
+                  <Label>Model</Label>
+                  <Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="model-name" />
+                </div>
+              </>
+            )}
+
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground underline"
+              onClick={() => setShowAdvanced((s) => !s)}
+            >
+              {showAdvanced ? "▲ ซ่อนตัวเลือกขั้นสูง" : "▼ ตัวเลือกขั้นสูง (ชื่อ · Model · Priority · Vision)"}
+            </button>
+
+            {showAdvanced && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t">
+                <div>
+                  <Label>ชื่อแสดงผล</Label>
+                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={preset?.label} />
+                </div>
+                {form.preset !== "custom" && (
+                  <div>
+                    <Label>Model (override)</Label>
+                    <Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
+                  </div>
+                )}
+                <div>
+                  <Label>Priority (น้อย = ใช้ก่อน)</Label>
+                  <Input type="number" value={form.priority} onChange={(e) => setForm({ ...form, priority: +e.target.value })} />
+                </div>
+                <div className="flex items-center gap-2 pt-6">
+                  <Switch checked={form.supports_vision} onCheckedChange={(v) => setForm({ ...form, supports_vision: v })} />
+                  <Label>รองรับ Vision/OCR</Label>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2">
-              <Button onClick={saveNew}>บันทึก</Button>
-              <Button variant="outline" onClick={() => setShowAdd(false)}>ยกเลิก</Button>
+              <Button onClick={saveNew} className="flex-1"><Plus className="h-4 w-4 mr-1" />เพิ่ม Provider</Button>
+              <Button variant="outline" onClick={() => { setShowAdd(false); setShowAdvanced(false); }}>ยกเลิก</Button>
             </div>
           </CardContent>
         </Card>
-      )}
+        );
+      })()}
+
+
 
       <Tabs defaultValue="providers">
         <TabsList>
@@ -290,23 +350,7 @@ export default function AIProvidersPage() {
                 </div>
                 <div className="text-xs text-muted-foreground font-mono">{p.model} • {p.base_url}</div>
                 {p.notes && <div className="text-xs text-muted-foreground">{p.notes}</div>}
-                {(() => {
-                  const v = (totals.byProvider as any)[p.name] || { calls: 0, todayCalls: 0, cost: 0 };
-                  const limit = p.monthly_call_limit;
-                  const dailyQuota = limit ? Math.floor(limit / 30) : null;
-                  const monthlyRemaining = limit ? Math.max(0, limit - v.calls) : null;
-                  const dailyRemaining = dailyQuota ? Math.max(0, dailyQuota - v.todayCalls) : null;
-                  const pct = limit ? Math.min(100, Math.round((v.calls / limit) * 100)) : 0;
-                  return (
-                    <div className="text-xs grid grid-cols-2 md:grid-cols-4 gap-2 bg-muted/30 rounded p-2">
-                      <div><span className="text-muted-foreground">วันนี้:</span> <b>{v.todayCalls}</b>{dailyQuota ? ` / ${dailyQuota}` : ""}</div>
-                      <div><span className="text-muted-foreground">30 วัน:</span> <b>{v.calls}</b>{limit ? ` / ${limit} (${pct}%)` : ""}</div>
-                      <div><span className="text-muted-foreground">เหลือวันนี้:</span> <b className={dailyRemaining === 0 ? "text-destructive" : ""}>{dailyRemaining ?? "—"}</b></div>
-                      <div><span className="text-muted-foreground">เหลือเดือนนี้:</span> <b className={monthlyRemaining === 0 ? "text-destructive" : ""}>{monthlyRemaining ?? "—"}</b></div>
-                    </div>
-                  );
-                })()}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   <div className="md:col-span-2">
                     <Label className="text-xs">API Key {p.provider_type === "lovable" && "(ใช้ LOVABLE_API_KEY จาก env)"}</Label>
                     <div className="flex gap-2">
@@ -332,19 +376,6 @@ export default function AIProvidersPage() {
                       }}
                     />
                   </div>
-                  <div>
-                    <Label className="text-xs">โควต้า/เดือน (calls)</Label>
-                    <Input
-                      type="number"
-                      defaultValue={p.monthly_call_limit ?? ""}
-                      placeholder="ไม่จำกัด"
-                      onBlur={(e) => {
-                        const raw = e.target.value.trim();
-                        const v = raw === "" ? null : +raw;
-                        if (v !== p.monthly_call_limit) updateLimit(p, v);
-                      }}
-                    />
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -358,37 +389,22 @@ export default function AIProvidersPage() {
                 <thead className="text-left text-muted-foreground">
                   <tr>
                     <th className="py-2">Provider</th>
-                    <th>วันนี้</th>
-                    <th>30 วัน</th>
-                    <th>โควต้า/เดือน</th>
-                    <th>เหลือ/วัน</th>
-                    <th>เหลือ/เดือน</th>
+                    <th>Calls</th>
                     <th>Tokens</th>
-                    <th>Cost</th>
+                    <th>Cost (est.)</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(totals.byProvider as Record<string, { calls: number; cost: number; tokens: number; todayCalls: number; todayCost: number }>)
+                  {Object.entries(totals.byProvider as Record<string, { calls: number; cost: number; tokens: number }>)
                     .sort((a, b) => b[1].calls - a[1].calls)
-                    .map(([name, v]) => {
-                      const prov = providers.find(p => p.name === name);
-                      const limit = prov?.monthly_call_limit ?? null;
-                      const dailyQuota = limit ? Math.floor(limit / 30) : null;
-                      const dailyRemaining = dailyQuota ? Math.max(0, dailyQuota - v.todayCalls) : null;
-                      const monthlyRemaining = limit ? Math.max(0, limit - v.calls) : null;
-                      return (
-                        <tr key={name} className="border-t">
-                          <td className="py-2">{name}</td>
-                          <td>{v.todayCalls.toLocaleString()}{dailyQuota ? <span className="text-muted-foreground"> / {dailyQuota}</span> : null}</td>
-                          <td>{v.calls.toLocaleString()}{limit ? <span className="text-muted-foreground"> / {limit}</span> : null}</td>
-                          <td>{limit ?? <span className="text-muted-foreground">ไม่จำกัด</span>}</td>
-                          <td className={dailyRemaining === 0 ? "text-destructive font-semibold" : ""}>{dailyRemaining ?? "—"}</td>
-                          <td className={monthlyRemaining === 0 ? "text-destructive font-semibold" : ""}>{monthlyRemaining ?? "—"}</td>
-                          <td>{v.tokens.toLocaleString()}</td>
-                          <td>${v.cost.toFixed(4)}</td>
-                        </tr>
-                      );
-                    })}
+                    .map(([name, v]) => (
+                      <tr key={name} className="border-t">
+                        <td className="py-2">{name}</td>
+                        <td>{v.calls.toLocaleString()}</td>
+                        <td>{v.tokens.toLocaleString()}</td>
+                        <td>${v.cost.toFixed(4)}</td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </CardContent>

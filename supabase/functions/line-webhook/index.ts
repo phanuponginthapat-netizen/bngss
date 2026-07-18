@@ -2,11 +2,15 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { getSecret } from "../_shared/getSecret.ts";
+import { getSession, setSession, clearSession, normalizeDob, dobMatches, todayPlus } from "../_shared/lineSession.ts";
+import {
+  startLeaveFlow as _startLeaveFlow,
+  continueLeaveFlow as _continueLeaveFlow,
+  handleLeaveAttachmentMessage as _handleLeaveAttachmentMessage,
+  type LeaveDeps,
+} from "../_shared/lineLeaveFlow.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 // ============ SETTINGS ============
 
@@ -185,48 +189,20 @@ function qrFor(userType?: string, isAdmin?: boolean) {
 }
 
 // ============ FLEX BUILDERS ============
+// Shared design system lives in ../_shared/lineFlex.ts so all LINE functions
+// (notify-line, setup-line-richmenu, line-webhook) speak one visual language.
+import {
+  BRAND,
+  shade,
+  headerBox,
+  buildInfoCard,
+  buildListCard,
+  buildProfileCard,
+  buildSectionCard,
+  buildCarousel,
+} from "../_shared/lineFlex.ts";
 
-function buildInfoCard(title: string, items: { label: string; value: string }[], color = "#1DB446", footerAction?: any): any {
-  const bubble: any = {
-    type: "bubble",
-    header: {
-      type: "box", layout: "vertical", backgroundColor: color, paddingAll: "16px",
-      contents: [{ type: "text", text: title, color: "#FFFFFF", weight: "bold", size: "lg", wrap: true }],
-    },
-    body: {
-      type: "box", layout: "vertical", spacing: "sm",
-      contents: items.length > 0 ? items.map((it) => ({
-        type: "box", layout: "horizontal",
-        contents: [
-          { type: "text", text: it.label, size: "sm", color: "#666666", flex: 4, wrap: true },
-          { type: "text", text: it.value, size: "sm", color: "#111111", flex: 6, align: "end", wrap: true },
-        ],
-      })) : [{ type: "text", text: "ไม่มีข้อมูล", size: "sm", color: "#999999" }],
-    },
-  };
-  if (footerAction) {
-    bubble.footer = { type: "box", layout: "vertical", contents: [footerAction] };
-  }
-  return bubble;
-}
 
-function buildListCard(title: string, items: string[], color = "#27ACB2"): any {
-  return {
-    type: "bubble",
-    header: {
-      type: "box", layout: "vertical", backgroundColor: color, paddingAll: "16px",
-      contents: [{ type: "text", text: title, color: "#FFFFFF", weight: "bold", size: "lg", wrap: true }],
-    },
-    body: {
-      type: "box", layout: "vertical", spacing: "sm",
-      contents: items.length > 0
-        ? items.slice(0, 12).map((t, i) => ({ type: "text", text: `${i + 1}. ${t}`, size: "sm", color: "#333333", wrap: true }))
-        : [{ type: "text", text: "ไม่มีข้อมูล", size: "sm", color: "#999999" }],
-    },
-  };
-}
-
-function buildCarousel(bubbles: any[]) { return { type: "carousel", contents: bubbles.slice(0, 10) }; }
 
 // ============ SPIDER-WEB SYNC ============
 
@@ -234,22 +210,31 @@ async function syncLineUserIdAcross(sb: any, lineUserId: string, opts: { student
   const { studentId, profileId } = opts;
   if (studentId) {
     const { data: s } = await sb.from("students").select("auth_user_id").eq("id", studentId).maybeSingle();
-    if (s?.auth_user_id) await sb.from("profiles").update({ line_user_id: lineUserId }).eq("id", s.auth_user_id);
+    if (s?.auth_user_id) {
+      const { error } = await sb.from("profiles").update({ line_user_id: lineUserId }).eq("id", s.auth_user_id);
+      if (error) console.error("[syncLineUserIdAcross] profiles update failed", error);
+    }
   }
   if (profileId) {
     const { data: s } = await sb.from("students").select("id").eq("auth_user_id", profileId).eq("status", "active").maybeSingle();
-    if (s) await sb.from("students").update({ line_user_id: lineUserId }).eq("id", s.id);
+    if (s) {
+      const { error } = await sb.from("students").update({ line_user_id: lineUserId }).eq("id", s.id);
+      if (error) console.error("[syncLineUserIdAcross] students update failed", error);
+    }
   }
 }
 
 async function clearLineUserIdEverywhere(sb: any, lineUserId: string) {
-  await Promise.all([
+  const results = await Promise.all([
     sb.from("students").update({ line_user_id: null }).eq("line_user_id", lineUserId),
     sb.from("students").update({ line_user_id_2: null }).eq("line_user_id_2", lineUserId),
     sb.from("students").update({ line_user_id_3: null }).eq("line_user_id_3", lineUserId),
     sb.from("profiles").update({ line_user_id: null }).eq("line_user_id", lineUserId),
     sb.from("line_sessions").delete().eq("line_user_id", lineUserId),
   ]);
+  const errs = results.map((r: any) => r?.error).filter(Boolean);
+  if (errs.length) console.error("[clearLineUserIdEverywhere] errors", errs);
+  return errs.length === 0;
 }
 
 // ============ LOOKUP ============
@@ -287,63 +272,9 @@ async function findLinkedUser(sb: any, lineUserId: string) {
 
 // ============ SESSION ============
 
-async function getSession(sb: any, lineUserId: string) {
-  try { await sb.rpc("cleanup_expired_line_sessions"); } catch { /* ignore */ }
-  const { data } = await sb.from("line_sessions").select("*").eq("line_user_id", lineUserId).maybeSingle();
-  if (!data) return null;
-  if (new Date(data.expires_at) < new Date()) {
-    await sb.from("line_sessions").delete().eq("line_user_id", lineUserId);
-    return null;
-  }
-  return data;
-}
+// Session store, DOB normalizer, and todayPlus() come from ../_shared/lineSession.ts
 
-async function setSession(sb: any, lineUserId: string, intent: string, step: string, payload: any) {
-  const expires_at = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-  const { error } = await sb.from("line_sessions").upsert({ line_user_id: lineUserId, intent, step, payload, expires_at }, { onConflict: "line_user_id" });
-  if (error) { console.error("[setSession] failed", { uid: lineUserId, intent, step, error }); throw error; }
-  console.log("[setSession]", { uid: lineUserId, intent, step });
-}
 
-async function clearSession(sb: any, lineUserId: string) {
-  const { error } = await sb.from("line_sessions").delete().eq("line_user_id", lineUserId);
-  if (error) throw error;
-}
-
-// ============ DOB NORMALIZE (for link command) ============
-
-function normalizeDob(input: string): string | null {
-  if (!input) return null;
-  const s = input.trim();
-  // DDMMYYYY พ.ศ. (8 หลัก ไม่มีขีด) — รูปแบบหลัก
-  const ddmmyyyy = s.match(/^(\d{2})(\d{2})(\d{4})$/);
-  if (ddmmyyyy) {
-    const d = +ddmmyyyy[1], m = +ddmmyyyy[2], y = +ddmmyyyy[3];
-    const yy = y > 2400 ? y - 543 : y;
-    if (m < 1 || m > 12 || d < 1 || d > 31) return null;
-    return `${yy}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-  }
-  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (iso) {
-    const y = +iso[1], m = +iso[2], d = +iso[3];
-    const yy = y > 2400 ? y - 543 : y;
-    return `${yy}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-  }
-  const dmy = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
-  if (dmy) {
-    const d = +dmy[1], m = +dmy[2], y = +dmy[3];
-    const yy = y > 2400 ? y - 543 : y;
-    if (m < 1 || m > 12) return null;
-    return `${yy}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-  }
-  return null;
-}
-const dobMatches = (stored: any, given: string) => {
-  const n = normalizeDob(given);
-  return n && stored && String(stored).slice(0,10) === n;
-};
-
-// ============ LINK / UNLINK ============
 
 async function handleLinkCommand(sb: any, token: string, rt: string, code: string, dobInput: string | null, lineUserId: string, richMenus: Record<string,string>) {
   if (!dobInput) {
@@ -405,9 +336,20 @@ async function handleLinkCommand(sb: any, token: string, rt: string, code: strin
         return replyText(token, rt, `⚠️ รหัส ${code} ถูกใช้กับ LINE อื่นแล้ว`);
       if (!dobMatches(prof.date_of_birth, dobInput))
         return replyText(token, rt, `🔐 วันเกิดไม่ตรงกับข้อมูลในระบบ`);
-      await sb.from("profiles").update({ line_user_id: lineUserId }).eq("id", prof.id);
+      const { error: linkErr } = await sb.from("profiles").update({ line_user_id: lineUserId }).eq("id", prof.id);
+      if (linkErr) {
+        console.error("[link personnel] profiles update failed", linkErr);
+        return replyText(token, rt, `❌ เชื่อมบัญชีไม่สำเร็จ: ${linkErr.message}`, qrDefault);
+      }
       await syncLineUserIdAcross(sb, lineUserId, { profileId: prof.id });
-      if (richMenus.line_richmenu_teacher) await linkRichMenuToUser(token, lineUserId, richMenus.line_richmenu_teacher);
+      // เลือก rich menu ตาม role: director → director menu, admin → admin menu, ไม่งั้น teacher
+      const { data: rlist } = await sb.from("user_roles").select("role").eq("user_id", prof.id);
+      const rr = (rlist || []).map((x: any) => x.role);
+      const menuKey = rr.includes("director") ? "line_richmenu_director"
+        : (rr.includes("admin") || rr.includes("super_admin")) ? "line_richmenu_admin"
+        : "line_richmenu_teacher";
+      if (richMenus[menuKey]) await linkRichMenuToUser(token, lineUserId, richMenus[menuKey]);
+      else if (richMenus.line_richmenu_teacher) await linkRichMenuToUser(token, lineUserId, richMenus.line_richmenu_teacher);
 
       const name = `${personnel.prefix || ""}${personnel.first_name} ${personnel.last_name}`;
       sb.functions.invoke("line-magic-link", {
@@ -429,175 +371,31 @@ async function handleLinkCommand(sb: any, token: string, rt: string, code: strin
 async function handleUnlinkCommand(sb: any, token: string, rt: string, lineUserId: string, richMenus: Record<string,string>) {
   const user = await findLinkedUser(sb, lineUserId);
   if (!user) return replyText(token, rt, `ℹ️ ไม่พบบัญชีที่เชื่อมไว้`, qrDefault);
-  await clearLineUserIdEverywhere(sb, lineUserId);
+  const ok = await clearLineUserIdEverywhere(sb, lineUserId);
+  if (!ok) return replyText(token, rt, `❌ ยกเลิกการเชื่อมไม่สำเร็จ กรุณาลองใหม่อีกครั้ง`, qrDefault);
+  const stillLinked = await findLinkedUser(sb, lineUserId);
+  if (stillLinked) {
+    console.error("[unlink] still linked after clear", { lineUserId });
+    return replyText(token, rt, `❌ ยกเลิกการเชื่อมไม่สำเร็จ กรุณาลองใหม่อีกครั้ง`, qrDefault);
+  }
   if (richMenus.line_richmenu_default) await linkRichMenuToUser(token, lineUserId, richMenus.line_richmenu_default);
   await replyText(token, rt, `✅ ยกเลิกการเชื่อมบัญชีแล้ว`, qrDefault);
 }
 
-// ============ LEAVE FLOW (Conversation) ============
+// ============ LEAVE FLOW (thin wrappers → ../_shared/lineLeaveFlow.ts) ============
 
-async function startLeaveFlow(sb: any, token: string, rt: string, lineUserId: string) {
-  const user = await findLinkedUser(sb, lineUserId);
-  if (!user) return replyText(token, rt, `❌ ต้องเชื่อมบัญชีก่อนถึงจะส่งใบลาได้`, qrDefault);
-  await setSession(sb, lineUserId, "leave", "type", { userType: user.type, userId: user.id, personnelId: (user as any).personnel_id });
-  await replyText(token, rt, `📝 ส่งใบลา (ขั้น 1/5)\nเลือกประเภทการลา`, {
-    items: [
-      { type: "action", action: { type: "message", label: "🤒 ลาป่วย", text: "ป่วย" } },
-      { type: "action", action: { type: "message", label: "📋 ลากิจ", text: "กิจ" } },
-      { type: "action", action: { type: "message", label: "🌴 ลาพักผ่อน", text: "พักผ่อน" } },
-      { type: "action", action: { type: "message", label: "❌ ยกเลิก", text: "ยกเลิก" } },
-    ],
-  });
+function leaveDeps(): LeaveDeps {
+  return {
+    replyText, replyFlex, findLinkedUser, downloadLineContent,
+    qrDefault, qrFor,
+  };
 }
-
-function todayPlus(d: number) {
-  const t = new Date(); t.setDate(t.getDate() + d);
-  return t.toISOString().slice(0, 10);
-}
-
-async function continueLeaveFlow(sb: any, token: string, rt: string, lineUserId: string, session: any, text: string) {
-  const t = text.trim();
-  if (/^(ยกเลิก|cancel)$/i.test(t)) {
-    await clearSession(sb, lineUserId);
-    return replyText(token, rt, `❌ ยกเลิกการส่งใบลาแล้ว`, qrFor(session.payload?.userType));
-  }
-
-  if (session.step === "type") {
-    const typeMap: Record<string,string> = { "ป่วย": "ลาป่วย", "กิจ": "ลากิจ", "พักผ่อน": "ลาพักผ่อน", "อื่นๆ": "ลาอื่นๆ" };
-    const leaveType = typeMap[t] || t;
-    await setSession(sb, lineUserId, "leave", "start_date", { ...session.payload, leave_type: leaveType });
-    return replyText(token, rt, `📝 ส่งใบลา (ขั้น 2/5)\nวันที่เริ่มลา? (YYYY-MM-DD หรือเลือก)`, {
-      items: [
-        { type: "action", action: { type: "message", label: "วันนี้", text: todayPlus(0) } },
-        { type: "action", action: { type: "message", label: "พรุ่งนี้", text: todayPlus(1) } },
-        { type: "action", action: { type: "message", label: "มะรืน", text: todayPlus(2) } },
-        { type: "action", action: { type: "message", label: "❌ ยกเลิก", text: "ยกเลิก" } },
-      ],
-    });
-  }
-
-  if (session.step === "start_date") {
-    const n = normalizeDob(t);
-    if (!n) return replyText(token, rt, `❌ วันที่ไม่ถูกต้อง ลองใหม่ (เช่น 2026-05-20 หรือ 20/05/2569)`);
-    await setSession(sb, lineUserId, "leave", "end_date", { ...session.payload, start_date: n });
-    return replyText(token, rt, `📝 ส่งใบลา (ขั้น 3/5)\nวันที่สิ้นสุด?`, {
-      items: [
-        { type: "action", action: { type: "message", label: "วันเดียวกัน", text: n } },
-        { type: "action", action: { type: "message", label: "วันถัดไป", text: todayPlus(1) } },
-        { type: "action", action: { type: "message", label: "❌ ยกเลิก", text: "ยกเลิก" } },
-      ],
-    });
-  }
-
-  if (session.step === "end_date") {
-    const n = normalizeDob(t);
-    if (!n) return replyText(token, rt, `❌ วันที่ไม่ถูกต้อง ลองใหม่`);
-    if (n < session.payload.start_date) return replyText(token, rt, `❌ วันที่สิ้นสุดต้องไม่น้อยกว่าวันเริ่ม`);
-    await setSession(sb, lineUserId, "leave", "reason", { ...session.payload, end_date: n });
-    return replyText(token, rt, `📝 ส่งใบลา (ขั้น 4/5)\nเหตุผลการลา? (พิมพ์ข้อความสั้นๆ)`, {
-      items: [{ type: "action", action: { type: "message", label: "❌ ยกเลิก", text: "ยกเลิก" } }],
-    });
-  }
-
-  if (session.step === "reason") {
-    if (t.length < 3) return replyText(token, rt, `❌ กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร`);
-    await setSession(sb, lineUserId, "leave", "attachment", { ...session.payload, reason: t });
-    return replyText(token, rt, `📝 ส่งใบลา (ขั้น 5/5)\n📎 แนบใบรับรองแพทย์/หลักฐาน (ส่งรูปหรือไฟล์) หรือพิมพ์ "ข้าม" เพื่อข้าม`, {
-      items: [
-        { type: "action", action: { type: "message", label: "⏭️ ข้าม", text: "ข้าม" } },
-        { type: "action", action: { type: "message", label: "❌ ยกเลิก", text: "ยกเลิก" } },
-      ],
-    });
-  }
-
-  if (session.step === "attachment") {
-    // Text path: ข้าม = no attachment, anything else asks to upload or skip
-    if (/^(ข้าม|skip|ไม่มี)$/i.test(t)) {
-      await setSession(sb, lineUserId, "leave", "confirm", session.payload);
-      return showLeaveConfirm(sb, token, rt, lineUserId, session.payload);
-    }
-    return replyText(token, rt, `📎 กรุณาส่งรูป/ไฟล์ที่ต้องการแนบ หรือพิมพ์ "ข้าม"`, {
-      items: [
-        { type: "action", action: { type: "message", label: "⏭️ ข้าม", text: "ข้าม" } },
-        { type: "action", action: { type: "message", label: "❌ ยกเลิก", text: "ยกเลิก" } },
-      ],
-    });
-  }
-
-  if (session.step === "confirm") {
-    if (!/^(ยืนยัน|confirm|ok|ใช่)$/i.test(t)) return replyText(token, rt, `พิมพ์ "ยืนยัน" เพื่อส่ง หรือ "ยกเลิก"`);
-    const p = session.payload;
-    const isStudent = p.userType === "student";
-    let insertError: any = null;
-
-    if (isStudent) {
-      const { error } = await sb.from("student_leaves").insert({
-        student_id: p.userId,
-        leave_type: p.leave_type,
-        start_date: p.start_date,
-        end_date: p.end_date,
-        reason: p.reason,
-        attachment_url: p.attachment_url || null,
-        status: "pending",
-      });
-      insertError = error;
-    } else {
-      if (!p.personnelId) {
-        await clearSession(sb, lineUserId);
-        return replyText(token, rt, `❌ ไม่พบข้อมูลบุคลากรของคุณ`);
-      }
-      const { error } = await sb.from("staff_leaves").insert({
-        personnel_id: p.personnelId,
-        leave_type: p.leave_type,
-        start_date: p.start_date,
-        end_date: p.end_date,
-        reason: p.reason,
-        attachment_url: p.attachment_url || null,
-        status: "pending",
-      });
-      insertError = error;
-    }
-
-    if (insertError) {
-      console.error("leave insert failed", {
-        lineUserId,
-        userType: p.userType,
-        userId: p.userId,
-        personnelId: p.personnelId,
-        leaveType: p.leave_type,
-        startDate: p.start_date,
-        endDate: p.end_date,
-        error: insertError,
-      });
-      return replyText(token, rt, `❌ ระบบยังไม่รับใบลานี้เข้ามา ลองกดยืนยันใหม่อีกครั้ง หรือพิมพ์ "ลา" เพื่อเริ่มใหม่`, qrFor(p.userType));
-    }
-
-    await clearSession(sb, lineUserId);
-    return replyFlex(token, rt, "ส่งใบลาสำเร็จ",
-      buildInfoCard("✅ ส่งใบลาแล้ว", [
-        { label: "ประเภท", value: p.leave_type },
-        { label: "วันที่", value: `${p.start_date} ถึง ${p.end_date}` },
-        { label: "ไฟล์แนบ", value: p.attachment_url ? "✅ มี" : "—" },
-        { label: "สถานะ", value: "⏳ รออนุมัติ" },
-      ], "#10b981"), qrFor(p.userType));
-  }
-}
-
-function showLeaveConfirm(_sb: any, token: string, rt: string, _lineUserId: string, p: any) {
-  return replyFlex(token, rt, "ยืนยันการส่งใบลา",
-    buildInfoCard("📝 ยืนยันใบลา", [
-      { label: "ประเภท", value: p.leave_type },
-      { label: "เริ่ม", value: p.start_date },
-      { label: "ถึง", value: p.end_date },
-      { label: "เหตุผล", value: p.reason },
-      { label: "ไฟล์แนบ", value: p.attachment_url ? "✅ แนบแล้ว" : "— ไม่มี" },
-    ], "#0984E3"),
-    { items: [
-      { type: "action", action: { type: "message", label: "✅ ยืนยันส่ง", text: "ยืนยัน" } },
-      { type: "action", action: { type: "message", label: "❌ ยกเลิก", text: "ยกเลิก" } },
-    ]}
-  );
-}
+const startLeaveFlow = (sb: any, token: string, rt: string, lineUserId: string) =>
+  _startLeaveFlow(sb, token, rt, lineUserId, leaveDeps());
+const continueLeaveFlow = (sb: any, token: string, rt: string, lineUserId: string, session: any, text: string) =>
+  _continueLeaveFlow(sb, token, rt, lineUserId, session, text, leaveDeps());
+const handleLeaveAttachmentMessage = (sb: any, token: string, rt: string, lineUserId: string, session: any, event: any) =>
+  _handleLeaveAttachmentMessage(sb, token, rt, lineUserId, session, event, leaveDeps());
 
 // ============ LINE CONTENT DOWNLOAD ============
 
@@ -613,38 +411,6 @@ async function downloadLineContent(token: string, messageId: string): Promise<{ 
   } catch (e) { console.error("downloadLineContent", e); return null; }
 }
 
-async function handleLeaveAttachmentMessage(sb: any, token: string, rt: string, lineUserId: string, session: any, event: any) {
-  const msg = event.message;
-  if (!msg || (msg.type !== "image" && msg.type !== "file" && msg.type !== "video")) {
-    return replyText(token, rt, `📎 กรุณาส่งรูป/ไฟล์ หรือพิมพ์ "ข้าม"`);
-  }
-  const content = await downloadLineContent(token, msg.id);
-  if (!content) return replyText(token, rt, `❌ ดาวน์โหลดไฟล์ไม่สำเร็จ ลองใหม่ หรือพิมพ์ "ข้าม"`);
-
-  const ext = (() => {
-    if (msg.type === "image") return content.mime.includes("png") ? "png" : "jpg";
-    if (msg.type === "video") return "mp4";
-    const fn = (msg.fileName as string) || "";
-    const m = fn.match(/\.([a-zA-Z0-9]{1,8})$/);
-    return m ? m[1].toLowerCase() : "bin";
-  })();
-  const userId = session.payload.userType === "student" ? session.payload.userId : (session.payload.personnelId || lineUserId);
-  const path = `line/${userId}/${Date.now()}_${msg.id}.${ext}`;
-
-  const { error: upErr } = await sb.storage.from("leave-attachments").upload(path, content.data, {
-    contentType: content.mime,
-    upsert: false,
-  });
-  if (upErr) {
-    console.error("upload leave attachment fail", upErr);
-    return replyText(token, rt, `❌ อัปโหลดไม่สำเร็จ ลองใหม่ หรือพิมพ์ "ข้าม"`);
-  }
-  const { data: signed } = await sb.storage.from("leave-attachments").createSignedUrl(path, 60 * 60 * 24 * 365);
-  const url = signed?.signedUrl || path;
-  const newPayload = { ...session.payload, attachment_url: url, attachment_path: path };
-  await setSession(sb, lineUserId, "leave", "confirm", newPayload);
-  return showLeaveConfirm(sb, token, rt, lineUserId, newPayload);
-}
 
 // ============ STUDENT/PARENT COMMANDS ============
 
@@ -875,10 +641,18 @@ async function handleMarkAttendance(sb: any, token: string, rt: string, lineUser
     academic_year: year, semester, recorded_by: user.id, subject_id: sid,
   };
   if (period && period !== "-") row.notes = `period:${period}`;
+  let saved: any = null; let saveErr: any = null;
   try {
-    await sb.from("attendance").upsert(row, { onConflict: "student_id,attendance_date,subject_id" });
-  } catch {
-    await sb.from("attendance").insert(row);
+    const r = await sb.from("attendance").upsert(row, { onConflict: "student_id,attendance_date,subject_id" }).select("id").maybeSingle();
+    saved = r.data; saveErr = r.error;
+  } catch (e) { saveErr = e; }
+  if (saveErr) {
+    const r2 = await sb.from("attendance").insert(row).select("id").maybeSingle();
+    saved = r2.data; saveErr = r2.error;
+  }
+  if (saveErr || !saved) {
+    console.error("[markAttendance] failed", { row, saveErr });
+    return replyText(token, rt, `❌ บันทึกเช็คชื่อไม่สำเร็จ: ${saveErr?.message || "unknown"}`, qrTeacher);
   }
   const { data: s } = await sb.from("students").select("first_name, last_name").eq("id", studentId).maybeSingle();
   const label: Record<string,string> = { present:"✅ มา", absent:"❌ ขาด", late:"⏰ สาย", sick:"🤒 ป่วย" };
@@ -913,7 +687,7 @@ async function handleTeacherPeriods(sb: any, token: string, rt: string, lineUser
         contents: [
           { type: "text", text: `คาบ ${r.period}  ${time}`, weight: "bold", size: "md", color: "#6C5CE7" },
           { type: "text", text: subjName, weight: "bold", wrap: true },
-          { type: "text", text: `ห้อง ${r.classrooms?.name || "-"}`, size: "sm", color: "#666" },
+          { type: "text", text: `ห้อง ${r.classrooms?.name || "-"}`, size: "sm", color: "#666666" },
           { type: "button", style: "primary", color: "#0984E3", height: "sm",
             action: { type: "postback", label: "✅ เช็คคาบนี้",
               data: `period:pick:${r.classroom_id}:${r.subject_id || "-"}:${r.period}`,
@@ -1109,11 +883,15 @@ async function handleBehaviorRecord(sb: any, token: string, rt: string, lineUser
   const pts = parseInt(ptsStr, 10);
   const { data: s } = await sb.from("students").select("id, first_name, last_name").eq("student_code", code).eq("status", "active").maybeSingle();
   if (!s) return replyText(token, rt, `❌ ไม่พบนักเรียนรหัส ${code}`, qrTeacher);
-  await sb.from("behavior_records").insert({
+  const { error: behErr } = await sb.from("behavior_records").insert({
     student_id: s.id, behavior_type: pts >= 0 ? "positive" : "negative",
     description: reason, points: Math.abs(pts), record_date: new Date().toISOString().slice(0, 10),
     recorded_by: `${user.first_name} ${user.last_name}`.trim(),
   });
+  if (behErr) {
+    console.error("[behaviorRecord] insert failed", behErr);
+    return replyText(token, rt, `❌ บันทึกไม่สำเร็จ: ${behErr.message}`, qrTeacher);
+  }
   return replyText(token, rt, `✅ บันทึก ${pts >= 0 ? "+" : "-"}${Math.abs(pts)} ให้ ${s.first_name} ${s.last_name}\nเหตุผล: ${reason}`, qrTeacher);
 }
 
@@ -1140,8 +918,8 @@ async function handlePendingLeavesForTeacher(sb: any, token: string, rt: string,
       type: "box", layout: "vertical", spacing: "sm",
       contents: [
         { type: "text", text: `${l.students?.prefix || ""}${l.students?.first_name} ${l.students?.last_name}`, weight: "bold", wrap: true },
-        { type: "text", text: `${l.leave_type} ${l.start_date}→${l.end_date}`, size: "xs", color: "#666" },
-        { type: "text", text: l.reason || "-", size: "xs", color: "#888", wrap: true },
+        { type: "text", text: `${l.leave_type} ${l.start_date}→${l.end_date}`, size: "xs", color: "#666666" },
+        { type: "text", text: l.reason || "-", size: "xs", color: "#888888", wrap: true },
         { type: "box", layout: "horizontal", spacing: "xs", contents: [
           { type: "button", style: "primary", color: "#10b981", height: "sm",
             action: { type: "postback", label: "✅ อนุมัติ", data: `leave:approve:student:${l.id}`, displayText: `อนุมัติใบลา ${l.students?.first_name}` } },
@@ -1156,17 +934,40 @@ async function handlePendingLeavesForTeacher(sb: any, token: string, rt: string,
 
 async function handleApproveLeave(sb: any, token: string, rt: string, lineUserId: string, kind: string, leaveId: string, approve: boolean) {
   const user = await findLinkedUser(sb, lineUserId);
-  if (!user || user.type !== "teacher") return replyText(token, rt, `❌ ไม่ได้รับอนุญาต`);
+  const isAdmin = !!(user && (user as any).isAdmin);
+  if (!user || user.type !== "teacher") {
+    console.warn("[approveLeave] not linked teacher/admin", { lineUserId, kind, leaveId });
+    return replyText(token, rt, `❌ ไม่ได้รับอนุญาต (ยังไม่ได้ผูกบัญชีบุคลากร)`, qrDefault);
+  }
+  if (kind === "staff" && !isAdmin) {
+    return replyText(token, rt, `❌ อนุมัติใบลาบุคลากรต้องเป็นผู้บริหาร/แอดมิน`, qrTeacher);
+  }
+
   const table = kind === "staff" ? "staff_leaves" : "student_leaves";
   const status = approve ? "approved" : "rejected";
   const upd: any = { status };
   if (table === "staff_leaves") {
     upd.approved_by = user.id;
     upd.approved_at = new Date().toISOString();
+  } else {
+    upd.approved_by = user.id;
   }
-  const { error } = await sb.from(table).update(upd).eq("id", leaveId);
-  if (error) return replyText(token, rt, `❌ ${error.message}`);
-  return replyText(token, rt, `${approve ? "✅ อนุมัติ" : "❌ ปฏิเสธ"}ใบลาเรียบร้อย`, qrTeacher);
+
+  console.log("[approveLeave] update", { table, leaveId, status, actor: user.id, isAdmin });
+  const { data: rows, error } = await sb.from(table).update(upd).eq("id", leaveId).select("id, status");
+  if (error) {
+    console.error("[approveLeave] update failed", error);
+    return replyText(token, rt, `❌ อัปเดตไม่สำเร็จ: ${error.message}`, qrTeacher);
+  }
+  if (!rows || rows.length === 0) {
+    console.warn("[approveLeave] zero rows matched", { table, leaveId });
+    return replyText(token, rt, `⚠️ ไม่พบใบลานี้ในระบบ หรืออาจถูกอนุมัติ/ลบไปแล้ว`, qrTeacher);
+  }
+  if (rows[0].status !== status) {
+    console.error("[approveLeave] status did not change", { table, leaveId, expected: status, actual: rows[0].status });
+    return replyText(token, rt, `❌ อัปเดตไม่สำเร็จ: ระบบยังเป็นสถานะ ${rows[0].status}`, qrTeacher);
+  }
+  return replyText(token, rt, `${approve ? "✅ อนุมัติ" : "❌ ปฏิเสธ"}ใบลาเรียบร้อย (${rows[0].status})`, qrTeacher);
 }
 
 async function handleTodaySummaryForTeacher(sb: any, token: string, rt: string, lineUserId: string) {
@@ -1240,8 +1041,8 @@ async function handleAdminPendingLeaves(sb: any, token: string, rt: string, line
       type: "box", layout: "vertical", spacing: "sm",
       contents: [
         { type: "text", text: `${l.personnel?.prefix || ""}${l.personnel?.first_name} ${l.personnel?.last_name}`, weight: "bold", wrap: true },
-        { type: "text", text: `${l.leave_type} ${l.start_date}→${l.end_date}`, size: "xs", color: "#666" },
-        { type: "text", text: l.reason || "-", size: "xs", color: "#888", wrap: true },
+        { type: "text", text: `${l.leave_type} ${l.start_date}→${l.end_date}`, size: "xs", color: "#666666" },
+        { type: "text", text: l.reason || "-", size: "xs", color: "#888888", wrap: true },
         { type: "box", layout: "horizontal", spacing: "xs", contents: [
           { type: "button", style: "primary", color: "#10b981", height: "sm",
             action: { type: "postback", label: "✅ อนุมัติ", data: `leave:approve:staff:${l.id}`, displayText: "อนุมัติ" } },
@@ -1269,7 +1070,7 @@ async function handleAdminBroadcast(sb: any, token: string, rt: string, lineUser
   const m = raw.match(/^(?:ประกาศ|broadcast)\s+(.+)$/i);
   if (!m) return replyText(token, rt, `📣 ประกาศฉุกเฉิน\nรูปแบบ: ประกาศ [ข้อความ]\n\nเช่น: ประกาศ ปิดเรียนพรุ่งนี้เนื่องจากฝนตกหนัก`, qrAdmin);
   const message = m[1].trim();
-  await sb.from("emergency_broadcasts").insert({
+  const { error: bcErr } = await sb.from("emergency_broadcasts").insert({
     title: "ประกาศจากผู้บริหาร",
     message,
     severity: "info",
@@ -1278,6 +1079,10 @@ async function handleAdminBroadcast(sb: any, token: string, rt: string, lineUser
     sent_by: `${user.first_name || ""} ${user.last_name || ""}`.trim(),
     author_id: user.id,
   });
+  if (bcErr) {
+    console.error("[adminBroadcast] insert failed", bcErr);
+    return replyText(token, rt, `❌ ส่งประกาศไม่สำเร็จ: ${bcErr.message}`, qrAdmin);
+  }
   return replyText(token, rt, `✅ ส่งประกาศแล้ว: ${message.slice(0, 100)}`, qrAdmin);
 }
 
@@ -1378,145 +1183,222 @@ async function handleSDQCommand(sb: any, token: string, rt: string, lineUserId: 
 
 async function handleStatusCommand(sb: any, token: string, rt: string, lineUserId: string) {
   const user = await findLinkedUser(sb, lineUserId);
-  if (!user) return replyText(token, rt, `❌ ยังไม่ได้เชื่อมบัญชี\nพิมพ์ "เชื่อม [รหัส] [วันเกิด]"`, qrDefault);
+  if (!user) {
+    return replyFlex(token, rt, "ยังไม่ได้เชื่อมบัญชี", buildInfoCard(
+      "🔗 ยังไม่ได้เชื่อมบัญชี",
+      [
+        { label: "ขั้นที่ 1", value: "รับรหัสที่โรงเรียน" },
+        { label: "ขั้นที่ 2", value: "พิมพ์: เชื่อม [รหัส] [ววดดปปปป]" },
+        { label: "ตัวอย่าง", value: "เชื่อม 12345 12052553" },
+      ],
+      "#F43F5E",
+      { type: "button", action: { type: "message", label: "📋 ดูเมนู", text: "เมนู" } },
+      "เชื่อมบัญชีเพื่อดูข้อมูลของคุณ",
+    ), qrDefault);
+  }
   if (user.type === "student") {
     const name = `${user.prefix||""}${user.first_name} ${user.last_name}`;
-    return replyFlex(token, rt, `สถานะ - ${name}`, buildInfoCard("🔗 บัญชีที่เชื่อม", [
-      { label: "ประเภท", value: "นักเรียน/ผปค." },
-      { label: "ชื่อ", value: name },
-      { label: "รหัส", value: user.student_code },
-      { label: "ห้อง", value: (user as any).classrooms?.name || "-" },
-    ], "#6C5CE7"), qrParent);
+    return replyFlex(token, rt, `สถานะ - ${name}`, buildProfileCard({
+      name, roleLabel: "นักเรียน / ผู้ปกครอง", roleColor: "#6366F1", avatarEmoji: "🎓",
+      rows: [
+        { label: "รหัสประจำตัว", value: user.student_code },
+        { label: "ห้องเรียน", value: (user as any).classrooms?.name || "-" },
+        { label: "สถานะ", value: "✅ เชื่อมบัญชีแล้ว" },
+      ],
+      footerAction: { type: "button", action: { type: "message", label: "📊 ดูผลการเรียน", text: "ผลการเรียน" } },
+    }), qrParent);
   }
   const name = `${user.prefix||""}${user.first_name||""} ${user.last_name||""}`.trim();
-  return replyFlex(token, rt, `สถานะ - ${name}`, buildInfoCard("🔗 บัญชีที่เชื่อม", [
-    { label: "ประเภท", value: "บุคลากร" },
-    { label: "ชื่อ", value: name },
-    { label: "รหัส", value: user.employee_code || "-" },
-    ...((user as any).position ? [{ label: "ตำแหน่ง", value: (user as any).position }] : []),
-  ], "#6C5CE7"), qrTeacher);
+  const isAdmin = !!(user as any)?.isAdmin;
+  return replyFlex(token, rt, `สถานะ - ${name}`, buildProfileCard({
+    name,
+    roleLabel: isAdmin ? "ผู้บริหาร / แอดมิน" : "ครู / บุคลากร",
+    roleColor: isAdmin ? "#F59E0B" : "#10B981",
+    avatarEmoji: isAdmin ? "🏫" : "👨‍🏫",
+    rows: [
+      { label: "รหัสบุคลากร", value: user.employee_code || "-" },
+      ...((user as any).position ? [{ label: "ตำแหน่ง", value: (user as any).position }] : []),
+      { label: "สถานะ", value: "✅ เชื่อมบัญชีแล้ว" },
+    ],
+    footerAction: { type: "button", action: { type: "message", label: "📅 ตารางวันนี้", text: "ตารางวันนี้" } },
+  }), isAdmin ? qrAdmin : qrTeacher);
 }
+
+
+// ============ SMART NATURAL-LANGUAGE Q&A (student/parent) ============
+// ตอบคำถามแบบเป็นธรรมชาติ เช่น "เข้าเรียนกี่โมง", "ขาดเรียนวันไหน", "ลาวันไหนบ้าง"
+// คืน true ถ้าจับ intent ได้ — เพื่อไม่ให้ตกไปที่ AI fallback (ซึ่งไม่มีข้อมูลส่วนตัว)
+async function handleSmartQuery(sb: any, token: string, rt: string, lineUserId: string, t: string): Promise<boolean> {
+  // ต้องเป็นคำถาม (มีคำชี้ความ) เพื่อกันชนคำสั่งสั้น
+  if (!/วัน|ไหน|กี่|เมื่อ|โมง|บ้าง|เวลา|ตอน|ครั้ง|อะไร|ทำไม|เท่าไร|เท่าไหร่|มี|ใคร|อย่างไร|ยังไง|\?|？/i.test(t)) return false;
+  const user = await findLinkedUser(sb, lineUserId);
+  if (!user) return false;
+  const isAdmin = !!(user as any)?.isAdmin;
+  const isTeacher = user.type === "teacher";
+  const isStudent = user.type === "student";
+
+
+  // ขอบเขตเวลา
+  const now = new Date();
+  let from = new Date(now.getFullYear(), now.getMonth(), 1);
+  let to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  let label = "เดือนนี้";
+  if (/เดือนที่แล้ว|เดือนก่อน/.test(t)) {
+    from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    to = new Date(now.getFullYear(), now.getMonth(), 0);
+    label = "เดือนที่แล้ว";
+  } else if (/ภาคเรียน|เทอม|ภาคนี้/.test(t)) {
+    const m = now.getMonth();
+    if (m >= 4 && m <= 9) { from = new Date(now.getFullYear(), 4, 1); to = new Date(now.getFullYear(), 9, 30); label = "เทอม 1"; }
+    else { const y = m >= 10 ? now.getFullYear() : now.getFullYear() - 1; from = new Date(y, 10, 1); to = new Date(y + 1, 2, 31); label = "เทอม 2"; }
+  } else if (/อาทิตย์นี้|สัปดาห์นี้|7\s*วัน/.test(t)) {
+    from = new Date(now); from.setDate(from.getDate() - 6); label = "7 วันล่าสุด";
+  } else if (/วันนี้|today/i.test(t)) {
+    from = new Date(now); to = new Date(now); label = "วันนี้";
+  }
+  const fStr = from.toISOString().slice(0, 10);
+  const tStr = to.toISOString().slice(0, 10);
+
+  // ─── STUDENT / PARENT queries ─────────────────────────────────────────
+  if (isStudent) {
+    // 1) เวลาเข้า-ออกโรงเรียน (face scan)
+    if (/(เข้าเรียน|มาโรงเรียน|สแกน|เช็คอิน|เช็คเอาท์|check[\s-]?(in|out)).*(กี่โมง|เวลา|ตอนไหน|ตอนกี่)/i.test(t)
+        || /(กี่โมง|เวลา|ตอนไหน).*(เข้า|มา|ออก|กลับ)/i.test(t)) {
+      const { data: scans } = await sb.from("face_scan_logs")
+        .select("scan_date, scan_time, scan_type")
+        .eq("student_id", user.id)
+        .gte("scan_date", fStr).lte("scan_date", tStr)
+        .order("scan_time", { ascending: false }).limit(20);
+      if (!scans?.length) { await replyText(token, rt, `📋 ไม่มีบันทึกเวลาเข้า-ออก ${label}`, qrParent); return true; }
+      const items = scans.map((s: any) => {
+        const tm = new Date(s.scan_time).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" });
+        return `${s.scan_date} ${tm} ${s.scan_type === "in" ? "🟢เข้า" : "🔴ออก"}`;
+      });
+      await replyFlex(token, rt, "เวลาเข้า-ออก", buildListCard(`⏰ เวลาเข้า-ออก ${label}`, items, "#0984E3"), qrParent);
+      return true;
+    }
+
+    // 2) ขาด / สาย / ป่วย วันไหนบ้าง
+    const askAbsent = /ขาด(เรียน|งาน)?/.test(t);
+    const askLate = /(มา\s*สาย|สาย)/.test(t) && !/ป่วย|ขาด/.test(t);
+    const askSick = /ป่วย/.test(t);
+    if (askAbsent || askLate || askSick) {
+      const status = askAbsent ? "absent" : askLate ? "late" : "sick";
+      const stLabel = askAbsent ? "❌ ขาดเรียน" : askLate ? "⏰ มาสาย" : "🤒 ป่วย";
+      const { data: rows } = await sb.from("attendance")
+        .select("attendance_date, notes")
+        .eq("student_id", user.id).eq("status", status)
+        .gte("attendance_date", fStr).lte("attendance_date", tStr)
+        .order("attendance_date", { ascending: false }).limit(40);
+      if (!rows?.length) { await replyText(token, rt, `📋 ไม่มีวัน${stLabel} ${label} 🎉`, qrParent); return true; }
+      const items = rows.map((r: any) => `• ${r.attendance_date}${r.notes ? ` — ${r.notes}` : ""}`);
+      await replyFlex(token, rt, stLabel, buildListCard(`${stLabel} ${label} (${rows.length} วัน)`, items, "#E17055"), qrParent);
+      return true;
+    }
+
+    // 3) ลาวันไหน / ลากี่ครั้ง
+    if (/ลา/.test(t)) {
+      const { data: leaves } = await sb.from("student_leaves")
+        .select("leave_type, start_date, end_date, reason, status")
+        .eq("student_id", user.id)
+        .gte("start_date", fStr).lte("start_date", tStr)
+        .order("start_date", { ascending: false }).limit(20);
+      if (!leaves?.length) { await replyText(token, rt, `📋 ไม่มีการลา ${label}`, qrParent); return true; }
+      const sm: Record<string, string> = { pending: "⏳", approved: "✅", rejected: "❌" };
+      const items = leaves.map((l: any) => `${sm[l.status] || ""} ${l.leave_type} ${l.start_date}${l.end_date !== l.start_date ? `→${l.end_date}` : ""}${l.reason ? ` — ${l.reason}` : ""}`);
+      await replyFlex(token, rt, "การลา", buildListCard(`📋 การลา ${label} (${leaves.length} ครั้ง)`, items, "#E17055"), qrParent);
+      return true;
+    }
+
+    // 4) การบ้านที่ต้องส่ง / เหลืออะไรบ้าง
+    if (/(การบ้าน|งาน|homework).*(อะไร|บ้าง|เหลือ|ต้องส่ง|กี่)/.test(t) || /(เหลือ|ต้องส่ง).*(การบ้าน|งาน)/.test(t)) {
+      const { data: hws } = await sb.from("homework")
+        .select("title, due_date, subjects(name_th,name)")
+        .gte("due_date", new Date().toISOString().slice(0,10))
+        .order("due_date", { ascending: true }).limit(15);
+      if (!hws?.length) { await replyText(token, rt, `🎉 ไม่มีการบ้านค้างส่ง`, qrParent); return true; }
+      const items = hws.map((h: any) => `• ${h.due_date} — ${h.subjects?.name_th || h.subjects?.name || ""} : ${h.title}`);
+      await replyFlex(token, rt, "การบ้านค้าง", buildListCard(`📚 การบ้านที่ยังไม่ถึงกำหนด (${hws.length})`, items, "#8B5CF6"), qrParent);
+      return true;
+    }
+  }
+
+  // ─── TEACHER queries ──────────────────────────────────────────────────
+  if (isTeacher) {
+    // นักเรียนขาด/สายวันนี้ในห้องที่ปรึกษา
+    if (/(ห้อง|ชั้น|เด็ก|นักเรียน).*(ขาด|สาย|ป่วย).*(วันนี้|กี่|บ้าง)/.test(t)
+        || /(ใคร|กี่คน).*(ขาด|สาย|ป่วย)/.test(t)) {
+      const today = new Date().toISOString().slice(0,10);
+      const { data: cls } = await sb.from("classrooms")
+        .select("id,name,grade_level,section").eq("homeroom_teacher_id", user.id).limit(3);
+      if (!cls?.length) { await replyText(token, rt, "ยังไม่ได้เป็นครูประจำชั้น", qrTeacher); return true; }
+      const lines: string[] = [];
+      for (const c of cls) {
+        const { data: att } = await sb.from("attendance")
+          .select("status, students!inner(first_name,last_name,classroom_id)")
+          .eq("attendance_date", today).in("status", ["absent","late","sick"])
+          .eq("students.classroom_id", c.id);
+        const label = c.name || `${c.grade_level}/${c.section}`;
+        if (!att?.length) { lines.push(`✅ ${label}: มาครบ`); continue; }
+        lines.push(`📌 ${label} (${att.length} คน)`);
+        att.slice(0,10).forEach((r: any) => {
+          const em = r.status === "absent" ? "❌" : r.status === "late" ? "⏰" : "🤒";
+          lines.push(`  ${em} ${r.students?.first_name || ""} ${r.students?.last_name || ""}`);
+        });
+      }
+      await replyFlex(token, rt, "สรุปเช็คชื่อวันนี้", buildListCard(`📋 นักเรียนขาด/สาย/ป่วย วันนี้`, lines, "#F59E0B"), qrTeacher);
+      return true;
+    }
+    // ใบลารออนุมัติ
+    if (/(ใบลา|ลา).*(รอ|กี่|บ้าง)/.test(t)) {
+      const { data: cls } = await sb.from("classrooms").select("id").eq("homeroom_teacher_id", user.id);
+      const clsIds = (cls || []).map((c: any) => c.id);
+      if (!clsIds.length) { await replyText(token, rt, "ยังไม่ได้เป็นครูประจำชั้น", qrTeacher); return true; }
+      const { data: pend } = await sb.from("student_leaves")
+        .select("leave_type,start_date,end_date,students!inner(first_name,last_name,classroom_id)")
+        .eq("status", "pending").in("students.classroom_id", clsIds).limit(20);
+      if (!pend?.length) { await replyText(token, rt, "✅ ไม่มีใบลารออนุมัติ", qrTeacher); return true; }
+      const items = pend.map((l: any) => `⏳ ${l.students?.first_name} ${l.students?.last_name} — ${l.leave_type} ${l.start_date}${l.end_date !== l.start_date ? `→${l.end_date}` : ""}`);
+      await replyFlex(token, rt, "ใบลารออนุมัติ", buildListCard(`📋 ใบลารออนุมัติ (${pend.length})`, items, "#F59E0B"), qrTeacher);
+      return true;
+    }
+  }
+
+  // ─── ADMIN / DIRECTOR queries ─────────────────────────────────────────
+  if (isAdmin) {
+    if (/(นักเรียน|ครู|บุคลากร|ผู้ใช้).*(กี่|เท่าไร|เท่าไหร่|มีกี่)/.test(t)) {
+      const [{ count: stu }, { count: tch }, { count: pu }] = await Promise.all([
+        sb.from("students").select("id", { count: "exact", head: true }),
+        sb.from("personnel").select("id", { count: "exact", head: true }),
+        sb.from("profiles").select("id", { count: "exact", head: true }),
+      ]);
+      await replyFlex(token, rt, "สถิติผู้ใช้", buildListCard("📊 สถิติผู้ใช้ในระบบ", [
+        `🎓 นักเรียน: ${stu ?? 0} คน`,
+        `👨‍🏫 บุคลากร: ${tch ?? 0} คน`,
+        `👥 ผู้ใช้ทั้งหมด: ${pu ?? 0} คน`,
+      ], "#F59E0B"), qrAdmin);
+      return true;
+    }
+    if (/(ขาด|สาย|ป่วย).*(วันนี้|กี่คน|บ้าง)/.test(t)) {
+      const today = new Date().toISOString().slice(0,10);
+      const { data: att } = await sb.from("attendance").select("status").eq("attendance_date", today);
+      const c = { absent: 0, late: 0, sick: 0, present: 0 } as any;
+      (att || []).forEach((r: any) => { c[r.status] = (c[r.status] || 0) + 1; });
+      await replyFlex(token, rt, "สรุปวันนี้", buildListCard("📊 การมาเรียนทั้งโรงเรียน วันนี้", [
+        `✅ มาเรียน: ${c.present}`,
+        `❌ ขาด: ${c.absent}`,
+        `⏰ สาย: ${c.late}`,
+        `🤒 ป่วย: ${c.sick}`,
+      ], "#F59E0B"), qrAdmin);
+      return true;
+    }
+  }
+
+  return false;
+}
+
 
 // ============ MAIN TEXT ROUTER ============
-
-// ============ AI INTENT CLASSIFIER + RESPONSE CACHE ============
-// Map of intent slug → handler dispatcher. Runs after keyword matching.
-// Uses mascot_advice_cache table for 24h dedup so repeat questions don't spend AI tokens.
-
-const AI_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const _inMemAiCache = new Map<string, { reply: string; ts: number }>();
-
-function _cacheKey(text: string) {
-  return text.trim().toLowerCase().replace(/\s+/g, " ").slice(0, 200);
-}
-
-async function getCachedAiReply(_sb: any, text: string): Promise<string | null> {
-  const k = _cacheKey(text);
-  const mem = _inMemAiCache.get(k);
-  if (mem && Date.now() - mem.ts < AI_CACHE_TTL_MS) return mem.reply;
-  return null;
-}
-
-async function setCachedAiReply(_sb: any, text: string, reply: string) {
-  const k = _cacheKey(text);
-  _inMemAiCache.set(k, { reply, ts: Date.now() });
-  // Trim to keep memory bounded
-  if (_inMemAiCache.size > 500) {
-    const oldestKey = _inMemAiCache.keys().next().value;
-    if (oldestKey) _inMemAiCache.delete(oldestKey);
-  }
-}
-
-const INTENT_LIST = [
-  "grades", "attendance", "behavior", "sdq", "homework", "exams", "health",
-  "lunch", "subsidy", "home_visit", "calendar", "emergency", "schedule",
-  "news", "contact", "leave_new", "leave_history",
-  "teacher_assembly", "teacher_periods", "teacher_summary", "teacher_subjects",
-  "teacher_substitute", "teacher_homework", "teacher_pending_leaves", "teacher_today",
-  "admin_overview", "admin_pending_leaves", "admin_pending_news", "admin_users",
-  "help", "unknown",
-] as const;
-type IntentSlug = typeof INTENT_LIST[number];
-
-async function classifyIntent(text: string): Promise<IntentSlug> {
-  const cacheKey = `intent:${_cacheKey(text)}`;
-  const mem = _inMemAiCache.get(cacheKey);
-  if (mem && Date.now() - mem.ts < AI_CACHE_TTL_MS) return mem.reply as IntentSlug;
-
-  try {
-    const { aiCall } = await import("../_shared/aiCall.ts");
-    const out = await aiCall({
-      messages: [
-        {
-          role: "system",
-          content:
-            `จำแนกเจตนาข้อความผู้ใช้ในระบบโรงเรียน ตอบเป็น slug เดียวจากรายการนี้เท่านั้น (ห้ามอธิบาย):
-grades, attendance, behavior, sdq, homework, exams, health, lunch, subsidy, home_visit, calendar, emergency, schedule, news, contact, leave_new, leave_history, teacher_assembly, teacher_periods, teacher_summary, teacher_subjects, teacher_substitute, teacher_homework, teacher_pending_leaves, teacher_today, admin_overview, admin_pending_leaves, admin_pending_news, admin_users, help, unknown
-
-ตัวอย่าง:
-- "อยากดูเกรดหน่อย" → grades
-- "ลูกมาโรงเรียนไหมวันนี้" → attendance
-- "ครูขอลาป่วยพรุ่งนี้" → leave_new
-- "การบ้านวิชาไทย" → homework
-- "สรุปวันนี้" → teacher_today
-- "ภาพรวมโรงเรียน" → admin_overview
-- "สวัสดี" → unknown`,
-        },
-        { role: "user", content: text },
-      ],
-      temperature: 0,
-      max_tokens: 20,
-      functionName: "line-webhook-intent",
-    });
-    const raw = (out.content || "").trim().toLowerCase().replace(/[^a-z_]/g, "");
-    const slug = (INTENT_LIST as readonly string[]).includes(raw) ? (raw as IntentSlug) : "unknown";
-    _inMemAiCache.set(cacheKey, { reply: slug, ts: Date.now() });
-    return slug;
-  } catch (e) {
-    console.error("classifyIntent", e);
-    return "unknown";
-  }
-}
-
-async function classifyAndRoute(
-  sb: any, token: string, rt: string, text: string, lineUserId: string,
-): Promise<Response | null> {
-  const intent = await classifyIntent(text);
-  if (intent === "unknown") return null;
-  console.log("[intent]", { text: text.slice(0, 60), intent });
-
-  switch (intent) {
-    case "grades": return handleGradesCommand(sb, token, rt, lineUserId);
-    case "attendance": return handleAttendanceCommand(sb, token, rt, lineUserId);
-    case "behavior": return handleBehaviorCommand(sb, token, rt, lineUserId);
-    case "sdq": return handleSDQCommand(sb, token, rt, lineUserId);
-    case "homework": return handleHomeworkCommand(sb, token, rt, lineUserId);
-    case "exams": return handleExamsCommand(sb, token, rt, lineUserId);
-    case "health": return handleHealthCommand(sb, token, rt, lineUserId);
-    case "lunch": return handleLunchCommand(sb, token, rt);
-    case "subsidy": return handleSubsidyCommand(sb, token, rt, lineUserId);
-    case "home_visit": return handleHomeVisitCommand(sb, token, rt, lineUserId);
-    case "calendar": return handleCalendarCommand(sb, token, rt);
-    case "emergency": return handleEmergencyCommand(sb, token, rt);
-    case "schedule": return handleScheduleCommand(sb, token, rt, lineUserId);
-    case "news": return handleNewsCommand(sb, token, rt);
-    case "leave_new": return startLeaveFlow(sb, token, rt, lineUserId);
-    case "leave_history": return handleLeaveStatusCommand(sb, token, rt, lineUserId);
-    case "teacher_assembly": return handleHomeroomAssembly(sb, token, rt, lineUserId);
-    case "teacher_periods": return handleTeacherPeriods(sb, token, rt, lineUserId);
-    case "teacher_summary": return handleTeacherClassrooms(sb, token, rt, lineUserId, "summary");
-    case "teacher_subjects": return handleTeacherSubjects(sb, token, rt, lineUserId);
-    case "teacher_substitute": return handleTeacherSubstitute(sb, token, rt, lineUserId);
-    case "teacher_homework": return handleTeacherHomework(sb, token, rt, lineUserId);
-    case "teacher_pending_leaves": return handlePendingLeavesForTeacher(sb, token, rt, lineUserId);
-    case "teacher_today": return handleTodaySummaryForTeacher(sb, token, rt, lineUserId);
-    case "admin_overview": return handleSchoolOverview(sb, token, rt, lineUserId);
-    case "admin_pending_leaves": return handleAdminPendingLeaves(sb, token, rt, lineUserId);
-    case "admin_pending_news": return handleAdminPendingNews(sb, token, rt, lineUserId);
-    case "admin_users": return handleAdminUserStats(sb, token, rt, lineUserId);
-    default: return null;
-  }
-}
 
 async function handleTextMessage(sb: any, token: string, rt: string, text: string, lineUserId: string, richMenus: Record<string,string>) {
   const t = text.trim();
@@ -1578,97 +1460,243 @@ async function handleTextMessage(sb: any, token: string, rt: string, text: strin
   if (/ตารางสอน|ตารางเรียน|ตาราง|schedule/i.test(t)) return handleScheduleCommand(sb, token, rt, lineUserId);
   if (/^ข่าว|news/i.test(t)) return handleNewsCommand(sb, token, rt);
 
-  // 7. Contact
-  if (/ติดต่อ|โทร|contact/i.test(t)) {
-    const { data: s } = await sb.from("school_settings").select("setting_key,setting_value").in("setting_key", ["school_name","school_phone","school_address","school_email"]);
+  // 7. Contact — beautiful card with call/map buttons when phone is present
+  if (/ติดต่อ|โทร|contact|เบอร์|แผนที่|ที่อยู่/i.test(t)) {
+    const { data: s } = await sb.from("school_settings").select("setting_key,setting_value").in("setting_key", ["school_name","school_phone","school_address","school_email","school_website","school_facebook"]);
     const m: Record<string,string> = {}; s?.forEach((x: any) => m[x.setting_key] = x.setting_value || "");
-    return replyFlex(token, rt, "ติดต่อ", buildInfoCard("📞 ติดต่อโรงเรียน", [
-      { label: "ชื่อ", value: m.school_name || "-" },
+    const rows = [
+      { label: "โรงเรียน", value: m.school_name || "-" },
       { label: "โทร", value: m.school_phone || "-" },
-      { label: "ที่อยู่", value: m.school_address || "-" },
       { label: "อีเมล", value: m.school_email || "-" },
-    ], "#0984E3"));
+      { label: "ที่อยู่", value: m.school_address || "-" },
+      ...(m.school_website ? [{ label: "เว็บไซต์", value: m.school_website }] : []),
+    ];
+    const footerAction = m.school_phone
+      ? { type: "button", action: { type: "uri", label: "📞 โทรหาโรงเรียน", uri: `tel:${m.school_phone.replace(/[^0-9+]/g, "")}` } }
+      : undefined;
+    return replyFlex(token, rt, "ติดต่อโรงเรียน", buildInfoCard("📞 ติดต่อโรงเรียน", rows, "#0EA5E9", footerAction, "ช่องทางติดต่อทั้งหมด"));
   }
 
-  // 8. Help
-  if (/^(?:help|เมนู|ช่วยเหลือ|คำสั่ง|menu)$/i.test(t)) {
+
+  // 8. Help / menu — beautiful role-aware carousel
+  if (/^(?:help|เมนู|ช่วยเหลือ|คำสั่ง|menu|start|เริ่ม)$/i.test(t)) {
     try { await clearSession(sb, lineUserId); } catch { /* ignore */ }
     const user = await findLinkedUser(sb, lineUserId);
     const isTeacher = user?.type === "teacher";
     const isStudent = user?.type === "student";
     const isAdmin = !!(user as any)?.isAdmin;
-    return replyFlex(token, rt, "เมนู Smart School", {
-      type: "bubble", size: "giga",
-      header: { type: "box", layout: "vertical", backgroundColor: "#6C5CE7", paddingAll: "16px",
-        contents: [{ type: "text", text: "📚 Smart School Bot", color: "#FFFFFF", weight: "bold", size: "lg" }] },
-      body: {
-        type: "box", layout: "vertical", spacing: "md",
-        contents: [
-          { type: "text", text: "🔗 บัญชี", weight: "bold", size: "sm" },
-          { type: "text", text: "• เชื่อม [รหัส] [ววดดปปปป]\n• สถานะ — ดูบัญชี\n• ยกเลิกเชื่อม", size: "xs", color: "#555", wrap: true },
-          { type: "separator" },
-          ...(isStudent ? [
-            { type: "text", text: "👩‍🎓 นักเรียน/ผู้ปกครอง", weight: "bold", size: "sm" },
-            { type: "text", text: "• ผลการเรียน / การเข้าเรียน / พฤติกรรม\n• การบ้าน / สอบ / สุขภาพ / อาหาร\n• เงินอุดหนุน / เยี่ยมบ้าน / sdq\n• ลา (ส่งใบลา) / ประวัติลา\n• ปฏิทิน / ฉุกเฉิน", size: "xs", color: "#555", wrap: true },
-            { type: "separator" },
-          ] : []),
-          ...(isTeacher ? [
-            { type: "text", text: "👨‍🏫 ครู", weight: "bold", size: "sm" },
-            { type: "text", text: "• เช็คเข้าแถว (ครูประจำชั้น) / เช็ครายคาบ (เลือกคาบ)\n• สรุปห้อง / วิชาฉัน / สอนแทน\n• การบ้านฉัน / สรุปวันนี้ / ตารางวันนี้\n• บันทึก [รหัส] [+-คะแนน] [เหตุผล]\n• อนุมัติลา (ห้องที่ปรึกษา)\n• ลา (แนบรูป/ไฟล์ได้) / ประวัติลา", size: "xs", color: "#555", wrap: true },
-            { type: "separator" },
-          ] : []),
-          ...(isAdmin ? [
-            { type: "text", text: "🏫 ผู้บริหาร/แอดมิน", weight: "bold", size: "sm" },
-            { type: "text", text: "• ภาพรวม — สถิติโรงเรียนวันนี้\n• ลารออนุมัติ — ใบลาครู\n• ข่าวรอเผยแพร่ / ผู้ใช้\n• ประกาศ [ข้อความ] — แจ้งฉุกเฉิน", size: "xs", color: "#555", wrap: true },
-            { type: "separator" },
-          ] : []),
-          { type: "text", text: "📋 ทั่วไป", weight: "bold", size: "sm" },
-          { type: "text", text: "• ตาราง / ข่าว / ปฏิทิน / ติดต่อ / ฉุกเฉิน", size: "xs", color: "#555", wrap: true },
+
+    const bubbles: any[] = [];
+    // Cover bubble — greeting + primary CTA
+    const greetName = user ? `${user.prefix || ""}${user.first_name || ""}`.trim() : "แขก";
+    bubbles.push(buildProfileCard({
+      name: `สวัสดี ${greetName || "ครับ"} 👋`,
+      roleLabel: isAdmin ? "ผู้บริหาร / แอดมิน" : isTeacher ? "ครู / บุคลากร" : isStudent ? "นักเรียน / ผู้ปกครอง" : "แขก",
+      roleColor: isAdmin ? "#F59E0B" : isTeacher ? "#10B981" : isStudent ? "#6366F1" : "#64748B",
+      avatarEmoji: isAdmin ? "🏫" : isTeacher ? "👨‍🏫" : isStudent ? "🎓" : "✨",
+      rows: [
+        { label: "สถานะ", value: user ? "✅ เชื่อมบัญชีแล้ว" : "⏳ ยังไม่เชื่อม" },
+        { label: "เมนูล่าง", value: "ใช้ Rich Menu ก็ได้" },
+        { label: "คำสั่งเร็ว", value: "พิมพ์คำในการ์ดถัดไป" },
+      ],
+      footerAction: user
+        ? { type: "button", action: { type: "message", label: "📊 ดูข้อมูลของฉัน", text: isTeacher ? "ตารางวันนี้" : "ผลการเรียน" } }
+        : { type: "button", action: { type: "message", label: "🔗 วิธีเชื่อมบัญชี", text: "เชื่อม" } },
+    }));
+
+    if (isStudent) {
+      bubbles.push(buildSectionCard({
+        icon: "📊", title: "การเรียน", color: "#6366F1",
+        lines: ["ผลการเรียน — เกรดรายวิชา", "การเข้าเรียน — สรุปเดือนนี้", "การบ้าน / สอบ — สิ่งที่ต้องทำ"],
+        ctas: [
+          { label: "📊 ผลการเรียน", text: "ผลการเรียน" },
+          { label: "✅ การเข้าเรียน", text: "การเข้าเรียน" },
+          { label: "📚 การบ้าน", text: "การบ้าน" },
         ],
-      },
-    }, qrFor(user?.type, isAdmin));
+      }));
+      bubbles.push(buildSectionCard({
+        icon: "🌿", title: "ชีวิตในโรงเรียน", color: "#10B981",
+        lines: ["พฤติกรรม / SDQ", "สุขภาพ / อาหารกลางวัน", "เงินอุดหนุน / เยี่ยมบ้าน"],
+        ctas: [
+          { label: "⭐ พฤติกรรม", text: "พฤติกรรม" },
+          { label: "🏥 สุขภาพ", text: "สุขภาพ" },
+          { label: "🍱 อาหาร", text: "อาหาร" },
+        ],
+      }));
+      bubbles.push(buildSectionCard({
+        icon: "📝", title: "การลา / ปฏิทิน", color: "#F43F5E",
+        lines: ["ลา — ส่งใบลาออนไลน์", "ประวัติลา — ดูสถานะ", "ปฏิทิน — กิจกรรมโรงเรียน"],
+        ctas: [
+          { label: "📝 ส่งใบลา", text: "ลา" },
+          { label: "📋 ประวัติลา", text: "ประวัติลา" },
+          { label: "📅 ปฏิทิน", text: "ปฏิทิน" },
+        ],
+      }));
+    }
+
+    if (isTeacher) {
+      bubbles.push(buildSectionCard({
+        icon: "✅", title: "งานประจำวัน", color: "#10B981",
+        lines: ["เช็คเข้าแถว — ครูประจำชั้น", "เช็ครายคาบ — เลือกคาบสอน", "สรุปวันนี้ — งานทั้งหมด"],
+        ctas: [
+          { label: "🚩 เช็คเข้าแถว", text: "เช็คเข้าแถว" },
+          { label: "🕐 เช็ครายคาบ", text: "เช็ครายคาบ" },
+          { label: "📊 สรุปวันนี้", text: "สรุปวันนี้" },
+        ],
+      }));
+      bubbles.push(buildSectionCard({
+        icon: "📚", title: "การสอน", color: "#8B5CF6",
+        lines: ["วิชาที่สอน / สรุปห้อง", "การบ้านที่มอบหมาย", "งานสอนแทน / บันทึกพฤติกรรม"],
+        ctas: [
+          { label: "📚 วิชาฉัน", text: "วิชาฉัน" },
+          { label: "📝 การบ้านฉัน", text: "การบ้านฉัน" },
+          { label: "🔁 สอนแทน", text: "สอนแทน" },
+        ],
+      }));
+      bubbles.push(buildSectionCard({
+        icon: "📋", title: "การลา", color: "#F59E0B",
+        lines: ["ส่งใบลา — แนบไฟล์ได้", "อนุมัติลา — ห้องที่ปรึกษา", "ประวัติลา — ของฉัน"],
+        ctas: [
+          { label: "📝 ส่งใบลา", text: "ลา" },
+          { label: "📋 อนุมัติลา", text: "อนุมัติลา" },
+          { label: "📅 ตารางวันนี้", text: "ตารางวันนี้" },
+        ],
+      }));
+    }
+
+    if (isAdmin) {
+      bubbles.push(buildSectionCard({
+        icon: "🏫", title: "ภาพรวมโรงเรียน", color: "#F59E0B",
+        lines: ["ภาพรวม — สถิติวันนี้", "สถิติผู้ใช้ในระบบ", "ประกาศฉุกเฉิน"],
+        ctas: [
+          { label: "📊 ภาพรวม", text: "ภาพรวม" },
+          { label: "👥 ผู้ใช้", text: "ผู้ใช้" },
+          { label: "📣 ประกาศ", text: "ประกาศ" },
+        ],
+      }));
+      bubbles.push(buildSectionCard({
+        icon: "📋", title: "งานอนุมัติ", color: "#EC4899",
+        lines: ["ใบลาครูรออนุมัติ", "ข่าวรอเผยแพร่", "ปฏิทินโรงเรียน"],
+        ctas: [
+          { label: "📋 ลารออนุมัติ", text: "ลารออนุมัติ" },
+          { label: "📰 ข่าวรอเผยแพร่", text: "ข่าวรอเผยแพร่" },
+          { label: "📅 ปฏิทิน", text: "ปฏิทิน" },
+        ],
+      }));
+    }
+
+    if (!user) {
+      bubbles.push(buildSectionCard({
+        icon: "🔗", title: "เชื่อมบัญชี", color: "#6366F1",
+        lines: ["รับรหัสจากโรงเรียน", "พิมพ์: เชื่อม [รหัส] [ววดดปปปป]", "ตัวอย่าง: เชื่อม 12345 12052553"],
+        ctas: [
+          { label: "📰 ข่าว", text: "ข่าว" },
+          { label: "📞 ติดต่อ", text: "ติดต่อ" },
+          { label: "📅 ปฏิทิน", text: "ปฏิทิน" },
+        ],
+      }));
+    }
+
+    // Always end with common utilities
+    bubbles.push(buildSectionCard({
+      icon: "🔧", title: "ทั่วไป", color: "#64748B",
+      lines: ["ตาราง / ข่าว / ปฏิทิน", "ติดต่อโรงเรียน", "ประกาศฉุกเฉิน"],
+      ctas: [
+        { label: "📅 ตาราง", text: "ตาราง" },
+        { label: "📰 ข่าว", text: "ข่าว" },
+        { label: "📞 ติดต่อ", text: "ติดต่อ" },
+      ],
+    }));
+
+    return replyFlex(token, rt, "📚 เมนู Smart School", buildCarousel(bubbles), qrFor(user?.type, isAdmin));
   }
 
-  // 9. AI-powered intent classifier — map ภาษาธรรมชาติ → command แล้ว dispatch ทันที
-  //    (เช่น "อยากดูเกรดหน่อย" → grades, "ครูขา ลาป่วยพรุ่งนี้ได้ไหม" → leave)
-  //    ใช้ AI pool (ฟรี) + cache ผลลัพธ์ 24 ชม. เพื่อประหยัดการเรียกซ้ำ
-  if (t.length >= 2 && t.length <= 500) {
-    try {
-      const routed = await classifyAndRoute(sb, token, rt, t, lineUserId);
-      if (routed) return routed;
-    } catch (e) { console.error("intent classify", e); }
+  // 8.5 Smart Q&A — ตอบคำถามจากข้อมูลจริงก่อนตกไปที่ AI fallback
+  try { if (await handleSmartQuery(sb, token, rt, lineUserId, t)) return; } catch (e) { console.error("smartQuery", e); }
 
-    // 9b. AI free-form fallback (พูดคุยทั่วไป) — ยังใช้ pool ฟรี, cache 24 ชม.
+  // 9. AI fallback — ใช้ webhook reply (ไม่กินโควตา push ของ LINE)
+  //    ปรับให้ตอบยาวขึ้น ครอบคลุมมากขึ้น และเข้าใจ role ของผู้ใช้
+  if (t.length >= 2 && t.length <= 800) {
     try {
-      const cached = await getCachedAiReply(sb, t);
-      if (cached) {
-        const u0 = await findLinkedUser(sb, lineUserId);
-        return replyText(token, rt, cached, qrFor(u0?.type, !!(u0 as any)?.isAdmin));
-      }
+      const uCtx = await findLinkedUser(sb, lineUserId);
+      const isAdminCtx = !!(uCtx as any)?.isAdmin;
+      const roleCtx = isAdminCtx ? "ผู้บริหาร/แอดมิน" : uCtx?.type === "teacher" ? "ครู/บุคลากร" : uCtx?.type === "student" ? "นักเรียน/ผู้ปกครอง" : "ผู้ใช้ทั่วไป (ยังไม่เชื่อมบัญชี)";
+      const nameCtx = uCtx ? `${uCtx.prefix || ""}${uCtx.first_name || ""} ${uCtx.last_name || ""}`.trim() : "";
+      const commonCmds = "เมนู | ตาราง | ข่าว | ปฏิทิน | ติดต่อ | สถานะ | ยกเลิกเชื่อม | ฉุกเฉิน";
+      const studentCmds = "ผลการเรียน | การเข้าเรียน | พฤติกรรม | SDQ | การบ้าน | สอบ | สุขภาพ | อาหาร | เงินอุดหนุน | เยี่ยมบ้าน | ลา | ประวัติลา";
+      const teacherCmds = "เช็คเข้าแถว | เช็ครายคาบ | เช็คชื่อ | สรุปห้อง | วิชาฉัน | การบ้านฉัน | สอนแทน | บันทึกพฤติกรรม | อนุมัติลา | สรุปวันนี้ | ตารางวันนี้";
+      const adminCmds = "ภาพรวม | ผู้ใช้ | ลารออนุมัติ | ข่าวรอเผยแพร่ | ประกาศ [ข้อความ]";
+      const cmdList = isAdminCtx ? `${adminCmds} | ${teacherCmds} | ${studentCmds} | ${commonCmds}`
+        : uCtx?.type === "teacher" ? `${teacherCmds} | ${studentCmds} | ${commonCmds}`
+        : uCtx?.type === "student" ? `${studentCmds} | ${commonCmds}`
+        : commonCmds;
+
+      const system = [
+        "คุณคือ 'Smart School Assistant' — ผู้ช่วย AI ทางการของโรงเรียนใน LINE OA",
+        "หน้าที่: ตอบคำถามผู้ใช้เกี่ยวกับระบบโรงเรียน แนะนำคำสั่งบอท ให้คำแนะนำเรื่องการเรียน/การสอน/บริหารจัดการ",
+        "ตอบเป็นภาษาไทยชัดเจน อ่านง่าย 4-10 บรรทัด ใช้ bullet/อีโมจิเมื่อช่วยให้เข้าใจง่าย",
+        "ห้ามแต่งข้อมูลส่วนบุคคล ห้ามให้ตัวเลข/คะแนน/เกรด/ชื่อ ที่ไม่มีในบริบท",
+        "ถ้าคำถามต้องดูข้อมูลจริง ให้บอกคำสั่งที่ผู้ใช้พิมพ์เอง (เช่น 'ผลการเรียน', 'สรุปวันนี้')",
+        "ถ้าเป็นคำถามทั่วไป (ทำการบ้าน/วิธีเรียน/แนวข้อสอบ/เทคนิคสอน/นโยบายการศึกษา) ให้ตอบเต็มที่",
+        "ถ้าไม่รู้ ให้บอกตรง ๆ และเสนอคำสั่งที่ใกล้เคียง",
+        `บริบทผู้ใช้: บทบาท=${roleCtx}${nameCtx ? ` ชื่อ=${nameCtx}` : ""}`,
+        `คำสั่งที่ใช้ได้: ${cmdList}`,
+      ].join("\n");
+
       const { aiCall } = await import("../_shared/aiCall.ts");
       const out = await aiCall({
         messages: [
-          { role: "system", content: "คุณคือผู้ช่วย AI โรงเรียน Smart School ตอบไทยกระชับ ไม่เกิน 4-6 บรรทัด ห้ามแต่งข้อมูลส่วนบุคคล แนะนำคำสั่งของบอท เช่น เมนู, ผลการเรียน, การเข้าเรียน, ลา, การบ้าน, สอบ, สุขภาพ, ภาพรวม, ลารออนุมัติ" },
+          { role: "system", content: system },
           { role: "user", content: t },
         ],
-        temperature: 0.4,
-        max_tokens: 300,
+        temperature: 0.7,
+        max_tokens: 900,
         functionName: "line-webhook",
       });
       const reply = out.content?.trim();
       if (reply) {
-        await setCachedAiReply(sb, t, reply).catch(() => {});
-        const u = await findLinkedUser(sb, lineUserId);
-        return replyText(token, rt, reply, qrFor(u?.type, !!(u as any)?.isAdmin));
+        return replyText(token, rt, reply, qrFor(uCtx?.type, isAdminCtx));
       }
     } catch (e) { console.error("AI fallback", e); }
   }
 
 
-  // 10. Welcome fallback
+
+  // 10. Fallback — beautiful "did you mean" card with suggestions instead of a lone text line
   const u = await findLinkedUser(sb, lineUserId);
-  return replyText(token, rt, `สวัสดีครับ 👋\nพิมพ์ "เมนู" เพื่อดูคำสั่ง หรือใช้ Rich Menu ด้านล่าง`, qrFor(u?.type, !!(u as any)?.isAdmin));
+  const isAdmin = !!(u as any)?.isAdmin;
+  const suggestions = isAdmin
+    ? [{ label: "📊 ภาพรวมโรงเรียน", text: "ภาพรวม" }, { label: "📋 ลารออนุมัติ", text: "ลารออนุมัติ" }, { label: "📰 ข่าวรอเผยแพร่", text: "ข่าวรอเผยแพร่" }]
+    : u?.type === "teacher"
+      ? [{ label: "🚩 เช็คเข้าแถว", text: "เช็คเข้าแถว" }, { label: "📅 ตารางวันนี้", text: "ตารางวันนี้" }, { label: "📊 สรุปวันนี้", text: "สรุปวันนี้" }]
+      : u?.type === "student"
+        ? [{ label: "📊 ผลการเรียน", text: "ผลการเรียน" }, { label: "✅ การเข้าเรียน", text: "การเข้าเรียน" }, { label: "📝 ส่งใบลา", text: "ลา" }]
+        : [{ label: "🔗 เชื่อมบัญชี", text: "เชื่อม" }, { label: "📰 ข่าว", text: "ข่าว" }, { label: "📞 ติดต่อ", text: "ติดต่อ" }];
+
+  const bubble = {
+    type: "bubble", size: "kilo",
+    header: headerBox("🤖 ไม่พบคำสั่งที่ตรง", "#64748B", `ลองคำสั่งที่แนะนำด้านล่าง หรือพิมพ์ "เมนู"`),
+    body: {
+      type: "box", layout: "vertical", paddingAll: "16px", spacing: "sm", backgroundColor: BRAND.surface,
+      contents: [
+        { type: "text", text: `คุณพิมพ์: "${t.slice(0, 60)}"`, size: "xs", color: BRAND.muted, wrap: true },
+        { type: "separator", color: BRAND.hair },
+        { type: "text", text: "💡 คำสั่งแนะนำ", size: "sm", weight: "bold", color: BRAND.ink },
+        ...suggestions.map((s) => ({
+          type: "button", height: "sm", style: "secondary",
+          action: { type: "message", label: s.label, text: s.text },
+        })),
+      ],
+    },
+    footer: {
+      type: "box", layout: "vertical", paddingAll: "12px", backgroundColor: BRAND.soft,
+      contents: [{ type: "button", height: "sm", style: "primary", color: BRAND.accent,
+        action: { type: "message", label: "📋 ดูเมนูทั้งหมด", text: "เมนู" } }],
+    },
+  };
+  return replyFlex(token, rt, "คำสั่งไม่ตรง", bubble, qrFor(u?.type, isAdmin));
 }
+
 
 // ============ POSTBACK HANDLER ============
 
@@ -1772,20 +1800,69 @@ serve(async (req) => {
         } else if (event.type === "postback") {
           await handlePostback(sb, token, event.replyToken, event.postback?.data || "", uid);
         } else if (event.type === "follow") {
-          if (settings.line_richmenu_default) await linkRichMenuToUser(token, uid, settings.line_richmenu_default);
-          await replyFlex(token, event.replyToken, "ยินดีต้อนรับ!", {
-            type: "bubble",
-            header: { type: "box", layout: "vertical", backgroundColor: "#10b981", paddingAll: "16px",
-              contents: [{ type: "text", text: "🎉 ยินดีต้อนรับ", color: "#FFFFFF", weight: "bold", size: "xl" }] },
-            body: {
-              type: "box", layout: "vertical", spacing: "md",
-              contents: [
-                { type: "text", text: "Smart School Bot พร้อมให้บริการ", weight: "bold" },
-                { type: "text", text: "🔗 เชื่อมบัญชี: พิมพ์\n  เชื่อม [รหัส] [ววดดปปปป]\n  เช่น: เชื่อม 12345 12052553", size: "sm", color: "#555555", wrap: true },
-                { type: "text", text: "📋 พิมพ์ \"เมนู\" เพื่อดูคำสั่งทั้งหมด", size: "sm", color: "#888888", wrap: true },
+          // Attach role-aware rich menu if the user is already linked; else default
+          let linked: any = null;
+          try {
+            linked = uid ? await findLinkedUser(sb, uid) : null;
+            const roles: string[] = ((linked as any)?.roles || []) as string[];
+            const isDirector = roles.includes("director");
+            const isAdminRole = roles.includes("admin") || roles.includes("super_admin");
+            const menuKey = isDirector ? "line_richmenu_director"
+              : isAdminRole ? "line_richmenu_admin"
+              : linked?.type === "teacher" ? "line_richmenu_teacher"
+              : linked?.type === "student" ? "line_richmenu_parent"
+              : "line_richmenu_default";
+            const rmId = settings[menuKey] || settings.line_richmenu_default;
+            if (rmId) await linkRichMenuToUser(token, uid, rmId);
+          } catch (_) { if (settings.line_richmenu_default) await linkRichMenuToUser(token, uid, settings.line_richmenu_default); }
+
+          if (linked) {
+            // Already linked — show usage guide, not linking instructions
+            const name = linked.type === "student"
+              ? `${linked.prefix || ""}${linked.first_name || ""} ${linked.last_name || ""}`.trim()
+              : `${linked.prefix || ""}${linked.first_name || ""} ${linked.last_name || ""}`.trim();
+            const roleLabel = linked.type === "student" ? "ผู้ปกครอง"
+              : (linked as any).isAdmin ? "ผู้บริหาร/แอดมิน" : "บุคลากร";
+            const rows = linked.type === "student"
+              ? [
+                  { label: "บัญชี", value: name || "-" },
+                  { label: "เช็คชื่อ", value: 'พิมพ์ "สถานะ"' },
+                  { label: "ส่งใบลา", value: 'พิมพ์ "ลา"' },
+                  { label: "ข่าว/ปฏิทิน", value: 'พิมพ์ "ข่าว" หรือ "ปฏิทิน"' },
+                  { label: "เมนูทั้งหมด", value: 'พิมพ์ "เมนู"' },
+                ]
+              : [
+                  { label: "บัญชี", value: name || "-" },
+                  { label: "อนุมัติใบลา", value: 'พิมพ์ "ใบลา"' },
+                  { label: "สรุปวันนี้", value: 'พิมพ์ "วันนี้"' },
+                  { label: "บันทึกพฤติกรรม", value: 'บันทึก [รหัส] [+/-คะแนน] [เหตุผล]' },
+                  { label: "เมนูทั้งหมด", value: 'พิมพ์ "เมนู"' },
+                ];
+            await replyFlex(token, event.replyToken, `🎉 ยินดีต้อนรับกลับ ${name}`.trim(), buildProfileCard({
+              name: `ยินดีต้อนรับกลับ 🎉`,
+              roleLabel,
+              roleColor: "#10b981",
+              avatarEmoji: linked.type === "student" ? "👨‍👩‍👧" : "🧑‍🏫",
+              rows,
+              footerAction: { type: "button", action: { type: "message", label: "📋 ดูเมนูทั้งหมด", text: "เมนู" } },
+            }), qrFor(linked.type));
+          } else {
+            await replyFlex(token, event.replyToken, "🎉 ยินดีต้อนรับสู่ Smart School", buildProfileCard({
+              name: "ยินดีต้อนรับ 🎉",
+              roleLabel: "Smart School Bot",
+              roleColor: "#6366F1",
+              avatarEmoji: "🏫",
+              rows: [
+                { label: "ขั้นที่ 1", value: "รับรหัสที่โรงเรียน" },
+                { label: "ขั้นที่ 2", value: "พิมพ์: เชื่อม [รหัส] [ววดดปปปป]" },
+                { label: "ตัวอย่าง", value: "เชื่อม 12345 12052553" },
+                { label: "ต้องการเมนู", value: 'พิมพ์ "เมนู"' },
               ],
-            },
-          }, qrDefault);
+              footerAction: { type: "button", action: { type: "message", label: "📋 ดูเมนูทั้งหมด", text: "เมนู" } },
+            }), qrDefault);
+          }
+
+
         } else if (event.type === "unfollow") {
           if (uid) await clearLineUserIdEverywhere(sb, uid);
         }

@@ -281,7 +281,7 @@ const IdCardTemplateEditor = () => {
                     <Label className="text-xs mb-2 block">โลโก้โรงเรียน</Label>
                     <div className="flex items-center gap-3">
                       {settings.logo_url ? (
-                        <img src={settings.logo_url} alt="Logo" className="w-16 h-16 object-contain rounded-lg border border-border bg-white p-1" />
+                        <img loading="lazy" decoding="async" src={settings.logo_url} alt="Logo" className="w-16 h-16 object-contain rounded-lg" />
                       ) : (
                         <div className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-muted-foreground">
                           <GraduationCap className="w-6 h-6" />
@@ -307,7 +307,7 @@ const IdCardTemplateEditor = () => {
                         <Label className="text-xs mb-2 block">โลโก้เพิ่มเติม #{idx + 2} (มุมบนขวา)</Label>
                         <div className="flex items-center gap-3">
                           {url ? (
-                            <img src={url} alt={`Logo ${idx + 2}`} className="w-16 h-16 object-contain rounded-lg border border-border bg-white p-1" />
+                            <img loading="lazy" decoding="async" src={url} alt={`Logo ${idx + 2}`} className="w-16 h-16 object-contain rounded-lg border border-border bg-white p-1" />
                           ) : (
                             <div className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-muted-foreground">
                               <Image className="w-6 h-6" />
@@ -330,7 +330,7 @@ const IdCardTemplateEditor = () => {
                     <Label className="text-xs mb-2 block">ภาพพื้นหลังบัตร (ลายน้ำ)</Label>
                     <div className="flex items-center gap-3">
                       {settings.bg_image_url ? (
-                        <img src={settings.bg_image_url} alt="BG" className="w-24 h-16 object-cover rounded-lg border border-border" />
+                        <img loading="lazy" decoding="async" src={settings.bg_image_url} alt="BG" className="w-24 h-16 object-cover rounded-lg border border-border" />
                       ) : (
                         <div className="w-24 h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-muted-foreground text-xs">ไม่มี</div>
                       )}
@@ -350,7 +350,7 @@ const IdCardTemplateEditor = () => {
                     <p className="text-[11px] text-muted-foreground mb-2">ใส่ภาพพื้นหลังให้ส่วนล่าง (รูป + ข้อมูล + QR) โดยไม่ทับโลโก้ด้านบน</p>
                     <div className="flex items-center gap-3">
                       {settings.body_bg_image_url ? (
-                        <img src={settings.body_bg_image_url} alt="Body BG" className="w-24 h-16 object-cover rounded-lg border border-border" />
+                        <img loading="lazy" decoding="async" src={settings.body_bg_image_url} alt="Body BG" className="w-24 h-16 object-cover rounded-lg border border-border" />
                       ) : (
                         <div className="w-24 h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-muted-foreground text-xs">ไม่มี</div>
                       )}

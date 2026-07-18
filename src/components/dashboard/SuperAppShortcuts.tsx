@@ -1,135 +1,117 @@
-import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  ClipboardList, FileText, Heart, Wallet, Package, Calendar, Users, Network,
-  Inbox, Megaphone, ClipboardCheck, ScanFace, BookOpenCheck, Shield, Bus,
-  Utensils, BookMarked, GraduationCap, Brain, Camera, Radio, Bell, MoreHorizontal,
-  Building2, Sparkles, Wrench, Globe,
-} from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import * as LucideIcons from "lucide-react";
+import { Network } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useUserRole, type AppRole } from "@/hooks/useUserRole";
+import { useUserRole } from "@/hooks/useUserRole";
 import { Card } from "@/components/ui/card";
-import { haptic } from "@/lib/haptics";
+import { supabase } from "@/integrations/supabase/client";
 
-type Tile = {
-  th: string;
-  en: string;
-  icon: React.ComponentType<{ className?: string }>;
-  bg: string;
-  link: string;
-  badge?: number;
-  roles?: AppRole[]; // visible to these roles only; omit = all
+export type DashboardShortcut = {
+  id: string;
+  label_th: string;
+  label_en: string;
+  icon: string | null;
+  logo_url: string | null;
+  bg_class: string;
+  target_url: string;
+  open_in_new_tab: boolean;
+  visible_roles: string[];
+  sort_order: number;
+  is_active: boolean;
 };
 
+function IconFor({ name, className }: { name?: string | null; className?: string }) {
+  const Comp =
+    (name && (LucideIcons as any)[name]) ||
+    Network;
+  return <Comp className={className} />;
+}
+
 /**
- * Super-app shortcut grid — covers every major module in the system.
- * Tiles are filtered per role so each user sees only what they can use.
+ * Dashboard shortcut tiles — admin-configurable via /dashboard/admin/dashboard-shortcuts
+ * Labels, icons, logos, colors, target URLs, visible roles all stored in `dashboard_shortcuts`.
  */
 export default function SuperAppShortcuts({ alerts = 0 }: { alerts?: number }) {
   const { lang } = useLanguage();
-  const navigate = useNavigate();
   const { role } = useUserRole();
-  const [expanded, setExpanded] = useState(false);
-  const L = (th: string, en: string) => (lang === "th" ? th : en);
+  const navigate = useNavigate();
 
-  const ALL_TILES: Tile[] = useMemo(() => [
-    // ── Daily/operational (everyone or staff) ──
-    { th: "เช็คชื่อ", en: "Attendance", icon: ClipboardList, bg: "bg-gradient-to-br from-success to-success", link: "/dashboard/student/attendance", roles: ["teacher", "admin", "director"] },
-    { th: "สแกนใบหน้า", en: "Face Scan", icon: ScanFace, bg: "bg-gradient-to-br from-info to-info", link: "/dashboard/student/face-scan", roles: ["teacher", "admin", "director"] },
-    { th: "ตารางเรียน", en: "Schedule", icon: Calendar, bg: "bg-gradient-to-br from-warning to-warning", link: "/dashboard/academic/schedule" },
-    { th: "การบ้าน", en: "Homework", icon: BookOpenCheck, bg: "bg-gradient-to-br from-success to-success", link: "/dashboard/homework" },
-    { th: "ปพ.5", en: "PP.5 Grades", icon: ClipboardCheck, bg: "bg-gradient-to-br from-danger to-info", link: "/dashboard/academic/pp5", roles: ["teacher", "admin", "director"] },
-    { th: "บันทึกหลังสอน", en: "Teaching Reflection", icon: ClipboardCheck, bg: "bg-gradient-to-br from-info to-success", link: "/dashboard/academic/teaching-reflections" },
-    { th: "พฤติกรรม", en: "Behavior", icon: Shield, bg: "bg-gradient-to-br from-danger to-danger", link: "/dashboard/student/behavior", roles: ["teacher", "admin", "director", "parent"] },
-    { th: "การลา", en: "Leave", icon: FileText, bg: "bg-gradient-to-br from-warning to-warning", link: "/dashboard/student/leave" },
-    { th: "สุขภาพ", en: "Health", icon: Heart, bg: "bg-gradient-to-br from-danger to-danger", link: "/dashboard/student/health-trend" },
-    { th: "สุขภาพฉัน", en: "My Fitness", icon: Heart, bg: "bg-gradient-to-br from-danger to-danger", link: "/dashboard/fitness" },
+  const { data: tiles = [] } = useQuery({
+    queryKey: ["dashboard_shortcuts", "active"],
+    queryFn: async (): Promise<DashboardShortcut[]> => {
+      const { data } = await supabase
+        .from("dashboard_shortcuts")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      return (data as DashboardShortcut[]) || [];
+    },
+    staleTime: 60_000,
+  });
 
-    // ── Communication / community ──
-    { th: "ข่าวสาร", en: "News", icon: Megaphone, bg: "bg-gradient-to-br from-warning to-danger", link: "/dashboard/admin/news" },
-    { th: "โซเชียลวอลล์", en: "Social Wall", icon: Sparkles, bg: "bg-gradient-to-br from-danger to-danger", link: "/dashboard/feed" },
-    { th: "กล่องข้อความ", en: "Inbox", icon: Inbox, bg: "bg-gradient-to-br from-info to-info", link: "/dashboard/inbox", badge: alerts },
-    { th: "E-Form", en: "E-Form", icon: FileText, bg: "bg-gradient-to-br from-info to-info", link: "/dashboard/admin/eform" },
-
-    // ── Library / cafeteria / transport / scholarships ──
-    { th: "ห้องสมุด", en: "Library", icon: BookMarked, bg: "bg-gradient-to-br from-success to-info", link: "/dashboard/library/books" },
-    { th: "โรงอาหาร", en: "Cafeteria", icon: Utensils, bg: "bg-gradient-to-br from-warning to-warning", link: "/dashboard/cafeteria/menus" },
-    { th: "รถรับ-ส่ง", en: "Bus", icon: Bus, bg: "bg-gradient-to-br from-warning to-warning", link: "/dashboard/bus/routes" },
-    { th: "ทุนการศึกษา", en: "Scholarships", icon: GraduationCap, bg: "bg-gradient-to-br from-info to-info", link: "/dashboard/finance/scholarships" },
-
-    // ── Finance / assets / HR (staff) ──
-    { th: "งบประมาณ", en: "Budget", icon: Wallet, bg: "bg-gradient-to-br from-success to-success", link: "/dashboard/finance/budget", roles: ["admin", "director"] },
-    { th: "ทรัพย์สิน", en: "Assets", icon: Package, bg: "bg-gradient-to-br from-info to-info", link: "/dashboard/finance/assets", roles: ["admin", "director", "teacher"] },
-    { th: "บุคลากร", en: "HR", icon: Users, bg: "bg-gradient-to-br from-info to-danger", link: "/dashboard/hr/personnel", roles: ["admin", "director"] },
-    { th: "จองห้อง", en: "Room Booking", icon: Building2, bg: "bg-gradient-to-br from-neutral to-neutral", link: "/dashboard/admin/rooms", roles: ["teacher", "admin", "director"] },
-
-    // ── Security / AI / monitoring (staff) ──
-    { th: "CCTV", en: "CCTV", icon: Camera, bg: "bg-gradient-to-br from-neutral to-neutral", link: "/dashboard/admin/cctv-live", roles: ["admin", "director"] },
-    { th: "Early Warning", en: "Early Warning", icon: Bell, bg: "bg-gradient-to-br from-danger to-warning", link: "/dashboard/admin/early-warning", roles: ["admin", "director", "teacher"] },
-    { th: "บันทึก AI", en: "AI Logs", icon: Brain, bg: "bg-gradient-to-br from-info to-info", link: "/dashboard/admin/ai-logs", roles: ["admin", "director"] },
-    { th: "LINE OA", en: "LINE OA", icon: Radio, bg: "bg-gradient-to-br from-success to-success", link: "/dashboard/admin/line-oa", roles: ["admin", "director"] },
-
-    // ── Universal hub ──
-    { th: "เว็บไซต์โรงเรียน", en: "Public Site", icon: Globe, bg: "bg-gradient-to-br from-info to-info", link: "/" },
-    { th: "แจ้งซ่อม", en: "Repair", icon: Wrench, bg: "bg-gradient-to-br from-neutral to-neutral", link: "/dashboard/finance/assets" },
-    { th: "ศูนย์รวมโมดูล", en: "Module Hub", icon: Network, bg: "bg-gradient-to-br from-neutral to-neutral", link: "/dashboard/hub" },
-  ], [alerts]);
-
-  const tiles = useMemo(
-    () => ALL_TILES.filter((t) => !t.roles || (role && t.roles.includes(role))),
-    [ALL_TILES, role],
+  const visible = tiles.filter((t) =>
+    role ? t.visible_roles.includes(role) : t.visible_roles.length === 0 || t.visible_roles.includes("student"),
   );
 
-  const PREVIEW_COUNT = 11; // 12th slot becomes "More"
-  const shown = expanded ? tiles : tiles.slice(0, PREVIEW_COUNT);
-  const hasMore = tiles.length > PREVIEW_COUNT;
+  const handleClick = (t: DashboardShortcut) => {
+    if (t.open_in_new_tab || /^https?:\/\//i.test(t.target_url)) {
+      window.open(t.target_url, t.open_in_new_tab ? "_blank" : "_self", "noopener,noreferrer");
+    } else {
+      navigate(t.target_url);
+    }
+  };
+
+  if (visible.length === 0) return null;
 
   return (
-    <Card className="border border-border/50 shadow-sm rounded-2xl p-3 sm:p-4 bg-card/80 backdrop-blur-xl">
-      <div className="flex items-center justify-between mb-3 px-1">
-        <h3 className="text-sm font-bold text-foreground tracking-tight">{L("เมนูทางลัด", "Quick Access")}</h3>
-        <span className="text-[11px] text-muted-foreground font-medium">{tiles.length} {L("รายการ", "items")}</span>
-      </div>
-      <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2 sm:gap-3">
-        {shown.map((t) => {
-          const Icon = t.icon;
+    <Card className="border border-border/50 shadow-elevated rounded-2xl p-3 sm:p-4 bg-gradient-to-b from-background to-muted/30">
+      <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-7 gap-3 sm:gap-4">
+        {visible.map((t) => {
+          const isInbox = t.target_url.includes("/inbox");
+          const badge = isInbox ? alerts : 0;
           return (
             <button
-              key={t.link + t.en}
+              key={t.id}
               type="button"
-              onClick={() => { haptic("light"); navigate(t.link); }}
-              className="group flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-muted/60 active:scale-95 transition-all"
+              onClick={() => handleClick(t)}
+              className="group flex flex-col items-center gap-1.5 p-1 rounded-xl active:scale-95 transition-transform"
             >
               <div className="relative">
-                <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl ${t.bg} flex items-center justify-center shadow-sm ring-1 ring-black/[0.04] group-hover:scale-105 transition-transform`}>
-                  <Icon className="w-6 h-6 sm:w-7 sm:h-7 text-white drop-shadow-sm" />
+                {/* Neumorphic squircle — soft outer shadow + inner top highlight + subtle bottom shade,
+                    so the tile reads like an iOS app icon rather than a flat chip. */}
+                <div
+                  className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-[22px] ${t.bg_class} flex items-center justify-center overflow-hidden
+                    shadow-[0_6px_14px_-6px_hsl(0_0%_0%/0.25),0_2px_4px_-2px_hsl(0_0%_0%/0.15)]
+                    ring-1 ring-black/[0.06]
+                    group-hover:-translate-y-0.5 group-hover:shadow-[0_12px_22px_-8px_hsl(0_0%_0%/0.3)]
+                    transition-all duration-200`}
+                >
+                  {/* top gloss */}
+                  <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-[22px] bg-gradient-to-b from-white/45 to-transparent" />
+                  {/* bottom inner shade */}
+                  <span className="pointer-events-none absolute inset-0 rounded-[22px] shadow-[inset_0_-6px_10px_-6px_hsl(0_0%_0%/0.25),inset_0_1px_0_hsl(0_0%_100%/0.35)]" />
+                  {t.logo_url ? (
+                    <img src={t.logo_url} alt="" className="relative w-full h-full object-contain p-2 drop-shadow-[0_1px_1px_hsl(0_0%_0%/0.25)]" />
+                  ) : (
+                    <IconFor
+                      name={t.icon}
+                      className="relative w-7 h-7 sm:w-8 sm:h-8 text-white drop-shadow-[0_1px_1px_hsl(0_0%_0%/0.35)]"
+                    />
+                  )}
                 </div>
-                {t.badge != null && t.badge > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center ring-2 ring-background">
-                    {t.badge > 99 ? "99+" : t.badge}
+                {badge > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[20px] h-[20px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center ring-2 ring-background shadow-md">
+                    {badge > 99 ? "99+" : badge}
                   </span>
                 )}
               </div>
-              <span className="text-[11px] sm:text-xs text-foreground/80 text-center leading-tight line-clamp-2 w-full">
-                {L(t.th, t.en)}
+              <span className="text-[11px] sm:text-xs text-foreground/85 text-center leading-tight line-clamp-2 w-full font-medium">
+                {lang === "th" ? t.label_th : t.label_en}
               </span>
             </button>
           );
         })}
-        {hasMore && (
-          <button
-            type="button"
-            onClick={() => { haptic("light"); setExpanded((v) => !v); }}
-            className="group flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-muted/60 active:scale-95 transition-all"
-          >
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-muted flex items-center justify-center ring-1 ring-border">
-              <MoreHorizontal className="w-6 h-6 sm:w-7 sm:h-7 text-muted-foreground" />
-            </div>
-            <span className="text-[11px] sm:text-xs text-muted-foreground text-center leading-tight font-medium">
-              {expanded ? L("ย่อ", "Less") : L("ดูทั้งหมด", "More")}
-            </span>
-          </button>
-        )}
       </div>
     </Card>
   );

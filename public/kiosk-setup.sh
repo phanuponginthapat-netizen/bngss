@@ -1,0 +1,1134 @@
+#!/usr/bin/env bash
+# ============================================================================
+#  Smart School Kiosk — MX Linux Auto Setup (2 โหมด)
+# ----------------------------------------------------------------------------
+#  โหมด (KIOSK_MODE):
+#    door    — HP Pavilion x2 ตู้สแกนหน้าประตู (default URL = /kiosk)
+#              • Wake daemon (ปลุกจอด้วยกล้อง), Watchdog, Health-check
+#              • Daily reboot 03:00, Full lock (ห้ามออกจาก URL)
+#    student — คอมพิวเตอร์ห้องนักเรียน (default URL = / )
+#              • ไม่มี wake daemon, ไม่ full-lock (ให้กด minimize/สลับแท็บได้)
+#              • เปิด Student Agent สำหรับ Classroom Monitor ในเบื้องหลัง
+#              • Idle logout 30 นาที + Daily reboot 22:30
+#
+#  ตัวอย่าง:
+#     sudo KIOSK_MODE=door \
+#          KIOSK_URL="https://bngss.lovable.app/kiosk" \
+#          KIOSK_WIFI_SSID="MySchoolWiFi" KIOSK_WIFI_PASS="password" \
+#          bash setup-mxlinux-kiosk.sh
+#
+#     sudo KIOSK_MODE=student bash setup-mxlinux-kiosk.sh
+#
+#  Idempotent — รันซ้ำได้ log อยู่ที่ /var/log/kiosk-setup.log
+# ============================================================================
+
+set -euo pipefail
+
+# ---------- ค่าที่ปรับได้ผ่าน env ----------
+KIOSK_MODE="${KIOSK_MODE:-door}"                     # door | student
+KIOSK_USER="${KIOSK_USER:-${SUDO_USER:-$(logname 2>/dev/null || echo demo)}}"
+KIOSK_WIFI_SSID="${KIOSK_WIFI_SSID:-}"
+KIOSK_WIFI_PASS="${KIOSK_WIFI_PASS:-}"
+
+# ค่า default แยกตามโหมด
+if [[ "$KIOSK_MODE" == "student" ]]; then
+  KIOSK_URL="${KIOSK_URL:-https://bngss.lovable.app/}"
+  KIOSK_DAILY_REBOOT="${KIOSK_DAILY_REBOOT:-}"                # student: ไม่ reboot กลางวัน ใช้ shutdown แทน
+  KIOSK_IDLE_LOGOUT_MIN="${KIOSK_IDLE_LOGOUT_MIN:-30}"        # logout (นาที, 0=off)
+  KIOSK_IDLE_SHUTDOWN_MIN="${KIOSK_IDLE_SHUTDOWN_MIN:-120}"   # shutdown เครื่องหลัง idle N นาที (0=off)
+  KIOSK_POWER_ON="${KIOSK_POWER_ON:-07:30}"                   # เปิดเครื่องอัตโนมัติ (BIOS RTC wake)
+  KIOSK_POWER_OFF="${KIOSK_POWER_OFF:-17:30}"                 # ปิดเครื่องอัตโนมัติ
+  KIOSK_MONITOR_AGENT_URL="${KIOSK_MONITOR_AGENT_URL:-${KIOSK_URL%/}/dashboard/monitor/agent}"
+  KIOSK_EXTENSION_URL="${KIOSK_EXTENSION_URL:-${KIOSK_URL%/}/school-safe-browser.zip}"
+else
+  KIOSK_MODE="door"
+  KIOSK_URL="${KIOSK_URL:-https://bngss.lovable.app/kiosk}"
+  KIOSK_DAILY_REBOOT="${KIOSK_DAILY_REBOOT:-03:00}"
+  KIOSK_IDLE_LOGOUT_MIN="${KIOSK_IDLE_LOGOUT_MIN:-0}"
+  KIOSK_IDLE_SHUTDOWN_MIN="${KIOSK_IDLE_SHUTDOWN_MIN:-0}"
+  KIOSK_POWER_ON="${KIOSK_POWER_ON:-06:30}"                   # ประตูเปิดเช้า
+  KIOSK_POWER_OFF="${KIOSK_POWER_OFF:-}"                      # ตู้ประตู default = เปิดตลอด (reboot ตี 3)
+  KIOSK_MONITOR_AGENT_URL="${KIOSK_MONITOR_AGENT_URL:-}"
+  KIOSK_EXTENSION_URL="${KIOSK_EXTENSION_URL:-}"
+fi
+# ------------------------------------------
+
+LOG_FILE=/var/log/kiosk-setup.log
+mkdir -p "$(dirname "$LOG_FILE")"
+exec > >(tee -a "$LOG_FILE") 2>&1
+echo
+echo "======================================================================"
+echo "  Smart School Kiosk — MX Linux Setup — $(date -Iseconds)"
+echo "======================================================================"
+
+# ---------------- helpers ----------------
+log()  { echo "[$(date +%H:%M:%S)] $*"; }
+die()  { echo "❌  $*" >&2; exit 1; }
+have() { command -v "$1" >/dev/null 2>&1; }
+backup_once() {
+  local f="$1"
+  [[ -f "$f" && ! -f "$f.kiosk.bak" ]] && cp -a "$f" "$f.kiosk.bak" || true
+}
+
+[[ $EUID -eq 0 ]] || die "ต้องรันด้วย sudo:  sudo ./setup-mxlinux-kiosk.sh"
+
+# ---------------- 0) Pre-flight ----------------
+log "▶  [0/10] Pre-flight check..."
+id "$KIOSK_USER" &>/dev/null || die "ไม่พบผู้ใช้ '$KIOSK_USER' — สร้างผู้ใช้ก่อน หรือกำหนด KIOSK_USER=..."
+USER_HOME=$(getent passwd "$KIOSK_USER" | cut -d: -f6)
+[[ -d "$USER_HOME" ]] || die "ไม่พบ home directory ของ $KIOSK_USER"
+
+ARCH=$(uname -m)
+DISK_FREE_MB=$(df -Pm / | awk 'NR==2{print $4}')
+RAM_MB=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
+[[ "$DISK_FREE_MB" -ge 3000 ]] || die "พื้นที่ว่าง / ต้อง ≥ 3GB (ตอนนี้ ${DISK_FREE_MB}MB)"
+log "   Mode=$KIOSK_MODE  User=$KIOSK_USER  Home=$USER_HOME  Arch=$ARCH  RAM=${RAM_MB}MB  DiskFree=${DISK_FREE_MB}MB"
+log "   URL=$KIOSK_URL"
+[[ -n "$KIOSK_MONITOR_AGENT_URL" ]] && log "   Monitor Agent=$KIOSK_MONITOR_AGENT_URL"
+
+# ตรวจ internet (ไม่ตายถ้าไม่มี — ให้ผู้ใช้ setup wifi ต่อ)
+if ! curl -sf --max-time 5 -o /dev/null https://deb.debian.org/; then
+  log "⚠  ไม่มี internet — จะพยายามต่อ Wi-Fi ให้"
+fi
+
+KIOSK_ORIGIN=$(echo "$KIOSK_URL" | awk -F/ '{print $1"//"$3}')
+
+# ---------------- 1) Wi-Fi (option) ----------------
+if [[ -n "$KIOSK_WIFI_SSID" ]]; then
+  log "▶  [1/10] ต่อ Wi-Fi \"$KIOSK_WIFI_SSID\"..."
+  if have nmcli; then
+    nmcli device wifi rescan 2>/dev/null || true
+    nmcli device wifi connect "$KIOSK_WIFI_SSID" password "$KIOSK_WIFI_PASS" 2>&1 | \
+      sed 's/password [^ ]*/password ***/' || log "⚠  ต่อ Wi-Fi ไม่สำเร็จ (จะลองใหม่ตอน apt)"
+  else
+    log "⚠  ไม่พบ nmcli — ข้ามการต่อ Wi-Fi"
+  fi
+else
+  log "▶  [1/10] ข้ามการตั้ง Wi-Fi (ไม่ระบุ SSID)"
+fi
+
+# ---------------- 2) apt install ----------------
+log "▶  [2/10] apt update + ติดตั้ง package..."
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -y || die "apt update ล้มเหลว — ตรวจ internet"
+
+PKGS=(
+  chromium unclutter xdotool x11-xserver-utils python3 python3-pip
+  curl ca-certificates fonts-thai-tlwg fonts-noto-color-emoji
+  network-manager pulseaudio pavucontrol alsa-utils
+  lightdm lightdm-gtk-greeter accountsservice
+  plymouth plymouth-themes plymouth-label imagemagick
+)
+apt-get install -y --no-install-recommends "${PKGS[@]}" 2>/dev/null || \
+  apt-get install -y --no-install-recommends chromium-browser unclutter xdotool \
+    x11-xserver-utils python3 curl pulseaudio alsa-utils lightdm
+
+CHROMIUM_BIN=$(command -v chromium || command -v chromium-browser || true)
+[[ -n "$CHROMIUM_BIN" ]] || die "ติดตั้ง Chromium ไม่สำเร็จ"
+log "   Chromium: $CHROMIUM_BIN"
+
+# ---------------- 3) Wake daemon (door mode เท่านั้น) ----------------
+install -d -m 755 /opt/kiosk
+if [[ "$KIOSK_MODE" == "door" ]]; then
+log "▶  [3/10] Wake daemon (door mode)..."
+cat >/opt/kiosk/wake-server.py <<'PY'
+#!/usr/bin/env python3
+"""Kiosk wake daemon — POST/GET /wake → xset dpms force on + xdotool mousemove"""
+import os, subprocess
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+DISPLAY = os.environ.get("DISPLAY", ":0")
+XAUTH = os.environ.get("XAUTHORITY") or f"/home/{os.environ.get('KIOSK_USER','')}/.Xauthority"
+
+def wake():
+    env = os.environ.copy(); env["DISPLAY"] = DISPLAY
+    if os.path.exists(XAUTH): env["XAUTHORITY"] = XAUTH
+    for cmd in (["xset","dpms","force","on"], ["xset","s","reset"],
+                ["xdotool","mousemove_relative","1","0"],
+                ["xdotool","mousemove_relative","--","-1","0"]):
+        try: subprocess.run(cmd, env=env, timeout=2, check=False)
+        except Exception: pass
+
+class H(BaseHTTPRequestHandler):
+    def _ok(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+    def do_GET(self):
+        if self.path.startswith("/wake"): wake()
+        self._ok()
+    def do_POST(self):
+        if self.path.startswith("/wake"): wake()
+        self._ok()
+    def do_OPTIONS(self): self._ok()
+    def log_message(self, *a, **k): pass
+
+if __name__ == "__main__":
+    HTTPServer(("127.0.0.1", 9999), H).serve_forever()
+PY
+chmod +x /opt/kiosk/wake-server.py
+
+cat >/etc/systemd/system/kiosk-wake.service <<EOF
+[Unit]
+Description=Smart School Kiosk Wake Daemon
+After=graphical.target
+
+[Service]
+Type=simple
+User=$KIOSK_USER
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=$USER_HOME/.Xauthority
+Environment=KIOSK_USER=$KIOSK_USER
+ExecStart=/usr/bin/python3 /opt/kiosk/wake-server.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=graphical.target
+EOF
+else
+  log "▶  [3/10] ข้าม wake daemon (student mode)"
+fi
+
+# ---------------- 3.5) Local Control Daemon (port 9998) ----------------
+# รับคำสั่งจาก Student Agent / Monitor: /shutdown /reboot /logout /open-url
+log "▶  [3.5/10] Local control daemon (port 9998)..."
+cat >/opt/kiosk/local-ctl.py <<'PY'
+#!/usr/bin/env python3
+"""Kiosk local control daemon
+   POST /shutdown  → shutdown -h now
+   POST /reboot    → reboot
+   POST /logout    → kill user session
+   POST /open-url  → เปิด URL ใน chromium หลัก (window ปัจจุบัน)
+"""
+import os, subprocess, json
+from http.server import BaseHTTPRequestHandler, HTTPServer
+USER = os.environ.get("KIOSK_USER","")
+DISPLAY = os.environ.get("DISPLAY", ":0")
+XAUTH = f"/home/{USER}/.Xauthority" if USER else ""
+
+def sh(cmd):
+    try: subprocess.Popen(cmd, env={**os.environ, "DISPLAY": DISPLAY, "XAUTHORITY": XAUTH})
+    except Exception as e: print("err", e)
+
+class H(BaseHTTPRequestHandler):
+    def _cors(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+    def _ok(self, code=204, body=b""):
+        self.send_response(code); self._cors()
+        if body: self.send_header("Content-Type","application/json"); self.send_header("Content-Length",str(len(body)))
+        self.end_headers()
+        if body: self.wfile.write(body)
+    def do_OPTIONS(self): self._ok()
+    def do_GET(self):
+        if self.path == "/status": return self._ok(200, json.dumps({"ok":True}).encode())
+        return self._ok(404)
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length") or 0)
+        body = self.rfile.read(length) if length else b""
+        try: data = json.loads(body or b"{}")
+        except: data = {}
+        p = self.path
+        if p == "/shutdown":
+            sh(["sudo","-n","/sbin/shutdown","-h","+0"])
+        elif p == "/reboot":
+            sh(["sudo","-n","/sbin/reboot"])
+        elif p == "/logout":
+            sh(["pkill","-KILL","-u",USER])
+        elif p == "/open-url":
+            url = str(data.get("url",""))
+            if url:
+                # เปิดใน chromium ปัจจุบัน (ใช้ xdotool + chromium CLI)
+                sh(["chromium","--new-tab",url]) if os.path.exists("/usr/bin/chromium") else sh(["chromium-browser","--new-tab",url])
+        elif p == "/screen-off":
+            # DPMS ถูก disable ไว้ที่ boot → ต้อง +dpms ก่อนสั่ง force off
+            sh(["xset","+dpms"]); sh(["xset","dpms","force","off"])
+        elif p == "/screen-on":
+            sh(["xset","dpms","force","on"])
+            sh(["xset","s","reset"])
+            # กลับไป disable DPMS ตามค่าเดิม (kiosk ไม่ให้จอดับเอง)
+            sh(["xset","-dpms"]); sh(["xset","s","off"])
+        else:
+            return self._ok(404)
+        return self._ok(204)
+    def log_message(self,*a,**k): pass
+
+if __name__ == "__main__":
+    HTTPServer(("127.0.0.1", 9998), H).serve_forever()
+PY
+chmod +x /opt/kiosk/local-ctl.py
+
+cat >/etc/systemd/system/kiosk-ctl.service <<EOF
+[Unit]
+Description=Kiosk Local Control Daemon
+After=graphical.target
+[Service]
+Type=simple
+User=$KIOSK_USER
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=$USER_HOME/.Xauthority
+Environment=KIOSK_USER=$KIOSK_USER
+ExecStart=/usr/bin/python3 /opt/kiosk/local-ctl.py
+Restart=always
+RestartSec=3
+[Install]
+WantedBy=graphical.target
+EOF
+
+# ---------------- 3.6) Sudoers — ให้ user สั่ง shutdown/reboot ได้ ----------------
+log "▶  [3.6/10] Sudoers NOPASSWD สำหรับ shutdown/reboot..."
+cat >/etc/sudoers.d/kiosk-power <<EOF
+$KIOSK_USER ALL=(ALL) NOPASSWD: /sbin/shutdown, /sbin/reboot, /sbin/poweroff, /usr/sbin/rtcwake, /bin/systemctl suspend, /bin/systemctl hibernate
+EOF
+chmod 440 /etc/sudoers.d/kiosk-power
+
+# ---------------- 3.7) Full Power mode — ปิด suspend/hibernate + CPU performance ----------------
+log "▶  [3.7/10] Full power mode (no sleep, CPU performance)..."
+# mask sleep targets — ห้ามระบบเข้า suspend/hibernate ตอนใช้งาน
+systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target 2>/dev/null || true
+
+# logind — ปิด auto-suspend เวลาปิดฝา / idle
+if [[ -f /etc/systemd/logind.conf ]]; then
+  backup_once /etc/systemd/logind.conf
+  sed -i 's/^#\?HandleLidSwitch=.*/HandleLidSwitch=ignore/;
+          s/^#\?HandleLidSwitchDocked=.*/HandleLidSwitchDocked=ignore/;
+          s/^#\?HandleLidSwitchExternalPower=.*/HandleLidSwitchExternalPower=ignore/;
+          s/^#\?IdleAction=.*/IdleAction=ignore/;
+          s/^#\?IdleActionSec=.*/IdleActionSec=0/' /etc/systemd/logind.conf
+fi
+
+# CPU governor = performance (ตอนใช้งาน)
+apt-get install -y --no-install-recommends cpufrequtils 2>/dev/null || true
+echo 'GOVERNOR="performance"' >/etc/default/cpufrequtils 2>/dev/null || true
+for c in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+  [[ -w "$c" ]] && echo performance > "$c" 2>/dev/null || true
+done
+
+# systemd service ตั้ง governor ทุกครั้ง boot
+cat >/etc/systemd/system/kiosk-cpu-perf.service <<EOF
+[Unit]
+Description=Kiosk CPU Performance Governor
+After=multi-user.target
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'for c in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do [ -w "\$c" ] && echo performance > "\$c" || true; done'
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable kiosk-cpu-perf.service >/dev/null 2>&1 || true
+
+
+
+# ---------------- 4) Autologin + no blank ----------------
+log "▶  [4/10] LightDM autologin + no screen blank..."
+install -d -m 755 /etc/lightdm/lightdm.conf.d
+backup_once /etc/lightdm/lightdm.conf
+cat >/etc/lightdm/lightdm.conf.d/60-kiosk-autologin.conf <<EOF
+[Seat:*]
+autologin-user=$KIOSK_USER
+autologin-user-timeout=0
+xserver-command=X -s 0 -dpms
+EOF
+getent group nopasswdlogin >/dev/null && usermod -aG nopasswdlogin "$KIOSK_USER" || true
+
+install -d -m 755 "$USER_HOME/.config/autostart"
+cat >"$USER_HOME/.config/autostart/kiosk-noblank.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Kiosk No Blank
+Exec=sh -c 'xset s off; xset -dpms; xset s noblank; setterm -blank 0 -powerdown 0 2>/dev/null || true'
+X-GNOME-Autostart-enabled=true
+EOF
+
+# ---------------- 5) Chromium managed policy (mic/cam + hardening) ----------------
+log "▶  [5/10] Chromium policy — auto-grant mic/cam, ปิด update/sync..."
+for d in /etc/chromium/policies/managed /etc/chromium-browser/policies/managed; do
+  install -d -m 755 "$d"
+done
+POLICY=$(cat <<JSON
+{
+  "AudioCaptureAllowed": true,
+  "AudioCaptureAllowedUrls": ["$KIOSK_ORIGIN"],
+  "VideoCaptureAllowed": true,
+  "VideoCaptureAllowedUrls": ["$KIOSK_ORIGIN"],
+  "ScreenCaptureAllowedByOrigins": ["$KIOSK_ORIGIN"],
+  "SameOriginTabCaptureAllowedByOrigins": ["$KIOSK_ORIGIN"],
+  "TabCaptureAllowedByOrigins": ["$KIOSK_ORIGIN"],
+  "WindowCaptureAllowedByOrigins": ["$KIOSK_ORIGIN"],
+  "ScreenCaptureAllowed": true,
+  "DefaultNotificationsSetting": 1,
+  "NotificationsAllowedForUrls": ["$KIOSK_ORIGIN"],
+  "DefaultGeolocationSetting": 1,
+  "PasswordManagerEnabled": false,
+  "AutofillAddressEnabled": false,
+  "AutofillCreditCardEnabled": false,
+  "TranslateEnabled": false,
+  "MetricsReportingEnabled": false,
+  "SafeBrowsingEnabled": false,
+  "SearchSuggestEnabled": false,
+  "SpellcheckEnabled": false,
+  "BackgroundModeEnabled": false,
+  "ComponentUpdatesEnabled": false,
+  "PromptForDownloadLocation": false,
+  "HardwareAccelerationModeEnabled": true,
+  "URLBlocklist": ["chrome://settings", "chrome://flags"]
+}
+JSON
+)
+EOF
+
+# ---------------- 5.5) CMS branding (Plymouth + LightDM + Wallpaper) ----------------
+log "▶  [5.5/10] ดึง branding จาก CMS + ติดตั้ง Plymouth theme..."
+
+# ดึง config จาก edge function (public) — timeout สั้น ไม่ตายถ้าเน็ตล้ม
+CMS_JSON=$(curl -sf --max-time 8 "$KIOSK_ORIGIN/functions/v1/ext-config" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2d2VycnRlc3BucndpZ3pjcHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1MTI2MjUsImV4cCI6MjA5NjA4ODYyNX0.GJ56S-1ddjhxpK0ITznvMTAIC3nWV54xpigolzImpIM" \
+  2>/dev/null || echo '{}')
+
+# หา field ด้วย python (มี JSON parser แน่ๆ)
+extract_json() {
+  python3 -c "import sys,json;d=json.loads(sys.stdin.read() or '{}');print(d.get('$1','') or '')" <<<"$CMS_JSON" 2>/dev/null || echo ""
+}
+CMS_NAME=$(extract_json school_name)
+[[ -z "$CMS_NAME" ]] && CMS_NAME=$(extract_json app_name)
+[[ -z "$CMS_NAME" ]] && CMS_NAME="Smart School"
+CMS_LOGO_URL=$(extract_json school_logo)
+[[ -z "$CMS_LOGO_URL" ]] && CMS_LOGO_URL=$(extract_json app_favicon_url)
+CMS_COLOR=$(extract_json theme_color)
+[[ -z "$CMS_COLOR" ]] && CMS_COLOR=$(extract_json primary_color)
+[[ -z "$CMS_COLOR" ]] && CMS_COLOR="#2563EB"
+
+log "   ชื่อ: $CMS_NAME"
+log "   สี:   $CMS_COLOR"
+log "   โลโก้: ${CMS_LOGO_URL:-<ไม่มี>}"
+
+# แปลง hex → r,g,b (0-1 floats สำหรับ Plymouth)
+hex_to_rgb_floats() {
+  local h=${1#\#}
+  local r=$((16#${h:0:2})) g=$((16#${h:2:2})) b=$((16#${h:4:2}))
+  awk -v r=$r -v g=$g -v b=$b 'BEGIN{printf "%.4f %.4f %.4f", r/255, g/255, b/255}'
+}
+read -r PLY_R PLY_G PLY_B <<<"$(hex_to_rgb_floats "$CMS_COLOR")"
+
+apt-get install -y --no-install-recommends plymouth plymouth-themes plymouth-label 2>/dev/null || true
+
+THEME_DIR=/usr/share/plymouth/themes/smartschool
+install -d -m 755 "$THEME_DIR"
+
+# ดาวน์โหลดโลโก้ (ถ้ามี) — Plymouth ต้องเป็น .png
+LOGO_PATH="$THEME_DIR/logo.png"
+if [[ -n "$CMS_LOGO_URL" ]]; then
+  curl -sfL --max-time 15 "$CMS_LOGO_URL" -o "$LOGO_PATH.tmp" && \
+    mv "$LOGO_PATH.tmp" "$LOGO_PATH" || rm -f "$LOGO_PATH.tmp"
+fi
+# ถ้าไม่มีโลโก้ → สร้างพื้นหลังเปล่า 256x256 ด้วย ImageMagick (ถ้ามี) หรือข้ามไป
+if [[ ! -f "$LOGO_PATH" ]] && have convert; then
+  convert -size 256x256 xc:none "$LOGO_PATH" 2>/dev/null || true
+fi
+
+# plymouth theme files
+cat >"$THEME_DIR/smartschool.plymouth" <<EOF
+[Plymouth Theme]
+Name=Smart School
+Description=CMS-themed boot splash
+ModuleName=script
+
+[script]
+ImageDir=$THEME_DIR
+ScriptFile=$THEME_DIR/smartschool.script
+EOF
+
+cat >"$THEME_DIR/smartschool.script" <<PLY
+# Background = CMS theme color
+Window.SetBackgroundTopColor($PLY_R, $PLY_G, $PLY_B);
+Window.SetBackgroundBottomColor($PLY_R, $PLY_G, $PLY_B);
+
+logo.image = Image("logo.png");
+if (logo.image) {
+  logo.sprite = Sprite(logo.image);
+  logo.sprite.SetX(Window.GetWidth()/2 - logo.image.GetWidth()/2);
+  logo.sprite.SetY(Window.GetHeight()/2 - logo.image.GetHeight()/2 - 60);
+}
+
+# ชื่อโรงเรียน
+title.image = Image.Text("$CMS_NAME", 1, 1, 1, 1, "Sans Bold 22");
+title.sprite = Sprite(title.image);
+title.sprite.SetX(Window.GetWidth()/2 - title.image.GetWidth()/2);
+title.sprite.SetY(Window.GetHeight()/2 + 40);
+
+# Spinner dots
+progress = 0;
+fun refresh_cb () {
+  progress++;
+  if (progress > 360) progress = 0;
+  # 3 จุดกระพริบ
+  for (i = 0; i < 3; i++) {
+    a = (progress/60.0) - i*0.5;
+    if (a < 0) a = 0;
+    if (a > 1) a = 2 - a;
+    dot = Image.Text("●", 1, 1, 1, a, "Sans 18");
+    dot_sprite[i] = Sprite(dot);
+    dot_sprite[i].SetX(Window.GetWidth()/2 - 30 + i*20);
+    dot_sprite[i].SetY(Window.GetHeight()/2 + 90);
+  }
+}
+Plymouth.SetRefreshFunction(refresh_cb);
+
+fun message_cb (text) {
+  msg.image = Image.Text(text, 1, 1, 1, 0.8, "Sans 12");
+  msg.sprite = Sprite(msg.image);
+  msg.sprite.SetX(Window.GetWidth()/2 - msg.image.GetWidth()/2);
+  msg.sprite.SetY(Window.GetHeight() - 40);
+}
+Plymouth.SetMessageFunction(message_cb);
+PLY
+
+# activate theme
+if have plymouth-set-default-theme; then
+  plymouth-set-default-theme -R smartschool 2>&1 | tail -3 || \
+    log "⚠  plymouth-set-default-theme ล้มเหลว (จะข้ามเงียบๆ)"
+elif [[ -x /usr/sbin/plymouth-set-default-theme ]]; then
+  /usr/sbin/plymouth-set-default-theme -R smartschool 2>&1 | tail -3 || true
+fi
+
+# GRUB — ให้เห็น splash
+if [[ -f /etc/default/grub ]] && ! grep -q "splash" /etc/default/grub; then
+  sed -i 's|GRUB_CMDLINE_LINUX_DEFAULT="|&quiet splash |' /etc/default/grub || true
+fi
+
+# ---------------- 5.6) LightDM greeter + wallpaper ----------------
+log "▶  [5.6/10] LightDM greeter + XFCE wallpaper ตาม CMS..."
+
+# LightDM GTK Greeter — สีพื้นหลัง + โลโก้
+install -d -m 755 /etc/lightdm
+GREETER_CONF=/etc/lightdm/lightdm-gtk-greeter.conf
+backup_once "$GREETER_CONF"
+GREETER_LOGO=""
+[[ -f "$LOGO_PATH" ]] && GREETER_LOGO="$LOGO_PATH"
+cat >"$GREETER_CONF" <<EOF
+[greeter]
+background=$CMS_COLOR
+theme-name=Adwaita-dark
+icon-theme-name=Adwaita
+font-name=Sans 11
+default-user-image=$GREETER_LOGO
+show-clock=true
+clock-format=%H:%M  %A %d %B %Y
+indicators=~host;~spacer;~clock;~spacer;~session;~language;~power
+position=50%,center 50%,center
+EOF
+
+# XFCE wallpaper — สร้างภาพ solid color + logo (ถ้ามี ImageMagick)
+WALLPAPER=/usr/share/backgrounds/smartschool-wallpaper.png
+install -d -m 755 /usr/share/backgrounds
+if have convert; then
+  if [[ -f "$LOGO_PATH" ]]; then
+    convert -size 1920x1080 "xc:$CMS_COLOR" \
+      \( "$LOGO_PATH" -resize 320x320 \) -gravity center -composite \
+      -font DejaVu-Sans-Bold -pointsize 42 -fill white \
+      -gravity south -annotate +0+180 "$CMS_NAME" \
+      "$WALLPAPER" 2>/dev/null || true
+  else
+    convert -size 1920x1080 "xc:$CMS_COLOR" \
+      -font DejaVu-Sans-Bold -pointsize 56 -fill white \
+      -gravity center -annotate +0+0 "$CMS_NAME" \
+      "$WALLPAPER" 2>/dev/null || true
+  fi
+fi
+
+if [[ -f "$WALLPAPER" ]]; then
+  # ตั้ง desktop background ให้ user (ใช้ xfconf-query)
+  install -d -m 755 "$USER_HOME/.config/autostart"
+  cat >"$USER_HOME/.config/autostart/kiosk-wallpaper.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Kiosk Wallpaper
+Exec=sh -c 'for m in \$(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep last-image); do xfconf-query -c xfce4-desktop -p "\$m" -s "$WALLPAPER" 2>/dev/null; done; true'
+X-GNOME-Autostart-enabled=true
+EOF
+fi
+
+# audio groups + pulseaudio autostart + unmute
+usermod -aG audio,video,pulse,pulse-access "$KIOSK_USER" 2>/dev/null || \
+  usermod -aG audio,video "$KIOSK_USER" || true
+
+cat >"$USER_HOME/.config/autostart/kiosk-pulseaudio.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=PulseAudio for Kiosk
+Exec=sh -c 'pulseaudio --start --exit-idle-time=-1'
+X-GNOME-Autostart-enabled=true
+EOF
+cat >"$USER_HOME/.config/autostart/kiosk-unmute.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Kiosk Unmute
+Exec=sh -c 'sleep 5; amixer -q sset Master 80% unmute 2>/dev/null; amixer -q sset Capture 80% cap 2>/dev/null; pactl set-source-mute @DEFAULT_SOURCE@ 0 2>/dev/null; pactl set-source-volume @DEFAULT_SOURCE@ 80% 2>/dev/null; true'
+X-GNOME-Autostart-enabled=true
+EOF
+
+# ---------------- 5.5) Auto-install Smart School Browser Extension (student mode) ----------------
+EXT_DIR="/opt/kiosk/extension"
+EXT_FLAG=""
+if [[ "$KIOSK_MODE" == "student" && -n "$KIOSK_EXTENSION_URL" ]]; then
+  log "▶  [5.5/10] ติดตั้ง Smart School Extension อัตโนมัติจาก $KIOSK_EXTENSION_URL"
+  mkdir -p "$EXT_DIR"
+  apt-get install -y --no-install-recommends unzip curl >/dev/null 2>&1 || true
+
+  # ตัวอัปเดต extension — รันทุกครั้งที่บูตและทุก 6 ชม.
+  cat >/opt/kiosk/update-extension.sh <<EOF
+#!/usr/bin/env bash
+# ดาวน์โหลด extension zip ล่าสุดจาก CMS แล้ว unzip ทับ /opt/kiosk/extension
+set -e
+TMP=\$(mktemp -d)
+if curl -fsSL --max-time 30 -o "\$TMP/ext.zip" "$KIOSK_EXTENSION_URL"; then
+  rm -rf "$EXT_DIR".new && mkdir -p "$EXT_DIR".new
+  unzip -q -o "\$TMP/ext.zip" -d "$EXT_DIR".new
+  # บาง zip มี manifest.json อยู่ในโฟลเดอร์ย่อย
+  if [[ ! -f "$EXT_DIR".new/manifest.json ]]; then
+    SUB=\$(find "$EXT_DIR".new -maxdepth 2 -name manifest.json | head -1)
+    [[ -n "\$SUB" ]] && mv "\$(dirname "\$SUB")"/* "$EXT_DIR".new/ 2>/dev/null || true
+  fi
+  if [[ -f "$EXT_DIR".new/manifest.json ]]; then
+    rm -rf "$EXT_DIR" && mv "$EXT_DIR".new "$EXT_DIR"
+    chown -R $KIOSK_USER:$KIOSK_USER "$EXT_DIR"
+    logger "kiosk: extension updated OK"
+  else
+    logger "kiosk: extension zip invalid (no manifest.json)"
+  fi
+fi
+rm -rf "\$TMP"
+EOF
+  chmod +x /opt/kiosk/update-extension.sh
+  /opt/kiosk/update-extension.sh || log "⚠  โหลด extension ไม่ได้ตอนติดตั้ง (จะลองใหม่ตอนบูต)"
+
+  # systemd timer อัปเดตทุก 6 ชม.
+  cat >/etc/systemd/system/kiosk-extension-update.service <<EOF
+[Unit]
+Description=Update Smart School Kiosk Extension
+After=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/opt/kiosk/update-extension.sh
+EOF
+  cat >/etc/systemd/system/kiosk-extension-update.timer <<EOF
+[Unit]
+Description=Update Smart School Kiosk Extension every 6h
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=6h
+Persistent=true
+[Install]
+WantedBy=timers.target
+EOF
+  systemctl enable kiosk-extension-update.timer >/dev/null 2>&1 || true
+
+  if [[ -f "$EXT_DIR/manifest.json" ]]; then
+    EXT_FLAG="--load-extension=$EXT_DIR --disable-extensions-except=$EXT_DIR"
+    log "   ✔  Extension พร้อมโหลด: $EXT_DIR"
+  fi
+fi
+
+# ---------------- 5.7) Guest Mode / DeepFreeze-like ephemeral profile (student mode) ----------------
+if [[ "$KIOSK_MODE" == "student" ]]; then
+  log "▶  [5.7/10] Guest Mode — ephemeral profile + lockdown (DeepFreeze-like)"
+
+  # 1) mount tmpfs ที่ $USER_HOME/.chromium-profile — ล้างทุกครั้งที่บูต
+  mkdir -p "$USER_HOME/.chromium-profile"
+  chown "$KIOSK_USER:$KIOSK_USER" "$USER_HOME/.chromium-profile"
+  if ! grep -q "chromium-profile" /etc/fstab; then
+    echo "tmpfs  $USER_HOME/.chromium-profile  tmpfs  defaults,noatime,mode=0700,uid=$(id -u $KIOSK_USER),gid=$(id -g $KIOSK_USER),size=512M  0  0" >>/etc/fstab
+  fi
+  mount "$USER_HOME/.chromium-profile" 2>/dev/null || true
+
+  # 2) systemd service ล้าง state ผู้ใช้ทุกครั้งก่อนเข้า graphical
+  cat >/etc/systemd/system/kiosk-wipe-userdata.service <<EOF
+[Unit]
+Description=Wipe student user data on boot (DeepFreeze-like)
+Before=graphical.target lightdm.service
+DefaultDependencies=no
+After=local-fs.target
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c '\
+  rm -rf $USER_HOME/.cache $USER_HOME/.config/chromium $USER_HOME/.config/google-chrome \
+         $USER_HOME/.mozilla $USER_HOME/Downloads/* $USER_HOME/Desktop/*.desktop \
+         $USER_HOME/Documents/* $USER_HOME/Pictures/* $USER_HOME/Videos/* \
+         $USER_HOME/.local/share/recently-used.xbel 2>/dev/null; \
+  mkdir -p $USER_HOME/Downloads $USER_HOME/.config; \
+  chown -R $KIOSK_USER:$KIOSK_USER $USER_HOME'
+RemainAfterExit=no
+[Install]
+WantedBy=graphical.target
+EOF
+  systemctl enable kiosk-wipe-userdata.service >/dev/null 2>&1 || true
+
+  # 3) Lockdown — กันติดตั้งโปรแกรมและใช้ terminal
+  #    - ถอด student ออกจากกลุ่ม sudo/adm
+  deluser "$KIOSK_USER" sudo  >/dev/null 2>&1 || true
+  deluser "$KIOSK_USER" adm   >/dev/null 2>&1 || true
+  deluser "$KIOSK_USER" root  >/dev/null 2>&1 || true
+  #    - polkit บล็อค apt/dpkg/synaptic/gparted/packagekit สำหรับ student
+  mkdir -p /etc/polkit-1/localauthority/50-local.d /etc/polkit-1/rules.d
+  cat >/etc/polkit-1/rules.d/49-kiosk-no-install.rules <<EOF
+polkit.addRule(function(action, subject) {
+  if (subject.user == "$KIOSK_USER" && (
+        action.id.indexOf("org.debian.apt") == 0 ||
+        action.id.indexOf("org.freedesktop.packagekit") == 0 ||
+        action.id.indexOf("com.ubuntu.pkexec") == 0 ||
+        action.id.indexOf("org.freedesktop.policykit.exec") == 0)) {
+    return polkit.Result.NO;
+  }
+});
+EOF
+  #    - ถอด/ซ่อน terminal, file manager admin, software center
+  for pkg in synaptic gnome-software mintinstall software-properties-gtk; do
+    apt-get purge -y "$pkg" >/dev/null 2>&1 || true
+  done
+  #    - ปิด USB autorun + block execution จาก /media /mnt (student ใช้ USB ได้แค่อ่านไฟล์ ไม่รันโปรแกรม)
+  cat >/etc/systemd/system/kiosk-mount-noexec.service <<'EOF'
+[Unit]
+Description=Force noexec on /media and /mnt
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'for m in /media /mnt; do mount -o remount,noexec,nosuid,nodev "$m" 2>/dev/null || true; done'
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl enable kiosk-mount-noexec.service >/dev/null 2>&1 || true
+
+  #    - ล็อค XFCE ไม่ให้เพิ่ม launcher/right-click desktop
+  mkdir -p "$USER_HOME/.config/xfce4/xfconf/xfce-perchannel-xml"
+  cat >"$USER_HOME/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-desktop" version="1.0">
+  <property name="desktop-icons" type="empty">
+    <property name="style" type="int" value="0"/>
+    <property name="file-icons" type="empty">
+      <property name="show-home" type="bool" value="false"/>
+      <property name="show-filesystem" type="bool" value="false"/>
+      <property name="show-removable" type="bool" value="false"/>
+      <property name="show-trash" type="bool" value="false"/>
+    </property>
+  </property>
+  <property name="desktop-menu" type="empty">
+    <property name="show" type="bool" value="false"/>
+  </property>
+</channel>
+EOF
+  chown -R "$KIOSK_USER:$KIOSK_USER" "$USER_HOME/.config/xfce4"
+
+  #    - ปิด hotkeys ที่เรียก terminal / tty switch
+  install -d -m 755 /etc/X11/xorg.conf.d
+  cat >/etc/X11/xorg.conf.d/10-kiosk-nozap.conf <<'EOF'
+Section "ServerFlags"
+  Option "DontVTSwitch" "on"
+  Option "DontZap" "on"
+EndSection
+EOF
+fi
+
+# ---------------- 6) Kiosk launcher + watchdog + health-check ----------------
+log "▶  [6/10] Chromium launcher + watchdog + health-check (mode=$KIOSK_MODE)..."
+
+if [[ "$KIOSK_MODE" == "student" ]]; then
+  # โหมด student — Chromium Guest/Ephemeral (tmpfs profile) + Student Agent
+  #   ไม่เก็บ history/password/cookies — ล้างทุกครั้งเมื่อ reboot
+  PROFILE_DIR="$USER_HOME/.chromium-profile"
+  CHROMIUM_FLAGS="--user-data-dir=$PROFILE_DIR \
+    --incognito --disable-features=TranslateUI,AutofillServerCommunication,SavePasswordBubble \
+    --start-maximized --no-first-run --no-default-browser-check \
+    --disable-session-crashed-bubble --disable-infobars \
+    --check-for-update-interval=31536000 --disable-component-update \
+    --disable-background-networking --disable-breakpad --disable-sync \
+    --disable-save-password-bubble --disable-signin-promo \
+    --autoplay-policy=no-user-gesture-required \
+    --enable-features=WebRTCPipeWireCapturer --disk-cache-size=0 \
+    --password-store=basic $EXT_FLAG"
+  cat >/opt/kiosk/start-kiosk.sh <<EOF
+#!/usr/bin/env bash
+# ล้าง profile ก่อนเริ่ม (double safety นอกจาก tmpfs+wipe service)
+rm -rf "$PROFILE_DIR"/* "$PROFILE_DIR"/.[!.]* 2>/dev/null || true
+for i in \$(seq 1 30); do
+  curl -sf --max-time 2 -o /dev/null "$KIOSK_URL" && break
+  sleep 2
+done
+xset s off -dpms s noblank 2>/dev/null || true
+
+# นักเรียน mode: เปิด chromium หน้าเดียว (main) — Monitor Agent จะรันเบื้องหลัง
+# โดย extension "Safe Browser" (auto-installed) แทนการเปิด window 2 แยก
+# ต่อ ?kiosk=1 เพื่อเปิด IdleScreensaver พักหน้าจอประหยัดพลังงาน
+_APPEND_KIOSK() { case "\$1" in *\?*) echo "\$1&kiosk=1";; *) echo "\$1?kiosk=1";; esac; }
+MAIN_URL="\$(_APPEND_KIOSK "$KIOSK_URL")"
+exec $CHROMIUM_BIN $CHROMIUM_FLAGS "\$MAIN_URL"
+EOF
+
+else
+  # โหมด door — kiosk lock เต็มจอ URL เดียว
+  cat >/opt/kiosk/start-kiosk.sh <<EOF
+#!/usr/bin/env bash
+for i in \$(seq 1 30); do
+  curl -sf --max-time 2 -o /dev/null "$KIOSK_URL" && break
+  sleep 2
+done
+PREF="\$HOME/.config/chromium/Default/Preferences"
+[[ -f "\$PREF" ]] && sed -i 's/"exited_cleanly":false/"exited_cleanly":true/; s/"exit_type":"Crashed"/"exit_type":"Normal"/' "\$PREF" || true
+xset s off -dpms s noblank 2>/dev/null || true
+pgrep -x unclutter >/dev/null || unclutter -idle 0.5 -root &
+
+exec $CHROMIUM_BIN \\
+  --kiosk "$KIOSK_URL" \\
+  --noerrdialogs --disable-infobars --disable-session-crashed-bubble \\
+  --disable-features=TranslateUI,AutofillServerCommunication,MediaRouter,GlobalMediaControls,ScreenCaptureNotification \\
+  --overscroll-history-navigation=0 --disable-pinch --no-first-run \\
+  --check-for-update-interval=31536000 --disable-component-update \\
+  --disable-background-networking --disable-breakpad --disable-domain-reliability \\
+  --disable-sync --metrics-recording-only --no-default-browser-check \\
+  --disable-dev-shm-usage --start-maximized \\
+  --autoplay-policy=no-user-gesture-required \\
+  --enable-features=WebRTCPipeWireCapturer --alsa-output-device=default \\
+  --password-store=basic --disk-cache-size=104857600 \\
+  --auto-select-desktop-capture-source="Entire screen" \\
+  --enable-usermedia-screen-capturing \\
+  --allow-http-screen-capture
+EOF
+fi
+chmod +x /opt/kiosk/start-kiosk.sh
+
+# Idle logout + idle shutdown (student mode)
+if [[ "$KIOSK_MODE" == "student" && ( "$KIOSK_IDLE_LOGOUT_MIN" -gt 0 || "$KIOSK_IDLE_SHUTDOWN_MIN" -gt 0 ) ]]; then
+  apt-get install -y --no-install-recommends xautolock xprintidle 2>/dev/null || true
+
+  # ตัวเช็ค idle: ถ้าไม่มี input > SHUTDOWN นาที → shutdown เครื่อง
+  cat >/opt/kiosk/idle-monitor.sh <<EOF
+#!/usr/bin/env bash
+# ตรวจ idle ทุก 60 วิ  — ถ้า idle > KIOSK_IDLE_SHUTDOWN_MIN → shutdown
+LOGOUT_MS=$(( ${KIOSK_IDLE_LOGOUT_MIN:-0} * 60 * 1000 ))
+SHUTDOWN_MS=$(( ${KIOSK_IDLE_SHUTDOWN_MIN:-0} * 60 * 1000 ))
+while true; do
+  IDLE=\$(xprintidle 2>/dev/null || echo 0)
+  if [[ "\$SHUTDOWN_MS" -gt 0 && "\$IDLE" -ge "\$SHUTDOWN_MS" ]]; then
+    logger "kiosk: idle \${IDLE}ms >= \${SHUTDOWN_MS}ms → shutdown"
+    sudo -n /sbin/shutdown -h +0 || true
+    exit 0
+  elif [[ "\$LOGOUT_MS" -gt 0 && "\$IDLE" -ge "\$LOGOUT_MS" ]]; then
+    logger "kiosk: idle \${IDLE}ms >= \${LOGOUT_MS}ms → logout"
+    pkill -KILL -u \$USER chromium 2>/dev/null || true
+    xfce4-session-logout --logout --fast 2>/dev/null || pkill -KILL -u \$USER || true
+    sleep 30
+  fi
+  sleep 60
+done
+EOF
+  chmod +x /opt/kiosk/idle-monitor.sh
+  cat >"$USER_HOME/.config/autostart/kiosk-idle-monitor.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Kiosk Idle Monitor (logout + shutdown)
+Exec=/opt/kiosk/idle-monitor.sh
+X-GNOME-Autostart-enabled=true
+EOF
+fi
+
+
+
+cat >"$USER_HOME/.config/autostart/kiosk-chromium.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Smart School Kiosk
+Exec=/opt/kiosk/start-kiosk.sh
+X-GNOME-Autostart-enabled=true
+EOF
+
+# Watchdog — เปิด Chromium ใหม่ถ้าตาย
+# ตัวจับ process: door ใช้ --kiosk, student ใช้ --user-data-dir=<profile>
+if [[ "$KIOSK_MODE" == "student" ]]; then
+  KIOSK_PGREP_PATTERN="chromium.*--user-data-dir=$USER_HOME/.chromium-profile"
+else
+  KIOSK_PGREP_PATTERN="chromium.*--kiosk"
+fi
+
+cat >/opt/kiosk/watchdog.sh <<EOF
+#!/usr/bin/env bash
+# ให้ chromium มีเวลา start ก่อนตรวจ (กันซ้อนหลายหน้าต่าง)
+sleep 20
+while true; do
+  if ! pgrep -f "$KIOSK_PGREP_PATTERN" >/dev/null; then
+    /opt/kiosk/start-kiosk.sh &
+    # รอ chromium ขึ้นจริงก่อนตรวจครั้งต่อไป — กัน spawn ซ้อน
+    sleep 20
+  fi
+  sleep 15
+done
+EOF
+chmod +x /opt/kiosk/watchdog.sh
+
+cat >/etc/systemd/system/kiosk-watchdog.service <<EOF
+[Unit]
+Description=Kiosk Chromium Watchdog
+After=graphical.target
+[Service]
+Type=simple
+User=$KIOSK_USER
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=$USER_HOME/.Xauthority
+ExecStart=/opt/kiosk/watchdog.sh
+Restart=always
+[Install]
+WantedBy=graphical.target
+EOF
+
+# Health-check — ping URL ทุก 60 วิ ถ้าล้ม 3 ครั้ง → reload
+cat >/opt/kiosk/healthcheck.sh <<EOF
+#!/usr/bin/env bash
+fails=0
+while true; do
+  if curl -sf --max-time 5 -o /dev/null "$KIOSK_URL"; then
+    fails=0
+  else
+    fails=\$((fails+1))
+    if [[ \$fails -ge 3 ]]; then
+      pkill -f "$KIOSK_PGREP_PATTERN" 2>/dev/null || true
+      fails=0
+    fi
+  fi
+  sleep 60
+done
+EOF
+chmod +x /opt/kiosk/healthcheck.sh
+
+cat >/etc/systemd/system/kiosk-healthcheck.service <<EOF
+[Unit]
+Description=Kiosk URL Health Check
+After=graphical.target
+[Service]
+Type=simple
+User=$KIOSK_USER
+ExecStart=/opt/kiosk/healthcheck.sh
+Restart=always
+[Install]
+WantedBy=graphical.target
+EOF
+
+# ---------------- 7) ปิด service / effect / update ที่ไม่จำเป็น ----------------
+log "▶  [7/10] ปิด service + effect ที่ไม่จำเป็น..."
+
+DISABLE_SERVICES=(
+  bluetooth.service cups.service cups-browsed.service ModemManager.service
+  avahi-daemon.service avahi-daemon.socket
+  apt-daily.service apt-daily.timer apt-daily-upgrade.service apt-daily-upgrade.timer
+  unattended-upgrades.service packagekit.service
+  snapd.service snapd.socket saned.service colord.service
+  speech-dispatcher.service motd-news.service motd-news.timer
+  NetworkManager-wait-online.service
+)
+for svc in "${DISABLE_SERVICES[@]}"; do
+  systemctl disable --now "$svc" 2>/dev/null || true
+  systemctl mask "$svc" 2>/dev/null || true
+done
+
+# Xfce: ปิด compositor + power manager blank + notification
+for CH in xfwm4 xfce4-power-manager xfce4-notifyd xfce4-desktop; do
+  sudo -u "$KIOSK_USER" DISPLAY=:0 dbus-launch --exit-with-session xfconf-query -c "$CH" -lv 2>/dev/null >/dev/null || true
+done
+sudo -u "$KIOSK_USER" DISPLAY=:0 dbus-launch --exit-with-session \
+  xfconf-query -c xfwm4 -p /general/use_compositing -s false 2>/dev/null || true
+sudo -u "$KIOSK_USER" DISPLAY=:0 dbus-launch --exit-with-session \
+  xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/dpms-enabled -s false 2>/dev/null || true
+sudo -u "$KIOSK_USER" DISPLAY=:0 dbus-launch --exit-with-session \
+  xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/blank-on-ac -s 0 2>/dev/null || true
+sudo -u "$KIOSK_USER" DISPLAY=:0 dbus-launch --exit-with-session \
+  xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/blank-on-battery -s 0 2>/dev/null || true
+
+install -d -m 755 "$USER_HOME/.config/xfce4/xfconf/xfce-perchannel-xml"
+cat >"$USER_HOME/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-notifyd.xml" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-notifyd" version="1.0">
+  <property name="do-not-disturb" type="bool" value="true"/>
+  <property name="notification-log" type="bool" value="false"/>
+</channel>
+EOF
+
+# ถอน screensaver / thumbnailer / indexer
+apt-get purge -y xscreensaver light-locker tumbler tracker baloo-kf5 2>/dev/null || true
+
+# ปิด USB automount popup
+sudo -u "$KIOSK_USER" DISPLAY=:0 dbus-launch --exit-with-session \
+  xfconf-query -c thunar-volman -p /automount-drives/enabled -s false 2>/dev/null || true
+
+# MX updater popup
+touch "$USER_HOME/.config/mx-updater-disabled" || true
+
+# ---------------- 8) Kernel / disk / boot tuning ----------------
+log "▶  [8/10] Kernel + disk + boot tuning..."
+
+# sysctl
+cat >/etc/sysctl.d/99-kiosk.conf <<EOF
+vm.swappiness=10
+vm.vfs_cache_pressure=50
+vm.dirty_ratio=10
+vm.dirty_background_ratio=5
+net.core.rmem_max=2500000
+net.core.wmem_max=2500000
+EOF
+sysctl -p /etc/sysctl.d/99-kiosk.conf >/dev/null 2>&1 || true
+
+# GRUB — บูตเร็ว + แก้จอกระพริบ Intel GPU
+if [[ -f /etc/default/grub ]]; then
+  backup_once /etc/default/grub
+  sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=1/' /etc/default/grub
+  # ตรวจ Intel GPU → เพิ่ม intel_idle.max_cstate=1 กันจอกระพริบ (Pavilion x2 issue)
+  EXTRA_CMDLINE="loglevel=3 fastboot"
+  if lspci 2>/dev/null | grep -qi "intel.*graphics\|intel.*hd graphics\|intel.*uhd"; then
+    EXTRA_CMDLINE="$EXTRA_CMDLINE intel_idle.max_cstate=1 i915.enable_psr=0"
+    log "   ตรวจพบ Intel GPU → เพิ่ม intel_idle.max_cstate=1 i915.enable_psr=0"
+  fi
+  if ! grep -q "kiosk-tuned" /etc/default/grub; then
+    sed -i "s|GRUB_CMDLINE_LINUX_DEFAULT=\"[^\"]*|& $EXTRA_CMDLINE|; s|GRUB_CMDLINE_LINUX_DEFAULT=\"|&#kiosk-tuned |" /etc/default/grub || true
+  fi
+  update-grub >/dev/null 2>&1 || true
+fi
+
+# fstab: noatime (ยืดอายุ eMMC/SSD)
+if [[ -f /etc/fstab ]] && ! grep -q "noatime.*# kiosk" /etc/fstab; then
+  backup_once /etc/fstab
+  awk 'BEGIN{OFS="\t"} /^[^#]/ && $2=="/" && $4 !~ /noatime/ { $4=$4",noatime,nodiratime"; $0=$0" # kiosk" } { print }' /etc/fstab >/etc/fstab.new && mv /etc/fstab.new /etc/fstab
+fi
+
+# journald ใน RAM 50MB
+install -d -m 755 /etc/systemd/journald.conf.d
+cat >/etc/systemd/journald.conf.d/kiosk.conf <<EOF
+[Journal]
+Storage=volatile
+RuntimeMaxUse=50M
+SystemMaxUse=50M
+EOF
+
+# ปิด core dump
+echo "* hard core 0" >/etc/security/limits.d/kiosk-nocore.conf
+
+# ---------------- 9) Daily reboot + Power schedule ----------------
+if [[ -n "$KIOSK_DAILY_REBOOT" ]]; then
+  log "▶  [9/10] ตั้ง reboot รายวันเวลา $KIOSK_DAILY_REBOOT..."
+  HH=${KIOSK_DAILY_REBOOT%%:*}
+  MM=${KIOSK_DAILY_REBOOT##*:}
+  cat >/etc/systemd/system/kiosk-daily-reboot.service <<EOF
+[Unit]
+Description=Kiosk Daily Reboot
+[Service]
+Type=oneshot
+ExecStart=/sbin/reboot
+EOF
+  cat >/etc/systemd/system/kiosk-daily-reboot.timer <<EOF
+[Unit]
+Description=Kiosk Daily Reboot Timer
+[Timer]
+OnCalendar=*-*-* $HH:$MM:00
+Persistent=false
+[Install]
+WantedBy=timers.target
+EOF
+  systemctl enable kiosk-daily-reboot.timer >/dev/null 2>&1 || true
+fi
+
+# ---- Power schedule: shutdown ตามเวลา + BIOS RTC wake ตอนเช้า ----
+# ตอน shutdown จะตั้ง /sys/class/rtc/rtc0/wakealarm ให้เครื่องเปิดเองตอน KIOSK_POWER_ON
+if [[ -n "$KIOSK_POWER_ON" || -n "$KIOSK_POWER_OFF" ]]; then
+  log "▶  [9.5/10] Power schedule: ON=${KIOSK_POWER_ON:-off}  OFF=${KIOSK_POWER_OFF:-off}"
+
+  # สคริปต์ที่ shutdown แล้วตั้ง wakealarm ให้ตอน ON เปิดใหม่
+  cat >/opt/kiosk/power-cycle.sh <<EOF
+#!/usr/bin/env bash
+# ตั้ง BIOS RTC wakealarm สำหรับพรุ่งนี้/วันนี้เวลา KIOSK_POWER_ON แล้ว shutdown
+POWER_ON="${KIOSK_POWER_ON:-}"
+if [[ -n "\$POWER_ON" ]]; then
+  # คำนวณ epoch สำหรับ POWER_ON วันถัดไป (ถ้าเวลาผ่านไปแล้ววันนี้)
+  TARGET=\$(date -d "today \$POWER_ON" +%s 2>/dev/null || echo 0)
+  NOW=\$(date +%s)
+  if [[ "\$TARGET" -le "\$NOW" ]]; then
+    TARGET=\$(date -d "tomorrow \$POWER_ON" +%s)
+  fi
+  echo 0 > /sys/class/rtc/rtc0/wakealarm 2>/dev/null || true
+  echo "\$TARGET" > /sys/class/rtc/rtc0/wakealarm 2>/dev/null || \
+    /usr/sbin/rtcwake -m no -t "\$TARGET" 2>/dev/null || true
+  logger "kiosk: set wakealarm to \$(date -d @\$TARGET)"
+fi
+/sbin/shutdown -h +0
+EOF
+  chmod +x /opt/kiosk/power-cycle.sh
+
+  if [[ -n "$KIOSK_POWER_OFF" ]]; then
+    OFF_HH=${KIOSK_POWER_OFF%%:*}
+    OFF_MM=${KIOSK_POWER_OFF##*:}
+    cat >/etc/systemd/system/kiosk-power-off.service <<EOF
+[Unit]
+Description=Kiosk Scheduled Shutdown (+ set BIOS wake for morning)
+[Service]
+Type=oneshot
+ExecStart=/opt/kiosk/power-cycle.sh
+EOF
+    cat >/etc/systemd/system/kiosk-power-off.timer <<EOF
+[Unit]
+Description=Kiosk Scheduled Shutdown Timer
+[Timer]
+OnCalendar=*-*-* $OFF_HH:$OFF_MM:00
+Persistent=false
+[Install]
+WantedBy=timers.target
+EOF
+    systemctl enable kiosk-power-off.timer >/dev/null 2>&1 || true
+  fi
+
+  # เผื่อกรณีเครื่องไม่ได้ถูกปิดผ่าน timer (ไฟดับ ฯลฯ) — ตั้ง wakealarm ทุกครั้งก่อน shutdown ปกติ
+  cat >/etc/systemd/system/kiosk-set-wakealarm.service <<EOF
+[Unit]
+Description=Set BIOS RTC wakealarm before shutdown
+DefaultDependencies=no
+Before=shutdown.target reboot.target halt.target
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'PON="${KIOSK_POWER_ON:-}"; [ -z "\$PON" ] && exit 0; T=\$(date -d "tomorrow \$PON" +%s); echo 0 > /sys/class/rtc/rtc0/wakealarm 2>/dev/null; echo \$T > /sys/class/rtc/rtc0/wakealarm 2>/dev/null || true'
+[Install]
+WantedBy=shutdown.target
+EOF
+  systemctl enable kiosk-set-wakealarm.service >/dev/null 2>&1 || true
+fi
+
+# ---------------- 10) Enable services + set ownership ----------------
+log "▶  [10/10] Enable service + set ownership..."
+systemctl daemon-reload
+ENABLE_LIST=(kiosk-watchdog kiosk-healthcheck kiosk-ctl)
+[[ "$KIOSK_MODE" == "door" ]] && ENABLE_LIST+=(kiosk-wake)
+for s in "${ENABLE_LIST[@]}"; do
+  systemctl enable "$s.service" >/dev/null 2>&1 || true
+done
+
+chown -R "$KIOSK_USER:$KIOSK_USER" "$USER_HOME/.config"
+
+# ---------------- Done ----------------
+cat <<EOF
+
+======================================================================
+✅  ติดตั้งเรียบร้อย — พร้อมใช้งานหลังรีบูต
+    โหมด:               $KIOSK_MODE
+    ผู้ใช้ auto-login:  $KIOSK_USER
+    URL kiosk:          $KIOSK_URL
+    Monitor Agent:      ${KIOSK_MONITOR_AGENT_URL:-<ปิด>}
+    Wake daemon:        $([[ "$KIOSK_MODE" == "door" ]] && echo "http://127.0.0.1:9999/wake" || echo "<ปิด (student mode)>")
+    Local control:      http://127.0.0.1:9998  (/shutdown /reboot /logout /open-url)
+    Idle logout:        $([[ "$KIOSK_IDLE_LOGOUT_MIN" -gt 0 ]] && echo "${KIOSK_IDLE_LOGOUT_MIN} นาที" || echo "ปิด")
+    Idle shutdown:      $([[ "$KIOSK_IDLE_SHUTDOWN_MIN" -gt 0 ]] && echo "${KIOSK_IDLE_SHUTDOWN_MIN} นาที" || echo "ปิด")
+    Power ON (BIOS):    ${KIOSK_POWER_ON:-ปิด}
+    Power OFF:          ${KIOSK_POWER_OFF:-ปิด}
+    Daily reboot:       ${KIOSK_DAILY_REBOOT:-ปิด}
+    Full power mode:    ✅ CPU=performance, suspend/hibernate=masked
+    Log setup:          $LOG_FILE
+
+▶  รีบูต:               sudo reboot
+▶  ดู log runtime:      journalctl -u kiosk-wake -f
+                        journalctl -u kiosk-watchdog -f
+▶  ถอนการติดตั้ง:       sudo bash uninstall-mxlinux-kiosk.sh
+======================================================================
+EOF

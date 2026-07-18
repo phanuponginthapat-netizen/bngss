@@ -15,7 +15,7 @@ export interface MascotSettings {
 export function useMascotSettings(): MascotSettings {
   const { data } = useCmsSettingsBulk();
   return {
-    name: data?.mascot_name || "น้องโรงเรียน",
+    name: data?.mascot_name || "",
     happyUrl: data?.mascot_happy_url || defaultHappy,
     neutralUrl: data?.mascot_neutral_url || defaultNeutral,
     worriedUrl: data?.mascot_worried_url || defaultWorried,

@@ -1,14 +1,11 @@
-import { isAuthorizedCron, unauthorized } from "../_shared/cronAuth.ts";
 // Fetches latest posts from a Facebook Page via Graph API,
 // upserts into public.social_posts, and broadcasts new ones to LINE OA.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getSecret } from "../_shared/getSecret.ts";
 import { secretKeys } from "../_shared/secretKeys.ts";
+import { requireCronOrAdmin } from "../_shared/requireCron.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeadersWithCron as corsHeaders } from "../_shared/cors.ts";
 
 const GRAPH_VERSION = "v21.0";
 
@@ -49,8 +46,8 @@ function extractMedia(post: any): { thumb: string | null; media: string[] } {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (!(await isAuthorizedCron(req))) return unauthorized();
-
+  const denied = await requireCronOrAdmin(req, corsHeaders);
+  if (denied) return denied;
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? Deno.env.get("VITE_SUPABASE_URL")!;

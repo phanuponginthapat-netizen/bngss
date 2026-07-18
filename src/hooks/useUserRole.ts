@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthSession } from "@/hooks/useAuthSession";
 
@@ -9,42 +9,9 @@ export type AppRole =
   | "student"
   | "director"
   | "alumni"
-  | "parent"
-  | "observer";
+  | "parent";
 
-const ROLE_OVERRIDE_KEY = "role_override_v1";
-const ROLE_OVERRIDE_EVENT = "role-override-changed";
-
-export function getRoleOverride(): AppRole | null {
-  try {
-    const v = localStorage.getItem(ROLE_OVERRIDE_KEY);
-    return v ? (v as AppRole) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function setRoleOverride(role: AppRole | null) {
-  try {
-    if (role) localStorage.setItem(ROLE_OVERRIDE_KEY, role);
-    else localStorage.removeItem(ROLE_OVERRIDE_KEY);
-    window.dispatchEvent(new Event(ROLE_OVERRIDE_EVENT));
-  } catch {}
-}
-
-function useRoleOverride() {
-  const [override, setOverride] = useState<AppRole | null>(() => getRoleOverride());
-  useEffect(() => {
-    const handler = () => setOverride(getRoleOverride());
-    window.addEventListener(ROLE_OVERRIDE_EVENT, handler);
-    window.addEventListener("storage", handler);
-    return () => {
-      window.removeEventListener(ROLE_OVERRIDE_EVENT, handler);
-      window.removeEventListener("storage", handler);
-    };
-  }, []);
-  return override;
-}
+const VIEW_MODE_KEY = "view_mode_override";
 
 async function fetchUserRole(userId: string): Promise<AppRole | null> {
   const { data, error } = await supabase
@@ -54,15 +21,28 @@ async function fetchUserRole(userId: string): Promise<AppRole | null> {
     .limit(1)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) return null;
   return (data?.role as AppRole) || null;
 }
 
+function readOverride(): "admin" | "teacher" | null {
+  if (typeof window === "undefined") return null;
+  const v = window.localStorage.getItem(VIEW_MODE_KEY);
+  return v === "teacher" || v === "admin" ? v : null;
+}
 
+/**
+ * Central role hook.
+ * - `role` = **effective** role after view-mode override (ทั้งระบบใช้ตัวนี้)
+ * - `realRole` = สิทธิ์จริงจาก user_roles (สำหรับปุ่มสลับเท่านั้น)
+ *
+ * เมื่อ admin ที่มีข้อมูล personnel สลับเป็นโหมด "ครู" — ทุก hook flag
+ * (isAdmin/isTeacher/…) จะสะท้อนบทบาทครูทันที ทั้ง sidebar/dashboard/
+ * page guards จึงเปลี่ยนโดยอัตโนมัติ ไม่ต้องแก้ทีละหน้า
+ */
 export function useUserRole() {
-  const { isReady, user, error: authError } = useAuthSession();
+  const { isReady, user } = useAuthSession();
   const userId = user?.id ?? null;
-  const override = useRoleOverride();
 
   const roleQuery = useQuery({
     queryKey: ["user-role", userId],
@@ -71,20 +51,43 @@ export function useUserRole() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const actualRole = userId
+  const realRole = userId
     ? roleQuery.isSuccess
       ? roleQuery.data || null
       : null
     : null;
 
-  // Only admins are allowed to impersonate "teacher" mode.
-  const effectiveRole: AppRole | null =
-    actualRole === "admin" && override === "teacher" ? "teacher" : actualRole;
+  // ตรวจว่า admin คนนี้มี personnel record → เป็น "ครูที่เป็น admin"
+  const teacherAdminQuery = useQuery({
+    queryKey: ["is-teacher-admin", userId],
+    enabled: isReady && !!userId && realRole === "admin",
+    staleTime: 10 * 60 * 1000,
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("personnel")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId!)
+        .eq("status", "active");
+      return (count || 0) > 0;
+    },
+  });
+  const isTeacherAdmin = realRole === "admin" && !!teacherAdminQuery.data;
 
-  const role = effectiveRole;
+  // อ่าน override + sync ข้าม tab
+  const [override, setOverride] = useState<"admin" | "teacher" | null>(readOverride);
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === VIEW_MODE_KEY) setOverride(readOverride());
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  // Effective role = ที่ระบบใช้จริงในทุก UI
+  const role: AppRole | null =
+    isTeacherAdmin && override === "teacher" ? "teacher" : realRole;
+
   const loading = !isReady || (!!userId && roleQuery.isPending);
-  const queryError = roleQuery.error instanceof Error ? roleQuery.error.message : roleQuery.error ? String(roleQuery.error) : null;
-  const error = authError || queryError;
 
   const isAdmin = role === "admin";
   const isDirector = role === "director";
@@ -92,16 +95,12 @@ export function useUserRole() {
   const isStudent = role === "student";
   const isAlumni = role === "alumni";
   const isParent = role === "parent";
-  const isObserver = role === "observer";
 
   return {
     role,
-    actualRole,
-    canSwitchRole: actualRole === "admin",
-    isImpersonating: actualRole === "admin" && role !== "admin",
+    realRole,
+    isTeacherAdmin,
     loading,
-    error,
-    refetchRole: roleQuery.refetch,
     userId,
     isAdmin,
     isDirector,
@@ -109,7 +108,6 @@ export function useUserRole() {
     isStudent,
     isAlumni,
     isParent,
-    isObserver,
     // Backward compat (always false now)
     isSuperAdmin: false,
     isAreaAdmin: false,

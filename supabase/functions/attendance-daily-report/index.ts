@@ -1,14 +1,11 @@
-import { isAuthorizedCron, unauthorized } from "../_shared/cronAuth.ts";
 // รายงานการมาโรงเรียนประจำวัน — แยกระดับชั้น / ชาย-หญิง / รวมประจำวัน
 // ส่งให้ admin ทุกวันเวลา 09:00 น. (Asia/Bangkok) ผ่าน pg_cron
 // ผลลัพธ์: บันทึก notifications ให้ admin + ส่ง Google Chat card สวย ๆ
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { requireCronOrAdmin } from "../_shared/requireCron.ts";
+import { corsHeadersWithCron as corsHeaders } from "../_shared/cors.ts";
+import { makeAdmin } from "../_shared/supabaseAdmin.ts";
+import { notifyGChat } from "../_shared/fanout.ts";
 
 const GRADE_ORDER = ["ป.1","ป.2","ป.3","ป.4","ป.5","ป.6","ม.1","ม.2","ม.3","ม.4","ม.5","ม.6"];
 
@@ -32,8 +29,8 @@ function pad(s: string | number, w: number, right = false) {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (!(await isAuthorizedCron(req))) return unauthorized();
-
+  const denied = await requireCronOrAdmin(req, corsHeaders);
+  if (denied) return denied;
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -41,10 +38,7 @@ serve(async (req) => {
     const sendChat: boolean = body.send_chat !== false;
     const sendNotif: boolean = body.send_notification !== false;
 
-    const sb = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const sb = makeAdmin();
 
     // 1) นักเรียน active
     const { data: students, error: stuErr } = await sb
@@ -179,22 +173,13 @@ serve(async (req) => {
       // ตารางสำหรับ Google Chat (ใช้ <font face="monospace">)
       const chatTable = `<font face="monospace">${[head, sub, sep, ...rows, sep, grandRow].join("\n")}</font>`;
 
-      const resp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/notify-google-chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-        },
-        body: JSON.stringify({
-          notification_type: "attendance_daily_report",
-          title: `📊 รายงานการมาโรงเรียน ${dateTH}`,
-          message: `${summary}\n\n${chatTable}`,
-          department: "all",
-          severity: pct >= 90 ? "success" : pct >= 75 ? "info" : "warning",
-          fields,
-        }),
+      chatResult = await notifyGChat({
+        notification_type: "attendance_daily_report",
+        title: `📊 รายงานการมาโรงเรียน ${dateTH}`,
+        message: `${summary}\n\n${chatTable}`,
+        severity: pct >= 90 ? "success" : pct >= 75 ? "info" : "warning",
+        fields,
       });
-      chatResult = await resp.json().catch(() => ({ ok: resp.ok, status: resp.status }));
     }
 
     return new Response(JSON.stringify({

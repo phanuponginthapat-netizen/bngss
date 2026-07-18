@@ -15,8 +15,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Plus, Wallet, Receipt, Image as ImageIcon, FileText, Trash2, Upload, Printer, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { confirmDelete } from "@/lib/confirmAction";
-import { DateInput } from "@/components/ui/date-input";
 
 const fmtBaht = (n: any) =>
   new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 0 }).format(Number(n || 0));
@@ -24,11 +22,11 @@ const fmtBaht = (n: any) =>
 const fmtDate = (d: any) => d ? new Date(d).toLocaleDateString("th-TH", { day: "2-digit", month: "short", year: "numeric" }) : "-";
 
 const STATUSES: Record<string, { label: string; color: string }> = {
-  planning: { label: "วางแผน", color: "bg-neutral-soft text-neutral" },
-  active: { label: "ดำเนินการ", color: "bg-info-soft text-info" },
-  paused: { label: "พักไว้", color: "bg-warning-soft text-warning" },
-  completed: { label: "เสร็จสิ้น", color: "bg-success-soft text-success" },
-  cancelled: { label: "ยกเลิก", color: "bg-danger-soft text-danger" },
+  planning: { label: "วางแผน", color: "bg-slate-100 text-slate-700" },
+  active: { label: "ดำเนินการ", color: "bg-blue-100 text-blue-700" },
+  paused: { label: "พักไว้", color: "bg-yellow-100 text-yellow-700" },
+  completed: { label: "เสร็จสิ้น", color: "bg-emerald-100 text-emerald-700" },
+  cancelled: { label: "ยกเลิก", color: "bg-red-100 text-red-700" },
 };
 
 const EXPENSE_CATS = ["วัสดุ-อุปกรณ์", "ค่าใช้สอย", "ค่าตอบแทน", "อาหาร-เครื่องดื่ม", "ค่าเดินทาง", "ค่าจ้าง", "อื่น ๆ"];
@@ -154,13 +152,13 @@ export default function HubProjectDetailPage() {
   };
 
   const removeExpense = async (eid: string) => {
-    if (!(await confirmDelete("ลบรายการนี้?"))) return;
+    if (!confirm("ลบรายการนี้?")) return;
     await supabase.from("hub_project_expenses").delete().eq("id", eid);
     qc.invalidateQueries({ queryKey: ["hub_project_expenses", id] });
     qc.invalidateQueries({ queryKey: ["hub_project", id] });
   };
   const removeBudget = async (bid: string) => {
-    if (!(await confirmDelete("ลบงบที่ได้รับนี้?"))) return;
+    if (!confirm("ลบงบที่ได้รับนี้?")) return;
     await supabase.from("hub_project_budgets").delete().eq("id", bid);
     qc.invalidateQueries({ queryKey: ["hub_project_budgets", id] });
     qc.invalidateQueries({ queryKey: ["hub_project", id] });
@@ -214,7 +212,7 @@ export default function HubProjectDetailPage() {
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1"><CheckCircle2 className="h-4 w-4" /> เปลี่ยนสถานะ</Button>
               </DialogTrigger>
-              <DialogContent className="max-w-sm">
+              <DialogContent className="sm:max-w-sm">
                 <DialogHeader><DialogTitle>เปลี่ยนสถานะโครงการ</DialogTitle></DialogHeader>
                 <div className="grid gap-2">
                   {Object.entries(STATUSES).map(([k, v]) => (
@@ -230,9 +228,9 @@ export default function HubProjectDetailPage() {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div><div className="text-xs text-muted-foreground">งบที่ได้รับ</div>
-              <div className="text-lg font-bold text-success">{fmtBaht(project.budget_received)}</div></div>
+              <div className="text-lg font-bold text-emerald-600">{fmtBaht(project.budget_received)}</div></div>
             <div><div className="text-xs text-muted-foreground">ใช้ไป</div>
-              <div className="text-lg font-bold text-warning">{fmtBaht(project.budget_spent)}</div></div>
+              <div className="text-lg font-bold text-orange-600">{fmtBaht(project.budget_spent)}</div></div>
             <div><div className="text-xs text-muted-foreground">คงเหลือ</div>
               <div className="text-lg font-bold text-primary">{fmtBaht(remain)}</div></div>
             <div><div className="text-xs text-muted-foreground">ผู้ได้รับประโยชน์</div>
@@ -244,7 +242,7 @@ export default function HubProjectDetailPage() {
       </Card>
 
       <Tabs defaultValue="feed">
-        <TabsList className="grid grid-cols-4 w-full md:w-auto">
+        <TabsList className="grid grid-cols-1 sm:grid-cols-4 w-full md:w-auto">
           <TabsTrigger value="feed" className="gap-1"><ImageIcon className="h-4 w-4" /> ฟีดความคืบหน้า</TabsTrigger>
           <TabsTrigger value="budget" className="gap-1"><Wallet className="h-4 w-4" /> งบที่ได้รับ</TabsTrigger>
           <TabsTrigger value="expense" className="gap-1"><Receipt className="h-4 w-4" /> ค่าใช้จ่าย</TabsTrigger>
@@ -257,13 +255,13 @@ export default function HubProjectDetailPage() {
             <p className="text-sm text-muted-foreground">รายงานความคืบหน้าเป็นช่วง ๆ พร้อมภาพกิจกรรม (เผยแพร่ไปยังฮับกลางอัตโนมัติ)</p>
             <Dialog open={updateOpen} onOpenChange={setUpdateOpen}>
               <DialogTrigger asChild><Button size="sm" className="gap-1"><Plus className="h-4 w-4" /> เพิ่มรายงาน</Button></DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="sm:max-w-2xl sm:max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>เพิ่มรายงานความคืบหน้า</DialogTitle></DialogHeader>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="md:col-span-2"><Label>หัวข้อ *</Label>
                     <Input value={updateForm.title} onChange={(e) => setUpdateForm({ ...updateForm, title: e.target.value })} /></div>
                   <div><Label>วันที่</Label>
-                    <DateInput value={updateForm.update_date} onChange={(e) => setUpdateForm({ ...updateForm, update_date: e.target.value })} /></div>
+                    <Input type="date" value={updateForm.update_date} onChange={(e) => setUpdateForm({ ...updateForm, update_date: e.target.value })} /></div>
                   <div><Label>ช่วงรายงาน</Label>
                     <Input placeholder="เช่น ไตรมาส 1, สัปดาห์ที่ 5" value={updateForm.period_label} onChange={(e) => setUpdateForm({ ...updateForm, period_label: e.target.value })} /></div>
                   <div><Label>จำนวนผู้เข้าร่วม</Label>
@@ -282,12 +280,12 @@ export default function HubProjectDetailPage() {
                         <Upload className="h-4 w-4" /> อัปโหลดภาพ
                       </Button>
                       {uploadedPhotos.length > 0 && (
-                        <div className="grid grid-cols-4 gap-2 mt-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-2">
                           {uploadedPhotos.map((u, i) => (
                             <div key={i} className="relative">
-                              <img src={u} className="w-full h-20 object-cover rounded" alt="" />
+                              <img loading="lazy" decoding="async" src={u} className="w-full h-20 object-cover rounded" alt="" />
                               <button type="button" onClick={() => setUploadedPhotos(uploadedPhotos.filter((_, idx) => idx !== i))}
-                                className="absolute top-0 right-0 bg-danger text-white rounded-bl px-1 text-xs">×</button>
+                                className="absolute top-0 right-0 bg-red-600 text-white rounded-bl px-1 text-xs">×</button>
                             </div>
                           ))}
                         </div>
@@ -327,7 +325,7 @@ export default function HubProjectDetailPage() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                     {u.photos.map((p: string, i: number) => (
                       <a key={i} href={p} target="_blank" rel="noreferrer">
-                        <img src={p} alt="" className="w-full h-32 object-cover rounded border" />
+                        <img loading="lazy" decoding="async" src={p} alt="" className="w-full h-32 object-cover rounded border" />
                       </a>
                     ))}
                   </div>
@@ -345,11 +343,11 @@ export default function HubProjectDetailPage() {
               <DialogTrigger asChild><Button size="sm" className="gap-1"><Plus className="h-4 w-4" /> รับงบใหม่</Button></DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>บันทึกงบที่ได้รับ</DialogTitle></DialogHeader>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>จำนวนเงิน (บาท) *</Label>
                     <Input type="number" value={budgetForm.amount} onChange={(e) => setBudgetForm({ ...budgetForm, amount: e.target.value })} /></div>
                   <div><Label>วันที่รับ</Label>
-                    <DateInput value={budgetForm.received_date} onChange={(e) => setBudgetForm({ ...budgetForm, received_date: e.target.value })} /></div>
+                    <Input type="date" value={budgetForm.received_date} onChange={(e) => setBudgetForm({ ...budgetForm, received_date: e.target.value })} /></div>
                   <div className="col-span-2"><Label>แหล่งงบ</Label>
                     <Input value={budgetForm.source} onChange={(e) => setBudgetForm({ ...budgetForm, source: e.target.value })} /></div>
                   <div className="col-span-2"><Label>เลขที่อ้างอิง</Label>
@@ -377,9 +375,9 @@ export default function HubProjectDetailPage() {
                       <td className="p-3">{fmtDate(b.received_date)}</td>
                       <td className="p-3">{b.source || "-"}</td>
                       <td className="p-3">{b.reference_no || "-"}</td>
-                      <td className="p-3 text-right font-semibold text-success">{fmtBaht(b.amount)}</td>
+                      <td className="p-3 text-right font-semibold text-emerald-600">{fmtBaht(b.amount)}</td>
                       <td className="p-3 text-right">
-                        <Button variant="ghost" size="sm" onClick={() => removeBudget(b.id)}><Trash2 className="h-4 w-4 text-danger" /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => removeBudget(b.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
                       </td>
                     </tr>
                   ))}
@@ -397,9 +395,9 @@ export default function HubProjectDetailPage() {
               <DialogTrigger asChild><Button size="sm" className="gap-1"><Plus className="h-4 w-4" /> เพิ่มค่าใช้จ่าย</Button></DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>บันทึกค่าใช้จ่าย</DialogTitle></DialogHeader>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>วันที่</Label>
-                    <DateInput value={expenseForm.expense_date} onChange={(e) => setExpenseForm({ ...expenseForm, expense_date: e.target.value })} /></div>
+                    <Input type="date" value={expenseForm.expense_date} onChange={(e) => setExpenseForm({ ...expenseForm, expense_date: e.target.value })} /></div>
                   <div><Label>หมวด</Label>
                     <Select value={expenseForm.category} onValueChange={(v) => setExpenseForm({ ...expenseForm, category: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -438,9 +436,9 @@ export default function HubProjectDetailPage() {
                       <td className="p-3"><Badge variant="outline">{e.category}</Badge></td>
                       <td className="p-3">{e.description}{e.vendor && <div className="text-xs text-muted-foreground">{e.vendor}</div>}</td>
                       <td className="p-3 text-xs">{e.receipt_no || "-"}</td>
-                      <td className="p-3 text-right font-semibold text-warning">{fmtBaht(e.amount)}</td>
+                      <td className="p-3 text-right font-semibold text-orange-600">{fmtBaht(e.amount)}</td>
                       <td className="p-3 text-right">
-                        <Button variant="ghost" size="sm" onClick={() => removeExpense(e.id)}><Trash2 className="h-4 w-4 text-danger" /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => removeExpense(e.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
                       </td>
                     </tr>
                   ))}
@@ -456,9 +454,9 @@ export default function HubProjectDetailPage() {
             <CardContent className="space-y-3">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 <div><div className="text-muted-foreground">รับมา {budgets.length} ครั้ง</div>
-                  <div className="text-lg font-bold text-success">{fmtBaht(project.budget_received)}</div></div>
+                  <div className="text-lg font-bold text-emerald-600">{fmtBaht(project.budget_received)}</div></div>
                 <div><div className="text-muted-foreground">ใช้ไป {expenses.length} รายการ</div>
-                  <div className="text-lg font-bold text-warning">{fmtBaht(project.budget_spent)}</div></div>
+                  <div className="text-lg font-bold text-orange-600">{fmtBaht(project.budget_spent)}</div></div>
                 <div><div className="text-muted-foreground">คงเหลือ</div>
                   <div className="text-lg font-bold text-primary">{fmtBaht(remain)}</div></div>
                 <div><div className="text-muted-foreground">ใช้ไปแล้ว</div>

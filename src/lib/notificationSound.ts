@@ -67,20 +67,19 @@ export function playNotificationSound(opts?: { urgent?: boolean }) {
   if (!ac) return;
   if (ac.state === "suspended") ac.resume().catch(() => {});
 
-  // Pleasant 2-note chime (C6 → E6) à la FB Messenger; urgent = lower 3-note alert
-  const tones = opts?.urgent ? [784, 587, 784] : [1046.5, 1318.5];
+  const tones = opts?.urgent ? [880, 660, 880] : [880, 1175];
   const start = ac.currentTime;
   tones.forEach((freq, i) => {
     const o = ac.createOscillator();
     const g = ac.createGain();
-    o.type = "triangle"; // softer than sine + sine
+    o.type = "sine";
     o.frequency.value = freq;
-    const t0 = start + i * 0.09;
+    const t0 = start + i * 0.12;
     g.gain.setValueAtTime(0, t0);
-    g.gain.linearRampToValueAtTime(0.14, t0 + 0.015);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.32);
+    g.gain.linearRampToValueAtTime(0.18, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
     o.connect(g).connect(ac.destination);
     o.start(t0);
-    o.stop(t0 + 0.34);
+    o.stop(t0 + 0.2);
   });
 }

@@ -10,16 +10,16 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Printer, Download, Trash2, FileSpreadsheet, FolderOpen, Calendar, ClipboardList, Search, User } from "lucide-react";
-import { useSchoolInfo, signatureImgHtml } from "@/components/documents/DocumentHeader";
-import { SignatureBlock } from "@/components/documents/SignatureBlock";
+import { useSchoolInfo } from "@/components/documents/DocumentHeader";
 import { gradeColor } from "@/lib/gradeUtils";
-import { openPrintWindow } from "@/lib/printUtils";
+import { openPrintWindow, toThaiDigits } from "@/lib/printUtils";
 import { formatFullName, formatFullNameHtml } from "@/lib/nameFormat";
 import { toast } from "sonner";
-import PP6ImportDialog from "@/components/academic/PP6ImportDialog";
+import PP6AutoImportDialog from "@/components/academic/PP6AutoImportDialog";
+import { Megaphone, CheckCircle2 } from "lucide-react";
 import ReportCardPage from "./ReportCardPage";
 import { swal } from "@/lib/swal";
-import { exportPP6Book } from "@/lib/exporters/officialPpBook";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 const GRADE_LEVELS = [
   "อ.1", "อ.2", "อ.3",
@@ -28,7 +28,7 @@ const GRADE_LEVELS = [
   "การศึกษาพิเศษ",
 ];
 
-const toBE = (y: number) => y > 2400 ? y : y + 543;
+const toBE = (y: number) => y > 2400 ? y : y + BE_OFFSET;
 
 // ── Score Overview Tab ──
 const ScoreOverviewTab = () => {
@@ -72,7 +72,10 @@ const ScoreOverviewTab = () => {
     ? allClassroomsRaw
     : allClassroomsRaw.filter((c: any) => allowedClassroomIds.has(c.id));
 
-  const availableYears = [...new Set(allClassrooms.map((c: any) => c.academic_year))].sort((a: number, b: number) => b - a);
+  const _currentCEYear = new Date().getFullYear();
+  const availableYears = [...new Set(allClassrooms.map((c: any) => c.academic_year))]
+    .filter((y: any) => typeof y === "number" && y >= _currentCEYear - 3 && y <= _currentCEYear)
+    .sort((a: number, b: number) => b - a);
   const yearClassrooms = allClassrooms.filter((c: any) => String(c.academic_year) === academicYear);
   const classrooms = gradeLevel ? yearClassrooms.filter((c: any) => c.grade_level === gradeLevel) : [];
 
@@ -80,7 +83,7 @@ const ScoreOverviewTab = () => {
     queryKey: ["pp6_students", classroomId],
     queryFn: async () => {
       if (!classroomId) return [];
-      const { data } = await supabase.from("students").select("*").eq("classroom_id", classroomId).eq("status", "active").order("student_code");
+      const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name").eq("classroom_id", classroomId).eq("status", "active").order("student_code");
       return data || [];
     },
     enabled: !!classroomId,
@@ -138,68 +141,82 @@ const ScoreOverviewTab = () => {
     };
   });
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     if (!selectedClassroom) return;
 
+    // Try admin-defined template first
+    const { printByCode } = await import("@/lib/printTemplate");
+    const tplData = {
+      school: { name: schoolInfo.school_name, address: schoolInfo.school_address },
+      class: { label: `${selectedClassroom.grade_level} - ${selectedClassroom.name}`, grade: selectedClassroom.grade_level, name: selectedClassroom.name },
+      semester,
+      year: toBE(selectedClassroom.academic_year),
+      homeroom_teacher: selectedClassroom.homeroom_teacher || "",
+      director: { name: schoolInfo.director_name, title: schoolInfo.director_title },
+      subjects,
+      students: mergedData,
+      today: new Date().toISOString(),
+    };
+    const used = await printByCode("pp6", tplData);
+    if (used) return;
+
+
     const beYear = toBE(selectedClassroom.academic_year);
-    const classLabel = selectedClassroom.name;
+    const classLabel = `${selectedClassroom.grade_level} - ${selectedClassroom.name}`;
     const homeroomTeacher = selectedClassroom.homeroom_teacher || "";
 
-    // Split subjects into groups for A4 portrait (max ~6 subjects per page to keep readable)
-    const MAX_SUBJECTS_PER_PAGE = 6;
+    // A4 landscape: fit up to 12 subjects per page; otherwise split
+    const MAX_SUBJECTS_PER_PAGE = 12;
     const subjectGroups: any[][] = [];
     for (let i = 0; i < subjects.length; i += MAX_SUBJECTS_PER_PAGE) {
       subjectGroups.push(subjects.slice(i, i + MAX_SUBJECTS_PER_PAGE));
     }
     if (subjectGroups.length === 0) subjectGroups.push([]);
 
-    // Paginate students: ~32 per page for compact A4
-    const ROWS_PER_PAGE = 32;
+    // Landscape A4: ~28 rows per page with header + signatures
+    const ROWS_PER_PAGE = 28;
 
     const headerHtml = (pageNum: number, totalPg: number, subjectLabel: string) => `
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:2pt;">
-        <div style="font-size:9pt; color:#666;">ปพ.6</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4pt; font-size:11pt;">
+        <div style="color:#444;">ปพ.๖</div>
         <div style="text-align:center; flex:1;">
-          <div style="font-size:13pt; font-weight:700;">${schoolInfo.school_name || "โรงเรียน"}</div>
-          ${schoolInfo.school_address ? `<div style="font-size:9pt;">${schoolInfo.school_address}</div>` : ""}
+          <div style="font-size:15pt; font-weight:700;">${schoolInfo.school_name || "โรงเรียน"}</div>
+          ${schoolInfo.school_address ? `<div style="font-size:10pt;">${schoolInfo.school_address}</div>` : ""}
         </div>
-        <div style="font-size:9pt; color:#666;">หน้า ${pageNum}/${totalPg}</div>
+        <div style="color:#444;">หน้า ${toThaiDigits(pageNum)}/${toThaiDigits(totalPg)}</div>
       </div>
-      <div style="text-align:center; font-size:12pt; font-weight:700; margin-bottom:1pt;">แบบรายงานผลการพัฒนาคุณภาพผู้เรียนรายบุคคล (ปพ.6)</div>
-      <div style="text-align:center; font-size:9pt; margin-bottom:4pt;">หลักสูตรแกนกลางการศึกษาขั้นพื้นฐาน พุทธศักราช ๒๕๕๑</div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:0 10pt; font-size:10pt; border:1px solid #999; padding:3pt 6pt; margin-bottom:4pt; line-height:1.5;">
+      <div style="text-align:center; font-size:14pt; font-weight:700;">แบบรายงานผลการพัฒนาคุณภาพผู้เรียนรายบุคคล (ปพ.๖)</div>
+      <div style="text-align:center; font-size:11pt; margin-bottom:6pt;">ตามหลักสูตรแกนกลางการศึกษาขั้นพื้นฐาน พุทธศักราช ๒๕๕๑</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:0 10pt; font-size:12pt; border:1px solid #999; padding:4pt 8pt; margin-bottom:6pt; line-height:1.6;">
         <div>ระดับชั้น <strong>${classLabel}</strong></div>
-        <div>ภาคเรียนที่ <strong>${semester}</strong> ปีการศึกษา <strong>${beYear}</strong></div>
-        <div>ครูประจำชั้น <strong>${homeroomTeacher}</strong></div>
-        <div>จำนวนนักเรียน <strong>${mergedData.length}</strong> คน ${subjectLabel ? `(${subjectLabel})` : ""}</div>
+        <div>ภาคเรียนที่ <strong>${toThaiDigits(semester)}</strong> / <strong>${toThaiDigits(beYear)}</strong></div>
+        <div>ครูประจำชั้น <strong>${homeroomTeacher || "-"}</strong></div>
+        <div>นักเรียน <strong>${toThaiDigits(mergedData.length)}</strong> คน ${subjectLabel ? `· ${subjectLabel}` : ""}</div>
       </div>`;
 
-    // Calculate total pages
     let totalPages = 0;
     subjectGroups.forEach(() => {
       totalPages += Math.ceil(mergedData.length / ROWS_PER_PAGE) || 1;
     });
-    // Check if signature can fit on last data page
-    const lastGroupPages = Math.ceil(mergedData.length / ROWS_PER_PAGE) || 1;
     const lastGroupLastPageRows = mergedData.length % ROWS_PER_PAGE || (mergedData.length > 0 ? ROWS_PER_PAGE : 0);
-    const canFitSigOnLastPage = lastGroupLastPageRows <= 20; // enough room for subject list + signatures
+    const canFitSigOnLastPage = lastGroupLastPageRows <= 18;
     if (!canFitSigOnLastPage) totalPages += 1;
 
     let currentPage = 0;
     let allPagesHtml = "";
 
     const signaturesHtml = `
-      <div style="font-size:11pt; font-weight:700; margin:6pt 0 3pt; border-bottom:1px solid #999; padding-bottom:2pt;">สรุปรายวิชาที่จัดการเรียนการสอน</div>
-      <table class="obec-table" style="font-size:10pt;">
-        <thead><tr><th style="font-size:9pt;">ลำดับ</th><th style="font-size:9pt;">รหัสวิชา</th><th style="font-size:9pt;">ชื่อวิชา</th><th class="center" style="font-size:9pt;">หน่วยกิต</th></tr></thead>
+      <div style="font-size:12pt; font-weight:700; margin:8pt 0 4pt; border-bottom:1px solid #999; padding-bottom:2pt;">สรุปรายวิชาที่จัดการเรียนการสอน</div>
+      <table class="obec-table" style="font-size:11pt;">
+        <thead><tr><th>ลำดับ</th><th>รหัสวิชา</th><th>ชื่อวิชา</th><th class="center">หน่วยกิต</th></tr></thead>
         <tbody>${subjects.map((s: any, i: number) => `<tr><td class="center">${i + 1}</td><td>${s.code}</td><td>${s.name_th}</td><td class="center">${s.credits || "-"}</td></tr>`).join("")}</tbody>
       </table>
-      <div style="margin-top:16pt; page-break-inside:avoid;">
-        <div class="obec-sig-grid-2">
-          <div class="obec-sig-item"><div class="obec-sig-line"></div><div class="obec-sig-name" style="font-size:11pt;">${homeroomTeacher || "(ครูประจำชั้น)"}</div><div class="obec-sig-title" style="font-size:10pt;">ครูประจำชั้น</div></div>
-          <div class="obec-sig-item"><div class="obec-sig-line"></div><div class="obec-sig-title" style="font-size:10pt;">หัวหน้างานวิชาการ</div></div>
-          <div class="obec-sig-item"><div class="obec-sig-line"></div><div class="obec-sig-title" style="font-size:10pt;">หัวหน้างานวัดและประเมินผล</div></div>
-          <div class="obec-sig-item">${signatureImgHtml(schoolInfo.director_signature_url, 40)}<div class="obec-sig-line"></div><div class="obec-sig-name" style="font-size:11pt;">${schoolInfo.director_name ? `(${schoolInfo.director_name})` : "(ผู้อำนวยการ)"}</div><div class="obec-sig-title" style="font-size:10pt;">${schoolInfo.director_title}</div></div>
+      <div style="margin-top:18pt; page-break-inside:avoid;">
+        <div class="obec-sig-grid-2" style="grid-template-columns:repeat(4, 1fr);">
+          <div class="obec-sig-item"><div class="obec-sig-line"></div><div class="obec-sig-name">${homeroomTeacher || "(ครูประจำชั้น)"}</div><div class="obec-sig-title">ครูประจำชั้น</div></div>
+          <div class="obec-sig-item"><div class="obec-sig-line"></div><div class="obec-sig-title">หัวหน้างานวิชาการ</div></div>
+          <div class="obec-sig-item"><div class="obec-sig-line"></div><div class="obec-sig-title">หัวหน้างานวัดและประเมินผล</div></div>
+          <div class="obec-sig-item"><div class="obec-sig-line"></div><div class="obec-sig-name">${schoolInfo.director_name || "(ผู้อำนวยการ)"}</div><div class="obec-sig-title">${schoolInfo.director_title}</div></div>
         </div>
       </div>`;
 
@@ -211,8 +228,6 @@ const ScoreOverviewTab = () => {
       }
       if (studentPages.length === 0) studentPages.push([]);
 
-      const subCount = subGroup.length;
-      const subColWidth = Math.max(30, Math.floor(260 / Math.max(subCount, 1)));
       const isLastGroup = gi === subjectGroups.length - 1;
 
       studentPages.forEach((pageData, pi) => {
@@ -222,32 +237,33 @@ const ScoreOverviewTab = () => {
         const rows = pageData.map((s: any, i: number) => {
           const subCells = subGroup.map((sub: any) => {
             const g = s.gradesBySubject[sub.id];
-            return `<td class="center" style="font-size:10pt;">${g ? g.grade : "-"}</td>`;
+            const dim = !g || !g.grade || g.grade === "-" ? "color:#999;" : "";
+            return `<td class="center" style="${dim}">${g ? g.grade : "-"}</td>`;
           }).join("");
           return `<tr>
-            <td class="center" style="font-size:10pt;">${startIdx + i + 1}</td>
-            <td style="font-size:9pt;">${s.student_code}</td>
-            <td style="font-size:10pt;">${s.student_name_html}</td>
+            <td class="center">${startIdx + i + 1}</td>
+            <td>${s.student_code}</td>
+            <td>${s.student_name_html}</td>
             ${subCells}
-            ${isLastGroup ? `<td class="center bold" style="font-size:10pt;">${s.gpa}</td>` : ""}
+            ${isLastGroup ? `<td class="center bold">${s.gpa}</td>` : ""}
           </tr>`;
         }).join("");
 
         const subHeaders = subGroup.map((s: any) =>
-          `<th class="center" style="font-size:8pt; width:${subColWidth}px; white-space:normal; line-height:1.1; padding:2pt;">${s.code}<br/>${s.name_th}</th>`
+          `<th class="center" style="font-size:9pt; white-space:normal; line-height:1.15; padding:3pt 2pt; vertical-align:middle;"><div style="font-weight:700;">${s.code}</div><div style="font-weight:400;">${s.name_th}</div></th>`
         ).join("");
 
         const appendSig = isLastPageOfLastGroup && canFitSigOnLastPage;
 
-        allPagesHtml += `<div class="obec-a4-page" ${currentPage > 1 ? 'style="page-break-before:always;"' : ""}>
+        allPagesHtml += `<div class="obec-a4-page" style="max-width:none;${currentPage > 1 ? " page-break-before:always;" : ""}">
           ${headerHtml(currentPage, totalPages, subLabel)}
-          <table class="obec-table" style="font-size:10pt; table-layout:fixed; width:100%;">
+          <table class="obec-table" style="font-size:11pt; width:100%;">
             <thead><tr>
-              <th style="width:24px; font-size:9pt;">ลำดับ</th>
-              <th style="width:50px; font-size:9pt;">รหัส</th>
-              <th style="font-size:9pt;">ชื่อ-สกุล</th>
+              <th style="width:32px;">ลำดับ</th>
+              <th style="width:70px;">รหัส</th>
+              <th style="width:180px;">ชื่อ-สกุล</th>
               ${subHeaders}
-              ${isLastGroup ? '<th class="center" style="width:30px; font-size:9pt;">GPA</th>' : ""}
+              ${isLastGroup ? '<th class="center" style="width:42px;">GPA</th>' : ""}
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>
@@ -256,16 +272,15 @@ const ScoreOverviewTab = () => {
       });
     });
 
-    // Separate signature page only if needed
     if (!canFitSigOnLastPage) {
       currentPage++;
-      allPagesHtml += `<div class="obec-a4-page" style="page-break-before:always;">
+      allPagesHtml += `<div class="obec-a4-page" style="max-width:none; page-break-before:always;">
         ${headerHtml(currentPage, totalPages, "")}
         ${signaturesHtml}
       </div>`;
     }
 
-    openPrintWindow(allPagesHtml, { title: "ปพ.6", landscape: false });
+    openPrintWindow(allPagesHtml, { title: `ปพ.6 ${classLabel} ${semester}/${beYear}`, landscape: true });
   };
 
   return (
@@ -298,45 +313,15 @@ const ScoreOverviewTab = () => {
         </Select>
         {classroomId && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์</Button>}
         {classroomId && selectedClassroom && (
-          <Button
-            variant="default"
-            onClick={async () => {
-              try {
-                const grade = selectedClassroom.grade_level || "";
-                const level = grade.startsWith("ม.4") || grade.startsWith("ม.5") || grade.startsWith("ม.6")
-                  ? "มัธยมศึกษาตอนปลาย"
-                  : grade.startsWith("ม.") ? "มัธยมศึกษาตอนต้น" : "ประถมศึกษา";
-                await exportPP6Book({
-                  school: {
-                    school_name: schoolInfo.school_name,
-                    affiliation: schoolInfo.affiliation,
-                    director_name: schoolInfo.director_name,
-                    director_title: schoolInfo.director_title,
-                    school_logo: schoolInfo.school_logo,
-                    garuda_emblem: schoolInfo.garuda_emblem,
-                  },
-                  director_name: schoolInfo.director_name,
-                  director_title: schoolInfo.director_title,
-                  homeroom_teacher: (selectedClassroom as any).homeroom_teacher_name || "",
-                  homeroom_teacher_position: "ครูประจำชั้น",
-                  semester,
-                  academic_year: selectedClassroom.academic_year,
-                  grade_level: grade,
-                  education_level: level,
-                  students: (classStudents as any[]).map((s, i) => ({
-                    no: i + 1,
-                    student_code: s.student_code,
-                    full_name: `${s.prefix || ""}${s.first_name} ${s.last_name}`,
-                  })),
-                });
-                toast.success("สร้างเล่ม ปพ.6 ตามเทมเพลตราชการแล้ว");
-              } catch (e: any) {
-                toast.error(e?.message || "ส่งออกไม่สำเร็จ");
-              }
-            }}
-          >
-            <FileSpreadsheet className="w-4 h-4 mr-2" />เล่ม ปพ.6 (ตามเทมเพลตราชการ)
-          </Button>
+          <Button variant="outline" onClick={async () => {
+            const { printByCode } = await import("@/lib/printTemplate");
+            await printByCode("pp6_cover", {
+              school: { name: schoolInfo.school_name, address: schoolInfo.school_address, logo: schoolInfo.school_logo },
+              class: { label: `${selectedClassroom.grade_level} - ${selectedClassroom.name}` },
+              semester, year: toBE(selectedClassroom.academic_year),
+              homeroom_teacher: selectedClassroom.homeroom_teacher || "",
+            });
+          }}><Printer className="w-4 h-4 mr-2" />พิมพ์ปก</Button>
         )}
       </div>
 
@@ -354,8 +339,8 @@ const ScoreOverviewTab = () => {
               <div className="flex gap-2"><span className="text-muted-foreground min-w-[100px]">ระดับชั้น</span><span className="font-semibold">{selectedClassroom.grade_level} - {selectedClassroom.name}</span></div>
               <div className="flex gap-2"><span className="text-muted-foreground min-w-[100px]">จำนวนนักเรียน</span><span className="font-semibold">{mergedData.length} คน</span></div>
             </div>
-            <div className="mt-6 overflow-x-auto">
-              <Table>
+            <div className="mt-6 overflow-x-auto scrollbar-thin">
+              <Table className="border-2 border-border [&_td]:py-0.5 [&_td]:px-1 [&_td]:border [&_td]:border-border [&_th]:py-1 [&_th]:px-1 [&_th]:border [&_th]:border-border text-xs [&_tbody_tr:hover]:bg-primary/10 [&_tbody_tr:nth-child(even)]:bg-muted/10">
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead className="w-10 text-center border-r">ลำดับ</TableHead>
@@ -396,7 +381,7 @@ const ScoreOverviewTab = () => {
                   <div className="text-center"><div className="w-44 border-b border-foreground/60 mb-1 mx-auto" /><p className="text-xs text-muted-foreground">ครูประจำชั้น</p></div>
                   <div className="text-center"><div className="w-44 border-b border-foreground/60 mb-1 mx-auto" /><p className="text-xs text-muted-foreground">หัวหน้างานวิชาการ</p></div>
                   <div className="text-center"><div className="w-44 border-b border-foreground/60 mb-1 mx-auto" /><p className="text-xs text-muted-foreground">หัวหน้างานวัดและประเมินผล</p></div>
-                  <SignatureBlock size="sm" fallbackPosition={schoolInfo.director_title} />
+                  <div className="text-center"><div className="w-44 border-b border-foreground/60 mb-1 mx-auto" /><p className="text-xs text-muted-foreground">{schoolInfo.director_name || "ผู้อำนวยการ"}</p></div>
                 </div>
               </div>
             )}
@@ -445,19 +430,27 @@ const FileTab = () => {
     return acc;
   }, {} as Record<string, any[]>);
 
-  const handleDownload = (fileUrl: string, fileName: string) => {
+  const handleDownload = async (fileUrlOrPath: string, fileName: string, filePath?: string, inline = false) => {
+    let href = fileUrlOrPath;
+    const path = filePath || (fileUrlOrPath?.match(/\/pp6-files\/(.+?)(\?|$)/)?.[1] ?? "");
+    if (path) {
+      const { data } = await supabase.storage.from("pp6-files").createSignedUrl(path, 300);
+      if (data?.signedUrl) href = data.signedUrl;
+    }
+    if (inline) { window.open(href, "_blank", "noopener,noreferrer"); return; }
     const a = document.createElement("a");
-    a.href = fileUrl; a.download = fileName; a.target = "_blank"; a.click();
+    a.href = href; a.download = fileName; a.target = "_blank"; a.rel = "noreferrer"; a.click();
   };
 
   const handleDelete = async (id: string, filePath: string) => {
     if (!(await swal.confirm({ title: "ต้องการลบไฟล์นี้หรือไม่?", danger: true }))) return;
-    await supabase.storage.from("pp6-files").remove([filePath]);
+    if (filePath) await supabase.storage.from("pp6-files").remove([filePath]);
     const { error } = await supabase.from("pp6_files").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
     toast.success("ลบไฟล์สำเร็จ");
     qc.invalidateQueries({ queryKey: ["pp6_files"] });
   };
+
 
   const gradeGroups = [
     { label: "อนุบาล", grades: ["อ.1", "อ.2", "อ.3"] },
@@ -496,7 +489,9 @@ const FileTab = () => {
             className="pl-9"
           />
         </div>
-        <PP6ImportDialog onImportSuccess={() => qc.invalidateQueries({ queryKey: ["pp6_files"] })} />
+        <PP6AutoImportDialog onImportSuccess={() => qc.invalidateQueries({ queryKey: ["pp6_files"] })} />
+
+
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -532,15 +527,15 @@ const FileTab = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="rounded-lg border overflow-x-auto">
-                      <Table>
+                    <div className="rounded-lg border-2 border-border overflow-x-auto scrollbar-thin">
+                      <Table className="[&_td]:py-1 [&_td]:px-2 [&_td]:border [&_td]:border-border [&_th]:py-1 [&_th]:px-2 [&_th]:border [&_th]:border-border text-xs [&_tbody_tr:hover]:bg-primary/10 [&_tbody_tr:nth-child(even)]:bg-muted/10">
                         <TableHeader><TableRow>
                           <TableHead>ห้องเรียน</TableHead>
                           <TableHead className="w-16 text-center">เทอม</TableHead>
                           <TableHead className="w-20 text-center">ปีการศึกษา</TableHead>
                           <TableHead>ครูประจำชั้น</TableHead>
-                          <TableHead className="w-40">ไฟล์</TableHead>
-                          <TableHead className="w-24 text-center">ดาวน์โหลด</TableHead>
+                          <TableHead>ไฟล์</TableHead>
+                          <TableHead className="w-32 text-center">การกระทำ</TableHead>
                         </TableRow></TableHeader>
                         <TableBody>
                           {grouped[grade].map((f: any) => (
@@ -549,12 +544,33 @@ const FileTab = () => {
                               <TableCell className="text-center">{f.semester}</TableCell>
                               <TableCell className="text-center">{toBE(f.academic_year)}</TableCell>
                               <TableCell className="text-sm">{f.teacher_name || "-"}</TableCell>
-                              <TableCell className="text-xs text-muted-foreground truncate max-w-[160px]">{f.file_name}</TableCell>
+                              <TableCell className="text-xs text-muted-foreground truncate max-w-[200px]">{f.file_name}</TableCell>
                               <TableCell className="text-center">
                                 <div className="flex items-center justify-center gap-1">
-                                  <Button size="icon" variant="ghost" onClick={() => handleDownload(f.file_url, f.file_name)} title="ดาวน์โหลด">
+                                  <Button size="icon" variant="ghost" onClick={() => handleDownload(f.file_url, f.file_name, f.file_path, true)} title="ดูไฟล์">
+                                    <FolderOpen className="w-4 h-4 text-blue-600" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" onClick={() => handleDownload(f.file_url, f.file_name, f.file_path)} title="ดาวน์โหลด">
                                     <Download className="w-4 h-4 text-primary" />
                                   </Button>
+                                  {f.parsed_data && (
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      title={f.announced_at ? "ประกาศแล้ว — กดเพื่อประกาศซ้ำ" : "ประกาศให้นักเรียน"}
+                                      onClick={async () => {
+                                        if (!(await swal.confirm({ title: "ประกาศผลการเรียนให้นักเรียน?", text: "ระบบจะแจ้งเตือนนักเรียนทุกคนในรายงานนี้" }))) return;
+                                        const t = toast.loading("กำลังประกาศ...");
+                                        const { data, error } = await supabase.functions.invoke("announce-pp6-scores", { body: { file_id: f.id } });
+                                        toast.dismiss(t);
+                                        if (error || (data as any)?.error) { toast.error((data as any)?.error || error?.message || "ประกาศไม่สำเร็จ"); return; }
+                                        toast.success(`ประกาศให้นักเรียน ${(data as any)?.notified || 0} คน จากทั้งหมด ${(data as any)?.total || 0} คน`);
+                                        qc.invalidateQueries({ queryKey: ["pp6_files"] });
+                                      }}
+                                    >
+                                      {f.announced_at ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Megaphone className="w-4 h-4 text-amber-600" />}
+                                    </Button>
+                                  )}
                                   {(isAdmin || isDirector) && (
                                     <Button size="icon" variant="ghost" onClick={() => handleDelete(f.id, f.file_path)} title="ลบ">
                                       <Trash2 className="w-4 h-4 text-destructive" />

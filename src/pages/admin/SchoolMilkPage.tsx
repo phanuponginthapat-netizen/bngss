@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { toCE } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,7 @@ const SchoolMilkPage = () => {
   const { lang } = useLanguage();
   const { isAdmin, isDirector, isTeacher } = useUserRole();
   const { currentAcademicYear: academicYear } = useAcademicYear();
+  const academicYearCE = toCE(academicYear);
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -58,7 +60,7 @@ const SchoolMilkPage = () => {
       const { data, error } = await supabase
         .from("school_milk_records")
         .select("*")
-        .eq("academic_year", academicYear)
+        .eq("academic_year", academicYearCE)
         .order("distribution_date", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -70,7 +72,7 @@ const SchoolMilkPage = () => {
     mutationFn: async (values: typeof form) => {
       const payload = {
         ...values,
-        academic_year: academicYear,
+        academic_year: academicYearCE,
         total_cost: values.quantity_boxes * values.unit_cost,
         expiry_date: values.expiry_date || null,
         temperature_check: values.temperature_check || null,
@@ -183,10 +185,10 @@ const SchoolMilkPage = () => {
             <DialogTrigger asChild>
               <Button><Plus className="w-4 h-4 mr-1" />{L("บันทึกการแจก", "Add Record")}</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-lg sm:max-h-[85vh] overflow-y-auto">
               <DialogHeader><DialogTitle>{editId ? L("แก้ไขข้อมูล", "Edit Record") : L("บันทึกการแจกนม", "New Milk Record")}</DialogTitle></DialogHeader>
               <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(form); }} className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>{L("วันที่แจก", "Date")}</Label><BEDatePicker value={form.distribution_date} onChange={(v) => setForm(f => ({ ...f, distribution_date: v }))} /></div>
                   <div><Label>{L("ประเภทนม", "Milk Type")}</Label>
                     <Select value={form.milk_type} onValueChange={v => setForm(f => ({ ...f, milk_type: v }))}>
@@ -195,20 +197,20 @@ const SchoolMilkPage = () => {
                     </Select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>{L("ยี่ห้อ", "Brand")}</Label><Input value={form.milk_brand} onChange={e => setForm(f => ({ ...f, milk_brand: e.target.value }))} /></div>
                   <div><Label>{L("ผู้จำหน่าย", "Supplier")}</Label><Input value={form.supplier} onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))} /></div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div><Label>{L("จำนวนกล่อง", "Boxes")}</Label><Input type="number" value={form.quantity_boxes} onChange={e => setForm(f => ({ ...f, quantity_boxes: Number(e.target.value) }))} /></div>
                   <div><Label>{L("นักเรียน", "Students")}</Label><Input type="number" value={form.student_count} onChange={e => setForm(f => ({ ...f, student_count: Number(e.target.value) }))} /></div>
                   <div><Label>{L("รับจริง", "Actual")}</Label><Input type="number" value={form.actual_recipients} onChange={e => setForm(f => ({ ...f, actual_recipients: Number(e.target.value) }))} /></div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>{L("เลขล็อต", "Batch No.")}</Label><Input value={form.batch_number} onChange={e => setForm(f => ({ ...f, batch_number: e.target.value }))} /></div>
                   <div><Label>{L("วันหมดอายุ", "Expiry")}</Label><BEDatePicker value={form.expiry_date} onChange={(v) => setForm(f => ({ ...f, expiry_date: v }))} /></div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>{L("อุณหภูมิ (°C)", "Temp (°C)")}</Label><Input type="number" step="0.1" value={form.temperature_check} onChange={e => setForm(f => ({ ...f, temperature_check: Number(e.target.value) }))} /></div>
                   <div><Label>{L("สถานะคุณภาพ", "Quality")}</Label>
                     <Select value={form.quality_status} onValueChange={v => setForm(f => ({ ...f, quality_status: v }))}>
@@ -217,7 +219,7 @@ const SchoolMilkPage = () => {
                     </Select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>{L("ราคา/กล่อง (฿)", "Cost/Box")}</Label><Input type="number" step="0.01" value={form.unit_cost} onChange={e => setForm(f => ({ ...f, unit_cost: Number(e.target.value) }))} /></div>
                   <div><Label>{L("แหล่งงบ", "Budget")}</Label><Input value={form.budget_source} onChange={e => setForm(f => ({ ...f, budget_source: e.target.value }))} /></div>
                 </div>
@@ -235,9 +237,9 @@ const SchoolMilkPage = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card><CardContent className="pt-4 flex items-center gap-3"><div className="p-2 rounded-lg bg-primary/10"><Milk className="w-5 h-5 text-primary" /></div><div><p className="text-xs text-muted-foreground">{L("จำนวนวันแจก", "Days")}</p><p className="text-xl font-bold">{records.length}</p></div></CardContent></Card>
-        <Card><CardContent className="pt-4 flex items-center gap-3"><div className="p-2 rounded-lg bg-success/10"><Package className="w-5 h-5 text-success" /></div><div><p className="text-xs text-muted-foreground">{L("รวมกล่อง", "Total Boxes")}</p><p className="text-xl font-bold">{totalBoxes.toLocaleString()}</p></div></CardContent></Card>
-        <Card><CardContent className="pt-4 flex items-center gap-3"><div className="p-2 rounded-lg bg-warning/10"><Thermometer className="w-5 h-5 text-warning" /></div><div><p className="text-xs text-muted-foreground">{L("ค่าใช้จ่ายรวม", "Total Cost")}</p><p className="text-xl font-bold">฿{totalCost.toLocaleString()}</p></div></CardContent></Card>
-        <Card><CardContent className="pt-4 flex items-center gap-3"><div className={`p-2 rounded-lg ${issueCount > 0 ? "bg-danger/10" : "bg-success/10"}`}><AlertTriangle className={`w-5 h-5 ${issueCount > 0 ? "text-danger" : "text-success"}`} /></div><div><p className="text-xs text-muted-foreground">{L("พบปัญหา", "Issues")}</p><p className="text-xl font-bold">{issueCount}</p></div></CardContent></Card>
+        <Card><CardContent className="pt-4 flex items-center gap-3"><div className="p-2 rounded-lg bg-green-500/10"><Package className="w-5 h-5 text-green-600" /></div><div><p className="text-xs text-muted-foreground">{L("รวมกล่อง", "Total Boxes")}</p><p className="text-xl font-bold">{totalBoxes.toLocaleString()}</p></div></CardContent></Card>
+        <Card><CardContent className="pt-4 flex items-center gap-3"><div className="p-2 rounded-lg bg-orange-500/10"><Thermometer className="w-5 h-5 text-orange-600" /></div><div><p className="text-xs text-muted-foreground">{L("ค่าใช้จ่ายรวม", "Total Cost")}</p><p className="text-xl font-bold">฿{totalCost.toLocaleString()}</p></div></CardContent></Card>
+        <Card><CardContent className="pt-4 flex items-center gap-3"><div className={`p-2 rounded-lg ${issueCount > 0 ? "bg-red-500/10" : "bg-green-500/10"}`}><AlertTriangle className={`w-5 h-5 ${issueCount > 0 ? "text-red-600" : "text-green-600"}`} /></div><div><p className="text-xs text-muted-foreground">{L("พบปัญหา", "Issues")}</p><p className="text-xl font-bold">{issueCount}</p></div></CardContent></Card>
       </div>
 
       <Card>

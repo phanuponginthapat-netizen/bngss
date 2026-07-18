@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Calendar, User } from "lucide-react";
 import DOMPurify from "dompurify";
+import BackButton from "@/components/BackButton";
 
 const NewsDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -30,9 +31,8 @@ const NewsDetailPage = () => {
 
   return (
     <div className="max-w-3xl mx-auto space-y-4">
-      <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="gap-1.5">
-        <ArrowLeft className="w-4 h-4" /> {L("ย้อนกลับ", "Back")}
-      </Button>
+      <BackButton fallback="/dashboard/news" />
+
 
       {isLoading ? (
         <Card><CardContent className="p-6 space-y-3"><Skeleton className="h-8 w-3/4" /><Skeleton className="h-4 w-1/3" /><Skeleton className="h-32" /></CardContent></Card>

@@ -1,4 +1,10 @@
 import * as faceapi from "@vladmandic/face-api";
+import {
+  loadArcFace,
+  computeArcFaceEmbedding,
+  fivePointsFromLandmarks68,
+  cosineDistance,
+} from "./arcface";
 
 // Use CDN-hosted models from @vladmandic/face-api repo (jsdelivr)
 const MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model";
@@ -12,13 +18,14 @@ export async function loadFaceModels(onProgress?: (msg: string) => void): Promis
   if (loaded) return;
   if (loadingPromise) return loadingPromise;
   loadingPromise = (async () => {
-    onProgress?.("กำลังโหลด AI Model...");
-    // โหลดโมเดลหลัก 3 ตัวพร้อมกัน (parallel) — เร็วกว่าโหลดเรียงทีละตัวมาก
-    // tinyFaceDetector เป็น fallback เท่านั้น → โหลดเมื่อจำเป็น (lazy)
+    onProgress?.("กำลังโหลดโมเดล AI (detector + ArcFace)...");
+    // Detector + landmarks จาก face-api + ArcFace ONNX สำหรับ 512-D embedding
+    // โหลดขนานกัน — ArcFace ~14MB จะใช้เวลานานสุด
     await Promise.all([
       faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
       faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL), // keep as fallback
+      loadArcFace(onProgress),
     ]);
     loaded = true;
     onProgress?.("พร้อมใช้งาน");
@@ -47,11 +54,7 @@ export function detectorOptionsHQ(_inputSize: 320 | 416 | 512 | 608 = 608, minCo
 
 /**
  * ปรับกล้องอัตโนมัติให้คมชัดที่สุดเท่าที่ฮาร์ดแวร์รองรับ
- * รองรับ Web/Android/iOS/Safari:
- *  - พยายามใช้ continuous autofocus/exposure/whitebalance ก่อน
- *  - fallback ไป single-shot autofocus (บาง Android/Chromebook รองรับเฉพาะแบบนี้)
- *  - fallback ไป manual focusDistance กลาง ๆ (บางรุ่นเก่า)
- *  - Safari/iOS ไม่ expose focusMode: จะข้ามไปเงียบ ๆ ไม่ throw
+ * รองรับมือถือหลายรุ่น โดยใช้ continuous autofocus / exposure / white-balance
  */
 export async function applyCameraAutoTune(stream: MediaStream): Promise<void> {
   const track = stream.getVideoTracks()[0];
@@ -59,15 +62,7 @@ export async function applyCameraAutoTune(stream: MediaStream): Promise<void> {
   try {
     const caps: any = (track as any).getCapabilities?.() ?? {};
     const advanced: any[] = [];
-    const focusModes: string[] = Array.isArray(caps.focusMode) ? caps.focusMode : [];
-    if (focusModes.includes("continuous")) {
-      advanced.push({ focusMode: "continuous" });
-    } else if (focusModes.includes("single-shot")) {
-      advanced.push({ focusMode: "single-shot" });
-    } else if (focusModes.includes("manual") && caps.focusDistance && typeof caps.focusDistance.max === "number") {
-      const mid = caps.focusDistance.min + (caps.focusDistance.max - caps.focusDistance.min) * 0.35;
-      advanced.push({ focusMode: "manual", focusDistance: mid });
-    }
+    if (caps.focusMode?.includes?.("continuous")) advanced.push({ focusMode: "continuous" });
     if (caps.exposureMode?.includes?.("continuous")) advanced.push({ exposureMode: "continuous" });
     if (caps.whiteBalanceMode?.includes?.("continuous")) advanced.push({ whiteBalanceMode: "continuous" });
     if (caps.sharpness && typeof caps.sharpness.max === "number") advanced.push({ sharpness: caps.sharpness.max });
@@ -79,30 +74,6 @@ export async function applyCameraAutoTune(stream: MediaStream): Promise<void> {
       await (track as any).applyConstraints({ advanced }).catch(() => {});
     }
   } catch { /* ไม่รองรับก็ข้าม */ }
-}
-
-/**
- * Trigger single-shot autofocus — สำหรับมือถือที่ไม่รองรับ continuous
- * เรียกซ้ำได้ทุก ๆ 2-3 วิ หรือเมื่อผู้ใช้แตะจอ
- */
-export async function triggerAutoFocus(stream: MediaStream | null): Promise<void> {
-  if (!stream) return;
-  const track = stream.getVideoTracks()[0];
-  if (!track) return;
-  try {
-    const caps: any = (track as any).getCapabilities?.() ?? {};
-    const modes: string[] = Array.isArray(caps.focusMode) ? caps.focusMode : [];
-    if (modes.includes("single-shot")) {
-      await (track as any).applyConstraints({ advanced: [{ focusMode: "single-shot" }] }).catch(() => {});
-    } else if (modes.includes("continuous")) {
-      // Nudge: switch to manual then back to continuous → many Android drivers re-run AF
-      if (modes.includes("manual") && caps.focusDistance && typeof caps.focusDistance.max === "number") {
-        const mid = caps.focusDistance.min + (caps.focusDistance.max - caps.focusDistance.min) * 0.35;
-        await (track as any).applyConstraints({ advanced: [{ focusMode: "manual", focusDistance: mid }] }).catch(() => {});
-      }
-      await (track as any).applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {});
-    }
-  } catch {}
 }
 
 type DetectableInput = HTMLImageElement | HTMLVideoElement | HTMLCanvasElement;
@@ -344,16 +315,40 @@ export function estimateFaceSharpness(
   } catch { return 0; }
 }
 
+/**
+ * แทน 128-D descriptor ของ face-api ด้วย 512-D embedding จาก ArcFace (buffalo_s).
+ * landmarks5 ต้องเป็นพิกัดในระบบพิกเซลของภาพต้นฉบับ (source), ไม่ใช่ canvas ที่ย่อ.
+ */
+async function embedWithArcFace(
+  source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement,
+  landmarks: faceapi.FaceLandmarks68,
+  scaleX: number,
+  scaleY: number,
+): Promise<Float32Array | null> {
+  try {
+    const pts5 = fivePointsFromLandmarks68(landmarks).map(
+      ([x, y]) => [x * scaleX, y * scaleY] as [number, number],
+    );
+    return await computeArcFaceEmbedding(source, pts5);
+  } catch (e) {
+    console.error("[ArcFace] embedding failed, fallback to face-api 128D", e);
+    return null;
+  }
+}
+
 export async function getDescriptorFromImage(
   image: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement,
 ): Promise<Float32Array | null> {
   const detected = await detectSingleFaceRobust(image);
-  return detected?.res.descriptor ?? null;
+  if (!detected) return null;
+  const arc = await embedWithArcFace(image, detected.res.landmarks, detected.scaleX, detected.scaleY);
+  return arc ?? detected.res.descriptor ?? null;
 }
 
 /**
  * ตรวจจับใบหน้า + landmarks + descriptor พร้อมกัน
  * ใช้สำหรับ Liveness Wizard: คำนวณ blink (EAR) และ head pose (yaw)
+ * descriptor ที่คืน = 512-D ArcFace embedding (L2-normalized)
  */
 export async function detectFaceWithLandmarks(
   image: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement,
@@ -363,8 +358,9 @@ export async function detectFaceWithLandmarks(
 
   const { res, scaleX, scaleY } = detected;
   const lm = res.landmarks;
+  const arc = await embedWithArcFace(image, lm, scaleX, scaleY);
   return {
-    descriptor: res.descriptor,
+    descriptor: arc ?? res.descriptor,
     box: {
       x: res.detection.box.x * scaleX,
       y: res.detection.box.y * scaleY,
@@ -428,6 +424,14 @@ export async function getAllDescriptors(
     .detectAllFaces(video as any, (opts ?? detectorOptions) as any)
     .withFaceLandmarks()
     .withFaceDescriptors();
+  // Overwrite the 128-D face-api descriptors with 512-D ArcFace embeddings.
+  // Landmarks are in `video` coord space → scaleX = scaleY = 1.
+  await Promise.all(
+    res.map(async (d) => {
+      const arc = await embedWithArcFace(video, d.landmarks, 1, 1);
+      if (arc) (d as any).descriptor = arc;
+    }),
+  );
   return res;
 }
 
@@ -453,16 +457,21 @@ export interface MatchResult {
   margin: number; // secondDistance - distance (ยิ่งมาก = ระบุตัวตนชัดเจน)
 }
 
+/**
+ * จับคู่ ArcFace embedding (L2-normalized 512-D) ด้วย cosine distance ∈ [0, 2].
+ * distance ยิ่งต่ำ = ยิ่งเหมือน. Threshold ~0.42 = strong match (cos_sim ≥ 0.58)
+ * — เทียบเท่ามาตรฐาน InsightFace/buffalo_s
+ */
 export function matchDescriptor(
   query: Float32Array | number[],
   known: KnownFace[],
-  threshold = 0.5,
+  threshold: number = BANK_GRADE.MATCH_THRESHOLD,
 ): MatchResult {
   let best: { id: string | null; d: number } = { id: null, d: Infinity };
   let second: { id: string | null; d: number } = { id: null, d: Infinity };
   for (const k of known) {
     const dists: number[] = [];
-    for (const d of k.descriptors) dists.push(euclidean(query, d));
+    for (const d of k.descriptors) dists.push(cosineDistance(query, d));
     if (dists.length === 0) continue;
     dists.sort((a, b) => a - b);
     const minD = dists[0];
@@ -491,13 +500,14 @@ export function matchDescriptor(
 // ============================================================
 // BANK-GRADE QUALITY GATE & ANTI-FALSE-POSITIVE
 // ============================================================
-
+// Thresholds tuned for ArcFace 512-D (cosine distance = 1 - cos_sim).
+// InsightFace buffalo_s baseline: cos_sim ≥ 0.55 = same person, ≥ 0.65 = strong.
 export const BANK_GRADE = {
-  MATCH_THRESHOLD: 0.45,
-  MIN_MARGIN: 0.07,
-  MIN_CONFIDENCE: 0.72,
+  MATCH_THRESHOLD: 0.42,   // distance ≤ 0.42 → same person (cos_sim ≥ 0.58)
+  MIN_MARGIN: 0.06,        // gap to runner-up
+  MIN_CONFIDENCE: 0.60,    // 1 - distance = cos_sim
   STRONG_MARGIN: 0.10,
-  STRONG_CONFIDENCE: 0.78,
+  STRONG_CONFIDENCE: 0.68,
   MIN_SHARPNESS: 90,
   MIN_SHARPNESS_SCAN: 55,
   MIN_FACE_SIZE_REGISTER: 140,

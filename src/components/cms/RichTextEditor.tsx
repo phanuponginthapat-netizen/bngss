@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import { uploadPublicFileWithFallback } from '@/lib/uploadFallback';
+import { fitImageAttrs } from '@/lib/fitImageAttrs';
 import {
   Bold, Italic, UnderlineIcon, Strikethrough, Heading1, Heading2, Heading3,
   List, ListOrdered, Quote, Code, AlignLeft, AlignCenter, AlignRight,
@@ -47,7 +48,7 @@ const RichTextEditor = ({ content, onChange }: RichTextEditorProps) => {
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ link: false, underline: false } as any),
+      StarterKit,
       Image.configure({ HTMLAttributes: { class: 'rounded-lg max-w-full mx-auto shadow-md' } }),
       Link.configure({ openOnClick: false, HTMLAttributes: { class: 'text-primary underline' } }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
@@ -76,15 +77,18 @@ const RichTextEditor = ({ content, onChange }: RichTextEditorProps) => {
     const compressed = await compressImage(file, { maxWidth: 1600, maxSizeKB: 200 });
     const fileName = `${Date.now()}_${compressed.name}`;
     const result = await uploadPublicFileWithFallback('cms-images', fileName, compressed);
-    editor?.chain().focus().setImage({ src: result.publicUrl }).run();
+    // ย่อรูปให้พอดีความกว้าง content สูงสุด ~900px เพื่อไม่ให้รูปใหญ่เกินสัดส่วนหน้าเว็บ
+    const attrs = await fitImageAttrs(result.publicUrl, 900);
+    editor?.chain().focus().setImage(attrs as any).run();
     setImageDialogOpen(false);
     setUploading(false);
     toast.success(result.usedFallback ? 'เพิ่มรูปสำเร็จ (โหมดสำรอง)' : 'อัปโหลดรูปสำเร็จ');
   };
 
-  const insertImageUrl = () => {
+  const insertImageUrl = async () => {
     if (imageUrl) {
-      editor?.chain().focus().setImage({ src: imageUrl }).run();
+      const attrs = await fitImageAttrs(imageUrl, 900);
+      editor?.chain().focus().setImage(attrs as any).run();
       setImageUrl('');
       setImageDialogOpen(false);
     }
@@ -114,8 +118,6 @@ const RichTextEditor = ({ content, onChange }: RichTextEditorProps) => {
 
   if (!editor) return null;
 
-  const starterKitChain = () => editor.chain().focus() as any;
-
   return (
     <div className="border border-border rounded-lg overflow-hidden bg-card">
       {/* Toolbar */}
@@ -123,15 +125,15 @@ const RichTextEditor = ({ content, onChange }: RichTextEditorProps) => {
         <MenuButton onClick={() => editor.chain().focus().undo().run()} title="ย้อนกลับ"><Undo className="w-4 h-4" /></MenuButton>
         <MenuButton onClick={() => editor.chain().focus().redo().run()} title="ทำซ้ำ"><Redo className="w-4 h-4" /></MenuButton>
         <div className="w-px bg-border mx-1" />
-        <MenuButton onClick={() => starterKitChain().toggleBold().run()} active={editor.isActive('bold')} title="ตัวหนา"><Bold className="w-4 h-4" /></MenuButton>
-        <MenuButton onClick={() => starterKitChain().toggleItalic().run()} active={editor.isActive('italic')} title="ตัวเอียง"><Italic className="w-4 h-4" /></MenuButton>
+        <MenuButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} title="ตัวหนา"><Bold className="w-4 h-4" /></MenuButton>
+        <MenuButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} title="ตัวเอียง"><Italic className="w-4 h-4" /></MenuButton>
         <MenuButton onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive('underline')} title="ขีดเส้นใต้"><UnderlineIcon className="w-4 h-4" /></MenuButton>
-        <MenuButton onClick={() => starterKitChain().toggleStrike().run()} active={editor.isActive('strike')} title="ขีดทับ"><Strikethrough className="w-4 h-4" /></MenuButton>
+        <MenuButton onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')} title="ขีดทับ"><Strikethrough className="w-4 h-4" /></MenuButton>
         <MenuButton onClick={() => editor.chain().focus().toggleHighlight().run()} active={editor.isActive('highlight')} title="ไฮไลท์"><Highlighter className="w-4 h-4" /></MenuButton>
         <div className="w-px bg-border mx-1" />
-        <MenuButton onClick={() => starterKitChain().toggleHeading({ level: 1 }).run()} active={editor.isActive('heading', { level: 1 })} title="หัวข้อ 1"><Heading1 className="w-4 h-4" /></MenuButton>
-        <MenuButton onClick={() => starterKitChain().toggleHeading({ level: 2 }).run()} active={editor.isActive('heading', { level: 2 })} title="หัวข้อ 2"><Heading2 className="w-4 h-4" /></MenuButton>
-        <MenuButton onClick={() => starterKitChain().toggleHeading({ level: 3 }).run()} active={editor.isActive('heading', { level: 3 })} title="หัวข้อ 3"><Heading3 className="w-4 h-4" /></MenuButton>
+        <MenuButton onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} active={editor.isActive('heading', { level: 1 })} title="หัวข้อ 1"><Heading1 className="w-4 h-4" /></MenuButton>
+        <MenuButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive('heading', { level: 2 })} title="หัวข้อ 2"><Heading2 className="w-4 h-4" /></MenuButton>
+        <MenuButton onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} active={editor.isActive('heading', { level: 3 })} title="หัวข้อ 3"><Heading3 className="w-4 h-4" /></MenuButton>
         <div className="w-px bg-border mx-1" />
         <MenuButton onClick={() => editor.chain().focus().setTextAlign('left').run()} active={editor.isActive({ textAlign: 'left' })} title="ชิดซ้าย"><AlignLeft className="w-4 h-4" /></MenuButton>
         <MenuButton onClick={() => editor.chain().focus().setTextAlign('center').run()} active={editor.isActive({ textAlign: 'center' })} title="กึ่งกลาง"><AlignCenter className="w-4 h-4" /></MenuButton>
@@ -139,8 +141,8 @@ const RichTextEditor = ({ content, onChange }: RichTextEditorProps) => {
         <div className="w-px bg-border mx-1" />
         <MenuButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} title="รายการ"><List className="w-4 h-4" /></MenuButton>
         <MenuButton onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} title="ลำดับ"><ListOrdered className="w-4 h-4" /></MenuButton>
-        <MenuButton onClick={() => starterKitChain().toggleBlockquote().run()} active={editor.isActive('blockquote')} title="อ้างอิง"><Quote className="w-4 h-4" /></MenuButton>
-        <MenuButton onClick={() => starterKitChain().toggleCodeBlock().run()} active={editor.isActive('codeBlock')} title="โค้ด"><Code className="w-4 h-4" /></MenuButton>
+        <MenuButton onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} title="อ้างอิง"><Quote className="w-4 h-4" /></MenuButton>
+        <MenuButton onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={editor.isActive('codeBlock')} title="โค้ด"><Code className="w-4 h-4" /></MenuButton>
         <div className="w-px bg-border mx-1" />
 
         {/* Link Dialog */}
@@ -150,7 +152,7 @@ const RichTextEditor = ({ content, onChange }: RichTextEditorProps) => {
               <LinkIcon className="w-4 h-4" />
             </button>
           </DialogTrigger>
-          <DialogContent className="max-w-sm">
+          <DialogContent className="sm:max-w-sm">
             <DialogHeader><DialogTitle>เพิ่มลิงก์</DialogTitle></DialogHeader>
             <div className="space-y-3">
               <Input value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder="https://..." />
@@ -169,7 +171,7 @@ const RichTextEditor = ({ content, onChange }: RichTextEditorProps) => {
               <ImageIcon className="w-4 h-4" />
             </button>
           </DialogTrigger>
-          <DialogContent className="max-w-sm">
+          <DialogContent className="sm:max-w-sm">
             <DialogHeader><DialogTitle>เพิ่มรูปภาพ</DialogTitle></DialogHeader>
             <div className="space-y-3">
               <div>
@@ -197,7 +199,7 @@ const RichTextEditor = ({ content, onChange }: RichTextEditorProps) => {
               <Video className="w-4 h-4" />
             </button>
           </DialogTrigger>
-          <DialogContent className="max-w-sm">
+          <DialogContent className="sm:max-w-sm">
             <DialogHeader><DialogTitle>เพิ่มวิดีโอ</DialogTitle></DialogHeader>
             <div className="space-y-3">
               <Input value={videoUrl} onChange={e => setVideoUrl(e.target.value)} placeholder="YouTube URL หรือ embed URL" />
@@ -226,7 +228,7 @@ const RichTextEditor = ({ content, onChange }: RichTextEditorProps) => {
           [&_blockquote]:border-l-4 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic
           [&_ul]:list-disc [&_ol]:list-decimal
           [&_a]:text-primary [&_a]:underline
-          [&_mark]:bg-warning-soft [&_mark]:px-0.5 [&_mark]:rounded"
+          [&_mark]:bg-yellow-200 [&_mark]:px-0.5 [&_mark]:rounded"
       />
     </div>
   );

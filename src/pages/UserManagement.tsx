@@ -13,9 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Shield, Trash2, Download, Users, UserPlus, FileSpreadsheet, Upload, Pencil, RefreshCw, Eraser, GraduationCap, Settings, MoreHorizontal, Wrench, ScanFace, CheckCircle2, Loader2, KeyRound, Crown } from "lucide-react";
-import { toSubjectGroupCode } from "@/lib/subjectGroupMap";
-import { createHeaderMatcher, PEOPLE_ALIASES } from "@/lib/headerAlias";
+import { Search, Shield, Trash2, Download, Users, UserPlus, FileSpreadsheet, Upload, Pencil, RefreshCw, Eraser, GraduationCap, Settings, MoreHorizontal, Wrench, ScanFace, CheckCircle2, Loader2, KeyRound } from "lucide-react";
 import { Link as RouterLink } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
 import FaceRegisterDialog from "@/components/users/FaceRegisterDialog";
@@ -28,6 +26,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { swal } from "@/lib/swal";
+import { z } from "zod";
+import { validateAndConfirm } from "@/lib/formValidation";
+import {
+  GRADE_LEVELS, DEPARTMENTS, POSITIONS, ACADEMIC_STANDINGS, SUBJECT_GROUPS,
+  PREFIXES_STUDENT, PREFIXES_STAFF, DMC_STUDENT_MAP,
+  userCreateSchema, userEditSchema, userLabels,
+} from "@/lib/dmcImport";
+
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { AppRole } from "@/hooks/useUserRole";
@@ -36,169 +42,35 @@ import DepartmentManagementPage from "@/pages/admin/DepartmentManagementPage";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { formatDateBE , todayBangkok } from "@/lib/dateBE";
 import { SPECIAL_NEEDS_TYPES } from "@/lib/specialNeeds";
+import { matchAlias, STUDENT_ALIASES } from "@/lib/importHeaders";
+import { useUserList, type UserItem } from "@/hooks/useUserList";
 
-interface UserItem {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  role: AppRole;
-  department: string;
-  student_code: string;
-  employee_code: string;
-  created_at: string;
-  prefix?: string;
-  position_title?: string;
-  academic_standing?: string;
-  subject_group?: string;
-  is_approved?: boolean;
-  phone?: string;
-  gender?: string;
-  date_of_birth?: string;
-  nickname?: string;
-  classroom_id?: string | null;
-  classroom_name?: string;
-  grade_level?: string;
-  student_status?: string;
-}
 
-const GRADE_LEVELS = [
-  "อ.1", "อ.2", "อ.3",
-  "ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6",
-  "ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6",
-  "การศึกษาพิเศษ",
-];
 
-const DEPARTMENTS = [
-  { value: "วิชาการ", label: "ฝ่ายวิชาการ" },
-  { value: "กิจการนักเรียน", label: "ฝ่ายกิจการนักเรียน" },
-  { value: "บริหารทั่วไป", label: "ฝ่ายบริหารงานทั่วไป" },
-  { value: "งบประมาณ", label: "ฝ่ายงบประมาณและบุคคล" },
-  { value: "ConnextED", label: "ฝ่ายงาน ConnextED" },
-];
 
-const POSITIONS = [
-  "ครู", "ครูผู้ช่วย", "ครูอัตราจ้าง", "พนักงานราชการ",
-  "ผู้อำนวยการ", "รองผู้อำนวยการ", "ลูกจ้างประจำ", "ลูกจ้างชั่วคราว",
-  "ICT Talent", "School Partner", "ConnextED",
-];
-
-const ACADEMIC_STANDINGS = [
-  "ไม่มี", "ครูผู้ช่วย", "ครู คศ.1", "ครูชำนาญการ (คศ.2)",
-  "ครูชำนาญการพิเศษ (คศ.3)", "ครูเชี่ยวชาญ (คศ.4)", "ครูเชี่ยวชาญพิเศษ (คศ.5)",
-  "ผอ.ชำนาญการพิเศษ", "ผอ.เชี่ยวชาญ",
-];
-
-const SUBJECT_GROUPS = [
-  "ปฐมวัย",
-  "ภาษาไทย", "คณิตศาสตร์", "วิทยาศาสตร์และเทคโนโลยี",
-  "สังคมศึกษา ศาสนาและวัฒนธรรม", "ภาษาต่างประเทศ",
-  "สุขศึกษาและพลศึกษา", "ศิลปะ", "การงานอาชีพ",
-  "กิจกรรมพัฒนาผู้เรียน", "อื่นๆ",
-];
-
-const PREFIXES_STUDENT = ["ด.ช.", "ด.ญ.", "นาย", "นางสาว"];
-const PREFIXES_STAFF = ["นาย", "นาง", "นางสาว", "ว่าที่ ร.ต.", "ว่าที่ ร.ท.", "ว่าที่ ร.อ.", "ดร."];
-
-// DMC column mapping: DMC header → our field name
-const DMC_STUDENT_MAP: Record<string, string> = {
-  "เลขประจำตัวนักเรียน": "student_code",
-  "รหัสนักเรียน": "student_code",
-  "รหัสโรงเรียน": "student_code",
-  "school_code": "student_code",
-  "เลขประจำตัวประชาชน": "national_id",
-  "เลขบัตรประชาชน": "national_id",
-  "คำนำหน้า": "prefix",
-  "คำนำหน้าชื่อ": "prefix",
-  "ชื่อ": "first_name",
-  "ชื่อจริง": "first_name",
-  "นามสกุล": "last_name",
-  "เพศ": "gender",
-  "วันเกิด": "date_of_birth",
-  "วัน/เดือน/ปีเกิด": "date_of_birth",
-  "สัญชาติ": "nationality",
-  "เชื้อชาติ": "ethnicity",
-  "ศาสนา": "religion",
-  "หมู่เลือด": "blood_type",
-  "หมู่โลหิต": "blood_type",
-  "ที่อยู่": "address",
-  "โทรศัพท์": "phone",
-  "ระดับชั้น": "grade_level",
-  "ชั้น": "grade_level",
-  "ห้อง": "classroom",
-  "ชื่อบิดา": "_father_first",
-  "คำนำหน้าชื่อบิดา": "_father_prefix",
-  "นามสกุลบิดา": "_father_last",
-  "อาชีพบิดา": "father_occupation",
-  "โทรศัพท์บิดา": "father_phone",
-  "หมายเลขโทรศัพท์ของบิดา": "father_phone",
-  "เลขบัตรบิดา": "father_id",
-  "หมายเลขบัตรประชาชนบิดา": "father_id",
-  "รายได้ต่อเดือนของบิดา": "_father_income",
-  "ชื่อมารดา": "_mother_first",
-  "คำนำหน้าชื่อมารดา": "_mother_prefix",
-  "นามสกุลมารดา": "_mother_last",
-  "อาชีพมารดา": "mother_occupation",
-  "โทรศัพท์มารดา": "mother_phone",
-  "หมายเลขโทรศัพท์ของมารดา": "mother_phone",
-  "เลขบัตรมารดา": "mother_id",
-  "หมายเลขบัตรประชาชนมารดา": "mother_id",
-  "รายได้ต่อเดือนของมารดา": "_mother_income",
-  "ชื่อผู้ปกครอง": "_guardian_first",
-  "คำนำหน้าชื่อผู้ปกครอง": "_guardian_prefix",
-  "นามสกุลผู้ปกครอง": "_guardian_last",
-  "โทรศัพท์ผู้ปกครอง": "guardian_phone",
-  "หมายเลขโทรศัพท์ของผู้ปกครอง": "guardian_phone",
-  "ความสัมพันธ์": "guardian_relation",
-  "ความเกี่ยวข้องของผู้ปกครองกับนักเรียน": "guardian_relation",
-  "หมายเลขบัตรประชาชนผู้ปกครอง": "_guardian_id",
-  "รายได้ต่อเดือนของผู้ปกครอง": "_guardian_income",
-  "โรงเรียนเดิม": "previous_school",
-  "วันที่เข้าเรียน": "admission_date",
-  "สถานะ": "status",
-  "น้ำหนัก": "weight",
-  "ส่วนสูง": "height",
-  "จังหวัดที่เกิด": "birth_province",
-  "ชื่อ (อังกฤษ)": "_en_first_name",
-  "นามสกุล (อังกฤษ)": "_en_last_name",
-  // English fallbacks
-  "student_code": "student_code",
-  "national_id": "national_id",
-  "prefix": "prefix",
-  "first_name": "first_name",
-  "last_name": "last_name",
-  "gender": "gender",
-  "grade_level": "grade_level",
-  "email": "email",
-  "password": "password",
-  "role": "role",
-  "department": "department",
-  "อีเมล": "email",
-  "รหัสผ่าน": "password",
-  "บทบาท": "role",
-  "ฝ่ายงาน": "department",
-  "ตำแหน่ง": "position",
-  "วิทยฐานะ": "academic_standing",
-  "position": "position",
-  "academic_standing": "academic_standing",
-};
 
 const UserManagement = () => {
   const { t, lang } = useLanguage();
-  const [users, setUsers] = useState<UserItem[]>([]);
-  const [search, setSearch] = useState("");
-  const [filterRole, setFilterRole] = useState<string>("all");
-  const [filterGrade, setFilterGrade] = useState<string>("all");
-  const [loading, setLoading] = useState(true);
+  const {
+    users, setUsers,
+    loading,
+    fetchUsers,
+    search, setSearch,
+    filterRole, setFilterRole,
+    filterGrade, setFilterGrade,
+    filteredUsers,
+    selectedIds, setSelectedIds,
+    toggleSelect, toggleSelectAll,
+  } = useUserList();
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [autoConvertBE, setAutoConvertBE] = useState(true);
+
 
   // Add form state
   const [formEmail, setFormEmail] = useState("");
@@ -369,167 +241,8 @@ const UserManagement = () => {
     setGraduating(false);
   };
 
-  const fetchUsers = async () => {
-    setLoading(true);
-    try {
-      const [rolesRes, profilesRes, personnelRes, studentsRes] = await Promise.all([
-        supabase.from("user_roles").select("user_id, role"),
-        supabase.from("profiles").select("id, first_name, last_name, department, student_code, employee_code, position_title, gender, phone, date_of_birth, is_approved, nickname, google_email"),
-        supabase.from("personnel").select("id, user_id, email, prefix, first_name, last_name, position, department, phone, academic_standing, subject_group"),
-        supabase.from("students").select("id, auth_user_id, auth_email, student_code, prefix, first_name, last_name, date_of_birth, gender, phone, classroom_id, status, classrooms!students_classroom_id_fkey(id, name, grade_level)"),
-      ]);
-
-      if (rolesRes.error) throw rolesRes.error;
-      if (profilesRes.error) throw profilesRes.error;
-      if (personnelRes.error) throw personnelRes.error;
-      if (studentsRes.error) throw studentsRes.error;
-
-      const roleMap = new Map((rolesRes.data || []).map((r: any) => [r.user_id, r.role]));
-      const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.id, p]));
-      const personnelMap = new Map((personnelRes.data || []).filter((p: any) => p.user_id).map((p: any) => [p.user_id, p]));
-      const studentByAuthMap = new Map((studentsRes.data || []).filter((s: any) => s.auth_user_id).map((s: any) => [s.auth_user_id, s]));
-
-      const userIds = new Set<string>([
-        ...(rolesRes.data || []).map((r: any) => r.user_id),
-        ...(profilesRes.data || []).map((p: any) => p.id),
-        ...(personnelRes.data || []).map((p: any) => p.user_id).filter(Boolean),
-        ...(studentsRes.data || []).map((s: any) => s.auth_user_id).filter(Boolean),
-      ]);
-
-      const nextUsers: UserItem[] = Array.from(userIds).map((userId) => {
-        const profile: any = profileMap.get(userId);
-        const personnel: any = personnelMap.get(userId);
-        const stu: any = studentByAuthMap.get(userId);
-        const role = roleMap.get(userId) || (stu ? "student" : personnel ? "teacher" : null);
-        if (!role) return null;
-
-        return {
-          id: userId,
-          email: personnel?.email || stu?.auth_email || profile?.google_email || "",
-          first_name: profile?.first_name || personnel?.first_name || stu?.first_name || "",
-          last_name: profile?.last_name || personnel?.last_name || stu?.last_name || "",
-          role,
-          department: profile?.department || personnel?.department || "",
-          student_code: profile?.student_code || stu?.student_code || "",
-          employee_code: profile?.employee_code || "",
-          created_at: "",
-          prefix: personnel?.prefix || stu?.prefix || "",
-          position_title: personnel?.position || profile?.position_title || "",
-          academic_standing: personnel?.academic_standing || "",
-          subject_group: personnel?.subject_group || "",
-          is_approved: profile?.is_approved ?? false,
-          phone: profile?.phone || personnel?.phone || stu?.phone || "",
-          gender: profile?.gender || stu?.gender || "",
-          date_of_birth: profile?.date_of_birth || stu?.date_of_birth || "",
-          nickname: profile?.nickname || "",
-          classroom_id: stu?.classroom_id || null,
-          classroom_name: stu?.classrooms?.name || "",
-          grade_level: stu?.classrooms?.grade_level || (role === "student" ? profile?.department || "" : ""),
-          student_status: stu?.status || "",
-        };
-      }).filter(Boolean) as UserItem[];
-
-      // Include personnel/student records that were imported without an auth account
-      // so admin can see and manage them. Use table row id as synthetic id (prefixed).
-      const orphanPersonnel = (personnelRes.data || [])
-        .filter((p: any) => !p.user_id)
-        .map((p: any) => ({
-          id: `personnel:${p.id}`,
-          email: p.email || "",
-          first_name: p.first_name || "",
-          last_name: p.last_name || "",
-          role: "teacher" as AppRole,
-          department: p.department || "",
-          student_code: "",
-          employee_code: "",
-          created_at: "",
-          prefix: p.prefix || "",
-          position_title: p.position || "",
-          academic_standing: p.academic_standing || "",
-          subject_group: p.subject_group || "",
-          is_approved: false,
-          phone: p.phone || "",
-          gender: "",
-          date_of_birth: "",
-          nickname: "",
-          classroom_id: null,
-          classroom_name: "",
-          grade_level: "",
-          student_status: "",
-        }));
-
-      const orphanStudents = (studentsRes.data || [])
-        .filter((s: any) => !s.auth_user_id)
-        .map((s: any) => ({
-          id: `student:${s.id}`,
-          email: s.auth_email || "",
-          first_name: s.first_name || "",
-          last_name: s.last_name || "",
-          role: "student" as AppRole,
-          department: "",
-          student_code: s.student_code || "",
-          employee_code: "",
-          created_at: "",
-          prefix: s.prefix || "",
-          position_title: "",
-          academic_standing: "",
-          subject_group: "",
-          is_approved: s.status === "active",
-          phone: s.phone || "",
-          gender: s.gender || "",
-          date_of_birth: s.date_of_birth || "",
-          nickname: "",
-          classroom_id: s.classroom_id || null,
-          classroom_name: s.classrooms?.name || "",
-          grade_level: s.classrooms?.grade_level || "",
-          student_status: s.status || "",
-        }));
-
-      nextUsers.push(...orphanPersonnel, ...orphanStudents);
 
 
-      setUsers(nextUsers);
-      // Invalidate related caches so other screens reflect latest role/profile
-      queryClient.invalidateQueries({ queryKey: ["users"] });
-      queryClient.invalidateQueries({ queryKey: ["profiles"] });
-      queryClient.invalidateQueries({ queryKey: ["user_roles"] });
-      queryClient.invalidateQueries({ queryKey: ["personnel"] });
-      queryClient.invalidateQueries({ queryKey: ["students"] });
-    } catch (e: any) {
-      swal.error(e.message || "Failed to load users");
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => { fetchUsers(); }, []);
-
-  const filteredUsers = users.filter((u) => {
-    const matchSearch =
-      u.first_name?.toLowerCase().includes(search.toLowerCase()) ||
-      u.last_name?.toLowerCase().includes(search.toLowerCase()) ||
-      u.email?.toLowerCase().includes(search.toLowerCase()) ||
-      u.student_code?.toLowerCase().includes(search.toLowerCase()) ||
-      u.employee_code?.toLowerCase().includes(search.toLowerCase());
-    const matchRole = filterRole === "all" || u.role === filterRole;
-    const matchGrade = filterGrade === "all" || u.grade_level === filterGrade || u.department === filterGrade;
-    return matchSearch && matchRole && matchGrade;
-  });
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedIds.size === filteredUsers.length && filteredUsers.length > 0) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filteredUsers.map(u => u.id)));
-    }
-  };
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
@@ -559,15 +272,31 @@ const UserManagement = () => {
     admin: "bg-destructive/10 text-destructive",
     teacher: "bg-primary/10 text-primary",
     student: "bg-accent/10 text-accent-foreground",
-    director: "bg-warning-soft text-warning dark:bg-warning/30 dark:text-warning",
-    alumni: "bg-success-soft text-success dark:bg-success/30 dark:text-success",
-    parent: "bg-info-soft text-info dark:bg-info/30 dark:text-info",
+    director: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+    alumni: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+    parent: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
   };
 
   const handleAddUser = async () => {
-    if (!formEmail || !formFirstName || !formLastName) {
-      swal.error("กรุณากรอกข้อมูลให้ครบ"); return;
-    }
+    const { ok } = await validateAndConfirm(
+      userCreateSchema,
+      {
+        email: formEmail,
+        password: formPassword,
+        first_name: formFirstName,
+        last_name: formLastName,
+        role: formRole,
+        student_code: formRole === "student" ? formStudentCode : undefined,
+        national_id: formNationalId || "",
+        phone: formPhone || "",
+      },
+      {
+        confirmTitle: "ยืนยันเพิ่มผู้ใช้?",
+        confirmText: `${formPrefix || ""} ${formFirstName} ${formLastName} (${formRole})`.trim(),
+        labels: userLabels,
+      },
+    );
+    if (!ok) return;
     if (formRole === "student" && !formStudentCode) {
       swal.error("กรุณากรอกรหัสนักเรียน"); return;
     }
@@ -592,21 +321,56 @@ const UserManagement = () => {
            phone: formPhone || undefined,
          },
        });
-      if (error) throw error;
+      // Edge function ตอบ 400 พร้อม JSON {error} — ดึงข้อความจริงจาก body
+      if (error) {
+        let msg = error.message || "เพิ่มผู้ใช้ไม่สำเร็จ";
+        try {
+          const ctx: any = (error as any).context;
+          if (ctx?.json) {
+            const body = await ctx.json();
+            if (body?.error) msg = body.error;
+          } else if (ctx?.text) {
+            const t = await ctx.text();
+            try { const j = JSON.parse(t); if (j?.error) msg = j.error; } catch { if (t) msg = t; }
+          }
+        } catch { /* ignore body parse */ }
+        // แปลข้อความ auth ที่พบบ่อยเป็นภาษาไทย
+        if (/already been registered|already exists/i.test(msg)) msg = "อีเมลนี้ถูกใช้งานแล้ว — กรุณาใช้อีเมลอื่น";
+        else if (/password/i.test(msg) && /short|weak|6|character/i.test(msg)) msg = "รหัสผ่านสั้นเกินไป (อย่างน้อย 6 ตัว)";
+        else if (/invalid.*email/i.test(msg)) msg = "รูปแบบอีเมลไม่ถูกต้อง";
+        throw new Error(msg);
+      }
       if (data?.error) throw new Error(data.error);
       swal.toast.success("เพิ่มผู้ใช้สำเร็จ");
       setAddOpen(false); resetForm(); fetchUsers();
     } catch (e: any) {
-      swal.error(e.message || "Failed to add user");
+      swal.error(e.message || "เพิ่มผู้ใช้ไม่สำเร็จ");
     }
     setSaving(false);
   };
 
   const handleEditUser = async () => {
     if (!editUser) return;
+    const f = editForm;
+    const { ok } = await validateAndConfirm(
+      userEditSchema,
+      {
+        first_name: f.first_name,
+        last_name: f.last_name,
+        email: f.email || "",
+        phone: f.phone || "",
+        national_id: f.national_id || "",
+        emergency_phone: f.emergency_phone || "",
+      },
+      {
+        confirmTitle: "ยืนยันบันทึกการแก้ไข?",
+        confirmText: `${f.first_name} ${f.last_name}`,
+        labels: userLabels,
+      },
+    );
+    if (!ok) return;
     setSaving(true);
     try {
-      const f = editForm;
       // Build comprehensive payload — only send fields the user can see / edit
       const payload: any = {
         action: "update",
@@ -678,38 +442,6 @@ const UserManagement = () => {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      // Sync subject group head flag (position: head / deputy / secretary / none)
-      if (f.role !== "student") {
-        const code = toSubjectGroupCode(f.subject_group);
-        const pos = (f.subject_group_position || "none") as "none" | "head" | "deputy" | "secretary";
-        try {
-          const delQ = supabase.from("subject_group_heads").delete().eq("user_id", editUser.id);
-          await (code ? delQ.neq("subject_group", code) : delQ);
-        } catch {}
-        if (code && pos !== "none") {
-          const { data: { user: cur } } = await supabase.auth.getUser();
-          await supabase
-            .from("subject_group_heads")
-            .upsert(
-              { subject_group: code, user_id: editUser.id, position: pos, assigned_by: cur?.id ?? null } as any,
-              { onConflict: "subject_group,user_id" }
-            );
-        } else if (code) {
-          await supabase
-            .from("subject_group_heads")
-            .delete()
-            .eq("user_id", editUser.id)
-            .eq("subject_group", code);
-        }
-      }
-      // Persist teaching_level directly to personnel (manage-users edge function doesn't handle this field)
-      if (f.role !== "student" && f.teaching_level !== undefined) {
-        try {
-          await supabase.from("personnel")
-            .update({ teaching_level: f.teaching_level || null } as any)
-            .eq("user_id", editUser.id);
-        } catch {}
-      }
       swal.toast.success("แก้ไขผู้ใช้สำเร็จ");
       setEditOpen(false); setEditUser(null); fetchUsers();
     } catch (e: any) {
@@ -812,10 +544,8 @@ const UserManagement = () => {
         position: per.position ?? p.position_title ?? prev.position ?? "",
         academic_standing: per.academic_standing ?? prev.academic_standing ?? "",
         subject_group: per.subject_group ?? prev.subject_group ?? "",
-        teaching_level: per.teaching_level ?? prev.teaching_level ?? "",
         department: per.department ?? p.department ?? prev.department ?? "",
         hire_date: per.hire_date ?? "",
-        subject_group_position: "none",
         // student / DMC
         national_id: stu.national_id ?? "",
         nationality: stu.nationality ?? "",
@@ -848,17 +578,6 @@ const UserManagement = () => {
       // Load classrooms for the selector
       const { data: cls2 } = await supabase.from("classrooms").select("id, name, grade_level").order("grade_level").order("name");
       setEditClassrooms(cls2 || []);
-      // Load whether this user is already a head of the matching subject group
-      const code = toSubjectGroupCode(per.subject_group);
-      if (code) {
-        const { data: sgh } = await supabase
-          .from("subject_group_heads")
-          .select("position")
-          .eq("user_id", user.id)
-          .eq("subject_group", code)
-          .maybeSingle();
-        setEditForm((prev: any) => ({ ...prev, subject_group_position: ((sgh as any)?.position) || "none" }));
-      }
     } catch (e: any) {
       swal.error("โหลดข้อมูลเต็มไม่สำเร็จ: " + (e?.message || e));
     } finally {
@@ -895,29 +614,6 @@ const UserManagement = () => {
   };
   const handleApproveUser = async (userId: string) => {
     try {
-      // Orphan rows (no auth account) — approve = activate the underlying record directly
-      if (userId.startsWith("student:")) {
-        const realId = userId.slice("student:".length);
-        const { error } = await supabase
-          .from("students")
-          .update({ status: "active" })
-          .eq("id", realId);
-        if (error) throw error;
-        swal.toast.success("ยืนยันสถานะนักเรียนสำเร็จ");
-        await fetchUsers();
-        return;
-      }
-      if (userId.startsWith("personnel:")) {
-        const realId = userId.slice("personnel:".length);
-        const { error } = await supabase
-          .from("personnel")
-          .update({ status: "active" } as any)
-          .eq("id", realId);
-        if (error) throw error;
-        swal.toast.success("ยืนยันสถานะบุคลากรสำเร็จ");
-        await fetchUsers();
-        return;
-      }
       const { data, error } = await supabase.functions.invoke("manage-users", {
         body: { action: "approve", user_id: userId, approved: true },
       });
@@ -1019,21 +715,18 @@ const UserManagement = () => {
         const data = evt.target?.result;
         let rows: any[] = [];
 
-        // Header keywords used to detect the real header row (ขยายให้รองรับชื่อหัว
-        // หลากหลาย — DMC/EMIS/SGS/SchoolMIS/ไฟล์ทำมือ). ใช้แบบ "พบ ≥ 2 ตรง" ก็ถือว่าใช่
+        // Header keywords used to detect the real header row (DMC exports often
+        // start with a title row like "วันและเวลาที่สร้างรายงาน ...").
         const HEADER_HINTS = [
-          "เลขประจำตัวนักเรียน", "รหัสนักเรียน", "เลขที่นักเรียน", "เลขประจำตัวประชาชน",
-          "เลขบัตรประชาชน", "รหัสบุคลากร", "รหัสครู",
-          "คำนำหน้า", "ชื่อ", "ชื่อจริง", "นามสกุล", "ชั้น", "ระดับชั้น", "ห้อง",
-          "วันเกิด", "เพศ", "ที่อยู่", "โทรศัพท์", "อีเมล",
-          "student_code", "national_id", "first_name", "last_name", "firstname", "lastname",
-          "email", "phone", "grade", "classroom",
+          "เลขประจำตัวนักเรียน", "รหัสโรงเรียน", "เลขประจำตัวประชาชน",
+          "ชื่อ", "นามสกุล", "ชั้น", "ห้อง",
+          "student_code", "national_id", "first_name", "last_name",
         ];
         const findHeaderIdx = (matrix: any[][]): number => {
           const max = Math.min(matrix.length, 15);
           for (let i = 0; i < max; i++) {
-            const row = (matrix[i] || []).map((c) => String(c ?? "").trim().toLowerCase());
-            const hits = row.filter((c) => HEADER_HINTS.some((h) => c.includes(h.toLowerCase()))).length;
+            const row = (matrix[i] || []).map((c) => String(c ?? "").trim());
+            const hits = row.filter((c) => HEADER_HINTS.some((h) => c.includes(h))).length;
             if (hits >= 2) return i;
           }
           return 0;
@@ -1184,36 +877,15 @@ const UserManagement = () => {
         };
 
 
-        // เพิ่ม alias map ขยายเฉพาะ field ภายในที่ DMC ใช้ (ที่ไม่ได้อยู่ใน PEOPLE_ALIASES)
-        const STUDENT_EXTRA: Record<string, string[]> = {
-          _father_first: ["ชื่อบิดา"],
-          _father_prefix: ["คำนำหน้าชื่อบิดา"],
-          _father_last: ["นามสกุลบิดา"],
-          _father_income: ["รายได้ต่อเดือนของบิดา", "รายได้บิดา"],
-          _mother_first: ["ชื่อมารดา"],
-          _mother_prefix: ["คำนำหน้าชื่อมารดา"],
-          _mother_last: ["นามสกุลมารดา"],
-          _mother_income: ["รายได้ต่อเดือนของมารดา", "รายได้มารดา"],
-          _guardian_first: ["ชื่อผู้ปกครอง"],
-          _guardian_prefix: ["คำนำหน้าชื่อผู้ปกครอง"],
-          _guardian_last: ["นามสกุลผู้ปกครอง"],
-          _guardian_id: ["หมายเลขบัตรประชาชนผู้ปกครอง", "เลขบัตรผู้ปกครอง"],
-          _guardian_income: ["รายได้ต่อเดือนของผู้ปกครอง", "รายได้ผู้ปกครอง"],
-          _en_first_name: ["ชื่อ (อังกฤษ)", "ชื่อภาษาอังกฤษ", "english first name"],
-          _en_last_name: ["นามสกุล (อังกฤษ)", "นามสกุลภาษาอังกฤษ", "english last name"],
-        };
-        const studentHeaderMatch = createHeaderMatcher({ ...PEOPLE_ALIASES, ...STUDENT_EXTRA });
-
         const parsed = rows.map((row) => {
           const mapped: any = {};
           Object.entries(row).forEach(([key, value]) => {
             const cleanKey = String(key ?? "").replace(/^\uFEFF/, "").trim();
             const normalizedKey = cleanKey.replace(/__\d+$/, "").trim();
-            // 1) legacy exact map (เร็วและกัน regression)  2) fuzzy/alias matcher
-            //    3) fallback snake_case ของหัวเดิม
+            // 1) exact DMC map  2) fuzzy alias matcher (handles หลายสไตล์/ภาษา/ตัวพิมพ์)  3) snake_case fallback
             const fieldName =
               DMC_STUDENT_MAP[normalizedKey] ||
-              studentHeaderMatch(normalizedKey) ||
+              matchAlias(normalizedKey, STUDENT_ALIASES) ||
               normalizedKey.toLowerCase().replace(/\s+/g, "_");
             const normalizedValue = value instanceof Date ? normalizeDateCell(value) : String(value ?? "").trim();
 
@@ -1373,77 +1045,7 @@ const UserManagement = () => {
     setSaving(false);
   };
 
-  const [creatingTeacherAccounts, setCreatingTeacherAccounts] = useState(false);
-  const handleCreateMissingTeacherAccounts = async () => {
-    setCreatingTeacherAccounts(true);
-    try {
-      const { data: orphans, error } = await supabase
-        .from("personnel")
-        .select("id, employee_code, prefix, first_name, last_name, email, position, academic_standing, department, subject_group, phone")
-        .is("user_id", null);
-      if (error) throw error;
-      if (!orphans || orphans.length === 0) {
-        swal.toast.info("ครู/บุคลากรทุกคนมีบัญชีแล้ว");
-        setCreatingTeacherAccounts(false);
-        return;
-      }
-
-      // Load email domain setting for fallback emails
-      const { data: domainSetting } = await supabase
-        .from("school_settings")
-        .select("setting_value")
-        .eq("setting_key", "email_domain")
-        .maybeSingle();
-      let domain = (domainSetting?.setting_value as string) || "@school.local";
-      if (!domain.startsWith("@")) domain = "@" + domain;
-
-      const users = orphans.map((p: any) => {
-        const email = (p.email && String(p.email).trim()) ||
-          `${(p.employee_code || p.id.slice(0, 8)).toString().toLowerCase()}${domain}`;
-        const role = /ผู้อำนวยการ|ผอ/.test(p.position || "") ? "director" : "teacher";
-        return {
-          email,
-          prefix: p.prefix || "นาย",
-          first_name: p.first_name || "",
-          last_name: p.last_name || "",
-          position: p.position || "ครู",
-          academic_standing: p.academic_standing || "",
-          department: p.department || "วิชาการ",
-          subject_group: p.subject_group || "",
-          phone: p.phone || "",
-          role,
-          password: "School@1234",
-        };
-      });
-
-      const BATCH_SIZE = 8;
-      const allResults: any[] = [];
-      const totalBatches = Math.ceil(users.length / BATCH_SIZE);
-      for (let i = 0; i < users.length; i += BATCH_SIZE) {
-        const batch = users.slice(i, i + BATCH_SIZE);
-        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-        swal.toast.info(`กำลังสร้างบัญชี batch ${batchNum}/${totalBatches} (${batch.length} คน)...`);
-        const { data, error: invErr } = await supabase.functions.invoke("manage-users", {
-          body: { action: "bulk_create", users: batch },
-        });
-        if (invErr) throw invErr;
-        if (data?.error) throw new Error(data.error);
-        allResults.push(...(data?.results || []));
-      }
-      const success = allResults.filter((r: any) => r.success).length;
-      const failed = allResults.filter((r: any) => !r.success).length;
-      swal.toast.success(`สร้างบัญชีสำเร็จ ${success} คน${failed > 0 ? `, ผิดพลาด ${failed} คน` : ""} (รหัสผ่านเริ่มต้น: School@1234)`);
-      setImportResults(allResults);
-      setImportSummaryOpen(true);
-      fetchUsers();
-    } catch (e: any) {
-      swal.error(e.message || "สร้างบัญชีไม่สำเร็จ");
-    }
-    setCreatingTeacherAccounts(false);
-  };
-
   const downloadTemplate = (type: "student" | "teacher") => {
-
     if (type === "student") {
       const csv = `รหัสนักเรียน,เลขประจำตัวประชาชน,คำนำหน้าชื่อ,ชื่อ,นามสกุล,เพศ,วันเกิด,ชั้น,สัญชาติ,เชื้อชาติ,ศาสนา,หมู่โลหิต,น้ำหนัก,ส่วนสูง,จังหวัดที่เกิด,คำนำหน้าชื่อบิดา,ชื่อบิดา,นามสกุลบิดา,หมายเลขโทรศัพท์ของบิดา,อาชีพบิดา,คำนำหน้าชื่อมารดา,ชื่อมารดา,นามสกุลมารดา,หมายเลขโทรศัพท์ของมารดา,อาชีพมารดา,ความเกี่ยวข้องของผู้ปกครองกับนักเรียน,คำนำหน้าชื่อผู้ปกครอง,ชื่อผู้ปกครอง,นามสกุลผู้ปกครอง,หมายเลขโทรศัพท์ของผู้ปกครอง
 2831,1100000000001,เด็กชาย,สมชาย,ใจดี,ช,03/09/2558,ป.1,ไทย,ไทย,พุทธ,O,25.0,120.0,กรุงเทพมหานคร,นาย,สมศักดิ์,ใจดี,0800000002,รับจ้าง,นาง,สมหญิง,ใจดี,0800000003,ค้าขาย,มารดา,นาง,สมหญิง,ใจดี,0800000003`;
@@ -1463,12 +1065,10 @@ const UserManagement = () => {
     URL.revokeObjectURL(url);
   };
 
-  const isDeputyDirector = (u: any) => u.role === "director" && /รอง/.test(u.position_title || "");
   const userStats = {
     total: users.length,
     admin: users.filter(u => u.role === "admin").length,
-    director: users.filter(u => u.role === "director" && !isDeputyDirector(u)).length,
-    deputy_director: users.filter(isDeputyDirector).length,
+    director: users.filter(u => u.role === "director").length,
     teacher: users.filter(u => u.role === "teacher").length,
     student: users.filter(u => u.role === "student").length,
     alumni: users.filter(u => u.role === "alumni").length,
@@ -1515,8 +1115,10 @@ const UserManagement = () => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-60">
               <DropdownMenuLabel>ตั้งค่า</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => setSettingsOpen(true)} className="gap-2">
-                <Settings className="w-4 h-4" /> ตั้งค่าโรงเรียน
+              <DropdownMenuItem asChild className="gap-2">
+                <RouterLink to="/dashboard/admin/school-settings">
+                  <Settings className="w-4 h-4" /> ตั้งค่าโรงเรียน
+                </RouterLink>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuLabel>ดูแลข้อมูล</DropdownMenuLabel>
@@ -1526,20 +1128,16 @@ const UserManagement = () => {
               <DropdownMenuItem onClick={handleCleanupOrphaned} disabled={syncing} className="gap-2 text-destructive focus:text-destructive">
                 <Eraser className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} /> ล้างข้อมูลค้าง
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setGraduateOpen(true)} disabled={graduating} className="gap-2 text-warning focus:text-warning">
+              <DropdownMenuItem onClick={() => setGraduateOpen(true)} disabled={graduating} className="gap-2 text-amber-600 focus:text-amber-700">
                 <GraduationCap className={`w-4 h-4 ${graduating ? "animate-bounce" : ""}`} /> จบการศึกษาอัตโนมัติ
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuLabel>บัญชี & รหัสผ่าน</DropdownMenuLabel>
-              <DropdownMenuItem onClick={handleCreateMissingTeacherAccounts} disabled={creatingTeacherAccounts} className="gap-2">
-                <KeyRound className={`w-4 h-4 ${creatingTeacherAccounts ? "animate-pulse" : ""}`} /> สร้างบัญชีให้ครูที่ยังไม่มี
-              </DropdownMenuItem>
               <DropdownMenuItem asChild className="gap-2">
                 <RouterLink to="/dashboard/admin/teacher-credentials">
                   <KeyRound className="w-4 h-4" /> รหัสผ่าน/Username ครู (CSV + Bulk Reset)
                 </RouterLink>
               </DropdownMenuItem>
-
               <DropdownMenuSeparator />
               <DropdownMenuLabel className="text-destructive">โซนอันตราย</DropdownMenuLabel>
               <DropdownMenuItem onClick={() => setDeleteStudentsOpen(true)} disabled={!!deletingByRole} className="gap-2 text-destructive focus:text-destructive">
@@ -1612,7 +1210,7 @@ const UserManagement = () => {
                 <span className="hidden sm:inline">เพิ่มผู้ใช้</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-lg sm:max-h-[90vh] sm:overflow-y-auto">
               <DialogHeader><DialogTitle>เพิ่มผู้ใช้งานใหม่</DialogTitle></DialogHeader>
               <div className="space-y-4">
                 {/* Role Selection */}
@@ -1634,7 +1232,7 @@ const UserManagement = () => {
                 </div>
 
                 {/* Common fields */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div><Label>คำนำหน้า</Label>
                     <Select value={formPrefix} onValueChange={setFormPrefix}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1654,22 +1252,22 @@ const UserManagement = () => {
                 </div>
                 <p className="text-[11px] text-muted-foreground -mt-2">เพศจะถูกกำหนดอัตโนมัติจากคำนำหน้าชื่อ</p>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>วันเกิด</Label><BEDatePicker value={formDateOfBirth} onChange={(v) => setFormDateOfBirth(v)} /></div>
                   <div><Label>โทรศัพท์</Label><Input value={formPhone} onChange={(e) => setFormPhone(e.target.value)} /></div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label>อีเมล *</Label>
-                    <div className="flex">
+                    <div className="flex min-w-0">
                       <Input
                         placeholder="username"
                         value={formEmail.replace(settingEmailDomain, "")}
                         onChange={(e) => setFormEmail(e.target.value.replace(/@.*$/, "") + settingEmailDomain)}
-                        className="rounded-r-none"
+                        className="rounded-r-none min-w-0 flex-1"
                       />
-                      <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-sm text-muted-foreground whitespace-nowrap">
+                      <span className="inline-flex items-center px-2 sm:px-3 rounded-r-md border border-l-0 border-input bg-muted text-xs sm:text-sm text-muted-foreground whitespace-nowrap max-w-[45%] truncate">
                         {settingEmailDomain}
                       </span>
                     </div>
@@ -1681,7 +1279,7 @@ const UserManagement = () => {
                 {formRole === "student" && (
                   <div className="border-t pt-4 space-y-3">
                     <h3 className="font-medium text-sm text-primary">ข้อมูลนักเรียน (DMC)</h3>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>รหัสนักเรียน *</Label><Input placeholder="STU-0001" value={formStudentCode} onChange={(e) => setFormStudentCode(e.target.value)} /></div>
                       <div><Label>ระดับชั้น</Label>
                         <Select value={formGradeLevel} onValueChange={setFormGradeLevel}>
@@ -1697,7 +1295,7 @@ const UserManagement = () => {
                 {formRole !== "student" && (
                   <div className="border-t pt-4 space-y-3">
                     <h3 className="font-medium text-sm text-primary">ข้อมูลบุคลากร</h3>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>ตำแหน่ง</Label>
                         <Select value={formPosition} onValueChange={setFormPosition}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1711,7 +1309,7 @@ const UserManagement = () => {
                         </Select>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>ฝ่ายงาน</Label>
                         <Select value={formDept} onValueChange={setFormDept}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1728,9 +1326,9 @@ const UserManagement = () => {
                   </div>
                 )}
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setAddOpen(false)}>ยกเลิก</Button>
-                <Button onClick={handleAddUser} disabled={saving}>{saving ? "กำลังบันทึก..." : "บันทึก"}</Button>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button variant="outline" onClick={() => setAddOpen(false)} className="w-full sm:w-auto">ยกเลิก</Button>
+                <Button onClick={handleAddUser} disabled={saving} className="w-full sm:w-auto">{saving ? "กำลังบันทึก..." : "บันทึก"}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -1738,15 +1336,14 @@ const UserManagement = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         {[
           { label: "ทั้งหมด", count: userStats.total, color: "text-foreground" },
           { label: "ผู้ดูแลระบบ", count: userStats.admin, color: "text-destructive" },
-          { label: "ผู้อำนวยการ", count: userStats.director, color: "text-warning" },
-          { label: "รองผู้อำนวยการ", count: userStats.deputy_director, color: "text-warning" },
+          { label: "ผู้อำนวยการ", count: userStats.director, color: "text-orange-600" },
           { label: "ครู/บุคลากร", count: userStats.teacher, color: "text-primary" },
-          { label: "นักเรียน", count: userStats.student, color: "text-info" },
-          { label: "ศิษย์เก่า", count: userStats.alumni, color: "text-success" },
+          { label: "นักเรียน", count: userStats.student, color: "text-sky-600" },
+          { label: "ศิษย์เก่า", count: userStats.alumni, color: "text-emerald-600" },
         ].map(s => (
           <Card key={s.label} className="border-0 shadow-sm">
             <CardContent className="py-3 px-4 text-center">
@@ -1759,7 +1356,7 @@ const UserManagement = () => {
 
       {/* Bulk Import Preview Dialog */}
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl sm:max-h-[85vh] sm:overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Upload className="w-5 h-5" />
@@ -1769,7 +1366,7 @@ const UserManagement = () => {
           {bulkPreview && (
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground">ตรวจสอบข้อมูลก่อนนำเข้า (แสดง {Math.min(bulkUsers.length, 20)} รายการแรก):</div>
-              <div className="rounded-md border overflow-auto max-h-72">
+              <div className="rounded-md border overflow-auto max-h-72 -mx-2 sm:mx-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1822,9 +1419,9 @@ const UserManagement = () => {
               )}
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setBulkOpen(false); setBulkUsers([]); }}>ยกเลิก</Button>
-            <Button onClick={handleBulkImport} disabled={saving}>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => { setBulkOpen(false); setBulkUsers([]); }} className="w-full sm:w-auto">ยกเลิก</Button>
+            <Button onClick={handleBulkImport} disabled={saving} className="w-full sm:w-auto">
               <Upload className="w-4 h-4 mr-1" />
               {saving ? "กำลังนำเข้า..." : `นำเข้า ${bulkUsers.length} รายการ`}
             </Button>
@@ -1834,10 +1431,10 @@ const UserManagement = () => {
 
       {/* Import Summary Dialog */}
       <Dialog open={importSummaryOpen} onOpenChange={setImportSummaryOpen}>
-        <DialogContent className="max-w-5xl max-h-[88vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-5xl sm:max-h-[88vh] sm:overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-success" />
+              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
               สรุปผลการนำเข้า DMC
             </DialogTitle>
           </DialogHeader>
@@ -1863,27 +1460,27 @@ const UserManagement = () => {
             return (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="rounded-lg border bg-success/10 p-3">
+                  <div className="rounded-lg border bg-emerald-500/10 p-3">
                     <div className="text-xs text-muted-foreground">สร้างใหม่</div>
-                    <div className="text-2xl font-bold text-success">{created.length}</div>
+                    <div className="text-2xl font-bold text-emerald-500">{created.length}</div>
                   </div>
-                  <div className="rounded-lg border bg-info/10 p-3">
+                  <div className="rounded-lg border bg-sky-500/10 p-3">
                     <div className="text-xs text-muted-foreground">อัปเดตข้อมูลเดิม</div>
-                    <div className="text-2xl font-bold text-info">{updated.length}</div>
+                    <div className="text-2xl font-bold text-sky-500">{updated.length}</div>
                   </div>
-                  <div className="rounded-lg border bg-warning/10 p-3">
+                  <div className="rounded-lg border bg-amber-500/10 p-3">
                     <div className="text-xs text-muted-foreground">ข้าม (ข้อมูลไม่พอ)</div>
-                    <div className="text-2xl font-bold text-warning">{skipped.length}</div>
+                    <div className="text-2xl font-bold text-amber-500">{skipped.length}</div>
                   </div>
-                  <div className="rounded-lg border bg-danger/10 p-3">
+                  <div className="rounded-lg border bg-rose-500/10 p-3">
                     <div className="text-xs text-muted-foreground">ผิดพลาด</div>
-                    <div className="text-2xl font-bold text-danger">{failed.length}</div>
+                    <div className="text-2xl font-bold text-rose-500">{failed.length}</div>
                   </div>
                 </div>
 
                 {skipped.length > 0 && (
-                  <div className="rounded-lg border border-warning/30 bg-warning/5 p-3">
-                    <p className="text-sm font-semibold text-warning mb-2">รายการที่ข้าม</p>
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                    <p className="text-sm font-semibold text-amber-600 mb-2">รายการที่ข้าม</p>
                     <div className="space-y-1 max-h-40 overflow-y-auto">
                       {skipped.map((r, i) => (
                         <div key={i} className="text-xs flex gap-2">
@@ -1896,8 +1493,8 @@ const UserManagement = () => {
                 )}
 
                 {failed.length > 0 && (
-                  <div className="rounded-lg border border-danger/30 bg-danger/5 p-3">
-                    <p className="text-sm font-semibold text-danger mb-2">รายการผิดพลาด</p>
+                  <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-3">
+                    <p className="text-sm font-semibold text-rose-600 mb-2">รายการผิดพลาด</p>
                     <div className="space-y-1 max-h-40 overflow-y-auto">
                       {failed.map((r, i) => (
                         <div key={i} className="text-xs flex gap-2">
@@ -1909,7 +1506,7 @@ const UserManagement = () => {
                   </div>
                 )}
 
-                <div className="rounded-md border overflow-auto max-h-96">
+                <div className="rounded-md border overflow-auto max-h-96 -mx-2 sm:mx-0">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1928,8 +1525,8 @@ const UserManagement = () => {
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className={
-                              r.action === "created" ? "border-success/40 text-success bg-success/10"
-                                : r.action === "updated" ? "border-info/40 text-info bg-info/10"
+                              r.action === "created" ? "border-emerald-500/40 text-emerald-500 bg-emerald-500/10"
+                                : r.action === "updated" ? "border-sky-500/40 text-sky-500 bg-sky-500/10"
                                 : ""
                             }>
                               {r.action === "created" ? "สร้างใหม่" : r.action === "updated" ? "อัปเดต" : r.action}
@@ -1941,7 +1538,7 @@ const UserManagement = () => {
                               : "—"}
                           </TableCell>
                           <TableCell>
-                            <div className="flex flex-wrap gap-1 max-w-md">
+                            <div className="flex flex-wrap gap-1 sm:max-w-md">
                               {(r.filled_fields || []).length === 0 ? (
                                 <span className="text-xs text-muted-foreground italic">ไม่มี</span>
                               ) : (
@@ -1967,12 +1564,12 @@ const UserManagement = () => {
             );
           })()}
           <DialogFooter>
-            <Button onClick={() => setImportSummaryOpen(false)}>ปิด</Button>
+            <Button onClick={() => setImportSummaryOpen(false)} className="w-full sm:w-auto">ปิด</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
       <Dialog open={editOpen} onOpenChange={(o) => { setEditOpen(o); if (!o) setEditUser(null); }}>
-        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl sm:max-h-[92vh] sm:overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="w-4 h-4" />
@@ -1997,7 +1594,7 @@ const UserManagement = () => {
 
               {/* TAB 1: บัญชี & สิทธิ์ */}
               <TabsContent value="account" className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>อีเมล</Label><Input value={editForm.email || ""} onChange={(e) => setF("email", e.target.value)} /></div>
                   <div>
                     <Label>บทบาท</Label>
@@ -2014,7 +1611,7 @@ const UserManagement = () => {
                     </Select>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div><Label>คำนำหน้า</Label>
                     <Select value={editForm.prefix || ""} onValueChange={(v) => setF("prefix", v)}>
                       <SelectTrigger><SelectValue placeholder="เลือก" /></SelectTrigger>
@@ -2028,7 +1625,7 @@ const UserManagement = () => {
                   <div><Label>ชื่อ</Label><Input value={editForm.first_name || ""} onChange={(e) => setF("first_name", e.target.value)} /></div>
                   <div><Label>นามสกุล</Label><Input value={editForm.last_name || ""} onChange={(e) => setF("last_name", e.target.value)} /></div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {editForm.role === "student" ? (
                     <div><Label>รหัสนักเรียน</Label><Input value={editForm.student_code || ""} onChange={(e) => setF("student_code", e.target.value)} /></div>
                   ) : (
@@ -2043,14 +1640,14 @@ const UserManagement = () => {
 
               {/* TAB 2: ข้อมูลส่วนตัว */}
               <TabsContent value="personal" className="space-y-4 mt-4">
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div><Label>ชื่อเล่น</Label><Input value={editForm.nickname || ""} onChange={(e) => setF("nickname", e.target.value)} /></div>
                   <div><Label>เพศ (จากคำนำหน้า)</Label>
                     <Input value={editForm.gender || "—"} disabled className="bg-muted" />
                   </div>
                   <div><Label>วันเกิด</Label><BEDatePicker value={editForm.date_of_birth || ""} onChange={(v) => setF("date_of_birth", v)} /></div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div><Label>โทรศัพท์</Label><Input value={editForm.phone || ""} onChange={(e) => setF("phone", e.target.value)} /></div>
                   <div><Label>หมู่เลือด</Label>
                     <Select value={editForm.blood_type || ""} onValueChange={(v) => setF("blood_type", v)}>
@@ -2064,7 +1661,7 @@ const UserManagement = () => {
                 </div>
                 <div><Label>Facebook URL</Label><Input value={editForm.facebook_url || ""} onChange={(e) => setF("facebook_url", e.target.value)} placeholder="https://facebook.com/..." /></div>
                 <div><Label>ที่อยู่</Label><Textarea rows={2} value={editForm.address || ""} onChange={(e) => setF("address", e.target.value)} /></div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>ผู้ติดต่อฉุกเฉิน</Label><Input value={editForm.emergency_contact || ""} onChange={(e) => setF("emergency_contact", e.target.value)} /></div>
                   <div><Label>เบอร์ฉุกเฉิน</Label><Input value={editForm.emergency_phone || ""} onChange={(e) => setF("emergency_phone", e.target.value)} /></div>
                 </div>
@@ -2076,7 +1673,7 @@ const UserManagement = () => {
               {/* TAB 3a: บุคลากร */}
               {editForm.role !== "student" && (
                 <TabsContent value="staff" className="space-y-4 mt-4">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div><Label>ตำแหน่ง</Label>
                       <Select value={editForm.position || ""} onValueChange={(v) => setF("position", v)}>
                         <SelectTrigger><SelectValue placeholder="เลือก" /></SelectTrigger>
@@ -2090,7 +1687,7 @@ const UserManagement = () => {
                       </Select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div><Label>ฝ่ายงาน</Label>
                       <Select value={editForm.department || ""} onValueChange={(v) => setF("department", v)}>
                         <SelectTrigger><SelectValue placeholder="เลือก" /></SelectTrigger>
@@ -2102,43 +1699,10 @@ const UserManagement = () => {
                         <SelectTrigger><SelectValue placeholder="เลือกหมวดวิชา" /></SelectTrigger>
                         <SelectContent>{SUBJECT_GROUPS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
                       </Select>
-                      <div className="mt-2 space-y-1">
-                        <Label className="text-xs">ตำแหน่งในกลุ่มสาระ</Label>
-                        <Select
-                          value={editForm.subject_group_position || "none"}
-                          onValueChange={(v) => setF("subject_group_position", v)}
-                          disabled={!editForm.subject_group || !toSubjectGroupCode(editForm.subject_group)}
-                        >
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">สมาชิก (ไม่มีตำแหน่ง)</SelectItem>
-                            <SelectItem value="head">หัวหน้ากลุ่มสาระ</SelectItem>
-                            <SelectItem value="deputy">รองหัวหน้ากลุ่มสาระ</SelectItem>
-                            <SelectItem value="secretary">เลขานุการกลุ่มสาระ</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {editForm.subject_group && !toSubjectGroupCode(editForm.subject_group) && (
-                        <div className="text-[11px] text-muted-foreground mt-1">
-                          * กลุ่มสาระนี้ไม่อยู่ในรายการมาตรฐาน — ตำแหน่งจะไม่ถูกบันทึก
-                        </div>
-                      )}
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div><Label>ระดับที่สอน</Label>
-                      <Select value={editForm.teaching_level || ""} onValueChange={(v) => setF("teaching_level", v)}>
-                        <SelectTrigger><SelectValue placeholder="เลือกระดับการสอน" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="primary">ครูสอนประถม (ใช้ตารางประถม)</SelectItem>
-                          <SelectItem value="secondary">ครูสอนมัธยม (ใช้ตารางมัธยม)</SelectItem>
-                          <SelectItem value="both">สอนทั้งสองระดับ (ใช้ตารางมัธยมเป็นหลัก)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div><Label>วันที่เริ่มงาน</Label><BEDatePicker value={editForm.hire_date || ""} onChange={(v) => setF("hire_date", v)} /></div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
                     <div><Label>รหัสบุคลากร</Label><Input value={editForm.employee_code || ""} onChange={(e) => setF("employee_code", e.target.value)} /></div>
                   </div>
                 </TabsContent>
@@ -2147,7 +1711,7 @@ const UserManagement = () => {
               {/* TAB 3b: DMC สำหรับนักเรียน */}
               {editForm.role === "student" && (
                 <TabsContent value="dmc" className="space-y-4 mt-4">
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div><Label>เลขประจำตัวประชาชน</Label><Input value={editForm.national_id || ""} onChange={(e) => setF("national_id", e.target.value)} /></div>
                     <div><Label>ระดับชั้น</Label>
                       <Select value={editForm.grade_level || ""} onValueChange={(v) => { setF("grade_level", v); setF("classroom_id", null); }}>
@@ -2166,21 +1730,21 @@ const UserManagement = () => {
                       </Select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div><Label>สัญชาติ</Label><Input value={editForm.nationality || ""} onChange={(e) => setF("nationality", e.target.value)} /></div>
                     <div><Label>เชื้อชาติ</Label><Input value={editForm.ethnicity || ""} onChange={(e) => setF("ethnicity", e.target.value)} /></div>
                     <div><Label>ศาสนา</Label><Input value={editForm.religion || ""} onChange={(e) => setF("religion", e.target.value)} /></div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div><Label>น้ำหนัก (kg)</Label><Input type="number" value={editForm.weight ?? ""} onChange={(e) => setF("weight", e.target.value)} /></div>
                     <div><Label>ส่วนสูง (cm)</Label><Input type="number" value={editForm.height ?? ""} onChange={(e) => setF("height", e.target.value)} /></div>
                     <div><Label>จังหวัดที่เกิด</Label><Input value={editForm.birth_province || ""} onChange={(e) => setF("birth_province", e.target.value)} /></div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div><Label>โรงเรียนเดิม</Label><Input value={editForm.previous_school || ""} onChange={(e) => setF("previous_school", e.target.value)} /></div>
                     <div><Label>วันที่เข้าเรียน</Label><BEDatePicker value={editForm.admission_date || ""} onChange={(v) => setF("admission_date", v)} /></div>
                   </div>
-                  <div className="border rounded-md p-3 bg-warning/40 dark:bg-warning/10 space-y-2">
+                  <div className="border rounded-md p-3 bg-amber-50/40 dark:bg-amber-900/10 space-y-2">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
@@ -2279,7 +1843,6 @@ const UserManagement = () => {
                     <Select value={editForm.student_status || "active"} onValueChange={(v) => setF("student_status", v)}>
                       <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="pending">รออนุมัติ</SelectItem>
                         <SelectItem value="active">กำลังศึกษา</SelectItem>
                         <SelectItem value="graduated">จบการศึกษา</SelectItem>
                         <SelectItem value="transferred">ย้ายโรงเรียน</SelectItem>
@@ -2290,7 +1853,7 @@ const UserManagement = () => {
 
                   <div className="border-t pt-3 mt-3">
                     <h4 className="font-semibold text-sm mb-2 text-muted-foreground">ข้อมูลบิดา</h4>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>ชื่อ-สกุลบิดา</Label><Input value={editForm.father_name || ""} onChange={(e) => setF("father_name", e.target.value)} /></div>
                       <div><Label>โทรศัพท์บิดา</Label><Input value={editForm.father_phone || ""} onChange={(e) => setF("father_phone", e.target.value)} /></div>
                       <div><Label>เลขบัตรบิดา</Label><Input value={editForm.father_id || ""} onChange={(e) => setF("father_id", e.target.value)} /></div>
@@ -2299,7 +1862,7 @@ const UserManagement = () => {
                   </div>
                   <div className="border-t pt-3">
                     <h4 className="font-semibold text-sm mb-2 text-muted-foreground">ข้อมูลมารดา</h4>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>ชื่อ-สกุลมารดา</Label><Input value={editForm.mother_name || ""} onChange={(e) => setF("mother_name", e.target.value)} /></div>
                       <div><Label>โทรศัพท์มารดา</Label><Input value={editForm.mother_phone || ""} onChange={(e) => setF("mother_phone", e.target.value)} /></div>
                       <div><Label>เลขบัตรมารดา</Label><Input value={editForm.mother_id || ""} onChange={(e) => setF("mother_id", e.target.value)} /></div>
@@ -2308,7 +1871,7 @@ const UserManagement = () => {
                   </div>
                   <div className="border-t pt-3">
                     <h4 className="font-semibold text-sm mb-2 text-muted-foreground">ข้อมูลผู้ปกครอง</h4>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       <div><Label>ชื่อ-สกุลผู้ปกครอง</Label><Input value={editForm.guardian_name || ""} onChange={(e) => setF("guardian_name", e.target.value)} /></div>
                       <div><Label>โทรศัพท์ผู้ปกครอง</Label><Input value={editForm.guardian_phone || ""} onChange={(e) => setF("guardian_phone", e.target.value)} /></div>
                       <div><Label>ความสัมพันธ์</Label><Input value={editForm.guardian_relation || ""} onChange={(e) => setF("guardian_relation", e.target.value)} /></div>
@@ -2340,9 +1903,9 @@ const UserManagement = () => {
               </TabsContent>
             </Tabs>
           )}
-          <DialogFooter className="border-t pt-3 mt-2">
-            <Button variant="outline" onClick={() => setEditOpen(false)}>ยกเลิก</Button>
-            <Button onClick={handleEditUser} disabled={saving || editLoading}>
+          <DialogFooter className="border-t pt-3 mt-2 gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setEditOpen(false)} className="w-full sm:w-auto">ยกเลิก</Button>
+            <Button onClick={handleEditUser} disabled={saving || editLoading} className="w-full sm:w-auto">
               {saving ? "กำลังบันทึก..." : "บันทึกทั้งหมด"}
             </Button>
           </DialogFooter>
@@ -2353,6 +1916,7 @@ const UserManagement = () => {
       <Tabs defaultValue="users" className="w-full">
         <TabsList>
           <TabsTrigger value="users" className="gap-2"><Users className="w-4 h-4" />ผู้ใช้ทั้งหมด</TabsTrigger>
+          <TabsTrigger value="departments" className="gap-2"><Shield className="w-4 h-4" />ฝ่ายงาน</TabsTrigger>
         </TabsList>
         <TabsContent value="users" className="space-y-6 mt-4">
       <Card className="shadow-card border-0">
@@ -2483,12 +2047,12 @@ const UserManagement = () => {
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       {user.is_approved ? (
-                        <Badge variant="outline" className="text-xs bg-success-soft text-success border-success/30">อนุมัติแล้ว</Badge>
+                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">อนุมัติแล้ว</Badge>
                       ) : (
                         <Button
                           size="sm"
                           variant="outline"
-                          className="text-xs h-7 bg-warning-soft text-warning border-warning/30 hover:bg-warning-soft"
+                          className="text-xs h-7 bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
                           onClick={() => handleApproveUser(user.id)}
                         >
                           รออนุมัติ
@@ -2507,7 +2071,7 @@ const UserManagement = () => {
                              title="ลงทะเบียนใบหน้า"
                              onClick={() => setFaceRegisterUser(user)}
                            >
-                             <ScanFace className="w-4 h-4 text-info" />
+                             <ScanFace className="w-4 h-4 text-purple-600" />
                            </Button>
                          )}
                         <AlertDialog>
@@ -2537,63 +2101,8 @@ const UserManagement = () => {
         </CardContent>
       </Card>
 
-      {/* School Settings Dialog */}
-      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><Settings className="w-5 h-5" />ตั้งค่าโรงเรียน</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>เปิดสอนตั้งแต่ระดับ</Label>
-                <Select value={settingGradeStart} onValueChange={setSettingGradeStart}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{GRADE_LEVELS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>ถึงระดับ</Label>
-                <Select value={settingGradeEnd} onValueChange={setSettingGradeEnd}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{GRADE_LEVELS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label>ระดับชั้นที่จบการศึกษา (ศิษย์เก่า)</Label>
-              <p className="text-xs text-muted-foreground mb-2">เลือกระดับชั้นที่ถือว่าจบหลักสูตร เมื่อกด "จบการศึกษาอัตโนมัติ" ระบบจะย้ายนักเรียนในชั้นเหล่านี้ไปเป็นศิษย์เก่า</p>
-              <div className="flex flex-wrap gap-2">
-                {GRADE_LEVELS.map(g => (
-                  <Badge
-                    key={g}
-                    variant={settingTerminalGrades.includes(g) ? "default" : "outline"}
-                    className="cursor-pointer"
-                    onClick={() => {
-                      setSettingTerminalGrades(prev =>
-                        prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]
-                      );
-                    }}
-                  >
-                    {g}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-            <div>
-              <Label>โดเมนอีเมลของโรงเรียน</Label>
-              <p className="text-xs text-muted-foreground mb-2">กำหนดส่วนท้ายอีเมลสำหรับสร้างบัญชีผู้ใช้ เช่น @bng.ac.th</p>
-              <Input
-                value={settingEmailDomain}
-                onChange={e => setSettingEmailDomain(e.target.value)}
-                placeholder="@bng.ac.th"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSettingsOpen(false)}>ยกเลิก</Button>
-            <Button onClick={handleSaveSettings} disabled={saving}>{saving ? "กำลังบันทึก..." : "บันทึก"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* School Settings moved to /dashboard/admin/school-settings */}
+
 
       {/* Help Card */}
       <Card className="border-dashed">
@@ -2623,6 +2132,9 @@ const UserManagement = () => {
         </CardContent>
       </Card>
         </TabsContent>
+        <TabsContent value="departments" className="mt-4">
+          <DepartmentManagementPage />
+        </TabsContent>
       </Tabs>
 
       {faceRegisterUser && (
@@ -2639,7 +2151,7 @@ const UserManagement = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {deleteProgress.done ? (
-                <CheckCircle2 className="w-5 h-5 text-success" />
+                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
               ) : (
                 <Loader2 className="w-5 h-5 animate-spin text-primary" />
               )}

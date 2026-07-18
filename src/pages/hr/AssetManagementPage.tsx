@@ -33,15 +33,15 @@ import { swal } from "@/lib/swal";
 import { ASSET_CATEGORIES, ASSET_CATEGORIES_FULL, getCategoryDef, BUDGET_SOURCES } from "@/lib/assetCategories";
 
 const CONDITIONS = [
-  { value: "ปกติ", color: "bg-success-soft text-success", icon: CheckCircle2 },
-  { value: "ชำรุด", color: "bg-warning-soft text-warning", icon: Wrench },
-  { value: "จำหน่าย", color: "bg-danger-soft text-danger", icon: XCircle },
+  { value: "ปกติ", color: "bg-emerald-100 text-emerald-800", icon: CheckCircle2 },
+  { value: "ชำรุด", color: "bg-amber-100 text-amber-800", icon: Wrench },
+  { value: "จำหน่าย", color: "bg-red-100 text-red-800", icon: XCircle },
 ];
 
 const STATUSES = [
-  { value: "active", label: "ใช้งาน", color: "bg-success-soft text-success" },
-  { value: "maintenance", label: "ซ่อมบำรุง", color: "bg-warning-soft text-warning" },
-  { value: "disposed", label: "จำหน่ายแล้ว", color: "bg-danger-soft text-danger" },
+  { value: "active", label: "ใช้งาน", color: "bg-emerald-100 text-emerald-800" },
+  { value: "maintenance", label: "ซ่อมบำรุง", color: "bg-amber-100 text-amber-800" },
+  { value: "disposed", label: "จำหน่ายแล้ว", color: "bg-red-100 text-red-800" },
 ];
 
 type SortField = "asset_code" | "asset_name" | "acquisition_cost" | "acquisition_date" | "current_value";
@@ -413,10 +413,10 @@ const AssetManagementPage = () => {
 
   const reportStatusBadge = (status: string) => {
     const map: Record<string, { label: string; color: string }> = {
-      pending: { label: "รอดำเนินการ", color: "bg-warning-soft text-warning" },
-      in_progress: { label: "กำลังดำเนินการ", color: "bg-info-soft text-info" },
-      resolved: { label: "แก้ไขแล้ว", color: "bg-success-soft text-success" },
-      rejected: { label: "ปฏิเสธ", color: "bg-danger-soft text-danger" },
+      pending: { label: "รอดำเนินการ", color: "bg-amber-100 text-amber-800" },
+      in_progress: { label: "กำลังดำเนินการ", color: "bg-blue-100 text-blue-800" },
+      resolved: { label: "แก้ไขแล้ว", color: "bg-emerald-100 text-emerald-800" },
+      rejected: { label: "ปฏิเสธ", color: "bg-red-100 text-red-800" },
     };
     const s = map[status] || { label: status, color: "" };
     return <Badge className={s.color}>{s.label}</Badge>;
@@ -484,7 +484,7 @@ const AssetManagementPage = () => {
               </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle className="flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-warning" />แจ้งอุปกรณ์ชำรุด/เสียหาย</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle className="flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-500" />แจ้งอุปกรณ์ชำรุด/เสียหาย</DialogTitle></DialogHeader>
               <div className="space-y-4">
                 <div>
                   <Label>เลือกสินทรัพย์ *</Label>
@@ -506,7 +506,7 @@ const AssetManagementPage = () => {
           {canManage && (
             <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setPhotoFiles([]); setForm(emptyForm()); } }}>
               <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" />เพิ่มสินทรัพย์</Button></DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="sm:max-w-2xl sm:max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle className="flex items-center gap-2"><Package className="w-5 h-5 text-primary" />ลงทะเบียนวัสดุ/ครุภัณฑ์ใหม่</DialogTitle></DialogHeader>
                 <AssetForm
                   mode="add"
@@ -555,8 +555,8 @@ const AssetManagementPage = () => {
                 <p className="text-2xl font-bold text-foreground mt-1">฿{formatMoney(totalCost)}</p>
                 <p className="text-xs text-muted-foreground mt-1">ปัจจุบัน ฿{formatMoney(totalValue)}</p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
-                <BarChart3 className="w-6 h-6 text-info" />
+              <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                <BarChart3 className="w-6 h-6 text-blue-500" />
               </div>
             </div>
           </CardContent>
@@ -567,14 +567,14 @@ const AssetManagementPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">ค่าเสื่อมราคาสะสม</p>
-                <p className="text-2xl font-bold text-warning mt-1">฿{formatMoney(depreciation)}</p>
+                <p className="text-2xl font-bold text-amber-600 mt-1">฿{formatMoney(depreciation)}</p>
                 <div className="mt-2">
                   <Progress value={depreciationPercent} className="h-1.5" />
                   <p className="text-[10px] text-muted-foreground mt-0.5">{depreciationPercent}% ของมูลค่า</p>
                 </div>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
-                <TrendingDown className="w-6 h-6 text-warning" />
+              <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                <TrendingDown className="w-6 h-6 text-amber-500" />
               </div>
             </div>
           </CardContent>
@@ -587,14 +587,14 @@ const AssetManagementPage = () => {
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">ต้องดำเนินการ</p>
                 <p className="text-3xl font-bold text-foreground mt-1">{expiredCount + pendingReports}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {expiredCount > 0 && <span className="text-danger">หมดอายุ {expiredCount}</span>}
+                  {expiredCount > 0 && <span className="text-red-600">หมดอายุ {expiredCount}</span>}
                   {expiredCount > 0 && pendingReports > 0 && " • "}
-                  {pendingReports > 0 && <span className="text-warning">แจ้งซ่อม {pendingReports}</span>}
-                  {expiredCount === 0 && pendingReports === 0 && <span className="text-success">ไม่มีรายการค้าง</span>}
+                  {pendingReports > 0 && <span className="text-amber-600">แจ้งซ่อม {pendingReports}</span>}
+                  {expiredCount === 0 && pendingReports === 0 && <span className="text-emerald-600">ไม่มีรายการค้าง</span>}
                 </p>
               </div>
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${expiredCount > 0 || pendingReports > 0 ? "bg-danger/10" : "bg-success/10"}`}>
-                <AlertTriangle className={`w-6 h-6 ${expiredCount > 0 || pendingReports > 0 ? "text-danger" : "text-success"}`} />
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${expiredCount > 0 || pendingReports > 0 ? "bg-red-500/10" : "bg-emerald-500/10"}`}>
+                <AlertTriangle className={`w-6 h-6 ${expiredCount > 0 || pendingReports > 0 ? "text-red-500" : "text-emerald-500"}`} />
               </div>
             </div>
           </CardContent>
@@ -702,13 +702,13 @@ const AssetManagementPage = () => {
                     const CondIcon = cond?.icon || CheckCircle2;
                     const def = getCategoryDef(r.category);
                     return (
-                      <TableRow key={r.id} className={`group hover:bg-muted/50 transition-colors ${expired ? "bg-danger/30" : ""}`}>
+                      <TableRow key={r.id} className={`group hover:bg-muted/50 transition-colors ${expired ? "bg-red-50/30" : ""}`}>
                         <TableCell>
                           <Checkbox checked={selectedIds.has(r.id)} onCheckedChange={() => toggleSelect(r.id)} />
                         </TableCell>
                         <TableCell>
                           {r.photo_url ? (
-                            <img src={r.photo_url} alt={r.asset_name} className="w-10 h-10 rounded-lg object-cover border shadow-sm" />
+                            <img loading="lazy" decoding="async" src={r.photo_url} alt={r.asset_name} className="w-10 h-10 rounded-lg object-cover border shadow-sm" />
                           ) : (
                             <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center border">
                               <ImageIcon className="w-4 h-4 text-muted-foreground" />
@@ -750,17 +750,17 @@ const AssetManagementPage = () => {
                         <TableCell>
                           <div className="space-y-1 min-w-[120px]">
                             <div className="flex items-center justify-between">
-                              <span className={`text-xs ${expired ? "text-danger font-semibold" : ""}`}>
+                              <span className={`text-xs ${expired ? "text-red-600 font-semibold" : ""}`}>
                                 {getAssetAge(r.acquisition_date)}
                               </span>
                               <span className="text-[10px] text-muted-foreground">{usagePercent}%</span>
                             </div>
                             <Progress
                               value={usagePercent}
-                              className={`h-1.5 ${usagePercent >= 100 ? "[&>div]:bg-danger" : usagePercent >= 75 ? "[&>div]:bg-warning" : "[&>div]:bg-success"}`}
+                              className={`h-1.5 ${usagePercent >= 100 ? "[&>div]:bg-red-500" : usagePercent >= 75 ? "[&>div]:bg-amber-500" : "[&>div]:bg-emerald-500"}`}
                             />
                             {expired && (
-                              <Badge className="bg-danger-soft text-danger text-[9px] px-1.5 py-0">หมดอายุ</Badge>
+                              <Badge className="bg-red-100 text-red-700 text-[9px] px-1.5 py-0">หมดอายุ</Badge>
                             )}
                           </div>
                         </TableCell>
@@ -833,7 +833,7 @@ const AssetManagementPage = () => {
                       </TableCell>
                       <TableCell className="max-w-[250px]">
                         <p className="text-sm truncate">{r.description}</p>
-                        {r.resolution_notes && <p className="text-xs text-success mt-0.5">✓ {r.resolution_notes}</p>}
+                        {r.resolution_notes && <p className="text-xs text-emerald-600 mt-0.5">✓ {r.resolution_notes}</p>}
                       </TableCell>
                       <TableCell>{reportStatusBadge(r.status)}</TableCell>
                       {canManage && (
@@ -843,7 +843,7 @@ const AssetManagementPage = () => {
                               <Button size="sm" variant="outline" onClick={() => handleUpdateReportStatus(r.id, "in_progress")}>
                                 <Wrench className="w-3 h-3 mr-1" />รับเรื่อง
                               </Button>
-                              <Button size="sm" variant="ghost" className="text-danger" onClick={() => handleUpdateReportStatus(r.id, "rejected")}>ปฏิเสธ</Button>
+                              <Button size="sm" variant="ghost" className="text-red-600" onClick={() => handleUpdateReportStatus(r.id, "rejected")}>ปฏิเสธ</Button>
                             </div>
                           )}
                           {r.status === "in_progress" && (
@@ -858,7 +858,7 @@ const AssetManagementPage = () => {
                   {damageReports.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={canManage ? 6 : 5} className="text-center py-12">
-                        <CheckCircle2 className="w-10 h-10 text-success mx-auto mb-2" />
+                        <CheckCircle2 className="w-10 h-10 text-emerald-300 mx-auto mb-2" />
                         <p className="text-muted-foreground">ไม่มีรายการแจ้งชำรุด</p>
                       </TableCell>
                     </TableRow>
@@ -872,7 +872,7 @@ const AssetManagementPage = () => {
 
       {/* Detail Dialog */}
       <Dialog open={!!detailAsset} onOpenChange={() => setDetailAsset(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle className="flex items-center gap-2"><Eye className="w-5 h-5" />รายละเอียดสินทรัพย์</DialogTitle></DialogHeader>
           {detailAsset && (
             <AssetDetailView
@@ -889,7 +889,7 @@ const AssetManagementPage = () => {
 
       {/* Edit Dialog */}
       <Dialog open={!!editAsset} onOpenChange={() => { setEditAsset(null); setPhotoFiles([]); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle className="flex items-center gap-2"><Edit className="w-5 h-5" />แก้ไขสินทรัพย์</DialogTitle></DialogHeader>
           {editAsset && (
             <>
@@ -1004,7 +1004,7 @@ const AssetForm = ({ mode, form, setForm, personnel, photoFiles, setPhotoFiles, 
   return (
     <div className="space-y-4 pr-2">
       {/* Section 1: ข้อมูลพื้นฐาน */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <Label>รหัสสินทรัพย์ *</Label>
           <Input value={form.asset_code} onChange={e => upd({ asset_code: e.target.value })} placeholder="เช่น 7440-001-0001" />
@@ -1055,7 +1055,7 @@ const AssetForm = ({ mode, form, setForm, personnel, photoFiles, setPhotoFiles, 
         </div>
       )}
       {snDuplicate && (
-        <div className="flex items-start gap-2 p-2 rounded-md bg-warning-soft border border-warning/30 text-warning text-xs">
+        <div className="flex items-start gap-2 p-2 rounded-md bg-amber-50 border border-amber-300 text-amber-800 text-xs">
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
           <div>
             <p className="font-semibold">S/N นี้มีอยู่แล้วในระบบ!</p>
@@ -1067,12 +1067,12 @@ const AssetForm = ({ mode, form, setForm, personnel, photoFiles, setPhotoFiles, 
       {/* Section 2: ราคา & อายุ */}
       <div className="border-t pt-3">
         <p className="text-xs font-semibold text-muted-foreground mb-2">ราคาและอายุการใช้งาน</p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div><Label>ราคาที่ได้มา (บาท) *</Label><Input type="number" value={form.acquisition_cost} onChange={e => upd({ acquisition_cost: e.target.value })} /></div>
           <div><Label>อัตราเสื่อมราคา (%)</Label><Input type="number" value={form.depreciation_rate} onChange={e => upd({ depreciation_rate: e.target.value })} /></div>
           <div><Label>จำนวน (ชิ้น)</Label><Input type="number" min={1} value={form.quantity ?? 1} onChange={e => upd({ quantity: e.target.value })} /></div>
         </div>
-        <div className="grid grid-cols-3 gap-3 mt-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
           <div><Label>วันที่ได้มา</Label><BEDatePicker value={form.acquisition_date || ""} onChange={(v) => upd({ acquisition_date: v })} /></div>
           <div><Label>อายุการใช้งาน (ปี)</Label><Input type="number" value={form.useful_life_years} onChange={e => upd({ useful_life_years: e.target.value })} /></div>
           <div><Label>สิ้นสุดการรับประกัน</Label><BEDatePicker value={form.warranty_until || ""} onChange={(v) => upd({ warranty_until: v })} /></div>
@@ -1082,7 +1082,7 @@ const AssetForm = ({ mode, form, setForm, personnel, photoFiles, setPhotoFiles, 
       {/* Section 3: งบประมาณ */}
       <div className="border-t pt-3">
         <p className="text-xs font-semibold text-muted-foreground mb-2">งบประมาณ & แหล่งที่มา</p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label>แหล่งงบประมาณ</Label>
             <Select value={form.budget_source || ""} onValueChange={(v) => upd({ budget_source: v })}>
@@ -1102,7 +1102,7 @@ const AssetForm = ({ mode, form, setForm, personnel, photoFiles, setPhotoFiles, 
         <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
           <Building2 className="w-3.5 h-3.5" /> ตำแหน่งที่ใช้งาน
         </p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div><Label>อาคาร</Label><Input value={form.building || ""} onChange={e => upd({ building: e.target.value })} placeholder="เช่น อาคาร 1" /></div>
           <div><Label>ชั้น</Label><Input value={form.floor || ""} onChange={e => upd({ floor: e.target.value })} placeholder="เช่น 2" /></div>
           <div><Label>ห้อง</Label><Input value={form.room || ""} onChange={e => upd({ room: e.target.value })} placeholder="เช่น คอม 1" /></div>
@@ -1124,7 +1124,7 @@ const AssetForm = ({ mode, form, setForm, personnel, photoFiles, setPhotoFiles, 
       {/* Section 5: ผู้รับผิดชอบ */}
       <div className="border-t pt-3">
         <p className="text-xs font-semibold text-muted-foreground mb-2">ผู้รับผิดชอบ</p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label>เลือกจากบุคลากร</Label>
             <Select
@@ -1159,10 +1159,10 @@ const AssetForm = ({ mode, form, setForm, personnel, photoFiles, setPhotoFiles, 
           onChange={e => setPhotoFiles(Array.from(e.target.files || []))}
         />
         {(existingPhotos.length > 0 || photoFiles.length > 0) && (
-          <div className="grid grid-cols-4 gap-2 mt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-2">
             {existingPhotos.map((url, i) => (
               <div key={`ex-${i}`} className="relative group">
-                <img src={url} alt="" className="w-full h-20 object-cover rounded border" />
+                <img loading="lazy" decoding="async" src={url} alt="" className="w-full h-20 object-cover rounded border" />
                 <button
                   type="button"
                   onClick={() => removeExistingPhoto(i)}
@@ -1174,7 +1174,7 @@ const AssetForm = ({ mode, form, setForm, personnel, photoFiles, setPhotoFiles, 
             ))}
             {photoFiles.map((f, i) => (
               <div key={`new-${i}`} className="relative">
-                <img src={URL.createObjectURL(f)} alt="" className="w-full h-20 object-cover rounded border-2 border-primary" />
+                <img loading="lazy" decoding="async" src={URL.createObjectURL(f)} alt="" className="w-full h-20 object-cover rounded border-2 border-primary" />
                 <span className="absolute bottom-0 left-0 right-0 text-[9px] bg-primary/80 text-white text-center">ใหม่</span>
               </div>
             ))}
@@ -1183,7 +1183,7 @@ const AssetForm = ({ mode, form, setForm, personnel, photoFiles, setPhotoFiles, 
       </div>
 
       <div className="border-t pt-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label>สภาพ</Label>
             <Select value={form.condition} onValueChange={v => upd({ condition: v })}>
@@ -1214,7 +1214,7 @@ const AssetDetailView = ({ asset, personnel, formatMoney, getAssetAge, getUsageP
       {/* Photos gallery */}
       {photos.length > 0 && (
         <div className="space-y-2">
-          <img src={photos[activePhoto]} alt={asset.asset_name} className="w-full h-64 object-cover rounded-lg border" />
+          <img loading="lazy" decoding="async" src={photos[activePhoto]} alt={asset.asset_name} className="w-full h-64 object-cover rounded-lg border" />
           {photos.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-1">
               {photos.map((p, i) => (
@@ -1223,7 +1223,7 @@ const AssetDetailView = ({ asset, personnel, formatMoney, getAssetAge, getUsageP
                   onClick={() => setActivePhoto(i)}
                   className={`shrink-0 ${i === activePhoto ? "ring-2 ring-primary" : ""}`}
                 >
-                  <img src={p} alt="" className="w-16 h-16 object-cover rounded border" />
+                  <img loading="lazy" decoding="async" src={p} alt="" className="w-16 h-16 object-cover rounded border" />
                 </button>
               ))}
             </div>
@@ -1231,7 +1231,7 @@ const AssetDetailView = ({ asset, personnel, formatMoney, getAssetAge, getUsageP
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 text-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
         <div><span className="text-muted-foreground">รหัส:</span> <span className="font-mono font-medium">{asset.asset_code}</span></div>
         <div><span className="text-muted-foreground">หมวด:</span> {asset.category} {def && <Badge variant="outline" className="ml-1 text-[9px]">{def.group}</Badge>}</div>
         <div className="col-span-2"><span className="text-muted-foreground">ชื่อ:</span> <span className="font-medium">{asset.asset_name}</span></div>
@@ -1240,7 +1240,7 @@ const AssetDetailView = ({ asset, personnel, formatMoney, getAssetAge, getUsageP
         )}
         <div><span className="text-muted-foreground">จำนวน:</span> {asset.quantity || 1} ชิ้น</div>
         <div><span className="text-muted-foreground">ราคา:</span> <span className="font-mono">฿{formatMoney(Number(asset.acquisition_cost))}</span></div>
-        <div><span className="text-muted-foreground">มูลค่าปัจจุบัน:</span> <span className="font-mono text-success">฿{formatMoney(Number(asset.current_value || 0))}</span></div>
+        <div><span className="text-muted-foreground">มูลค่าปัจจุบัน:</span> <span className="font-mono text-emerald-600">฿{formatMoney(Number(asset.current_value || 0))}</span></div>
         <div><span className="text-muted-foreground">วันที่ได้มา:</span> {asset.acquisition_date || "-"}</div>
         <div><span className="text-muted-foreground">อายุ:</span> {getAssetAge(asset.acquisition_date)}</div>
         <div><span className="text-muted-foreground">อายุกำหนด:</span> {asset.useful_life_years || "-"} ปี</div>

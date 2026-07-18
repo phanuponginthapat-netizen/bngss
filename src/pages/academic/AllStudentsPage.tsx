@@ -14,13 +14,29 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Users, Search, ArrowUpCircle, Download, Printer, Eye, Pencil, User, Heart, GraduationCap, Award } from "lucide-react";
+import { Users, Search, ArrowUpCircle, Download, Printer, Eye, Pencil, User, Heart, GraduationCap } from "lucide-react";
 import { ScanSearchButton } from "@/components/student/ScanSearchButton";
 import { useFieldVisibility, FIELD_LABELS, type DmcFieldConfig } from "@/hooks/useFieldVisibility";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { formatDateBE } from "@/lib/dateBE";
 import { SPECIAL_NEEDS_TYPES } from "@/lib/specialNeeds";
-import { useUserRole } from "@/hooks/useUserRole";
+import { z } from "zod";
+import { validateAndConfirm, commonRegex } from "@/lib/formValidation";
+import { BE_OFFSET } from "@/lib/dateBE";
+
+const studentSchema = z.object({
+  first_name: z.string().trim().min(1, "กรุณากรอก").max(80),
+  last_name: z.string().trim().min(1, "กรุณากรอก").max(80),
+  student_code: z.string().trim().min(1, "กรุณากรอกรหัสนักเรียน").max(20),
+  national_id: z.string().trim().regex(/^\d{13}$/, "ต้องเป็นเลข 13 หลัก").optional().or(z.literal("")).or(z.null()),
+  father_phone: z.string().trim().regex(commonRegex.phoneTH, "เบอร์ไม่ถูกต้อง").optional().or(z.literal("")).or(z.null()),
+  mother_phone: z.string().trim().regex(commonRegex.phoneTH, "เบอร์ไม่ถูกต้อง").optional().or(z.literal("")).or(z.null()),
+  guardian_phone: z.string().trim().regex(commonRegex.phoneTH, "เบอร์ไม่ถูกต้อง").optional().or(z.literal("")).or(z.null()),
+});
+const studentLabels = {
+  first_name: "ชื่อ", last_name: "นามสกุล", student_code: "รหัสนักเรียน",
+  national_id: "เลขบัตรประชาชน", father_phone: "เบอร์บิดา", mother_phone: "เบอร์มารดา", guardian_phone: "เบอร์ผู้ปกครอง",
+};
 
 const GRADE_LEVELS = [
   "อ.1", "อ.2", "อ.3",
@@ -41,18 +57,18 @@ const AllStudentsPage = () => {
   const { lang } = useLanguage();
   const qc = useQueryClient();
   const { config: fieldConfig } = useFieldVisibility();
-  const { isAdmin } = useUserRole();
   const [search, setSearch] = useState("");
   const [filterGrade, setFilterGrade] = useState("all");
   const [filterStatus, setFilterStatus] = useState("active");
   const [filterSpecial, setFilterSpecial] = useState(false);
   const [promoteOpen, setPromoteOpen] = useState(false);
   const [promoteClassroomIds, setPromoteClassroomIds] = useState<string[]>([]);
+  // Per-source target classroom override: source_id → target_id ("auto" = round-robin, "graduate" = จบการศึกษา)
+  const [promoteTarget, setPromoteTarget] = useState<Record<string, string>>({});
+  // Per-student opt-out: student ids ที่จะให้จบการศึกษา (ศิษย์เก่า) แทนการเลื่อนชั้น
+  const [graduateStudentIds, setGraduateStudentIds] = useState<Record<string, Set<string>>>({});
+  const [expandedClassroom, setExpandedClassroom] = useState<string | null>(null);
   const [promoting, setPromoting] = useState(false);
-  const [graduateOpen, setGraduateOpen] = useState(false);
-  const [graduateGrades, setGraduateGrades] = useState<string[]>([]);
-  const [graduateStudentIds, setGraduateStudentIds] = useState<string[]>([]);
-  const [graduating, setGraduating] = useState(false);
   const [detailStudent, setDetailStudent] = useState<any>(null);
   const [editStudent, setEditStudent] = useState<any>(null);
   const [saving, setSaving] = useState(false);
@@ -104,86 +120,119 @@ const AllStudentsPage = () => {
     setPromoting(true);
     try {
       let totalPromoted = 0;
+      let totalGraduated = 0;
+      const errors: string[] = [];
+      const nowYear = new Date().getFullYear() + BE_OFFSET;
+
       for (const classroomId of promoteClassroomIds) {
-        const classroom = classrooms.find((c: any) => c.id === classroomId);
-        if (!classroom) continue;
-        const currentGrade = classroom.grade_level;
-        const nextGrade = GRADE_NEXT[currentGrade];
-        if (!nextGrade) continue;
-        const targetClassrooms = classrooms.filter((c: any) => c.grade_level === nextGrade);
-        if (targetClassrooms.length === 0) {
-          toast.error(`ไม่มีห้องเรียนระดับ ${nextGrade} กรุณาสร้างห้องเรียนก่อน`);
-          continue;
-        }
-        const classStudents = students.filter((s: any) => s.classroom_id === classroomId && s.status === "active");
-        if (classStudents.length === 0) continue;
-        let promoted = 0;
-        for (let i = 0; i < classStudents.length; i++) {
-          const targetIdx = i % targetClassrooms.length;
+        const source = classrooms.find((c: any) => c.id === classroomId);
+        if (!source) continue;
+
+        const allActive = students.filter(
+          (s: any) => s.classroom_id === classroomId && s.status === "active"
+        );
+        if (allActive.length === 0) continue;
+
+        const optOut = graduateStudentIds[classroomId] || new Set<string>();
+        const explicitTarget = promoteTarget[classroomId];
+        const nextGrade = GRADE_NEXT[source.grade_level];
+        const wholeRoomGraduate = explicitTarget === "graduate" || !nextGrade;
+
+        // แยก 2 กลุ่ม: จบการศึกษา vs เลื่อนชั้น
+        const graduatingStudents = wholeRoomGraduate
+          ? allActive
+          : allActive.filter((s: any) => optOut.has(s.id));
+        const promotingStudents = wholeRoomGraduate
+          ? []
+          : allActive.filter((s: any) => !optOut.has(s.id));
+
+        // ── กลุ่มจบการศึกษา → ศิษย์เก่า
+        if (graduatingStudents.length > 0) {
+          const ids = graduatingStudents.map((s: any) => s.id);
           const { error } = await supabase
             .from("students")
-            .update({ classroom_id: targetClassrooms[targetIdx].id })
-            .eq("id", classStudents[i].id);
-          if (!error) promoted++;
+            .update({ status: "graduated", graduation_year: nowYear })
+            .in("id", ids);
+          if (error) {
+            errors.push(`${source.grade_level}/${source.name} (จบ): ${error.message}`);
+          } else {
+            totalGraduated += ids.length;
+          }
         }
-        for (const student of classStudents) {
-          await supabase.from("profiles").update({ department: nextGrade }).eq("student_code", student.student_code);
+
+        if (promotingStudents.length === 0) continue;
+
+        // ── กลุ่มเลื่อนชั้น: ไปห้องที่ระบุ (batch)
+        if (explicitTarget && explicitTarget !== "auto") {
+          const ids = promotingStudents.map((s: any) => s.id);
+          const { error } = await supabase
+            .from("students")
+            .update({ classroom_id: explicitTarget })
+            .in("id", ids);
+          if (error) { errors.push(`${source.grade_level}/${source.name}: ${error.message}`); continue; }
+          totalPromoted += ids.length;
+          continue;
         }
-        totalPromoted += promoted;
+
+        // ── auto: กระจาย round-robin ไปทุกห้องของ nextGrade
+        const targetClassrooms = classrooms.filter((c: any) => c.grade_level === nextGrade);
+        if (targetClassrooms.length === 0) {
+          errors.push(`ไม่มีห้อง ${nextGrade} — โปรดสร้างก่อน หรือเลือก "จบการศึกษา"`);
+          continue;
+        }
+        const buckets: Record<string, string[]> = {};
+        promotingStudents.forEach((st: any, i: number) => {
+          const t = targetClassrooms[i % targetClassrooms.length].id;
+          (buckets[t] ||= []).push(st.id);
+        });
+        for (const [targetId, ids] of Object.entries(buckets)) {
+          const { error } = await supabase
+            .from("students")
+            .update({ classroom_id: targetId })
+            .in("id", ids);
+          if (error) { errors.push(`${source.grade_level}/${source.name} → ${targetId.slice(0, 8)}: ${error.message}`); continue; }
+          totalPromoted += ids.length;
+        }
       }
-      toast.success(`เลื่อนชั้นสำเร็จ ${totalPromoted} คน จาก ${promoteClassroomIds.length} ห้อง`);
+
+      const parts: string[] = [];
+      if (totalPromoted) parts.push(`เลื่อนชั้น ${totalPromoted} คน`);
+      if (totalGraduated) parts.push(`จบการศึกษา ${totalGraduated} คน`);
+      if (parts.length) toast.success(parts.join(" · "));
+      if (errors.length) toast.error(errors.slice(0, 3).join("\n"));
+
       qc.invalidateQueries({ queryKey: ["all_students_dmc"] });
       setPromoteOpen(false);
       setPromoteClassroomIds([]);
+      setPromoteTarget({});
+      setGraduateStudentIds({});
+      setExpandedClassroom(null);
     } catch (e: any) {
       toast.error(e.message);
     }
     setPromoting(false);
   };
 
-  // Students eligible for graduation = active students whose grade is in selected grades
-  const graduateCandidates = students.filter(
-    (s: any) => s.status === "active" && graduateGrades.includes(s.classrooms?.grade_level)
-  );
-
-  const handleGraduate = async () => {
-    if (graduateStudentIds.length === 0) {
-      toast.error("กรุณาเลือกนักเรียนที่จะจบการศึกษา");
-      return;
-    }
-    setGraduating(true);
-    const tid = toast.loading(`กำลังบันทึกการจบการศึกษา ${graduateStudentIds.length} คน...`);
-    try {
-      const year = new Date().getFullYear();
-      let ok = 0;
-      for (const sid of graduateStudentIds) {
-        const stu = students.find((s: any) => s.id === sid);
-        if (!stu) continue;
-        const { error } = await supabase
-          .from("students")
-          .update({
-            status: "graduated",
-            graduation_year: year,
-            graduation_level: stu.classrooms?.grade_level || null,
-          })
-          .eq("id", sid);
-        if (!error) ok++;
-      }
-      toast.dismiss(tid);
-      toast.success(`บันทึกการจบการศึกษาสำเร็จ ${ok} คน`);
-      qc.invalidateQueries({ queryKey: ["all_students_dmc"] });
-      setGraduateOpen(false);
-      setGraduateGrades([]);
-      setGraduateStudentIds([]);
-    } catch (e: any) {
-      toast.dismiss(tid);
-      toast.error(e.message);
-    }
-    setGraduating(false);
-  };
-
   const handleSaveStudent = async () => {
     if (!editStudent) return;
+    const { ok } = await validateAndConfirm(
+      studentSchema,
+      {
+        first_name: editStudent.first_name,
+        last_name: editStudent.last_name,
+        student_code: editStudent.student_code,
+        national_id: editStudent.national_id ?? "",
+        father_phone: editStudent.father_phone ?? "",
+        mother_phone: editStudent.mother_phone ?? "",
+        guardian_phone: editStudent.guardian_phone ?? "",
+      },
+      {
+        confirmTitle: "ยืนยันบันทึกข้อมูลนักเรียน?",
+        confirmText: `${editStudent.first_name} ${editStudent.last_name} (${editStudent.student_code})`,
+        labels: studentLabels,
+      },
+    );
+    if (!ok) return;
     const __tid_save_1 = toast.loading("กำลังบันทึก...");
     setSaving(true);
     try {
@@ -242,16 +291,9 @@ const AllStudentsPage = () => {
           <Button variant="outline" size="sm" onClick={() => window.print()}>
             <Printer className="w-4 h-4 mr-1" /> พิมพ์
           </Button>
-          {isAdmin && (
-            <>
-              <Button size="sm" onClick={() => setPromoteOpen(true)}>
-                <ArrowUpCircle className="w-4 h-4 mr-1" /> เลื่อนชั้นทั้งห้อง
-              </Button>
-              <Button size="sm" variant="default" className="bg-warning hover:bg-warning text-white" onClick={() => setGraduateOpen(true)}>
-                <Award className="w-4 h-4 mr-1" /> จบการศึกษา
-              </Button>
-            </>
-          )}
+          <Button size="sm" onClick={() => setPromoteOpen(true)}>
+            <ArrowUpCircle className="w-4 h-4 mr-1" /> เลื่อนชั้นทั้งห้อง
+          </Button>
         </div>
       </div>
 
@@ -259,19 +301,19 @@ const AllStudentsPage = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card><CardContent className="p-4 text-center">
           <p className="text-xs text-muted-foreground">นักเรียนทั้งหมด</p>
-          <p className="text-3xl font-bold text-accent-foreground bg-transparent text-danger">{totalActive}</p>
+          <p className="text-3xl font-bold text-accent-foreground bg-transparent text-red-600">{totalActive}</p>
         </CardContent></Card>
         <Card><CardContent className="p-4 text-center">
           <p className="text-xs text-muted-foreground">ชาย</p>
-          <p className="text-3xl font-bold text-info">{totalMale}</p>
+          <p className="text-3xl font-bold text-blue-600">{totalMale}</p>
         </CardContent></Card>
         <Card><CardContent className="p-4 text-center">
           <p className="text-xs text-muted-foreground">หญิง</p>
-          <p className="text-3xl font-bold text-danger">{totalFemale}</p>
+          <p className="text-3xl font-bold text-pink-600">{totalFemale}</p>
         </CardContent></Card>
         <Card><CardContent className="p-4 text-center">
           <p className="text-xs text-muted-foreground">ห้องเรียน</p>
-          <p className="text-3xl font-bold text-warning">{classrooms.length}</p>
+          <p className="text-3xl font-bold text-amber-600">{classrooms.length}</p>
         </CardContent></Card>
       </div>
 
@@ -377,7 +419,7 @@ const AllStudentsPage = () => {
                       <div className="flex items-center gap-1.5">
                         <span>{s.first_name}</span>
                         {s.is_special_needs && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-warning/30 text-warning bg-warning-soft dark:bg-warning/20 dark:text-warning" title={s.special_needs_type || s.special_needs || "การศึกษาพิเศษ"}>
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-700 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-300" title={s.special_needs_type || s.special_needs || "การศึกษาพิเศษ"}>
                             พิเศษ
                           </Badge>
                         )}
@@ -389,7 +431,7 @@ const AllStudentsPage = () => {
                     <TableCell>{s.classrooms?.name || "—"}</TableCell>
                     <TableCell>
                       <Badge variant={s.status === "active" ? "default" : "outline"}
-                        className={s.status === "active" ? "bg-success-soft text-success dark:bg-success/30 dark:text-success" : ""}>
+                        className={s.status === "active" ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : ""}>
                         {s.status === "active" ? "กำลังศึกษา" : s.status === "graduated" ? "จบ" : s.status === "transferred" ? "ย้าย" : s.status}
                       </Badge>
                     </TableCell>
@@ -409,7 +451,7 @@ const AllStudentsPage = () => {
 
       {/* Detail Dialog */}
       <Dialog open={!!detailStudent} onOpenChange={(o) => { if (!o) setDetailStudent(null); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <User className="w-5 h-5 text-primary" />
@@ -436,7 +478,7 @@ const AllStudentsPage = () => {
                 <TabsTrigger value="education">การศึกษา</TabsTrigger>
               </TabsList>
               <TabsContent value="personal">
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   <InfoItem label="รหัสนักเรียน" value={detailStudent.student_code} />
                   {fieldConfig.national_id && <InfoItem label="เลขบัตรฯ" value={detailStudent.national_id} />}
                   <InfoItem label="คำนำหน้า" value={detailStudent.prefix} />
@@ -459,7 +501,7 @@ const AllStudentsPage = () => {
                   {fieldConfig.father_name && (
                     <div>
                       <h4 className="font-semibold text-sm text-primary mb-2 flex items-center gap-1"><Heart className="w-3.5 h-3.5" /> ข้อมูลบิดา</h4>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                         <InfoItem label="ชื่อบิดา" value={detailStudent.father_name} />
                         {fieldConfig.father_id && <InfoItem label="เลขบัตรฯ" value={detailStudent.father_id} />}
                         {fieldConfig.father_phone && <InfoItem label="โทรศัพท์" value={detailStudent.father_phone} />}
@@ -470,7 +512,7 @@ const AllStudentsPage = () => {
                   {fieldConfig.mother_name && (
                     <div>
                       <h4 className="font-semibold text-sm text-primary mb-2 flex items-center gap-1"><Heart className="w-3.5 h-3.5" /> ข้อมูลมารดา</h4>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                         <InfoItem label="ชื่อมารดา" value={detailStudent.mother_name} />
                         {fieldConfig.mother_id && <InfoItem label="เลขบัตรฯ" value={detailStudent.mother_id} />}
                         {fieldConfig.mother_phone && <InfoItem label="โทรศัพท์" value={detailStudent.mother_phone} />}
@@ -481,7 +523,7 @@ const AllStudentsPage = () => {
                   {fieldConfig.guardian_name && (
                     <div>
                       <h4 className="font-semibold text-sm text-primary mb-2 flex items-center gap-1"><GraduationCap className="w-3.5 h-3.5" /> ข้อมูลผู้ปกครอง</h4>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                         <InfoItem label="ชื่อผู้ปกครอง" value={detailStudent.guardian_name} />
                         {fieldConfig.guardian_phone && <InfoItem label="โทรศัพท์" value={detailStudent.guardian_phone} />}
                         {fieldConfig.guardian_relation && <InfoItem label="ความสัมพันธ์" value={detailStudent.guardian_relation} />}
@@ -491,7 +533,7 @@ const AllStudentsPage = () => {
                   {fieldConfig.emergency_contact && (
                     <div>
                       <h4 className="font-semibold text-sm text-destructive mb-2">ผู้ติดต่อฉุกเฉิน</h4>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                         <InfoItem label="ชื่อ" value={detailStudent.emergency_contact} />
                         {fieldConfig.emergency_phone && <InfoItem label="โทรศัพท์" value={detailStudent.emergency_phone} />}
                       </div>
@@ -500,7 +542,7 @@ const AllStudentsPage = () => {
                 </div>
               </TabsContent>
               <TabsContent value="education">
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   <InfoItem label="ระดับชั้น" value={detailStudent.classrooms?.grade_level} />
                   <InfoItem label="ห้อง" value={detailStudent.classrooms?.name} />
                   {fieldConfig.previous_school && <InfoItem label="โรงเรียนเดิม" value={detailStudent.previous_school} />}
@@ -520,7 +562,7 @@ const AllStudentsPage = () => {
 
       {/* Edit Dialog */}
       <Dialog open={!!editStudent} onOpenChange={(o) => { if (!o) setEditStudent(null); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="w-5 h-5 text-primary" />
@@ -536,11 +578,11 @@ const AllStudentsPage = () => {
                 <TabsTrigger value="health">สุขภาพ</TabsTrigger>
               </TabsList>
               <TabsContent value="personal" className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>รหัสนักเรียน</Label><Input value={editStudent.student_code} onChange={e => updateEdit("student_code", e.target.value)} /></div>
                   {fieldConfig.national_id && <div><Label>เลขประจำตัวประชาชน</Label><Input value={editStudent.national_id || ""} onChange={e => updateEdit("national_id", e.target.value)} maxLength={13} /></div>}
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div><Label>คำนำหน้า</Label>
                     <Select value={editStudent.prefix || "ด.ช."} onValueChange={v => updateEdit("prefix", v)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -555,7 +597,7 @@ const AllStudentsPage = () => {
                   <div><Label>ชื่อ</Label><Input value={editStudent.first_name} onChange={e => updateEdit("first_name", e.target.value)} /></div>
                   <div><Label>นามสกุล</Label><Input value={editStudent.last_name} onChange={e => updateEdit("last_name", e.target.value)} /></div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {fieldConfig.gender && <div><Label>เพศ</Label>
                     <Select value={editStudent.gender || ""} onValueChange={v => updateEdit("gender", v)}>
                       <SelectTrigger><SelectValue placeholder="เลือก" /></SelectTrigger>
@@ -567,12 +609,12 @@ const AllStudentsPage = () => {
                   </div>}
                   {fieldConfig.date_of_birth && <div><Label>วันเกิด</Label><BEDatePicker value={editStudent.date_of_birth || ""} onChange={(v) => updateEdit("date_of_birth", v)} /></div>}
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {fieldConfig.nationality && <div><Label>สัญชาติ</Label><Input value={editStudent.nationality || "ไทย"} onChange={e => updateEdit("nationality", e.target.value)} /></div>}
                   {fieldConfig.ethnicity && <div><Label>เชื้อชาติ</Label><Input value={editStudent.ethnicity || "ไทย"} onChange={e => updateEdit("ethnicity", e.target.value)} /></div>}
                   {fieldConfig.religion && <div><Label>ศาสนา</Label><Input value={editStudent.religion || "พุทธ"} onChange={e => updateEdit("religion", e.target.value)} /></div>}
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {fieldConfig.blood_type && <div><Label>หมู่เลือด</Label>
                     <Select value={editStudent.blood_type || ""} onValueChange={v => updateEdit("blood_type", v)}>
                       <SelectTrigger><SelectValue placeholder="เลือก" /></SelectTrigger>
@@ -590,7 +632,7 @@ const AllStudentsPage = () => {
                 {fieldConfig.father_name && (
                   <div className="space-y-3">
                     <h4 className="font-semibold text-sm text-primary">ข้อมูลบิดา</h4>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>ชื่อบิดา</Label><Input value={editStudent.father_name || ""} onChange={e => updateEdit("father_name", e.target.value)} /></div>
                       {fieldConfig.father_id && <div><Label>เลขบัตรฯ</Label><Input value={editStudent.father_id || ""} onChange={e => updateEdit("father_id", e.target.value)} maxLength={13} /></div>}
                       {fieldConfig.father_phone && <div><Label>โทรศัพท์</Label><Input value={editStudent.father_phone || ""} onChange={e => updateEdit("father_phone", e.target.value)} /></div>}
@@ -601,7 +643,7 @@ const AllStudentsPage = () => {
                 {fieldConfig.mother_name && (
                   <div className="space-y-3">
                     <h4 className="font-semibold text-sm text-primary">ข้อมูลมารดา</h4>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>ชื่อมารดา</Label><Input value={editStudent.mother_name || ""} onChange={e => updateEdit("mother_name", e.target.value)} /></div>
                       {fieldConfig.mother_id && <div><Label>เลขบัตรฯ</Label><Input value={editStudent.mother_id || ""} onChange={e => updateEdit("mother_id", e.target.value)} maxLength={13} /></div>}
                       {fieldConfig.mother_phone && <div><Label>โทรศัพท์</Label><Input value={editStudent.mother_phone || ""} onChange={e => updateEdit("mother_phone", e.target.value)} /></div>}
@@ -612,7 +654,7 @@ const AllStudentsPage = () => {
                 {fieldConfig.guardian_name && (
                   <div className="space-y-3">
                     <h4 className="font-semibold text-sm text-primary">ข้อมูลผู้ปกครอง</h4>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>ชื่อผู้ปกครอง</Label><Input value={editStudent.guardian_name || ""} onChange={e => updateEdit("guardian_name", e.target.value)} /></div>
                       {fieldConfig.guardian_phone && <div><Label>โทรศัพท์</Label><Input value={editStudent.guardian_phone || ""} onChange={e => updateEdit("guardian_phone", e.target.value)} /></div>}
                       {fieldConfig.guardian_relation && <div><Label>ความสัมพันธ์</Label><Input value={editStudent.guardian_relation || ""} onChange={e => updateEdit("guardian_relation", e.target.value)} /></div>}
@@ -622,7 +664,7 @@ const AllStudentsPage = () => {
                 {fieldConfig.emergency_contact && (
                   <div className="space-y-3">
                     <h4 className="font-semibold text-sm text-destructive">ผู้ติดต่อฉุกเฉิน</h4>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>ชื่อ</Label><Input value={editStudent.emergency_contact || ""} onChange={e => updateEdit("emergency_contact", e.target.value)} /></div>
                       {fieldConfig.emergency_phone && <div><Label>โทรศัพท์</Label><Input value={editStudent.emergency_phone || ""} onChange={e => updateEdit("emergency_phone", e.target.value)} /></div>}
                     </div>
@@ -630,7 +672,7 @@ const AllStudentsPage = () => {
                 )}
               </TabsContent>
               <TabsContent value="education" className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>ระดับชั้น (ห้องเรียน)</Label>
                     <Select value={editStudent.classroom_id || ""} onValueChange={v => updateEdit("classroom_id", v)}>
                       <SelectTrigger><SelectValue placeholder="เลือกห้องเรียน" /></SelectTrigger>
@@ -653,7 +695,7 @@ const AllStudentsPage = () => {
                 </div>
                 {fieldConfig.previous_school && <div><Label>โรงเรียนเดิม</Label><Input value={editStudent.previous_school || ""} onChange={e => updateEdit("previous_school", e.target.value)} /></div>}
                 {fieldConfig.admission_date && <div><Label>วันที่เข้าเรียน</Label><BEDatePicker value={editStudent.admission_date || ""} onChange={(v) => updateEdit("admission_date", v)} /></div>}
-                <div className="border rounded-md p-3 bg-warning/40 dark:bg-warning/10 space-y-3">
+                <div className="border rounded-md p-3 bg-amber-50/40 dark:bg-amber-900/10 space-y-3">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <Checkbox
                       checked={!!editStudent.is_special_needs}
@@ -750,7 +792,7 @@ const AllStudentsPage = () => {
                 </div>
               </TabsContent>
               <TabsContent value="health" className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {fieldConfig.weight && <div><Label>น้ำหนัก (กก.)</Label><Input type="number" value={editStudent.weight || ""} onChange={e => updateEdit("weight", e.target.value ? Number(e.target.value) : null)} /></div>}
                   {fieldConfig.height && <div><Label>ส่วนสูง (ซม.)</Label><Input type="number" value={editStudent.height || ""} onChange={e => updateEdit("height", e.target.value ? Number(e.target.value) : null)} /></div>}
                 </div>
@@ -765,51 +807,167 @@ const AllStudentsPage = () => {
       </Dialog>
 
       {/* Promote Dialog */}
-      <Dialog open={promoteOpen} onOpenChange={(open) => { setPromoteOpen(open); if (!open) setPromoteClassroomIds([]); }}>
-        <DialogContent>
+      <Dialog open={promoteOpen} onOpenChange={(open) => { setPromoteOpen(open); if (!open) { setPromoteClassroomIds([]); setPromoteTarget({}); setGraduateStudentIds({}); setExpandedClassroom(null); } }}>
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ArrowUpCircle className="w-5 h-5 text-primary" />
-              เลื่อนชั้นทั้งห้อง (เลือกได้หลายห้อง)
+              เลื่อนชั้น / จบการศึกษา
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">เลือกห้องเรียนที่ต้องการเลื่อนชั้น ระบบจะเลื่อนนักเรียนทุกคนไปยังระดับชั้นถัดไปโดยอัตโนมัติ</p>
-            <div className="flex items-center gap-2">
+            <p className="text-sm text-muted-foreground">
+              เลือกห้อง แล้วเลือกปลายทาง — กด <b>"เลือกรายคน"</b> เพื่อระบุนักเรียนที่ไม่ได้เรียนต่อ (จะย้ายเป็นศิษย์เก่าอัตโนมัติ)
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  const selectable = classrooms.filter((c: any) => !!GRADE_NEXT[c.grade_level]).map((c: any) => c.id);
+                  const selectable = classrooms.filter((c: any) => !!GRADE_NEXT[c.grade_level] || c.grade_level === "ม.6").map((c: any) => c.id);
                   setPromoteClassroomIds(prev => prev.length === selectable.length ? [] : selectable);
                 }}
               >
-                {promoteClassroomIds.length === classrooms.filter((c: any) => !!GRADE_NEXT[c.grade_level]).length ? "ยกเลิกทั้งหมด" : "เลือกทั้งหมด"}
+                {promoteClassroomIds.length > 0 ? "ยกเลิกทั้งหมด" : "เลือกทั้งหมด"}
               </Button>
               <span className="text-sm text-muted-foreground">เลือกแล้ว {promoteClassroomIds.length} ห้อง</span>
             </div>
-            <div className="max-h-64 overflow-y-auto space-y-2 border rounded-md p-3">
+
+            {/* Preview summary */}
+            {promoteClassroomIds.length > 0 && (() => {
+              let willPromote = 0, willGraduate = 0;
+              for (const cid of promoteClassroomIds) {
+                const c = classrooms.find((x: any) => x.id === cid);
+                if (!c) continue;
+                const cnt = students.filter((s: any) => s.classroom_id === cid && s.status === "active").length;
+                const t = promoteTarget[cid];
+                const optOut = graduateStudentIds[cid]?.size || 0;
+                if (t === "graduate" || !GRADE_NEXT[c.grade_level]) {
+                  willGraduate += cnt;
+                } else {
+                  willGraduate += optOut;
+                  willPromote += cnt - optOut;
+                }
+              }
+              return (
+                <div className="flex items-center gap-2 flex-wrap p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm">
+                  <span className="font-medium">สรุป:</span>
+                  {willPromote > 0 && <Badge className="bg-emerald-600 text-white">เลื่อนชั้น {willPromote} คน</Badge>}
+                  {willGraduate > 0 && <Badge className="bg-amber-600 text-white">จบการศึกษา (ศิษย์เก่า) {willGraduate} คน</Badge>}
+                </div>
+              );
+            })()}
+
+            <div className="max-h-[26rem] overflow-y-auto space-y-2 border rounded-md p-3">
               {classrooms.map((c: any) => {
-                const count = students.filter((s: any) => s.classroom_id === c.id && s.status === "active").length;
+                const roomStudents = students.filter((s: any) => s.classroom_id === c.id && s.status === "active");
+                const count = roomStudents.length;
                 const nextGrade = GRADE_NEXT[c.grade_level];
                 const isChecked = promoteClassroomIds.includes(c.id);
+                const nextClassrooms = nextGrade ? classrooms.filter((x: any) => x.grade_level === nextGrade) : [];
+                const target = promoteTarget[c.id] || (nextGrade ? "auto" : "graduate");
+                const optOut = graduateStudentIds[c.id] || new Set<string>();
+                const optOutCount = optOut.size;
+                const isExpanded = expandedClassroom === c.id;
+                const canPickPerStudent = isChecked && nextGrade && target !== "graduate";
                 return (
-                  <label key={c.id} className={`flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-accent ${!nextGrade ? "opacity-50 cursor-not-allowed" : ""}`}>
-                    <Checkbox
-                      checked={isChecked}
-                      disabled={!nextGrade}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setPromoteClassroomIds(prev => [...prev, c.id]);
-                        } else {
-                          setPromoteClassroomIds(prev => prev.filter(id => id !== c.id));
-                        }
-                      }}
-                    />
-                    <span className="text-sm flex-1">
-                      {c.grade_level} - {c.name} ({count} คน){nextGrade ? ` → ${nextGrade}` : " (สูงสุด)"}
-                    </span>
-                  </label>
+                  <div key={c.id} className={`rounded-md ${isChecked ? "bg-accent/50" : "hover:bg-accent/30"}`}>
+                    <div className="flex items-center gap-3 p-2">
+                      <Checkbox
+                        checked={isChecked}
+                        onCheckedChange={(checked) => {
+                          if (checked) setPromoteClassroomIds(prev => [...prev, c.id]);
+                          else {
+                            setPromoteClassroomIds(prev => prev.filter(id => id !== c.id));
+                            setGraduateStudentIds(prev => { const n = { ...prev }; delete n[c.id]; return n; });
+                            if (expandedClassroom === c.id) setExpandedClassroom(null);
+                          }
+                        }}
+                      />
+                      <div className="text-sm flex-1 min-w-0">
+                        <div className="font-medium truncate">
+                          {c.grade_level} / {c.name}
+                          <span className="text-muted-foreground font-normal"> · {count} คน</span>
+                          {optOutCount > 0 && (
+                            <Badge variant="outline" className="ml-2 text-xs border-amber-500 text-amber-700">
+                              ไม่เรียนต่อ {optOutCount} คน
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      {canPickPerStudent && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => setExpandedClassroom(isExpanded ? null : c.id)}
+                        >
+                          {isExpanded ? "ซ่อน" : "เลือกรายคน"}
+                        </Button>
+                      )}
+                      <Select
+                        value={target}
+                        onValueChange={(v) => setPromoteTarget(prev => ({ ...prev, [c.id]: v }))}
+                        disabled={!isChecked}
+                      >
+                        <SelectTrigger className="w-[200px] h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {nextGrade && <SelectItem value="auto">→ {nextGrade} (อัตโนมัติ)</SelectItem>}
+                          {nextClassrooms.map((nc: any) => (
+                            <SelectItem key={nc.id} value={nc.id}>→ {nc.grade_level}/{nc.name}</SelectItem>
+                          ))}
+                          <SelectItem value="graduate">🎓 จบการศึกษา (ทั้งห้อง)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {isExpanded && canPickPerStudent && (
+                      <div className="border-t border-border/50 bg-background/60 p-3 space-y-2">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>ติ๊กนักเรียนที่ <b className="text-amber-700">ไม่เรียนต่อ</b> (ย้ายเป็นศิษย์เก่า)</span>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              className="underline hover:text-foreground"
+                              onClick={() => setGraduateStudentIds(prev => ({ ...prev, [c.id]: new Set(roomStudents.map((s: any) => s.id)) }))}
+                            >เลือกทั้งหมด</button>
+                            <button
+                              type="button"
+                              className="underline hover:text-foreground"
+                              onClick={() => setGraduateStudentIds(prev => { const n = { ...prev }; delete n[c.id]; return n; })}
+                            >ล้าง</button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 max-h-52 overflow-y-auto">
+                          {roomStudents.map((s: any) => {
+                            const willGrad = optOut.has(s.id);
+                            return (
+                              <label key={s.id} className={`flex items-center gap-2 px-2 py-1 rounded text-xs cursor-pointer ${willGrad ? "bg-amber-50 dark:bg-amber-950/30" : "hover:bg-accent/40"}`}>
+                                <Checkbox
+                                  checked={willGrad}
+                                  onCheckedChange={(chk) => {
+                                    setGraduateStudentIds(prev => {
+                                      const next = { ...prev };
+                                      const set = new Set(next[c.id] || []);
+                                      if (chk) set.add(s.id); else set.delete(s.id);
+                                      if (set.size === 0) delete next[c.id]; else next[c.id] = set;
+                                      return next;
+                                    });
+                                  }}
+                                />
+                                <span className="truncate">
+                                  {s.prefix || ""}{s.first_name} {s.last_name}
+                                  <span className="text-muted-foreground"> · {s.student_code}</span>
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -817,109 +975,7 @@ const AllStudentsPage = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setPromoteOpen(false)}>ยกเลิก</Button>
             <Button onClick={handlePromote} disabled={promoting || promoteClassroomIds.length === 0}>
-              {promoting ? "กำลังเลื่อนชั้น..." : `เลื่อนชั้น (${promoteClassroomIds.length} ห้อง)`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Graduate Dialog */}
-      <Dialog open={graduateOpen} onOpenChange={(open) => { setGraduateOpen(open); if (!open) { setGraduateGrades([]); setGraduateStudentIds([]); } }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Award className="w-5 h-5 text-warning" />
-              จบการศึกษา (เลือกได้หลายชั้นและหลายคน)
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label className="text-sm font-semibold mb-2 block">1. เลือกระดับชั้นที่จะจบ</Label>
-              <div className="flex flex-wrap gap-2">
-                {GRADE_LEVELS.map((g) => {
-                  const count = students.filter((s: any) => s.status === "active" && s.classrooms?.grade_level === g).length;
-                  if (count === 0) return null;
-                  const checked = graduateGrades.includes(g);
-                  return (
-                    <label key={g} className={`flex items-center gap-2 px-3 py-1.5 rounded-md border cursor-pointer text-sm ${checked ? "bg-warning-soft border-warning/30 dark:bg-warning/30" : "bg-card hover:bg-accent"}`}>
-                      <Checkbox
-                        checked={checked}
-                        onCheckedChange={(v) => {
-                          if (v) setGraduateGrades(prev => [...prev, g]);
-                          else {
-                            setGraduateGrades(prev => prev.filter(x => x !== g));
-                            // remove students of this grade from selection
-                            const removeIds = students.filter((s: any) => s.classrooms?.grade_level === g).map((s: any) => s.id);
-                            setGraduateStudentIds(prev => prev.filter(id => !removeIds.includes(id)));
-                          }
-                        }}
-                      />
-                      <span>{g}</span>
-                      <Badge variant="secondary" className="text-xs">{count}</Badge>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            {graduateGrades.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label className="text-sm font-semibold">2. เลือกนักเรียนที่จะจบ ({graduateCandidates.length} คน)</Label>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const allIds = graduateCandidates.map((s: any) => s.id);
-                      setGraduateStudentIds(prev => prev.length === allIds.length ? [] : allIds);
-                    }}
-                  >
-                    {graduateStudentIds.length === graduateCandidates.length && graduateCandidates.length > 0 ? "ยกเลิกทั้งหมด" : "เลือกทั้งหมด"}
-                  </Button>
-                </div>
-                <div className="max-h-80 overflow-y-auto border rounded-md divide-y">
-                  {graduateCandidates.length === 0 ? (
-                    <p className="p-3 text-sm text-muted-foreground text-center">ไม่มีนักเรียนในระดับชั้นที่เลือก</p>
-                  ) : (
-                    graduateGrades.map((grade) => {
-                      const inGrade = graduateCandidates.filter((s: any) => s.classrooms?.grade_level === grade);
-                      if (inGrade.length === 0) return null;
-                      return (
-                        <div key={grade}>
-                          <div className="px-3 py-1.5 bg-muted text-xs font-semibold sticky top-0">{grade} ({inGrade.length} คน)</div>
-                          {inGrade.map((s: any) => {
-                            const checked = graduateStudentIds.includes(s.id);
-                            return (
-                              <label key={s.id} className="flex items-center gap-3 px-3 py-2 hover:bg-accent cursor-pointer">
-                                <Checkbox
-                                  checked={checked}
-                                  onCheckedChange={(v) => {
-                                    if (v) setGraduateStudentIds(prev => [...prev, s.id]);
-                                    else setGraduateStudentIds(prev => prev.filter(id => id !== s.id));
-                                  }}
-                                />
-                                <span className="font-mono text-xs text-muted-foreground w-24">{s.student_code}</span>
-                                <span className="text-sm flex-1">{s.prefix}{s.first_name} {s.last_name}</span>
-                                <Badge variant="outline" className="text-xs">{s.classrooms?.name}</Badge>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setGraduateOpen(false)}>ยกเลิก</Button>
-            <Button
-              className="bg-warning hover:bg-warning text-white"
-              onClick={handleGraduate}
-              disabled={graduating || graduateStudentIds.length === 0}
-            >
-              {graduating ? "กำลังบันทึก..." : `ยืนยันจบการศึกษา (${graduateStudentIds.length} คน)`}
+              {promoting ? "กำลังดำเนินการ..." : `ดำเนินการ (${promoteClassroomIds.length} ห้อง)`}
             </Button>
           </DialogFooter>
         </DialogContent>

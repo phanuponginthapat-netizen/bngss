@@ -1,6 +1,25 @@
-import { isAuthorizedUserOrCron, unauthorized } from "../_shared/cronAuth.ts";
-const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
+import { corsHeaders } from "../_shared/cors.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { aiCall } from "../_shared/aiCall.ts";
+
+async function requireAuth(req: Request): Promise<Response | null> {
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+  const token = authHeader?.replace(/^Bearer /i, "");
+  if (!token) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!);
+  const { data, error } = await sb.auth.getClaims(token);
+  if (error || !data?.claims?.sub) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  return null;
+}
+
 
 interface Body {
   weight_kg: number;
@@ -28,9 +47,10 @@ function categorize(bmi: number): string {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (!(await isAuthorizedUserOrCron(req))) return unauthorized();
-
+  const denied = await requireAuth(req);
+  if (denied) return denied;
   try {
+
     const body: Body = await req.json();
     const w = Number(body.weight_kg);
     const h = Number(body.height_cm);

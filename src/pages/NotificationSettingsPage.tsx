@@ -5,11 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Time24Input } from "@/components/ui/time24-input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bell, Smartphone, MessageCircle, MoonStar, Loader2 } from "lucide-react";
+import { Bell, Smartphone, MessageCircle, MoonStar, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
-import { TimeInput } from "@/components/ui/time-input";
+import { subscribeToPush, getCurrentPushStatus } from "@/lib/pushSubscribe";
 
 const TYPES: Array<{ key: string; label: string }> = [
   { key: "homework", label: "การบ้าน" },
@@ -90,6 +91,50 @@ export default function NotificationSettingsPage() {
     setPrefs((p) => ({ ...p, type_overrides: { ...p.type_overrides, [k]: on } }));
   };
 
+  const [pushStatus, setPushStatus] = useState<"checking" | "subscribed" | "denied" | "default" | "unsupported">("checking");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    getCurrentPushStatus().then(setPushStatus).catch(() => setPushStatus("unsupported"));
+  }, []);
+
+  const enablePush = async () => {
+    setBusy(true);
+    const r = await subscribeToPush();
+    setBusy(false);
+    if (r.success) {
+      toast.success("เปิดการแจ้งเตือนบนเครื่องนี้แล้ว");
+      setPushStatus("subscribed");
+    } else {
+      toast.error(r.error || "เปิดไม่สำเร็จ");
+    }
+  };
+
+  const sendTest = async () => {
+    if (!userId) return;
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke("send-push", {
+      body: {
+        user_id: userId,
+        title: "🔔 ทดสอบการแจ้งเตือน",
+        body: "ถ้าคุณเห็นข้อความนี้บนหน้าจอ แสดงว่าระบบพร้อมใช้งาน",
+        url: "/dashboard",
+        tag: "test-push",
+      },
+    });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    const sent = (data as any)?.sent ?? 0;
+    const total = (data as any)?.total ?? 0;
+    if (sent === 0 && total === 0) {
+      toast.error("ยังไม่มีอุปกรณ์ที่ลงทะเบียนแจ้งเตือน — กด 'เปิดการแจ้งเตือน' ก่อน");
+    } else if (sent === 0) {
+      toast.error(`ส่งไม่สำเร็จ ${total} เครื่อง — อาจถูก OS ปิดหรือถอนติดตั้งไปแล้ว`);
+    } else {
+      toast.success(`ส่งแจ้งเตือนไปยัง ${sent}/${total} เครื่องแล้ว`);
+    }
+  };
+
   if (loading) {
     return <div className="p-6 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2" />กำลังโหลด...</div>;
   }
@@ -125,17 +170,52 @@ export default function NotificationSettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Smartphone className="w-5 h-5" /> ทดสอบ Push บนมือถือ</CardTitle>
+          <CardDescription>
+            ถ้ากดแล้วไม่เด้งขึ้นเครื่อง Android:
+            (1) ต้องติดตั้งแอปที่หน้าจอหลักก่อน — เปิดจากไอคอนแอป ไม่ใช่แท็บเบราว์เซอร์,
+            (2) เข้า Settings ของเครื่อง → Apps → เบราว์เซอร์ที่ใช้ติดตั้ง → อนุญาต Notification + ปิด Battery Optimization,
+            (3) เข้าแอปหนึ่งครั้งเพื่ออนุญาต Notification
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">สถานะ:</span>
+            <span className="font-medium">
+              {pushStatus === "subscribed" && <span className="text-green-600">✅ พร้อมรับแจ้งเตือน</span>}
+              {pushStatus === "denied" && <span className="text-destructive">❌ ผู้ใช้/เบราว์เซอร์ปฏิเสธ</span>}
+              {pushStatus === "default" && <span className="text-amber-600">⚠️ ยังไม่ได้เปิด — กดปุ่มเปิดด้านล่าง</span>}
+              {pushStatus === "unsupported" && <span className="text-muted-foreground">เบราว์เซอร์นี้ไม่รองรับ</span>}
+              {pushStatus === "checking" && <span className="text-muted-foreground">กำลังตรวจ...</span>}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {pushStatus !== "subscribed" && pushStatus !== "unsupported" && (
+              <Button variant="outline" onClick={enablePush} disabled={busy}>
+                <Bell className="w-4 h-4 mr-2" /> เปิดการแจ้งเตือนบนเครื่องนี้
+              </Button>
+            )}
+            <Button onClick={sendTest} disabled={busy || pushStatus !== "subscribed"}>
+              {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+              ส่งแจ้งเตือนทดสอบไปทุกเครื่อง
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="flex items-center gap-2"><MoonStar className="w-5 h-5" /> ห้ามรบกวน</CardTitle>
           <CardDescription>ช่วงเวลาที่ไม่ส่ง Push / LINE (ยกเว้นเหตุฉุกเฉิน)</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label>เริ่ม</Label>
-            <TimeInput value={prefs.quiet_hours_start ?? ""} onChange={(e) => setPrefs({ ...prefs, quiet_hours_start: e.target.value || null })} />
+            <Time24Input withSeconds={false} value={prefs.quiet_hours_start ?? ""} onChange={(v) => setPrefs({ ...prefs, quiet_hours_start: v || null })} />
           </div>
           <div className="space-y-1.5">
             <Label>สิ้นสุด</Label>
-            <TimeInput value={prefs.quiet_hours_end ?? ""} onChange={(e) => setPrefs({ ...prefs, quiet_hours_end: e.target.value || null })} />
+            <Time24Input withSeconds={false} value={prefs.quiet_hours_end ?? ""} onChange={(v) => setPrefs({ ...prefs, quiet_hours_end: v || null })} />
           </div>
           <div className="col-span-2 space-y-1.5">
             <Label>ระดับขั้นต่ำที่จะส่ง Push</Label>

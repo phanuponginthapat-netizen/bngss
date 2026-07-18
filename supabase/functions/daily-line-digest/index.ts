@@ -1,8 +1,9 @@
 // Daily LINE digest — push สรุปประจำวันให้ผู้ใช้ที่เปิด opt-in
 // Trigger: cron 06:30 Asia/Bangkok (เซ็ตด้วย pg_cron)
-const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
+import { corsHeadersWithCron as corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 import { getSecret } from "../_shared/getSecret.ts";
+import { requireCronOrAdmin } from "../_shared/requireCron.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -111,6 +112,8 @@ async function buildTeacherDigest(personnelId: string, date: string) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const denied = await requireCronOrAdmin(req, corsHeaders);
+  if (denied) return denied;
   try {
     const date = todayISO();
 

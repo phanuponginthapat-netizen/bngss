@@ -181,7 +181,7 @@ const BudgetAccountingPage = () => {
           )}
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
             <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" />บันทึกรายการ</Button></DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="sm:max-w-lg">
               <DialogHeader><DialogTitle>บันทึกรายการรับ-จ่าย</DialogTitle></DialogHeader>
               <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                 <div>
@@ -209,7 +209,7 @@ const BudgetAccountingPage = () => {
                 </div>
                 <div><Label>ชื่อโครงการ</Label><Input value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="เช่น โครงการพัฒนาผู้เรียน" /></div>
                 <div><Label>รายละเอียด *</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} /></div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label>จำนวนเงิน (บาท) *</Label><Input type="number" value={amount} onChange={e => setAmount(e.target.value)} /></div>
                   <div><Label>ไตรมาส</Label>
                     <Select value={quarter} onValueChange={setQuarter}>
@@ -321,11 +321,11 @@ const BudgetAccountingPage = () => {
             {filteredRecords.map((r: any) => (
               <TableRow key={r.id}>
                 <TableCell className="whitespace-nowrap text-sm">{formatThaiDate(r.transaction_date)}</TableCell>
-                <TableCell><Badge className={r.transaction_type === "income" ? "bg-success-soft text-success" : "bg-danger-soft text-danger"}>{r.transaction_type === "income" ? "รับ" : "จ่าย"}</Badge></TableCell>
+                <TableCell><Badge className={r.transaction_type === "income" ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"}>{r.transaction_type === "income" ? "รับ" : "จ่าย"}</Badge></TableCell>
                 <TableCell className="max-w-[200px] truncate">{r.description}</TableCell>
                 <TableCell>{r.project_name || "-"}</TableCell>
                 <TableCell><Badge variant="outline">{r.budget_source}</Badge></TableCell>
-                <TableCell className={`text-right font-mono ${r.transaction_type === "income" ? "text-success" : "text-danger"}`}>{r.transaction_type === "income" ? "+" : "-"}฿{formatMoney(Number(r.amount))}</TableCell>
+                <TableCell className={`text-right font-mono ${r.transaction_type === "income" ? "text-emerald-600" : "text-red-600"}`}>{r.transaction_type === "income" ? "+" : "-"}฿{formatMoney(Number(r.amount))}</TableCell>
                 <TableCell><Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button></TableCell>
               </TableRow>
             ))}

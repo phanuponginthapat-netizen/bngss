@@ -11,6 +11,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { Printer, ArrowLeft, QrCode, IdCard, Info } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { gradeRank } from "@/lib/gradeOrder";
+import BackButton from "@/components/BackButton";
 
 type Mode = "students" | "personnel";
 type Size = "small" | "medium" | "large";
@@ -109,7 +110,7 @@ export default function BulkQrPrintPage() {
 
       <div className="flex items-center justify-between no-print">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-4 h-4" /></Button>
+          <BackButton size="icon" fallback="/dashboard" />
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2"><QrCode className="w-6 h-6 text-primary" />พิมพ์ QR Code รวม</h1>
             <p className="text-sm text-muted-foreground">QR ขนาดเล็ก สำหรับติดสมุด/ของใช้ — ใช้สแกนเร็วที่เคาน์เตอร์ขยะ/เช็คชื่อ</p>
@@ -125,9 +126,9 @@ export default function BulkQrPrintPage() {
         </div>
       </div>
 
-      <div className="no-print rounded-lg border border-info/30 bg-info-soft dark:bg-info/30 dark:border-info/30 p-3 text-xs flex items-start gap-2">
-        <Info className="w-4 h-4 text-info mt-0.5 flex-shrink-0" />
-        <div className="text-info dark:text-info">
+      <div className="no-print rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-900 p-3 text-xs flex items-start gap-2">
+        <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+        <div className="text-blue-900 dark:text-blue-200">
           <strong>ต่างกับบัตรนักเรียนยังไง?</strong> หน้านี้พิมพ์เฉพาะ QR เล็กๆ (สติกเกอร์) สำหรับติดสมุด/ของใช้ ไว้สแกนเร็วที่เคาน์เตอร์ขยะหรือเช็คชื่อ
           ส่วน <button className="underline font-medium" onClick={() => navigate("/dashboard/admin/id-card/bulk-print")}>“บัตรนักเรียน”</button> เป็นบัตรประจำตัวเต็มรูปแบบ (5.4×8.6cm · ISO ID-1) มีรูปถ่าย/โลโก้/ข้อมูลครบ ใช้แสดงตัวตน
         </div>
@@ -193,14 +194,14 @@ export default function BulkQrPrintPage() {
           </div>
         ) : (
           items.map((it) => (
-            <div key={it.code} className={`${sz.card} border-2 border-dashed border-neutral/30 rounded-lg p-2 flex items-center gap-2 bg-white`}>
+            <div key={it.code} className={`${sz.card} border-2 border-dashed border-gray-300 rounded-lg p-2 flex items-center gap-2 bg-white`}>
               <div className="flex-shrink-0 bg-white p-1 rounded">
                 <QRCodeSVG value={it.code || "-"} size={sz.qr} level="M" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className={`font-bold ${sz.font} truncate text-black`}>{it.name}</div>
-                <div className={`${sz.font} text-neutral truncate`}>{it.code}</div>
-                {it.sub && <div className={`${sz.font} text-neutral truncate`}>{it.sub}</div>}
+                <div className={`${sz.font} text-gray-700 truncate`}>{it.code}</div>
+                {it.sub && <div className={`${sz.font} text-gray-500 truncate`}>{it.sub}</div>}
               </div>
             </div>
           ))

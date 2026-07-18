@@ -164,9 +164,9 @@ export default function IctLoanReportPage() {
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">รายการทั้งหมด</div><div className="text-2xl font-bold">{stats.total}</div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">ค้างคืน</div><div className="text-2xl font-bold text-warning">{stats.active}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">ค้างคืน</div><div className="text-2xl font-bold text-amber-500">{stats.active}</div></CardContent></Card>
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> เกินกำหนด</div><div className="text-2xl font-bold text-destructive">{stats.overdue}</div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">คืนแล้ว</div><div className="text-2xl font-bold text-success">{stats.returned}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">คืนแล้ว</div><div className="text-2xl font-bold text-emerald-500">{stats.returned}</div></CardContent></Card>
       </div>
 
       <div className="grid md:grid-cols-2 gap-3">

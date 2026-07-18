@@ -1,19 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-async function getLineSetting(supabaseAdmin: any, key: string): Promise<string | null> {
-  const { data } = await supabaseAdmin
-    .from("school_settings")
-    .select("setting_value")
-    .eq("setting_key", key)
-    .maybeSingle();
-  return data?.setting_value || null;
-}
+import { corsHeaders } from "../_shared/cors.ts";
+import { makeAdmin } from "../_shared/supabaseAdmin.ts";
+import { getSetting as getLineSetting, pushMessage, multicastMessage, broadcastMessage } from "../_shared/lineApi.ts";
 
 function addLineUserIds(target: Set<string>, values: Array<string | null | undefined>) {
   values.forEach((value) => {
@@ -21,43 +9,6 @@ function addLineUserIds(target: Set<string>, values: Array<string | null | undef
   });
 }
 
-// ============ LINE API ============
-
-async function pushMessage(token: string, lineUserId: string, messages: any[]) {
-  const response = await fetch("https://api.line.me/v2/bot/message/push", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ to: lineUserId, messages }),
-  });
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`LINE push error ${response.status}: ${errText}`);
-  }
-}
-
-async function multicastMessage(token: string, userIds: string[], messages: any[]) {
-  const response = await fetch("https://api.line.me/v2/bot/message/multicast", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ to: userIds, messages }),
-  });
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`LINE multicast error ${response.status}: ${errText}`);
-  }
-}
-
-async function broadcastMessage(token: string, messages: any[]) {
-  const response = await fetch("https://api.line.me/v2/bot/message/broadcast", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ messages }),
-  });
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`LINE broadcast error ${response.status}: ${errText}`);
-  }
-}
 
 // ============ MESSAGE BUILDERS ============
 
@@ -143,10 +94,7 @@ serve(async (req) => {
       );
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supabaseAdmin = makeAdmin();
 
     const enabled = await getLineSetting(supabaseAdmin, "line_notify_enabled");
     if (enabled !== "true") {

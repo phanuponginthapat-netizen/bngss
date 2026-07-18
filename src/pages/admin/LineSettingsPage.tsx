@@ -19,6 +19,7 @@ import {
   Eye, EyeOff, Users, BarChart3, BookOpen, Settings2
 } from "lucide-react";
 import LineQuotaCard from "@/components/line/LineQuotaCard";
+import RichMenuUploader from "@/components/line/RichMenuUploader";
 
 const LINE_SETTINGS_KEYS = [
   "line_channel_access_token",
@@ -37,6 +38,7 @@ const LineSettingsPage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [richMenuBusy, setRichMenuBusy] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   const [testMessage, setTestMessage] = useState("");
@@ -345,10 +347,10 @@ const LineSettingsPage = () => {
                 />
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-lg border border-warning/30 bg-warning/50 dark:bg-warning/20">
+              <div className="flex items-center justify-between p-3 rounded-lg border border-amber-200 bg-amber-50/50 dark:bg-amber-950/20">
                 <div className="space-y-0.5">
                   <Label className="flex items-center gap-2">
-                    <Send className="w-4 h-4 text-warning" />
+                    <Send className="w-4 h-4 text-amber-600" />
                     {lang === "th" ? "Auto-Push อัตโนมัติทาง LINE (กินโควต้า)" : "Auto-Push via LINE"}
                   </Label>
                   <p className="text-xs text-muted-foreground">
@@ -420,21 +422,53 @@ const LineSettingsPage = () => {
             </CardHeader>
             <CardContent>
               <Button
-                disabled={!isConfigured}
+                disabled={!isConfigured || richMenuBusy}
                 onClick={async () => {
+                  setRichMenuBusy(true);
+                  const toastId = toast.loading(lang === "th" ? "กำลังสร้าง Rich Menu ในพื้นหลัง..." : "Generating rich menu in background...");
                   try {
                     const { error } = await supabase.functions.invoke("setup-line-richmenu", { body: {} });
                     if (error) throw error;
-                    toast.success(lang === "th" ? "ตั้งค่า Rich Menu สำเร็จ" : "Rich menu set up");
+
+                    // Poll status every 4s, timeout 3 min
+                    const start = Date.now();
+                    while (Date.now() - start < 180_000) {
+                      await new Promise((r) => setTimeout(r, 4000));
+                      const { data } = await supabase
+                        .from("school_settings")
+                        .select("setting_value")
+                        .eq("setting_key", "line_richmenu_status")
+                        .maybeSingle();
+                      const raw = data?.setting_value;
+                      if (!raw) continue;
+                      let s: any = raw;
+                      try { s = typeof raw === "string" ? JSON.parse(raw) : raw; } catch { /* ignore */ }
+                      if (s?.status === "completed") {
+                        toast.success(lang === "th" ? "ตั้งค่า Rich Menu สำเร็จ" : "Rich menu set up", { id: toastId });
+                        return;
+                      }
+                      if (s?.status === "failed") {
+                        throw new Error(s.error || "failed");
+                      }
+                    }
+                    toast.error(lang === "th" ? "หมดเวลารอ (ลองเช็คสถานะภายหลัง)" : "Timed out waiting for completion", { id: toastId });
                   } catch (e: any) {
-                    toast.error(e.message || "ล้มเหลว");
+                    toast.error(e.message || "ล้มเหลว", { id: toastId });
+                  } finally {
+                    setRichMenuBusy(false);
                   }
                 }}
               >
-                {lang === "th" ? "สร้าง / อัปเดต Rich Menu" : "Create / Update Rich Menu"}
+                {richMenuBusy
+                  ? (lang === "th" ? "กำลังสร้าง..." : "Generating...")
+                  : (lang === "th" ? "สร้าง / อัปเดต Rich Menu" : "Create / Update Rich Menu")}
               </Button>
             </CardContent>
+
           </Card>
+
+          {/* Rich Menu — custom image upload (Option A) */}
+          <RichMenuUploader />
 
           {/* LIFF Mini-app */}
           <Card>
@@ -442,8 +476,8 @@ const LineSettingsPage = () => {
               <CardTitle className="text-base">{lang === "th" ? "LIFF Mini-app" : "LIFF Mini-app"}</CardTitle>
               <CardDescription>
                 {lang === "th"
-                  ? "ตั้งค่า LIFF ID เพื่อเปิดหน้า /liff/leave, /liff/grades ในแอป LINE (ใช้ผูกกับปุ่ม Rich Menu)"
-                  : "Set LIFF ID to open in-LINE pages (/liff/leave, /liff/grades) from Rich Menu buttons."}
+                  ? "ตั้งค่า LIFF ID เพื่อเปิดหน้าฟอร์มในแอป LINE (ยื่นใบลา / ดูคะแนน / เช็คชื่อ)"
+                  : "Set LIFF ID to open in-LINE pages (/liff/leave, /liff/grades, /liff/attendance)."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -453,12 +487,60 @@ const LineSettingsPage = () => {
                   placeholder="1234567890-abcdef"
                   value={settings.line_liff_id || ""}
                   onChange={(e) => setSettings({ ...settings, line_liff_id: e.target.value })}
+                  className="font-mono text-sm"
                 />
                 <p className="text-xs text-muted-foreground mt-2">
                   {lang === "th"
-                    ? "สร้าง LIFF app ที่ LINE Developers Console → Endpoint URL = https://<โดเมนของคุณ>/liff/leave (ตั้งขนาดเป็น Tall)"
-                    : "Create a LIFF app on LINE Developers Console with Endpoint URL = https://<your-domain>/liff/leave (size: Tall)."}
+                    ? "ใส่ LIFF ID ของ 'ใบลา' (ตัวหลัก) — ระบบใช้ตัวนี้เปิดทุกหน้า /liff/*"
+                    : "Enter the LIFF ID of the 'Leave' app (primary). Used for all /liff/* pages."}
                 </p>
+              </div>
+
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full"
+                variant={settings.line_liff_id ? "default" : "secondary"}
+              >
+                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {lang === "th" ? "บันทึก LIFF ID" : "Save LIFF ID"}
+              </Button>
+
+              <Separator />
+
+              <div className="space-y-2 text-xs">
+                <p className="font-semibold text-sm text-foreground">
+                  {lang === "th" ? "📋 ขั้นตอนตั้งค่า LIFF (ทำครั้งเดียว)" : "📋 LIFF setup steps (one-time)"}
+                </p>
+                <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
+                  <li>
+                    {lang === "th" ? "ไปที่ " : "Go to "}
+                    <a href="https://developers.line.biz/console/" target="_blank" rel="noreferrer" className="text-primary underline">developers.line.biz/console</a>
+                    {lang === "th" ? " → เลือก Channel (Messaging API) → แท็บ LIFF → กด Add" : " → Channel → LIFF tab → Add"}
+                  </li>
+                  <li>
+                    {lang === "th" ? "สร้าง LIFF app 3 ตัว ใช้ Endpoint URL ตามนี้ (Size: Tall, Scope: profile + openid, Bot link: On)" : "Create 3 LIFF apps with these Endpoint URLs (Size: Tall, Scope: profile + openid, Bot link: On)"}
+                    <div className="mt-1.5 ml-4 space-y-1 font-mono text-[11px] bg-muted/50 p-2 rounded">
+                      <div>• {window.location.origin}/liff/leave <span className="text-muted-foreground">({lang === "th" ? "ใบลา — ตัวหลัก" : "Leave — primary"})</span></div>
+                      <div>• {window.location.origin}/liff/grades <span className="text-muted-foreground">({lang === "th" ? "ดูคะแนน" : "Grades"})</span></div>
+                      <div>• {window.location.origin}/liff/attendance <span className="text-muted-foreground">({lang === "th" ? "เช็คชื่อ (ครู)" : "Attendance (teacher)"})</span></div>
+                    </div>
+                  </li>
+                  <li>{lang === "th" ? "คัดลอก LIFF ID ของตัว 'ใบลา' (รูปแบบ 1234567890-abcdef) → วางในช่องด้านบน → กดบันทึก" : "Copy the 'Leave' LIFF ID → paste above → Save"}</li>
+                  <li>{lang === "th" ? "กด 'สร้าง / อัปเดต Rich Menu' ในการ์ดด้านบน เพื่อให้ปุ่มเมนูใน LINE OA เปิด LIFF ได้" : "Click 'Create / Update Rich Menu' above so LINE OA menu buttons open LIFF"}</li>
+                  <li>{lang === "th" ? "ทดสอบ: เปิด LINE OA → กดปุ่ม 'ลา' ใน Rich Menu → หน้าฟอร์มต้องเปิดใน LINE" : "Test: open LINE OA → tap 'Leave' in Rich Menu → form opens inside LINE"}</li>
+                </ol>
+                <div className="pt-2 flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={`${window.location.origin}/liff/leave`} target="_blank" rel="noreferrer">
+                      {lang === "th" ? "เปิด /liff/leave ทดสอบ" : "Open /liff/leave"}
+                    </a>
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/liff/leave`); toast.success(lang === "th" ? "คัดลอกแล้ว" : "Copied"); }}>
+                    <Copy className="w-3 h-3 mr-1" />
+                    {lang === "th" ? "คัดลอก Endpoint URL" : "Copy Endpoint URL"}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

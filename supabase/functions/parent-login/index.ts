@@ -2,10 +2,7 @@
 // คืน magic link (action_link) ให้ client redirect ไปเข้าระบบอัตโนมัติ
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 // rate limit (ต่อ IP)
 const RATE_WINDOW_MS = 60_000;

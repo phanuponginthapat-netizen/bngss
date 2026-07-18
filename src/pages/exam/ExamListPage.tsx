@@ -64,7 +64,7 @@ export default function ExamListPage() {
     <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">ตรวจข้อสอบ OCR</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">ระบบข้อสอบ</h1>
           <p className="text-muted-foreground text-sm flex items-center gap-1">
             <History className="w-3.5 h-3.5" />
             ประวัติการสร้างข้อสอบของคุณ · สร้างด้วย AI · พิมพ์กระดาษคำตอบ · ตรวจอัตโนมัติ

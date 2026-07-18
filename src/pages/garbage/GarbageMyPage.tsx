@@ -134,7 +134,7 @@ export default function GarbageMyPage() {
 
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-4">
-      <Card className="bg-gradient-to-r from-success to-success text-white border-0">
+      <Card className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white border-0">
         <CardContent className="p-6 flex items-center justify-between gap-4">
           <div>
             <div className="text-xs opacity-80 uppercase tracking-wider">ธนาคารขยะของฉัน</div>
@@ -157,7 +157,7 @@ export default function GarbageMyPage() {
       </Card>
 
       <Dialog open={qrOpen} onOpenChange={setQrOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><QrCode className="w-5 h-5" /> QR รหัสประจำตัว</DialogTitle>
           </DialogHeader>
@@ -195,7 +195,7 @@ export default function GarbageMyPage() {
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-success" />แนวโน้มแต้ม ({range.label})</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-500" />แนวโน้มแต้ม ({range.label})</CardTitle></CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={chartData}>
@@ -211,7 +211,7 @@ export default function GarbageMyPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Recycle className="w-4 h-4 text-success" />ประวัติการฝาก</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Recycle className="w-4 h-4 text-emerald-500" />ประวัติการฝาก</CardTitle></CardHeader>
           <CardContent>
             <Table>
               <TableHeader><TableRow><TableHead>วันที่</TableHead><TableHead>ขยะ</TableHead><TableHead className="text-right">จำนวน</TableHead><TableHead className="text-right">แต้ม</TableHead></TableRow></TableHeader>
@@ -223,7 +223,7 @@ export default function GarbageMyPage() {
                     <TableCell className="text-xs">{format(new Date(d.created_at), "dd MMM HH:mm:ss", { locale: th })}</TableCell>
                     <TableCell className="text-sm">{d.garbage_items?.name}</TableCell>
                     <TableCell className="text-right text-sm">{d.quantity} {d.garbage_items?.unit}</TableCell>
-                    <TableCell className="text-right font-bold text-success">+{d.points_earned}</TableCell>
+                    <TableCell className="text-right font-bold text-emerald-600">+{d.points_earned}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -232,7 +232,7 @@ export default function GarbageMyPage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Gift className="w-4 h-4 text-warning" />ประวัติการแลก</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Gift className="w-4 h-4 text-amber-500" />ประวัติการแลก</CardTitle></CardHeader>
           <CardContent>
             <Table>
               <TableHeader><TableRow><TableHead>วันที่</TableHead><TableHead>รางวัล</TableHead><TableHead className="text-right">จำนวน</TableHead><TableHead className="text-right">แต้ม</TableHead></TableRow></TableHeader>
@@ -244,7 +244,7 @@ export default function GarbageMyPage() {
                     <TableCell className="text-xs">{format(new Date(d.created_at), "dd MMM HH:mm:ss", { locale: th })}</TableCell>
                     <TableCell className="text-sm">{d.garbage_rewards?.name}</TableCell>
                     <TableCell className="text-right text-sm">{d.quantity}</TableCell>
-                    <TableCell className="text-right font-bold text-danger">-{d.points_used}</TableCell>
+                    <TableCell className="text-right font-bold text-rose-600">-{d.points_used}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

@@ -1,8 +1,7 @@
-import { isAuthorizedCron, unauthorized } from "../_shared/cronAuth.ts";
 // Weekly batch — refresh mascot advice for active users in ONE run.
 // Run: ทุกวันอาทิตย์ 02:00 BKK (= วันเสาร์ 19:00 UTC) ผ่าน pg_cron
 // ลด AI calls จาก ~1,200 ครั้ง/สัปดาห์ → ~จำนวน active users / สัปดาห์
-const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
+import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { generateMascotMessages } from "../_shared/mascotAdvice.ts";
 
@@ -99,8 +98,6 @@ async function buildContextFor(supa: any, userId: string, role: string) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (!(await isAuthorizedCron(req))) return unauthorized();
-
   const supa = svc();
 
   // เลือกผู้ใช้ที่ active 30 วันล่าสุด — เพื่อไม่เปลือง token กับคนที่ไม่ใช้ระบบ

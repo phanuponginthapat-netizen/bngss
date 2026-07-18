@@ -14,6 +14,7 @@ import {
   ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Tooltip, Legend,
 } from "recharts";
 import { SUBJECT_GROUPS, type SubjectGroup } from "@/lib/obecStandards";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 function classifySubjectGroup(name: string): SubjectGroup["key"] | null {
   const n = (name || "").toLowerCase();
@@ -35,9 +36,9 @@ const _currentAY = (() => {
 
 type Mood = "happy" | "neutral" | "worried";
 const moodColor: Record<Mood, string> = {
-  happy: "bg-success-soft text-success border-success/30",
-  neutral: "bg-warning-soft text-warning border-warning/30",
-  worried: "bg-danger-soft text-danger border-danger/30",
+  happy: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  neutral: "bg-amber-50 text-amber-700 border-amber-200",
+  worried: "bg-rose-50 text-rose-700 border-rose-200",
 };
 
 function AnimatedMascot({ src, alt }: { src: string; alt: string }) {
@@ -98,7 +99,10 @@ export default function MascotHeroWidget() {
         attTotal: statusByStudent.size,
       };
     },
-    staleTime: 15_000,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
 
@@ -125,7 +129,7 @@ export default function MascotHeroWidget() {
 
   const staticMessages = useMemo(() => {
     const msgs: string[] = [];
-    msgs.push(`สวัสดี${name ? ` ${name}` : ""} วันนี้ยิ้มสดใสนะ! ☀️`);
+    msgs.push(`สวัสดี${name ? ` ${name}` : ""} 👋 ยินดีต้อนรับสู่ระบบบริหารโรงเรียน วันนี้พร้อมลุยไปด้วยกันนะ! ☀️`);
     if (weather?.temperature != null) {
       msgs.push(`ตอนนี้อุณหภูมิ ${weather.temperature.toFixed(0)}°C ${weather.isRainy ? "มีฝนตก ☔ พกร่มด้วยน้า" : "อากาศดีมาก ☀️"}`);
     }
@@ -133,17 +137,63 @@ export default function MascotHeroWidget() {
       const total = stats.students || 0;
       const scanned = stats.scannedToday || 0;
       const pct = total > 0 ? Math.round((scanned / total) * 100) : 0;
-      msgs.push(`รายงานวันนี้: เข้ามาโรงเรียน ${scanned}/${total} คน (${pct}%) 🏫`);
+      msgs.push(`📊 รายงานวันนี้: นักเรียนเข้าโรงเรียน ${scanned}/${total} คน (${pct}%) — ดูรายละเอียดได้ที่เมนู "การมาเรียน" 🏫`);
     }
     if (bubbleExtras?.nextEvent) {
       const d = new Date(bubbleExtras.nextEvent.event_date).toLocaleDateString("th-TH", { day: "numeric", month: "short" });
-      msgs.push(`นัดหมายถัดไป: ${bubbleExtras.nextEvent.title} (${d}) 📅`);
+      msgs.push(`📅 นัดหมายถัดไป: ${bubbleExtras.nextEvent.title} (${d}) — เช็คในปฏิทินกิจกรรมได้เลย`);
     }
     if (bubbleExtras?.unreadCount) {
-      msgs.push(`มีข้อความใหม่ ${bubbleExtras.unreadCount} รายการรอคุณอยู่! 🔔${bubbleExtras.latestUnread ? ` "${bubbleExtras.latestUnread}"` : ""}`);
+      msgs.push(`🔔 มีแจ้งเตือนใหม่ ${bubbleExtras.unreadCount} รายการ${bubbleExtras.latestUnread ? ` เช่น "${bubbleExtras.latestUnread}"` : ""} กดที่ระฆังมุมขวาบนเพื่อดูทั้งหมด`);
     }
+
+    // === Role-specific tips & guidance — แนะนำการใช้ระบบตามบทบาท ===
+    const tips: string[] = [];
+    if (role === "admin") {
+      tips.push(
+        "💡 Tip: ใช้เมนู 'นำเข้า DMC' เพื่ออัปเดตข้อมูลนักเรียนจาก DMC อัตโนมัติ",
+        "🛠️ จัดการสิทธิ์และผู้ใช้งานได้ที่ 'ตั้งค่าระบบ → จัดการผู้ใช้'",
+        "📈 ดูภาพรวมทั้งโรงเรียนได้ที่หน้า 'รายงานวิเคราะห์' พร้อม export ได้",
+        "🔔 ตั้งค่า LINE OA / Google Chat เพื่อแจ้งเตือนอัตโนมัติได้ในเมนู 'ตั้งค่าการแจ้งเตือน'",
+      );
+    } else if (role === "director") {
+      tips.push(
+        "📋 เอกสารราชการรอลงนามดูได้ที่ 'Inbox' — ลงนามดิจิทัลได้ในไม่กี่คลิก",
+        "📊 ใช้ 'รายงานสรุป' เพื่อดูภาพรวมทั้งโรงเรียน (นักเรียน บุคลากร งบประมาณ)",
+        "✅ อนุมัติการลาของบุคลากรและนักเรียนได้รวดเร็วในเมนู 'การลา'",
+        "👥 ดูการประเมิน PA และผลการประเมินบุคลากรได้ที่ 'ฝ่ายบุคคล → ประเมิน'",
+      );
+    } else if (role === "teacher") {
+      tips.push(
+        "📝 เช็คชื่อนักเรียนรายวันได้ที่เมนู 'การมาเรียน' หรือใช้ Face Scan ได้เลย",
+        "📚 บันทึกคะแนน ปพ.5 ได้ที่ 'งานวิชาการ → ปพ.5' พร้อมพิมพ์รายงาน",
+        "🎯 บันทึกพฤติกรรมนักเรียนได้ที่ 'พฤติกรรม' — ผู้ปกครองจะเห็นผ่าน LINE",
+        "📨 ส่งเอกสารราชการในระบบได้ที่ 'E-Form' ไม่ต้องเดินถือกระดาษอีก",
+      );
+    } else if (role === "student") {
+      tips.push(
+        "📖 ดูคะแนนและผลการเรียนของตัวเองได้ที่ 'ผลการเรียน'",
+        "📅 เช็คตารางเรียน ตารางสอบ และการบ้านได้ที่หน้า Dashboard",
+        "📝 ยื่นใบลาออนไลน์ได้ที่ 'การลา' — ครูจะอนุมัติให้ในระบบ",
+        "🏆 ดู Portfolio ของตัวเองและแชร์ให้ผู้อื่นได้ที่หน้า 'พอร์ตโฟลิโอ'",
+      );
+    } else if (role === "parent") {
+      tips.push(
+        "👨‍👩‍👧 ดูข้อมูลบุตรหลานได้ที่หน้า Dashboard — การมาเรียน คะแนน พฤติกรรม",
+        "💬 รับการแจ้งเตือนผ่าน LINE ได้โดยเชื่อมบัญชีในเมนู 'ตั้งค่า'",
+        "📝 ยื่นใบลาให้บุตรหลานได้ที่เมนู 'การลา'",
+      );
+    } else if (role === "alumni") {
+      tips.push(
+        "🎓 อัปเดตข้อมูลปัจจุบันของคุณได้ที่ 'โปรไฟล์'",
+        "📰 ติดตามข่าวสารและกิจกรรมของโรงเรียนได้ที่หน้าหลัก",
+      );
+    }
+    msgs.push(...tips);
+
     return msgs;
-  }, [name, weather, stats, bubbleExtras]);
+  }, [name, weather, stats, bubbleExtras, role]);
+
 
   // Radar
   const { data: studentRadar } = useQuery({
@@ -250,9 +300,9 @@ export default function MascotHeroWidget() {
   const topGroup = sorted[0];
   const lowGroup = sorted[sorted.length - 1];
   const radarTitle = role === "student"
-    ? `คะแนนของฉันตามกลุ่มสาระ • พ.ศ. ${_currentAY + 543}`
+    ? `คะแนนของฉันตามกลุ่มสาระ • พ.ศ. ${_currentAY + BE_OFFSET}`
     : isStaff
-      ? `คะแนนเฉลี่ยนักเรียนตามกลุ่มสาระ • พ.ศ. ${_currentAY + 543}`
+      ? `คะแนนเฉลี่ยนักเรียนตามกลุ่มสาระ • พ.ศ. ${_currentAY + BE_OFFSET}`
       : "Stat ภาพรวมระบบ";
 
   const overall: Mood = overallScore >= 80 ? "happy" : overallScore >= 50 ? "neutral" : "worried";
@@ -368,7 +418,7 @@ export default function MascotHeroWidget() {
               {isGroupRadar && (
                 <>
                   <div className="flex justify-center mb-2">
-                    <div className="text-[11px] md:text-xs font-bold text-white bg-gradient-to-r from-danger via-danger to-info px-3 py-1 rounded-full border-2 border-white shadow-md">
+                    <div className="text-[11px] md:text-xs font-bold text-white bg-gradient-to-r from-pink-400 via-fuchsia-400 to-violet-400 px-3 py-1 rounded-full border-2 border-white shadow-md">
                       ✨ {radarTitle}
                     </div>
                   </div>
@@ -394,7 +444,7 @@ export default function MascotHeroWidget() {
                             strokeOpacity={0.6} strokeWidth={2} strokeDasharray="4 3"
                             fill="#94a3b8" fillOpacity={0.18} isAnimationActive animationDuration={1200} />
                         )}
-                        <Radar name={`ปี ${_currentAY + 543}`} dataKey="value" stroke="url(#radarStroke)"
+                        <Radar name={`ปี ${_currentAY + BE_OFFSET}`} dataKey="value" stroke="url(#radarStroke)"
                           strokeWidth={3} fill="url(#radarPastel)" fillOpacity={0.85}
                           dot={{ r: 4, fill: "#fff", stroke: "#ec4899", strokeWidth: 2 }}
                           isAnimationActive animationDuration={1200} />
@@ -415,7 +465,7 @@ export default function MascotHeroWidget() {
                         </div>
                         <div className="rounded-lg bg-muted/40 p-2">
                           <div className="text-muted-foreground">เทียบปีก่อน</div>
-                          <div className={`text-base font-bold ${delta > 0 ? "text-success" : delta < 0 ? "text-danger" : "text-muted-foreground"}`}>
+                          <div className={`text-base font-bold ${delta > 0 ? "text-emerald-600" : delta < 0 ? "text-rose-600" : "text-muted-foreground"}`}>
                             {hasPrev ? `${delta > 0 ? "+" : ""}${delta}` : "—"}
                           </div>
                         </div>
@@ -427,15 +477,15 @@ export default function MascotHeroWidget() {
                       {(topGroup || lowGroup) && (
                         <div className="grid grid-cols-2 gap-2 text-[11px] md:text-xs">
                           {topGroup && (
-                            <div className="rounded-lg border border-success/70 bg-success/60 p-2">
-                              <div className="text-success font-semibold">🏆 {role === "student" ? "จุดแข็ง" : "สูงสุด"}</div>
+                            <div className="rounded-lg border border-emerald-200/70 bg-emerald-50/60 p-2">
+                              <div className="text-emerald-700 font-semibold">🏆 {role === "student" ? "จุดแข็ง" : "สูงสุด"}</div>
                               <div className="text-foreground truncate">{(topGroup as any).fullName}</div>
                               <div className="text-muted-foreground">เฉลี่ย {(topGroup as any).value}</div>
                             </div>
                           )}
                           {lowGroup && lowGroup !== topGroup && (
-                            <div className="rounded-lg border border-warning/70 bg-warning/60 p-2">
-                              <div className="text-warning font-semibold">⚠ ควรพัฒนา</div>
+                            <div className="rounded-lg border border-amber-200/70 bg-amber-50/60 p-2">
+                              <div className="text-amber-700 font-semibold">⚠ ควรพัฒนา</div>
                               <div className="text-foreground truncate">{(lowGroup as any).fullName}</div>
                               <div className="text-muted-foreground">เฉลี่ย {(lowGroup as any).value}</div>
                             </div>

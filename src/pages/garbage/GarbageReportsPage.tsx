@@ -17,6 +17,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { registerThaiFont } from "@/lib/jspdfThai";
 import * as XLSX from "xlsx";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
 
@@ -77,13 +78,13 @@ export default function GarbageReportsPage() {
         label: format(now, "MMMM yyyy", { locale: th }),
         prevLabel: format(prev, "MMMM yyyy", { locale: th }) };
     } else if (mode === "yearly") {
-      const ce = year - 543;
+      const ce = year - BE_OFFSET;
       const from = new Date(ce, 0, 1);
       const to = new Date(ce, 11, 31, 23, 59, 59);
       return { from, to, prevFrom: new Date(ce - 1, 0, 1), prevTo: new Date(ce - 1, 11, 31, 23, 59, 59),
         label: `ปี พ.ศ. ${year}`, prevLabel: `ปี พ.ศ. ${year - 1}` };
     } else {
-      const ce = year - 543;
+      const ce = year - BE_OFFSET;
       let from: Date, to: Date, prevFrom: Date, prevTo: Date;
       if (semester === 1) {
         from = new Date(ce, 4, 1); to = new Date(ce, 9, 31, 23, 59, 59);
@@ -564,11 +565,11 @@ export default function GarbageReportsPage() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        {stat(<Recycle className="w-8 h-8 text-white/70" />, "รายการฝาก", current.summary.totalDeposits.toLocaleString(), previous.summary.totalDeposits, current.summary.totalDeposits, "from-success to-success")}
-        {stat(<Gift className="w-8 h-8 text-white/70" />, "รายการแลก", current.summary.totalRedeem.toLocaleString(), previous.summary.totalRedeem, current.summary.totalRedeem, "from-warning to-warning")}
-        {stat(<Coins className="w-8 h-8 text-white/70" />, "แต้มเข้า", `+${current.summary.pointsIn.toLocaleString()}`, previous.summary.pointsIn, current.summary.pointsIn, "from-success to-success")}
-        {stat(<Coins className="w-8 h-8 text-white/70" />, "แต้มออก", `-${current.summary.pointsOut.toLocaleString()}`, previous.summary.pointsOut, current.summary.pointsOut, "from-danger to-danger")}
-        {stat(<Award className="w-8 h-8 text-white/70" />, "ผู้ใช้งาน", current.summary.activeUsers.toLocaleString(), previous.summary.activeUsers, current.summary.activeUsers, "from-info to-info")}
+        {stat(<Recycle className="w-8 h-8 text-white/70" />, "รายการฝาก", current.summary.totalDeposits.toLocaleString(), previous.summary.totalDeposits, current.summary.totalDeposits, "from-emerald-500 to-emerald-600")}
+        {stat(<Gift className="w-8 h-8 text-white/70" />, "รายการแลก", current.summary.totalRedeem.toLocaleString(), previous.summary.totalRedeem, current.summary.totalRedeem, "from-amber-500 to-orange-600")}
+        {stat(<Coins className="w-8 h-8 text-white/70" />, "แต้มเข้า", `+${current.summary.pointsIn.toLocaleString()}`, previous.summary.pointsIn, current.summary.pointsIn, "from-green-500 to-emerald-600")}
+        {stat(<Coins className="w-8 h-8 text-white/70" />, "แต้มออก", `-${current.summary.pointsOut.toLocaleString()}`, previous.summary.pointsOut, current.summary.pointsOut, "from-rose-500 to-red-600")}
+        {stat(<Award className="w-8 h-8 text-white/70" />, "ผู้ใช้งาน", current.summary.activeUsers.toLocaleString(), previous.summary.activeUsers, current.summary.activeUsers, "from-blue-500 to-indigo-600")}
       </div>
 
       {/* ปริมาณรวมตามหน่วย */}
@@ -583,7 +584,7 @@ export default function GarbageReportsPage() {
                 <div key={u.unit} className="p-4 rounded-lg border bg-gradient-to-br from-muted/40 to-background">
                   <div className="text-xs text-muted-foreground">หน่วย</div>
                   <div className="text-lg font-bold">{u.unit}</div>
-                  <div className="mt-2 text-2xl font-bold text-success">
+                  <div className="mt-2 text-2xl font-bold text-emerald-600">
                     {u.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
@@ -638,10 +639,10 @@ export default function GarbageReportsPage() {
       </Card>
 
       {/* ประเภทขยะที่นำมาฝากมากที่สุด */}
-      <Card className="border-success/30">
+      <Card className="border-emerald-500/30">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Crown className="w-5 h-5 text-success" />
+            <Crown className="w-5 h-5 text-emerald-500" />
             ประเภทขยะที่นำมาฝากมากที่สุด
           </CardTitle>
           <p className="text-sm text-muted-foreground">เรียงตามปริมาณรวม • แสดงหน่วยมาตรฐานของแต่ละประเภท</p>
@@ -688,7 +689,7 @@ export default function GarbageReportsPage() {
                         <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                           <span>ปริมาณ <span className="font-bold text-foreground">{it.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })} {it.unit}</span></span>
                           <span>ครั้ง <span className="font-bold text-foreground">{it.count.toLocaleString()}</span></span>
-                          <span>แต้ม <span className="font-bold text-success">+{it.points.toLocaleString()}</span></span>
+                          <span>แต้ม <span className="font-bold text-emerald-600">+{it.points.toLocaleString()}</span></span>
                         </div>
                       </div>
                     );
@@ -701,7 +702,7 @@ export default function GarbageReportsPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><Gift className="w-4 h-4 text-warning" />ของรางวัลที่แลกบ่อยสุด</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Gift className="w-4 h-4 text-amber-500" />ของรางวัลที่แลกบ่อยสุด</CardTitle></CardHeader>
         <CardContent>
           {current.byReward.length === 0 ? <div className="text-center text-muted-foreground py-12">ยังไม่มีข้อมูล</div> : (
             <ResponsiveContainer width="100%" height={300}>
@@ -717,7 +718,7 @@ export default function GarbageReportsPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><Trophy className="text-warning" />Top 10 ผู้ใช้งาน ({ranges.label})</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Trophy className="text-amber-500" />Top 10 ผู้ใช้งาน ({ranges.label})</CardTitle></CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
@@ -735,12 +736,12 @@ export default function GarbageReportsPage() {
               ) : current.topStudents.map((s, i) => (
                 <TableRow key={i}>
                   <TableCell>
-                    {i < 3 ? <Badge className={i === 0 ? "bg-warning" : i === 1 ? "bg-neutral" : "bg-warning"}>{i + 1}</Badge> : i + 1}
+                    {i < 3 ? <Badge className={i === 0 ? "bg-amber-500" : i === 1 ? "bg-slate-400" : "bg-orange-600"}>{i + 1}</Badge> : i + 1}
                   </TableCell>
                   <TableCell className="font-medium">{s.name}</TableCell>
                   <TableCell>{s.classroom}</TableCell>
                   <TableCell className="text-right">{s.deposits}</TableCell>
-                  <TableCell className="text-right font-bold text-success">+{s.points.toLocaleString()}</TableCell>
+                  <TableCell className="text-right font-bold text-emerald-600">+{s.points.toLocaleString()}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

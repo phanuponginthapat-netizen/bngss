@@ -345,7 +345,7 @@ export default function DistrictFeedPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium">{k.name}</p>
-                    {k.is_active ? <Badge className="bg-success-soft text-success">Active</Badge> : <Badge variant="outline">Revoked</Badge>}
+                    {k.is_active ? <Badge className="bg-green-100 text-green-800">Active</Badge> : <Badge variant="outline">Revoked</Badge>}
                     {(k.scopes || []).map((s: string) => <Badge key={s} variant="outline" className="text-xs">{s}</Badge>)}
                   </div>
                   <p className="text-xs text-muted-foreground">{k.description || "-"}</p>
@@ -423,7 +423,7 @@ export default function DistrictFeedPage() {
             <div className="space-y-3 max-h-[70vh] overflow-y-auto">
               {newKey ? (
                 <>
-                  <p className="text-sm text-warning bg-warning-soft dark:bg-warning/30 p-2 rounded">⚠️ คัดลอก key นี้ทันที จะไม่แสดงอีก</p>
+                  <p className="text-sm text-amber-700 bg-amber-50 dark:bg-amber-950/30 p-2 rounded">⚠️ คัดลอก key นี้ทันที จะไม่แสดงอีก</p>
                   <div>
                     <Label className="text-xs">API Key</Label>
                     <div className="flex gap-2">

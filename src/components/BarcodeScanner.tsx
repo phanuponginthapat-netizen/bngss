@@ -1,8 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScanLine, AlertCircle } from "lucide-react";
+import { ScanLine, AlertCircle, Focus } from "lucide-react";
 import { toast } from "sonner";
+import { applyCameraFocus } from "@/lib/cameraFocus";
+
+const IS_IOS =
+  typeof navigator !== "undefined" &&
+  (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (/Macintosh/.test(navigator.userAgent) && (navigator.maxTouchPoints || 0) > 1));
 
 interface Props {
   open: boolean;
@@ -21,6 +27,29 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastScanRef = useRef<{ code: string; at: number }>({ code: "", at: 0 });
   const [error, setError] = useState<string | null>(null);
+  const [refocusing, setRefocusing] = useState(false);
+
+  /**
+   * บังคับให้กล้องเริ่ม autofocus cycle ใหม่ — iOS Safari ไม่มี API focusMode,
+   * แต่การ pause/play + applyConstraints ใหม่จะ trigger AF re-lock บนเครื่อง iOS
+   */
+  const triggerRefocus = useCallback(async () => {
+    const el = document.getElementById(SCANNER_ID);
+    const videoEl = el?.querySelector("video") as HTMLVideoElement | null;
+    const stream = (videoEl?.srcObject as MediaStream) || null;
+    if (!videoEl || !stream) return;
+    setRefocusing(true);
+    try {
+      // iOS: pause แล้ว play ใหม่ = force AF cycle
+      try { videoEl.pause(); } catch {}
+      await new Promise((r) => setTimeout(r, 120));
+      try { await videoEl.play(); } catch {}
+      // Android/Chrome: apply focus constraints อีกครั้ง
+      await applyCameraFocus(stream, "close");
+    } finally {
+      setTimeout(() => setRefocusing(false), 400);
+    }
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -108,6 +137,10 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
             qrbox: { width: boxSize, height: boxSize },
             aspectRatio: 1.333,
             useBarCodeDetectorIfSupported: true,
+            // iOS Safari: บังคับ resolution สูง → บังคับใช้ main sensor (autofocus ดีกว่ากล้อง ultrawide)
+            videoConstraints: IS_IOS
+              ? { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+              : { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
           } as any,
           (decoded) => {
             if (cancelled) return;
@@ -125,6 +158,13 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
           () => {}
         );
 
+        // เปิด autofocus ต่อเนื่อง + macro focus ให้กล้อง (ช่วยไม่ให้ QR เบลอในระยะใกล้)
+        try {
+          const videoEl = el.querySelector("video") as HTMLVideoElement | null;
+          const stream = (videoEl?.srcObject as MediaStream) || null;
+          await applyCameraFocus(stream, "close");
+        } catch {}
+
       } catch (e: any) {
         console.error("Scanner start failed", e);
         const msg = e?.message || "เริ่มสแกนไม่สำเร็จ";
@@ -140,13 +180,28 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg sm:max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ScanLine className="w-5 h-5 text-primary" /> {title}
           </DialogTitle>
         </DialogHeader>
-        <div id={SCANNER_ID} className="w-full rounded-lg overflow-hidden bg-black/80 min-h-[300px]" />
+        <div className="relative">
+          <div
+            id={SCANNER_ID}
+            onClick={triggerRefocus}
+            className="w-full rounded-lg overflow-hidden bg-black/80 min-h-[300px] cursor-pointer select-none"
+          />
+          {/* ปุ่มโฟกัสใหม่ — จำเป็นสำหรับ iOS Safari ที่ไม่รองรับ focusMode API */}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); triggerRefocus(); }}
+            className="absolute bottom-3 right-3 h-11 w-11 rounded-full bg-white/90 hover:bg-white text-black shadow-lg backdrop-blur flex items-center justify-center active:scale-95 transition-all"
+            aria-label="โฟกัสใหม่"
+          >
+            <Focus className={`w-5 h-5 ${refocusing ? "animate-spin" : ""}`} />
+          </button>
+        </div>
         {error ? (
           <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -159,7 +214,11 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
           </div>
         ) : (
           <p className="text-xs text-muted-foreground text-center">
-            {continuous ? "เล็งกล้องไปที่ QR บัตรนักเรียนทีละคน — ระบบจะสแกนต่อเนื่อง" : "เล็งกล้องไปที่บาร์โค้ดหรือ QR Code ระบบจะสแกนอัตโนมัติ"}
+            {IS_IOS
+              ? "บน iPhone: ถ้าภาพเบลอ ถอยกล้องออกสัก 10–15 ซม. หรือ แตะจอ/ปุ่ม 🎯 เพื่อโฟกัสใหม่"
+              : continuous
+              ? "เล็งกล้องไปที่ QR บัตรนักเรียนทีละคน — ระบบจะสแกนต่อเนื่อง"
+              : "เล็งกล้องไปที่บาร์โค้ดหรือ QR Code ระบบจะสแกนอัตโนมัติ"}
           </p>
         )}
 

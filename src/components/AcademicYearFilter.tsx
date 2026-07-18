@@ -2,6 +2,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { GraduationCap } from "lucide-react";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 interface Props {
   academicYear: number;
@@ -39,7 +40,7 @@ export function AcademicYearFilter({
           <SelectContent>
             {academicYearOptions.map(y => (
               <SelectItem key={y} value={String(y)}>
-                {lang === "th" ? `${y}` : `${y - 543}`}
+                {lang === "th" ? `${y}` : `${y - BE_OFFSET}`}
               </SelectItem>
             ))}
           </SelectContent>

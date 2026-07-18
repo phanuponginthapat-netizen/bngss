@@ -1,0 +1,22 @@
+[
+  { "id": 1001, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||bet365.com^",     "resourceTypes": ["main_frame","sub_frame"] } },
+  { "id": 1002, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||1xbet.com^",      "resourceTypes": ["main_frame","sub_frame"] } },
+  { "id": 1003, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||m88.com^",        "resourceTypes": ["main_frame","sub_frame"] } },
+  { "id": 1004, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||sbobet.com^",     "resourceTypes": ["main_frame","sub_frame"] } },
+  { "id": 1005, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||fun88.com^",      "resourceTypes": ["main_frame","sub_frame"] } },
+  { "id": 1006, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||dafabet.com^",    "resourceTypes": ["main_frame","sub_frame"] } },
+  { "id": 1007, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||w88.com^",        "resourceTypes": ["main_frame","sub_frame"] } },
+  { "id": 1008, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||ufabet",          "resourceTypes": ["main_frame","sub_frame","script","image","xmlhttprequest"] } },
+  { "id": 1009, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||pgslot",          "resourceTypes": ["main_frame","sub_frame","script","image","xmlhttprequest"] } },
+  { "id": 1010, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||pg-slot",         "resourceTypes": ["main_frame","sub_frame","script","image","xmlhttprequest"] } },
+  { "id": 1011, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||slotxo",          "resourceTypes": ["main_frame","sub_frame","script","image","xmlhttprequest"] } },
+  { "id": 1012, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||jokergame",       "resourceTypes": ["main_frame","sub_frame","script","image","xmlhttprequest"] } },
+  { "id": 1013, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||joker123",        "resourceTypes": ["main_frame","sub_frame","script","image","xmlhttprequest"] } },
+  { "id": 1014, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||casino",          "resourceTypes": ["main_frame","sub_frame"] } },
+  { "id": 1015, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||huaydee",         "resourceTypes": ["main_frame","sub_frame","script","image","xmlhttprequest"] } },
+  { "id": 1016, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||lottovip",        "resourceTypes": ["main_frame","sub_frame","script","image","xmlhttprequest"] } },
+  { "id": 1017, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||huaythai",        "resourceTypes": ["main_frame","sub_frame","script","image","xmlhttprequest"] } },
+  { "id": 1018, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||baccarat",        "resourceTypes": ["main_frame","sub_frame"] } },
+  { "id": 1019, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||poker",           "resourceTypes": ["main_frame","sub_frame"] } },
+  { "id": 1020, "priority": 2, "action": { "type": "block" }, "condition": { "urlFilter": "||gclub",           "resourceTypes": ["main_frame","sub_frame","script","image","xmlhttprequest"] } }
+]

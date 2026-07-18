@@ -8,13 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Printer } from "lucide-react";
 import StudentSelector from "@/components/documents/StudentSelector";
-import { useSchoolInfo, signatureImgHtml } from "@/components/documents/DocumentHeader";
-import { ExportMenu } from "@/components/academic/ExportMenu";
-import { exportPP1Sgs, exportPP1SchoolMis } from "@/lib/exporters/pp1Transcript";
-
-import { SignatureBlock } from "@/components/documents/SignatureBlock";
+import { useSchoolInfo } from "@/components/documents/DocumentHeader";
 import { openPrintWindow, currentThaiDate } from "@/lib/printUtils";
 import { formatFullNameHtml, formatFullName, formatFullNamePlain } from "@/lib/nameFormat";
+import { BE_OFFSET } from "@/lib/dateBE";
+import { useStudentsWithClass } from "@/hooks/useStudentsWithClass";
 
 const TranscriptPage = () => {
   const { lang } = useLanguage();
@@ -28,7 +26,7 @@ const TranscriptPage = () => {
       return data || [];
     },
   });
-  const { data: students = [] } = useQuery({ queryKey: ["students_with_class"], queryFn: async () => { const { data } = await supabase.from("students").select("*, classrooms!students_classroom_id_fkey(*)").eq("status", "active").order("student_code"); return data || []; } });
+  const { data: students = [] } = useStudentsWithClass();
   const { data: scores = [] } = useQuery({
     queryKey: ["transcript_scores", studentCode],
     queryFn: async () => {
@@ -61,7 +59,7 @@ const TranscriptPage = () => {
 
   const groupedScores: Record<string, any[]> = {};
   scores.forEach((s: any) => {
-    const key = `${(s.academic_year || 0) + 543}/${s.semester}`;
+    const key = `${(s.academic_year || 0) + BE_OFFSET}/${s.semester}`;
     if (!groupedScores[key]) groupedScores[key] = [];
     groupedScores[key].push(s);
   });
@@ -76,8 +74,9 @@ const TranscriptPage = () => {
     }
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     if (!student) return;
+    const { printByCode } = await import("@/lib/printTemplate");
     const cls = (student as any).classrooms;
 
     let semesterTablesHtml = "";
@@ -169,7 +168,6 @@ const TranscriptPage = () => {
             <div class="obec-sig-title">(นายทะเบียน)</div>
           </div>
           <div class="obec-sig-item">
-            ${signatureImgHtml(schoolInfo.director_signature_url, 44)}
             <div class="obec-sig-line"></div>
             <div class="obec-sig-name">${schoolInfo.director_name ? `(${schoolInfo.director_name})` : "(ลงชื่อ)"}</div>
             <div class="obec-sig-title">${schoolInfo.director_title}</div>
@@ -178,7 +176,9 @@ const TranscriptPage = () => {
         <div class="obec-date">วันที่ ${currentThaiDate()}</div>
       </div>
     `;
-    openPrintWindow(html, { title: `ปพ.1 - ${formatFullNamePlain(undefined, student.first_name, student.last_name)}` });
+    const tplData = { school: schoolInfo, student, class: (student as any).classrooms, groupedScores, today: new Date().toISOString() };
+    const used = await printByCode("pp1", tplData);
+    if (!used) openPrintWindow(html, { title: `ปพ.1 - ${formatFullNamePlain(undefined, student.first_name, student.last_name)}` });
   };
 
   return (
@@ -188,50 +188,7 @@ const TranscriptPage = () => {
           <h1 className="text-2xl font-bold text-foreground">ระเบียนแสดงผลการเรียน (ปพ.1)</h1>
           <p className="text-sm text-muted-foreground">แบบแสดงผลการเรียนตลอดหลักสูตร ครบทุกระดับชั้น</p>
         </div>
-        {studentCode && student && (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร</Button>
-            <ExportMenu
-              templateCode="pp1"
-              templateTitle="ปพ.1 — ระเบียนแสดงผลการเรียน (Transcript)"
-              actions={[
-                {
-                  key: "sgs", icon: "xlsx", label: "Excel (SGS / สพม.)",
-                  onClick: () => exportPP1Sgs(schoolInfo, {
-                    student_code: (student as any).student_code,
-                    prefix: (student as any).prefix,
-                    first_name: (student as any).first_name,
-                    last_name: (student as any).last_name,
-                    national_id: (student as any).national_id,
-                    birth_date: (student as any).birth_date,
-                    grade_level: (student as any).classrooms?.grade_level,
-                    classroom_name: (student as any).classrooms?.name,
-                  }, (scores as any[]).map((sc) => {
-                    const sj = getSubject(sc.subject_id);
-                    return { code: sj?.code || "-", name: sj?.name_th || "-", credit: Number(sj?.credits ?? 0), grade: sc.grade ?? sc.total_score ?? "-", semester: sc.semester, academic_year: sc.academic_year };
-                  })),
-                },
-                {
-                  key: "smis", icon: "xlsx", label: "Excel (SchoolMIS / สพฐ.)",
-                  onClick: () => exportPP1SchoolMis(schoolInfo, {
-                    student_code: (student as any).student_code,
-                    prefix: (student as any).prefix,
-                    first_name: (student as any).first_name,
-                    last_name: (student as any).last_name,
-                    national_id: (student as any).national_id,
-                    birth_date: (student as any).birth_date,
-                    grade_level: (student as any).classrooms?.grade_level,
-                    classroom_name: (student as any).classrooms?.name,
-                  }, (scores as any[]).map((sc) => {
-                    const sj = getSubject(sc.subject_id);
-                    return { code: sj?.code || "-", name: sj?.name_th || "-", credit: Number(sj?.credits ?? 0), grade: sc.grade ?? sc.total_score ?? "-", semester: sc.semester, academic_year: sc.academic_year };
-                  })),
-                },
-              ]}
-            />
-          </div>
-        )}
-
+        {studentCode && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร</Button>}
       </div>
 
       <StudentSelector students={students} classrooms={classrooms} studentCode={studentCode} onStudentChange={setStudentCode} />
@@ -326,7 +283,7 @@ const TranscriptPage = () => {
               </div>
               <div className="text-center">
                 <div className="w-40 border-b border-foreground/60 mb-2 mx-auto" />
-                <p className="text-xs text-muted-foreground">(ผู้อำนวยการโรงเรียน)</p>
+                <p className="text-xs text-muted-foreground">({schoolInfo.director_title || "ผู้อำนวยการโรงเรียน"})</p>
               </div>
             </div>
           </CardContent>

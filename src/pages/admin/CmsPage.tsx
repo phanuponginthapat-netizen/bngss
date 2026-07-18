@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,15 +13,13 @@ import { toast } from "sonner";
 import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
 import {
   Plus, Pencil, Trash2, FileText, Menu as MenuIcon, Settings, Image as ImageIcon,
-  Upload, Palette, Eye, Home, Code2, MapPin, Building2, Sparkles, ImagePlus, Smartphone, LayoutPanelTop, Package, Bot, FileSignature
+  Upload, Palette, Eye, Home, Code2, MapPin, Building2, Sparkles, ImagePlus, Smartphone, LayoutPanelTop, Package, Bot
 } from "lucide-react";
 import RichTextEditor from "@/components/cms/RichTextEditor";
 import FullHtmlEditor from "@/components/cms/FullHtmlEditor";
 import HomepageEditor from "@/components/cms/HomepageEditor";
-import SignaturesSection from "@/components/cms/SignaturesSection";
 import ConfigBackupCard from "@/components/admin/ConfigBackupCard";
 import { cn } from "@/lib/utils";
-
 
 // ---- Pages Tab with Rich Editor ----
 const PagesTab = () => {
@@ -66,10 +65,10 @@ const PagesTab = () => {
           <DialogTrigger asChild>
             <Button onClick={openAdd} size="sm"><Plus className="w-4 h-4 mr-1" /> เพิ่มหน้า</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-4xl sm:max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>{editPage ? "แก้ไขหน้า" : "เพิ่มหน้าใหม่"}</DialogTitle></DialogHeader>
             <div className="space-y-4 pt-2">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1.5"><Label>Slug (URL)</Label><Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="about" /></div>
                 <div className="space-y-1.5"><Label>ชื่อหน้า</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
                 <div className="space-y-1.5"><Label>ลำดับ</Label><Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: parseInt(e.target.value) || 0 })} /></div>
@@ -212,6 +211,7 @@ const MenuTab = () => {
 type SettingsMap = Record<string, { id: string; value: string }>;
 
 const useCmsSettings = () => {
+  const qc = useQueryClient();
   const [settings, setSettings] = useState<SettingsMap>({});
   const fetchSettings = async () => {
     const { data } = await supabase.from("cms_settings").select("*");
@@ -226,21 +226,31 @@ const useCmsSettings = () => {
     setSettings(prev => ({ ...prev, [key]: { ...(prev[key] || { id: "" }), value } }));
   const ensureSetting = async (key: string, value: string) => {
     if (settings[key]?.id) {
-      await supabase.from("cms_settings").update({ value }).eq("id", settings[key].id);
+      const { error } = await supabase.from("cms_settings").update({ value }).eq("id", settings[key].id);
+      if (error) throw error;
     } else {
-      await supabase.from("cms_settings").insert({ key, value });
+      const { error } = await supabase.from("cms_settings").insert({ key, value });
+      if (error) throw error;
     }
   };
   const saveAll = async () => {
-    for (const [key, s] of Object.entries(settings)) {
-      if (s.id) {
-        await supabase.from("cms_settings").update({ value: s.value }).eq("id", s.id);
-      } else {
-        await supabase.from("cms_settings").insert({ key, value: s.value });
+    try {
+      for (const [key, s] of Object.entries(settings)) {
+        if (s.id) {
+          const { error } = await supabase.from("cms_settings").update({ value: s.value }).eq("id", s.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("cms_settings").insert({ key, value: s.value });
+          if (error) throw error;
+        }
       }
+      toast.success("บันทึกการตั้งค่าสำเร็จ");
+      await qc.invalidateQueries({ queryKey: ["cms_settings_bulk"] });
+      try { localStorage.removeItem("cms_settings_bulk_v1"); } catch { /* noop */ }
+      fetchSettings();
+    } catch (e: any) {
+      toast.error(`บันทึกไม่สำเร็จ: ${e?.message || e}`);
     }
-    toast.success("บันทึกการตั้งค่าสำเร็จ");
-    fetchSettings();
   };
   const uploadImage = async (file: File, prefix: string, key: string, successText = 'อัปโหลดสำเร็จ') => {
     // Preserve animation for GIFs — do not re-encode
@@ -255,9 +265,21 @@ const useCmsSettings = () => {
   return { settings, updateSetting, saveAll, uploadImage };
 };
 
-const SaveBar = ({ onSave }: { onSave: () => void }) => (
-  <div className="pt-2"><Button onClick={onSave}>บันทึกการตั้งค่า</Button></div>
-);
+const SaveBar = ({ onSave }: { onSave: () => void | Promise<void> }) => {
+  const [saving, setSaving] = useState(false);
+  const handleClick = async () => {
+    if (saving) return;
+    setSaving(true);
+    try { await onSave(); } finally { setSaving(false); }
+  };
+  return (
+    <div className="pt-2">
+      <Button onClick={handleClick} disabled={saving}>
+        {saving ? "กำลังบันทึก..." : "บันทึกการตั้งค่า"}
+      </Button>
+    </div>
+  );
+};
 
 // ---- Section: ข้อมูลโรงเรียน ----
 const IdentitySection = () => {
@@ -328,7 +350,7 @@ const IdentitySection = () => {
       </h3>
       <div className="grid gap-4 max-w-2xl">
         {fields.map(({ key, label }) => (
-          <div key={key} className="grid grid-cols-3 gap-3 items-center">
+          <div key={key} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
             <Label className="text-right text-sm">{label}</Label>
             <Input className="col-span-2" value={settings[key]?.value || ""} onChange={(e) => updateSetting(key, e.target.value)} />
           </div>
@@ -346,7 +368,7 @@ const IdentitySection = () => {
             รหัสเหล่านี้จะถูกส่งออกผ่าน <code className="px-1 bg-muted rounded">District Feed API</code> ให้เขต/สพฐ. ใช้ระบุโรงเรียน
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-3 items-center">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
           <Label className="text-right text-sm">รหัส OBEC (10 หลัก) <span className="text-destructive">*</span></Label>
           <Input
             className="col-span-2 font-mono"
@@ -356,7 +378,7 @@ const IdentitySection = () => {
             inputMode="numeric"
           />
         </div>
-        <div className="grid grid-cols-3 gap-3 items-center">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
           <Label className="text-right text-sm">รหัสโรงเรียน (สมศ./อื่นๆ)</Label>
           <Input
             className="col-span-2 font-mono"
@@ -402,11 +424,12 @@ const BrandingSection = () => {
         <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-primary" /> ตราโรงเรียน / ตราครุฑ (สำหรับเอกสาร)
         </h3>
-        <div className="grid grid-cols-2 gap-6 max-w-2xl">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
           {[
             { key: 'school_seal', label: 'ตราโรงเรียน', prefix: 'seal' },
             { key: 'garuda_emblem', label: 'ตราครุฑ', prefix: 'garuda' },
-          ].map(({ key, label, prefix }) => (
+            { key: 'director_signature', label: 'ลายเซ็นผู้อำนวยการ', prefix: 'signature', hint: 'PNG พื้นหลังโปร่งใส ใช้ลงเอกสารทุกฉบับ' },
+          ].map(({ key, label, prefix, hint }: any) => (
             <div key={key}>
               <Label className="text-sm mb-2 block">{label}</Label>
               <div className="flex items-center gap-4">
@@ -420,6 +443,7 @@ const BrandingSection = () => {
                   <Button size="sm" variant="outline" asChild><span><Upload className="w-3 h-3 mr-1" /> อัปโหลด</span></Button>
                 </label>
               </div>
+              {hint && <p className="text-xs text-muted-foreground mt-1">{hint}</p>}
             </div>
           ))}
         </div>
@@ -442,7 +466,7 @@ const AppIconSection = () => {
       </h3>
       <div className="grid gap-4 max-w-2xl">
         {fields.map(({ key, label, placeholder }) => (
-          <div key={key} className="grid grid-cols-3 gap-3 items-center">
+          <div key={key} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
             <Label className="text-right text-sm">{label}</Label>
             <Input className="col-span-2" value={settings[key]?.value || ""} onChange={(e) => updateSetting(key, e.target.value)} placeholder={placeholder} />
           </div>
@@ -469,29 +493,209 @@ const AppIconSection = () => {
 };
 
 // ---- Section: ธีมสี ----
+const THEME_DEFAULTS: Record<string, string> = {
+  theme_primary_color: "#2563eb",
+  theme_secondary_color: "#f1f5f9",
+  theme_accent_color: "#14b8a6",
+  theme_success_color: "#16a34a",
+  theme_warning_color: "#f59e0b",
+  theme_info_color: "#0ea5e9",
+  theme_destructive_color: "#ef4444",
+};
+
+// HEX → "H S% L%" สำหรับ shadcn CSS variables (ใช้แสดง live-preview ทันทีระหว่างแก้)
+function hexToHslString(hex: string): string | null {
+  const m = hex.trim().replace(/^#/, "");
+  const h = m.length === 3 ? m.split("").map((c) => c + c).join("") : m;
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let hh = 0, s = 0; const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: hh = ((g - b) / d + (g < b ? 6 : 0)); break;
+      case g: hh = ((b - r) / d + 2); break;
+      case b: hh = ((r - g) / d + 4); break;
+    }
+    hh *= 60;
+  }
+  return `${Math.round(hh)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
+
+// map key → CSS variables ที่จะอัปเดตแบบ live
+const THEME_VAR_MAP: Record<string, string[]> = {
+  theme_primary_color: ["--primary", "--ring", "--sidebar-primary", "--sidebar-ring"],
+  theme_secondary_color: ["--secondary"],
+  theme_accent_color: ["--accent"],
+  theme_success_color: ["--success"],
+  theme_warning_color: ["--warning"],
+  theme_info_color: ["--info"],
+  theme_destructive_color: ["--destructive"],
+};
+
+type ThemeField = {
+  key: string;
+  label: string;
+  desc: string;
+  usage: string;
+};
+
+const THEME_FIELDS: ThemeField[] = [
+  {
+    key: "theme_primary_color",
+    label: "สีหลัก (Primary)",
+    desc: "สีเอกลักษณ์ของโรงเรียน ใช้กับปุ่มหลัก ลิงก์ ไอคอนสำคัญ",
+    usage: "ปุ่มยืนยัน • ลิงก์ • เมนูที่กำลังเปิดใน Sidebar • เส้นขอบ focus",
+  },
+  {
+    key: "theme_secondary_color",
+    label: "สีรอง (Secondary)",
+    desc: "สีพื้นหลังอ่อน ใช้กับ badge/ปุ่มรอง กล่องเบา ๆ",
+    usage: "ปุ่มรอง • Badge • พื้นหลังการ์ดเน้นเล็กน้อย",
+  },
+  {
+    key: "theme_accent_color",
+    label: "สีเน้น (Accent)",
+    desc: "สีเสริมใช้ตัดกับสีหลัก เพื่อดึงสายตาไปยังจุดเน้น",
+    usage: "Hover เมนู • Tag • ไอคอนเสริม • Highlight ข่าว/กิจกรรม",
+  },
+  {
+    key: "theme_success_color",
+    label: "สีสำเร็จ (Success)",
+    desc: "สีแจ้งสถานะเชิงบวก เช่น มาเรียน อนุมัติ ผ่าน",
+    usage: "แจ้งเตือนสำเร็จ • สถานะ 'มาเรียน/อนุมัติ' • กราฟผ่านเกณฑ์",
+  },
+  {
+    key: "theme_warning_color",
+    label: "สีเตือน (Warning)",
+    desc: "สีเตือนต้องระวัง เช่น สาย รอดำเนินการ ใกล้ครบกำหนด",
+    usage: "แจ้งเตือนคำเตือน • สถานะ 'สาย/รออนุมัติ' • กราฟใกล้เกณฑ์",
+  },
+  {
+    key: "theme_info_color",
+    label: "สีข้อมูล (Info)",
+    desc: "สีสื่อความว่าเป็นข้อมูล/ประกาศทั่วไป",
+    usage: "แจ้งข่าวสาร • Badge ข้อมูล • ปุ่ม 'ดูรายละเอียด'",
+  },
+  {
+    key: "theme_destructive_color",
+    label: "สีอันตราย (Destructive)",
+    desc: "สีสำหรับการกระทำที่มีผลกระทบ เช่น ลบ ปฏิเสธ ขาดเรียน",
+    usage: "ปุ่มลบ • สถานะ 'ขาด/ปฏิเสธ' • แจ้งเตือนผิดพลาด",
+  },
+];
+
 const ThemeColorSection = () => {
   const { settings, updateSetting, saveAll } = useCmsSettings();
-  const themeFields = [
-    { key: "theme_primary_color", label: "สีหลัก (Primary)", def: "#2563eb" },
-    { key: "theme_secondary_color", label: "สีรอง (Secondary)", def: "#64748b" },
-    { key: "theme_accent_color", label: "สีเน้น (Accent)", def: "#f59e0b" },
-  ];
+
+  const applyLivePreview = (key: string, value: string) => {
+    updateSetting(key, value);
+    const hsl = hexToHslString(value);
+    if (!hsl) return;
+    const root = document.documentElement;
+    for (const v of THEME_VAR_MAP[key] || []) root.style.setProperty(v, hsl);
+  };
+
+  const resetDefaults = () => {
+    for (const k of Object.keys(THEME_DEFAULTS)) applyLivePreview(k, THEME_DEFAULTS[k]);
+    toast("รีเซ็ตเป็นค่าเริ่มต้น — กด 'บันทึกการตั้งค่า' เพื่อยืนยัน");
+  };
+
+  const getVal = (key: string) => settings[key]?.value || THEME_DEFAULTS[key];
+
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-        <Palette className="w-5 h-5 text-primary" /> ธีมสี
-      </h3>
-      <div className="grid gap-4 max-w-2xl">
-        {themeFields.map(({ key, label, def }) => (
-          <div key={key} className="grid grid-cols-3 gap-3 items-center">
-            <Label className="text-right text-sm">{label}</Label>
-            <div className="col-span-2 flex items-center gap-3">
-              <input type="color" value={settings[key]?.value || def} onChange={(e) => updateSetting(key, e.target.value)} className="w-10 h-10 rounded-lg border border-border cursor-pointer" />
-              <Input value={settings[key]?.value || def} onChange={(e) => updateSetting(key, e.target.value)} className="flex-1" placeholder={def} />
-            </div>
-          </div>
-        ))}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <Palette className="w-5 h-5 text-primary" /> ธีมสี
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            แก้สีจะเห็นผลบนหน้านี้ทันที (live preview) — กด "บันทึกการตั้งค่า" เพื่อให้มีผลทั้งระบบ
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={resetDefaults}>รีเซ็ตค่าเริ่มต้น</Button>
       </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {THEME_FIELDS.map(({ key, label, desc, usage }) => {
+          const val = getVal(key);
+          return (
+            <div key={key} className="rounded-xl border bg-card p-4 space-y-3 hover:shadow-md transition-shadow">
+              <div className="flex items-start gap-3">
+                <div
+                  className="w-14 h-14 rounded-lg border shadow-sm shrink-0 ring-1 ring-black/5"
+                  style={{ background: val }}
+                  title={val}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm text-foreground">{label}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{desc}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={val}
+                  onChange={(e) => applyLivePreview(key, e.target.value)}
+                  className="w-10 h-10 rounded-md border border-border cursor-pointer"
+                />
+                <Input
+                  value={val}
+                  onChange={(e) => applyLivePreview(key, e.target.value)}
+                  placeholder={THEME_DEFAULTS[key]}
+                  className="flex-1 font-mono text-xs uppercase"
+                />
+              </div>
+              <div className="text-[11px] leading-relaxed text-muted-foreground bg-muted/40 rounded-md px-2.5 py-1.5">
+                <span className="font-medium text-foreground">ใช้ที่ไหน: </span>{usage}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Live preview — องค์ประกอบตัวอย่าง */}
+      <div className="rounded-xl border bg-gradient-to-br from-background to-muted/30 p-5 space-y-4">
+        <div className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Palette className="w-4 h-4 text-primary" /> ตัวอย่างการแสดงผล
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm">ปุ่มหลัก</Button>
+          <Button size="sm" variant="secondary">ปุ่มรอง</Button>
+          <Button size="sm" variant="outline">ปุ่ม Outline</Button>
+          <Button size="sm" variant="destructive">ปุ่มลบ</Button>
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs">
+          <span className="px-2.5 py-1 rounded-full bg-primary text-primary-foreground">Primary</span>
+          <span className="px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground">Secondary</span>
+          <span className="px-2.5 py-1 rounded-full bg-accent text-accent-foreground">Accent</span>
+          <span className="px-2.5 py-1 rounded-full bg-success text-success-foreground">Success</span>
+          <span className="px-2.5 py-1 rounded-full bg-warning text-warning-foreground">Warning</span>
+          <span className="px-2.5 py-1 rounded-full bg-info text-info-foreground">Info</span>
+          <span className="px-2.5 py-1 rounded-full bg-destructive text-destructive-foreground">Destructive</span>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div className="rounded-lg border bg-card p-3">
+            <div className="text-xs text-muted-foreground">ตัวอย่างการ์ด</div>
+            <div className="font-semibold text-foreground">รายงานประจำวัน</div>
+            <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
+              <div className="h-full w-3/4 bg-primary" />
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1">มาเรียน 75%</div>
+          </div>
+          <div className="rounded-lg border bg-card p-3 space-y-1.5 text-xs">
+            <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-success" /> อนุมัติ 24 รายการ</div>
+            <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-warning" /> รอดำเนินการ 5 รายการ</div>
+            <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-destructive" /> ปฏิเสธ 1 รายการ</div>
+          </div>
+        </div>
+      </div>
+
       <SaveBar onSave={saveAll} />
     </div>
   );
@@ -544,7 +748,7 @@ const AiChatbotSection = () => {
       </h3>
 
       <div className="grid gap-4 max-w-2xl">
-        <div className="grid grid-cols-3 gap-3 items-center">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
           <Label className="text-right text-sm">ชื่อบอท</Label>
           <Input
             className="col-span-2"
@@ -553,7 +757,7 @@ const AiChatbotSection = () => {
             placeholder="น้องโรงเรียน"
           />
         </div>
-        <div className="grid grid-cols-3 gap-3 items-start">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
           <Label className="text-right text-sm pt-2">ข้อความทักทาย</Label>
           <textarea
             className="col-span-2 min-h-[72px] rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -562,7 +766,7 @@ const AiChatbotSection = () => {
             placeholder="สวัสดีค่ะ 👋 ..."
           />
         </div>
-        <div className="grid grid-cols-3 gap-3 items-start">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
           <Label className="text-right text-sm pt-2">บทบาท / Persona ของบอท</Label>
           <textarea
             className="col-span-2 min-h-[140px] rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
@@ -574,7 +778,7 @@ const AiChatbotSection = () => {
             กำหนดบุคลิก ขอบเขต และข้อห้ามของบอท (ถ้าเว้นว่างจะใช้ค่าเริ่มต้น)
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-3 items-center">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
           <Label className="text-right text-sm">ภาษาที่รองรับ</Label>
           <Input
             className="col-span-2"
@@ -613,7 +817,7 @@ const AiChatbotSection = () => {
           <Palette className="w-4 h-4 text-primary" /> สีกล่องสนทนา
         </h4>
         {colorFields.map(({ key, label, def }) => (
-          <div key={key} className="grid grid-cols-3 gap-3 items-center">
+          <div key={key} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
             <Label className="text-right text-sm">{label}</Label>
             <div className="col-span-2 flex items-center gap-3">
               <input
@@ -686,7 +890,7 @@ const MascotSection = () => {
         ตั้งชื่อและอัปโหลดรูปมาสคอท 3 อารมณ์ รองรับไฟล์ <b>.gif</b> เพื่อทำเป็นภาพเคลื่อนไหวได้
       </p>
 
-      <div className="grid grid-cols-3 gap-3 items-center max-w-xl">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center max-w-xl">
         <Label className="text-right text-sm">ชื่อมาสคอท</Label>
         <Input
           className="col-span-2"
@@ -864,9 +1068,7 @@ const NAV_GROUPS: NavGroup[] = [
       { key: "identity", label: "ข้อมูลโรงเรียน", desc: "ชื่อ ที่อยู่ ผอ.", icon: Building2, render: () => <IdentitySection /> },
       { key: "branding", label: "โลโก้ & ตรา", desc: "โลโก้ ตราโรงเรียน ครุฑ", icon: Sparkles, render: () => <BrandingSection /> },
       { key: "app", label: "ระบบ & ไอคอน", desc: "ชื่อระบบ Favicon", icon: Smartphone, render: () => <AppIconSection /> },
-      { key: "signatures", label: "ลายเซ็นผู้บริหาร", desc: "ผอ. / รองฯ ใช้ในเอกสาร", icon: FileSignature, render: () => <SignaturesSection /> },
     ],
-
   },
   {
     label: "รูปลักษณ์",

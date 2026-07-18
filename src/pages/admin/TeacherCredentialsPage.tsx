@@ -15,7 +15,6 @@ import {
 import { toast } from "sonner";
 import { Download, KeyRound, Users, FileText, ShieldAlert, Loader2 } from "lucide-react";
 import { PASSWORD_RULES_DESC } from "@/lib/passwordPolicy";
-import { confirmAction } from "@/lib/confirmAction";
 
 type ExportRow = {
   user_id: string;
@@ -203,80 +202,6 @@ export default function TeacherCredentialsPage() {
         </CardContent>
       </Card>
 
-      {/* Action 3: Bulk reset students to fixed password */}
-      <Card className="border-warning/30">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2 text-warning">
-            <KeyRound className="w-4 h-4" /> 3) รีเซ็ตรหัสผ่าน <b>นักเรียนทุกคน</b> เป็นรหัสเดียวกัน
-          </CardTitle>
-          <CardDescription>
-            ตั้งรหัสผ่านนักเรียนทั้งหมดเป็น <code>School@12345</code> (ไม่บังคับเปลี่ยนตอน login)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button
-            variant="outline"
-            disabled={resetting}
-            onClick={async () => {
-              if (!(await confirmAction({ title: "ยืนยันตั้งรหัสผ่านนักเรียนทุกคนเป็น School@12345?", danger: true }))) return;
-              setResetting(true);
-              try {
-                const { data, error } = await supabase.functions.invoke("manage-users", {
-                  body: { action: "bulk_reset_students", new_password: "School@12345", force_change: false },
-                });
-                if (error) throw error;
-                toast.success(`สำเร็จ ${data?.ok ?? 0}/${data?.total ?? 0} (ล้มเหลว ${data?.failed ?? 0})`);
-              } catch (e: any) {
-                toast.error(e?.message || "Bulk reset students failed");
-              } finally {
-                setResetting(false);
-              }
-            }}
-          >
-            {resetting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <KeyRound className="w-4 h-4 mr-2" />}
-            ตั้งรหัสนักเรียนทั้งหมด = School@12345
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Action 4: Force sign-out all users (force re-login) */}
-      <Card className="border-destructive/40">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2 text-destructive">
-            <ShieldAlert className="w-4 h-4" /> 4) ตัดการเชื่อมต่อผู้ใช้ทั้งหมด (Force Logout)
-          </CardTitle>
-          <CardDescription>
-            บังคับ logout ทุกบัญชี (ยกเว้น admin) เพื่อให้ทุกคน login ใหม่ — ใช้แก้ปัญหา session ค้าง / ระบบโหลดช้า
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button
-            variant="destructive"
-            disabled={resetting}
-            onClick={async () => {
-              if (!(await confirmAction({ title: "ยืนยันตัดการเชื่อมต่อผู้ใช้ทั้งหมด (ยกเว้น admin)? ทุกคนจะต้อง login ใหม่", danger: true }))) return;
-              setResetting(true);
-              try {
-                const { data, error } = await supabase.functions.invoke("manage-users", {
-                  body: { action: "sign_out_all_users", exclude_admins: true },
-                });
-                if (error) throw error;
-                toast.success(`ตัดการเชื่อมต่อสำเร็จ ${data?.ok ?? 0}/${data?.total ?? 0} (ล้มเหลว ${data?.failed ?? 0})`);
-              } catch (e: any) {
-                toast.error(e?.message || "Sign-out all failed");
-              } finally {
-                setResetting(false);
-              }
-            }}
-          >
-            {resetting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ShieldAlert className="w-4 h-4 mr-2" />}
-            ตัดการเชื่อมต่อผู้ใช้ทั้งหมด
-          </Button>
-        </CardContent>
-      </Card>
-
-
-
       {/* Password policy explainer */}
       <Card className="bg-muted/30">
         <CardHeader>
@@ -322,8 +247,8 @@ export default function TeacherCredentialsPage() {
                       <TableCell className="font-mono text-xs">{r.temp_password || "—"}</TableCell>
                       <TableCell>
                         {r.success
-                          ? <Badge className="bg-success-soft text-success">สำเร็จ</Badge>
-                          : <Badge className="bg-danger-soft text-danger" title={r.error}>ล้มเหลว</Badge>}
+                          ? <Badge className="bg-green-100 text-green-800">สำเร็จ</Badge>
+                          : <Badge className="bg-red-100 text-red-800" title={r.error}>ล้มเหลว</Badge>}
                       </TableCell>
                     </TableRow>
                   ))}

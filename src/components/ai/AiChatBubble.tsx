@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Mic, MicOff, Send, Volume2, VolumeX, X, MessageCircle, Loader2, Play, ImagePlus, Sparkles, Maximize2, Minimize2, FileText, FileType2, Presentation, ClipboardList } from "lucide-react";
+import { Bot, Mic, MicOff, Send, Volume2, VolumeX, X, MessageCircle, Loader2, Play, ImagePlus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -9,12 +9,16 @@ import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { useAiBotSettings } from "@/hooks/useAiBotSettings";
 import { swal } from "@/lib/swal";
 import { subscribeToPush, getCurrentPushStatus, isPwaCapable, isInIframe, isPreviewHost } from "@/lib/pushSubscribe";
-import { checkProfanity, moderateImage } from "@/lib/contentModeration";
-import { useUserRole } from "@/hooks/useUserRole";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
 type ChatLogRow = { role: "user" | "assistant"; content: string; created_at: string };
+
+// ===== Shared voice-loop config (เหมือน KioskHelloAi) =====
+const LISTEN_WINDOW_MS = 3000;
+const MAX_EMPTY_ROUNDS = 2;
+const FOLLOWUP_PROMPT = "ยังมีเรื่องอื่นที่อยากสอบถามเพิ่มเติมไหมคะ? หรือถ้าอยากทราบข้อมูลเกี่ยวกับโรงเรียน สามารถถามได้เลยนะคะ";
+const RETRY_PROMPT = "ผมไม่ได้ยินเสียงพูดจากคุณเลย ช่วยพูดใหม่ด้วยครับ";
 
 // Pick readable text color (#fff or #111) for a given hex bg
 function textOn(hex: string): string {
@@ -45,7 +49,6 @@ export default function AiChatBubble() {
   const bot = useAiBotSettings();
   const greetingMsg: Msg = useMemo(() => ({ role: "assistant", content: bot.greeting }), [bot.greeting]);
   const [open, setOpen] = useState(false);
-  const [fullscreen, setFullscreen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([greetingMsg]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -60,8 +63,65 @@ export default function AiChatBubble() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingImage, setPendingImage] = useState<string | null>(null); // data URL
   const { schoolLogo } = useSystemSettings();
-  const { role } = useUserRole();
-  const canUseDocTools = role === "admin" || role === "director" || role === "teacher";
+
+  // ===== Voice-loop refs (shared with KioskHelloAi) =====
+  const autoLoopRef = useRef(false);
+  const emptyRoundsRef = useRef(0);
+  const listenTimerRef = useRef<number | null>(null);
+  const beepCtxRef = useRef<AudioContext | null>(null);
+  const elevenAudioRef = useRef<HTMLAudioElement | null>(null);
+  const elevenQuotaOutRef = useRef(false);
+
+  const beep = (freq = 880, dur = 0.18) => {
+    try {
+      const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx: AudioContext = beepCtxRef.current || new Ctx();
+      beepCtxRef.current = ctx;
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.value = freq;
+      o.connect(g); g.connect(ctx.destination);
+      const t = ctx.currentTime;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.start(t);
+      o.stop(t + dur + 0.02);
+    } catch {}
+  };
+
+  // ลอง ElevenLabs ก่อน; ถ้าโควต้าหมด → false เพื่อ fallback
+  const speakElevenLabs = async (text: string): Promise<boolean> => {
+    if (elevenQuotaOutRef.current) return false;
+    try {
+      const { data, error } = await supabase.functions.invoke("tts-elevenlabs", { body: { text } });
+      if (error) {
+        const ctx: any = (error as any).context;
+        if (ctx?.status === 429) elevenQuotaOutRef.current = true;
+        return false;
+      }
+      let blob: Blob | null = null;
+      if (data instanceof Blob) blob = data;
+      else if (data instanceof ArrayBuffer) blob = new Blob([data], { type: "audio/mpeg" });
+      else if (data && typeof data === "object" && (data as any).fallback) {
+        if ((data as any).quota) elevenQuotaOutRef.current = true;
+        return false;
+      }
+      if (!blob || blob.size < 100) return false;
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      elevenAudioRef.current = audio;
+      await new Promise<void>((resolve) => {
+        audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+        audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+        audio.play().catch(() => { URL.revokeObjectURL(url); resolve(); });
+      });
+      elevenAudioRef.current = null;
+      return true;
+    } catch { return false; }
+  };
 
   // Sync greeting when settings load (only if untouched)
   useEffect(() => {
@@ -182,56 +242,56 @@ export default function AiChatBubble() {
     t = t.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
     // ลบ URL
     t = t.replace(/https?:\/\/\S+/g, " ");
-    // แทนเสียง "ฮูก"/"ฮู้ก" (เสียงนกฮูก) ด้วย marker เพื่อเล่นเสียงนกฮูกจริงๆ ตอนพูด
-    t = t.replace(/ฮู้?[กกๆๆ]+/g, ` ${OWL_MARK} `);
-    t = t.replace(/ฮู[\s,!.…]*ฮู[\s,!.…]*/g, ` ${OWL_MARK} `);
+    // ลบเสียง "ฮูก"/"ฮู้ก" ออกจากข้อความที่พูด (ไม่เล่นเสียงนกฮูก)
+    t = t.replace(/ฮู้?[กกๆๆ]+/g, " ");
+    t = t.replace(/ฮู[\s,!.…]*ฮู[\s,!.…]*/g, " ");
     // แก้คำอ่าน "ดร.เอาล์" / "ดร เอาล์" / "Dr. Owl" → "ดอกเตอร์อาว" (ออกเสียงให้ถูก)
     t = t.replace(/ดร\.?\s*เอาล์?/g, "ดอกเตอร์อาว");
     t = t.replace(/เอาล์/g, "อาว");
     t = t.replace(/\bDr\.?\s*Owl\b/gi, "ดอกเตอร์อาว");
     // ลบ emoji และสัญลักษณ์พิเศษที่ทำให้ TTS สะดุด
     t = t.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, " ");
-    // === คณิตศาสตร์: ออกเสียงเครื่องหมายเป็นภาษาไทย (ทำก่อน strip อักขระ) ===
-    // ทศนิยมในบริบทตัวเลข: 3.14 → "3 จุด 14"
-    t = t.replace(/(\d)\.(\d)/g, "$1 จุด $2");
-    // เครื่องหมายคณิตศาสตร์
-    t = t.replace(/\s*[×✕]\s*/g, " คูณ ");
-    t = t.replace(/(\d)\s*[xX]\s*(\d)/g, "$1 คูณ $2");
-    t = t.replace(/(\d)\s*\*\s*(\d)/g, "$1 คูณ $2");
-    t = t.replace(/\s*[÷]\s*/g, " หาร ");
-    t = t.replace(/(\d)\s*\/\s*(\d)/g, "$1 หาร $2");
-    t = t.replace(/(\d)\s*-\s*(\d)/g, "$1 ลบ $2");
-    t = t.replace(/(^|\s)-(\d)/g, "$1ลบ $2");
-    // ยกกำลัง / superscript
-    t = t.replace(/\^2\b/g, " ยกกำลังสอง ");
-    t = t.replace(/\^3\b/g, " ยกกำลังสาม ");
-    t = t.replace(/\^(\d+)/g, " ยกกำลัง $1 ");
-    t = t.replace(/²/g, " ยกกำลังสอง ");
-    t = t.replace(/³/g, " ยกกำลังสาม ");
-    // เศษส่วน
-    t = t.replace(/½/g, " ครึ่ง ");
-    t = t.replace(/¼/g, " หนึ่งส่วนสี่ ");
-    t = t.replace(/¾/g, " สามส่วนสี่ ");
-    // เครื่องหมายเปรียบเทียบ
-    t = t.replace(/≥/g, " มากกว่าหรือเท่ากับ ");
-    t = t.replace(/≤/g, " น้อยกว่าหรือเท่ากับ ");
-    t = t.replace(/≠/g, " ไม่เท่ากับ ");
-    t = t.replace(/(\d)\s*>\s*(\d)/g, "$1 มากกว่า $2");
-    t = t.replace(/(\d)\s*<\s*(\d)/g, "$1 น้อยกว่า $2");
-
     // แปลงสัญลักษณ์ bullet/markdown เป็นการเว้นวรรค
-    t = t.replace(/[*_~#>`|]+/g, " ");
+    t = t.replace(/[*_~`|]+/g, " ");
     t = t.replace(/^\s*[-•]\s+/gm, " ");
+    // คณิตศาสตร์: ทศนิยม เช่น 3.14 → "สาม จุด หนึ่งสี่"
+    t = t.replace(/(\d)\.(\d)/g, "$1 จุด $2");
+    // เครื่องหมายลบ/ขีดกลางระหว่างตัวเลข → "ลบ"
+    t = t.replace(/(\d)\s*[-–—]\s*(\d)/g, "$1 ลบ $2");
     t = t.replace(/(^|\s)[-–—]+(\s|$)/g, "$1 $2");
+    // การหาร: a/b หรือ a÷b
+    t = t.replace(/(\d)\s*[\/÷]\s*(\d)/g, "$1 หารด้วย $2");
+    t = t.replace(/÷/g, " หารด้วย ");
     t = t.replace(/\//g, " ");
     t = t.replace(/\\/g, " ");
-    // แปลงสัญลักษณ์ที่อ่านไม่เป็นธรรมชาติ
+    // การคูณ: a*b, a×b, a·b
+    t = t.replace(/(\d)\s*[*×·]\s*(\d)/g, "$1 คูณ $2");
+    t = t.replace(/[×·]/g, " คูณ ");
+    // แปลงสัญลักษณ์อื่นๆ
     t = t.replace(/&/g, " และ ");
     t = t.replace(/\+/g, " บวก ");
+    t = t.replace(/−/g, " ลบ ");
+    t = t.replace(/≠/g, " ไม่เท่ากับ ");
+    t = t.replace(/≈/g, " ประมาณ ");
+    t = t.replace(/≤/g, " น้อยกว่าหรือเท่ากับ ");
+    t = t.replace(/≥/g, " มากกว่าหรือเท่ากับ ");
+    t = t.replace(/</g, " น้อยกว่า ");
+    t = t.replace(/>/g, " มากกว่า ");
     t = t.replace(/=/g, " เท่ากับ ");
     t = t.replace(/%/g, " เปอร์เซ็นต์ ");
+    t = t.replace(/°/g, " องศา ");
+    t = t.replace(/√/g, " รากที่สองของ ");
+    t = t.replace(/π/g, " พาย ");
+    t = t.replace(/\^/g, " ยกกำลัง ");
+    t = t.replace(/฿/g, " บาท ");
+    t = t.replace(/\$/g, " ดอลลาร์ ");
+    t = t.replace(/@/g, " แอท ");
+    t = t.replace(/#/g, " เลขที่ ");
+    // จุดที่เหลือ (ไม่ใช่ปลายประโยค) → "จุด"
+    t = t.replace(/(\S)\.(\S)/g, "$1 จุด $2");
     // ลบวงเล็บ
-    t = t.replace(/[()[\]{}<>"]+/g, " ");
+    t = t.replace(/[()[\]{}"]+/g, " ");
+
     // ยุบ whitespace (เก็บ marker ไว้)
     t = t.replace(/\s+/g, " ").trim();
     // ใส่จังหวะหยุดหลังเครื่องหมายวรรคตอนเพื่อให้อ่านเป็นธรรมชาติ
@@ -379,8 +439,45 @@ export default function AiChatBubble() {
     return merged;
   };
 
+  // Fallback: ใช้ server-side TTS ฟรี เมื่อเครื่องไม่มีเสียงไทย
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const speakViaServer = (text: string): Promise<"ok" | "fallback"> =>
+    new Promise<"ok" | "fallback">(async (resolve) => {
+      try {
+        const { data, error } = await supabase.functions.invoke("tts-th", {
+          body: { text },
+        });
+        if (error || !data) return resolve("fallback");
+        // ถ้า server ส่ง JSON {fallback:true} กลับมา (เครดิตหมด/อัปสตรีมพัง) → ใช้ browser TTS
+        if (!(data instanceof Blob) && (data as any)?.fallback) return resolve("fallback");
+        const blob = data instanceof Blob
+          ? new Blob([data], { type: "audio/mpeg" })
+          : new Blob([data as ArrayBuffer], { type: "audio/mpeg" });
+        if (blob.size < 100) return resolve("fallback");
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        // Google TTS ไทยพูดช้า/ยืดยาน → เร่งความเร็ว + คงระดับเสียงไว้ให้เป็นธรรมชาติ
+        audio.playbackRate = 1.35;
+        (audio as any).preservesPitch = true;
+        (audio as any).mozPreservesPitch = true;
+        (audio as any).webkitPreservesPitch = true;
+        remoteAudioRef.current = audio;
+        audio.onended = () => { URL.revokeObjectURL(url); resolve("ok"); };
+        audio.onerror = () => { URL.revokeObjectURL(url); resolve("fallback"); };
+        await audio.play().catch(() => resolve("fallback"));
+      } catch {
+        resolve("fallback");
+      }
+    });
+
   const speakUtterance = (seg: { text: string; lang: "th-TH" | "en-US" }, thVoice: SpeechSynthesisVoice | null, enVoice: SpeechSynthesisVoice | null) =>
-    new Promise<void>((resolve) => {
+    new Promise<void>(async (resolve) => {
+      // ไม่มีเสียงไทยในเครื่อง → ลอง server TTS ก่อน, ถ้าไม่ได้ค่อย fallback ไป browser
+      if (seg.lang === "th-TH" && !thVoice) {
+        const r = await speakViaServer(seg.text);
+        if (r === "ok") return resolve();
+        // fallback: ใช้ browser TTS ด้วย lang=th-TH (ดีกว่าเงียบ)
+      }
       try {
         const u = new SpeechSynthesisUtterance(seg.text);
         if (seg.lang === "en-US") {
@@ -403,27 +500,25 @@ export default function AiChatBubble() {
       }
     });
 
+
   const speak = async (text: string, force = false) => {
-    if ((!voiceOn && !force) || typeof window === "undefined" || !window.speechSynthesis) return;
+    if ((!voiceOn && !force) || typeof window === "undefined") return;
     try {
-      window.speechSynthesis.cancel();
+      try { window.speechSynthesis?.cancel(); } catch {}
+      try { remoteAudioRef.current?.pause(); } catch {}
+      try { elevenAudioRef.current?.pause(); } catch {}
       const clean = sanitizeForSpeech(text);
       if (!clean) return;
+      // 1) ลอง ElevenLabs ก่อน (คุณภาพดี, ตัดคำไทยดี)
+      const ok = await speakElevenLabs(clean);
+      if (ok) return;
+      // 2) fallback: pipeline เดิม (Thai/English segmentation + tts-th + browser)
+      if (!window.speechSynthesis) return;
       const thVoice = pickThaiVoice();
       const enVoice = pickEnglishUSVoice();
-      // แยกข้อความตาม marker เสียงนกฮูก แล้วเล่นสลับกัน: พูด → ฮูก → พูด …
-      const parts = clean.split(OWL_MARK);
-      for (let i = 0; i < parts.length; i++) {
-        const piece = parts[i].trim();
-        if (piece) {
-          const segments = segmentByLanguage(piece);
-          for (const seg of segments) {
-            await speakUtterance(seg, thVoice, enVoice);
-          }
-        }
-        if (i < parts.length - 1) {
-          await playOwlHoot();
-        }
+      const segments = segmentByLanguage(clean);
+      for (const seg of segments) {
+        await speakUtterance(seg, thVoice, enVoice);
       }
     } catch {}
   };
@@ -460,21 +555,12 @@ export default function AiChatBubble() {
     if (f.size > 8 * 1024 * 1024) { swal.info("ไฟล์ใหญ่เกิน 8MB"); return; }
     try {
       const url = await compressImage(f);
-      // ตรวจรูปไม่เหมาะสมก่อน attach
-      const mod = await moderateImage(url);
-      if (!mod.ok) { swal.info(`รูปภาพไม่ผ่านการตรวจสอบ — ${mod.reason}`); return; }
       setPendingImage(url);
     } catch { swal.info("อ่านรูปไม่สำเร็จ"); }
   };
 
   const send = async (text?: string) => {
     const content = (text ?? input).trim();
-    if (content) {
-      const chk = checkProfanity(content);
-      if (!chk.ok) { swal.info(`กรุณาใช้ภาษาสุภาพ — ${chk.reason}`); return; }
-      const scope = checkSchoolScope(content);
-      if (!scope.ok) { swal.info(scope.reason!); return; }
-    }
     if ((!content && !pendingImage) || busy) return;
     // Build user content: text + optional image
     const userContent: any = pendingImage
@@ -504,10 +590,18 @@ export default function AiChatBubble() {
       setMessages([...nextDisplay, { role: "assistant", content: reply }]);
       speak(reply);
     } catch (e: any) {
-      const msg = e?.message || "";
-      const friendly = /non-2xx|429|402|quota|credit|limit/i.test(msg)
-        ? "ขออภัยค่ะ ขณะนี้เครดิตการใช้งาน AI หมดแล้ว กรุณาติดต่อผู้ดูแลระบบเพื่อดำเนินการต่อนะคะ 🙏"
-        : "ขออภัยค่ะ เกิดข้อขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้งนะคะ 🙏";
+      const msg = String(e?.message || e?.context?.error || "");
+      // จำแนกชนิด error ให้แม่นยำ — "เครดิตหมด" ใช้เฉพาะกรณีโควต้าจริงๆ เท่านั้น
+      const isDailyQuota = /ครบ\s*\d+\s*ข้อความ|daily limit|quota.*exceed/i.test(msg);
+      const isCreditOut = /402|insufficient.*credit|credit.*exhaust|payment required|All AI providers failed/i.test(msg);
+      const isRateLimit = /429|rate.?limit|too many requests/i.test(msg) && !isDailyQuota;
+      const friendly = isDailyQuota
+        ? "วันนี้ใช้ AI ครบโควต้าแล้วค่ะ กรุณากลับมาใหม่พรุ่งนี้นะคะ 🙏"
+        : isCreditOut
+          ? "ขออภัยค่ะ เครดิต AI หมด กรุณาแจ้งผู้ดูแลระบบเพื่อเพิ่ม API key ที่ /dashboard/admin/ai-providers นะคะ 🙏"
+          : isRateLimit
+            ? "ระบบ AI ถูกเรียกถี่เกินไป กรุณารอสักครู่แล้วลองใหม่นะคะ 🙏"
+            : `ขออภัยค่ะ เกิดข้อขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้งนะคะ 🙏${msg ? `\n\n_รายละเอียด: ${msg.slice(0, 200)}_` : ""}`;
       setMessages([...nextDisplay, { role: "assistant", content: friendly }]);
     } finally {
       setBusy(false);
@@ -517,8 +611,6 @@ export default function AiChatBubble() {
   const generateImage = async () => {
     const prompt = input.trim();
     if (!prompt || busy) return;
-    const scope = checkSchoolScope(prompt);
-    if (!scope.ok) { swal.info(scope.reason!); return; }
     const nextDisplay: Msg[] = [...messages, { role: "user", content: `🎨 สร้างรูป: ${prompt}` }];
     setMessages(nextDisplay);
     setInput("");
@@ -538,181 +630,105 @@ export default function AiChatBubble() {
   };
 
 
+  // ===== Auto voice-loop (shared behavior with KioskHelloAi) =====
+  const stopVoiceLoop = () => {
+    autoLoopRef.current = false;
+    if (listenTimerRef.current) { clearTimeout(listenTimerRef.current); listenTimerRef.current = null; }
+    try { recRef.current?.stop(); } catch {}
+    setListening(false);
+  };
+
+  // ฟังหนึ่งรอบ (3 วิ) — ไม่มีเสียง → null
+  const listenOnce = (): Promise<string | null> => new Promise((resolve) => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) { resolve(null); return; }
+    const rec = new SR();
+    rec.lang = "th-TH"; rec.continuous = false; rec.interimResults = false;
+    recRef.current = rec;
+    let done = false;
+    const finish = (v: string | null) => {
+      if (done) return; done = true;
+      if (listenTimerRef.current) { clearTimeout(listenTimerRef.current); listenTimerRef.current = null; }
+      setListening(false);
+      try { rec.stop(); } catch {}
+      recRef.current = null;
+      resolve(v);
+    };
+    rec.onresult = (e: any) => finish(e.results?.[0]?.[0]?.transcript || null);
+    rec.onerror = () => finish(null);
+    rec.onend = () => finish(null);
+    try {
+      rec.start();
+      setListening(true);
+      listenTimerRef.current = window.setTimeout(() => finish(null), LISTEN_WINDOW_MS);
+    } catch { finish(null); }
+  });
+
+  // ส่งข้อความไป AI แล้วคืนคำตอบ (สำหรับ voice loop)
+  const sendVoice = async (text: string): Promise<string | null> => {
+    const nextDisplay: Msg[] = [...messages, { role: "user", content: text }];
+    setMessages(nextDisplay);
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-chat", {
+        body: { messages: [...messages, { role: "user", content: text }].map((m) => ({ role: m.role, content: m.content })) },
+      });
+      if (error) throw error;
+      const reply = (data as any)?.reply || (data as any)?.error || "ขออภัยค่ะ ตอบไม่ได้";
+      setMessages([...nextDisplay, { role: "assistant", content: reply }]);
+      return reply;
+    } catch {
+      setMessages([...nextDisplay, { role: "assistant", content: "ขออภัยค่ะ เกิดข้อขัดข้องชั่วคราว 🙏" }]);
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runVoiceLoop = async () => {
+    while (autoLoopRef.current) {
+      beep(880, 0.15);
+      await new Promise((r) => setTimeout(r, 250));
+      const said = await listenOnce();
+      if (!autoLoopRef.current) return;
+      if (!said) {
+        emptyRoundsRef.current += 1;
+        if (emptyRoundsRef.current === 1) {
+          setMessages((m) => [...m, { role: "assistant", content: RETRY_PROMPT }]);
+          await speak(RETRY_PROMPT, true);
+          continue;
+        }
+        if (emptyRoundsRef.current >= MAX_EMPTY_ROUNDS) {
+          beep(440, 0.12);
+          await new Promise((r) => setTimeout(r, 180));
+          beep(330, 0.18);
+          autoLoopRef.current = false;
+          return;
+        }
+        continue;
+      }
+      emptyRoundsRef.current = 0;
+      const reply = await sendVoice(said);
+      if (!autoLoopRef.current) return;
+      if (reply) {
+        await speak(reply, true);
+        if (!autoLoopRef.current) return;
+        setMessages((m) => [...m, { role: "assistant", content: FOLLOWUP_PROMPT }]);
+        await speak(FOLLOWUP_PROMPT, true);
+      }
+    }
+  };
+
   const toggleMic = () => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { swal.info("เบราว์เซอร์ไม่รองรับการสั่งงานด้วยเสียง"); return; }
-    if (listening) {
-      recRef.current?.stop();
-      setListening(false);
+    if (autoLoopRef.current || listening) {
+      stopVoiceLoop();
       return;
     }
-    const rec = new SR();
-    rec.lang = "th-TH";
-    rec.continuous = false;
-    rec.interimResults = false;
-    rec.onresult = (e: any) => {
-      const transcript = e.results?.[0]?.[0]?.transcript || "";
-      if (transcript) send(transcript);
-    };
-    rec.onend = () => setListening(false);
-    rec.onerror = () => setListening(false);
-    recRef.current = rec;
-    rec.start();
-    setListening(true);
-  };
-
-  // ===== School-scope guard: ป้องกันใช้ AI นอกขอบเขตงานโรงเรียน (กันเครดิตฟุ่มเฟือย) =====
-  const OFF_TOPIC_PATTERNS = [
-    /หวย|สลาก|เลขเด็ด|แทงบอล|พนัน|คาสิโน|บาคาร่า|สล็อต|gamble|casino|bet/i,
-    /crypto|บิตคอย|bitcoin|เหรียญดิจิทัล|ico|nft|forex|เก็งกำไร/i,
-    /ดูดวง|ทำนาย|ไพ่ยิปซี|โหราศาสตร์|ฤกษ์|tarot|horoscope/i,
-    /(หาแฟน|จีบ|sex|porn|18\+|nude|เสียว|กามา|ลามก)/i,
-    /แต่งเพลง.*(รัก|อกหัก)|เขียนนิยาย(?!.*การเรียน|.*นักเรียน)|fanfic|แฟนฟิค/i,
-    /(ทำอาวุธ|ระเบิด|hack|crack|เจาะระบบ|bypass\s*password)/i,
-  ];
-  const SCHOOL_KEYWORDS = /โรงเรียน|นักเรียน|ครู|บทเรียน|การบ้าน|วิชา|สอบ|คณิต|วิทย|ภาษา|ประวัติ|สังคม|ศิลปะ|พลศึกษา|ห้องเรียน|กิจกรรม|ผู้ปกครอง|ผู้อำนวยการ|รายงาน|เอกสาร|ปพ|สพฐ|ระเบียบ|งาน|แผนการสอน|วิจัย|class|teach|lesson|homework|student|school|math|science|english|exam|report|curriculum|education/i;
-  const checkSchoolScope = (text: string): { ok: boolean; reason?: string } => {
-    if (!text || text.length < 5) return { ok: true };
-    for (const p of OFF_TOPIC_PATTERNS) {
-      if (p.test(text)) return { ok: false, reason: "คำขอนี้อยู่นอกขอบเขตงานโรงเรียน — กรุณาใช้สำหรับการเรียนการสอน งานวิชาการ หรืองานบริหารโรงเรียนเท่านั้น" };
-    }
-    return { ok: true };
-  };
-
-  // ===== Document generators (PDF / Word / Slide / Image) =====
-  const downloadBlob = (blob: Blob, name: string) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = name; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  };
-
-  const askAiText = async (prompt: string): Promise<string> => {
-    const { data, error } = await supabase.functions.invoke("ai-chat", {
-      body: { messages: [{ role: "user", content: prompt }] },
-    });
-    if (error) throw error;
-    return (data as any)?.reply || "";
-  };
-
-  const generateWorksheet = async () => {
-    const topic = input.trim();
-    if (!topic) { swal.info("พิมพ์รายละเอียดใบงานก่อน เช่น 'ใบงานคณิต ป.3 บวก-ลบไม่เกิน 100 10 ข้อ' หรือ 'ใบงานภาษาอังกฤษ ม.1 verb to be'"); return; }
-    const guard = checkSchoolScope(topic);
-    if (!guard.ok) { swal.info(guard.reason!); return; }
-    const profCheck = checkProfanity(topic);
-    if (!profCheck.ok) { swal.info(`กรุณาใช้ภาษาสุภาพ — ${profCheck.reason}`); return; }
-
-    setMessages((p) => [...p, { role: "user", content: `📝 สร้างใบงาน: ${topic}` }]);
-    setInput(""); setBusy(true);
-    try {
-      const prompt = `สร้าง "ใบงาน" (worksheet) สำหรับนักเรียนตามคำสั่ง: "${topic}"
-ข้อกำหนด:
-- ตอบกลับเป็น HTML เท่านั้น ห้ามมี code fence หรือคำอธิบายเพิ่ม
-- ปรับระดับภาษา/ความยากให้เหมาะกับวัย/ชั้นที่ระบุในคำสั่ง (ถ้าไม่ระบุ ให้คาดเดาที่เหมาะสม)
-- โครงสร้าง:
-  <header class="ws-head">
-    <div class="ws-row"><span>ชื่อ-สกุล: <span class="blank long"></span></span><span>ชั้น: <span class="blank"></span></span><span>เลขที่: <span class="blank short"></span></span></div>
-    <h1>หัวข้อใบงาน</h1>
-    <p class="ws-objective">จุดประสงค์: ...</p>
-    <p class="ws-instruction">คำชี้แจง: ...</p>
-  </header>
-  <ol class="ws-questions">
-    <li>โจทย์ข้อ 1 ... <span class="blank long"></span></li>
-    <li>โจทย์ที่ต้องเขียนยาว ...<div class="answer-box"></div></li>
-    <li>เลือกตอบ: <label><input type="checkbox"/> ก. ...</label> <label><input type="checkbox"/> ข. ...</label></li>
-    <li>จับคู่: <table class="match"><tr><td>1. ...</td><td><span class="blank"></span></td><td>ก. ...</td></tr></table></li>
-  </ol>
-  <footer class="ws-foot">คะแนนเต็ม ___ / ได้ ___ &nbsp; ผู้ตรวจ: <span class="blank long"></span></footer>
-- ใช้ความหลากหลาย: เติมคำ, จับคู่, ตัวเลือก, เขียนตอบ, วาดภาพ (มี <div class="draw-box">วาดภาพ</div>) ตามความเหมาะสม
-- อย่างน้อย 8-15 ข้อ`;
-      let html = await askAiText(prompt);
-      html = html.replace(/```html?\s*|```/g, "").trim();
-      if (!html) throw new Error("ไม่ได้เนื้อหา");
-
-      const w = window.open("", "_blank", "width=900,height=1100");
-      if (!w) { swal.info("เบราว์เซอร์บล็อก popup — เปิดอนุญาตแล้วลองใหม่"); return; }
-      w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>ใบงาน: ${topic}</title>
-        <style>
-          @page{size:A4;margin:1.8cm}
-          body{font-family:'TH Sarabun New','Sarabun',sans-serif;font-size:16pt;color:#111;line-height:1.55}
-          .ws-head{border:2px solid #1e3a8a;border-radius:8px;padding:.6cm .8cm;margin-bottom:.6cm;background:linear-gradient(135deg,#eff6ff,#fff)}
-          .ws-head h1{margin:.2cm 0;font-size:22pt;color:#1e3a8a;text-align:center}
-          .ws-row{display:flex;justify-content:space-between;gap:.5cm;font-size:14pt;margin-bottom:.3cm}
-          .ws-objective,.ws-instruction{margin:.15cm 0;font-size:14pt}
-          .ws-instruction{font-weight:600}
-          .blank{display:inline-block;border-bottom:1.5px dotted #333;min-width:3cm;height:1.2em;vertical-align:bottom}
-          .blank.long{min-width:6cm}
-          .blank.short{min-width:1.5cm}
-          .answer-box{border:1.5px solid #555;border-radius:6px;min-height:2.2cm;margin:.2cm 0 .4cm;background:repeating-linear-gradient(transparent,transparent 0.7cm,#cbd5e1 0.7cm,#cbd5e1 .72cm)}
-          .draw-box{border:2px dashed #6366f1;border-radius:8px;min-height:5cm;margin:.3cm 0;display:flex;align-items:flex-start;justify-content:flex-end;padding:.2cm;color:#94a3b8;font-size:12pt}
-          ol.ws-questions{padding-left:1.2cm}
-          ol.ws-questions>li{margin-bottom:.45cm;page-break-inside:avoid}
-          label{display:inline-flex;align-items:center;gap:.2cm;margin-right:.6cm}
-          input[type=checkbox]{width:14pt;height:14pt;border:1.5px solid #333}
-          table.match{border-collapse:collapse;margin:.2cm 0;width:100%}
-          table.match td{padding:.15cm .3cm;vertical-align:middle}
-          .ws-foot{margin-top:.6cm;padding-top:.3cm;border-top:1.5px dashed #555;font-size:14pt;display:flex;justify-content:space-between;gap:.4cm}
-          @media print{.no-print{display:none}}
-        </style></head><body>
-        <div class="no-print" style="position:fixed;top:8px;right:8px;font-family:sans-serif">
-          <button onclick="window.print()" style="padding:6px 14px;border:0;border-radius:6px;background:#1e3a8a;color:#fff;cursor:pointer">🖨️ พิมพ์ / บันทึก PDF</button>
-        </div>
-        ${html}</body></html>`);
-      w.document.close();
-      setMessages((p) => [...p, { role: "assistant", content: `✅ สร้างใบงาน "${topic}" เรียบร้อย — กดปุ่ม "พิมพ์/บันทึก PDF" ในหน้าใหม่ได้เลยค่ะ` }]);
-    } catch (e: any) {
-      setMessages((p) => [...p, { role: "assistant", content: `ขออภัยค่ะ สร้างใบงานไม่สำเร็จ: ${e?.message || "เกิดข้อผิดพลาด"}` }]);
-    } finally { setBusy(false); }
-  };
-
-  const generateDoc = async (kind: "pdf" | "docx" | "slide") => {
-    const topic = input.trim();
-    if (!topic) { swal.info("พิมพ์หัวข้อ/รายละเอียดที่ต้องการก่อน เช่น 'ใบงานคณิต ป.4 เรื่องเศษส่วน'"); return; }
-    const guard = checkSchoolScope(topic);
-    if (!guard.ok) { swal.info(guard.reason!); return; }
-    const profCheck = checkProfanity(topic);
-    if (!profCheck.ok) { swal.info(`กรุณาใช้ภาษาสุภาพ — ${profCheck.reason}`); return; }
-
-    const label = kind === "pdf" ? "PDF" : kind === "docx" ? "Word" : "สไลด์";
-    setMessages((p) => [...p, { role: "user", content: `📄 สร้างเอกสาร ${label}: ${topic}` }]);
-    setInput(""); setBusy(true);
-    try {
-      const prompt = kind === "slide"
-        ? `สร้างเนื้อหาสไลด์นำเสนอสำหรับงานโรงเรียน หัวข้อ: "${topic}"\nรูปแบบ: ส่งกลับเป็น HTML เท่านั้น (ห้ามมี code fence) แต่ละสไลด์อยู่ใน <section> มี <h2> หัวข้อ และเนื้อหา bullet/short text เหมาะกับการนำเสนอ ประมาณ 5-8 สไลด์`
-        : `สร้างเอกสารงานโรงเรียน หัวข้อ: "${topic}"\nรูปแบบ: ส่งกลับเป็น HTML เท่านั้น (ห้ามมี code fence, ห้ามอธิบายเพิ่ม) ใช้ <h1>, <h2>, <p>, <ul>, <table> ตามความเหมาะสม ภาษาไทยทางการ เหมาะสำหรับ${label}โรงเรียน`;
-      let html = await askAiText(prompt);
-      html = html.replace(/```html?\s*|```/g, "").trim();
-      if (!html) throw new Error("ไม่ได้เนื้อหา");
-
-      if (kind === "pdf") {
-        const w = window.open("", "_blank", "width=900,height=1100");
-        if (!w) { swal.info("เบราว์เซอร์บล็อก popup — เปิดอนุญาตแล้วลองใหม่"); return; }
-        w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${topic}</title>
-          <style>@page{size:A4;margin:2cm}body{font-family:'TH Sarabun New','Sarabun',sans-serif;font-size:16pt;color:#000}
-          h1{font-size:24pt}h2{font-size:20pt}table{border-collapse:collapse;width:100%}td,th{border:1px solid #555;padding:4px 6px}</style>
-          </head><body>${html}<script>onload=()=>{focus();print()}<\/script></body></html>`);
-        w.document.close();
-      } else if (kind === "docx") {
-        const { asBlob } = await import("html-docx-js-typescript");
-        const out = await asBlob(`<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:'TH Sarabun New',sans-serif;font-size:16pt}</style></head><body><h1>${topic}</h1>${html}</body></html>`);
-        const blob = out instanceof Blob ? out : new Blob([out as any], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-        downloadBlob(blob, `${topic.slice(0, 40)}.docx`);
-      } else {
-        // slide → A4 landscape printable, one section per page
-        const w = window.open("", "_blank", "width=1200,height=800");
-        if (!w) { swal.info("เบราว์เซอร์บล็อก popup — เปิดอนุญาตแล้วลองใหม่"); return; }
-        w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${topic}</title>
-          <style>@page{size:A4 landscape;margin:1.2cm}body{font-family:'TH Sarabun New',sans-serif;color:#0f172a;margin:0}
-          section{page-break-after:always;min-height:18cm;padding:1.5cm;display:flex;flex-direction:column;justify-content:center;background:linear-gradient(135deg,#eef2ff,#fff)}
-          section h2{font-size:36pt;margin:0 0 .6cm;color:#3730a3;border-bottom:3px solid #6366f1;padding-bottom:.3cm}
-          section ul,section p{font-size:22pt;line-height:1.5}</style>
-          </head><body>${html}<script>onload=()=>{focus();print()}<\/script></body></html>`);
-        w.document.close();
-      }
-      setMessages((p) => [...p, { role: "assistant", content: `✅ สร้าง${label}เรื่อง "${topic}" เรียบร้อย — เปิด/ดาวน์โหลดได้แล้ว` }]);
-    } catch (e: any) {
-      setMessages((p) => [...p, { role: "assistant", content: `ขออภัยค่ะ สร้าง${label}ไม่สำเร็จ: ${e?.message || "เกิดข้อผิดพลาด"}` }]);
-    } finally { setBusy(false); }
+    emptyRoundsRef.current = 0;
+    autoLoopRef.current = true;
+    runVoiceLoop();
   };
 
   return (
@@ -721,8 +737,7 @@ export default function AiChatBubble() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px + (var(--chat-stack, 0) + 1) * 52px)" }}
-          className="fixed right-3 md:right-6 z-40 group"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+72px)] right-3 md:bottom-6 md:right-6 z-40 group"
           aria-label="เปิดผู้ช่วย AI"
         >
           <span className="absolute -top-9 right-0 hidden group-hover:block whitespace-nowrap text-xs font-bold bg-white text-foreground border-2 border-foreground rounded-full px-3 py-1 shadow-[3px_3px_0_hsl(var(--foreground))]"
@@ -730,15 +745,15 @@ export default function AiChatBubble() {
           >
             คุยกับ {bot.name} 💬
           </span>
-          <span className="relative block w-11 h-11 rounded-full bg-gradient-to-br from-danger via-danger to-info border-[2.5px] border-white ring-2 ring-foreground/80 shadow-[3px_3px_0_hsl(var(--foreground))] flex items-center justify-center overflow-hidden hover:rotate-6 hover:scale-110 transition-transform animate-bounce-slow">
+          <span className="relative block w-14 h-14 rounded-full bg-gradient-to-br from-pink-400 via-fuchsia-500 to-violet-500 border-[3px] border-white ring-2 ring-foreground/80 shadow-[4px_4px_0_hsl(var(--foreground))] flex items-center justify-center overflow-hidden hover:rotate-6 hover:scale-110 transition-transform animate-bounce-slow">
             {bot.avatarUrl ? (
               <img src={bot.avatarUrl} alt={bot.name} className="w-full h-full object-cover" />
             ) : (
-              <MessageCircle className="w-5 h-5 text-white drop-shadow" />
+              <MessageCircle className="w-6 h-6 text-white drop-shadow" />
             )}
           </span>
-          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-success rounded-full ring-2 ring-white animate-pulse" />
-          <span className="absolute -top-1.5 -left-1.5 text-sm animate-bounce">✨</span>
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-success rounded-full ring-2 ring-white animate-pulse" />
+          <span className="absolute -top-2 -left-2 text-lg animate-bounce">✨</span>
         </button>
       )}
 
@@ -746,10 +761,9 @@ export default function AiChatBubble() {
       {/* Chat panel */}
       {open && (
         <div className={cn(
-          "fixed z-40 border border-border shadow-elegant flex flex-col overflow-hidden",
-          fullscreen
-            ? "inset-0 rounded-none w-screen h-screen"
-            : "rounded-2xl bottom-[calc(env(safe-area-inset-bottom,0px)+124px)] right-3 md:bottom-[80px] md:right-6 w-[min(340px,calc(100vw-2rem))] h-[min(480px,calc(100vh-8rem))]",
+          "fixed z-40 border border-border rounded-2xl shadow-elegant flex flex-col overflow-hidden",
+          "bottom-[calc(env(safe-area-inset-bottom)+72px)] right-3 md:bottom-6 md:right-6",
+          "w-[min(340px,calc(100vw-2rem))] h-[min(480px,calc(100vh-8rem))]",
         )}
           style={{ backgroundColor: bot.bgColor }}
         >
@@ -761,42 +775,16 @@ export default function AiChatBubble() {
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold truncate">{bot.name}</div>
               <div className="text-[10px] text-success flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-success rounded-full" /> ออนไลน์ · ใช้งานเฉพาะงานโรงเรียน
+                <span className="w-1.5 h-1.5 bg-success rounded-full" /> ออนไลน์
               </div>
             </div>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setVoiceOn((v) => !v)} title={voiceOn ? "ปิดเสียง" : "เปิดเสียง"}>
               {voiceOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setFullscreen((v) => !v)} title={fullscreen ? "ย่อหน้าต่าง" : "ขยายเต็มจอ"}>
-              {fullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-            </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setOpen(false); setFullscreen(false); window.speechSynthesis?.cancel(); }}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { stopVoiceLoop(); setOpen(false); window.speechSynthesis?.cancel(); try { remoteAudioRef.current?.pause(); } catch {} try { elevenAudioRef.current?.pause(); } catch {} }}>
               <X className="w-4 h-4" />
             </Button>
           </div>
-
-          {/* Document generator toolbar — staff only (admin/director/teacher) */}
-          {canUseDocTools && (
-            <div className="flex items-center gap-1 px-2 py-1.5 border-b bg-muted/40 text-xs overflow-x-auto">
-              <span className="text-[10px] text-muted-foreground shrink-0 mr-1">🎓 สร้างเอกสารโรงเรียน:</span>
-              <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" disabled={busy} onClick={() => generateDoc("pdf")} title="สร้างไฟล์ PDF จากหัวข้อในช่องพิมพ์">
-                <FileText className="w-3.5 h-3.5 text-danger" />PDF
-              </Button>
-              <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" disabled={busy} onClick={() => generateDoc("docx")} title="สร้างไฟล์ Word">
-                <FileType2 className="w-3.5 h-3.5 text-info" />Word
-              </Button>
-              <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" disabled={busy} onClick={() => generateDoc("slide")} title="สร้างสไลด์นำเสนอ">
-                <Presentation className="w-3.5 h-3.5 text-warning" />สไลด์
-              </Button>
-              <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 border-success/30 bg-success-soft hover:bg-success-soft" disabled={busy} onClick={generateWorksheet} title="สร้างใบงาน (worksheet) แบบมีช่องตอบ พร้อมพิมพ์/บันทึก PDF">
-                <ClipboardList className="w-3.5 h-3.5 text-success" />ใบงาน
-              </Button>
-              <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" disabled={busy || !input.trim()} onClick={generateImage} title="สร้างรูปภาพ">
-                <Sparkles className="w-3.5 h-3.5 text-danger" />รูป
-              </Button>
-            </div>
-          )}
-
 
           <div
             ref={scrollRef}
@@ -885,7 +873,7 @@ export default function AiChatBubble() {
                 <ImagePlus className="w-4 h-4" />
               </Button>
               <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={generateImage} title="สร้างรูปจากข้อความ" disabled={busy || !input.trim()}>
-                <Sparkles className="w-4 h-4 text-warning" />
+                <Sparkles className="w-4 h-4 text-amber-500" />
               </Button>
               <Input
                 value={input}

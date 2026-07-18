@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Heart, MessageCircle, Trash2, Pin, Globe, Lock, Users } from "lucide-react";
 import { toast } from "sonner";
-import { confirmDelete } from "@/lib/confirmAction";
 
 const fmtDate = (d: string) =>
   new Date(d).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
@@ -36,7 +35,7 @@ export default function MyPostsTab({ userId }: { userId: string }) {
   });
 
   const del = async (id: string) => {
-    if (!(await confirmDelete("ลบโพสต์นี้?"))) return;
+    if (!confirm("ลบโพสต์นี้?")) return;
     setDeletingId(id);
     const { error } = await supabase.from("wall_posts").delete().eq("id", id);
     setDeletingId(null);
@@ -74,7 +73,7 @@ export default function MyPostsTab({ userId }: { userId: string }) {
                   {p.is_pinned && <Badge variant="secondary" className="gap-1"><Pin className="w-3 h-3" /> ปักหมุด</Badge>}
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => del(p.id)} disabled={deletingId === p.id}>
-                  <Trash2 className="w-4 h-4 text-danger" />
+                  <Trash2 className="w-4 h-4 text-red-500" />
                 </Button>
               </div>
               {p.content && <p className="text-sm whitespace-pre-wrap">{p.content}</p>}
