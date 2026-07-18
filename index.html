@@ -137,8 +137,10 @@
             window.__branding = b;
             var loader = document.getElementById("app-loader");
             if (loader && b.themeColor) {
-              loader.style.background = "linear-gradient(135deg," + b.themeColor + ",#1d4ed8,#0ea5e9)";
+              // เก็บโทนพาสเทลของ loading page ไว้ ไม่ทับด้วยสี theme หลัก
+              loader.style.background = "linear-gradient(135deg,#e0f2fe 0%,#f0f9ff 45%,#fecaca 100%)";
             }
+
             if (b.themeColor) {
               var tc = document.querySelector('meta[name="theme-color"]');
               if (tc) tc.setAttribute("content", b.themeColor);
