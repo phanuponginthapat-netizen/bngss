@@ -81,7 +81,7 @@ const SubjectTabsNav = ({
     : `เลือกวิชาที่สอน (${subjects.length})`;
 
   const inactiveBtn = "bg-muted text-foreground border border-border/60 hover:bg-primary/10 hover:border-primary/40 hover:text-primary";
-  const activeBtn = "bg-gradient-primary text-primary-foreground border border-primary shadow-elevated";
+  const activeBtn = "gradient-primary text-primary-foreground border border-primary shadow-elevated";
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm">
