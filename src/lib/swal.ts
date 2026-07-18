@@ -1,4 +1,6 @@
 import Swal, { SweetAlertOptions, SweetAlertResult } from "sweetalert2";
+import { toThaiError, toThaiErrorSync } from "./errorMessage";
+
 
 /**
  * SweetAlert popup helpers — ใช้ font + theme ของระบบ (รองรับ dark mode)
