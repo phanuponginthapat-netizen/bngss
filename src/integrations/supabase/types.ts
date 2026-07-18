@@ -14959,6 +14959,7 @@ export type Database = {
         Args: { _user_id: string }
         Returns: string[]
       }
+      is_admin_or_director: { Args: { _user_id?: string }; Returns: boolean }
       is_budget_planner: { Args: { _user_id: string }; Returns: boolean }
       is_chat_admin: {
         Args: { _conv: string; _user: string }
@@ -15000,12 +15001,20 @@ export type Database = {
         Args: { _classroom_id: string; _user_id: string }
         Returns: boolean
       }
+      is_homeroom_teacher_of: {
+        Args: { _student_id: string; _user_id?: string }
+        Returns: boolean
+      }
       is_homeroom_teacher_of_student: {
         Args: { _student_id: string; _user_id: string }
         Returns: boolean
       }
       is_parent_of: {
         Args: { _student_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_parent_of_student: {
+        Args: { _student_id: string; _user_id?: string }
         Returns: boolean
       }
       is_staff_user: { Args: { _uid: string }; Returns: boolean }
@@ -15016,6 +15025,10 @@ export type Database = {
       is_super_admin: { Args: { _uid: string }; Returns: boolean }
       is_teacher_assigned_to_classroom: {
         Args: { _classroom_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_teacher_of_student: {
+        Args: { _student_id: string; _user_id?: string }
         Returns: boolean
       }
       is_template_public: { Args: { _tid: string }; Returns: boolean }
