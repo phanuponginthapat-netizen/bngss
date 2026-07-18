@@ -65,13 +65,26 @@ const ClassroomManagementPage = () => {
 
   const handleAddClass = async () => {
     if (!className || !gradeLevel) return;
+    // Pre-check duplicate (same grade + name in current active year)
+    const dup = classrooms.find(
+      (c: any) => c.grade_level === gradeLevel && (c.name || "").trim() === className.trim()
+    );
+    if (dup) {
+      toast.error(lang === "th" ? `มีห้อง "${className}" อยู่แล้ว` : `Classroom "${className}" already exists`);
+      return;
+    }
     const { error } = await supabase.from("classrooms").insert({
-      name: className,
+      name: className.trim(),
       grade_level: gradeLevel,
       homeroom_teacher: homeroomTeacher || null,
       homeroom_teacher_2: isSecondary(gradeLevel) ? (homeroomTeacher2 || null) : null,
     } as any);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      if ((error as any).code === "23505") {
+        toast.error(lang === "th" ? "มีห้องนี้อยู่แล้ว" : "Classroom already exists");
+      } else toast.error(error.message);
+      return;
+    }
     toast.success(lang === "th" ? "เพิ่มห้องเรียนสำเร็จ" : "Classroom added");
     qc.invalidateQueries({ queryKey: ["classrooms"] });
     setOpenClass(false);
