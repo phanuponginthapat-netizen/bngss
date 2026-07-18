@@ -140,11 +140,140 @@ self.addEventListener("periodicsync", (event) => {
 
 // Background Sync — retry งานที่ค้างเมื่อกลับมาออนไลน์
 self.addEventListener("sync", (event) => {
-  if (event.tag !== "flush-notifications") return;
-  event.waitUntil((async () => {
-    try {
-      const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-      for (const c of clients) c.postMessage({ type: "flush-notifications" });
-    } catch (_) {}
-  })());
+  if (event.tag === "flush-notifications") {
+    event.waitUntil((async () => {
+      try {
+        const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+        for (const c of clients) c.postMessage({ type: "flush-notifications" });
+      } catch (_) {}
+    })());
+    return;
+  }
+  if (event.tag === "flush-offline-queue") {
+    event.waitUntil(flushOfflineQueueFromSW());
+    return;
+  }
 });
+
+// รับคำสั่ง flush จากหน้าเว็บ (fallback สำหรับเบราว์เซอร์ที่ไม่รองรับ Background Sync)
+self.addEventListener("message", (event) => {
+  const msg = event.data;
+  if (msg && msg.type === "flush-offline-queue") {
+    event.waitUntil(flushOfflineQueueFromSW());
+  }
+});
+
+// -----------------------------------------------------------------------------
+// Offline Queue Flush — ทำงานจากภายใน Service Worker
+// อ่านคิวจาก IndexedDB (offline-queue/actions) แล้วยิง REST ตรงไป Supabase
+// ใช้ config ที่หน้าเว็บฝากไว้ใน IDB (sw-config/config) เพื่อรู้ URL + token
+// วิธีนี้ทำงานได้ *แม้ผู้ใช้ปิดแท็บ* ตราบใดที่ OS ปลุก SW ผ่าน Background Sync
+// -----------------------------------------------------------------------------
+function idbOpen(name, version, upgrade) {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(name, version);
+    if (upgrade) req.onupgradeneeded = () => upgrade(req.result);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function idbReq(req) {
+  return new Promise((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function readSwConfig() {
+  try {
+    const db = await idbOpen("sw-config", 1, (d) => {
+      if (!d.objectStoreNames.contains("config")) d.createObjectStore("config");
+    });
+    const tx = db.transaction("config", "readonly");
+    return await idbReq(tx.objectStore("config").get("supabase-auth"));
+  } catch (_) { return null; }
+}
+
+async function readQueue() {
+  try {
+    const db = await idbOpen("offline-queue", 1, (d) => {
+      if (!d.objectStoreNames.contains("actions")) {
+        d.createObjectStore("actions", { keyPath: "id", autoIncrement: true });
+      }
+    });
+    const tx = db.transaction("actions", "readonly");
+    return await idbReq(tx.objectStore("actions").getAll());
+  } catch (_) { return []; }
+}
+
+async function removeQueueItem(id) {
+  try {
+    const db = await idbOpen("offline-queue", 1);
+    const tx = db.transaction("actions", "readwrite");
+    tx.objectStore("actions").delete(id);
+    await new Promise((r) => { tx.oncomplete = r; tx.onerror = r; });
+  } catch (_) {}
+}
+
+async function updateQueueItem(item) {
+  try {
+    const db = await idbOpen("offline-queue", 1);
+    const tx = db.transaction("actions", "readwrite");
+    tx.objectStore("actions").put(item);
+    await new Promise((r) => { tx.oncomplete = r; tx.onerror = r; });
+  } catch (_) {}
+}
+
+let swFlushing = false;
+async function flushOfflineQueueFromSW() {
+  if (swFlushing) return;
+  swFlushing = true;
+  let ok = 0, failed = 0;
+  try {
+    const cfg = await readSwConfig();
+    if (!cfg || !cfg.supabaseUrl || !cfg.apiKey) return;
+    const items = await readQueue();
+    if (!items.length) return;
+
+    for (const item of items) {
+      try {
+        const url = `${cfg.supabaseUrl}/rest/v1/${encodeURIComponent(item.table)}`;
+        const headers = {
+          "Content-Type": "application/json",
+          "apikey": cfg.apiKey,
+          "Prefer": item.onConflict ? "resolution=merge-duplicates,return=minimal" : "return=minimal",
+        };
+        // ใช้ access token ของผู้ใช้ ถ้ามี (สำหรับผ่าน RLS)
+        if (cfg.accessToken) headers["Authorization"] = `Bearer ${cfg.accessToken}`;
+        const qs = item.onConflict ? `?on_conflict=${encodeURIComponent(item.onConflict)}` : "";
+        const res = await fetch(url + qs, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(item.payload),
+        });
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(`HTTP ${res.status} ${text.slice(0, 200)}`);
+        }
+        if (item.id !== undefined) await removeQueueItem(item.id);
+        ok++;
+      } catch (e) {
+        failed++;
+        if (item.id !== undefined) {
+          await updateQueueItem({
+            ...item,
+            attempts: (item.attempts || 0) + 1,
+            lastError: String(e && e.message ? e.message : e),
+          });
+        }
+      }
+    }
+  } finally {
+    swFlushing = false;
+  }
+  // แจ้ง client ที่ยังเปิดอยู่ (ถ้ามี) ว่ามีการซิงก์
+  try {
+    const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const c of clients) c.postMessage({ type: "offline-queue-synced", ok, failed });
+  } catch (_) {}
+}

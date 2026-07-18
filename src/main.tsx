@@ -9,10 +9,12 @@ import { applyDynamicBranding } from "./lib/dynamicManifest";
 import { installGlobalErrorHandlers } from "./lib/errorLogger";
 import { initNativeShell } from "./lib/nativeShell";
 import { installCrossTabSync } from "./lib/crossTabSync";
+import { installSwBackgroundSync } from "./lib/swBackgroundSync";
 
 installGlobalErrorHandlers();
 initNativeShell();
 installCrossTabSync();
+installSwBackgroundSync();
 
 // จับ event ติดตั้ง PWA ตั้งแต่ต้น เพื่อเก็บไว้ให้ปุ่ม "ติดตั้งลงหน้าจอหลัก" ใช้ภายหลัง
 window.addEventListener("beforeinstallprompt", (e: Event) => {
@@ -63,6 +65,10 @@ if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     await registerServiceWorker();
     await ensurePushAliveInBackground();
+    // ปลุก SW ให้ flush offline queue ที่ค้างจาก session ก่อนหน้า
+    import("./lib/swBackgroundSync").then(({ requestBackgroundFlush }) => {
+      requestBackgroundFlush().catch(() => {});
+    }).catch(() => {});
   });
 
   // ทุกครั้งที่ผู้ใช้กลับเข้าแอป ให้ตรวจ subscription อีกที — ป้องกันแจ้งเตือนเงียบหลังพักแอปนาน
