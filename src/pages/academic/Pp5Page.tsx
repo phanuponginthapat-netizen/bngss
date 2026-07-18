@@ -622,7 +622,7 @@ const ScoreEntryTab = () => {
         <Card><CardContent className="p-8 text-center text-muted-foreground">{gradeLevel ? "กรุณาเลือกรายวิชาที่จะบันทึกคะแนน" : "กรุณาเลือกระดับชั้นก่อน"}</CardContent></Card>
       ) : (
         <Tabs defaultValue="scores" className="space-y-4">
-          <TabsList>
+          <TabsList className="w-full justify-start overflow-x-auto flex-nowrap whitespace-nowrap max-w-full">
             <TabsTrigger value="scores" className="gap-1.5"><BookOpen className="w-3.5 h-3.5" /> บันทึกคะแนน</TabsTrigger>
             <TabsTrigger value="attendance" className="gap-1.5"><CalendarClock className="w-3.5 h-3.5" /> เวลาเรียน</TabsTrigger>
             <TabsTrigger value="summary" className="gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> สรุปผล</TabsTrigger>
