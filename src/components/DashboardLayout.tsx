@@ -28,6 +28,7 @@ import OfflineIndicator from "@/components/OfflineIndicator";
 import PWAInstallButton from "@/components/PWAInstallButton";
 import AiChatBubble from "@/components/ai/AiChatBubble";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
+import { useSessionKeepAlive } from "@/hooks/useSessionKeepAlive";
 import { useRadixOverlayCleanup } from "@/hooks/useRadixOverlayCleanup";
 import { useForceLogoutListener } from "@/hooks/useForceLogoutListener";
 
@@ -75,8 +76,10 @@ const DashboardLayout = () => {
   const { appName, schoolLogo } = useSystemSettings();
   useGlobalRealtime();
   useForceLogoutListener({ userId, role, classroom: studentClassroom });
-  // ออกจากระบบอัตโนมัติเมื่อไม่มีการใช้งาน 2 ชม. (เฉพาะบน browser ที่ไม่ใช่ PWA)
+  // ออกจากระบบอัตโนมัติเมื่อไม่มีการใช้งาน 2 ชม. (เฉพาะ desktop browser — ยกเว้น PWA/มือถือ/kiosk)
   useIdleLogout(!!session);
+  // รักษา session ให้อยู่รอดบนมือถือ/PWA — refresh token เมื่อกลับมา visible + reconnect realtime
+  useSessionKeepAlive(!!session);
   // กวาด pointer-events / scroll-lock ที่ Radix ทิ้งค้างตอน navigate ระหว่างที่ overlay เปิด
   useRadixOverlayCleanup();
 

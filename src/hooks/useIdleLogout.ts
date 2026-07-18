@@ -50,12 +50,25 @@ function isRunningAsKiosk(): boolean {
   return false;
 }
 
+function isMobileDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    // Touch-capable device OR mobile UA — ยกเว้นทั้งเบราว์เซอร์มือถือ ไม่ใช่แค่ PWA
+    // เพื่อให้ session ไม่หลุดระหว่างพักหน้าจอ (มือถือ freeze JS timer)
+    if (navigator.maxTouchPoints > 1) return true;
+    if (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)) return true;
+    if (window.matchMedia?.("(pointer: coarse)").matches) return true;
+  } catch { /* ignore */ }
+  return false;
+}
+
 export function useIdleLogout(enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
     if (typeof window === "undefined") return;
     if (isRunningAsPWA()) return; // ยกเว้น PWA
     if (isRunningAsKiosk()) return; // ยกเว้นโหมด kiosk — ห้ามหลุด session
+    if (isMobileDevice()) return; // ยกเว้นมือถือ/แท็บเล็ต — กัน session หลุดเวลาพักหน้าจอ → realtime แจ้งเตือนจะขาด
 
 
     const now = () => Date.now();
