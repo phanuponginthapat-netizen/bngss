@@ -11,7 +11,13 @@ import { supabase } from "@/integrations/supabase/client";
 
 const DB_NAME = "offline-queue";
 const STORE = "actions";
-const VERSION = 1;
+const COMPLETED_STORE = "completed_ops";
+const VERSION = 2;
+
+/** ระยะจำ operationId ที่ยิงสำเร็จแล้ว — กันย้อนซ้ำถ้า SW/แท็บอื่นมา flush ซ้อน */
+const COMPLETED_TTL_MS = 10 * 60 * 1000; // 10 นาที
+/** ถือว่ายัง "กำลังยิง" ถ้า processingAt อยู่ในช่วงนี้ — กัน race หลาย flush ยิง item เดียวกัน */
+const PROCESSING_LOCK_MS = 45 * 1000;
 
 export type QueueAction = {
   id?: number;
@@ -30,7 +36,18 @@ export type QueueAction = {
   nextRetryAt?: number;
   /** ทำเครื่องหมายว่า "dead" เมื่อเกินจำนวนครั้งสูงสุด — เก็บไว้ให้ผู้ใช้ดู/ลบเอง */
   dead?: boolean;
+  /** UUID สร้างครั้งเดียวตอน enqueue — ใช้เป็น idempotency key ป้องกันการยิงซ้ำข้ามการ flush */
+  operationId?: string;
+  /** epoch ms ตอนเริ่มยิงล่าสุด — ล็อคไม่ให้ flush อื่นหยิบไปยิงพร้อมกัน */
+  processingAt?: number;
 };
+
+function newOperationId(): string {
+  try {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  } catch (_) {}
+  return `op-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 // ─── นโยบาย retry ───────────────────────────────────────────────
 export const MAX_RETRY_ATTEMPTS = 8;          // ~ครอบคลุม backoff รวมหลายชั่วโมง
@@ -78,18 +95,73 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE)) {
         db.createObjectStore(STORE, { keyPath: "id", autoIncrement: true });
       }
+      if (!db.objectStoreNames.contains(COMPLETED_STORE)) {
+        // key = operationId, value = { completedAt }
+        db.createObjectStore(COMPLETED_STORE);
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
 
-export async function enqueue(action: Omit<QueueAction, "id" | "createdAt" | "attempts">) {
+async function markCompleted(operationId: string | undefined) {
+  if (!operationId) return;
+  try {
+    const db = await openDb();
+    const tx = db.transaction(COMPLETED_STORE, "readwrite");
+    tx.objectStore(COMPLETED_STORE).put({ completedAt: Date.now() }, operationId);
+    await new Promise<void>((r) => { tx.oncomplete = () => r(); tx.onerror = () => r(); });
+  } catch (_) {}
+}
+
+async function isCompleted(operationId: string | undefined): Promise<boolean> {
+  if (!operationId) return false;
+  try {
+    const db = await openDb();
+    const tx = db.transaction(COMPLETED_STORE, "readonly");
+    const rec = await new Promise<any>((resolve) => {
+      const r = tx.objectStore(COMPLETED_STORE).get(operationId);
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => resolve(null);
+    });
+    if (!rec) return false;
+    if (Date.now() - rec.completedAt > COMPLETED_TTL_MS) return false;
+    return true;
+  } catch (_) { return false; }
+}
+
+async function purgeCompleted() {
+  try {
+    const db = await openDb();
+    const tx = db.transaction(COMPLETED_STORE, "readwrite");
+    const store = tx.objectStore(COMPLETED_STORE);
+    const cursorReq = store.openCursor();
+    const now = Date.now();
+    await new Promise<void>((resolve) => {
+      cursorReq.onsuccess = () => {
+        const cur = cursorReq.result;
+        if (!cur) { resolve(); return; }
+        const v = cur.value as { completedAt: number };
+        if (!v || now - v.completedAt > COMPLETED_TTL_MS) cur.delete();
+        cur.continue();
+      };
+      cursorReq.onerror = () => resolve();
+    });
+  } catch (_) {}
+}
+
+/** in-memory guard — กันสอง flush ในแท็บเดียวกันหยิบ operationId เดียวกัน */
+const inFlightOps = new Set<string>();
+
+export async function enqueue(action: Omit<QueueAction, "id" | "createdAt" | "attempts" | "operationId"> & { operationId?: string }) {
   const db = await openDb();
+  const operationId = action.operationId || newOperationId();
   const id = await new Promise<number>((resolve, reject) => {
     const tx = db.transaction(STORE, "readwrite");
     const req = tx.objectStore(STORE).add({
       ...action,
+      operationId,
       createdAt: Date.now(),
       attempts: 0,
     } satisfies QueueAction);
@@ -161,19 +233,44 @@ export async function countActive(): Promise<number> {
 
 let syncing = false;
 
-export async function flush(): Promise<{ ok: number; failed: number; dropped: number }> {
+export async function flush(): Promise<{ ok: number; failed: number; dropped: number; skipped?: number }> {
   if (syncing || !navigator.onLine) return { ok: 0, failed: 0, dropped: 0 };
   syncing = true;
   let ok = 0;
   let failed = 0;
   let dropped = 0;
+  let skipped = 0;
   const now = Date.now();
+  await purgeCompleted();
   try {
     const items = await list();
     for (const item of items) {
       // ข้าม item ที่ยังไม่ถึงเวลา retry / ที่ตายแล้ว
       if (item.dead) continue;
       if (item.nextRetryAt && item.nextRetryAt > now) continue;
+
+      // ── De-duplication ─────────────────────────────────────────
+      // 1) เคยยิงสำเร็จไปแล้ว (ภายใน TTL) → ลบทิ้ง กันซ้ำแน่นอน
+      if (item.operationId && await isCompleted(item.operationId)) {
+        if (item.id !== undefined) await remove(item.id);
+        skipped++;
+        continue;
+      }
+      // 2) มี flush อื่นในกระบวนการเดียวกันกำลังยิง operationId นี้
+      if (item.operationId && inFlightOps.has(item.operationId)) {
+        skipped++;
+        continue;
+      }
+      // 3) มี flush อื่น (SW / แท็บอื่น) จับ item นี้ไปเมื่อเร็ว ๆ นี้
+      if (item.processingAt && now - item.processingAt < PROCESSING_LOCK_MS) {
+        skipped++;
+        continue;
+      }
+
+      // จองสิทธิ์ก่อนยิง — เขียน processingAt กลับ IDB เพื่อให้ SW/แท็บอื่นเห็น
+      if (item.operationId) inFlightOps.add(item.operationId);
+      const locked: QueueAction = { ...item, processingAt: now };
+      try { await update(locked); } catch (_) {}
 
       try {
         const q = supabase.from(item.table as never);
@@ -182,41 +279,46 @@ export async function flush(): Promise<{ ok: number; failed: number; dropped: nu
           : await (q as any).insert(item.payload);
         if (error) throw error;
         if (item.id !== undefined) await remove(item.id);
+        await markCompleted(item.operationId);
         ok++;
       } catch (e) {
         if (item.id === undefined) { failed++; continue; }
         const nextAttempts = (item.attempts ?? 0) + 1;
         const message = (e as Error).message ?? String(e);
 
-        // Permanent → ทิ้งทันที (ไม่ retry ให้ชนซ้ำ)
+        // Permanent → ทิ้งทันที (ไม่ retry ให้ชนซ้ำ) + จำ operationId ว่าจบแล้ว
         if (isPermanentError(e)) {
           await remove(item.id);
+          await markCompleted(item.operationId);
           dropped++;
           continue;
         }
         // เกินจำนวนครั้ง → mark dead แต่ไม่ลบ (ให้ user เห็น/ตัดสินใจเอง)
         if (nextAttempts >= MAX_RETRY_ATTEMPTS) {
-          await update({ ...item, attempts: nextAttempts, lastError: message, dead: true });
+          await update({ ...item, attempts: nextAttempts, lastError: message, dead: true, processingAt: undefined });
           dropped++;
           continue;
         }
-        // Retryable → กำหนดเวลาถัดไปด้วย exponential backoff
+        // Retryable → กำหนดเวลาถัดไปด้วย exponential backoff + ปลดล็อค
         await update({
           ...item,
           attempts: nextAttempts,
           lastError: message,
           nextRetryAt: Date.now() + computeBackoffMs(nextAttempts),
+          processingAt: undefined,
         });
         failed++;
+      } finally {
+        if (item.operationId) inFlightOps.delete(item.operationId);
       }
     }
   } finally {
     syncing = false;
   }
   if (ok > 0 || dropped > 0) {
-    window.dispatchEvent(new CustomEvent("offline-queue:synced", { detail: { ok, failed, dropped } }));
+    window.dispatchEvent(new CustomEvent("offline-queue:synced", { detail: { ok, failed, dropped, skipped } }));
   }
-  return { ok, failed, dropped };
+  return { ok, failed, dropped, skipped };
 }
 
 let installed = false;

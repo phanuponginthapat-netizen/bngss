@@ -1,5 +1,5 @@
 // Service Worker — Web Push notifications (no app-shell caching)
-const SW_VERSION = "v6-push";
+const SW_VERSION = "v7-push-dedup";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -196,9 +196,12 @@ async function readSwConfig() {
 
 async function readQueue() {
   try {
-    const db = await idbOpen("offline-queue", 1, (d) => {
+    const db = await idbOpen("offline-queue", 2, (d) => {
       if (!d.objectStoreNames.contains("actions")) {
         d.createObjectStore("actions", { keyPath: "id", autoIncrement: true });
+      }
+      if (!d.objectStoreNames.contains("completed_ops")) {
+        d.createObjectStore("completed_ops");
       }
     });
     const tx = db.transaction("actions", "readonly");
@@ -208,7 +211,7 @@ async function readQueue() {
 
 async function removeQueueItem(id) {
   try {
-    const db = await idbOpen("offline-queue", 1);
+    const db = await idbOpen("offline-queue", 2);
     const tx = db.transaction("actions", "readwrite");
     tx.objectStore("actions").delete(id);
     await new Promise((r) => { tx.oncomplete = r; tx.onerror = r; });
@@ -217,12 +220,40 @@ async function removeQueueItem(id) {
 
 async function updateQueueItem(item) {
   try {
-    const db = await idbOpen("offline-queue", 1);
+    const db = await idbOpen("offline-queue", 2);
     const tx = db.transaction("actions", "readwrite");
     tx.objectStore("actions").put(item);
     await new Promise((r) => { tx.oncomplete = r; tx.onerror = r; });
   } catch (_) {}
 }
+
+const SW_COMPLETED_TTL_MS = 10 * 60 * 1000;
+const SW_PROCESSING_LOCK_MS = 45 * 1000;
+
+async function swMarkCompleted(operationId) {
+  if (!operationId) return;
+  try {
+    const db = await idbOpen("offline-queue", 2);
+    const tx = db.transaction("completed_ops", "readwrite");
+    tx.objectStore("completed_ops").put({ completedAt: Date.now() }, operationId);
+    await new Promise((r) => { tx.oncomplete = r; tx.onerror = r; });
+  } catch (_) {}
+}
+
+async function swIsCompleted(operationId) {
+  if (!operationId) return false;
+  try {
+    const db = await idbOpen("offline-queue", 2);
+    const tx = db.transaction("completed_ops", "readonly");
+    const rec = await idbReq(tx.objectStore("completed_ops").get(operationId));
+    if (!rec) return false;
+    if (Date.now() - rec.completedAt > SW_COMPLETED_TTL_MS) return false;
+    return true;
+  } catch (_) { return false; }
+}
+
+/** operationId ที่ SW instance นี้กำลังยิงอยู่ — กัน 2 sync event เกิดพร้อมกัน */
+const swInFlightOps = new Set();
 
 // ─── นโยบาย retry (ให้ตรงกับ src/lib/offlineQueue.ts) ───────────
 const SW_MAX_ATTEMPTS = 8;
@@ -261,6 +292,23 @@ async function flushOfflineQueueFromSW() {
       if (item.dead) continue;
       if (item.nextRetryAt && item.nextRetryAt > now) { hasPending = true; continue; }
 
+      // ── De-duplication (ตรงกับ src/lib/offlineQueue.ts) ──
+      // 1) ยิงสำเร็จไปแล้วภายใน TTL → ลบทิ้งเลย
+      if (item.operationId && await swIsCompleted(item.operationId)) {
+        if (item.id !== undefined) await removeQueueItem(item.id);
+        continue;
+      }
+      // 2) SW instance นี้กำลังยิง operationId เดียวกันอยู่
+      if (item.operationId && swInFlightOps.has(item.operationId)) continue;
+      // 3) แท็บ/SW อื่นเพิ่งจับ item นี้ไปยิง — ข้ามรอบนี้
+      if (item.processingAt && now - item.processingAt < SW_PROCESSING_LOCK_MS) {
+        hasPending = true;
+        continue;
+      }
+
+      if (item.operationId) swInFlightOps.add(item.operationId);
+      try { await updateQueueItem({ ...item, processingAt: now }); } catch (_) {}
+
       try {
         const url = `${cfg.supabaseUrl}/rest/v1/${encodeURIComponent(item.table)}`;
         const headers = {
@@ -269,6 +317,8 @@ async function flushOfflineQueueFromSW() {
           "Prefer": item.onConflict ? "resolution=merge-duplicates,return=minimal" : "return=minimal",
         };
         if (cfg.accessToken) headers["Authorization"] = `Bearer ${cfg.accessToken}`;
+        // ส่ง Idempotency-Key เผื่อ proxy/edge รองรับ — PostgREST เองไม่ใช้แต่ไม่มีผลเสีย
+        if (item.operationId) headers["Idempotency-Key"] = item.operationId;
         const qs = item.onConflict ? `?on_conflict=${encodeURIComponent(item.onConflict)}` : "";
         const res = await fetch(url + qs, {
           method: "POST",
@@ -282,6 +332,7 @@ async function flushOfflineQueueFromSW() {
           throw err;
         }
         if (item.id !== undefined) await removeQueueItem(item.id);
+        await swMarkCompleted(item.operationId);
         ok++;
       } catch (e) {
         if (item.id === undefined) { failed++; continue; }
@@ -289,27 +340,31 @@ async function flushOfflineQueueFromSW() {
         const nextAttempts = (item.attempts || 0) + 1;
         const message = String(e && e.message ? e.message : e);
 
-        // Permanent error → ทิ้ง กันชนซ้ำ / คิวค้าง
+        // Permanent error → ทิ้ง + จำ op ว่าจบแล้ว กันชนซ้ำ / คิวค้าง
         if (typeof status === "number" && isPermanentHttpStatus(status)) {
           await removeQueueItem(item.id);
+          await swMarkCompleted(item.operationId);
           dropped++;
           continue;
         }
-        // เกินจำนวนครั้งสูงสุด → mark dead แต่ไม่ลบ
+        // เกินจำนวนครั้งสูงสุด → mark dead แต่ไม่ลบ + ปลด processing lock
         if (nextAttempts >= SW_MAX_ATTEMPTS) {
-          await updateQueueItem({ ...item, attempts: nextAttempts, lastError: message, dead: true });
+          await updateQueueItem({ ...item, attempts: nextAttempts, lastError: message, dead: true, processingAt: undefined });
           dropped++;
           continue;
         }
-        // Retryable → ตั้งเวลาถัดไป (exponential backoff)
+        // Retryable → ตั้งเวลาถัดไป + ปลด processing lock
         await updateQueueItem({
           ...item,
           attempts: nextAttempts,
           lastError: message,
           nextRetryAt: Date.now() + swBackoffMs(nextAttempts),
+          processingAt: undefined,
         });
         failed++;
         hasPending = true;
+      } finally {
+        if (item.operationId) swInFlightOps.delete(item.operationId);
       }
     }
   } finally {
