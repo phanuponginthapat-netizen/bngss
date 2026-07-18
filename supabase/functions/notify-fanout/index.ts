@@ -168,13 +168,17 @@ Deno.serve(async (req) => {
     const userIds = [...new Set(payload.user_ids.filter(Boolean))];
 
 
-    // Dedup (best-effort)
-    if (payload.dedup_key) {
+    // Dedup (best-effort) — auto-generate dedup_key ถ้า caller ไม่ส่งมา
+    // ใช้ hash จาก type + reference + title เพื่อกันซ้ำภายใน 60 วิ
+    const autoDedupKey = payload.dedup_key
+      || (payload.reference_id ? `${type}:${payload.reference_type || ""}:${payload.reference_id}` : null)
+      || `${type}:${payload.title}:${userIds.slice(0, 3).join(",")}`;
+    if (autoDedupKey) {
       const { data: existing } = await admin
         .from("notification_delivery_log")
         .select("id")
         .eq("notification_type", type)
-        .eq("reason", `dedup:${payload.dedup_key}`)
+        .eq("reason", `dedup:${autoDedupKey}`)
         .gte("created_at", new Date(Date.now() - 60_000).toISOString())
         .limit(1);
       if (existing && existing.length > 0) {
