@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 const getBranding = () => {
   if (typeof window === "undefined") return null as any;
   const w = (window as any).__branding;
@@ -11,7 +13,17 @@ const getBranding = () => {
 };
 
 const SystemLoader = () => {
-  const b = getBranding();
+  const [b, setBranding] = useState<any>(() => getBranding());
+
+  useEffect(() => {
+    const onBrandingReady = (event: Event) => {
+      setBranding((event as CustomEvent).detail || getBranding());
+    };
+    window.addEventListener("branding:ready", onBrandingReady);
+    setBranding(getBranding());
+    return () => window.removeEventListener("branding:ready", onBrandingReady);
+  }, []);
+
   const theme = b?.themeColor || "#2563EB";
   const bg = `linear-gradient(135deg, ${theme}, #1d4ed8, #0ea5e9)`;
   return (
@@ -19,13 +31,7 @@ const SystemLoader = () => {
       <div className="bg-white/15 backdrop-blur-xl border border-white/25 rounded-3xl px-12 py-10 flex flex-col items-center gap-5 shadow-2xl">
         {b?.logo ? (
           <img src={b.logo} alt="logo" className="w-20 h-20 rounded-2xl object-contain drop-shadow-lg" />
-        ) : (
-          <img
-            src="/icon-192.png"
-            alt="App logo"
-            className="w-20 h-20 rounded-2xl object-contain drop-shadow-lg animate-[scale-in_2s_ease-in-out_infinite]"
-          />
-        )}
+        ) : null}
         {b?.name && (
           <div className="text-white text-lg font-bold text-center max-w-[280px] leading-tight">
             {b.name}

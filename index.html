@@ -95,13 +95,42 @@
         </div>
       </div>
       <script>
-        // ใช้ branding ที่ cache ไว้จากรอบก่อน เพื่อไม่ให้แสดง default ก่อน CMS โหลด
-        try {
-          var b = JSON.parse(localStorage.getItem("cms_branding_cache") || "null");
-          if (b) {
+        // โหลด branding จาก CMS ให้หน้า loading ใช้ค่าจริงตั้งแต่ก่อน React เริ่มทำงาน
+        (function () {
+          var CACHE_KEY = "cms_branding_cache";
+          var backendUrl = "%VITE_SUPABASE_URL%";
+          var publishableKey = "%VITE_SUPABASE_PUBLISHABLE_KEY%";
+          var readyDone = false;
+          var readyResolve = null;
+          var bootstrapTimer = null;
+          window.__cmsLoaderReady = new Promise(function (resolve) { readyResolve = resolve; });
+          var keys = [
+            "app_name",
+            "app_short_name",
+            "app_favicon_url",
+            "school_name",
+            "school_short_name",
+            "school_logo",
+            "school_logo_512",
+            "theme_color",
+            "primary_color",
+            "theme_primary_color"
+          ];
+
+          function escapeHtml(value) {
+            return String(value || "").replace(/[&<>'"]/g, function (c) {
+              return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[c];
+            });
+          }
+
+          function applyBranding(b) {
+            if (!b) return;
+            window.__branding = b;
+            var loader = document.getElementById("app-loader");
+            if (loader && b.themeColor) {
+              loader.style.background = "linear-gradient(135deg," + b.themeColor + ",#1d4ed8,#0ea5e9)";
+            }
             if (b.themeColor) {
-              document.getElementById("app-loader").style.background =
-                "linear-gradient(135deg," + b.themeColor + ",#1d4ed8,#0ea5e9)";
               var tc = document.querySelector('meta[name="theme-color"]');
               if (tc) tc.setAttribute("content", b.themeColor);
             }
@@ -110,16 +139,79 @@
               var n = document.getElementById("ldr-name");
               if (n) { n.textContent = b.name; n.style.display = "block"; }
             }
-            if (b.logo) {
-              var brand = document.getElementById("ldr-brand");
-              if (brand) { brand.style.display = "block"; brand.innerHTML = '<img class="ldr-logo" src="' + b.logo + '" alt="logo"/>'; }
-              var ic = document.querySelector('link[rel="icon"]');
-              if (ic) ic.setAttribute("href", b.logo);
+            var brand = document.getElementById("ldr-brand");
+            if (brand) {
+              if (b.logo) {
+                brand.style.display = "block";
+                brand.innerHTML = '<img class="ldr-logo" src="' + escapeHtml(b.logo) + '" alt="logo"/>';
+              } else {
+                brand.style.display = "none";
+                brand.innerHTML = "";
+              }
             }
+            var iconUrl = b.favicon || b.logo;
+            if (iconUrl) {
+              var ic = document.querySelector('link[rel="icon"]') || document.createElement("link");
+              ic.setAttribute("rel", "icon");
+              ic.setAttribute("href", iconUrl);
+              if (!ic.parentNode) document.head.appendChild(ic);
+            }
+            try { window.dispatchEvent(new CustomEvent("branding:ready", { detail: b })); } catch (e) {}
           }
-        } catch (e) {}
+
+          function finishBootstrap() {
+            if (readyDone) return;
+            readyDone = true;
+            if (bootstrapTimer) clearTimeout(bootstrapTimer);
+            if (readyResolve) readyResolve();
+          }
+
+          try { applyBranding(JSON.parse(localStorage.getItem(CACHE_KEY) || "null")); } catch (e) {}
+
+          if (!backendUrl || backendUrl.indexOf("%") === 0 || !publishableKey || publishableKey.indexOf("%") === 0) {
+            finishBootstrap();
+            return;
+          }
+
+          try {
+            var controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+            bootstrapTimer = setTimeout(function () {
+              try { if (controller) controller.abort(); } catch (e) {}
+              finishBootstrap();
+            }, 1800);
+            var headers = { apikey: publishableKey };
+            if (publishableKey.indexOf("sb_publishable_") !== 0) headers.Authorization = "Bearer " + publishableKey;
+            fetch(backendUrl + "/rest/v1/cms_settings?select=key,value&key=in.(" + keys.join(",") + ")", {
+              headers: headers,
+              signal: controller ? controller.signal : undefined
+            })
+              .then(function (res) { return res.ok ? res.json() : null; })
+              .then(function (rows) {
+                if (!rows || !rows.length) return;
+                var map = {};
+                rows.forEach(function (r) { if (r && r.key) map[r.key] = r.value || ""; });
+                var name = map.app_name || map.school_name || "";
+                var branding = {
+                  name: name,
+                  shortName: map.app_short_name || map.school_short_name || name,
+                  logo: map.school_logo || map.school_logo_512 || map.app_favicon_url || "",
+                  favicon: map.app_favicon_url || map.school_logo || "",
+                  themeColor: map.theme_color || map.primary_color || map.theme_primary_color || ""
+                };
+                if (branding.name || branding.logo || branding.favicon || branding.themeColor) {
+                  localStorage.setItem(CACHE_KEY, JSON.stringify(branding));
+                  applyBranding(branding);
+                }
+              })
+              .catch(function () {})
+              .finally(finishBootstrap);
+          } catch (e) { finishBootstrap(); }
+        })();
       </script>
     </div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module">
+      await (window.__cmsLoaderReady || Promise.resolve());
+      import("/src/main.tsx");
+    </script>
   </body>
 </html>
