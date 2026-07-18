@@ -75,18 +75,23 @@ if ("serviceWorker" in navigator) {
     const msg = event.data;
     if (!msg || typeof msg !== "object") return;
     if (msg.type === "push") {
+      // Mark tag seen เพื่อกัน realtime toast แสดงซ้ำภายใน 10 วิ
+      if (msg.tag) {
+        import("./lib/notificationDedup").then(({ markNotificationSeen }) => {
+          markNotificationSeen(msg.tag);
+        }).catch(() => {});
+      }
       // Use the Web Audio ping (already unlocked by first user gesture) — works on iOS Safari
-      // where new Audio('/notification.mp3').play() is blocked until a gesture.
       import("./lib/notificationSound").then(({ playNotificationSound }) => {
-        try { playNotificationSound({ urgent: !!msg.urgent }); } catch {}
+        try { playNotificationSound({ urgent: !!msg.urgent, tag: msg.tag }); } catch {}
       }).catch(() => {
         try {
           const audio = new Audio("/notification.mp3");
-          audio.volume = 0.8;
+          audio.volume = 0.9;
           audio.play().catch(() => {});
         } catch {}
       });
-      try { navigator.vibrate?.([200, 100, 200]); } catch (_) {}
+      try { navigator.vibrate?.(msg.urgent ? [300, 100, 300, 100, 300] : [200, 100, 200]); } catch (_) {}
     } else if (msg.type === "navigate" && msg.url) {
       window.location.href = msg.url;
     } else if (msg.type === "resubscribe") {
