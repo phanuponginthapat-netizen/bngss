@@ -1019,30 +1019,42 @@ serve(async (req) => {
           }
 
           if (assignedRole === "student") {
-            const r = await createStudentRecord(adminClient, {
-              userId,
-              firstName: u.first_name,
-              lastName: u.last_name,
-              studentCode: u.student_code || "",
-              gradeLevel: u.grade_level || u.department || "",
-              prefix: u.prefix || "ด.ช.", nationalId: u.national_id, gender: u.gender,
-              dateOfBirth: u.date_of_birth, phone: u.phone, address: u.address,
-              nationality: u.nationality, ethnicity: u.ethnicity, religion: u.religion,
-              bloodType: u.blood_type,
-              fatherName: u.father_name, fatherPhone: u.father_phone, fatherId: u.father_id,
-              fatherOccupation: u.father_occupation,
-              motherName: u.mother_name, motherPhone: u.mother_phone, motherId: u.mother_id,
-              motherOccupation: u.mother_occupation,
-              guardianName: u.guardian_name, guardianPhone: u.guardian_phone,
-              guardianRelation: u.guardian_relation, previousSchool: u.previous_school,
-              weight: u.weight ? parseFloat(u.weight) : undefined,
-              height: u.height ? parseFloat(u.height) : undefined,
-              birthProvince: u.birth_province,
-              classroom: u.classroom,
-            });
-            recordAction = r.action;
-            matchedBy = r.matched_by;
-            filledFields = r.filled_fields;
+            try {
+              const r = await createStudentRecord(adminClient, {
+                userId,
+                firstName: u.first_name,
+                lastName: u.last_name,
+                studentCode: u.student_code || "",
+                gradeLevel: u.grade_level || u.department || "",
+                prefix: u.prefix || "ด.ช.", nationalId: u.national_id, gender: u.gender,
+                dateOfBirth: u.date_of_birth, phone: u.phone, address: u.address,
+                nationality: u.nationality, ethnicity: u.ethnicity, religion: u.religion,
+                bloodType: u.blood_type,
+                fatherName: u.father_name, fatherPhone: u.father_phone, fatherId: u.father_id,
+                fatherOccupation: u.father_occupation,
+                motherName: u.mother_name, motherPhone: u.mother_phone, motherId: u.mother_id,
+                motherOccupation: u.mother_occupation,
+                guardianName: u.guardian_name, guardianPhone: u.guardian_phone,
+                guardianRelation: u.guardian_relation, previousSchool: u.previous_school,
+                weight: u.weight ? parseFloat(u.weight) : undefined,
+                height: u.height ? parseFloat(u.height) : undefined,
+                birthProvince: u.birth_province,
+                classroom: u.classroom,
+              });
+              recordAction = r.action;
+              matchedBy = r.matched_by;
+              filledFields = r.filled_fields;
+            } catch (studentErr: any) {
+              // Rollback: if we just created an auth user for this row, remove it so
+              // the next re-import isn't blocked by "already registered" orphans.
+              if (authAction === "created" && userId) {
+                try { await adminClient.from("user_roles").delete().eq("user_id", userId); } catch {}
+                try { await adminClient.from("profiles").delete().eq("id", userId); } catch {}
+                try { await adminClient.auth.admin.deleteUser(userId); } catch {}
+                if (email) existingUserByEmail.delete(email);
+              }
+              throw studentErr;
+            }
           }
 
           results[idx] = {
