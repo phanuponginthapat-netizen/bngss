@@ -1,17 +1,12 @@
-- [Department permissions](mem://features/department-permissions) — สิทธิ์ตามฝ่ายงาน (ทับ role) + DepartmentRoute guard
-- [Notification role matrix](mem://features/notification-role-matrix) — role_notification_defaults + admin UI + precedence order ใน notify-fanout
+# Project Memory
 
-Note: ระดับชั้นรองรับเต็มรูปแบบ — อ.1, อ.2, อ.3, ป.1-ป.6, ม.1-ม.6, การศึกษาพิเศษ (ปฐมวัยเปิดใช้งานแล้ว). single source = src/lib/gradeOrder.ts (ALL_GRADE_LEVELS, GRADE_NEXT)
+## Core
+โต้ตอบภาษาไทยเสมอ (ทั้ง timeline labels และคำอธิบาย)
+Theme พาสเทล Sky & Peach, radius 1rem, ฟอนต์ Outfit/Figtree — สี CMS map เข้า CSS vars ผ่าน useCmsTheme
+Roles อยู่ใน user_roles + has_role() เท่านั้น — ห้ามเก็บ role ใน profiles/personnel
+Sidebar อยู่ทางขวา, trigger อยู่ใน User avatar dropdown มุมบนขวา (ไม่มี trigger มุมบนซ้าย)
+Bucket `profile-images` ต้อง public เพื่อให้ URL เก่าใน DB ทำงาน — ถ้า workspace บล็อก public buckets ให้ใช้ RLS `profile_images_public_read` อนุญาต anon SELECT
 
-
-- [Garbage Bank](mem://features/garbage-bank) — ธนาคารขยะ: ฝากขยะแลกแต้ม, แลกของรางวัล, QR scan บัตร นร.
-
-- [Game Hub](mem://features/game-hub) — คลังเกม/บทเรียนโต้ตอบ + API เกมภายนอก (สแกน QR บัตร นร. → session_token) + leaderboard แยกช่วงชั้น
-
-- [Google Chat notifications](mem://integrations/google-chat-notifications) — ครอบคลุมเทียบ LINE + สรุปประจำวัน/เดือน/ภาคเรียน
-
-- [Schedule teacher link](mem://features/academic/schedule-teacher-link) — schedules.teacher_id ผูกกับ personnel + trigger เติมอัตโนมัติ
-
-- [CMS settings bulk](mem://features/admin/cms-settings-bulk) — ห้าม query cms_settings ตรง ใช้ useCmsSettingsBulk เท่านั้น (กัน N+1 16K calls)
-
-- [E-Form custom templates](mem://features/eform-custom-templates) — admin ออกแบบฟอร์ม PDF ผ่าน TipTap + ช่องกรอกชนิด text/date/checkbox/radio/signature/autofill
+## Memories
+- [Notification role matrix](mem/features/notification-role-matrix.md) — role_notification_defaults + precedence School>Role>User
+- [Security hardening phase 2](mem/features/security-hardening.md) — REVOKE anon/authenticated จาก SECURITY DEFINER, whitelist ฟังก์ชัน public
