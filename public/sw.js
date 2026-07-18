@@ -196,9 +196,12 @@ async function readSwConfig() {
 
 async function readQueue() {
   try {
-    const db = await idbOpen("offline-queue", 1, (d) => {
+    const db = await idbOpen("offline-queue", 2, (d) => {
       if (!d.objectStoreNames.contains("actions")) {
         d.createObjectStore("actions", { keyPath: "id", autoIncrement: true });
+      }
+      if (!d.objectStoreNames.contains("completed_ops")) {
+        d.createObjectStore("completed_ops");
       }
     });
     const tx = db.transaction("actions", "readonly");
@@ -208,7 +211,7 @@ async function readQueue() {
 
 async function removeQueueItem(id) {
   try {
-    const db = await idbOpen("offline-queue", 1);
+    const db = await idbOpen("offline-queue", 2);
     const tx = db.transaction("actions", "readwrite");
     tx.objectStore("actions").delete(id);
     await new Promise((r) => { tx.oncomplete = r; tx.onerror = r; });
@@ -217,12 +220,40 @@ async function removeQueueItem(id) {
 
 async function updateQueueItem(item) {
   try {
-    const db = await idbOpen("offline-queue", 1);
+    const db = await idbOpen("offline-queue", 2);
     const tx = db.transaction("actions", "readwrite");
     tx.objectStore("actions").put(item);
     await new Promise((r) => { tx.oncomplete = r; tx.onerror = r; });
   } catch (_) {}
 }
+
+const SW_COMPLETED_TTL_MS = 10 * 60 * 1000;
+const SW_PROCESSING_LOCK_MS = 45 * 1000;
+
+async function swMarkCompleted(operationId) {
+  if (!operationId) return;
+  try {
+    const db = await idbOpen("offline-queue", 2);
+    const tx = db.transaction("completed_ops", "readwrite");
+    tx.objectStore("completed_ops").put({ completedAt: Date.now() }, operationId);
+    await new Promise((r) => { tx.oncomplete = r; tx.onerror = r; });
+  } catch (_) {}
+}
+
+async function swIsCompleted(operationId) {
+  if (!operationId) return false;
+  try {
+    const db = await idbOpen("offline-queue", 2);
+    const tx = db.transaction("completed_ops", "readonly");
+    const rec = await idbReq(tx.objectStore("completed_ops").get(operationId));
+    if (!rec) return false;
+    if (Date.now() - rec.completedAt > SW_COMPLETED_TTL_MS) return false;
+    return true;
+  } catch (_) { return false; }
+}
+
+/** operationId ที่ SW instance นี้กำลังยิงอยู่ — กัน 2 sync event เกิดพร้อมกัน */
+const swInFlightOps = new Set();
 
 // ─── นโยบาย retry (ให้ตรงกับ src/lib/offlineQueue.ts) ───────────
 const SW_MAX_ATTEMPTS = 8;
