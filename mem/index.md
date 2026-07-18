@@ -1,4 +1,5 @@
 - [Department permissions](mem://features/department-permissions) — สิทธิ์ตามฝ่ายงาน (ทับ role) + DepartmentRoute guard
+- [Notification role matrix](mem://features/notification-role-matrix) — role_notification_defaults + admin UI + precedence order ใน notify-fanout
 
 Note: ระดับชั้นรองรับเต็มรูปแบบ — อ.1, อ.2, อ.3, ป.1-ป.6, ม.1-ม.6, การศึกษาพิเศษ (ปฐมวัยเปิดใช้งานแล้ว). single source = src/lib/gradeOrder.ts (ALL_GRADE_LEVELS, GRADE_NEXT)
 

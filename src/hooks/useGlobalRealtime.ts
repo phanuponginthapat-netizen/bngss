@@ -151,8 +151,26 @@ export function useGlobalRealtime() {
 
     let channel = supabase.channel(`role-rt-${role}-${userId}`);
 
+    // ── Coalesce invalidations ── ป้องกัน refetch พายุ เมื่อมี insert หลาย row ติดกัน
+    // (เช่น import DMC 500 คน หรือ face scan รัวๆ ตอนเข้าแถว 8:00)
+    // รวม invalidate ต่อ queryKey เป็นรอบเดียวใน 400ms
+    const pendingInvalidations = new Map<string, string[]>();
+    let invalidationTimer: number | null = null;
+    const scheduleInvalidate = (keys: string[][]) => {
+      for (const key of keys) {
+        const sig = JSON.stringify(key);
+        if (!pendingInvalidations.has(sig)) pendingInvalidations.set(sig, key);
+      }
+      if (invalidationTimer !== null) return;
+      invalidationTimer = window.setTimeout(() => {
+        invalidationTimer = null;
+        const batch = Array.from(pendingInvalidations.values());
+        pendingInvalidations.clear();
+        for (const key of batch) qc.invalidateQueries({ queryKey: key });
+      }, 400);
+    };
+
     for (const table of tables) {
-      // Filter notifications/inbox to current user only — drastically reduces payload
       const filter =
         table === "notifications" || table === "inbox_items"
           ? { event: "*", schema: "public", table, filter: `user_id=eq.${userId}` }
@@ -162,12 +180,10 @@ export function useGlobalRealtime() {
         "postgres_changes" as any,
         filter,
         (payload: any) => {
-          // Always invalidate by table name
-          qc.invalidateQueries({ queryKey: [table] });
+          const keys: string[][] = [[table]];
           const extra = extraKeys[table];
-          if (extra) {
-            for (const key of extra) qc.invalidateQueries({ queryKey: key });
-          }
+          if (extra) keys.push(...extra);
+          scheduleInvalidate(keys);
 
           // ===== Live toast + sound for incoming items =====
           if (payload?.eventType !== "INSERT") return;
@@ -250,16 +266,23 @@ export function useGlobalRealtime() {
       );
     }
 
+    let didFirstSubscribe = false;
     channel.subscribe((status) => {
-      // Auto-resync on (re)connect so we never miss data after sleep/offline
-      if (status === "SUBSCRIBED") {
-        qc.invalidateQueries();
+      // On reconnect only: invalidate the hot user-scoped queries, not the whole cache.
+      // (Blanket invalidateQueries() with 500+ users online = refetch storm)
+      if (status === "SUBSCRIBED" && didFirstSubscribe) {
+        scheduleInvalidate([["notifications"], ["inbox_items"], ["dashboard_stats_v2"]]);
       }
+      if (status === "SUBSCRIBED") didFirstSubscribe = true;
     });
 
-    // Force resync when tab becomes visible or network restored
+    // Force resync when tab becomes visible or network restored — throttled
+    let lastResync = 0;
     const resync = () => {
-      qc.invalidateQueries();
+      const now = Date.now();
+      if (now - lastResync < 5000) return; // ≤ 1 resync ต่อ 5 วิ
+      lastResync = now;
+      scheduleInvalidate([["notifications"], ["inbox_items"]]);
     };
     const onVisible = () => {
       if (document.visibilityState === "visible") resync();
@@ -270,6 +293,7 @@ export function useGlobalRealtime() {
     return () => {
       window.removeEventListener("online", resync);
       document.removeEventListener("visibilitychange", onVisible);
+      if (invalidationTimer !== null) clearTimeout(invalidationTimer);
       supabase.removeChannel(channel);
     };
   }, [qc, role, userId, navigate]);

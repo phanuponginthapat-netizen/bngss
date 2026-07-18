@@ -188,9 +188,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Load user preferences and resolve LINE IDs from the actual linked profile/student records.
-    const [prefsRes, profileLineRes, studentLineRes] = await Promise.all([
+    // Load user preferences, roles, matrix, and LINE IDs in parallel.
+    const [prefsRes, rolesRes, matrixRes, profileLineRes, studentLineRes] = await Promise.all([
       admin.from("notification_preferences").select("*").in("user_id", userIds),
+      admin.from("user_roles").select("user_id,role").in("user_id", userIds),
+      admin.from("role_notification_defaults").select("role,category,in_app,push,line,gchat,min_severity").eq("category", category),
       admin.from("profiles").select("id,line_user_id").in("id", userIds).not("line_user_id", "is", null),
       admin
         .from("students")
@@ -199,6 +201,15 @@ Deno.serve(async (req) => {
         .not("auth_user_id", "is", null),
     ]);
     const prefsMap = new Map<string, any>((prefsRes.data ?? []).map((p: any) => [p.user_id, p]));
+    const roleByUser = new Map<string, string>();
+    (rolesRes.data ?? []).forEach((r: any) => {
+      // ถ้าผู้ใช้มีหลาย role เก็บสิทธิ์สูงสุด (admin > director > teacher > parent > student > alumni)
+      const rank: Record<string, number> = { admin: 6, director: 5, teacher: 4, parent: 3, student: 2, alumni: 1 };
+      const cur = roleByUser.get(r.user_id);
+      if (!cur || (rank[r.role] ?? 0) > (rank[cur] ?? 0)) roleByUser.set(r.user_id, r.role);
+    });
+    const matrixByRole = new Map<string, any>((matrixRes.data ?? []).map((m: any) => [m.role, m]));
+
     const lineIdsByUser = new Map<string, string[]>();
     (profileLineRes.data ?? []).forEach((row: any) => {
       addLineIds(lineIdsByUser, row.id, [row.line_user_id]);
@@ -238,9 +249,22 @@ Deno.serve(async (req) => {
     let inAppCount = 0, pushCount = 0, lineCount = 0;
 
     // Helper: should send to a channel for this user
-    const shouldSend = (uid: string, ch: "in_app" | "push" | "line") => {
+    // Precedence: user preference (explicit off) → role matrix default → true
+    const shouldSend = (uid: string, ch: "in_app" | "push" | "line" | "gchat") => {
+      // 1) Role matrix default (baseline)
+      const role = roleByUser.get(uid);
+      const matrix = role ? matrixByRole.get(role) : null;
+      if (matrix) {
+        if (ch === "in_app" && matrix.in_app === false) return false;
+        if (ch === "push"   && matrix.push   === false) return false;
+        if (ch === "line"   && matrix.line   === false) return false;
+        if (ch === "gchat"  && matrix.gchat  === false) return false;
+        const minRank = SEVERITY_RANK[(matrix.min_severity as Severity) || "info"];
+        if (sevRank < minRank && severity !== "critical") return false;
+      }
+      // 2) Per-user preference (can further disable, cannot re-enable if matrix says off)
       const p = prefsMap.get(uid);
-      if (!p) return true; // default on
+      if (!p) return true;
       const override = (p.type_overrides as Record<string, boolean> | null)?.[type];
       if (override === false) return false;
       if (ch === "in_app" && p.in_app_enabled === false) return false;
@@ -301,21 +325,32 @@ Deno.serve(async (req) => {
           urgent: severity === "critical" || severity === "warning",
         };
 
-        await Promise.all((subs ?? []).map(async (s: any) => {
-          let r = await pushOne(s, pushPayload);
-          // retry once on transient failure
-          if (!r.ok && !r.gone && (r.status === 429 || (r.status && r.status >= 500))) {
-            await new Promise((res) => setTimeout(res, 400));
-            r = await pushOne(s, pushPayload);
-          }
-          if (r.ok) {
-            pushCount++;
-            log(s.user_id, "push", "sent");
-          } else {
-            if (r.gone) await admin.from("push_subscriptions").delete().eq("id", s.id);
-            log(s.user_id, "push", r.gone ? "gone" : "failed", `${r.status ?? "?"}: ${r.error ?? "unknown"}`);
-          }
-        }));
+        // Batch push in chunks of 50 to avoid overwhelming push service / CPU spikes
+        // when a single fanout targets hundreds of subscriptions.
+        const PUSH_CHUNK = 50;
+        const allSubs = subs ?? [];
+        const goneIds: string[] = [];
+        for (let i = 0; i < allSubs.length; i += PUSH_CHUNK) {
+          const chunk = allSubs.slice(i, i + PUSH_CHUNK);
+          await Promise.all(chunk.map(async (s: any) => {
+            let r = await pushOne(s, pushPayload);
+            if (!r.ok && !r.gone && (r.status === 429 || (r.status && r.status >= 500))) {
+              await new Promise((res) => setTimeout(res, 400));
+              r = await pushOne(s, pushPayload);
+            }
+            if (r.ok) {
+              pushCount++;
+              log(s.user_id, "push", "sent");
+            } else {
+              if (r.gone) goneIds.push(s.id);
+              log(s.user_id, "push", r.gone ? "gone" : "failed", `${r.status ?? "?"}: ${r.error ?? "unknown"}`);
+            }
+          }));
+        }
+        // Batch-delete dead subscriptions once instead of N deletes
+        if (goneIds.length > 0) {
+          try { await admin.from("push_subscriptions").delete().in("id", goneIds); } catch (_) {}
+        }
       }
     }
 
