@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Sarabun:wght@400;700&family=Kanit:wght@400;700&family=Prompt:wght@400;700&family=Noto+Sans+Thai:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Figtree:wght@300;400;500;600;700&family=Sarabun:wght@400;700&family=Kanit:wght@400;700&family=Prompt:wght@400;700&family=Noto+Sans+Thai:wght@400;700&display=swap');
 
 /* Hide Lovable badge — keeps it out of layout and interaction */
 #lovable-badge,
@@ -58,52 +58,54 @@ a[href*="lovable.dev"][href*="utm"] {
 
 @layer base {
   :root {
-    --background: 220 20% 97%;
-    --foreground: 222 28% 12%;
+    --background: 205 100% 97%;
+    --foreground: 215 40% 18%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 28% 12%;
+    --card-foreground: 215 40% 18%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 28% 12%;
+    --popover-foreground: 215 40% 18%;
 
-    --primary: 217 91% 50%;
+    --primary: 199 89% 58%;
     --primary-foreground: 0 0% 100%;
+    --primary-glow: 199 100% 78%;
 
-    --secondary: 215 25% 95%;
-    --secondary-foreground: 222 28% 15%;
+    --secondary: 12 100% 92%;
+    --secondary-foreground: 12 45% 30%;
 
-    --muted: 220 20% 94%;
-    --muted-foreground: 218 14% 50%;
+    --muted: 205 60% 94%;
+    --muted-foreground: 215 20% 45%;
 
-    --accent: 162 63% 41%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 10 90% 82%;
+    --accent-foreground: 10 55% 28%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 84% 62%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 20% 90%;
-    --input: 220 20% 90%;
-    --ring: 217 91% 50%;
+    --border: 205 50% 88%;
+    --input: 205 50% 90%;
+    --ring: 199 89% 58%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
-    --sidebar-background: 222 30% 11%;
-    --sidebar-foreground: 215 25% 88%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-background: 214 55% 14%;
+    --sidebar-foreground: 205 40% 92%;
+    --sidebar-primary: 199 89% 62%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 28% 17%;
-    --sidebar-accent-foreground: 215 25% 95%;
-    --sidebar-border: 222 25% 18%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-accent: 214 45% 20%;
+    --sidebar-accent-foreground: 205 40% 96%;
+    --sidebar-border: 214 40% 22%;
+    --sidebar-ring: 199 89% 62%;
 
-    --success: 152 69% 42%;
+    --success: 152 65% 48%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 32 95% 62%;
     --warning-foreground: 0 0% 100%;
-    --info: 199 89% 48%;
+    --info: 199 89% 58%;
     --info-foreground: 0 0% 100%;
   }
+
 }
 
 @layer base {
@@ -113,11 +115,17 @@ a[href*="lovable.dev"][href*="utm"] {
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'IBM Plex Sans Thai', 'Inter', sans-serif;
+    font-family: 'Figtree', 'IBM Plex Sans Thai', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
   }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', 'IBM Plex Sans Thai', system-ui, sans-serif;
+    letter-spacing: -0.01em;
+  }
+
 
   /* Better touch targets on mobile */
   @media (max-width: 640px) {
