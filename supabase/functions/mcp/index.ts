@@ -18,14 +18,14 @@ var whoami_default = defineTool({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const sb2 = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    const sb8 = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
       global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
       auth: { persistSession: false, autoRefreshToken: false }
     });
     const userId = ctx.getUserId();
     const [{ data: profile }, { data: roles }] = await Promise.all([
-      sb2.from("profiles").select("*").eq("id", userId).maybeSingle(),
-      sb2.from("user_roles").select("role").eq("user_id", userId)
+      sb8.from("profiles").select("*").eq("id", userId).maybeSingle(),
+      sb8.from("user_roles").select("role").eq("user_id", userId)
     ]);
     const payload = {
       user_id: userId,
@@ -88,12 +88,217 @@ var list_inbox_default = defineTool3({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const sb2 = createClient3(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    const sb8 = createClient3(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
       global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
       auth: { persistSession: false, autoRefreshToken: false }
     });
-    let q = sb2.from("notifications").select("id, title, body, created_at, read_at, type").eq("user_id", ctx.getUserId()).order("created_at", { ascending: false }).limit(limit);
+    let q = sb8.from("notifications").select("id, title, body, created_at, read_at, type").eq("user_id", ctx.getUserId()).order("created_at", { ascending: false }).limit(limit);
     if (unread_only) q = q.is("read_at", null);
+    const { data, error } = await q;
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    return {
+      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      structuredContent: { items: data }
+    };
+  }
+});
+
+// src/lib/mcp/tools/list-my-attendance.ts
+import { createClient as createClient4 } from "npm:@supabase/supabase-js@^2.100.1";
+import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z3 } from "npm:zod@^4.4.3";
+function sb2(ctx) {
+  return createClient4(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var list_my_attendance_default = defineTool4({
+  name: "list_my_attendance",
+  title: "List my attendance",
+  description: "List attendance records visible to the signed-in user (own records for students, or children for parents). Optionally filter by date range.",
+  inputSchema: {
+    from: z3.string().optional().describe("ISO date YYYY-MM-DD (inclusive)"),
+    to: z3.string().optional().describe("ISO date YYYY-MM-DD (inclusive)"),
+    limit: z3.number().int().min(1).max(200).default(50)
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ from, to, limit }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    let q = sb2(ctx).from("attendance").select("id, student_id, date, status, note, created_at").order("date", { ascending: false }).limit(limit);
+    if (from) q = q.gte("date", from);
+    if (to) q = q.lte("date", to);
+    const { data, error } = await q;
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    return {
+      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      structuredContent: { items: data }
+    };
+  }
+});
+
+// src/lib/mcp/tools/list-my-homework.ts
+import { createClient as createClient5 } from "npm:@supabase/supabase-js@^2.100.1";
+import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z4 } from "npm:zod@^4.4.3";
+function sb3(ctx) {
+  return createClient5(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var list_my_homework_default = defineTool5({
+  name: "list_my_homework",
+  title: "List my homework",
+  description: "List homework assignments visible to the signed-in user, ordered by due date (upcoming first).",
+  inputSchema: {
+    only_open: z4.boolean().default(true).describe("Only assignments not past due"),
+    limit: z4.number().int().min(1).max(100).default(30)
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ only_open, limit }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    let q = sb3(ctx).from("homework_assignments").select("id, title, description, subject_id, due_date, classroom_id, created_at").order("due_date", { ascending: true }).limit(limit);
+    if (only_open) q = q.gte("due_date", (/* @__PURE__ */ new Date()).toISOString().slice(0, 10));
+    const { data, error } = await q;
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    return {
+      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      structuredContent: { items: data }
+    };
+  }
+});
+
+// src/lib/mcp/tools/list-my-grades.ts
+import { createClient as createClient6 } from "npm:@supabase/supabase-js@^2.100.1";
+import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z5 } from "npm:zod@^4.4.3";
+function sb4(ctx) {
+  return createClient6(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var list_my_grades_default = defineTool6({
+  name: "list_my_grades",
+  title: "List my grades",
+  description: "List student score records visible to the signed-in user (own scores for students, children for parents).",
+  inputSchema: {
+    subject_id: z5.string().uuid().optional(),
+    limit: z5.number().int().min(1).max(200).default(50)
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ subject_id, limit }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    let q = sb4(ctx).from("student_scores").select("id, student_id, subject_id, score, max_score, term, academic_year, created_at").order("created_at", { ascending: false }).limit(limit);
+    if (subject_id) q = q.eq("subject_id", subject_id);
+    const { data, error } = await q;
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    return {
+      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      structuredContent: { items: data }
+    };
+  }
+});
+
+// src/lib/mcp/tools/list-my-eforms.ts
+import { createClient as createClient7 } from "npm:@supabase/supabase-js@^2.100.1";
+import { defineTool as defineTool7 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z6 } from "npm:zod@^4.4.3";
+function sb5(ctx) {
+  return createClient7(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var list_my_eforms_default = defineTool7({
+  name: "list_my_eforms",
+  title: "List my eforms",
+  description: "List eforms addressed to the signed-in user (inbox).",
+  inputSchema: {
+    status: z6.enum(["pending", "approved", "rejected", "all"]).default("pending"),
+    limit: z6.number().int().min(1).max(100).default(30)
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ status, limit }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    let q = sb5(ctx).from("eform_recipients").select("id, eform_id, recipient_id, status, action_at, created_at").eq("recipient_id", ctx.getUserId()).order("created_at", { ascending: false }).limit(limit);
+    if (status !== "all") q = q.eq("status", status);
+    const { data, error } = await q;
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    return {
+      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      structuredContent: { items: data }
+    };
+  }
+});
+
+// src/lib/mcp/tools/list-my-leaves.ts
+import { createClient as createClient8 } from "npm:@supabase/supabase-js@^2.100.1";
+import { defineTool as defineTool8 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z7 } from "npm:zod@^4.4.3";
+function sb6(ctx) {
+  return createClient8(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var list_my_leaves_default = defineTool8({
+  name: "list_my_leaves",
+  title: "List my leaves",
+  description: "List leave records for the signed-in user (student or staff).",
+  inputSchema: {
+    scope: z7.enum(["student", "staff"]).default("student"),
+    limit: z7.number().int().min(1).max(100).default(30)
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ scope, limit }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const table = scope === "staff" ? "staff_leaves" : "student_leaves";
+    const { data, error } = await sb6(ctx).from(table).select("*").order("created_at", { ascending: false }).limit(limit);
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    return {
+      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      structuredContent: { items: data }
+    };
+  }
+});
+
+// src/lib/mcp/tools/list-my-schedule.ts
+import { createClient as createClient9 } from "npm:@supabase/supabase-js@^2.100.1";
+import { defineTool as defineTool9 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z8 } from "npm:zod@^4.4.3";
+function sb7(ctx) {
+  return createClient9(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var list_my_schedule_default = defineTool9({
+  name: "list_my_schedule",
+  title: "List my schedule",
+  description: "List class schedule entries visible to the signed-in user.",
+  inputSchema: {
+    day_of_week: z8.number().int().min(0).max(6).optional().describe("0=Sunday .. 6=Saturday"),
+    limit: z8.number().int().min(1).max(200).default(60)
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ day_of_week, limit }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    let q = sb7(ctx).from("schedules").select("id, classroom_id, subject_id, teacher_id, day_of_week, period, start_time, end_time, room").order("day_of_week", { ascending: true }).order("period", { ascending: true }).limit(limit);
+    if (day_of_week !== void 0) q = q.eq("day_of_week", day_of_week);
     const { data, error } = await q;
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     return {
@@ -108,13 +313,23 @@ var projectRef = "dlkyxvhnnffblerwedjz";
 var mcp_default = defineMcp({
   name: "school-mcp",
   title: "School Management MCP",
-  version: "0.1.0",
-  instructions: "Tools for the school management system. Use `whoami` to identify the signed-in user, `list_news` to fetch recent school news, and `list_my_notifications` to check the user's inbox.",
+  version: "0.2.0",
+  instructions: "Tools for the school management system. Use `whoami` for identity, `list_news` for school news, `list_my_notifications` for inbox, `list_my_attendance` / `list_my_homework` / `list_my_grades` / `list_my_eforms` / `list_my_leaves` / `list_my_schedule` for personal academic data. All results are RLS-scoped to the signed-in user.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"
   }),
-  tools: [whoami_default, list_news_default, list_inbox_default]
+  tools: [
+    whoami_default,
+    list_news_default,
+    list_inbox_default,
+    list_my_attendance_default,
+    list_my_homework_default,
+    list_my_grades_default,
+    list_my_eforms_default,
+    list_my_leaves_default,
+    list_my_schedule_default
+  ]
 });
 
 // lovable-mcp-supabase-entry.ts

@@ -27,6 +27,7 @@ const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const NotificationSettingsPage = lazy(() => import("./pages/NotificationSettingsPage"));
 const NotificationDeliveryDashboard = lazy(() => import("./pages/admin/NotificationDeliveryDashboard"));
 const NotificationMatrixPage = lazy(() => import("./pages/admin/NotificationMatrixPage"));
+const PermissionsHubPage = lazy(() => import("./pages/admin/PermissionsHubPage"));
 const TeacherCredentialsPage = lazy(() => import("./pages/admin/TeacherCredentialsPage"));
 const PublicSDQPage = lazy(() => import("./pages/PublicSDQPage"));
 const PublicAssetPage = lazy(() => import("./pages/PublicAssetPage"));
@@ -294,6 +295,7 @@ const App = () => (
                 <Route path="settings/notifications" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "alumni", "parent"]}><NotificationSettingsPage /></ProtectedRoute>} />
                 <Route path="admin/notifications" element={<ProtectedRoute allowedRoles={["admin", "director"]}><NotificationDeliveryDashboard /></ProtectedRoute>} />
                 <Route path="admin/notification-matrix" element={<ProtectedRoute allowedRoles={["admin", "director"]}><NotificationMatrixPage /></ProtectedRoute>} />
+                <Route path="admin/permissions" element={<ProtectedRoute allowedRoles={["admin", "director"]}><PermissionsHubPage /></ProtectedRoute>} />
                 <Route path="admin/teacher-credentials" element={<ProtectedRoute allowedRoles={["admin", "director"]}><TeacherCredentialsPage /></ProtectedRoute>} />
                 <Route path="inbox" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><InboxPage /></ProtectedRoute>} />
                 <Route path="news/:id" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "alumni", "parent"]}><NewsDetailPage /></ProtectedRoute>} />
