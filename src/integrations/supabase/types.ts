@@ -3275,6 +3275,54 @@ export type Database = {
           },
         ]
       }
+      dashboard_shortcuts: {
+        Row: {
+          bg_class: string
+          created_at: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          label_en: string
+          label_th: string
+          logo_url: string | null
+          open_in_new_tab: boolean
+          sort_order: number
+          target_url: string
+          updated_at: string
+          visible_roles: string[]
+        }
+        Insert: {
+          bg_class?: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          label_en: string
+          label_th: string
+          logo_url?: string | null
+          open_in_new_tab?: boolean
+          sort_order?: number
+          target_url: string
+          updated_at?: string
+          visible_roles?: string[]
+        }
+        Update: {
+          bg_class?: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          label_en?: string
+          label_th?: string
+          logo_url?: string | null
+          open_in_new_tab?: boolean
+          sort_order?: number
+          target_url?: string
+          updated_at?: string
+          visible_roles?: string[]
+        }
+        Relationships: []
+      }
       director_signatures: {
         Row: {
           created_at: string
@@ -5756,6 +5804,45 @@ export type Database = {
           },
         ]
       }
+      home_visit_summaries: {
+        Row: {
+          academic_year: number
+          created_at: string
+          created_by: string | null
+          data: Json
+          id: string
+          reporter_name: string | null
+          reporter_position: string | null
+          school_id: string | null
+          semester: number
+          updated_at: string
+        }
+        Insert: {
+          academic_year: number
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          reporter_name?: string | null
+          reporter_position?: string | null
+          school_id?: string | null
+          semester: number
+          updated_at?: string
+        }
+        Update: {
+          academic_year?: number
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          reporter_name?: string | null
+          reporter_position?: string | null
+          school_id?: string | null
+          semester?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       home_visits: {
         Row: {
           academic_year: number | null
@@ -6023,40 +6110,61 @@ export type Database = {
       }
       homework_assignments: {
         Row: {
+          answer_fields: Json
           assigned_by: string | null
           classroom_id: string | null
+          content_html: string | null
           created_at: string
+          created_by: string | null
           description: string | null
           due_date: string | null
           id: string
+          pdf_pages: number | null
+          pdf_path: string | null
           school_id: string | null
           status: string
           subject_id: string | null
           title: string
+          total_score: number | null
+          worksheet_fields: Json
         }
         Insert: {
+          answer_fields?: Json
           assigned_by?: string | null
           classroom_id?: string | null
+          content_html?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           due_date?: string | null
           id?: string
+          pdf_pages?: number | null
+          pdf_path?: string | null
           school_id?: string | null
           status?: string
           subject_id?: string | null
           title: string
+          total_score?: number | null
+          worksheet_fields?: Json
         }
         Update: {
+          answer_fields?: Json
           assigned_by?: string | null
           classroom_id?: string | null
+          content_html?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           due_date?: string | null
           id?: string
+          pdf_pages?: number | null
+          pdf_path?: string | null
           school_id?: string | null
           status?: string
           subject_id?: string | null
           title?: string
+          total_score?: number | null
+          worksheet_fields?: Json
         }
         Relationships: [
           {
@@ -6078,6 +6186,74 @@ export type Database = {
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      homework_submissions: {
+        Row: {
+          answers: Json
+          assignment_id: string
+          attachments: Json
+          auto_score: number | null
+          created_at: string
+          feedback: string | null
+          field_results: Json
+          final_score: number | null
+          graded_at: string | null
+          graded_by: string | null
+          id: string
+          school_id: string | null
+          score: number | null
+          status: string
+          student_id: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          answers?: Json
+          assignment_id: string
+          attachments?: Json
+          auto_score?: number | null
+          created_at?: string
+          feedback?: string | null
+          field_results?: Json
+          final_score?: number | null
+          graded_at?: string | null
+          graded_by?: string | null
+          id?: string
+          school_id?: string | null
+          score?: number | null
+          status?: string
+          student_id: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          answers?: Json
+          assignment_id?: string
+          attachments?: Json
+          auto_score?: number | null
+          created_at?: string
+          feedback?: string | null
+          field_results?: Json
+          final_score?: number | null
+          graded_at?: string | null
+          graded_by?: string | null
+          id?: string
+          school_id?: string | null
+          score?: number | null
+          status?: string
+          student_id?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "homework_submissions_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "homework_assignments"
             referencedColumns: ["id"]
           },
         ]
@@ -7140,6 +7316,63 @@ export type Database = {
           },
         ]
       }
+      kiosk_devices: {
+        Row: {
+          config_updated_at: string | null
+          created_at: string
+          device_id: string
+          extension_installed: boolean
+          hostname: string | null
+          id: string
+          ip_address: string | null
+          kiosk_mode: string | null
+          last_seen_at: string
+          meta: Json
+          screen_resolution: string | null
+          status: string
+          updated_at: string
+          uptime_sec: number
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          config_updated_at?: string | null
+          created_at?: string
+          device_id: string
+          extension_installed?: boolean
+          hostname?: string | null
+          id?: string
+          ip_address?: string | null
+          kiosk_mode?: string | null
+          last_seen_at?: string
+          meta?: Json
+          screen_resolution?: string | null
+          status?: string
+          updated_at?: string
+          uptime_sec?: number
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          config_updated_at?: string | null
+          created_at?: string
+          device_id?: string
+          extension_installed?: boolean
+          hostname?: string | null
+          id?: string
+          ip_address?: string | null
+          kiosk_mode?: string | null
+          last_seen_at?: string
+          meta?: Json
+          screen_resolution?: string | null
+          status?: string
+          updated_at?: string
+          uptime_sec?: number
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       learning_center_bookings: {
         Row: {
           booking_date: string
@@ -7483,6 +7716,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      line_richmenu_state: {
+        Row: {
+          content_hash: string
+          image_path: string | null
+          richmenu_id: string | null
+          role: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          content_hash: string
+          image_path?: string | null
+          richmenu_id?: string | null
+          role: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          content_hash?: string
+          image_path?: string | null
+          richmenu_id?: string | null
+          role?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       line_sessions: {
         Row: {
@@ -12281,6 +12541,7 @@ export type Database = {
           assigned_by: string | null
           created_at: string
           department: Database["public"]["Enums"]["school_department"]
+          dept_role: Database["public"]["Enums"]["dept_role"]
           id: string
           is_head: boolean
           notes: string | null
@@ -12292,6 +12553,7 @@ export type Database = {
           assigned_by?: string | null
           created_at?: string
           department: Database["public"]["Enums"]["school_department"]
+          dept_role?: Database["public"]["Enums"]["dept_role"]
           id?: string
           is_head?: boolean
           notes?: string | null
@@ -12303,6 +12565,7 @@ export type Database = {
           assigned_by?: string | null
           created_at?: string
           department?: Database["public"]["Enums"]["school_department"]
+          dept_role?: Database["public"]["Enums"]["dept_role"]
           id?: string
           is_head?: boolean
           notes?: string | null
@@ -12329,6 +12592,39 @@ export type Database = {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_subject_groups: {
+        Row: {
+          assigned_by: string | null
+          created_at: string
+          group_role: Database["public"]["Enums"]["dept_role"]
+          id: string
+          notes: string | null
+          subject_group: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          created_at?: string
+          group_role?: Database["public"]["Enums"]["dept_role"]
+          id?: string
+          notes?: string | null
+          subject_group: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_by?: string | null
+          created_at?: string
+          group_role?: Database["public"]["Enums"]["dept_role"]
+          id?: string
+          notes?: string | null
+          subject_group?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -13658,6 +13954,13 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["school_department"][]
       }
+      get_user_dept_role: {
+        Args: {
+          _dept: Database["public"]["Enums"]["school_department"]
+          _user_id: string
+        }
+        Returns: Database["public"]["Enums"]["dept_role"]
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -13923,6 +14226,7 @@ export type Database = {
         | "school_admin"
         | "observer"
       dept_position: "head" | "deputy" | "assistant" | "member"
+      dept_role: "member" | "head" | "deputy_head" | "section_head"
       ict_device_category:
         | "notebook"
         | "tablet"
@@ -14108,6 +14412,7 @@ export const Constants = {
         "observer",
       ],
       dept_position: ["head", "deputy", "assistant", "member"],
+      dept_role: ["member", "head", "deputy_head", "section_head"],
       ict_device_category: [
         "notebook",
         "tablet",
