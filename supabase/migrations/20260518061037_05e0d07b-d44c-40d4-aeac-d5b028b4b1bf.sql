@@ -1,0 +1,1 @@
+DELETE FROM public.face_scan_logs;

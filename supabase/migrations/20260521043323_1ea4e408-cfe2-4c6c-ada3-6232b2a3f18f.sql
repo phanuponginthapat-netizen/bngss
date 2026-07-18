@@ -1,0 +1,1 @@
+DELETE FROM schedules WHERE academic_year=2026 AND semester=1 AND classroom_id IN (SELECT id FROM classrooms WHERE grade_level LIKE 'ป.%');

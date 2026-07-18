@@ -1,0 +1,2 @@
+UPDATE public.ai_providers SET model = 'google/gemini-2.0-flash-exp:free' WHERE id = '2a15f563-6bd6-4544-92d5-c259ebd21661';
+UPDATE public.ai_providers SET model = 'deepseek/deepseek-chat-v3.1:free' WHERE id = '813f079f-eada-4c3f-a555-6041aceb0238';

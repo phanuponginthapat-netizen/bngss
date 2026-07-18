@@ -1,0 +1,1 @@
+COMMENT ON TABLE public.ict_loans IS 'ICT device loan/return records';

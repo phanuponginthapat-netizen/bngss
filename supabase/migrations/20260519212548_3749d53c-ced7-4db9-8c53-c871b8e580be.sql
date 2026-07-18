@@ -1,0 +1,1 @@
+ALTER TABLE public.schedules DROP CONSTRAINT IF EXISTS sched_subject_fk;

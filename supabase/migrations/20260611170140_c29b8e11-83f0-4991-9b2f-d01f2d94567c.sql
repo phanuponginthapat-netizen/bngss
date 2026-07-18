@@ -1,0 +1,1 @@
+GRANT SELECT ON public.ai_providers_meta TO authenticated, anon; GRANT SELECT, INSERT, UPDATE, DELETE ON public.ai_providers TO authenticated; GRANT ALL ON public.ai_providers TO service_role;

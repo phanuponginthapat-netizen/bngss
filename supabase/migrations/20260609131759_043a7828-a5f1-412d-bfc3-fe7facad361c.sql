@@ -1,0 +1,1 @@
+REVOKE SELECT (api_token) ON public.iot_devices FROM anon, authenticated;

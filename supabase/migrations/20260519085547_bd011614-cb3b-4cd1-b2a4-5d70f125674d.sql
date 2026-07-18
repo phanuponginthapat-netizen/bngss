@@ -1,0 +1,94 @@
+
+-- คำขอลงทะเบียนใบหน้า
+CREATE TABLE public.face_registration_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
+  requested_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  request_type TEXT NOT NULL DEFAULT 'reregister' CHECK (request_type IN ('initial','reregister')),
+  reason TEXT,
+  photo_urls TEXT[] NOT NULL DEFAULT '{}',
+  descriptors JSONB NOT NULL DEFAULT '[]'::jsonb,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected','cancelled')),
+  reviewed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  reviewed_at TIMESTAMPTZ,
+  review_notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_face_req_student ON public.face_registration_requests(student_id);
+CREATE INDEX idx_face_req_status ON public.face_registration_requests(status);
+
+ALTER TABLE public.face_registration_requests ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Staff view own requests, admins view all"
+ON public.face_registration_requests FOR SELECT TO authenticated
+USING (
+  requested_by = auth.uid()
+  OR public.has_role(auth.uid(),'admin')
+  OR public.has_role(auth.uid(),'director')
+);
+
+CREATE POLICY "Staff create face requests"
+ON public.face_registration_requests FOR INSERT TO authenticated
+WITH CHECK (
+  requested_by = auth.uid()
+  AND (
+    public.has_role(auth.uid(),'admin')
+    OR public.has_role(auth.uid(),'director')
+    OR public.has_role(auth.uid(),'teacher')
+  )
+);
+
+CREATE POLICY "Admins approve/reject requests"
+ON public.face_registration_requests FOR UPDATE TO authenticated
+USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'))
+WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
+
+CREATE POLICY "Owner can cancel own pending"
+ON public.face_registration_requests FOR UPDATE TO authenticated
+USING (requested_by = auth.uid() AND status = 'pending')
+WITH CHECK (requested_by = auth.uid());
+
+CREATE POLICY "Admins delete requests"
+ON public.face_registration_requests FOR DELETE TO authenticated
+USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
+
+CREATE TRIGGER trg_face_req_updated_at
+BEFORE UPDATE ON public.face_registration_requests
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+-- ประวัติการเปลี่ยนแปลงใบหน้า
+CREATE TABLE public.face_registration_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
+  request_id UUID REFERENCES public.face_registration_requests(id) ON DELETE SET NULL,
+  action TEXT NOT NULL CHECK (action IN ('registered','reregistered','rejected','cancelled','direct_replace','direct_add')),
+  previous_count INT NOT NULL DEFAULT 0,
+  new_count INT NOT NULL DEFAULT 0,
+  photo_urls TEXT[] NOT NULL DEFAULT '{}',
+  reason TEXT,
+  notes TEXT,
+  performed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  performed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_face_hist_student ON public.face_registration_history(student_id);
+CREATE INDEX idx_face_hist_request ON public.face_registration_history(request_id);
+
+ALTER TABLE public.face_registration_history ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "View own + admins view all face history"
+ON public.face_registration_history FOR SELECT TO authenticated
+USING (
+  performed_by = auth.uid()
+  OR public.has_role(auth.uid(),'admin')
+  OR public.has_role(auth.uid(),'director')
+  OR EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid())
+);
+
+CREATE POLICY "Staff insert face history"
+ON public.face_registration_history FOR INSERT TO authenticated
+WITH CHECK (
+  public.has_role(auth.uid(),'admin')
+  OR public.has_role(auth.uid(),'director')
+  OR public.has_role(auth.uid(),'teacher')
+);

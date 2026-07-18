@@ -1,0 +1,75 @@
+-- Link inbox items back to source notifications and keep read state in sync
+
+ALTER TABLE public.inbox_items
+  ADD COLUMN IF NOT EXISTS notification_id uuid REFERENCES public.notifications(id) ON DELETE CASCADE;
+
+CREATE INDEX IF NOT EXISTS idx_inbox_items_notification_id ON public.inbox_items(notification_id);
+
+-- Update sync trigger to populate notification_id
+CREATE OR REPLACE FUNCTION public.sync_notification_to_inbox()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  INSERT INTO public.inbox_items (user_id, title, message, item_type, category, reference_table, reference_id, priority, notification_id)
+  VALUES (
+    NEW.user_id,
+    NEW.title,
+    NEW.message,
+    'notification',
+    NEW.type,
+    NEW.reference_type,
+    NEW.reference_id,
+    CASE WHEN NEW.type = 'emergency' THEN 'urgent'
+         WHEN NEW.type IN ('leave','behavior') THEN 'high'
+         ELSE 'normal' END,
+    NEW.id
+  );
+  RETURN NEW;
+END $function$;
+
+-- Propagate read state notification -> inbox
+CREATE OR REPLACE FUNCTION public.propagate_notification_read_to_inbox()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF NEW.is_read IS DISTINCT FROM OLD.is_read THEN
+    UPDATE public.inbox_items
+    SET is_read = NEW.is_read
+    WHERE notification_id = NEW.id
+      AND is_read IS DISTINCT FROM NEW.is_read;
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_propagate_notification_read ON public.notifications;
+CREATE TRIGGER trg_propagate_notification_read
+AFTER UPDATE OF is_read ON public.notifications
+FOR EACH ROW EXECUTE FUNCTION public.propagate_notification_read_to_inbox();
+
+-- Propagate read state inbox -> notification
+CREATE OR REPLACE FUNCTION public.propagate_inbox_read_to_notification()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF NEW.is_read IS DISTINCT FROM OLD.is_read AND NEW.notification_id IS NOT NULL THEN
+    UPDATE public.notifications
+    SET is_read = NEW.is_read
+    WHERE id = NEW.notification_id
+      AND is_read IS DISTINCT FROM NEW.is_read;
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_propagate_inbox_read ON public.inbox_items;
+CREATE TRIGGER trg_propagate_inbox_read
+AFTER UPDATE OF is_read ON public.inbox_items
+FOR EACH ROW EXECUTE FUNCTION public.propagate_inbox_read_to_notification();

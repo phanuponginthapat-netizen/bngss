@@ -1,0 +1,62 @@
+// Web grounding via Gemini Google Search tool.
+// คืน snippet + รายการ source URL เพื่อให้ AI หลักใช้อ้างอิงเป็นข้อเท็จจริง
+// (ไม่ block flow — ถ้าพลาดก็คืน "" ให้ flow หลักเดินต่อ)
+
+import { getSecret } from "./getSecret.ts";
+import { secretKeys } from "./secretKeys.ts";
+
+export type GroundedFacts = {
+  text: string;          // สรุปข้อเท็จจริงจากการค้น (อาจเป็น "")
+  sources: string[];     // URL อ้างอิง
+};
+
+/** ตรวจว่าคำถามน่าจะเป็น "ข้อเท็จจริงที่ต้องค้นเว็บ" หรือไม่ */
+export function shouldGround(text: string): boolean {
+  const t = (text || "").toLowerCase();
+  if (!t || t.length < 4) return false;
+  // คำที่บ่งชี้คำถามข้อเท็จจริง / ปัจจุบัน / อ้างอิงภายนอก
+  const re = /(ปัจจุบัน|ล่าสุด|วันนี้|เมื่อไหร่|กี่|ใครคือ|ใครเป็น|อะไรคือ|คืออะไร|ที่ไหน|ราคา|ข่าว|อัตรา|กฎหมาย|พ\.?ร\.?บ\.?|พรบ|มาตรา|พ\.ศ\.|ค\.ศ\.|gdp|inflation|when|who is|what is|where|latest|news|price|law|act|regulation|wikipedia|พีดีพีเอ|pdpa|สพฐ|กระทรวง|รัฐบาล|ประวัติ|สูตร|ตัวชี้วัด)/i;
+  if (re.test(t)) return true;
+  // ปีตัวเลข 4 หลัก (เช่น 2024, 2566) มักหมายถึงคำถามข้อเท็จจริง
+  if (/\b(19|20)\d{2}\b|\b2[4-6]\d{2}\b/.test(t)) return true;
+  return false;
+}
+
+/** เรียก Gemini พร้อม Google Search tool — คืน text + sources */
+export async function groundWithGemini(query: string, opts?: { lang?: "th" | "en" }): Promise<GroundedFacts> {
+  const key = await getSecret(secretKeys.gemini);
+  if (!key) return { text: "", sources: [] };
+  const lang = opts?.lang === "en" ? "English" : "Thai";
+  const prompt = `ค้นเว็บเพื่อรวบรวมข้อเท็จจริงล่าสุดที่เกี่ยวข้องกับคำถามนี้ ตอบเป็น ${lang} เท่านั้น
+- สรุปเฉพาะข้อเท็จจริงที่ตรวจสอบได้จากแหล่งที่น่าเชื่อถือ (เว็บราชการ องค์กรการศึกษา สำนักข่าวหลัก สารานุกรม)
+- ห้ามเดา ห้ามใส่ความคิดเห็น ห้ามใส่คำแนะนำ
+- ถ้าไม่พบข้อมูลที่ชัดเจน ให้ตอบ "ไม่พบข้อมูลที่ยืนยันได้"
+- ความยาวไม่เกิน 8 บูลเล็ตสั้นๆ
+คำถาม: ${query}`;
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        tools: [{ google_search: {} }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 600 },
+      }),
+    });
+    if (!r.ok) return { text: "", sources: [] };
+    const data = await r.json();
+    const text = data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || "").join("\n").trim() || "";
+    const grounding = data?.candidates?.[0]?.groundingMetadata;
+    const chunks = grounding?.groundingChunks || [];
+    const sources: string[] = [];
+    for (const c of chunks) {
+      const u = c?.web?.uri;
+      if (u && !sources.includes(u)) sources.push(u);
+      if (sources.length >= 5) break;
+    }
+    return { text, sources };
+  } catch {
+    return { text: "", sources: [] };
+  }
+}

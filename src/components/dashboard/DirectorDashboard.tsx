@@ -1,0 +1,517 @@
+import React, { lazy, Suspense } from "react";
+import { todayBangkok } from "@/lib/dateBE";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { toBE } from "@/lib/utils";
+import { useWeatherData } from "@/hooks/useWeatherData";
+import {
+  Users, GraduationCap, UserCheck, ClipboardList, Award,
+  TrendingUp, FileText, Sparkles, Thermometer, Wind, Calendar, Bell,
+  ArrowRight, ShieldCheck, BookOpenCheck, AlertTriangle, ChartBar,
+} from "lucide-react";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell,
+} from "recharts";
+
+const DynamicHeroBackground = lazy(() => import("./DynamicHeroBackground"));
+const MascotHeroWidget = lazy(() => import("./widgets/MascotHeroWidget"));
+
+const DirectorDashboard = () => {
+  const { lang } = useLanguage();
+  const navigate = useNavigate();
+  const { userId } = useUserRole();
+  const currentBE = toBE(new Date().getFullYear());
+  const weather = useWeatherData();
+  const L = (th: string, en: string) => (lang === "th" ? th : en);
+
+  const { data: profile } = useQuery({
+    queryKey: ["director_profile", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("first_name, last_name, nickname")
+        .eq("id", userId!)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const displayName = profile
+    ? profile.nickname || [profile.first_name, profile.last_name].filter(Boolean).join(" ")
+    : "";
+
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ["director_dashboard_stats"],
+    queryFn: async () => {
+      const [
+        students, personnel, classrooms, attendance,
+        studentLeaves, staffLeaves, news, events,
+        behavior, paAgreements, evaluations, documents,
+      ] = await Promise.all([
+        supabase.from("students").select("id, gender", { count: "exact" }).eq("status", "active"),
+        supabase.from("personnel").select("id, position", { count: "exact" }).eq("status", "active"),
+        supabase.from("classrooms").select("id, homeroom_teacher", { count: "exact" }),
+        supabase.from("attendance").select("status, attendance_date").gte("attendance_date", new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0]),
+        supabase.from("student_leaves").select("id, status"),
+        supabase.from("staff_leaves").select("id, status"),
+        supabase.from("news_posts").select("id, title, is_published").eq("is_published", true).order("created_at", { ascending: false }).limit(5),
+        supabase.from("academic_events").select("id, title, event_date").gte("event_date", todayBangkok()).order("event_date").limit(5),
+        supabase.from("behavior_records").select("behavior_type"),
+        supabase.from("pa_agreements").select("id, status"),
+        supabase.from("staff_evaluations").select("id"),
+        supabase.from("documents").select("id, status"),
+      ]);
+
+      const totalAtt = attendance.data?.length || 0;
+      const present = attendance.data?.filter(a => a.status === "present").length || 0;
+      const absent = attendance.data?.filter(a => a.status === "absent").length || 0;
+      const late = attendance.data?.filter(a => a.status === "late").length || 0;
+      const rate = totalAtt > 0 ? (present / totalAtt) * 100 : 0;
+
+      // 30-day attendance trend
+      const dayMap: Record<string, { p: number; t: number }> = {};
+      attendance.data?.forEach(a => {
+        const k = a.attendance_date;
+        if (!k) return;
+        if (!dayMap[k]) dayMap[k] = { p: 0, t: 0 };
+        dayMap[k].t += 1;
+        if (a.status === "present") dayMap[k].p += 1;
+      });
+      const trend = Object.entries(dayMap)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .slice(-14)
+        .map(([d, v]) => ({
+          name: new Date(d).toLocaleDateString(lang === "th" ? "th-TH" : "en-US", { day: "numeric", month: "short" }),
+          rate: v.t > 0 ? Number(((v.p / v.t) * 100).toFixed(1)) : 0,
+        }));
+
+      const male = students.data?.filter(s => ["ช", "ชาย", "male"].includes(s.gender || "")).length || 0;
+      const female = (students.count || 0) - male;
+      const positiveB = behavior.data?.filter(b => b.behavior_type === "positive").length || 0;
+      const negativeB = behavior.data?.filter(b => b.behavior_type === "negative").length || 0;
+
+      return {
+        students: students.count || 0,
+        male,
+        female,
+        personnel: personnel.count || 0,
+        classrooms: classrooms.count || 0,
+        classroomsWithTeacher: classrooms.data?.filter((c: any) => c.homeroom_teacher).length || 0,
+        attendanceRate: rate.toFixed(1),
+        attData: [
+          { name: L("มาเรียน", "Present"), value: present, fill: "hsl(var(--success))" },
+          { name: L("ขาดเรียน", "Absent"), value: absent, fill: "hsl(var(--destructive))" },
+          { name: L("มาสาย", "Late"), value: late, fill: "hsl(var(--warning))" },
+        ].filter(d => d.value > 0),
+        trend,
+        pendingStudentLeaves: studentLeaves.data?.filter(l => l.status === "pending").length || 0,
+        pendingStaffLeaves: staffLeaves.data?.filter(l => l.status === "pending").length || 0,
+        pendingDocs: documents.data?.filter((d: any) => d.status === "pending").length || 0,
+        positiveB,
+        negativeB,
+        paTotal: paAgreements.data?.length || 0,
+        paApproved: paAgreements.data?.filter(p => p.status === "approved" || p.status === "completed").length || 0,
+        evalTotal: evaluations.data?.length || 0,
+        recentNews: news.data || [],
+        upcomingEvents: events.data || [],
+      };
+    },
+    refetchInterval: 120_000,
+    staleTime: 60_000,
+  });
+
+  const getGreeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return L("สวัสดีตอนเช้า", "Good Morning");
+    if (h < 17) return L("สวัสดีตอนบ่าย", "Good Afternoon");
+    return L("สวัสดีตอนเย็น", "Good Evening");
+  };
+
+  const pendingTotal =
+    (stats?.pendingStudentLeaves || 0) +
+    (stats?.pendingStaffLeaves || 0) +
+    (stats?.pendingDocs || 0);
+
+  return (
+    <div className="space-y-6">
+      <Suspense fallback={<Skeleton className="h-72 rounded-2xl" />}>
+        <MascotHeroWidget />
+      </Suspense>
+      {/* Hero */}
+      <div className="gradient-hero rounded-2xl p-6 text-primary-foreground relative overflow-hidden min-h-[180px]">
+        <Suspense fallback={null}>
+          <DynamicHeroBackground
+            weatherCode={weather.weatherCode}
+            isRainy={weather.isRainy}
+            temperature={weather.temperature}
+          />
+        </Suspense>
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-white/20" />
+          <div className="absolute -left-4 -bottom-4 w-28 h-28 rounded-full bg-white/10" />
+        </div>
+        <div className="relative z-10">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <ShieldCheck className="w-4 h-4 opacity-80" />
+                <span className="text-xs font-medium opacity-80 tracking-wide uppercase">
+                  {L("ผู้อำนวยการ", "Director")}
+                </span>
+              </div>
+              <h1 className="text-2xl font-bold mb-1 truncate">
+                {getGreeting()}{displayName ? `, ${displayName}` : ""}
+              </h1>
+              <p className="text-sm opacity-80">
+                {L("ภาพรวมเชิงบริหาร · ปีการศึกษา", "Executive Overview · Academic Year")} {currentBE}
+              </p>
+            </div>
+
+            {weather.hasCoords && !weather.isLoading && weather.temperature !== null && (
+              <div className="hidden sm:flex items-center gap-3 bg-white/15 backdrop-blur-sm rounded-xl px-4 py-2.5">
+                <Thermometer className="w-4 h-4" />
+                <span className="text-lg font-bold">{weather.temperature?.toFixed(1)}°C</span>
+                <div className="w-px h-8 bg-white/30" />
+                <Wind className="w-4 h-4" />
+                <span className="text-xs font-semibold">
+                  PM2.5 {weather.pm25 !== null ? `${weather.pm25.toFixed(0)}` : "N/A"}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {pendingTotal > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(stats?.pendingStaffLeaves || 0) > 0 && (
+                <button
+                  onClick={() => navigate("/dashboard/hr/leave")}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 transition text-xs font-medium backdrop-blur-sm"
+                >
+                  <ClipboardList className="w-3 h-3" /> {L("รออนุมัติลาบุคลากร", "Staff leaves pending")} {stats?.pendingStaffLeaves}
+                </button>
+              )}
+              {(stats?.pendingStudentLeaves || 0) > 0 && (
+                <button
+                  onClick={() => navigate("/dashboard/student/leave")}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 transition text-xs font-medium backdrop-blur-sm"
+                >
+                  <ClipboardList className="w-3 h-3" /> {L("รออนุมัติลานักเรียน", "Student leaves pending")} {stats?.pendingStudentLeaves}
+                </button>
+              )}
+              {(stats?.pendingDocs || 0) > 0 && (
+                <button
+                  onClick={() => navigate("/dashboard/admin/document")}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 transition text-xs font-medium backdrop-blur-sm"
+                >
+                  <FileText className="w-3 h-3" /> {L("เอกสารรอลงนาม", "Documents pending")} {stats?.pendingDocs}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Strategic KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[110px] rounded-xl" />)
+          : (
+            <>
+              <KpiCard
+                icon={Users}
+                label={L("นักเรียน", "Students")}
+                value={stats?.students || 0}
+                sub={L(`ช ${stats?.male} · ญ ${stats?.female}`, `M ${stats?.male} · F ${stats?.female}`)}
+                gradient="gradient-primary"
+                onClick={() => navigate("/dashboard/academic/all-students")}
+              />
+              <KpiCard
+                icon={GraduationCap}
+                label={L("บุคลากร", "Personnel")}
+                value={stats?.personnel || 0}
+                sub={L(`${stats?.classrooms} ห้องเรียน`, `${stats?.classrooms} classrooms`)}
+                gradient="gradient-accent"
+                onClick={() => navigate("/dashboard/hr/personnel")}
+              />
+              <KpiCard
+                icon={UserCheck}
+                label={L("อัตราเข้าเรียน 30 วัน", "Attendance 30d")}
+                value={`${stats?.attendanceRate}%`}
+                gradient="gradient-success"
+                progress={parseFloat(stats?.attendanceRate || "0")}
+                onClick={() => navigate("/dashboard/student/attendance")}
+              />
+              <KpiCard
+                icon={Award}
+                label={L("PA ที่อนุมัติ", "PA Approved")}
+                value={`${stats?.paApproved || 0}/${stats?.paTotal || 0}`}
+                sub={L("ข้อตกลงพัฒนางาน", "Performance Agreements")}
+                gradient="gradient-warning"
+                onClick={() => navigate("/dashboard/hr/evaluation")}
+              />
+            </>
+          )}
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="border border-border/50 shadow-elevated rounded-2xl lg:col-span-2">
+          <CardHeader className="pb-0">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg gradient-success flex items-center justify-center">
+                <TrendingUp className="w-3.5 h-3.5 text-primary-foreground" />
+              </div>
+              {L("แนวโน้มอัตราเข้าเรียน 14 วัน", "Attendance Rate Trend (14 days)")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-[220px]" />
+            ) : stats?.trend && stats.trend.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={stats.trend}>
+                  <defs>
+                    <linearGradient id="rateGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--success))" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="hsl(var(--success))" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} />
+                  <Tooltip formatter={(v: number) => `${v}%`} contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }} />
+                  <Area type="monotone" dataKey="rate" stroke="hsl(var(--success))" strokeWidth={2} fill="url(#rateGrad)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-muted-foreground text-sm text-center py-16">{L("ยังไม่มีข้อมูล", "No data yet")}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border border-border/50 shadow-elevated rounded-2xl">
+          <CardHeader className="pb-0">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center">
+                <ChartBar className="w-3.5 h-3.5 text-primary-foreground" />
+              </div>
+              {L("สัดส่วนการเข้าเรียน", "Attendance Mix")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-[220px]" />
+            ) : stats?.attData && stats.attData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={180}>
+                  <PieChart>
+                    <Pie data={stats.attData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={4} dataKey="value" strokeWidth={0}>
+                      {stats.attData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex justify-center gap-3 mt-1 flex-wrap">
+                  {stats.attData.map((d, i) => (
+                    <div key={i} className="flex items-center gap-1.5 text-xs">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.fill }} />
+                      <span className="text-muted-foreground">{d.name} <span className="font-semibold text-foreground">({d.value})</span></span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="text-muted-foreground text-sm text-center py-16">{L("ยังไม่มีข้อมูล", "No data yet")}</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quality & approvals + News/Events */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="border border-border/50 shadow-elevated rounded-2xl">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg gradient-accent flex items-center justify-center">
+                <BookOpenCheck className="w-3.5 h-3.5 text-primary-foreground" />
+              </div>
+              {L("คุณภาพและการดูแลนักเรียน", "Quality & Student Care")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2.5">
+            <StatRow
+              icon={UserCheck}
+              label={L("ห้องเรียนที่มีครูประจำชั้น", "Classrooms with Homeroom")}
+              value={`${stats?.classroomsWithTeacher || 0}/${stats?.classrooms || 0}`}
+            />
+            <StatRow
+              icon={Sparkles}
+              label={L("พฤติกรรมเชิงบวก", "Positive Behavior")}
+              value={stats?.positiveB || 0}
+              color="text-success"
+            />
+            <StatRow
+              icon={AlertTriangle}
+              label={L("พฤติกรรมเชิงลบ", "Negative Behavior")}
+              value={stats?.negativeB || 0}
+              color={stats?.negativeB ? "text-destructive" : undefined}
+            />
+            <StatRow
+              icon={Award}
+              label={L("ผลการประเมินบุคลากร", "Personnel Evaluations")}
+              value={stats?.evalTotal || 0}
+            />
+            <StatRow
+              icon={FileText}
+              label={L("เอกสารรอลงนาม", "Documents pending")}
+              value={stats?.pendingDocs || 0}
+              color={stats?.pendingDocs ? "text-warning" : undefined}
+            />
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          <Card className="border border-border/50 shadow-elevated rounded-2xl">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Bell className="w-3 h-3 text-primary" />
+                </div>
+                <span className="text-xs font-semibold text-foreground">{L("ข่าวสารล่าสุด", "Latest News")}</span>
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-20" />
+              ) : stats?.recentNews?.length ? (
+                <div className="space-y-0.5">
+                  {stats.recentNews.slice(0, 4).map((n: any) => (
+                    <button
+                      key={n.id}
+                      onClick={() => navigate(`/dashboard/news/${n.id}`)}
+                      className="w-full flex items-center gap-2 py-1 text-left hover:bg-muted/50 rounded px-1 -mx-1 transition-colors"
+                    >
+                      <div className="w-1 h-1 rounded-full bg-primary shrink-0" />
+                      <span className="text-[11px] text-foreground truncate leading-tight">{n.title}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-[11px] text-center py-6">{L("ยังไม่มีข่าวสาร", "No news yet")}</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border border-border/50 shadow-elevated rounded-2xl">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 rounded-lg gradient-warning flex items-center justify-center">
+                  <Calendar className="w-3 h-3 text-primary-foreground" />
+                </div>
+                <span className="text-xs font-semibold text-foreground">{L("กิจกรรมที่กำลังจะมาถึง", "Upcoming Events")}</span>
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-20" />
+              ) : stats?.upcomingEvents?.length ? (
+                <div className="space-y-1">
+                  {stats.upcomingEvents.slice(0, 4).map((e: any) => (
+                    <button
+                      key={e.id}
+                      onClick={() => navigate("/dashboard/academic/calendar")}
+                      className="w-full flex items-center gap-2 py-1 text-left hover:bg-muted/50 rounded px-1 -mx-1 transition-colors"
+                    >
+                      <div className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                        {new Date(e.event_date).toLocaleDateString(lang === "th" ? "th-TH" : "en-US", { day: "numeric", month: "short" })}
+                      </div>
+                      <span className="text-[11px] text-foreground truncate">{e.title}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-[11px] text-center py-6">{L("ไม่มีกิจกรรม", "No events")}</p>
+              )}
+
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Director shortcuts */}
+      <div>
+        <h2 className="text-sm font-semibold text-foreground mb-3">{L("ทางลัดผู้บริหาร", "Director Shortcuts")}</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { name: L("อนุมัติลา", "Approve Leaves"), icon: ClipboardList, gradient: "gradient-primary", link: "/dashboard/hr/leave" },
+            { name: L("ประเมินบุคลากร", "Evaluations"), icon: Award, gradient: "gradient-accent", link: "/dashboard/hr/evaluation" },
+            { name: L("เอกสารราชการ", "Official Documents"), icon: FileText, gradient: "gradient-warning", link: "/dashboard/admin/document" },
+            { name: L("รายงานสรุป", "Reports"), icon: TrendingUp, gradient: "gradient-success", link: "/dashboard/admin/analytics" },
+          ].map(item => (
+            <Card
+              key={item.name}
+              className="border border-border/50 shadow-elevated rounded-2xl hover:shadow-card-hover transition-all hover:-translate-y-0.5 cursor-pointer overflow-hidden group"
+              onClick={() => navigate(item.link)}
+            >
+              <div className={`h-1 ${item.gradient}`} />
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-xl ${item.gradient} flex items-center justify-center shrink-0`}>
+                  <item.icon className="w-4 h-4 text-primary-foreground" />
+                </div>
+                <p className="text-xs font-semibold text-foreground">{item.name}</p>
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground ml-auto group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface KpiCardProps {
+  icon: React.ComponentType<any>;
+  label: string;
+  value: string | number;
+  sub?: string;
+  gradient: string;
+  onClick?: () => void;
+  progress?: number;
+}
+
+const KpiCard = ({ icon: Icon, label, value, sub, gradient, onClick, progress }: KpiCardProps) => (
+  <Card
+    className="border border-border/50 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all group overflow-hidden"
+    onClick={onClick}
+  >
+    <CardContent className="p-4">
+      <div className="flex items-start gap-3">
+        <div className={`w-10 h-10 rounded-xl ${gradient} flex items-center justify-center shrink-0 shadow-sm`}>
+          <Icon className="w-5 h-5 text-primary-foreground" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] text-muted-foreground font-medium">{label}</p>
+          <p className="text-xl font-bold text-foreground leading-tight mt-0.5">{value}</p>
+          {progress !== undefined && <Progress value={progress} className="h-1.5 mt-2" />}
+          {sub && <p className="text-[10px] text-muted-foreground mt-1 truncate">{sub}</p>}
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+const StatRow = ({ icon: Icon, label, value, color }: { icon: React.ComponentType<any>; label: string; value: number | string; color?: string }) => (
+  <div className="flex items-center justify-between py-1.5 border-b border-border/40 last:border-0">
+    <div className="flex items-center gap-2">
+      <Icon className={`w-4 h-4 ${color || "text-muted-foreground"}`} />
+      <span className="text-xs text-foreground">{label}</span>
+    </div>
+    <span className={`text-sm font-bold ${color || "text-foreground"}`}>{value}</span>
+  </div>
+);
+
+export default DirectorDashboard;

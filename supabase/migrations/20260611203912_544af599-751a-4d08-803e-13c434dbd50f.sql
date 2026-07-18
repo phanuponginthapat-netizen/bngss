@@ -1,0 +1,1 @@
+ALTER TABLE public.substitute_teaching ALTER COLUMN substitute_teacher DROP NOT NULL;

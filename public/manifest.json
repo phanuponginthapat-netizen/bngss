@@ -1,0 +1,28 @@
+{
+  "name": "ระบบบริหารจัดการโรงเรียน",
+  "short_name": "School",
+  "description": "ระบบบริหารจัดการโรงเรียนแบบครบวงจร — เช็คชื่อ ผลการเรียน เอกสาร แจ้งเตือน",
+  "start_url": "/dashboard?utm_source=pwa",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#0F172A",
+  "theme_color": "#2563EB",
+  "lang": "th",
+  "dir": "ltr",
+  "categories": ["education", "productivity"],
+  "prefer_related_applications": false,
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "เช็คชื่อ", "short_name": "เช็คชื่อ", "url": "/dashboard/attendance", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "กล่องข้อความ", "short_name": "Inbox", "url": "/dashboard/inbox", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "ลา", "short_name": "ลา", "url": "/dashboard/leave", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

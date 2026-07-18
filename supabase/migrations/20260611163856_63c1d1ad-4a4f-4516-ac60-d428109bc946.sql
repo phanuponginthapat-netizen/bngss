@@ -1,0 +1,43 @@
+
+CREATE OR REPLACE FUNCTION public.notify_on_garbage_redemption()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  uid uuid;
+  reward_name text;
+BEGIN
+  IF NEW.points_used IS NULL OR NEW.points_used <= 0 THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT name INTO reward_name FROM public.garbage_rewards WHERE id = NEW.reward_id;
+
+  IF NEW.student_id IS NOT NULL THEN
+    SELECT auth_user_id INTO uid FROM public.students WHERE id = NEW.student_id;
+  ELSIF NEW.personnel_id IS NOT NULL THEN
+    SELECT user_id INTO uid FROM public.personnel WHERE id = NEW.personnel_id;
+  END IF;
+
+  IF uid IS NOT NULL THEN
+    INSERT INTO public.notifications (user_id, title, message, type, reference_type, reference_id)
+    VALUES (
+      uid,
+      '🎁 แลกของรางวัลสำเร็จ',
+      'คุณใช้ ' || NEW.points_used || ' แต้ม แลก "' || COALESCE(reward_name, 'ของรางวัล') || '" จำนวน ' || NEW.quantity || ' ชิ้น',
+      'garbage_redemption',
+      'garbage_redemption',
+      NEW.id
+    );
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_notify_garbage_redemption ON public.garbage_redemptions;
+CREATE TRIGGER trg_notify_garbage_redemption
+  AFTER INSERT ON public.garbage_redemptions
+  FOR EACH ROW EXECUTE FUNCTION public.notify_on_garbage_redemption();

@@ -1,0 +1,2 @@
+ALTER TABLE public.enrollments DROP CONSTRAINT enrollments_enrollment_type_check;
+ALTER TABLE public.enrollments ADD CONSTRAINT enrollments_enrollment_type_check CHECK (enrollment_type = ANY (ARRAY['individual'::text, 'classroom'::text, 'auto'::text]));

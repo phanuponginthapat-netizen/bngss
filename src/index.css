@@ -1,0 +1,585 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Hide Lovable badge on published site */
+#lovable-badge,
+[id^="lovable-badge"],
+a[href*="lovable.dev"][target="_blank"],
+a[href*="lovable.app"][aria-label*="Lovable" i],
+a[aria-label*="Edit with Lovable" i],
+iframe[src*="lovable.dev/badge"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+
+@font-face {
+  font-family: 'TH Sarabun New';
+  src: url('/fonts/thsarabunnew-webfont.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'TH Sarabun New';
+  src: url('/fonts/thsarabunnew_bold-webfont.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'TH Sarabun New';
+  src: url('/fonts/thsarabunnew_italic-webfont.woff') format('woff');
+  font-weight: 400;
+  font-style: italic;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'TH Sarabun New';
+  src: url('/fonts/thsarabunnew_bolditalic-webfont.woff') format('woff');
+  font-weight: 700;
+  font-style: italic;
+  font-display: block;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 97%;
+    --foreground: 222 28% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 28% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 28% 12%;
+
+    --primary: 217 91% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 215 25% 95%;
+    --secondary-foreground: 222 28% 15%;
+
+    --muted: 220 20% 94%;
+    --muted-foreground: 218 14% 50%;
+
+    --accent: 162 63% 41%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 20% 90%;
+    --input: 220 20% 90%;
+    --ring: 217 91% 50%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 222 30% 11%;
+    --sidebar-foreground: 215 25% 88%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 28% 17%;
+    --sidebar-accent-foreground: 215 25% 95%;
+    --sidebar-border: 222 25% 18%;
+    --sidebar-ring: 217 91% 60%;
+
+    --success: 152 69% 42%;
+    --success-foreground: 0 0% 100%;
+    --success-soft: 152 76% 92%;
+    --success-soft-foreground: 152 70% 22%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 48 96% 89%;
+    --warning-soft-foreground: 30 80% 28%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --info-soft: 199 95% 92%;
+    --info-soft-foreground: 200 80% 26%;
+    --danger: 0 84% 60%;
+    --danger-foreground: 0 0% 100%;
+    --danger-soft: 0 93% 94%;
+    --danger-soft-foreground: 0 70% 35%;
+    --neutral: 215 16% 47%;
+    --neutral-foreground: 0 0% 100%;
+    --neutral-soft: 220 14% 93%;
+    --neutral-soft-foreground: 220 14% 28%;
+    --brand-entry: 152 69% 42%;
+    --brand-entry-foreground: 0 0% 100%;
+    --brand-entry-soft: 152 76% 92%;
+    --brand-exit: 346 77% 49%;
+    --brand-exit-foreground: 0 0% 100%;
+    --brand-exit-soft: 350 100% 96%;
+    --editor-chrome: 211 56% 39%;
+    --editor-chrome-foreground: 0 0% 100%;
+    --editor-canvas: 36 6% 95%;
+    --editor-page: 0 0% 100%;
+    /* Categorical palette for non-status decorative chips (subject groups, IoT categories) */
+    --cat-1: 0 70% 55%;     /* red */
+    --cat-2: 217 91% 55%;   /* blue */
+    --cat-3: 152 65% 42%;   /* green */
+    --cat-4: 38 92% 50%;    /* amber */
+    --cat-5: 24 90% 55%;    /* orange */
+    --cat-6: 330 75% 60%;   /* pink */
+    --cat-7: 30 25% 45%;    /* stone */
+    --cat-8: 250 70% 60%;   /* indigo */
+    --cat-1-soft: 0 80% 95%;
+    --cat-2-soft: 217 95% 94%;
+    --cat-3-soft: 152 70% 92%;
+    --cat-4-soft: 48 96% 89%;
+    --cat-5-soft: 30 95% 92%;
+    --cat-6-soft: 340 85% 95%;
+    --cat-7-soft: 30 20% 92%;
+    --cat-8-soft: 250 90% 95%;
+  }
+}
+
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'IBM Plex Sans Thai', 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Better touch targets on mobile */
+  @media (max-width: 640px) {
+    button, a, [role="button"], input, select, textarea {
+      min-height: 44px;
+    }
+    
+    .compact-touch button, .compact-touch a, .compact-touch [role="button"] {
+      min-height: auto;
+    }
+  }
+}
+
+@layer utilities {
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(217 91% 50%), hsl(199 89% 48%));
+  }
+  .gradient-sidebar {
+    background: linear-gradient(180deg, hsl(222 30% 11%), hsl(222 35% 7%));
+  }
+  .gradient-hero {
+    background: linear-gradient(135deg, hsl(217 91% 50%), hsl(217 85% 42%), hsl(199 89% 48%));
+  }
+  .gradient-success {
+    background: linear-gradient(135deg, hsl(152 69% 42%), hsl(162 63% 41%));
+  }
+  .gradient-warning {
+    background: linear-gradient(135deg, hsl(38 92% 50%), hsl(28 90% 52%));
+  }
+  .gradient-info {
+    background: linear-gradient(135deg, hsl(199 89% 48%), hsl(210 80% 52%));
+  }
+  .gradient-accent {
+    background: linear-gradient(135deg, hsl(162 63% 41%), hsl(172 55% 38%));
+  }
+
+  .shadow-card {
+    box-shadow: 0 1px 3px 0 hsl(222 28% 12% / 0.04), 0 1px 2px -1px hsl(222 28% 12% / 0.04);
+  }
+  .shadow-card-hover {
+    box-shadow: 0 10px 30px -8px hsl(222 28% 12% / 0.1), 0 6px 12px -4px hsl(222 28% 12% / 0.05);
+  }
+  .shadow-elevated {
+    box-shadow: 0 4px 14px -2px hsl(222 28% 12% / 0.08), 0 2px 6px -1px hsl(222 28% 12% / 0.04);
+  }
+
+  .glass {
+    backdrop-filter: blur(12px);
+    background: hsl(0 0% 100% / 0.7);
+  }
+
+  /* Mobile-first responsive text */
+  .text-responsive-title {
+    @apply text-lg sm:text-xl md:text-2xl;
+  }
+  .text-responsive-subtitle {
+    @apply text-xs sm:text-sm;
+  }
+
+  /* Scrollable table container */
+  .table-responsive {
+    @apply overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0;
+  }
+
+  /* Animated gradient shimmer */
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .animate-shimmer {
+    background-size: 200% 100%;
+    animation: shimmer 3s linear infinite;
+  }
+
+  @keyframes sweep {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
+  }
+  .animate-sweep {
+    animation: sweep 1.4s linear infinite;
+  }
+
+  /* Scroll-triggered animations */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeInScale {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .scroll-animate {
+    transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+  }
+  .scroll-animate.animate-in {
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+  }
+
+  /* Hover effects */
+  .hover-lift {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover;
+  }
+  .hover-scale {
+    @apply transition-transform duration-200 hover:scale-[1.02];
+  }
+  .hover-glow {
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+  }
+  .hover-glow:hover {
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15), 0 12px 30px -10px hsl(var(--primary) / 0.4);
+    transform: translateY(-2px);
+  }
+
+  /* Underline animation for links */
+  .story-link {
+    @apply relative inline-block;
+  }
+  .story-link::after {
+    content: "";
+    @apply absolute left-0 bottom-0 w-full h-0.5 bg-primary origin-bottom-right scale-x-0 transition-transform duration-300;
+  }
+  .story-link:hover::after {
+    @apply scale-x-100 origin-bottom-left;
+  }
+
+  /* Stagger helper — apply to direct children */
+  .stagger-children > * {
+    opacity: 0;
+    animation: fadeInUp 0.5s ease-out forwards;
+  }
+  .stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
+  .stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
+  .stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
+  .stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
+  .stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
+  .stagger-children > *:nth-child(6) { animation-delay: 0.3s; }
+  .stagger-children > *:nth-child(7) { animation-delay: 0.35s; }
+  .stagger-children > *:nth-child(8) { animation-delay: 0.4s; }
+
+  /* Page transition */
+  .page-enter {
+    animation: fadeInUp 0.4s ease-out;
+  }
+}
+
+@media print {
+  /* Hide sidebar, header, and non-content UI */
+  [data-sidebar],
+  header,
+  .sidebar-trigger,
+  nav {
+    display: none !important;
+  }
+  /* Make main content fill the page */
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* Animated rain overlay used by DynamicHeroBackground */
+.rain-layer {
+  background-image:
+    repeating-linear-gradient(
+      105deg,
+      transparent 0,
+      transparent 6px,
+      rgba(255,255,255,0.35) 6px,
+      rgba(255,255,255,0.35) 7px
+    );
+  background-size: 100% 200%;
+  animation: rainFall 0.7s linear infinite;
+}
+@keyframes rainFall {
+  0%   { background-position: 0 0; }
+  100% { background-position: 0 200%; }
+}
+
+/* SweetAlert2 theming — match design system */
+.swal2-container { font-family: 'IBM Plex Sans Thai', 'Inter', system-ui, sans-serif; }
+.swal2-popup.swal-pop { padding: 1.5rem; }
+.swal2-popup.swal-pop .swal2-html-container { margin-top: 0.25rem; }
+.swal2-popup.swal-pop .swal2-input,
+.swal2-popup.swal-pop .swal2-textarea {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  box-shadow: none;
+  font-family: inherit;
+}
+.swal2-popup.swal-pop .swal2-input:focus,
+.swal2-popup.swal-pop .swal2-textarea:focus {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.2);
+}
+.swal2-popup.swal-pop .swal2-validation-message {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+.swal2-popup.swal-pop .swal2-loader { border-color: hsl(var(--primary)) transparent hsl(var(--primary)) transparent; }
+.swal2-backdrop-show { background: hsl(var(--background) / 0.6) !important; backdrop-filter: blur(2px); }
+
+/* ========== Custom Scrollbar — match design system ========== */
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--primary) / 0.5) hsl(var(--muted) / 0.4);
+}
+
+/* WebKit (Chrome/Safari/Edge) */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: hsl(var(--muted) / 0.3);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, hsl(var(--primary) / 0.55), hsl(var(--primary) / 0.85));
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.2s ease;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, hsl(var(--primary) / 0.8), hsl(var(--primary)));
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+*::-webkit-scrollbar-thumb:active {
+  background: hsl(var(--primary));
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Thin variant — opt-in: className="scrollbar-thin" */
+.scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { border: none; }
+
+/* Hide variant — className="scrollbar-hide" */
+.scrollbar-hide { scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* ===== Mobile / PWA helpers ===== */
+/* iOS notch / Android gesture bar safe-area */
+.safe-top    { padding-top: env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+.safe-left   { padding-left: env(safe-area-inset-left); }
+.safe-right  { padding-right: env(safe-area-inset-right); }
+.safe-x      { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+.mb-safe     { margin-bottom: env(safe-area-inset-bottom); }
+.pb-safe     { padding-bottom: max(env(safe-area-inset-bottom), 0.5rem); }
+.pt-safe     { padding-top: max(env(safe-area-inset-top), 0.5rem); }
+.h-safe-screen { height: 100dvh; }
+.min-h-safe-screen { min-height: 100dvh; }
+
+/* Better touch behaviour */
+button, [role="button"], a, label, summary { touch-action: manipulation; }
+.no-callout { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+
+/* PWA standalone tweaks (when launched from home screen) */
+@media (display-mode: standalone) {
+  body { overscroll-behavior-y: none; }
+  /* prevent rubber-band white flash on iOS */
+  html { background: hsl(var(--background)); }
+}
+
+/* Ensure tap targets reach 40px on small screens */
+@media (max-width: 640px) {
+  .touch-target,
+  .h-7, .h-8 { min-height: 36px; }
+  .h-9 { min-height: 40px; }
+}
+
+
+/* ===== Mobile data tables ===== */
+@media (max-width: 767px) {
+  /* Roomier touch padding inside any shadcn Table */
+  .relative.w-full.overflow-auto > table th,
+  .relative.w-full.overflow-auto > table td {
+    padding-left: 0.625rem;
+    padding-right: 0.625rem;
+  }
+  /* Scroll hint shadow on horizontally-scrollable tables */
+  .relative.w-full.overflow-auto {
+    background:
+      linear-gradient(to right, hsl(var(--background)) 30%, hsla(var(--background) / 0)) left center / 24px 100% no-repeat,
+      linear-gradient(to left,  hsl(var(--background)) 30%, hsla(var(--background) / 0)) right center / 24px 100% no-repeat,
+      linear-gradient(to right, hsl(var(--muted) / 0.7), hsla(var(--muted) / 0)) left center / 12px 100% no-repeat,
+      linear-gradient(to left,  hsl(var(--muted) / 0.7), hsla(var(--muted) / 0)) right center / 12px 100% no-repeat;
+    background-attachment: local, local, scroll, scroll;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Dialog footers stack with full-width buttons for thumb reach */
+  [role="dialog"] [data-slot="dialog-footer"] button,
+  [role="dialog"] .DialogFooter button { width: 100%; }
+}
+
+/* Long horizontal lists / tabs scroll naturally with momentum */
+.scroll-x-touch {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+
+/* ===== Print-friendly defaults for official documents ===== */
+@media print {
+  /* Hide app chrome */
+  .no-print, header.app-header, nav, aside, .sidebar, [data-sidebar],
+  .MobileBottomNav, .print\:hidden { display: none !important; }
+  /* Full-width content, no shadow noise */
+  body { background: #fff !important; }
+  .container, .max-w-2xl, .max-w-3xl, .max-w-4xl, .max-w-5xl, .max-w-6xl, .max-w-7xl {
+    max-width: 100% !important; margin: 0 !important; padding: 0 !important;
+  }
+  .shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl { box-shadow: none !important; }
+  .rounded-lg, .rounded-xl, .rounded-2xl { border-radius: 0 !important; }
+  /* Avoid awkward page breaks inside cards/sections */
+  .card, [data-card], section, article, table { break-inside: avoid; page-break-inside: avoid; }
+  a[href]::after { content: ""; } /* don't leak URLs */
+  /* Ensure dark themes print as light */
+  * { color: #000 !important; background: transparent !important; }
+}
+
+/* ===== Public / LIFF pages: respect safe-area on every full-screen wrapper ===== */
+.min-h-screen, .h-safe-screen { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+
+/* Larger primary buttons on small screens for public/LIFF flows */
+@media (max-width: 640px) {
+  .public-cta, [data-public-cta] { min-height: 48px; font-size: 1rem; }
+}
+
+/* ===== Universal responsiveness: prevent horizontal overflow & enable dynamic viewport ===== */
+html, body, #root {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+html { height: 100%; min-height: 100dvh; }
+body { min-height: 100dvh; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* Images / media never overflow their container on any device */
+img, video, canvas, svg, iframe { max-width: 100%; height: auto; }
+iframe, video, canvas { display: block; }
+
+/* Inputs: prevent iOS auto-zoom on focus (font < 16px triggers zoom) */
+@media (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select { font-size: 16px; }
+}
+
+/* ===== Landscape on phones: shrink vertical chrome so content fits ===== */
+@media (orientation: landscape) and (max-height: 500px) {
+  /* Bottom nav slimmer in landscape */
+  [data-mobile-bottom-nav] { padding-top: 2px !important; padding-bottom: max(env(safe-area-inset-bottom), 2px) !important; }
+  /* Dashboard hero compact */
+  .gradient-hero { min-height: 0 !important; padding-top: 0.75rem !important; padding-bottom: 0.75rem !important; }
+  .gradient-hero h1 { font-size: 1.25rem !important; line-height: 1.2 !important; }
+  /* Use full landscape width — respect notch insets on left/right */
+  .min-h-screen, .h-safe-screen, .min-h-safe-screen {
+    padding-left: max(env(safe-area-inset-left), 0.25rem);
+    padding-right: max(env(safe-area-inset-right), 0.25rem);
+  }
+  /* Dialogs/Sheets: cap height to dvh so scrollbars appear */
+  [role="dialog"] > * { max-height: 100dvh; }
+}
+
+/* ===== Foldables & narrow phones (≤ 360px) ===== */
+@media (max-width: 360px) {
+  .gradient-hero h1 { font-size: 1.375rem !important; }
+  .gradient-hero { padding: 1rem !important; }
+}
+
+/* ===== Tablet portrait/landscape tuning (768–1024px) ===== */
+@media (min-width: 768px) and (max-width: 1024px) {
+  /* Slightly tighter container padding so 2-column grids breathe */
+  .container { padding-left: 1.25rem; padding-right: 1.25rem; }
+}
+
+/* Hairline-thin scrollbars on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  * { scrollbar-width: thin; }
+  *::-webkit-scrollbar { width: 6px; height: 6px; }
+  *::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.35); border-radius: 3px; }
+}
+
+
+/* ===== SuperDoc Editor — Word-like paper layout ===== */
+.superdoc-host { display: block; }
+.superdoc-host .super-editor,
+.superdoc-host .superdoc {
+  background: transparent;
+}
+/* Center the page(s) and float them like real paper */
+.superdoc-host .super-editor__pages,
+.superdoc-host .pages,
+.superdoc-host .page-container {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 0 !important;
+  background: transparent !important;
+}
+.superdoc-host .super-editor .page,
+.superdoc-host .pagination-page,
+.superdoc-host [class*="page-"] > .page {
+  background: hsl(var(--editor-page)) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.10) !important;
+  border-radius: 2px;
+}
+/* Keep horizontal ruler aligned above the centered page */
+.superdoc-host .ruler,
+.superdoc-host [class*="ruler"] {
+  margin-left: auto;
+  margin-right: auto;
+}

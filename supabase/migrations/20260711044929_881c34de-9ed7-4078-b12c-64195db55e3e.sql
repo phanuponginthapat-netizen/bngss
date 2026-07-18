@@ -1,0 +1,1 @@
+ALTER TABLE public.document_recipients ADD COLUMN IF NOT EXISTS reply_file_urls jsonb NOT NULL DEFAULT '[]'::jsonb;

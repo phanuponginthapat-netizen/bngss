@@ -1,0 +1,1 @@
+UPDATE public.news_posts SET title = REPLACE(title, '3112', '2569') WHERE title LIKE '%3112%';

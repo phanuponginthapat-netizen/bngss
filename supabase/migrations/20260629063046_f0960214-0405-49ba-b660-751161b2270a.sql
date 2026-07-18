@@ -1,0 +1,1 @@
+CREATE POLICY "alumni_uni_read_teacher" ON public.alumni_university FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'teacher'));

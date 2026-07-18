@@ -1,0 +1,2 @@
+ALTER TABLE public.saraban_documents ADD COLUMN IF NOT EXISTS file_urls jsonb NOT NULL DEFAULT '[]'::jsonb;
+UPDATE public.saraban_documents SET file_urls = jsonb_build_array(file_url) WHERE file_url IS NOT NULL AND file_url <> '' AND (file_urls IS NULL OR file_urls = '[]'::jsonb);

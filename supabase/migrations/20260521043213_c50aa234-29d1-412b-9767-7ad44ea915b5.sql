@@ -1,0 +1,1 @@
+DELETE FROM schedules WHERE academic_year=2026 AND created_at < now() - interval '1 hour';

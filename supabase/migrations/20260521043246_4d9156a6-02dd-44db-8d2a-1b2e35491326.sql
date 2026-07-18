@@ -1,0 +1,1 @@
+DELETE FROM schedules s USING schedules s2 WHERE s.academic_year=2026 AND s2.academic_year=2026 AND s.classroom_id=s2.classroom_id AND s.day_of_week=s2.day_of_week AND s.period=s2.period AND s.semester=s2.semester AND s.created_at < s2.created_at;

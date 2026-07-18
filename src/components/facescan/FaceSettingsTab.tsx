@@ -1,0 +1,179 @@
+import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Time24Input } from "@/components/ui/time24-input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Settings, Save, Clock } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+type Win = { start: string; end: string };
+const DEFAULT_ENTRY: Win = { start: "06:00", end: "10:00" };
+const DEFAULT_EXIT: Win = { start: "14:00", end: "18:00" };
+
+function parseWindow(raw: string | null): Win | null {
+  if (!raw) return null;
+  const m = raw.trim().match(/^(\d{1,2}:\d{2})\s*[-–~]\s*(\d{1,2}:\d{2})$/);
+  if (!m) return null;
+  return { start: m[1], end: m[2] };
+}
+function fmtWindow(w: Win): string { return `${w.start.slice(0,5)}-${w.end.slice(0,5)}`; }
+function toMin(s: string) { const [h, m] = s.split(":").map(Number); return (h||0)*60+(m||0); }
+
+const FaceSettingsTab = () => {
+  const [threshold, setThreshold] = useState("0.5");
+  const [cutoffTime, setCutoffTime] = useState("08:00");
+  const [modeCutoff, setModeCutoff] = useState("12:00");
+  const [entryEnabled, setEntryEnabled] = useState(false);
+  const [exitEnabled, setExitEnabled] = useState(false);
+  const [entryWin, setEntryWin] = useState<Win>(DEFAULT_ENTRY);
+  const [exitWin, setExitWin] = useState<Win>(DEFAULT_EXIT);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("school_settings")
+        .select("setting_key, setting_value")
+        .in("setting_key", [
+          "face_scan_threshold", "face_scan_cutoff_time", "face_scan_mode_cutoff",
+          "face_scan_entry_window", "face_scan_exit_window",
+        ]);
+      for (const r of data || []) {
+        if (r.setting_key === "face_scan_threshold") setThreshold(r.setting_value || "0.5");
+        if (r.setting_key === "face_scan_cutoff_time") setCutoffTime(r.setting_value || "08:00");
+        if (r.setting_key === "face_scan_mode_cutoff") setModeCutoff(r.setting_value || "12:00");
+        if (r.setting_key === "face_scan_entry_window") {
+          const w = parseWindow(r.setting_value);
+          if (w) { setEntryWin(w); setEntryEnabled(true); }
+        }
+        if (r.setting_key === "face_scan_exit_window") {
+          const w = parseWindow(r.setting_value);
+          if (w) { setExitWin(w); setExitEnabled(true); }
+        }
+      }
+    })();
+  }, []);
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      const t = parseFloat(threshold);
+      if (isNaN(t) || t < 0.3 || t > 0.8) {
+        toast.error("Threshold ต้องอยู่ระหว่าง 0.3 - 0.8");
+        return;
+      }
+      if (!/^\d{1,2}:\d{2}(:\d{2})?$/.test(modeCutoff)) {
+        toast.error("เวลาสลับโหมดต้องเป็น HH:MM");
+        return;
+      }
+      const modeCutoffHm = modeCutoff.slice(0, 5);
+      const cutoffTimeHm = cutoffTime.slice(0, 5);
+
+      // ตรวจช่วงเวลา: end > start
+      if (entryEnabled && toMin(entryWin.end) <= toMin(entryWin.start)) {
+        toast.error("ช่วงเวลาสแกนเข้า: เวลาสิ้นสุดต้องหลังเวลาเริ่ม"); return;
+      }
+      if (exitEnabled && toMin(exitWin.end) <= toMin(exitWin.start)) {
+        toast.error("ช่วงเวลาสแกนออก: เวลาสิ้นสุดต้องหลังเวลาเริ่ม"); return;
+      }
+
+      const { error } = await supabase.from("school_settings").upsert([
+        { setting_key: "face_scan_threshold", setting_value: String(t) },
+        { setting_key: "face_scan_cutoff_time", setting_value: cutoffTimeHm },
+        { setting_key: "face_scan_mode_cutoff", setting_value: modeCutoffHm },
+        { setting_key: "face_scan_entry_window", setting_value: entryEnabled ? fmtWindow(entryWin) : "" },
+        { setting_key: "face_scan_exit_window", setting_value: exitEnabled ? fmtWindow(exitWin) : "" },
+      ], { onConflict: "setting_key" });
+      if (error) throw error;
+      toast.success("บันทึกแล้ว");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <Card className="max-w-xl">
+      <CardContent className="p-4 space-y-4">
+        <h3 className="font-semibold flex items-center gap-2"><Settings className="w-4 h-4" />ตั้งค่าระบบสแกนหน้า</h3>
+
+        <div className="space-y-2">
+          <Label>ระดับความเข้มงวด (Threshold)</Label>
+          <Input type="number" step="0.05" min="0.3" max="0.8" value={threshold} onChange={(e) => setThreshold(e.target.value)} />
+          <p className="text-xs text-muted-foreground">ต่ำกว่า = เข้มงวดมากขึ้น (จำคนผิดน้อย แต่อาจจำไม่ได้) — แนะนำ 0.5</p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>เวลาตัด "มาสาย"</Label>
+          <Time24Input value={cutoffTime} onChange={(v) => setCutoffTime(v)} withSeconds={false} />
+          <p className="text-xs text-muted-foreground">สแกนหลังเวลานี้ = บันทึกเป็นมาสาย</p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>เวลาสลับโหมด "เข้า → ออก" อัตโนมัติ</Label>
+          <Time24Input value={modeCutoff} onChange={(v) => setModeCutoff(v)} withSeconds={false} />
+          <p className="text-xs text-muted-foreground">
+            ใช้เมื่อโหมดสแกนอยู่ที่ "อัตโนมัติ" — ก่อนเวลานี้บันทึกเป็น "เข้าโรงเรียน", ตั้งแต่เวลานี้บันทึกเป็น "ออกจากโรงเรียน"
+          </p>
+        </div>
+
+        {/* ช่วงเวลาที่อนุญาตให้สแกน (กันสแกนนอกเวลา) */}
+        <div className="rounded-lg border border-brand-entry/30 bg-brand-entry/5 p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="flex items-center gap-2 text-success dark:text-success">
+              <Clock className="w-4 h-4" /> ช่วงเวลาสแกน "เข้าโรงเรียน"
+            </Label>
+            <Switch checked={entryEnabled} onCheckedChange={setEntryEnabled} />
+          </div>
+          {entryEnabled && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs text-muted-foreground">เริ่ม</Label>
+                <Time24Input value={entryWin.start} onChange={(v) => setEntryWin((w) => ({ ...w, start: v }))} withSeconds={false} />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">สิ้นสุด</Label>
+                <Time24Input value={entryWin.end} onChange={(v) => setEntryWin((w) => ({ ...w, end: v }))} withSeconds={false} />
+              </div>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            ถ้าเปิด — สแกนนอกช่วงเวลานี้จะถูกปฏิเสธ (เช่น 06:00–10:00 กันสแกนตอนพักเที่ยง)
+          </p>
+        </div>
+
+        <div className="rounded-lg border border-brand-exit/30 bg-brand-exit/5 p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="flex items-center gap-2 text-danger dark:text-danger">
+              <Clock className="w-4 h-4" /> ช่วงเวลาสแกน "ออกจากโรงเรียน"
+            </Label>
+            <Switch checked={exitEnabled} onCheckedChange={setExitEnabled} />
+          </div>
+          {exitEnabled && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs text-muted-foreground">เริ่ม</Label>
+                <Time24Input value={exitWin.start} onChange={(v) => setExitWin((w) => ({ ...w, start: v }))} withSeconds={false} />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">สิ้นสุด</Label>
+                <Time24Input value={exitWin.end} onChange={(v) => setExitWin((w) => ({ ...w, end: v }))} withSeconds={false} />
+              </div>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            ถ้าเปิด — สแกนนอกช่วงเวลานี้จะถูกปฏิเสธ (เช่น 14:00–18:00 กันสแกนเล่นกลางคืน)
+          </p>
+        </div>
+
+        <Button onClick={save} disabled={busy} className="gradient-primary">
+          <Save className="w-4 h-4 mr-2" />{busy ? "กำลังบันทึก..." : "บันทึก"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default FaceSettingsTab;

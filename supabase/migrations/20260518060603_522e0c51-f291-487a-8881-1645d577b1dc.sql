@@ -1,0 +1,1 @@
+ALTER TABLE public.face_scan_logs ADD COLUMN IF NOT EXISTS captured_face_url TEXT;

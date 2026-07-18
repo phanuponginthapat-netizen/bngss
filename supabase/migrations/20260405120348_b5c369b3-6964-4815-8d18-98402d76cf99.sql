@@ -1,0 +1,1 @@
+ALTER TABLE public.personnel ADD COLUMN IF NOT EXISTS subject_group text DEFAULT NULL;
