@@ -332,6 +332,7 @@ const DashboardLayout = () => {
           <MobileBottomNav />
           <AiChatBubble />
         </main>
+        <AppSidebar />
         <CommandPalette />
       </div>
     </SidebarProvider>
