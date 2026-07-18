@@ -22,6 +22,7 @@ import {
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
   SidebarHeader, useSidebar,
 } from "@/components/ui/sidebar";
+import { SidebarAccountFooter } from "@/components/SidebarAccountFooter";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 
