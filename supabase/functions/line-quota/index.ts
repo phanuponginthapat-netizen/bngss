@@ -59,8 +59,16 @@ serve(async (req) => {
 
     if (!quotaRes.ok) {
       const text = await quotaRes.text();
-      return new Response(JSON.stringify({ error: `LINE API error: ${text}` }), {
-        status: quotaRes.status,
+      return new Response(JSON.stringify({
+        configured: false,
+        quota: { type: "none", value: 0 },
+        consumption: { totalUsage: 0 },
+        breakdown: {},
+        totals: { sent: 0, failed: 0, skipped: 0 },
+        period_start: new Date().toISOString(),
+        message: `LINE token ไม่ถูกต้องหรือหมดอายุ (${quotaRes.status}): ${text}`,
+      }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
