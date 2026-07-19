@@ -106,29 +106,30 @@ export default function HealthTrendPage() {
     setScannerOpen(false);
     const clean = code.trim();
     if (!clean) return;
-    // ค้นหานักเรียนจากรหัสที่สแกน (ลองทั้งใน list ปัจจุบัน และค้นจาก DB)
-    const found = students.find(
-      (s) => s.student_code === clean || s.id === clean,
-    );
-    if (found) {
-      setSelected(found);
-      toast.success(`เลือก: ${found.first_name} ${found.last_name}`);
+    // resolve QR/บาร์โค้ด — รองรับทั้ง student_code, id (UUID), URL /p/<auth_user_id>, /sdq-assess/<id>
+    const { resolveScannedStudent } = await import("@/lib/resolveScannedStudent");
+    const resolved = await resolveScannedStudent(clean);
+    if (resolved) {
+      // ถ้าอยู่ใน list ปัจจุบัน ใช้ตัวใน list (มี classroom join)
+      const inList = students.find((s) => s.id === resolved.id);
+      if (inList) {
+        setSelected(inList);
+      } else {
+        // ดึงตัวเต็มพร้อม classroom
+        const { data } = await supabase
+          .from("students")
+          .select("id,first_name,last_name,student_code,classroom_id,gender,date_of_birth,classrooms!students_classroom_id_fkey(name,grade_level)")
+          .eq("id", resolved.id)
+          .maybeSingle();
+        if (data) setSelected(data as any);
+        else setSelected(resolved as any);
+      }
+      toast.success(`เลือก: ${resolved.first_name ?? ""} ${resolved.last_name ?? ""}`.trim());
       return;
     }
-    const { data } = await supabase
-      .from("students")
-      .select("id,first_name,last_name,student_code,classroom_id,gender,date_of_birth,classrooms!students_classroom_id_fkey(name,grade_level)")
-      .or(`student_code.eq.${clean},id.eq.${clean}`)
-      .eq("status", "active")
-      .limit(1)
-      .maybeSingle();
-    if (data) {
-      setSelected(data as any);
-      toast.success(`เลือก: ${(data as any).first_name} ${(data as any).last_name}`);
-    } else {
-      toast.error(`ไม่พบนักเรียนรหัส ${clean}`);
-    }
+    toast.error(`ไม่พบนักเรียนจาก QR (${clean.slice(0, 40)})`);
   };
+
 
   return (
     <div className="container mx-auto p-6 space-y-6 max-w-6xl">
