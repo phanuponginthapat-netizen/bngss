@@ -651,7 +651,6 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-4 pb-24 sm:pb-4 [scrollbar-gutter:stable]">
-      <SuperAppSearchBar />
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground truncate">
 
