@@ -298,6 +298,7 @@ const DashboardLayout = () => {
           >
 
             <EnablePushBanner />
+            <ObserverBanner />
             <ErrorBoundary>
               <ModuleGuard />
               <NotificationHighlightScroller />
