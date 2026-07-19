@@ -1,5 +1,6 @@
 import { useMemo, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import JoditEditor from "jodit-react";
+import "jodit/es2021/jodit.min.css";
 
 /**
  * MS-Word-like editor built on Jodit.
