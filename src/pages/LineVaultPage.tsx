@@ -182,6 +182,11 @@ export default function LineVaultPage() {
               <GroupsManager groups={groups} onChange={load} />
             </TabsContent>
           )}
+          {isAdmin && (
+            <TabsContent value="settings" className="m-0">
+              <VaultSettings />
+            </TabsContent>
+          )}
         </div>
       </Tabs>
     </div>
