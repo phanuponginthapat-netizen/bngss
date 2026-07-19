@@ -9,7 +9,7 @@ import {
   handleLeaveAttachmentMessage as _handleLeaveAttachmentMessage,
   type LeaveDeps,
 } from "../_shared/lineLeaveFlow.ts";
-import { captureLineGroupEvent, fetchLineGroupMemberProfile } from "../_shared/lineVaultCapture.ts";
+// (LINE Vault group capture moved to line-vault-webhook — separate OA channel)
 
 import { corsHeaders } from "../_shared/cors.ts";
 import { todayBangkokISO, bkkDateISO } from "../_shared/thaiDate.ts";
