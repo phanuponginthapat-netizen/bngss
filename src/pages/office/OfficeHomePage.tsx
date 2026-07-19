@@ -89,13 +89,16 @@ export default function OfficeHomePage() {
         </CardHeader>
         <CardContent>
           {loading && <div className="text-center py-8 text-muted-foreground">กำลังโหลด…</div>}
-          {error && (
+          {!loading && connected === false && (
             <div className="text-center py-8 space-y-3">
-              <div className="text-sm text-destructive">{error}</div>
+              <div className="text-sm text-muted-foreground">ยังไม่ได้เชื่อม Google Drive — เชื่อมเพื่อบันทึกและเปิดไฟล์</div>
               <Button size="sm" onClick={() => nav("/dashboard/my-drive")}>เชื่อม Google Drive</Button>
             </div>
           )}
-          {!loading && !error && files.length === 0 && (
+          {!loading && error && (
+            <div className="text-center py-8 text-sm text-destructive">{error}</div>
+          )}
+          {!loading && connected && files.length === 0 && !error && (
             <div className="text-center py-8 text-muted-foreground text-sm">ยังไม่มีไฟล์ Office ใน Drive — สร้างใหม่ได้จากเมนูด้านบน</div>
           )}
           {!loading && files.length > 0 && (
