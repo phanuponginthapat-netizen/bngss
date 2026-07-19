@@ -12,6 +12,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { swal } from "@/lib/swal";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { getSecretGuide } from "@/lib/secretGuides";
+import { SECRET_PRESET_CATEGORIES, type SecretPreset } from "@/lib/secretPresets";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const CATEGORY_LABEL: Record<string, { th: string; en: string }> = {
   social: { th: "Social", en: "Social" },
@@ -32,6 +34,9 @@ export default function SecretsManagementPage() {
   const [newKey, setNewKey] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newCat, setNewCat] = useState("general");
+  const [presetCat, setPresetCat] = useState<string>(SECRET_PRESET_CATEGORIES[0].id);
+  const [presetKey, setPresetKey] = useState<string>("");
+  const [customMode, setCustomMode] = useState(false);
 
   // Auto-seed default secret entries + mirror project env vars into DB so
   // auto-provisioned secrets (VAPID/CRON) show as "ตั้งแล้ว" immediately.
@@ -199,16 +204,97 @@ export default function SecretsManagementPage() {
         <CardHeader>
           <CardTitle>{lang === "th" ? "เพิ่ม Secret ใหม่" : "Add New Secret"}</CardTitle>
           <CardDescription>
-            {lang === "th" ? "ใช้ชื่อ UPPER_SNAKE_CASE เช่น STRIPE_API_KEY" : "Use UPPER_SNAKE_CASE name, e.g. STRIPE_API_KEY"}
+            {lang === "th"
+              ? "เลือกจากรายการที่มีให้ หรือกด 'กำหนดเอง' เพื่อพิมพ์ชื่อ UPPER_SNAKE_CASE"
+              : "Pick a preset or choose 'Custom' to type your own UPPER_SNAKE_CASE name"}
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid md:grid-cols-4 gap-2">
-          <Input placeholder="MY_API_KEY" value={newKey} onChange={(e) => setNewKey(e.target.value.toUpperCase())} className="font-mono" />
-          <Input placeholder={lang === "th" ? "คำอธิบาย" : "Description"} value={newDesc} onChange={(e) => setNewDesc(e.target.value)} />
-          <Input placeholder="category" value={newCat} onChange={(e) => setNewCat(e.target.value)} />
-          <Button onClick={addNew}><Plus className="h-4 w-4 mr-1" />{lang === "th" ? "เพิ่ม" : "Add"}</Button>
+        <CardContent className="space-y-3">
+          {/* Category + preset pickers */}
+          <div className="grid md:grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs text-muted-foreground">{lang === "th" ? "หมวดหมู่" : "Category"}</Label>
+              <Select
+                value={presetCat}
+                onValueChange={(v) => {
+                  setPresetCat(v);
+                  setPresetKey("");
+                  setCustomMode(v === "general");
+                  setNewCat(v);
+                  setNewKey("");
+                  setNewDesc("");
+                }}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {SECRET_PRESET_CATEGORIES.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">{lang === "th" ? "Secret ที่จะเพิ่ม" : "Secret to add"}</Label>
+              <Select
+                value={presetKey}
+                onValueChange={(v) => {
+                  setPresetKey(v);
+                  if (v === "__custom__") {
+                    setCustomMode(true);
+                    setNewKey(""); setNewDesc("");
+                  } else {
+                    setCustomMode(false);
+                    const p = SECRET_PRESET_CATEGORIES
+                      .find((c) => c.id === presetCat)?.presets
+                      .find((pp: SecretPreset) => pp.key === v);
+                    if (p) { setNewKey(p.key); setNewDesc(p.description); }
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={lang === "th" ? "เลือก..." : "Select..."} />
+                </SelectTrigger>
+                <SelectContent>
+                  {SECRET_PRESET_CATEGORIES.find((c) => c.id === presetCat)?.presets
+                    .filter((p) => p.key)
+                    .map((p) => (
+                      <SelectItem key={p.key} value={p.key}>
+                        <div className="flex flex-col">
+                          <span className="font-mono text-xs">{p.key}</span>
+                          <span className="text-xs text-muted-foreground">{p.label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  <SelectItem value="__custom__">
+                    <span className="text-primary">✏️ {lang === "th" ? "กำหนดเอง..." : "Custom..."}</span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Editable fields (auto-filled from preset, editable if custom) */}
+          <div className="grid md:grid-cols-3 gap-2">
+            <Input
+              placeholder="MY_API_KEY"
+              value={newKey}
+              readOnly={!customMode && !!presetKey && presetKey !== "__custom__"}
+              onChange={(e) => setNewKey(e.target.value.toUpperCase())}
+              className="font-mono"
+            />
+            <Input
+              placeholder={lang === "th" ? "คำอธิบาย" : "Description"}
+              value={newDesc}
+              onChange={(e) => setNewDesc(e.target.value)}
+            />
+            <Button onClick={addNew} disabled={!newKey}>
+              <Plus className="h-4 w-4 mr-1" />
+              {lang === "th" ? "เพิ่ม" : "Add"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
   );
 }
+
