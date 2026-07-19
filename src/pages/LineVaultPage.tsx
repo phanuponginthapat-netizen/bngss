@@ -119,7 +119,7 @@ export default function LineVaultPage() {
       body: { item_id: item.id, expires_in: 600 },
     });
     if (error || !data?.url) {
-      showError("ดาวน์โหลดไม่สำเร็จ", (data as any)?.error || error?.message);
+      swal.error("ดาวน์โหลดไม่สำเร็จ", (data as any)?.error || error?.message);
       return;
     }
     const a = document.createElement("a");
@@ -139,8 +139,8 @@ export default function LineVaultPage() {
       await supabase.storage.from("line-vault").remove([item.storage_path]);
     }
     const { error } = await supabase.from("line_vault_items").delete().eq("id", item.id);
-    if (error) return showError("ลบไม่สำเร็จ", error.message);
-    showSuccess("ลบแล้ว");
+    if (error) return swal.error("ลบไม่สำเร็จ", error.message);
+    swal.success("ลบแล้ว");
     load();
   }
 
@@ -273,10 +273,10 @@ function ManualUploadDialog({ onDone }: { onDone: () => void }) {
         visibility, uploaded_by: uid,
       });
       if (error) throw error;
-      showSuccess("อัปโหลดสำเร็จ");
+      swal.success("อัปโหลดสำเร็จ");
       setOpen(false); setTitle(""); setNoteText(""); setFile(null);
       onDone();
-    } catch (e: any) { showError("อัปโหลดไม่สำเร็จ", e.message); }
+    } catch (e: any) { swal.error("อัปโหลดไม่สำเร็จ", e.message); }
     finally { setBusy(false); }
   }
 
@@ -336,7 +336,7 @@ function ManualUploadDialog({ onDone }: { onDone: () => void }) {
 function GroupsManager({ groups, onChange }: { groups: Group[]; onChange: () => void }) {
   async function update(id: string, patch: Partial<Group>) {
     const { error } = await supabase.from("line_vault_groups").update(patch).eq("id", id);
-    if (error) return showError("บันทึกไม่สำเร็จ", error.message);
+    if (error) return swal.error("บันทึกไม่สำเร็จ", error.message);
     onChange();
   }
   async function remove(id: string) {
