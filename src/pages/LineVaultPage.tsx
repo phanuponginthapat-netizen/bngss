@@ -25,6 +25,9 @@ type Item = {
   description: string | null;
   note_text: string | null;
   storage_path: string | null;
+  drive_file_id?: string | null;
+  drive_web_view_link?: string | null;
+
   mime_type: string | null;
   size_bytes: number | null;
   original_filename: string | null;
