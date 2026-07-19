@@ -48,8 +48,8 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         connector_id: "google_drive",
-        external_user_id: user.id,
-        redirect_url_after_callback: returnUrl,
+        app_user_id: user.id,
+        return_url: returnUrl,
         credentials_configuration: { scopes: SCOPES },
       }),
     });
