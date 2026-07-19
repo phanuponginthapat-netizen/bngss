@@ -107,11 +107,10 @@ export default function LineVaultPage() {
 
   async function handleOpen(item: Item) {
     if (item.kind === "note") {
-      await showConfirm({
+      await swal.confirm({
         title: item.title,
-        html: `<div style="text-align:left;white-space:pre-wrap">${(item.note_text || "").replace(/</g, "&lt;")}</div>`,
-        confirmButtonText: "ปิด",
-        showCancelButton: false,
+        text: item.note_text || "",
+        confirmText: "ปิด",
       });
       return;
     }
