@@ -86,10 +86,36 @@ export async function captureLineGroupEvent(
     };
 
 
-    // Text -> note
+    // Text -> note, but first try to attach as caption/description to the
+    // most recent media (photo/file/video) posted by the SAME sender in the
+    // SAME group within the last 10 minutes. LINE often sends a file/photo
+    // first, then a follow-up text describing it — we bind them together.
     if (msg.type === "text") {
       const text: string = msg.text || "";
       if (!text.trim()) return { captured: false, reason: "empty_text" };
+
+      // Look back 10 minutes for an un-captioned media item from same sender
+      const since = new Date(Date.now() - 10 * 60_000).toISOString();
+      const { data: recent } = await sb
+        .from("line_vault_items")
+        .select("id, description, kind")
+        .eq("line_group_id", groupId)
+        .eq("line_sender_user_id", senderUid || "")
+        .in("kind", ["photo", "file"])
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      const target = (recent || [])[0];
+      if (target && !target.description) {
+        // Attach text as caption. Also stash into note_text so search matches.
+        await sb.from("line_vault_items").update({
+          description: text,
+          note_text: text,
+          title: text.split("\n")[0].slice(0, 120) || undefined,
+        }).eq("id", target.id);
+        return { captured: true, reason: "attached_as_caption" } as any;
+      }
+
       const title = text.split("\n")[0].slice(0, 80) || "โน้ตจาก LINE";
       const { error } = await sb.from("line_vault_items").insert({
         ...baseRow,
@@ -100,6 +126,7 @@ export async function captureLineGroupEvent(
       if (error && !`${error.message}`.includes("duplicate")) throw error;
       return { captured: true };
     }
+
 
     // Image / video / file / audio -> upload to Google Drive (fallback to Supabase storage)
     if (["image", "video", "file", "audio"].includes(msg.type)) {
