@@ -182,6 +182,14 @@ export function AppSidebar() {
         { to: "/dashboard/academic/calendar", icon: CalendarDays, label: L("ปฏิทินโรงเรียน", "Calendar"), color: "text-teal-400" },
       ],
     },
+    {
+      label: L("เครื่องมือ", "Tools"),
+      icon: FolderOpen,
+      items: [
+        { to: "/dashboard/my-drive", icon: FolderOpen, label: L("Google Drive ของฉัน", "My Drive"), color: "text-blue-400" },
+        { to: "/dashboard/office", icon: FileText, label: L("ชุดเอกสาร Office", "Office Suite"), color: "text-indigo-400" },
+      ],
+    },
   ]);
 
   const parentSidebar = renderCompactSidebar([
@@ -214,6 +222,14 @@ export function AppSidebar() {
       items: [
         { to: "/dashboard/academic/calendar", icon: CalendarDays, label: L("ปฏิทินโรงเรียน", "Calendar"), color: "text-teal-400" },
         { to: "/dashboard/members", icon: Users, label: L("สมาชิกโรงเรียน", "Members"), color: "text-emerald-400" },
+      ],
+    },
+    {
+      label: L("เครื่องมือ", "Tools"),
+      icon: FolderOpen,
+      items: [
+        { to: "/dashboard/my-drive", icon: FolderOpen, label: L("Google Drive ของฉัน", "My Drive"), color: "text-blue-400" },
+        { to: "/dashboard/office", icon: FileText, label: L("ชุดเอกสาร Office", "Office Suite"), color: "text-indigo-400" },
       ],
     },
   ]);
@@ -389,9 +405,6 @@ export function AppSidebar() {
       roles: ["admin", "director", "teacher"],
       items: [
         { title: L("งานสารบรรณและประกาศ", "Documents & Announcements"), url: "/dashboard/hub/documents", icon: Megaphone, color: "text-orange-400", roles: ["admin", "director", "teacher"], desc: L("ข่าว หนังสือ E-Form ต้นแบบ PDF Smart Fill แจ้งเหตุ", "News, docs, e-forms, templates, PDF fill, emergency") },
-        { title: L("คลังไฟล์ LINE Vault", "LINE Vault"), url: "/dashboard/line-vault", icon: StickyNote, color: "text-teal-400", roles: ["admin", "director", "teacher"], desc: L("รูป · ไฟล์ · โน้ตจาก LINE OA ไม่หมดอายุ", "Photos, files & notes from LINE OA — never expire") },
-        { title: L("Google Drive ของฉัน", "My Drive"), url: "/dashboard/my-drive", icon: FolderOpen, color: "text-blue-400", roles: ["admin", "director", "teacher", "student", "parent", "alumni"], desc: L("เชื่อม Google Drive ส่วนตัว เปิดไฟล์ในระบบ", "Connect your own Google Drive & browse in-app") },
-        { title: L("ชุดเอกสาร Office", "Office Suite"), url: "/dashboard/office", icon: FileText, color: "text-indigo-400", roles: ["admin", "director", "teacher", "student", "parent", "alumni"], desc: L("Docs · Sheets · Slides · PDF บันทึกลง Google Drive", "Docs, Sheets, Slides, PDF — save to Google Drive") },
       ],
     },
     {
@@ -403,6 +416,19 @@ export function AppSidebar() {
       items: [
         { title: L("อาหารกลางวันและนมโรงเรียน", "Lunch & Milk"), url: "/dashboard/admin/school-lunch", icon: UtensilsCrossed, color: "text-yellow-400", roles: ["admin", "director", "teacher"], desc: L("อาหารกลางวันและนมโรงเรียน", "Lunch & milk program") },
         { title: L("แผนปฏิบัติการ PDCA", "Action Plan (PDCA)"), url: "/dashboard/admin/action-plan", icon: ClipboardCheck, color: "text-teal-400", roles: ["admin", "director", "teacher"], desc: L("วงจร Plan-Do-Check-Act", "Plan-Do-Check-Act") },
+      ],
+    },
+    // ── เครื่องมือ (Tools) — ใช้ร่วมทุก role ไม่ผูกกับฝ่ายงาน ─────
+    {
+      key: "tools_kit",
+      label: L("เครื่องมือ", "Tools"),
+      icon: FolderOpen,
+      color: "text-cyan-400",
+      roles: ["admin", "director", "teacher", "student", "parent", "alumni"],
+      items: [
+        { title: L("Google Drive ของฉัน", "My Drive"), url: "/dashboard/my-drive", icon: FolderOpen, color: "text-blue-400", roles: ["admin", "director", "teacher", "student", "parent", "alumni"], desc: L("เชื่อม Google Drive ส่วนตัว เปิดไฟล์ในระบบ", "Connect your own Google Drive & browse in-app") },
+        { title: L("ชุดเอกสาร Office", "Office Suite"), url: "/dashboard/office", icon: FileText, color: "text-indigo-400", roles: ["admin", "director", "teacher", "student", "parent", "alumni"], desc: L("Docs · Sheets · Slides · PDF บันทึกลง Google Drive", "Docs, Sheets, Slides, PDF — save to Google Drive") },
+        { title: L("คลังไฟล์ LINE Vault", "LINE Vault"), url: "/dashboard/line-vault", icon: StickyNote, color: "text-teal-400", roles: ["admin", "director", "teacher"], desc: L("รูป · ไฟล์ · โน้ตจาก LINE OA ไม่หมดอายุ", "Photos, files & notes from LINE OA — never expire") },
       ],
     },
 
@@ -502,40 +528,41 @@ export function AppSidebar() {
   const HR_KEYS       = ["hr_records"];
   const ADMIN_KEYS    = ["admin_content", "admin_system", "admin_kiosk"];
   const SERVICES_KEYS = ["services_garbage", "services_rooms", "services_ict", "services_iot"];
+  const TOOLS_KEYS    = ["tools_kit"];
 
   const roleConfig: Record<string, { order: string[]; hide?: string[] }> = {
     admin: {
       order: [
         ...ACADEMIC_KEYS, ...STUDENT_KEYS, ...OFFICE_KEYS, ...HR_KEYS, "finance",
-        ...SERVICES_KEYS, ...ADMIN_KEYS,
+        ...SERVICES_KEYS, ...TOOLS_KEYS, ...ADMIN_KEYS,
       ],
     },
     director: {
       order: [
         ...ACADEMIC_KEYS, ...STUDENT_KEYS, ...OFFICE_KEYS, ...HR_KEYS, "finance",
-        ...SERVICES_KEYS,
+        ...SERVICES_KEYS, ...TOOLS_KEYS,
       ],
       hide: ["admin_content", "admin_system", "admin_kiosk"],
     },
     teacher: {
       order: [
         ...ACADEMIC_KEYS, ...STUDENT_KEYS, ...OFFICE_KEYS, ...HR_KEYS,
-        ...SERVICES_KEYS,
+        ...SERVICES_KEYS, ...TOOLS_KEYS,
       ],
       hide: ["admin_content", "admin_system", "admin_kiosk", "finance"],
     },
-    student: { order: [] },
-    parent: { order: [] },
-    alumni: { order: [] },
+    student: { order: [...TOOLS_KEYS] },
+    parent: { order: [...TOOLS_KEYS] },
+    alumni: { order: [...TOOLS_KEYS] },
   };
 
-  // Super-sections = 4 ฝ่ายหลักของโรงเรียน + กลุ่มผู้ดูแลระบบ (admin เท่านั้น)
-  // 1) ฝ่ายวิชาการ  2) ฝ่ายกิจการนักเรียน  3) ฝ่ายบริหารทั่วไป  4) ฝ่ายงบประมาณ & บุคลากร  5) ผู้ดูแลระบบ
+  // Super-sections = 4 ฝ่ายหลักของโรงเรียน + เครื่องมือ + กลุ่มผู้ดูแลระบบ (admin เท่านั้น)
   type SuperSec = { key: string; label: string; icon: any; depts: string[]; color: string; dot: string; adminOnly?: boolean };
   const DIV_ACADEMIC = [...ACADEMIC_KEYS, "student_games"];
   const DIV_STUDENT  = ["student_daily", "student_health", "services_garbage"];
   const DIV_GENERAL  = ["office_docs", "office_ops", "services_rooms", "services_ict", "services_iot"];
   const DIV_BUDGET   = ["hr_records", "finance"];
+  const DIV_TOOLS    = [...TOOLS_KEYS];
   const DIV_ADMIN    = [...ADMIN_KEYS];
 
   const SUPER_SECTIONS: SuperSec[] = [
@@ -543,15 +570,20 @@ export function AppSidebar() {
     { key: "div_student",  label: L("ฝ่ายกิจการนักเรียน",   "Student Affairs"),  icon: Heart,       depts: DIV_STUDENT,  color: "text-rose-400",    dot: "bg-rose-400" },
     { key: "div_general",  label: L("ฝ่ายบริหารทั่วไป",     "General Admin"),    icon: Megaphone,   depts: DIV_GENERAL,  color: "text-amber-400",   dot: "bg-amber-400" },
     { key: "div_budget",   label: L("ฝ่ายงบประมาณและงานบุคคล", "Budget & Personnel"), icon: DollarSign, depts: DIV_BUDGET, color: "text-emerald-400", dot: "bg-emerald-400" },
+    { key: "div_tools",    label: L("เครื่องมือ",                "Tools"),            icon: FolderOpen,  depts: DIV_TOOLS,    color: "text-cyan-400",    dot: "bg-cyan-400" },
     { key: "div_admin",    label: L("งานผู้ดูแลระบบ",           "System Admin"),     icon: Shield,      depts: DIV_ADMIN,    color: "text-slate-300",   dot: "bg-slate-300", adminOnly: true },
   ];
 
-  // Section ordering per role — 4 divisions (+ admin group for admin only)
+  // Section ordering per role — 4 divisions + tools (+ admin group for admin only)
   const sectionOrderPerRole: Record<string, string[]> = {
-    admin:    ["div_academic", "div_student", "div_general", "div_budget", "div_admin"],
-    director: ["div_academic", "div_student", "div_budget", "div_general"],
-    teacher:  ["div_academic", "div_student", "div_general", "div_budget"],
+    admin:    ["div_academic", "div_student", "div_general", "div_budget", "div_tools", "div_admin"],
+    director: ["div_academic", "div_student", "div_budget", "div_general", "div_tools"],
+    teacher:  ["div_academic", "div_student", "div_general", "div_budget", "div_tools"],
+    student:  ["div_tools"],
+    parent:   ["div_tools"],
+    alumni:   ["div_tools"],
   };
+
 
 
 
@@ -673,12 +705,18 @@ export function AppSidebar() {
               i.url.startsWith("/dashboard/admin/ict") ||
               i.url.startsWith("/dashboard/iot")
             ));
+            const toolItems = mark(uniq.filter((i) =>
+              i.url === "/dashboard/my-drive" ||
+              i.url === "/dashboard/office" ||
+              i.url === "/dashboard/line-vault"
+            ));
             const otherItems = uniq.filter((i) => !usedUrls.has(i.url));
 
             const sections = [
               { label: L("ของฉัน", "My Account"), icon: User, items: myItems },
               { label: L("การเรียน", "Learning"), icon: BookOpen, items: learnItems },
               { label: L("บริการ", "Services"), icon: Sparkles, items: serviceItems },
+              { label: L("เครื่องมือ", "Tools"), icon: FolderOpen, items: toolItems },
               ...(otherItems.length ? [{ label: L("อื่นๆ", "More"), icon: FolderOpen, items: otherItems }] : []),
             ].filter((s) => s.items.length > 0);
 
