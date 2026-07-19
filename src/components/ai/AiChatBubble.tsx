@@ -737,7 +737,7 @@ export default function AiChatBubble() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+76px)] right-3 md:bottom-[calc(env(safe-area-inset-bottom)+20px)] md:right-5 lg:bottom-6 lg:right-6 z-40 group"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+80px)] right-3 md:bottom-[calc(env(safe-area-inset-bottom)+24px)] md:right-5 lg:bottom-[calc(env(safe-area-inset-bottom)+24px)] lg:right-6 z-40 group"
           aria-label="เปิดผู้ช่วย AI"
         >
           <span className="absolute -top-9 right-0 hidden group-hover:block whitespace-nowrap text-xs font-bold bg-white text-foreground border-2 border-foreground rounded-full px-3 py-1 shadow-[3px_3px_0_hsl(var(--foreground))]"
@@ -763,7 +763,7 @@ export default function AiChatBubble() {
       {open && (
         <div className={cn(
           "fixed z-40 border border-border rounded-2xl shadow-elegant flex flex-col overflow-hidden",
-          "bottom-[calc(env(safe-area-inset-bottom)+72px)] right-3 md:bottom-6 md:right-6",
+          "bottom-[calc(env(safe-area-inset-bottom)+76px)] right-3 md:bottom-[calc(env(safe-area-inset-bottom)+24px)] md:right-6",
           "w-[min(340px,calc(100vw-2rem))] h-[min(480px,calc(100vh-8rem))]",
         )}
           style={{ backgroundColor: bot.bgColor }}
