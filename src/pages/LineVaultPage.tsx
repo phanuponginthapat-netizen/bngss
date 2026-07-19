@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { swal } from "@/lib/swal";
-import { Image as ImageIcon, FileText, StickyNote, Download, Trash2, Search, Upload, Users, Building2, Lock, RefreshCw } from "lucide-react";
+import { Image as ImageIcon, FileText, StickyNote, Download, Trash2, Search, Upload, Users, Building2, Lock, RefreshCw, Settings as SettingsIcon, Copy, ExternalLink, CheckCircle2, XCircle, KeyRound } from "lucide-react";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 
