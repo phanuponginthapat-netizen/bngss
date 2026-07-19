@@ -585,6 +585,32 @@ function VaultSettings() {
 
   useEffect(() => { checkStatus(); /* eslint-disable-next-line */ }, []);
 
+  async function saveToken() {
+    const value = tokenDraft.trim();
+    if (!value) { toast.error("กรุณาวาง Channel Access Token ก่อน"); return; }
+    setSavingToken(true);
+    try {
+      // Ensure default row exists then upsert value
+      try { await supabase.rpc("ensure_default_app_secrets" as any); } catch (_) { /* ignore */ }
+      const { error } = await supabase
+        .from("app_secrets" as any)
+        .upsert(
+          { key: "LINE_VAULT_CHANNEL_ACCESS_TOKEN", value, category: "line", description: "Channel Access Token ของ LINE OA สำหรับ Vault", updated_at: new Date().toISOString() } as any,
+          { onConflict: "key" } as any,
+        );
+      if (error) throw error;
+      try { await supabase.functions.invoke("sync-env-secrets"); } catch (_) { /* ignore */ }
+      toast.success("บันทึก LINE_VAULT_CHANNEL_ACCESS_TOKEN แล้ว");
+      setTokenDraft("");
+      setShowToken(false);
+      await checkStatus();
+    } catch (e: any) {
+      toast.error(e?.message || "บันทึกไม่สำเร็จ");
+    } finally {
+      setSavingToken(false);
+    }
+  }
+
   return (
     <div className="space-y-4 max-w-3xl">
       <Card>
