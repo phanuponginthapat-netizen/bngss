@@ -44,21 +44,21 @@ function AvatarSidebarToggle({ avatarUrl, fullName, userEmail }: { avatarUrl: st
   return (
     <Button
       variant="ghost"
+      size="icon"
       onClick={toggleSidebar}
       aria-label={aria}
       aria-expanded={isOpen}
-      title={aria}
+      title={fullName || userEmail}
       data-tour="avatar-toggle"
-      className="gap-2 px-2 sm:px-3 max-w-[200px] rounded-full hover:bg-card"
+      className="h-9 w-9 rounded-full p-0 hover:bg-card shrink-0"
     >
       {avatarUrl ? (
-        <img src={avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover ring-2 ring-primary/30" />
+        <img src={avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-primary/30" />
       ) : (
-        <span className="w-7 h-7 rounded-full bg-primary/10 ring-2 ring-primary/30 flex items-center justify-center">
+        <span className="w-8 h-8 rounded-full bg-primary/10 ring-2 ring-primary/30 flex items-center justify-center">
           <User className="w-4 h-4 text-primary" />
         </span>
       )}
-      <span className="hidden sm:inline text-sm truncate font-medium">{fullName || userEmail}</span>
     </Button>
   );
 }
