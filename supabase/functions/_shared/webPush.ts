@@ -37,11 +37,20 @@ export async function getVapidPublicKey() {
 
 export async function getAppServer(): Promise<webpush.ApplicationServer> {
   if (!appServerPromise) {
-    const vapidPublicKey = await getVapidPublicKey();
-    const priv = await getSecret(secretKeys.vapidPrivate);
-    if (!priv) throw new Error("Web-push private key is not configured");
+    let vapidPublicKey = await getSecret(secretKeys.vapidPublic);
+    let priv = await getSecret(secretKeys.vapidPrivate);
+    if (!vapidPublicKey || !priv) {
+      // Auto-provision a matching pair on first use — remixed projects work with no manual setup.
+      const { generateVapidPair } = await import("./provisionSecrets.ts");
+      const { invalidateSecretCache } = await import("./getSecret.ts");
+      const pair = await generateVapidPair();
+      invalidateSecretCache(secretKeys.vapidPublic);
+      invalidateSecretCache(secretKeys.vapidPrivate);
+      vapidPublicKey = pair.publicKey;
+      priv = pair.privateKey;
+    }
     appServerPromise = (async () => {
-      const { publicKey, privateKey } = rawVapidToJwk(vapidPublicKey, priv);
+      const { publicKey, privateKey } = rawVapidToJwk(vapidPublicKey!, priv!);
       // Sanity-check: sign+verify a probe to detect keypair mismatch early
       try {
         const pubCheck = await crypto.subtle.importKey("jwk", { ...publicKey, key_ops: ["verify"] }, { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);

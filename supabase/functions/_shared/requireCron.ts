@@ -11,7 +11,17 @@ export async function requireCronOrAdmin(
   req: Request,
   corsHeaders: Record<string, string>,
 ): Promise<Response | null> {
-  const cronSecret = await getSecret(secretKeys.cron);
+  let cronSecret = await getSecret(secretKeys.cron);
+  if (!cronSecret) {
+    // Auto-provision so a remixed project has a valid CRON_SECRET stored in app_secrets.
+    // (pg_cron jobs still need to be reconfigured with the new value, but admin JWT keeps working.)
+    try {
+      const { generateCronSecret } = await import("./provisionSecrets.ts");
+      const { invalidateSecretCache } = await import("./getSecret.ts");
+      cronSecret = await generateCronSecret();
+      invalidateSecretCache(secretKeys.cron);
+    } catch { /* ignore, fall through to admin JWT path */ }
+  }
   const provided = req.headers.get("x-cron-secret");
   if (cronSecret && provided && provided === cronSecret) return null;
 
