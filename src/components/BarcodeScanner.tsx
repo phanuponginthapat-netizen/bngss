@@ -158,12 +158,13 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
             const now = Date.now();
             if (code === lastScanRef.current.code && now - lastScanRef.current.at < 1500) return;
             lastScanRef.current = { code, at: now };
-            onScan(code);
+            onScanRef.current(code);
             if (!continuous) {
               stop();
-              onClose();
+              onCloseRef.current();
             }
           },
+
           () => {}
         );
 
