@@ -652,7 +652,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="space-y-4 pb-24 sm:pb-4 [scrollbar-gutter:stable]">
+    <div className="space-y-4 pb-28 sm:pb-24 lg:pb-10 [scrollbar-gutter:stable]">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground truncate">
 
