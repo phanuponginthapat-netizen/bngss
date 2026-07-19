@@ -54,7 +54,22 @@ type Group = {
   notify_on_capture?: boolean;
   notify_cooldown_minutes?: number;
   notes: string | null;
+  drive_root_folder_id?: string | null;
+  drive_root_url?: string | null;
+  drive_folder_id?: string | null;
 };
+
+function parseDriveFolderId(input: string): string | null {
+  const s = (input || "").trim();
+  if (!s) return null;
+  // If it's already an ID (no slashes, reasonable length)
+  if (/^[a-zA-Z0-9_-]{10,}$/.test(s) && !s.includes("/")) return s;
+  const m1 = s.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (m1) return m1[1];
+  const m2 = s.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (m2) return m2[1];
+  return null;
+}
 
 const CATEGORIES: { value: string; label: string }[] = [
   { value: "circular", label: "หนังสือเวียน" },
