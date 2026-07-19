@@ -85,8 +85,9 @@ const renderTooltip = (title: string, desc?: string) =>
 
 
 export function AppSidebar() {
-  const { state } = useSidebar();
-  const collapsed = state === "collapsed";
+  const { toggleSidebar } = useSidebar();
+  // Sidebar is offcanvas on both mobile and desktop → when visible it is always "expanded".
+  const collapsed = false;
   const { t, lang } = useLanguage();
   const location = useLocation();
   const { role } = useUserRole(); // effective role (respects view-mode override)
