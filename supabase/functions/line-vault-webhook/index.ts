@@ -22,6 +22,19 @@ async function downloadLineContent(token: string, messageId: string) {
   } catch (e) { console.error("downloadLineContent", e); return null; }
 }
 
+// Reply API is FREE — does not consume push message quota.
+// Each replyToken is single-use and valid ~1 minute.
+async function replyMessage(token: string, replyToken: string, text: string) {
+  try {
+    const res = await fetch("https://api.line.me/v2/bot/message/reply", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ replyToken, messages: [{ type: "text", text }] }),
+    });
+    if (!res.ok) console.error("LINE reply fail", res.status, await res.text());
+  } catch (e) { console.error("replyMessage", e); }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
