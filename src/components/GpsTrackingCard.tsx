@@ -50,7 +50,12 @@ const GpsTrackingCard = () => {
       L.circle([geo.lat, geo.lng], { radius: geo.radius, color: "#10b981", fillOpacity: 0.08 }).addTo(map);
     }
     mapRef.current = map;
-    return () => { map.remove(); mapRef.current = null; };
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      userMarkerRef.current = null;
+      accuracyCircleRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [geo.configured, geo.lat, geo.lng, geo.radius]);
 
