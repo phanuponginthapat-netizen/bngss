@@ -9,6 +9,7 @@ import {
   handleLeaveAttachmentMessage as _handleLeaveAttachmentMessage,
   type LeaveDeps,
 } from "../_shared/lineLeaveFlow.ts";
+import { captureLineGroupEvent, fetchLineGroupMemberProfile } from "../_shared/lineVaultCapture.ts";
 
 import { corsHeaders } from "../_shared/cors.ts";
 import { todayBangkokISO, bkkDateISO } from "../_shared/thaiDate.ts";
