@@ -78,3 +78,19 @@ export const commonRegex = {
   phoneTH: /^(\+?66|0)[\s\-\d]{8,15}$/,
   nationalIdTH: /^\d{13}$/,
 };
+
+/**
+ * ตรวจ checksum เลขบัตรประชาชนไทย 13 หลัก
+ * สูตร: sum(d[i] * (13-i)) for i=0..11, then checkDigit = (11 - sum % 11) % 10 === d[12]
+ * ใช้เพื่อกันการพิมพ์เลขบัตรผิด (ไม่ใช่แค่จำนวนหลัก)
+ */
+export function isValidThaiNationalId(id: string): boolean {
+  const s = (id || "").replace(/\D/g, "");
+  if (s.length !== 13) return false;
+  if (/^(\d)\1{12}$/.test(s)) return false; // 0000000000000 ฯลฯ
+  let sum = 0;
+  for (let i = 0; i < 12; i++) sum += parseInt(s[i], 10) * (13 - i);
+  const check = (11 - (sum % 11)) % 10;
+  return check === parseInt(s[12], 10);
+}
+
