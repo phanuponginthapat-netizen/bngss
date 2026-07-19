@@ -18,7 +18,7 @@ function svc() {
 
 async function buildContextFor(supa: any, userId: string, role: string) {
   const today = todayBangkok();
-  const in7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  const in7 = bkkDateISO(new Date(Date.now() + 7 * 86400000));
 
   // profile
   const { data: prof } = await supa.from("profiles")

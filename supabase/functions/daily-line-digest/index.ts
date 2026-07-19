@@ -51,7 +51,7 @@ async function buildParentDigest(studentIds: string[], date: string) {
   }
 
   // Behavior 7 วันล่าสุด
-  const weekAgo = new Date(Date.now() - 7 * 86400_000).toISOString().slice(0, 10);
+  const weekAgo = bkkDateISO(new Date(Date.now() - 7 * 86400_000));
   const { data: bh } = await supabase
     .from("behavior_records")
     .select("description,points,behavior_type,record_date")
