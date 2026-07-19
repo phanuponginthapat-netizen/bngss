@@ -17,6 +17,7 @@ import { swal } from "@/lib/swal";
 import { useSocialLinks } from "@/hooks/useSocialLinks";
 import {
   SOCIAL_PLATFORMS, PLATFORM_ORDER, detectPlatform,
+  EMBEDDABLE_PLATFORMS, canEmbed,
   type SocialLink, type SocialPlatformKey,
 } from "@/lib/socialPlatforms";
 import { SocialWallWidget } from "@/components/social/SocialWallWidget";
@@ -28,6 +29,7 @@ const emptyLink = (): SocialLink => ({
   url: "",
   handle: "",
   active: true,
+  embed: false,
 });
 
 export default function SocialFeedPage() {
