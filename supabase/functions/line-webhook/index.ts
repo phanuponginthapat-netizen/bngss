@@ -9,7 +9,7 @@ import {
   handleLeaveAttachmentMessage as _handleLeaveAttachmentMessage,
   type LeaveDeps,
 } from "../_shared/lineLeaveFlow.ts";
-import { captureLineGroupEvent, fetchLineGroupMemberProfile } from "../_shared/lineVaultCapture.ts";
+// (LINE Vault group capture moved to line-vault-webhook — separate OA channel)
 
 import { corsHeaders } from "../_shared/cors.ts";
 import { todayBangkokISO, bkkDateISO } from "../_shared/thaiDate.ts";
@@ -1789,14 +1789,9 @@ serve(async (req) => {
 
       if (event.replyToken && uid) rememberReplyToken(event.replyToken, uid);
       try {
-        // Group / room event → LINE Vault capture (photo/file/note) then skip user flows
+        // Group / room events are handled by the dedicated line-vault-webhook (separate LINE OA).
+        // The chatbot OA should be a 1:1 bot; ignore any accidental group traffic here.
         if (event.source?.type === "group" || event.source?.type === "room") {
-          if (event.type === "message") {
-            await captureLineGroupEvent(sb, token, event, {
-              downloadLineContent,
-              fetchLineProfile: fetchLineGroupMemberProfile,
-            });
-          }
           continue;
         }
         if (event.type === "message" && event.message?.type === "text") {
