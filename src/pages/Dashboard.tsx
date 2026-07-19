@@ -625,7 +625,7 @@ const Dashboard = () => {
     },
     social_wall: () => (
       <Suspense fallback={<Skeleton className="h-48 rounded-2xl" />}>
-        <SocialWallWidget limit={6} title={L("ข่าวจากเพจโรงเรียน", "From School Page")} />
+        <SocialWallWidget title={L("ช่องทางติดตามข่าวสาร", "Follow Us")} />
       </Suspense>
     ),
   };

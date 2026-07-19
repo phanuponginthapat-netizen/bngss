@@ -682,7 +682,7 @@ const Index = () => {
                       </p>
                     </div>
                   </div>
-                  <SocialWallWidget limit={9} title="" variant="bare" />
+                  <SocialWallWidget title="" variant="bare" />
                 </section>
               ) : null,
 
