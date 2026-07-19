@@ -35,7 +35,7 @@ export async function captureLineGroupEvent(
     if (!groupId) return { captured: false, reason: "no_group_id" };
 
     // Look up mapping
-    const { data: grp } = await sb
+    let { data: grp } = await sb
       .from("line_vault_groups")
       .select("*")
       .eq("line_group_id", groupId)
@@ -59,10 +59,7 @@ export async function captureLineGroupEvent(
       const { data: fresh } = await sb
         .from("line_vault_groups").select("*").eq("line_group_id", groupId).maybeSingle();
       if (!fresh) return { captured: false, reason: "group_registered_pending" };
-      Object.assign(grp || {}, fresh);
-      // continue below using `fresh` as grp
-      // eslint-disable-next-line no-var
-      (grp as any) = fresh;
+      grp = fresh;
     }
     if (!grp.auto_capture) return { captured: false, reason: "auto_capture_disabled" };
 
