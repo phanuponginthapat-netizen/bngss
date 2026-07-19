@@ -290,8 +290,71 @@ export default function LineVaultPage() {
   );
 }
 
-function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, groupAlbums }: { items: Item[]; loading: boolean; isAdmin: boolean; onOpen: (i: Item) => void; onDelete: (i: Item) => void; groupAlbums?: boolean }) {
+function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, fetchBlob, groupAlbums }: { items: Item[]; loading: boolean; isAdmin: boolean; onOpen: (i: Item) => void; onDelete: (i: Item) => void; fetchBlob: (i: Item) => Promise<{ blob: Blob; filename: string } | null>; groupAlbums?: boolean }) {
   const [albumOpen, setAlbumOpen] = useState<Item[] | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [zipping, setZipping] = useState(false);
+  const [zipProgress, setZipProgress] = useState<{ done: number; total: number } | null>(null);
+
+  const toggle = (id: string) => setSelected(prev => {
+    const s = new Set(prev);
+    if (s.has(id)) s.delete(id); else s.add(id);
+    return s;
+  });
+  const clearSel = () => setSelected(new Set());
+
+  async function downloadZip(itemsToZip: Item[], zipName: string) {
+    if (!itemsToZip.length) return;
+    setZipping(true);
+    setZipProgress({ done: 0, total: itemsToZip.length });
+    try {
+      const zip = new JSZip();
+      const usedNames = new Set<string>();
+      let done = 0;
+      // Sequential fetch to avoid overwhelming edge function + signed url quota
+      for (const it of itemsToZip) {
+        const res = await fetchBlob(it);
+        done += 1;
+        setZipProgress({ done, total: itemsToZip.length });
+        if (!res) continue;
+        let name = res.filename;
+        if (usedNames.has(name)) {
+          const dot = name.lastIndexOf(".");
+          const base = dot > 0 ? name.slice(0, dot) : name;
+          const ext = dot > 0 ? name.slice(dot) : "";
+          let i = 2;
+          while (usedNames.has(`${base}_${i}${ext}`)) i++;
+          name = `${base}_${i}${ext}`;
+        }
+        usedNames.add(name);
+        // Prefix with date for clarity
+        const datePrefix = format(new Date(it.created_at), "yyyy-MM-dd");
+        zip.file(`${datePrefix}_${name}`, res.blob);
+        // If item has a caption/description, include as sidecar text
+        if (it.description && it.description.trim()) {
+          zip.file(`${datePrefix}_${name}.caption.txt`, it.description);
+        }
+      }
+      const blob = await zip.generateAsync({ type: "blob" }, (meta) => {
+        setZipProgress({ done: itemsToZip.length, total: itemsToZip.length });
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${zipName}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`ดาวน์โหลด ZIP สำเร็จ (${itemsToZip.length} ไฟล์)`);
+      clearSel();
+    } catch (e: any) {
+      swal.error("สร้าง ZIP ไม่สำเร็จ", e?.message);
+    } finally {
+      setZipping(false);
+      setZipProgress(null);
+    }
+  }
 
   const rows = useMemo(() => {
     if (!groupAlbums) return items.map(i => ({ kind: "item" as const, item: i }));
@@ -321,29 +384,67 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, groupAlbums }: { 
   if (loading) return <div className="text-center py-10 text-muted-foreground">กำลังโหลด...</div>;
   if (!rows.length) return <div className="text-center py-16 text-muted-foreground">ยังไม่มีรายการ</div>;
 
+  const selectedItems = items.filter(i => selected.has(i.id));
+
   return (
     <>
+      {selected.size > 0 && (
+        <div className="sticky top-2 z-20 mb-3 flex items-center gap-2 flex-wrap rounded-lg border bg-background/95 backdrop-blur px-3 py-2 shadow-sm">
+          <Badge variant="secondary">เลือก {selected.size} รายการ</Badge>
+          <Button size="sm" onClick={() => downloadZip(selectedItems, `LineVault_${format(new Date(), "yyyyMMdd_HHmm")}`)} disabled={zipping}>
+            <Archive className="h-4 w-4 mr-1" />
+            {zipping ? `กำลังบีบอัด ${zipProgress?.done || 0}/${zipProgress?.total || 0}...` : "ดาวน์โหลดเป็น ZIP"}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={clearSel} disabled={zipping}>ยกเลิกการเลือก</Button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {rows.map((row, idx) => {
           if (row.kind === "album") {
             const first = row.items[0];
+            const albumIds = row.items.map(x => x.id);
+            const allSel = albumIds.every(id => selected.has(id));
             return (
-              <Card key={`album-${first.line_image_set_id}`} className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer" onClick={() => setAlbumOpen(row.items)}>
+              <Card key={`album-${first.line_image_set_id}`} className="overflow-hidden hover:shadow-md transition-shadow">
                 <div className="p-3 space-y-2">
                   <div className="flex items-start justify-between gap-2">
-                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${kindMeta.photo.color}`}>
-                      <ImageIcon className="h-3 w-3" />อัลบั้ม · {row.items.length} รูป
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        checked={allSel}
+                        onCheckedChange={(v) => setSelected(prev => {
+                          const s = new Set(prev);
+                          if (v) albumIds.forEach(id => s.add(id));
+                          else albumIds.forEach(id => s.delete(id));
+                          return s;
+                        })}
+                      />
+                      <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${kindMeta.photo.color}`}>
+                        <FolderOpen className="h-3 w-3" />อัลบั้ม · {row.items.length} รูป
+                      </div>
                     </div>
                     <Badge variant="outline" className="text-[10px]">{categoryLabel(first.category)}</Badge>
                   </div>
-                  <div className="font-medium line-clamp-2 min-h-[2.5rem]">อัลบั้มจาก {first.line_sender_name || "LINE"}</div>
+                  <div className="font-medium line-clamp-2 min-h-[2.5rem] cursor-pointer" onClick={() => setAlbumOpen(row.items)}>
+                    อัลบั้มจาก {first.line_sender_name || "LINE"}
+                  </div>
+                  {first.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2 whitespace-pre-wrap flex items-start gap-1">
+                      <MessageSquareText className="h-3 w-3 mt-0.5 shrink-0" />{first.description}
+                    </p>
+                  )}
                   <div className="text-[11px] text-muted-foreground flex items-center justify-between">
                     <span>{first.academic_year ? `ปี ${first.academic_year + 543}/${first.semester || "-"}` : ""}</span>
-                    <span>{format(new Date(first.created_at), "d MMM", { locale: th })}</span>
+                    <span>{format(new Date(first.created_at), "d MMM yyyy HH:mm", { locale: th })}</span>
                   </div>
-                  <Button size="sm" className="w-full" onClick={(e) => { e.stopPropagation(); setAlbumOpen(row.items); }}>
-                    <ImageIcon className="h-4 w-4 mr-1" />เปิดอัลบั้ม
-                  </Button>
+                  <div className="flex gap-2 pt-1">
+                    <Button size="sm" className="flex-1" onClick={() => setAlbumOpen(row.items)}>
+                      <FolderOpen className="h-4 w-4 mr-1" />เปิด
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => downloadZip(row.items, `Album_${format(new Date(first.created_at), "yyyyMMdd_HHmm")}`)} disabled={zipping} title="ดาวน์โหลดทั้งอัลบั้มเป็น ZIP">
+                      <Archive className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </Card>
             );
@@ -351,12 +452,16 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, groupAlbums }: { 
           const item = row.item;
           const M = kindMeta[item.kind];
           const Icon = M.icon;
+          const isSel = selected.has(item.id);
           return (
-            <Card key={item.id} className="overflow-hidden hover:shadow-md transition-shadow">
+            <Card key={item.id} className={`overflow-hidden hover:shadow-md transition-shadow ${isSel ? "ring-2 ring-primary" : ""}`}>
               <div className="p-3 space-y-2">
                 <div className="flex items-start justify-between gap-2 flex-wrap">
-                  <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${M.color}`}>
-                    <Icon className="h-3 w-3" />{M.label}
+                  <div className="flex items-center gap-2">
+                    <Checkbox checked={isSel} onCheckedChange={() => toggle(item.id)} />
+                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${M.color}`}>
+                      <Icon className="h-3 w-3" />{M.label}
+                    </div>
                   </div>
                   <Badge variant="outline" className="text-[10px]">
                     {item.visibility === "everyone" ? <Users className="h-3 w-3 mr-0.5" /> : item.visibility === "department" ? <Building2 className="h-3 w-3 mr-0.5" /> : <Lock className="h-3 w-3 mr-0.5" />}
@@ -371,6 +476,11 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, groupAlbums }: { 
                 {item.kind === "note" && item.note_text && (
                   <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">{item.note_text}</p>
                 )}
+                {item.kind !== "note" && item.description && (
+                  <p className="text-xs text-foreground/80 line-clamp-3 whitespace-pre-wrap flex items-start gap-1 bg-muted/40 rounded px-2 py-1">
+                    <MessageSquareText className="h-3 w-3 mt-0.5 shrink-0" />{item.description}
+                  </p>
+                )}
                 {item.kind !== "note" && (
                   <div className="text-xs text-muted-foreground">
                     {item.original_filename} · {formatBytes(item.size_bytes)}
@@ -378,7 +488,7 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, groupAlbums }: { 
                 )}
                 <div className="text-[11px] text-muted-foreground flex items-center justify-between">
                   <span>{item.line_sender_name ? `จาก ${item.line_sender_name}` : item.source === "manual" ? "อัปโหลดเอง" : "จาก LINE"}</span>
-                  <span>{format(new Date(item.created_at), "d MMM", { locale: th })}</span>
+                  <span>{format(new Date(item.created_at), "d MMM yyyy HH:mm", { locale: th })}</span>
                 </div>
                 <div className="flex gap-2 pt-1">
                   <Button size="sm" className="flex-1" onClick={() => onOpen(item)}>
@@ -396,8 +506,32 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, groupAlbums }: { 
 
       <Dialog open={!!albumOpen} onOpenChange={(o) => !o && setAlbumOpen(null)}>
         <DialogContent className="max-w-3xl">
-          <DialogHeader><DialogTitle>อัลบั้มรูป · {albumOpen?.length || 0} รูป</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[70vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
+              <FolderOpen className="h-5 w-5" />
+              อัลบั้มรูป · {albumOpen?.length || 0} รูป
+              {albumOpen?.[0] && (
+                <span className="text-xs font-normal text-muted-foreground">
+                  · {format(new Date(albumOpen[0].created_at), "d MMM yyyy HH:mm", { locale: th })}
+                  {albumOpen[0].line_sender_name ? ` · จาก ${albumOpen[0].line_sender_name}` : ""}
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          {albumOpen?.[0]?.description && (
+            <div className="text-sm bg-muted/50 rounded p-3 flex items-start gap-2">
+              <MessageSquareText className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+              <div className="whitespace-pre-wrap">{albumOpen[0].description}</div>
+            </div>
+          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button size="sm" onClick={() => albumOpen && downloadZip(albumOpen, `Album_${format(new Date(albumOpen[0].created_at), "yyyyMMdd_HHmm")}`)} disabled={zipping || !albumOpen?.length}>
+              <Archive className="h-4 w-4 mr-1" />
+              {zipping ? `กำลังบีบอัด ${zipProgress?.done || 0}/${zipProgress?.total || 0}...` : "ดาวน์โหลดทั้งอัลบั้ม (ZIP)"}
+            </Button>
+            <span className="text-xs text-muted-foreground">คลิกที่รูปเพื่อดาวน์โหลดทีละไฟล์</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[60vh] overflow-y-auto">
             {albumOpen?.map(p => (
               <button key={p.id} onClick={() => onOpen(p)} className="border rounded p-2 hover:bg-muted text-left space-y-1">
                 <div className="aspect-square bg-muted rounded flex items-center justify-center">
@@ -409,6 +543,7 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, groupAlbums }: { 
             ))}
           </div>
         </DialogContent>
+
       </Dialog>
     </>
   );
