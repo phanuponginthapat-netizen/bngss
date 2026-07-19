@@ -200,15 +200,40 @@ export default function LineVaultPage() {
         </TabsList>
 
         <div className="mt-4">
-          <div className="relative mb-4 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ · ไฟล์ · ข้อความ · ผู้ส่ง" className="pl-9" />
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[220px] max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ · ไฟล์ · ข้อความ · ผู้ส่ง" className="pl-9" />
+            </div>
+            <Select value={yearFilter} onValueChange={setYearFilter}>
+              <SelectTrigger className="w-[140px]"><SelectValue placeholder="ปีการศึกษา" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุกปีการศึกษา</SelectItem>
+                {yearOptions.map(y => <SelectItem key={y} value={String(y)}>ปี {y + 543}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={semFilter} onValueChange={setSemFilter}>
+              <SelectTrigger className="w-[120px]"><SelectValue placeholder="เทอม" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุกเทอม</SelectItem>
+                <SelectItem value="1">เทอม 1</SelectItem>
+                <SelectItem value="2">เทอม 2</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={catFilter} onValueChange={setCatFilter}>
+              <SelectTrigger className="w-[180px]"><SelectValue placeholder="ประเภท" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุกประเภท</SelectItem>
+                {CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
 
           <TabsContent value="all" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} /></TabsContent>
-          <TabsContent value="photo" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} /></TabsContent>
+          <TabsContent value="photo" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} groupAlbums /></TabsContent>
           <TabsContent value="file" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} /></TabsContent>
           <TabsContent value="note" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} /></TabsContent>
+
 
           {isAdmin && (
             <TabsContent value="manage" className="m-0">
