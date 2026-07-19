@@ -1,4 +1,4 @@
-import { todayBangkokISO, bkkDateISO } from "../_shared/thaiDate.ts";
+
 // Shared Thai date / Buddhist Era helpers for edge functions.
 // Single source of truth — do not re-implement `+543` / `-543` inline.
 
