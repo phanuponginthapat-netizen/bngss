@@ -132,7 +132,7 @@ export default function LineVaultPage() {
   }
 
   async function handleDelete(item: Item) {
-    const ok = await showConfirm({ title: "ลบรายการนี้?", text: item.title, confirmButtonText: "ลบ" });
+    const ok = await swal.confirm({ title: "ลบรายการนี้?", text: item.title, confirmText: "ลบ", danger: true });
     if (!ok) return;
     if (item.storage_path) {
       await supabase.storage.from("line-vault").remove([item.storage_path]);
@@ -339,7 +339,7 @@ function GroupsManager({ groups, onChange }: { groups: Group[]; onChange: () => 
     onChange();
   }
   async function remove(id: string) {
-    const ok = await showConfirm({ title: "ลบกลุ่มนี้?", text: "รายการที่จับไปแล้วยังคงอยู่", confirmButtonText: "ลบ" });
+    const ok = await swal.confirm({ title: "ลบกลุ่มนี้?", text: "รายการที่จับไปแล้วยังคงอยู่", confirmText: "ลบ", danger: true });
     if (!ok) return;
     await supabase.from("line_vault_groups").delete().eq("id", id);
     onChange();
