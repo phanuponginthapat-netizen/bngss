@@ -4,6 +4,7 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { generateMascotMessages } from "../_shared/mascotAdvice.ts";
+import { bkkDateISO } from "../_shared/thaiDate.ts";
 
 function todayBangkok(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
