@@ -562,17 +562,38 @@ function VaultSettings() {
   async function checkStatus() {
     setChecking(true);
     try {
-      const { data, error } = await supabase.functions.invoke("line-vault-webhook", {
-        body: { __ping: true },
-      });
+      // Primary source of truth: the app_secrets row itself
+      const { data: row } = await supabase
+        .from("app_secrets" as any)
+        .select("value")
+        .eq("key", "LINE_VAULT_CHANNEL_ACCESS_TOKEN")
+        .maybeSingle();
+      const dbHasToken = !!(row as any)?.value && String((row as any).value).trim().length > 0;
+
+      // Best-effort: also ping the webhook to see if env is already synced
+      let envHasToken = false;
+      let webhookOk = true;
+      let errMsg: string | undefined;
+      try {
+        const { data, error } = await supabase.functions.invoke("line-vault-webhook", {
+          body: { __ping: true },
+        });
+        envHasToken = !!(data as any)?.token_configured;
+        webhookOk = !error;
+        errMsg = error?.message;
+      } catch (e: any) {
+        webhookOk = false;
+        errMsg = e?.message;
+      }
+
       const [{ count: groups }, { count: items }] = await Promise.all([
         supabase.from("line_vault_groups").select("*", { count: "exact", head: true }),
         supabase.from("line_vault_items").select("*", { count: "exact", head: true }),
       ]);
       setStatus({
-        token: !!(data as any)?.token_configured,
-        webhook_ok: !error,
-        error: error?.message,
+        token: dbHasToken || envHasToken,
+        webhook_ok: webhookOk,
+        error: errMsg,
         groups: groups || 0,
         items: items || 0,
       });
