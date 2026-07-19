@@ -8412,6 +8412,117 @@ export type Database = {
         }
         Relationships: []
       }
+      line_vault_groups: {
+        Row: {
+          auto_capture: boolean
+          created_at: string
+          default_visibility: string
+          department: Database["public"]["Enums"]["school_department"] | null
+          group_name: string
+          id: string
+          line_group_id: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          auto_capture?: boolean
+          created_at?: string
+          default_visibility?: string
+          department?: Database["public"]["Enums"]["school_department"] | null
+          group_name: string
+          id?: string
+          line_group_id: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auto_capture?: boolean
+          created_at?: string
+          default_visibility?: string
+          department?: Database["public"]["Enums"]["school_department"] | null
+          group_name?: string
+          id?: string
+          line_group_id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      line_vault_items: {
+        Row: {
+          created_at: string
+          department: Database["public"]["Enums"]["school_department"] | null
+          description: string | null
+          id: string
+          is_pinned: boolean
+          kind: string
+          line_group_id: string | null
+          line_message_id: string | null
+          line_sender_name: string | null
+          line_sender_user_id: string | null
+          mime_type: string | null
+          note_text: string | null
+          original_filename: string | null
+          size_bytes: number | null
+          source: string
+          storage_path: string | null
+          tags: string[]
+          thumbnail_path: string | null
+          title: string
+          updated_at: string
+          uploaded_by: string | null
+          visibility: string
+        }
+        Insert: {
+          created_at?: string
+          department?: Database["public"]["Enums"]["school_department"] | null
+          description?: string | null
+          id?: string
+          is_pinned?: boolean
+          kind: string
+          line_group_id?: string | null
+          line_message_id?: string | null
+          line_sender_name?: string | null
+          line_sender_user_id?: string | null
+          mime_type?: string | null
+          note_text?: string | null
+          original_filename?: string | null
+          size_bytes?: number | null
+          source?: string
+          storage_path?: string | null
+          tags?: string[]
+          thumbnail_path?: string | null
+          title: string
+          updated_at?: string
+          uploaded_by?: string | null
+          visibility?: string
+        }
+        Update: {
+          created_at?: string
+          department?: Database["public"]["Enums"]["school_department"] | null
+          description?: string | null
+          id?: string
+          is_pinned?: boolean
+          kind?: string
+          line_group_id?: string | null
+          line_message_id?: string | null
+          line_sender_name?: string | null
+          line_sender_user_id?: string | null
+          mime_type?: string | null
+          note_text?: string | null
+          original_filename?: string | null
+          size_bytes?: number | null
+          source?: string
+          storage_path?: string | null
+          tags?: string[]
+          thumbnail_path?: string | null
+          title?: string
+          updated_at?: string
+          uploaded_by?: string | null
+          visibility?: string
+        }
+        Relationships: []
+      }
       mascot_advice_cache: {
         Row: {
           context_snapshot: Json | null
@@ -15395,6 +15506,10 @@ export type Database = {
       }
       user_can_view_news_audience: {
         Args: { _audience: string }
+        Returns: boolean
+      }
+      user_in_school_department: {
+        Args: { _dept: Database["public"]["Enums"]["school_department"] }
         Returns: boolean
       }
       validate_schedules: {
