@@ -8462,6 +8462,8 @@ export type Database = {
           default_visibility: string
           department: Database["public"]["Enums"]["school_department"] | null
           drive_folder_id: string | null
+          drive_root_folder_id: string | null
+          drive_root_url: string | null
           group_name: string
           id: string
           last_notified_at: string | null
@@ -8478,6 +8480,8 @@ export type Database = {
           default_visibility?: string
           department?: Database["public"]["Enums"]["school_department"] | null
           drive_folder_id?: string | null
+          drive_root_folder_id?: string | null
+          drive_root_url?: string | null
           group_name: string
           id?: string
           last_notified_at?: string | null
@@ -8494,6 +8498,8 @@ export type Database = {
           default_visibility?: string
           department?: Database["public"]["Enums"]["school_department"] | null
           drive_folder_id?: string | null
+          drive_root_folder_id?: string | null
+          drive_root_url?: string | null
           group_name?: string
           id?: string
           last_notified_at?: string | null
