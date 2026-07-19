@@ -8,12 +8,17 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
-  const connectionKey = url.searchParams.get("connection_key") ?? url.searchParams.get("app_user_connection_key");
-  const externalUserId = url.searchParams.get("external_user_id") ?? "";
+  const connectionKey = url.searchParams.get("connection_key")
+    ?? url.searchParams.get("app_user_connection_key")
+    ?? url.searchParams.get("credential_key");
+  const externalUserId = url.searchParams.get("external_user_id")
+    ?? url.searchParams.get("app_user_id")
+    ?? url.searchParams.get("user_id")
+    ?? "";
   const errorParam = url.searchParams.get("error");
   const returnTo = url.searchParams.get("return_to") ?? "/my-drive";
 
-  const appOrigin = req.headers.get("origin") ?? Deno.env.get("APP_URL") ?? "";
+  const appOrigin = req.headers.get("origin") ?? Deno.env.get("APP_URL") ?? "https://bngss.lovable.app";
   const back = (msg: string) => {
     const u = new URL(returnTo.startsWith("http") ? returnTo : `${appOrigin}${returnTo}`);
     u.searchParams.set("drive_status", msg);
