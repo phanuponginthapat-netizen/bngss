@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 // VAPID public key — fetched from backend so it always matches the server-side VAPID_PRIVATE_KEY.
 export const VAPID_PUBLIC_KEY_FALLBACK =
-  "BBMeUAOraQHGtdw31hIdhUwVLAQoy6Rzu2o6eTbhYByjG_6t6gwNSLzlp-T2ZWhl9arfDzQcNtQu6mJt3jUrxyI";
+  "BCIa1dd34IU9mPlIZfNYJlx3qG0tbWBVI887HnTRzY0-cU3E4SqaVyD5cG27-_p0mlv6XW81ltRRXMmdqXMr2ec";
 
 let cachedPublicKey: string | null = null;
 async function getVapidPublicKey(): Promise<string> {
