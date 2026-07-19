@@ -158,7 +158,7 @@ export default function MyDrivePage() {
   const [testingConnection, setTestingConnection] = useState(false);
 
   const currentFolder = breadcrumb[breadcrumb.length - 1];
-  const canManageDrive = realRole === "admin" || realRole === "director" || role === "admin" || role === "director";
+  const canManageDrive = realRole === "admin" || role === "admin";
   const currentTab = canManageDrive ? activeTab : "files";
 
   // Load connection state
