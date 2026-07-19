@@ -44,6 +44,7 @@ type Group = {
   default_visibility: "everyone" | "department" | "admin";
   auto_capture: boolean;
   notify_on_capture?: boolean;
+  notify_cooldown_minutes?: number;
   notes: string | null;
 };
 
