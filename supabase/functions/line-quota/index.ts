@@ -34,8 +34,17 @@ serve(async (req) => {
 
     const token = await getLineToken(supabase);
     if (!token) {
-      return new Response(JSON.stringify({ error: "LINE token not configured" }), {
-        status: 400,
+      // Graceful: return empty quota so UI can render a "not configured" state
+      return new Response(JSON.stringify({
+        configured: false,
+        quota: { type: "none", value: 0 },
+        consumption: { totalUsage: 0 },
+        breakdown: {},
+        totals: { sent: 0, failed: 0, skipped: 0 },
+        period_start: new Date().toISOString(),
+        message: "ยังไม่ได้ตั้งค่า LINE Channel Access Token",
+      }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
