@@ -745,15 +745,16 @@ export default function AiChatBubble() {
           >
             คุยกับ {bot.name} 💬
           </span>
-          <span className="relative block w-14 h-14 rounded-full bg-gradient-to-br from-pink-400 via-fuchsia-500 to-violet-500 border-[3px] border-white ring-2 ring-foreground/80 shadow-[4px_4px_0_hsl(var(--foreground))] flex items-center justify-center overflow-hidden hover:rotate-6 hover:scale-110 transition-transform animate-bounce-slow">
+          <span className="relative block w-11 h-11 rounded-full bg-gradient-to-br from-pink-400 via-fuchsia-500 to-violet-500 border-2 border-white ring-2 ring-foreground/80 shadow-[3px_3px_0_hsl(var(--foreground))] flex items-center justify-center overflow-hidden hover:rotate-6 hover:scale-110 transition-transform animate-bounce-slow">
             {bot.avatarUrl ? (
               <img src={bot.avatarUrl} alt={bot.name} className="w-full h-full object-cover" />
             ) : (
-              <MessageCircle className="w-6 h-6 text-white drop-shadow" />
+              <MessageCircle className="w-5 h-5 text-white drop-shadow" />
             )}
           </span>
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-success rounded-full ring-2 ring-white animate-pulse" />
-          <span className="absolute -top-2 -left-2 text-lg animate-bounce">✨</span>
+          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-success rounded-full ring-2 ring-white animate-pulse" />
+          <span className="absolute -top-1.5 -left-1.5 text-sm animate-bounce">✨</span>
+
         </button>
       )}
 
