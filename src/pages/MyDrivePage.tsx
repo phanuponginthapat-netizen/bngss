@@ -553,9 +553,6 @@ export default function MyDrivePage() {
                 <Button size="sm" variant="outline" onClick={() => fetchFiles(currentFolder.id)}>
                   <RefreshCw className="w-4 h-4 mr-1" /> รีเฟรช
                 </Button>
-                <Button size="sm" variant="outline" onClick={testDriveConnection} disabled={testingConnection}>
-                  <CheckCircle2 className="w-4 h-4 mr-1" /> ทดสอบ
-                </Button>
                 <Button size="sm" variant="ghost" onClick={handleDisconnect}>
                   <LogOut className="w-4 h-4 mr-1" /> ยกเลิกการเชื่อม
                 </Button>
