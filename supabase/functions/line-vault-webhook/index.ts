@@ -64,6 +64,20 @@ Deno.serve(async (req) => {
 
     const events: any[] = body?.events || [];
 
+    // Per-group aggregation of this webhook batch so we send ONE friendly summary reply
+    // instead of spamming the group with one message per photo/file.
+    type GroupAgg = {
+      groupId: string;
+      replyToken?: string; // use the first available reply token from the batch
+      photos: number;
+      files: number;
+      notes: number;
+      videos: number;
+      audios: number;
+      imageSets: Set<string>;
+    };
+    const perGroup = new Map<string, GroupAgg>();
+
     for (const event of events) {
       try {
         if (event.type !== "message") continue;
@@ -72,27 +86,68 @@ Deno.serve(async (req) => {
           downloadLineContent,
           fetchLineProfile: fetchLineGroupMemberProfile,
         });
+        if (!result?.captured) continue;
 
-        // Free reply-token confirmation (does NOT consume push quota)
-        if (result?.captured && event.replyToken) {
-          const groupId = event.source.groupId || event.source.roomId;
-          const { data: grp } = await sb
-            .from("line_vault_groups")
-            .select("notify_on_capture, group_name")
-            .eq("line_group_id", groupId)
-            .maybeSingle();
-          if (grp?.notify_on_capture !== false) {
-            const kind = event.message?.type === "text" ? "📝 บันทึกโน้ต"
-              : event.message?.type === "image" ? "🖼️ บันทึกรูปภาพ"
-              : event.message?.type === "video" ? "🎬 บันทึกวิดีโอ"
-              : event.message?.type === "audio" ? "🎵 บันทึกเสียง"
-              : "📎 บันทึกไฟล์";
-            await replyMessage(token, event.replyToken, `${kind}เข้าคลังแล้ว ✅\n(สามารถเข้าดู/ดาวน์โหลดได้ในระบบ)`);
-          }
+        const groupId = event.source.groupId || event.source.roomId;
+        if (!groupId) continue;
+        let agg = perGroup.get(groupId);
+        if (!agg) {
+          agg = { groupId, replyToken: event.replyToken, photos: 0, files: 0, notes: 0, videos: 0, audios: 0, imageSets: new Set() };
+          perGroup.set(groupId, agg);
+        } else if (!agg.replyToken && event.replyToken) {
+          agg.replyToken = event.replyToken;
         }
+
+        const t = event.message?.type;
+        if (t === "image") {
+          const setId = event.message?.imageSet?.id;
+          if (setId) agg.imageSets.add(setId);
+          agg.photos++;
+        } else if (t === "video") agg.videos++;
+        else if (t === "audio") agg.audios++;
+        else if (t === "text") agg.notes++;
+        else agg.files++;
       } catch (e) {
         console.error("vault event error", e);
       }
+    }
+
+    // Send at most one reply per group, respecting per-group cooldown to avoid spam.
+    for (const [groupId, agg] of perGroup) {
+      if (!agg.replyToken) continue;
+      const { data: grp } = await sb
+        .from("line_vault_groups")
+        .select("notify_on_capture, notify_cooldown_minutes, last_notified_at, group_name")
+        .eq("line_group_id", groupId)
+        .maybeSingle();
+      if (!grp || grp.notify_on_capture === false) continue;
+
+      const cooldownMin = Number(grp.notify_cooldown_minutes ?? 3);
+      if (cooldownMin > 0 && grp.last_notified_at) {
+        const last = new Date(grp.last_notified_at).getTime();
+        if (Date.now() - last < cooldownMin * 60_000) continue; // stay silent this round
+      }
+
+      const parts: string[] = [];
+      if (agg.photos > 0) {
+        const albums = agg.imageSets.size;
+        if (albums > 0 && agg.photos > albums) {
+          parts.push(`🖼️ อัลบั้มรูป ${agg.photos} รูป`);
+        } else {
+          parts.push(`🖼️ รูปภาพ ${agg.photos} รูป`);
+        }
+      }
+      if (agg.videos > 0) parts.push(`🎬 วิดีโอ ${agg.videos}`);
+      if (agg.audios > 0) parts.push(`🎵 เสียง ${agg.audios}`);
+      if (agg.files > 0) parts.push(`📎 ไฟล์ ${agg.files}`);
+      if (agg.notes > 0) parts.push(`📝 โน้ต ${agg.notes}`);
+      if (!parts.length) continue;
+
+      const text = `✅ เก็บเข้าคลังแล้ว: ${parts.join(" • ")}`;
+      await replyMessage(token, agg.replyToken, text);
+      await sb.from("line_vault_groups")
+        .update({ last_notified_at: new Date().toISOString() })
+        .eq("line_group_id", groupId);
     }
 
     return new Response(JSON.stringify({ ok: true, processed: events.length }), {

@@ -44,6 +44,7 @@ type Group = {
   default_visibility: "everyone" | "department" | "admin";
   auto_capture: boolean;
   notify_on_capture?: boolean;
+  notify_cooldown_minutes?: number;
   notes: string | null;
 };
 
@@ -387,6 +388,19 @@ function GroupsManager({ groups, onChange }: { groups: Group[]; onChange: () => 
                   <SelectItem value="admin">แอดมิน</SelectItem>
                 </SelectContent>
               </Select>
+              <label className="flex items-center gap-1" title="ระยะเวลาขั้นต่ำระหว่างการตอบกลับในกลุ่ม (0 = ตอบทุกครั้ง)">
+                <span className="text-muted-foreground">ตอบกลับทุก</span>
+                <Input
+                  type="number" min={0} max={60}
+                  className="w-16 h-8"
+                  defaultValue={g.notify_cooldown_minutes ?? 3}
+                  onBlur={(e) => {
+                    const n = Math.max(0, Math.min(60, parseInt(e.target.value || "0", 10)));
+                    if (n !== (g.notify_cooldown_minutes ?? 3)) update(g.id, { notify_cooldown_minutes: n } as any);
+                  }}
+                />
+                <span className="text-muted-foreground">นาที</span>
+              </label>
               <Button size="sm" variant="ghost" className="ml-auto text-destructive" onClick={() => remove(g.id)}><Trash2 className="h-4 w-4" /></Button>
             </div>
             <div className="text-[11px] text-muted-foreground font-mono">Group ID: {g.line_group_id}</div>

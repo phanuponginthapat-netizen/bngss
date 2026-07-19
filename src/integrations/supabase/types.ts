@@ -8420,8 +8420,10 @@ export type Database = {
           department: Database["public"]["Enums"]["school_department"] | null
           group_name: string
           id: string
+          last_notified_at: string | null
           line_group_id: string
           notes: string | null
+          notify_cooldown_minutes: number
           notify_on_capture: boolean
           updated_at: string
         }
@@ -8432,8 +8434,10 @@ export type Database = {
           department?: Database["public"]["Enums"]["school_department"] | null
           group_name: string
           id?: string
+          last_notified_at?: string | null
           line_group_id: string
           notes?: string | null
+          notify_cooldown_minutes?: number
           notify_on_capture?: boolean
           updated_at?: string
         }
@@ -8444,8 +8448,10 @@ export type Database = {
           department?: Database["public"]["Enums"]["school_department"] | null
           group_name?: string
           id?: string
+          last_notified_at?: string | null
           line_group_id?: string
           notes?: string | null
+          notify_cooldown_minutes?: number
           notify_on_capture?: boolean
           updated_at?: string
         }
@@ -8460,6 +8466,7 @@ export type Database = {
           is_pinned: boolean
           kind: string
           line_group_id: string | null
+          line_image_set_id: string | null
           line_message_id: string | null
           line_sender_name: string | null
           line_sender_user_id: string | null
@@ -8484,6 +8491,7 @@ export type Database = {
           is_pinned?: boolean
           kind: string
           line_group_id?: string | null
+          line_image_set_id?: string | null
           line_message_id?: string | null
           line_sender_name?: string | null
           line_sender_user_id?: string | null
@@ -8508,6 +8516,7 @@ export type Database = {
           is_pinned?: boolean
           kind?: string
           line_group_id?: string | null
+          line_image_set_id?: string | null
           line_message_id?: string | null
           line_sender_name?: string | null
           line_sender_user_id?: string | null

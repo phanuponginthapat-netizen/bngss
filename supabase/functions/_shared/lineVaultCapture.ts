@@ -70,6 +70,7 @@ export async function captureLineGroupEvent(
       line_message_id: msg.id,
       line_sender_user_id: senderUid,
       line_sender_name: senderName,
+      line_image_set_id: msg?.imageSet?.id || null,
       department: grp.department || null,
       visibility: grp.default_visibility || "everyone",
     };
