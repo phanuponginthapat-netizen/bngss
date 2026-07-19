@@ -83,7 +83,7 @@ export function resolveAutofill(source: EFormAutofillSource | undefined, ctx: EF
     "school.phone": ctx.school?.phone ?? "",
     "director.name": ctx.director?.name ?? "",
     "director.title": ctx.director?.title ?? "",
-    "today": new Date().toISOString().slice(0, 10),
+    "today": todayBangkok(),
     "today_thai": thaiDate(new Date()),
   };
   return map[source] ?? "";

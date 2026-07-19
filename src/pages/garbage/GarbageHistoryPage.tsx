@@ -34,7 +34,7 @@ type Row = {
 };
 
 const today = () => todayBangkok();
-const daysAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
+const daysAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return bkkDateISO(d); };
 
 export default function GarbageHistoryPage() {
   const [type, setType] = useState<"all" | "deposit" | "redeem">("all");

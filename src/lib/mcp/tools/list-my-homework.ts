@@ -28,7 +28,7 @@ export default defineTool({
       .select("id, title, description, subject_id, due_date, classroom_id, created_at")
       .order("due_date", { ascending: true })
       .limit(limit);
-    if (only_open) q = q.gte("due_date", new Date().toISOString().slice(0, 10));
+    if (only_open) q = q.gte("due_date", todayBangkok());
     const { data, error } = await q;
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     return {

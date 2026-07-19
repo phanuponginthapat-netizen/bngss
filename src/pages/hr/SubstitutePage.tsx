@@ -36,7 +36,7 @@ function getDatesBetween(start: string, end: string): string[] {
   while (cur <= last) {
     const dow = cur.getDay();
     if (dow >= 1 && dow <= 5) {
-      dates.push(cur.toISOString().split("T")[0]);
+      dates.push(bkkDateISO(cur));
     }
     cur.setDate(cur.getDate() + 1);
   }

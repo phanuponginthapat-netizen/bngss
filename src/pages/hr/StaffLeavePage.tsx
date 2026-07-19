@@ -235,7 +235,7 @@ const StaffLeavePage = () => {
           rows.push({
             original_teacher: person ? `${(person as any).first_name} ${(person as any).last_name}` : "",
             substitute_teacher: actingTeacherName,
-            teaching_date: d.toISOString().slice(0, 10),
+            teaching_date: bkkDateISO(d),
             period: "ทั้งวัน",
             status: actingTeacherName ? "confirmed" : "pending",
             notes: `อัตโนมัติจากใบลา (${(record as any).start_date} - ${(record as any).end_date})`,

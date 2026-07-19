@@ -34,7 +34,7 @@ export function AttendanceReportTab({
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     d.setDate(1);
-    return d.toISOString().split("T")[0];
+    return bkkDateISO(d);
   });
   const [endDate, setEndDate] = useState(todayBangkok());
 

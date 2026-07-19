@@ -21,7 +21,7 @@ type Loan = {
 };
 
 const todayISO = () => todayBangkok();
-const daysAgoISO = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
+const daysAgoISO = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return bkkDateISO(d); };
 
 export default function IctLoanReportPage() {
   const [from, setFrom] = useState(daysAgoISO(30));

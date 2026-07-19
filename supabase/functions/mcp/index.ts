@@ -163,7 +163,7 @@ var list_my_homework_default = defineTool5({
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
     let q = sb3(ctx).from("homework_assignments").select("id, title, description, subject_id, due_date, classroom_id, created_at").order("due_date", { ascending: true }).limit(limit);
-    if (only_open) q = q.gte("due_date", (/* @__PURE__ */ new Date()).toISOString().slice(0, 10));
+    if (only_open) q = q.gte("due_date", todayBangkok());
     const { data, error } = await q;
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     return {

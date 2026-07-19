@@ -42,7 +42,7 @@ export default function IctLoanStationPage() {
   const [notes, setNotes] = useState("");
   const [dueDate, setDueDate] = useState<string>(() => {
     const d = new Date(); d.setDate(d.getDate() + 7);
-    return d.toISOString().slice(0, 10);
+    return bkkDateISO(d);
   });
   const [busy, setBusy] = useState(false);
   const [recent, setRecent] = useState<Loan[]>([]);
@@ -60,7 +60,7 @@ export default function IctLoanStationPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [availableDevices, setAvailableDevices] = useState<Device[]>([]);
-  const [bulkDate, setBulkDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [bulkDate, setBulkDate] = useState<string>(() => todayBangkok());
   const [teacherSchedules, setTeacherSchedules] = useState<any[]>([]);
   const [bulkScheduleId, setBulkScheduleId] = useState<string>("");
   const [personnelList, setPersonnelList] = useState<Personnel[]>([]);

@@ -20,7 +20,7 @@ function ymToRange(ym: string) {
   const [y, m] = ym.split("-").map(Number);
   const start = new Date(Date.UTC(y, m - 1, 1));
   const end = new Date(Date.UTC(y, m, 0));
-  const fmt = (d: Date) => d.toISOString().split("T")[0];
+  const fmt = (d: Date) => bkkDateISO(d);
   return { start: fmt(start), end: fmt(end) };
 }
 

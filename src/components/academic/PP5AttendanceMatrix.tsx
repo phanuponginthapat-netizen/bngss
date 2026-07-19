@@ -112,7 +112,7 @@ const PP5AttendanceMatrix = ({
       const day = cur.getDay();
       if (day !== 0 && day !== 6) { // skip weekends
         for (let h = 0; h < hoursPerWeek && added < total; h++) {
-          result.push(cur.toISOString().slice(0, 10));
+          result.push(bkkDateISO(cur));
           added++;
         }
         // move +7 days for next week if filled hoursPerWeek for this week

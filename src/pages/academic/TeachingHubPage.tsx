@@ -94,7 +94,7 @@ export default function TeachingHubPage() {
     const totalHours = plans.reduce((s: number, p: any) => s + (p.hours || 0), 0);
     const approvalRate = total ? Math.round((approved / total) * 100) : 0;
     const logCount = logs.length;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayBangkok();
     const logsToday = logs.filter((l: any) => l.teaching_date === today).length;
     const paCount = pa.length;
     const paApproved = pa.filter((p: any) => p.status === "approved" || p.status === "evaluated").length;

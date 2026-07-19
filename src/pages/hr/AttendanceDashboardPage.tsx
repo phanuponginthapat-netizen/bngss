@@ -29,7 +29,7 @@ const todayIso = () => todayBangkok();
 const monthAgo = () => {
   const d = new Date();
   d.setDate(d.getDate() - 30);
-  return d.toISOString().split("T")[0];
+  return bkkDateISO(d);
 };
 
 export default function AttendanceDashboardPage() {

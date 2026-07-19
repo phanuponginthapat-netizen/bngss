@@ -70,7 +70,7 @@ const DirectorDashboard = () => {
         supabase.from("documents").select("id, status"),
       ]);
 
-      const today = new Date().toISOString().split("T")[0];
+      const today = todayBangkok();
       const todayRows = attendance.data?.filter(a => a.attendance_date === today) || [];
       const totalAtt = todayRows.length;
       const present = todayRows.filter(a => a.status === "present").length;

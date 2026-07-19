@@ -29,7 +29,7 @@ function weekRange(offset: number) {
   for (let i = 0; i < 7; i++) { const d = new Date(monday); d.setDate(monday.getDate() + i); days.push(d); }
   return days;
 }
-const iso = (d: Date) => d.toISOString().slice(0, 10);
+const iso = (d: Date) => bkkDateISO(d);
 
 export default function TeachingLogbookPage() {
   const { session } = useAuthSession();
