@@ -184,7 +184,15 @@ const FirstLoginSetup = ({ userId, onComplete }: FirstLoginSetupProps) => {
       toast.error(lang === "th" ? "กรุณากรอกชื่อและนามสกุล" : "Please enter first and last name");
       return;
     }
+    if (nationalId.trim()) {
+      const { isValidThaiNationalId } = await import("@/lib/formValidation");
+      if (!isValidThaiNationalId(nationalId.trim())) {
+        toast.error(lang === "th" ? "เลขบัตรประชาชนไม่ถูกต้อง (checksum ไม่ผ่าน)" : "Invalid Thai National ID (checksum failed)");
+        return;
+      }
+    }
     setLoading(true);
+
 
     // Update profile
     const { error } = await supabase
