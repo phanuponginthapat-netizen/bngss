@@ -52,7 +52,7 @@ export default function ObservationAccessPage() {
   const copy = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      swal.toast("success", `คัดลอก${label}แล้ว`);
+      swal.toast.success(`คัดลอก${label}แล้ว`);
     } catch {
       swal.error("คัดลอกไม่สำเร็จ", "กรุณาคัดลอกด้วยตนเอง");
     }
