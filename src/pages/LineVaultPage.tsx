@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { swal } from "@/lib/swal";
-import { Image as ImageIcon, FileText, StickyNote, Download, Trash2, Search, Upload, Users, Building2, Lock, RefreshCw } from "lucide-react";
+import { Image as ImageIcon, FileText, StickyNote, Download, Trash2, Search, Upload, Users, Building2, Lock, RefreshCw, Settings as SettingsIcon, Copy, ExternalLink, CheckCircle2, XCircle, KeyRound } from "lucide-react";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 
@@ -68,7 +68,7 @@ function formatBytes(n: number | null) {
 export default function LineVaultPage() {
   const { role } = useUserRole();
   const isAdmin = role === "admin" || role === "director";
-  const [tab, setTab] = useState<"all" | "photo" | "file" | "note" | "manage">("all");
+  const [tab, setTab] = useState<"all" | "photo" | "file" | "note" | "manage" | "settings">("all");
   const [items, setItems] = useState<Item[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
@@ -163,6 +163,7 @@ export default function LineVaultPage() {
           <TabsTrigger value="file"><FileText className="h-4 w-4 mr-1" />ไฟล์</TabsTrigger>
           <TabsTrigger value="note"><StickyNote className="h-4 w-4 mr-1" />โน้ต</TabsTrigger>
           {isAdmin && <TabsTrigger value="manage"><Users className="h-4 w-4 mr-1" />จัดการกลุ่ม</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="settings"><SettingsIcon className="h-4 w-4 mr-1" />ตั้งค่า Vault OA</TabsTrigger>}
         </TabsList>
 
         <div className="mt-4">
@@ -179,6 +180,11 @@ export default function LineVaultPage() {
           {isAdmin && (
             <TabsContent value="manage" className="m-0">
               <GroupsManager groups={groups} onChange={load} />
+            </TabsContent>
+          )}
+          {isAdmin && (
+            <TabsContent value="settings" className="m-0">
+              <VaultSettings />
             </TabsContent>
           )}
         </div>
@@ -381,5 +387,101 @@ function GroupsManager({ groups, onChange }: { groups: Group[]; onChange: () => 
         ))}
       </CardContent>
     </Card>
+  );
+}
+
+function VaultSettings() {
+  const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || "";
+  const webhookUrl = `${SUPABASE_URL}/functions/v1/line-vault-webhook`;
+  const [checking, setChecking] = useState(false);
+  const [status, setStatus] = useState<{ token: boolean; webhook_ok?: boolean; error?: string; groups?: number; items?: number } | null>(null);
+
+  async function copy(text: string) {
+    await navigator.clipboard.writeText(text);
+    toast.success("คัดลอกแล้ว");
+  }
+
+  async function checkStatus() {
+    setChecking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("line-vault-webhook", {
+        body: { __ping: true },
+      });
+      const [{ count: groups }, { count: items }] = await Promise.all([
+        supabase.from("line_vault_groups").select("*", { count: "exact", head: true }),
+        supabase.from("line_vault_items").select("*", { count: "exact", head: true }),
+      ]);
+      setStatus({
+        token: !!(data as any)?.token_configured,
+        webhook_ok: !error,
+        error: error?.message,
+        groups: groups || 0,
+        items: items || 0,
+      });
+    } catch (e: any) {
+      setStatus({ token: false, webhook_ok: false, error: e.message });
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  useEffect(() => { checkStatus(); /* eslint-disable-next-line */ }, []);
+
+  return (
+    <div className="space-y-4 max-w-3xl">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5" />LINE OA แยกสำหรับ Vault</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            ระบบนี้ใช้ LINE Official Account <b>คนละตัว</b>กับแชทบอทของระบบ
+            เพื่อไม่ให้ปะปนกัน — ให้สร้าง OA ใหม่แล้วนำ Access Token มาตั้งเป็น secret ชื่อ
+            <code className="mx-1 px-1.5 py-0.5 rounded bg-muted text-xs">LINE_VAULT_CHANNEL_ACCESS_TOKEN</code>
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2 text-sm">
+            {status?.token ? <><CheckCircle2 className="h-4 w-4 text-green-600" /><span>ตั้งค่า Access Token แล้ว</span></> : <><XCircle className="h-4 w-4 text-destructive" /><span>ยังไม่ได้ตั้ง Access Token</span></>}
+            <Button size="sm" variant="ghost" className="ml-auto" onClick={checkStatus} disabled={checking}>
+              <RefreshCw className={`h-3.5 w-3.5 mr-1 ${checking ? "animate-spin" : ""}`} />ตรวจสอบ
+            </Button>
+          </div>
+          {status && (
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2 rounded bg-muted"><div className="text-muted-foreground">กลุ่มที่เชื่อม</div><div className="text-lg font-semibold">{status.groups ?? "-"}</div></div>
+              <div className="p-2 rounded bg-muted"><div className="text-muted-foreground">รายการในคลัง</div><div className="text-lg font-semibold">{status.items ?? "-"}</div></div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Webhook URL (ตั้งใน LINE Developers ของ OA ตัวใหม่)</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex gap-2">
+            <Input readOnly value={webhookUrl} className="font-mono text-xs" />
+            <Button variant="outline" size="icon" onClick={() => copy(webhookUrl)}><Copy className="h-4 w-4" /></Button>
+          </div>
+          <p className="text-xs text-muted-foreground">คัดลอก URL นี้ไปวางในช่อง Webhook URL ของ Messaging API แล้วเปิด "Use webhook"</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>ขั้นตอนติดตั้ง</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <ol className="list-decimal pl-5 space-y-2">
+            <li>เข้า <a href="https://developers.line.biz/console/" target="_blank" rel="noreferrer" className="text-primary underline inline-flex items-center gap-1">LINE Developers Console <ExternalLink className="h-3 w-3" /></a> → สร้าง Provider (ถ้ายังไม่มี) แล้วสร้าง <b>Messaging API channel ใหม่</b> (คนละตัวกับแชทบอทของระบบ)</li>
+            <li>ในแท็บ <b>Messaging API</b> ของ channel ใหม่ → กด <b>Issue</b> Channel Access Token → คัดลอกค่าที่ได้</li>
+            <li>นำ token มาตั้งเป็น secret ในระบบชื่อ <code className="px-1.5 py-0.5 rounded bg-muted text-xs">LINE_VAULT_CHANNEL_ACCESS_TOKEN</code> (หน้า Admin → Secrets)</li>
+            <li>ใน channel เดิม → เปิด <b>Allow bot to join group chats</b> และปิด <b>Auto-reply</b>/<b>Greeting</b> (ไม่ต้องใช้)</li>
+            <li>วาง Webhook URL ด้านบน → เปิดสวิตช์ <b>Use webhook</b></li>
+            <li>เพิ่มเพื่อน OA ตัวใหม่แล้วเชิญเข้ากลุ่มที่ต้องการเก็บไฟล์</li>
+            <li>กลับมาที่แท็บ <b>จัดการกลุ่ม</b> — กลุ่มจะโผล่ขึ้นอัตโนมัติ ตั้งชื่อและเปิด "จับอัตโนมัติ" เพื่อเริ่มเก็บ</li>
+          </ol>
+          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs">
+            <b>หมายเหตุ:</b> LINE OA จะเห็นเฉพาะข้อความที่ส่ง<b>หลังจาก</b>ถูกเชิญเข้ากลุ่ม — ไฟล์เก่าก่อนหน้าดึงย้อนหลังไม่ได้
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
