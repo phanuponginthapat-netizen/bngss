@@ -39,7 +39,9 @@ interface Profile {
   nickname: string | null;
   phone: string | null;
   avatar_url: string | null;
+  avatar_full_url?: string | null;
   cover_photo_url: string | null;
+  cover_thumb_url?: string | null;
   bio: string | null;
   date_of_birth: string | null;
   gender: string | null;
