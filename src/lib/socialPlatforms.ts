@@ -177,9 +177,12 @@ export function getEmbedUrl(link: Pick<SocialLink, "platform" | "url">): string 
     }
 
     if (link.platform === "tiktok") {
-      // /@user/video/<id>
+      // /@user/video/<id>  → single video player
       const m = path.match(/\/video\/(\d+)/);
       if (m) return `https://www.tiktok.com/embed/v2/${m[1]}`;
+      // /@username  → creator profile embed
+      const user = path.match(/^\/@([^/?#]+)/);
+      if (user) return `https://www.tiktok.com/embed/@${user[1]}`;
       return null;
     }
   } catch {
