@@ -51,6 +51,30 @@ function pickParam(url: URL, body: Record<string, unknown>, names: string[]) {
   return null;
 }
 
+async function signState(userId: string, returnUrl: string, expiresAt: string) {
+  const secret = Deno.env.get("CRON_SECRET") ?? Deno.env.get("LOVABLE_API_KEY") ?? "";
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(`${userId}:${returnUrl}:${expiresAt}`),
+  );
+  return Array.from(new Uint8Array(signature)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function timingSafeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 function sanitizeReturnUrl(value: string | null, fallbackOrigin: string) {
   const fallback = `${fallbackOrigin}/dashboard/my-drive`;
   if (!value) return fallback;
@@ -76,6 +100,8 @@ Deno.serve(async (req) => {
   const externalUserId = pickParam(url, body, ["external_user_id", "provider_user_id", "provider_account_id"]);
   const errorParam = pickParam(url, body, ["error", "error_code"]);
   const returnTo = pickParam(url, body, ["return_to", "return_url"]);
+  const stateExpiresAt = pickParam(url, body, ["state_exp"]);
+  const stateSignature = pickParam(url, body, ["state_sig"]);
 
   const appOrigin = req.headers.get("origin") ?? Deno.env.get("APP_URL") ?? "https://bngss.lovable.app";
   const back = (msg: string) => {
@@ -87,6 +113,11 @@ Deno.serve(async (req) => {
   if (errorParam) return back(`error:${errorParam}`);
   if (!connectionKey) return back("error:no_key");
   if (!appUserId) return back("error:no_user");
+  if (!returnTo || !stateExpiresAt || !stateSignature || Number(stateExpiresAt) < Date.now()) {
+    return back("error:bad_state");
+  }
+  const expectedSignature = await signState(appUserId, returnTo, stateExpiresAt);
+  if (!timingSafeEqual(expectedSignature, stateSignature)) return back("error:bad_state");
 
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
