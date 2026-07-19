@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { getSecretGuide } from "@/lib/secretGuides";
 import { SECRET_PRESET_CATEGORIES, type SecretPreset } from "@/lib/secretPresets";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sparkles, ExternalLink as ExtLinkIcon } from "lucide-react";
 
 const CATEGORY_LABEL: Record<string, { th: string; en: string }> = {
   social: { th: "Social", en: "Social" },
@@ -272,6 +273,39 @@ export default function SecretsManagementPage() {
               </Select>
             </div>
           </div>
+
+          {/* Guide + free-tier hint for the selected preset */}
+          {(() => {
+            const p = SECRET_PRESET_CATEGORIES
+              .find((c) => c.id === presetCat)?.presets
+              .find((pp) => pp.key === presetKey);
+            const g = newKey ? getSecretGuide(newKey) : null;
+            if (!p && !g) return null;
+            return (
+              <div className="rounded-md border bg-muted/40 p-3 space-y-2 text-sm">
+                {p?.freeTier && (
+                  <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Free tier: {p.freeTier}</span>
+                  </div>
+                )}
+                {g && (
+                  <>
+                    <div className="font-semibold">{g.title}</div>
+                    <ol className="list-decimal list-inside space-y-1 text-xs text-muted-foreground">
+                      {g.steps.map((st, i) => <li key={i}>{st}</li>)}
+                    </ol>
+                    {g.url && (
+                      <a href={g.url} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                        <ExtLinkIcon className="h-3 w-3" /> เปิดหน้าเว็บสำหรับขอ key
+                      </a>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Editable fields (auto-filled from preset, editable if custom) */}
           <div className="grid md:grid-cols-3 gap-2">
