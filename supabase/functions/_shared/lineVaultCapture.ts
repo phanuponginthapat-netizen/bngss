@@ -121,9 +121,17 @@ export async function captureLineGroupEvent(
 
       // Try Google Drive first
       try {
-        const { ensureFolderPath, uploadFile } = await import("./googleDrive.ts");
+        const { ensureFolderPath, ensureFolder, uploadFile } = await import("./googleDrive.ts");
         const folderName = (grp.group_name || `group-${groupId.slice(0, 8)}`).replace(/[\\/]/g, "-");
-        const parent = await ensureFolderPath(["LineVault", String(y), folderName, m]);
+        let parent: string;
+        if (grp.drive_root_folder_id) {
+          // Per-group custom Drive root -> create {Year}/{Month} under it
+          const yearFolder = await ensureFolder(String(y), grp.drive_root_folder_id);
+          parent = await ensureFolder(m, yearFolder);
+        } else {
+          // Default: LineVault/{Year}/{GroupName}/{Month} under Drive root
+          parent = await ensureFolderPath(["LineVault", String(y), folderName, m]);
+        }
         const uploaded = await uploadFile(`${msg.id}.${ext}`, content.mime, content.data, parent);
         driveFileId = uploaded.id;
         driveWebViewLink = uploaded.webViewLink || null;
