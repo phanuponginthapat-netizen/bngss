@@ -1789,6 +1789,16 @@ serve(async (req) => {
 
       if (event.replyToken && uid) rememberReplyToken(event.replyToken, uid);
       try {
+        // Group / room event → LINE Vault capture (photo/file/note) then skip user flows
+        if (event.source?.type === "group" || event.source?.type === "room") {
+          if (event.type === "message") {
+            await captureLineGroupEvent(sb, token, event, {
+              downloadLineContent,
+              fetchLineProfile: fetchLineGroupMemberProfile,
+            });
+          }
+          continue;
+        }
         if (event.type === "message" && event.message?.type === "text") {
           await handleTextMessage(sb, token, event.replyToken, event.message.text, uid, settings);
         } else if (event.type === "message" && ["image","file","video"].includes(event.message?.type)) {
