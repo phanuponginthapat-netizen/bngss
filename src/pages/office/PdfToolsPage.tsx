@@ -103,7 +103,7 @@ export default function PdfToolsPage() {
 
   const deletePage = async () => {
     if (!pdfBytes || numPages <= 1) return;
-    if (!(await swal.confirm("ลบหน้านี้?", `หน้า ${pageIdx + 1}`))) return;
+    if (!(await swal.confirm({ title: "ลบหน้านี้?", text: `หน้า ${pageIdx + 1}`, confirmText: "ลบ" }))) return;
     const src = await PDFDocument.load(pdfBytes);
     src.removePage(pageIdx);
     setPdfBytes(await src.save());
