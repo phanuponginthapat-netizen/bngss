@@ -40,6 +40,7 @@ Deno.serve(async (req) => {
     const functionUrl = new URL(req.url);
     const finishUrl = new URL(`${functionUrl.origin}/functions/v1/gdrive-connect-finish`);
     finishUrl.searchParams.set("return_to", returnUrl);
+    finishUrl.searchParams.set("lovable_app_user_id", user.id);
 
     // Ask gateway to start OAuth authorization for this app user.
     // Body/response shape mirrors documented gateway conventions.

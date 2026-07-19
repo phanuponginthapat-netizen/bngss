@@ -11,10 +11,13 @@ Deno.serve(async (req) => {
   const connectionKey = url.searchParams.get("connection_key")
     ?? url.searchParams.get("app_user_connection_key")
     ?? url.searchParams.get("credential_key");
-  const externalUserId = url.searchParams.get("external_user_id")
+  const appUserId = url.searchParams.get("lovable_app_user_id")
     ?? url.searchParams.get("app_user_id")
     ?? url.searchParams.get("user_id")
     ?? "";
+  const externalUserId = url.searchParams.get("external_user_id")
+    ?? url.searchParams.get("provider_user_id")
+    ?? null;
   const errorParam = url.searchParams.get("error");
   const returnTo = url.searchParams.get("return_to") ?? "/my-drive";
 
@@ -27,7 +30,7 @@ Deno.serve(async (req) => {
 
   if (errorParam) return back(`error:${errorParam}`);
   if (!connectionKey) return back("error:no_key");
-  if (!externalUserId) return back("error:no_user");
+  if (!appUserId) return back("error:no_user");
 
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -52,10 +55,10 @@ Deno.serve(async (req) => {
   } catch (_) { /* non-fatal */ }
 
   const { error } = await admin.from("app_user_connections").upsert({
-    user_id: externalUserId,
+    user_id: appUserId,
     connector_id: "google_drive",
     connection_key: connectionKey,
-    external_user_id: externalUserId,
+    external_user_id: externalUserId ?? appUserId,
     account_email: email,
     account_name: name,
     connected_at: new Date().toISOString(),
