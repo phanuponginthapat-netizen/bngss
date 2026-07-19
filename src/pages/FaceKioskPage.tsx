@@ -597,55 +597,54 @@ const FaceKioskPage = () => {
     const processCode = async (raw: string, tNow: number) => {
       if (!raw || raw.length < 3) return;
       if (/[\x00-\x1f]/.test(raw)) return;
-      let code = raw;
-      try {
-        if (/^https?:\/\//i.test(raw)) {
-          const u = new URL(raw);
-          const q = u.searchParams.get("code") || u.searchParams.get("sid") || u.searchParams.get("student");
-          if (q) code = q;
-          else {
-            const parts = u.pathname.split("/").filter(Boolean);
-            if (parts.length) code = parts[parts.length - 1];
-          }
-        } else {
-          const m = raw.match(/(?:code|student|sid)[=/:]([A-Za-z0-9_-]+)/i);
-          if (m) code = m[1];
-        }
-      } catch {}
-      code = code.trim();
-      if (!code || code.length < 3) return;
 
-      const lastQr = qrCooldownRef.current.get(code) || 0;
+      // ใช้ resolver กลาง — รองรับ student_code, UUID, URL /p/<auth_user_id>, /sdq-assess/<id>, ?code=xxx
+      const { extractScannedCode, resolveScannedStudent } = await import("@/lib/resolveScannedStudent");
+      const extracted = (extractScannedCode(raw) || raw).trim();
+      if (!extracted || extracted.length < 3) return;
+
+      // cooldown key ใช้ค่าที่ extract แล้ว เพื่อไม่ให้สแกน QR เดิมซ้ำถี่ๆ
+      const lastQr = qrCooldownRef.current.get(extracted) || 0;
       if (tNow - lastQr < 3000) return;
-      qrCooldownRef.current.set(code, tNow);
+      qrCooldownRef.current.set(extracted, tNow);
 
-      let student = codeMap.get(code);
+      // 1) ลอง match student_code ใน map ที่ preload ไว้ (เร็วสุด)
+      let student = codeMap.get(extracted);
+
+      // 2) ถ้าไม่เจอ ใช้ resolver ที่รองรับ URL/UUID
       if (!student) {
-        const { data } = await supabase
-          .from("students")
-          .select("id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name)")
-          .eq("student_code", code)
-          .maybeSingle();
-        if (!data) {
-          if (tNow - unknownBeepRef.current > 4000) {
-            unknownBeepRef.current = tNow;
-            playUnknownSound();
-            toast.error(`QR ไม่พบรหัส ${code} ในระบบ`, { duration: 1800 });
+        const resolved = await resolveScannedStudent(raw);
+        if (resolved) {
+          const { data } = await supabase
+            .from("students")
+            .select("id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name)")
+            .eq("id", resolved.id)
+            .maybeSingle();
+          if (data) {
+            const cls = (data as any).classrooms ? `${(data as any).classrooms.grade_level || ""}/${(data as any).classrooms.name || ""}` : "-";
+            student = {
+              studentId: (data as any).id,
+              studentCode: (data as any).student_code || extracted,
+              name: `${(data as any).prefix || ""}${(data as any).first_name} ${(data as any).last_name}`.trim(),
+              classroom: cls,
+              avatar: (data as any).photo_url,
+            };
           }
-          return;
         }
-        const cls = (data as any).classrooms ? `${(data as any).classrooms.grade_level || ""}/${(data as any).classrooms.name || ""}` : "-";
-        student = {
-          studentId: (data as any).id,
-          studentCode: (data as any).student_code || code,
-          name: `${(data as any).prefix || ""}${(data as any).first_name} ${(data as any).last_name}`.trim(),
-          classroom: cls,
-          avatar: (data as any).photo_url,
-        };
+      }
+
+      if (!student) {
+        if (tNow - unknownBeepRef.current > 4000) {
+          unknownBeepRef.current = tNow;
+          playUnknownSound();
+          toast.error(`QR ไม่พบข้อมูลในระบบ (${extracted.slice(0, 20)})`, { duration: 1800 });
+        }
+        return;
       }
 
       await recordScan(student.studentId, student.studentCode, student.name, student.classroom, student.avatar || null, 1, undefined);
     };
+
 
     // ตรวจ CPU: navigator.hardwareConcurrency ≤ 4 = low-end (Atom/Celeron/RPi) → ลด passes
     const isLowEnd = (navigator.hardwareConcurrency || 4) <= 4;
