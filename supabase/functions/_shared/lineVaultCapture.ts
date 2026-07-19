@@ -178,3 +178,35 @@ export async function fetchLineGroupMemberProfile(token: string, groupId: string
     return await res.json();
   } catch { return null; }
 }
+
+export async function fetchLineGroupSummary(token: string, groupId: string) {
+  try {
+    const res = await fetch(`https://api.line.me/v2/bot/group/${groupId}/summary`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    return await res.json() as { groupId: string; groupName?: string; pictureUrl?: string };
+  } catch { return null; }
+}
+
+// Register a group from a non-message event (join / memberJoined).
+// Returns { created, group } where group is the row.
+export async function registerLineGroupFromJoin(sb: any, token: string, groupId: string) {
+  const { data: existing } = await sb
+    .from("line_vault_groups").select("*").eq("line_group_id", groupId).maybeSingle();
+  if (existing) return { created: false, group: existing };
+  let groupName = `กลุ่มใหม่ (${groupId.slice(0, 8)}...)`;
+  try {
+    const summary = await fetchLineGroupSummary(token, groupId);
+    if (summary?.groupName) groupName = summary.groupName;
+  } catch (_) { /* ignore */ }
+  const { data: inserted, error } = await sb.from("line_vault_groups").insert({
+    line_group_id: groupId,
+    group_name: groupName,
+    auto_capture: true,
+    default_visibility: "everyone",
+    notes: "บอทถูกเชิญเข้ากลุ่ม",
+  }).select("*").maybeSingle();
+  if (error) console.error("[registerLineGroupFromJoin]", error.message);
+  return { created: true, group: inserted };
+}
