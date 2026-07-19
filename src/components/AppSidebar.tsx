@@ -182,6 +182,14 @@ export function AppSidebar() {
         { to: "/dashboard/academic/calendar", icon: CalendarDays, label: L("ปฏิทินโรงเรียน", "Calendar"), color: "text-teal-400" },
       ],
     },
+    {
+      label: L("เครื่องมือ", "Tools"),
+      icon: FolderOpen,
+      items: [
+        { to: "/dashboard/my-drive", icon: FolderOpen, label: L("Google Drive ของฉัน", "My Drive"), color: "text-blue-400" },
+        { to: "/dashboard/office", icon: FileText, label: L("ชุดเอกสาร Office", "Office Suite"), color: "text-indigo-400" },
+      ],
+    },
   ]);
 
   const parentSidebar = renderCompactSidebar([
