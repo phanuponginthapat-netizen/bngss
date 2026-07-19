@@ -43,6 +43,7 @@ type Group = {
   department: string | null;
   default_visibility: "everyone" | "department" | "admin";
   auto_capture: boolean;
+  notify_on_capture?: boolean;
   notes: string | null;
 };
 
@@ -365,9 +366,15 @@ function GroupsManager({ groups, onChange }: { groups: Group[]; onChange: () => 
           <div key={g.id} className="border rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <Input className="max-w-sm" defaultValue={g.group_name} onBlur={(e) => e.target.value !== g.group_name && update(g.id, { group_name: e.target.value })} />
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">จับอัตโนมัติ</span>
-                <Switch checked={g.auto_capture} onCheckedChange={(v) => update(g.id, { auto_capture: v })} />
+              <div className="flex items-center gap-3 text-sm flex-wrap">
+                <label className="flex items-center gap-2">
+                  <span className="text-muted-foreground">จับอัตโนมัติ</span>
+                  <Switch checked={g.auto_capture} onCheckedChange={(v) => update(g.id, { auto_capture: v })} />
+                </label>
+                <label className="flex items-center gap-2" title="ตอบกลับในกลุ่มหลังจัดเก็บ (ใช้ reply token — ไม่เสียโควตา push)">
+                  <span className="text-muted-foreground">แจ้งกลับในกลุ่ม (ฟรี)</span>
+                  <Switch checked={g.notify_on_capture !== false} onCheckedChange={(v) => update(g.id, { notify_on_capture: v } as any)} />
+                </label>
               </div>
             </div>
             <div className="flex flex-wrap gap-2 items-center text-sm">

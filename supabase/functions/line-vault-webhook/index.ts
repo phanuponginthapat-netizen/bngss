@@ -22,6 +22,19 @@ async function downloadLineContent(token: string, messageId: string) {
   } catch (e) { console.error("downloadLineContent", e); return null; }
 }
 
+// Reply API is FREE — does not consume push message quota.
+// Each replyToken is single-use and valid ~1 minute.
+async function replyMessage(token: string, replyToken: string, text: string) {
+  try {
+    const res = await fetch("https://api.line.me/v2/bot/message/reply", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ replyToken, messages: [{ type: "text", text }] }),
+    });
+    if (!res.ok) console.error("LINE reply fail", res.status, await res.text());
+  } catch (e) { console.error("replyMessage", e); }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -55,10 +68,28 @@ Deno.serve(async (req) => {
       try {
         if (event.type !== "message") continue;
         if (event.source?.type !== "group" && event.source?.type !== "room") continue;
-        await captureLineGroupEvent(sb, token, event, {
+        const result = await captureLineGroupEvent(sb, token, event, {
           downloadLineContent,
           fetchLineProfile: fetchLineGroupMemberProfile,
         });
+
+        // Free reply-token confirmation (does NOT consume push quota)
+        if (result?.captured && event.replyToken) {
+          const groupId = event.source.groupId || event.source.roomId;
+          const { data: grp } = await sb
+            .from("line_vault_groups")
+            .select("notify_on_capture, group_name")
+            .eq("line_group_id", groupId)
+            .maybeSingle();
+          if (grp?.notify_on_capture !== false) {
+            const kind = event.message?.type === "text" ? "📝 บันทึกโน้ต"
+              : event.message?.type === "image" ? "🖼️ บันทึกรูปภาพ"
+              : event.message?.type === "video" ? "🎬 บันทึกวิดีโอ"
+              : event.message?.type === "audio" ? "🎵 บันทึกเสียง"
+              : "📎 บันทึกไฟล์";
+            await replyMessage(token, event.replyToken, `${kind}เข้าคลังแล้ว ✅\n(สามารถเข้าดู/ดาวน์โหลดได้ในระบบ)`);
+          }
+        }
       } catch (e) {
         console.error("vault event error", e);
       }
