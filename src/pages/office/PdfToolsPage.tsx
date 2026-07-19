@@ -87,7 +87,7 @@ export default function PdfToolsPage() {
       setPdfBytes(bytes);
       setAnnots([]);
       setPageIdx(0);
-      swal.toast("รวมไฟล์แล้ว");
+      swal.toast.success("รวมไฟล์แล้ว");
     } catch (e: any) {
       swal.error("รวมไฟล์ไม่สำเร็จ", String(e?.message ?? e));
     }
@@ -133,7 +133,7 @@ export default function PdfToolsPage() {
   const sigClear = () => sigCanvasRef.current?.getContext("2d")?.clearRect(0, 0, 400, 150);
   const sigSave = () => {
     setSigDraft(sigCanvasRef.current?.toDataURL("image/png") ?? null);
-    swal.toast("บันทึกลายเซ็นแล้ว");
+    swal.toast.success("บันทึกลายเซ็นแล้ว");
   };
 
   const buildPdf = async (): Promise<Blob> => {

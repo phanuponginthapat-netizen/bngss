@@ -26,11 +26,11 @@ export function SaveToDriveButton({ fileId, fileName, defaultName, mimeType, get
       const data = await getBlob();
       if (asNew || !fileId) {
         const created = await createFile({ name, mimeType, data });
-        swal.toast("บันทึกลง Google Drive แล้ว");
+        swal.toast.success("บันทึกลง Google Drive แล้ว");
         onSaved?.(created.id, created.name);
       } else {
         await updateFileContent(fileId, data, mimeType);
-        swal.toast("บันทึกทับไฟล์เดิมแล้ว");
+        swal.toast.success("บันทึกทับไฟล์เดิมแล้ว");
         onSaved?.(fileId, name);
       }
       setOpen(false);
