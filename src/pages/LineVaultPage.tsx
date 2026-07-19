@@ -552,6 +552,42 @@ function GroupsManager({ groups, onChange }: { groups: Group[]; onChange: () => 
               </label>
               <Button size="sm" variant="ghost" className="ml-auto text-destructive" onClick={() => remove(g.id)}><Trash2 className="h-4 w-4" /></Button>
             </div>
+            <div className="pt-2 border-t space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground flex items-center gap-1">
+                📁 โฟลเดอร์ Google Drive ปลายทาง (วางลิงก์โฟลเดอร์)
+              </Label>
+              <div className="flex gap-2 items-center">
+                <Input
+                  className="text-xs font-mono"
+                  placeholder="https://drive.google.com/drive/folders/xxxxx  หรือเว้นว่างเพื่อใช้ค่าเริ่มต้น LineVault/{ปี}/{ชื่อกลุ่ม}/{เดือน}"
+                  defaultValue={g.drive_root_url || ""}
+                  onBlur={async (e) => {
+                    const raw = e.target.value.trim();
+                    if (raw === (g.drive_root_url || "")) return;
+                    if (!raw) {
+                      await update(g.id, { drive_root_url: null, drive_root_folder_id: null } as any);
+                      return;
+                    }
+                    const id = parseDriveFolderId(raw);
+                    if (!id) return swal.error("ลิงก์ไม่ถูกต้อง", "รองรับลิงก์รูปแบบ https://drive.google.com/drive/folders/{id}");
+                    await update(g.id, { drive_root_url: raw, drive_root_folder_id: id } as any);
+                  }}
+                />
+                {g.drive_root_url && (
+                  <a href={g.drive_root_url} target="_blank" rel="noreferrer" className="shrink-0">
+                    <Button type="button" size="icon" variant="outline" title="เปิดโฟลเดอร์">
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </a>
+                )}
+              </div>
+              <p className="text-[10.5px] text-muted-foreground">
+                {g.drive_root_folder_id
+                  ? <>ไฟล์ใหม่จะถูกเก็บที่ <b>โฟลเดอร์ที่เลือก / {new Date().getFullYear()} / {String(new Date().getMonth()+1).padStart(2,"0")}</b> — ระบบจะสร้างโฟลเดอร์ย่อยตามปี/เดือนให้อัตโนมัติ</>
+                  : <>ยังไม่ได้ตั้ง — จะใช้ค่าเริ่มต้น <b>LineVault / {new Date().getFullYear()} / {g.group_name || "{ชื่อกลุ่ม}"} / {String(new Date().getMonth()+1).padStart(2,"0")}</b></>
+                }
+              </p>
+            </div>
             <div className="text-[11px] text-muted-foreground font-mono">Group ID: {g.line_group_id}</div>
           </div>
         ))}
