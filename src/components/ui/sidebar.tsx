@@ -165,7 +165,7 @@ const Sidebar = React.forwardRef<
           side={side}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <div className="flex h-full w-full flex-col">{children}</div>
+          <div className="flex h-full w-full flex-col pb-[calc(4.5rem+env(safe-area-inset-bottom))]">{children}</div>
         </SheetContent>
       </Sheet>
     );

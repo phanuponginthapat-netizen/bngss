@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { resolveProfileImageUrl } from "@/lib/profileImageUrl";
 
 export function SidebarAccountFooter() {
   const { state, isMobile, setOpenMobile } = useSidebar();
@@ -33,9 +34,10 @@ export function SidebarAccountFooter() {
       .select("avatar_url, first_name, nickname")
       .eq("id", uid)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         if (data) {
-          setAvatarUrl(data.avatar_url);
+          const signed = await resolveProfileImageUrl(data.avatar_url);
+          setAvatarUrl(signed);
           const name = data.first_name
             ? data.nickname
               ? `${data.first_name} (${data.nickname})`

@@ -32,6 +32,7 @@ import { useSessionKeepAlive } from "@/hooks/useSessionKeepAlive";
 import { useRadixOverlayCleanup } from "@/hooks/useRadixOverlayCleanup";
 import { useForceLogoutListener } from "@/hooks/useForceLogoutListener";
 import OnboardingTour from "@/components/OnboardingTour";
+import { resolveProfileImageUrl } from "@/lib/profileImageUrl";
 
 /** ปุ่ม avatar ที่ toggle sidebar (แทน dropdown เดิม) */
 function AvatarSidebarToggle({ avatarUrl, fullName, userEmail }: { avatarUrl: string | null; fullName: string; userEmail: string }) {
@@ -120,9 +121,9 @@ const DashboardLayout = () => {
         .select("avatar_url, first_name, last_name, nickname")
         .eq("id", userId)
         .maybeSingle()
-        .then(({ data }) => {
+        .then(async ({ data }) => {
           if (data) {
-            setAvatarUrl(data.avatar_url);
+            setAvatarUrl(await resolveProfileImageUrl(data.avatar_url));
             const name = data.first_name ? (data.nickname ? `${data.first_name} (${data.nickname})` : data.first_name) : (data.nickname || "");
             setFullName(name || "");
           }
@@ -139,7 +140,7 @@ const DashboardLayout = () => {
         .maybeSingle();
 
       if (profile) {
-        setAvatarUrl(profile.avatar_url);
+        setAvatarUrl(await resolveProfileImageUrl(profile.avatar_url));
         const name = profile.first_name ? (profile.nickname ? `${profile.first_name} (${profile.nickname})` : profile.first_name) : (profile.nickname || "");
         setFullName(name || "");
         
@@ -210,9 +211,9 @@ const DashboardLayout = () => {
             .select("avatar_url, first_name, last_name, nickname")
             .eq("id", userId)
             .maybeSingle()
-            .then(({ data }) => {
+            .then(async ({ data }) => {
               if (data) {
-                setAvatarUrl(data.avatar_url);
+                setAvatarUrl(await resolveProfileImageUrl(data.avatar_url));
                 const name = data.first_name ? (data.nickname ? `${data.first_name} (${data.nickname})` : data.first_name) : (data.nickname || "");
                 setFullName(name || "");
               }
