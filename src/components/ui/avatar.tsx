@@ -19,8 +19,17 @@ const AvatarImage = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Image>,
   React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
 >(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Image ref={ref} className={cn("aspect-square h-full w-full", className)} {...props} />
+  <AvatarPrimitive.Image
+    ref={ref}
+    draggable={false}
+    onContextMenu={(e) => e.preventDefault()}
+    onDragStart={(e) => e.preventDefault()}
+    className={cn("aspect-square h-full w-full avatar-protected select-none pointer-events-auto", className)}
+    style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
+    {...props}
+  />
 ));
+
 AvatarImage.displayName = AvatarPrimitive.Image.displayName;
 
 const AvatarFallback = React.forwardRef<

@@ -16,6 +16,33 @@ initNativeShell();
 installCrossTabSync();
 installSwBackgroundSync();
 
+// ป้องกันการคลิกขวา/ลาก/บันทึกภาพโปรไฟล์ (คุ้มครองรูปนักเรียนผู้เยาว์)
+document.addEventListener("contextmenu", (e) => {
+  const t = e.target as HTMLElement | null;
+  if (!t) return;
+  const img = t.closest("img, [role='img']") as HTMLElement | null;
+  if (!img) return;
+  const src = (img as HTMLImageElement).src || img.getAttribute("style") || "";
+  if (
+    src.includes("profile-images") ||
+    img.closest("[data-protected-image]") ||
+    img.classList.contains("avatar-protected") ||
+    img.closest(".avatar-protected")
+  ) {
+    e.preventDefault();
+  }
+});
+document.addEventListener("dragstart", (e) => {
+  const t = e.target as HTMLElement | null;
+  if (t && t.tagName === "IMG") {
+    const src = (t as HTMLImageElement).src || "";
+    if (src.includes("profile-images") || t.closest("[data-protected-image], .avatar-protected")) {
+      e.preventDefault();
+    }
+  }
+});
+
+
 // จับ event ติดตั้ง PWA ตั้งแต่ต้น เพื่อเก็บไว้ให้ปุ่ม "ติดตั้งลงหน้าจอหลัก" ใช้ภายหลัง
 window.addEventListener("beforeinstallprompt", (e: Event) => {
   e.preventDefault();
