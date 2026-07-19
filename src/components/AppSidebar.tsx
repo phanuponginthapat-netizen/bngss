@@ -705,12 +705,18 @@ export function AppSidebar() {
               i.url.startsWith("/dashboard/admin/ict") ||
               i.url.startsWith("/dashboard/iot")
             ));
+            const toolItems = mark(uniq.filter((i) =>
+              i.url === "/dashboard/my-drive" ||
+              i.url === "/dashboard/office" ||
+              i.url === "/dashboard/line-vault"
+            ));
             const otherItems = uniq.filter((i) => !usedUrls.has(i.url));
 
             const sections = [
               { label: L("ของฉัน", "My Account"), icon: User, items: myItems },
               { label: L("การเรียน", "Learning"), icon: BookOpen, items: learnItems },
               { label: L("บริการ", "Services"), icon: Sparkles, items: serviceItems },
+              { label: L("เครื่องมือ", "Tools"), icon: FolderOpen, items: toolItems },
               ...(otherItems.length ? [{ label: L("อื่นๆ", "More"), icon: FolderOpen, items: otherItems }] : []),
             ].filter((s) => s.items.length > 0);
 
