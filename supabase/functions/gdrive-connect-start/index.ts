@@ -62,10 +62,23 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const body = await req.json().catch(() => ({}));
-    const returnUrl: string = body.return_url ?? "";
+    const rawBody = await req.text();
+    let body: any = {};
+    try { body = rawBody ? JSON.parse(rawBody) : {}; } catch { body = {}; }
+    const url = new URL(req.url);
+    let returnUrl: string = body.return_url ?? body.returnUrl ?? url.searchParams.get("return_url") ?? "";
+    // Fallback: derive from Origin/Referer header if client failed to include it
+    if (!returnUrl) {
+      const origin = req.headers.get("origin") ?? "";
+      const referer = req.headers.get("referer") ?? "";
+      if (origin) returnUrl = `${origin}/dashboard/my-drive?tab=settings`;
+      else if (referer) {
+        try { const r = new URL(referer); returnUrl = `${r.origin}/dashboard/my-drive?tab=settings`; } catch {}
+      }
+    }
     if (!isAllowedReturnUrl(returnUrl)) {
-      return new Response(JSON.stringify({ error: "return_url required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      console.error("return_url invalid", { returnUrl, rawBody, origin: req.headers.get("origin"), referer: req.headers.get("referer") });
+      return new Response(JSON.stringify({ error: "return_url required", received: returnUrl, hint: "must be http(s) and localhost or *.lovable.app or APP_URL origin" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const functionUrl = new URL(req.url);
