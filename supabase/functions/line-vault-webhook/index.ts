@@ -35,11 +35,30 @@ async function replyMessage(token: string, replyToken: string, text: string) {
   } catch (e) { console.error("replyMessage", e); }
 }
 
+async function getConfiguredVaultToken(sb: any) {
+  const envToken = Deno.env.get("LINE_VAULT_CHANNEL_ACCESS_TOKEN")?.trim();
+  if (envToken) return envToken;
+
+  const { data, error } = await sb
+    .from("app_secrets")
+    .select("value")
+    .eq("key", "LINE_VAULT_CHANNEL_ACCESS_TOKEN")
+    .maybeSingle();
+
+  if (error) console.error("LINE Vault token lookup failed", error.message);
+  const savedToken = String(data?.value ?? "").trim();
+  return savedToken || null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const token = Deno.env.get("LINE_VAULT_CHANNEL_ACCESS_TOKEN");
+    const sb = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const token = await getConfiguredVaultToken(sb);
 
     const body = await req.json().catch(() => ({}));
 
@@ -57,12 +76,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const sb = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-
     const events: any[] = body?.events || [];
+    if (events.length > 0) {
+      console.log("LINE Vault webhook events", events.map((e: any) => `${e?.type}:${e?.source?.type || "unknown"}`).join(","));
+    }
 
     // Per-group aggregation of this webhook batch so we send ONE friendly summary reply
     // instead of spamming the group with one message per photo/file.
