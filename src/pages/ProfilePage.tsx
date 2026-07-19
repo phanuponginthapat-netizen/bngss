@@ -397,22 +397,51 @@ const ProfilePage = () => {
   // === ID Card Template Settings (shared hook) ===
   const { settings: cs } = useIdCardSettings();
 
-  const uploadImage = async (file: File, folder: string): Promise<string | null> => {
+  /**
+   * อัปโหลดรูปแบบ 2 ขนาด: full (สำหรับหน้าโปรไฟล์) + thumb (สำหรับ list/avatar เล็ก)
+   * ลดขนาด + แปลงเป็น WebP อัตโนมัติเพื่อประหยัดแบนด์วิดท์
+   */
+  const uploadImagePair = async (
+    file: File,
+    folder: "avatar" | "cover"
+  ): Promise<{ full: string; thumb: string } | null> => {
     const { compressImage } = await import("@/lib/imageCompress");
-    const compressed = await compressImage(file, { maxWidth: 1024, maxSizeKB: 120 });
-    const fileName = `${userId}/${folder}_${Date.now()}_${compressed.name}`;
-    const result = await uploadPublicFileWithFallback("profile-images", fileName, compressed, { upsert: true });
-    if (result.usedFallback) toast.info("ใช้โหมดสำรองสำหรับรูปภาพ");
-    return result.publicUrl;
+    const isAvatar = folder === "avatar";
+    // full-size: avatar 512px / cover 1600px
+    const full = await compressImage(file, {
+      maxWidth: isAvatar ? 512 : 1600,
+      maxHeight: isAvatar ? 512 : 1600,
+      quality: 0.82,
+      maxSizeKB: isAvatar ? 100 : 250,
+      mimeType: "image/webp",
+    });
+    // thumbnail: 128px avatar / 480px cover, quality ต่ำลง — ใช้สำหรับ list/preview
+    const thumb = await compressImage(file, {
+      maxWidth: isAvatar ? 128 : 480,
+      maxHeight: isAvatar ? 128 : 480,
+      quality: 0.7,
+      maxSizeKB: isAvatar ? 15 : 40,
+      mimeType: "image/webp",
+    });
+    const ts = Date.now();
+    const fullPath = `${userId}/${folder}_full_${ts}.webp`;
+    const thumbPath = `${userId}/${folder}_thumb_${ts}.webp`;
+    const [fullRes, thumbRes] = await Promise.all([
+      uploadPublicFileWithFallback("profile-images", fullPath, full, { upsert: true, contentType: "image/webp" }),
+      uploadPublicFileWithFallback("profile-images", thumbPath, thumb, { upsert: true, contentType: "image/webp" }),
+    ]);
+    if (fullRes.usedFallback || thumbRes.usedFallback) toast.info("ใช้โหมดสำรองสำหรับรูปภาพ");
+    return { full: fullRes.publicUrl, thumb: thumbRes.publicUrl };
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
-    const url = await uploadImage(file, "avatar");
-    if (url) {
-      setProfile({ ...profile, avatar_url: url });
-      await supabase.from("profiles").update({ avatar_url: url }).eq("id", userId!);
+    const urls = await uploadImagePair(file, "avatar");
+    if (urls) {
+      // avatar_url = thumb (ใช้ในทุก list/nav), avatar_full_url = full (ใช้ในหน้าโปรไฟล์)
+      setProfile({ ...profile, avatar_url: urls.thumb, avatar_full_url: urls.full } as any);
+      await supabase.from("profiles").update({ avatar_url: urls.thumb, avatar_full_url: urls.full } as any).eq("id", userId!);
       toast.success("อัปโหลดรูปโปรไฟล์สำเร็จ");
     }
   };
@@ -420,10 +449,10 @@ const ProfilePage = () => {
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
-    const url = await uploadImage(file, "cover");
-    if (url) {
-      setProfile({ ...profile, cover_photo_url: url });
-      await supabase.from("profiles").update({ cover_photo_url: url }).eq("id", userId!);
+    const urls = await uploadImagePair(file, "cover");
+    if (urls) {
+      setProfile({ ...profile, cover_photo_url: urls.full, cover_thumb_url: urls.thumb } as any);
+      await supabase.from("profiles").update({ cover_photo_url: urls.full, cover_thumb_url: urls.thumb } as any).eq("id", userId!);
       toast.success("อัปโหลดรูปปกสำเร็จ");
     }
   };
