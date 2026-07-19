@@ -34,9 +34,10 @@ export function SidebarAccountFooter() {
       .select("avatar_url, first_name, nickname")
       .eq("id", uid)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         if (data) {
-          setAvatarUrl(data.avatar_url);
+          const signed = await resolveProfileImageUrl(data.avatar_url);
+          setAvatarUrl(signed);
           const name = data.first_name
             ? data.nickname
               ? `${data.first_name} (${data.nickname})`
