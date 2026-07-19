@@ -437,6 +437,10 @@ const TeacherDashboard = () => {
         </div>
       </div>
 
+      <Suspense fallback={<Skeleton className="h-72 rounded-2xl" />}>
+        <MascotHeroWidget />
+      </Suspense>
+
       {/* Daily Briefing */}
       <TeacherDailyBriefing
         userId={userId}
