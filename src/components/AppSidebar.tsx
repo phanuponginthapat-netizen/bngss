@@ -597,18 +597,24 @@ export function AppSidebar() {
 
   return (
     <Sidebar side="right" collapsible="offcanvas" className="gradient-sidebar border-l-0">
-      <SidebarHeader className={`${collapsed ? 'px-1.5' : 'px-3'} py-4 border-b border-sidebar-border/70 bg-gradient-to-b from-sidebar-accent/20 to-transparent transition-all`}>
-        <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} mb-3`}>
+      <SidebarHeader className="px-3 py-4 border-b border-sidebar-border/70 bg-gradient-to-b from-sidebar-accent/20 to-transparent transition-all">
+        <div className="flex items-center gap-3 mb-3">
           <div className="relative">
             <LogoMark />
             <span className="absolute -inset-1 rounded-2xl bg-primary/20 blur-md -z-10" aria-hidden />
           </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <h2 className="text-[13px] font-bold text-sidebar-foreground tracking-tight truncate leading-tight">{headerTitle}</h2>
-              {headerSubtitle && <p className="text-[11px] text-sidebar-foreground/55 truncate mt-0.5">{headerSubtitle}</p>}
-            </div>
-          )}
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[13px] font-bold text-sidebar-foreground tracking-tight truncate leading-tight">{headerTitle}</h2>
+            {headerSubtitle && <p className="text-[11px] text-sidebar-foreground/55 truncate mt-0.5">{headerSubtitle}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            aria-label="ซ่อนเมนู"
+            className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors flex-shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
         {!collapsed && (
           <div className="relative">
