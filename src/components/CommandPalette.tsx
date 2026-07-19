@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CommandDialog,
@@ -10,16 +10,12 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { supabase } from "@/integrations/supabase/client";
+import { useUserRole, type AppRole } from "@/hooks/useUserRole";
 import {
   GraduationCap,
   Users,
   FileText,
   LayoutDashboard,
-  Calendar,
-  Settings,
-  Inbox,
-  Newspaper,
-  ClipboardList,
 } from "lucide-react";
 
 interface Result {
@@ -30,24 +26,42 @@ interface Result {
   group: "student" | "personnel" | "document" | "menu";
 }
 
-const MENU: Result[] = [
-  { id: "m-dash", label: "Dashboard", to: "/dashboard", group: "menu" },
-  { id: "m-inbox", label: "กล่องข้อความ / Inbox", to: "/dashboard/inbox", group: "menu" },
-  { id: "m-news", label: "ข่าวสาร", to: "/dashboard/admin/news", group: "menu" },
-  { id: "m-doc", label: "หนังสือราชการ / เอกสาร", to: "/dashboard/admin/documents", group: "menu" },
-  { id: "m-cal", label: "ปฏิทินวิชาการ", to: "/dashboard/academic/calendar", group: "menu" },
-  { id: "m-stu", label: "นักเรียนทั้งหมด", to: "/dashboard/academic/all-students", group: "menu" },
-  { id: "m-att", label: "เช็คชื่อนักเรียน", to: "/dashboard/student/attendance", group: "menu" },
-  { id: "m-beh", label: "บันทึกพฤติกรรม", to: "/dashboard/student/behavior", group: "menu" },
-  { id: "m-users", label: "จัดการผู้ใช้", to: "/dashboard/admin/users", group: "menu" },
-  { id: "m-settings", label: "ตั้งค่าระบบ", to: "/dashboard/admin/settings", group: "menu" },
+// เมนูด่วน + สิทธิ์ที่มองเห็นได้
+type MenuItem = { id: string; label: string; to: string; roles: AppRole[] };
+const ALL: AppRole[] = ["admin", "director", "teacher", "student", "parent", "alumni"];
+
+const MENU: MenuItem[] = [
+  { id: "m-dash", label: "Dashboard", to: "/dashboard", roles: ALL },
+  { id: "m-inbox", label: "กล่องข้อความ / Inbox", to: "/dashboard/inbox", roles: ALL },
+  { id: "m-news", label: "ข่าวสาร", to: "/dashboard/admin/news", roles: ["admin", "director", "teacher"] },
+  { id: "m-doc", label: "หนังสือราชการ / เอกสาร", to: "/dashboard/admin/documents", roles: ["admin", "director", "teacher"] },
+  { id: "m-cal", label: "ปฏิทินวิชาการ", to: "/dashboard/academic/calendar", roles: ALL },
+  { id: "m-stu", label: "นักเรียนทั้งหมด", to: "/dashboard/academic/all-students", roles: ["admin", "director", "teacher"] },
+  { id: "m-att", label: "เช็คชื่อนักเรียน", to: "/dashboard/student/attendance", roles: ["admin", "director", "teacher"] },
+  { id: "m-beh", label: "บันทึกพฤติกรรม", to: "/dashboard/student/behavior", roles: ["admin", "director", "teacher"] },
+  { id: "m-users", label: "จัดการผู้ใช้", to: "/dashboard/admin/users", roles: ["admin"] },
+  { id: "m-settings", label: "ตั้งค่าระบบ", to: "/dashboard/admin/settings", roles: ["admin", "director"] },
+  { id: "m-me", label: "โปรไฟล์ของฉัน", to: "/dashboard/profile", roles: ALL },
 ];
+
+// สิทธิ์การค้นหาข้อมูลแต่ละหมวด
+function canSearch(role: AppRole | null) {
+  const r = role ?? "student";
+  return {
+    students: ["admin", "director", "teacher", "parent"].includes(r),
+    personnel: ["admin", "director", "teacher"].includes(r),
+    documents: ["admin", "director", "teacher"].includes(r),
+  };
+}
 
 export default function CommandPalette() {
   const navigate = useNavigate();
+  const { role } = useUserRole();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Result[]>([]);
+
+  const perms = useMemo(() => canSearch(role), [role]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -69,62 +83,93 @@ export default function CommandPalette() {
     let cancelled = false;
     const t = setTimeout(async () => {
       const like = `%${q}%`;
-      const [students, personnel, documents] = await Promise.all([
-        supabase
-          .from("students")
-          .select("id,prefix,first_name,last_name,student_code,classroom_id,classrooms!students_classroom_id_fkey(name)")
-          .or(
-            `first_name.ilike.${like},last_name.ilike.${like},student_code.ilike.${like}`
-          )
-          .limit(8),
-        supabase
-          .from("personnel")
-          .select("id,prefix,first_name,last_name,department")
-          .or(`first_name.ilike.${like},last_name.ilike.${like}`)
-          .limit(8),
-        supabase
-          .from("documents")
-          .select("id,title,doc_number,doc_type")
-          .or(`title.ilike.${like},doc_number.ilike.${like}`)
-          .limit(8),
-      ]);
 
+      const tasks: Promise<any>[] = [];
+      const kinds: ("student" | "personnel" | "document")[] = [];
+
+      if (perms.students) {
+        kinds.push("student");
+        tasks.push(
+          Promise.resolve(
+            supabase
+              .from("students")
+              .select("id,prefix,first_name,last_name,student_code,classroom_id,classrooms!students_classroom_id_fkey(name)")
+              .or(`first_name.ilike.${like},last_name.ilike.${like},student_code.ilike.${like}`)
+              .limit(8)
+          )
+        );
+      }
+      if (perms.personnel) {
+        kinds.push("personnel");
+        tasks.push(
+          Promise.resolve(
+            supabase
+              .from("personnel")
+              .select("id,prefix,first_name,last_name,department")
+              .or(`first_name.ilike.${like},last_name.ilike.${like}`)
+              .limit(8)
+          )
+        );
+      }
+      if (perms.documents) {
+        kinds.push("document");
+        tasks.push(
+          Promise.resolve(
+            supabase
+              .from("documents")
+              .select("id,title,doc_number,doc_type")
+              .or(`title.ilike.${like},doc_number.ilike.${like}`)
+              .limit(8)
+          )
+        );
+      }
+
+      const settled = await Promise.all(tasks);
       if (cancelled) return;
+
       const out: Result[] = [];
-      (students.data ?? []).forEach((s: any) =>
-        out.push({
-          id: `s-${s.id}`,
-          label: `${s.prefix ?? ""}${s.first_name ?? ""} ${s.last_name ?? ""}`.trim(),
-          sub: `${s.student_code ?? ""} • ${s.classrooms?.name ?? ""}`,
-          to: `/dashboard/academic/students/${s.id}`,
-          group: "student",
-        })
-      );
-      (personnel.data ?? []).forEach((p: any) =>
-        out.push({
-          id: `p-${p.id}`,
-          label: `${p.prefix ?? ""}${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
-          sub: p.department ?? "",
-          to: `/dashboard/profile/${p.id}`,
-          group: "personnel",
-        })
-      );
-      (documents.data ?? []).forEach((d: any) =>
-        out.push({
-          id: `d-${d.id}`,
-          label: d.title ?? "(ไม่มีชื่อ)",
-          sub: `${d.doc_number ?? ""} • ${d.doc_type ?? ""}`,
-          to: `/dashboard/admin/documents`,
-          group: "document",
-        })
-      );
+      settled.forEach((res, i) => {
+        const kind = kinds[i];
+        const rows = res?.data ?? [];
+        if (kind === "student") {
+          rows.forEach((s: any) =>
+            out.push({
+              id: `s-${s.id}`,
+              label: `${s.prefix ?? ""}${s.first_name ?? ""} ${s.last_name ?? ""}`.trim(),
+              sub: `${s.student_code ?? ""} • ${s.classrooms?.name ?? ""}`,
+              to: `/dashboard/academic/students/${s.id}`,
+              group: "student",
+            })
+          );
+        } else if (kind === "personnel") {
+          rows.forEach((p: any) =>
+            out.push({
+              id: `p-${p.id}`,
+              label: `${p.prefix ?? ""}${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
+              sub: p.department ?? "",
+              to: `/dashboard/profile/${p.id}`,
+              group: "personnel",
+            })
+          );
+        } else if (kind === "document") {
+          rows.forEach((d: any) =>
+            out.push({
+              id: `d-${d.id}`,
+              label: d.title ?? "(ไม่มีชื่อ)",
+              sub: `${d.doc_number ?? ""} • ${d.doc_type ?? ""}`,
+              to: `/dashboard/admin/documents`,
+              group: "document",
+            })
+          );
+        }
+      });
       setResults(out);
     }, 220);
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [query]);
+  }, [query, perms.students, perms.personnel, perms.documents]);
 
   const go = (to: string) => {
     setOpen(false);
@@ -132,14 +177,27 @@ export default function CommandPalette() {
     navigate(to);
   };
 
+  const allowedMenu = useMemo(
+    () => MENU.filter((m) => !role || m.roles.includes(role)),
+    [role]
+  );
   const menuFiltered = query
-    ? MENU.filter((m) => m.label.toLowerCase().includes(query.toLowerCase()))
-    : MENU;
+    ? allowedMenu.filter((m) => m.label.toLowerCase().includes(query.toLowerCase()))
+    : allowedMenu;
+
+  const placeholder = (() => {
+    const bits: string[] = [];
+    if (perms.students) bits.push("นักเรียน");
+    if (perms.personnel) bits.push("บุคลากร");
+    if (perms.documents) bits.push("เอกสาร");
+    bits.push("เมนู");
+    return `ค้นหา${bits.join(" · ")}… (Ctrl/⌘K)`;
+  })();
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen} shouldFilter={false}>
       <CommandInput
-        placeholder="ค้นหานักเรียน บุคลากร เอกสาร หรือเมนู... (Ctrl/⌘K)"
+        placeholder={placeholder}
         value={query}
         onValueChange={setQuery}
       />
@@ -157,7 +215,7 @@ export default function CommandPalette() {
           </CommandGroup>
         )}
 
-        {results.filter((r) => r.group === "student").length > 0 && (
+        {perms.students && results.filter((r) => r.group === "student").length > 0 && (
           <>
             <CommandSeparator />
             <CommandGroup heading="นักเรียน">
@@ -176,7 +234,7 @@ export default function CommandPalette() {
           </>
         )}
 
-        {results.filter((r) => r.group === "personnel").length > 0 && (
+        {perms.personnel && results.filter((r) => r.group === "personnel").length > 0 && (
           <>
             <CommandSeparator />
             <CommandGroup heading="บุคลากร">
@@ -195,7 +253,7 @@ export default function CommandPalette() {
           </>
         )}
 
-        {results.filter((r) => r.group === "document").length > 0 && (
+        {perms.documents && results.filter((r) => r.group === "document").length > 0 && (
           <>
             <CommandSeparator />
             <CommandGroup heading="เอกสาร">
