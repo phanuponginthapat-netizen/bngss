@@ -577,9 +577,9 @@ export function AppSidebar() {
 
   // Section ordering per role — 4 divisions + tools (+ admin group for admin only)
   const sectionOrderPerRole: Record<string, string[]> = {
-    admin:    ["div_academic", "div_student", "div_general", "div_budget", "div_tools", "div_admin"],
-    director: ["div_academic", "div_student", "div_budget", "div_general", "div_tools"],
-    teacher:  ["div_academic", "div_student", "div_general", "div_budget", "div_tools"],
+    admin:    ["div_tools", "div_academic", "div_student", "div_general", "div_budget", "div_admin"],
+    director: ["div_tools", "div_academic", "div_student", "div_budget", "div_general"],
+    teacher:  ["div_tools", "div_academic", "div_student", "div_general", "div_budget"],
     student:  ["div_tools"],
     parent:   ["div_tools"],
     alumni:   ["div_tools"],
