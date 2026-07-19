@@ -17,6 +17,7 @@ import { swal } from "@/lib/swal";
 import { useSocialLinks } from "@/hooks/useSocialLinks";
 import {
   SOCIAL_PLATFORMS, PLATFORM_ORDER, detectPlatform,
+  EMBEDDABLE_PLATFORMS, canEmbed,
   type SocialLink, type SocialPlatformKey,
 } from "@/lib/socialPlatforms";
 import { SocialWallWidget } from "@/components/social/SocialWallWidget";
@@ -28,6 +29,7 @@ const emptyLink = (): SocialLink => ({
   url: "",
   handle: "",
   active: true,
+  embed: false,
 });
 
 export default function SocialFeedPage() {
@@ -232,6 +234,29 @@ export default function SocialFeedPage() {
                 />
                 <Label>เปิดใช้งาน (แสดงบนเว็บ)</Label>
               </div>
+
+              {EMBEDDABLE_PLATFORMS.includes(editing.platform) && (
+                <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={!!editing.embed}
+                      onCheckedChange={(v) => setEditing({ ...editing, embed: v })}
+                      disabled={!canEmbed(editing)}
+                    />
+                    <Label className="text-sm">แสดงเนื้อหาแบบฝัง (Embed)</Label>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    {editing.platform === "youtube" && "รองรับ: ลิงค์วิดีโอ (watch?v=…), youtu.be/…, shorts, ลิงค์ช่อง /@handle หรือ /channel/UC…"}
+                    {editing.platform === "facebook" && "วางลิงค์เพจ Facebook — จะแสดง Timeline ล่าสุดของเพจอัตโนมัติ (ต้องเป็นเพจสาธารณะ)"}
+                    {editing.platform === "tiktok" && "รองรับ: ลิงค์วิดีโอ TikTok (/@user/video/…) — จะฝังตัวเล่นวิดีโอ"}
+                  </p>
+                  {editing.embed && !canEmbed(editing) && (
+                    <p className="text-[11px] text-destructive">
+                      ลิงค์นี้ยังไม่รองรับการฝัง กรุณาตรวจสอบรูปแบบ URL
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>

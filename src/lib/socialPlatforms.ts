@@ -99,6 +99,8 @@ export interface SocialLink {
   url: string;
   handle?: string;         // optional @handle / display text
   active?: boolean;
+  /** Show embedded content (iframe) instead of just a button link */
+  embed?: boolean;
 }
 
 export const SOCIAL_LINKS_SETTING_KEY = "social_media_links";
@@ -116,4 +118,72 @@ export function detectPlatform(url: string): SocialPlatformKey {
   if (u.includes("threads.net")) return "threads";
   if (u.includes("github.com")) return "github";
   return "website";
+}
+
+/** Platforms that support free iframe embed (no token required) */
+export const EMBEDDABLE_PLATFORMS: SocialPlatformKey[] = ["youtube", "facebook", "tiktok"];
+
+export function canEmbed(link: Pick<SocialLink, "platform" | "url">): boolean {
+  return !!getEmbedUrl(link);
+}
+
+/**
+ * Build a free-embed iframe URL for supported platforms.
+ * - YouTube: watch?v=ID / youtu.be/ID / /embed/ID  → embed player
+ *            /@handle or /channel/UCxxx           → uploads playlist player
+ * - Facebook: page URL → Page Plugin (timeline tab)
+ * - TikTok: /video/ID → oEmbed player
+ */
+export function getEmbedUrl(link: Pick<SocialLink, "platform" | "url">): string | null {
+  const url = (link.url || "").trim();
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, "");
+    const path = u.pathname;
+
+    if (link.platform === "youtube") {
+      // youtu.be/<id>
+      if (host === "youtu.be") {
+        const id = path.slice(1).split("/")[0];
+        return id ? `https://www.youtube.com/embed/${id}?rel=0` : null;
+      }
+      // /watch?v=<id>
+      const v = u.searchParams.get("v");
+      if (v) return `https://www.youtube.com/embed/${v}?rel=0`;
+      // /embed/<id>
+      const em = path.match(/\/embed\/([^/?#]+)/);
+      if (em) return `https://www.youtube.com/embed/${em[1]}?rel=0`;
+      // /shorts/<id>
+      const sh = path.match(/\/shorts\/([^/?#]+)/);
+      if (sh) return `https://www.youtube.com/embed/${sh[1]}?rel=0`;
+      // /channel/UCxxx  → uploads playlist (UU + rest of channel ID)
+      const ch = path.match(/\/channel\/(UC[^/?#]+)/);
+      if (ch) {
+        const playlistId = "UU" + ch[1].slice(2);
+        return `https://www.youtube.com/embed/videoseries?list=${playlistId}`;
+      }
+      // /@handle  → uploads via handle (works in modern embed)
+      const h = path.match(/\/@([^/?#]+)/);
+      if (h) {
+        return `https://www.youtube.com/embed?listType=user_uploads&list=${h[1]}`;
+      }
+      return null;
+    }
+
+    if (link.platform === "facebook") {
+      const href = encodeURIComponent(url);
+      return `https://www.facebook.com/plugins/page.php?href=${href}&tabs=timeline&width=380&height=500&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false`;
+    }
+
+    if (link.platform === "tiktok") {
+      // /@user/video/<id>
+      const m = path.match(/\/video\/(\d+)/);
+      if (m) return `https://www.tiktok.com/embed/v2/${m[1]}`;
+      return null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
