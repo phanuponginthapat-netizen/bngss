@@ -268,6 +268,7 @@ const DashboardLayout = () => {
               }}
               className="hidden md:flex items-center gap-2 h-9 px-3 ml-2 rounded-full bg-muted/60 hover:bg-muted border border-border/50 text-sm text-muted-foreground transition-colors w-full max-w-[320px]"
               aria-label={lang === "th" ? "ค้นหา" : "Search"}
+              data-tour="global-search"
             >
               <Search className="w-4 h-4 shrink-0" />
               <span className="truncate flex-1 text-left">
