@@ -8416,6 +8416,7 @@ export type Database = {
         Row: {
           auto_capture: boolean
           created_at: string
+          default_category: string | null
           default_visibility: string
           department: Database["public"]["Enums"]["school_department"] | null
           group_name: string
@@ -8430,6 +8431,7 @@ export type Database = {
         Insert: {
           auto_capture?: boolean
           created_at?: string
+          default_category?: string | null
           default_visibility?: string
           department?: Database["public"]["Enums"]["school_department"] | null
           group_name: string
@@ -8444,6 +8446,7 @@ export type Database = {
         Update: {
           auto_capture?: boolean
           created_at?: string
+          default_category?: string | null
           default_visibility?: string
           department?: Database["public"]["Enums"]["school_department"] | null
           group_name?: string
@@ -8459,6 +8462,8 @@ export type Database = {
       }
       line_vault_items: {
         Row: {
+          academic_year: number | null
+          category: string | null
           created_at: string
           department: Database["public"]["Enums"]["school_department"] | null
           description: string | null
@@ -8473,6 +8478,7 @@ export type Database = {
           mime_type: string | null
           note_text: string | null
           original_filename: string | null
+          semester: number | null
           size_bytes: number | null
           source: string
           storage_path: string | null
@@ -8484,6 +8490,8 @@ export type Database = {
           visibility: string
         }
         Insert: {
+          academic_year?: number | null
+          category?: string | null
           created_at?: string
           department?: Database["public"]["Enums"]["school_department"] | null
           description?: string | null
@@ -8498,6 +8506,7 @@ export type Database = {
           mime_type?: string | null
           note_text?: string | null
           original_filename?: string | null
+          semester?: number | null
           size_bytes?: number | null
           source?: string
           storage_path?: string | null
@@ -8509,6 +8518,8 @@ export type Database = {
           visibility?: string
         }
         Update: {
+          academic_year?: number | null
+          category?: string | null
           created_at?: string
           department?: Database["public"]["Enums"]["school_department"] | null
           description?: string | null
@@ -8523,6 +8534,7 @@ export type Database = {
           mime_type?: string | null
           note_text?: string | null
           original_filename?: string | null
+          semester?: number | null
           size_bytes?: number | null
           source?: string
           storage_path?: string | null

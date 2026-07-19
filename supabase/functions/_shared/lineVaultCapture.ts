@@ -73,7 +73,9 @@ export async function captureLineGroupEvent(
       line_image_set_id: msg?.imageSet?.id || null,
       department: grp.department || null,
       visibility: grp.default_visibility || "everyone",
+      category: grp.default_category || null,
     };
+
 
     // Text -> note
     if (msg.type === "text") {
