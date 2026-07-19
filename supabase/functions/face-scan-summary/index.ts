@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { notifyGChat } from "../_shared/fanout.ts";
+import { bkkDateISO } from "../_shared/thaiDate.ts";
 
 type Period = "day" | "week" | "month" | "term";
 
@@ -35,7 +36,7 @@ function getRange(period: Period, ref: Date) {
       label = `ภาคเรียนที่ 2/${start.getFullYear() + 543}`;
     }
   }
-  const fmt = (x: Date) => x.toISOString().slice(0, 10);
+  const fmt = (x: Date) => bkkDateISO(x);
   return { start: fmt(start), end: fmt(end), label };
 }
 
@@ -95,7 +96,7 @@ serve(async (req) => {
     // วันที่ในช่วง
     const dates: string[] = [];
     for (let d = new Date(r.start); d <= new Date(r.end); d.setDate(d.getDate() + 1)) {
-      dates.push(d.toISOString().slice(0, 10));
+      dates.push(bkkDateISO(d));
     }
 
     // รวมต่อชั้น (รวมทั้งช่วง)

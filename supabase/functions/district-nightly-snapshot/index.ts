@@ -6,6 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { requireCronOrAdmin } from "../_shared/requireCron.ts";
 
 import { corsHeadersWithCron as corsHeaders } from "../_shared/cors.ts";
+import { todayBangkokISO } from "../_shared/thaiDate.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -27,7 +28,7 @@ Deno.serve(async (req) => {
       .eq("central_hub_consent", true);
 
     const results: Array<{ school_id: string | null; ok: boolean; error?: string }> = [];
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayBangkokISO();
     const year = new Date().getFullYear();
 
     const targets = schools && schools.length > 0

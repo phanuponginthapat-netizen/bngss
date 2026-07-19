@@ -2,6 +2,7 @@
 // Designed to be lightweight + cached. No PII (no phones/emails/IDs in output).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { todayBangkokISO } from "../_shared/thaiDate.ts";
 
 type Cached<T> = { at: number; data: T };
 const TTL_SCHOOL = 5 * 60_000;   // 5 min
@@ -74,7 +75,7 @@ export async function buildSchoolContext(supabaseUrl: string, serviceKey: string
       sb.from("personnel").select("id,first_name,last_name,prefix,position,subject_group,department,academic_standing,phone,email").eq("status", "active"),
       sb.from("classrooms").select("id,name,grade_level,homeroom_teacher,homeroom_teacher_2"),
       sb.from("subjects").select("id,code,name_th,grade_level,subject_type").limit(200),
-      sb.from("academic_events").select("title,event_date,event_type,location").gte("event_date", new Date().toISOString().slice(0, 10)).order("event_date").limit(15),
+      sb.from("academic_events").select("title,event_date,event_type,location").gte("event_date", todayBangkokISO()).order("event_date").limit(15),
       sb.from("teacher_assignments").select("personnel_id,subject_id,classroom_id"),
       sb.from("news_posts").select("title,category,published_at").eq("is_published", true).order("published_at", { ascending: false, nullsFirst: false }).limit(8),
       sb.from("schedules").select("teacher_id,day_of_week,period,start_time,end_time,subject_name_raw,subject_id,classroom_id,room").limit(2000),

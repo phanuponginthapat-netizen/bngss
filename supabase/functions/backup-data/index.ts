@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from "../_shared/cors.ts";
+import { todayBangkokISO } from "../_shared/thaiDate.ts";
 
 // ตารางที่ backup ได้ (ข้อมูลโรงเรียนหลัก ไม่รวม auth/storage)
 const BACKUP_TABLES = [
@@ -55,7 +56,7 @@ Deno.serve(async (req) => {
     }
 
     const body = JSON.stringify(backup, null, 2);
-    const filename = `backup_${new Date().toISOString().slice(0, 10)}.json`;
+    const filename = `backup_${todayBangkokISO()}.json`;
 
     return new Response(body, {
       headers: {

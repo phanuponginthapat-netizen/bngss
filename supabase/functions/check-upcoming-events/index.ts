@@ -3,6 +3,7 @@ import { requireCronOrAdmin } from "../_shared/requireCron.ts";
 import { corsHeadersWithCron as corsHeaders } from "../_shared/cors.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { notifyGChat } from "../_shared/fanout.ts";
+import { bkkDateISO } from "../_shared/thaiDate.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -18,7 +19,7 @@ serve(async (req) => {
     // Get tomorrow's date
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split("T")[0];
+    const tomorrowStr = bkkDateISO(tomorrow);
 
     // Find events happening tomorrow that haven't been notified yet
     const { data: events, error: eventsError } = await supabaseAdmin

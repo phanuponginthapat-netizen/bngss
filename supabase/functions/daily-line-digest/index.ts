@@ -4,6 +4,7 @@ import { corsHeadersWithCron as corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 import { getSecret } from "../_shared/getSecret.ts";
 import { requireCronOrAdmin } from "../_shared/requireCron.ts";
+import { bkkDateISO } from "../_shared/thaiDate.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -26,7 +27,7 @@ async function pushLine(to: string, messages: unknown[]) {
 function todayISO() {
   const d = new Date();
   const bkk = new Date(d.getTime() + 7 * 3600_000);
-  return bkk.toISOString().slice(0, 10);
+  return bkkDateISO(bkk);
 }
 
 async function buildParentDigest(studentIds: string[], date: string) {

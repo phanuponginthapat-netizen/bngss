@@ -1,3 +1,4 @@
+import { todayBangkokISO, bkkDateISO } from "../_shared/thaiDate.ts";
 // Shared Thai date / Buddhist Era helpers for edge functions.
 // Single source of truth — do not re-implement `+543` / `-543` inline.
 
@@ -27,7 +28,7 @@ export function todayBangkokISO(): string {
   return bkkDateISO(new Date());
 }
 
-/** Any Date → ISO YYYY-MM-DD in Bangkok timezone (safe replacement for `d.toISOString().slice(0,10)`). */
+/** Any Date → ISO YYYY-MM-DD in Bangkok timezone (safe replacement for `bkkDateISO(d)`). */
 export function bkkDateISO(d: Date = new Date()): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit",

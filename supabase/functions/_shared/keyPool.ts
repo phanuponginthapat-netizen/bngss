@@ -2,6 +2,7 @@
 // Picks the active key with the lowest used_today; on 429/402/403 marks cooldown 1h and tries next.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { todayBangkokISO } from "../_shared/thaiDate.ts";
 
 export type PoolProvider =
   | "openai" | "gemini" | "groq" | "openrouter"
@@ -138,7 +139,7 @@ function sb() {
 }
 
 async function loadKeys(provider: PoolProvider): Promise<KeyRow[]> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayBangkokISO();
   const client = sb();
 
   // Reset used_today + clear cooldown if expired
