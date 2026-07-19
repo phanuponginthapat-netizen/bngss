@@ -50,7 +50,12 @@ const GpsTrackingCard = () => {
       L.circle([geo.lat, geo.lng], { radius: geo.radius, color: "#10b981", fillOpacity: 0.08 }).addTo(map);
     }
     mapRef.current = map;
-    return () => { map.remove(); mapRef.current = null; };
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      userMarkerRef.current = null;
+      accuracyCircleRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [geo.configured, geo.lat, geo.lng, geo.radius]);
 
@@ -65,13 +70,20 @@ const GpsTrackingCard = () => {
       setPos(c);
       setErr(null);
       const map = mapRef.current; if (!map) return;
-      if (userMarkerRef.current) userMarkerRef.current.setLatLng([c.lat, c.lng]);
-      else userMarkerRef.current = L.marker([c.lat, c.lng], { icon: userIcon }).addTo(map).bindPopup("คุณอยู่ที่นี่").openPopup();
-      if (accuracyCircleRef.current) {
-        accuracyCircleRef.current.setLatLng([c.lat, c.lng]);
-        accuracyCircleRef.current.setRadius(c.accuracy);
-      } else {
-        accuracyCircleRef.current = L.circle([c.lat, c.lng], { radius: c.accuracy, color: "#3b82f6", fillOpacity: 0.15, weight: 1 }).addTo(map);
+      try {
+        if (userMarkerRef.current && (userMarkerRef.current as any)._map) {
+          userMarkerRef.current.setLatLng([c.lat, c.lng]);
+        } else {
+          userMarkerRef.current = L.marker([c.lat, c.lng], { icon: userIcon }).addTo(map).bindPopup("คุณอยู่ที่นี่").openPopup();
+        }
+        if (accuracyCircleRef.current && (accuracyCircleRef.current as any)._map) {
+          accuracyCircleRef.current.setLatLng([c.lat, c.lng]);
+          accuracyCircleRef.current.setRadius(c.accuracy);
+        } else {
+          accuracyCircleRef.current = L.circle([c.lat, c.lng], { radius: c.accuracy, color: "#3b82f6", fillOpacity: 0.15, weight: 1 }).addTo(map);
+        }
+      } catch (e) {
+        console.warn("[GpsTrackingCard] map update skipped:", e);
       }
       if (firstFix) {
         firstFix = false;
