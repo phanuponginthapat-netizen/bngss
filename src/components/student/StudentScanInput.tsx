@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScanLine } from "lucide-react";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
-import { supabase } from "@/integrations/supabase/client";
+import { resolveScannedStudent, extractScannedCode } from "@/lib/resolveScannedStudent";
 import { toast } from "sonner";
 
 interface Student {
@@ -39,34 +39,33 @@ export const StudentScanInput = forwardRef<HTMLInputElement, Props>(({
   const [scanOpen, setScanOpen] = useState(false);
 
   const handleScan = async (raw: string) => {
-    const code = (raw || "").trim();
-    if (!code) return;
+    const trimmed = (raw || "").trim();
+    if (!trimmed) return;
 
-    // Always reflect into the search box if present
-    onChange?.(code);
+    try {
+      const student = await resolveScannedStudent(trimmed, { classroomId });
 
-    // Lookup if caller wants the full student record
-    if (onStudentFound) {
-      try {
-        let q = supabase
-          .from("students")
-          .select("id, student_code, prefix, first_name, last_name, classroom_id")
-          .eq("student_code", code)
-          .limit(1);
-        if (classroomId) q = q.eq("classroom_id", classroomId);
-        const { data, error } = await q.maybeSingle();
-        if (error) throw error;
-        if (!data) {
-          toast.error(`ไม่พบนักเรียนรหัส ${code}${classroomId ? " ในห้องนี้" : ""}`);
-          return;
+      if (student) {
+        // สะท้อนรหัสจริงลงช่องค้นหา (ไม่ใช่ URL ของ QR)
+        onChange?.(student.student_code || extractScannedCode(trimmed));
+        if (onStudentFound) {
+          onStudentFound(student as Student);
+          toast.success(`พบ: ${student.first_name ?? ""} ${student.last_name ?? ""}`.trim());
         }
-        onStudentFound(data as Student);
-        toast.success(`พบ: ${data.first_name ?? ""} ${data.last_name ?? ""}`.trim());
-      } catch (e: any) {
-        toast.error(e.message || "ค้นหาไม่สำเร็จ");
+        return;
       }
+
+      // ไม่พบ — สะท้อนสิ่งที่ extract ได้ลงช่องค้นหา
+      const code = extractScannedCode(trimmed);
+      onChange?.(code || trimmed);
+      if (onStudentFound) {
+        toast.error(`ไม่พบนักเรียนจาก QR${classroomId ? " ในห้องนี้" : ""} (${code || trimmed})`);
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "ค้นหาไม่สำเร็จ");
     }
   };
+
 
   return (
     <div className={`flex items-center gap-2 ${className ?? ""}`}>

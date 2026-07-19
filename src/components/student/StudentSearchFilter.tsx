@@ -67,15 +67,24 @@ const StudentSearchFilter = ({
   // Auto-select when a scan resolves to exactly one student
   useEffect(() => {
     if (!pendingScan || !onStudentSelect) return;
-    const exact = students.find((s: any) => s.student_code === pendingScan);
-    if (exact) {
-      onStudentSelect(exact.id);
-      toast.success(`เลือกแล้ว: ${exact.first_name ?? ""} ${exact.last_name ?? ""}`.trim());
-    } else {
-      toast.error(`ไม่พบนักเรียนรหัส ${pendingScan}`);
-    }
-    setPendingScan(null);
+    (async () => {
+      // ลอง match ตรงๆ ใน list ก่อน (บาร์โค้ด CODE_128 = student_code)
+      let exact = students.find((s: any) => s.student_code === pendingScan);
+      if (!exact) {
+        const { resolveScannedStudent } = await import("@/lib/resolveScannedStudent");
+        const r = await resolveScannedStudent(pendingScan);
+        if (r) exact = students.find((s: any) => s.id === r.id);
+      }
+      if (exact) {
+        onStudentSelect(exact.id);
+        toast.success(`เลือกแล้ว: ${exact.first_name ?? ""} ${exact.last_name ?? ""}`.trim());
+      } else {
+        toast.error(`ไม่พบนักเรียนจาก QR (${pendingScan.slice(0, 40)})`);
+      }
+      setPendingScan(null);
+    })();
   }, [pendingScan, students, onStudentSelect]);
+
 
   return (
     <div className="space-y-3">

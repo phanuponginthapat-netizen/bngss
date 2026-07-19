@@ -142,15 +142,23 @@ const BehaviorPage = () => {
     qc.invalidateQueries({ queryKey: ["behavior_records"] });
   };
 
-  const handleScan = (code: string) => {
+  const handleScan = async (code: string) => {
     const cleaned = code.trim();
     if (!cleaned) return;
-    const found = studentData.students.find((s: any) => s.student_code === cleaned);
-    if (!found) { toast.error(`ไม่พบนักเรียนรหัส ${cleaned}`); return; }
+    // ลอง match รหัสตรงๆ ก่อน (บาร์โค้ด CODE_128)
+    let found = studentData.students.find((s: any) => s.student_code === cleaned);
+    if (!found) {
+      // QR บัตรที่พิมพ์เป็น URL → resolve เป็น student id แล้วเทียบใน roster
+      const { resolveScannedStudent } = await import("@/lib/resolveScannedStudent");
+      const r = await resolveScannedStudent(cleaned);
+      if (r) found = studentData.students.find((s: any) => s.id === r.id);
+    }
+    if (!found) { toast.error(`ไม่พบนักเรียนจาก QR (${cleaned.slice(0, 40)})`); return; }
     setStudentId(found.id);
     setOpen(true);
     toast.success(`เลือก: ${found.first_name} ${found.last_name}`);
   };
+
 
   return (
     <div className="space-y-4 sm:space-y-6">

@@ -91,22 +91,39 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
     return m;
   }, [students]);
 
-  const handleScan = useCallback((raw: string) => {
-    const code = (raw || "").trim();
-    if (!code) return;
-    const s = studentByCode[code];
+  const handleScan = useCallback(async (raw: string) => {
+    const trimmed = (raw || "").trim();
+    if (!trimmed) return;
+
+    // 1) รหัสตรงๆ (case ปกติ: บาร์โค้ด CODE_128 ที่พิมพ์ student_code)
+    let s: Student | undefined = studentByCode[trimmed];
+
+    // 2) QR ที่เป็น URL หรือมี query — ต้อง extract/resolve เข้ากับ roster
     if (!s) {
-      toast.error(lang === "th" ? `ไม่พบนักเรียนรหัส ${code} ในรายชื่อนี้` : `Not in roster: ${code}`);
+      const { extractScannedCode, resolveScannedStudent } = await import("@/lib/resolveScannedStudent");
+      const extracted = extractScannedCode(trimmed);
+      if (extracted && studentByCode[extracted]) {
+        s = studentByCode[extracted];
+      } else {
+        // สุดท้าย: lookup DB ด้วย auth_user_id / id — แล้ว match กลับเข้า roster
+        const resolved = await resolveScannedStudent(trimmed);
+        if (resolved) s = students.find((x) => x.id === resolved.id);
+      }
+    }
+
+    if (!s) {
+      toast.error(lang === "th" ? `ไม่พบนักเรียนจาก QR ในรายชื่อนี้` : `Not in roster`);
       return;
     }
     if (scanned[s.id]) {
       toast.info(lang === "th" ? `${s.first_name} ${s.last_name} แสกนแล้ว` : `${s.first_name} already scanned`);
       return;
     }
-    setScanned(prev => ({ ...prev, [s.id]: "present" }));
-    setScanLog(prev => [{ id: s.id, name: `${s.prefix || ""}${s.first_name} ${s.last_name}`, at: Date.now() }, ...prev]);
+    setScanned(prev => ({ ...prev, [s!.id]: "present" }));
+    setScanLog(prev => [{ id: s!.id, name: `${s!.prefix || ""}${s!.first_name} ${s!.last_name}`, at: Date.now() }, ...prev]);
     toast.success(`✅ ${s.first_name} ${s.last_name}`);
-  }, [studentByCode, scanned, lang]);
+  }, [studentByCode, scanned, lang, students]);
+
 
   const unscanned = useMemo(() => students.filter(s => !scanned[s.id]), [students, scanned]);
 

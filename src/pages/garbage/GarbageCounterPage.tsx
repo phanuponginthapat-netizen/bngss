@@ -164,14 +164,22 @@ export default function GarbageCounterPage() {
 
   // สแกน QR หรือพิมพ์รหัส → ระบบหาให้ทั้งฝั่งนักเรียน + บุคลากร
   const lookupCode = async (code: string) => {
-    const cleanCode = code.trim();
-    if (!cleanCode) return;
-    // นักเรียนก่อน
-    const { data: s } = await supabase
-      .from("students")
-      .select("id, student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name)")
-      .eq("student_code", cleanCode)
-      .maybeSingle();
+    const raw = code.trim();
+    if (!raw) return;
+    // นักเรียนก่อน — รองรับทั้ง student_code, UUID, URL /p/<auth_user_id>, /sdq-assess/<id>
+    const { resolveScannedStudent, extractScannedCode } = await import("@/lib/resolveScannedStudent");
+    const resolvedStudent = await resolveScannedStudent(raw);
+    let s: any = null;
+    if (resolvedStudent) {
+      const { data } = await supabase
+        .from("students")
+        .select("id, student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name)")
+        .eq("id", resolvedStudent.id)
+        .maybeSingle();
+      s = data;
+    }
+    const cleanCode = extractScannedCode(raw) || raw;
+
     if (s) {
       const st: any = s;
       const found: Holder = {
