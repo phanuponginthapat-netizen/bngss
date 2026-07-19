@@ -6,7 +6,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 // Falls back to the project default if no custom key is set.
 
 const DEFAULT_WEB_PUSH_PUBLIC_KEY =
-  "BBMeUAOraQHGtdw31hIdhUwVLAQoy6Rzu2o6eTbhYByjG_6t6gwNSLzlp-T2ZWhl9arfDzQcNtQu6mJt3jUrxyI";
+  "BCIa1dd34IU9mPlIZfNYJlx3qG0tbWBVI887HnTRzY0-cU3E4SqaVyD5cG27-_p0mlv6XW81ltRRXMmdqXMr2ec";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });

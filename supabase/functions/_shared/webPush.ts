@@ -6,7 +6,7 @@ import { getSecret } from "./getSecret.ts";
 import { secretKeys } from "./secretKeys.ts";
 
 const DEFAULT_WEB_PUSH_PUBLIC_KEY =
-  "BBMeUAOraQHGtdw31hIdhUwVLAQoy6Rzu2o6eTbhYByjG_6t6gwNSLzlp-T2ZWhl9arfDzQcNtQu6mJt3jUrxyI";
+  "BCIa1dd34IU9mPlIZfNYJlx3qG0tbWBVI887HnTRzY0-cU3E4SqaVyD5cG27-_p0mlv6XW81ltRRXMmdqXMr2ec";
 
 function b64urlToBytes(s: string): Uint8Array {
   const b64 = s.replace(/-/g, "+").replace(/_/g, "/");
