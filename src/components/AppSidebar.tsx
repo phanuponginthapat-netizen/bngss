@@ -709,7 +709,8 @@ export function AppSidebar() {
             const toolItems = mark(uniq.filter((i) =>
               i.url === "/dashboard/my-drive" ||
               i.url === "/dashboard/office" ||
-              i.url === "/dashboard/line-vault"
+              i.url === "/dashboard/line-vault" ||
+              i.url === "/dashboard/browser"
             ));
             const otherItems = uniq.filter((i) => !usedUrls.has(i.url));
 
