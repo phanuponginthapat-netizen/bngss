@@ -41,16 +41,28 @@ export async function captureLineGroupEvent(
       .eq("line_group_id", groupId)
       .maybeSingle();
 
-    // Auto-register unknown groups (auto_capture=false so admin must enable)
+    // Auto-register unknown groups with auto_capture=true so files start flowing immediately
     if (!grp) {
+      let groupName = `กลุ่มใหม่ (${groupId.slice(0, 8)}...)`;
+      try {
+        const summary = await fetchLineGroupSummary(token, groupId);
+        if (summary?.groupName) groupName = summary.groupName;
+      } catch (_) { /* ignore */ }
       await sb.from("line_vault_groups").insert({
         line_group_id: groupId,
-        group_name: `กลุ่มใหม่ (${groupId.slice(0, 8)}...)`,
-        auto_capture: false,
+        group_name: groupName,
+        auto_capture: true,
         default_visibility: "everyone",
-        notes: "ตรวจพบอัตโนมัติ - กรุณาตั้งชื่อและเปิด auto_capture",
+        notes: "ตรวจพบอัตโนมัติจาก LINE",
       });
-      return { captured: false, reason: "group_registered_pending" };
+      // Re-select the freshly registered row so we can capture this very message
+      const { data: fresh } = await sb
+        .from("line_vault_groups").select("*").eq("line_group_id", groupId).maybeSingle();
+      if (!fresh) return { captured: false, reason: "group_registered_pending" };
+      Object.assign(grp || {}, fresh);
+      // continue below using `fresh` as grp
+      // eslint-disable-next-line no-var
+      (grp as any) = fresh;
     }
     if (!grp.auto_capture) return { captured: false, reason: "auto_capture_disabled" };
 
@@ -165,4 +177,36 @@ export async function fetchLineGroupMemberProfile(token: string, groupId: string
     if (!res.ok) return null;
     return await res.json();
   } catch { return null; }
+}
+
+export async function fetchLineGroupSummary(token: string, groupId: string) {
+  try {
+    const res = await fetch(`https://api.line.me/v2/bot/group/${groupId}/summary`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    return await res.json() as { groupId: string; groupName?: string; pictureUrl?: string };
+  } catch { return null; }
+}
+
+// Register a group from a non-message event (join / memberJoined).
+// Returns { created, group } where group is the row.
+export async function registerLineGroupFromJoin(sb: any, token: string, groupId: string) {
+  const { data: existing } = await sb
+    .from("line_vault_groups").select("*").eq("line_group_id", groupId).maybeSingle();
+  if (existing) return { created: false, group: existing };
+  let groupName = `กลุ่มใหม่ (${groupId.slice(0, 8)}...)`;
+  try {
+    const summary = await fetchLineGroupSummary(token, groupId);
+    if (summary?.groupName) groupName = summary.groupName;
+  } catch (_) { /* ignore */ }
+  const { data: inserted, error } = await sb.from("line_vault_groups").insert({
+    line_group_id: groupId,
+    group_name: groupName,
+    auto_capture: true,
+    default_visibility: "everyone",
+    notes: "บอทถูกเชิญเข้ากลุ่ม",
+  }).select("*").maybeSingle();
+  if (error) console.error("[registerLineGroupFromJoin]", error.message);
+  return { created: true, group: inserted };
 }
