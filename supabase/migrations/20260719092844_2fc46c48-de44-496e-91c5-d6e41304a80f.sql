@@ -1,0 +1,1 @@
+ALTER TABLE public.line_vault_groups ADD COLUMN IF NOT EXISTS notify_on_capture BOOLEAN NOT NULL DEFAULT true;

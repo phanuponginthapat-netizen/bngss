@@ -8422,6 +8422,7 @@ export type Database = {
           id: string
           line_group_id: string
           notes: string | null
+          notify_on_capture: boolean
           updated_at: string
         }
         Insert: {
@@ -8433,6 +8434,7 @@ export type Database = {
           id?: string
           line_group_id: string
           notes?: string | null
+          notify_on_capture?: boolean
           updated_at?: string
         }
         Update: {
@@ -8444,6 +8446,7 @@ export type Database = {
           id?: string
           line_group_id?: string
           notes?: string | null
+          notify_on_capture?: boolean
           updated_at?: string
         }
         Relationships: []
