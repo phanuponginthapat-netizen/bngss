@@ -389,6 +389,7 @@ export function AppSidebar() {
       items: [
         { title: L("งานสารบรรณและประกาศ", "Documents & Announcements"), url: "/dashboard/hub/documents", icon: Megaphone, color: "text-orange-400", roles: ["admin", "director", "teacher"], desc: L("ข่าว หนังสือ E-Form ต้นแบบ PDF Smart Fill แจ้งเหตุ", "News, docs, e-forms, templates, PDF fill, emergency") },
         { title: L("คลังไฟล์ LINE Vault", "LINE Vault"), url: "/dashboard/line-vault", icon: StickyNote, color: "text-teal-400", roles: ["admin", "director", "teacher", "student", "parent", "alumni"], desc: L("รูป · ไฟล์ · โน้ตจาก LINE OA ไม่หมดอายุ", "Photos, files & notes from LINE OA — never expire") },
+        { title: L("Google Drive ของฉัน", "My Drive"), url: "/dashboard/my-drive", icon: FolderOpen, color: "text-blue-400", roles: ["admin", "director", "teacher", "student", "parent", "alumni"], desc: L("เชื่อม Google Drive ส่วนตัว เปิดไฟล์ในระบบ", "Connect your own Google Drive & browse in-app") },
       ],
     },
     {
