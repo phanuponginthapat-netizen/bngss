@@ -305,6 +305,7 @@ const App = () => (
                 <Route path="admin/notifications" element={<ProtectedRoute allowedRoles={["admin", "director"]}><NotificationDeliveryDashboard /></ProtectedRoute>} />
                 <Route path="admin/notification-matrix" element={<ProtectedRoute allowedRoles={["admin", "director"]}><NotificationMatrixPage /></ProtectedRoute>} />
                 <Route path="admin/permissions" element={<ProtectedRoute allowedRoles={["admin", "director"]}><PermissionsHubPage /></ProtectedRoute>} />
+                <Route path="admin/observation" element={<ProtectedRoute allowedRoles={["admin", "director"]}><ObservationAccessPage /></ProtectedRoute>} />
                 <Route path="admin/teacher-credentials" element={<ProtectedRoute allowedRoles={["admin", "director"]}><TeacherCredentialsPage /></ProtectedRoute>} />
                 <Route path="admin/duty-teachers" element={<ProtectedRoute allowedRoles={["admin", "director"]}><DutyTeachersPage /></ProtectedRoute>} />
                 <Route path="line-vault" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><LineVaultPage /></ProtectedRoute>} />
