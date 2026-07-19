@@ -462,7 +462,7 @@ export default function MyDrivePage() {
           </div>
           <div className="rounded-lg border p-4 space-y-2">
             <Link2 className="w-5 h-5 text-primary" />
-            <p className="font-medium">Connection Key Secret</p>
+              <p className="font-medium">Connection Storage</p>
             <Badge variant={adminStatus?.connectionKeySecretConfigured ? "default" : "destructive"}>
               {adminStatus?.connectionKeySecretConfigured ? "พร้อม" : "ยังไม่ตั้งค่า"}
             </Badge>

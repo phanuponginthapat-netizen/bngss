@@ -18,6 +18,20 @@ const SCOPES = [
   "https://www.googleapis.com/auth/drive",
 ];
 
+function isAllowedReturnUrl(value: string) {
+  try {
+    const url = new URL(value);
+    if (!/^https?:$/.test(url.protocol)) return false;
+    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") return true;
+    if (url.hostname.endsWith(".lovable.app")) return true;
+    const appUrl = Deno.env.get("APP_URL");
+    if (appUrl && url.origin === new URL(appUrl).origin) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -33,7 +47,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const returnUrl: string = body.return_url ?? "";
-    if (!returnUrl.startsWith("http")) {
+    if (!isAllowedReturnUrl(returnUrl)) {
       return new Response(JSON.stringify({ error: "return_url required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
