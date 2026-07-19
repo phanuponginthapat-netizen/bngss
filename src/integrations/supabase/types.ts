@@ -14576,6 +14576,42 @@ export type Database = {
         }
         Relationships: []
       }
+      social_posts_public: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          external_id: string | null
+          id: string | null
+          media_urls: string[] | null
+          permalink: string | null
+          platform: string | null
+          posted_at: string | null
+          thumbnail_url: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          external_id?: string | null
+          id?: string | null
+          media_urls?: string[] | null
+          permalink?: string | null
+          platform?: string | null
+          posted_at?: string | null
+          thumbnail_url?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          external_id?: string | null
+          id?: string | null
+          media_urls?: string[] | null
+          permalink?: string | null
+          platform?: string | null
+          posted_at?: string | null
+          thumbnail_url?: string | null
+        }
+        Relationships: []
+      }
       students_safe: {
         Row: {
           address: string | null
