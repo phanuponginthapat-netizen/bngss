@@ -211,9 +211,9 @@ const DashboardLayout = () => {
             .select("avatar_url, first_name, last_name, nickname")
             .eq("id", userId)
             .maybeSingle()
-            .then(({ data }) => {
+            .then(async ({ data }) => {
               if (data) {
-                setAvatarUrl(data.avatar_url);
+                setAvatarUrl(await resolveProfileImageUrl(data.avatar_url));
                 const name = data.first_name ? (data.nickname ? `${data.first_name} (${data.nickname})` : data.first_name) : (data.nickname || "");
                 setFullName(name || "");
               }
