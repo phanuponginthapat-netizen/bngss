@@ -34,6 +34,9 @@ export default function SecretsManagementPage() {
   const [newKey, setNewKey] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newCat, setNewCat] = useState("general");
+  const [presetCat, setPresetCat] = useState<string>(SECRET_PRESET_CATEGORIES[0].id);
+  const [presetKey, setPresetKey] = useState<string>("");
+  const [customMode, setCustomMode] = useState(false);
 
   // Auto-seed default secret entries + mirror project env vars into DB so
   // auto-provisioned secrets (VAPID/CRON) show as "ตั้งแล้ว" immediately.
