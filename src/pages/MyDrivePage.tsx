@@ -158,7 +158,7 @@ export default function MyDrivePage() {
   const [testingConnection, setTestingConnection] = useState(false);
 
   const currentFolder = breadcrumb[breadcrumb.length - 1];
-  const canManageDrive = realRole === "admin" || realRole === "director" || role === "admin" || role === "director";
+  const canManageDrive = realRole === "admin" || role === "admin";
   const currentTab = canManageDrive ? activeTab : "files";
 
   // Load connection state
@@ -391,14 +391,9 @@ export default function MyDrivePage() {
         </div>
         <div className="flex flex-wrap gap-2">
           {connection ? (
-            <>
-              <Button variant="outline" onClick={testDriveConnection} disabled={testingConnection}>
-                <CheckCircle2 className="w-4 h-4 mr-2" /> ทดสอบ
-              </Button>
-              <Button onClick={handleReconnect} disabled={connecting}>
-                <RotateCcw className="w-4 h-4 mr-2" /> เชื่อมใหม่
-              </Button>
-            </>
+            <Button onClick={handleReconnect} disabled={connecting}>
+              <RotateCcw className="w-4 h-4 mr-2" /> เชื่อมใหม่
+            </Button>
           ) : (
             <Button size="lg" onClick={() => handleConnect("settings")} disabled={connecting}>
               <FolderOpen className="w-4 h-4 mr-2" /> เชื่อม Google Drive
@@ -557,9 +552,6 @@ export default function MyDrivePage() {
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant="outline" onClick={() => fetchFiles(currentFolder.id)}>
                   <RefreshCw className="w-4 h-4 mr-1" /> รีเฟรช
-                </Button>
-                <Button size="sm" variant="outline" onClick={testDriveConnection} disabled={testingConnection}>
-                  <CheckCircle2 className="w-4 h-4 mr-1" /> ทดสอบ
                 </Button>
                 <Button size="sm" variant="ghost" onClick={handleDisconnect}>
                   <LogOut className="w-4 h-4 mr-1" /> ยกเลิกการเชื่อม
