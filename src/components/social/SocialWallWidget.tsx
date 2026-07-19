@@ -1,208 +1,91 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Facebook, ExternalLink, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { formatDistanceToNow } from "date-fns";
-import { th } from "date-fns/locale";
-
-interface SocialPost {
-  id: string;
-  platform: string;
-  content: string | null;
-  thumbnail_url: string | null;
-  media_urls: string[] | null;
-  permalink: string | null;
-  posted_at: string | null;
-}
+import { ExternalLink, Link2, Share2 } from "lucide-react";
+import { useSocialLinks } from "@/hooks/useSocialLinks";
+import { SOCIAL_PLATFORMS, type SocialLink } from "@/lib/socialPlatforms";
 
 interface Props {
-  limit?: number;
-  compact?: boolean;
-  showSync?: boolean;
   title?: string;
-  /** "card" = wrap in Card (Dashboard). "bare" = no wrapper, fits inside CMS sections */
   variant?: "card" | "bare";
-  /** Tailwind grid cols classes override */
+  /** Tailwind grid cols override */
   columns?: string;
 }
 
-type RangeKey = "7" | "30" | "all";
-
-const RANGES: { key: RangeKey; label: string; days: number | null }[] = [
-  { key: "7", label: "7 วัน", days: 7 },
-  { key: "30", label: "30 วัน", days: 30 },
-  { key: "all", label: "ทั้งหมด", days: null },
-];
-
 export function SocialWallWidget({
-  limit = 6,
-  compact = false,
-  showSync = false,
-  title = "Social Wall",
+  title = "ช่องทางติดตามข่าวสาร",
   variant = "card",
   columns,
 }: Props) {
-  const [posts, setPosts] = useState<SocialPost[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [range, setRange] = useState<RangeKey>("30");
-
-  const load = async () => {
-    setLoading(true);
-    const cfg = RANGES.find((r) => r.key === range)!;
-    let q = supabase
-      .from("social_posts")
-      .select("id,platform,content,thumbnail_url,media_urls,permalink,posted_at")
-      .order("posted_at", { ascending: false, nullsFirst: false })
-      .limit(limit);
-    if (cfg.days != null) {
-      const since = new Date(Date.now() - cfg.days * 24 * 60 * 60 * 1000).toISOString();
-      q = q.gte("posted_at", since);
-    }
-    const { data } = await q;
-    setPosts((data as SocialPost[]) || []);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    load();
-    const channel = supabase
-      .channel("social-posts-rt")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "social_posts" }, () => load())
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [limit, range]);
-
-  const handleSync = async () => {
-    setSyncing(true);
-    try {
-      await supabase.functions.invoke("social-feed-sync", { body: { broadcast: true, limit: 10 } });
-      await load();
-    } finally {
-      setSyncing(false);
-    }
-  };
+  const { links, loading } = useSocialLinks();
+  const active = links.filter((l) => l.active !== false && l.url);
 
   const gridCols =
     columns ??
-    (compact
-      ? ""
-      : variant === "bare"
-      ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
-      : "grid grid-cols-1 sm:grid-cols-2 gap-3");
+    "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4";
 
-  const RangeTabs = (
-    <div className="flex items-center rounded-lg border border-border/60 bg-muted/30 p-0.5">
-      {RANGES.map((r) => (
-        <button
-          key={r.key}
-          onClick={() => setRange(r.key)}
-          className={`px-2.5 py-1 text-[11px] rounded-md transition-colors ${
-            range === r.key
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          {r.label}
-        </button>
-      ))}
-    </div>
-  );
+  const renderCard = (l: SocialLink) => {
+    const meta = SOCIAL_PLATFORMS[l.platform] ?? SOCIAL_PLATFORMS.website;
+    const Icon = meta.icon;
+    return (
+      <a
+        key={l.id}
+        href={l.url}
+        target="_blank"
+        rel="noreferrer"
+        className="group relative aspect-square rounded-2xl overflow-hidden border border-border/50 bg-card hover:shadow-elevated hover:-translate-y-1 transition-all duration-300 flex flex-col"
+        aria-label={l.label || meta.label}
+      >
+        <div className={`flex-1 flex items-center justify-center bg-gradient-to-br ${meta.gradient} relative overflow-hidden`}>
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+          <Icon
+            className="h-10 w-10 sm:h-12 sm:w-12 text-white drop-shadow-md transition-transform duration-500 group-hover:scale-110"
+            strokeWidth={1.8}
+          />
+          <ExternalLink className="absolute top-2 right-2 h-3.5 w-3.5 text-white/70 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+        <div className="px-2.5 py-2 bg-card">
+          <p className="text-xs sm:text-sm font-semibold text-foreground truncate text-center">
+            {l.label || meta.label}
+          </p>
+          {l.handle && (
+            <p className="text-[10px] text-muted-foreground truncate text-center mt-0.5">
+              {l.handle}
+            </p>
+          )}
+        </div>
+      </a>
+    );
+  };
 
-  const PostList = (
+  const List = (
     <>
       {loading ? (
-        <div className="text-xs text-muted-foreground text-center py-6">กำลังโหลด…</div>
-      ) : posts.length === 0 ? (
-        <div className="text-xs text-muted-foreground text-center py-6">ไม่มีโพสต์ในช่วงเวลานี้</div>
-      ) : (
-        <div className={compact ? "space-y-2" : gridCols}>
-          {posts.map((p) => (
-            <a
-              key={p.id}
-              href={p.permalink ?? "#"}
-              target="_blank"
-              rel="noreferrer"
-              className="group block rounded-2xl border border-border/60 overflow-hidden hover:shadow-card-hover hover:-translate-y-1 transition-all duration-300 bg-card"
-            >
-              {p.thumbnail_url ? (
-                <div className="aspect-video bg-muted overflow-hidden">
-                  <img
-                    src={p.thumbnail_url}
-                    alt=""
-                    loading="lazy"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                </div>
-              ) : (
-                <div className="aspect-video bg-gradient-to-br from-sky-500/10 via-blue-500/10 to-indigo-500/10 flex items-center justify-center">
-                  <Facebook className="h-10 w-10 text-sky-600/40" />
-                </div>
-              )}
-              <div className={variant === "bare" ? "p-4 space-y-2" : "p-3 space-y-1.5"}>
-                <p
-                  className={`leading-relaxed text-foreground ${
-                    variant === "bare" ? "text-sm line-clamp-4" : "text-xs line-clamp-3"
-                  }`}
-                >
-                  {p.content || "(ดูรายละเอียดบนเพจ)"}
-                </p>
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/40">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Facebook className="h-3 w-3 text-sky-600" />
-                    {p.posted_at
-                      ? formatDistanceToNow(new Date(p.posted_at), { addSuffix: true, locale: th })
-                      : ""}
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-sky-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                    อ่านต่อ <ExternalLink className="h-3 w-3" />
-                  </span>
-                </div>
-              </div>
-            </a>
+        <div className={gridCols}>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="aspect-square rounded-2xl bg-muted/40 animate-pulse" />
           ))}
         </div>
+      ) : active.length === 0 ? (
+        <div className="text-center py-8 text-sm text-muted-foreground">
+          <Link2 className="h-8 w-8 mx-auto mb-2 opacity-40" />
+          ยังไม่ได้เพิ่มลิงค์ Social Media
+        </div>
+      ) : (
+        <div className={gridCols}>{active.map(renderCard)}</div>
       )}
     </>
   );
 
-  if (variant === "bare") {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-end gap-2">
-          {RangeTabs}
-          {showSync && (
-            <Button variant="ghost" size="sm" onClick={handleSync} disabled={syncing} className="h-8">
-              <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
-            </Button>
-          )}
-        </div>
-        {PostList}
-      </div>
-    );
-  }
+  if (variant === "bare") return <div className="space-y-4">{List}</div>;
 
   return (
     <Card className="h-full border border-border/50 shadow-elevated rounded-2xl">
-      <CardHeader className="pb-3 flex flex-row items-center justify-between gap-2">
+      <CardHeader className="pb-3">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <Facebook className="h-4 w-4 text-sky-600" />
+          <Share2 className="h-4 w-4 text-primary" />
           {title}
         </CardTitle>
-        <div className="flex items-center gap-1">
-          {RangeTabs}
-          {showSync && (
-            <Button variant="ghost" size="sm" onClick={handleSync} disabled={syncing} className="h-7">
-              <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
-            </Button>
-          )}
-        </div>
       </CardHeader>
-      <CardContent className="space-y-2">{PostList}</CardContent>
+      <CardContent>{List}</CardContent>
     </Card>
   );
 }
