@@ -1,6 +1,7 @@
 // Landing page after gateway OAuth completes.
-// Gateway redirects here with connection_key (and/or a token) as query params.
-// This function stores the connection_key and redirects the user back to /my-drive.
+// Gateway redirects here after OAuth completes.
+// The App User Connector gateway currently returns the per-user connection handle
+// as `code` (older builds may return `connection_key`), so accept both shapes.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const GATEWAY = "https://connector-gateway.lovable.dev";
@@ -95,7 +96,15 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const url = new URL(req.url);
   const body = await readCallbackBody(req);
-  const connectionKey = pickParam(url, body, ["connection_key", "app_user_connection_key", "credential_key", "key"]);
+  const connectionKey = pickParam(url, body, [
+    "connection_key",
+    "app_user_connection_key",
+    "credential_key",
+    "connection_code",
+    "authorization_code",
+    "code",
+    "key",
+  ]);
   const appUserId = pickParam(url, body, ["lovable_app_user_id", "app_user_id", "user_id"]);
   const externalUserId = pickParam(url, body, ["external_user_id", "provider_user_id", "provider_account_id"]);
   const errorParam = pickParam(url, body, ["error", "error_code"]);
@@ -111,7 +120,14 @@ Deno.serve(async (req) => {
   };
 
   if (errorParam) return back(`error:${errorParam}`);
-  if (!connectionKey) return back("error:no_key");
+  if (!connectionKey) {
+    console.warn("gdrive finish missing connection handle", {
+      queryKeys: Array.from(url.searchParams.keys()),
+      bodyKeys: Object.keys(body),
+      success: pickParam(url, body, ["success"]),
+    });
+    return back("error:no_key");
+  }
   if (!appUserId) return back("error:no_user");
   if (!returnTo || !stateExpiresAt || !stateSignature || Number(stateExpiresAt) < Date.now()) {
     return back("error:bad_state");
