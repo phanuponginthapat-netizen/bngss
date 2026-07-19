@@ -426,6 +426,7 @@ export function AppSidebar() {
       color: "text-cyan-400",
       roles: ["admin", "director", "teacher", "student", "parent", "alumni"],
       items: [
+        { title: L("WebBrowser", "WebBrowser"), url: "/dashboard/browser", icon: Globe, color: "text-cyan-400", roles: ["admin", "director", "teacher", "student", "parent", "alumni"], desc: L("เปิดเว็บไซต์ภายในระบบ", "In-app web browser") },
         { title: L("Google Drive ของฉัน", "My Drive"), url: "/dashboard/my-drive", icon: FolderOpen, color: "text-blue-400", roles: ["admin", "director", "teacher", "student", "parent", "alumni"], desc: L("เชื่อม Google Drive ส่วนตัว เปิดไฟล์ในระบบ", "Connect your own Google Drive & browse in-app") },
         { title: L("ชุดเอกสาร Office", "Office Suite"), url: "/dashboard/office", icon: FileText, color: "text-indigo-400", roles: ["admin", "director", "teacher", "student", "parent", "alumni"], desc: L("Docs · Sheets · Slides · PDF บันทึกลง Google Drive", "Docs, Sheets, Slides, PDF — save to Google Drive") },
         { title: L("คลังไฟล์ LINE Vault", "LINE Vault"), url: "/dashboard/line-vault", icon: StickyNote, color: "text-teal-400", roles: ["admin", "director", "teacher"], desc: L("รูป · ไฟล์ · โน้ตจาก LINE OA ไม่หมดอายุ", "Photos, files & notes from LINE OA — never expire") },
