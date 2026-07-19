@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { toast } from "sonner";
-import { BE_OFFSET } from "@/lib/dateBE";
+import { BE_OFFSET, bkkDateISO, todayBangkok } from "@/lib/dateBE";
 
 type ClassRow = {
   cls: string; grade: string; size: number; sizeM: number; sizeF: number;

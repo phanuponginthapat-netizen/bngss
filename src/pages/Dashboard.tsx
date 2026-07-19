@@ -1,5 +1,5 @@
 import React, { useEffect, lazy, Suspense } from "react";
-import { todayBangkok } from "@/lib/dateBE";
+import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUserRole } from "@/hooks/useUserRole";

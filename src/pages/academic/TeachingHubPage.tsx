@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useMyPersonnel } from "@/hooks/useMyPersonnel";
-import { formatDateBE } from "@/lib/dateBE";
+import { formatDateBE, todayBangkok } from "@/lib/dateBE";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

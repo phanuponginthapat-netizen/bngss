@@ -1,5 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from "react";
-import { todayBangkok } from "@/lib/dateBE";
+import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { useWeatherData } from "@/hooks/useWeatherData";
 const DynamicHeroBackground = lazy(() => import("./DynamicHeroBackground"));
 const MascotHeroWidget = lazy(() => import("./widgets/MascotHeroWidget"));

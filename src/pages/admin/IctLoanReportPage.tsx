@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { todayBangkok } from "@/lib/dateBE";
+import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

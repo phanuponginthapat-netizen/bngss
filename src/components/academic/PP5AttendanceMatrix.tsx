@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Wand2, Save } from "lucide-react";
 import { toast } from "sonner";
-import { BE_OFFSET } from "@/lib/dateBE";
+import { BE_OFFSET, bkkDateISO } from "@/lib/dateBE";
 
 interface Props {
   subjectId: string;
