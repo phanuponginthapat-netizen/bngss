@@ -196,6 +196,23 @@ export default function LineVaultPage() {
     load();
   }
 
+  async function fetchItemBlob(item: Item): Promise<{ blob: Blob; filename: string } | null> {
+    if (item.kind === "note") {
+      const text = `${item.title}\n\n${item.note_text || ""}\n\n— ${format(new Date(item.created_at), "d MMM yyyy HH:mm", { locale: th })}`;
+      return { blob: new Blob([text], { type: "text/plain;charset=utf-8" }), filename: `${item.title.replace(/[\\/:*?"<>|]/g, "_") || "note"}.txt` };
+    }
+    const { data } = await supabase.functions.invoke("line-vault-download", { body: { item_id: item.id, expires_in: 600 } });
+    if (!data?.url) return null;
+    try {
+      const res = await fetch(data.url);
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      return { blob, filename: data.filename || item.original_filename || item.title || item.id };
+    } catch { return null; }
+  }
+
+
+
 
   return (
     <div className="p-4 md:p-6 space-y-4">
