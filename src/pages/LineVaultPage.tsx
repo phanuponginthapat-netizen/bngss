@@ -43,6 +43,7 @@ type Group = {
   department: string | null;
   default_visibility: "everyone" | "department" | "admin";
   auto_capture: boolean;
+  notify_on_capture?: boolean;
   notes: string | null;
 };
 
