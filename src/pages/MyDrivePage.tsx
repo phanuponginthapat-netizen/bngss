@@ -72,8 +72,8 @@ export default function MyDrivePage() {
     if (status) {
       url.searchParams.delete("drive_status");
       window.history.replaceState({}, "", url.toString());
-      if (status === "connected") { swalSuccess("เชื่อม Google Drive สำเร็จ"); loadConnection(); }
-      else swalError("เชื่อม Drive ไม่สำเร็จ", status);
+      if (status === "connected") { swal.success("เชื่อม Google Drive สำเร็จ"); loadConnection(); }
+      else swal.error("เชื่อม Drive ไม่สำเร็จ", status);
     }
   }, [loadConnection]);
 
@@ -129,13 +129,13 @@ export default function MyDrivePage() {
       if (!parsed?.authorize_url) throw new Error("ไม่ได้รับ authorize_url");
       window.location.href = parsed.authorize_url;
     } catch (e: any) {
-      swalError("เริ่มการเชื่อมต่อไม่สำเร็จ", e.message ?? String(e));
+      swal.error("เริ่มการเชื่อมต่อไม่สำเร็จ", e.message ?? String(e));
       setConnecting(false);
     }
   };
 
   const handleDisconnect = async () => {
-    const ok = await swalConfirm("ยกเลิกการเชื่อม Google Drive?", "ระบบจะไม่สามารถเข้าถึงไฟล์ของคุณอีก");
+    const ok = await swal.confirm({ title: "ยกเลิกการเชื่อม Google Drive?", text: "ระบบจะไม่สามารถเข้าถึงไฟล์ของคุณอีก" });
     if (!ok) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
