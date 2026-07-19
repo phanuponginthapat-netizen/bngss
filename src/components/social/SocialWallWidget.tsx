@@ -1,7 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExternalLink, Link2, Share2 } from "lucide-react";
 import { useSocialLinks } from "@/hooks/useSocialLinks";
-import { SOCIAL_PLATFORMS, type SocialLink } from "@/lib/socialPlatforms";
+import {
+  SOCIAL_PLATFORMS,
+  getEmbedUrl,
+  type SocialLink,
+} from "@/lib/socialPlatforms";
 
 interface Props {
   title?: string;
@@ -18,11 +22,24 @@ export function SocialWallWidget({
   const { links, loading } = useSocialLinks();
   const active = links.filter((l) => l.active !== false && l.url);
 
+  const buttonLinks: SocialLink[] = [];
+  const embedLinks: { link: SocialLink; src: string }[] = [];
+  active.forEach((l) => {
+    if (l.embed) {
+      const src = getEmbedUrl(l);
+      if (src) {
+        embedLinks.push({ link: l, src });
+        return;
+      }
+    }
+    buttonLinks.push(l);
+  });
+
   const gridCols =
     columns ??
     "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4";
 
-  const renderCard = (l: SocialLink) => {
+  const renderButton = (l: SocialLink) => {
     const meta = SOCIAL_PLATFORMS[l.platform] ?? SOCIAL_PLATFORMS.website;
     const Icon = meta.icon;
     return (
@@ -56,6 +73,50 @@ export function SocialWallWidget({
     );
   };
 
+  const renderEmbed = ({ link, src }: { link: SocialLink; src: string }) => {
+    const meta = SOCIAL_PLATFORMS[link.platform] ?? SOCIAL_PLATFORMS.website;
+    const Icon = meta.icon;
+    // Aspect: YouTube 16:9, Facebook/TikTok 9:16-ish (portrait)
+    const isVideo = link.platform === "youtube";
+    return (
+      <div
+        key={link.id}
+        className="rounded-2xl overflow-hidden border border-border/50 bg-card shadow-sm hover:shadow-elevated transition-all"
+      >
+        <div className={`flex items-center gap-2 px-3 py-2 bg-gradient-to-r ${meta.gradient}`}>
+          <Icon className="h-4 w-4 text-white" strokeWidth={2} />
+          <span className="text-xs font-semibold text-white truncate flex-1">
+            {link.label || meta.label}
+          </span>
+          <a
+            href={link.url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-white/80 hover:text-white"
+            aria-label="เปิดในแท็บใหม่"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        </div>
+        <div
+          className="relative w-full bg-muted/30"
+          style={{ aspectRatio: isVideo ? "16 / 9" : "3 / 4" }}
+        >
+          <iframe
+            src={src}
+            title={link.label || meta.label}
+            className="absolute inset-0 w-full h-full"
+            loading="lazy"
+            frameBorder={0}
+            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+            allowFullScreen
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+        </div>
+      </div>
+    );
+  };
+
   const List = (
     <>
       {loading ? (
@@ -70,7 +131,16 @@ export function SocialWallWidget({
           ยังไม่ได้เพิ่มลิงค์ Social Media
         </div>
       ) : (
-        <div className={gridCols}>{active.map(renderCard)}</div>
+        <div className="space-y-5">
+          {embedLinks.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {embedLinks.map(renderEmbed)}
+            </div>
+          )}
+          {buttonLinks.length > 0 && (
+            <div className={gridCols}>{buttonLinks.map(renderButton)}</div>
+          )}
+        </div>
       )}
     </>
   );
