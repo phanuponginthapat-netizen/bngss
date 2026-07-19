@@ -24,9 +24,38 @@ export function semesterLabel(d: Date = new Date()): string {
 
 /** Today's date in Bangkok timezone as ISO YYYY-MM-DD. */
 export function todayBangkokISO(): string {
+  return bkkDateISO(new Date());
+}
+
+/** Any Date → ISO YYYY-MM-DD in Bangkok timezone (safe replacement for `d.toISOString().slice(0,10)`). */
+export function bkkDateISO(d: Date = new Date()): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit",
-  }).formatToParts(new Date());
+  }).formatToParts(d);
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
+
+/** Shift `days` from base (default now) then return ISO YYYY-MM-DD in Bangkok tz. */
+export function addDaysBkkISO(days: number, base: Date = new Date()): string {
+  return bkkDateISO(new Date(base.getTime() + days * 86400000));
+}
+
+/** "12 พฤษภาคม 2569" — long Thai date with Buddhist year, Bangkok tz, consistent across Deno/Node/Browser. */
+export function formatThaiLong(input: Date | string | number): string {
+  const d = input instanceof Date ? input : new Date(input);
+  if (isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
+    timeZone: "Asia/Bangkok", day: "numeric", month: "long", year: "numeric",
+  }).format(d);
+}
+
+/** "12 พ.ค. 2569" */
+export function formatThaiShort(input: Date | string | number): string {
+  const d = input instanceof Date ? input : new Date(input);
+  if (isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
+    timeZone: "Asia/Bangkok", day: "numeric", month: "short", year: "numeric",
+  }).format(d);
+}
+
