@@ -1,11 +1,13 @@
 // Landing page after gateway OAuth completes.
 // Gateway redirects here after OAuth completes.
-// The App User Connector gateway currently returns the per-user connection handle
-// as `code` (older builds may return `connection_key`), so accept both shapes.
+// The App User Connector gateway returns a short-lived exchange `code` to this
+// app callback. Exchange it with the connector gateway before storing the
+// permanent per-user connection key used by X-Connection-Api-Key.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const GATEWAY = "https://connector-gateway.lovable.dev";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const CLIENT_API_KEY = Deno.env.get("GOOGLE_DRIVE_APP_USER_CONNECTOR_CLIENT_API_KEY")!;
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -52,6 +54,64 @@ function pickParam(url: URL, body: Record<string, unknown>, names: string[]) {
   return null;
 }
 
+function pickBodyParam(body: Record<string, unknown>, names: string[]) {
+  for (const name of names) {
+    const fromBody = body[name];
+    if (typeof fromBody === "string" && fromBody) return fromBody;
+  }
+  for (const root of ["data", "connection", "credential", "app_user_connection"]) {
+    for (const name of names) {
+      const value = nestedValue(body, [root, name]);
+      if (value) return value;
+    }
+  }
+  return null;
+}
+
+async function exchangeConnectionCode(code: string) {
+  const exchangeRes = await fetch(`${GATEWAY}/api/v1/app-users/oauth2/exchange`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+      "X-Client-Api-Key": CLIENT_API_KEY,
+    },
+    body: JSON.stringify({ code }),
+  });
+
+  const text = await exchangeRes.text();
+  let data: Record<string, unknown> = {};
+  try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+
+  if (!exchangeRes.ok) {
+    console.error("gdrive exchange failed", {
+      status: exchangeRes.status,
+      type: typeof data.type === "string" ? data.type : undefined,
+      title: typeof data.title === "string" ? data.title : undefined,
+    });
+    throw new Error(typeof data.type === "string" ? data.type : "exchange_failed");
+  }
+
+  const connectionKey = pickBodyParam(data, [
+    "connection_key",
+    "connectionKey",
+    "app_user_connection_key",
+    "appUserConnectionKey",
+    "credential_key",
+    "connection_api_key",
+    "api_key",
+    "key",
+  ]);
+
+  return {
+    connectionKey,
+    externalUserId: pickBodyParam(data, ["external_user_id", "provider_user_id", "provider_account_id"]),
+    accountEmail: pickBodyParam(data, ["account_email", "email"]),
+    accountName: pickBodyParam(data, ["account_name", "name"]),
+    scopes: Array.isArray(data.scopes) ? data.scopes : Array.isArray((data.data as Record<string, unknown> | undefined)?.scopes) ? (data.data as Record<string, unknown>).scopes : undefined,
+  };
+}
+
 async function signState(userId: string, returnUrl: string, expiresAt: string) {
   const secret = Deno.env.get("CRON_SECRET") ?? Deno.env.get("LOVABLE_API_KEY") ?? "";
   const key = await crypto.subtle.importKey(
@@ -96,15 +156,13 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const url = new URL(req.url);
   const body = await readCallbackBody(req);
-  const connectionKey = pickParam(url, body, [
+  const directConnectionKey = pickParam(url, body, [
     "connection_key",
     "app_user_connection_key",
     "credential_key",
-    "connection_code",
-    "authorization_code",
-    "code",
     "key",
   ]);
+  const exchangeCode = pickParam(url, body, ["code", "connection_code", "authorization_code"]);
   const appUserId = pickParam(url, body, ["lovable_app_user_id", "app_user_id", "user_id"]);
   const externalUserId = pickParam(url, body, ["external_user_id", "provider_user_id", "provider_account_id"]);
   const errorParam = pickParam(url, body, ["error", "error_code"]);
@@ -120,7 +178,7 @@ Deno.serve(async (req) => {
   };
 
   if (errorParam) return back(`error:${errorParam}`);
-  if (!connectionKey) {
+  if (!directConnectionKey && !exchangeCode) {
     console.warn("gdrive finish missing connection handle", {
       queryKeys: Array.from(url.searchParams.keys()),
       bodyKeys: Object.keys(body),
@@ -134,6 +192,18 @@ Deno.serve(async (req) => {
   }
   const expectedSignature = await signState(appUserId, returnTo, stateExpiresAt);
   if (!timingSafeEqual(expectedSignature, stateSignature)) return back("error:bad_state");
+
+  let connectionKey = directConnectionKey;
+  let exchanged: Awaited<ReturnType<typeof exchangeConnectionCode>> | null = null;
+  if (!connectionKey && exchangeCode) {
+    try {
+      exchanged = await exchangeConnectionCode(exchangeCode);
+      connectionKey = exchanged.connectionKey;
+    } catch (error) {
+      return back(`error:${error instanceof Error ? error.message : "exchange_failed"}`);
+    }
+  }
+  if (!connectionKey) return back("error:no_connection_key");
 
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -161,9 +231,10 @@ Deno.serve(async (req) => {
     user_id: appUserId,
     connector_id: "google_drive",
     connection_key: connectionKey,
-    external_user_id: externalUserId ?? appUserId,
-    account_email: email,
-    account_name: name,
+    external_user_id: exchanged?.externalUserId ?? externalUserId ?? appUserId,
+    account_email: exchanged?.accountEmail ?? email,
+    account_name: exchanged?.accountName ?? name,
+    scopes: exchanged?.scopes,
     connected_at: new Date().toISOString(),
     revoked_at: null,
   }, { onConflict: "user_id,connector_id" });
