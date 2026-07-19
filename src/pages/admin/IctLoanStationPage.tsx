@@ -264,13 +264,21 @@ export default function IctLoanStationPage() {
     const cleaned = code.trim();
     if (!cleaned) return;
     if (borrowerType === "student") {
-      const { data } = await supabase.from("students")
-        .select("id,student_code,prefix,first_name,last_name,classrooms!students_classroom_id_fkey(name)")
-        .eq("student_code", cleaned).maybeSingle();
-      if (!data) { toast.error("ไม่พบนักเรียนรหัส " + cleaned); return; }
+      // รองรับ QR บัตร (URL /p/, /sdq-assess/) + student_code ตรงๆ
+      let data: any = null;
+      const { resolveScannedStudent } = await import("@/lib/resolveScannedStudent");
+      const r = await resolveScannedStudent(cleaned);
+      if (r) {
+        const { data: full } = await supabase.from("students")
+          .select("id,student_code,prefix,first_name,last_name,classrooms!students_classroom_id_fkey(name)")
+          .eq("id", r.id).maybeSingle();
+        data = full;
+      }
+      if (!data) { toast.error("ไม่พบนักเรียนจาก QR (" + cleaned.slice(0, 40) + ")"); return; }
       setStudent(data as any); setPersonnel(null);
       toast.success("พบนักเรียน: " + data.first_name + " " + data.last_name);
       if (mode === "return") await autoFindLoan({ student_id: (data as any).id });
+
     } else {
       // Try employee_code first, then fall back to name search (first/last)
       let data: any = null;
