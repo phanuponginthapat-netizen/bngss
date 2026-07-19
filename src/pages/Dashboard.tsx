@@ -302,11 +302,12 @@ const Dashboard = () => {
   const RoleDashboardWithShortcuts = ({ children }: { children: React.ReactNode }) => (
     <Suspense fallback={<PageSkeleton />}>
       {children}
-      <div className="px-3 sm:px-6 pt-4 sm:pt-6 pb-6">
+      <div className="px-3 sm:px-6 pt-4 sm:pt-6 pb-28 sm:pb-24 lg:pb-10">
         <BrowserShortcutsCard />
       </div>
     </Suspense>
   );
+
 
   if (role === "director") {
     return <RoleDashboardWithShortcuts><DirectorDashboard /></RoleDashboardWithShortcuts>;
