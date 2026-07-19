@@ -167,14 +167,12 @@ export default function LineVaultPage() {
   async function handleDelete(item: Item) {
     const ok = await swal.confirm({ title: "ลบรายการนี้?", text: item.title, confirmText: "ลบ", danger: true });
     if (!ok) return;
-    if (item.storage_path) {
-      await supabase.storage.from("line-vault").remove([item.storage_path]);
-    }
-    const { error } = await supabase.from("line_vault_items").delete().eq("id", item.id);
-    if (error) return swal.error("ลบไม่สำเร็จ", error.message);
+    const { data, error } = await supabase.functions.invoke("line-vault-delete", { body: { item_id: item.id } });
+    if (error || (data as any)?.error) return swal.error("ลบไม่สำเร็จ", (data as any)?.error || error?.message);
     swal.success("ลบแล้ว");
     load();
   }
+
 
   return (
     <div className="p-4 md:p-6 space-y-4">
