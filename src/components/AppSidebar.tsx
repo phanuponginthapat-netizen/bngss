@@ -242,7 +242,7 @@ export function AppSidebar() {
     { title: L("หน้าหลัก", "Dashboard"), url: "/dashboard", icon: LayoutDashboard, color: "text-sky-400", desc: L("ภาพรวมข้อมูลสำคัญและงานประจำวัน", "Overview and daily stats") },
     
     { title: L("เว็บไซต์โรงเรียน", "School Website"), url: "/", icon: Globe, color: "text-cyan-400", desc: L("หน้าเว็บสำหรับบุคคลภายนอก", "Public school website") },
-    { title: L("WebBrowser", "WebBrowser"), url: "/dashboard/browser", icon: Globe, color: "text-cyan-400", roles: ["admin", "director", "teacher", "student"], desc: L("ท่องเว็บพร้อมกรองเนื้อหาและโฆษณา", "Browser with content & ad filter") },
+    // WebBrowser ย้ายไปอยู่ในหมวด "เครื่องมือ" (tools_kit)
     { title: L("ข้อมูลส่วนตัว", "My Profile"), url: "/dashboard/profile", icon: User, color: "text-violet-400", desc: L("ข้อมูลส่วนตัวและตั้งค่าบัญชี", "Personal info & account settings") },
     { title: L("กล่องข้อความ", "Inbox"), url: "/dashboard/inbox", icon: Inbox, color: "text-blue-400", desc: L("ข้อความ แจ้งเตือน และเอกสารถึงคุณ", "Messages, notifications & docs to you") },
     { title: L("ประชาสัมพันธ์ออนไลน์", "Feed"), url: "/dashboard/feed", icon: Megaphone, color: "text-pink-400", desc: L("โพสต์ กิจกรรม ผลงาน จากทุกคน", "Posts, activities & work") },
