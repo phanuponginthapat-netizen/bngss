@@ -185,7 +185,7 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
 
     start();
     return () => { cancelled = true; stop(); };
-  }, [open, onScan, onClose, continuous]);
+  }, [open, continuous]);
 
 
   return (
