@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { showError, showSuccess, showConfirm } from "@/lib/swal";
+import { swal } from "@/lib/swal";
 import { Image as ImageIcon, FileText, StickyNote, Download, Trash2, Search, Upload, Users, Building2, Lock, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
