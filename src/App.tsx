@@ -306,7 +306,7 @@ const App = () => (
                 <Route path="admin/permissions" element={<ProtectedRoute allowedRoles={["admin", "director"]}><PermissionsHubPage /></ProtectedRoute>} />
                 <Route path="admin/teacher-credentials" element={<ProtectedRoute allowedRoles={["admin", "director"]}><TeacherCredentialsPage /></ProtectedRoute>} />
                 <Route path="admin/duty-teachers" element={<ProtectedRoute allowedRoles={["admin", "director"]}><DutyTeachersPage /></ProtectedRoute>} />
-                <Route path="line-vault" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><LineVaultPage /></ProtectedRoute>} />
+                <Route path="line-vault" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><LineVaultPage /></ProtectedRoute>} />
                 <Route path="my-drive" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><MyDrivePage /></ProtectedRoute>} />
                 {/* Office Suite */}
                 <Route path="office" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><OfficeHomePage /></ProtectedRoute>} />
