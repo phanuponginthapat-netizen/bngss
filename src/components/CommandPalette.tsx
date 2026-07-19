@@ -90,31 +90,37 @@ export default function CommandPalette() {
       if (perms.students) {
         kinds.push("student");
         tasks.push(
-          supabase
-            .from("students")
-            .select("id,prefix,first_name,last_name,student_code,classroom_id,classrooms!students_classroom_id_fkey(name)")
-            .or(`first_name.ilike.${like},last_name.ilike.${like},student_code.ilike.${like}`)
-            .limit(8)
+          Promise.resolve(
+            supabase
+              .from("students")
+              .select("id,prefix,first_name,last_name,student_code,classroom_id,classrooms!students_classroom_id_fkey(name)")
+              .or(`first_name.ilike.${like},last_name.ilike.${like},student_code.ilike.${like}`)
+              .limit(8)
+          )
         );
       }
       if (perms.personnel) {
         kinds.push("personnel");
         tasks.push(
-          supabase
-            .from("personnel")
-            .select("id,prefix,first_name,last_name,department")
-            .or(`first_name.ilike.${like},last_name.ilike.${like}`)
-            .limit(8)
+          Promise.resolve(
+            supabase
+              .from("personnel")
+              .select("id,prefix,first_name,last_name,department")
+              .or(`first_name.ilike.${like},last_name.ilike.${like}`)
+              .limit(8)
+          )
         );
       }
       if (perms.documents) {
         kinds.push("document");
         tasks.push(
-          supabase
-            .from("documents")
-            .select("id,title,doc_number,doc_type")
-            .or(`title.ilike.${like},doc_number.ilike.${like}`)
-            .limit(8)
+          Promise.resolve(
+            supabase
+              .from("documents")
+              .select("id,title,doc_number,doc_type")
+              .or(`title.ilike.${like},doc_number.ilike.${like}`)
+              .limit(8)
+          )
         );
       }
 
