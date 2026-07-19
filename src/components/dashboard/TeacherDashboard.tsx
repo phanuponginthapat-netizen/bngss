@@ -363,9 +363,6 @@ const TeacherDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <Suspense fallback={<Skeleton className="h-72 rounded-2xl" />}>
-        <MascotHeroWidget />
-      </Suspense>
       {/* Hero */}
       <div className="gradient-hero rounded-2xl p-6 text-primary-foreground relative overflow-hidden min-h-[180px]">
         <Suspense fallback={null}>
