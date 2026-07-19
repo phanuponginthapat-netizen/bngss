@@ -391,14 +391,9 @@ export default function MyDrivePage() {
         </div>
         <div className="flex flex-wrap gap-2">
           {connection ? (
-            <>
-              <Button variant="outline" onClick={testDriveConnection} disabled={testingConnection}>
-                <CheckCircle2 className="w-4 h-4 mr-2" /> ทดสอบ
-              </Button>
-              <Button onClick={handleReconnect} disabled={connecting}>
-                <RotateCcw className="w-4 h-4 mr-2" /> เชื่อมใหม่
-              </Button>
-            </>
+            <Button onClick={handleReconnect} disabled={connecting}>
+              <RotateCcw className="w-4 h-4 mr-2" /> เชื่อมใหม่
+            </Button>
           ) : (
             <Button size="lg" onClick={() => handleConnect("settings")} disabled={connecting}>
               <FolderOpen className="w-4 h-4 mr-2" /> เชื่อม Google Drive
