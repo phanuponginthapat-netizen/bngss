@@ -59,7 +59,7 @@ const DirectorDashboard = () => {
         supabase.from("students").select("id, gender", { count: "exact" }).eq("status", "active"),
         supabase.from("personnel").select("id, position", { count: "exact" }).eq("status", "active"),
         supabase.from("classrooms").select("id, homeroom_teacher", { count: "exact" }),
-        supabase.from("attendance").select("status, attendance_date").gte("attendance_date", new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0]),
+        supabase.from("attendance").select("status, attendance_date").gte("attendance_date", bkkDateISO(new Date(Date.now() - 30 * 86400000))),
         supabase.from("student_leaves").select("id, status"),
         supabase.from("staff_leaves").select("id, status"),
         supabase.from("news_posts").select("id, title, is_published").eq("is_published", true).order("created_at", { ascending: false }).limit(5),

@@ -66,7 +66,7 @@ interface SmscData {
 }
 
 const fetchData = async (): Promise<SmscData> => {
-  const since = new Date(Date.now() - SINCE_DAYS * 86400000).toISOString().slice(0, 10);
+  const since = bkkDateISO(new Date(Date.now() - SINCE_DAYS * 86400000));
 
   const [
     students, teachers, classrooms, subjects, schedules, documents,

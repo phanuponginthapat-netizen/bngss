@@ -84,8 +84,7 @@ export const TeacherDailyBriefing = ({ userId, personnelId, personnelFullName, h
         const studMap = new Map((studs || []).map((s) => [s.id, s]));
 
         if (studentIds.length) {
-          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-            .toISOString().split("T")[0];
+          const sevenDaysAgo = bkkDateISO(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
 
           const [{ data: behaviors }, { data: absences }] = await Promise.all([
             supabase

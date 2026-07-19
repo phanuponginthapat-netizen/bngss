@@ -895,8 +895,8 @@ const MiniCalendar = ({ events: _propEvents, navigate, lang = "th" }: { events: 
   const { data: monthEvents = [] } = useQuery({
     queryKey: ["mini_calendar_events", year, month],
     queryFn: async () => {
-      const start = new Date(year, month, 1).toISOString().split("T")[0];
-      const end = new Date(year, month + 1, 0).toISOString().split("T")[0];
+      const start = bkkDateISO(new Date(year, month, 1));
+      const end = bkkDateISO(new Date(year, month + 1, 0));
       const { data } = await supabase
         .from("academic_events")
         .select("id, title, event_date, event_type, location, description")
