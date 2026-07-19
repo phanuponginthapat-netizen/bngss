@@ -137,7 +137,7 @@ export default function CommandPalette() {
     : MENU;
 
   return (
-    <CommandDialog open={open} onOpenChange={setOpen}>
+    <CommandDialog open={open} onOpenChange={setOpen} shouldFilter={false}>
       <CommandInput
         placeholder="ค้นหานักเรียน บุคลากร เอกสาร หรือเมนู... (Ctrl/⌘K)"
         value={query}
