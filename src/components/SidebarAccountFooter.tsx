@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { resolveProfileImageUrl } from "@/lib/profileImageUrl";
 
 export function SidebarAccountFooter() {
   const { state, isMobile, setOpenMobile } = useSidebar();
