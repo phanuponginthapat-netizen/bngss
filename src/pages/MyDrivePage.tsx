@@ -252,7 +252,7 @@ export default function MyDrivePage() {
     const ok = await swal.confirm({
       title: "เชื่อม Google Drive ใหม่?",
       text: "ระบบจะล้างสถานะเดิมในแอป แล้วให้คุณอนุญาต Google Drive อีกครั้ง",
-      confirmButtonText: "เชื่อมใหม่",
+      confirmText: "เชื่อมใหม่",
     });
     if (!ok) return;
     const { data: { user } } = await supabase.auth.getUser();
