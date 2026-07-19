@@ -114,6 +114,7 @@ const UpstreamSyncPage = lazy(() => import("./pages/admin/UpstreamSyncPage"));
 const FieldVisibilityPage = lazy(() => import("./pages/admin/FieldVisibilityPage"));
 const LineSettingsPage = lazy(() => import("./pages/admin/LineSettingsPage"));
 const SocialFeedPage = lazy(() => import("./pages/admin/SocialFeedPage"));
+const LineVaultPage = lazy(() => import("./pages/LineVaultPage"));
 const EFormPage = lazy(() => import("./pages/admin/EFormPage"));
 const EFormTemplatesPage = lazy(() => import("./pages/admin/EFormTemplatesPage"));
 const DocumentTemplatesPage = lazy(() => import("./pages/admin/DocumentTemplatesPage"));
