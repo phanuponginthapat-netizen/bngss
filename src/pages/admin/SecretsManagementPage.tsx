@@ -33,11 +33,14 @@ export default function SecretsManagementPage() {
   const [newDesc, setNewDesc] = useState("");
   const [newCat, setNewCat] = useState("general");
 
-  // Auto-seed default secret entries so the form is never empty after a remix
+  // Auto-seed default secret entries + mirror project env vars into DB so
+  // auto-provisioned secrets (VAPID/CRON) show as "ตั้งแล้ว" immediately.
   useEffect(() => {
-    supabase.rpc("ensure_default_app_secrets" as any).then(() => {
+    (async () => {
+      await supabase.rpc("ensure_default_app_secrets" as any);
+      try { await supabase.functions.invoke("sync-env-secrets"); } catch (_) { /* ignore */ }
       qc.invalidateQueries({ queryKey: ["app_secrets"] });
-    });
+    })();
   }, [qc]);
 
   const { data: secrets = [] } = useQuery({
