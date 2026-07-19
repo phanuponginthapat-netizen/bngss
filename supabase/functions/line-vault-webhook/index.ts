@@ -2,7 +2,7 @@
 // Uses its own channel access token: LINE_VAULT_CHANNEL_ACCESS_TOKEN
 // so it is fully independent from the chatbot OA.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { captureLineGroupEvent, fetchLineGroupMemberProfile } from "../_shared/lineVaultCapture.ts";
+import { captureLineGroupEvent, fetchLineGroupMemberProfile, registerLineGroupFromJoin } from "../_shared/lineVaultCapture.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
