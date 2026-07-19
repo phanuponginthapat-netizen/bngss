@@ -310,6 +310,7 @@ const DashboardLayout = () => {
         </main>
         <AppSidebar />
         <CommandPalette />
+        <OnboardingTour />
       </div>
     </SidebarProvider>
   );
