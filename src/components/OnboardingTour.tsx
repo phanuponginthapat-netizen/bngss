@@ -40,6 +40,9 @@ export default function OnboardingTour() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (localStorage.getItem(STORAGE_KEY) === "1") return;
+    const path = window.location.pathname.replace(/\/$/, "");
+    const canShowTour = path === "/dashboard" || path === "/dashboard/home";
+    if (!canShowTour) return;
     // small delay so layout settles
     const t = setTimeout(() => setActive(true), 800);
     return () => clearTimeout(t);

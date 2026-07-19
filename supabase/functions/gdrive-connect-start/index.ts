@@ -37,6 +37,11 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "return_url required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    const functionUrl = new URL(req.url);
+    const finishUrl = new URL(`${functionUrl.origin}/functions/v1/gdrive-connect-finish`);
+    finishUrl.searchParams.set("return_to", returnUrl);
+    finishUrl.searchParams.set("lovable_app_user_id", user.id);
+
     // Ask gateway to start OAuth authorization for this app user.
     // Body/response shape mirrors documented gateway conventions.
     const authRes = await fetch(`${GATEWAY}/api/v1/app-users/oauth2/authorize`, {
@@ -49,7 +54,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         connector_id: "google_drive",
         app_user_id: user.id,
-        return_url: returnUrl,
+        return_url: finishUrl.toString(),
         credentials_configuration: { scopes: SCOPES },
       }),
     });
