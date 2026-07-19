@@ -31,6 +31,7 @@ import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { useSessionKeepAlive } from "@/hooks/useSessionKeepAlive";
 import { useRadixOverlayCleanup } from "@/hooks/useRadixOverlayCleanup";
 import { useForceLogoutListener } from "@/hooks/useForceLogoutListener";
+import OnboardingTour from "@/components/OnboardingTour";
 
 /** ปุ่ม avatar ที่ toggle sidebar (แทน dropdown เดิม) */
 function AvatarSidebarToggle({ avatarUrl, fullName, userEmail }: { avatarUrl: string | null; fullName: string; userEmail: string }) {
