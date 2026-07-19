@@ -800,15 +800,10 @@ export function AppSidebar() {
                 "/dashboard/hub/games",
               ]),
             },
-            {
-              key: "tools",
-              label: L("เครื่องมือ", "Tools"),
-              color: "text-cyan-400",
-              dot: "bg-cyan-400",
-              icon: Globe,
-              items: take(["/dashboard/browser"]),
-            },
           ];
+          // ให้ /dashboard/browser ตกไปหมวด "เครื่องมือ" (div_tools) แทน เพื่อไม่ให้ซ้ำ
+          used.add("/dashboard/browser");
+
           const leftover = visibleMain.filter((i) => !used.has(i.url));
           if (leftover.length) {
             mainSections.push({
