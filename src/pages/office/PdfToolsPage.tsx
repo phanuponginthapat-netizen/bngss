@@ -163,7 +163,7 @@ export default function PdfToolsPage() {
       }
     }
     const bytes = await doc.save();
-    return new Blob([bytes], { type: MIME.pdf });
+    return new Blob([bytes as BlobPart], { type: MIME.pdf });
   };
 
   const download = async () => {
