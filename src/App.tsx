@@ -308,6 +308,12 @@ const App = () => (
                 <Route path="admin/duty-teachers" element={<ProtectedRoute allowedRoles={["admin", "director"]}><DutyTeachersPage /></ProtectedRoute>} />
                 <Route path="line-vault" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><LineVaultPage /></ProtectedRoute>} />
                 <Route path="my-drive" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><MyDrivePage /></ProtectedRoute>} />
+                {/* Office Suite */}
+                <Route path="office" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><OfficeHomePage /></ProtectedRoute>} />
+                <Route path="office/docs" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><DocsEditorPage /></ProtectedRoute>} />
+                <Route path="office/sheets" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><SheetsEditorPage /></ProtectedRoute>} />
+                <Route path="office/slides" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><SlidesEditorPage /></ProtectedRoute>} />
+                <Route path="office/pdf" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><PdfToolsPage /></ProtectedRoute>} />
                 <Route path="inbox" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><InboxPage /></ProtectedRoute>} />
                 <Route path="news/:id" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "alumni", "parent"]}><NewsDetailPage /></ProtectedRoute>} />
                 
