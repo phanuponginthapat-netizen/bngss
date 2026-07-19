@@ -141,10 +141,17 @@ function sanitizeReturnUrl(value: string | null, fallbackOrigin: string) {
   if (!value) return fallback;
   try {
     const url = new URL(value.startsWith("http") ? value : `${fallbackOrigin}${value.startsWith("/") ? value : `/${value}`}`);
+    const hostname = url.hostname.toLowerCase();
     const appUrl = Deno.env.get("APP_URL");
-    const allowed = url.hostname === "localhost"
-      || url.hostname === "127.0.0.1"
-      || url.hostname.endsWith(".lovable.app")
+    const allowed = hostname === "localhost"
+      || hostname === "127.0.0.1"
+      || hostname.endsWith(".lovable.app")
+      || hostname === "lovableproject.com"
+      || hostname.endsWith(".lovableproject.com")
+      || hostname === "lovableproject-dev.com"
+      || hostname.endsWith(".lovableproject-dev.com")
+      || hostname === "beta.lovable.dev"
+      || hostname.endsWith(".beta.lovable.dev")
       || (appUrl && url.origin === new URL(appUrl).origin);
     return allowed ? url.toString() : fallback;
   } catch {
