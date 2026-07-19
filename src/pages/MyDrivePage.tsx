@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FolderOpen, File as FileIcon, ChevronRight, RefreshCw, Search, Download, ExternalLink, Home, LogOut, Upload } from "lucide-react";
 import { toast } from "sonner";
-import { swalConfirm, swalError, swalSuccess } from "@/lib/swal";
+import { swal } from "@/lib/swal";
 
 interface DriveFile {
   id: string;
