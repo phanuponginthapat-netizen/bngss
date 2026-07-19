@@ -639,6 +639,41 @@ function VaultSettings() {
       </Card>
 
       <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5" />ตั้งค่า Channel Access Token (LINE Vault)</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            วาง Access Token ของ <b>LINE OA ตัวใหม่</b> (คนละตัวกับแชทบอทของระบบ) ตรงนี้ได้เลย
+            ระบบจะบันทึกลง secret ชื่อ{" "}
+            <code className="mx-1 px-1.5 py-0.5 rounded bg-muted text-xs">LINE_VAULT_CHANNEL_ACCESS_TOKEN</code>
+            ให้อัตโนมัติ ไม่ต้องเข้าหน้า Secrets แยก
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Label className="text-xs">Channel Access Token</Label>
+          <div className="flex gap-2">
+            <Input
+              type={showToken ? "text" : "password"}
+              value={tokenDraft}
+              onChange={(e) => setTokenDraft(e.target.value)}
+              placeholder={status?.token ? "•••••• (มีค่าที่ตั้งไว้แล้ว — วางค่าใหม่เพื่อแทนที่)" : "วาง Channel Access Token ที่นี่"}
+              className="font-mono text-xs"
+              autoComplete="off"
+            />
+            <Button variant="outline" size="icon" type="button" onClick={() => setShowToken((s) => !s)} title={showToken ? "ซ่อน" : "แสดง"}>
+              {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </Button>
+            <Button onClick={saveToken} disabled={savingToken || !tokenDraft.trim()}>
+              <Save className="h-4 w-4 mr-1" />{savingToken ? "กำลังบันทึก..." : "บันทึก"}
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            เก็บแบบเข้ารหัสในฐานข้อมูลของระบบ เฉพาะแอดมินเท่านั้นที่แก้ไขได้ • หลังบันทึกจะซิงก์ให้ webhook ใช้งานทันที
+          </p>
+        </CardContent>
+      </Card>
+
+
+      <Card>
         <CardHeader><CardTitle>Webhook URL (ตั้งใน LINE Developers ของ OA ตัวใหม่)</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           <div className="flex gap-2">
