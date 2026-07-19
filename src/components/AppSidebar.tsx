@@ -6,7 +6,7 @@ import {
   UserCog, ChevronDown, Award, Syringe, Globe, User, MessageSquare,
   DollarSign, ShoppingCart, Package, Heart, Banknote, Clock, BookOpenCheck, Brain, AlertTriangle,
   UtensilsCrossed, Milk, ClipboardCheck, FolderOpen, Building2, Network, Database, Inbox, Settings as SettingsIcon,
-  Search, X, Recycle, History, TrendingUp, Coins, Trophy, QrCode, Cpu, Wifi, ScanLine, ScanFace, MapPin, Power, Sparkles, DoorOpen, Layers, CloudDownload, Gamepad2, MonitorPlay, StickyNote
+  Search, X, Recycle, History, TrendingUp, Coins, Trophy, QrCode, Cpu, Wifi, ScanLine, ScanFace, MapPin, Power, Sparkles, DoorOpen, Layers, CloudDownload, Gamepad2, MonitorPlay, StickyNote, Eye
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -270,6 +270,7 @@ export function AppSidebar() {
       roles: ["admin", "director"],
       items: [
         { title: L("ตั้งค่าข้อมูลโรงเรียน", "School Settings"), url: "/dashboard/admin/school-settings", icon: SettingsIcon, color: "text-orange-400", roles: ["admin", "director"], desc: L("ระบบ ระดับชั้น ปีการศึกษา GPS ฟิลด์ โมดูล", "System, grades, year, GPS, fields, modules") },
+        { title: L("บัญชีผู้สังเกตการณ์ (ศน.)", "Observer Access"), url: "/dashboard/admin/observation", icon: Eye, color: "text-cyan-400", roles: ["admin", "director"], desc: L("QR + Username/Password สำหรับแชร์ให้ผู้ตรวจ · PDPA", "QR + credentials for external reviewers · PDPA") },
         { title: L("ระบบและรายงานผู้ดูแล", "System & Reports (Admin)"), url: "/dashboard/hub/admin-reports", icon: BarChart3, color: "text-teal-400", roles: ["admin", "director"], desc: L("อัปเดต · Log · วิเคราะห์ · Audit · O-NET/NT/PISA · สมศ.", "Updates, logs, analytics, audit, tests") },
       ],
     },
