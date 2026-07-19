@@ -31,6 +31,7 @@ import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { useSessionKeepAlive } from "@/hooks/useSessionKeepAlive";
 import { useRadixOverlayCleanup } from "@/hooks/useRadixOverlayCleanup";
 import { useForceLogoutListener } from "@/hooks/useForceLogoutListener";
+import OnboardingTour from "@/components/OnboardingTour";
 
 /** ปุ่ม avatar ที่ toggle sidebar (แทน dropdown เดิม) */
 function AvatarSidebarToggle({ avatarUrl, fullName, userEmail }: { avatarUrl: string | null; fullName: string; userEmail: string }) {
@@ -47,6 +48,7 @@ function AvatarSidebarToggle({ avatarUrl, fullName, userEmail }: { avatarUrl: st
       aria-label={aria}
       aria-expanded={isOpen}
       title={aria}
+      data-tour="avatar-toggle"
       className="gap-2 px-2 sm:px-3 max-w-[200px] rounded-full hover:bg-card"
     >
       {avatarUrl ? (
@@ -267,6 +269,7 @@ const DashboardLayout = () => {
               }}
               className="hidden md:flex items-center gap-2 h-9 px-3 ml-2 rounded-full bg-muted/60 hover:bg-muted border border-border/50 text-sm text-muted-foreground transition-colors w-full max-w-[320px]"
               aria-label={lang === "th" ? "ค้นหา" : "Search"}
+              data-tour="global-search"
             >
               <Search className="w-4 h-4 shrink-0" />
               <span className="truncate flex-1 text-left">
@@ -308,6 +311,7 @@ const DashboardLayout = () => {
         </main>
         <AppSidebar />
         <CommandPalette />
+        <OnboardingTour />
       </div>
     </SidebarProvider>
   );
