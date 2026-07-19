@@ -1,58 +1,56 @@
-# แผนงาน: จัดการแจ้งเตือน + สิทธิ์ตาม role + รองรับ 500–1,000 คนพร้อมกัน
 
-Roles ที่ active: `admin` `director` `teacher` `student` `parent` `alumni`
-(บวก view-mode override: admin ที่มี personnel → สลับเป็น teacher ได้)
+## เชื่อม Client แล้ว ✅
+`google_drive` App User Connector client ถูก link เข้าโปรเจกต์แล้ว (`GOOGLE_DRIVE_APP_USER_CONNECTOR_CLIENT_API_KEY` + `APP_USER_CONNECTION_KEY_SECRET` พร้อมใช้ใน edge functions)
 
----
+**สิ่งที่คุณต้องทำครั้งเดียว** (ที่ Google Cloud Console):
+- เพิ่ม redirect URI: `https://connector-gateway.lovable.dev/api/v1/app-users/oauth2/callback`
+- เพิ่ม scope: `.../auth/drive` (Full access), `userinfo.email`, `userinfo.profile`
+- เพิ่ม test users (ครู/นักเรียนที่จะทดสอบ) ระหว่างยังไม่ verify
 
-## เฟส 1 — Notification Role Matrix (ต่อ role × category)
-**เป้าหมาย:** กำหนดค่าเริ่มต้นว่า role ไหนควรได้ notification ประเภทไหน ผ่านช่องทางไหน โดยที่ผู้ใช้ยัง override เองได้
+## สิ่งที่จะสร้าง
 
-- ตารางใหม่ `role_notification_defaults(role, category, in_app, push, line, gchat, min_severity)`
-  - Seed ค่าเริ่มต้นตาม best practice:
-    - `admin/director` → รับทุก category (critical/attendance/behavior/health/ict/finance/eform/leave/homework/news)
-    - `teacher` → รับ homework, eform, leave (นักเรียนตัวเอง), behavior, attendance
-    - `parent` → เฉพาะข้อมูลลูก (homework, attendance, behavior, health, grade, news)
-    - `student` → homework, grade, attendance, news, eform ที่ตัวเองต้องทำ
-    - `alumni` → news เท่านั้น
-- แก้ `supabase/functions/notify-fanout/index.ts` ให้อ่าน matrix ก่อนตัดสินว่าจะยิงช่องทางไหน (user preference ทับ matrix ได้)
-- หน้า admin สำหรับปรับ matrix (reuse `channel_category_routing` UI pattern)
+### 1. Database
+- ตาราง `app_user_connections` เก็บ `(user_id, connector_id, connection_key, external_user_id, connected_at, revoked_at)` — RLS: user ดู/ลบของตัวเองเท่านั้น
+- Service role เขียน (จาก edge function)
 
-## เฟส 2 — Permission / RLS Hardening
-- ใช้ `security--run_security_scan` + `supabase--linter` วิเคราะห์ทั้งหมด
-- แก้ policies ที่มีช่อง privilege escalation หรือ leak ข้าม school
-- ทำ security-definer helper: `is_admin_or_director()`, `is_teacher_of_student(student_id)`, `is_parent_of_student(student_id)` เพื่อลด duplicate logic และแก้ครั้งเดียวมีผลทั้งระบบ
-- เอกสาร role-permission matrix (ใน `mem://features/role-permissions.md`)
+### 2. Edge Functions (4 ตัว)
+- `gdrive-connect-start` — สร้าง OAuth authorize URL, เก็บ pending state
+- `gdrive-connect-finish` — landing หลัง user consent, ดึง connection_key จาก gateway มาเก็บใน DB
+- `gdrive-proxy` — proxy Drive REST API v3 ด้วย user's connection_key
+- `gdrive-upload` — multipart upload helper (แยกเพราะ content-type ต่าง)
 
-## เฟส 3 — หน้า Admin จัดการสิทธิ์รวมศูนย์
-- หน้า `/dashboard/admin/permissions`:
-  - Tab 1: **Notification Matrix** (role × category)
-  - Tab 2: **Module Toggles** ต่อ role (จาก `useModuleToggles`)
-  - Tab 3: **Extra Grants** (`admin_permission_grants` — ให้ admin คนใดคนหนึ่งเข้าถึงโมดูลพิเศษ)
-  - Audit log ทุกการเปลี่ยนแปลง
+### 3. UI: หน้า `/my-drive`
+- ถ้ายังไม่เชื่อม → แสดงปุ่ม **"เชื่อม Google Drive"** + คำอธิบาย
+- เชื่อมแล้ว → หน้า **File Explorer**:
+  - Breadcrumb (My Drive / โฟลเดอร์ /...)
+  - Grid/List view สลับได้
+  - Sidebar: My Drive, Shared with me, Recent, Starred, Trash
+  - ปุ่ม: New folder / Upload / Download / Delete / Rename / Star / Preview
+  - Right-click context menu
+  - Search bar (Drive query syntax)
+  - Preview modal (รูป/PDF/video/text)
+- ปุ่ม **"ยกเลิกการเชื่อม Drive"** ในหน้า Profile
 
-## เฟส 4 — Scale to 500–1,000 concurrent users
-1. **Database indexes** (hot paths):
-   - `notifications(user_id, created_at DESC) WHERE read_at IS NULL`
-   - `notification_delivery_log(notification_type, reason, created_at DESC)` — dedup ปัจจุบันเป็น full scan
-   - `push_subscriptions(user_id)` (มีอยู่แล้ว — verify)
-   - `attendance(student_id, date DESC)`, `face_scan_logs(created_at DESC)`
-2. **Realtime channels**:
-   - รวม channel ต่อ user (1 channel/user แทน 1 channel/table) → ลด WebSocket connections
-   - ใช้ Postgres `NOTIFY` + broadcast แทน `postgres_changes` สำหรับ non-critical
-3. **notify-fanout batching**:
-   - Batch push subscriptions 50 endpoints/รอบ (ตอนนี้ Promise.all ทั้งหมดในครั้งเดียว)
-   - ใช้ `EdgeRuntime.waitUntil` (มีแล้ว) + retry queue
-4. **Client throttling**:
-   - `useGlobalRealtime`: debounce 500ms + batch invalidateQueries
-   - React Query: `staleTime` >= 30s สำหรับ list queries
-5. **Face scan concurrency**: verify test `face-scan-concurrency.test.ts` ยัง pass
+### 4. Sidebar เมนู
+- เพิ่ม "My Drive" (icon: HardDrive) ใน sidebar หมวด "ไฟล์และเอกสาร"
 
----
+### 5. Integration hooks (เตรียมไว้ต่อยอด)
+- Hook `useMyDrive()` — สำหรับโมดูลอื่นเรียกใช้เลือกไฟล์จาก Drive ตัวเอง (Portfolio, Homework attach, ฯลฯ)
+- Component `<DriveFilePicker />` แบบ modal
 
-## ลำดับการ ship
-1. เฟส 1 (migration + edge function) — commit เดียว
-2. เฟส 4.1 (indexes) — migration เดียว (safe, ไม่กระทบ API)
-3. เฟส 2 (RLS audit) — commit ตาม scan findings
-4. เฟส 4.2–4.4 (realtime + batching) — client + edge function
-5. เฟส 3 (Admin UI) — สุดท้าย เพราะพึ่ง schema จากเฟส 1-2
+## ประเด็นที่ต้องยืนยัน
+
+1. **Google OAuth Client** — คุณมี Client ID/Secret จาก Google Cloud Console แล้วหรือยัง? ถ้ายัง ต้องสร้างก่อน (ผมมีคู่มือ step-by-step) และใส่ผ่านหน้า Connector settings
+2. **Scope** — ยืนยัน `drive` เต็มสิทธิ์ (เห็นทุกไฟล์เหมือนเปิด drive.google.com) — ต้องขอ verify กับ Google ถ้าจะใช้งานกับคนเกิน 100 หรืออยู่กับ test users ถาวร
+3. **Storage แยก** — Line Vault (Drive ของโรงเรียนบัญชีเดียว) กับ My Drive (Drive ส่วนตัวแต่ละคน) จะไม่ปนกัน ✅
+
+## เทคนิคที่จะใช้
+
+- Gateway API: `POST connector-gateway.lovable.dev/api/v1/app-users/oauth2/authorize` (body: client_api_key, external_user_id=supabase user.id, credentials_configuration.scopes)
+- ได้ authorize URL → redirect user → user อนุมัติ → gateway callback → redirect กลับมาที่ `gdrive-connect-finish?connection_key=...`
+- เก็บ connection_key ใน DB (encrypted at rest ผ่าน Supabase)
+- ทุก API call: `GET/POST connector-gateway.lovable.dev/google_drive/drive/v3/...` พร้อม header `Authorization: Bearer LOVABLE_API_KEY` + `X-Connection-Api-Key: <user's connection_key>`
+
+## Estimation
+- ~4 edge functions + 1 migration + ~600 บรรทัด React (หน้า My Drive) + sidebar entry
+- ทดสอบ end-to-end ต้องมี Google OAuth Client พร้อม
