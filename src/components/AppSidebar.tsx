@@ -115,15 +115,21 @@ export function AppSidebar() {
   // Compact sidebar with section headings — used by alumni and parent
   const renderCompactSidebar = (sections: CompactSection[]) => (
     <Sidebar side="right" collapsible="offcanvas" className="gradient-sidebar border-l-0">
-      <SidebarHeader className={`${collapsed ? 'px-1.5' : 'px-4'} py-5 border-b border-sidebar-border transition-all`}>
-        <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
+      <SidebarHeader className="px-4 py-5 border-b border-sidebar-border transition-all">
+        <div className="flex items-center gap-3">
           <LogoMark />
-          {!collapsed && (
-            <div className="min-w-0">
-              <h2 className="text-sm font-bold text-sidebar-foreground truncate">{headerTitle}</h2>
-              <p className="text-xs text-sidebar-foreground/60 truncate">{headerSubtitle}</p>
-            </div>
-          )}
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-bold text-sidebar-foreground truncate">{headerTitle}</h2>
+            <p className="text-xs text-sidebar-foreground/60 truncate">{headerSubtitle}</p>
+          </div>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            aria-label="ซ่อนเมนู"
+            className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors flex-shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       </SidebarHeader>
       <SidebarContent className={`${collapsed ? 'px-1' : 'px-2'} py-3 gap-0 transition-all`}>
