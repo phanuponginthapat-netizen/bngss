@@ -140,7 +140,7 @@ const DashboardLayout = () => {
         .maybeSingle();
 
       if (profile) {
-        setAvatarUrl(profile.avatar_url);
+        setAvatarUrl(await resolveProfileImageUrl(profile.avatar_url));
         const name = profile.first_name ? (profile.nickname ? `${profile.first_name} (${profile.nickname})` : profile.first_name) : (profile.nickname || "");
         setFullName(name || "");
         
