@@ -9925,10 +9925,12 @@ export type Database = {
         Row: {
           account_linked: boolean
           address: string | null
+          avatar_full_url: string | null
           avatar_url: string | null
           bio: string | null
           blood_type: string | null
           cover_photo_url: string | null
+          cover_thumb_url: string | null
           created_at: string
           date_of_birth: string | null
           department: string | null
@@ -9963,10 +9965,12 @@ export type Database = {
         Insert: {
           account_linked?: boolean
           address?: string | null
+          avatar_full_url?: string | null
           avatar_url?: string | null
           bio?: string | null
           blood_type?: string | null
           cover_photo_url?: string | null
+          cover_thumb_url?: string | null
           created_at?: string
           date_of_birth?: string | null
           department?: string | null
@@ -10001,10 +10005,12 @@ export type Database = {
         Update: {
           account_linked?: boolean
           address?: string | null
+          avatar_full_url?: string | null
           avatar_url?: string | null
           bio?: string | null
           blood_type?: string | null
           cover_photo_url?: string | null
+          cover_thumb_url?: string | null
           created_at?: string
           date_of_birth?: string | null
           department?: string | null
