@@ -2,10 +2,9 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { FileText, FileSpreadsheet, Presentation, FileType, RefreshCw, Cloud, Upload } from "lucide-react";
+import { FileText, FileSpreadsheet, Presentation, FileType, RefreshCw, Cloud } from "lucide-react";
 import { listRecentOfficeFiles, editorRouteForMime, iconForMime, DriveFile } from "@/lib/office/driveFileIO";
-import { swal } from "@/lib/swal";
+import { supabase } from "@/integrations/supabase/client";
 
 const APPS = [
   { key: "docs", title: "เอกสาร", desc: "Word / .docx", icon: FileText, to: "/dashboard/office/docs", color: "from-blue-500 to-blue-600" },
@@ -18,26 +17,36 @@ export default function OfficeHomePage() {
   const [files, setFiles] = useState<DriveFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [connected, setConnected] = useState<boolean | null>(null);
   const nav = useNavigate();
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
+      // Check connection first to avoid triggering a 428 error on the proxy.
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setConnected(false); setLoading(false); return; }
+      const { data: conn } = await supabase
+        .from("app_user_connections")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("connector_id", "google_drive")
+        .maybeSingle();
+      if (!conn) { setConnected(false); setLoading(false); return; }
+      setConnected(true);
       setFiles(await listRecentOfficeFiles(24));
     } catch (e: any) {
       const msg = String(e?.message ?? e);
-      if (msg.includes("not_connected") || msg.includes("428")) {
-        setError("ยังไม่ได้เชื่อม Google Drive");
-      } else {
-        setError(msg);
-      }
+      if (msg.includes("not_connected") || msg.includes("428")) setConnected(false);
+      else setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => { load(); }, []);
+
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
@@ -80,13 +89,16 @@ export default function OfficeHomePage() {
         </CardHeader>
         <CardContent>
           {loading && <div className="text-center py-8 text-muted-foreground">กำลังโหลด…</div>}
-          {error && (
+          {!loading && connected === false && (
             <div className="text-center py-8 space-y-3">
-              <div className="text-sm text-destructive">{error}</div>
+              <div className="text-sm text-muted-foreground">ยังไม่ได้เชื่อม Google Drive — เชื่อมเพื่อบันทึกและเปิดไฟล์</div>
               <Button size="sm" onClick={() => nav("/dashboard/my-drive")}>เชื่อม Google Drive</Button>
             </div>
           )}
-          {!loading && !error && files.length === 0 && (
+          {!loading && error && (
+            <div className="text-center py-8 text-sm text-destructive">{error}</div>
+          )}
+          {!loading && connected && files.length === 0 && !error && (
             <div className="text-center py-8 text-muted-foreground text-sm">ยังไม่มีไฟล์ Office ใน Drive — สร้างใหม่ได้จากเมนูด้านบน</div>
           )}
           {!loading && files.length > 0 && (
