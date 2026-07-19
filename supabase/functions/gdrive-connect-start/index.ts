@@ -18,6 +18,37 @@ const SCOPES = [
   "https://www.googleapis.com/auth/drive",
 ];
 
+function isAllowedReturnUrl(value: string) {
+  try {
+    const url = new URL(value);
+    if (!/^https?:$/.test(url.protocol)) return false;
+    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") return true;
+    if (url.hostname.endsWith(".lovable.app")) return true;
+    const appUrl = Deno.env.get("APP_URL");
+    if (appUrl && url.origin === new URL(appUrl).origin) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+async function signState(userId: string, returnUrl: string, expiresAt: string) {
+  const secret = Deno.env.get("CRON_SECRET") ?? Deno.env.get("LOVABLE_API_KEY") ?? "";
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(`${userId}:${returnUrl}:${expiresAt}`),
+  );
+  return Array.from(new Uint8Array(signature)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -33,14 +64,17 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const returnUrl: string = body.return_url ?? "";
-    if (!returnUrl.startsWith("http")) {
+    if (!isAllowedReturnUrl(returnUrl)) {
       return new Response(JSON.stringify({ error: "return_url required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const functionUrl = new URL(req.url);
     const finishUrl = new URL(`${functionUrl.origin}/functions/v1/gdrive-connect-finish`);
+    const stateExpiresAt = String(Date.now() + 15 * 60 * 1000);
     finishUrl.searchParams.set("return_to", returnUrl);
     finishUrl.searchParams.set("lovable_app_user_id", user.id);
+    finishUrl.searchParams.set("state_exp", stateExpiresAt);
+    finishUrl.searchParams.set("state_sig", await signState(user.id, returnUrl, stateExpiresAt));
 
     // Ask gateway to start OAuth authorization for this app user.
     // Body/response shape mirrors documented gateway conventions.
