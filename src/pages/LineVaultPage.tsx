@@ -30,8 +30,12 @@ type Item = {
   original_filename: string | null;
   line_group_id: string | null;
   line_sender_name: string | null;
+  line_image_set_id: string | null;
   department: string | null;
   visibility: "everyone" | "department" | "admin";
+  category: string | null;
+  academic_year: number | null;
+  semester: number | null;
   tags: string[];
   created_at: string;
 };
@@ -42,11 +46,24 @@ type Group = {
   group_name: string;
   department: string | null;
   default_visibility: "everyone" | "department" | "admin";
+  default_category: string | null;
   auto_capture: boolean;
   notify_on_capture?: boolean;
   notify_cooldown_minutes?: number;
   notes: string | null;
 };
+
+const CATEGORIES: { value: string; label: string }[] = [
+  { value: "circular", label: "หนังสือเวียน" },
+  { value: "document", label: "เอกสาร/หนังสือราชการ" },
+  { value: "meeting", label: "ประชุม" },
+  { value: "training", label: "อบรม/สัมมนา" },
+  { value: "activity", label: "กิจกรรม/รูปกิจกรรม" },
+  { value: "announcement", label: "ประกาศ" },
+  { value: "report", label: "รายงาน" },
+  { value: "other", label: "อื่นๆ" },
+];
+const categoryLabel = (v: string | null) => CATEGORIES.find(c => c.value === v)?.label || "ไม่ระบุ";
 
 const kindMeta: Record<Item["kind"], { icon: any; label: string; color: string }> = {
   photo: { icon: ImageIcon, label: "รูปภาพ", color: "bg-pink-500/10 text-pink-600 dark:text-pink-300" },
@@ -59,6 +76,7 @@ const visMeta: Record<Item["visibility"], string> = {
   department: "เฉพาะแผนก",
   admin: "แอดมินเท่านั้น",
 };
+
 
 function formatBytes(n: number | null) {
   if (!n) return "-";
