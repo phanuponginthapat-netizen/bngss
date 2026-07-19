@@ -12,6 +12,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { swal } from "@/lib/swal";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { getSecretGuide } from "@/lib/secretGuides";
+import { SECRET_PRESET_CATEGORIES, type SecretPreset } from "@/lib/secretPresets";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const CATEGORY_LABEL: Record<string, { th: string; en: string }> = {
   social: { th: "Social", en: "Social" },
