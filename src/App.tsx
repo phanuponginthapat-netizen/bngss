@@ -116,6 +116,11 @@ const LineSettingsPage = lazy(() => import("./pages/admin/LineSettingsPage"));
 const SocialFeedPage = lazy(() => import("./pages/admin/SocialFeedPage"));
 const LineVaultPage = lazy(() => import("./pages/LineVaultPage"));
 const MyDrivePage = lazy(() => import("./pages/MyDrivePage"));
+const OfficeHomePage = lazy(() => import("./pages/office/OfficeHomePage"));
+const DocsEditorPage = lazy(() => import("./pages/office/DocsEditorPage"));
+const SheetsEditorPage = lazy(() => import("./pages/office/SheetsEditorPage"));
+const SlidesEditorPage = lazy(() => import("./pages/office/SlidesEditorPage"));
+const PdfToolsPage = lazy(() => import("./pages/office/PdfToolsPage"));
 const EFormPage = lazy(() => import("./pages/admin/EFormPage"));
 const EFormTemplatesPage = lazy(() => import("./pages/admin/EFormTemplatesPage"));
 const DocumentTemplatesPage = lazy(() => import("./pages/admin/DocumentTemplatesPage"));
@@ -303,6 +308,12 @@ const App = () => (
                 <Route path="admin/duty-teachers" element={<ProtectedRoute allowedRoles={["admin", "director"]}><DutyTeachersPage /></ProtectedRoute>} />
                 <Route path="line-vault" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><LineVaultPage /></ProtectedRoute>} />
                 <Route path="my-drive" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><MyDrivePage /></ProtectedRoute>} />
+                {/* Office Suite */}
+                <Route path="office" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><OfficeHomePage /></ProtectedRoute>} />
+                <Route path="office/docs" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><DocsEditorPage /></ProtectedRoute>} />
+                <Route path="office/sheets" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><SheetsEditorPage /></ProtectedRoute>} />
+                <Route path="office/slides" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><SlidesEditorPage /></ProtectedRoute>} />
+                <Route path="office/pdf" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><PdfToolsPage /></ProtectedRoute>} />
                 <Route path="inbox" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><InboxPage /></ProtectedRoute>} />
                 <Route path="news/:id" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "alumni", "parent"]}><NewsDetailPage /></ProtectedRoute>} />
                 

@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { path, method = "GET", query = {}, headers = {}, body: reqBody, upload_url } = body;
+    const { path, method = "GET", query = {}, headers = {}, body: reqBody, body_b64, upload_url } = body;
     if (!path && !upload_url) {
       return new Response(JSON.stringify({ error: "path required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -51,12 +51,23 @@ Deno.serve(async (req) => {
       "X-Connection-Api-Key": conn.connection_key,
       ...headers,
     };
-    if (reqBody && !upstreamHeaders["Content-Type"]) upstreamHeaders["Content-Type"] = "application/json";
+
+    let finalBody: BodyInit | undefined;
+    if (body_b64) {
+      // decode base64 → Uint8Array for binary uploads
+      const bin = atob(body_b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      finalBody = bytes;
+    } else if (reqBody != null) {
+      if (!upstreamHeaders["Content-Type"]) upstreamHeaders["Content-Type"] = "application/json";
+      finalBody = typeof reqBody === "string" ? reqBody : JSON.stringify(reqBody);
+    }
 
     const upstream = await fetch(url.toString(), {
       method,
       headers: upstreamHeaders,
-      body: reqBody ? (typeof reqBody === "string" ? reqBody : JSON.stringify(reqBody)) : undefined,
+      body: finalBody,
     });
 
     // Update last_used

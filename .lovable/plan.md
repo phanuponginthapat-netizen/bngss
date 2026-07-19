@@ -1,56 +1,101 @@
+# Office Suite in ระบบ + Google Drive
 
-## เชื่อม Client แล้ว ✅
-`google_drive` App User Connector client ถูก link เข้าโปรเจกต์แล้ว (`GOOGLE_DRIVE_APP_USER_CONNECTOR_CLIENT_API_KEY` + `APP_USER_CONNECTION_KEY_SECRET` พร้อมใช้ใน edge functions)
+สร้างชุดเครื่องมือทำเอกสารในเว็บ ใช้ Google Drive ของ user เป็น storage หลัก (บันทึก/เปิดจาก Drive ได้โดยตรง) รองรับฟอร์แมต Microsoft (.docx/.xlsx/.pptx) + PDF
 
-**สิ่งที่คุณต้องทำครั้งเดียว** (ที่ Google Cloud Console):
-- เพิ่ม redirect URI: `https://connector-gateway.lovable.dev/api/v1/app-users/oauth2/callback`
-- เพิ่ม scope: `.../auth/drive` (Full access), `userinfo.email`, `userinfo.profile`
-- เพิ่ม test users (ครู/นักเรียนที่จะทดสอบ) ระหว่างยังไม่ verify
+## เมนูใหม่ (ใต้ sidebar หมวด "เครื่องมือ")
+```
+Office Suite
+ ├─ 📝 เอกสาร (Docs)      → /office/docs
+ ├─ 📊 ตารางคำนวณ (Sheets) → /office/sheets
+ ├─ 🖼️ นำเสนอ (Slides)    → /office/slides
+ ├─ 📄 PDF Tools          → /office/pdf
+ └─ 📚 ไฟล์ล่าสุด          → /office (list จาก Drive)
+```
 
-## สิ่งที่จะสร้าง
+## เทคโนโลยีที่จะใช้ (ทำงานฝั่ง client ล้วน)
+- **Docs**: TipTap editor + `docx` (สร้าง .docx) + `mammoth` (อ่าน .docx → HTML)
+- **Sheets**: **Univer** (open-source, UX เหมือน Excel, รองรับ .xlsx เต็มรูปแบบ) + `SheetJS/xlsx`
+- **Slides**: `pptxgenjs` (สร้าง/บันทึก .pptx) + custom slide editor แบบง่าย (text box, image, shape) + preview ผ่าน canvas
+- **PDF**: `pdf-lib` (แก้ไข/ใส่ข้อความ/ลายเซ็น/รวมหน้า) + `react-pdf` (viewer)
+- **Liveworksheet-like**: ใช้โมดูล worksheets เดิมในระบบ (ที่มี worksheets/worksheet_submissions อยู่แล้ว)
 
-### 1. Database
-- ตาราง `app_user_connections` เก็บ `(user_id, connector_id, connection_key, external_user_id, connected_at, revoked_at)` — RLS: user ดู/ลบของตัวเองเท่านั้น
-- Service role เขียน (จาก edge function)
+## Google Drive Integration
+ต่อยอด `/my-drive` และ `gdrive-proxy` edge function ที่มีอยู่:
 
-### 2. Edge Functions (4 ตัว)
-- `gdrive-connect-start` — สร้าง OAuth authorize URL, เก็บ pending state
-- `gdrive-connect-finish` — landing หลัง user consent, ดึง connection_key จาก gateway มาเก็บใน DB
-- `gdrive-proxy` — proxy Drive REST API v3 ด้วย user's connection_key
-- `gdrive-upload` — multipart upload helper (แยกเพราะ content-type ต่าง)
+| Action | วิธี |
+|---|---|
+| เปิดจาก Drive | `MyDrive` → คลิกไฟล์ .docx/.xlsx/.pptx/.pdf → เปิด editor ที่เหมาะสม |
+| บันทึกใหม่ | Editor → "บันทึกไป Drive" → เลือกโฟลเดอร์ → upload ผ่าน `gdrive-proxy` (multipart) |
+| บันทึกทับ | Editor → "บันทึก" → PATCH content ที่ fileId เดิม |
+| Auto-save | ทุก 30 วิ ถ้ามี fileId อยู่แล้ว |
 
-### 3. UI: หน้า `/my-drive`
-- ถ้ายังไม่เชื่อม → แสดงปุ่ม **"เชื่อม Google Drive"** + คำอธิบาย
-- เชื่อมแล้ว → หน้า **File Explorer**:
-  - Breadcrumb (My Drive / โฟลเดอร์ /...)
-  - Grid/List view สลับได้
-  - Sidebar: My Drive, Shared with me, Recent, Starred, Trash
-  - ปุ่ม: New folder / Upload / Download / Delete / Rename / Star / Preview
-  - Right-click context menu
-  - Search bar (Drive query syntax)
-  - Preview modal (รูป/PDF/video/text)
-- ปุ่ม **"ยกเลิกการเชื่อม Drive"** ในหน้า Profile
+เพิ่ม endpoints ใน `gdrive-proxy`:
+- `POST /upload` (multipart create หรือ update byte-content)
+- `GET /download?fileId=...` (คืน ArrayBuffer)
 
-### 4. Sidebar เมนู
-- เพิ่ม "My Drive" (icon: HardDrive) ใน sidebar หมวด "ไฟล์และเอกสาร"
+## ไฟล์ใหม่
+```
+src/pages/office/
+ ├─ OfficeHomePage.tsx         # เลือกโปรแกรม + ไฟล์ล่าสุดจาก Drive
+ ├─ DocsEditorPage.tsx         # TipTap + import/export .docx
+ ├─ SheetsEditorPage.tsx       # Univer + import/export .xlsx
+ ├─ SlidesEditorPage.tsx       # slide list + canvas editor + .pptx export
+ └─ PdfToolsPage.tsx           # viewer + text/signature/merge/split
 
-### 5. Integration hooks (เตรียมไว้ต่อยอด)
-- Hook `useMyDrive()` — สำหรับโมดูลอื่นเรียกใช้เลือกไฟล์จาก Drive ตัวเอง (Portfolio, Homework attach, ฯลฯ)
-- Component `<DriveFilePicker />` แบบ modal
+src/lib/office/
+ ├─ driveFileIO.ts             # openFromDrive / saveToDrive / pickFolder
+ ├─ docxCodec.ts               # HTML↔docx (mammoth + docx)
+ ├─ xlsxCodec.ts               # workbook↔xlsx (SheetJS)
+ ├─ pptxCodec.ts               # slides JSON↔pptx (pptxgenjs)
+ └─ pdfOps.ts                  # pdf-lib helpers
+```
 
-## ประเด็นที่ต้องยืนยัน
+## รายละเอียดต่อโมดูล
 
-1. **Google OAuth Client** — คุณมี Client ID/Secret จาก Google Cloud Console แล้วหรือยัง? ถ้ายัง ต้องสร้างก่อน (ผมมีคู่มือ step-by-step) และใส่ผ่านหน้า Connector settings
-2. **Scope** — ยืนยัน `drive` เต็มสิทธิ์ (เห็นทุกไฟล์เหมือนเปิด drive.google.com) — ต้องขอ verify กับ Google ถ้าจะใช้งานกับคนเกิน 100 หรืออยู่กับ test users ถาวร
-3. **Storage แยก** — Line Vault (Drive ของโรงเรียนบัญชีเดียว) กับ My Drive (Drive ส่วนตัวแต่ละคน) จะไม่ปนกัน ✅
+### 1) Docs
+- Toolbar: bold/italic/underline, heading, list, table, image, link, align
+- Import: mammoth แปลง .docx → HTML → โหลดเข้า TipTap
+- Export: TipTap JSON → `docx` library → Blob → upload Drive
+- รองรับรูปที่ paste + heading styles + ตาราง
 
-## เทคนิคที่จะใช้
+### 2) Sheets (Univer)
+- ครบ formula, formatting, multi-sheet, chart พื้นฐาน
+- Import/Export .xlsx ผ่าน SheetJS
+- Freeze pane, filter, sort
 
-- Gateway API: `POST connector-gateway.lovable.dev/api/v1/app-users/oauth2/authorize` (body: client_api_key, external_user_id=supabase user.id, credentials_configuration.scopes)
-- ได้ authorize URL → redirect user → user อนุมัติ → gateway callback → redirect กลับมาที่ `gdrive-connect-finish?connection_key=...`
-- เก็บ connection_key ใน DB (encrypted at rest ผ่าน Supabase)
-- ทุก API call: `GET/POST connector-gateway.lovable.dev/google_drive/drive/v3/...` พร้อม header `Authorization: Bearer LOVABLE_API_KEY` + `X-Connection-Api-Key: <user's connection_key>`
+### 3) Slides
+- Layout: slide list ซ้าย + canvas กลาง + properties ขวา
+- Elements: text, image (จาก Drive/upload), shape (rect/ellipse/line), background
+- Templates: 5-6 template สำเร็จรูป (ธีมโรงเรียน)
+- Export .pptx via pptxgenjs, preview slideshow แบบ fullscreen
 
-## Estimation
-- ~4 edge functions + 1 migration + ~600 บรรทัด React (หน้า My Drive) + sidebar entry
-- ทดสอบ end-to-end ต้องมี Google OAuth Client พร้อม
+### 4) PDF Tools
+- Viewer (react-pdf, thumbnail sidebar)
+- Actions: ใส่ข้อความบนหน้า, ใส่ลายเซ็นภาพ, วาดลายเซ็นด้วยเมาส์/tap, ไฮไลต์, รวม/แยกไฟล์, หมุนหน้า, ลบหน้า
+- Save: pdf-lib serialize → upload Drive
+
+## Database (เล็กน้อย)
+เพิ่ม table `office_recent_files` เก็บ metadata ไฟล์ที่ user แก้ล่าสุด (ชื่อ, fileId, mimeType, opened_at) — เพื่อโชว์ "ล่าสุด" เร็ว ไม่ต้อง scan Drive ทุกครั้ง
+
+## ขอบเขตที่ **ไม่รวม** ในรอบนี้ (จะทำเพิ่มภายหลัง)
+- Real-time co-editing (หลายคนแก้พร้อมกัน) — Google Docs native ทำได้ ของเราต้องใช้ Yjs + ws server แยก
+- Comments/track changes ระดับ Word
+- Slides animation/transitions
+- Print เข้าเครื่องพิมพ์โดยตรง (ใช้ browser print แทน)
+
+## Dependencies ใหม่
+`@tiptap/react @tiptap/starter-kit @tiptap/extension-image @tiptap/extension-table docx mammoth xlsx @univerjs/preset-sheets-core @univerjs/preset-sheets-core/locales pptxgenjs pdf-lib react-pdf`
+
+## ขั้นตอนการ build
+1. เพิ่ม endpoint upload/download ที่ `gdrive-proxy` + helper `driveFileIO.ts`
+2. หน้า `OfficeHomePage` + route + เมนู sidebar
+3. Docs editor (เบสิกก่อน แล้วเพิ่ม import/export)
+4. Sheets editor (Univer)
+5. Slides editor
+6. PDF Tools
+7. Recent files table + integration
+
+Bundle จะใหญ่ขึ้นพอสมควร (~3-5 MB) — ใช้ **React.lazy** โหลด editor แต่ละตัวเฉพาะเวลาเปิดใช้
+
+---
+ยืนยันแผนนี้ไหมครับ ถ้าโอเคเดี๋ยวลุยตั้งแต่ขั้นตอนที่ 1
