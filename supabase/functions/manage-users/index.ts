@@ -104,20 +104,42 @@ async function createOrUpdatePersonnelRecord(adminClient: any, opts: {
   }
   let employeeCode = existing?.employee_code;
   if (!existing) {
-    const { data: lastPersonnel } = await adminClient.from("personnel").select("employee_code").order("created_at", { ascending: false }).limit(1);
-    const lastCode = (lastPersonnel?.[0]?.employee_code as string) || "EMP-0000";
-    const lastNum = parseInt(lastCode.replace(/\D/g, "") || "0");
-    employeeCode = `EMP-${String(lastNum + 1).padStart(4, "0")}`;
-    const { error: insErr } = await adminClient.from("personnel").insert({
-      employee_code: employeeCode, first_name: opts.firstName, last_name: opts.lastName,
-      email: opts.email || null, prefix: opts.prefix || "นาย",
-      department: opts.department || "วิชาการ", position: opts.position || "ครู",
-      academic_standing: opts.academicStanding || null, status: "active",
-      phone: opts.phone || null,
-      subject_group: opts.subjectGroup || null,
-      user_id: opts.userId,
-    });
-    if (insErr) throw new Error(`บันทึกข้อมูลบุคลากรไม่สำเร็จ: ${insErr.message}`);
+    // Retry loop to survive races: concurrent inserts may pick the same "next" code.
+    // We re-fetch the max code each attempt and fall back to a random suffix if still colliding.
+    let lastErr: any = null;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const { data: lastPersonnel } = await adminClient
+        .from("personnel").select("employee_code")
+        .like("employee_code", "EMP-%")
+        .order("employee_code", { ascending: false }).limit(1);
+      const lastCode = (lastPersonnel?.[0]?.employee_code as string) || "EMP-0000";
+      const lastNum = parseInt(lastCode.replace(/\D/g, "") || "0");
+      const nextNum = lastNum + 1 + attempt; // step forward on retries
+      employeeCode = attempt < 3
+        ? `EMP-${String(nextNum).padStart(4, "0")}`
+        : `EMP-${String(nextNum).padStart(4, "0")}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+      const { error: insErr } = await adminClient.from("personnel").insert({
+        employee_code: employeeCode, first_name: opts.firstName, last_name: opts.lastName,
+        email: opts.email || null, prefix: opts.prefix || "นาย",
+        department: opts.department || "วิชาการ", position: opts.position || "ครู",
+        academic_standing: opts.academicStanding || null, status: "active",
+        phone: opts.phone || null,
+        subject_group: opts.subjectGroup || null,
+        user_id: opts.userId,
+      });
+      if (!insErr) { lastErr = null; break; }
+      lastErr = insErr;
+      // If it's a unique-violation on employee_code, retry with a new number.
+      const msg = String(insErr.message || "");
+      if (!/duplicate key|unique constraint|personnel_employee_code_key/i.test(msg)) break;
+      // If someone else already created personnel for this user/email in parallel, use it.
+      const { data: raced } = await adminClient.from("personnel")
+        .select("id, employee_code")
+        .or(`user_id.eq.${opts.userId}${opts.email ? `,email.eq.${opts.email}` : ""}`)
+        .maybeSingle();
+      if (raced) { existing = raced; employeeCode = raced.employee_code; lastErr = null; break; }
+    }
+    if (lastErr) throw new Error(`บันทึกข้อมูลบุคลากรไม่สำเร็จ: ${lastErr.message}`);
   } else {
     const updates: any = { user_id: opts.userId };
     if (opts.position) updates.position = opts.position;
