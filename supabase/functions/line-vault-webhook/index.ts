@@ -68,10 +68,28 @@ Deno.serve(async (req) => {
       try {
         if (event.type !== "message") continue;
         if (event.source?.type !== "group" && event.source?.type !== "room") continue;
-        await captureLineGroupEvent(sb, token, event, {
+        const result = await captureLineGroupEvent(sb, token, event, {
           downloadLineContent,
           fetchLineProfile: fetchLineGroupMemberProfile,
         });
+
+        // Free reply-token confirmation (does NOT consume push quota)
+        if (result?.captured && event.replyToken) {
+          const groupId = event.source.groupId || event.source.roomId;
+          const { data: grp } = await sb
+            .from("line_vault_groups")
+            .select("notify_on_capture, group_name")
+            .eq("line_group_id", groupId)
+            .maybeSingle();
+          if (grp?.notify_on_capture !== false) {
+            const kind = event.message?.type === "text" ? "📝 บันทึกโน้ต"
+              : event.message?.type === "image" ? "🖼️ บันทึกรูปภาพ"
+              : event.message?.type === "video" ? "🎬 บันทึกวิดีโอ"
+              : event.message?.type === "audio" ? "🎵 บันทึกเสียง"
+              : "📎 บันทึกไฟล์";
+            await replyMessage(token, event.replyToken, `${kind}เข้าคลังแล้ว ✅\n(สามารถเข้าดู/ดาวน์โหลดได้ในระบบ)`);
+          }
+        }
       } catch (e) {
         console.error("vault event error", e);
       }
