@@ -21,6 +21,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import BackButton from "@/components/BackButton";
 import { MobileBottomNav } from "@/components/mobile";
 import EnablePushBanner from "@/components/EnablePushBanner";
+import ObserverBanner from "@/components/ObserverBanner";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import CommandPalette from "@/components/CommandPalette";
 import NotificationHighlightScroller from "@/components/NotificationHighlightScroller";
