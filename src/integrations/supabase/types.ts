@@ -8419,6 +8419,7 @@ export type Database = {
           default_category: string | null
           default_visibility: string
           department: Database["public"]["Enums"]["school_department"] | null
+          drive_folder_id: string | null
           group_name: string
           id: string
           last_notified_at: string | null
@@ -8434,6 +8435,7 @@ export type Database = {
           default_category?: string | null
           default_visibility?: string
           department?: Database["public"]["Enums"]["school_department"] | null
+          drive_folder_id?: string | null
           group_name: string
           id?: string
           last_notified_at?: string | null
@@ -8449,6 +8451,7 @@ export type Database = {
           default_category?: string | null
           default_visibility?: string
           department?: Database["public"]["Enums"]["school_department"] | null
+          drive_folder_id?: string | null
           group_name?: string
           id?: string
           last_notified_at?: string | null
@@ -8467,6 +8470,8 @@ export type Database = {
           created_at: string
           department: Database["public"]["Enums"]["school_department"] | null
           description: string | null
+          drive_file_id: string | null
+          drive_web_view_link: string | null
           id: string
           is_pinned: boolean
           kind: string
@@ -8495,6 +8500,8 @@ export type Database = {
           created_at?: string
           department?: Database["public"]["Enums"]["school_department"] | null
           description?: string | null
+          drive_file_id?: string | null
+          drive_web_view_link?: string | null
           id?: string
           is_pinned?: boolean
           kind: string
@@ -8523,6 +8530,8 @@ export type Database = {
           created_at?: string
           department?: Database["public"]["Enums"]["school_department"] | null
           description?: string | null
+          drive_file_id?: string | null
+          drive_web_view_link?: string | null
           id?: string
           is_pinned?: boolean
           kind?: string
