@@ -271,7 +271,7 @@ export default function PdfToolsPage() {
           {/* Viewer */}
           <div className="flex-1 overflow-auto p-4 flex justify-center">
             <div ref={pageWrapRef} className="relative inline-block cursor-crosshair" onClick={handlePageClick}>
-              <Document file={pdfBytes} onLoadSuccess={({ numPages }) => setNumPages(numPages)}>
+              <Document file={pdfBytes ? { data: pdfBytes } : undefined} onLoadSuccess={({ numPages }) => setNumPages(numPages)}>
                 <Page pageNumber={pageIdx + 1} width={800} rotate={rotations[pageIdx] ?? 0} />
               </Document>
               {annots.filter(a => a.page === pageIdx).map((a, i) => (
