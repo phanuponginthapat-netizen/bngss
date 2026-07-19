@@ -94,8 +94,12 @@ async function exchangeConnectionCode(code: string) {
 
   const connectionKey = pickBodyParam(data, [
     "connection_key",
+    "connectionKey",
     "app_user_connection_key",
+    "appUserConnectionKey",
     "credential_key",
+    "connection_api_key",
+    "api_key",
     "key",
   ]);
 
