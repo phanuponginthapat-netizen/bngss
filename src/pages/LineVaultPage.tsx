@@ -68,7 +68,7 @@ function formatBytes(n: number | null) {
 export default function LineVaultPage() {
   const { role } = useUserRole();
   const isAdmin = role === "admin" || role === "director";
-  const [tab, setTab] = useState<"all" | "photo" | "file" | "note" | "manage">("all");
+  const [tab, setTab] = useState<"all" | "photo" | "file" | "note" | "manage" | "settings">("all");
   const [items, setItems] = useState<Item[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
