@@ -15338,6 +15338,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_app_secret: {
+        Args: {
+          _category?: string
+          _description?: string
+          _key: string
+          _value: string
+        }
+        Returns: undefined
+      }
       student_in_user_school: {
         Args: { _student_id: string }
         Returns: boolean
