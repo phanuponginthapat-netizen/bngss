@@ -1108,6 +1108,48 @@ export type Database = {
         }
         Relationships: []
       }
+      app_user_connections: {
+        Row: {
+          account_email: string | null
+          account_name: string | null
+          connected_at: string
+          connection_key: string
+          connector_id: string
+          external_user_id: string
+          id: string
+          last_used_at: string | null
+          revoked_at: string | null
+          scopes: string[] | null
+          user_id: string
+        }
+        Insert: {
+          account_email?: string | null
+          account_name?: string | null
+          connected_at?: string
+          connection_key: string
+          connector_id: string
+          external_user_id: string
+          id?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+          scopes?: string[] | null
+          user_id: string
+        }
+        Update: {
+          account_email?: string | null
+          account_name?: string | null
+          connected_at?: string
+          connection_key?: string
+          connector_id?: string
+          external_user_id?: string
+          id?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+          scopes?: string[] | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       archive_logs: {
         Row: {
           archive_path: string | null
