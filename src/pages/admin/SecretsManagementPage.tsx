@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { getSecretGuide } from "@/lib/secretGuides";
 import { SECRET_PRESET_CATEGORIES, type SecretPreset } from "@/lib/secretPresets";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sparkles, ExternalLink as ExtLinkIcon } from "lucide-react";
 
 const CATEGORY_LABEL: Record<string, { th: string; en: string }> = {
   social: { th: "Social", en: "Social" },
