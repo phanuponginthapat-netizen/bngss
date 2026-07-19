@@ -70,13 +70,20 @@ const GpsTrackingCard = () => {
       setPos(c);
       setErr(null);
       const map = mapRef.current; if (!map) return;
-      if (userMarkerRef.current) userMarkerRef.current.setLatLng([c.lat, c.lng]);
-      else userMarkerRef.current = L.marker([c.lat, c.lng], { icon: userIcon }).addTo(map).bindPopup("คุณอยู่ที่นี่").openPopup();
-      if (accuracyCircleRef.current) {
-        accuracyCircleRef.current.setLatLng([c.lat, c.lng]);
-        accuracyCircleRef.current.setRadius(c.accuracy);
-      } else {
-        accuracyCircleRef.current = L.circle([c.lat, c.lng], { radius: c.accuracy, color: "#3b82f6", fillOpacity: 0.15, weight: 1 }).addTo(map);
+      try {
+        if (userMarkerRef.current && (userMarkerRef.current as any)._map) {
+          userMarkerRef.current.setLatLng([c.lat, c.lng]);
+        } else {
+          userMarkerRef.current = L.marker([c.lat, c.lng], { icon: userIcon }).addTo(map).bindPopup("คุณอยู่ที่นี่").openPopup();
+        }
+        if (accuracyCircleRef.current && (accuracyCircleRef.current as any)._map) {
+          accuracyCircleRef.current.setLatLng([c.lat, c.lng]);
+          accuracyCircleRef.current.setRadius(c.accuracy);
+        } else {
+          accuracyCircleRef.current = L.circle([c.lat, c.lng], { radius: c.accuracy, color: "#3b82f6", fillOpacity: 0.15, weight: 1 }).addTo(map);
+        }
+      } catch (e) {
+        console.warn("[GpsTrackingCard] map update skipped:", e);
       }
       if (firstFix) {
         firstFix = false;
