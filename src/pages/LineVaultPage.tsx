@@ -375,7 +375,7 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, groupAlbums }: { 
   );
 }
 
-}
+
 
 function ManualUploadDialog({ onDone }: { onDone: () => void }) {
   const [open, setOpen] = useState(false);
