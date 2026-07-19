@@ -41,16 +41,28 @@ export async function captureLineGroupEvent(
       .eq("line_group_id", groupId)
       .maybeSingle();
 
-    // Auto-register unknown groups (auto_capture=false so admin must enable)
+    // Auto-register unknown groups with auto_capture=true so files start flowing immediately
     if (!grp) {
+      let groupName = `กลุ่มใหม่ (${groupId.slice(0, 8)}...)`;
+      try {
+        const summary = await fetchLineGroupSummary(token, groupId);
+        if (summary?.groupName) groupName = summary.groupName;
+      } catch (_) { /* ignore */ }
       await sb.from("line_vault_groups").insert({
         line_group_id: groupId,
-        group_name: `กลุ่มใหม่ (${groupId.slice(0, 8)}...)`,
-        auto_capture: false,
+        group_name: groupName,
+        auto_capture: true,
         default_visibility: "everyone",
-        notes: "ตรวจพบอัตโนมัติ - กรุณาตั้งชื่อและเปิด auto_capture",
+        notes: "ตรวจพบอัตโนมัติจาก LINE",
       });
-      return { captured: false, reason: "group_registered_pending" };
+      // Re-select the freshly registered row so we can capture this very message
+      const { data: fresh } = await sb
+        .from("line_vault_groups").select("*").eq("line_group_id", groupId).maybeSingle();
+      if (!fresh) return { captured: false, reason: "group_registered_pending" };
+      Object.assign(grp || {}, fresh);
+      // continue below using `fresh` as grp
+      // eslint-disable-next-line no-var
+      (grp as any) = fresh;
     }
     if (!grp.auto_capture) return { captured: false, reason: "auto_capture_disabled" };
 
