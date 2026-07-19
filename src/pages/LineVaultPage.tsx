@@ -550,6 +550,9 @@ function VaultSettings() {
   const webhookUrl = `${SUPABASE_URL}/functions/v1/line-vault-webhook`;
   const [checking, setChecking] = useState(false);
   const [status, setStatus] = useState<{ token: boolean; webhook_ok?: boolean; error?: string; groups?: number; items?: number } | null>(null);
+  const [tokenDraft, setTokenDraft] = useState("");
+  const [showToken, setShowToken] = useState(false);
+  const [savingToken, setSavingToken] = useState(false);
 
   async function copy(text: string) {
     await navigator.clipboard.writeText(text);
