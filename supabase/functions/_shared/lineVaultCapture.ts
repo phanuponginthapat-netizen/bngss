@@ -92,7 +92,7 @@ export async function captureLineGroupEvent(
       return { captured: true };
     }
 
-    // Image / video / file / audio -> download to storage
+    // Image / video / file / audio -> upload to Google Drive (fallback to Supabase storage)
     if (["image", "video", "file", "audio"].includes(msg.type)) {
       const content = await deps.downloadLineContent(token, msg.id);
       if (!content) return { captured: false, reason: "download_failed" };
@@ -100,15 +100,37 @@ export async function captureLineGroupEvent(
       const origName: string = msg.fileName || (msg.type === "image" ? `photo-${msg.id}.jpg` : `${msg.type}-${msg.id}.${extFromMime(content.mime)}`);
       const ext = origName.includes(".") ? origName.split(".").pop() : extFromMime(content.mime);
       const now = new Date();
-      const y = now.getFullYear(); const m = String(now.getMonth() + 1).padStart(2, "0");
-      const path = `${y}/${m}/${groupId}/${msg.id}.${ext}`;
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
 
-      const { error: upErr } = await sb.storage.from("line-vault").upload(path, content.data, {
-        contentType: content.mime, upsert: false,
-      });
-      if (upErr && !`${upErr.message}`.toLowerCase().includes("exists")) {
-        console.error("[vault upload]", upErr);
-        return { captured: false, reason: "upload_failed" };
+      let driveFileId: string | null = null;
+      let driveWebViewLink: string | null = null;
+      let storagePath: string | null = null;
+
+      // Try Google Drive first
+      try {
+        const { ensureFolderPath, uploadFile } = await import("./googleDrive.ts");
+        const folderName = (grp.group_name || `group-${groupId.slice(0, 8)}`).replace(/[\\/]/g, "-");
+        const parent = await ensureFolderPath(["LineVault", String(y), folderName, m]);
+        const uploaded = await uploadFile(`${msg.id}.${ext}`, content.mime, content.data, parent);
+        driveFileId = uploaded.id;
+        driveWebViewLink = uploaded.webViewLink || null;
+        // Persist folder id on group for reference
+        if (!grp.drive_folder_id) {
+          await sb.from("line_vault_groups").update({ drive_folder_id: parent }).eq("id", grp.id);
+        }
+      } catch (driveErr) {
+        console.error("[vault drive upload failed, fallback to bucket]", (driveErr as any)?.message || driveErr);
+        // Fallback to Supabase storage
+        const path = `${y}/${m}/${groupId}/${msg.id}.${ext}`;
+        const { error: upErr } = await sb.storage.from("line-vault").upload(path, content.data, {
+          contentType: content.mime, upsert: false,
+        });
+        if (upErr && !`${upErr.message}`.toLowerCase().includes("exists")) {
+          console.error("[vault upload]", upErr);
+          return { captured: false, reason: "upload_failed" };
+        }
+        storagePath = path;
       }
 
       const title = msg.fileName || (kind === "photo" ? `รูปภาพจาก ${grp.group_name}` : `ไฟล์จาก ${grp.group_name}`);
@@ -116,7 +138,9 @@ export async function captureLineGroupEvent(
         ...baseRow,
         kind,
         title,
-        storage_path: path,
+        storage_path: storagePath,
+        drive_file_id: driveFileId,
+        drive_web_view_link: driveWebViewLink,
         mime_type: content.mime,
         size_bytes: content.data.byteLength,
         original_filename: origName,
@@ -124,6 +148,7 @@ export async function captureLineGroupEvent(
       if (error && !`${error.message}`.includes("duplicate")) throw error;
       return { captured: true };
     }
+
 
     return { captured: false, reason: `unsupported_type:${msg.type}` };
   } catch (e: any) {
