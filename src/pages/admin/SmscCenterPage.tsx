@@ -15,6 +15,7 @@ import * as XLSX from "xlsx";
 import { registerThaiFont } from "@/lib/jspdfThai";
 import { BE_OFFSET } from "@/lib/dateBE";
 import {
+import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
   ShieldCheck, GraduationCap, Users, BookOpen, ClipboardCheck, FileText,
   ExternalLink, BarChart3, Award, Calendar, Building2, HeartPulse,
   ClipboardList, FileSpreadsheet, FileDown, CheckCircle2, AlertTriangle,

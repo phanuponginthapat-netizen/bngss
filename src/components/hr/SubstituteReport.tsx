@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { BarChart3, Download, Clock, Users, CalendarRange, Trophy, Trash2 } from "lucide-react";
+import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
 
 const HOURS_PER_PERIOD = 1; // 1 คาบ = 1 ชั่วโมงสอนแทน
 

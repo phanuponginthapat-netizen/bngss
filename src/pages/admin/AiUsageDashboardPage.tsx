@@ -9,6 +9,7 @@ import {
   ArrowDownUp, Gauge, Timer, AlertTriangle,
 } from "lucide-react";
 import {
+import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";

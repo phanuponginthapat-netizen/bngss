@@ -1,4 +1,5 @@
 import { BE_OFFSET } from "./dateBE";
+import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
 // Autofill data sources for PDF template fields (DMC / school / user)
 
 export const AUTOFILL_SOURCES: { value: string; label: string; group: string }[] = [

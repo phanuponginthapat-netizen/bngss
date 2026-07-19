@@ -1,6 +1,7 @@
 // Shared types + renderer for custom E-Form templates designed by admin
 import { replaceSchoolAssetTokens } from "./eformSchoolAssets";
 import { BE_OFFSET } from "./dateBE";
+import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
 export type EFormFieldType =
   | "text"
   | "textarea"

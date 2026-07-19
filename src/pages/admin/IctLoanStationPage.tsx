@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
+import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
 
 type Student = { id: string; student_code: string; prefix: string; first_name: string; last_name: string; classrooms?: { name: string } | null };
 type Personnel = { id: string; employee_code: string | null; prefix: string | null; first_name: string; last_name: string; department: string | null };

@@ -20,6 +20,7 @@ import { Plus, Trash2, Check, X, Clock, FileText, Send, CalendarDays, Paperclip 
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { uploadLeaveAttachment, openLeaveAttachment } from "@/lib/leaveAttachment";
 import NotificationHighlightScroller from "@/components/NotificationHighlightScroller";
+import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
 
 const LEAVE_TYPES = [
   { value: "sick", th: "ลาป่วย", en: "Sick Leave" },

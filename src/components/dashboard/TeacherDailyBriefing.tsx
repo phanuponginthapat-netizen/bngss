@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
   Clock, ListTodo, AlertTriangle, ArrowRight, BookOpen, MapPin, CalendarDays,
 } from "lucide-react";
 

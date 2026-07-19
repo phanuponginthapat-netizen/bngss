@@ -18,6 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, ClipboardList, Sparkles, CalendarDays, Trash2, FileEdit, Users, ChevronLeft, ChevronRight, Flame, Search } from "lucide-react";
+import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
 
 const THAI_DAYS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
