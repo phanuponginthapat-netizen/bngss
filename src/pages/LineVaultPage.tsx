@@ -93,6 +93,9 @@ export default function LineVaultPage() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [yearFilter, setYearFilter] = useState<string>("all");
+  const [semFilter, setSemFilter] = useState<string>("all");
+  const [catFilter, setCatFilter] = useState<string>("all");
 
   async function load() {
     setLoading(true);
@@ -113,9 +116,18 @@ export default function LineVaultPage() {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [isAdmin]);
 
+  const yearOptions = useMemo(() => {
+    const s = new Set<number>();
+    items.forEach(i => { if (i.academic_year) s.add(i.academic_year); });
+    return Array.from(s).sort((a, b) => b - a);
+  }, [items]);
+
   const filtered = useMemo(() => {
     return items.filter(i => {
-      if (tab !== "all" && tab !== "manage" && i.kind !== tab) return false;
+      if (tab !== "all" && tab !== "manage" && tab !== "settings" && i.kind !== tab) return false;
+      if (yearFilter !== "all" && String(i.academic_year || "") !== yearFilter) return false;
+      if (semFilter !== "all" && String(i.semester || "") !== semFilter) return false;
+      if (catFilter !== "all" && (i.category || "other") !== catFilter) return false;
       if (!q) return true;
       const s = q.toLowerCase();
       return (i.title || "").toLowerCase().includes(s)
@@ -123,7 +135,8 @@ export default function LineVaultPage() {
         || (i.original_filename || "").toLowerCase().includes(s)
         || (i.line_sender_name || "").toLowerCase().includes(s);
     });
-  }, [items, tab, q]);
+  }, [items, tab, q, yearFilter, semFilter, catFilter]);
+
 
   async function handleOpen(item: Item) {
     if (item.kind === "note") {
