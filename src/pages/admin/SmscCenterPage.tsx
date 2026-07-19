@@ -13,7 +13,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { registerThaiFont } from "@/lib/jspdfThai";
-import { BE_OFFSET } from "@/lib/dateBE";
+import { BE_OFFSET, todayBangkok, bkkDateISO } from "@/lib/dateBE";
 import {
   ShieldCheck, GraduationCap, Users, BookOpen, ClipboardCheck, FileText,
   ExternalLink, BarChart3, Award, Calendar, Building2, HeartPulse,
@@ -65,7 +65,7 @@ interface SmscData {
 }
 
 const fetchData = async (): Promise<SmscData> => {
-  const since = new Date(Date.now() - SINCE_DAYS * 86400000).toISOString().slice(0, 10);
+  const since = bkkDateISO(new Date(Date.now() - SINCE_DAYS * 86400000));
 
   const [
     students, teachers, classrooms, subjects, schedules, documents,

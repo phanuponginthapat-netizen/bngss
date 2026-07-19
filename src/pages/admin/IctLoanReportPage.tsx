@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { todayBangkok } from "@/lib/dateBE";
+import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,7 @@ type Loan = {
 };
 
 const todayISO = () => todayBangkok();
-const daysAgoISO = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
+const daysAgoISO = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return bkkDateISO(d); };
 
 export default function IctLoanReportPage() {
   const [from, setFrom] = useState(daysAgoISO(30));

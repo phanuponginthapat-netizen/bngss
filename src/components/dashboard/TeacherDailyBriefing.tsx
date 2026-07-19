@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
 import {
   Clock, ListTodo, AlertTriangle, ArrowRight, BookOpen, MapPin, CalendarDays,
 } from "lucide-react";
@@ -20,7 +21,7 @@ const DAY_NAMES = ["อาทิตย์", "จันทร์", "อังค�
 export const TeacherDailyBriefing = ({ userId, personnelId, personnelFullName, homeroomClassroomIds }: Props) => {
   const navigate = useNavigate();
   const today = new Date();
-  const todayISO = today.toISOString().split("T")[0];
+  const todayISO = bkkDateISO(today);
   const dow = today.getDay();
 
   const { data, isLoading } = useQuery({
@@ -83,8 +84,7 @@ export const TeacherDailyBriefing = ({ userId, personnelId, personnelFullName, h
         const studMap = new Map((studs || []).map((s) => [s.id, s]));
 
         if (studentIds.length) {
-          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-            .toISOString().split("T")[0];
+          const sevenDaysAgo = bkkDateISO(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
 
           const [{ data: behaviors }, { data: absences }] = await Promise.all([
             supabase

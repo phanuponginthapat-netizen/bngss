@@ -11,6 +11,7 @@ import {
 } from "../_shared/lineLeaveFlow.ts";
 
 import { corsHeaders } from "../_shared/cors.ts";
+import { todayBangkokISO, bkkDateISO } from "../_shared/thaiDate.ts";
 
 // ============ SETTINGS ============
 
@@ -571,7 +572,7 @@ async function handleTeacherSubstitute(sb: any, token: string, rt: string, lineU
   const user = await findLinkedUser(sb, lineUserId);
   if (!user || user.type !== "teacher") return replyText(token, rt, `❌ คำสั่งนี้สำหรับครู`, qrDefault);
   const teacherName = `${user.prefix || ""}${user.first_name} ${user.last_name}`.trim();
-  const today = new Date().toISOString().slice(0,10);
+  const today = todayBangkokISO();
   const { data: subs } = await sb.from("substitute_teaching").select("teaching_date, period, subjects(name_th, name_en), classrooms(name), original_teacher, status")
     .eq("substitute_teacher", teacherName).gte("teaching_date", today).order("teaching_date").limit(10);
   if (!subs?.length) return replyText(token, rt, `🔁 ไม่มีคาบสอนแทนที่กำลังจะมาถึง`, qrTeacher);
@@ -582,7 +583,7 @@ async function handleTeacherSubstitute(sb: any, token: string, rt: string, lineU
 async function handleAttendanceList(sb: any, token: string, rt: string, classroomId: string, subjectId?: string, period?: string) {
   const { data: students } = await sb.from("students").select("id, prefix, first_name, last_name, student_code").eq("classroom_id", classroomId).eq("status", "active").order("student_code").limit(40);
   if (!students?.length) return replyText(token, rt, `ไม่พบนักเรียนในห้อง`);
-  const today = new Date().toISOString().slice(0,10);
+  const today = todayBangkokISO();
   const ids = students.map((s: any) => s.id);
   let q = sb.from("attendance").select("student_id, status").in("student_id", ids).eq("attendance_date", today);
   q = subjectId ? q.eq("subject_id", subjectId) : q.is("subject_id", null);
@@ -738,7 +739,7 @@ async function handleRoomSummary(sb: any, token: string, rt: string, classroomId
   const { data: cr } = await sb.from("classrooms").select("name").eq("id", classroomId).maybeSingle();
   const { data: students } = await sb.from("students").select("id").eq("classroom_id", classroomId).eq("status", "active");
   const ids = students?.map((s: any) => s.id) || [];
-  const today = new Date().toISOString().slice(0,10);
+  const today = todayBangkokISO();
   const monthStart = today.slice(0,7) + "-01";
 
   const [att, beh, lv] = await Promise.all([
@@ -767,7 +768,7 @@ async function handleHomeworkCommand(sb: any, token: string, rt: string, lineUse
   if (!user || user.type !== "student") return replyText(token, rt, `❌ คำสั่งนี้สำหรับนักเรียน/ผปค.`, qrDefault);
   const cid = (user as any).classroom_id;
   if (!cid) return replyText(token, rt, `ℹ️ ยังไม่ได้กำหนดห้องเรียน`, qrParent);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayBangkokISO();
   const { data: hw } = await sb.from("homework_assignments")
     .select("title, description, due_date, assigned_by, subjects(name_th, name_en)")
     .eq("classroom_id", cid).gte("due_date", today).order("due_date").limit(10);
@@ -780,7 +781,7 @@ async function handleExamsCommand(sb: any, token: string, rt: string, lineUserId
   const user = await findLinkedUser(sb, lineUserId);
   if (!user || user.type !== "student") return replyText(token, rt, `❌ คำสั่งนี้สำหรับนักเรียน/ผปค.`, qrDefault);
   const cid = (user as any).classroom_id;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayBangkokISO();
   const { data: ev } = await sb.from("academic_events")
     .select("title, event_date, end_date, location, event_type")
     .gte("event_date", today)
@@ -803,7 +804,7 @@ async function handleHealthCommand(sb: any, token: string, rt: string, lineUserI
 }
 
 async function handleLunchCommand(sb: any, token: string, rt: string) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayBangkokISO();
   const { data: m } = await sb.from("school_lunch_records")
     .select("lunch_date, menu_name, menu_description, nutrition_info")
     .gte("lunch_date", today).order("lunch_date").limit(5);
@@ -834,7 +835,7 @@ async function handleHomeVisitCommand(sb: any, token: string, rt: string, lineUs
 }
 
 async function handleCalendarCommand(sb: any, token: string, rt: string) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayBangkokISO();
   const { data: ev } = await sb.from("academic_events")
     .select("title, event_date, event_type, location").gte("event_date", today)
     .order("event_date").limit(8);
@@ -862,7 +863,7 @@ async function handleTeacherHomework(sb: any, token: string, rt: string, lineUse
   const user = await findLinkedUser(sb, lineUserId);
   if (!user || user.type !== "teacher") return replyText(token, rt, `❌ คำสั่งนี้สำหรับครู`, qrDefault);
   const teacherName = `${user.prefix || ""}${user.first_name} ${user.last_name}`.trim();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayBangkokISO();
   const { data: hw } = await sb.from("homework_assignments")
     .select("title, due_date, classrooms(name), subjects(name_th)")
     .eq("assigned_by", teacherName).gte("due_date", today).order("due_date").limit(10);
@@ -885,7 +886,7 @@ async function handleBehaviorRecord(sb: any, token: string, rt: string, lineUser
   if (!s) return replyText(token, rt, `❌ ไม่พบนักเรียนรหัส ${code}`, qrTeacher);
   const { error: behErr } = await sb.from("behavior_records").insert({
     student_id: s.id, behavior_type: pts >= 0 ? "positive" : "negative",
-    description: reason, points: Math.abs(pts), record_date: new Date().toISOString().slice(0, 10),
+    description: reason, points: Math.abs(pts), record_date: todayBangkokISO(),
     recorded_by: `${user.first_name} ${user.last_name}`.trim(),
   });
   if (behErr) {
@@ -975,7 +976,7 @@ async function handleTodaySummaryForTeacher(sb: any, token: string, rt: string, 
   if (!user || user.type !== "teacher") return replyText(token, rt, `❌ คำสั่งนี้สำหรับครู`, qrDefault);
   const today = new Date();
   const day = today.getDay();
-  const isoDate = today.toISOString().slice(0, 10);
+  const isoDate = bkkDateISO(today);
   const personnelId = (user as any).personnel_id;
   const teacherName = `${user.prefix || ""}${user.first_name} ${user.last_name}`.trim();
 
@@ -1004,7 +1005,7 @@ async function handleTodaySummaryForTeacher(sb: any, token: string, rt: string, 
 async function handleSchoolOverview(sb: any, token: string, rt: string, lineUserId: string) {
   const user = await findLinkedUser(sb, lineUserId);
   if (!user || !(user as any).isAdmin) return replyText(token, rt, `❌ คำสั่งนี้สำหรับผู้บริหาร/แอดมิน`, qrDefault);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayBangkokISO();
   const [students, staff, attToday, pendingS, pendingT, news] = await Promise.all([
     sb.from("students").select("id", { count: "exact", head: true }).eq("status", "active"),
     sb.from("personnel").select("id", { count: "exact", head: true }).eq("status", "active"),
@@ -1256,8 +1257,8 @@ async function handleSmartQuery(sb: any, token: string, rt: string, lineUserId: 
   } else if (/วันนี้|today/i.test(t)) {
     from = new Date(now); to = new Date(now); label = "วันนี้";
   }
-  const fStr = from.toISOString().slice(0, 10);
-  const tStr = to.toISOString().slice(0, 10);
+  const fStr = bkkDateISO(from);
+  const tStr = bkkDateISO(to);
 
   // ─── STUDENT / PARENT queries ─────────────────────────────────────────
   if (isStudent) {
@@ -1314,7 +1315,7 @@ async function handleSmartQuery(sb: any, token: string, rt: string, lineUserId: 
     if (/(การบ้าน|งาน|homework).*(อะไร|บ้าง|เหลือ|ต้องส่ง|กี่)/.test(t) || /(เหลือ|ต้องส่ง).*(การบ้าน|งาน)/.test(t)) {
       const { data: hws } = await sb.from("homework")
         .select("title, due_date, subjects(name_th,name)")
-        .gte("due_date", new Date().toISOString().slice(0,10))
+        .gte("due_date", todayBangkokISO())
         .order("due_date", { ascending: true }).limit(15);
       if (!hws?.length) { await replyText(token, rt, `🎉 ไม่มีการบ้านค้างส่ง`, qrParent); return true; }
       const items = hws.map((h: any) => `• ${h.due_date} — ${h.subjects?.name_th || h.subjects?.name || ""} : ${h.title}`);
@@ -1328,7 +1329,7 @@ async function handleSmartQuery(sb: any, token: string, rt: string, lineUserId: 
     // นักเรียนขาด/สายวันนี้ในห้องที่ปรึกษา
     if (/(ห้อง|ชั้น|เด็ก|นักเรียน).*(ขาด|สาย|ป่วย).*(วันนี้|กี่|บ้าง)/.test(t)
         || /(ใคร|กี่คน).*(ขาด|สาย|ป่วย)/.test(t)) {
-      const today = new Date().toISOString().slice(0,10);
+      const today = todayBangkokISO();
       const { data: cls } = await sb.from("classrooms")
         .select("id,name,grade_level,section").eq("homeroom_teacher_id", user.id).limit(3);
       if (!cls?.length) { await replyText(token, rt, "ยังไม่ได้เป็นครูประจำชั้น", qrTeacher); return true; }
@@ -1380,7 +1381,7 @@ async function handleSmartQuery(sb: any, token: string, rt: string, lineUserId: 
       return true;
     }
     if (/(ขาด|สาย|ป่วย).*(วันนี้|กี่คน|บ้าง)/.test(t)) {
-      const today = new Date().toISOString().slice(0,10);
+      const today = todayBangkokISO();
       const { data: att } = await sb.from("attendance").select("status").eq("attendance_date", today);
       const c = { absent: 0, late: 0, sick: 0, present: 0 } as any;
       (att || []).forEach((r: any) => { c[r.status] = (c[r.status] || 0) + 1; });

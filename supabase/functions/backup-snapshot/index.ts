@@ -3,6 +3,7 @@ import { BlobWriter, TextReader, ZipWriter } from "https://deno.land/x/zipjs@v2.
 import { rateLimit } from "../_shared/rateLimit.ts";
 
 import { buildCorsHeaders } from "../_shared/cors.ts";
+import { todayBangkokISO } from "../_shared/thaiDate.ts";
 const corsHeaders = buildCorsHeaders([], "POST, GET, OPTIONS");
 
 // Tables to snapshot — order doesn't matter, all dumped as CSV
@@ -123,7 +124,7 @@ Deno.serve(async (req) => {
   await zip.close();
   const blob = await zipBlob.getData();
 
-  const filename = `school-backup-${new Date().toISOString().slice(0, 10)}.zip`;
+  const filename = `school-backup-${todayBangkokISO()}.zip`;
   return new Response(blob, {
     status: 200,
     headers: {

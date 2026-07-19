@@ -8,6 +8,7 @@ import {
   Sparkles, Coins, TrendingUp, Activity, Layers, Zap, Cpu, Wallet,
   ArrowDownUp, Gauge, Timer, AlertTriangle,
 } from "lucide-react";
+import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -129,7 +130,7 @@ export default function AiUsageDashboardPage() {
   const { keys, usage } = data;
 
   // ─── Derive real usage from ai_usage_logs (counters in ai_provider_keys are unreliable) ──
-  const todayISO = new Date().toISOString().slice(0, 10);
+  const todayISO = todayBangkok();
   const mapProviderType = (name: string | null | undefined): string => {
     const n = (name || "").toLowerCase();
     if (n.includes("openrouter")) return "openrouter";

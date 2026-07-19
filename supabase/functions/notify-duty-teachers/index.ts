@@ -4,6 +4,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
+import { bkkDateISO } from "../_shared/thaiDate.ts";
 
 const DOW_TH = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
 
@@ -25,7 +26,7 @@ Deno.serve(async (req) => {
   const now = new Date();
   const target = new Date(now);
   if (mode === "tomorrow") target.setDate(target.getDate() + 1);
-  const iso = target.toISOString().slice(0, 10);
+  const iso = bkkDateISO(target);
   const dow = target.getDay();
 
   // fetch duty for target date OR matching day_of_week (weekly template)

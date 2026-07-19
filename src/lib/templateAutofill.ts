@@ -1,4 +1,5 @@
 import { BE_OFFSET } from "./dateBE";
+import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
 // Autofill data sources for PDF template fields (DMC / school / user)
 
 export const AUTOFILL_SOURCES: { value: string; label: string; group: string }[] = [
@@ -71,7 +72,7 @@ export function resolveAutofill(source: string | undefined | null, ctx: Autofill
     case "school.address": return sc.address || "";
     case "school.phone": return sc.phone || sc.phone_number || "";
     case "school.director": return sc.director_name || "";
-    case "date.today": return new Date().toISOString().slice(0, 10);
+    case "date.today": return todayBangkok();
     case "date.today_thai": return thaiDate(new Date());
     case "user.name": return ctx.user?.name || "";
     default: return "";

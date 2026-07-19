@@ -143,6 +143,7 @@ var list_my_attendance_default = defineTool4({
 import { createClient as createClient5 } from "npm:@supabase/supabase-js@^2.100.1";
 import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z4 } from "npm:zod@^4.4.3";
+import { todayBangkok } from "npm:@/lib/dateBE";
 function sb3(ctx) {
   return createClient5(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
@@ -163,7 +164,7 @@ var list_my_homework_default = defineTool5({
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
     let q = sb3(ctx).from("homework_assignments").select("id, title, description, subject_id, due_date, classroom_id, created_at").order("due_date", { ascending: true }).limit(limit);
-    if (only_open) q = q.gte("due_date", (/* @__PURE__ */ new Date()).toISOString().slice(0, 10));
+    if (only_open) q = q.gte("due_date", todayBangkok());
     const { data, error } = await q;
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     return {

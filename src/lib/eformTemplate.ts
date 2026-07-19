@@ -1,6 +1,7 @@
 // Shared types + renderer for custom E-Form templates designed by admin
 import { replaceSchoolAssetTokens } from "./eformSchoolAssets";
 import { BE_OFFSET } from "./dateBE";
+import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
 export type EFormFieldType =
   | "text"
   | "textarea"
@@ -83,7 +84,7 @@ export function resolveAutofill(source: EFormAutofillSource | undefined, ctx: EF
     "school.phone": ctx.school?.phone ?? "",
     "director.name": ctx.director?.name ?? "",
     "director.title": ctx.director?.title ?? "",
-    "today": new Date().toISOString().slice(0, 10),
+    "today": todayBangkok(),
     "today_thai": thaiDate(new Date()),
   };
   return map[source] ?? "";

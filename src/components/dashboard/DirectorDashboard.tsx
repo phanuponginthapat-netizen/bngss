@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from "react";
-import { todayBangkok } from "@/lib/dateBE";
+import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -59,7 +59,7 @@ const DirectorDashboard = () => {
         supabase.from("students").select("id, gender", { count: "exact" }).eq("status", "active"),
         supabase.from("personnel").select("id, position", { count: "exact" }).eq("status", "active"),
         supabase.from("classrooms").select("id, homeroom_teacher", { count: "exact" }),
-        supabase.from("attendance").select("status, attendance_date").gte("attendance_date", new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0]),
+        supabase.from("attendance").select("status, attendance_date").gte("attendance_date", bkkDateISO(new Date(Date.now() - 30 * 86400000))),
         supabase.from("student_leaves").select("id, status"),
         supabase.from("staff_leaves").select("id, status"),
         supabase.from("news_posts").select("id, title, is_published").eq("is_published", true).order("created_at", { ascending: false }).limit(5),
@@ -70,7 +70,7 @@ const DirectorDashboard = () => {
         supabase.from("documents").select("id, status"),
       ]);
 
-      const today = new Date().toISOString().split("T")[0];
+      const today = todayBangkok();
       const todayRows = attendance.data?.filter(a => a.attendance_date === today) || [];
       const totalAtt = todayRows.length;
       const present = todayRows.filter(a => a.status === "present").length;

@@ -1,3 +1,4 @@
+
 // Buddhist Era (พ.ศ.) date helpers — DD/MM/YYYY format
 // Internal storage stays ISO (YYYY-MM-DD, ค.ศ.). UI shows / parses พ.ศ.
 //
@@ -137,4 +138,54 @@ export function formatDateTimeBE(input?: string | Date | null): string {
   const { year, month, day, hour, minute, second } = getBangkokParts(d);
   const p = (n: number) => String(n).padStart(2, "0");
   return `${p(day)}/${p(month)}/${year + BE_OFFSET} ${p(hour)}:${p(minute)}:${p(second)}`;
+}
+
+/**
+ * แปลง Date → ISO YYYY-MM-DD ในเขตเวลาไทย (แทนการเรียก `.toISOString().slice(0,10)` ที่คลาดเคลื่อน)
+ * ถ้าไม่ส่ง d จะได้ค่าเท่ากับ todayBangkok()
+ */
+export function bkkDateISO(d: Date = new Date()): string {
+  const { year, month, day } = getBangkokParts(d);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${year}-${p(month)}-${p(day)}`;
+}
+
+/** เพิ่ม/ลดจำนวนวันแล้วคืน ISO YYYY-MM-DD ในเขตเวลาไทย */
+export function addDaysBkkISO(days: number, base: Date = new Date()): string {
+  const d = new Date(base.getTime() + days * 86400000);
+  return bkkDateISO(d);
+}
+
+/**
+ * รูปแบบภาษาไทยแบบยาว "12 พฤษภาคม 2569" — บังคับ Bangkok TZ + ปฏิทินพุทธ
+ * ใช้ Intl (buddhist calendar) เพื่อให้ผลลัพธ์ตรงกันในทุกเบราว์เซอร์/Deno
+ */
+export function formatThaiLong(input?: string | Date | number | null): string {
+  if (input == null || input === "") return "";
+  const d = input instanceof Date ? input : (typeof input === "string" ? (parseDateBE(input) ?? new Date(input)) : new Date(input));
+  if (!d || isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
+    timeZone: BKK_TZ, day: "numeric", month: "long", year: "numeric",
+  }).format(d);
+}
+
+/** "12 พ.ค. 2569" (สั้น) */
+export function formatThaiShort(input?: string | Date | number | null): string {
+  if (input == null || input === "") return "";
+  const d = input instanceof Date ? input : (typeof input === "string" ? (parseDateBE(input) ?? new Date(input)) : new Date(input));
+  if (!d || isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
+    timeZone: BKK_TZ, day: "numeric", month: "short", year: "numeric",
+  }).format(d);
+}
+
+/** วันที่+เวลาแบบไทยยาว "12 พฤษภาคม 2569 08:30" */
+export function formatThaiLongTime(input?: string | Date | number | null): string {
+  if (input == null || input === "") return "";
+  const d = input instanceof Date ? input : new Date(input as any);
+  if (!d || isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
+    timeZone: BKK_TZ, day: "numeric", month: "long", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(d);
 }

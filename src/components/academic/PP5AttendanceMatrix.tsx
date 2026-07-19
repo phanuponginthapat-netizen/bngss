@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Wand2, Save } from "lucide-react";
 import { toast } from "sonner";
-import { BE_OFFSET } from "@/lib/dateBE";
+import { BE_OFFSET, bkkDateISO } from "@/lib/dateBE";
 
 interface Props {
   subjectId: string;
@@ -112,7 +112,7 @@ const PP5AttendanceMatrix = ({
       const day = cur.getDay();
       if (day !== 0 && day !== 6) { // skip weekends
         for (let h = 0; h < hoursPerWeek && added < total; h++) {
-          result.push(cur.toISOString().slice(0, 10));
+          result.push(bkkDateISO(cur));
           added++;
         }
         // move +7 days for next week if filled hoursPerWeek for this week

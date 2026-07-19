@@ -6,6 +6,7 @@ import { getSecret } from "../_shared/getSecret.ts";
 import { secretKeys } from "../_shared/secretKeys.ts";
 
 import { corsHeaders } from "../_shared/cors.ts";
+import { todayBangkokISO } from "../_shared/thaiDate.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -272,7 +273,7 @@ type AiCandidate = { poolKeyId: string | null; key: string; label: string; model
 type OpenAICompatibleCandidate = AiCandidate & { baseUrl: string; providerType: string; extraHeaders?: Record<string, string> | null };
 
 async function resetPoolState(supa: any, provider: string) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayBangkokISO();
   await supa.from("ai_provider_keys")
     .update({ used_today: 0, last_reset_date: today })
     .eq("provider_type", provider)

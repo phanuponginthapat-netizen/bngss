@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
+import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
 
 type Student = { id: string; student_code: string; prefix: string; first_name: string; last_name: string; classrooms?: { name: string } | null };
 type Personnel = { id: string; employee_code: string | null; prefix: string | null; first_name: string; last_name: string; department: string | null };
@@ -42,7 +43,7 @@ export default function IctLoanStationPage() {
   const [notes, setNotes] = useState("");
   const [dueDate, setDueDate] = useState<string>(() => {
     const d = new Date(); d.setDate(d.getDate() + 7);
-    return d.toISOString().slice(0, 10);
+    return bkkDateISO(d);
   });
   const [busy, setBusy] = useState(false);
   const [recent, setRecent] = useState<Loan[]>([]);
@@ -60,7 +61,7 @@ export default function IctLoanStationPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [availableDevices, setAvailableDevices] = useState<Device[]>([]);
-  const [bulkDate, setBulkDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [bulkDate, setBulkDate] = useState<string>(() => todayBangkok());
   const [teacherSchedules, setTeacherSchedules] = useState<any[]>([]);
   const [bulkScheduleId, setBulkScheduleId] = useState<string>("");
   const [personnelList, setPersonnelList] = useState<Personnel[]>([]);

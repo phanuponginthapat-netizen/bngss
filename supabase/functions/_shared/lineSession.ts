@@ -1,3 +1,4 @@
+import { bkkDateISO } from "../_shared/thaiDate.ts";
 // Shared LINE bot session store + DOB normalizer.
 // Sessions live in `line_sessions` table (line_user_id UNIQUE, expires_at timestamptz).
 
@@ -62,5 +63,5 @@ export const dobMatches = (stored: any, given: string) => {
 export function todayPlus(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return bkkDateISO(d);
 }

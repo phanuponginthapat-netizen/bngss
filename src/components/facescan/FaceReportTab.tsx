@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { toast } from "sonner";
-import { BE_OFFSET } from "@/lib/dateBE";
+import { BE_OFFSET, bkkDateISO, todayBangkok } from "@/lib/dateBE";
 
 type ClassRow = {
   cls: string; grade: string; size: number; sizeM: number; sizeF: number;
@@ -57,7 +57,7 @@ function getRange(period: Period, ref: Date): { start: string; end: string; labe
       label = `ภาคเรียนที่ 2 / ${start.getFullYear() + BE_OFFSET}`;
     }
   }
-  const fmt = (x: Date) => x.toISOString().slice(0, 10);
+  const fmt = (x: Date) => bkkDateISO(x);
   return { start: fmt(start), end: fmt(end), label };
 }
 
@@ -85,7 +85,7 @@ const FaceReportTab = () => {
 
   const today = new Date();
   const [period, setPeriod] = useState<Period>("day");
-  const [refDate, setRefDate] = useState(today.toISOString().slice(0, 10));
+  const [refDate, setRefDate] = useState(bkkDateISO(today));
   const [search, setSearch] = useState("");
   const [sending, setSending] = useState(false);
   const [savingImage, setSavingImage] = useState(false);
@@ -218,7 +218,7 @@ const FaceReportTab = () => {
   });
 
   // ===== Accurate attendance summary (skip weekend/future/holiday, merge face_scan ∪ attendance ∪ leaves) =====
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = todayBangkok();
   const { data: accurate } = useQuery({
     queryKey: ["face-report-accurate", range.start, range.end, todayStr],
     queryFn: async () => {
@@ -235,7 +235,7 @@ const FaceReportTab = () => {
       for (const ev of (eventsRes.data as any[]) || []) {
         const s = new Date(ev.event_date);
         const e = new Date(ev.end_date || ev.event_date);
-        for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) holidays.add(d.toISOString().slice(0, 10));
+        for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) holidays.add(bkkDateISO(d));
       }
       // Effective dates: exclude weekend, future, holiday
       const eff: string[] = [];
@@ -243,7 +243,7 @@ const FaceReportTab = () => {
       const cap = endD < new Date(todayStr) ? endD : new Date(todayStr);
       for (let d = new Date(startD); d <= cap; d.setDate(d.getDate() + 1)) {
         const dow = d.getDay();
-        const iso = d.toISOString().slice(0, 10);
+        const iso = bkkDateISO(d);
         if (dow === 0 || dow === 6) continue;
         if (holidays.has(iso)) continue;
         eff.push(iso);
@@ -274,7 +274,7 @@ const FaceReportTab = () => {
         if (lv.status === "rejected") continue;
         const s = new Date(lv.start_date), e = new Date(lv.end_date);
         for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
-          const iso = d.toISOString().slice(0, 10);
+          const iso = bkkDateISO(d);
           if (!effSet.has(iso)) continue;
           const set = leaveIdx.get(lv.student_id) || new Set<string>();
           set.add(iso);
@@ -445,7 +445,7 @@ const FaceReportTab = () => {
       const endD = new Date(range.end);
       const dates: string[] = [];
       for (let d = new Date(startD); d <= endD; d.setDate(d.getDate() + 1)) {
-        dates.push(d.toISOString().slice(0, 10));
+        dates.push(bkkDateISO(d));
       }
 
       // index logs: date -> studentId -> earliest time (HH:mm:ss)

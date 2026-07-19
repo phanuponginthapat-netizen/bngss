@@ -1,5 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from "react";
-import { todayBangkok } from "@/lib/dateBE";
+import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { useWeatherData } from "@/hooks/useWeatherData";
 const DynamicHeroBackground = lazy(() => import("./DynamicHeroBackground"));
 const MascotHeroWidget = lazy(() => import("./widgets/MascotHeroWidget"));
@@ -64,7 +64,7 @@ const StudentDashboard = () => {
 
       const today = new Date();
       const todayDow = today.getDay();
-      const todayStr = today.toISOString().split("T")[0];
+      const todayStr = bkkDateISO(today);
 
       const [classroom, attendance, behavior, leaves, homework, schedule, news, events] = await Promise.all([
         student.classroom_id

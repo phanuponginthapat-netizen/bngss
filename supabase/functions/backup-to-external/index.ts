@@ -5,6 +5,7 @@ import { getSecret } from "../_shared/getSecret.ts";
 import { secretKeys } from "../_shared/secretKeys.ts";
 
 import { corsHeadersPost as corsHeaders } from "../_shared/cors.ts";
+import { todayBangkokISO } from "../_shared/thaiDate.ts";
 
 // Tables to back up (must exist in public schema). Keep ordered by importance.
 const DEFAULT_TABLES = [
@@ -55,7 +56,7 @@ Deno.serve(async (req) => {
     let body: any = {};
     try { body = await req.json(); } catch { /* empty body */ }
     const tables: string[] = Array.isArray(body.tables) && body.tables.length > 0 ? body.tables : DEFAULT_TABLES;
-    const snapshotDate = (body.date as string) || new Date().toISOString().slice(0, 10);
+    const snapshotDate = (body.date as string) || todayBangkokISO();
 
     const ext = createClient(extUrl, extKey);
 

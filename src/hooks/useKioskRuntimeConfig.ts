@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { callLocalCtl } from "@/lib/monitorSignal";
 import { toast } from "sonner";
+import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
 
 export type KioskRuntimeConfig = {
   mode?: "door" | "student";
@@ -114,7 +115,7 @@ export function useKioskRuntimeConfig(enabled: boolean = true) {
     const check = async () => {
       const now = new Date();
       const hhmm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-      const dayKey = now.toISOString().slice(0, 10);
+      const dayKey = bkkDateISO(now);
       if (hhmm === t && lastRebootDateRef.current !== dayKey) {
         lastRebootDateRef.current = dayKey;
         const ok = await callLocalCtl("/reboot").catch(() => false);

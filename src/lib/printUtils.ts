@@ -624,15 +624,18 @@ export const printRef = (ref: React.RefObject<HTMLDivElement>, options: PrintOpt
   openPrintWindow(ref.current.innerHTML, options);
 };
 
+import { formatThaiLong } from "@/lib/dateBE";
+
 export const formatThaiDate = (dateStr?: string): string => {
   if (!dateStr) return "........./.................../...........";
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" });
+  // ใช้ Asia/Bangkok + ปฏิทินพุทธ เพื่อให้พิมพ์เอกสาร/PDF ได้วันไทย พ.ศ. ตรงกันทุกอุปกรณ์
+  return formatThaiLong(dateStr) || "........./.................../...........";
 };
 
 export const currentThaiDate = (): string => {
-  return new Date().toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" });
+  return formatThaiLong(new Date());
 };
+
 
 /** แปลงเลขอารบิกเป็นเลขไทย ตามมาตรฐานหนังสือราชการ/สพฐ. */
 export const toThaiDigits = (input: string | number | null | undefined): string => {

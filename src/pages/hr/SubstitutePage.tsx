@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useUserRole } from "@/hooks/useUserRole";
 import SubstituteReport from "@/components/hr/SubstituteReport";
-import { BE_OFFSET } from "@/lib/dateBE";
+import { BE_OFFSET, bkkDateISO } from "@/lib/dateBE";
 
 const dayNames = {
   th: ["", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"],
@@ -36,7 +36,7 @@ function getDatesBetween(start: string, end: string): string[] {
   while (cur <= last) {
     const dow = cur.getDay();
     if (dow >= 1 && dow <= 5) {
-      dates.push(cur.toISOString().split("T")[0]);
+      dates.push(bkkDateISO(cur));
     }
     cur.setDate(cur.getDate() + 1);
   }
