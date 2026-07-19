@@ -224,6 +224,14 @@ export function AppSidebar() {
         { to: "/dashboard/members", icon: Users, label: L("สมาชิกโรงเรียน", "Members"), color: "text-emerald-400" },
       ],
     },
+    {
+      label: L("เครื่องมือ", "Tools"),
+      icon: FolderOpen,
+      items: [
+        { to: "/dashboard/my-drive", icon: FolderOpen, label: L("Google Drive ของฉัน", "My Drive"), color: "text-blue-400" },
+        { to: "/dashboard/office", icon: FileText, label: L("ชุดเอกสาร Office", "Office Suite"), color: "text-indigo-400" },
+      ],
+    },
   ]);
 
 
