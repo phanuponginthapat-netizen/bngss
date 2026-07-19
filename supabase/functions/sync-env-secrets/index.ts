@@ -20,17 +20,11 @@ const SYNCABLE_ENV = [
   "LINE_CHANNEL_ACCESS_TOKEN",
   "LINE_LOGIN_CHANNEL_ID",
   "LINE_LIFF_CHANNEL_ID",
-  "FB_PAGE_ACCESS_TOKEN",
-  "FB_PAGE_ID",
   "ELEVENLABS_API_KEY",
 ];
 
-// CMS-settings key → app_secrets key. Values set from other admin pages
-// (Social Feed, CMS) get mirrored here so the Secrets page shows them as "set".
-const CMS_MIRROR: Record<string, string> = {
-  fb_page_access_token: "FB_PAGE_ACCESS_TOKEN",
-  fb_page_id: "FB_PAGE_ID",
-};
+// CMS-settings key → app_secrets key. (Social Wall is URL-based now.)
+const CMS_MIRROR: Record<string, string> = {};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
