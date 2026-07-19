@@ -155,7 +155,7 @@ a[href*="lovable.dev"][href*="utm"] {
   }
 
   .gradient-sidebar {
-    background: linear-gradient(180deg, hsl(var(--sidebar-background)), hsl(var(--sidebar-background) / 0.85));
+    background: linear-gradient(180deg, hsl(var(--sidebar-background)), hsl(var(--sidebar-background)));
   }
   .gradient-hero {
     background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.85), hsl(var(--accent)));
