@@ -163,6 +163,7 @@ export default function LineVaultPage() {
           <TabsTrigger value="file"><FileText className="h-4 w-4 mr-1" />ไฟล์</TabsTrigger>
           <TabsTrigger value="note"><StickyNote className="h-4 w-4 mr-1" />โน้ต</TabsTrigger>
           {isAdmin && <TabsTrigger value="manage"><Users className="h-4 w-4 mr-1" />จัดการกลุ่ม</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="settings"><SettingsIcon className="h-4 w-4 mr-1" />ตั้งค่า Vault OA</TabsTrigger>}
         </TabsList>
 
         <div className="mt-4">
