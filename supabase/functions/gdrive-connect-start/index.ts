@@ -22,8 +22,12 @@ function isAllowedReturnUrl(value: string) {
   try {
     const url = new URL(value);
     if (!/^https?:$/.test(url.protocol)) return false;
-    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") return true;
-    if (url.hostname.endsWith(".lovable.app")) return true;
+    const hostname = url.hostname.toLowerCase();
+    if (hostname === "localhost" || hostname === "127.0.0.1") return true;
+    if (hostname.endsWith(".lovable.app")) return true;
+    if (hostname === "lovableproject.com" || hostname.endsWith(".lovableproject.com")) return true;
+    if (hostname === "lovableproject-dev.com" || hostname.endsWith(".lovableproject-dev.com")) return true;
+    if (hostname === "beta.lovable.dev" || hostname.endsWith(".beta.lovable.dev")) return true;
     const appUrl = Deno.env.get("APP_URL");
     if (appUrl && url.origin === new URL(appUrl).origin) return true;
     return false;
@@ -78,7 +82,7 @@ Deno.serve(async (req) => {
     }
     if (!isAllowedReturnUrl(returnUrl)) {
       console.error("return_url invalid", { returnUrl, rawBody, origin: req.headers.get("origin"), referer: req.headers.get("referer") });
-      return new Response(JSON.stringify({ error: "return_url required", received: returnUrl, hint: "must be http(s) and localhost or *.lovable.app or APP_URL origin" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "return_url required", received: returnUrl, hint: "must be http(s) and localhost, *.lovable.app, *.lovableproject.com, or APP_URL origin" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const functionUrl = new URL(req.url);
