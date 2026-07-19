@@ -251,53 +251,130 @@ export default function LineVaultPage() {
   );
 }
 
-function ItemGrid({ items, loading, isAdmin, onOpen, onDelete }: { items: Item[]; loading: boolean; isAdmin: boolean; onOpen: (i: Item) => void; onDelete: (i: Item) => void; }) {
+function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, groupAlbums }: { items: Item[]; loading: boolean; isAdmin: boolean; onOpen: (i: Item) => void; onDelete: (i: Item) => void; groupAlbums?: boolean }) {
+  const [albumOpen, setAlbumOpen] = useState<Item[] | null>(null);
+
+  const rows = useMemo(() => {
+    if (!groupAlbums) return items.map(i => ({ kind: "item" as const, item: i }));
+    const albums = new Map<string, Item[]>();
+    const singles: Item[] = [];
+    for (const i of items) {
+      if (i.line_image_set_id) {
+        const arr = albums.get(i.line_image_set_id) || [];
+        arr.push(i);
+        albums.set(i.line_image_set_id, arr);
+      } else singles.push(i);
+    }
+    const out: Array<{ kind: "item"; item: Item } | { kind: "album"; items: Item[] }> = [];
+    for (const [, arr] of albums) {
+      if (arr.length > 1) out.push({ kind: "album", items: arr });
+      else singles.push(arr[0]);
+    }
+    for (const i of singles) out.push({ kind: "item", item: i });
+    out.sort((a, b) => {
+      const ta = a.kind === "album" ? a.items[0].created_at : a.item.created_at;
+      const tb = b.kind === "album" ? b.items[0].created_at : b.item.created_at;
+      return tb.localeCompare(ta);
+    });
+    return out;
+  }, [items, groupAlbums]);
+
   if (loading) return <div className="text-center py-10 text-muted-foreground">กำลังโหลด...</div>;
-  if (!items.length) return <div className="text-center py-16 text-muted-foreground">ยังไม่มีรายการ</div>;
+  if (!rows.length) return <div className="text-center py-16 text-muted-foreground">ยังไม่มีรายการ</div>;
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-      {items.map(item => {
-        const M = kindMeta[item.kind];
-        const Icon = M.icon;
-        return (
-          <Card key={item.id} className="overflow-hidden hover:shadow-md transition-shadow">
-            <div className="p-3 space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${M.color}`}>
-                  <Icon className="h-3 w-3" />{M.label}
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        {rows.map((row, idx) => {
+          if (row.kind === "album") {
+            const first = row.items[0];
+            return (
+              <Card key={`album-${first.line_image_set_id}`} className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer" onClick={() => setAlbumOpen(row.items)}>
+                <div className="p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${kindMeta.photo.color}`}>
+                      <ImageIcon className="h-3 w-3" />อัลบั้ม · {row.items.length} รูป
+                    </div>
+                    <Badge variant="outline" className="text-[10px]">{categoryLabel(first.category)}</Badge>
+                  </div>
+                  <div className="font-medium line-clamp-2 min-h-[2.5rem]">อัลบั้มจาก {first.line_sender_name || "LINE"}</div>
+                  <div className="text-[11px] text-muted-foreground flex items-center justify-between">
+                    <span>{first.academic_year ? `ปี ${first.academic_year + 543}/${first.semester || "-"}` : ""}</span>
+                    <span>{format(new Date(first.created_at), "d MMM", { locale: th })}</span>
+                  </div>
+                  <Button size="sm" className="w-full" onClick={(e) => { e.stopPropagation(); setAlbumOpen(row.items); }}>
+                    <ImageIcon className="h-4 w-4 mr-1" />เปิดอัลบั้ม
+                  </Button>
                 </div>
-                <Badge variant="outline" className="text-[10px]">
-                  {item.visibility === "everyone" ? <Users className="h-3 w-3 mr-0.5" /> : item.visibility === "department" ? <Building2 className="h-3 w-3 mr-0.5" /> : <Lock className="h-3 w-3 mr-0.5" />}
-                  {visMeta[item.visibility]}
-                </Badge>
-              </div>
-              <div className="font-medium line-clamp-2 min-h-[2.5rem]" title={item.title}>{item.title}</div>
-              {item.kind === "note" && item.note_text && (
-                <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">{item.note_text}</p>
-              )}
-              {item.kind !== "note" && (
-                <div className="text-xs text-muted-foreground">
-                  {item.original_filename} · {formatBytes(item.size_bytes)}
+              </Card>
+            );
+          }
+          const item = row.item;
+          const M = kindMeta[item.kind];
+          const Icon = M.icon;
+          return (
+            <Card key={item.id} className="overflow-hidden hover:shadow-md transition-shadow">
+              <div className="p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2 flex-wrap">
+                  <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${M.color}`}>
+                    <Icon className="h-3 w-3" />{M.label}
+                  </div>
+                  <Badge variant="outline" className="text-[10px]">
+                    {item.visibility === "everyone" ? <Users className="h-3 w-3 mr-0.5" /> : item.visibility === "department" ? <Building2 className="h-3 w-3 mr-0.5" /> : <Lock className="h-3 w-3 mr-0.5" />}
+                    {visMeta[item.visibility]}
+                  </Badge>
                 </div>
-              )}
-              <div className="text-[11px] text-muted-foreground flex items-center justify-between">
-                <span>{item.line_sender_name ? `จาก ${item.line_sender_name}` : item.source === "manual" ? "อัปโหลดเอง" : "จาก LINE"}</span>
-                <span>{format(new Date(item.created_at), "d MMM", { locale: th })}</span>
-              </div>
-              <div className="flex gap-2 pt-1">
-                <Button size="sm" className="flex-1" onClick={() => onOpen(item)}>
-                  {item.kind === "note" ? <><StickyNote className="h-4 w-4 mr-1" />เปิด</> : <><Download className="h-4 w-4 mr-1" />ดาวน์โหลด</>}
-                </Button>
-                {isAdmin && (
-                  <Button size="sm" variant="ghost" onClick={() => onDelete(item)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                <div className="flex flex-wrap gap-1">
+                  <Badge variant="secondary" className="text-[10px]">{categoryLabel(item.category)}</Badge>
+                  {item.academic_year && <Badge variant="outline" className="text-[10px]">ปี {item.academic_year + 543}/{item.semester || "-"}</Badge>}
+                </div>
+                <div className="font-medium line-clamp-2 min-h-[2.5rem]" title={item.title}>{item.title}</div>
+                {item.kind === "note" && item.note_text && (
+                  <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">{item.note_text}</p>
                 )}
+                {item.kind !== "note" && (
+                  <div className="text-xs text-muted-foreground">
+                    {item.original_filename} · {formatBytes(item.size_bytes)}
+                  </div>
+                )}
+                <div className="text-[11px] text-muted-foreground flex items-center justify-between">
+                  <span>{item.line_sender_name ? `จาก ${item.line_sender_name}` : item.source === "manual" ? "อัปโหลดเอง" : "จาก LINE"}</span>
+                  <span>{format(new Date(item.created_at), "d MMM", { locale: th })}</span>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" className="flex-1" onClick={() => onOpen(item)}>
+                    {item.kind === "note" ? <><StickyNote className="h-4 w-4 mr-1" />เปิด</> : <><Download className="h-4 w-4 mr-1" />ดาวน์โหลด</>}
+                  </Button>
+                  {isAdmin && (
+                    <Button size="sm" variant="ghost" onClick={() => onDelete(item)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                  )}
+                </div>
               </div>
-            </div>
-          </Card>
-        );
-      })}
-    </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      <Dialog open={!!albumOpen} onOpenChange={(o) => !o && setAlbumOpen(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader><DialogTitle>อัลบั้มรูป · {albumOpen?.length || 0} รูป</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[70vh] overflow-y-auto">
+            {albumOpen?.map(p => (
+              <button key={p.id} onClick={() => onOpen(p)} className="border rounded p-2 hover:bg-muted text-left space-y-1">
+                <div className="aspect-square bg-muted rounded flex items-center justify-center">
+                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <div className="text-xs truncate">{p.original_filename || p.title}</div>
+                <div className="text-[10px] text-muted-foreground">{formatBytes(p.size_bytes)}</div>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
+}
+
 }
 
 function ManualUploadDialog({ onDone }: { onDone: () => void }) {
