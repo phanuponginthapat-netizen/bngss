@@ -333,8 +333,8 @@ function ManualUploadDialog({ onDone }: { onDone: () => void }) {
 }
 
 function GroupsManager({ groups, onChange }: { groups: Group[]; onChange: () => void }) {
-  async function update(id: string, patch: Partial<Group>) {
-    const { error } = await supabase.from("line_vault_groups").update(patch).eq("id", id);
+  async function update(id: string, patch: Record<string, any>) {
+    const { error } = await supabase.from("line_vault_groups").update(patch as any).eq("id", id);
     if (error) return swal.error("บันทึกไม่สำเร็จ", error.message);
     onChange();
   }
