@@ -29,6 +29,15 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
   const [error, setError] = useState<string | null>(null);
   const [refocusing, setRefocusing] = useState(false);
 
+  // Keep latest callbacks in refs so the scanner effect does NOT restart the camera
+  // every time the parent re-renders (e.g. after each successful scan updates parent
+  // state). Restarting the camera per scan caused flicker / missed reads in continuous mode.
+  const onScanRef = useRef(onScan);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onScanRef.current = onScan; }, [onScan]);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
+
   /**
    * บังคับให้กล้องเริ่ม autofocus cycle ใหม่ — iOS Safari ไม่มี API focusMode,
    * แต่การ pause/play + applyConstraints ใหม่จะ trigger AF re-lock บนเครื่อง iOS
@@ -149,12 +158,13 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
             const now = Date.now();
             if (code === lastScanRef.current.code && now - lastScanRef.current.at < 1500) return;
             lastScanRef.current = { code, at: now };
-            onScan(code);
+            onScanRef.current(code);
             if (!continuous) {
               stop();
-              onClose();
+              onCloseRef.current();
             }
           },
+
           () => {}
         );
 
@@ -175,7 +185,7 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
 
     start();
     return () => { cancelled = true; stop(); };
-  }, [open, onScan, onClose, continuous]);
+  }, [open, continuous]);
 
 
   return (
