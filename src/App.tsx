@@ -300,6 +300,7 @@ const App = () => (
                 <Route path="admin/permissions" element={<ProtectedRoute allowedRoles={["admin", "director"]}><PermissionsHubPage /></ProtectedRoute>} />
                 <Route path="admin/teacher-credentials" element={<ProtectedRoute allowedRoles={["admin", "director"]}><TeacherCredentialsPage /></ProtectedRoute>} />
                 <Route path="admin/duty-teachers" element={<ProtectedRoute allowedRoles={["admin", "director"]}><DutyTeachersPage /></ProtectedRoute>} />
+                <Route path="line-vault" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><LineVaultPage /></ProtectedRoute>} />
                 <Route path="inbox" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><InboxPage /></ProtectedRoute>} />
                 <Route path="news/:id" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "alumni", "parent"]}><NewsDetailPage /></ProtectedRoute>} />
                 
