@@ -80,6 +80,26 @@ Deno.serve(async (req) => {
 
     for (const event of events) {
       try {
+        // Handle bot being invited to a group/room — register immediately and greet
+        if (event.type === "join" && (event.source?.type === "group" || event.source?.type === "room")) {
+          const groupId = event.source.groupId || event.source.roomId;
+          if (!groupId) continue;
+          const { group } = await registerLineGroupFromJoin(sb, token, groupId);
+          const name = group?.group_name || "กลุ่มนี้";
+          const welcome =
+            `🎉 สวัสดีครับ! เชื่อมต่อ "${name}" กับคลัง LINE Vault สำเร็จแล้ว\n` +
+            `📥 รูป/วิดีโอ/ไฟล์/โน้ต ที่ส่งในกลุ่มนี้จะถูกเก็บอัตโนมัติ\n` +
+            `☁️ ปลายทาง: Google Drive → LineVault/${new Date().getFullYear()}/${name}/(เดือน)\n` +
+            `⚙️ แอดมินสามารถเปลี่ยนชื่อ/หมวด/สิทธิ์ได้ในหน้า LINE Vault`;
+          if (event.replyToken) await replyMessage(token, event.replyToken, welcome);
+          continue;
+        }
+        // memberJoined: someone else was added; ignore for capture but ensure group exists
+        if (event.type === "memberJoined" && (event.source?.type === "group" || event.source?.type === "room")) {
+          const groupId = event.source.groupId || event.source.roomId;
+          if (groupId) await registerLineGroupFromJoin(sb, token, groupId);
+          continue;
+        }
         if (event.type !== "message") continue;
         if (event.source?.type !== "group" && event.source?.type !== "room") continue;
         const result = await captureLineGroupEvent(sb, token, event, {
