@@ -47,6 +47,7 @@ function AvatarSidebarToggle({ avatarUrl, fullName, userEmail }: { avatarUrl: st
       aria-label={aria}
       aria-expanded={isOpen}
       title={aria}
+      data-tour="avatar-toggle"
       className="gap-2 px-2 sm:px-3 max-w-[200px] rounded-full hover:bg-card"
     >
       {avatarUrl ? (
