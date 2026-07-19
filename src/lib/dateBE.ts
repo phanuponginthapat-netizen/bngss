@@ -140,7 +140,7 @@ export function formatDateTimeBE(input?: string | Date | null): string {
 }
 
 /**
- * แปลง Date → ISO YYYY-MM-DD ในเขตเวลาไทย (แทน bkkDateISO(d) ที่คลาดเคลื่อน)
+ * แปลง Date → ISO YYYY-MM-DD ในเขตเวลาไทย (แทนการเรียก `.toISOString().slice(0,10)` ที่คลาดเคลื่อน)
  * ถ้าไม่ส่ง d จะได้ค่าเท่ากับ todayBangkok()
  */
 export function bkkDateISO(d: Date = new Date()): string {
