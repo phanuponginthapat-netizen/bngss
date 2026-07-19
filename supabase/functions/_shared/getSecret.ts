@@ -5,6 +5,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 let cache: Record<string, { v: string | null; t: number }> = {};
 const TTL_MS = 60_000;
 
+export function invalidateSecretCache(key?: string) {
+  if (key) delete cache[key];
+  else cache = {};
+}
+
 export async function getSecret(key: string): Promise<string | null> {
   const now = Date.now();
   const hit = cache[key];
