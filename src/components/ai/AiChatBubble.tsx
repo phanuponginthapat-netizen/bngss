@@ -763,7 +763,7 @@ export default function AiChatBubble() {
       {open && (
         <div className={cn(
           "fixed z-40 border border-border rounded-2xl shadow-elegant flex flex-col overflow-hidden",
-          "bottom-[calc(env(safe-area-inset-bottom)+72px)] right-3 md:bottom-6 md:right-6",
+          "bottom-[calc(env(safe-area-inset-bottom)+76px)] right-3 md:bottom-[calc(env(safe-area-inset-bottom)+24px)] md:right-6",
           "w-[min(340px,calc(100vw-2rem))] h-[min(480px,calc(100vh-8rem))]",
         )}
           style={{ backgroundColor: bot.bgColor }}
