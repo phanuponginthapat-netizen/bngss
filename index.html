@@ -104,15 +104,12 @@
       </div>
 
       <script>
-        // โหลด branding จาก CMS ให้หน้า loading ใช้ค่าจริงตั้งแต่ก่อน React เริ่มทำงาน
+        // โหลด branding จาก CMS แบบไม่บล็อค — ให้ React เริ่ม mount ทันที
+        // (ถ้า fetch ช้าหรือค้าง หน้า loading จะไม่ค้างตาม เพราะ main.tsx โหลดขนานกัน)
         (function () {
           var CACHE_KEY = "cms_branding_cache";
           var backendUrl = "%VITE_SUPABASE_URL%";
           var publishableKey = "%VITE_SUPABASE_PUBLISHABLE_KEY%";
-          var readyDone = false;
-          var readyResolve = null;
-          var bootstrapTimer = null;
-          window.__cmsLoaderReady = new Promise(function (resolve) { readyResolve = resolve; });
           var keys = [
             "app_name",
             "app_short_name",
@@ -135,12 +132,6 @@
           function applyBranding(b) {
             if (!b) return;
             window.__branding = b;
-            var loader = document.getElementById("app-loader");
-            if (loader && b.themeColor) {
-              // เก็บโทนพาสเทลของ loading page ไว้ ไม่ทับด้วยสี theme หลัก
-              loader.style.background = "linear-gradient(135deg,#e0f2fe 0%,#f0f9ff 45%,#fecaca 100%)";
-            }
-
             if (b.themeColor) {
               var tc = document.querySelector('meta[name="theme-color"]');
               if (tc) tc.setAttribute("content", b.themeColor);
@@ -170,26 +161,13 @@
             try { window.dispatchEvent(new CustomEvent("branding:ready", { detail: b })); } catch (e) {}
           }
 
-          function finishBootstrap() {
-            if (readyDone) return;
-            readyDone = true;
-            if (bootstrapTimer) clearTimeout(bootstrapTimer);
-            if (readyResolve) readyResolve();
-          }
-
           try { applyBranding(JSON.parse(localStorage.getItem(CACHE_KEY) || "null")); } catch (e) {}
 
-          if (!backendUrl || backendUrl.indexOf("%") === 0 || !publishableKey || publishableKey.indexOf("%") === 0) {
-            finishBootstrap();
-            return;
-          }
+          if (!backendUrl || backendUrl.indexOf("%") === 0 || !publishableKey || publishableKey.indexOf("%") === 0) return;
 
           try {
             var controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-            bootstrapTimer = setTimeout(function () {
-              try { if (controller) controller.abort(); } catch (e) {}
-              finishBootstrap();
-            }, 1800);
+            var timer = setTimeout(function () { try { if (controller) controller.abort(); } catch (e) {} }, 3000);
             var headers = { apikey: publishableKey };
             if (publishableKey.indexOf("sb_publishable_") !== 0) headers.Authorization = "Bearer " + publishableKey;
             fetch(backendUrl + "/rest/v1/cms_settings?select=key,value&key=in.(" + keys.join(",") + ")", {
@@ -210,20 +188,27 @@
                   themeColor: map.theme_color || map.primary_color || map.theme_primary_color || ""
                 };
                 if (branding.name || branding.logo || branding.favicon || branding.themeColor) {
-                  localStorage.setItem(CACHE_KEY, JSON.stringify(branding));
+                  try { localStorage.setItem(CACHE_KEY, JSON.stringify(branding)); } catch (e) {}
                   applyBranding(branding);
                 }
               })
               .catch(function () {})
-              .finally(finishBootstrap);
-          } catch (e) { finishBootstrap(); }
+              .finally(function () { clearTimeout(timer); });
+          } catch (e) {}
         })();
+
+        // Safety net: ถ้า React ไม่ mount ภายใน 15 วิ (script โหลดพัง / เครือข่ายค้าง)
+        // ให้แสดงปุ่มโหลดใหม่แทนหน้า loading ที่ค้างเปล่า ๆ
+        setTimeout(function () {
+          var loader = document.getElementById("app-loader");
+          if (!loader) return; // React mount แล้ว
+          var text = loader.querySelector(".ldr-text");
+          if (text) {
+            text.innerHTML = 'โหลดระบบไม่สำเร็จ · <a href="#" onclick="location.reload();return false;" style="color:#0284c7;text-decoration:underline;font-weight:600;margin-left:4px">โหลดใหม่</a>';
+          }
+        }, 15000);
       </script>
     </div>
-    <script type="module">
-      (window.__cmsLoaderReady || Promise.resolve()).then(function () {
-        import("/src/main.tsx");
-      });
-    </script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
