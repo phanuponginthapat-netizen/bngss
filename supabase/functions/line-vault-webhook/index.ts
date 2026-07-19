@@ -27,9 +27,19 @@ Deno.serve(async (req) => {
 
   try {
     const token = Deno.env.get("LINE_VAULT_CHANNEL_ACCESS_TOKEN");
+
+    const body = await req.json().catch(() => ({}));
+
+    // Health-check ping from admin UI
+    if (body?.__ping) {
+      return new Response(JSON.stringify({ ok: true, token_configured: !!token }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (!token) {
       console.error("LINE_VAULT_CHANNEL_ACCESS_TOKEN not set");
-      return new Response(JSON.stringify({ error: "LINE Vault OA token not configured" }), {
+      return new Response(JSON.stringify({ error: "LINE Vault OA token not configured", token_configured: false }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -39,7 +49,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const body = await req.json().catch(() => ({}));
     const events: any[] = body?.events || [];
 
     for (const event of events) {
