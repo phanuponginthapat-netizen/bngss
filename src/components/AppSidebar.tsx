@@ -426,6 +426,7 @@ export function AppSidebar() {
       color: "text-cyan-400",
       roles: ["admin", "director", "teacher", "student", "parent", "alumni"],
       items: [
+        { title: L("WebBrowser", "WebBrowser"), url: "/dashboard/browser", icon: Globe, color: "text-cyan-400", roles: ["admin", "director", "teacher", "student", "parent", "alumni"], desc: L("เปิดเว็บไซต์ภายในระบบ", "In-app web browser") },
         { title: L("Google Drive ของฉัน", "My Drive"), url: "/dashboard/my-drive", icon: FolderOpen, color: "text-blue-400", roles: ["admin", "director", "teacher", "student", "parent", "alumni"], desc: L("เชื่อม Google Drive ส่วนตัว เปิดไฟล์ในระบบ", "Connect your own Google Drive & browse in-app") },
         { title: L("ชุดเอกสาร Office", "Office Suite"), url: "/dashboard/office", icon: FileText, color: "text-indigo-400", roles: ["admin", "director", "teacher", "student", "parent", "alumni"], desc: L("Docs · Sheets · Slides · PDF บันทึกลง Google Drive", "Docs, Sheets, Slides, PDF — save to Google Drive") },
         { title: L("คลังไฟล์ LINE Vault", "LINE Vault"), url: "/dashboard/line-vault", icon: StickyNote, color: "text-teal-400", roles: ["admin", "director", "teacher"], desc: L("รูป · ไฟล์ · โน้ตจาก LINE OA ไม่หมดอายุ", "Photos, files & notes from LINE OA — never expire") },
@@ -708,7 +709,8 @@ export function AppSidebar() {
             const toolItems = mark(uniq.filter((i) =>
               i.url === "/dashboard/my-drive" ||
               i.url === "/dashboard/office" ||
-              i.url === "/dashboard/line-vault"
+              i.url === "/dashboard/line-vault" ||
+              i.url === "/dashboard/browser"
             ));
             const otherItems = uniq.filter((i) => !usedUrls.has(i.url));
 
@@ -800,15 +802,10 @@ export function AppSidebar() {
                 "/dashboard/hub/games",
               ]),
             },
-            {
-              key: "tools",
-              label: L("เครื่องมือ", "Tools"),
-              color: "text-cyan-400",
-              dot: "bg-cyan-400",
-              icon: Globe,
-              items: take(["/dashboard/browser"]),
-            },
           ];
+          // ให้ /dashboard/browser ตกไปหมวด "เครื่องมือ" (div_tools) แทน เพื่อไม่ให้ซ้ำ
+          used.add("/dashboard/browser");
+
           const leftover = visibleMain.filter((i) => !used.has(i.url));
           if (leftover.length) {
             mainSections.push({
