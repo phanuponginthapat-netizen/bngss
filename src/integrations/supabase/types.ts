@@ -8467,10 +8467,12 @@ export type Database = {
           drive_root_url: string | null
           group_name: string
           id: string
+          last_attendance_digest_date: string | null
           last_calendar_digest_date: string | null
           last_notified_at: string | null
           line_group_id: string
           notes: string | null
+          notify_attendance: boolean
           notify_calendar: boolean
           notify_cooldown_minutes: number
           notify_leaves: boolean
@@ -8490,10 +8492,12 @@ export type Database = {
           drive_root_url?: string | null
           group_name: string
           id?: string
+          last_attendance_digest_date?: string | null
           last_calendar_digest_date?: string | null
           last_notified_at?: string | null
           line_group_id: string
           notes?: string | null
+          notify_attendance?: boolean
           notify_calendar?: boolean
           notify_cooldown_minutes?: number
           notify_leaves?: boolean
@@ -8513,10 +8517,12 @@ export type Database = {
           drive_root_url?: string | null
           group_name?: string
           id?: string
+          last_attendance_digest_date?: string | null
           last_calendar_digest_date?: string | null
           last_notified_at?: string | null
           line_group_id?: string
           notes?: string | null
+          notify_attendance?: boolean
           notify_calendar?: boolean
           notify_cooldown_minutes?: number
           notify_leaves?: boolean
