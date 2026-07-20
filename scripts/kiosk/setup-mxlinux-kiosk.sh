@@ -549,21 +549,49 @@ fi
 
 # Plymouth แต่ละเวอร์ชัน/ดิสโทรรองรับ Image.Text/ฟอนต์ไทยไม่เท่ากัน
 # จึง render ข้อความเป็น PNG ไว้ก่อน แล้วให้ theme โหลดรูปภาพล้วน ๆ (เสถียรกว่า MX/Debian หลายรุ่น)
+# ต้องติดตั้งฟอนต์ไทยก่อน render — ไม่งั้นจะได้ tofu (□□□) ทั้งบรรทัด
+apt-get install -y --no-install-recommends fonts-thai-tlwg fonts-noto fonts-noto-core 2>/dev/null || \
+  apt-get install -y --no-install-recommends fonts-thai-tlwg 2>/dev/null || true
+fc-cache -f 2>/dev/null || true
+
+# หา path ของฟอนต์ไทยจริง ๆ ผ่าน fontconfig (แม่นกว่าใช้ family name กับ ImageMagick)
+THAI_FONT_FILE=""
+if have fc-match; then
+  for q in "Noto Sans Thai:style=Bold" "Loma:style=Bold" "Norasi:style=Bold" "TlwgTypist:style=Bold" \
+           "Noto Sans Thai" "Loma" "Norasi" "TlwgTypist" "Waree" "Umpush"; do
+    f=$(fc-match -f '%{file}\n' "$q" 2>/dev/null || true)
+    if [[ -n "$f" && -f "$f" ]] && (fc-match -f '%{family}\n' "$q" 2>/dev/null | grep -qiE 'thai|loma|norasi|tlwg|waree|umpush|noto'); then
+      THAI_FONT_FILE="$f"; break
+    fi
+  done
+fi
+[[ -z "$THAI_FONT_FILE" ]] && THAI_FONT_FILE="$(ls /usr/share/fonts/truetype/tlwg/*.ttf 2>/dev/null | head -1)"
+[[ -z "$THAI_FONT_FILE" ]] && THAI_FONT_FILE="$(ls /usr/share/fonts/truetype/noto/NotoSansThai*.ttf 2>/dev/null | head -1)"
+log "   ▶ ฟอนต์ไทยที่ใช้ render Plymouth: ${THAI_FONT_FILE:-<not found>}"
+
 make_text_png() {
   local text="$1" out="$2" size="${3:-36}" width="${4:-900}" height="${5:-90}"
   rm -f "$out"
   if have convert; then
-    for font in Noto-Sans-Thai Tlwg-Typist DejaVu-Sans; do
+    # 1) ลองฟอนต์ไทยที่ค้นพบก่อน (ส่ง path ตรง)
+    if [[ -n "$THAI_FONT_FILE" ]]; then
       convert -background none -fill white -gravity center -size "${width}x${height}" \
-        -font "$font" -pointsize "$size" "caption:${text}" PNG32:"$out" 2>/dev/null && break
-    done
+        -font "$THAI_FONT_FILE" -pointsize "$size" "caption:${text}" PNG32:"$out" 2>/dev/null || true
+    fi
+    # 2) fallback: family names (บางเวอร์ชัน IM รู้จัก)
+    if [[ ! -s "$out" ]]; then
+      for font in "Noto-Sans-Thai" "Loma" "Norasi" "TlwgTypist" "Waree" "DejaVu-Sans"; do
+        convert -background none -fill white -gravity center -size "${width}x${height}" \
+          -font "$font" -pointsize "$size" "caption:${text}" PNG32:"$out" 2>/dev/null && break
+      done
+    fi
     [[ -s "$out" ]] || convert -background none -fill white -gravity center -size "${width}x${height}" \
       -pointsize "$size" "caption:${text}" PNG32:"$out" 2>/dev/null || true
   fi
   [[ -s "$out" ]] || printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=' | base64 -d >"$out" 2>/dev/null || true
 }
 make_text_png "$CMS_NAME" "$THEME_DIR/title.png" 38 1000 110
-make_text_png "Starting system..." "$THEME_DIR/status.png" 24 700 60
+make_text_png "กำลังเริ่มต้นระบบ..." "$THEME_DIR/status.png" 24 700 60
 
 # plymouth theme files — ใช้ syntax แบบพื้นฐาน + รูปภาพล้วน เพื่อเลี่ยง theme crash แล้วตกไปหน้า verbose
 cat >"$THEME_DIR/smartschool.plymouth" <<EOF
