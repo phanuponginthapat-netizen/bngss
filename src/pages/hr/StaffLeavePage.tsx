@@ -159,7 +159,13 @@ const StaffLeavePage = () => {
       attachment_url: attachmentPath,
     } as any);
 
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      const dup = /duplicate|unique|uniq_staff_leaves_pending/i.test(error.message);
+      toast.error(dup
+        ? (lang === "th" ? "มีใบลาซ้ำในช่วงวันเดียวกันอยู่แล้ว (รออนุมัติ)" : "A pending leave for the same dates already exists")
+        : error.message);
+      return;
+    }
 
     const leaveLabel = LEAVE_TYPES.find(t => t.value === leaveType)?.th || leaveType;
     toast.success(lang === "th" ? "ยื่นใบลาสำเร็จ" : "Leave request submitted");
