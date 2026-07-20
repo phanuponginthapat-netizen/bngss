@@ -883,9 +883,9 @@ export function AppSidebar() {
                 <Collapsible defaultOpen={!!q || isActive}>
                   <SidebarGroup className="!p-0">
                     <CollapsibleTrigger className="w-full group/sec">
-                      <div className="px-2 mb-1">
-                        <div className="h-px w-full bg-gradient-to-r from-transparent via-sidebar-border to-transparent mb-1.5" />
-                        <div className="flex items-center gap-2 h-8 px-1 rounded-md hover:bg-sidebar-accent/30 transition-colors cursor-pointer">
+                      <div className="px-2 mb-0.5">
+                        <div className="h-px w-full bg-gradient-to-r from-transparent via-sidebar-border to-transparent mb-1" />
+                        <div className="flex items-center gap-2 h-6 px-1 rounded-md hover:bg-sidebar-accent/30 transition-colors cursor-pointer">
                           <span className={`w-1.5 h-1.5 rounded-full ${sec.dot} shadow-[0_0_8px_currentColor] ${sec.color}`} />
                           {sec.icon && <sec.icon className={`w-3.5 h-3.5 ${sec.color}`} />}
                           <span className={`text-[10px] font-bold uppercase tracking-[0.16em] ${sec.color}`}>
