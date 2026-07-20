@@ -72,6 +72,27 @@ backup_once() {
 
 [[ $EUID -eq 0 ]] || die "ต้องรันด้วย sudo:  sudo ./setup-mxlinux-kiosk.sh"
 
+# ---------------- ตรวจว่าบูตด้วย systemd หรือไม่ (MX Linux default = SysVinit) ----------------
+# ถ้าไม่ใช่ systemd → systemctl enable/mask/daemon-reload ทั้งหมดจะไม่ทำงานจริง
+# (services ที่เรา enable ไว้จะไม่ start เมื่อรีบูต ทำให้ kiosk ไม่ขึ้น)
+if ! { [[ -d /run/systemd/system ]] && [[ "$(ps -p 1 -o comm= 2>/dev/null)" == "systemd" ]]; }; then
+  echo
+  echo "❌  เครื่องนี้ไม่ได้บูตด้วย systemd (MX Linux default = SysVinit)"
+  echo "    ระบบ Kiosk ต้องใช้ systemd เพราะมี service/timer หลายตัวที่ต้องรันตอนบูต"
+  echo
+  echo "    วิธีแก้ (ทำครั้งเดียว):"
+  echo "    1) รีบูตเครื่อง"
+  echo "    2) ที่หน้าจอ GRUB (เมนู MX Linux) → กดลูกศรลงเลือกบรรทัด"
+  echo "         \"MX ... (systemd)\"  หรือกด F5 → เลือก systemd → Enter"
+  echo "    3) หลังบูตด้วย systemd แล้ว → เปิด Terminal แล้วรันสคริปต์นี้อีกครั้ง"
+  echo
+  echo "    หรือตั้งให้บูต systemd ถาวร (แนะนำ):"
+  echo "       sudo sed -i 's|GRUB_CMDLINE_LINUX_DEFAULT=\"|&init=/lib/systemd/systemd |' /etc/default/grub"
+  echo "       sudo update-grub && sudo reboot"
+  echo
+  exit 2
+fi
+
 # ---------------- 0) Pre-flight ----------------
 log "▶  [0/10] Pre-flight check..."
 id "$KIOSK_USER" &>/dev/null || die "ไม่พบผู้ใช้ '$KIOSK_USER' — สร้างผู้ใช้ก่อน หรือกำหนด KIOSK_USER=..."
