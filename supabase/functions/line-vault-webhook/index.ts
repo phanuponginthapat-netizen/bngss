@@ -119,6 +119,10 @@ Deno.serve(async (req) => {
         }
         if (event.type !== "message") continue;
         if (event.source?.type !== "group" && event.source?.type !== "room") continue;
+        // เก็บเฉพาะไฟล์/สื่อ (รูป/วิดีโอ/เสียง/ไฟล์แนบ) — ไม่เก็บข้อความแชททั่วไป
+        // ข้อความ text จะถูกใช้เป็น "คำอธิบายอัลบั้ม" ใน lineVaultCapture เท่านั้น ไม่บันทึกเป็นโน้ตเดี่ยว
+        const mtype = event.message?.type;
+        if (mtype === "text") continue;
         const result = await captureLineGroupEvent(sb, token, event, {
           downloadLineContent,
           fetchLineProfile: fetchLineGroupMemberProfile,
