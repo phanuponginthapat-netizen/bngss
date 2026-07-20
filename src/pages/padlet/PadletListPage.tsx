@@ -88,12 +88,13 @@ export default function PadletListPage() {
       allow_guest_post: allowGuestPost,
       subject_id: picked?.subject_id || null,
       classroom_id: picked?.classroom_id || null,
+      cover_image_url: coverUrl || null,
     });
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success("สร้างกระดานแล้ว");
     setOpen(false);
-    setTitle(""); setDescription(""); setBackground("paper"); setAllowGuestPost(true); setScope("school");
+    setTitle(""); setDescription(""); setBackground("paper"); setAllowGuestPost(true); setScope("school"); setCoverUrl("");
     navigate(`/dashboard/padlet/${boardId}`);
   };
 
