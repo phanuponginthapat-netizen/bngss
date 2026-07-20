@@ -89,6 +89,7 @@ const FaceReportTab = () => {
   const [search, setSearch] = useState("");
   const [sending, setSending] = useState(false);
   const [savingImage, setSavingImage] = useState(false);
+  const [sendingLine, setSendingLine] = useState(false);
   const summaryRef = useRef<HTMLDivElement>(null);
 
   const exportImage = async () => {
