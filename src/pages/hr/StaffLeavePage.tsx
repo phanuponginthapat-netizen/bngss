@@ -474,9 +474,9 @@ const StaffLeavePage = () => {
               <Button variant="outline" onClick={() => { setOpen(false); resetForm(); }}>
                 {lang === "th" ? "ยกเลิก" : "Cancel"}
               </Button>
-              <Button onClick={handleSubmit} className="gap-2">
+              <Button onClick={handleSubmit} disabled={submitting} className="gap-2">
                 <Send className="w-4 h-4" />
-                {lang === "th" ? "ยื่นใบลา" : "Submit"}
+                {submitting ? (lang === "th" ? "กำลังส่ง..." : "Submitting...") : (lang === "th" ? "ยื่นใบลา" : "Submit")}
               </Button>
             </DialogFooter>
           </DialogContent>
