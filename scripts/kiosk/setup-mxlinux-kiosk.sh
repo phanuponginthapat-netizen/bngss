@@ -185,92 +185,10 @@ CHROMIUM_BIN=$(command -v chromium || command -v chromium-browser || true)
 [[ -n "$CHROMIUM_BIN" ]] || die "ติดตั้ง Chromium ไม่สำเร็จ"
 log "   Chromium: $CHROMIUM_BIN"
 
-# ---------------- 2.5) Plymouth boot splash (logo โรงเรียนจาก CMS) ----------------
-log "▶  [2.5/10] Plymouth boot splash + branding..."
-PLY_THEME=/usr/share/plymouth/themes/smart-school
-mkdir -p "$PLY_THEME"
+# ---------------- 2.5) Plymouth boot splash ----------------
+# NOTE: การตั้งค่า Plymouth จริงอยู่ block 5.5 (หลังดึง CMS branding) — block นี้เว้นไว้เฉยๆ
+log "▶  [2.5/10] (ข้าม — Plymouth จะติดตั้งใน 5.5 หลังโหลด CMS branding)"
 
-# ดาวน์โหลด logo จาก CMS (fallback → generic Plymouth spinner ถ้าโหลดไม่ได้)
-LOGO_OK=0
-if [[ -n "${KIOSK_LOGO_URL:-}" ]]; then
-  if curl -fsSL --max-time 15 -o "$PLY_THEME/logo.src" "$KIOSK_LOGO_URL" 2>/dev/null; then
-    # แปลงเป็น PNG ขนาดเหมาะสม (สูง 300px) — plymouth ต้องเป็น PNG
-    if command -v convert >/dev/null 2>&1; then
-      convert "$PLY_THEME/logo.src" -resize x300 -background none -gravity center \
-        -extent 400x300 "$PLY_THEME/logo.png" 2>/dev/null && LOGO_OK=1
-    else
-      cp "$PLY_THEME/logo.src" "$PLY_THEME/logo.png"; LOGO_OK=1
-    fi
-    rm -f "$PLY_THEME/logo.src"
-  fi
-fi
-
-if [[ "$LOGO_OK" == "1" ]]; then
-  SCHOOL_LABEL="${KIOSK_SCHOOL_NAME:-Smart School}"
-  cat >"$PLY_THEME/smart-school.plymouth" <<EOF
-[Plymouth Theme]
-Name=Smart School
-Description=School logo boot splash
-ModuleName=script
-
-[script]
-ImageDir=/usr/share/plymouth/themes/smart-school
-ScriptFile=/usr/share/plymouth/themes/smart-school/smart-school.script
-EOF
-
-  cat >"$PLY_THEME/smart-school.script" <<'PSCR'
-Window.SetBackgroundTopColor(0.06, 0.10, 0.20);
-Window.SetBackgroundBottomColor(0.03, 0.05, 0.12);
-logo.image = Image("logo.png");
-logo.sprite = Sprite(logo.image);
-logo.sprite.SetX(Window.GetWidth()/2  - logo.image.GetWidth()/2);
-logo.sprite.SetY(Window.GetHeight()/2 - logo.image.GetHeight()/2 - 40);
-
-# ข้อความชื่อโรงเรียน
-label.image = Image.Text("SCHOOL_LABEL_PLACEHOLDER", 1, 1, 1);
-label.sprite = Sprite(label.image);
-label.sprite.SetX(Window.GetWidth()/2 - label.image.GetWidth()/2);
-label.sprite.SetY(Window.GetHeight()/2 + logo.image.GetHeight()/2 + 20);
-
-# spinner แบบ dot pulse
-progress = 0;
-fun refresh_callback() {
-  progress++;
-  a = Math.Sin(progress/8) * 0.5 + 0.5;
-  logo.sprite.SetOpacity(0.7 + a*0.3);
-}
-Plymouth.SetRefreshFunction(refresh_callback);
-PSCR
-
-  sed -i "s|SCHOOL_LABEL_PLACEHOLDER|${SCHOOL_LABEL//|/\\|}|g" "$PLY_THEME/smart-school.script"
-
-  # เปิดใช้ theme
-  update-alternatives --install /usr/share/plymouth/themes/default.plymouth \
-    default.plymouth "$PLY_THEME/smart-school.plymouth" 200 >/dev/null 2>&1 || true
-  if command -v plymouth-set-default-theme >/dev/null 2>&1; then
-    plymouth-set-default-theme smart-school -R 2>/dev/null || \
-      plymouth-set-default-theme smart-school 2>/dev/null || true
-  fi
-
-  # เปิด splash ใน GRUB (MX Linux default = ปิด → เห็นแต่ข้อความ)
-  if [[ -f /etc/default/grub ]]; then
-    if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub; then
-      CUR=$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub | sed 's/^[^=]*=//; s/^"//; s/"$//')
-      NEW="$CUR"
-      [[ "$NEW" != *"quiet"* ]]  && NEW="$NEW quiet"
-      [[ "$NEW" != *"splash"* ]] && NEW="$NEW splash"
-      NEW=$(echo "$NEW" | xargs)  # trim
-      sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$NEW\"|" /etc/default/grub
-    else
-      echo 'GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"' >> /etc/default/grub
-    fi
-    update-grub 2>/dev/null || update-grub2 2>/dev/null || true
-  fi
-  update-initramfs -u 2>/dev/null || true
-  log "   ✔  Plymouth theme 'smart-school' พร้อมใช้ (logo: $KIOSK_LOGO_URL)"
-else
-  log "   ⚠  ไม่มี logo จาก CMS หรือโหลดไม่สำเร็จ — ใช้ theme เดิม"
-fi
 
 # ---------------- 3) Wake daemon (door mode เท่านั้น) ----------------
 install -d -m 755 /opt/kiosk
@@ -563,7 +481,12 @@ hex_to_rgb_floats() {
 }
 read -r PLY_R PLY_G PLY_B <<<"$(hex_to_rgb_floats "$CMS_COLOR")"
 
+# MX Linux: ต้องติดตั้ง plymouth-x11 + imagemagick ด้วย (ไม่ได้ติดมาให้ default)
+apt-get install -y --no-install-recommends \
+  plymouth plymouth-themes plymouth-label plymouth-x11 \
+  imagemagick initramfs-tools 2>/dev/null || \
 apt-get install -y --no-install-recommends plymouth plymouth-themes plymouth-label 2>/dev/null || true
+
 
 THEME_DIR=/usr/share/plymouth/themes/smartschool
 install -d -m 755 "$THEME_DIR"
@@ -638,16 +561,54 @@ PLY
 
 # activate theme
 if have plymouth-set-default-theme; then
-  plymouth-set-default-theme -R smartschool 2>&1 | tail -3 || \
-    log "⚠  plymouth-set-default-theme ล้มเหลว (จะข้ามเงียบๆ)"
+  plymouth-set-default-theme smartschool 2>&1 | tail -3 || \
+    log "⚠  plymouth-set-default-theme ล้มเหลว"
 elif [[ -x /usr/sbin/plymouth-set-default-theme ]]; then
-  /usr/sbin/plymouth-set-default-theme -R smartschool 2>&1 | tail -3 || true
+  /usr/sbin/plymouth-set-default-theme smartschool 2>&1 | tail -3 || true
 fi
 
-# GRUB — ให้เห็น splash
-if [[ -f /etc/default/grub ]] && ! grep -q "splash" /etc/default/grub; then
-  sed -i 's|GRUB_CMDLINE_LINUX_DEFAULT="|&quiet splash |' /etc/default/grub || true
+# === Critical for MX Linux: ทำให้ Plymouth โหลดใน initramfs + framebuffer ทำงานตั้งแต่บูต ===
+# 1) บอก initramfs ให้ใส่ framebuffer + plymouth
+mkdir -p /etc/initramfs-tools/conf.d
+echo "FRAMEBUFFER=y" > /etc/initramfs-tools/conf.d/splash
+
+# 2) GRUB — quiet + splash + gfxpayload=keep (ไม่งั้นจะกลับมา text mode ทันทีที่โหลด kernel)
+if [[ -f /etc/default/grub ]]; then
+  # cmdline: quiet splash + loglevel + ปิด cursor
+  CUR=$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null | sed 's/^[^=]*=//; s/^"//; s/"$//')
+  NEW="$CUR"
+  for tok in quiet splash "loglevel=3" "rd.udev.log_level=3" "vt.global_cursor_default=0"; do
+    [[ "$NEW" != *"$tok"* ]] && NEW="$NEW $tok"
+  done
+  NEW=$(echo "$NEW" | xargs)
+  if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub; then
+    sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$NEW\"|" /etc/default/grub
+  else
+    echo "GRUB_CMDLINE_LINUX_DEFAULT=\"$NEW\"" >> /etc/default/grub
+  fi
+
+  # gfxpayload=keep — สำคัญมากบน MX/EFI ให้ Plymouth ใช้ resolution เดียวกับ GRUB
+  if grep -q '^GRUB_GFXPAYLOAD_LINUX=' /etc/default/grub; then
+    sed -i 's|^GRUB_GFXPAYLOAD_LINUX=.*|GRUB_GFXPAYLOAD_LINUX=keep|' /etc/default/grub
+  else
+    echo 'GRUB_GFXPAYLOAD_LINUX=keep' >> /etc/default/grub
+  fi
+
+  # comment out GRUB_TERMINAL=console (ถ้ามี) — จะบังคับให้ boot ใน text mode
+  sed -i 's|^\(GRUB_TERMINAL=console\)|#\1|' /etc/default/grub
+  sed -i 's|^\(GRUB_TERMINAL_OUTPUT=console\)|#\1|' /etc/default/grub
 fi
+
+# 3) rebuild initramfs + grub
+log "   ▶ rebuild initramfs + grub (อาจใช้เวลา 20-40 วิ)..."
+update-initramfs -u -k all 2>&1 | tail -3 || true
+update-grub 2>&1 | tail -3 || update-grub2 2>&1 | tail -3 || true
+
+# 4) ตรวจสอบผลลัพธ์
+CURR_THEME=$(plymouth-set-default-theme 2>/dev/null || echo "unknown")
+log "   ✔  Plymouth theme ปัจจุบัน: $CURR_THEME (ต้องการ: smartschool)"
+
+
 
 # ---------------- 5.6) LightDM greeter + wallpaper ----------------
 log "▶  [5.6/10] LightDM greeter + XFCE wallpaper ตาม CMS..."
