@@ -686,7 +686,10 @@ const PrintTemplatesPage = () => {
 
       {/* Fullscreen editor — true fullscreen overlay */}
       {fullscreen && draft && (
-        <div className="fixed inset-0 z-[100] bg-background flex flex-col overflow-hidden overscroll-contain">
+        <div
+          className="fixed inset-0 z-[100] bg-background flex flex-col overflow-hidden overscroll-contain"
+          style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
+        >
           <div className="flex items-center justify-between gap-2 px-3 py-2 border-b bg-muted/40">
             <div className="flex items-center gap-2 font-medium">
               <Maximize2 className="w-4 h-4" /> แก้ไขเต็มจอ — {draft.name}
