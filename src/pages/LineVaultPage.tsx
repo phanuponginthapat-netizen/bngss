@@ -753,10 +753,10 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
               )}
             </DialogTitle>
           </DialogHeader>
-          {albumOpen?.[0]?.description && (
+          {(albumOpen?.find(x => x.description)?.description) && (
             <div className="text-sm bg-muted/50 rounded p-3 flex items-start gap-2">
               <MessageSquareText className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
-              <div className="whitespace-pre-wrap">{albumOpen[0].description}</div>
+              <div className="whitespace-pre-wrap">{albumOpen!.find(x => x.description)!.description}</div>
             </div>
           )}
           <div className="flex items-center gap-2 flex-wrap">
