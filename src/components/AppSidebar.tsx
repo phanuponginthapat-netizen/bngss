@@ -737,8 +737,8 @@ export function AppSidebar() {
                     {sec.items.map((item) => (
                       <SidebarMenuItem key={item.url}>
                         <SidebarMenuButton asChild tooltip={renderTooltip(item.title, item.desc)}>
-                          <NavLink to={item.url} end title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className={`text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-lg transition-colors text-sm md:text-base ${collapsed ? "justify-center w-10 h-10 mx-auto" : "py-2 md:py-2.5"}`} activeClassName="bg-sidebar-primary text-sidebar-primary-foreground font-medium">
-                            <IconTile icon={item.icon} color={item.color} size="md" className={collapsed ? '' : 'mr-2.5'} />
+                          <NavLink to={item.url} end title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className={`text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-lg transition-colors text-sm ${collapsed ? "justify-center w-9 h-9 mx-auto" : "py-1"}`} activeClassName="bg-sidebar-primary text-sidebar-primary-foreground font-medium">
+                            <IconTile icon={item.icon} color={item.color} className={collapsed ? '' : 'mr-2'} />
                             {!collapsed && <span className="truncate">{item.title}</span>}
                           </NavLink>
                         </SidebarMenuButton>
