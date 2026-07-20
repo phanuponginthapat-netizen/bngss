@@ -145,13 +145,38 @@ const HomeworkPage = () => {
           .eq("teacher_name", teacherName);
         (byName || []).forEach(push);
       }
-      // 4) Fallback: if no assignments found, pull a generic pool so the
-      //    user can still create homework. Without this, the subject/class
-      //    dropdown is empty and the "สั่งการบ้าน" button does nothing.
-      if (map.size === 0) {
+      // 4a) Homeroom classrooms — allow homeroom teacher to assign homework
+      //     for their advisory class even without teacher_assignments rows.
+      if (personnelRow?.id) {
+        const { data: hrRooms } = await supabase
+          .from("classrooms")
+          .select("id,name,grade_level,homeroom_teacher_id,homeroom_teacher_2_id,homeroom_teachers")
+          .or(
+            `homeroom_teacher_id.eq.${personnelRow.id},homeroom_teacher_2_id.eq.${personnelRow.id},homeroom_teachers.cs.{${personnelRow.id}}`,
+          );
+        if (hrRooms && hrRooms.length > 0) {
+          const grades = Array.from(new Set(hrRooms.map((r: any) => r.grade_level).filter(Boolean)));
+          const { data: subs } = grades.length
+            ? await supabase.from("subjects").select("id,name_th,code,grade_level").in("grade_level", grades)
+            : { data: [] as any[] };
+          hrRooms.forEach((r: any) => {
+            (subs || [])
+              .filter((s: any) => !s.grade_level || s.grade_level === r.grade_level)
+              .forEach((s: any) => push({
+                subject_id: s.id,
+                classroom_id: r.id,
+                subjects: { name_th: s.name_th, code: s.code },
+                classrooms: { name: r.name },
+              }));
+          });
+        }
+      }
+      // 4b) Admin/Director fallback: allow selecting any subject/classroom.
+      //     Capped to prevent an accidental 90k-row cartesian product.
+      if (map.size === 0 && (role === "admin" || role === "director")) {
         const [{ data: subs }, { data: rooms }] = await Promise.all([
-          supabase.from("subjects").select("id,name_th,code").limit(300),
-          supabase.from("classrooms").select("id,name").order("name").limit(300),
+          supabase.from("subjects").select("id,name_th,code").order("code").limit(50),
+          supabase.from("classrooms").select("id,name").order("name").limit(50),
         ]);
         (subs || []).forEach((s: any) => {
           (rooms || []).forEach((r: any) => {
