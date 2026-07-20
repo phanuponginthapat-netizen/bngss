@@ -288,10 +288,10 @@ export default function LineVaultPage() {
             </Select>
           </div>
 
-          <TabsContent value="all" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} fetchBlob={fetchItemBlob} groupAlbums /></TabsContent>
-          <TabsContent value="photo" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} fetchBlob={fetchItemBlob} groupAlbums /></TabsContent>
-          <TabsContent value="file" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} fetchBlob={fetchItemBlob} /></TabsContent>
-          <TabsContent value="note" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} fetchBlob={fetchItemBlob} /></TabsContent>
+          <TabsContent value="all" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} onBulkDelete={handleBulkDelete} fetchBlob={fetchItemBlob} groupAlbums /></TabsContent>
+          <TabsContent value="photo" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} onBulkDelete={handleBulkDelete} fetchBlob={fetchItemBlob} groupAlbums /></TabsContent>
+          <TabsContent value="file" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} onBulkDelete={handleBulkDelete} fetchBlob={fetchItemBlob} /></TabsContent>
+          <TabsContent value="note" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} onBulkDelete={handleBulkDelete} fetchBlob={fetchItemBlob} /></TabsContent>
 
 
 
