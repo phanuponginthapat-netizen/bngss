@@ -19,6 +19,7 @@ import { EFormPresetPicker } from "@/components/eform/EFormPresetPicker";
 import { EFormPdfDesigner } from "@/components/eform/EFormPdfDesigner";
 import type { EFormField, EFormTemplateRow, EFormRenderContext } from "@/lib/eformTemplate";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { FullscreenShell } from "@/components/ui/FullscreenShell";
 import { applyCurrentOfficialPreset, type EFormPreset } from "@/lib/eformPresets";
 import type { PdfOverlayField } from "@/lib/eformPdf";
 import EFormTemplateThumbnail from "@/components/eform/EFormTemplateThumbnail";
@@ -268,7 +269,7 @@ const EFormTemplatesPage = () => {
         if (!editorOpen) return null;
         const body = (
           <>
-            <div className="flex items-center justify-between gap-2 shrink-0">
+            <div className="flex flex-wrap items-center justify-between gap-2 shrink-0">
               <h2 className="text-lg font-semibold">{editing ? "แก้ไขต้นแบบ" : "สร้างต้นแบบใหม่"}</h2>
               <div className="flex items-center gap-1">
                 <Button type="button" variant="ghost" size="sm" onClick={() => setFullscreen(f => !f)} title={fullscreen ? "ออกจากเต็มจอ" : "เต็มจอ"}>
@@ -276,6 +277,11 @@ const EFormTemplatesPage = () => {
                   <span className="ml-1 text-xs">{fullscreen ? "ย่อ" : "เต็มจอ"}</span>
                 </Button>
                 <Button type="button" variant="ghost" size="sm" onClick={() => { setEditorOpen(false); setFullscreen(false); }}>ปิด</Button>
+                {fullscreen && (
+                  <Button size="sm" onClick={handleSave} disabled={saving}>
+                    {saving && <Loader2 className="w-4 h-4 animate-spin mr-1" />} บันทึกต้นแบบ
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -324,20 +330,22 @@ const EFormTemplatesPage = () => {
               )}
             </div>
 
-            <div className="flex justify-end gap-2 shrink-0">
-              <Button variant="outline" onClick={() => { setEditorOpen(false); setFullscreen(false); }}>ยกเลิก</Button>
-              <Button onClick={handleSave} disabled={saving}>
-                {saving && <Loader2 className="w-4 h-4 animate-spin mr-1" />} บันทึกต้นแบบ
-              </Button>
-            </div>
+            {!fullscreen && (
+              <div className="flex justify-end gap-2 shrink-0">
+                <Button variant="outline" onClick={() => { setEditorOpen(false); setFullscreen(false); }}>ยกเลิก</Button>
+                <Button onClick={handleSave} disabled={saving}>
+                  {saving && <Loader2 className="w-4 h-4 animate-spin mr-1" />} บันทึกต้นแบบ
+                </Button>
+              </div>
+            )}
           </>
         );
 
         if (fullscreen) {
           return (
-            <div className="fixed inset-0 z-40 bg-background p-4 flex flex-col gap-3 overflow-hidden">
+            <FullscreenShell open onClose={() => { setEditorOpen(false); setFullscreen(false); }}>
               {body}
-            </div>
+            </FullscreenShell>
           );
         }
         return (
