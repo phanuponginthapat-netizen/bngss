@@ -357,13 +357,14 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
   useBodyScrollLock(useFullscreen);
   if (!open) return null;
   if (useFullscreen) {
-    return (
+    return createPortal(
       <div
         className="fixed inset-0 z-[90] bg-background p-2 sm:p-4 flex flex-col gap-2 sm:gap-3 overflow-hidden overscroll-contain"
         style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))", paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
         {body}
-      </div>
+      </div>,
+      document.body,
     );
   }
   return (
