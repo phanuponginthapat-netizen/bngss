@@ -142,9 +142,10 @@ serve(async (req) => {
     const totalLeave = leave.reduce((a,b)=>a+b,0);
     const totalAll = totalPresent + totalAbsent + totalLate + totalLeave;
 
-    const chartUrl = labels.length > 0
-      ? buildChartUrl(labels, present, absent, late, leave)
-      : `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify({type:"bar",data:{labels:["ไม่มีข้อมูล"],datasets:[{label:"-",data:[0]}]},options:{title:{display:true,text:"ยังไม่มีการสแกน"}}}))}&width=900&height=500&backgroundColor=white`;
+    const chartConfig = labels.length > 0
+      ? buildChartConfig(labels, present, absent, late, leave)
+      : { type: "bar", data: { labels: ["ไม่มีข้อมูล"], datasets: [{ label: "-", data: [0] }] }, options: { title: { display: true, text: "ยังไม่มีการสแกน" } } };
+    const chartUrl = await shortChartUrl(chartConfig);
 
     const summary = `📊 รายงานการมาโรงเรียน\n📅 ${thDate(today)}\n\n✅ มา ${totalPresent} คน\n⏰ สาย ${totalLate} คน\n📝 ลา ${totalLeave} คน\n❌ ขาด ${totalAbsent} คน\n────────\nรวม ${totalAll} คน (ณ เวลา 10:00 น.)`;
 
