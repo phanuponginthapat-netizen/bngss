@@ -83,6 +83,46 @@ export default function PadletBoardPage() {
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [coverSigned, setCoverSigned] = useState<string>("");
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editBg, setEditBg] = useState("paper");
+  const [editAllow, setEditAllow] = useState(true);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const openEdit = () => {
+    if (!board) return;
+    setEditTitle(board.title || "");
+    setEditDesc(board.description || "");
+    setEditBg(board.background || "paper");
+    setEditAllow(!!board.allow_guest_post);
+    setEditOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!board) return;
+    if (!editTitle.trim()) { toast.error("กรอกชื่อกระดาน"); return; }
+    setSavingEdit(true);
+    const { error } = await supabase.from("padlet_boards").update({
+      title: editTitle.trim(),
+      description: editDesc.trim() || null,
+      background: editBg,
+      allow_guest_post: editAllow,
+    }).eq("id", board.id);
+    setSavingEdit(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("บันทึกการแก้ไขแล้ว");
+    setEditOpen(false);
+  };
+
+  const deleteBoard = async () => {
+    if (!board) return;
+    if (!confirm(`ลบกระดาน "${board.title}" ทั้งหมด? การลบไม่สามารถกู้คืนได้`)) return;
+    const { error } = await supabase.from("padlet_boards").delete().eq("id", board.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("ลบกระดานแล้ว");
+    navigate("/dashboard/padlet");
+  };
   const coverInputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
