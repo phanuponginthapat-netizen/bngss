@@ -648,6 +648,17 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
           const isSel = selected.has(item.id);
           return (
             <Card key={item.id} className={`overflow-hidden hover:shadow-md transition-shadow ${isSel ? "ring-2 ring-primary" : ""}`}>
+              {item.kind !== "note" && (
+                <button type="button" onClick={() => openItem(item)} className="block w-full aspect-video relative group">
+                  <LineVaultThumb item={item} className="w-full h-full" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                  {isVideoMime(item.mime_type) && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="bg-black/60 text-white rounded-full h-10 w-10 flex items-center justify-center">▶</div>
+                    </div>
+                  )}
+                </button>
+              )}
               <div className="p-3 space-y-2">
                 <div className="flex items-start justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
@@ -664,6 +675,11 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
                 <div className="flex flex-wrap gap-1">
                   <Badge variant="secondary" className="text-[10px]">{categoryLabel(item.category)}</Badge>
                   {item.academic_year && <Badge variant="outline" className="text-[10px]">ปี {item.academic_year + 543}/{item.semester || "-"}</Badge>}
+                  {item.line_sender_name && (
+                    <Badge variant="outline" className="text-[10px] max-w-[160px] truncate" title={item.line_sender_name}>
+                      จาก LINE · {item.line_sender_name}
+                    </Badge>
+                  )}
                 </div>
                 <div className="font-medium line-clamp-2 min-h-[2.5rem]" title={item.title}>{item.title}</div>
                 {item.kind === "note" && item.note_text && (
@@ -675,7 +691,7 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
                   </p>
                 )}
                 {item.kind !== "note" && (
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-xs text-muted-foreground truncate" title={item.original_filename || undefined}>
                     {item.original_filename} · {formatBytes(item.size_bytes)}
                   </div>
                 )}
@@ -684,9 +700,14 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
                   <span>{format(new Date(item.created_at), "d MMM yyyy HH:mm", { locale: th })}</span>
                 </div>
                 <div className="flex gap-2 pt-1">
-                  <Button size="sm" className="flex-1" onClick={() => onOpen(item)}>
-                    {item.kind === "note" ? <><StickyNote className="h-4 w-4 mr-1" />เปิด</> : <><Download className="h-4 w-4 mr-1" />ดาวน์โหลด</>}
+                  <Button size="sm" className="flex-1" onClick={() => openItem(item)}>
+                    {item.kind === "note" ? <><StickyNote className="h-4 w-4 mr-1" />เปิด</> : <><Eye className="h-4 w-4 mr-1" />ดูตัวอย่าง</>}
                   </Button>
+                  {item.kind !== "note" && (
+                    <Button size="sm" variant="outline" onClick={() => onOpen(item)} title="ดาวน์โหลดไฟล์">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  )}
                   {isAdmin && (
                     <Button size="sm" variant="ghost" onClick={() => onDelete(item)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
                   )}
