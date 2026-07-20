@@ -112,12 +112,35 @@ export default function KioskSetupPage() {
     })();
   }, []);
 
+  // normalize URL — บังคับใช้ published domain เสมอ (ไม่ให้ preview link หลุดไป save)
+  const normalizeKioskUrl = (raw: string): string => {
+    const fallback = `${PUBLIC_ORIGIN}${mode === "student" ? "/" : "/kiosk"}`;
+    if (!raw || !raw.trim()) return fallback;
+    try {
+      const p = new URL(raw.trim());
+      if (
+        p.hostname.includes("lovableproject.com") ||
+        p.hostname.includes("lovable.dev") ||
+        p.hostname.includes("id-preview--") ||
+        p.hostname === "localhost" ||
+        p.hostname.startsWith("127.")
+      ) {
+        return `${PUBLIC_ORIGIN}${p.pathname === "/" || !p.pathname ? (mode === "student" ? "/" : "/kiosk") : p.pathname}${p.search}`;
+      }
+      return p.toString();
+    } catch {
+      return fallback;
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
       const nowIso = new Date().toISOString();
+      const cleanUrl = normalizeKioskUrl(kioskUrl);
+      if (cleanUrl !== kioskUrl) setKioskUrl(cleanUrl); // sync UI
       const value = {
-        mode, kioskUrl, kioskUser, wifiSsid, wifiPass,
+        mode, kioskUrl: cleanUrl, kioskUser, wifiSsid, wifiPass,
         enableDailyReboot, rebootTime, idleLogoutMin, idleShutdownMin,
         powerOn, powerOff, exitPin,
         updated_at: nowIso,
@@ -134,6 +157,7 @@ export default function KioskSetupPage() {
       setSaving(false);
     }
   };
+
 
   const handleReset = () => {
     if (!confirm("รีเซ็ตค่าทั้งหมดกลับเป็นค่าเริ่มต้น?")) return;
