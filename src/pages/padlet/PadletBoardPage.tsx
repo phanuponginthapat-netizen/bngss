@@ -361,6 +361,12 @@ export default function PadletBoardPage() {
               }}
             >{board.allow_guest_post ? "ปิดการแปะ" : "เปิดการแปะ"}</Button>
           )}
+          {canManageBoard && (
+            <>
+              <Button variant="outline" size="sm" onClick={openEdit} className="gap-1"><Settings className="w-3.5 h-3.5" /> แก้ไข</Button>
+              <Button variant="outline" size="sm" onClick={deleteBoard} className="gap-1 text-destructive hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /> ลบ</Button>
+            </>
+          )}
           {canPost && (
             <Button onClick={() => { resetForm(); setOpen(true); }} size="sm" className="gap-1"><Plus className="w-4 h-4" /> แปะโน้ต</Button>
           )}
