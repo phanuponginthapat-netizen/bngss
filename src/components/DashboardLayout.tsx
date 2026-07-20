@@ -23,7 +23,7 @@ import { MobileBottomNav } from "@/components/mobile";
 import EnablePushBanner from "@/components/EnablePushBanner";
 import ObserverBanner from "@/components/ObserverBanner";
 import { useAuthSession } from "@/hooks/useAuthSession";
-import CommandPalette from "@/components/CommandPalette";
+// CommandPalette removed to prevent cross-role access via global search
 import NotificationHighlightScroller from "@/components/NotificationHighlightScroller";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import PWAInstallButton from "@/components/PWAInstallButton";
