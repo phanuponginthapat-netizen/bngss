@@ -56,7 +56,7 @@ export function ViewModeSwitcher({ collapsed = false }: { collapsed?: boolean })
             type="button"
             onClick={() => toggle(m)}
             className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-xl text-[12px] font-semibold transition-all",
+              "flex-1 flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-[12px] font-semibold transition-all",
               active
                 ? m === "admin"
                   ? "bg-background text-primary shadow-sm ring-1 ring-primary/25"
