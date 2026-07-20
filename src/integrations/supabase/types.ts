@@ -1458,6 +1458,39 @@ export type Database = {
           },
         ]
       }
+      attendance_auto_holidays: {
+        Row: {
+          absent_count: number
+          created_at: string
+          detected_by: string
+          holiday_date: string
+          id: string
+          reason: string
+          total_students: number
+          updated_at: string
+        }
+        Insert: {
+          absent_count?: number
+          created_at?: string
+          detected_by?: string
+          holiday_date: string
+          id?: string
+          reason?: string
+          total_students?: number
+          updated_at?: string
+        }
+        Update: {
+          absent_count?: number
+          created_at?: string
+          detected_by?: string
+          holiday_date?: string
+          id?: string
+          reason?: string
+          total_students?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
