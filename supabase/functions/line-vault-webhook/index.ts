@@ -159,12 +159,13 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (!grp || grp.notify_on_capture === false) continue;
 
-      const cooldownMin = Number(grp.notify_cooldown_minutes ?? 3);
+      const cooldownMin = Number(grp.notify_cooldown_minutes ?? 10);
       if (cooldownMin > 0 && grp.last_notified_at) {
         const last = new Date(grp.last_notified_at).getTime();
         if (Date.now() - last < cooldownMin * 60_000) continue; // stay silent this round
       }
 
+      // Notes = captions only, never announced. Photos/videos/audio/files only.
       const parts: string[] = [];
       if (agg.photos > 0) {
         const albums = agg.imageSets.size;
@@ -177,8 +178,7 @@ Deno.serve(async (req) => {
       if (agg.videos > 0) parts.push(`🎬 วิดีโอ ${agg.videos}`);
       if (agg.audios > 0) parts.push(`🎵 เสียง ${agg.audios}`);
       if (agg.files > 0) parts.push(`📎 ไฟล์ ${agg.files}`);
-      if (agg.notes > 0) parts.push(`📝 โน้ต ${agg.notes}`);
-      if (!parts.length) continue;
+      if (!parts.length) continue; // silent when batch is only text captions
 
       const text = `✅ เก็บเข้าคลังแล้ว: ${parts.join(" • ")}`;
       await replyMessage(token, agg.replyToken, text);
