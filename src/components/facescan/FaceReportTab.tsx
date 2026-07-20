@@ -89,81 +89,128 @@ const FaceReportTab = () => {
   const [search, setSearch] = useState("");
   const [sending, setSending] = useState(false);
   const [savingImage, setSavingImage] = useState(false);
+  const [sendingLine, setSendingLine] = useState(false);
   const summaryRef = useRef<HTMLDivElement>(null);
 
-  const exportImage = async () => {
-    if (!summaryRef.current) return;
-    setSavingImage(true);
+  /**
+   * Render the current summary section (table + absent list) into a PNG.
+   * mode "download" → triggers browser download.
+   * mode "blob"     → returns the Blob for further processing (e.g. upload to storage).
+   */
+  const renderReportImage = async (mode: "download" | "blob" = "download"): Promise<Blob | null> => {
+    if (!summaryRef.current) return null;
+    const html2canvas = (await import("html2canvas")).default;
+
+    // Build off-screen container: summary table clone + absent names list
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText = "position:fixed;left:-99999px;top:0;background:#fff;padding:20px;width:1280px;font-family:'IBM Plex Sans Thai','Inter',sans-serif;";
+
+    const title = document.createElement("div");
+    title.style.cssText = "font-size:18px;font-weight:700;margin-bottom:4px;color:#0f172a;";
+    title.textContent = `รายงานการสแกนเข้าโรงเรียน • ${range.label}`;
+    wrapper.appendChild(title);
+    const subtitle = document.createElement("div");
+    subtitle.style.cssText = "font-size:12px;color:#64748b;margin-bottom:12px;";
+    subtitle.textContent = `ช่วง ${range.start} ถึง ${range.end}`;
+    wrapper.appendChild(subtitle);
+
+    const clone = summaryRef.current.cloneNode(true) as HTMLElement;
+    clone.style.maxHeight = "none";
+    clone.querySelectorAll<HTMLElement>("[class*='max-h-']").forEach((el) => { el.style.maxHeight = "none"; el.style.overflow = "visible"; });
+    wrapper.appendChild(clone);
+
+    if (accurate && accurate.absentees.length > 0) {
+      const absentBox = document.createElement("div");
+      absentBox.style.cssText = "margin-top:16px;border:1px solid #fecaca;border-radius:8px;overflow:hidden;";
+      const head = document.createElement("div");
+      head.style.cssText = "background:linear-gradient(to right,#e11d48,#f43f5e);color:#fff;padding:10px 14px;font-weight:700;font-size:14px;display:flex;justify-content:space-between;";
+      const headTitle = document.createElement("span");
+      headTitle.textContent = "รายชื่อนักเรียนที่ขาด";
+      const headCount = document.createElement("span");
+      headCount.style.cssText = "font-weight:500;font-size:12px;opacity:.9";
+      headCount.textContent = `${accurate.absentees.length} คน`;
+      head.appendChild(headTitle);
+      head.appendChild(headCount);
+      absentBox.appendChild(head);
+      const body = document.createElement("div");
+      body.style.cssText = "padding:12px 14px;font-size:13px;line-height:1.9;color:#0f172a;";
+      accurate.absentees.forEach((a) => {
+        const item = document.createElement("span");
+        item.style.cssText = "display:inline-block;margin-right:8px;";
+        item.appendChild(document.createTextNode(`${a.name} `));
+        const cls = document.createElement("span");
+        cls.style.cssText = "color:#64748b;";
+        cls.textContent = `(${a.cls})`;
+        item.appendChild(cls);
+        body.appendChild(item);
+      });
+      absentBox.appendChild(body);
+      wrapper.appendChild(absentBox);
+    }
+
+    document.body.appendChild(wrapper);
     try {
-      const html2canvas = (await import("html2canvas")).default;
-
-      // Build off-screen container: summary table clone + absent names list
-      const wrapper = document.createElement("div");
-      wrapper.style.cssText = "position:fixed;left:-99999px;top:0;background:#fff;padding:20px;width:1280px;font-family:'IBM Plex Sans Thai','Inter',sans-serif;";
-
-      const title = document.createElement("div");
-      title.style.cssText = "font-size:18px;font-weight:700;margin-bottom:4px;color:#0f172a;";
-      title.textContent = `รายงานการสแกนเข้าโรงเรียน • ${range.label}`;
-      wrapper.appendChild(title);
-      const subtitle = document.createElement("div");
-      subtitle.style.cssText = "font-size:12px;color:#64748b;margin-bottom:12px;";
-      subtitle.textContent = `ช่วง ${range.start} ถึง ${range.end}`;
-      wrapper.appendChild(subtitle);
-
-      const clone = summaryRef.current.cloneNode(true) as HTMLElement;
-      clone.style.maxHeight = "none";
-      clone.querySelectorAll<HTMLElement>("[class*='max-h-']").forEach((el) => { el.style.maxHeight = "none"; el.style.overflow = "visible"; });
-      wrapper.appendChild(clone);
-
-      if (accurate && accurate.absentees.length > 0) {
-        const absentBox = document.createElement("div");
-        absentBox.style.cssText = "margin-top:16px;border:1px solid #fecaca;border-radius:8px;overflow:hidden;";
-        const head = document.createElement("div");
-        head.style.cssText = "background:linear-gradient(to right,#e11d48,#f43f5e);color:#fff;padding:10px 14px;font-weight:700;font-size:14px;display:flex;justify-content:space-between;";
-        const headTitle = document.createElement("span");
-        headTitle.textContent = "รายชื่อนักเรียนที่ขาด";
-        const headCount = document.createElement("span");
-        headCount.style.cssText = "font-weight:500;font-size:12px;opacity:.9";
-        headCount.textContent = `${accurate.absentees.length} คน`;
-        head.appendChild(headTitle);
-        head.appendChild(headCount);
-        absentBox.appendChild(head);
-        const body = document.createElement("div");
-        body.style.cssText = "padding:12px 14px;font-size:13px;line-height:1.9;color:#0f172a;";
-        accurate.absentees.forEach((a) => {
-          const item = document.createElement("span");
-          item.style.cssText = "display:inline-block;margin-right:8px;";
-          item.appendChild(document.createTextNode(`${a.name} `));
-          const cls = document.createElement("span");
-          cls.style.cssText = "color:#64748b;";
-          cls.textContent = `(${a.cls})`;
-          item.appendChild(cls);
-          body.appendChild(item);
-        });
-        absentBox.appendChild(body);
-        wrapper.appendChild(absentBox);
-      }
-
-      document.body.appendChild(wrapper);
-      try {
-        const canvas = await html2canvas(wrapper, {
-          backgroundColor: "#ffffff",
-          scale: 2,
-          useCORS: true,
-          windowWidth: 1320,
-        });
+      const canvas = await html2canvas(wrapper, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+        useCORS: true,
+        windowWidth: 1320,
+      });
+      if (mode === "download") {
         const link = document.createElement("a");
         link.download = `รายงานการสแกน-${range.start}_${range.end}.png`;
         link.href = canvas.toDataURL("image/png");
         link.click();
-        toast.success("บันทึกรูปภาพเรียบร้อย");
-      } finally {
-        document.body.removeChild(wrapper);
+        return null;
       }
+      return await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), "image/jpeg", 0.9));
+    } finally {
+      document.body.removeChild(wrapper);
+    }
+  };
+
+  const exportImage = async () => {
+    setSavingImage(true);
+    try {
+      await renderReportImage("download");
+      toast.success("บันทึกรูปภาพเรียบร้อย");
     } catch (e: any) {
       toast.error(e.message || "บันทึกรูปไม่สำเร็จ");
     } finally {
       setSavingImage(false);
+    }
+  };
+
+  const sendReportToLine = async () => {
+    setSendingLine(true);
+    try {
+      const blob = await renderReportImage("blob");
+      if (!blob) throw new Error("สร้างรูปไม่สำเร็จ");
+      const path = `attendance-digest/${range.start}/${Date.now()}.jpg`;
+      const { error: upErr } = await supabase.storage
+        .from("face-photos")
+        .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      if (upErr) throw upErr;
+      const { data: signed, error: signErr } = await supabase.storage
+        .from("face-photos")
+        .createSignedUrl(path, 60 * 60 * 24 * 7);
+      if (signErr || !signed?.signedUrl) throw signErr || new Error("สร้างลิงก์รูปไม่สำเร็จ");
+
+      const t = accurate?.totals;
+      const summaryText = t
+        ? `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${range.label}\n\n✅ มา ${t.present} คน\n⏰ สาย ${t.late} คน\n📝 ลา ${t.leave} คน\n❌ ขาด ${t.absent} คน\n────────\nรวม ${t.size} คน • เข้าเรียน ${t.pct}%`
+        : `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${range.label}`;
+
+      const { error } = await supabase.functions.invoke("notify-attendance-digest", {
+        body: { image_url: signed.signedUrl, summary_text: summaryText, force: true },
+      });
+      if (error) throw error;
+      toast.success("ส่งรายงานเข้ากลุ่ม LINE เรียบร้อย");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || "ส่งเข้า LINE ไม่สำเร็จ");
+    } finally {
+      setSendingLine(false);
     }
   };
 
@@ -918,7 +965,8 @@ const FaceReportTab = () => {
             <div className="flex gap-2 flex-wrap">
               <Button onClick={exportXlsx} variant="outline" size="sm"><Download className="w-4 h-4 mr-2" />Export Excel</Button>
               <Button onClick={exportImage} variant="outline" size="sm" disabled={savingImage}><ImageIcon className="w-4 h-4 mr-2" />{savingImage ? "กำลังบันทึก..." : "บันทึกเป็นรูป"}</Button>
-              <Button onClick={sendReportToGoogleChat} disabled={sending} size="sm"><Send className="w-4 h-4 mr-2" />ส่งสรุป Google Chat</Button>
+              <Button onClick={sendReportToLine} disabled={sendingLine} size="sm" className="bg-[#06C755] hover:bg-[#05a648] text-white"><Send className="w-4 h-4 mr-2" />{sendingLine ? "กำลังส่ง..." : "ส่งเข้ากลุ่ม LINE"}</Button>
+              <Button onClick={sendReportToGoogleChat} disabled={sending} size="sm" variant="outline"><Send className="w-4 h-4 mr-2" />ส่งสรุป Google Chat</Button>
             </div>
           </div>
 
