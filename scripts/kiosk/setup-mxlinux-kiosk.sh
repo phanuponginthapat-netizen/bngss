@@ -481,7 +481,12 @@ hex_to_rgb_floats() {
 }
 read -r PLY_R PLY_G PLY_B <<<"$(hex_to_rgb_floats "$CMS_COLOR")"
 
+# MX Linux: ต้องติดตั้ง plymouth-x11 + imagemagick ด้วย (ไม่ได้ติดมาให้ default)
+apt-get install -y --no-install-recommends \
+  plymouth plymouth-themes plymouth-label plymouth-x11 \
+  imagemagick initramfs-tools 2>/dev/null || \
 apt-get install -y --no-install-recommends plymouth plymouth-themes plymouth-label 2>/dev/null || true
+
 
 THEME_DIR=/usr/share/plymouth/themes/smartschool
 install -d -m 755 "$THEME_DIR"
