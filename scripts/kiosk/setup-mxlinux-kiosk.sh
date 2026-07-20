@@ -176,7 +176,9 @@ PKGS=(
   network-manager pulseaudio pavucontrol alsa-utils
   lightdm lightdm-gtk-greeter accountsservice
   plymouth plymouth-themes plymouth-label imagemagick
+  xbindkeys zenity
 )
+
 apt-get install -y --no-install-recommends "${PKGS[@]}" 2>/dev/null || \
   apt-get install -y --no-install-recommends chromium-browser unclutter xdotool \
     x11-xserver-utils python3 curl pulseaudio alsa-utils lightdm
