@@ -60,6 +60,9 @@ type Group = {
   notify_cooldown_minutes?: number;
   notes: string | null;
   drive_root_folder_id?: string | null;
+  notify_leaves?: boolean;
+  notify_substitute?: boolean;
+  notify_calendar?: boolean;
   drive_root_url?: string | null;
   drive_folder_id?: string | null;
 };
