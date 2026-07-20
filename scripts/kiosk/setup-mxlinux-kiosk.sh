@@ -973,7 +973,7 @@ if [[ "$KIOSK_MODE" == "student" ]]; then
   #   ไม่เก็บ history/password/cookies — ล้างทุกครั้งเมื่อ reboot
   PROFILE_DIR="$USER_HOME/.chromium-profile"
   CHROMIUM_FLAGS="--user-data-dir=$PROFILE_DIR \
-    --incognito --disable-features=TranslateUI,AutofillServerCommunication,SavePasswordBubble,DisableLoadExtensionCommandLineSwitch \
+    --disable-features=TranslateUI,AutofillServerCommunication,SavePasswordBubble,DisableLoadExtensionCommandLineSwitch \
     --start-maximized --no-first-run --no-default-browser-check \
     --disable-session-crashed-bubble --disable-infobars --noerrdialogs \
     --check-for-update-interval=31536000 --disable-component-update \
