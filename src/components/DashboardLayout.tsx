@@ -307,7 +307,9 @@ const DashboardLayout = () => {
 
 
 
-            <div className="flex-1" />
+            <div className="flex-1 flex items-center justify-center min-w-0">
+              <HeaderClock />
+            </div>
             <div className="ml-auto flex items-center gap-1 rounded-full bg-muted/40 border border-border/50 px-1 py-1 backdrop-blur-sm">
 
               <OfflineIndicator />
