@@ -113,18 +113,34 @@ function formatBytes(n: number | null) {
 }
 
 // ---------- Signed-URL cache + lazy thumbnail + inline preview ----------
+// Streams file bytes through our own edge function (RLS-checked) and returns
+// a blob: URL that <img>/<video>/<audio>/<iframe> can consume without needing
+// to send Authorization headers. This works for Google Drive files too, which
+// can't be embedded via webContentLink from a private account.
 const _urlCache = new Map<string, { url: string; ts: number }>();
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string) || "";
+const SUPABASE_ANON = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || "";
+
 async function getSignedUrl(itemId: string): Promise<string | null> {
   const cached = _urlCache.get(itemId);
   if (cached && Date.now() - cached.ts < 50 * 60 * 1000) return cached.url;
-  const { data } = await supabase.functions.invoke("line-vault-download", {
-    body: { item_id: itemId, expires_in: 3600 },
-  });
-  if ((data as any)?.url) {
-    _urlCache.set(itemId, { url: (data as any).url, ts: Date.now() });
-    return (data as any).url;
+  try {
+    const { data: sess } = await supabase.auth.getSession();
+    const token = sess?.session?.access_token;
+    if (!token) return null;
+    const res = await fetch(
+      `${SUPABASE_URL}/functions/v1/line-vault-stream?id=${encodeURIComponent(itemId)}`,
+      { headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON } },
+    );
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    _urlCache.set(itemId, { url, ts: Date.now() });
+    return url;
+  } catch (e) {
+    console.error("[getSignedUrl]", e);
+    return null;
   }
-  return null;
 }
 
 function useInView<T extends Element>(rootMargin = "200px") {
@@ -588,6 +604,7 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
         {rows.map((row, idx) => {
           if (row.kind === "album") {
             const first = row.items[0];
+            const albumDesc = row.items.find(x => x.description)?.description || null;
             const albumIds = row.items.map(x => x.id);
             const allSel = albumIds.every(id => selected.has(id));
             return (
@@ -620,9 +637,9 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
                   <div className="font-medium line-clamp-2 min-h-[2.5rem] cursor-pointer" onClick={() => setAlbumOpen(row.items)}>
                     อัลบั้มจาก {first.line_sender_name || "LINE"}
                   </div>
-                  {first.description && (
+                  {albumDesc && (
                     <p className="text-xs text-muted-foreground line-clamp-2 whitespace-pre-wrap flex items-start gap-1">
-                      <MessageSquareText className="h-3 w-3 mt-0.5 shrink-0" />{first.description}
+                      <MessageSquareText className="h-3 w-3 mt-0.5 shrink-0" />{albumDesc}
                     </p>
                   )}
                   <div className="text-[11px] text-muted-foreground flex items-center justify-between">
@@ -736,10 +753,10 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
               )}
             </DialogTitle>
           </DialogHeader>
-          {albumOpen?.[0]?.description && (
+          {(albumOpen?.find(x => x.description)?.description) && (
             <div className="text-sm bg-muted/50 rounded p-3 flex items-start gap-2">
               <MessageSquareText className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
-              <div className="whitespace-pre-wrap">{albumOpen[0].description}</div>
+              <div className="whitespace-pre-wrap">{albumOpen!.find(x => x.description)!.description}</div>
             </div>
           )}
           <div className="flex items-center gap-2 flex-wrap">
