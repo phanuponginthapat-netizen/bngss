@@ -40,12 +40,29 @@ export default function PadletListPage() {
   const [allowGuestPost, setAllowGuestPost] = useState(true);
   const [saving, setSaving] = useState(false);
   const [scope, setScope] = useState<string>("school"); // "school" or assignment id
+  const [coverUrl, setCoverUrl] = useState<string>("");
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [coverSignedMap, setCoverSignedMap] = useState<Record<string, string>>({});
   const { data: myAssignments = [] } = useMyTeacherAssignments();
 
   const load = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("padlet_boards")
+      .select("*, subjects:subject_id(name_th, code), classrooms:classroom_id(name, grade_level)")
+      .order("updated_at", { ascending: false });
+    if (error) toast.error(error.message);
+    setBoards(data || []);
+    setLoading(false);
+    const covers = (data || []).map((b: any) => b.cover_image_url).filter(Boolean);
+    if (covers.length) {
+      const { data: signed } = await supabase.storage.from("padlet").createSignedUrls(covers, 3600);
+      const map: Record<string, string> = {};
+      (signed || []).forEach((s: any, i: number) => { if (s.signedUrl) map[covers[i]] = s.signedUrl; });
+      setCoverSignedMap(map);
+    }
+  };
+
       .select("*, subjects:subject_id(name_th, code), classrooms:classroom_id(name, grade_level)")
       .order("updated_at", { ascending: false });
     if (error) toast.error(error.message);
