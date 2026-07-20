@@ -196,6 +196,27 @@ export default function LineVaultPage() {
     load();
   }
 
+  async function handleBulkDelete(itemsToDelete: Item[]) {
+    if (!itemsToDelete.length) return false;
+    const ok = await swal.confirm({
+      title: `ลบ ${itemsToDelete.length} รายการ?`,
+      text: "รายการและไฟล์ใน Google Drive จะถูกลบถาวร ไม่สามารถกู้คืนได้",
+      confirmText: "ลบทั้งหมด",
+      danger: true,
+    });
+    if (!ok) return false;
+    const { data, error } = await supabase.functions.invoke("line-vault-delete", {
+      body: { item_ids: itemsToDelete.map(i => i.id) },
+    });
+    if (error || (data as any)?.error) {
+      swal.error("ลบไม่สำเร็จ", (data as any)?.error || error?.message);
+      return false;
+    }
+    swal.success(`ลบแล้ว ${(data as any)?.deleted ?? itemsToDelete.length} รายการ`);
+    load();
+    return true;
+  }
+
   async function fetchItemBlob(item: Item): Promise<{ blob: Blob; filename: string } | null> {
     if (item.kind === "note") {
       const text = `${item.title}\n\n${item.note_text || ""}\n\n— ${format(new Date(item.created_at), "d MMM yyyy HH:mm", { locale: th })}`;
