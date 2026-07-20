@@ -262,6 +262,7 @@ export default function PadletListPage() {
                   <button type="button" onClick={() => setCoverUrl("")} className="text-destructive underline">ลบ</button>
                 </div>
               )}
+            </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={allowGuestPost} onChange={e => setAllowGuestPost(e.target.checked)} />
               อนุญาตให้นักเรียนแปะโน้ตได้
