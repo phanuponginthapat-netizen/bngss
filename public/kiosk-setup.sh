@@ -377,7 +377,8 @@ POLICY=$(cat <<JSON
 }
 JSON
 )
-EOF
+printf '%s\n' "$POLICY" > /etc/chromium/policies/managed/kiosk-permissions.json
+printf '%s\n' "$POLICY" > /etc/chromium-browser/policies/managed/kiosk-permissions.json
 
 # ---------------- 5.5) CMS branding (Plymouth + LightDM + Wallpaper) ----------------
 log "▶  [5.5/10] ดึง branding จาก CMS + ติดตั้ง Plymouth theme..."
