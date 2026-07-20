@@ -1305,6 +1305,35 @@ const FaceReportTab = () => {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={previewOpen} onOpenChange={(o) => { setPreviewOpen(o); if (!o && previewImage) { URL.revokeObjectURL(previewImage); setPreviewImage(null); setPreviewBlob(null); } }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>ตัวอย่างรายงานก่อนส่งเข้ากลุ่ม LINE</DialogTitle>
+            <DialogDescription>ตรวจสอบภาพกราฟและรายชื่อนักเรียนที่ขาดแยกตามระดับชั้น ก่อนกดยืนยันส่ง</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto grid md:grid-cols-2 gap-4 pr-1">
+            <div className="border rounded-lg overflow-hidden bg-white">
+              <div className="bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 border-b">รูปภาพรายงาน</div>
+              {previewLoading ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">กำลังสร้างภาพ...</div>
+              ) : previewImage ? (
+                <img src={previewImage} alt="ตัวอย่างรายงาน" className="w-full h-auto" />
+              ) : null}
+            </div>
+            <div className="border rounded-lg overflow-hidden bg-white flex flex-col">
+              <div className="bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 border-b">ข้อความประกอบ (รายชื่อขาด แยกตามระดับชั้น)</div>
+              <pre className="p-3 text-xs whitespace-pre-wrap font-sans text-slate-800 overflow-auto flex-1 max-h-[60vh]">{previewSummary}</pre>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setPreviewOpen(false)} disabled={sendingLine}>ยกเลิก</Button>
+            <Button onClick={confirmSendReportToLine} disabled={sendingLine || previewLoading || !previewBlob} className="bg-[#06C755] hover:bg-[#05a648] text-white">
+              <Send className="w-4 h-4 mr-2" />{sendingLine ? "กำลังส่ง..." : "ยืนยันส่งเข้ากลุ่ม LINE"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
