@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUserRole } from "@/hooks/useUserRole";
-import { LogOut, User, Settings, Shield, Inbox, Search, PanelLeft } from "lucide-react";
+import { LogOut, User, Settings, Shield, Inbox, PanelLeft } from "lucide-react";
 import NotificationDropdown from "@/components/NotificationDropdown";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
