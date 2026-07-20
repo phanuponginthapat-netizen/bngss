@@ -818,16 +818,21 @@ const FaceKioskPage = () => {
   const wakeFromScreensaver = useCallback(() => {
     lastDetectedAtRef.current = Date.now();
     setScreensaver(false);
-    // ถ้า power save ปิดกล้องไว้ + ยังอยู่ในหรือใกล้ช่วงสแกน → เปิดกล้องกลับมา
-    if (powerSave && !streaming && (isNearScanWindow() || !isOutsideAllScanWindows())) {
+    // แตะปลุก → เปิดกล้องทันทีถ้ายังไม่ streaming (ไม่ว่าจะ powerSave หรือไม่)
+    if (!streaming) {
       startCamera().catch(() => {});
     }
-  }, [powerSave, streaming, isNearScanWindow, isOutsideAllScanWindows, startCamera]);
+  }, [streaming, startCamera]);
 
   const handleTap = () => {
     lastDetectedAtRef.current = Date.now();
     if (screensaver) wakeFromScreensaver();
+    else if (!streaming && (qrOnly || modelReady)) {
+      // แตะที่หน้าตอนไม่ได้ screensaver แต่กล้องปิด → เปิดกล้องด้วย
+      startCamera().catch(() => {});
+    }
   };
+
 
   const outsideAll = isOutsideAllScanWindows();
   const screensaverReason = outsideAll ? "นอกช่วงเวลาสแกน" : "พักหน้าจออัตโนมัติ";
