@@ -34,6 +34,7 @@ import { useRadixOverlayCleanup } from "@/hooks/useRadixOverlayCleanup";
 import { useForceLogoutListener } from "@/hooks/useForceLogoutListener";
 import OnboardingTour from "@/components/OnboardingTour";
 import { resolveProfileImageUrl } from "@/lib/profileImageUrl";
+import HeaderClock from "@/components/HeaderClock";
 
 /** ปุ่ม avatar ที่ toggle sidebar (แทน dropdown เดิม) */
 function AvatarSidebarToggle({ avatarUrl, fullName, userEmail }: { avatarUrl: string | null; fullName: string; userEmail: string }) {
@@ -306,7 +307,9 @@ const DashboardLayout = () => {
 
 
 
-            <div className="flex-1" />
+            <div className="flex-1 flex items-center justify-center min-w-0">
+              <HeaderClock />
+            </div>
             <div className="ml-auto flex items-center gap-1 rounded-full bg-muted/40 border border-border/50 px-1 py-1 backdrop-blur-sm">
 
               <OfflineIndicator />
