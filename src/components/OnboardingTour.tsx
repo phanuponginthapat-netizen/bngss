@@ -19,11 +19,12 @@ const STEPS: Step[] = [
     placement: "bottom",
   },
   {
-    selector: '[data-tour="global-search"]',
-    title: "2. ค้นหาเมนูและข้อมูล",
-    body: "ค้นหาเมนู นักเรียน หรือเอกสารได้จากช่องนี้ หรือกด ⌘K / Ctrl+K",
-    placement: "bottom",
+    selector: '[data-tour="ai-bubble"]',
+    title: "2. ผู้ช่วย AI",
+    body: "กดปุ่มลอยนี้เพื่อคุยกับผู้ช่วย AI ถามการบ้าน ตารางเรียน หรือข้อมูลระบบได้",
+    placement: "top",
   },
+
   {
     selector: '[data-tour="ai-bubble"]',
     title: "3. ผู้ช่วย AI",
