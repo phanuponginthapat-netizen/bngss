@@ -405,8 +405,12 @@ printf '%s\n' "$POLICY" > /etc/chromium-browser/policies/managed/kiosk-permissio
 log "▶  [5.5/10] ดึง branding จาก CMS + ติดตั้ง Plymouth theme..."
 
 # ดึง config จาก edge function (public) — timeout สั้น ไม่ตายถ้าเน็ตล้ม
-CMS_JSON=$(curl -sf --max-time 8 "$KIOSK_ORIGIN/functions/v1/ext-config" \
-  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2d2VycnRlc3BucndpZ3pjcHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1MTI2MjUsImV4cCI6MjA5NjA4ODYyNX0.GJ56S-1ddjhxpK0ITznvMTAIC3nWV54xpigolzImpIM" \
+# Edge Functions รันบน Supabase (ไม่ใช่ที่ app URL) — ต้อง hard-code project ref
+CMS_SUPABASE_URL="${CMS_SUPABASE_URL:-https://dlkyxvhnnffblerwedjz.supabase.co}"
+CMS_SUPABASE_ANON="${CMS_SUPABASE_ANON:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4}"
+CMS_JSON=$(curl -sf --max-time 8 "$CMS_SUPABASE_URL/functions/v1/ext-config" \
+  -H "apikey: $CMS_SUPABASE_ANON" \
+  -H "Authorization: Bearer $CMS_SUPABASE_ANON" \
   2>/dev/null || echo '{}')
 
 # หา field ด้วย python (มี JSON parser แน่ๆ)
@@ -422,6 +426,7 @@ CMS_COLOR=$(extract_json theme_color)
 [[ -z "$CMS_COLOR" ]] && CMS_COLOR=$(extract_json primary_color)
 [[ -z "$CMS_COLOR" ]] && CMS_COLOR="#2563EB"
 
+log "   CMS:   $CMS_SUPABASE_URL/functions/v1/ext-config ($(echo -n "$CMS_JSON" | wc -c) bytes)"
 log "   ชื่อ: $CMS_NAME"
 log "   สี:   $CMS_COLOR"
 log "   โลโก้: ${CMS_LOGO_URL:-<ไม่มี>}"
