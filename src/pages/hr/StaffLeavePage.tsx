@@ -132,55 +132,72 @@ const StaffLeavePage = () => {
   };
 
   const handleSubmit = async () => {
+    if (submitting) return;
     const targetPersonnelId = canApprove ? personnelId : myPersonnel?.id;
     if (!targetPersonnelId || !startDate || !endDate || !reason) {
       toast.error(lang === "th" ? "กรุณากรอกข้อมูลให้ครบถ้วน" : "Please fill in all required fields");
       return;
     }
 
-    const person = personnel.find((p: any) => p.id === targetPersonnelId);
-    let attachmentPath: string | null = null;
+    setSubmitting(true);
     try {
-      if (attachment) {
-        attachmentPath = await uploadLeaveAttachment(attachment, targetPersonnelId);
+      const person = personnel.find((p: any) => p.id === targetPersonnelId);
+
+      // Client-side pre-check to prevent double-submit creating duplicate rows
+      const { data: existing } = await supabase
+        .from("staff_leaves")
+        .select("id")
+        .eq("personnel_id", targetPersonnelId)
+        .eq("leave_type", leaveType)
+        .eq("start_date", startDate)
+        .eq("end_date", endDate)
+        .limit(1);
+      if (existing && existing.length > 0) {
+        toast.error(lang === "th" ? "มีใบลาซ้ำในช่วงวันเดียวกันอยู่แล้ว" : "A leave for the same dates already exists");
+        return;
       }
-    } catch (e: any) {
-      toast.error((lang === "th" ? "อัปโหลดไฟล์แนบล้มเหลว: " : "Attachment upload failed: ") + e.message);
-      return;
+
+      let attachmentPath: string | null = null;
+      try {
+        if (attachment) {
+          attachmentPath = await uploadLeaveAttachment(attachment, targetPersonnelId);
+        }
+      } catch (e: any) {
+        toast.error((lang === "th" ? "อัปโหลดไฟล์แนบล้มเหลว: " : "Attachment upload failed: ") + e.message);
+        return;
+      }
+      const normalizedActingTeacher = actingTeacher && actingTeacher !== "none" ? actingTeacher : "";
+      const { error } = await supabase.from("staff_leaves").insert({
+        personnel_id: targetPersonnelId,
+        leave_type: leaveType,
+        start_date: startDate,
+        end_date: endDate,
+        reason,
+        contact_phone: contactPhone,
+        acting_teacher: normalizedActingTeacher,
+        attachment_url: attachmentPath,
+      } as any);
+
+      if (error) {
+        const dup = /duplicate|unique|uniq_staff_leaves_pending/i.test(error.message);
+        toast.error(dup
+          ? (lang === "th" ? "มีใบลาซ้ำในช่วงวันเดียวกันอยู่แล้ว (รออนุมัติ)" : "A pending leave for the same dates already exists")
+          : error.message);
+        return;
+      }
+
+      const leaveLabel = LEAVE_TYPES.find(t => t.value === leaveType)?.th || leaveType;
+      toast.success(lang === "th" ? "ยื่นใบลาสำเร็จ" : "Leave request submitted");
+
+      // Google Chat / LINE notifications are already sent by database triggers (trg_gchat_staff_leave, line_vault_staff_leave_ins).
+      // Do NOT call sendGoogleChatNotification here or the message will be duplicated.
+
+      qc.invalidateQueries({ queryKey: ["staff_leaves"] });
+      setOpen(false);
+      resetForm();
+    } finally {
+      setSubmitting(false);
     }
-    const normalizedActingTeacher = actingTeacher && actingTeacher !== "none" ? actingTeacher : "";
-    const { error } = await supabase.from("staff_leaves").insert({
-      personnel_id: targetPersonnelId,
-      leave_type: leaveType,
-      start_date: startDate,
-      end_date: endDate,
-      reason,
-      contact_phone: contactPhone,
-      acting_teacher: normalizedActingTeacher,
-      attachment_url: attachmentPath,
-    } as any);
-
-    if (error) {
-      const dup = /duplicate|unique|uniq_staff_leaves_pending/i.test(error.message);
-      toast.error(dup
-        ? (lang === "th" ? "มีใบลาซ้ำในช่วงวันเดียวกันอยู่แล้ว (รออนุมัติ)" : "A pending leave for the same dates already exists")
-        : error.message);
-      return;
-    }
-
-    const leaveLabel = LEAVE_TYPES.find(t => t.value === leaveType)?.th || leaveType;
-    toast.success(lang === "th" ? "ยื่นใบลาสำเร็จ" : "Leave request submitted");
-
-    if (person) {
-      await sendGoogleChatNotification(
-        `📋 *ใบลาใหม่*\n👤 ${person.prefix || ""}${person.first_name} ${person.last_name}\n📝 ประเภท: ${leaveLabel}\n📅 ${startDate} ถึง ${endDate}\n💬 เหตุผล: ${reason}${normalizedActingTeacher ? `\n👨‍🏫 ครูสอนแทน: ${normalizedActingTeacher}` : ""}`,
-        "hr"
-      );
-    }
-
-    qc.invalidateQueries({ queryKey: ["staff_leaves"] });
-    setOpen(false);
-    resetForm();
   };
 
   const handleApprove = async (id: string) => {
