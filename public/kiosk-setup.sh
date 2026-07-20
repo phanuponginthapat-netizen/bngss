@@ -81,7 +81,7 @@ else
   KIOSK_POWER_ON="${KIOSK_POWER_ON:-06:30}"
   KIOSK_POWER_OFF="${KIOSK_POWER_OFF-}"                       # อนุญาต empty จาก CMS
   KIOSK_MONITOR_AGENT_URL="${KIOSK_MONITOR_AGENT_URL:-}"
-  KIOSK_EXTENSION_URL="${KIOSK_EXTENSION_URL:-https://bngss.lovable.app/safe-browser-extension.zip}"
+  KIOSK_EXTENSION_URL="${KIOSK_EXTENSION_URL:-}"   # door mode: ไม่ติดตั้ง extension (ตู้ประตูไม่มีนักเรียนใช้เว็บ)
 fi
 # ------------------------------------------
 
