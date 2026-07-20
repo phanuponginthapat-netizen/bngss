@@ -264,6 +264,29 @@ export default function PadletBoardPage() {
 
   return (
     <div className="space-y-4">
+      {(coverSigned || canManageBoard) && (
+        <div className="relative rounded-lg overflow-hidden border bg-gradient-to-br from-slate-100 to-slate-200" style={{ minHeight: coverSigned ? 180 : 60 }}>
+          {coverSigned && (
+            <img src={coverSigned} alt="cover" className="w-full h-44 sm:h-56 object-cover" />
+          )}
+          {canManageBoard && (
+            <div className="absolute top-2 right-2 flex gap-2">
+              <input ref={coverInputRef} type="file" accept="image/*" className="hidden"
+                onChange={e => e.target.files?.[0] && uploadCover(e.target.files[0])} />
+              <Button size="sm" variant="secondary" onClick={() => coverInputRef.current?.click()} disabled={uploadingCover} className="gap-1 shadow">
+                {uploadingCover ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />}
+                {coverSigned ? "เปลี่ยนภาพปก" : "เพิ่มภาพปก"}
+              </Button>
+              {coverSigned && (
+                <Button size="sm" variant="destructive" onClick={removeCover} className="gap-1 shadow">
+                  <Trash2 className="w-3.5 h-3.5" /> ลบปก
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-start gap-2 min-w-0">
           <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/padlet")}><ArrowLeft className="w-4 h-4" /></Button>
