@@ -94,6 +94,7 @@ const FaceReportTab = () => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewChartUrl, setPreviewChartUrl] = useState<string | null>(null);
   const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
   const [previewSummary, setPreviewSummary] = useState<string>("");
   const summaryRef = useRef<HTMLDivElement>(null);
