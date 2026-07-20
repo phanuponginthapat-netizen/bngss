@@ -63,6 +63,7 @@ type Group = {
   notify_leaves?: boolean;
   notify_substitute?: boolean;
   notify_calendar?: boolean;
+  notify_attendance?: boolean;
   drive_root_url?: string | null;
   drive_folder_id?: string | null;
 };
