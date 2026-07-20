@@ -113,18 +113,34 @@ function formatBytes(n: number | null) {
 }
 
 // ---------- Signed-URL cache + lazy thumbnail + inline preview ----------
+// Streams file bytes through our own edge function (RLS-checked) and returns
+// a blob: URL that <img>/<video>/<audio>/<iframe> can consume without needing
+// to send Authorization headers. This works for Google Drive files too, which
+// can't be embedded via webContentLink from a private account.
 const _urlCache = new Map<string, { url: string; ts: number }>();
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string) || "";
+const SUPABASE_ANON = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || "";
+
 async function getSignedUrl(itemId: string): Promise<string | null> {
   const cached = _urlCache.get(itemId);
   if (cached && Date.now() - cached.ts < 50 * 60 * 1000) return cached.url;
-  const { data } = await supabase.functions.invoke("line-vault-download", {
-    body: { item_id: itemId, expires_in: 3600 },
-  });
-  if ((data as any)?.url) {
-    _urlCache.set(itemId, { url: (data as any).url, ts: Date.now() });
-    return (data as any).url;
+  try {
+    const { data: sess } = await supabase.auth.getSession();
+    const token = sess?.session?.access_token;
+    if (!token) return null;
+    const res = await fetch(
+      `${SUPABASE_URL}/functions/v1/line-vault-stream?id=${encodeURIComponent(itemId)}`,
+      { headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON } },
+    );
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    _urlCache.set(itemId, { url, ts: Date.now() });
+    return url;
+  } catch (e) {
+    console.error("[getSignedUrl]", e);
+    return null;
   }
-  return null;
 }
 
 function useInView<T extends Element>(rootMargin = "200px") {
