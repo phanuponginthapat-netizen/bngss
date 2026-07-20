@@ -86,6 +86,36 @@ export default function PadletBoardPage() {
     const { data, error } = await supabase.from("padlet_boards").select("*, subjects:subject_id(name_th, code), classrooms:classroom_id(name, grade_level)").eq("id", id).maybeSingle();
     if (error) { toast.error(error.message); return; }
     setBoard(data);
+    if (data?.cover_image_url) {
+      const { data: signed } = await supabase.storage.from("padlet").createSignedUrl(data.cover_image_url, 3600);
+      if (signed?.signedUrl) setCoverSigned(signed.signedUrl);
+    } else {
+      setCoverSigned("");
+    }
+  };
+
+  const uploadCover = async (file: File) => {
+    if (!user || !board) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("รูปปกต้องไม่เกิน 5MB"); return; }
+    setUploadingCover(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `covers/${board.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("padlet").upload(path, file, { upsert: false, contentType: file.type });
+    if (upErr) { setUploadingCover(false); toast.error(upErr.message); return; }
+    if (board.cover_image_url) await supabase.storage.from("padlet").remove([board.cover_image_url]);
+    const { error } = await supabase.from("padlet_boards").update({ cover_image_url: path }).eq("id", board.id);
+    setUploadingCover(false);
+    if (coverInputRef.current) coverInputRef.current.value = "";
+    if (error) { toast.error(error.message); return; }
+    toast.success("อัปเดตรูปปกแล้ว");
+  };
+
+  const removeCover = async () => {
+    if (!board?.cover_image_url) return;
+    if (!confirm("ลบภาพปก?")) return;
+    await supabase.storage.from("padlet").remove([board.cover_image_url]);
+    await supabase.from("padlet_boards").update({ cover_image_url: null }).eq("id", board.id);
+    toast.success("ลบภาพปกแล้ว");
   };
 
   const loadNotes = async () => {
