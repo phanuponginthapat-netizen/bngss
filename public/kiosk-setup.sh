@@ -547,7 +547,25 @@ if [[ ! -s "$LOGO_PATH" ]]; then
   printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=' | base64 -d >"$LOGO_PATH" 2>/dev/null || true
 fi
 
-# plymouth theme files — ใช้ syntax แบบพื้นฐานเท่านั้นเพื่อเลี่ยง theme crash แล้วตกไปหน้า verbose
+# Plymouth แต่ละเวอร์ชัน/ดิสโทรรองรับ Image.Text/ฟอนต์ไทยไม่เท่ากัน
+# จึง render ข้อความเป็น PNG ไว้ก่อน แล้วให้ theme โหลดรูปภาพล้วน ๆ (เสถียรกว่า MX/Debian หลายรุ่น)
+make_text_png() {
+  local text="$1" out="$2" size="${3:-36}" width="${4:-900}" height="${5:-90}"
+  rm -f "$out"
+  if have convert; then
+    for font in Noto-Sans-Thai Tlwg-Typist DejaVu-Sans; do
+      convert -background none -fill white -gravity center -size "${width}x${height}" \
+        -font "$font" -pointsize "$size" "caption:${text}" PNG32:"$out" 2>/dev/null && break
+    done
+    [[ -s "$out" ]] || convert -background none -fill white -gravity center -size "${width}x${height}" \
+      -pointsize "$size" "caption:${text}" PNG32:"$out" 2>/dev/null || true
+  fi
+  [[ -s "$out" ]] || printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=' | base64 -d >"$out" 2>/dev/null || true
+}
+make_text_png "$CMS_NAME" "$THEME_DIR/title.png" 38 1000 110
+make_text_png "Starting system..." "$THEME_DIR/status.png" 24 700 60
+
+# plymouth theme files — ใช้ syntax แบบพื้นฐาน + รูปภาพล้วน เพื่อเลี่ยง theme crash แล้วตกไปหน้า verbose
 cat >"$THEME_DIR/smartschool.plymouth" <<EOF
 [Plymouth Theme]
 Name=Smart School
@@ -568,23 +586,25 @@ logo.sprite = Sprite(logo.image);
 logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
 logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2 - 70);
 
-title.image = Image.Text("$CMS_NAME", 1, 1, 1);
+title.image = Image("title.png");
 title.sprite = Sprite(title.image);
 title.sprite.SetX(Window.GetWidth() / 2 - title.image.GetWidth() / 2);
 title.sprite.SetY(Window.GetHeight() / 2 + 100);
 
-status.image = Image.Text("กำลังเริ่มระบบ...", 1, 1, 1);
+status.image = Image("status.png");
 status.sprite = Sprite(status.image);
 status.sprite.SetX(Window.GetWidth() / 2 - status.image.GetWidth() / 2);
 status.sprite.SetY(Window.GetHeight() - 80);
-
-fun message_cb (text) {
-  status.image = Image.Text(text, 1, 1, 1);
-  status.sprite.SetImage(status.image);
-  status.sprite.SetX(Window.GetWidth() / 2 - status.image.GetWidth() / 2);
-}
-Plymouth.SetMessageFunction(message_cb);
 PLY
+
+# บางเวอร์ชันไม่เขียน config ให้เองเมื่อใช้ -R แล้ว fail เงียบ ๆ → เขียนเองซ้ำให้แน่นอน
+install -d -m 755 /etc/plymouth
+cat >/etc/plymouth/plymouthd.conf <<EOF
+[Daemon]
+Theme=smartschool
+ShowDelay=0
+DeviceTimeout=8
+EOF
 
 # activate theme + บังคับ rebuild ผ่าน plymouth เองก่อน (ถ้ารองรับ -R)
 if have plymouth-set-default-theme; then
@@ -614,11 +634,11 @@ if [[ -f /etc/default/grub ]]; then
   # cmdline: quiet splash + loglevel + ปิด cursor + บังคับ Intel KMS
   CUR=$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null | sed 's/^[^=]*=//; s/^"//; s/"$//')
   NEW="$CUR"
-  for tok in quiet splash "loglevel=0" "rd.systemd.show_status=false" "rd.udev.log_level=0" "vt.global_cursor_default=0" "i915.modeset=1"; do
+  for tok in quiet splash "init=/lib/systemd/systemd" "loglevel=0" "systemd.show_status=false" "rd.systemd.show_status=false" "udev.log_level=0" "rd.udev.log_level=0" "vt.global_cursor_default=0" "plymouth.ignore-serial-consoles" "i915.modeset=1"; do
     [[ "$NEW" != *"$tok"* ]] && NEW="$NEW $tok"
   done
   # ลบ token ที่ทำให้ข้อความ boot โผล่หรือทับ loglevel=0
-  NEW=$(echo "$NEW" | sed -E 's/(^| )nosplash( |$)/ /g; s/(^| )noquiet( |$)/ /g; s/(^| )debug( |$)/ /g; s/(^| )loglevel=[0-9]+( |$)/ /g' | xargs)
+  NEW=$(echo "$NEW" | sed -E 's/(^| )(nosplash|noquiet|debug|noplymouth|plymouth.enable=0|systemd.show_status=1|splash=verbose|text)( |$)/ /g; s/(^| )loglevel=[0-9]+( |$)/ /g' | xargs)
   NEW="$(echo "$NEW loglevel=0" | xargs)"
   if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub; then
     sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$NEW\"|" /etc/default/grub
@@ -663,10 +683,13 @@ update-grub 2>&1 | tail -8 || update-grub2 2>&1 | tail -8 || true
 CURR_THEME=$(plymouth-set-default-theme 2>/dev/null || echo "unknown")
 log "   ✔  Plymouth theme ปัจจุบัน: $CURR_THEME (ต้องการ: smartschool)"
 log "   ✔  GRUB default: $(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null | cut -d= -f2-)"
+grep -qw splash /proc/cmdline 2>/dev/null || log "   ℹ  รอบบูตปัจจุบันยังไม่มี splash ใน cmdline — ต้อง reboot 1 ครั้งจึงเห็น Plymouth ใหม่"
 cat >/opt/kiosk/check-plymouth.sh <<'CHECKPLY'
 #!/usr/bin/env bash
 echo "== Plymouth theme =="
 plymouth-set-default-theme 2>/dev/null || true
+echo "== Plymouth daemon config =="
+cat /etc/plymouth/plymouthd.conf 2>/dev/null || true
 echo "== Kernel cmdline (current boot) =="
 cat /proc/cmdline
 echo "== GRUB config =="
@@ -675,6 +698,8 @@ echo "== Initramfs modules =="
 grep -E '^(drm|drm_kms_helper|i915|fbcon)$' /etc/initramfs-tools/modules || true
 echo "== Plymouth files =="
 ls -l /usr/share/plymouth/themes/smartschool/ || true
+echo "== Plymouth script plugin =="
+ls /usr/lib*/plymouth/script.so /usr/lib/*/plymouth/script.so 2>/dev/null || true
 CHECKPLY
 chmod +x /opt/kiosk/check-plymouth.sh
 
@@ -1248,10 +1273,10 @@ if [[ -f /etc/default/grub ]]; then
   fi
   CUR=$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null | sed 's/^[^=]*=//; s/^"//; s/"$//')
   NEW="$CUR"
-  for tok in quiet splash loglevel=0 rd.systemd.show_status=false rd.udev.log_level=0 vt.global_cursor_default=0 "${EXTRA_TOKENS[@]}"; do
+  for tok in quiet splash init=/lib/systemd/systemd loglevel=0 systemd.show_status=false rd.systemd.show_status=false udev.log_level=0 rd.udev.log_level=0 vt.global_cursor_default=0 plymouth.ignore-serial-consoles "${EXTRA_TOKENS[@]}"; do
     [[ "$NEW" != *"$tok"* ]] && NEW="$NEW $tok"
   done
-  NEW=$(echo "$NEW" | sed -E 's/(^| )loglevel=[0-9]+( |$)/ /g' | xargs)
+  NEW=$(echo "$NEW" | sed -E 's/(^| )(nosplash|noquiet|debug|noplymouth|plymouth.enable=0|systemd.show_status=1|splash=verbose|text)( |$)/ /g; s/(^| )loglevel=[0-9]+( |$)/ /g' | xargs)
   NEW="$(echo "$NEW loglevel=0" | xargs)"
   sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$NEW\"|" /etc/default/grub || true
   update-grub >/dev/null 2>&1 || true
