@@ -294,19 +294,16 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
     if (!(await verifyLocation())) return;
     setManualLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("students")
-        .select("id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name)")
-        .eq("student_code", code)
-        .maybeSingle();
+      const { data, error } = await (supabase as any).rpc("resolve_scanned_student", { _input: code });
       if (error) throw error;
-      if (!data) {
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row) {
         toast.error(`ไม่พบนักเรียนรหัส ${code}`);
         return;
       }
-      const cls = (data as any).classrooms ? `${(data as any).classrooms.grade_level || ""}/${(data as any).classrooms.name || ""}` : "-";
-      const name = `${data.prefix || ""}${data.first_name} ${data.last_name}`.trim();
-      await recordScan(data.id, data.student_code || code, name, cls, 1, undefined, data.photo_url, "manual");
+      const cls = row.grade_level ? `${row.grade_level}/${row.classroom_name || ""}` : "-";
+      const name = `${row.prefix || ""}${row.first_name} ${row.last_name}`.trim();
+      await recordScan(row.id, row.student_code || code, name, cls, 1, undefined, row.photo_url, "manual");
       setManualCode("");
     } catch (e: any) {
       toast.error("บันทึกล้มเหลว: " + (e?.message || ""));
@@ -314,6 +311,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
       setManualLoading(false);
     }
   }, [manualCode, verifyLocation]);
+
 
   const startCamera = useCallback(async (overrideFacing?: "user" | "environment") => {
     const useFacing = overrideFacing || facing;
@@ -758,19 +756,18 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
         await recordScan(k.studentId, k.studentCode, k.name, k.classroom, 1, undefined, k.avatarUrl, "qr");
         return;
       }
-      const { data } = await supabase
-        .from("students")
-        .select("id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name)")
-        .eq("student_code", code)
-        .maybeSingle();
-      if (data) {
-        const cls = (data as any).classrooms ? `${(data as any).classrooms.grade_level || ""}/${(data as any).classrooms.name || ""}` : "-";
-        const name = `${data.prefix || ""}${data.first_name} ${data.last_name}`.trim();
-        await recordScan(data.id, data.student_code || code, name, cls, 1, undefined, data.photo_url, "qr");
+      // ใช้ RPC เพื่อข้าม RLS scope ห้อง — ครูเวรที่ประตูมักไม่ได้สอนห้องนั้น
+      const { data } = await (supabase as any).rpc("resolve_scanned_student", { _input: raw });
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row) {
+        const cls = row.grade_level ? `${row.grade_level}/${row.classroom_name || ""}` : "-";
+        const name = `${row.prefix || ""}${row.first_name} ${row.last_name}`.trim();
+        await recordScan(row.id, row.student_code || code, name, cls, 1, undefined, row.photo_url, "qr");
       } else {
         toast.error(`ไม่พบนักเรียนรหัส ${code}`);
       }
     };
+
 
     const scanWithJsQr = async (video: HTMLVideoElement): Promise<string[]> => {
       if (!jsQR || !scanCtx || !video.videoWidth || !video.videoHeight) return [];

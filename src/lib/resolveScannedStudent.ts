@@ -116,5 +116,25 @@ export async function resolveScannedStudent(
     if (byId) return byId as ResolvedStudent;
   }
 
+  // 4) fallback ผ่าน RPC (SECURITY DEFINER) — ข้าม RLS scope ห้อง เพื่อรองรับครูเวร/คีออส
+  //    RPC จะจำกัดเฉพาะ authenticated เท่านั้น และคืนข้อมูลพื้นฐานที่จำเป็น
+  try {
+    const { data } = await (supabase as any).rpc("resolve_scanned_student", { _input: s });
+    const row = Array.isArray(data) ? data[0] : data;
+    if (row) {
+      if (classroomId && row.classroom_id !== classroomId) return null;
+      return {
+        id: row.id,
+        student_code: row.student_code,
+        prefix: row.prefix,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        classroom_id: row.classroom_id,
+        auth_user_id: row.auth_user_id,
+      } as ResolvedStudent;
+    }
+  } catch { /* ignore */ }
+
   return null;
 }
+
