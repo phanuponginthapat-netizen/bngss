@@ -128,6 +128,16 @@ export async function captureLineGroupEvent(
 
     // Image / video / file / audio -> upload to Google Drive (fallback to Supabase storage)
     if (["image", "video", "file", "audio"].includes(msg.type)) {
+      // Dedupe FIRST — LINE webhook may retry the same event, causing double Drive uploads.
+      // The DB has UNIQUE(line_message_id) but by the time insert fails, Drive already has a copy.
+      if (msg.id) {
+        const { data: existing } = await sb
+          .from("line_vault_items")
+          .select("id")
+          .eq("line_message_id", msg.id)
+          .maybeSingle();
+        if (existing) return { captured: false, reason: "duplicate_message" };
+      }
       const content = await deps.downloadLineContent(token, msg.id);
       if (!content) return { captured: false, reason: "download_failed" };
       const kind: "photo" | "file" = msg.type === "image" ? "photo" : "file";
@@ -187,7 +197,18 @@ export async function captureLineGroupEvent(
         size_bytes: content.data.byteLength,
         original_filename: origName,
       });
-      if (error && !`${error.message}`.includes("duplicate")) throw error;
+      if (error) {
+        // If insert failed (dupe or otherwise), clean up the just-uploaded Drive file
+        // so it doesn't become an orphan.
+        if (driveFileId) {
+          try {
+            const { deleteFile } = await import("./googleDrive.ts");
+            await deleteFile(driveFileId);
+          } catch (e) { console.error("[vault rollback drive]", e); }
+        }
+        if (`${error.message}`.includes("duplicate")) return { captured: false, reason: "duplicate_message" };
+        throw error;
+      }
       return { captured: true };
     }
 

@@ -8454,6 +8454,42 @@ export type Database = {
         }
         Relationships: []
       }
+      line_vault_drive_trash: {
+        Row: {
+          attempts: number
+          created_at: string
+          drive_file_id: string
+          id: string
+          last_error: string | null
+          line_group_id: string | null
+          processed_at: string | null
+          source_item_id: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          drive_file_id: string
+          id?: string
+          last_error?: string | null
+          line_group_id?: string | null
+          processed_at?: string | null
+          source_item_id?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          drive_file_id?: string
+          id?: string
+          last_error?: string | null
+          line_group_id?: string | null
+          processed_at?: string | null
+          source_item_id?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       line_vault_groups: {
         Row: {
           auto_capture: boolean
