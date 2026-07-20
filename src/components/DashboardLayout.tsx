@@ -255,7 +255,55 @@ const DashboardLayout = () => {
               <span className="text-sm truncate max-w-[140px]">{appName}</span>
             </Link>
 
-            {/* Global search removed — prevents cross-role access to menus/students/documents */}
+            {/* Desktop brand lockup — CMS logo + school name */}
+            <Link
+              to="/dashboard"
+              className="hidden md:flex items-center gap-3 ml-1 pl-2 pr-4 py-1.5 rounded-2xl group relative overflow-hidden"
+              aria-label={appName}
+            >
+              {/* soft gradient wash */}
+              <span
+                aria-hidden
+                className="absolute inset-0 opacity-70 group-hover:opacity-100 transition-opacity"
+                style={{
+                  background:
+                    "linear-gradient(120deg, hsl(var(--primary)/0.12), hsl(var(--accent)/0.10) 55%, transparent)",
+                }}
+              />
+              {/* logo puck */}
+              <span className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-card shadow-[0_4px_16px_-6px_hsl(var(--primary)/0.45)] ring-1 ring-primary/20 overflow-hidden">
+                {schoolLogo ? (
+                  <img
+                    src={schoolLogo}
+                    alt=""
+                    className="w-9 h-9 object-contain"
+                    draggable={false}
+                    onContextMenu={(e) => e.preventDefault()}
+                  />
+                ) : (
+                  <span className="w-9 h-9 rounded-lg gradient-primary" aria-hidden />
+                )}
+              </span>
+              {/* text lockup */}
+              <span className="relative flex flex-col leading-tight min-w-0">
+                <span
+                  className="text-[15px] font-bold tracking-tight truncate max-w-[260px]"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)))",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  {appName}
+                </span>
+                <span className="text-[11px] font-medium text-muted-foreground/80 tracking-wide truncate max-w-[260px]">
+                  {lang === "th" ? "ระบบบริหารจัดการโรงเรียนอัจฉริยะ" : "Smart School Management"}
+                </span>
+              </span>
+            </Link>
+
+
 
 
             <div className="flex-1" />
