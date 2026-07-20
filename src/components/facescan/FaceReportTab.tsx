@@ -1377,7 +1377,6 @@ const FaceReportTab = () => {
               <Send className="w-4 h-4 mr-2" />{sendingLine ? "กำลังส่ง..." : "ยืนยันส่งเข้ากลุ่ม LINE"}
             </Button>
           </DialogFooter>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
