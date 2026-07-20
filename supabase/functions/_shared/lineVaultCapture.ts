@@ -128,20 +128,38 @@ export async function captureLineGroupEvent(
 
     // Image / video / file / audio -> upload to Google Drive (fallback to Supabase storage)
     if (["image", "video", "file", "audio"].includes(msg.type)) {
-      // Dedupe FIRST — LINE webhook may retry the same event, causing double Drive uploads.
-      // The DB has UNIQUE(line_message_id) but by the time insert fails, Drive already has a copy.
-      if (msg.id) {
-        const { data: existing } = await sb
-          .from("line_vault_items")
-          .select("id")
-          .eq("line_message_id", msg.id)
-          .maybeSingle();
-        if (existing) return { captured: false, reason: "duplicate_message" };
-      }
-      const content = await deps.downloadLineContent(token, msg.id);
-      if (!content) return { captured: false, reason: "download_failed" };
+      if (!msg.id) return { captured: false, reason: "no_message_id" };
+
+      // LOCK FIRST: insert a placeholder row keyed on the unique line_message_id
+      // BEFORE touching Drive. Concurrent webhook retries lose the race here and
+      // exit without uploading, so Drive can never accumulate duplicates.
       const kind: "photo" | "file" = msg.type === "image" ? "photo" : "file";
-      const origName: string = msg.fileName || (msg.type === "image" ? `photo-${msg.id}.jpg` : `${msg.type}-${msg.id}.${extFromMime(content.mime)}`);
+      const placeholderTitle = msg.fileName || (kind === "photo"
+        ? `รูปภาพจาก ${grp.group_name}`
+        : `ไฟล์จาก ${grp.group_name}`);
+      const { data: placeholder, error: lockErr } = await sb
+        .from("line_vault_items")
+        .insert({ ...baseRow, kind, title: placeholderTitle })
+        .select("id")
+        .maybeSingle();
+      if (lockErr) {
+        const em = `${lockErr.message}`.toLowerCase();
+        if (em.includes("duplicate") || em.includes("unique")) {
+          return { captured: false, reason: "duplicate_message" };
+        }
+        console.error("[vault placeholder insert]", lockErr);
+        return { captured: false, reason: "placeholder_failed" };
+      }
+      const rowId = placeholder!.id as string;
+
+      const content = await deps.downloadLineContent(token, msg.id);
+      if (!content) {
+        await sb.from("line_vault_items").delete().eq("id", rowId);
+        return { captured: false, reason: "download_failed" };
+      }
+      const origName: string = msg.fileName || (msg.type === "image"
+        ? `photo-${msg.id}.jpg`
+        : `${msg.type}-${msg.id}.${extFromMime(content.mime)}`);
       const ext = origName.includes(".") ? origName.split(".").pop() : extFromMime(content.mime);
       const now = new Date();
       const y = now.getFullYear();
@@ -151,66 +169,57 @@ export async function captureLineGroupEvent(
       let driveWebViewLink: string | null = null;
       let storagePath: string | null = null;
 
-      // Try Google Drive first
       try {
         const { ensureFolderPath, ensureFolder, uploadFile } = await import("./googleDrive.ts");
         const folderName = (grp.group_name || `group-${groupId.slice(0, 8)}`).replace(/[\\/]/g, "-");
         let parent: string;
         if (grp.drive_root_folder_id) {
-          // Per-group custom Drive root -> create {Year}/{Month} under it
           const yearFolder = await ensureFolder(String(y), grp.drive_root_folder_id);
           parent = await ensureFolder(m, yearFolder);
         } else {
-          // Default: LineVault/{Year}/{GroupName}/{Month} under Drive root
           parent = await ensureFolderPath(["LineVault", String(y), folderName, m]);
         }
         const uploaded = await uploadFile(`${msg.id}.${ext}`, content.mime, content.data, parent);
         driveFileId = uploaded.id;
         driveWebViewLink = uploaded.webViewLink || null;
-        // Persist folder id on group for reference
         if (!grp.drive_folder_id) {
           await sb.from("line_vault_groups").update({ drive_folder_id: parent }).eq("id", grp.id);
         }
       } catch (driveErr) {
         console.error("[vault drive upload failed, fallback to bucket]", (driveErr as any)?.message || driveErr);
-        // Fallback to Supabase storage
         const path = `${y}/${m}/${groupId}/${msg.id}.${ext}`;
         const { error: upErr } = await sb.storage.from("line-vault").upload(path, content.data, {
           contentType: content.mime, upsert: false,
         });
         if (upErr && !`${upErr.message}`.toLowerCase().includes("exists")) {
           console.error("[vault upload]", upErr);
+          await sb.from("line_vault_items").delete().eq("id", rowId);
           return { captured: false, reason: "upload_failed" };
         }
         storagePath = path;
       }
 
-      const title = msg.fileName || (kind === "photo" ? `รูปภาพจาก ${grp.group_name}` : `ไฟล์จาก ${grp.group_name}`);
-      const { error } = await sb.from("line_vault_items").insert({
-        ...baseRow,
-        kind,
-        title,
+      const { error: updErr } = await sb.from("line_vault_items").update({
         storage_path: storagePath,
         drive_file_id: driveFileId,
         drive_web_view_link: driveWebViewLink,
         mime_type: content.mime,
         size_bytes: content.data.byteLength,
         original_filename: origName,
-      });
-      if (error) {
-        // If insert failed (dupe or otherwise), clean up the just-uploaded Drive file
-        // so it doesn't become an orphan.
+      }).eq("id", rowId);
+      if (updErr) {
         if (driveFileId) {
           try {
             const { deleteFile } = await import("./googleDrive.ts");
             await deleteFile(driveFileId);
           } catch (e) { console.error("[vault rollback drive]", e); }
         }
-        if (`${error.message}`.includes("duplicate")) return { captured: false, reason: "duplicate_message" };
-        throw error;
+        await sb.from("line_vault_items").delete().eq("id", rowId);
+        throw updErr;
       }
       return { captured: true };
     }
+
 
 
     return { captured: false, reason: `unsupported_type:${msg.type}` };
