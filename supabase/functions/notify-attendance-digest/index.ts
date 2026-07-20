@@ -25,8 +25,8 @@ async function getVaultToken(sb: any): Promise<string | null> {
   return (data?.value as string) || null;
 }
 
-function buildChartUrl(labels: string[], present: number[], absent: number[], late: number[], leave: number[]): string {
-  const config = {
+function buildChartConfig(labels: string[], present: number[], absent: number[], late: number[], leave: number[]) {
+  return {
     type: "bar",
     data: {
       labels,
@@ -47,9 +47,25 @@ function buildChartUrl(labels: string[], present: number[], absent: number[], la
       plugins: { datalabels: { display: true, color: "#fff", font: { weight: "bold" } } },
     },
   };
+}
+
+async function shortChartUrl(config: unknown): Promise<string> {
+  // QuickChart short-URL API — returns a stable https link well under LINE's 2000-char limit.
+  try {
+    const res = await fetch("https://quickchart.io/chart/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chart: config, width: 900, height: 500, backgroundColor: "white", devicePixelRatio: 2 }),
+    });
+    if (res.ok) {
+      const j = await res.json();
+      if (j?.url) return j.url as string;
+    }
+    console.error("quickchart short url failed", res.status, await res.text().catch(() => ""));
+  } catch (e) { console.error("quickchart short url error", e); }
+  // Fallback: inline (may exceed 2000 chars for large charts, but better than nothing)
   const params = new URLSearchParams({
-    c: JSON.stringify(config),
-    width: "900", height: "500", backgroundColor: "white", devicePixelRatio: "2",
+    c: JSON.stringify(config), width: "900", height: "500", backgroundColor: "white", devicePixelRatio: "2",
   });
   return `https://quickchart.io/chart?${params.toString()}`;
 }
@@ -69,17 +85,39 @@ serve(async (req) => {
     const sb = makeAdmin();
     const today = bkkDate(0);
 
-    // Pull today's attendance joined with student grade level
-    const { data: rows, error } = await sb
+    // Pull today's attendance, then look up classroom grade level via students -> classrooms
+    const { data: attRows, error: attErr } = await sb
       .from("attendance")
-      .select("status, students!inner(grade_level)")
+      .select("status, student_id")
       .eq("attendance_date", today);
-    if (error) throw error;
+    if (attErr) throw attErr;
 
-    // Aggregate by grade_level
+    const studentIds = Array.from(new Set(((attRows as any[]) || []).map((r) => r.student_id).filter(Boolean)));
+    const gradeByStudent = new Map<string, string>();
+    if (studentIds.length > 0) {
+      const { data: studs, error: sErr } = await sb
+        .from("students")
+        .select("id, classroom_id")
+        .in("id", studentIds);
+      if (sErr) { console.error("students fetch", sErr); throw sErr; }
+      const classroomIds = Array.from(new Set(((studs as any[]) || []).map((s) => s.classroom_id).filter(Boolean)));
+      const gradeByClassroom = new Map<string, string>();
+      if (classroomIds.length > 0) {
+        const { data: cls, error: cErr } = await sb
+          .from("classrooms")
+          .select("id, grade_level")
+          .in("id", classroomIds);
+        if (cErr) { console.error("classrooms fetch", cErr); throw cErr; }
+        for (const c of (cls as any[]) || []) gradeByClassroom.set(c.id, c.grade_level || "ไม่ระบุ");
+      }
+      for (const s of (studs as any[]) || []) {
+        gradeByStudent.set(s.id, gradeByClassroom.get(s.classroom_id) || "ไม่ระบุ");
+      }
+    }
+
     const byGrade: Record<string, { present: number; absent: number; late: number; leave: number }> = {};
-    for (const r of (rows as any[]) || []) {
-      const g = (r.students?.grade_level as string) || "ไม่ระบุ";
+    for (const r of (attRows as any[]) || []) {
+      const g = gradeByStudent.get(r.student_id) || "ไม่ระบุ";
       if (!byGrade[g]) byGrade[g] = { present: 0, absent: 0, late: 0, leave: 0 };
       const s = (r.status || "present").toLowerCase();
       if (s === "present") byGrade[g].present++;
@@ -104,9 +142,10 @@ serve(async (req) => {
     const totalLeave = leave.reduce((a,b)=>a+b,0);
     const totalAll = totalPresent + totalAbsent + totalLate + totalLeave;
 
-    const chartUrl = labels.length > 0
-      ? buildChartUrl(labels, present, absent, late, leave)
-      : `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify({type:"bar",data:{labels:["ไม่มีข้อมูล"],datasets:[{label:"-",data:[0]}]},options:{title:{display:true,text:"ยังไม่มีการสแกน"}}}))}&width=900&height=500&backgroundColor=white`;
+    const chartConfig = labels.length > 0
+      ? buildChartConfig(labels, present, absent, late, leave)
+      : { type: "bar", data: { labels: ["ไม่มีข้อมูล"], datasets: [{ label: "-", data: [0] }] }, options: { title: { display: true, text: "ยังไม่มีการสแกน" } } };
+    const chartUrl = await shortChartUrl(chartConfig);
 
     const summary = `📊 รายงานการมาโรงเรียน\n📅 ${thDate(today)}\n\n✅ มา ${totalPresent} คน\n⏰ สาย ${totalLate} คน\n📝 ลา ${totalLeave} คน\n❌ ขาด ${totalAbsent} คน\n────────\nรวม ${totalAll} คน (ณ เวลา 10:00 น.)`;
 
