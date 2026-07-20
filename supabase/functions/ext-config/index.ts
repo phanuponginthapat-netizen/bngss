@@ -27,6 +27,16 @@ Deno.serve(async (req) => {
     .order("sort_order", { ascending: true });
   out.browser_shortcuts = shortcuts ?? [];
 
+  // Kiosk config (จากหน้า Kiosk Setup) — สคริปต์ setup ใช้เป็น defaults
+  const { data: kioskRow } = await supabase
+    .from("school_settings")
+    .select("setting_value")
+    .eq("setting_key", "kiosk_config")
+    .maybeSingle();
+  let kioskCfg: any = kioskRow?.setting_value ?? null;
+  if (typeof kioskCfg === "string") { try { kioskCfg = JSON.parse(kioskCfg); } catch { kioskCfg = null; } }
+  out.kiosk_config = kioskCfg ?? null;
+
   return new Response(JSON.stringify(out), {
     headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=60" },
   });
