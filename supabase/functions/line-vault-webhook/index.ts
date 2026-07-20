@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
           const name = group?.group_name || "กลุ่มนี้";
           const welcome =
             `🎉 สวัสดีครับ! เชื่อมต่อ "${name}" กับคลัง LINE Vault สำเร็จแล้ว\n` +
-            `📥 รูป/วิดีโอ/ไฟล์/โน้ต ที่ส่งในกลุ่มนี้จะถูกเก็บอัตโนมัติ\n` +
+            `📥 รูป/วิดีโอ/ไฟล์ ที่ส่งในกลุ่มนี้จะถูกเก็บอัตโนมัติ (ข้อความจะใช้เป็นคำอธิบายไฟล์เท่านั้น)\n` +
             `☁️ ปลายทาง: Google Drive → LineVault/${new Date().getFullYear()}/${name}/(เดือน)\n` +
             `⚙️ แอดมินสามารถเปลี่ยนชื่อ/หมวด/สิทธิ์ได้ในหน้า LINE Vault`;
           if (event.replyToken) await replyMessage(token, event.replyToken, welcome);
