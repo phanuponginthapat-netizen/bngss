@@ -604,6 +604,7 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
         {rows.map((row, idx) => {
           if (row.kind === "album") {
             const first = row.items[0];
+            const albumDesc = row.items.find(x => x.description)?.description || null;
             const albumIds = row.items.map(x => x.id);
             const allSel = albumIds.every(id => selected.has(id));
             return (
@@ -636,9 +637,9 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
                   <div className="font-medium line-clamp-2 min-h-[2.5rem] cursor-pointer" onClick={() => setAlbumOpen(row.items)}>
                     อัลบั้มจาก {first.line_sender_name || "LINE"}
                   </div>
-                  {first.description && (
+                  {albumDesc && (
                     <p className="text-xs text-muted-foreground line-clamp-2 whitespace-pre-wrap flex items-start gap-1">
-                      <MessageSquareText className="h-3 w-3 mt-0.5 shrink-0" />{first.description}
+                      <MessageSquareText className="h-3 w-3 mt-0.5 shrink-0" />{albumDesc}
                     </p>
                   )}
                   <div className="text-[11px] text-muted-foreground flex items-center justify-between">
