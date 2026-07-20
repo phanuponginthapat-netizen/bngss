@@ -25,37 +25,54 @@ async function getVaultToken(sb: any): Promise<string | null> {
   return (data?.value as string) || null;
 }
 
-function buildChartConfig(labels: string[], present: number[], absent: number[], late: number[], leave: number[]) {
+function buildChartConfig(
+  labels: string[],
+  present: number[],
+  absent: number[],
+  late: number[],
+  leave: number[],
+  totals: { totalPresent: number; totalAbsent: number; totalLate: number; totalLeave: number; totalAll: number },
+  dateLabel: string,
+) {
+  const pct = totals.totalAll > 0 ? Math.round((totals.totalPresent / totals.totalAll) * 1000) / 10 : 0;
+  const subtitle = `📅 ${dateLabel}   |   รวม ${totals.totalAll} คน   |   มา ${totals.totalPresent} (${pct}%)  •  สาย ${totals.totalLate}  •  ลา ${totals.totalLeave}  •  ขาด ${totals.totalAbsent}`;
   return {
     type: "bar",
     data: {
       labels,
       datasets: [
-        { label: "มา", backgroundColor: "#10B981", data: present, stack: "a" },
-        { label: "สาย", backgroundColor: "#F59E0B", data: late, stack: "a" },
-        { label: "ลา", backgroundColor: "#6366F1", data: leave, stack: "a" },
-        { label: "ขาด", backgroundColor: "#EF4444", data: absent, stack: "a" },
+        { label: "มา",  backgroundColor: "#10B981", data: present, stack: "a", borderRadius: 4 },
+        { label: "สาย", backgroundColor: "#F59E0B", data: late,    stack: "a", borderRadius: 4 },
+        { label: "ลา",  backgroundColor: "#6366F1", data: leave,   stack: "a", borderRadius: 4 },
+        { label: "ขาด", backgroundColor: "#EF4444", data: absent,  stack: "a", borderRadius: 4 },
       ],
     },
     options: {
-      title: { display: true, text: "การมาโรงเรียนแยกตามระดับชั้น", fontSize: 20 },
-      legend: { position: "bottom" },
+      title: { display: true, text: ["📊 รายงานการสแกนเข้าโรงเรียน", subtitle], fontSize: 20, fontStyle: "bold", fontColor: "#0F172A", padding: 16 },
+      legend: { position: "bottom", labels: { fontSize: 14, fontStyle: "bold", padding: 14 } },
+      layout: { padding: { left: 12, right: 20, top: 8, bottom: 12 } },
       scales: {
-        xAxes: [{ stacked: true, ticks: { fontSize: 14 } }],
-        yAxes: [{ stacked: true, ticks: { beginAtZero: true, fontSize: 12 } }],
+        xAxes: [{ stacked: true, gridLines: { display: false }, ticks: { fontSize: 14, fontStyle: "bold", fontColor: "#334155" } }],
+        yAxes: [{ stacked: true, gridLines: { color: "#E2E8F0" }, ticks: { beginAtZero: true, fontSize: 12, fontColor: "#64748B" } }],
       },
-      plugins: { datalabels: { display: true, color: "#fff", font: { weight: "bold" } } },
+      plugins: {
+        datalabels: {
+          display: (ctx: any) => (ctx.dataset.data[ctx.dataIndex] || 0) > 0,
+          color: "#fff",
+          font: { weight: "bold", size: 12 },
+          formatter: (v: number) => v,
+        },
+      },
     },
   };
 }
 
 async function shortChartUrl(config: unknown): Promise<string> {
-  // QuickChart short-URL API — returns a stable https link well under LINE's 2000-char limit.
   try {
     const res = await fetch("https://quickchart.io/chart/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chart: config, width: 900, height: 500, backgroundColor: "white", devicePixelRatio: 2 }),
+      body: JSON.stringify({ chart: config, width: 1100, height: 620, backgroundColor: "white", devicePixelRatio: 2, version: "2.9.4" }),
     });
     if (res.ok) {
       const j = await res.json();
@@ -63,12 +80,12 @@ async function shortChartUrl(config: unknown): Promise<string> {
     }
     console.error("quickchart short url failed", res.status, await res.text().catch(() => ""));
   } catch (e) { console.error("quickchart short url error", e); }
-  // Fallback: inline (may exceed 2000 chars for large charts, but better than nothing)
   const params = new URLSearchParams({
-    c: JSON.stringify(config), width: "900", height: "500", backgroundColor: "white", devicePixelRatio: "2",
+    c: JSON.stringify(config), width: "1100", height: "620", backgroundColor: "white", devicePixelRatio: "2",
   });
   return `https://quickchart.io/chart?${params.toString()}`;
 }
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
