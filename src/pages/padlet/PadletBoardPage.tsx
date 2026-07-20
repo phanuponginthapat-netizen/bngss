@@ -72,6 +72,9 @@ export default function PadletBoardPage() {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [coverSigned, setCoverSigned] = useState<string>("");
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const isOwner = board && user && board.owner_id === user.id;
