@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUserRole } from "@/hooks/useUserRole";
-import { LogOut, User, Settings, Shield, Inbox, Search, PanelLeft } from "lucide-react";
+import { LogOut, User, Settings, Shield, Inbox, PanelLeft } from "lucide-react";
 import NotificationDropdown from "@/components/NotificationDropdown";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -23,7 +23,7 @@ import { MobileBottomNav } from "@/components/mobile";
 import EnablePushBanner from "@/components/EnablePushBanner";
 import ObserverBanner from "@/components/ObserverBanner";
 import { useAuthSession } from "@/hooks/useAuthSession";
-import CommandPalette from "@/components/CommandPalette";
+// CommandPalette removed to prevent cross-role access via global search
 import NotificationHighlightScroller from "@/components/NotificationHighlightScroller";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import PWAInstallButton from "@/components/PWAInstallButton";
@@ -255,32 +255,8 @@ const DashboardLayout = () => {
               <span className="text-sm truncate max-w-[140px]">{appName}</span>
             </Link>
 
-            {/* Search trigger — opens CommandPalette (⌘K) */}
-            <button
-              type="button"
-              onClick={() => {
-                const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
-                const ev = new KeyboardEvent("keydown", {
-                  key: "k",
-                  code: "KeyK",
-                  metaKey: isMac,
-                  ctrlKey: !isMac,
-                  bubbles: true,
-                });
-                window.dispatchEvent(ev);
-              }}
-              className="hidden md:flex items-center gap-2 h-9 px-3 ml-2 rounded-full bg-muted/60 hover:bg-muted border border-border/50 text-sm text-muted-foreground transition-colors w-full max-w-[320px]"
-              aria-label={lang === "th" ? "ค้นหา" : "Search"}
-              data-tour="global-search"
-            >
-              <Search className="w-4 h-4 shrink-0" />
-              <span className="truncate flex-1 text-left">
-                {lang === "th" ? "ค้นหาเมนู, นักเรียน, เอกสาร…" : "Search menus, students, docs…"}
-              </span>
-              <kbd className="hidden lg:inline-flex items-center gap-0.5 text-[10px] font-mono px-1.5 py-0.5 rounded bg-background border border-border/60 shrink-0">
-                ⌘K
-              </kbd>
-            </button>
+            {/* Global search removed — prevents cross-role access to menus/students/documents */}
+
 
             <div className="flex-1" />
             <div className="ml-auto flex items-center gap-1 rounded-full bg-muted/40 border border-border/50 px-1 py-1 backdrop-blur-sm">
@@ -313,7 +289,7 @@ const DashboardLayout = () => {
           <AiChatBubble />
         </main>
         <AppSidebar />
-        <CommandPalette />
+        {/* CommandPalette disabled — global search removed for access-control safety */}
         <OnboardingTour />
       </div>
     </SidebarProvider>
