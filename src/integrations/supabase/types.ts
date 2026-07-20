@@ -8457,6 +8457,7 @@ export type Database = {
       line_vault_groups: {
         Row: {
           auto_capture: boolean
+          calendar_digest_time: string
           created_at: string
           default_category: string | null
           default_visibility: string
@@ -8466,15 +8467,20 @@ export type Database = {
           drive_root_url: string | null
           group_name: string
           id: string
+          last_calendar_digest_date: string | null
           last_notified_at: string | null
           line_group_id: string
           notes: string | null
+          notify_calendar: boolean
           notify_cooldown_minutes: number
+          notify_leaves: boolean
           notify_on_capture: boolean
+          notify_substitute: boolean
           updated_at: string
         }
         Insert: {
           auto_capture?: boolean
+          calendar_digest_time?: string
           created_at?: string
           default_category?: string | null
           default_visibility?: string
@@ -8484,15 +8490,20 @@ export type Database = {
           drive_root_url?: string | null
           group_name: string
           id?: string
+          last_calendar_digest_date?: string | null
           last_notified_at?: string | null
           line_group_id: string
           notes?: string | null
+          notify_calendar?: boolean
           notify_cooldown_minutes?: number
+          notify_leaves?: boolean
           notify_on_capture?: boolean
+          notify_substitute?: boolean
           updated_at?: string
         }
         Update: {
           auto_capture?: boolean
+          calendar_digest_time?: string
           created_at?: string
           default_category?: string | null
           default_visibility?: string
@@ -8502,11 +8513,15 @@ export type Database = {
           drive_root_url?: string | null
           group_name?: string
           id?: string
+          last_calendar_digest_date?: string | null
           last_notified_at?: string | null
           line_group_id?: string
           notes?: string | null
+          notify_calendar?: boolean
           notify_cooldown_minutes?: number
+          notify_leaves?: boolean
           notify_on_capture?: boolean
+          notify_substitute?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -15435,6 +15450,10 @@ export type Database = {
         Returns: boolean
       }
       is_template_public: { Args: { _tid: string }; Returns: boolean }
+      line_vault_dispatch: {
+        Args: { category: string; payload: Json }
+        Returns: undefined
+      }
       link_line_to_student_slot: {
         Args: { _line_user_id: string; _student_id: string }
         Returns: number
