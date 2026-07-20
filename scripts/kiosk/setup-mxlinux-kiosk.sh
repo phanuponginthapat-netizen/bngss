@@ -38,11 +38,16 @@ CFG_JSON=$(curl -fsSL --max-time 8 -H "apikey: $CMS_ANON_KEY" "$CMS_BASE/functio
 if [[ -n "$CFG_JSON" ]] && command -v python3 >/dev/null 2>&1; then
   eval "$(python3 -c "
 import json,sys,os
-try: d=json.loads(sys.argv[1]).get('kiosk_config') or {}
-except: d={}
+try: raw=json.loads(sys.argv[1])
+except: raw={}
+d=raw.get('kiosk_config') or {}
 def emit(k,v):
     if v is None or v=='': return
     print(f'export {k}={json.dumps(str(v))}')
+# branding (สำหรับ Plymouth splash + login greeter)
+emit('KIOSK_LOGO_URL', raw.get('school_logo') or raw.get('app_favicon_url'))
+emit('KIOSK_SCHOOL_NAME', raw.get('school_name') or raw.get('app_name'))
+emit('KIOSK_THEME_COLOR', raw.get('theme_color') or raw.get('primary_color'))
 if d:
     m=d.get('mode')
     if m and not os.environ.get('KIOSK_MODE'): emit('KIOSK_MODE',m)
