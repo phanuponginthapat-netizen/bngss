@@ -934,8 +934,8 @@ export function AppSidebar() {
                             {flatItems.map((item) => (
                               <SidebarMenuItem key={item.url}>
                                 <SidebarMenuButton asChild tooltip={renderTooltip(item.title, item.desc)}>
-                                  <NavLink to={item.url} title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className="relative text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground hover:translate-x-0.5 rounded-lg text-sm md:text-[15px] transition-all duration-150 py-2 pl-3 pr-2" activeClassName="bg-sidebar-primary/15 text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary">
-                                    <IconTile icon={item.icon} color={item.color} className="mr-2.5" />
+                                  <NavLink to={item.url} title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className="relative text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground hover:translate-x-0.5 rounded-lg text-sm transition-all duration-150 py-1 pl-3 pr-2" activeClassName="bg-sidebar-primary/15 text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary">
+                                    <IconTile icon={item.icon} color={item.color} className="mr-2" />
                                     <span className="truncate">{item.title}</span>
                                   </NavLink>
                                 </SidebarMenuButton>
