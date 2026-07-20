@@ -39,6 +39,11 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
   const [worksheetFields, setWorksheetFields] = useState<WorksheetField[]>([]);
   const [saving, setSaving] = useState(false);
 
+  // มือถือ = fullscreen เสมอ กัน dialog เล็กจนใช้ไม่ได้; desktop ให้ผู้ใช้เลือก
+  const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+  const useFullscreen = open && (fullscreen || isMobile);
+  useBodyScrollLock(useFullscreen);
+
   // Load only classrooms / subjects assigned to the current teacher.
   // Keep this in sync with the regular homework form, but do not fall back to
   // all classrooms/subjects because teachers should only see their assignments.
@@ -315,6 +320,11 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
             {fullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </Button>
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>ปิด</Button>
+          {useFullscreen && (
+            <Button size="sm" onClick={save} disabled={saving}>
+              {saving && <Loader2 className="w-4 h-4 mr-1 animate-spin" />} บันทึก
+            </Button>
+          )}
         </div>
       </div>
 
@@ -342,19 +352,17 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
       </div>
 
 
-      <div className="flex justify-end gap-2 shrink-0 pb-[env(safe-area-inset-bottom)]">
-        <Button variant="outline" onClick={() => onOpenChange(false)}>ยกเลิก</Button>
-        <Button onClick={save} disabled={saving}>
-          {saving && <Loader2 className="w-4 h-4 mr-1 animate-spin" />} บันทึก
-        </Button>
-      </div>
+      {!useFullscreen && (
+        <div className="flex justify-end gap-2 shrink-0 pb-[env(safe-area-inset-bottom)]">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>ยกเลิก</Button>
+          <Button onClick={save} disabled={saving}>
+            {saving && <Loader2 className="w-4 h-4 mr-1 animate-spin" />} บันทึก
+          </Button>
+        </div>
+      )}
     </>
   );
 
-  // มือถือ = fullscreen เสมอ กัน dialog เล็กจนใช้ไม่ได้; desktop ให้ผู้ใช้เลือก
-  const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
-  const useFullscreen = open && (fullscreen || isMobile);
-  useBodyScrollLock(useFullscreen);
   if (!open) return null;
   if (useFullscreen) {
     return createPortal(
