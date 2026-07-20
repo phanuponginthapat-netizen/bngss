@@ -79,12 +79,23 @@ serve(async (req) => {
     const studentIds = Array.from(new Set(((attRows as any[]) || []).map((r) => r.student_id).filter(Boolean)));
     const gradeByStudent = new Map<string, string>();
     if (studentIds.length > 0) {
-      const { data: studs } = await sb
+      const { data: studs, error: sErr } = await sb
         .from("students")
-        .select("id, classrooms:classroom_id(grade_level)")
+        .select("id, classroom_id")
         .in("id", studentIds);
+      if (sErr) { console.error("students fetch", sErr); throw sErr; }
+      const classroomIds = Array.from(new Set(((studs as any[]) || []).map((s) => s.classroom_id).filter(Boolean)));
+      const gradeByClassroom = new Map<string, string>();
+      if (classroomIds.length > 0) {
+        const { data: cls, error: cErr } = await sb
+          .from("classrooms")
+          .select("id, grade_level")
+          .in("id", classroomIds);
+        if (cErr) { console.error("classrooms fetch", cErr); throw cErr; }
+        for (const c of (cls as any[]) || []) gradeByClassroom.set(c.id, c.grade_level || "ไม่ระบุ");
+      }
       for (const s of (studs as any[]) || []) {
-        gradeByStudent.set(s.id, (s.classrooms?.grade_level as string) || "ไม่ระบุ");
+        gradeByStudent.set(s.id, gradeByClassroom.get(s.classroom_id) || "ไม่ระบุ");
       }
     }
 
