@@ -198,6 +198,28 @@ serve(async (req) => {
     }
 
 
+    // 🏖️ Holiday auto-detection: if absent > 50, treat as school holiday.
+    // Skip LINE notification and record the date so reports exclude it.
+    // Only applies to auto/cron runs (no custom overrides, no forced group).
+    const HOLIDAY_ABSENT_THRESHOLD = 50;
+    const isAutoRun = !customImageUrl && !customSummary && !forceGroupId;
+    if (isAutoRun && totals.totalAbsent > HOLIDAY_ABSENT_THRESHOLD) {
+      try {
+        await sb.from("attendance_auto_holidays").upsert({
+          holiday_date: today,
+          reason: "auto_detected_high_absence",
+          absent_count: totals.totalAbsent,
+          total_students: totals.totalAll,
+          detected_by: "notify-attendance-digest",
+        }, { onConflict: "holiday_date" });
+      } catch (e) {
+        console.error("holiday upsert failed", e);
+      }
+      return new Response(JSON.stringify({
+        ok: true, date: today, skipped: true, reason: "holiday_detected",
+        absent_count: totals.totalAbsent, threshold: HOLIDAY_ABSENT_THRESHOLD, totals,
+      }), { headers: { ...cors, "Content-Type": "application/json" } });
+    }
 
     const token = await getVaultToken(sb);
     if (!token) return new Response(JSON.stringify({ error: "LINE_VAULT_CHANNEL_ACCESS_TOKEN not set" }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
