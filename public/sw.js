@@ -1,5 +1,5 @@
 // Service Worker — Web Push notifications (no app-shell caching)
-const SW_VERSION = "v7-push-dedup";
+const SW_VERSION = "v8-ai-model-cache";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
