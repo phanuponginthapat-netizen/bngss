@@ -15533,6 +15533,21 @@ export type Database = {
       recompute_personnel_teaching_level: { Args: never; Returns: undefined }
       remind_incomplete_grades: { Args: never; Returns: Json }
       reset_content_data: { Args: never; Returns: Json }
+      resolve_scanned_student: {
+        Args: { _input: string }
+        Returns: {
+          auth_user_id: string
+          classroom_id: string
+          classroom_name: string
+          first_name: string
+          grade_level: string
+          id: string
+          last_name: string
+          photo_url: string
+          prefix: string
+          student_code: string
+        }[]
+      }
       resync_all_budget_usage: { Args: never; Returns: undefined }
       search_chat_users: {
         Args: { _term: string }
