@@ -499,13 +499,16 @@ if [[ -n "$CMS_LOGO_URL" ]]; then
     if have convert; then
       convert "$LOGO_PATH.src" -auto-orient -resize '320x320>' -background none -gravity center -extent 320x320 PNG32:"$LOGO_PATH" 2>/dev/null || true
     fi
-    [[ -f "$LOGO_PATH" ]] || cp "$LOGO_PATH.src" "$LOGO_PATH" 2>/dev/null || true
   fi
 fi
 # ถ้าไม่มีโลโก้/แปลงไม่ได้ → สร้างโลโก้ตัวอักษรที่ Plymouth โหลดได้แน่นอน
 if [[ ! -s "$LOGO_PATH" ]] && have convert; then
   convert -size 320x320 xc:none -gravity center -fill white -pointsize 96 -font DejaVu-Sans-Bold \
     -annotate 0 "$(printf '%s' "$CMS_NAME" | cut -c1-2)" PNG32:"$LOGO_PATH" 2>/dev/null || true
+fi
+# fallback สุดท้าย: PNG 1x1 โปร่งใส เพื่อไม่ให้ Plymouth script crash จาก logo.png ที่หาย
+if [[ ! -s "$LOGO_PATH" ]]; then
+  printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=' | base64 -d >"$LOGO_PATH" 2>/dev/null || true
 fi
 
 # plymouth theme files — ใช้ syntax แบบพื้นฐานเท่านั้นเพื่อเลี่ยง theme crash แล้วตกไปหน้า verbose
