@@ -185,6 +185,93 @@ CHROMIUM_BIN=$(command -v chromium || command -v chromium-browser || true)
 [[ -n "$CHROMIUM_BIN" ]] || die "ติดตั้ง Chromium ไม่สำเร็จ"
 log "   Chromium: $CHROMIUM_BIN"
 
+# ---------------- 2.5) Plymouth boot splash (logo โรงเรียนจาก CMS) ----------------
+log "▶  [2.5/10] Plymouth boot splash + branding..."
+PLY_THEME=/usr/share/plymouth/themes/smart-school
+mkdir -p "$PLY_THEME"
+
+# ดาวน์โหลด logo จาก CMS (fallback → generic Plymouth spinner ถ้าโหลดไม่ได้)
+LOGO_OK=0
+if [[ -n "${KIOSK_LOGO_URL:-}" ]]; then
+  if curl -fsSL --max-time 15 -o "$PLY_THEME/logo.src" "$KIOSK_LOGO_URL" 2>/dev/null; then
+    # แปลงเป็น PNG ขนาดเหมาะสม (สูง 300px) — plymouth ต้องเป็น PNG
+    if command -v convert >/dev/null 2>&1; then
+      convert "$PLY_THEME/logo.src" -resize x300 -background none -gravity center \
+        -extent 400x300 "$PLY_THEME/logo.png" 2>/dev/null && LOGO_OK=1
+    else
+      cp "$PLY_THEME/logo.src" "$PLY_THEME/logo.png"; LOGO_OK=1
+    fi
+    rm -f "$PLY_THEME/logo.src"
+  fi
+fi
+
+if [[ "$LOGO_OK" == "1" ]]; then
+  SCHOOL_LABEL="${KIOSK_SCHOOL_NAME:-Smart School}"
+  cat >"$PLY_THEME/smart-school.plymouth" <<EOF
+[Plymouth Theme]
+Name=Smart School
+Description=School logo boot splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/smart-school
+ScriptFile=/usr/share/plymouth/themes/smart-school/smart-school.script
+EOF
+
+  cat >"$PLY_THEME/smart-school.script" <<'PSCR'
+Window.SetBackgroundTopColor(0.06, 0.10, 0.20);
+Window.SetBackgroundBottomColor(0.03, 0.05, 0.12);
+logo.image = Image("logo.png");
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(Window.GetWidth()/2  - logo.image.GetWidth()/2);
+logo.sprite.SetY(Window.GetHeight()/2 - logo.image.GetHeight()/2 - 40);
+
+# ข้อความชื่อโรงเรียน
+label.image = Image.Text("SCHOOL_LABEL_PLACEHOLDER", 1, 1, 1);
+label.sprite = Sprite(label.image);
+label.sprite.SetX(Window.GetWidth()/2 - label.image.GetWidth()/2);
+label.sprite.SetY(Window.GetHeight()/2 + logo.image.GetHeight()/2 + 20);
+
+# spinner แบบ dot pulse
+progress = 0;
+fun refresh_callback() {
+  progress++;
+  a = Math.Sin(progress/8) * 0.5 + 0.5;
+  logo.sprite.SetOpacity(0.7 + a*0.3);
+}
+Plymouth.SetRefreshFunction(refresh_callback);
+PSCR
+
+  sed -i "s|SCHOOL_LABEL_PLACEHOLDER|${SCHOOL_LABEL//|/\\|}|g" "$PLY_THEME/smart-school.script"
+
+  # เปิดใช้ theme
+  update-alternatives --install /usr/share/plymouth/themes/default.plymouth \
+    default.plymouth "$PLY_THEME/smart-school.plymouth" 200 >/dev/null 2>&1 || true
+  if command -v plymouth-set-default-theme >/dev/null 2>&1; then
+    plymouth-set-default-theme smart-school -R 2>/dev/null || \
+      plymouth-set-default-theme smart-school 2>/dev/null || true
+  fi
+
+  # เปิด splash ใน GRUB (MX Linux default = ปิด → เห็นแต่ข้อความ)
+  if [[ -f /etc/default/grub ]]; then
+    if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub; then
+      CUR=$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub | sed 's/^[^=]*=//; s/^"//; s/"$//')
+      NEW="$CUR"
+      [[ "$NEW" != *"quiet"* ]]  && NEW="$NEW quiet"
+      [[ "$NEW" != *"splash"* ]] && NEW="$NEW splash"
+      NEW=$(echo "$NEW" | xargs)  # trim
+      sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$NEW\"|" /etc/default/grub
+    else
+      echo 'GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"' >> /etc/default/grub
+    fi
+    update-grub 2>/dev/null || update-grub2 2>/dev/null || true
+  fi
+  update-initramfs -u 2>/dev/null || true
+  log "   ✔  Plymouth theme 'smart-school' พร้อมใช้ (logo: $KIOSK_LOGO_URL)"
+else
+  log "   ⚠  ไม่มี logo จาก CMS หรือโหลดไม่สำเร็จ — ใช้ theme เดิม"
+fi
+
 # ---------------- 3) Wake daemon (door mode เท่านั้น) ----------------
 install -d -m 755 /opt/kiosk
 if [[ "$KIOSK_MODE" == "door" ]]; then
