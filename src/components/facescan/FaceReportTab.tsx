@@ -186,31 +186,71 @@ const FaceReportTab = () => {
     }
   };
 
-  const sendReportToLine = async () => {
-    setSendingLine(true);
+  const buildSummaryText = (): string => {
+    const t = accurate?.totals;
+    if (!t) return `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${range.label}`;
+    let s = `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${range.label}\n\n✅ มา ${t.present} คน\n⏰ สาย ${t.late} คน\n📝 ลา ${t.leave} คน\n❌ ขาด ${t.absent} คน\n────────\nรวม ${t.size} คน • เข้าเรียน ${t.pct}%`;
+    const abs = accurate?.absentees || [];
+    if (abs.length > 0) {
+      // group by grade (prefix before "/")
+      const byGrade = new Map<string, string[]>();
+      for (const a of abs) {
+        const grade = (a.cls.split("/")[0] || a.cls).trim();
+        if (!byGrade.has(grade)) byGrade.set(grade, []);
+        byGrade.get(grade)!.push(`${a.name} (${a.cls})`);
+      }
+      const order: Record<string, number> = { "อ.1":1,"อ.2":2,"อ.3":3,"ป.1":4,"ป.2":5,"ป.3":6,"ป.4":7,"ป.5":8,"ป.6":9,"ม.1":10,"ม.2":11,"ม.3":12,"ม.4":13,"ม.5":14,"ม.6":15 };
+      const grades = Array.from(byGrade.keys()).sort((a, b) => (order[a] ?? 99) - (order[b] ?? 99));
+      s += `\n\n🚨 รายชื่อนักเรียนที่ขาด (${abs.length} คน)`;
+      for (const g of grades) {
+        const names = byGrade.get(g)!;
+        s += `\n\n▪️ ${g} (${names.length} คน)\n  • ` + names.join("\n  • ");
+      }
+    }
+    return s.length > 4900 ? s.slice(0, 4880) + "\n… (ตัดทอน)" : s;
+  };
+
+  const openPreviewForLine = async () => {
+    setPreviewLoading(true);
+    setPreviewOpen(true);
     try {
       const blob = await renderReportImage("blob");
       if (!blob) throw new Error("สร้างรูปไม่สำเร็จ");
+      if (previewImage) URL.revokeObjectURL(previewImage);
+      setPreviewBlob(blob);
+      setPreviewImage(URL.createObjectURL(blob));
+      setPreviewSummary(buildSummaryText());
+    } catch (e: any) {
+      toast.error(e.message || "สร้างตัวอย่างไม่สำเร็จ");
+      setPreviewOpen(false);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const confirmSendReportToLine = async () => {
+    if (!previewBlob) return;
+    setSendingLine(true);
+    try {
       const path = `attendance-digest/${range.start}/${Date.now()}.jpg`;
       const { error: upErr } = await supabase.storage
         .from("face-photos")
-        .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+        .upload(path, previewBlob, { contentType: "image/jpeg", upsert: false });
       if (upErr) throw upErr;
       const { data: signed, error: signErr } = await supabase.storage
         .from("face-photos")
         .createSignedUrl(path, 60 * 60 * 24 * 7);
       if (signErr || !signed?.signedUrl) throw signErr || new Error("สร้างลิงก์รูปไม่สำเร็จ");
 
-      const t = accurate?.totals;
-      const summaryText = t
-        ? `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${range.label}\n\n✅ มา ${t.present} คน\n⏰ สาย ${t.late} คน\n📝 ลา ${t.leave} คน\n❌ ขาด ${t.absent} คน\n────────\nรวม ${t.size} คน • เข้าเรียน ${t.pct}%`
-        : `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${range.label}`;
-
       const { error } = await supabase.functions.invoke("notify-attendance-digest", {
-        body: { image_url: signed.signedUrl, summary_text: summaryText, force: true },
+        body: { image_url: signed.signedUrl, summary_text: previewSummary, force: true },
       });
       if (error) throw error;
       toast.success("ส่งรายงานเข้ากลุ่ม LINE เรียบร้อย");
+      setPreviewOpen(false);
+      if (previewImage) URL.revokeObjectURL(previewImage);
+      setPreviewImage(null);
+      setPreviewBlob(null);
     } catch (e: any) {
       console.error(e);
       toast.error(e.message || "ส่งเข้า LINE ไม่สำเร็จ");
@@ -218,6 +258,7 @@ const FaceReportTab = () => {
       setSendingLine(false);
     }
   };
+
 
   const range = useMemo(() => getRange(period, new Date(refDate)), [period, refDate]);
 
