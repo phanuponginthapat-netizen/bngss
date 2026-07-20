@@ -88,6 +88,9 @@ else
   KIOSK_MONITOR_AGENT_URL="${KIOSK_MONITOR_AGENT_URL:-}"
   KIOSK_EXTENSION_URL="${KIOSK_EXTENSION_URL:-}"   # door mode: ไม่ติดตั้ง extension (ตู้ประตูไม่มีนักเรียนใช้เว็บ)
 fi
+# PIN สำหรับปลดล็อก Alt+F4 / Alt+Tab / Super / F11 / Ctrl+W / Ctrl+Q — default ตรงกับ CMS
+KIOSK_EXIT_PIN="${KIOSK_EXIT_PIN:-bng521987}"
+
 # ------------------------------------------
 
 LOG_FILE=/var/log/kiosk-setup.log
