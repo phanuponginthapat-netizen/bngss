@@ -172,29 +172,80 @@ function isOfficeMime(m?: string | null, name?: string | null) {
 function LineVaultThumb({ item, className }: { item: Item; className?: string }) {
   const { ref, inView } = useInView<HTMLDivElement>();
   const [url, setUrl] = useState<string | null>(null);
+  const [videoPoster, setVideoPoster] = useState<string | null>(null);
   const [err, setErr] = useState(false);
-  const wantThumb = isImageMime(item.mime_type) || item.kind === "photo";
+  const isImg = isImageMime(item.mime_type) || item.kind === "photo";
+  const isVid = isVideoMime(item.mime_type);
+  const wantThumb = isImg || isVid;
+
   useEffect(() => {
     if (!inView || !wantThumb || url) return;
     getSignedUrl(item.id).then(u => setUrl(u)).catch(() => setErr(true));
   }, [inView, wantThumb, item.id, url]);
 
+  // Generate poster frame from video once we have a blob URL
+  useEffect(() => {
+    if (!isVid || !url || videoPoster) return;
+    let cancelled = false;
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.muted = true;
+    (video as any).playsInline = true;
+    video.src = url;
+    const onLoaded = () => {
+      try { video.currentTime = Math.min(0.1, (video.duration || 1) / 2); } catch { /* ignore */ }
+    };
+    const onSeeked = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        const w = video.videoWidth || 320;
+        const h = video.videoHeight || 180;
+        const scale = Math.min(1, 480 / Math.max(w, h));
+        canvas.width = Math.round(w * scale);
+        canvas.height = Math.round(h * scale);
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+          if (!cancelled) setVideoPoster(dataUrl);
+        }
+      } catch { if (!cancelled) setErr(true); }
+      video.removeAttribute("src");
+      video.load();
+    };
+    video.addEventListener("loadedmetadata", onLoaded);
+    video.addEventListener("seeked", onSeeked);
+    video.addEventListener("error", () => { if (!cancelled) setErr(true); });
+    return () => { cancelled = true; video.removeEventListener("loadedmetadata", onLoaded); video.removeEventListener("seeked", onSeeked); };
+  }, [isVid, url, videoPoster]);
+
+  const posterSrc = isVid ? videoPoster : (url && !err ? url : null);
+
   return (
     <div ref={ref as any} className={className}>
-      {wantThumb && url && !err ? (
-        <img
-          src={url}
-          loading="lazy"
-          alt={item.title}
-          onError={() => setErr(true)}
-          onContextMenu={(e) => e.preventDefault()}
-          className="w-full h-full object-cover select-none"
-          draggable={false}
-        />
+      {wantThumb && posterSrc && !err ? (
+        <div className="relative w-full h-full">
+          <img
+            src={posterSrc}
+            loading="lazy"
+            alt={item.title}
+            onError={() => setErr(true)}
+            onContextMenu={(e) => e.preventDefault()}
+            className="w-full h-full object-cover select-none"
+            draggable={false}
+          />
+          {isVid && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+              <div className="h-12 w-12 rounded-full bg-black/60 flex items-center justify-center">
+                <svg viewBox="0 0 24 24" className="h-6 w-6 fill-white ml-0.5"><path d="M8 5v14l11-7z"/></svg>
+              </div>
+            </div>
+          )}
+        </div>
       ) : (
         <div className="w-full h-full bg-muted flex items-center justify-center">
-          {isVideoMime(item.mime_type)
-            ? <ImageIcon className="h-10 w-10 text-muted-foreground" />
+          {isVid
+            ? <div className="h-12 w-12 rounded-full bg-black/40 flex items-center justify-center"><svg viewBox="0 0 24 24" className="h-6 w-6 fill-white ml-0.5"><path d="M8 5v14l11-7z"/></svg></div>
             : isPdfMime(item.mime_type, item.original_filename)
               ? <FileText className="h-10 w-10 text-red-500/70" />
               : <FileText className="h-10 w-10 text-muted-foreground" />}
