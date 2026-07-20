@@ -164,9 +164,12 @@ export default function PadletListPage() {
                 className="overflow-hidden cursor-pointer hover:shadow-lg transition-all hover:-translate-y-0.5 group"
                 onClick={() => navigate(`/dashboard/padlet/${b.id}`)}
               >
-                <div className={`h-24 ${bg.className} relative`}>
+                <div className={`h-32 ${bg.className} relative overflow-hidden`}>
+                  {b.cover_image_url && coverSignedMap[b.cover_image_url] && (
+                    <img src={coverSignedMap[b.cover_image_url]} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                  )}
                   <div className="absolute top-2 right-2 flex gap-1">
-                    <Badge variant="secondary" className="text-[10px]">{bg.label}</Badge>
+                    <Badge variant="secondary" className="text-[10px] shadow">{bg.label}</Badge>
                   </div>
                 </div>
                 <CardContent className="p-4 space-y-2">
