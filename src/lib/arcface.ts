@@ -46,12 +46,29 @@ let session: ort.InferenceSession | null = null;
 let loadingPromise: Promise<ort.InferenceSession> | null = null;
 let inputName = "input.1";
 
+const ARCFACE_CACHE = "ai-models-v1";
+
+/** cache-first fetch → persistent ระหว่าง reload/รีบูต (Cache Storage เก็บถาวรจนกว่าจะลบ) */
+async function cachedFetch(url: string, onProgress?: (msg: string) => void): Promise<Response> {
+  try {
+    const cache = await caches.open(ARCFACE_CACHE);
+    const hit = await cache.match(url);
+    if (hit) { onProgress?.("ใช้โมเดลจากแคชเครื่อง (โหลดครั้งเดียว)"); return hit; }
+    onProgress?.("กำลังดาวน์โหลดโมเดล ArcFace (~14MB, ครั้งแรกครั้งเดียว)...");
+    const res = await fetch(url);
+    if (res.ok) { try { await cache.put(url, res.clone()); } catch {} }
+    return res;
+  } catch {
+    // Cache Storage ใช้ไม่ได้ (private mode ฯลฯ) → fallback fetch ธรรมดา
+    return fetch(url);
+  }
+}
+
 export async function loadArcFace(onProgress?: (msg: string) => void): Promise<void> {
   if (session) return;
   if (loadingPromise) { await loadingPromise; return; }
   loadingPromise = (async () => {
-    onProgress?.("กำลังโหลดโมเดลจดจำใบหน้า ArcFace...");
-    const res = await fetch(ARCFACE_MODEL_URL);
+    const res = await cachedFetch(ARCFACE_MODEL_URL, onProgress);
     if (!res.ok) throw new Error(`ArcFace model fetch failed: ${res.status}`);
     const buf = await res.arrayBuffer();
     const s = await ort.InferenceSession.create(buf, {
@@ -65,6 +82,7 @@ export async function loadArcFace(onProgress?: (msg: string) => void): Promise<v
   })();
   await loadingPromise;
 }
+
 
 export function isArcFaceReady(): boolean {
   return session !== null;
