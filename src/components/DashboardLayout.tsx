@@ -289,7 +289,7 @@ const DashboardLayout = () => {
           <AiChatBubble />
         </main>
         <AppSidebar />
-        <CommandPalette />
+        {/* CommandPalette disabled — global search removed for access-control safety */}
         <OnboardingTour />
       </div>
     </SidebarProvider>
