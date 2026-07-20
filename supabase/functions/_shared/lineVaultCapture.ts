@@ -116,15 +116,8 @@ export async function captureLineGroupEvent(
         return { captured: true, reason: "attached_as_caption" } as any;
       }
 
-      const title = text.split("\n")[0].slice(0, 80) || "โน้ตจาก LINE";
-      const { error } = await sb.from("line_vault_items").insert({
-        ...baseRow,
-        kind: "note",
-        title,
-        note_text: text,
-      });
-      if (error && !`${error.message}`.includes("duplicate")) throw error;
-      return { captured: true };
+      // ไม่บันทึกข้อความแชทเดี่ยว — เก็บเฉพาะไฟล์/สื่อ (หรือใช้เป็นคำอธิบายไฟล์เท่านั้น)
+      return { captured: false, reason: "text_chat_ignored" } as any;
     }
 
 
