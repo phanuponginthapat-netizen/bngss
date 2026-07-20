@@ -90,6 +90,11 @@ const FaceReportTab = () => {
   const [sending, setSending] = useState(false);
   const [savingImage, setSavingImage] = useState(false);
   const [sendingLine, setSendingLine] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewSummary, setPreviewSummary] = useState<string>("");
   const summaryRef = useRef<HTMLDivElement>(null);
 
   /**
