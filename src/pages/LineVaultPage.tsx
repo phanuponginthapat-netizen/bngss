@@ -743,22 +743,31 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
               <Archive className="h-4 w-4 mr-1" />
               {zipping ? `กำลังบีบอัด ${zipProgress?.done || 0}/${zipProgress?.total || 0}...` : "ดาวน์โหลดทั้งอัลบั้ม (ZIP)"}
             </Button>
-            <span className="text-xs text-muted-foreground">คลิกที่รูปเพื่อดาวน์โหลดทีละไฟล์</span>
+            <span className="text-xs text-muted-foreground">คลิกที่รูปเพื่อดูตัวอย่าง</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[60vh] overflow-y-auto">
             {albumOpen?.map(p => (
-              <button key={p.id} onClick={() => onOpen(p)} className="border rounded p-2 hover:bg-muted text-left space-y-1">
-                <div className="aspect-square bg-muted rounded flex items-center justify-center">
-                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
+              <button key={p.id} onClick={() => { setAlbumOpen(null); setPreviewItem(p); }} className="border rounded p-2 hover:bg-muted text-left space-y-1">
+                <div className="aspect-square rounded overflow-hidden">
+                  <LineVaultThumb item={p} className="w-full h-full" />
                 </div>
                 <div className="text-xs truncate">{p.original_filename || p.title}</div>
-                <div className="text-[10px] text-muted-foreground">{formatBytes(p.size_bytes)}</div>
+                <div className="text-[10px] text-muted-foreground flex items-center justify-between gap-1">
+                  <span className="truncate">{p.line_sender_name ? `จาก ${p.line_sender_name}` : ""}</span>
+                  <span>{formatBytes(p.size_bytes)}</span>
+                </div>
               </button>
             ))}
           </div>
         </DialogContent>
 
       </Dialog>
+
+      <LineVaultPreviewDialog
+        item={previewItem}
+        onClose={() => setPreviewItem(null)}
+        onDownload={(i) => onOpen(i)}
+      />
     </>
   );
 }
