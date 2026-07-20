@@ -276,8 +276,9 @@ const App = () => (
               <Route path="/signup" element={<Signup />} />
               <Route path="/link-account" element={<LinkAccount />} />
               <Route path="/face-kiosk" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><FaceKioskPage /></ProtectedRoute>} />
-              {/* /kiosk = public entry สำหรับตู้สแกนหน้าประตู (ไม่ต้อง login) — เครื่อง Kiosk เปิด URL นี้ */}
-              <Route path="/kiosk" element={<FaceKioskPage />} />
+              {/* /kiosk = ทางลัดสำหรับตู้สแกนประตู — ต้อง login ด้วยบัญชี kiosk (role=teacher) ครั้งเดียว
+                  Chromium ในโหมด door ไม่ล้าง profile → session ค้างถาวร ไม่ต้อง login ซ้ำหลังรีบูต */}
+              <Route path="/kiosk" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><FaceKioskPage /></ProtectedRoute>} />
               <Route path="/liff" element={<LiffHomePage />} />
               <Route path="/liff/leave" element={<LiffLeavePage />} />
               <Route path="/liff/grades" element={<LiffGradesPage />} />
