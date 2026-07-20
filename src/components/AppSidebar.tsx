@@ -725,7 +725,8 @@ export function AppSidebar() {
             return sections.map((sec, idx) => (
               <SidebarGroup key={idx} className="!p-0">
                 {!collapsed ? (
-                  <SidebarGroupLabel className="text-sidebar-foreground/60 text-xs font-semibold uppercase tracking-wider px-2 h-8 mt-1 flex items-center gap-2">
+                  <SidebarGroupLabel className="text-sidebar-foreground/60 text-[10px] font-semibold uppercase tracking-wider px-2 h-6 mt-0 flex items-center gap-2">
+
                     <sec.icon className="w-3.5 h-3.5" />
                     <span>{sec.label}</span>
                   </SidebarGroupLabel>
