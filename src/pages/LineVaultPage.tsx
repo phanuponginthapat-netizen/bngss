@@ -478,6 +478,11 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
                     <Button size="sm" variant="outline" onClick={() => downloadZip(row.items, `Album_${format(new Date(first.created_at), "yyyyMMdd_HHmm")}`)} disabled={zipping} title="ดาวน์โหลดทั้งอัลบั้มเป็น ZIP">
                       <Archive className="h-4 w-4" />
                     </Button>
+                    {isAdmin && onBulkDelete && (
+                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => onBulkDelete(row.items)} title="ลบทั้งอัลบั้ม">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </Card>
