@@ -54,6 +54,7 @@ const StaffLeavePage = () => {
   const [contactPhone, setContactPhone] = useState("");
   const [actingTeacher, setActingTeacher] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   // Get current user's personnel record
   const { data: myPersonnel } = useQuery({
