@@ -128,6 +128,16 @@ export async function captureLineGroupEvent(
 
     // Image / video / file / audio -> upload to Google Drive (fallback to Supabase storage)
     if (["image", "video", "file", "audio"].includes(msg.type)) {
+      // Dedupe FIRST — LINE webhook may retry the same event, causing double Drive uploads.
+      // The DB has UNIQUE(line_message_id) but by the time insert fails, Drive already has a copy.
+      if (msg.id) {
+        const { data: existing } = await sb
+          .from("line_vault_items")
+          .select("id")
+          .eq("line_message_id", msg.id)
+          .maybeSingle();
+        if (existing) return { captured: false, reason: "duplicate_message" };
+      }
       const content = await deps.downloadLineContent(token, msg.id);
       if (!content) return { captured: false, reason: "download_failed" };
       const kind: "photo" | "file" = msg.type === "image" ? "photo" : "file";
