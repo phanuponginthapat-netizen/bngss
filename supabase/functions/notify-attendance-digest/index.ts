@@ -77,6 +77,9 @@ serve(async (req) => {
     const header = req.headers.get("x-cron-secret") || "";
     const body = await req.json().catch(() => ({}));
     const forceGroupId = body?.group_id as string | undefined;
+    const customImageUrl = (body?.image_url as string | undefined)?.trim();
+    const customSummary = (body?.summary_text as string | undefined)?.trim();
+    const skipDedup = Boolean(body?.force);
     const isCron = cronSecret && header === cronSecret;
     if (!isCron && !forceGroupId) {
       // require auth otherwise
