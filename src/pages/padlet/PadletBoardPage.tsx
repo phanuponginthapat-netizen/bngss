@@ -347,9 +347,13 @@ export default function PadletBoardPage() {
                     </div>
                   )}
 
-                  <div className="mt-2 pt-2 border-t border-black/10 flex items-center justify-between text-[10px] text-slate-600">
-                    <span>{n.created_at ? formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: th }) : ""}</span>
-                    <button onClick={() => likeNote(n)} className="flex items-center gap-1 hover:text-rose-600">
+                  <div className="mt-2 pt-2 border-t border-black/10 flex items-center justify-between text-[10px] text-slate-600 gap-2">
+                    <span className="truncate" title={n.created_at ? new Date(n.created_at).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" }) : ""}>
+                      {n.created_at
+                        ? `${new Date(n.created_at).toLocaleDateString("th-TH-u-ca-buddhist", { timeZone: "Asia/Bangkok", day: "2-digit", month: "short", year: "2-digit" })} ${new Date(n.created_at).toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit" })} น. · ${formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: th })}`
+                        : ""}
+                    </span>
+                    <button onClick={() => likeNote(n)} className="flex items-center gap-1 hover:text-rose-600 shrink-0">
                       <Heart className="w-3 h-3" /> {n.likes || 0}
                     </button>
                   </div>
