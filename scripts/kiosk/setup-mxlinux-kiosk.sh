@@ -561,16 +561,54 @@ PLY
 
 # activate theme
 if have plymouth-set-default-theme; then
-  plymouth-set-default-theme -R smartschool 2>&1 | tail -3 || \
-    log "⚠  plymouth-set-default-theme ล้มเหลว (จะข้ามเงียบๆ)"
+  plymouth-set-default-theme smartschool 2>&1 | tail -3 || \
+    log "⚠  plymouth-set-default-theme ล้มเหลว"
 elif [[ -x /usr/sbin/plymouth-set-default-theme ]]; then
-  /usr/sbin/plymouth-set-default-theme -R smartschool 2>&1 | tail -3 || true
+  /usr/sbin/plymouth-set-default-theme smartschool 2>&1 | tail -3 || true
 fi
 
-# GRUB — ให้เห็น splash
-if [[ -f /etc/default/grub ]] && ! grep -q "splash" /etc/default/grub; then
-  sed -i 's|GRUB_CMDLINE_LINUX_DEFAULT="|&quiet splash |' /etc/default/grub || true
+# === Critical for MX Linux: ทำให้ Plymouth โหลดใน initramfs + framebuffer ทำงานตั้งแต่บูต ===
+# 1) บอก initramfs ให้ใส่ framebuffer + plymouth
+mkdir -p /etc/initramfs-tools/conf.d
+echo "FRAMEBUFFER=y" > /etc/initramfs-tools/conf.d/splash
+
+# 2) GRUB — quiet + splash + gfxpayload=keep (ไม่งั้นจะกลับมา text mode ทันทีที่โหลด kernel)
+if [[ -f /etc/default/grub ]]; then
+  # cmdline: quiet splash + loglevel + ปิด cursor
+  CUR=$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null | sed 's/^[^=]*=//; s/^"//; s/"$//')
+  NEW="$CUR"
+  for tok in quiet splash "loglevel=3" "rd.udev.log_level=3" "vt.global_cursor_default=0"; do
+    [[ "$NEW" != *"$tok"* ]] && NEW="$NEW $tok"
+  done
+  NEW=$(echo "$NEW" | xargs)
+  if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub; then
+    sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$NEW\"|" /etc/default/grub
+  else
+    echo "GRUB_CMDLINE_LINUX_DEFAULT=\"$NEW\"" >> /etc/default/grub
+  fi
+
+  # gfxpayload=keep — สำคัญมากบน MX/EFI ให้ Plymouth ใช้ resolution เดียวกับ GRUB
+  if grep -q '^GRUB_GFXPAYLOAD_LINUX=' /etc/default/grub; then
+    sed -i 's|^GRUB_GFXPAYLOAD_LINUX=.*|GRUB_GFXPAYLOAD_LINUX=keep|' /etc/default/grub
+  else
+    echo 'GRUB_GFXPAYLOAD_LINUX=keep' >> /etc/default/grub
+  fi
+
+  # comment out GRUB_TERMINAL=console (ถ้ามี) — จะบังคับให้ boot ใน text mode
+  sed -i 's|^\(GRUB_TERMINAL=console\)|#\1|' /etc/default/grub
+  sed -i 's|^\(GRUB_TERMINAL_OUTPUT=console\)|#\1|' /etc/default/grub
 fi
+
+# 3) rebuild initramfs + grub
+log "   ▶ rebuild initramfs + grub (อาจใช้เวลา 20-40 วิ)..."
+update-initramfs -u -k all 2>&1 | tail -3 || true
+update-grub 2>&1 | tail -3 || update-grub2 2>&1 | tail -3 || true
+
+# 4) ตรวจสอบผลลัพธ์
+CURR_THEME=$(plymouth-set-default-theme 2>/dev/null || echo "unknown")
+log "   ✔  Plymouth theme ปัจจุบัน: $CURR_THEME (ต้องการ: smartschool)"
+
+
 
 # ---------------- 5.6) LightDM greeter + wallpaper ----------------
 log "▶  [5.6/10] LightDM greeter + XFCE wallpaper ตาม CMS..."
