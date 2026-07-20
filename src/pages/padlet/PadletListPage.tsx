@@ -113,6 +113,20 @@ export default function PadletListPage() {
     toast.success(short === url ? "คัดลอกลิงก์แล้ว" : `คัดลอกลิงก์สั้นแล้ว: ${short}`);
   };
 
+  const uploadCover = async (file: File) => {
+    if (!user) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("รูปปกต้องไม่เกิน 5MB"); return; }
+    setUploadingCover(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `covers/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+    const { error } = await supabase.storage.from("padlet").upload(path, file, { upsert: false, contentType: file.type });
+    setUploadingCover(false);
+    if (error) { toast.error(error.message); return; }
+    setCoverUrl(path);
+    toast.success("อัปโหลดรูปปกแล้ว");
+  };
+
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
