@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   Loader2, Plus, ArrowLeft, Trash2, Heart, Copy, Paperclip, Link2, StickyNote, X,
-  FileText, Image as ImageIcon, Download,
+  FileText, Image as ImageIcon, Download, Settings,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { th } from "date-fns/locale";
@@ -25,6 +26,14 @@ const BG_MAP: Record<string, string> = {
   sunset: "bg-gradient-to-br from-orange-100 via-pink-100 to-rose-200",
   forest: "bg-gradient-to-br from-emerald-100 via-green-50 to-teal-100",
 };
+
+const BG_LIST = [
+  { key: "paper", label: "กระดาษ" },
+  { key: "grid", label: "ตาราง" },
+  { key: "sky", label: "ท้องฟ้า" },
+  { key: "sunset", label: "พระอาทิตย์ตก" },
+  { key: "forest", label: "ป่า" },
+];
 
 const COLORS = [
   { key: "yellow", cls: "bg-yellow-100 border-yellow-300" },
@@ -74,6 +83,46 @@ export default function PadletBoardPage() {
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [coverSigned, setCoverSigned] = useState<string>("");
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editBg, setEditBg] = useState("paper");
+  const [editAllow, setEditAllow] = useState(true);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const openEdit = () => {
+    if (!board) return;
+    setEditTitle(board.title || "");
+    setEditDesc(board.description || "");
+    setEditBg(board.background || "paper");
+    setEditAllow(!!board.allow_guest_post);
+    setEditOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!board) return;
+    if (!editTitle.trim()) { toast.error("กรอกชื่อกระดาน"); return; }
+    setSavingEdit(true);
+    const { error } = await supabase.from("padlet_boards").update({
+      title: editTitle.trim(),
+      description: editDesc.trim() || null,
+      background: editBg,
+      allow_guest_post: editAllow,
+    }).eq("id", board.id);
+    setSavingEdit(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("บันทึกการแก้ไขแล้ว");
+    setEditOpen(false);
+  };
+
+  const deleteBoard = async () => {
+    if (!board) return;
+    if (!confirm(`ลบกระดาน "${board.title}" ทั้งหมด? การลบไม่สามารถกู้คืนได้`)) return;
+    const { error } = await supabase.from("padlet_boards").delete().eq("id", board.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("ลบกระดานแล้ว");
+    navigate("/dashboard/padlet");
+  };
   const coverInputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -312,6 +361,12 @@ export default function PadletBoardPage() {
               }}
             >{board.allow_guest_post ? "ปิดการแปะ" : "เปิดการแปะ"}</Button>
           )}
+          {canManageBoard && (
+            <>
+              <Button variant="outline" size="sm" onClick={openEdit} className="gap-1"><Settings className="w-3.5 h-3.5" /> แก้ไข</Button>
+              <Button variant="outline" size="sm" onClick={deleteBoard} className="gap-1 text-destructive hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /> ลบ</Button>
+            </>
+          )}
           {canPost && (
             <Button onClick={() => { resetForm(); setOpen(true); }} size="sm" className="gap-1"><Plus className="w-4 h-4" /> แปะโน้ต</Button>
           )}
@@ -500,6 +555,42 @@ export default function PadletBoardPage() {
             <Button onClick={submitNote} disabled={saving || uploading}>
               {saving && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
               {editingId ? "บันทึก" : "แปะโน้ต"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>แก้ไขกระดาน</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium">ชื่อกระดาน *</label>
+              <Input value={editTitle} onChange={e => setEditTitle(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">คำอธิบาย</label>
+              <Textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={2} />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">พื้นหลัง</label>
+              <div className="grid grid-cols-5 gap-2">
+                {BG_LIST.map(o => (
+                  <button key={o.key} type="button" onClick={() => setEditBg(o.key)}
+                    className={`h-12 rounded border-2 ${BG_MAP[o.key]} ${editBg === o.key ? "border-primary ring-2 ring-primary/30" : "border-transparent"}`}
+                    title={o.label} />
+                ))}
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={editAllow} onChange={e => setEditAllow(e.target.checked)} />
+              อนุญาตให้นักเรียนแปะโน้ตได้
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>ยกเลิก</Button>
+            <Button onClick={saveEdit} disabled={savingEdit}>
+              {savingEdit && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}บันทึก
             </Button>
           </DialogFooter>
         </DialogContent>
