@@ -29,6 +29,7 @@ import { IdCardFront, IdCardBack } from "@/components/IdCardRenderer";
 import { PdpaConsentCard } from "@/components/PdpaConsentCard";
 import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
 import MyPostsTab from "@/components/profile/MyPostsTab";
+import MyMembershipsCard from "@/components/profile/MyMembershipsCard";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { formatDateBE } from "@/lib/dateBE";
 
@@ -751,6 +752,13 @@ const ProfilePage = () => {
                   </div>
                 )}
               </div>
+
+              {(role === "teacher" || role === "director" || role === "admin") && (
+                <div className="pt-2">
+                  <MyMembershipsCard />
+                </div>
+              )}
+
 
               {/* PDPA consent status */}
               <div className="pt-2">
