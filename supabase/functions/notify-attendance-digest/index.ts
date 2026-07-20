@@ -69,17 +69,17 @@ serve(async (req) => {
     const sb = makeAdmin();
     const today = bkkDate(0);
 
-    // Pull today's attendance joined with student grade level
+    // Pull today's attendance joined with student -> classroom grade level
     const { data: rows, error } = await sb
       .from("attendance")
-      .select("status, students!inner(grade_level)")
+      .select("status, students!inner(classrooms:classroom_id(grade_level))")
       .eq("attendance_date", today);
     if (error) throw error;
 
-    // Aggregate by grade_level
+    // Aggregate by grade_level (from classroom)
     const byGrade: Record<string, { present: number; absent: number; late: number; leave: number }> = {};
     for (const r of (rows as any[]) || []) {
-      const g = (r.students?.grade_level as string) || "ไม่ระบุ";
+      const g = (r.students?.classrooms?.grade_level as string) || "ไม่ระบุ";
       if (!byGrade[g]) byGrade[g] = { present: 0, absent: 0, late: 0, leave: 0 };
       const s = (r.status || "present").toLowerCase();
       if (s === "present") byGrade[g].present++;
