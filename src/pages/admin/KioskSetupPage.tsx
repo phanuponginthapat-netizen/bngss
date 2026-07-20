@@ -38,12 +38,19 @@ export default function KioskSetupPage() {
   // ใช้ published URL เสมอ (ไม่ใช้ preview link ที่ต้อง login Lovable)
   const PUBLIC_ORIGIN = useMemo(() => {
     const o = window.location.origin;
-    // ถ้าอยู่บน preview/lovable editor → fallback เป็น published domain
-    if (o.includes("id-preview--") || o.includes("lovable.dev") || o.includes("localhost")) {
+    // ถ้าอยู่บน preview/editor/localhost → fallback เป็น published domain
+    if (
+      o.includes("id-preview--") ||
+      o.includes("lovableproject.com") ||
+      o.includes("lovable.dev") ||
+      o.includes("localhost") ||
+      o.includes("127.0.0.1")
+    ) {
       return "https://bngss.lovable.app";
     }
     return o;
   }, []);
+
 
   const [mode, setMode] = useState<KioskMode>("door");
   const [kioskUrl, setKioskUrl] = useState(() => `${PUBLIC_ORIGIN}/kiosk`);
