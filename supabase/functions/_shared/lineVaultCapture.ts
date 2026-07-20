@@ -197,7 +197,18 @@ export async function captureLineGroupEvent(
         size_bytes: content.data.byteLength,
         original_filename: origName,
       });
-      if (error && !`${error.message}`.includes("duplicate")) throw error;
+      if (error) {
+        // If insert failed (dupe or otherwise), clean up the just-uploaded Drive file
+        // so it doesn't become an orphan.
+        if (driveFileId) {
+          try {
+            const { deleteFile } = await import("./googleDrive.ts");
+            await deleteFile(driveFileId);
+          } catch (e) { console.error("[vault rollback drive]", e); }
+        }
+        if (`${error.message}`.includes("duplicate")) return { captured: false, reason: "duplicate_message" };
+        throw error;
+      }
       return { captured: true };
     }
 
