@@ -63,12 +63,6 @@ export default function PadletListPage() {
     }
   };
 
-      .select("*, subjects:subject_id(name_th, code), classrooms:classroom_id(name, grade_level)")
-      .order("updated_at", { ascending: false });
-    if (error) toast.error(error.message);
-    setBoards(data || []);
-    setLoading(false);
-  };
 
   useEffect(() => {
     load();
