@@ -69,17 +69,28 @@ serve(async (req) => {
     const sb = makeAdmin();
     const today = bkkDate(0);
 
-    // Pull today's attendance joined with student -> classroom grade level
-    const { data: rows, error } = await sb
+    // Pull today's attendance, then look up classroom grade level via students -> classrooms
+    const { data: attRows, error: attErr } = await sb
       .from("attendance")
-      .select("status, students!inner(classrooms:classroom_id(grade_level))")
+      .select("status, student_id")
       .eq("attendance_date", today);
-    if (error) throw error;
+    if (attErr) throw attErr;
 
-    // Aggregate by grade_level (from classroom)
+    const studentIds = Array.from(new Set(((attRows as any[]) || []).map((r) => r.student_id).filter(Boolean)));
+    const gradeByStudent = new Map<string, string>();
+    if (studentIds.length > 0) {
+      const { data: studs } = await sb
+        .from("students")
+        .select("id, classrooms:classroom_id(grade_level)")
+        .in("id", studentIds);
+      for (const s of (studs as any[]) || []) {
+        gradeByStudent.set(s.id, (s.classrooms?.grade_level as string) || "ไม่ระบุ");
+      }
+    }
+
     const byGrade: Record<string, { present: number; absent: number; late: number; leave: number }> = {};
-    for (const r of (rows as any[]) || []) {
-      const g = (r.students?.classrooms?.grade_level as string) || "ไม่ระบุ";
+    for (const r of (attRows as any[]) || []) {
+      const g = gradeByStudent.get(r.student_id) || "ไม่ระบุ";
       if (!byGrade[g]) byGrade[g] = { present: 0, absent: 0, late: 0, leave: 0 };
       const s = (r.status || "present").toLowerCase();
       if (s === "present") byGrade[g].present++;
