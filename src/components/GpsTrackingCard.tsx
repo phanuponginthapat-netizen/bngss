@@ -43,7 +43,12 @@ const GpsTrackingCard = () => {
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const center: [number, number] = geo.configured ? [geo.lat, geo.lng] : [13.7563, 100.5018];
-    const map = L.map(containerRef.current, { zoomControl: true, attributionControl: false }).setView(center, 17);
+    const map = L.map(containerRef.current, {
+      zoomControl: true,
+      attributionControl: false,
+      zoomAnimation: false, // avoid _leaflet_pos crash if unmount happens mid-zoom
+      fadeAnimation: false,
+    }).setView(center, 17);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
     if (geo.configured) {
       L.marker([geo.lat, geo.lng], { icon: schoolIcon }).addTo(map).bindPopup("ตำแหน่งโรงเรียน");
@@ -51,11 +56,12 @@ const GpsTrackingCard = () => {
     }
     mapRef.current = map;
     return () => {
-      map.remove();
+      try { (map as any)._stop?.(); map.remove(); } catch (e) { console.warn("[GpsTrackingCard] cleanup:", e); }
       mapRef.current = null;
       userMarkerRef.current = null;
       accuracyCircleRef.current = null;
     };
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [geo.configured, geo.lat, geo.lng, geo.radius]);
 
