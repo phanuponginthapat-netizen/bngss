@@ -61,14 +61,15 @@ export function AttendanceReportTab({
       .sort((a: any, b: any) => (a.student_code || "").localeCompare(b.student_code || ""));
   }, [students, classroomFilter]);
 
-  // Filter records by date range and classroom
+  // Filter records by date range and classroom (exclude auto-detected holidays)
   const filteredRecords = useMemo(() => {
     const studentIds = new Set(classStudents.map((s: any) => s.id));
     return records.filter((r: any) =>
       r.student_id && studentIds.has(r.student_id) &&
-      r.attendance_date >= startDate && r.attendance_date <= endDate
+      r.attendance_date >= startDate && r.attendance_date <= endDate &&
+      !holidayDates.has(r.attendance_date)
     );
-  }, [records, classStudents, startDate, endDate]);
+  }, [records, classStudents, startDate, endDate, holidayDates]);
 
   // Per-student summary
   const studentSummary = useMemo(() => {
