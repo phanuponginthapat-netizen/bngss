@@ -807,7 +807,7 @@ EOF
 # ---------------- 5.5) Auto-install Smart School Browser Extension (student mode) ----------------
 EXT_DIR="/opt/kiosk/extension"
 EXT_FLAG=""
-if [[ -n "$KIOSK_EXTENSION_URL" ]]; then
+if [[ "$KIOSK_MODE" == "student" && -n "$KIOSK_EXTENSION_URL" ]]; then
   log "▶  [5.5/10] ติดตั้ง Smart School Extension อัตโนมัติจาก $KIOSK_EXTENSION_URL"
   mkdir -p "$EXT_DIR"
   apt-get install -y --no-install-recommends unzip curl >/dev/null 2>&1 || true
