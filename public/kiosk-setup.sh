@@ -72,6 +72,27 @@ backup_once() {
 
 [[ $EUID -eq 0 ]] || die "ต้องรันด้วย sudo:  sudo ./setup-mxlinux-kiosk.sh"
 
+# ---------------- ตรวจว่าบูตด้วย systemd หรือไม่ (MX Linux default = SysVinit) ----------------
+# ถ้าไม่ใช่ systemd → systemctl enable/mask/daemon-reload ทั้งหมดจะไม่ทำงานจริง
+# (services ที่เรา enable ไว้จะไม่ start เมื่อรีบูต ทำให้ kiosk ไม่ขึ้น)
+if ! { [[ -d /run/systemd/system ]] && [[ "$(ps -p 1 -o comm= 2>/dev/null)" == "systemd" ]]; }; then
+  echo
+  echo "❌  เครื่องนี้ไม่ได้บูตด้วย systemd (MX Linux default = SysVinit)"
+  echo "    ระบบ Kiosk ต้องใช้ systemd เพราะมี service/timer หลายตัวที่ต้องรันตอนบูต"
+  echo
+  echo "    วิธีแก้ (ทำครั้งเดียว):"
+  echo "    1) รีบูตเครื่อง"
+  echo "    2) ที่หน้าจอ GRUB (เมนู MX Linux) → กดลูกศรลงเลือกบรรทัด"
+  echo "         \"MX ... (systemd)\"  หรือกด F5 → เลือก systemd → Enter"
+  echo "    3) หลังบูตด้วย systemd แล้ว → เปิด Terminal แล้วรันสคริปต์นี้อีกครั้ง"
+  echo
+  echo "    หรือตั้งให้บูต systemd ถาวร (แนะนำ):"
+  echo "       sudo sed -i 's|GRUB_CMDLINE_LINUX_DEFAULT=\"|&init=/lib/systemd/systemd |' /etc/default/grub"
+  echo "       sudo update-grub && sudo reboot"
+  echo
+  exit 2
+fi
+
 # ---------------- 0) Pre-flight ----------------
 log "▶  [0/10] Pre-flight check..."
 id "$KIOSK_USER" &>/dev/null || die "ไม่พบผู้ใช้ '$KIOSK_USER' — สร้างผู้ใช้ก่อน หรือกำหนด KIOSK_USER=..."
@@ -384,8 +405,12 @@ printf '%s\n' "$POLICY" > /etc/chromium-browser/policies/managed/kiosk-permissio
 log "▶  [5.5/10] ดึง branding จาก CMS + ติดตั้ง Plymouth theme..."
 
 # ดึง config จาก edge function (public) — timeout สั้น ไม่ตายถ้าเน็ตล้ม
-CMS_JSON=$(curl -sf --max-time 8 "$KIOSK_ORIGIN/functions/v1/ext-config" \
-  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2d2VycnRlc3BucndpZ3pjcHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1MTI2MjUsImV4cCI6MjA5NjA4ODYyNX0.GJ56S-1ddjhxpK0ITznvMTAIC3nWV54xpigolzImpIM" \
+# Edge Functions รันบน Supabase (ไม่ใช่ที่ app URL) — ต้อง hard-code project ref
+CMS_SUPABASE_URL="${CMS_SUPABASE_URL:-https://dlkyxvhnnffblerwedjz.supabase.co}"
+CMS_SUPABASE_ANON="${CMS_SUPABASE_ANON:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4}"
+CMS_JSON=$(curl -sf --max-time 8 "$CMS_SUPABASE_URL/functions/v1/ext-config" \
+  -H "apikey: $CMS_SUPABASE_ANON" \
+  -H "Authorization: Bearer $CMS_SUPABASE_ANON" \
   2>/dev/null || echo '{}')
 
 # หา field ด้วย python (มี JSON parser แน่ๆ)
@@ -401,6 +426,7 @@ CMS_COLOR=$(extract_json theme_color)
 [[ -z "$CMS_COLOR" ]] && CMS_COLOR=$(extract_json primary_color)
 [[ -z "$CMS_COLOR" ]] && CMS_COLOR="#2563EB"
 
+log "   CMS:   $CMS_SUPABASE_URL/functions/v1/ext-config ($(echo -n "$CMS_JSON" | wc -c) bytes)"
 log "   ชื่อ: $CMS_NAME"
 log "   สี:   $CMS_COLOR"
 log "   โลโก้: ${CMS_LOGO_URL:-<ไม่มี>}"
