@@ -416,6 +416,19 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
             <Archive className="h-4 w-4 mr-1" />
             {zipping ? `กำลังบีบอัด ${zipProgress?.done || 0}/${zipProgress?.total || 0}...` : "ดาวน์โหลดเป็น ZIP"}
           </Button>
+          {isAdmin && onBulkDelete && (
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={zipping}
+              onClick={async () => {
+                const ok = await onBulkDelete(selectedItems);
+                if (ok) clearSel();
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />ลบที่เลือก
+            </Button>
+          )}
           <Button size="sm" variant="ghost" onClick={clearSel} disabled={zipping}>ยกเลิกการเลือก</Button>
         </div>
       )}
