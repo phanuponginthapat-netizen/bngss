@@ -311,7 +311,7 @@ export default function LineVaultPage() {
   );
 }
 
-function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, fetchBlob, groupAlbums }: { items: Item[]; loading: boolean; isAdmin: boolean; onOpen: (i: Item) => void; onDelete: (i: Item) => void; fetchBlob: (i: Item) => Promise<{ blob: Blob; filename: string } | null>; groupAlbums?: boolean }) {
+function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fetchBlob, groupAlbums }: { items: Item[]; loading: boolean; isAdmin: boolean; onOpen: (i: Item) => void; onDelete: (i: Item) => void; onBulkDelete?: (items: Item[]) => Promise<boolean>; fetchBlob: (i: Item) => Promise<{ blob: Blob; filename: string } | null>; groupAlbums?: boolean }) {
   const [albumOpen, setAlbumOpen] = useState<Item[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [zipping, setZipping] = useState(false);
