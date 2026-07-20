@@ -273,9 +273,15 @@ export default function IctLoanStationPage() {
         const { data: full } = await supabase.from("students")
           .select("id,student_code,prefix,first_name,last_name,classrooms!students_classroom_id_fkey(name)")
           .eq("id", r.id).maybeSingle();
-        data = full;
+        // fallback: ถ้า RLS ปิดกั้น select ตรงๆ ให้ใช้ข้อมูลจาก RPC
+        data = full || {
+          id: r.id, student_code: r.student_code, prefix: r.prefix,
+          first_name: r.first_name, last_name: r.last_name,
+          classrooms: null,
+        };
       }
       if (!data) { toast.error("ไม่พบนักเรียนจาก QR (" + cleaned.slice(0, 40) + ")"); return; }
+
       setStudent(data as any); setPersonnel(null);
       toast.success("พบนักเรียน: " + data.first_name + " " + data.last_name);
       if (mode === "return") await autoFindLoan({ student_id: (data as any).id });
