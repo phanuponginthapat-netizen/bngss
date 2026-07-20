@@ -285,9 +285,9 @@ const DashboardLayout = () => {
                 )}
               </span>
               {/* text lockup */}
-              <span className="relative flex flex-col leading-tight min-w-0">
+              <span className="relative flex flex-col leading-tight">
                 <span
-                  className="text-[15px] font-bold tracking-tight truncate max-w-[260px]"
+                  className="text-[15px] font-bold tracking-tight whitespace-nowrap"
                   style={{
                     backgroundImage:
                       "linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)))",
@@ -297,7 +297,7 @@ const DashboardLayout = () => {
                 >
                   {appName}
                 </span>
-                <span className="text-[11px] font-medium text-muted-foreground/80 tracking-wide truncate max-w-[260px]">
+                <span className="text-[11px] font-medium text-muted-foreground/80 tracking-wide whitespace-nowrap">
                   {lang === "th" ? "ระบบบริหารจัดการโรงเรียนอัจฉริยะ" : "Smart School Management"}
                 </span>
               </span>
