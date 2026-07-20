@@ -16,6 +16,35 @@ self.addEventListener("activate", (e) => {
   })());
 });
 
+// ── AI model cache (cache-first, ถาวร) ────────────────────────────────
+// face-api models (jsdelivr) + ArcFace ONNX (huggingface) — โหลดครั้งเดียว
+// เก็บถาวรจนกว่า user เคลียร์ cache; ประหยัดเวลา + bandwidth ทุกครั้งที่เปิดหน้าคีออส
+const AI_MODEL_CACHE = "ai-models-v1";
+const AI_MODEL_HOSTS = [
+  "cdn.jsdelivr.net",
+  "huggingface.co",
+  "cdn-lfs.huggingface.co",
+];
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
+  if (req.method !== "GET") return;
+  let url;
+  try { url = new URL(req.url); } catch { return; }
+  if (!AI_MODEL_HOSTS.includes(url.hostname)) return;
+  // เฉพาะไฟล์โมเดล (.onnx / .bin / .json ใน path model/ หรือ resolve/)
+  if (!/\.(onnx|bin|json|shard\d+)$/i.test(url.pathname) &&
+      !/\/(model|resolve)\//i.test(url.pathname)) return;
+  event.respondWith((async () => {
+    const cache = await caches.open(AI_MODEL_CACHE);
+    const hit = await cache.match(req);
+    if (hit) return hit;
+    const res = await fetch(req);
+    if (res.ok) { try { await cache.put(req, res.clone()); } catch {} }
+    return res;
+  })());
+});
+
+
 // Dedup: จำ tag ที่เพิ่งแสดงไปในหน้าต่างสั้น ๆ เพื่อกันแจ้งเตือนซ้ำ
 // (กรณี server ยิงซ้ำ / realtime + push มาพร้อมกัน)
 const recentTags = new Map(); // tag → timestamp
