@@ -25,8 +25,8 @@ async function getVaultToken(sb: any): Promise<string | null> {
   return (data?.value as string) || null;
 }
 
-function buildChartUrl(labels: string[], present: number[], absent: number[], late: number[], leave: number[]): string {
-  const config = {
+function buildChartConfig(labels: string[], present: number[], absent: number[], late: number[], leave: number[]) {
+  return {
     type: "bar",
     data: {
       labels,
@@ -47,9 +47,25 @@ function buildChartUrl(labels: string[], present: number[], absent: number[], la
       plugins: { datalabels: { display: true, color: "#fff", font: { weight: "bold" } } },
     },
   };
+}
+
+async function shortChartUrl(config: unknown): Promise<string> {
+  // QuickChart short-URL API — returns a stable https link well under LINE's 2000-char limit.
+  try {
+    const res = await fetch("https://quickchart.io/chart/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chart: config, width: 900, height: 500, backgroundColor: "white", devicePixelRatio: 2 }),
+    });
+    if (res.ok) {
+      const j = await res.json();
+      if (j?.url) return j.url as string;
+    }
+    console.error("quickchart short url failed", res.status, await res.text().catch(() => ""));
+  } catch (e) { console.error("quickchart short url error", e); }
+  // Fallback: inline (may exceed 2000 chars for large charts, but better than nothing)
   const params = new URLSearchParams({
-    c: JSON.stringify(config),
-    width: "900", height: "500", backgroundColor: "white", devicePixelRatio: "2",
+    c: JSON.stringify(config), width: "900", height: "500", backgroundColor: "white", devicePixelRatio: "2",
   });
   return `https://quickchart.io/chart?${params.toString()}`;
 }
