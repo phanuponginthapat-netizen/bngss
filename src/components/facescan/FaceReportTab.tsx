@@ -94,6 +94,7 @@ const FaceReportTab = () => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewChartUrl, setPreviewChartUrl] = useState<string | null>(null);
   const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
   const [previewSummary, setPreviewSummary] = useState<string>("");
   const summaryRef = useRef<HTMLDivElement>(null);
@@ -211,15 +212,68 @@ const FaceReportTab = () => {
     return s.length > 4900 ? s.slice(0, 4880) + "\n… (ตัดทอน)" : s;
   };
 
+  const buildQuickChartConfig = () => {
+    const rows = accurate?.rows || [];
+    const gradeOrder = ["อ.1","อ.2","อ.3","ป.1","ป.2","ป.3","ป.4","ป.5","ป.6","ม.1","ม.2","ม.3","ม.4","ม.5","ม.6"];
+    const byGrade: Record<string, { present: number; absent: number; late: number; leave: number }> = {};
+    for (const r of rows) {
+      const g = r.grade || "ไม่ระบุ";
+      if (!byGrade[g]) byGrade[g] = { present: 0, absent: 0, late: 0, leave: 0 };
+      byGrade[g].present += r.present;
+      byGrade[g].late += r.late;
+      byGrade[g].leave += r.leave;
+      byGrade[g].absent += r.absent;
+    }
+    const labels = Object.keys(byGrade).sort((a, b) => {
+      const ia = gradeOrder.indexOf(a), ib = gradeOrder.indexOf(b);
+      if (ia === -1 && ib === -1) return a.localeCompare(b);
+      if (ia === -1) return 1; if (ib === -1) return -1;
+      return ia - ib;
+    });
+    const present = labels.map(l => byGrade[l].present);
+    const late    = labels.map(l => byGrade[l].late);
+    const leave   = labels.map(l => byGrade[l].leave);
+    const absent  = labels.map(l => byGrade[l].absent);
+    const t = accurate?.totals;
+    const subtitle = t ? `📅 ${range.label}   |   รวม ${t.size} คน   |   มา ${t.present} (${t.pct}%)  •  สาย ${t.late}  •  ลา ${t.leave}  •  ขาด ${t.absent}` : `📅 ${range.label}`;
+    return {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          { label: "มา",  backgroundColor: "#10B981", data: present, stack: "a", borderRadius: 4 },
+          { label: "สาย", backgroundColor: "#F59E0B", data: late,    stack: "a", borderRadius: 4 },
+          { label: "ลา",  backgroundColor: "#6366F1", data: leave,   stack: "a", borderRadius: 4 },
+          { label: "ขาด", backgroundColor: "#EF4444", data: absent,  stack: "a", borderRadius: 4 },
+        ],
+      },
+      options: {
+        title: { display: true, text: ["📊 รายงานการสแกนเข้าโรงเรียน", subtitle], fontSize: 20, fontStyle: "bold", fontColor: "#0F172A", padding: 16 },
+        legend: { position: "bottom", labels: { fontSize: 14, fontStyle: "bold", padding: 14 } },
+        layout: { padding: { left: 12, right: 20, top: 8, bottom: 12 } },
+        scales: {
+          xAxes: [{ stacked: true, gridLines: { display: false }, ticks: { fontSize: 14, fontStyle: "bold", fontColor: "#334155" } }],
+          yAxes: [{ stacked: true, gridLines: { color: "#E2E8F0" }, ticks: { beginAtZero: true, fontSize: 12, fontColor: "#64748B" } }],
+        },
+        plugins: { datalabels: { display: true, color: "#fff", font: { weight: "bold", size: 12 } } },
+      },
+    };
+  };
+
   const openPreviewForLine = async () => {
     setPreviewLoading(true);
     setPreviewOpen(true);
     try {
-      const blob = await renderReportImage("blob");
-      if (!blob) throw new Error("สร้างรูปไม่สำเร็จ");
-      if (previewImage) URL.revokeObjectURL(previewImage);
-      setPreviewBlob(blob);
-      setPreviewImage(URL.createObjectURL(blob));
+      const config = buildQuickChartConfig();
+      const res = await fetch("https://quickchart.io/chart/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chart: config, width: 1100, height: 620, backgroundColor: "white", devicePixelRatio: 2, version: "2.9.4" }),
+      });
+      if (!res.ok) throw new Error("ไม่สามารถสร้างกราฟจาก QuickChart");
+      const j = await res.json();
+      if (!j?.url) throw new Error("QuickChart ไม่ส่ง URL");
+      setPreviewChartUrl(j.url as string);
       setPreviewSummary(buildSummaryText());
     } catch (e: any) {
       toast.error(e.message || "สร้างตัวอย่างไม่สำเร็จ");
@@ -230,28 +284,16 @@ const FaceReportTab = () => {
   };
 
   const confirmSendReportToLine = async () => {
-    if (!previewBlob) return;
+    if (!previewChartUrl) return;
     setSendingLine(true);
     try {
-      const path = `attendance-digest/${range.start}/${Date.now()}.jpg`;
-      const { error: upErr } = await supabase.storage
-        .from("face-photos")
-        .upload(path, previewBlob, { contentType: "image/jpeg", upsert: false });
-      if (upErr) throw upErr;
-      const { data: signed, error: signErr } = await supabase.storage
-        .from("face-photos")
-        .createSignedUrl(path, 60 * 60 * 24 * 7);
-      if (signErr || !signed?.signedUrl) throw signErr || new Error("สร้างลิงก์รูปไม่สำเร็จ");
-
       const { error } = await supabase.functions.invoke("notify-attendance-digest", {
-        body: { image_url: signed.signedUrl, summary_text: previewSummary, force: true },
+        body: { image_url: previewChartUrl, summary_text: previewSummary, force: true },
       });
       if (error) throw error;
       toast.success("ส่งรายงานเข้ากลุ่ม LINE เรียบร้อย");
       setPreviewOpen(false);
-      if (previewImage) URL.revokeObjectURL(previewImage);
-      setPreviewImage(null);
-      setPreviewBlob(null);
+      setPreviewChartUrl(null);
     } catch (e: any) {
       console.error(e);
       toast.error(e.message || "ส่งเข้า LINE ไม่สำเร็จ");
@@ -259,6 +301,8 @@ const FaceReportTab = () => {
       setSendingLine(false);
     }
   };
+
+
 
 
   const range = useMemo(() => getRange(period, new Date(refDate)), [period, refDate]);
@@ -1307,19 +1351,19 @@ const FaceReportTab = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={previewOpen} onOpenChange={(o) => { setPreviewOpen(o); if (!o && previewImage) { URL.revokeObjectURL(previewImage); setPreviewImage(null); setPreviewBlob(null); } }}>
+      <Dialog open={previewOpen} onOpenChange={(o) => { setPreviewOpen(o); if (!o) setPreviewChartUrl(null); }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>ตัวอย่างรายงานก่อนส่งเข้ากลุ่ม LINE</DialogTitle>
-            <DialogDescription>ตรวจสอบภาพกราฟและรายชื่อนักเรียนที่ขาดแยกตามระดับชั้น ก่อนกดยืนยันส่ง</DialogDescription>
+            <DialogTitle>ตัวอย่าง QuickChart bar chart ก่อนส่งเข้า LINE</DialogTitle>
+            <DialogDescription>กราฟและข้อความนี้คือสิ่งที่จะถูกส่งเข้ากลุ่ม LINE — เหมือนกับที่ cron ส่งอัตโนมัติทุก 10:00 น.</DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-auto grid md:grid-cols-2 gap-4 pr-1">
             <div className="border rounded-lg overflow-hidden bg-white">
-              <div className="bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 border-b">รูปภาพรายงาน</div>
+              <div className="bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 border-b">กราฟ (QuickChart)</div>
               {previewLoading ? (
-                <div className="p-8 text-center text-sm text-muted-foreground">กำลังสร้างภาพ...</div>
-              ) : previewImage ? (
-                <img src={previewImage} alt="ตัวอย่างรายงาน" className="w-full h-auto" />
+                <div className="p-8 text-center text-sm text-muted-foreground">กำลังสร้างกราฟจาก QuickChart...</div>
+              ) : previewChartUrl ? (
+                <img src={previewChartUrl} alt="QuickChart preview" className="w-full h-auto" />
               ) : null}
             </div>
             <div className="border rounded-lg overflow-hidden bg-white flex flex-col">
@@ -1329,7 +1373,7 @@ const FaceReportTab = () => {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setPreviewOpen(false)} disabled={sendingLine}>ยกเลิก</Button>
-            <Button onClick={confirmSendReportToLine} disabled={sendingLine || previewLoading || !previewBlob} className="bg-[#06C755] hover:bg-[#05a648] text-white">
+            <Button onClick={confirmSendReportToLine} disabled={sendingLine || previewLoading || !previewChartUrl} className="bg-[#06C755] hover:bg-[#05a648] text-white">
               <Send className="w-4 h-4 mr-2" />{sendingLine ? "กำลังส่ง..." : "ยืนยันส่งเข้ากลุ่ม LINE"}
             </Button>
           </DialogFooter>
