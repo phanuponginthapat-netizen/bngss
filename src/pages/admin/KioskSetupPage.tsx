@@ -76,7 +76,22 @@ export default function KioskSetupPage() {
         if (typeof cfg === "string") { try { cfg = JSON.parse(cfg); } catch { cfg = null; } }
         if (cfg && typeof cfg === "object") {
           if (cfg.mode) setMode(cfg.mode);
-          if (cfg.kioskUrl) setKioskUrl(cfg.kioskUrl);
+          if (cfg.kioskUrl) {
+            // แทนที่ preview/lovableproject URL เก่าด้วย published domain เสมอ
+            let u = String(cfg.kioskUrl);
+            try {
+              const parsed = new URL(u);
+              if (
+                parsed.hostname.includes("lovableproject.com") ||
+                parsed.hostname.includes("lovable.dev") ||
+                parsed.hostname.includes("id-preview--") ||
+                parsed.hostname === "localhost"
+              ) {
+                u = `${PUBLIC_ORIGIN}${parsed.pathname === "/" ? "/kiosk" : parsed.pathname}`;
+              }
+            } catch { /* keep original */ }
+            setKioskUrl(u);
+          }
           if (cfg.kioskUser) setKioskUser(cfg.kioskUser);
           if (typeof cfg.wifiSsid === "string") setWifiSsid(cfg.wifiSsid);
           if (typeof cfg.wifiPass === "string") setWifiPass(cfg.wifiPass);
