@@ -972,6 +972,33 @@ function GroupsManager({ groups, onChange }: { groups: Group[]; onChange: () => 
                 }
               </p>
             </div>
+            <div className="pt-2 border-t space-y-2">
+              <Label className="text-[11px] text-muted-foreground flex items-center gap-1">
+                🔔 การแจ้งเตือนเข้ากลุ่ม LINE นี้
+              </Label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
+                <label className="flex items-center justify-between gap-2 border rounded-md px-2.5 py-1.5">
+                  <span>การขอ/อนุมัติลา</span>
+                  <Switch checked={!!g.notify_leaves} onCheckedChange={(v) => update(g.id, { notify_leaves: v } as any)} />
+                </label>
+                <label className="flex items-center justify-between gap-2 border rounded-md px-2.5 py-1.5">
+                  <span>มอบหมายสอนแทน</span>
+                  <Switch checked={!!g.notify_substitute} onCheckedChange={(v) => update(g.id, { notify_substitute: v } as any)} />
+                </label>
+                <label className="flex items-center justify-between gap-2 border rounded-md px-2.5 py-1.5">
+                  <span>ปฏิทินรายวัน 07:00</span>
+                  <Switch checked={!!g.notify_calendar} onCheckedChange={(v) => update(g.id, { notify_calendar: v } as any)} />
+                </label>
+              </div>
+              <Button
+                size="sm" variant="outline"
+                onClick={async () => {
+                  const { data, error } = await supabase.functions.invoke("notify-calendar-digest", { body: {} });
+                  if (error) return swal.error("ทดสอบไม่สำเร็จ", error.message);
+                  swal.success("ส่งทดสอบสำเร็จ", `กลุ่มที่รับ: ${data?.count ?? 0}`);
+                }}
+              >ทดสอบส่งสรุปปฏิทินทันที</Button>
+            </div>
             <div className="text-[11px] text-muted-foreground font-mono">Group ID: {g.line_group_id}</div>
           </div>
         ))}
