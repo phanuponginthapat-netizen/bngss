@@ -307,11 +307,10 @@ const DashboardLayout = () => {
 
 
 
-            <div className="flex-1 flex items-center justify-center min-w-0">
+            <div className="flex-1" />
+            <div className="flex items-center gap-1 rounded-full bg-muted/40 border border-border/50 px-1 py-1 backdrop-blur-sm">
               <HeaderClock />
-            </div>
-            <div className="ml-auto flex items-center gap-1 rounded-full bg-muted/40 border border-border/50 px-1 py-1 backdrop-blur-sm">
-
+              <span className="w-px h-6 bg-border/60 mx-1 hidden md:block" />
               <OfflineIndicator />
               <PWAInstallButton />
               <LanguageToggle />
