@@ -102,9 +102,10 @@ Deno.serve(async (req) => {
             if (f.mimeType === "application/vnd.google-apps.folder") {
               await walk(f.id);
             } else if (!knownIds.has(f.id)) {
-              // Only orphan-queue files older than 24h to avoid racing fresh uploads
+              // Only orphan-queue files older than 10 minutes to avoid racing fresh uploads
               const age = Date.now() - Date.parse(f.createdTime || "");
-              if (age > 24 * 3600_000) {
+              if (age > 10 * 60_000) {
+
                 await admin.from("line_vault_drive_trash")
                   .insert({ drive_file_id: f.id, status: "pending" })
                   .then(() => stats.scanned_orphans++)
