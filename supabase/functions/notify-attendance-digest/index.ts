@@ -185,7 +185,7 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, date: today, count: results.length, totals: { totalPresent, totalAbsent, totalLate, totalLeave, totalAll }, results }), {
+    return new Response(JSON.stringify({ ok: true, date: today, count: results.length, totals, results }), {
       headers: { ...cors, "Content-Type": "application/json" },
     });
   } catch (e) {
