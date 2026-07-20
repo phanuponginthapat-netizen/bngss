@@ -1011,7 +1011,7 @@ const FaceReportTab = () => {
             <div className="flex gap-2 flex-wrap">
               <Button onClick={exportXlsx} variant="outline" size="sm"><Download className="w-4 h-4 mr-2" />Export Excel</Button>
               <Button onClick={exportImage} variant="outline" size="sm" disabled={savingImage}><ImageIcon className="w-4 h-4 mr-2" />{savingImage ? "กำลังบันทึก..." : "บันทึกเป็นรูป"}</Button>
-              <Button onClick={sendReportToLine} disabled={sendingLine} size="sm" className="bg-[#06C755] hover:bg-[#05a648] text-white"><Send className="w-4 h-4 mr-2" />{sendingLine ? "กำลังส่ง..." : "ส่งเข้ากลุ่ม LINE"}</Button>
+              <Button onClick={openPreviewForLine} disabled={sendingLine || previewLoading} size="sm" className="bg-[#06C755] hover:bg-[#05a648] text-white"><Send className="w-4 h-4 mr-2" />ดูตัวอย่าง & ส่ง LINE</Button>
               <Button onClick={sendReportToGoogleChat} disabled={sending} size="sm" variant="outline"><Send className="w-4 h-4 mr-2" />ส่งสรุป Google Chat</Button>
             </div>
           </div>
