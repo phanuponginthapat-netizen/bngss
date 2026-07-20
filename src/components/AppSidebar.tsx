@@ -59,8 +59,8 @@ function IconTile({
   size?: "sm" | "md";
   className?: string;
 }) {
-  const box = size === "md" ? "w-8 h-8" : "w-7 h-7";
-  const glyph = size === "md" ? "w-[17px] h-[17px]" : "w-[15px] h-[15px]";
+  const box = size === "md" ? "w-7 h-7" : "w-6 h-6";
+  const glyph = size === "md" ? "w-[15px] h-[15px]" : "w-[13px] h-[13px]";
   return (
     <span
       className={`${color || "text-sidebar-foreground/70"} ${box} inline-flex items-center justify-center rounded-[10px] bg-current/[0.14] ring-1 ring-current/20 shadow-[inset_0_1px_0_hsl(0_0%_100%/0.55),inset_0_-1px_0_hsl(0_0%_0%/0.05),0_1px_2px_hsl(0_0%_0%/0.06)] flex-shrink-0 ${className}`}
@@ -634,21 +634,21 @@ export function AppSidebar() {
 
   return (
     <Sidebar side="right" collapsible="offcanvas" className="gradient-sidebar border-l-0">
-      <SidebarHeader className="px-3 py-4 border-b border-sidebar-border/70 bg-gradient-to-b from-sidebar-accent/20 to-transparent transition-all">
-        <div className="flex items-center gap-3 mb-3">
+      <SidebarHeader className="px-3 py-2.5 border-b border-sidebar-border/70 bg-gradient-to-b from-sidebar-accent/20 to-transparent transition-all">
+        <div className="flex items-center gap-2 mb-2">
           <div className="relative">
             <LogoMark />
             <span className="absolute -inset-1 rounded-2xl bg-primary/20 blur-md -z-10" aria-hidden />
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-[13px] font-bold text-sidebar-foreground tracking-tight truncate leading-tight">{headerTitle}</h2>
-            {headerSubtitle && <p className="text-[11px] text-sidebar-foreground/55 truncate mt-0.5">{headerSubtitle}</p>}
+            {headerSubtitle && <p className="text-[11px] text-sidebar-foreground/55 truncate">{headerSubtitle}</p>}
           </div>
           <button
             type="button"
             onClick={toggleSidebar}
             aria-label="ซ่อนเมนู"
-            className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors flex-shrink-0"
+            className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors flex-shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -660,7 +660,7 @@ export function AppSidebar() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={L("ค้นหาเมนู...", "Search menu...")}
-              className="h-9 pl-8 pr-7 text-sm bg-sidebar-accent/40 border-sidebar-border/60 text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus-visible:ring-1 focus-visible:ring-primary/60 focus-visible:border-primary/40 rounded-lg"
+              className="h-8 pl-8 pr-7 text-sm bg-sidebar-accent/40 border-sidebar-border/60 text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus-visible:ring-1 focus-visible:ring-primary/60 focus-visible:border-primary/40 rounded-lg"
             />
             {search && (
               <button
@@ -676,7 +676,7 @@ export function AppSidebar() {
         )}
       </SidebarHeader>
 
-      <SidebarContent className={`${collapsed ? 'px-1' : 'px-2'} py-2 gap-0 transition-all`}>
+      <SidebarContent className={`${collapsed ? 'px-1' : 'px-2'} py-1 gap-0 transition-all`}>
         <ViewModeSwitcher collapsed={collapsed} />
         
         {role === "student" ? (
@@ -725,7 +725,8 @@ export function AppSidebar() {
             return sections.map((sec, idx) => (
               <SidebarGroup key={idx} className="!p-0">
                 {!collapsed ? (
-                  <SidebarGroupLabel className="text-sidebar-foreground/60 text-xs font-semibold uppercase tracking-wider px-2 h-8 mt-1 flex items-center gap-2">
+                  <SidebarGroupLabel className="text-sidebar-foreground/60 text-[10px] font-semibold uppercase tracking-wider px-2 h-6 mt-0 flex items-center gap-2">
+
                     <sec.icon className="w-3.5 h-3.5" />
                     <span>{sec.label}</span>
                   </SidebarGroupLabel>
@@ -737,8 +738,8 @@ export function AppSidebar() {
                     {sec.items.map((item) => (
                       <SidebarMenuItem key={item.url}>
                         <SidebarMenuButton asChild tooltip={renderTooltip(item.title, item.desc)}>
-                          <NavLink to={item.url} end title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className={`text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-lg transition-colors text-sm md:text-base ${collapsed ? "justify-center w-10 h-10 mx-auto" : "py-2 md:py-2.5"}`} activeClassName="bg-sidebar-primary text-sidebar-primary-foreground font-medium">
-                            <IconTile icon={item.icon} color={item.color} size="md" className={collapsed ? '' : 'mr-2.5'} />
+                          <NavLink to={item.url} end title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className={`text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-lg transition-colors text-sm ${collapsed ? "justify-center w-9 h-9 mx-auto" : "py-1"}`} activeClassName="bg-sidebar-primary text-sidebar-primary-foreground font-medium">
+                            <IconTile icon={item.icon} color={item.color} className={collapsed ? '' : 'mr-2'} />
                             {!collapsed && <span className="truncate">{item.title}</span>}
                           </NavLink>
                         </SidebarMenuButton>
@@ -826,8 +827,8 @@ export function AppSidebar() {
                   {sec.items.map((item) => (
                     <SidebarMenuItem key={item.url}>
                       <SidebarMenuButton asChild tooltip={renderTooltip(item.title, item.desc)}>
-                        <NavLink to={item.url} end title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className={`relative text-sidebar-foreground/85 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground hover:translate-x-0.5 rounded-lg text-sm md:text-[15px] transition-all duration-150 ${collapsed ? 'justify-center w-10 h-10 mx-auto' : 'py-2 pl-3 pr-2'}`} activeClassName="bg-sidebar-primary/15 text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary">
-                          <IconTile icon={item.icon} color={item.color} className={collapsed ? '' : 'mr-2.5'} />
+                        <NavLink to={item.url} end title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className={`relative text-sidebar-foreground/85 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground hover:translate-x-0.5 rounded-lg text-sm transition-all duration-150 ${collapsed ? 'justify-center w-9 h-9 mx-auto' : 'py-1 pl-3 pr-2'}`} activeClassName="bg-sidebar-primary/15 text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary">
+                          <IconTile icon={item.icon} color={item.color} className={collapsed ? '' : 'mr-2'} />
                           {!collapsed && <span className="truncate">{item.title}</span>}
                         </NavLink>
                       </SidebarMenuButton>
@@ -848,9 +849,9 @@ export function AppSidebar() {
               <Collapsible key={sec.key} defaultOpen={!!q || isActive || sec.key === "me"}>
                 <SidebarGroup className="!p-0">
                   <CollapsibleTrigger className="w-full group/sec">
-                    <div className="px-2 mt-1 mb-1">
-                      <div className="h-px w-full bg-gradient-to-r from-transparent via-sidebar-border to-transparent mb-1.5" />
-                      <div className="flex items-center gap-2 h-8 px-1 rounded-md hover:bg-sidebar-accent/30 transition-colors cursor-pointer">
+                    <div className="px-2 mt-0.5 mb-0.5">
+                      <div className="h-px w-full bg-gradient-to-r from-transparent via-sidebar-border to-transparent mb-1" />
+                      <div className="flex items-center gap-2 h-6 px-1 rounded-md hover:bg-sidebar-accent/30 transition-colors cursor-pointer">
                         <span className={`w-1.5 h-1.5 rounded-full ${sec.dot} shadow-[0_0_8px_currentColor] ${sec.color}`} />
                         <sec.icon className={`w-3.5 h-3.5 ${sec.color}`} />
                         <span className={`text-[10px] font-bold uppercase tracking-[0.16em] ${sec.color}`}>
@@ -882,9 +883,9 @@ export function AppSidebar() {
                 <Collapsible defaultOpen={!!q || isActive}>
                   <SidebarGroup className="!p-0">
                     <CollapsibleTrigger className="w-full group/sec">
-                      <div className="px-2 mb-1">
-                        <div className="h-px w-full bg-gradient-to-r from-transparent via-sidebar-border to-transparent mb-1.5" />
-                        <div className="flex items-center gap-2 h-8 px-1 rounded-md hover:bg-sidebar-accent/30 transition-colors cursor-pointer">
+                      <div className="px-2 mb-0.5">
+                        <div className="h-px w-full bg-gradient-to-r from-transparent via-sidebar-border to-transparent mb-1" />
+                        <div className="flex items-center gap-2 h-6 px-1 rounded-md hover:bg-sidebar-accent/30 transition-colors cursor-pointer">
                           <span className={`w-1.5 h-1.5 rounded-full ${sec.dot} shadow-[0_0_8px_currentColor] ${sec.color}`} />
                           {sec.icon && <sec.icon className={`w-3.5 h-3.5 ${sec.color}`} />}
                           <span className={`text-[10px] font-bold uppercase tracking-[0.16em] ${sec.color}`}>
@@ -916,8 +917,8 @@ export function AppSidebar() {
                                     {d.items.map((item) => (
                                       <SidebarMenuItem key={item.url}>
                                         <SidebarMenuButton asChild tooltip={renderTooltip(item.title, item.desc)}>
-                                          <NavLink to={item.url} title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className="relative text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground hover:translate-x-0.5 rounded-lg text-sm md:text-[15px] transition-all duration-150 py-2 pl-3 pr-2" activeClassName="bg-sidebar-primary/15 text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary">
-                                            <IconTile icon={item.icon} color={item.color} className="mr-2.5" />
+                                          <NavLink to={item.url} title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className="relative text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground hover:translate-x-0.5 rounded-lg text-sm transition-all duration-150 py-1 pl-3 pr-2" activeClassName="bg-sidebar-primary/15 text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary">
+                                            <IconTile icon={item.icon} color={item.color} className="mr-2" />
                                             <span className="truncate">{item.title}</span>
                                           </NavLink>
                                         </SidebarMenuButton>
@@ -933,8 +934,8 @@ export function AppSidebar() {
                             {flatItems.map((item) => (
                               <SidebarMenuItem key={item.url}>
                                 <SidebarMenuButton asChild tooltip={renderTooltip(item.title, item.desc)}>
-                                  <NavLink to={item.url} title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className="relative text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground hover:translate-x-0.5 rounded-lg text-sm md:text-[15px] transition-all duration-150 py-2 pl-3 pr-2" activeClassName="bg-sidebar-primary/15 text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary">
-                                    <IconTile icon={item.icon} color={item.color} className="mr-2.5" />
+                                  <NavLink to={item.url} title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className="relative text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground hover:translate-x-0.5 rounded-lg text-sm transition-all duration-150 py-1 pl-3 pr-2" activeClassName="bg-sidebar-primary/15 text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary">
+                                    <IconTile icon={item.icon} color={item.color} className="mr-2" />
                                     <span className="truncate">{item.title}</span>
                                   </NavLink>
                                 </SidebarMenuButton>

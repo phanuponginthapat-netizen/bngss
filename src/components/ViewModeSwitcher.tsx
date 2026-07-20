@@ -46,7 +46,7 @@ export function ViewModeSwitcher({ collapsed = false }: { collapsed?: boolean })
   }
 
   return (
-    <div className="mx-2 my-2 p-1 rounded-2xl bg-muted/60 ring-1 ring-border/60 flex items-stretch gap-1 shadow-[inset_0_1px_0_hsl(0_0%_100%/0.5)]">
+    <div className="mx-2 my-1.5 p-0.5 rounded-xl bg-muted/60 ring-1 ring-border/60 flex items-stretch gap-1 shadow-[inset_0_1px_0_hsl(0_0%_100%/0.5)]">
       {(["admin", "teacher"] as const).map((m) => {
         const active = viewMode === m;
         const Icon = m === "admin" ? ShieldCheck : GraduationCap;
@@ -56,7 +56,7 @@ export function ViewModeSwitcher({ collapsed = false }: { collapsed?: boolean })
             type="button"
             onClick={() => toggle(m)}
             className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-xl text-[12px] font-semibold transition-all",
+              "flex-1 flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-[12px] font-semibold transition-all",
               active
                 ? m === "admin"
                   ? "bg-background text-primary shadow-sm ring-1 ring-primary/25"
