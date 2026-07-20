@@ -108,6 +108,147 @@ function formatBytes(n: number | null) {
   return `${(n / 1024 / 1024).toFixed(2)} MB`;
 }
 
+// ---------- Signed-URL cache + lazy thumbnail + inline preview ----------
+const _urlCache = new Map<string, { url: string; ts: number }>();
+async function getSignedUrl(itemId: string): Promise<string | null> {
+  const cached = _urlCache.get(itemId);
+  if (cached && Date.now() - cached.ts < 50 * 60 * 1000) return cached.url;
+  const { data } = await supabase.functions.invoke("line-vault-download", {
+    body: { item_id: itemId, expires_in: 3600 },
+  });
+  if ((data as any)?.url) {
+    _urlCache.set(itemId, { url: (data as any).url, ts: Date.now() });
+    return (data as any).url;
+  }
+  return null;
+}
+
+function useInView<T extends Element>(rootMargin = "200px") {
+  const ref = useRef<T | null>(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    if (!ref.current || inView) return;
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) { setInView(true); io.disconnect(); } });
+    }, { rootMargin });
+    io.observe(ref.current);
+    return () => io.disconnect();
+  }, [inView, rootMargin]);
+  return { ref, inView };
+}
+
+function isImageMime(m?: string | null) { return !!m && m.startsWith("image/"); }
+function isVideoMime(m?: string | null) { return !!m && m.startsWith("video/"); }
+function isAudioMime(m?: string | null) { return !!m && m.startsWith("audio/"); }
+function isPdfMime(m?: string | null, name?: string | null) {
+  return (m === "application/pdf") || (!!name && /\.pdf$/i.test(name));
+}
+function isOfficeMime(m?: string | null, name?: string | null) {
+  if (!!name && /\.(docx?|xlsx?|pptx?)$/i.test(name)) return true;
+  if (!m) return false;
+  return m.includes("word") || m.includes("excel") || m.includes("spreadsheet") || m.includes("presentation") || m.includes("powerpoint");
+}
+
+function LineVaultThumb({ item, className }: { item: Item; className?: string }) {
+  const { ref, inView } = useInView<HTMLDivElement>();
+  const [url, setUrl] = useState<string | null>(null);
+  const [err, setErr] = useState(false);
+  const wantThumb = isImageMime(item.mime_type) || item.kind === "photo";
+  useEffect(() => {
+    if (!inView || !wantThumb || url) return;
+    getSignedUrl(item.id).then(u => setUrl(u)).catch(() => setErr(true));
+  }, [inView, wantThumb, item.id, url]);
+
+  return (
+    <div ref={ref as any} className={className}>
+      {wantThumb && url && !err ? (
+        <img
+          src={url}
+          loading="lazy"
+          alt={item.title}
+          onError={() => setErr(true)}
+          onContextMenu={(e) => e.preventDefault()}
+          className="w-full h-full object-cover select-none"
+          draggable={false}
+        />
+      ) : (
+        <div className="w-full h-full bg-muted flex items-center justify-center">
+          {isVideoMime(item.mime_type)
+            ? <ImageIcon className="h-10 w-10 text-muted-foreground" />
+            : isPdfMime(item.mime_type, item.original_filename)
+              ? <FileText className="h-10 w-10 text-red-500/70" />
+              : <FileText className="h-10 w-10 text-muted-foreground" />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LineVaultPreviewDialog({ item, onClose, onDownload }: { item: Item | null; onClose: () => void; onDownload: (i: Item) => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!item) { setUrl(null); return; }
+    setLoading(true);
+    getSignedUrl(item.id).then(u => { setUrl(u); setLoading(false); });
+  }, [item?.id]);
+
+  if (!item) return null;
+  const isImg = isImageMime(item.mime_type) || item.kind === "photo";
+  const isVid = isVideoMime(item.mime_type);
+  const isAud = isAudioMime(item.mime_type);
+  const isPdf = isPdfMime(item.mime_type, item.original_filename);
+  const isOffice = isOfficeMime(item.mime_type, item.original_filename);
+  const officeViewer = url && isOffice ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}` : null;
+
+  return (
+    <Dialog open={!!item} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-5xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 flex-wrap">
+            {item.kind === "photo" ? <ImageIcon className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
+            <span className="line-clamp-1">{item.title}</span>
+          </DialogTitle>
+        </DialogHeader>
+        <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+          {item.line_sender_name && <Badge variant="secondary" className="text-[10px]">จาก LINE · {item.line_sender_name}</Badge>}
+          <span>{item.original_filename} · {formatBytes(item.size_bytes)}</span>
+          <span>· {format(new Date(item.created_at), "d MMM yyyy HH:mm", { locale: th })}</span>
+        </div>
+        {item.description && (
+          <div className="text-sm bg-muted/50 rounded p-3 flex items-start gap-2">
+            <MessageSquareText className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+            <div className="whitespace-pre-wrap">{item.description}</div>
+          </div>
+        )}
+        <div className="min-h-[300px] max-h-[70vh] overflow-auto rounded border bg-black/5 dark:bg-white/5 flex items-center justify-center">
+          {loading || !url ? (
+            <div className="text-sm text-muted-foreground py-16">กำลังโหลด...</div>
+          ) : isImg ? (
+            <img src={url} alt={item.title} className="max-h-[70vh] object-contain" onContextMenu={(e) => e.preventDefault()} draggable={false} />
+          ) : isVid ? (
+            <video src={url} controls playsInline className="max-h-[70vh] w-full bg-black" />
+          ) : isAud ? (
+            <audio src={url} controls className="w-full my-6" />
+          ) : isPdf ? (
+            <iframe src={url} title={item.title} className="w-full h-[70vh]" />
+          ) : officeViewer ? (
+            <iframe src={officeViewer} title={item.title} className="w-full h-[70vh]" />
+          ) : (
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              ไม่รองรับการแสดงตัวอย่างสำหรับไฟล์ประเภทนี้ กรุณาดาวน์โหลดเพื่อเปิด
+            </div>
+          )}
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Button onClick={() => onDownload(item)}><Download className="h-4 w-4 mr-1" />ดาวน์โหลด</Button>
+          {url && <Button variant="outline" asChild><a href={url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4 mr-1" />เปิดในแท็บใหม่</a></Button>}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function LineVaultPage() {
   const { role } = useUserRole();
   const isAdmin = role === "admin" || role === "director";
