@@ -35,27 +35,31 @@ serve(async (req) => {
       });
     }
 
-    const { item_id } = await req.json();
-    if (!item_id) throw new Error("item_id required");
+    const body = await req.json();
+    const ids: string[] = Array.isArray(body?.item_ids)
+      ? body.item_ids.filter((x: any) => typeof x === "string")
+      : body?.item_id ? [String(body.item_id)] : [];
+    if (!ids.length) throw new Error("item_id or item_ids required");
 
-    const { data: item } = await admin
+    const { data: rows } = await admin
       .from("line_vault_items")
       .select("id, storage_path, drive_file_id")
-      .eq("id", item_id)
-      .maybeSingle();
-    if (!item) throw new Error("not found");
+      .in("id", ids);
+    if (!rows || !rows.length) throw new Error("not found");
 
-    if (item.drive_file_id) {
-      try { await deleteFile(item.drive_file_id); } catch (e) { console.error("[drive delete]", e); }
-    }
-    if (item.storage_path) {
-      try { await admin.storage.from("line-vault").remove([item.storage_path]); } catch (e) { console.error("[bucket delete]", e); }
+    for (const item of rows) {
+      if (item.drive_file_id) {
+        try { await deleteFile(item.drive_file_id); } catch (e) { console.error("[drive delete]", e); }
+      }
+      if (item.storage_path) {
+        try { await admin.storage.from("line-vault").remove([item.storage_path]); } catch (e) { console.error("[bucket delete]", e); }
+      }
     }
 
-    const { error } = await admin.from("line_vault_items").delete().eq("id", item_id);
+    const { error } = await admin.from("line_vault_items").delete().in("id", rows.map(r => r.id));
     if (error) throw error;
 
-    return new Response(JSON.stringify({ ok: true }), {
+    return new Response(JSON.stringify({ ok: true, deleted: rows.length }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {

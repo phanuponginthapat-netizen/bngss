@@ -196,6 +196,27 @@ export default function LineVaultPage() {
     load();
   }
 
+  async function handleBulkDelete(itemsToDelete: Item[]) {
+    if (!itemsToDelete.length) return false;
+    const ok = await swal.confirm({
+      title: `ลบ ${itemsToDelete.length} รายการ?`,
+      text: "รายการและไฟล์ใน Google Drive จะถูกลบถาวร ไม่สามารถกู้คืนได้",
+      confirmText: "ลบทั้งหมด",
+      danger: true,
+    });
+    if (!ok) return false;
+    const { data, error } = await supabase.functions.invoke("line-vault-delete", {
+      body: { item_ids: itemsToDelete.map(i => i.id) },
+    });
+    if (error || (data as any)?.error) {
+      swal.error("ลบไม่สำเร็จ", (data as any)?.error || error?.message);
+      return false;
+    }
+    swal.success(`ลบแล้ว ${(data as any)?.deleted ?? itemsToDelete.length} รายการ`);
+    load();
+    return true;
+  }
+
   async function fetchItemBlob(item: Item): Promise<{ blob: Blob; filename: string } | null> {
     if (item.kind === "note") {
       const text = `${item.title}\n\n${item.note_text || ""}\n\n— ${format(new Date(item.created_at), "d MMM yyyy HH:mm", { locale: th })}`;
@@ -267,10 +288,10 @@ export default function LineVaultPage() {
             </Select>
           </div>
 
-          <TabsContent value="all" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} fetchBlob={fetchItemBlob} groupAlbums /></TabsContent>
-          <TabsContent value="photo" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} fetchBlob={fetchItemBlob} groupAlbums /></TabsContent>
-          <TabsContent value="file" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} fetchBlob={fetchItemBlob} /></TabsContent>
-          <TabsContent value="note" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} fetchBlob={fetchItemBlob} /></TabsContent>
+          <TabsContent value="all" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} onBulkDelete={handleBulkDelete} fetchBlob={fetchItemBlob} groupAlbums /></TabsContent>
+          <TabsContent value="photo" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} onBulkDelete={handleBulkDelete} fetchBlob={fetchItemBlob} groupAlbums /></TabsContent>
+          <TabsContent value="file" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} onBulkDelete={handleBulkDelete} fetchBlob={fetchItemBlob} /></TabsContent>
+          <TabsContent value="note" className="m-0"><ItemGrid items={filtered} loading={loading} isAdmin={isAdmin} onOpen={handleOpen} onDelete={handleDelete} onBulkDelete={handleBulkDelete} fetchBlob={fetchItemBlob} /></TabsContent>
 
 
 
@@ -290,7 +311,7 @@ export default function LineVaultPage() {
   );
 }
 
-function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, fetchBlob, groupAlbums }: { items: Item[]; loading: boolean; isAdmin: boolean; onOpen: (i: Item) => void; onDelete: (i: Item) => void; fetchBlob: (i: Item) => Promise<{ blob: Blob; filename: string } | null>; groupAlbums?: boolean }) {
+function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fetchBlob, groupAlbums }: { items: Item[]; loading: boolean; isAdmin: boolean; onOpen: (i: Item) => void; onDelete: (i: Item) => void; onBulkDelete?: (items: Item[]) => Promise<boolean>; fetchBlob: (i: Item) => Promise<{ blob: Blob; filename: string } | null>; groupAlbums?: boolean }) {
   const [albumOpen, setAlbumOpen] = useState<Item[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [zipping, setZipping] = useState(false);
@@ -395,6 +416,19 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, fetchBlob, groupA
             <Archive className="h-4 w-4 mr-1" />
             {zipping ? `กำลังบีบอัด ${zipProgress?.done || 0}/${zipProgress?.total || 0}...` : "ดาวน์โหลดเป็น ZIP"}
           </Button>
+          {isAdmin && onBulkDelete && (
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={zipping}
+              onClick={async () => {
+                const ok = await onBulkDelete(selectedItems);
+                if (ok) clearSel();
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />ลบที่เลือก
+            </Button>
+          )}
           <Button size="sm" variant="ghost" onClick={clearSel} disabled={zipping}>ยกเลิกการเลือก</Button>
         </div>
       )}
@@ -444,6 +478,11 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, fetchBlob, groupA
                     <Button size="sm" variant="outline" onClick={() => downloadZip(row.items, `Album_${format(new Date(first.created_at), "yyyyMMdd_HHmm")}`)} disabled={zipping} title="ดาวน์โหลดทั้งอัลบั้มเป็น ZIP">
                       <Archive className="h-4 w-4" />
                     </Button>
+                    {isAdmin && onBulkDelete && (
+                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => onBulkDelete(row.items)} title="ลบทั้งอัลบั้ม">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </Card>
