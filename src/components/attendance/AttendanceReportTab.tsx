@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +38,21 @@ export function AttendanceReportTab({
     return bkkDateISO(d);
   });
   const [endDate, setEndDate] = useState(todayBangkok());
+  const [holidayDates, setHolidayDates] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("attendance_auto_holidays")
+        .select("holiday_date")
+        .gte("holiday_date", startDate)
+        .lte("holiday_date", endDate);
+      if (cancelled) return;
+      setHolidayDates(new Set((data || []).map((r: any) => r.holiday_date)));
+    })();
+    return () => { cancelled = true; };
+  }, [startDate, endDate]);
 
   const classStudents = useMemo(() => {
     if (!classroomFilter || classroomFilter === "all") return [];
@@ -45,14 +61,15 @@ export function AttendanceReportTab({
       .sort((a: any, b: any) => (a.student_code || "").localeCompare(b.student_code || ""));
   }, [students, classroomFilter]);
 
-  // Filter records by date range and classroom
+  // Filter records by date range and classroom (exclude auto-detected holidays)
   const filteredRecords = useMemo(() => {
     const studentIds = new Set(classStudents.map((s: any) => s.id));
     return records.filter((r: any) =>
       r.student_id && studentIds.has(r.student_id) &&
-      r.attendance_date >= startDate && r.attendance_date <= endDate
+      r.attendance_date >= startDate && r.attendance_date <= endDate &&
+      !holidayDates.has(r.attendance_date)
     );
-  }, [records, classStudents, startDate, endDate]);
+  }, [records, classStudents, startDate, endDate, holidayDates]);
 
   // Per-student summary
   const studentSummary = useMemo(() => {
@@ -163,6 +180,16 @@ export function AttendanceReportTab({
           </div>
         </CardContent>
       </Card>
+
+      {holidayDates.size > 0 && (
+        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800">
+          <CardContent className="py-3 text-sm text-blue-700 dark:text-blue-300">
+            🏖️ {lang === "th"
+              ? `ระบบตรวจพบวันหยุด ${holidayDates.size} วัน (ขาดเกิน 50 คน) — ไม่นับรวมในรายงาน: ${Array.from(holidayDates).sort().join(", ")}`
+              : `${holidayDates.size} auto-detected holidays excluded: ${Array.from(holidayDates).sort().join(", ")}`}
+          </CardContent>
+        </Card>
+      )}
 
       {classroomFilter && classroomFilter !== "all" && classStudents.length > 0 && (
         <>
