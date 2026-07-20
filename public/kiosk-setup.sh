@@ -30,26 +30,58 @@ KIOSK_USER="${KIOSK_USER:-${SUDO_USER:-$(logname 2>/dev/null || echo demo)}}"
 KIOSK_WIFI_SSID="${KIOSK_WIFI_SSID:-}"
 KIOSK_WIFI_PASS="${KIOSK_WIFI_PASS:-}"
 
+# ── โหลด kiosk_config จาก CMS (ext-config) เพื่อ override ค่าที่ผู้ใช้ตั้งไว้ในหน้า Kiosk Setup ──
+# ผู้ใช้ไม่ต้องส่ง env var เอง — ค่าที่ตั้งในเว็บจะถูกใช้เป็น default โดยอัตโนมัติ
+CMS_BASE="${CMS_BASE:-https://dlkyxvhnnffblerwedjz.supabase.co}"
+CMS_ANON_KEY="${CMS_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4}"
+CFG_JSON=$(curl -fsSL --max-time 8 -H "apikey: $CMS_ANON_KEY" "$CMS_BASE/functions/v1/ext-config" 2>/dev/null || true)
+if [[ -n "$CFG_JSON" ]] && command -v python3 >/dev/null 2>&1; then
+  eval "$(python3 -c "
+import json,sys,os
+try: d=json.loads(sys.argv[1]).get('kiosk_config') or {}
+except: d={}
+def emit(k,v):
+    if v is None or v=='': return
+    print(f'export {k}={json.dumps(str(v))}')
+if d:
+    m=d.get('mode')
+    if m and not os.environ.get('KIOSK_MODE'): emit('KIOSK_MODE',m)
+    for k_cfg,k_env in [
+      ('kioskUrl','KIOSK_URL'),('kioskUser','KIOSK_USER'),
+      ('wifiSsid','KIOSK_WIFI_SSID'),('wifiPass','KIOSK_WIFI_PASS'),
+      ('rebootTime','KIOSK_DAILY_REBOOT'),
+      ('idleLogoutMin','KIOSK_IDLE_LOGOUT_MIN'),('idleShutdownMin','KIOSK_IDLE_SHUTDOWN_MIN'),
+      ('powerOn','KIOSK_POWER_ON'),('powerOff','KIOSK_POWER_OFF'),
+      ('exitPin','KIOSK_EXIT_PIN'),
+    ]:
+        if not os.environ.get(k_env): emit(k_env,d.get(k_cfg))
+    if d.get('enableDailyReboot') is False and not os.environ.get('KIOSK_DAILY_REBOOT'):
+        print('export KIOSK_DAILY_REBOOT=\"\"')
+" "$CFG_JSON")"
+  echo "► โหลด kiosk_config จาก CMS แล้ว (ใช้ค่าที่ตั้งไว้ในหน้าเว็บเป็น defaults)"
+fi
+# ------------------------------------------------------------
+
 # ค่า default แยกตามโหมด
 if [[ "$KIOSK_MODE" == "student" ]]; then
   KIOSK_URL="${KIOSK_URL:-https://bngss.lovable.app/}"
-  KIOSK_DAILY_REBOOT="${KIOSK_DAILY_REBOOT:-}"                # student: ไม่ reboot กลางวัน ใช้ shutdown แทน
-  KIOSK_IDLE_LOGOUT_MIN="${KIOSK_IDLE_LOGOUT_MIN:-30}"        # logout (นาที, 0=off)
-  KIOSK_IDLE_SHUTDOWN_MIN="${KIOSK_IDLE_SHUTDOWN_MIN:-120}"   # shutdown เครื่องหลัง idle N นาที (0=off)
-  KIOSK_POWER_ON="${KIOSK_POWER_ON:-07:30}"                   # เปิดเครื่องอัตโนมัติ (BIOS RTC wake)
-  KIOSK_POWER_OFF="${KIOSK_POWER_OFF:-17:30}"                 # ปิดเครื่องอัตโนมัติ
+  KIOSK_DAILY_REBOOT="${KIOSK_DAILY_REBOOT-}"                 # student: ไม่ reboot กลางวัน ใช้ shutdown แทน
+  KIOSK_IDLE_LOGOUT_MIN="${KIOSK_IDLE_LOGOUT_MIN:-30}"
+  KIOSK_IDLE_SHUTDOWN_MIN="${KIOSK_IDLE_SHUTDOWN_MIN:-120}"
+  KIOSK_POWER_ON="${KIOSK_POWER_ON:-07:30}"
+  KIOSK_POWER_OFF="${KIOSK_POWER_OFF:-17:30}"
   KIOSK_MONITOR_AGENT_URL="${KIOSK_MONITOR_AGENT_URL:-${KIOSK_URL%/}/dashboard/monitor/agent}"
-  KIOSK_EXTENSION_URL="${KIOSK_EXTENSION_URL:-${KIOSK_URL%/}/school-safe-browser.zip}"
+  KIOSK_EXTENSION_URL="${KIOSK_EXTENSION_URL:-https://bngss.lovable.app/safe-browser-extension.zip}"
 else
   KIOSK_MODE="door"
   KIOSK_URL="${KIOSK_URL:-https://bngss.lovable.app/kiosk}"
   KIOSK_DAILY_REBOOT="${KIOSK_DAILY_REBOOT:-03:00}"
   KIOSK_IDLE_LOGOUT_MIN="${KIOSK_IDLE_LOGOUT_MIN:-0}"
   KIOSK_IDLE_SHUTDOWN_MIN="${KIOSK_IDLE_SHUTDOWN_MIN:-0}"
-  KIOSK_POWER_ON="${KIOSK_POWER_ON:-06:30}"                   # ประตูเปิดเช้า
-  KIOSK_POWER_OFF="${KIOSK_POWER_OFF:-}"                      # ตู้ประตู default = เปิดตลอด (reboot ตี 3)
+  KIOSK_POWER_ON="${KIOSK_POWER_ON:-06:30}"
+  KIOSK_POWER_OFF="${KIOSK_POWER_OFF-}"                       # อนุญาต empty จาก CMS
   KIOSK_MONITOR_AGENT_URL="${KIOSK_MONITOR_AGENT_URL:-}"
-  KIOSK_EXTENSION_URL="${KIOSK_EXTENSION_URL:-}"
+  KIOSK_EXTENSION_URL="${KIOSK_EXTENSION_URL:-https://bngss.lovable.app/safe-browser-extension.zip}"
 fi
 # ------------------------------------------
 
@@ -599,7 +631,7 @@ EOF
 # ---------------- 5.5) Auto-install Smart School Browser Extension (student mode) ----------------
 EXT_DIR="/opt/kiosk/extension"
 EXT_FLAG=""
-if [[ "$KIOSK_MODE" == "student" && -n "$KIOSK_EXTENSION_URL" ]]; then
+if [[ -n "$KIOSK_EXTENSION_URL" ]]; then
   log "▶  [5.5/10] ติดตั้ง Smart School Extension อัตโนมัติจาก $KIOSK_EXTENSION_URL"
   mkdir -p "$EXT_DIR"
   apt-get install -y --no-install-recommends unzip curl >/dev/null 2>&1 || true

@@ -276,6 +276,8 @@ const App = () => (
               <Route path="/signup" element={<Signup />} />
               <Route path="/link-account" element={<LinkAccount />} />
               <Route path="/face-kiosk" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><FaceKioskPage /></ProtectedRoute>} />
+              {/* /kiosk = public entry สำหรับตู้สแกนหน้าประตู (ไม่ต้อง login) — เครื่อง Kiosk เปิด URL นี้ */}
+              <Route path="/kiosk" element={<FaceKioskPage />} />
               <Route path="/liff" element={<LiffHomePage />} />
               <Route path="/liff/leave" element={<LiffLeavePage />} />
               <Route path="/liff/grades" element={<LiffGradesPage />} />
