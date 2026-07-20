@@ -19,6 +19,7 @@ import { EFormPresetPicker } from "@/components/eform/EFormPresetPicker";
 import { EFormPdfDesigner } from "@/components/eform/EFormPdfDesigner";
 import type { EFormField, EFormTemplateRow, EFormRenderContext } from "@/lib/eformTemplate";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { FullscreenShell } from "@/components/ui/FullscreenShell";
 import { applyCurrentOfficialPreset, type EFormPreset } from "@/lib/eformPresets";
 import type { PdfOverlayField } from "@/lib/eformPdf";
 import EFormTemplateThumbnail from "@/components/eform/EFormTemplateThumbnail";
