@@ -1180,7 +1180,7 @@ EOF
 if [[ "$KIOSK_MODE" == "student" ]]; then
   KIOSK_PGREP_PATTERN="chromium.*--user-data-dir=$USER_HOME/.chromium-profile"
 else
-  KIOSK_PGREP_PATTERN="chromium.*--kiosk"
+  KIOSK_PGREP_PATTERN="chromium.*--user-data-dir=$USER_HOME/.chromium-kiosk"
 fi
 
 cat >/opt/kiosk/watchdog.sh <<EOF
