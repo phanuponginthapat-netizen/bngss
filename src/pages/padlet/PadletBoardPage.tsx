@@ -27,6 +27,14 @@ const BG_MAP: Record<string, string> = {
   forest: "bg-gradient-to-br from-emerald-100 via-green-50 to-teal-100",
 };
 
+const BG_LIST = [
+  { key: "paper", label: "กระดาษ" },
+  { key: "grid", label: "ตาราง" },
+  { key: "sky", label: "ท้องฟ้า" },
+  { key: "sunset", label: "พระอาทิตย์ตก" },
+  { key: "forest", label: "ป่า" },
+];
+
 const COLORS = [
   { key: "yellow", cls: "bg-yellow-100 border-yellow-300" },
   { key: "pink", cls: "bg-pink-100 border-pink-300" },
