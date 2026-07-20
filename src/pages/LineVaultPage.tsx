@@ -588,6 +588,13 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
             const allSel = albumIds.every(id => selected.has(id));
             return (
               <Card key={`album-${first.line_image_set_id}`} className="overflow-hidden hover:shadow-md transition-shadow">
+                <button type="button" onClick={() => setAlbumOpen(row.items)} className="block w-full aspect-video relative group">
+                  <LineVaultThumb item={first} className="w-full h-full" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                  <div className="absolute bottom-1 right-1 text-[10px] bg-black/60 text-white rounded px-1.5 py-0.5 inline-flex items-center gap-1">
+                    <FolderOpen className="h-3 w-3" />{row.items.length}
+                  </div>
+                </button>
                 <div className="p-3 space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
