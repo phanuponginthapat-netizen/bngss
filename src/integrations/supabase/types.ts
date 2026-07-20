@@ -9213,6 +9213,7 @@ export type Database = {
           allow_guest_post: boolean
           background: string | null
           classroom_id: string | null
+          cover_image_url: string | null
           created_at: string
           description: string | null
           id: string
@@ -9228,6 +9229,7 @@ export type Database = {
           allow_guest_post?: boolean
           background?: string | null
           classroom_id?: string | null
+          cover_image_url?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -9243,6 +9245,7 @@ export type Database = {
           allow_guest_post?: boolean
           background?: string | null
           classroom_id?: string | null
+          cover_image_url?: string | null
           created_at?: string
           description?: string | null
           id?: string
