@@ -41,6 +41,8 @@ const ROTATIONS = ["-rotate-1", "rotate-1", "rotate-0", "-rotate-2", "rotate-2"]
 type Attachment = { path: string; name: string; type: string; size: number };
 
 function isImage(t: string) { return t.startsWith("image/"); }
+function isVideo(t: string) { return t.startsWith("video/"); }
+function isAudio(t: string) { return t.startsWith("audio/"); }
 function fmtSize(n: number) {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
@@ -290,7 +292,7 @@ export default function PadletBoardPage() {
                     )}
                   </div>
 
-                  {/* Images first */}
+                  {/* Images */}
                   {atts.filter(a => isImage(a.type)).map(a => (
                     <a key={a.path} href={signedUrls[a.path] || "#"} target="_blank" rel="noreferrer">
                       <img src={signedUrls[a.path]} alt={a.name} className="w-full rounded mb-2 border border-black/10" loading="lazy" />
@@ -301,6 +303,23 @@ export default function PadletBoardPage() {
                       <img src={signedUrls[n.image_url]} alt="" className="w-full rounded mb-2 border border-black/10" loading="lazy" />
                     </a>
                   )}
+
+                  {/* Videos (cover frame via preload=metadata) */}
+                  {atts.filter(a => isVideo(a.type)).map(a => (
+                    <video
+                      key={a.path}
+                      src={signedUrls[a.path] ? `${signedUrls[a.path]}#t=0.5` : undefined}
+                      controls
+                      preload="metadata"
+                      playsInline
+                      className="w-full rounded mb-2 border border-black/10 bg-black"
+                    />
+                  ))}
+
+                  {/* Audio */}
+                  {atts.filter(a => isAudio(a.type)).map(a => (
+                    <audio key={a.path} src={signedUrls[a.path]} controls preload="metadata" className="w-full mb-2" />
+                  ))}
 
                   {/* Rich content */}
                   {n.content && (
@@ -328,10 +347,10 @@ export default function PadletBoardPage() {
                     </a>
                   ) : null}
 
-                  {/* Non-image files */}
-                  {atts.filter(a => !isImage(a.type)).length > 0 && (
+                  {/* Other files (non-image/video/audio) */}
+                  {atts.filter(a => !isImage(a.type) && !isVideo(a.type) && !isAudio(a.type)).length > 0 && (
                     <div className="mt-2 space-y-1">
-                      {atts.filter(a => !isImage(a.type)).map(a => (
+                      {atts.filter(a => !isImage(a.type) && !isVideo(a.type) && !isAudio(a.type)).map(a => (
                         <a key={a.path} href={signedUrls[a.path] || "#"} target="_blank" rel="noreferrer"
                            className="flex items-center justify-between gap-2 bg-white/70 border border-black/10 rounded px-2 py-1 text-xs hover:bg-white">
                           <span className="flex items-center gap-1.5 min-w-0">
@@ -346,6 +365,7 @@ export default function PadletBoardPage() {
                       ))}
                     </div>
                   )}
+
 
                   <div className="mt-2 pt-2 border-t border-black/10 flex items-center justify-between text-[10px] text-slate-600 gap-2">
                     <span className="truncate" title={n.created_at ? new Date(n.created_at).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" }) : ""}>
