@@ -9,7 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Building2, BookOpen, Plus, Trash2, Crown } from "lucide-react";
 import { DEPT_ROLE_LABEL_TH, type SchoolDepartment, type DeptRole } from "@/hooks/useUserDepartments";
 import { SUBJECT_GROUPS } from "@/hooks/useUserSubjectGroups";
-import { showSuccess, showError, confirmAction } from "@/lib/swal";
+import { swal } from "@/lib/swal";
+const showSuccess = (t: string) => swal.success(t);
+const showError = (t: string) => swal.error(t);
+const confirmAction = (t: string) => swal.confirm({ title: t, danger: true });
 
 const DEPARTMENTS: { value: SchoolDepartment; label: string }[] = [
   { value: "academic", label: "ฝ่ายวิชาการ" },
