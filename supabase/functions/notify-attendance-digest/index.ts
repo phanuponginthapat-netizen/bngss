@@ -25,37 +25,54 @@ async function getVaultToken(sb: any): Promise<string | null> {
   return (data?.value as string) || null;
 }
 
-function buildChartConfig(labels: string[], present: number[], absent: number[], late: number[], leave: number[]) {
+function buildChartConfig(
+  labels: string[],
+  present: number[],
+  absent: number[],
+  late: number[],
+  leave: number[],
+  totals: { totalPresent: number; totalAbsent: number; totalLate: number; totalLeave: number; totalAll: number },
+  dateLabel: string,
+) {
+  const pct = totals.totalAll > 0 ? Math.round((totals.totalPresent / totals.totalAll) * 1000) / 10 : 0;
+  const subtitle = `📅 ${dateLabel}   |   รวม ${totals.totalAll} คน   |   มา ${totals.totalPresent} (${pct}%)  •  สาย ${totals.totalLate}  •  ลา ${totals.totalLeave}  •  ขาด ${totals.totalAbsent}`;
   return {
     type: "bar",
     data: {
       labels,
       datasets: [
-        { label: "มา", backgroundColor: "#10B981", data: present, stack: "a" },
-        { label: "สาย", backgroundColor: "#F59E0B", data: late, stack: "a" },
-        { label: "ลา", backgroundColor: "#6366F1", data: leave, stack: "a" },
-        { label: "ขาด", backgroundColor: "#EF4444", data: absent, stack: "a" },
+        { label: "มา",  backgroundColor: "#10B981", data: present, stack: "a", borderRadius: 4 },
+        { label: "สาย", backgroundColor: "#F59E0B", data: late,    stack: "a", borderRadius: 4 },
+        { label: "ลา",  backgroundColor: "#6366F1", data: leave,   stack: "a", borderRadius: 4 },
+        { label: "ขาด", backgroundColor: "#EF4444", data: absent,  stack: "a", borderRadius: 4 },
       ],
     },
     options: {
-      title: { display: true, text: "การมาโรงเรียนแยกตามระดับชั้น", fontSize: 20 },
-      legend: { position: "bottom" },
+      title: { display: true, text: ["📊 รายงานการสแกนเข้าโรงเรียน", subtitle], fontSize: 20, fontStyle: "bold", fontColor: "#0F172A", padding: 16 },
+      legend: { position: "bottom", labels: { fontSize: 14, fontStyle: "bold", padding: 14 } },
+      layout: { padding: { left: 12, right: 20, top: 8, bottom: 12 } },
       scales: {
-        xAxes: [{ stacked: true, ticks: { fontSize: 14 } }],
-        yAxes: [{ stacked: true, ticks: { beginAtZero: true, fontSize: 12 } }],
+        xAxes: [{ stacked: true, gridLines: { display: false }, ticks: { fontSize: 14, fontStyle: "bold", fontColor: "#334155" } }],
+        yAxes: [{ stacked: true, gridLines: { color: "#E2E8F0" }, ticks: { beginAtZero: true, fontSize: 12, fontColor: "#64748B" } }],
       },
-      plugins: { datalabels: { display: true, color: "#fff", font: { weight: "bold" } } },
+      plugins: {
+        datalabels: {
+          display: (ctx: any) => (ctx.dataset.data[ctx.dataIndex] || 0) > 0,
+          color: "#fff",
+          font: { weight: "bold", size: 12 },
+          formatter: (v: number) => v,
+        },
+      },
     },
   };
 }
 
 async function shortChartUrl(config: unknown): Promise<string> {
-  // QuickChart short-URL API — returns a stable https link well under LINE's 2000-char limit.
   try {
     const res = await fetch("https://quickchart.io/chart/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chart: config, width: 900, height: 500, backgroundColor: "white", devicePixelRatio: 2 }),
+      body: JSON.stringify({ chart: config, width: 1100, height: 620, backgroundColor: "white", devicePixelRatio: 2, version: "2.9.4" }),
     });
     if (res.ok) {
       const j = await res.json();
@@ -63,12 +80,12 @@ async function shortChartUrl(config: unknown): Promise<string> {
     }
     console.error("quickchart short url failed", res.status, await res.text().catch(() => ""));
   } catch (e) { console.error("quickchart short url error", e); }
-  // Fallback: inline (may exceed 2000 chars for large charts, but better than nothing)
   const params = new URLSearchParams({
-    c: JSON.stringify(config), width: "900", height: "500", backgroundColor: "white", devicePixelRatio: "2",
+    c: JSON.stringify(config), width: "1100", height: "620", backgroundColor: "white", devicePixelRatio: "2",
   });
   return `https://quickchart.io/chart?${params.toString()}`;
 }
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -102,10 +119,11 @@ serve(async (req) => {
 
       const studentIds = Array.from(new Set(((attRows as any[]) || []).map((r) => r.student_id).filter(Boolean)));
       const gradeByStudent = new Map<string, string>();
+      const nameByStudent = new Map<string, string>();
       if (studentIds.length > 0) {
         const { data: studs, error: sErr } = await sb
           .from("students")
-          .select("id, classroom_id")
+          .select("id, classroom_id, prefix, first_name, last_name")
           .in("id", studentIds);
         if (sErr) { console.error("students fetch", sErr); throw sErr; }
         const classroomIds = Array.from(new Set(((studs as any[]) || []).map((s) => s.classroom_id).filter(Boolean)));
@@ -120,26 +138,33 @@ serve(async (req) => {
         }
         for (const s of (studs as any[]) || []) {
           gradeByStudent.set(s.id, gradeByClassroom.get(s.classroom_id) || "ไม่ระบุ");
+          const nm = [s.prefix, s.first_name, s.last_name].filter(Boolean).join("").trim() || "ไม่ทราบชื่อ";
+          nameByStudent.set(s.id, nm);
         }
       }
 
       const byGrade: Record<string, { present: number; absent: number; late: number; leave: number }> = {};
+      const absentByGrade: Record<string, string[]> = {};
       for (const r of (attRows as any[]) || []) {
         const g = gradeByStudent.get(r.student_id) || "ไม่ระบุ";
         if (!byGrade[g]) byGrade[g] = { present: 0, absent: 0, late: 0, leave: 0 };
         const s = (r.status || "present").toLowerCase();
         if (s === "present") byGrade[g].present++;
-        else if (s === "absent") byGrade[g].absent++;
+        else if (s === "absent") {
+          byGrade[g].absent++;
+          (absentByGrade[g] ||= []).push(nameByStudent.get(r.student_id) || "ไม่ทราบชื่อ");
+        }
         else if (s === "late") byGrade[g].late++;
         else byGrade[g].leave++;
       }
       const gradeOrder = ["อ.1","อ.2","อ.3","ป.1","ป.2","ป.3","ป.4","ป.5","ป.6","ม.1","ม.2","ม.3","ม.4","ม.5","ม.6"];
-      const labels = Object.keys(byGrade).sort((a, b) => {
+      const sortGrade = (a: string, b: string) => {
         const ia = gradeOrder.indexOf(a); const ib = gradeOrder.indexOf(b);
         if (ia === -1 && ib === -1) return a.localeCompare(b);
         if (ia === -1) return 1; if (ib === -1) return -1;
         return ia - ib;
-      });
+      };
+      const labels = Object.keys(byGrade).sort(sortGrade);
       const present = labels.map(l => byGrade[l].present);
       const absent = labels.map(l => byGrade[l].absent);
       const late = labels.map(l => byGrade[l].late);
@@ -152,14 +177,27 @@ serve(async (req) => {
 
       if (!chartUrl) {
         const chartConfig = labels.length > 0
-          ? buildChartConfig(labels, present, absent, late, leave)
+          ? buildChartConfig(labels, present, absent, late, leave, totals, thDate(today))
           : { type: "bar", data: { labels: ["ไม่มีข้อมูล"], datasets: [{ label: "-", data: [0] }] }, options: { title: { display: true, text: "ยังไม่มีการสแกน" } } };
         chartUrl = await shortChartUrl(chartConfig);
       }
       if (!summary) {
-        summary = `📊 รายงานการมาโรงเรียน\n📅 ${thDate(today)}\n\n✅ มา ${totals.totalPresent} คน\n⏰ สาย ${totals.totalLate} คน\n📝 ลา ${totals.totalLeave} คน\n❌ ขาด ${totals.totalAbsent} คน\n────────\nรวม ${totals.totalAll} คน (ณ เวลา 10:00 น.)`;
+        const pct = totals.totalAll > 0 ? Math.round((totals.totalPresent / totals.totalAll) * 1000) / 10 : 0;
+        let s = `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${thDate(today)}\n\n✅ มา ${totals.totalPresent} คน (${pct}%)\n⏰ สาย ${totals.totalLate} คน\n📝 ลา ${totals.totalLeave} คน\n❌ ขาด ${totals.totalAbsent} คน\n────────\nรวม ${totals.totalAll} คน (ณ เวลา 10:00 น.)`;
+        const absentGrades = Object.keys(absentByGrade).sort(sortGrade);
+        if (absentGrades.length > 0) {
+          s += `\n\n🚨 รายชื่อนักเรียนที่ขาด (${totals.totalAbsent} คน)`;
+          for (const g of absentGrades) {
+            const names = absentByGrade[g];
+            s += `\n\n▪️ ${g} (${names.length} คน)\n  • ` + names.join("\n  • ");
+          }
+        }
+        // LINE text limit is 5000 chars
+        summary = s.length > 4900 ? s.slice(0, 4880) + "\n… (ตัดทอน)" : s;
       }
     }
+
+
 
     const token = await getVaultToken(sb);
     if (!token) return new Response(JSON.stringify({ error: "LINE_VAULT_CHANNEL_ACCESS_TOKEN not set" }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
