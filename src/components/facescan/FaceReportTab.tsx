@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Download, BarChart3, Search, Send, Users, CheckCircle2, Clock4, FileMinus2, XCircle, CalendarDays, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -90,6 +91,11 @@ const FaceReportTab = () => {
   const [sending, setSending] = useState(false);
   const [savingImage, setSavingImage] = useState(false);
   const [sendingLine, setSendingLine] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewSummary, setPreviewSummary] = useState<string>("");
   const summaryRef = useRef<HTMLDivElement>(null);
 
   /**
@@ -181,31 +187,71 @@ const FaceReportTab = () => {
     }
   };
 
-  const sendReportToLine = async () => {
-    setSendingLine(true);
+  const buildSummaryText = (): string => {
+    const t = accurate?.totals;
+    if (!t) return `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${range.label}`;
+    let s = `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${range.label}\n\n✅ มา ${t.present} คน\n⏰ สาย ${t.late} คน\n📝 ลา ${t.leave} คน\n❌ ขาด ${t.absent} คน\n────────\nรวม ${t.size} คน • เข้าเรียน ${t.pct}%`;
+    const abs = accurate?.absentees || [];
+    if (abs.length > 0) {
+      // group by grade (prefix before "/")
+      const byGrade = new Map<string, string[]>();
+      for (const a of abs) {
+        const grade = (a.cls.split("/")[0] || a.cls).trim();
+        if (!byGrade.has(grade)) byGrade.set(grade, []);
+        byGrade.get(grade)!.push(`${a.name} (${a.cls})`);
+      }
+      const order: Record<string, number> = { "อ.1":1,"อ.2":2,"อ.3":3,"ป.1":4,"ป.2":5,"ป.3":6,"ป.4":7,"ป.5":8,"ป.6":9,"ม.1":10,"ม.2":11,"ม.3":12,"ม.4":13,"ม.5":14,"ม.6":15 };
+      const grades = Array.from(byGrade.keys()).sort((a, b) => (order[a] ?? 99) - (order[b] ?? 99));
+      s += `\n\n🚨 รายชื่อนักเรียนที่ขาด (${abs.length} คน)`;
+      for (const g of grades) {
+        const names = byGrade.get(g)!;
+        s += `\n\n▪️ ${g} (${names.length} คน)\n  • ` + names.join("\n  • ");
+      }
+    }
+    return s.length > 4900 ? s.slice(0, 4880) + "\n… (ตัดทอน)" : s;
+  };
+
+  const openPreviewForLine = async () => {
+    setPreviewLoading(true);
+    setPreviewOpen(true);
     try {
       const blob = await renderReportImage("blob");
       if (!blob) throw new Error("สร้างรูปไม่สำเร็จ");
+      if (previewImage) URL.revokeObjectURL(previewImage);
+      setPreviewBlob(blob);
+      setPreviewImage(URL.createObjectURL(blob));
+      setPreviewSummary(buildSummaryText());
+    } catch (e: any) {
+      toast.error(e.message || "สร้างตัวอย่างไม่สำเร็จ");
+      setPreviewOpen(false);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const confirmSendReportToLine = async () => {
+    if (!previewBlob) return;
+    setSendingLine(true);
+    try {
       const path = `attendance-digest/${range.start}/${Date.now()}.jpg`;
       const { error: upErr } = await supabase.storage
         .from("face-photos")
-        .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+        .upload(path, previewBlob, { contentType: "image/jpeg", upsert: false });
       if (upErr) throw upErr;
       const { data: signed, error: signErr } = await supabase.storage
         .from("face-photos")
         .createSignedUrl(path, 60 * 60 * 24 * 7);
       if (signErr || !signed?.signedUrl) throw signErr || new Error("สร้างลิงก์รูปไม่สำเร็จ");
 
-      const t = accurate?.totals;
-      const summaryText = t
-        ? `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${range.label}\n\n✅ มา ${t.present} คน\n⏰ สาย ${t.late} คน\n📝 ลา ${t.leave} คน\n❌ ขาด ${t.absent} คน\n────────\nรวม ${t.size} คน • เข้าเรียน ${t.pct}%`
-        : `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${range.label}`;
-
       const { error } = await supabase.functions.invoke("notify-attendance-digest", {
-        body: { image_url: signed.signedUrl, summary_text: summaryText, force: true },
+        body: { image_url: signed.signedUrl, summary_text: previewSummary, force: true },
       });
       if (error) throw error;
       toast.success("ส่งรายงานเข้ากลุ่ม LINE เรียบร้อย");
+      setPreviewOpen(false);
+      if (previewImage) URL.revokeObjectURL(previewImage);
+      setPreviewImage(null);
+      setPreviewBlob(null);
     } catch (e: any) {
       console.error(e);
       toast.error(e.message || "ส่งเข้า LINE ไม่สำเร็จ");
@@ -213,6 +259,7 @@ const FaceReportTab = () => {
       setSendingLine(false);
     }
   };
+
 
   const range = useMemo(() => getRange(period, new Date(refDate)), [period, refDate]);
 
@@ -965,7 +1012,7 @@ const FaceReportTab = () => {
             <div className="flex gap-2 flex-wrap">
               <Button onClick={exportXlsx} variant="outline" size="sm"><Download className="w-4 h-4 mr-2" />Export Excel</Button>
               <Button onClick={exportImage} variant="outline" size="sm" disabled={savingImage}><ImageIcon className="w-4 h-4 mr-2" />{savingImage ? "กำลังบันทึก..." : "บันทึกเป็นรูป"}</Button>
-              <Button onClick={sendReportToLine} disabled={sendingLine} size="sm" className="bg-[#06C755] hover:bg-[#05a648] text-white"><Send className="w-4 h-4 mr-2" />{sendingLine ? "กำลังส่ง..." : "ส่งเข้ากลุ่ม LINE"}</Button>
+              <Button onClick={openPreviewForLine} disabled={sendingLine || previewLoading} size="sm" className="bg-[#06C755] hover:bg-[#05a648] text-white"><Send className="w-4 h-4 mr-2" />ดูตัวอย่าง & ส่ง LINE</Button>
               <Button onClick={sendReportToGoogleChat} disabled={sending} size="sm" variant="outline"><Send className="w-4 h-4 mr-2" />ส่งสรุป Google Chat</Button>
             </div>
           </div>
@@ -1259,6 +1306,35 @@ const FaceReportTab = () => {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={previewOpen} onOpenChange={(o) => { setPreviewOpen(o); if (!o && previewImage) { URL.revokeObjectURL(previewImage); setPreviewImage(null); setPreviewBlob(null); } }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>ตัวอย่างรายงานก่อนส่งเข้ากลุ่ม LINE</DialogTitle>
+            <DialogDescription>ตรวจสอบภาพกราฟและรายชื่อนักเรียนที่ขาดแยกตามระดับชั้น ก่อนกดยืนยันส่ง</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto grid md:grid-cols-2 gap-4 pr-1">
+            <div className="border rounded-lg overflow-hidden bg-white">
+              <div className="bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 border-b">รูปภาพรายงาน</div>
+              {previewLoading ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">กำลังสร้างภาพ...</div>
+              ) : previewImage ? (
+                <img src={previewImage} alt="ตัวอย่างรายงาน" className="w-full h-auto" />
+              ) : null}
+            </div>
+            <div className="border rounded-lg overflow-hidden bg-white flex flex-col">
+              <div className="bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 border-b">ข้อความประกอบ (รายชื่อขาด แยกตามระดับชั้น)</div>
+              <pre className="p-3 text-xs whitespace-pre-wrap font-sans text-slate-800 overflow-auto flex-1 max-h-[60vh]">{previewSummary}</pre>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setPreviewOpen(false)} disabled={sendingLine}>ยกเลิก</Button>
+            <Button onClick={confirmSendReportToLine} disabled={sendingLine || previewLoading || !previewBlob} className="bg-[#06C755] hover:bg-[#05a648] text-white">
+              <Send className="w-4 h-4 mr-2" />{sendingLine ? "กำลังส่ง..." : "ยืนยันส่งเข้ากลุ่ม LINE"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
