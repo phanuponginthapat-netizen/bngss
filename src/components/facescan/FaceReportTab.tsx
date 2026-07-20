@@ -1351,19 +1351,19 @@ const FaceReportTab = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={previewOpen} onOpenChange={(o) => { setPreviewOpen(o); if (!o && previewImage) { URL.revokeObjectURL(previewImage); setPreviewImage(null); setPreviewBlob(null); } }}>
+      <Dialog open={previewOpen} onOpenChange={(o) => { setPreviewOpen(o); if (!o) setPreviewChartUrl(null); }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>ตัวอย่างรายงานก่อนส่งเข้ากลุ่ม LINE</DialogTitle>
-            <DialogDescription>ตรวจสอบภาพกราฟและรายชื่อนักเรียนที่ขาดแยกตามระดับชั้น ก่อนกดยืนยันส่ง</DialogDescription>
+            <DialogTitle>ตัวอย่าง QuickChart bar chart ก่อนส่งเข้า LINE</DialogTitle>
+            <DialogDescription>กราฟและข้อความนี้คือสิ่งที่จะถูกส่งเข้ากลุ่ม LINE — เหมือนกับที่ cron ส่งอัตโนมัติทุก 10:00 น.</DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-auto grid md:grid-cols-2 gap-4 pr-1">
             <div className="border rounded-lg overflow-hidden bg-white">
-              <div className="bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 border-b">รูปภาพรายงาน</div>
+              <div className="bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 border-b">กราฟ (QuickChart)</div>
               {previewLoading ? (
-                <div className="p-8 text-center text-sm text-muted-foreground">กำลังสร้างภาพ...</div>
-              ) : previewImage ? (
-                <img src={previewImage} alt="ตัวอย่างรายงาน" className="w-full h-auto" />
+                <div className="p-8 text-center text-sm text-muted-foreground">กำลังสร้างกราฟจาก QuickChart...</div>
+              ) : previewChartUrl ? (
+                <img src={previewChartUrl} alt="QuickChart preview" className="w-full h-auto" />
               ) : null}
             </div>
             <div className="border rounded-lg overflow-hidden bg-white flex flex-col">
@@ -1373,9 +1373,10 @@ const FaceReportTab = () => {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setPreviewOpen(false)} disabled={sendingLine}>ยกเลิก</Button>
-            <Button onClick={confirmSendReportToLine} disabled={sendingLine || previewLoading || !previewBlob} className="bg-[#06C755] hover:bg-[#05a648] text-white">
+            <Button onClick={confirmSendReportToLine} disabled={sendingLine || previewLoading || !previewChartUrl} className="bg-[#06C755] hover:bg-[#05a648] text-white">
               <Send className="w-4 h-4 mr-2" />{sendingLine ? "กำลังส่ง..." : "ยืนยันส่งเข้ากลุ่ม LINE"}
             </Button>
+          </DialogFooter>
           </DialogFooter>
         </DialogContent>
       </Dialog>
