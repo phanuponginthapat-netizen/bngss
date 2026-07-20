@@ -559,6 +559,42 @@ export default function PadletBoardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>แก้ไขกระดาน</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium">ชื่อกระดาน *</label>
+              <Input value={editTitle} onChange={e => setEditTitle(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">คำอธิบาย</label>
+              <Textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={2} />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">พื้นหลัง</label>
+              <div className="grid grid-cols-5 gap-2">
+                {BG_LIST.map(o => (
+                  <button key={o.key} type="button" onClick={() => setEditBg(o.key)}
+                    className={`h-12 rounded border-2 ${BG_MAP[o.key]} ${editBg === o.key ? "border-primary ring-2 ring-primary/30" : "border-transparent"}`}
+                    title={o.label} />
+                ))}
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={editAllow} onChange={e => setEditAllow(e.target.checked)} />
+              อนุญาตให้นักเรียนแปะโน้ตได้
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>ยกเลิก</Button>
+            <Button onClick={saveEdit} disabled={savingEdit}>
+              {savingEdit && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}บันทึก
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
