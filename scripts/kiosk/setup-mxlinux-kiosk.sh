@@ -491,22 +491,31 @@ apt-get install -y --no-install-recommends plymouth plymouth-themes plymouth-lab
 THEME_DIR=/usr/share/plymouth/themes/smartschool
 install -d -m 755 "$THEME_DIR"
 
-# ดาวน์โหลดโลโก้ (ถ้ามี) — Plymouth ต้องเป็น .png
+# ดาวน์โหลดโลโก้ (ถ้ามี) — แปลงเป็น PNG จริงเสมอ เพราะ Plymouth อ่าน WebP/SVG/JPG บางแบบไม่ได้
 LOGO_PATH="$THEME_DIR/logo.png"
+rm -f "$LOGO_PATH" "$LOGO_PATH.tmp" "$LOGO_PATH.src"
 if [[ -n "$CMS_LOGO_URL" ]]; then
-  curl -sfL --max-time 15 "$CMS_LOGO_URL" -o "$LOGO_PATH.tmp" && \
-    mv "$LOGO_PATH.tmp" "$LOGO_PATH" || rm -f "$LOGO_PATH.tmp"
+  if curl -sfL --max-time 15 "$CMS_LOGO_URL" -o "$LOGO_PATH.src"; then
+    if have convert; then
+      convert "$LOGO_PATH.src" -auto-orient -resize '320x320>' -background none -gravity center -extent 320x320 PNG32:"$LOGO_PATH" 2>/dev/null || true
+    fi
+  fi
 fi
-# ถ้าไม่มีโลโก้ → สร้างพื้นหลังเปล่า 256x256 ด้วย ImageMagick (ถ้ามี) หรือข้ามไป
-if [[ ! -f "$LOGO_PATH" ]] && have convert; then
-  convert -size 256x256 xc:none "$LOGO_PATH" 2>/dev/null || true
+# ถ้าไม่มีโลโก้/แปลงไม่ได้ → สร้างโลโก้ตัวอักษรที่ Plymouth โหลดได้แน่นอน
+if [[ ! -s "$LOGO_PATH" ]] && have convert; then
+  convert -size 320x320 xc:none -gravity center -fill white -pointsize 96 -font DejaVu-Sans-Bold \
+    -annotate 0 "$(printf '%s' "$CMS_NAME" | cut -c1-2)" PNG32:"$LOGO_PATH" 2>/dev/null || true
+fi
+# fallback สุดท้าย: PNG 1x1 โปร่งใส เพื่อไม่ให้ Plymouth script crash จาก logo.png ที่หาย
+if [[ ! -s "$LOGO_PATH" ]]; then
+  printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=' | base64 -d >"$LOGO_PATH" 2>/dev/null || true
 fi
 
-# plymouth theme files
+# plymouth theme files — ใช้ syntax แบบพื้นฐานเท่านั้นเพื่อเลี่ยง theme crash แล้วตกไปหน้า verbose
 cat >"$THEME_DIR/smartschool.plymouth" <<EOF
 [Plymouth Theme]
 Name=Smart School
-Description=CMS-themed boot splash
+Description=CMS themed boot splash
 ModuleName=script
 
 [script]
@@ -515,98 +524,123 @@ ScriptFile=$THEME_DIR/smartschool.script
 EOF
 
 cat >"$THEME_DIR/smartschool.script" <<PLY
-# Background = CMS theme color
 Window.SetBackgroundTopColor($PLY_R, $PLY_G, $PLY_B);
 Window.SetBackgroundBottomColor($PLY_R, $PLY_G, $PLY_B);
 
 logo.image = Image("logo.png");
-if (logo.image) {
-  logo.sprite = Sprite(logo.image);
-  logo.sprite.SetX(Window.GetWidth()/2 - logo.image.GetWidth()/2);
-  logo.sprite.SetY(Window.GetHeight()/2 - logo.image.GetHeight()/2 - 60);
-}
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
+logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2 - 70);
 
-# ชื่อโรงเรียน
-title.image = Image.Text("$CMS_NAME", 1, 1, 1, 1, "Sans Bold 22");
+title.image = Image.Text("$CMS_NAME", 1, 1, 1);
 title.sprite = Sprite(title.image);
-title.sprite.SetX(Window.GetWidth()/2 - title.image.GetWidth()/2);
-title.sprite.SetY(Window.GetHeight()/2 + 40);
+title.sprite.SetX(Window.GetWidth() / 2 - title.image.GetWidth() / 2);
+title.sprite.SetY(Window.GetHeight() / 2 + 100);
 
-# Spinner dots
-progress = 0;
-fun refresh_cb () {
-  progress++;
-  if (progress > 360) progress = 0;
-  # 3 จุดกระพริบ
-  for (i = 0; i < 3; i++) {
-    a = (progress/60.0) - i*0.5;
-    if (a < 0) a = 0;
-    if (a > 1) a = 2 - a;
-    dot = Image.Text("●", 1, 1, 1, a, "Sans 18");
-    dot_sprite[i] = Sprite(dot);
-    dot_sprite[i].SetX(Window.GetWidth()/2 - 30 + i*20);
-    dot_sprite[i].SetY(Window.GetHeight()/2 + 90);
-  }
-}
-Plymouth.SetRefreshFunction(refresh_cb);
+status.image = Image.Text("กำลังเริ่มระบบ...", 1, 1, 1);
+status.sprite = Sprite(status.image);
+status.sprite.SetX(Window.GetWidth() / 2 - status.image.GetWidth() / 2);
+status.sprite.SetY(Window.GetHeight() - 80);
 
 fun message_cb (text) {
-  msg.image = Image.Text(text, 1, 1, 1, 0.8, "Sans 12");
-  msg.sprite = Sprite(msg.image);
-  msg.sprite.SetX(Window.GetWidth()/2 - msg.image.GetWidth()/2);
-  msg.sprite.SetY(Window.GetHeight() - 40);
+  status.image = Image.Text(text, 1, 1, 1);
+  status.sprite.SetImage(status.image);
+  status.sprite.SetX(Window.GetWidth() / 2 - status.image.GetWidth() / 2);
 }
 Plymouth.SetMessageFunction(message_cb);
 PLY
 
-# activate theme
+# activate theme + บังคับ rebuild ผ่าน plymouth เองก่อน (ถ้ารองรับ -R)
 if have plymouth-set-default-theme; then
-  plymouth-set-default-theme smartschool 2>&1 | tail -3 || \
+  plymouth-set-default-theme -R smartschool 2>&1 | tail -5 || \
+    plymouth-set-default-theme smartschool 2>&1 | tail -3 || \
     log "⚠  plymouth-set-default-theme ล้มเหลว"
 elif [[ -x /usr/sbin/plymouth-set-default-theme ]]; then
-  /usr/sbin/plymouth-set-default-theme smartschool 2>&1 | tail -3 || true
+  /usr/sbin/plymouth-set-default-theme -R smartschool 2>&1 | tail -5 || \
+    /usr/sbin/plymouth-set-default-theme smartschool 2>&1 | tail -3 || true
 fi
 
-# === Critical for MX Linux: ทำให้ Plymouth โหลดใน initramfs + framebuffer ทำงานตั้งแต่บูต ===
+# === Critical for MX Linux: ทำให้ Plymouth โหลดใน initramfs + framebuffer/KMS ทำงานตั้งแต่บูต ===
 # 1) บอก initramfs ให้ใส่ framebuffer + plymouth
 mkdir -p /etc/initramfs-tools/conf.d
 echo "FRAMEBUFFER=y" > /etc/initramfs-tools/conf.d/splash
 
-# 2) GRUB — quiet + splash + gfxpayload=keep (ไม่งั้นจะกลับมา text mode ทันทีที่โหลด kernel)
+# 2) ใส่โมดูลวิดีโอเข้า initramfs โดยเฉพาะ i915 ของ HP Pavilion x2/Intel Atom
+#    ถ้าไม่มี KMS ตั้งแต่ต้น boot จะเห็น verbose text แทน splash แม้มี quiet splash แล้ว
+if [[ -f /etc/initramfs-tools/modules ]]; then
+  for mod in drm drm_kms_helper i915 fbcon; do
+    grep -qxF "$mod" /etc/initramfs-tools/modules || echo "$mod" >> /etc/initramfs-tools/modules
+  done
+fi
+
+# 3) GRUB — quiet + splash + gfxpayload=keep + KMS (ไม่งั้นจะกลับมา text mode ทันทีที่โหลด kernel)
 if [[ -f /etc/default/grub ]]; then
-  # cmdline: quiet splash + loglevel + ปิด cursor
+  # cmdline: quiet splash + loglevel + ปิด cursor + บังคับ Intel KMS
   CUR=$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null | sed 's/^[^=]*=//; s/^"//; s/"$//')
   NEW="$CUR"
-  for tok in quiet splash "loglevel=3" "rd.udev.log_level=3" "vt.global_cursor_default=0"; do
+  for tok in quiet splash "loglevel=0" "rd.systemd.show_status=false" "rd.udev.log_level=0" "vt.global_cursor_default=0" "i915.modeset=1"; do
     [[ "$NEW" != *"$tok"* ]] && NEW="$NEW $tok"
   done
-  NEW=$(echo "$NEW" | xargs)
+  # ลบ token ที่ทำให้ข้อความ boot โผล่หรือทับ loglevel=0
+  NEW=$(echo "$NEW" | sed -E 's/(^| )nosplash( |$)/ /g; s/(^| )noquiet( |$)/ /g; s/(^| )debug( |$)/ /g; s/(^| )loglevel=[0-9]+( |$)/ /g' | xargs)
+  NEW="$(echo "$NEW loglevel=0" | xargs)"
   if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub; then
     sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$NEW\"|" /etc/default/grub
   else
     echo "GRUB_CMDLINE_LINUX_DEFAULT=\"$NEW\"" >> /etc/default/grub
   fi
 
+  # เผื่อ MX/systemd entry บางแบบอ่าน GRUB_CMDLINE_LINUX ด้วย ให้ใส่ splash ซ้ำแบบปลอดภัย
+  CUR2=$(grep '^GRUB_CMDLINE_LINUX=' /etc/default/grub 2>/dev/null | sed 's/^[^=]*=//; s/^"//; s/"$//')
+  NEW2="$CUR2"
+  for tok in quiet splash; do [[ "$NEW2" != *"$tok"* ]] && NEW2="$NEW2 $tok"; done
+  NEW2=$(echo "$NEW2" | xargs)
+  if grep -q '^GRUB_CMDLINE_LINUX=' /etc/default/grub; then
+    sed -i "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"$NEW2\"|" /etc/default/grub
+  else
+    echo "GRUB_CMDLINE_LINUX=\"$NEW2\"" >> /etc/default/grub
+  fi
+
   # gfxpayload=keep — สำคัญมากบน MX/EFI ให้ Plymouth ใช้ resolution เดียวกับ GRUB
+  if grep -q '^GRUB_GFXMODE=' /etc/default/grub; then
+    sed -i 's|^GRUB_GFXMODE=.*|GRUB_GFXMODE=auto|' /etc/default/grub
+  else
+    echo 'GRUB_GFXMODE=auto' >> /etc/default/grub
+  fi
   if grep -q '^GRUB_GFXPAYLOAD_LINUX=' /etc/default/grub; then
     sed -i 's|^GRUB_GFXPAYLOAD_LINUX=.*|GRUB_GFXPAYLOAD_LINUX=keep|' /etc/default/grub
   else
     echo 'GRUB_GFXPAYLOAD_LINUX=keep' >> /etc/default/grub
   fi
 
-  # comment out GRUB_TERMINAL=console (ถ้ามี) — จะบังคับให้ boot ใน text mode
+  # comment out GRUB_TERMINAL console (ถ้ามี) — จะบังคับให้ boot ใน text mode
   sed -i 's|^\(GRUB_TERMINAL=console\)|#\1|' /etc/default/grub
   sed -i 's|^\(GRUB_TERMINAL_OUTPUT=console\)|#\1|' /etc/default/grub
 fi
 
-# 3) rebuild initramfs + grub
-log "   ▶ rebuild initramfs + grub (อาจใช้เวลา 20-40 วิ)..."
-update-initramfs -u -k all 2>&1 | tail -3 || true
-update-grub 2>&1 | tail -3 || update-grub2 2>&1 | tail -3 || true
+# 4) rebuild initramfs + grub
+log "   ▶ rebuild initramfs + grub (อาจใช้เวลา 20-60 วิ)..."
+update-initramfs -u -k all 2>&1 | tail -8 || true
+update-grub 2>&1 | tail -8 || update-grub2 2>&1 | tail -8 || true
 
-# 4) ตรวจสอบผลลัพธ์
+# 5) ตรวจสอบผลลัพธ์ + สร้างคำสั่ง debug ไว้ที่เครื่อง
 CURR_THEME=$(plymouth-set-default-theme 2>/dev/null || echo "unknown")
 log "   ✔  Plymouth theme ปัจจุบัน: $CURR_THEME (ต้องการ: smartschool)"
+log "   ✔  GRUB default: $(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null | cut -d= -f2-)"
+cat >/opt/kiosk/check-plymouth.sh <<'CHECKPLY'
+#!/usr/bin/env bash
+echo "== Plymouth theme =="
+plymouth-set-default-theme 2>/dev/null || true
+echo "== Kernel cmdline (current boot) =="
+cat /proc/cmdline
+echo "== GRUB config =="
+grep -E '^(GRUB_CMDLINE_LINUX_DEFAULT|GRUB_CMDLINE_LINUX|GRUB_GFXMODE|GRUB_GFXPAYLOAD_LINUX)=' /etc/default/grub || true
+echo "== Initramfs modules =="
+grep -E '^(drm|drm_kms_helper|i915|fbcon)$' /etc/initramfs-tools/modules || true
+echo "== Plymouth files =="
+ls -l /usr/share/plymouth/themes/smartschool/ || true
+CHECKPLY
+chmod +x /opt/kiosk/check-plymouth.sh
 
 
 
@@ -1087,19 +1121,23 @@ net.core.wmem_max=2500000
 EOF
 sysctl -p /etc/sysctl.d/99-kiosk.conf >/dev/null 2>&1 || true
 
-# GRUB — บูตเร็ว + แก้จอกระพริบ Intel GPU
+# GRUB — บูตเร็ว + แก้จอกระพริบ Intel GPU (ห้ามลบ quiet/splash ของ Plymouth)
 if [[ -f /etc/default/grub ]]; then
   backup_once /etc/default/grub
   sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=1/' /etc/default/grub
-  # ตรวจ Intel GPU → เพิ่ม intel_idle.max_cstate=1 กันจอกระพริบ (Pavilion x2 issue)
-  EXTRA_CMDLINE="loglevel=3 fastboot"
+  EXTRA_TOKENS=(fastboot)
   if lspci 2>/dev/null | grep -qi "intel.*graphics\|intel.*hd graphics\|intel.*uhd"; then
-    EXTRA_CMDLINE="$EXTRA_CMDLINE intel_idle.max_cstate=1 i915.enable_psr=0"
-    log "   ตรวจพบ Intel GPU → เพิ่ม intel_idle.max_cstate=1 i915.enable_psr=0"
+    EXTRA_TOKENS+=(intel_idle.max_cstate=1 i915.enable_psr=0 i915.modeset=1)
+    log "   ตรวจพบ Intel GPU → เพิ่ม Intel boot tuning โดยยังคง Plymouth splash"
   fi
-  if ! grep -q "kiosk-tuned" /etc/default/grub; then
-    sed -i "s|GRUB_CMDLINE_LINUX_DEFAULT=\"[^\"]*|& $EXTRA_CMDLINE|; s|GRUB_CMDLINE_LINUX_DEFAULT=\"|&#kiosk-tuned |" /etc/default/grub || true
-  fi
+  CUR=$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null | sed 's/^[^=]*=//; s/^"//; s/"$//')
+  NEW="$CUR"
+  for tok in quiet splash loglevel=0 rd.systemd.show_status=false rd.udev.log_level=0 vt.global_cursor_default=0 "${EXTRA_TOKENS[@]}"; do
+    [[ "$NEW" != *"$tok"* ]] && NEW="$NEW $tok"
+  done
+  NEW=$(echo "$NEW" | sed -E 's/(^| )loglevel=[0-9]+( |$)/ /g' | xargs)
+  NEW="$(echo "$NEW loglevel=0" | xargs)"
+  sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$NEW\"|" /etc/default/grub || true
   update-grub >/dev/null 2>&1 || true
 fi
 
