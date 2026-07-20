@@ -387,6 +387,37 @@ WantedBy=multi-user.target
 EOF
 systemctl enable kiosk-cpu-perf.service >/dev/null 2>&1 || true
 
+# UPower — ปิด critical battery action (กันโน้ตบุ๊ค hibernate/shutdown ตอน battery ต่ำ/เสื่อม)
+if [[ -f /etc/UPower/UPower.conf ]]; then
+  backup_once /etc/UPower/UPower.conf
+  sed -i 's/^#\?CriticalPowerAction=.*/CriticalPowerAction=Ignore/;
+          s/^#\?UsePercentageForPolicy=.*/UsePercentageForPolicy=false/;
+          s/^#\?PercentageAction=.*/PercentageAction=0/;
+          s/^#\?PercentageCritical=.*/PercentageCritical=0/;
+          s/^#\?PercentageLow=.*/PercentageLow=0/;
+          s/^#\?TimeAction=.*/TimeAction=0/;
+          s/^#\?TimeCritical=.*/TimeCritical=0/;
+          s/^#\?TimeLow=.*/TimeLow=0/' /etc/UPower/UPower.conf
+  systemctl restart upower 2>/dev/null || true
+fi
+# xfce power-manager: ปิด critical-battery-action + inactivity + lid actions
+for KV in \
+  "/xfce4-power-manager/critical-power-action:0" \
+  "/xfce4-power-manager/inactivity-on-ac:0" \
+  "/xfce4-power-manager/inactivity-on-battery:0" \
+  "/xfce4-power-manager/lid-action-on-ac:0" \
+  "/xfce4-power-manager/lid-action-on-battery:0" \
+  "/xfce4-power-manager/power-button-action:0" \
+  "/xfce4-power-manager/sleep-button-action:0" \
+  "/xfce4-power-manager/hibernate-button-action:0"; do
+  K="${KV%%:*}"; V="${KV##*:}"
+  sudo -u "$KIOSK_USER" DISPLAY=:0 dbus-launch --exit-with-session \
+    xfconf-query -c xfce4-power-manager -n -t int -p "$K" -s "$V" 2>/dev/null || true
+done
+
+
+
+
 
 
 # ---------------- 4) Autologin + no blank ----------------
