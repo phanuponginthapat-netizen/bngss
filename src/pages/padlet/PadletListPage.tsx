@@ -250,6 +250,18 @@ export default function PadletListPage() {
                 ))}
               </div>
             </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">ภาพปก (ไม่บังคับ · สูงสุด 5MB)</label>
+              <input type="file" accept="image/*" disabled={uploadingCover}
+                onChange={e => e.target.files?.[0] && uploadCover(e.target.files[0])}
+                className="text-xs" />
+              {uploadingCover && <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> กำลังอัปโหลด…</div>}
+              {coverUrl && !uploadingCover && (
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  <span className="text-emerald-600">✓ อัปโหลดแล้ว</span>
+                  <button type="button" onClick={() => setCoverUrl("")} className="text-destructive underline">ลบ</button>
+                </div>
+              )}
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={allowGuestPost} onChange={e => setAllowGuestPost(e.target.checked)} />
               อนุญาตให้นักเรียนแปะโน้ตได้
