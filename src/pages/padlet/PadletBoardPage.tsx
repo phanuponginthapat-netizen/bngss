@@ -148,7 +148,7 @@ export default function PadletBoardPage() {
     if (file.size > 5 * 1024 * 1024) { toast.error("รูปปกต้องไม่เกิน 5MB"); return; }
     setUploadingCover(true);
     const ext = file.name.split(".").pop() || "jpg";
-    const path = `covers/${board.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+    const path = `covers/${user.id}/${board.id}-${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
     const { error: upErr } = await supabase.storage.from("padlet").upload(path, file, { upsert: false, contentType: file.type });
     if (upErr) { setUploadingCover(false); toast.error(upErr.message); return; }
     if (board.cover_image_url) await supabase.storage.from("padlet").remove([board.cover_image_url]);
