@@ -72,6 +72,9 @@ export default function PadletBoardPage() {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [coverSigned, setCoverSigned] = useState<string>("");
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const isOwner = board && user && board.owner_id === user.id;
@@ -83,6 +86,36 @@ export default function PadletBoardPage() {
     const { data, error } = await supabase.from("padlet_boards").select("*, subjects:subject_id(name_th, code), classrooms:classroom_id(name, grade_level)").eq("id", id).maybeSingle();
     if (error) { toast.error(error.message); return; }
     setBoard(data);
+    if (data?.cover_image_url) {
+      const { data: signed } = await supabase.storage.from("padlet").createSignedUrl(data.cover_image_url, 3600);
+      if (signed?.signedUrl) setCoverSigned(signed.signedUrl);
+    } else {
+      setCoverSigned("");
+    }
+  };
+
+  const uploadCover = async (file: File) => {
+    if (!user || !board) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("รูปปกต้องไม่เกิน 5MB"); return; }
+    setUploadingCover(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `covers/${board.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("padlet").upload(path, file, { upsert: false, contentType: file.type });
+    if (upErr) { setUploadingCover(false); toast.error(upErr.message); return; }
+    if (board.cover_image_url) await supabase.storage.from("padlet").remove([board.cover_image_url]);
+    const { error } = await supabase.from("padlet_boards").update({ cover_image_url: path }).eq("id", board.id);
+    setUploadingCover(false);
+    if (coverInputRef.current) coverInputRef.current.value = "";
+    if (error) { toast.error(error.message); return; }
+    toast.success("อัปเดตรูปปกแล้ว");
+  };
+
+  const removeCover = async () => {
+    if (!board?.cover_image_url) return;
+    if (!confirm("ลบภาพปก?")) return;
+    await supabase.storage.from("padlet").remove([board.cover_image_url]);
+    await supabase.from("padlet_boards").update({ cover_image_url: null }).eq("id", board.id);
+    toast.success("ลบภาพปกแล้ว");
   };
 
   const loadNotes = async () => {
@@ -231,6 +264,29 @@ export default function PadletBoardPage() {
 
   return (
     <div className="space-y-4">
+      {(coverSigned || canManageBoard) && (
+        <div className="relative rounded-lg overflow-hidden border bg-gradient-to-br from-slate-100 to-slate-200" style={{ minHeight: coverSigned ? 180 : 60 }}>
+          {coverSigned && (
+            <img src={coverSigned} alt="cover" className="w-full h-44 sm:h-56 object-cover" />
+          )}
+          {canManageBoard && (
+            <div className="absolute top-2 right-2 flex gap-2">
+              <input ref={coverInputRef} type="file" accept="image/*" className="hidden"
+                onChange={e => e.target.files?.[0] && uploadCover(e.target.files[0])} />
+              <Button size="sm" variant="secondary" onClick={() => coverInputRef.current?.click()} disabled={uploadingCover} className="gap-1 shadow">
+                {uploadingCover ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />}
+                {coverSigned ? "เปลี่ยนภาพปก" : "เพิ่มภาพปก"}
+              </Button>
+              {coverSigned && (
+                <Button size="sm" variant="destructive" onClick={removeCover} className="gap-1 shadow">
+                  <Trash2 className="w-3.5 h-3.5" /> ลบปก
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-start gap-2 min-w-0">
           <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/padlet")}><ArrowLeft className="w-4 h-4" /></Button>

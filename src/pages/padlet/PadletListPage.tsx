@@ -40,6 +40,9 @@ export default function PadletListPage() {
   const [allowGuestPost, setAllowGuestPost] = useState(true);
   const [saving, setSaving] = useState(false);
   const [scope, setScope] = useState<string>("school"); // "school" or assignment id
+  const [coverUrl, setCoverUrl] = useState<string>("");
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [coverSignedMap, setCoverSignedMap] = useState<Record<string, string>>({});
   const { data: myAssignments = [] } = useMyTeacherAssignments();
 
   const load = async () => {
@@ -51,7 +54,15 @@ export default function PadletListPage() {
     if (error) toast.error(error.message);
     setBoards(data || []);
     setLoading(false);
+    const covers = (data || []).map((b: any) => b.cover_image_url).filter(Boolean);
+    if (covers.length) {
+      const { data: signed } = await supabase.storage.from("padlet").createSignedUrls(covers, 3600);
+      const map: Record<string, string> = {};
+      (signed || []).forEach((s: any, i: number) => { if (s.signedUrl) map[covers[i]] = s.signedUrl; });
+      setCoverSignedMap(map);
+    }
   };
+
 
   useEffect(() => {
     load();
@@ -77,12 +88,13 @@ export default function PadletListPage() {
       allow_guest_post: allowGuestPost,
       subject_id: picked?.subject_id || null,
       classroom_id: picked?.classroom_id || null,
+      cover_image_url: coverUrl || null,
     });
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success("สร้างกระดานแล้ว");
     setOpen(false);
-    setTitle(""); setDescription(""); setBackground("paper"); setAllowGuestPost(true); setScope("school");
+    setTitle(""); setDescription(""); setBackground("paper"); setAllowGuestPost(true); setScope("school"); setCoverUrl("");
     navigate(`/dashboard/padlet/${boardId}`);
   };
 
@@ -100,6 +112,20 @@ export default function PadletListPage() {
     toast.dismiss(t);
     toast.success(short === url ? "คัดลอกลิงก์แล้ว" : `คัดลอกลิงก์สั้นแล้ว: ${short}`);
   };
+
+  const uploadCover = async (file: File) => {
+    if (!user) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("รูปปกต้องไม่เกิน 5MB"); return; }
+    setUploadingCover(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `covers/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+    const { error } = await supabase.storage.from("padlet").upload(path, file, { upsert: false, contentType: file.type });
+    setUploadingCover(false);
+    if (error) { toast.error(error.message); return; }
+    setCoverUrl(path);
+    toast.success("อัปโหลดรูปปกแล้ว");
+  };
+
 
   return (
     <div className="space-y-6">
@@ -138,9 +164,12 @@ export default function PadletListPage() {
                 className="overflow-hidden cursor-pointer hover:shadow-lg transition-all hover:-translate-y-0.5 group"
                 onClick={() => navigate(`/dashboard/padlet/${b.id}`)}
               >
-                <div className={`h-24 ${bg.className} relative`}>
+                <div className={`h-32 ${bg.className} relative overflow-hidden`}>
+                  {b.cover_image_url && coverSignedMap[b.cover_image_url] && (
+                    <img src={coverSignedMap[b.cover_image_url]} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                  )}
                   <div className="absolute top-2 right-2 flex gap-1">
-                    <Badge variant="secondary" className="text-[10px]">{bg.label}</Badge>
+                    <Badge variant="secondary" className="text-[10px] shadow">{bg.label}</Badge>
                   </div>
                 </div>
                 <CardContent className="p-4 space-y-2">
@@ -220,6 +249,19 @@ export default function PadletListPage() {
                   />
                 ))}
               </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">ภาพปก (ไม่บังคับ · สูงสุด 5MB)</label>
+              <input type="file" accept="image/*" disabled={uploadingCover}
+                onChange={e => e.target.files?.[0] && uploadCover(e.target.files[0])}
+                className="text-xs" />
+              {uploadingCover && <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> กำลังอัปโหลด…</div>}
+              {coverUrl && !uploadingCover && (
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  <span className="text-emerald-600">✓ อัปโหลดแล้ว</span>
+                  <button type="button" onClick={() => setCoverUrl("")} className="text-destructive underline">ลบ</button>
+                </div>
+              )}
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={allowGuestPost} onChange={e => setAllowGuestPost(e.target.checked)} />
