@@ -41,6 +41,8 @@ const ROTATIONS = ["-rotate-1", "rotate-1", "rotate-0", "-rotate-2", "rotate-2"]
 type Attachment = { path: string; name: string; type: string; size: number };
 
 function isImage(t: string) { return t.startsWith("image/"); }
+function isVideo(t: string) { return t.startsWith("video/"); }
+function isAudio(t: string) { return t.startsWith("audio/"); }
 function fmtSize(n: number) {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
