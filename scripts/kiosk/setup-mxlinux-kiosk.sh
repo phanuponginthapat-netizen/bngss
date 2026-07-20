@@ -983,6 +983,86 @@ X-GNOME-Autostart-enabled=true
 EOF
 fi
 
+# ---------------- 6.5) Exit-guard — PIN lock สำหรับ Alt+F4 / Alt+Tab / Super / F11 ----------------
+log "▶  [6.5/10] Exit-guard (xbindkeys + PIN)..."
+install -d -m 755 /opt/kiosk
+# เก็บ PIN ให้อ่านได้เฉพาะ root/kiosk user
+printf '%s' "$KIOSK_EXIT_PIN" > /opt/kiosk/exit.pin
+chown root:"$KIOSK_USER" /opt/kiosk/exit.pin
+chmod 0640 /opt/kiosk/exit.pin
+
+cat >/opt/kiosk/exit-guard.sh <<'GUARD'
+#!/usr/bin/env bash
+# ถามรหัสก่อนอนุญาตให้ shortcut ทำงาน — ถ้าถูก จะ "ปลดล็อก" 60 วิ
+PINFILE=/opt/kiosk/exit.pin
+UNLOCK=/tmp/kiosk-unlocked
+[[ -f "$UNLOCK" ]] && exit 0
+REAL=$(cat "$PINFILE" 2>/dev/null)
+[[ -z "$REAL" ]] && exit 0
+ANS=$(zenity --password --title="🔒 รหัสออกจาก Kiosk mode" --timeout=20 2>/dev/null)
+if [[ "$ANS" == "$REAL" ]]; then
+  touch "$UNLOCK"
+  ( sleep 60; rm -f "$UNLOCK" ) &
+  zenity --info --title="ปลดล็อก" --text="ปลดล็อก 60 วินาที — ใช้ shortcut ได้ตามปกติ" --timeout=3 2>/dev/null &
+  exit 0
+else
+  [[ -n "$ANS" ]] && zenity --error --title="รหัสผิด" --text="รหัสไม่ถูกต้อง" --timeout=3 2>/dev/null &
+  exit 1
+fi
+GUARD
+chmod 0755 /opt/kiosk/exit-guard.sh
+
+# xbindkeys config — ดัก shortcut ยอดฮิตให้เรียก exit-guard ก่อน
+mkdir -p "$USER_HOME/.config"
+cat >"$USER_HOME/.xbindkeysrc" <<'XBK'
+# Alt+F4
+"/opt/kiosk/exit-guard.sh"
+  Alt + F4
+# Alt+Tab
+"/opt/kiosk/exit-guard.sh"
+  Alt + Tab
+# Alt+Shift+Tab
+"/opt/kiosk/exit-guard.sh"
+  Alt + Shift + Tab
+# Super (Win key)
+"/opt/kiosk/exit-guard.sh"
+  Mod4 + L
+"/opt/kiosk/exit-guard.sh"
+  Mod4 + d
+"/opt/kiosk/exit-guard.sh"
+  Mod4 + e
+"/opt/kiosk/exit-guard.sh"
+  Mod4 + r
+# F11 (ออก fullscreen)
+"/opt/kiosk/exit-guard.sh"
+  F11
+# Ctrl+W / Ctrl+Q / Ctrl+T / Ctrl+N — ปิด/สร้างแท็บ+หน้าต่าง
+"/opt/kiosk/exit-guard.sh"
+  Control + w
+"/opt/kiosk/exit-guard.sh"
+  Control + q
+"/opt/kiosk/exit-guard.sh"
+  Control + t
+"/opt/kiosk/exit-guard.sh"
+  Control + n
+# Ctrl+Alt+T — terminal
+"/opt/kiosk/exit-guard.sh"
+  Control + Alt + t
+# Ctrl+Alt+Delete
+"/opt/kiosk/exit-guard.sh"
+  Control + Alt + Delete
+XBK
+chown "$KIOSK_USER:$KIOSK_USER" "$USER_HOME/.xbindkeysrc"
+
+# ให้ kiosk user รัน exit-guard ได้ (อ่าน pin) — group ถูก set แล้ว
+# autostart xbindkeys
+cat >"$USER_HOME/.config/autostart/kiosk-xbindkeys.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Kiosk Exit-Guard (xbindkeys)
+Exec=sh -c "pkill -x xbindkeys 2>/dev/null; sleep 1; xbindkeys -f \$HOME/.xbindkeysrc"
+X-GNOME-Autostart-enabled=true
+EOF
 
 
 cat >"$USER_HOME/.config/autostart/kiosk-chromium.desktop" <<EOF
