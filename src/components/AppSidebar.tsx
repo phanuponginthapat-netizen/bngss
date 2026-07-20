@@ -59,8 +59,8 @@ function IconTile({
   size?: "sm" | "md";
   className?: string;
 }) {
-  const box = size === "md" ? "w-8 h-8" : "w-7 h-7";
-  const glyph = size === "md" ? "w-[17px] h-[17px]" : "w-[15px] h-[15px]";
+  const box = size === "md" ? "w-7 h-7" : "w-6 h-6";
+  const glyph = size === "md" ? "w-[15px] h-[15px]" : "w-[13px] h-[13px]";
   return (
     <span
       className={`${color || "text-sidebar-foreground/70"} ${box} inline-flex items-center justify-center rounded-[10px] bg-current/[0.14] ring-1 ring-current/20 shadow-[inset_0_1px_0_hsl(0_0%_100%/0.55),inset_0_-1px_0_hsl(0_0%_0%/0.05),0_1px_2px_hsl(0_0%_0%/0.06)] flex-shrink-0 ${className}`}
