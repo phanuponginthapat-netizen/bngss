@@ -38,6 +38,21 @@ export function AttendanceReportTab({
     return bkkDateISO(d);
   });
   const [endDate, setEndDate] = useState(todayBangkok());
+  const [holidayDates, setHolidayDates] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("attendance_auto_holidays")
+        .select("holiday_date")
+        .gte("holiday_date", startDate)
+        .lte("holiday_date", endDate);
+      if (cancelled) return;
+      setHolidayDates(new Set((data || []).map((r: any) => r.holiday_date)));
+    })();
+    return () => { cancelled = true; };
+  }, [startDate, endDate]);
 
   const classStudents = useMemo(() => {
     if (!classroomFilter || classroomFilter === "all") return [];
