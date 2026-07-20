@@ -986,48 +986,66 @@ if [[ "$KIOSK_MODE" == "student" ]]; then
 #!/usr/bin/env bash
 # ล้าง profile ก่อนเริ่ม (double safety นอกจาก tmpfs+wipe service)
 rm -rf "$PROFILE_DIR"/* "$PROFILE_DIR"/.[!.]* 2>/dev/null || true
+# ลบ Singleton locks ที่ค้างจาก session ก่อน — สาเหตุใหญ่ที่ chromium "เด้งออก" ทันที
+rm -f "$PROFILE_DIR"/Singleton* "\$HOME"/.config/chromium/Singleton* 2>/dev/null || true
 for i in \$(seq 1 30); do
   curl -sf --max-time 2 -o /dev/null "$KIOSK_URL" && break
   sleep 2
 done
 xset s off -dpms s noblank 2>/dev/null || true
 
-# นักเรียน mode: เปิด chromium หน้าเดียว (main) — Monitor Agent จะรันเบื้องหลัง
-# โดย extension "Safe Browser" (auto-installed) แทนการเปิด window 2 แยก
-# ต่อ ?kiosk=1 เพื่อเปิด IdleScreensaver พักหน้าจอประหยัดพลังงาน
 _APPEND_KIOSK() { case "\$1" in *\?*) echo "\$1&kiosk=1";; *) echo "\$1?kiosk=1";; esac; }
 MAIN_URL="\$(_APPEND_KIOSK "$KIOSK_URL")"
-exec $CHROMIUM_BIN $CHROMIUM_FLAGS "\$MAIN_URL"
+# respawn loop — ถ้า chromium crash/quit จะเปิดใหม่ทันที (backoff กัน spawn รัว ๆ)
+while true; do
+  rm -f "$PROFILE_DIR"/Singleton* 2>/dev/null || true
+  $CHROMIUM_BIN $CHROMIUM_FLAGS "\$MAIN_URL"
+  EC=\$?
+  logger -t kiosk "chromium exited code=\$EC — restart in 3s"
+  sleep 3
+done
 EOF
 
 else
   # โหมด door — kiosk lock เต็มจอ URL เดียว
+  DOOR_PROFILE="$USER_HOME/.chromium-kiosk"
+  install -d -m 700 -o "$KIOSK_USER" -g "$KIOSK_USER" "$DOOR_PROFILE"
   cat >/opt/kiosk/start-kiosk.sh <<EOF
 #!/usr/bin/env bash
+# ลบ Singleton locks ที่ค้าง — สาเหตุใหญ่ที่ chromium เด้งออกทันทีในโหมด kiosk
+rm -f "$DOOR_PROFILE"/Singleton* "\$HOME"/.config/chromium/Singleton* 2>/dev/null || true
 for i in \$(seq 1 30); do
   curl -sf --max-time 2 -o /dev/null "$KIOSK_URL" && break
   sleep 2
 done
-PREF="\$HOME/.config/chromium/Default/Preferences"
+PREF="$DOOR_PROFILE/Default/Preferences"
 [[ -f "\$PREF" ]] && sed -i 's/"exited_cleanly":false/"exited_cleanly":true/; s/"exit_type":"Crashed"/"exit_type":"Normal"/' "\$PREF" || true
 xset s off -dpms s noblank 2>/dev/null || true
 pgrep -x unclutter >/dev/null || unclutter -idle 0.5 -root &
 
-exec $CHROMIUM_BIN \\
-  --kiosk "$KIOSK_URL" \\
-  --noerrdialogs --disable-infobars --disable-session-crashed-bubble \\
-  --disable-features=TranslateUI,AutofillServerCommunication,MediaRouter,GlobalMediaControls,ScreenCaptureNotification \\
-  --overscroll-history-navigation=0 --disable-pinch --no-first-run \\
-  --check-for-update-interval=31536000 --disable-component-update \\
-  --disable-background-networking --disable-breakpad --disable-domain-reliability \\
-  --disable-sync --metrics-recording-only --no-default-browser-check \\
-  --disable-dev-shm-usage --start-maximized \\
-  --autoplay-policy=no-user-gesture-required \\
-  --enable-features=WebRTCPipeWireCapturer --alsa-output-device=default \\
-  --password-store=basic --disk-cache-size=104857600 \\
-  --auto-select-desktop-capture-source="Entire screen" \\
-  --enable-usermedia-screen-capturing \\
-  --allow-http-screen-capture
+# respawn loop — chromium crash/quit จะเปิดใหม่ทันที
+while true; do
+  rm -f "$DOOR_PROFILE"/Singleton* 2>/dev/null || true
+  $CHROMIUM_BIN \\
+    --user-data-dir="$DOOR_PROFILE" \\
+    --kiosk "$KIOSK_URL" \\
+    --noerrdialogs --disable-infobars --disable-session-crashed-bubble \\
+    --disable-features=TranslateUI,AutofillServerCommunication,MediaRouter,GlobalMediaControls,ScreenCaptureNotification \\
+    --overscroll-history-navigation=0 --disable-pinch --no-first-run \\
+    --check-for-update-interval=31536000 --disable-component-update \\
+    --disable-background-networking --disable-breakpad --disable-domain-reliability \\
+    --disable-sync --metrics-recording-only --no-default-browser-check \\
+    --disable-dev-shm-usage --start-maximized \\
+    --autoplay-policy=no-user-gesture-required \\
+    --enable-features=WebRTCPipeWireCapturer --alsa-output-device=default \\
+    --password-store=basic --disk-cache-size=104857600 \\
+    --auto-select-desktop-capture-source="Entire screen" \\
+    --enable-usermedia-screen-capturing \\
+    --allow-http-screen-capture
+  EC=\$?
+  logger -t kiosk "chromium(door) exited code=\$EC — restart in 3s"
+  sleep 3
+done
 EOF
 fi
 chmod +x /opt/kiosk/start-kiosk.sh
@@ -1162,7 +1180,7 @@ EOF
 if [[ "$KIOSK_MODE" == "student" ]]; then
   KIOSK_PGREP_PATTERN="chromium.*--user-data-dir=$USER_HOME/.chromium-profile"
 else
-  KIOSK_PGREP_PATTERN="chromium.*--kiosk"
+  KIOSK_PGREP_PATTERN="chromium.*--user-data-dir=$USER_HOME/.chromium-kiosk"
 fi
 
 cat >/opt/kiosk/watchdog.sh <<EOF
