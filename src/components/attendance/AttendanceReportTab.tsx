@@ -181,6 +181,16 @@ export function AttendanceReportTab({
         </CardContent>
       </Card>
 
+      {holidayDates.size > 0 && (
+        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800">
+          <CardContent className="py-3 text-sm text-blue-700 dark:text-blue-300">
+            🏖️ {lang === "th"
+              ? `ระบบตรวจพบวันหยุด ${holidayDates.size} วัน (ขาดเกิน 50 คน) — ไม่นับรวมในรายงาน: ${Array.from(holidayDates).sort().join(", ")}`
+              : `${holidayDates.size} auto-detected holidays excluded: ${Array.from(holidayDates).sort().join(", ")}`}
+          </CardContent>
+        </Card>
+      )}
+
       {classroomFilter && classroomFilter !== "all" && classStudents.length > 0 && (
         <>
           {/* Stats cards */}
