@@ -634,21 +634,21 @@ export function AppSidebar() {
 
   return (
     <Sidebar side="right" collapsible="offcanvas" className="gradient-sidebar border-l-0">
-      <SidebarHeader className="px-3 py-4 border-b border-sidebar-border/70 bg-gradient-to-b from-sidebar-accent/20 to-transparent transition-all">
-        <div className="flex items-center gap-3 mb-3">
+      <SidebarHeader className="px-3 py-2.5 border-b border-sidebar-border/70 bg-gradient-to-b from-sidebar-accent/20 to-transparent transition-all">
+        <div className="flex items-center gap-2 mb-2">
           <div className="relative">
             <LogoMark />
             <span className="absolute -inset-1 rounded-2xl bg-primary/20 blur-md -z-10" aria-hidden />
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-[13px] font-bold text-sidebar-foreground tracking-tight truncate leading-tight">{headerTitle}</h2>
-            {headerSubtitle && <p className="text-[11px] text-sidebar-foreground/55 truncate mt-0.5">{headerSubtitle}</p>}
+            {headerSubtitle && <p className="text-[11px] text-sidebar-foreground/55 truncate">{headerSubtitle}</p>}
           </div>
           <button
             type="button"
             onClick={toggleSidebar}
             aria-label="ซ่อนเมนู"
-            className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors flex-shrink-0"
+            className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors flex-shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -660,7 +660,7 @@ export function AppSidebar() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={L("ค้นหาเมนู...", "Search menu...")}
-              className="h-9 pl-8 pr-7 text-sm bg-sidebar-accent/40 border-sidebar-border/60 text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus-visible:ring-1 focus-visible:ring-primary/60 focus-visible:border-primary/40 rounded-lg"
+              className="h-8 pl-8 pr-7 text-sm bg-sidebar-accent/40 border-sidebar-border/60 text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus-visible:ring-1 focus-visible:ring-primary/60 focus-visible:border-primary/40 rounded-lg"
             />
             {search && (
               <button
@@ -676,7 +676,7 @@ export function AppSidebar() {
         )}
       </SidebarHeader>
 
-      <SidebarContent className={`${collapsed ? 'px-1' : 'px-2'} py-2 gap-0 transition-all`}>
+      <SidebarContent className={`${collapsed ? 'px-1' : 'px-2'} py-1 gap-0 transition-all`}>
         <ViewModeSwitcher collapsed={collapsed} />
         
         {role === "student" ? (
