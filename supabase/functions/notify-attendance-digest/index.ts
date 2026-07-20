@@ -119,10 +119,11 @@ serve(async (req) => {
 
       const studentIds = Array.from(new Set(((attRows as any[]) || []).map((r) => r.student_id).filter(Boolean)));
       const gradeByStudent = new Map<string, string>();
+      const nameByStudent = new Map<string, string>();
       if (studentIds.length > 0) {
         const { data: studs, error: sErr } = await sb
           .from("students")
-          .select("id, classroom_id")
+          .select("id, classroom_id, prefix, first_name, last_name")
           .in("id", studentIds);
         if (sErr) { console.error("students fetch", sErr); throw sErr; }
         const classroomIds = Array.from(new Set(((studs as any[]) || []).map((s) => s.classroom_id).filter(Boolean)));
@@ -137,26 +138,33 @@ serve(async (req) => {
         }
         for (const s of (studs as any[]) || []) {
           gradeByStudent.set(s.id, gradeByClassroom.get(s.classroom_id) || "ไม่ระบุ");
+          const nm = [s.prefix, s.first_name, s.last_name].filter(Boolean).join("").trim() || "ไม่ทราบชื่อ";
+          nameByStudent.set(s.id, nm);
         }
       }
 
       const byGrade: Record<string, { present: number; absent: number; late: number; leave: number }> = {};
+      const absentByGrade: Record<string, string[]> = {};
       for (const r of (attRows as any[]) || []) {
         const g = gradeByStudent.get(r.student_id) || "ไม่ระบุ";
         if (!byGrade[g]) byGrade[g] = { present: 0, absent: 0, late: 0, leave: 0 };
         const s = (r.status || "present").toLowerCase();
         if (s === "present") byGrade[g].present++;
-        else if (s === "absent") byGrade[g].absent++;
+        else if (s === "absent") {
+          byGrade[g].absent++;
+          (absentByGrade[g] ||= []).push(nameByStudent.get(r.student_id) || "ไม่ทราบชื่อ");
+        }
         else if (s === "late") byGrade[g].late++;
         else byGrade[g].leave++;
       }
       const gradeOrder = ["อ.1","อ.2","อ.3","ป.1","ป.2","ป.3","ป.4","ป.5","ป.6","ม.1","ม.2","ม.3","ม.4","ม.5","ม.6"];
-      const labels = Object.keys(byGrade).sort((a, b) => {
+      const sortGrade = (a: string, b: string) => {
         const ia = gradeOrder.indexOf(a); const ib = gradeOrder.indexOf(b);
         if (ia === -1 && ib === -1) return a.localeCompare(b);
         if (ia === -1) return 1; if (ib === -1) return -1;
         return ia - ib;
-      });
+      };
+      const labels = Object.keys(byGrade).sort(sortGrade);
       const present = labels.map(l => byGrade[l].present);
       const absent = labels.map(l => byGrade[l].absent);
       const late = labels.map(l => byGrade[l].late);
@@ -169,14 +177,27 @@ serve(async (req) => {
 
       if (!chartUrl) {
         const chartConfig = labels.length > 0
-          ? buildChartConfig(labels, present, absent, late, leave)
+          ? buildChartConfig(labels, present, absent, late, leave, totals, thDate(today))
           : { type: "bar", data: { labels: ["ไม่มีข้อมูล"], datasets: [{ label: "-", data: [0] }] }, options: { title: { display: true, text: "ยังไม่มีการสแกน" } } };
         chartUrl = await shortChartUrl(chartConfig);
       }
       if (!summary) {
-        summary = `📊 รายงานการมาโรงเรียน\n📅 ${thDate(today)}\n\n✅ มา ${totals.totalPresent} คน\n⏰ สาย ${totals.totalLate} คน\n📝 ลา ${totals.totalLeave} คน\n❌ ขาด ${totals.totalAbsent} คน\n────────\nรวม ${totals.totalAll} คน (ณ เวลา 10:00 น.)`;
+        const pct = totals.totalAll > 0 ? Math.round((totals.totalPresent / totals.totalAll) * 1000) / 10 : 0;
+        let s = `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${thDate(today)}\n\n✅ มา ${totals.totalPresent} คน (${pct}%)\n⏰ สาย ${totals.totalLate} คน\n📝 ลา ${totals.totalLeave} คน\n❌ ขาด ${totals.totalAbsent} คน\n────────\nรวม ${totals.totalAll} คน (ณ เวลา 10:00 น.)`;
+        const absentGrades = Object.keys(absentByGrade).sort(sortGrade);
+        if (absentGrades.length > 0) {
+          s += `\n\n🚨 รายชื่อนักเรียนที่ขาด (${totals.totalAbsent} คน)`;
+          for (const g of absentGrades) {
+            const names = absentByGrade[g];
+            s += `\n\n▪️ ${g} (${names.length} คน)\n  • ` + names.join("\n  • ");
+          }
+        }
+        // LINE text limit is 5000 chars
+        summary = s.length > 4900 ? s.slice(0, 4880) + "\n… (ตัดทอน)" : s;
       }
     }
+
+
 
     const token = await getVaultToken(sb);
     if (!token) return new Response(JSON.stringify({ error: "LINE_VAULT_CHANNEL_ACCESS_TOKEN not set" }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
