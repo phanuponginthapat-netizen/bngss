@@ -88,69 +88,78 @@ serve(async (req) => {
     const sb = makeAdmin();
     const today = bkkDate(0);
 
-    // Pull today's attendance, then look up classroom grade level via students -> classrooms
-    const { data: attRows, error: attErr } = await sb
-      .from("attendance")
-      .select("status, student_id")
-      .eq("attendance_date", today);
-    if (attErr) throw attErr;
+    let chartUrl = customImageUrl || "";
+    let summary = customSummary || "";
+    let totals = { totalPresent: 0, totalAbsent: 0, totalLate: 0, totalLeave: 0, totalAll: 0 };
 
-    const studentIds = Array.from(new Set(((attRows as any[]) || []).map((r) => r.student_id).filter(Boolean)));
-    const gradeByStudent = new Map<string, string>();
-    if (studentIds.length > 0) {
-      const { data: studs, error: sErr } = await sb
-        .from("students")
-        .select("id, classroom_id")
-        .in("id", studentIds);
-      if (sErr) { console.error("students fetch", sErr); throw sErr; }
-      const classroomIds = Array.from(new Set(((studs as any[]) || []).map((s) => s.classroom_id).filter(Boolean)));
-      const gradeByClassroom = new Map<string, string>();
-      if (classroomIds.length > 0) {
-        const { data: cls, error: cErr } = await sb
-          .from("classrooms")
-          .select("id, grade_level")
-          .in("id", classroomIds);
-        if (cErr) { console.error("classrooms fetch", cErr); throw cErr; }
-        for (const c of (cls as any[]) || []) gradeByClassroom.set(c.id, c.grade_level || "ไม่ระบุ");
+    if (!customImageUrl || !customSummary) {
+      // Pull today's attendance, then look up classroom grade level via students -> classrooms
+      const { data: attRows, error: attErr } = await sb
+        .from("attendance")
+        .select("status, student_id")
+        .eq("attendance_date", today);
+      if (attErr) throw attErr;
+
+      const studentIds = Array.from(new Set(((attRows as any[]) || []).map((r) => r.student_id).filter(Boolean)));
+      const gradeByStudent = new Map<string, string>();
+      if (studentIds.length > 0) {
+        const { data: studs, error: sErr } = await sb
+          .from("students")
+          .select("id, classroom_id")
+          .in("id", studentIds);
+        if (sErr) { console.error("students fetch", sErr); throw sErr; }
+        const classroomIds = Array.from(new Set(((studs as any[]) || []).map((s) => s.classroom_id).filter(Boolean)));
+        const gradeByClassroom = new Map<string, string>();
+        if (classroomIds.length > 0) {
+          const { data: cls, error: cErr } = await sb
+            .from("classrooms")
+            .select("id, grade_level")
+            .in("id", classroomIds);
+          if (cErr) { console.error("classrooms fetch", cErr); throw cErr; }
+          for (const c of (cls as any[]) || []) gradeByClassroom.set(c.id, c.grade_level || "ไม่ระบุ");
+        }
+        for (const s of (studs as any[]) || []) {
+          gradeByStudent.set(s.id, gradeByClassroom.get(s.classroom_id) || "ไม่ระบุ");
+        }
       }
-      for (const s of (studs as any[]) || []) {
-        gradeByStudent.set(s.id, gradeByClassroom.get(s.classroom_id) || "ไม่ระบุ");
+
+      const byGrade: Record<string, { present: number; absent: number; late: number; leave: number }> = {};
+      for (const r of (attRows as any[]) || []) {
+        const g = gradeByStudent.get(r.student_id) || "ไม่ระบุ";
+        if (!byGrade[g]) byGrade[g] = { present: 0, absent: 0, late: 0, leave: 0 };
+        const s = (r.status || "present").toLowerCase();
+        if (s === "present") byGrade[g].present++;
+        else if (s === "absent") byGrade[g].absent++;
+        else if (s === "late") byGrade[g].late++;
+        else byGrade[g].leave++;
+      }
+      const gradeOrder = ["อ.1","อ.2","อ.3","ป.1","ป.2","ป.3","ป.4","ป.5","ป.6","ม.1","ม.2","ม.3","ม.4","ม.5","ม.6"];
+      const labels = Object.keys(byGrade).sort((a, b) => {
+        const ia = gradeOrder.indexOf(a); const ib = gradeOrder.indexOf(b);
+        if (ia === -1 && ib === -1) return a.localeCompare(b);
+        if (ia === -1) return 1; if (ib === -1) return -1;
+        return ia - ib;
+      });
+      const present = labels.map(l => byGrade[l].present);
+      const absent = labels.map(l => byGrade[l].absent);
+      const late = labels.map(l => byGrade[l].late);
+      const leave = labels.map(l => byGrade[l].leave);
+      totals.totalPresent = present.reduce((a,b)=>a+b,0);
+      totals.totalAbsent = absent.reduce((a,b)=>a+b,0);
+      totals.totalLate = late.reduce((a,b)=>a+b,0);
+      totals.totalLeave = leave.reduce((a,b)=>a+b,0);
+      totals.totalAll = totals.totalPresent + totals.totalAbsent + totals.totalLate + totals.totalLeave;
+
+      if (!chartUrl) {
+        const chartConfig = labels.length > 0
+          ? buildChartConfig(labels, present, absent, late, leave)
+          : { type: "bar", data: { labels: ["ไม่มีข้อมูล"], datasets: [{ label: "-", data: [0] }] }, options: { title: { display: true, text: "ยังไม่มีการสแกน" } } };
+        chartUrl = await shortChartUrl(chartConfig);
+      }
+      if (!summary) {
+        summary = `📊 รายงานการมาโรงเรียน\n📅 ${thDate(today)}\n\n✅ มา ${totals.totalPresent} คน\n⏰ สาย ${totals.totalLate} คน\n📝 ลา ${totals.totalLeave} คน\n❌ ขาด ${totals.totalAbsent} คน\n────────\nรวม ${totals.totalAll} คน (ณ เวลา 10:00 น.)`;
       }
     }
-
-    const byGrade: Record<string, { present: number; absent: number; late: number; leave: number }> = {};
-    for (const r of (attRows as any[]) || []) {
-      const g = gradeByStudent.get(r.student_id) || "ไม่ระบุ";
-      if (!byGrade[g]) byGrade[g] = { present: 0, absent: 0, late: 0, leave: 0 };
-      const s = (r.status || "present").toLowerCase();
-      if (s === "present") byGrade[g].present++;
-      else if (s === "absent") byGrade[g].absent++;
-      else if (s === "late") byGrade[g].late++;
-      else byGrade[g].leave++;
-    }
-    const gradeOrder = ["อ.1","อ.2","อ.3","ป.1","ป.2","ป.3","ป.4","ป.5","ป.6","ม.1","ม.2","ม.3","ม.4","ม.5","ม.6"];
-    const labels = Object.keys(byGrade).sort((a, b) => {
-      const ia = gradeOrder.indexOf(a); const ib = gradeOrder.indexOf(b);
-      if (ia === -1 && ib === -1) return a.localeCompare(b);
-      if (ia === -1) return 1; if (ib === -1) return -1;
-      return ia - ib;
-    });
-    const present = labels.map(l => byGrade[l].present);
-    const absent = labels.map(l => byGrade[l].absent);
-    const late = labels.map(l => byGrade[l].late);
-    const leave = labels.map(l => byGrade[l].leave);
-    const totalPresent = present.reduce((a,b)=>a+b,0);
-    const totalAbsent = absent.reduce((a,b)=>a+b,0);
-    const totalLate = late.reduce((a,b)=>a+b,0);
-    const totalLeave = leave.reduce((a,b)=>a+b,0);
-    const totalAll = totalPresent + totalAbsent + totalLate + totalLeave;
-
-    const chartConfig = labels.length > 0
-      ? buildChartConfig(labels, present, absent, late, leave)
-      : { type: "bar", data: { labels: ["ไม่มีข้อมูล"], datasets: [{ label: "-", data: [0] }] }, options: { title: { display: true, text: "ยังไม่มีการสแกน" } } };
-    const chartUrl = await shortChartUrl(chartConfig);
-
-    const summary = `📊 รายงานการมาโรงเรียน\n📅 ${thDate(today)}\n\n✅ มา ${totalPresent} คน\n⏰ สาย ${totalLate} คน\n📝 ลา ${totalLeave} คน\n❌ ขาด ${totalAbsent} คน\n────────\nรวม ${totalAll} คน (ณ เวลา 10:00 น.)`;
 
     const token = await getVaultToken(sb);
     if (!token) return new Response(JSON.stringify({ error: "LINE_VAULT_CHANNEL_ACCESS_TOKEN not set" }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
@@ -159,14 +168,13 @@ serve(async (req) => {
     if (forceGroupId) q = q.eq("id", forceGroupId);
     const { data: groups } = await q;
 
-    const messages = [
-      { type: "text", text: summary },
-      { type: "image", originalContentUrl: chartUrl, previewImageUrl: chartUrl },
-    ];
+    const messages: any[] = [];
+    if (summary) messages.push({ type: "text", text: summary });
+    if (chartUrl) messages.push({ type: "image", originalContentUrl: chartUrl, previewImageUrl: chartUrl });
 
     const results: any[] = [];
     for (const g of groups || []) {
-      if (!forceGroupId && g.last_attendance_digest_date === today) { results.push({ id: g.id, skipped: true }); continue; }
+      if (!skipDedup && !forceGroupId && g.last_attendance_digest_date === today) { results.push({ id: g.id, skipped: true }); continue; }
       try {
         await pushMessage(token, g.line_group_id, messages);
         await sb.from("line_vault_groups").update({ last_attendance_digest_date: today, last_notified_at: new Date().toISOString() }).eq("id", g.id);
