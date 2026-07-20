@@ -807,7 +807,7 @@ EOF
 # ---------------- 5.5) Auto-install Smart School Browser Extension (student mode) ----------------
 EXT_DIR="/opt/kiosk/extension"
 EXT_FLAG=""
-if [[ -n "$KIOSK_EXTENSION_URL" ]]; then
+if [[ "$KIOSK_MODE" == "student" && -n "$KIOSK_EXTENSION_URL" ]]; then
   log "▶  [5.5/10] ติดตั้ง Smart School Extension อัตโนมัติจาก $KIOSK_EXTENSION_URL"
   mkdir -p "$EXT_DIR"
   apt-get install -y --no-install-recommends unzip curl >/dev/null 2>&1 || true
@@ -973,7 +973,7 @@ if [[ "$KIOSK_MODE" == "student" ]]; then
   #   ไม่เก็บ history/password/cookies — ล้างทุกครั้งเมื่อ reboot
   PROFILE_DIR="$USER_HOME/.chromium-profile"
   CHROMIUM_FLAGS="--user-data-dir=$PROFILE_DIR \
-    --incognito --disable-features=TranslateUI,AutofillServerCommunication,SavePasswordBubble,DisableLoadExtensionCommandLineSwitch \
+    --disable-features=TranslateUI,AutofillServerCommunication,SavePasswordBubble,DisableLoadExtensionCommandLineSwitch \
     --start-maximized --no-first-run --no-default-browser-check \
     --disable-session-crashed-bubble --disable-infobars --noerrdialogs \
     --check-for-update-interval=31536000 --disable-component-update \
