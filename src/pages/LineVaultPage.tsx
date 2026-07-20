@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -106,6 +106,147 @@ function formatBytes(n: number | null) {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / 1024 / 1024).toFixed(2)} MB`;
+}
+
+// ---------- Signed-URL cache + lazy thumbnail + inline preview ----------
+const _urlCache = new Map<string, { url: string; ts: number }>();
+async function getSignedUrl(itemId: string): Promise<string | null> {
+  const cached = _urlCache.get(itemId);
+  if (cached && Date.now() - cached.ts < 50 * 60 * 1000) return cached.url;
+  const { data } = await supabase.functions.invoke("line-vault-download", {
+    body: { item_id: itemId, expires_in: 3600 },
+  });
+  if ((data as any)?.url) {
+    _urlCache.set(itemId, { url: (data as any).url, ts: Date.now() });
+    return (data as any).url;
+  }
+  return null;
+}
+
+function useInView<T extends Element>(rootMargin = "200px") {
+  const ref = useRef<T | null>(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    if (!ref.current || inView) return;
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) { setInView(true); io.disconnect(); } });
+    }, { rootMargin });
+    io.observe(ref.current);
+    return () => io.disconnect();
+  }, [inView, rootMargin]);
+  return { ref, inView };
+}
+
+function isImageMime(m?: string | null) { return !!m && m.startsWith("image/"); }
+function isVideoMime(m?: string | null) { return !!m && m.startsWith("video/"); }
+function isAudioMime(m?: string | null) { return !!m && m.startsWith("audio/"); }
+function isPdfMime(m?: string | null, name?: string | null) {
+  return (m === "application/pdf") || (!!name && /\.pdf$/i.test(name));
+}
+function isOfficeMime(m?: string | null, name?: string | null) {
+  if (!!name && /\.(docx?|xlsx?|pptx?)$/i.test(name)) return true;
+  if (!m) return false;
+  return m.includes("word") || m.includes("excel") || m.includes("spreadsheet") || m.includes("presentation") || m.includes("powerpoint");
+}
+
+function LineVaultThumb({ item, className }: { item: Item; className?: string }) {
+  const { ref, inView } = useInView<HTMLDivElement>();
+  const [url, setUrl] = useState<string | null>(null);
+  const [err, setErr] = useState(false);
+  const wantThumb = isImageMime(item.mime_type) || item.kind === "photo";
+  useEffect(() => {
+    if (!inView || !wantThumb || url) return;
+    getSignedUrl(item.id).then(u => setUrl(u)).catch(() => setErr(true));
+  }, [inView, wantThumb, item.id, url]);
+
+  return (
+    <div ref={ref as any} className={className}>
+      {wantThumb && url && !err ? (
+        <img
+          src={url}
+          loading="lazy"
+          alt={item.title}
+          onError={() => setErr(true)}
+          onContextMenu={(e) => e.preventDefault()}
+          className="w-full h-full object-cover select-none"
+          draggable={false}
+        />
+      ) : (
+        <div className="w-full h-full bg-muted flex items-center justify-center">
+          {isVideoMime(item.mime_type)
+            ? <ImageIcon className="h-10 w-10 text-muted-foreground" />
+            : isPdfMime(item.mime_type, item.original_filename)
+              ? <FileText className="h-10 w-10 text-red-500/70" />
+              : <FileText className="h-10 w-10 text-muted-foreground" />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LineVaultPreviewDialog({ item, onClose, onDownload }: { item: Item | null; onClose: () => void; onDownload: (i: Item) => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!item) { setUrl(null); return; }
+    setLoading(true);
+    getSignedUrl(item.id).then(u => { setUrl(u); setLoading(false); });
+  }, [item?.id]);
+
+  if (!item) return null;
+  const isImg = isImageMime(item.mime_type) || item.kind === "photo";
+  const isVid = isVideoMime(item.mime_type);
+  const isAud = isAudioMime(item.mime_type);
+  const isPdf = isPdfMime(item.mime_type, item.original_filename);
+  const isOffice = isOfficeMime(item.mime_type, item.original_filename);
+  const officeViewer = url && isOffice ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}` : null;
+
+  return (
+    <Dialog open={!!item} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-5xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 flex-wrap">
+            {item.kind === "photo" ? <ImageIcon className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
+            <span className="line-clamp-1">{item.title}</span>
+          </DialogTitle>
+        </DialogHeader>
+        <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+          {item.line_sender_name && <Badge variant="secondary" className="text-[10px]">จาก LINE · {item.line_sender_name}</Badge>}
+          <span>{item.original_filename} · {formatBytes(item.size_bytes)}</span>
+          <span>· {format(new Date(item.created_at), "d MMM yyyy HH:mm", { locale: th })}</span>
+        </div>
+        {item.description && (
+          <div className="text-sm bg-muted/50 rounded p-3 flex items-start gap-2">
+            <MessageSquareText className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+            <div className="whitespace-pre-wrap">{item.description}</div>
+          </div>
+        )}
+        <div className="min-h-[300px] max-h-[70vh] overflow-auto rounded border bg-black/5 dark:bg-white/5 flex items-center justify-center">
+          {loading || !url ? (
+            <div className="text-sm text-muted-foreground py-16">กำลังโหลด...</div>
+          ) : isImg ? (
+            <img src={url} alt={item.title} className="max-h-[70vh] object-contain" onContextMenu={(e) => e.preventDefault()} draggable={false} />
+          ) : isVid ? (
+            <video src={url} controls playsInline className="max-h-[70vh] w-full bg-black" />
+          ) : isAud ? (
+            <audio src={url} controls className="w-full my-6" />
+          ) : isPdf ? (
+            <iframe src={url} title={item.title} className="w-full h-[70vh]" />
+          ) : officeViewer ? (
+            <iframe src={officeViewer} title={item.title} className="w-full h-[70vh]" />
+          ) : (
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              ไม่รองรับการแสดงตัวอย่างสำหรับไฟล์ประเภทนี้ กรุณาดาวน์โหลดเพื่อเปิด
+            </div>
+          )}
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Button onClick={() => onDownload(item)}><Download className="h-4 w-4 mr-1" />ดาวน์โหลด</Button>
+          {url && <Button variant="outline" asChild><a href={url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4 mr-1" />เปิดในแท็บใหม่</a></Button>}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export default function LineVaultPage() {
@@ -313,7 +454,13 @@ export default function LineVaultPage() {
 
 function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fetchBlob, groupAlbums }: { items: Item[]; loading: boolean; isAdmin: boolean; onOpen: (i: Item) => void; onDelete: (i: Item) => void; onBulkDelete?: (items: Item[]) => Promise<boolean>; fetchBlob: (i: Item) => Promise<{ blob: Blob; filename: string } | null>; groupAlbums?: boolean }) {
   const [albumOpen, setAlbumOpen] = useState<Item[] | null>(null);
+  const [previewItem, setPreviewItem] = useState<Item | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const openItem = (i: Item) => {
+    if (i.kind === "note") { onOpen(i); return; }
+    setPreviewItem(i);
+  };
   const [zipping, setZipping] = useState(false);
   const [zipProgress, setZipProgress] = useState<{ done: number; total: number } | null>(null);
 
@@ -441,6 +588,13 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
             const allSel = albumIds.every(id => selected.has(id));
             return (
               <Card key={`album-${first.line_image_set_id}`} className="overflow-hidden hover:shadow-md transition-shadow">
+                <button type="button" onClick={() => setAlbumOpen(row.items)} className="block w-full aspect-video relative group">
+                  <LineVaultThumb item={first} className="w-full h-full" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                  <div className="absolute bottom-1 right-1 text-[10px] bg-black/60 text-white rounded px-1.5 py-0.5 inline-flex items-center gap-1">
+                    <FolderOpen className="h-3 w-3" />{row.items.length}
+                  </div>
+                </button>
                 <div className="p-3 space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -494,6 +648,17 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
           const isSel = selected.has(item.id);
           return (
             <Card key={item.id} className={`overflow-hidden hover:shadow-md transition-shadow ${isSel ? "ring-2 ring-primary" : ""}`}>
+              {item.kind !== "note" && (
+                <button type="button" onClick={() => openItem(item)} className="block w-full aspect-video relative group">
+                  <LineVaultThumb item={item} className="w-full h-full" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                  {isVideoMime(item.mime_type) && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="bg-black/60 text-white rounded-full h-10 w-10 flex items-center justify-center">▶</div>
+                    </div>
+                  )}
+                </button>
+              )}
               <div className="p-3 space-y-2">
                 <div className="flex items-start justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
@@ -510,6 +675,11 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
                 <div className="flex flex-wrap gap-1">
                   <Badge variant="secondary" className="text-[10px]">{categoryLabel(item.category)}</Badge>
                   {item.academic_year && <Badge variant="outline" className="text-[10px]">ปี {item.academic_year + 543}/{item.semester || "-"}</Badge>}
+                  {item.line_sender_name && (
+                    <Badge variant="outline" className="text-[10px] max-w-[160px] truncate" title={item.line_sender_name}>
+                      จาก LINE · {item.line_sender_name}
+                    </Badge>
+                  )}
                 </div>
                 <div className="font-medium line-clamp-2 min-h-[2.5rem]" title={item.title}>{item.title}</div>
                 {item.kind === "note" && item.note_text && (
@@ -521,7 +691,7 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
                   </p>
                 )}
                 {item.kind !== "note" && (
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-xs text-muted-foreground truncate" title={item.original_filename || undefined}>
                     {item.original_filename} · {formatBytes(item.size_bytes)}
                   </div>
                 )}
@@ -530,9 +700,14 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
                   <span>{format(new Date(item.created_at), "d MMM yyyy HH:mm", { locale: th })}</span>
                 </div>
                 <div className="flex gap-2 pt-1">
-                  <Button size="sm" className="flex-1" onClick={() => onOpen(item)}>
-                    {item.kind === "note" ? <><StickyNote className="h-4 w-4 mr-1" />เปิด</> : <><Download className="h-4 w-4 mr-1" />ดาวน์โหลด</>}
+                  <Button size="sm" className="flex-1" onClick={() => openItem(item)}>
+                    {item.kind === "note" ? <><StickyNote className="h-4 w-4 mr-1" />เปิด</> : <><Eye className="h-4 w-4 mr-1" />ดูตัวอย่าง</>}
                   </Button>
+                  {item.kind !== "note" && (
+                    <Button size="sm" variant="outline" onClick={() => onOpen(item)} title="ดาวน์โหลดไฟล์">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  )}
                   {isAdmin && (
                     <Button size="sm" variant="ghost" onClick={() => onDelete(item)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
                   )}
@@ -568,22 +743,31 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
               <Archive className="h-4 w-4 mr-1" />
               {zipping ? `กำลังบีบอัด ${zipProgress?.done || 0}/${zipProgress?.total || 0}...` : "ดาวน์โหลดทั้งอัลบั้ม (ZIP)"}
             </Button>
-            <span className="text-xs text-muted-foreground">คลิกที่รูปเพื่อดาวน์โหลดทีละไฟล์</span>
+            <span className="text-xs text-muted-foreground">คลิกที่รูปเพื่อดูตัวอย่าง</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[60vh] overflow-y-auto">
             {albumOpen?.map(p => (
-              <button key={p.id} onClick={() => onOpen(p)} className="border rounded p-2 hover:bg-muted text-left space-y-1">
-                <div className="aspect-square bg-muted rounded flex items-center justify-center">
-                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
+              <button key={p.id} onClick={() => { setAlbumOpen(null); setPreviewItem(p); }} className="border rounded p-2 hover:bg-muted text-left space-y-1">
+                <div className="aspect-square rounded overflow-hidden">
+                  <LineVaultThumb item={p} className="w-full h-full" />
                 </div>
                 <div className="text-xs truncate">{p.original_filename || p.title}</div>
-                <div className="text-[10px] text-muted-foreground">{formatBytes(p.size_bytes)}</div>
+                <div className="text-[10px] text-muted-foreground flex items-center justify-between gap-1">
+                  <span className="truncate">{p.line_sender_name ? `จาก ${p.line_sender_name}` : ""}</span>
+                  <span>{formatBytes(p.size_bytes)}</span>
+                </div>
               </button>
             ))}
           </div>
         </DialogContent>
 
       </Dialog>
+
+      <LineVaultPreviewDialog
+        item={previewItem}
+        onClose={() => setPreviewItem(null)}
+        onDownload={(i) => onOpen(i)}
+      />
     </>
   );
 }
