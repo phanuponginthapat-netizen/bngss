@@ -226,6 +226,19 @@ const FaceKioskPage = () => {
       .catch((e) => setModelStatus("โหลดล้มเหลว: " + e.message));
   }, [qrOnly]);
 
+  // เปิดกล้องอัตโนมัติเมื่อพร้อม — ผู้ใช้ไม่ต้องกดปุ่ม "เปิดกล้อง" เอง
+  // (QR-only: เปิดได้เลย, Face mode: รอ modelReady ก่อน)
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (autoStartedRef.current) return;
+    if (streaming) { autoStartedRef.current = true; return; }
+    if (!qrOnly && !modelReady) return;
+    autoStartedRef.current = true;
+    startCamera().catch(() => { autoStartedRef.current = false; });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qrOnly, modelReady, streaming]);
+
+
   const startCamera = useCallback(async (mode: CamMode = camMode) => {
     const ok = await verifyLocation();
     if (!ok) return;
