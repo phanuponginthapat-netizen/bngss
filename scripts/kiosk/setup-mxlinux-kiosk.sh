@@ -49,35 +49,6 @@ if [[ -z "$CFG_JSON" ]]; then
 elif ! command -v python3 >/dev/null 2>&1; then
   echo "⚠  ไม่มี python3 — ข้าม CMS config"
 else
-  EVAL_OUT=$(python3 <<PYEOF
-import json,os,sys
-raw={}
-try: raw=json.loads(os.environ.get("CFG_JSON_RAW",""))
-except Exception as e: sys.stderr.write(f"parse err: {e}\n")
-d=raw.get('kiosk_config') or {}
-def emit(k,v):
-    if v is None or v=='': return
-    print(f'export {k}={json.dumps(str(v))}')
-emit('KIOSK_LOGO_URL', raw.get('school_logo') or raw.get('app_favicon_url'))
-emit('KIOSK_SCHOOL_NAME', raw.get('school_name') or raw.get('app_name'))
-emit('KIOSK_THEME_COLOR', raw.get('theme_color') or raw.get('primary_color'))
-if d:
-    m=d.get('mode')
-    if m and not os.environ.get('KIOSK_MODE_SET'): emit('KIOSK_MODE',m)
-    for k_cfg,k_env in [
-      ('kioskUrl','KIOSK_URL'),('kioskUser','KIOSK_USER'),
-      ('wifiSsid','KIOSK_WIFI_SSID'),('wifiPass','KIOSK_WIFI_PASS'),
-      ('rebootTime','KIOSK_DAILY_REBOOT'),
-      ('idleLogoutMin','KIOSK_IDLE_LOGOUT_MIN'),('idleShutdownMin','KIOSK_IDLE_SHUTDOWN_MIN'),
-      ('powerOn','KIOSK_POWER_ON'),('powerOff','KIOSK_POWER_OFF'),
-      ('exitPin','KIOSK_EXIT_PIN'),
-    ]:
-        if not os.environ.get(k_env): emit(k_env,d.get(k_cfg))
-    if d.get('enableDailyReboot') is False and not os.environ.get('KIOSK_DAILY_REBOOT'):
-        print('export KIOSK_DAILY_REBOOT=""')
-    print(f'# CMS: mode={d.get("mode")} powerOn={d.get("powerOn")} powerOff={d.get("powerOff")} reboot={d.get("rebootTime")}', file=sys.stderr)
-PYEOF
-)
   export CFG_JSON_RAW="$CFG_JSON"
   EVAL_OUT=$(CFG_JSON_RAW="$CFG_JSON" python3 <<'PYEOF' 2>&1
 import json,os,sys
