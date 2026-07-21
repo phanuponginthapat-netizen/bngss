@@ -34,23 +34,36 @@ KIOSK_WIFI_PASS="${KIOSK_WIFI_PASS:-}"
 # ผู้ใช้ไม่ต้องส่ง env var เอง — ค่าที่ตั้งในเว็บจะถูกใช้เป็น default โดยอัตโนมัติ
 CMS_BASE="${CMS_BASE:-https://dlkyxvhnnffblerwedjz.supabase.co}"
 CMS_ANON_KEY="${CMS_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4}"
-CFG_JSON=$(curl -fsSL --max-time 8 -H "apikey: $CMS_ANON_KEY" "$CMS_BASE/functions/v1/ext-config" 2>/dev/null || true)
-if [[ -n "$CFG_JSON" ]] && command -v python3 >/dev/null 2>&1; then
-  eval "$(python3 -c "
-import json,sys,os
-try: raw=json.loads(sys.argv[1])
-except: raw={}
+
+# ทำให้ python3 พร้อมใช้ก่อน — บาง MX Linux minimal ไม่มี python3
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "► ติดตั้ง python3 (จำเป็นสำหรับ parse CMS config)..."
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq >/dev/null 2>&1 || true
+  apt-get install -y -qq python3 curl >/dev/null 2>&1 || true
+fi
+
+CFG_JSON=$(curl -fsSL --max-time 10 -H "apikey: $CMS_ANON_KEY" "$CMS_BASE/functions/v1/ext-config" 2>/dev/null || true)
+if [[ -z "$CFG_JSON" ]]; then
+  echo "⚠  ดึง CMS config ไม่ได้ (network/DNS?) — ใช้ค่า default"
+elif ! command -v python3 >/dev/null 2>&1; then
+  echo "⚠  ไม่มี python3 — ข้าม CMS config"
+else
+  EVAL_OUT=$(python3 <<PYEOF
+import json,os,sys
+raw={}
+try: raw=json.loads(os.environ.get("CFG_JSON_RAW",""))
+except Exception as e: sys.stderr.write(f"parse err: {e}\n")
 d=raw.get('kiosk_config') or {}
 def emit(k,v):
     if v is None or v=='': return
     print(f'export {k}={json.dumps(str(v))}')
-# branding (สำหรับ Plymouth splash + login greeter)
 emit('KIOSK_LOGO_URL', raw.get('school_logo') or raw.get('app_favicon_url'))
 emit('KIOSK_SCHOOL_NAME', raw.get('school_name') or raw.get('app_name'))
 emit('KIOSK_THEME_COLOR', raw.get('theme_color') or raw.get('primary_color'))
 if d:
     m=d.get('mode')
-    if m and not os.environ.get('KIOSK_MODE'): emit('KIOSK_MODE',m)
+    if m and not os.environ.get('KIOSK_MODE_SET'): emit('KIOSK_MODE',m)
     for k_cfg,k_env in [
       ('kioskUrl','KIOSK_URL'),('kioskUser','KIOSK_USER'),
       ('wifiSsid','KIOSK_WIFI_SSID'),('wifiPass','KIOSK_WIFI_PASS'),
@@ -61,9 +74,46 @@ if d:
     ]:
         if not os.environ.get(k_env): emit(k_env,d.get(k_cfg))
     if d.get('enableDailyReboot') is False and not os.environ.get('KIOSK_DAILY_REBOOT'):
-        print('export KIOSK_DAILY_REBOOT=\"\"')
-" "$CFG_JSON")"
-  echo "► โหลด kiosk_config จาก CMS แล้ว (ใช้ค่าที่ตั้งไว้ในหน้าเว็บเป็น defaults)"
+        print('export KIOSK_DAILY_REBOOT=""')
+    print(f'# CMS: mode={d.get("mode")} powerOn={d.get("powerOn")} powerOff={d.get("powerOff")} reboot={d.get("rebootTime")}', file=sys.stderr)
+PYEOF
+)
+  export CFG_JSON_RAW="$CFG_JSON"
+  EVAL_OUT=$(CFG_JSON_RAW="$CFG_JSON" python3 <<'PYEOF' 2>&1
+import json,os,sys
+raw={}
+try: raw=json.loads(os.environ.get("CFG_JSON_RAW",""))
+except Exception as e: sys.stderr.write(f"parse err: {e}\n"); sys.exit(0)
+d=raw.get('kiosk_config') or {}
+def emit(k,v):
+    if v is None or v=='': return
+    print(f'export {k}={json.dumps(str(v))}')
+emit('KIOSK_LOGO_URL', raw.get('school_logo') or raw.get('app_favicon_url'))
+emit('KIOSK_SCHOOL_NAME', raw.get('school_name') or raw.get('app_name'))
+emit('KIOSK_THEME_COLOR', raw.get('theme_color') or raw.get('primary_color'))
+if d:
+    m=d.get('mode')
+    if m and not os.environ.get('KIOSK_MODE_SET'): emit('KIOSK_MODE',m)
+    for k_cfg,k_env in [
+      ('kioskUrl','KIOSK_URL'),('kioskUser','KIOSK_USER'),
+      ('wifiSsid','KIOSK_WIFI_SSID'),('wifiPass','KIOSK_WIFI_PASS'),
+      ('rebootTime','KIOSK_DAILY_REBOOT'),
+      ('idleLogoutMin','KIOSK_IDLE_LOGOUT_MIN'),('idleShutdownMin','KIOSK_IDLE_SHUTDOWN_MIN'),
+      ('powerOn','KIOSK_POWER_ON'),('powerOff','KIOSK_POWER_OFF'),
+      ('exitPin','KIOSK_EXIT_PIN'),
+    ]:
+        if not os.environ.get(k_env): emit(k_env,d.get(k_cfg))
+    if d.get('enableDailyReboot') is False and not os.environ.get('KIOSK_DAILY_REBOOT'):
+        print('export KIOSK_DAILY_REBOOT=""')
+    sys.stderr.write(f'# CMS: mode={d.get("mode")} powerOn={d.get("powerOn")} powerOff={d.get("powerOff")} reboot={d.get("rebootTime")}\n')
+PYEOF
+)
+  # แสดง export ที่จะรัน (debug)
+  echo "► CMS config → env:"
+  echo "$EVAL_OUT" | sed -n 's/^export /   /p'
+  # eval เฉพาะบรรทัด export
+  eval "$(echo "$EVAL_OUT" | grep -E '^export ' || true)"
+  echo "► โหลด kiosk_config จาก CMS แล้ว"
 fi
 # ------------------------------------------------------------
 
