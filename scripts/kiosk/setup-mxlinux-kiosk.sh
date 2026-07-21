@@ -1091,6 +1091,7 @@ if [[ "$KIOSK_MODE" == "student" ]]; then
     --disable-background-networking --disable-breakpad --disable-sync \
     --disable-save-password-bubble --disable-signin-promo \
     --autoplay-policy=no-user-gesture-required \
+    --use-fake-ui-for-media-stream \
     --enable-features=WebRTCPipeWireCapturer --disk-cache-size=0 \
     --password-store=basic $EXT_FLAG"
   cat >/opt/kiosk/start-kiosk.sh <<EOF
@@ -1148,6 +1149,7 @@ while true; do
     --disable-sync --metrics-recording-only --no-default-browser-check \\
     --disable-dev-shm-usage --start-maximized \\
     --autoplay-policy=no-user-gesture-required \\
+    --use-fake-ui-for-media-stream \\
     --enable-features=WebRTCPipeWireCapturer --alsa-output-device=default \\
     --password-store=basic --disk-cache-size=104857600 \\
     --auto-select-desktop-capture-source="Entire screen" \\
