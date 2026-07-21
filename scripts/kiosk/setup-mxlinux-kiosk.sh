@@ -529,8 +529,10 @@ done
 POLICY=$(cat <<JSON
 {
   "AudioCaptureAllowed": true,
+  "DefaultAudioCaptureSetting": 1,
   "AudioCaptureAllowedUrls": ["$KIOSK_ORIGIN"],
   "VideoCaptureAllowed": true,
+  "DefaultVideoCaptureSetting": 1,
   "VideoCaptureAllowedUrls": ["$KIOSK_ORIGIN"],
   "ScreenCaptureAllowedByOrigins": ["$KIOSK_ORIGIN"],
   "SameOriginTabCaptureAllowedByOrigins": ["$KIOSK_ORIGIN"],
