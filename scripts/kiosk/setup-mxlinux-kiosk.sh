@@ -871,18 +871,47 @@ fi
 usermod -aG audio,video,pulse,pulse-access "$KIOSK_USER" 2>/dev/null || \
   usermod -aG audio,video "$KIOSK_USER" || true
 
+# บังคับ ALSA → PulseAudio และเลือก source ไมค์จริง ไม่ใช่ monitor source
+cat >/etc/asound.conf <<'EOF'
+pcm.!default pulse
+ctl.!default pulse
+EOF
+
+cat >/opt/kiosk/fix-audio.sh <<'EOF'
+#!/usr/bin/env bash
+set +e
+export PULSE_RUNTIME_PATH="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pulse"
+pulseaudio --start --exit-idle-time=-1 >/dev/null 2>&1 || true
+sleep 1
+amixer -q sset Master 85% unmute 2>/dev/null || true
+amixer -q sset Speaker 85% unmute 2>/dev/null || true
+amixer -q sset PCM 85% unmute 2>/dev/null || true
+amixer -q sset Capture 90% cap 2>/dev/null || true
+amixer -q sset Mic 90% cap 2>/dev/null || true
+amixer -q sset 'Internal Mic' 90% cap 2>/dev/null || true
+SRC="$(pactl list short sources 2>/dev/null | awk '!/\.monitor/ && /input|alsa_input/ {print $2; exit}')"
+if [ -n "$SRC" ]; then
+  pactl set-default-source "$SRC" 2>/dev/null || true
+  pactl set-source-mute "$SRC" 0 2>/dev/null || true
+  pactl set-source-volume "$SRC" 90% 2>/dev/null || true
+fi
+pactl set-source-mute @DEFAULT_SOURCE@ 0 2>/dev/null || true
+pactl set-source-volume @DEFAULT_SOURCE@ 90% 2>/dev/null || true
+EOF
+chmod +x /opt/kiosk/fix-audio.sh
+
 cat >"$USER_HOME/.config/autostart/kiosk-pulseaudio.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=PulseAudio for Kiosk
-Exec=sh -c 'pulseaudio --start --exit-idle-time=-1'
+Exec=sh -c '/opt/kiosk/fix-audio.sh'
 X-GNOME-Autostart-enabled=true
 EOF
 cat >"$USER_HOME/.config/autostart/kiosk-unmute.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Kiosk Unmute
-Exec=sh -c 'sleep 5; amixer -q sset Master 80% unmute 2>/dev/null; amixer -q sset Capture 80% cap 2>/dev/null; pactl set-source-mute @DEFAULT_SOURCE@ 0 2>/dev/null; pactl set-source-volume @DEFAULT_SOURCE@ 80% 2>/dev/null; true'
+Exec=sh -c 'sleep 5; /opt/kiosk/fix-audio.sh; true'
 X-GNOME-Autostart-enabled=true
 EOF
 
