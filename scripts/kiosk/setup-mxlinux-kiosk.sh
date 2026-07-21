@@ -197,7 +197,7 @@ apt-get update -y || die "apt update ล้มเหลว — ตรวจ inte
 PKGS=(
   chromium unclutter xdotool x11-xserver-utils python3 python3-pip
   curl ca-certificates fonts-thai-tlwg fonts-noto-color-emoji
-  network-manager pulseaudio pavucontrol alsa-utils
+  network-manager pulseaudio pulseaudio-utils pavucontrol alsa-utils libasound2-plugins
   lightdm lightdm-gtk-greeter accountsservice
   plymouth plymouth-themes plymouth-label imagemagick
   xbindkeys zenity
@@ -205,7 +205,7 @@ PKGS=(
 
 apt-get install -y --no-install-recommends "${PKGS[@]}" 2>/dev/null || \
   apt-get install -y --no-install-recommends chromium-browser unclutter xdotool \
-    x11-xserver-utils python3 curl pulseaudio alsa-utils lightdm
+    x11-xserver-utils python3 curl pulseaudio pulseaudio-utils alsa-utils lightdm
 
 CHROMIUM_BIN=$(command -v chromium || command -v chromium-browser || true)
 [[ -n "$CHROMIUM_BIN" ]] || die "ติดตั้ง Chromium ไม่สำเร็จ"
