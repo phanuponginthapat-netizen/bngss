@@ -842,13 +842,13 @@ const FaceKioskPage = () => {
       {screensaver && (
         <KioskScreensaver
           onWake={wakeFromScreensaver}
-          onHelloAi={helloAiEnabled && outsideAll ? (source) => {
+          onHelloAi={helloAiEnabled ? (source) => {
             setHelloAiAutoListen(source === "voice");
             setHelloAiOpen(true);
           } : undefined}
-          helloAiEnabled={helloAiEnabled && outsideAll}
+          helloAiEnabled={helloAiEnabled}
           reasonLabel={screensaverReason}
-          wakeWordEnabled={wakeWordEnabled && outsideAll}
+          wakeWordEnabled={wakeWordEnabled}
           helloAiOpen={helloAiOpen}
         />
       )}
