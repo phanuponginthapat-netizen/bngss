@@ -100,7 +100,7 @@ const FaceKioskPage = () => {
   const idleMs = Math.max(15, parseInt(idleSecSetting || "60", 10) || 60) * 1000;
   const helloAiEnabled = helloAiSetting !== "false";
   const powerSave = powerSaveSetting !== "false";
-  const wakeWordEnabled = wakeWordSetting === "true";
+  const wakeWordEnabled = wakeWordSetting !== "false";
   const [helloAiOpen, setHelloAiOpen] = useState(false);
   const [helloAiAutoListen, setHelloAiAutoListen] = useState(false);
   const geofence = useSchoolGeofence();
@@ -842,13 +842,13 @@ const FaceKioskPage = () => {
       {screensaver && (
         <KioskScreensaver
           onWake={wakeFromScreensaver}
-          onHelloAi={helloAiEnabled && outsideAll ? (source) => {
+          onHelloAi={helloAiEnabled ? (source) => {
             setHelloAiAutoListen(source === "voice");
             setHelloAiOpen(true);
           } : undefined}
-          helloAiEnabled={helloAiEnabled && outsideAll}
+          helloAiEnabled={helloAiEnabled}
           reasonLabel={screensaverReason}
-          wakeWordEnabled={wakeWordEnabled && outsideAll}
+          wakeWordEnabled={wakeWordEnabled}
           helloAiOpen={helloAiOpen}
         />
       )}

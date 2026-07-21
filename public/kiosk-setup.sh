@@ -197,7 +197,7 @@ apt-get update -y || die "apt update ล้มเหลว — ตรวจ inte
 PKGS=(
   chromium unclutter xdotool x11-xserver-utils python3 python3-pip
   curl ca-certificates fonts-thai-tlwg fonts-noto-color-emoji
-  network-manager pulseaudio pavucontrol alsa-utils
+  network-manager pulseaudio pulseaudio-utils pavucontrol alsa-utils libasound2-plugins cron
   lightdm lightdm-gtk-greeter accountsservice
   plymouth plymouth-themes plymouth-label imagemagick
   xbindkeys zenity
@@ -205,7 +205,7 @@ PKGS=(
 
 apt-get install -y --no-install-recommends "${PKGS[@]}" 2>/dev/null || \
   apt-get install -y --no-install-recommends chromium-browser unclutter xdotool \
-    x11-xserver-utils python3 curl pulseaudio alsa-utils lightdm
+    x11-xserver-utils python3 curl pulseaudio pulseaudio-utils alsa-utils lightdm
 
 CHROMIUM_BIN=$(command -v chromium || command -v chromium-browser || true)
 [[ -n "$CHROMIUM_BIN" ]] || die "ติดตั้ง Chromium ไม่สำเร็จ"
@@ -529,8 +529,10 @@ done
 POLICY=$(cat <<JSON
 {
   "AudioCaptureAllowed": true,
+  "DefaultAudioCaptureSetting": 1,
   "AudioCaptureAllowedUrls": ["$KIOSK_ORIGIN"],
   "VideoCaptureAllowed": true,
+  "DefaultVideoCaptureSetting": 1,
   "VideoCaptureAllowedUrls": ["$KIOSK_ORIGIN"],
   "ScreenCaptureAllowedByOrigins": ["$KIOSK_ORIGIN"],
   "SameOriginTabCaptureAllowedByOrigins": ["$KIOSK_ORIGIN"],
@@ -869,18 +871,47 @@ fi
 usermod -aG audio,video,pulse,pulse-access "$KIOSK_USER" 2>/dev/null || \
   usermod -aG audio,video "$KIOSK_USER" || true
 
+# บังคับ ALSA → PulseAudio และเลือก source ไมค์จริง ไม่ใช่ monitor source
+cat >/etc/asound.conf <<'EOF'
+pcm.!default pulse
+ctl.!default pulse
+EOF
+
+cat >/opt/kiosk/fix-audio.sh <<'EOF'
+#!/usr/bin/env bash
+set +e
+export PULSE_RUNTIME_PATH="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pulse"
+pulseaudio --start --exit-idle-time=-1 >/dev/null 2>&1 || true
+sleep 1
+amixer -q sset Master 85% unmute 2>/dev/null || true
+amixer -q sset Speaker 85% unmute 2>/dev/null || true
+amixer -q sset PCM 85% unmute 2>/dev/null || true
+amixer -q sset Capture 90% cap 2>/dev/null || true
+amixer -q sset Mic 90% cap 2>/dev/null || true
+amixer -q sset 'Internal Mic' 90% cap 2>/dev/null || true
+SRC="$(pactl list short sources 2>/dev/null | awk '!/\.monitor/ && /input|alsa_input/ {print $2; exit}')"
+if [ -n "$SRC" ]; then
+  pactl set-default-source "$SRC" 2>/dev/null || true
+  pactl set-source-mute "$SRC" 0 2>/dev/null || true
+  pactl set-source-volume "$SRC" 90% 2>/dev/null || true
+fi
+pactl set-source-mute @DEFAULT_SOURCE@ 0 2>/dev/null || true
+pactl set-source-volume @DEFAULT_SOURCE@ 90% 2>/dev/null || true
+EOF
+chmod +x /opt/kiosk/fix-audio.sh
+
 cat >"$USER_HOME/.config/autostart/kiosk-pulseaudio.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=PulseAudio for Kiosk
-Exec=sh -c 'pulseaudio --start --exit-idle-time=-1'
+Exec=sh -c '/opt/kiosk/fix-audio.sh'
 X-GNOME-Autostart-enabled=true
 EOF
 cat >"$USER_HOME/.config/autostart/kiosk-unmute.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Kiosk Unmute
-Exec=sh -c 'sleep 5; amixer -q sset Master 80% unmute 2>/dev/null; amixer -q sset Capture 80% cap 2>/dev/null; pactl set-source-mute @DEFAULT_SOURCE@ 0 2>/dev/null; pactl set-source-volume @DEFAULT_SOURCE@ 80% 2>/dev/null; true'
+Exec=sh -c 'sleep 5; /opt/kiosk/fix-audio.sh; true'
 X-GNOME-Autostart-enabled=true
 EOF
 
@@ -1060,6 +1091,7 @@ if [[ "$KIOSK_MODE" == "student" ]]; then
     --disable-background-networking --disable-breakpad --disable-sync \
     --disable-save-password-bubble --disable-signin-promo \
     --autoplay-policy=no-user-gesture-required \
+    --use-fake-ui-for-media-stream \
     --enable-features=WebRTCPipeWireCapturer --disk-cache-size=0 \
     --password-store=basic $EXT_FLAG"
   cat >/opt/kiosk/start-kiosk.sh <<EOF
@@ -1117,6 +1149,7 @@ while true; do
     --disable-sync --metrics-recording-only --no-default-browser-check \\
     --disable-dev-shm-usage --start-maximized \\
     --autoplay-policy=no-user-gesture-required \\
+    --use-fake-ui-for-media-stream \\
     --enable-features=WebRTCPipeWireCapturer --alsa-output-device=default \\
     --password-store=basic --disk-cache-size=104857600 \\
     --auto-select-desktop-capture-source="Entire screen" \\
@@ -1496,8 +1529,24 @@ Persistent=false
 WantedBy=timers.target
 EOF
     systemctl daemon-reload
-    systemctl reenable kiosk-power-off.timer >/dev/null 2>&1 || true
-    systemctl restart kiosk-power-off.timer  >/dev/null 2>&1 || true
+    systemctl enable --now kiosk-power-off.timer >/dev/null 2>&1 || true
+    systemctl restart kiosk-power-off.timer >/dev/null 2>&1 || true
+    log "   ↳ systemd timer status:"
+    systemctl list-timers --all kiosk-power-off.timer 2>/dev/null | sed 's/^/      /' || true
+
+    # Fallback สำหรับ MX Linux/เครื่องที่ systemd timer ไม่ทำงานหรือบูตด้วย SysVinit
+    # cron จะเรียก power-cycle.sh เวลาเดียวกัน เพื่อให้ตั้งเวลาปิดเครื่องยังทำงานแน่นอน
+    cat >/etc/cron.d/kiosk-power-off <<EOF
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+$OFF_MM $OFF_HH * * * root /opt/kiosk/power-cycle.sh >/var/log/kiosk-power-off.log 2>&1
+EOF
+    chmod 0644 /etc/cron.d/kiosk-power-off
+    systemctl enable --now cron >/dev/null 2>&1 || service cron start >/dev/null 2>&1 || true
+    log "   ↳ cron fallback: /etc/cron.d/kiosk-power-off → $OFF_HH:$OFF_MM"
+  else
+    rm -f /etc/cron.d/kiosk-power-off /etc/systemd/system/kiosk-power-off.timer /etc/systemd/system/kiosk-power-off.service 2>/dev/null || true
+    systemctl daemon-reload 2>/dev/null || true
   fi
 
   # เผื่อกรณีเครื่องไม่ได้ถูกปิดผ่าน timer (ไฟดับ ฯลฯ) — ตั้ง wakealarm ทุกครั้งก่อน shutdown ปกติ
