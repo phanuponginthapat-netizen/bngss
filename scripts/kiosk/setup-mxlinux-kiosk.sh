@@ -1474,7 +1474,9 @@ Persistent=false
 [Install]
 WantedBy=timers.target
 EOF
-    systemctl enable kiosk-power-off.timer >/dev/null 2>&1 || true
+    systemctl daemon-reload
+    systemctl reenable kiosk-power-off.timer >/dev/null 2>&1 || true
+    systemctl restart kiosk-power-off.timer  >/dev/null 2>&1 || true
   fi
 
   # เผื่อกรณีเครื่องไม่ได้ถูกปิดผ่าน timer (ไฟดับ ฯลฯ) — ตั้ง wakealarm ทุกครั้งก่อน shutdown ปกติ
@@ -1485,11 +1487,23 @@ DefaultDependencies=no
 Before=shutdown.target reboot.target halt.target
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'PON="${KIOSK_POWER_ON:-}"; [ -z "\$PON" ] && exit 0; T=\$(date -d "tomorrow \$PON" +%s); echo 0 > /sys/class/rtc/rtc0/wakealarm 2>/dev/null; echo \$T > /sys/class/rtc/rtc0/wakealarm 2>/dev/null || true'
+ExecStart=/bin/sh -c 'PON="${KIOSK_POWER_ON:-}"; [ -z "\$PON" ] && exit 0; T=\$(date -d "today \$PON" +%s); NOW=\$(date +%s); [ \$T -le \$NOW ] && T=\$(date -d "tomorrow \$PON" +%s); echo 0 > /sys/class/rtc/rtc0/wakealarm 2>/dev/null; echo \$T > /sys/class/rtc/rtc0/wakealarm 2>/dev/null || /usr/sbin/rtcwake -m no -t \$T 2>/dev/null || true; logger "kiosk: pre-shutdown wakealarm=\$(date -d @\$T)"'
 [Install]
 WantedBy=shutdown.target
 EOF
-  systemctl enable kiosk-set-wakealarm.service >/dev/null 2>&1 || true
+  systemctl daemon-reload
+  systemctl reenable kiosk-set-wakealarm.service >/dev/null 2>&1 || true
+
+  # priming: ตั้ง wakealarm ทันทีหลัง setup — ถ้าโดนถอดปลั๊ก/ไฟดับ ก็ยัง wake เองได้
+  if [[ -n "$KIOSK_POWER_ON" ]]; then
+    T=$(date -d "today $KIOSK_POWER_ON" +%s 2>/dev/null || echo 0)
+    NOW=$(date +%s)
+    [[ "$T" -le "$NOW" ]] && T=$(date -d "tomorrow $KIOSK_POWER_ON" +%s)
+    echo 0 > /sys/class/rtc/rtc0/wakealarm 2>/dev/null || true
+    echo "$T" > /sys/class/rtc/rtc0/wakealarm 2>/dev/null \
+      || /usr/sbin/rtcwake -m no -t "$T" 2>/dev/null || true
+    log "   ↳ priming BIOS wakealarm → $(date -d @$T '+%Y-%m-%d %H:%M')"
+  fi
 fi
 
 # ---------------- 10) Enable services + set ownership ----------------
@@ -1498,7 +1512,7 @@ systemctl daemon-reload
 ENABLE_LIST=(kiosk-watchdog kiosk-healthcheck kiosk-ctl)
 [[ "$KIOSK_MODE" == "door" ]] && ENABLE_LIST+=(kiosk-wake)
 for s in "${ENABLE_LIST[@]}"; do
-  systemctl enable "$s.service" >/dev/null 2>&1 || true
+  systemctl reenable "$s.service" >/dev/null 2>&1 || true
 done
 
 chown -R "$KIOSK_USER:$KIOSK_USER" "$USER_HOME/.config"
