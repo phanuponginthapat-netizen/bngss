@@ -388,32 +388,91 @@ EOF
 systemctl enable kiosk-cpu-perf.service >/dev/null 2>&1 || true
 
 # UPower — ปิด critical battery action (กันโน้ตบุ๊ค hibernate/shutdown ตอน battery ต่ำ/เสื่อม)
-if [[ -f /etc/UPower/UPower.conf ]]; then
+# สร้างไฟล์ถ้าไม่มี (บาง distro ไม่ install default config)
+install -d -m 755 /etc/UPower
+if [[ ! -f /etc/UPower/UPower.conf ]]; then
+  cat >/etc/UPower/UPower.conf <<'EOF'
+[UPower]
+EnableWattsUpPro=false
+NoPollBatteries=false
+UsePercentageForPolicy=false
+PercentageLow=0
+PercentageCritical=0
+PercentageAction=0
+TimeLow=0
+TimeCritical=0
+TimeAction=0
+CriticalPowerAction=Ignore
+EOF
+else
   backup_once /etc/UPower/UPower.conf
-  sed -i 's/^#\?CriticalPowerAction=.*/CriticalPowerAction=Ignore/;
-          s/^#\?UsePercentageForPolicy=.*/UsePercentageForPolicy=false/;
-          s/^#\?PercentageAction=.*/PercentageAction=0/;
-          s/^#\?PercentageCritical=.*/PercentageCritical=0/;
-          s/^#\?PercentageLow=.*/PercentageLow=0/;
-          s/^#\?TimeAction=.*/TimeAction=0/;
-          s/^#\?TimeCritical=.*/TimeCritical=0/;
-          s/^#\?TimeLow=.*/TimeLow=0/' /etc/UPower/UPower.conf
-  systemctl restart upower 2>/dev/null || true
+  # ลบ key เดิม (ถ้ามี) แล้วเติมค่าล่าสุดต่อท้าย — กันเคสที่ sed pattern ไม่ match
+  sed -i -E '/^\s*#?\s*(CriticalPowerAction|UsePercentageForPolicy|PercentageAction|PercentageCritical|PercentageLow|TimeAction|TimeCritical|TimeLow)\s*=/d' /etc/UPower/UPower.conf
+  cat >>/etc/UPower/UPower.conf <<'EOF'
+
+# --- kiosk overrides ---
+UsePercentageForPolicy=false
+PercentageLow=0
+PercentageCritical=0
+PercentageAction=0
+TimeLow=0
+TimeCritical=0
+TimeAction=0
+CriticalPowerAction=Ignore
+EOF
 fi
-# xfce power-manager: ปิด critical-battery-action + inactivity + lid actions
-for KV in \
-  "/xfce4-power-manager/critical-power-action:0" \
-  "/xfce4-power-manager/inactivity-on-ac:0" \
-  "/xfce4-power-manager/inactivity-on-battery:0" \
-  "/xfce4-power-manager/lid-action-on-ac:0" \
-  "/xfce4-power-manager/lid-action-on-battery:0" \
-  "/xfce4-power-manager/power-button-action:0" \
-  "/xfce4-power-manager/sleep-button-action:0" \
-  "/xfce4-power-manager/hibernate-button-action:0"; do
-  K="${KV%%:*}"; V="${KV##*:}"
-  sudo -u "$KIOSK_USER" DISPLAY=:0 dbus-launch --exit-with-session \
-    xfconf-query -c xfce4-power-manager -n -t int -p "$K" -s "$V" 2>/dev/null || true
-done
+systemctl restart upower 2>/dev/null || true
+
+# systemd-logind — ปิด lid/power button suspend (พับจอ/กดปุ่ม power ไม่ให้ sleep)
+if [[ -f /etc/systemd/logind.conf ]]; then
+  backup_once /etc/systemd/logind.conf
+  sed -i -E '/^\s*#?\s*(HandleLidSwitch|HandleLidSwitchExternalPower|HandleLidSwitchDocked|HandlePowerKey|HandleSuspendKey|HandleHibernateKey|IdleAction)\s*=/d' /etc/systemd/logind.conf
+  cat >>/etc/systemd/logind.conf <<'EOF'
+
+# --- kiosk overrides ---
+HandleLidSwitch=ignore
+HandleLidSwitchExternalPower=ignore
+HandleLidSwitchDocked=ignore
+HandlePowerKey=ignore
+HandleSuspendKey=ignore
+HandleHibernateKey=ignore
+IdleAction=ignore
+EOF
+  systemctl restart systemd-logind 2>/dev/null || true
+fi
+
+# xfce power-manager: เขียน XML config โดยตรง (xfconf-query ตอน setup ยังไม่มี session)
+XFCONF_DIR="$USER_HOME/.config/xfce4/xfconf/xfce-perchannel-xml"
+install -d -m 755 -o "$KIOSK_USER" -g "$KIOSK_USER" "$XFCONF_DIR"
+cat >"$XFCONF_DIR/xfce4-power-manager.xml" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-power-manager" version="1.0">
+  <property name="xfce4-power-manager" type="empty">
+    <property name="power-button-action" type="uint" value="0"/>
+    <property name="sleep-button-action" type="uint" value="0"/>
+    <property name="hibernate-button-action" type="uint" value="0"/>
+    <property name="lid-action-on-ac" type="uint" value="0"/>
+    <property name="lid-action-on-battery" type="uint" value="0"/>
+    <property name="critical-power-action" type="uint" value="0"/>
+    <property name="critical-power-level" type="uint" value="0"/>
+    <property name="inactivity-on-ac" type="uint" value="0"/>
+    <property name="inactivity-on-battery" type="uint" value="0"/>
+    <property name="dpms-enabled" type="bool" value="false"/>
+    <property name="dpms-on-ac-sleep" type="uint" value="0"/>
+    <property name="dpms-on-ac-off" type="uint" value="0"/>
+    <property name="dpms-on-battery-sleep" type="uint" value="0"/>
+    <property name="dpms-on-battery-off" type="uint" value="0"/>
+    <property name="blank-on-ac" type="int" value="0"/>
+    <property name="blank-on-battery" type="int" value="0"/>
+    <property name="show-tray-icon" type="uint" value="0"/>
+    <property name="logind-handle-lid-switch" type="bool" value="false"/>
+    <property name="logind-handle-power-key" type="bool" value="false"/>
+    <property name="logind-handle-suspend-key" type="bool" value="false"/>
+    <property name="logind-handle-hibernate-key" type="bool" value="false"/>
+  </property>
+</channel>
+EOF
+chown "$KIOSK_USER:$KIOSK_USER" "$XFCONF_DIR/xfce4-power-manager.xml"
 
 
 
@@ -1415,7 +1474,9 @@ Persistent=false
 [Install]
 WantedBy=timers.target
 EOF
-    systemctl enable kiosk-power-off.timer >/dev/null 2>&1 || true
+    systemctl daemon-reload
+    systemctl reenable kiosk-power-off.timer >/dev/null 2>&1 || true
+    systemctl restart kiosk-power-off.timer  >/dev/null 2>&1 || true
   fi
 
   # เผื่อกรณีเครื่องไม่ได้ถูกปิดผ่าน timer (ไฟดับ ฯลฯ) — ตั้ง wakealarm ทุกครั้งก่อน shutdown ปกติ
@@ -1426,11 +1487,23 @@ DefaultDependencies=no
 Before=shutdown.target reboot.target halt.target
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'PON="${KIOSK_POWER_ON:-}"; [ -z "\$PON" ] && exit 0; T=\$(date -d "tomorrow \$PON" +%s); echo 0 > /sys/class/rtc/rtc0/wakealarm 2>/dev/null; echo \$T > /sys/class/rtc/rtc0/wakealarm 2>/dev/null || true'
+ExecStart=/bin/sh -c 'PON="${KIOSK_POWER_ON:-}"; [ -z "\$PON" ] && exit 0; T=\$(date -d "today \$PON" +%s); NOW=\$(date +%s); [ \$T -le \$NOW ] && T=\$(date -d "tomorrow \$PON" +%s); echo 0 > /sys/class/rtc/rtc0/wakealarm 2>/dev/null; echo \$T > /sys/class/rtc/rtc0/wakealarm 2>/dev/null || /usr/sbin/rtcwake -m no -t \$T 2>/dev/null || true; logger "kiosk: pre-shutdown wakealarm=\$(date -d @\$T)"'
 [Install]
 WantedBy=shutdown.target
 EOF
-  systemctl enable kiosk-set-wakealarm.service >/dev/null 2>&1 || true
+  systemctl daemon-reload
+  systemctl reenable kiosk-set-wakealarm.service >/dev/null 2>&1 || true
+
+  # priming: ตั้ง wakealarm ทันทีหลัง setup — ถ้าโดนถอดปลั๊ก/ไฟดับ ก็ยัง wake เองได้
+  if [[ -n "$KIOSK_POWER_ON" ]]; then
+    T=$(date -d "today $KIOSK_POWER_ON" +%s 2>/dev/null || echo 0)
+    NOW=$(date +%s)
+    [[ "$T" -le "$NOW" ]] && T=$(date -d "tomorrow $KIOSK_POWER_ON" +%s)
+    echo 0 > /sys/class/rtc/rtc0/wakealarm 2>/dev/null || true
+    echo "$T" > /sys/class/rtc/rtc0/wakealarm 2>/dev/null \
+      || /usr/sbin/rtcwake -m no -t "$T" 2>/dev/null || true
+    log "   ↳ priming BIOS wakealarm → $(date -d @$T '+%Y-%m-%d %H:%M')"
+  fi
 fi
 
 # ---------------- 10) Enable services + set ownership ----------------
@@ -1439,7 +1512,7 @@ systemctl daemon-reload
 ENABLE_LIST=(kiosk-watchdog kiosk-healthcheck kiosk-ctl)
 [[ "$KIOSK_MODE" == "door" ]] && ENABLE_LIST+=(kiosk-wake)
 for s in "${ENABLE_LIST[@]}"; do
-  systemctl enable "$s.service" >/dev/null 2>&1 || true
+  systemctl reenable "$s.service" >/dev/null 2>&1 || true
 done
 
 chown -R "$KIOSK_USER:$KIOSK_USER" "$USER_HOME/.config"
