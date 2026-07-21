@@ -197,7 +197,7 @@ apt-get update -y || die "apt update ล้มเหลว — ตรวจ inte
 PKGS=(
   chromium unclutter xdotool x11-xserver-utils python3 python3-pip
   curl ca-certificates fonts-thai-tlwg fonts-noto-color-emoji
-  network-manager pulseaudio pulseaudio-utils pavucontrol alsa-utils libasound2-plugins
+  network-manager pulseaudio pulseaudio-utils pavucontrol alsa-utils libasound2-plugins cron
   lightdm lightdm-gtk-greeter accountsservice
   plymouth plymouth-themes plymouth-label imagemagick
   xbindkeys zenity
@@ -1529,8 +1529,24 @@ Persistent=false
 WantedBy=timers.target
 EOF
     systemctl daemon-reload
-    systemctl reenable kiosk-power-off.timer >/dev/null 2>&1 || true
-    systemctl restart kiosk-power-off.timer  >/dev/null 2>&1 || true
+    systemctl enable --now kiosk-power-off.timer >/dev/null 2>&1 || true
+    systemctl restart kiosk-power-off.timer >/dev/null 2>&1 || true
+    log "   ↳ systemd timer status:"
+    systemctl list-timers --all kiosk-power-off.timer 2>/dev/null | sed 's/^/      /' || true
+
+    # Fallback สำหรับ MX Linux/เครื่องที่ systemd timer ไม่ทำงานหรือบูตด้วย SysVinit
+    # cron จะเรียก power-cycle.sh เวลาเดียวกัน เพื่อให้ตั้งเวลาปิดเครื่องยังทำงานแน่นอน
+    cat >/etc/cron.d/kiosk-power-off <<EOF
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+$OFF_MM $OFF_HH * * * root /opt/kiosk/power-cycle.sh >/var/log/kiosk-power-off.log 2>&1
+EOF
+    chmod 0644 /etc/cron.d/kiosk-power-off
+    systemctl enable --now cron >/dev/null 2>&1 || service cron start >/dev/null 2>&1 || true
+    log "   ↳ cron fallback: /etc/cron.d/kiosk-power-off → $OFF_HH:$OFF_MM"
+  else
+    rm -f /etc/cron.d/kiosk-power-off /etc/systemd/system/kiosk-power-off.timer /etc/systemd/system/kiosk-power-off.service 2>/dev/null || true
+    systemctl daemon-reload 2>/dev/null || true
   fi
 
   # เผื่อกรณีเครื่องไม่ได้ถูกปิดผ่าน timer (ไฟดับ ฯลฯ) — ตั้ง wakealarm ทุกครั้งก่อน shutdown ปกติ
