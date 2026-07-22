@@ -286,6 +286,7 @@ const App = () => (
               <Route path="/liff/grades" element={<LiffGradesPage />} />
               <Route path="/liff/attendance" element={<LiffAttendancePage />} />
               <Route path="/install" element={<InstallPage />} />
+              <Route path="/help" element={<HelpCenterPage />} />
               
               
               
