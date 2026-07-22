@@ -877,11 +877,12 @@ export function AppSidebar() {
           const flatItems = sec.items.flatMap((d) => d.items);
           const isActive = flatItems.some((i) => location.pathname === i.url);
           return (
-            <div key={sec.key} className="mt-3">
+            <div key={sec.key} className="mt-1">
               {collapsed ? (
                 sIdx > 0 && <div className={`mx-auto my-3 h-0.5 w-6 rounded-full ${sec.dot} opacity-70`} />
               ) : (
-                <Collapsible defaultOpen={!!q || isActive}>
+                <Collapsible defaultOpen>
+
                   <SidebarGroup className="!p-0">
                     <CollapsibleTrigger className="w-full group/sec">
                       <div className="px-2 mb-0.5">
