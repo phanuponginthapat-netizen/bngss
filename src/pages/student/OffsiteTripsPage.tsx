@@ -427,15 +427,16 @@ function AddStudentsPanel({ tripId, existingIds, onAdded }: { tripId: string; ex
     queryKey: ["students_search", q, grade],
     queryFn: async () => {
       let query = supabase.from("students")
-        .select("id, first_name, last_name, student_id, current_grade, current_class")
+        .select("id, first_name, last_name, student_code, classrooms(grade_level, name)")
         .eq("status", "active")
-        .order("current_grade").order("current_class").order("student_id")
+        .order("student_code")
         .limit(200);
       if (q.trim()) {
         const t = `%${q.trim()}%`;
-        query = query.or(`first_name.ilike.${t},last_name.ilike.${t},student_id.ilike.${t}`);
+        query = query.or(`first_name.ilike.${t},last_name.ilike.${t},student_code.ilike.${t}`);
       }
-      if (grade) query = query.eq("current_grade", grade);
+      if (grade) query = query.eq("classrooms.grade_level" as any, grade);
+
       const { data, error } = await query;
       if (error) throw error;
       return data ?? [];
