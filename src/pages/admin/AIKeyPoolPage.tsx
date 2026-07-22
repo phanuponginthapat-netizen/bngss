@@ -98,22 +98,38 @@ export default function AIKeyPoolPage() {
       toast.error("ใส่ API key อย่างน้อย 1 ตัว");
       return;
     }
-    const existing = keysByProvider(activeTab).length;
+    const currentList = keysByProvider(activeTab);
+    const existing = currentList.length;
     if (existing + lines.length > MAX_KEYS_PER_PROVIDER) {
       toast.error(`ใส่ได้สูงสุด ${MAX_KEYS_PER_PROVIDER} keys ต่อ provider (มีแล้ว ${existing})`);
       return;
     }
 
-    const rows = lines.map((key, i) => ({
+    // Build unique label by scanning existing labels (handles gaps from deletions)
+    const usedLabels = new Set(currentList.map(k => (k.label || "").toLowerCase()));
+    const prefix = labelPrefix || activeTab;
+    let counter = 1;
+    const nextLabel = () => {
+      while (usedLabels.has(`${prefix}-${counter}`.toLowerCase())) counter++;
+      const label = `${prefix}-${counter}`;
+      usedLabels.add(label.toLowerCase());
+      counter++;
+      return label;
+    };
+
+    const rows = lines.map((key) => ({
       provider_type: activeTab,
       api_key: key,
-      label: labelPrefix ? `${labelPrefix}-${existing + i + 1}` : `${activeTab}-${existing + i + 1}`,
+      label: nextLabel(),
       status: "active",
     }));
 
     const { error } = await supabase.from("ai_provider_keys" as any).insert(rows as any);
     if (error) {
-      toast.error("เพิ่ม keys ไม่สำเร็จ: " + error.message);
+      const msg = /duplicate|unique/i.test(error.message)
+        ? "มี label ซ้ำกับ key ที่มีอยู่ — ลองเปลี่ยนคำนำหน้า label"
+        : "เพิ่ม keys ไม่สำเร็จ: " + error.message;
+      toast.error(msg);
       return;
     }
     toast.success(`เพิ่ม ${lines.length} keys สำเร็จ`);
@@ -121,6 +137,7 @@ export default function AIKeyPoolPage() {
     setLabelPrefix("");
     qc.invalidateQueries({ queryKey: ["ai_provider_keys"] });
   };
+
 
   const handleDelete = async (id: string) => {
     const ok = await swal.confirm({ title: "ลบ key นี้?", text: "ไม่สามารถกู้คืนได้" });
