@@ -91,9 +91,8 @@ Deno.serve(async (req) => {
       .eq("user_id", user.id).eq("connector_id", "google_drive").then(() => {});
 
     const contentType = upstream.headers.get("Content-Type") ?? "application/json";
-    // Stream download responses directly
-    if (contentType.startsWith("application/json") || contentType.startsWith("text/")) {
-      const text = await upstream.text();
+    if (!upstream.ok) {
+      const text = await upstream.text().catch(() => "");
       if (isMissingAppUserCredential(upstream.status, text)) {
         await admin.from("app_user_connections")
           .update({ revoked_at: new Date().toISOString() })
@@ -108,6 +107,17 @@ Deno.serve(async (req) => {
           reconnect_required: true,
         }, 428);
       }
+
+      return json({
+        error: "Provider request failed",
+        status: upstream.status,
+        details: text,
+      }, upstream.status);
+    }
+
+    // Stream download responses directly
+    if (contentType.startsWith("application/json") || contentType.startsWith("text/") || contentType.includes("+json")) {
+      const text = await upstream.text();
       return new Response(text, { status: upstream.status, headers: { ...corsHeaders, "Content-Type": contentType } });
     }
     return new Response(upstream.body, {
