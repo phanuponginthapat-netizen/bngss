@@ -7,8 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatThaiLongTime } from "@/lib/dateBE";
 import { swal } from "@/lib/swal";
-const showError = (m: string) => swal.fire({ icon: "error", title: "ผิดพลาด", text: m });
-const showSuccess = (m: string) => swal.fire({ icon: "success", title: m, timer: 1500, showConfirmButton: false });
+const showError = (m: string) => swal.error("ผิดพลาด", m);
+const showSuccess = (m: string) => swal.success(m);
 const formatThaiDateTime = formatThaiLongTime;
 import { RefreshCw, Play, Eye, RotateCw } from "lucide-react";
 
