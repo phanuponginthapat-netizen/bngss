@@ -6,6 +6,8 @@ export type UploadFallbackResult = {
   usedFallback: boolean;
 };
 
+const CMS_ADMIN_BUCKETS = new Set(["cms-images"]);
+
 const isStorageSchemaError = (error: { name?: string; message?: string } | null | undefined) => {
   const message = `${error?.name ?? ""} ${error?.message ?? ""}`.toLowerCase();
   return (
@@ -24,6 +26,50 @@ export const fileToDataUrl = (file: File | Blob): Promise<string> =>
     reader.onerror = () => reject(reader.error ?? new Error("อ่านไฟล์ไม่สำเร็จ"));
     reader.readAsDataURL(file);
   });
+
+const fileToBase64 = (file: File | Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const value = String(reader.result || "");
+      resolve(value.includes(",") ? value.split(",")[1] : value);
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("อ่านไฟล์ไม่สำเร็จ"));
+    reader.readAsDataURL(file);
+  });
+
+const isStoragePermissionError = (error: { message?: string; statusCode?: string | number } | null | undefined) => {
+  const message = `${error?.message ?? ""} ${error?.statusCode ?? ""}`.toLowerCase();
+  return (
+    message.includes("row-level security") ||
+    message.includes("not authorized") ||
+    message.includes("unauthorized") ||
+    message.includes("permission") ||
+    message.includes("403") ||
+    message.includes("401")
+  );
+};
+
+const uploadCmsImageViaBackend = async (
+  bucket: string,
+  path: string,
+  file: File | Blob,
+  options?: Parameters<ReturnType<typeof supabase.storage.from>["upload"]>[2],
+): Promise<UploadFallbackResult> => {
+  const { data, error } = await supabase.functions.invoke("upload-cms-image", {
+    body: {
+      bucket,
+      path,
+      base64: await fileToBase64(file),
+      contentType: options?.contentType || file.type || "application/octet-stream",
+      upsert: options?.upsert ?? true,
+    },
+  });
+
+  if (error) throw error;
+  if (!data?.publicUrl || !data?.path) throw new Error("อัปโหลดรูปไม่สำเร็จ");
+  return { path: data.path, publicUrl: data.publicUrl, usedFallback: true };
+};
 
 /**
  * Sanitize a storage object key. Supabase Storage rejects keys containing
@@ -55,6 +101,10 @@ export const uploadPublicFileWithFallback = async (
   if (!error) {
     const { data } = supabase.storage.from(bucket).getPublicUrl(path);
     return { path, publicUrl: data.publicUrl, usedFallback: false };
+  }
+
+  if (CMS_ADMIN_BUCKETS.has(bucket) && isStoragePermissionError(error)) {
+    return uploadCmsImageViaBackend(bucket, path, file, options);
   }
 
    if (!isStorageSchemaError(error)) {
