@@ -34,6 +34,8 @@ export const SubjectsTab = ({ subjects, onUploadOpen }: SubjectsTabProps) => {
   const [searchText, setSearchText] = useState("");
   const [proxyMapOpen, setProxyMapOpen] = useState(false);
   const [teacherImportOpen, setTeacherImportOpen] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
+
 
   const proxyCount = useMemo(
     () => subjects.filter((s: any) => typeof s.code === "string" && s.code.startsWith("T-")).length,
