@@ -477,7 +477,7 @@ const Index = () => {
           })()}
 
           {(() => {
-            const defaultOrder = ["stats", "banner", "content", "page_content", "features", "cta", "news", "social", "embed"];
+            const defaultOrder = ["stats", "banner", "director", "quicklinks", "content", "page_content", "features", "gallery", "videos", "cta", "news", "social", "embed"];
             let order: string[] = defaultOrder;
             try {
               const saved = JSON.parse(get("homepage_sections_order", "[]"));
