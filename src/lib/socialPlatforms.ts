@@ -177,12 +177,11 @@ export function getEmbedUrl(link: Pick<SocialLink, "platform" | "url">): string 
     }
 
     if (link.platform === "tiktok") {
-      // /@user/video/<id>  → single video player
+      // /@user/video/<id>  → single video player (embed only)
       const m = path.match(/\/video\/(\d+)/);
       if (m) return `https://www.tiktok.com/embed/v2/${m[1]}`;
-      // /@username  → creator profile embed
-      const user = path.match(/^\/@([^/?#]+)/);
-      if (user) return `https://www.tiktok.com/embed/@${user[1]}`;
+      // NOTE: profile embeds (/embed/@user) are heavily rate-limited by TikTok
+      // and frequently return "overload-protect triggered". Fall back to link.
       return null;
     }
   } catch {
