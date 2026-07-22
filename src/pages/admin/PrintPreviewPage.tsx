@@ -7,11 +7,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Printer } from "lucide-react";
 import { OfficialDocument, OfficialDocSpec, DOC_KIND_LABELS } from "@/lib/print-engine";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCmsSettings } from "@/hooks/useCmsSettings";
+import { useCmsValues } from "@/hooks/useCmsSettings";
 
 export default function PrintPreviewPage() {
-  const cms = useCmsSettings();
-  const g = (k: string, d = "") => (cms.get?.(k) ?? (cms as any)[k] ?? d) || d;
+  const cms = useCmsValues([
+    "school_name","school_address","school_phone",
+    "admin_email","director_name","director_title",
+  ]);
+  const g = (k: string, d = "") => (cms[k] || d);
 
   // ตัวอย่างเอกสารดึงจาก CMS ทั้งหมด (ห้าม hardcode ชื่อ/ที่อยู่/ผอ.)
   const SAMPLE: OfficialDocSpec = useMemo(() => ({
