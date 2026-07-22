@@ -159,9 +159,10 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         ))}
+        <SidebarAccountFooter />
       </SidebarContent>
-      <SidebarAccountFooter />
     </Sidebar>
+
   );
 
   const alumniSidebar = renderCompactSidebar([
