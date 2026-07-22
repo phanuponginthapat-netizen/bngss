@@ -12,6 +12,17 @@ import DashboardLayout from "./components/DashboardLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicLayout from "./pages/Index";
 import PublicOrgChartPage from "./pages/OrgChartPage";
+const PublicHistoryPage = lazy(() => import("./pages/public/HistoryPage"));
+const PublicVisionPage = lazy(() => import("./pages/public/VisionPage"));
+const PublicPhilosophyPage = lazy(() => import("./pages/public/PhilosophyPage"));
+const PublicPersonnelPage = lazy(() => import("./pages/public/PersonnelPage"));
+const PublicSubjectGroupsPage = lazy(() => import("./pages/public/SubjectGroupsPage"));
+const PublicNewsListPage = lazy(() => import("./pages/public/NewsListPage"));
+const PublicCalendarPage = lazy(() => import("./pages/public/PublicCalendarPage"));
+const PublicDownloadsPage = lazy(() => import("./pages/public/DownloadsPage"));
+const PublicFaqPage = lazy(() => import("./pages/public/FaqPage"));
+const PublicContactPage = lazy(() => import("./pages/public/ContactPage"));
+const SchoolInfoCmsPage = lazy(() => import("./pages/admin/SchoolInfoCmsPage"));
 import NotFound from "./pages/NotFound";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import TranslationBubble from "./components/TranslationBubble";
@@ -279,6 +290,17 @@ const App = () => (
 
               <Route path="/signup" element={<Signup />} />
               <Route path="/link-account" element={<LinkAccount />} />
+              <Route path="/about/history" element={<PublicHistoryPage />} />
+              <Route path="/about/vision" element={<PublicVisionPage />} />
+              <Route path="/about/philosophy" element={<PublicPhilosophyPage />} />
+              <Route path="/about/org-chart" element={<PublicOrgChartPage />} />
+              <Route path="/personnel" element={<PublicPersonnelPage />} />
+              <Route path="/subject-groups" element={<PublicSubjectGroupsPage />} />
+              <Route path="/news" element={<PublicNewsListPage />} />
+              <Route path="/calendar" element={<PublicCalendarPage />} />
+              <Route path="/downloads" element={<PublicDownloadsPage />} />
+              <Route path="/faq" element={<PublicFaqPage />} />
+              <Route path="/contact" element={<PublicContactPage />} />
               <Route path="/face-kiosk" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><FaceKioskPage /></ProtectedRoute>} />
               {/* /kiosk = ทางลัดสำหรับตู้สแกนประตู — ต้อง login ด้วยบัญชี kiosk (role=teacher) ครั้งเดียว
                   Chromium ในโหมด door ไม่ล้าง profile → session ค้างถาวร ไม่ต้อง login ซ้ำหลังรีบูต */}
@@ -370,6 +392,7 @@ const App = () => (
                 <Route path="emergency" element={<ProtectedRoute><EmergencyViewPage /></ProtectedRoute>} />
                 <Route path="admin/vaccine" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["general_admin"]}><VaccinePage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="admin/cms" element={<ProtectedRoute allowedRoles={["admin", "director"]}><CmsPage /></ProtectedRoute>} />
+                <Route path="admin/school-info" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SchoolInfoCmsPage /></ProtectedRoute>} />
                 <Route path="admin/id-card" element={<ProtectedRoute allowedRoles={["admin", "director"]}><IdCardTemplatePage /></ProtectedRoute>} />
                 <Route path="admin/print-center" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><PrintCenterPage /></ProtectedRoute>} />
                 <Route path="admin/id-card/bulk-print" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><PrintCenterPage /></ProtectedRoute>} />
