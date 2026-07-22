@@ -166,7 +166,121 @@ export default function SystemHealthPage() {
   const errorCount = errors.data ?? 0;
   const criticalAlert = errorCount > 50 || (poolStats.length > 0 && poolStats.every(p => p.status === "error"));
 
-  return (
+  // --- Realtime alerts ---
+  type LiveEvent = { id: string; ts: string; severity: "warn" | "error"; title: string; detail?: string };
+  const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
+  const notifiedRef = useRef<Set<string>>(new Set());
+  const lastAdminNotifyRef = useRef<number>(0);
+
+  const pushEvent = (ev: LiveEvent) => {
+    setLiveEvents((prev) => [ev, ...prev].slice(0, 25));
+  };
+
+  const notifyAdminsThrottled = async (title: string, message: string, type = "system_alert") => {
+    const now = Date.now();
+    // Throttle DB notify: max 1 per 60 sec per session
+    if (now - lastAdminNotifyRef.current < 60_000) return;
+    lastAdminNotifyRef.current = now;
+    try {
+      await supabase.rpc("notify_admins" as any, {
+        _title: title,
+        _message: message,
+        _type: type,
+      });
+    } catch (err) {
+      console.warn("notify_admins failed:", err);
+    }
+  };
+
+  useEffect(() => {
+    const errorChan = supabase
+      .channel("health-error-logs")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "error_logs" },
+        (payload) => {
+          const row: any = payload.new;
+          const key = `err-${row.id}`;
+          if (notifiedRef.current.has(key)) return;
+          notifiedRef.current.add(key);
+          const title = row.error_type || row.source || "Error ใหม่";
+          const detail = (row.message || row.error_message || "").slice(0, 160);
+          pushEvent({
+            id: key,
+            ts: new Date().toISOString(),
+            severity: "error",
+            title,
+            detail,
+          });
+          swal.toast.error(`🚨 ${title}`);
+          notifyAdminsThrottled(`ระบบพบ Error: ${title}`, detail || "ตรวจสอบใน System Health", "system_error");
+          errors.refetch();
+        }
+      )
+      .subscribe();
+
+    const keyChan = supabase
+      .channel("health-ai-keys")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "ai_provider_keys" },
+        (payload) => {
+          const row: any = payload.new;
+          const prev: any = payload.old;
+          if (prev?.status === row?.status) return;
+          const key = `key-${row.id}-${row.status}`;
+          if (notifiedRef.current.has(key)) return;
+          notifiedRef.current.add(key);
+          if (row.status === "error" || row.status === "cooldown") {
+            const label = `${row.provider_type} — ${row.label || row.id.slice(0, 6)}`;
+            const msg = row.status === "error"
+              ? `AI Key ล้มเหลว: ${label}`
+              : `AI Key เข้าสู่ cooldown: ${label}`;
+            pushEvent({
+              id: key,
+              ts: new Date().toISOString(),
+              severity: row.status === "error" ? "error" : "warn",
+              title: msg,
+            });
+            (row.status === "error" ? swal.toast.error : swal.toast.warning)(msg);
+            if (row.status === "error") {
+              notifyAdminsThrottled(msg, "ตรวจสอบ AI Key Pool ทันที", "ai_key_down");
+            }
+          }
+          keys.refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(errorChan);
+      supabase.removeChannel(keyChan);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Threshold-based alerts (active users near cap, all providers down)
+  const alertedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const au = activeUsers.data ?? 0;
+    if (au > 250 && !alertedRef.current.has("au-high")) {
+      alertedRef.current.add("au-high");
+      swal.toast.warning(`⚠️ ผู้ใช้งาน active ${au} คน ใกล้ขีดจำกัด 300`);
+      notifyAdminsThrottled("ผู้ใช้งาน active ใกล้เต็ม", `ขณะนี้มี active ${au} คน`, "capacity_warning");
+    }
+    if (au <= 200) alertedRef.current.delete("au-high");
+  }, [activeUsers.data]);
+
+  useEffect(() => {
+    const allDown = poolStats.length > 0 && poolStats.every(p => p.status === "error");
+    if (allDown && !alertedRef.current.has("ai-all-down")) {
+      alertedRef.current.add("ai-all-down");
+      swal.toast.error("🚨 AI provider ทั้งหมดหยุดทำงาน");
+      notifyAdminsThrottled("AI provider ทั้งหมดหยุดทำงาน", "ไม่มี key ที่ active ในทุก provider", "ai_pool_down");
+    }
+    if (!allDown) alertedRef.current.delete("ai-all-down");
+  }, [poolStats]);
+
     <div className="p-4 md:p-6 space-y-4 max-w-6xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
