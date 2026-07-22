@@ -101,8 +101,8 @@ function picsumFallback(lat: number, lng: number): string[] {
 async function fetchAllImages(lat: number, lng: number): Promise<string[]> {
   const [enWiki, thWiki, commons, place] = await Promise.all([
     fetchWikipediaImages(lat, lng, "en.wikipedia.org", 10000),
-    fetchWikipediaImages(lat, lng, "th.wikipedia.org", 20000),
-    fetchCommonsImages(lat, lng, 15000),
+    fetchWikipediaImages(lat, lng, "th.wikipedia.org", 10000),
+    fetchCommonsImages(lat, lng, 10000),
     reverseGeocode(lat, lng),
   ]);
 
