@@ -435,7 +435,7 @@ function AddStudentsPanel({ tripId, existingIds, onAdded }: { tripId: string; ex
         const t = `%${q.trim()}%`;
         query = query.or(`first_name.ilike.${t},last_name.ilike.${t},student_code.ilike.${t}`);
       }
-      if (grade) query = query.eq("classrooms.grade_level" as any, grade);
+      if (grade) (query as any) = (query as any).eq("classrooms.grade_level", grade);
 
       const { data, error } = await query;
       if (error) throw error;
