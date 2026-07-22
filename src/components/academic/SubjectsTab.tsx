@@ -223,6 +223,7 @@ export const SubjectsTab = ({ subjects, onUploadOpen }: SubjectsTabProps) => {
       <SubjectEditDialog open={!!editSubject} onOpenChange={(o) => { if (!o) setEditSubject(null); }} subject={editSubject} />
       <ProxySubjectMapDialog open={proxyMapOpen} onOpenChange={setProxyMapOpen} subjects={subjects} />
       <TeacherScheduleImportDialog open={teacherImportOpen} onOpenChange={setTeacherImportOpen} />
+      <CopySubjectsDialog open={copyOpen} onOpenChange={setCopyOpen} subjects={subjects} />
     </div>
   );
 };
