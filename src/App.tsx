@@ -45,6 +45,7 @@ const LiffGradesPage = lazy(() => import("./pages/liff/LiffGradesPage"));
 const LiffAttendancePage = lazy(() => import("./pages/liff/LiffAttendancePage"));
 const LiffHomePage = lazy(() => import("./pages/liff/LiffHomePage"));
 const InstallPage = lazy(() => import("./pages/InstallPage"));
+const HelpCenterPage = lazy(() => import("./pages/HelpCenterPage"));
 
 // Academic
 const SchedulePage = lazy(() => import("./pages/academic/SchedulePage"));
