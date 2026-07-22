@@ -608,7 +608,7 @@ const HomeroomTabContent = ({ data, navigate }: { data: any; navigate: any }) =>
         <MiniKpi icon={Users} label="นักเรียน" gradient="gradient-primary" value={data.studentCount}
           sub={`ชาย ${data.maleCount} · หญิง ${data.femaleCount}`} onClick={() => navigate("/dashboard/student/attendance")} />
         <MiniKpi icon={UserCheck} label="อัตราเข้าเรียน" gradient="gradient-success" value={`${data.attendanceRate}%`}
-          progress={parseFloat(data.attendanceRate)} onClick={() => navigate("/dashboard/student/attendance")} />
+          progress={parseFloat(data.attendanceRate)} onClick={() => navigate("/dashboard/student/face-scan")} />
         <MiniKpi icon={CheckCircle2} label="พฤติกรรมดี" gradient="gradient-accent" value={data.positiveB}
           sub={`เชิงลบ ${data.negativeB}`} onClick={() => navigate("/dashboard/student/behavior")} />
         <MiniKpi icon={Clock} label="ใบลารอดำเนินการ" gradient="gradient-warning" value={data.pendingLeaves}
