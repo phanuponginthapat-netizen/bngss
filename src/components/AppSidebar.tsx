@@ -642,9 +642,10 @@ export function AppSidebar() {
             <span className="absolute -inset-1 rounded-2xl bg-primary/20 blur-md -z-10" aria-hidden />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-[13px] font-bold text-sidebar-foreground tracking-tight truncate leading-tight">{headerTitle}</h2>
+            <h2 className="text-[13px] font-bold text-sidebar-foreground tracking-tight leading-tight break-words line-clamp-2">{headerTitle}</h2>
             {headerSubtitle && <p className="text-[11px] text-sidebar-foreground/55 truncate">{headerSubtitle}</p>}
           </div>
+
           <button
             type="button"
             onClick={toggleSidebar}
