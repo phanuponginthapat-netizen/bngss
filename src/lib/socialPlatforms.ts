@@ -235,19 +235,20 @@ export function getEmbedUrl(link: Pick<SocialLink, "platform" | "url">): string 
         return `https://www.facebook.com/plugins/post.php?href=${href}&width=500&show_text=true`;
       }
       const href = encodeURIComponent(url);
-      // ใช้ width/height สูงสุดที่ Page Plugin รองรับ (500x700) เพื่อให้เห็นโพสต์เต็มที่
-      return `https://www.facebook.com/plugins/page.php?href=${href}&tabs=timeline&width=500&height=700&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true`;
+      // Page Plugin: height สูงสุด ~1000px, width 500 (ค่าที่ Meta รองรับ) เพื่อโชว์โพสต์ได้เยอะ
+      return `https://www.facebook.com/plugins/page.php?href=${href}&tabs=timeline&width=500&height=1000&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true`;
+
     }
 
     if (link.platform === "tiktok") {
-      // /@user/video/<id>  → single video player
+      // /@user/video/<id>  → single video player (endpoint ที่ TikTok รองรับอย่างเป็นทางการ)
       const m = path.match(/\/video\/(\d+)/);
       if (m) return `https://www.tiktok.com/embed/v2/${m[1]}?lang=th-TH`;
-      // /@user  → profile embed (ใช้ /embed/v2/@user — เวอร์ชันใหม่ที่ยัง render ได้)
-      const p = path.match(/^\/@([^/?#]+)\/?$/);
-      if (p) return `https://www.tiktok.com/embed/v2/@${p[1]}?lang=th-TH&refer=creator`;
+      // /@user → profile: TikTok ไม่มี endpoint embed profile อย่างเป็นทางการอีกต่อไป
+      // fallback เป็นการ์ดปุ่มลิงก์แทน (return null)
       return null;
     }
+
 
   } catch {
     return null;
