@@ -8045,7 +8045,7 @@ export type Database = {
           kind: string
           owner_id: string
           public_slug?: string | null
-          school_id: string
+          school_id?: string
           size_bytes?: number
           storage_path?: string | null
           subject_group?: string | null
@@ -11327,7 +11327,7 @@ export type Database = {
           id?: string
           national_avg?: number | null
           notes?: string | null
-          school_id: string
+          school_id?: string
           student_count?: number | null
           subject: string
           test_type: string
@@ -15159,6 +15159,7 @@ export type Database = {
         Args: { closing_year_be: number }
         Returns: undefined
       }
+      current_school_id: { Args: never; Returns: string }
       ensure_default_app_secrets: { Args: never; Returns: undefined }
       finalize_past_substitute_teaching: { Args: never; Returns: number }
       find_profile_id_by_code: { Args: { _code: string }; Returns: string }
