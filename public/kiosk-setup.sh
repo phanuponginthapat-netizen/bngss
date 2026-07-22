@@ -1564,15 +1564,74 @@ EOF
   systemctl daemon-reload
   systemctl reenable kiosk-set-wakealarm.service >/dev/null 2>&1 || true
 
-  # priming: ตั้ง wakealarm ทันทีหลัง setup — ถ้าโดนถอดปลั๊ก/ไฟดับ ก็ยัง wake เองได้
+  # ---- Power-ON: re-arm BIOS RTC wakealarm ต่อเนื่อง ----
+  # ตั้ง timer แสดงในรายการ (คู่กับ kiosk-power-off) + re-arm ทุก 10 นาที
+  # ป้องกันกรณี kernel/BIOS เคลียร์ wakealarm หลัง suspend/ไฟกระพริบ
   if [[ -n "$KIOSK_POWER_ON" ]]; then
-    T=$(date -d "today $KIOSK_POWER_ON" +%s 2>/dev/null || echo 0)
-    NOW=$(date +%s)
-    [[ "$T" -le "$NOW" ]] && T=$(date -d "tomorrow $KIOSK_POWER_ON" +%s)
-    echo 0 > /sys/class/rtc/rtc0/wakealarm 2>/dev/null || true
-    echo "$T" > /sys/class/rtc/rtc0/wakealarm 2>/dev/null \
-      || /usr/sbin/rtcwake -m no -t "$T" 2>/dev/null || true
-    log "   ↳ priming BIOS wakealarm → $(date -d @$T '+%Y-%m-%d %H:%M')"
+    ON_HH=${KIOSK_POWER_ON%%:*}
+    ON_MM=${KIOSK_POWER_ON##*:}
+
+    cat >/opt/kiosk/arm-wakealarm.sh <<EOF
+#!/usr/bin/env bash
+# ตั้ง BIOS RTC wakealarm ให้เป็นเวลา KIOSK_POWER_ON ครั้งถัดไป
+POWER_ON="${KIOSK_POWER_ON}"
+T=\$(date -d "today \$POWER_ON" +%s 2>/dev/null || echo 0)
+NOW=\$(date +%s)
+if [[ "\$T" -le "\$NOW" ]]; then
+  T=\$(date -d "tomorrow \$POWER_ON" +%s)
+fi
+CUR=\$(cat /sys/class/rtc/rtc0/wakealarm 2>/dev/null || echo 0)
+# re-arm เฉพาะเมื่อว่าง หรือเวลาต่างจากเป้าหมาย (>60 วิ)
+if [[ -z "\$CUR" || "\$CUR" = "0" ]] || (( \$(echo "\$CUR-\$T" | awk '{print (\$1<0?-\$1:\$1)}') > 60 )); then
+  echo 0 > /sys/class/rtc/rtc0/wakealarm 2>/dev/null || true
+  echo "\$T" > /sys/class/rtc/rtc0/wakealarm 2>/dev/null \
+    || /usr/sbin/rtcwake -m no -t "\$T" 2>/dev/null || true
+  logger "kiosk: (re)armed wakealarm to \$(date -d @\$T)"
+fi
+EOF
+    chmod +x /opt/kiosk/arm-wakealarm.sh
+
+    cat >/etc/systemd/system/kiosk-power-on.service <<EOF
+[Unit]
+Description=Kiosk Scheduled Power-On (arm BIOS RTC wakealarm for ${KIOSK_POWER_ON})
+[Service]
+Type=oneshot
+ExecStart=/opt/kiosk/arm-wakealarm.sh
+EOF
+    # OnCalendar ตั้งเป็นเวลา power-on เพื่อให้ปรากฏใน list-timers พร้อม NEXT ที่ชัดเจน
+    # + OnBootSec/OnUnitActiveSec ให้ re-arm ต่อเนื่องระหว่างเปิดเครื่อง
+    cat >/etc/systemd/system/kiosk-power-on.timer <<EOF
+[Unit]
+Description=Kiosk Scheduled Power-On Timer (${KIOSK_POWER_ON})
+[Timer]
+OnCalendar=*-*-* $ON_HH:$ON_MM:00
+OnBootSec=2min
+OnUnitActiveSec=10min
+Persistent=false
+AccuracySec=30s
+[Install]
+WantedBy=timers.target
+EOF
+    systemctl daemon-reload
+    systemctl enable --now kiosk-power-on.timer >/dev/null 2>&1 || true
+    systemctl restart kiosk-power-on.timer >/dev/null 2>&1 || true
+    log "   ↳ kiosk-power-on.timer enabled ($KIOSK_POWER_ON)"
+
+    # cron fallback (ทุก 10 นาที) เผื่อ systemd timer ไม่รัน
+    cat >/etc/cron.d/kiosk-arm-wakealarm <<EOF
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+*/10 * * * * root /opt/kiosk/arm-wakealarm.sh >/dev/null 2>&1
+EOF
+    chmod 0644 /etc/cron.d/kiosk-arm-wakealarm
+
+    # priming: ตั้ง wakealarm ทันทีหลัง setup
+    /opt/kiosk/arm-wakealarm.sh || true
+    log "   ↳ priming BIOS wakealarm → next $KIOSK_POWER_ON"
+    systemctl list-timers --all 'kiosk-power-*.timer' 2>/dev/null | sed 's/^/      /' || true
+  else
+    rm -f /etc/cron.d/kiosk-arm-wakealarm /etc/systemd/system/kiosk-power-on.timer /etc/systemd/system/kiosk-power-on.service /opt/kiosk/arm-wakealarm.sh 2>/dev/null || true
+    systemctl daemon-reload 2>/dev/null || true
   fi
 fi
 
