@@ -315,6 +315,14 @@ const TimeClockPage = () => {
         return;
       }
 
+      // ===== Off-site mode: ข้ามการตรวจ time-window & GPS =====
+      if (offsiteMode) {
+        if (!offsiteReason.trim() || !offsiteLocation.trim()) {
+          setClockError({ kind: "other", title: "กรอกข้อมูลไม่ครบ", message: "กรุณากรอกเหตุผลและสถานที่ปฏิบัติงานนอกพื้นที่" });
+          setSaving(false);
+          return;
+        }
+      } else {
       // ===== Time-window (basic) — รายละเอียดเข้า/ออก อยู่ใน saveClockRecord (อิง DB จริง) =====
       const nowChk = new Date();
       const curStr = `${String(nowChk.getHours()).padStart(2, "0")}:${String(nowChk.getMinutes()).padStart(2, "0")}`;
@@ -329,12 +337,14 @@ const TimeClockPage = () => {
         setSaving(false);
         return;
       }
+      }
 
 
 
-      // GPS check (ข้ามถ้าผู้ดูแลปิดสวิตช์ gps_enforcement_enabled)
-      const enforceGps = (gpsSettings?.gps_enforcement_enabled ?? "true") !== "false";
+      // GPS check (ข้ามถ้าผู้ดูแลปิดสวิตช์ gps_enforcement_enabled หรืออยู่ในโหมด off-site)
+      const enforceGps = !offsiteMode && ((gpsSettings?.gps_enforcement_enabled ?? "true") !== "false");
       const schoolLat = parseFloat(gpsSettings?.clock_latitude || "0");
+
       const schoolLng = parseFloat(gpsSettings?.clock_longitude || "0");
       const radius = parseFloat(gpsSettings?.clock_radius || "200");
 
