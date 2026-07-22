@@ -111,6 +111,12 @@ export function useUserRole() {
   const isAlumni = role === "alumni";
   const isParent = role === "parent";
 
+  // Real capability flags (independent of view-mode override).
+  // Use these for security-critical UI gates so a teacher-admin previewing
+  // as "teacher" doesn't lose admin controls that the DB would still permit.
+  const hasAdminPower = roles.includes("admin");
+  const hasDirectorPower = roles.includes("director") || isObserver;
+
   return {
     role,
     realRole,
@@ -125,9 +131,12 @@ export function useUserRole() {
     isParent,
     isObserver,
     readOnly: isObserver,
+    hasAdminPower,
+    hasDirectorPower,
     // Backward compat (always false now)
     isSuperAdmin: false,
     isAreaAdmin: false,
     isSchoolAdmin: false,
   };
 }
+
