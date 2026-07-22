@@ -119,9 +119,10 @@ export function AppSidebar() {
         <div className="flex items-center gap-3">
           <LogoMark />
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-bold text-sidebar-foreground truncate">{headerTitle}</h2>
+            <h2 className="text-sm font-bold text-sidebar-foreground leading-tight break-words line-clamp-2">{headerTitle}</h2>
             <p className="text-xs text-sidebar-foreground/60 truncate">{headerSubtitle}</p>
           </div>
+
           <button
             type="button"
             onClick={toggleSidebar}
