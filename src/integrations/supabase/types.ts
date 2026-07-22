@@ -3720,6 +3720,127 @@ export type Database = {
           },
         ]
       }
+      district_feed_outbox: {
+        Row: {
+          attempts: number
+          created_at: string
+          endpoint: string
+          headers: Json | null
+          id: string
+          last_attempt_at: string | null
+          last_error: string | null
+          last_status_code: number | null
+          max_attempts: number
+          method: string
+          next_attempt_at: string
+          payload: Json
+          response_body: string | null
+          snapshot_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          endpoint: string
+          headers?: Json | null
+          id?: string
+          last_attempt_at?: string | null
+          last_error?: string | null
+          last_status_code?: number | null
+          max_attempts?: number
+          method?: string
+          next_attempt_at?: string
+          payload: Json
+          response_body?: string | null
+          snapshot_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          endpoint?: string
+          headers?: Json | null
+          id?: string
+          last_attempt_at?: string | null
+          last_error?: string | null
+          last_status_code?: number | null
+          max_attempts?: number
+          method?: string
+          next_attempt_at?: string
+          payload?: Json
+          response_body?: string | null
+          snapshot_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "district_feed_outbox_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "district_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      district_snapshot_runs: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          error: string | null
+          finished_at: string | null
+          id: string
+          results: Json | null
+          school_id: string | null
+          schools_failed: number | null
+          schools_processed: number | null
+          snapshot_date: string
+          started_at: string
+          status: string
+          triggered_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          results?: Json | null
+          school_id?: string | null
+          schools_failed?: number | null
+          schools_processed?: number | null
+          snapshot_date?: string
+          started_at?: string
+          status: string
+          triggered_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          results?: Json | null
+          school_id?: string | null
+          schools_failed?: number | null
+          schools_processed?: number | null
+          snapshot_date?: string
+          started_at?: string
+          status?: string
+          triggered_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "district_snapshot_runs_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       district_snapshots: {
         Row: {
           created_at: string
@@ -15160,6 +15281,15 @@ export type Database = {
         Returns: undefined
       }
       current_school_id: { Args: never; Returns: string }
+      district_outbox_enqueue: {
+        Args: {
+          p_endpoint: string
+          p_max_attempts?: number
+          p_payload: Json
+          p_snapshot_id?: string
+        }
+        Returns: string
+      }
       ensure_default_app_secrets: { Args: never; Returns: undefined }
       finalize_past_substitute_teaching: { Args: never; Returns: number }
       find_profile_id_by_code: { Args: { _code: string }; Returns: string }
