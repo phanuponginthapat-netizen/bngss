@@ -353,8 +353,9 @@ function AttendanceList({ tripId, parts, onChanged }: { tripId: string; parts: a
   };
 
   const bulkMark = async (status: string) => {
-    const ok = await swal.confirm(`ทำเครื่องหมาย "${ATT_META[status].label}" ให้ทุกคน?`);
-    if (!ok.isConfirmed) return;
+    const ok = await swal.confirm({ title: `ทำเครื่องหมาย "${ATT_META[status].label}" ให้ทุกคน?` });
+    if (!ok) return;
+
     const now = new Date().toISOString();
     const patch: any = { attendance_status: status };
     if (status === "present") patch.check_in_at = now;
