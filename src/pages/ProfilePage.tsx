@@ -564,6 +564,8 @@ const ProfilePage = () => {
     }
   }, [profile]);
 
+  const resolvedAvatarUrl = useProfileImageUrl((profile as any)?.avatar_full_url || profile?.avatar_url);
+
   if (!profile) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -573,7 +575,6 @@ const ProfilePage = () => {
   }
 
   const fullName = [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "ไม่ระบุชื่อ";
-  const resolvedAvatarUrl = useProfileImageUrl((profile as any).avatar_full_url || profile.avatar_url);
   const initials = (profile.first_name?.[0] || "") + (profile.last_name?.[0] || "");
 
   return (
