@@ -154,17 +154,51 @@ export function SocialWallWidget({
                 if (!el) return;
                 const parent = el.parentElement;
                 if (!parent) return;
-                const apply = () => {
+                // เก็บ cleanup ไว้บน element เพื่อกันซ้อน listener เวลา React re-render
+                const anyEl = el as HTMLIFrameElement & { __cleanup?: () => void };
+                if (anyEl.__cleanup) anyEl.__cleanup();
+
+                let rafId = 0;
+                let lastScale = 0;
+                const compute = () => {
+                  rafId = 0;
                   const cw = parent.clientWidth;
                   const ch = parent.clientHeight;
                   if (!cw || !ch) return;
-                  // ใช้ max เพื่อให้ iframe เต็ม container ทุกด้าน (cover) — ความสูงจะเท่ากันทุก platform
+                  // cover fit — เต็ม container ทุกด้าน ไม่ว่าจอจะหมุนหรือ font จะขยาย
                   const s = Math.max(cw / nativeW, ch / nativeH);
+                  if (Math.abs(s - lastScale) < 0.001) return;
+                  lastScale = s;
                   parent.style.setProperty("--embed-scale", String(s));
                 };
-                apply();
-                const ro = new ResizeObserver(apply);
+                const schedule = () => {
+                  if (rafId) return;
+                  rafId = requestAnimationFrame(compute);
+                };
+                schedule();
+
+                // 1) container resize (card เปลี่ยนความกว้าง / grid breakpoint)
+                const ro = new ResizeObserver(schedule);
                 ro.observe(parent);
+                // 2) viewport resize + rotate (orientationchange จะ fire resize ตามมา)
+                window.addEventListener("resize", schedule, { passive: true });
+                window.addEventListener("orientationchange", schedule);
+                // 3) font-size / zoom บนมือถือ (VisualViewport API)
+                const vv = window.visualViewport;
+                vv?.addEventListener("resize", schedule);
+                vv?.addEventListener("scroll", schedule);
+                // 4) หลัง iframe โหลดเสร็จ layout อาจ shift → คำนวณอีกครั้ง
+                el.addEventListener("load", schedule);
+
+                anyEl.__cleanup = () => {
+                  ro.disconnect();
+                  window.removeEventListener("resize", schedule);
+                  window.removeEventListener("orientationchange", schedule);
+                  vv?.removeEventListener("resize", schedule);
+                  vv?.removeEventListener("scroll", schedule);
+                  el.removeEventListener("load", schedule);
+                  if (rafId) cancelAnimationFrame(rafId);
+                };
               }}
             />
           </div>
