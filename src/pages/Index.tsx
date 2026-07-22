@@ -381,11 +381,13 @@ const Index = () => {
             const justifyCls = { top: "justify-start pt-20", middle: "justify-center", bottom: "justify-end pb-20" }[heroTextVertical];
             const isHorizontalIcon = heroIconPosition === "left" || heroIconPosition === "right";
             const Icon = (
-              <div className={`inline-flex items-center justify-center w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white/15 backdrop-blur-md shadow-2xl ring-2 ring-white/20 overflow-hidden animate-[fadeInScale_0.6s_ease-out_0.2s_both] shrink-0`}>
+              <div className={`inline-flex items-center justify-center w-28 h-28 sm:w-32 sm:h-32 rounded-[2rem] bg-white shadow-2xl ring-[6px] ring-white/60 border-4 border-[#fecaca]/60 overflow-hidden animate-[fadeInScale_0.6s_ease-out_0.2s_both] shrink-0 relative`}>
+                <div className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-[#7dd3fc]/70 blur-[2px]" aria-hidden />
+                <div className="absolute -bottom-3 -left-3 w-8 h-8 rounded-full bg-[#f9a8a8]/60 blur-[2px]" aria-hidden />
                 {schoolLogo ? (
-                  <img src={schoolLogo} alt={schoolName} className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-lg" />
+                  <img src={schoolLogo} alt={schoolName} className="w-20 h-20 sm:w-24 sm:h-24 object-contain drop-shadow-lg relative z-10" />
                 ) : (
-                  <GraduationCap className="w-12 h-12 sm:w-14 sm:h-14 drop-shadow-lg" style={{ color: heroTextColor }} />
+                  <GraduationCap className="w-14 h-14 sm:w-16 sm:h-16 drop-shadow-lg relative z-10 text-[#0369a1]" />
                 )}
               </div>
             );
