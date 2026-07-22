@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useUserRole, AppRole } from "@/hooks/useUserRole";
 import { Navigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -11,8 +12,22 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   const { isReady, session } = useAuthSession();
-  const { role, realRole, loading, userId } = useUserRole();
+  const { role, realRole, loading, userId, isTeacherAdmin } = useUserRole();
   const location = useLocation();
+
+  // If a teacher-admin previewing as "teacher" enters an admin-only route,
+  // snap the view back to admin so UI capability flags match route access.
+  useEffect(() => {
+    if (!allowedRoles || !isTeacherAdmin) return;
+    const adminOnly = allowedRoles.includes("admin") && !allowedRoles.includes("teacher");
+    if (adminOnly && role === "teacher" && realRole === "admin") {
+      try {
+        window.localStorage.removeItem("view_mode_override");
+        window.dispatchEvent(new StorageEvent("storage", { key: "view_mode_override" }));
+      } catch {}
+    }
+  }, [allowedRoles, isTeacherAdmin, role, realRole]);
+
 
 
   // Check if user has linked their account (only matters for OAuth users)
