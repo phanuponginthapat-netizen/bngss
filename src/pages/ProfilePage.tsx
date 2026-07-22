@@ -594,8 +594,9 @@ const ProfilePage = () => {
           <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-16 sm:-mt-20">
             <div className="relative group">
               <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full border-4 border-card bg-muted shadow-xl overflow-hidden">
-                {(profile as any).avatar_full_url || profile.avatar_url ? (
-                  <img src={(profile as any).avatar_full_url || profile.avatar_url!} alt={fullName} className="w-full h-full object-cover" loading="eager" decoding="async" />
+                {resolvedAvatarUrl ? (
+                  <img src={resolvedAvatarUrl} alt={fullName} className="w-full h-full object-cover" loading="eager" decoding="async" />
+
 
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
