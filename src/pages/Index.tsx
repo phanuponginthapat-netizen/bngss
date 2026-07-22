@@ -301,9 +301,9 @@ const Index = () => {
 
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-[#fffaf5] dark:bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-xl border-b border-border/40 shadow-[0_1px_20px_-8px_hsl(var(--primary)/0.15)]">
+      <header className="sticky top-0 z-50 bg-white/80 dark:bg-card/80 backdrop-blur-xl border-b border-[#fecaca]/40 dark:border-border/40 shadow-[0_1px_20px_-8px_rgba(249,168,168,0.35)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16 gap-4">
           {/* Brand */}
           <Link to="/" className="flex items-center gap-2.5 group shrink-0">
