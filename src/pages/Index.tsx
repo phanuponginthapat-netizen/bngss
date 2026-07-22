@@ -447,9 +447,13 @@ const Index = () => {
                 }}
               >
                 {!heroBackground && !heroBgColor && (
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-primary/70">
-                    <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full bg-white/5 blur-3xl" />
-                    <div className="absolute bottom-[-30%] left-[-15%] w-[700px] h-[700px] rounded-full bg-white/5 blur-3xl" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#e0f2fe] via-[#7dd3fc] to-[#f9a8a8]">
+                    <div className="absolute top-[-15%] right-[-8%] w-[520px] h-[520px] rounded-full bg-[#fecaca]/60 blur-3xl animate-[fadeInScale_1.2s_ease-out]" />
+                    <div className="absolute bottom-[-25%] left-[-12%] w-[620px] h-[620px] rounded-full bg-[#e0f2fe]/70 blur-3xl animate-[fadeInScale_1.4s_ease-out]" />
+                    <div className="absolute top-[20%] left-[15%] w-32 h-32 rounded-full bg-white/40 blur-2xl" />
+                    <div className="absolute bottom-[18%] right-[20%] w-40 h-40 rounded-full bg-[#fecaca]/50 blur-2xl" />
+                    {/* subtle dotted grid overlay */}
+                    <div className="absolute inset-0 opacity-[0.15]" style={{ backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
                   </div>
                 )}
                 <div className={`relative max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 flex flex-col ${justifyCls} ${heightCls} animate-[fadeInUp_0.8s_ease-out_forwards]`}>
