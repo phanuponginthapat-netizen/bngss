@@ -44,11 +44,25 @@ export default function SocialFeedPage() {
   const handleSaveOne = async () => {
     if (!editing) return;
     if (!editing.url.trim()) { toast.error("กรุณากรอก URL"); return; }
+    // Auto-normalize URL & re-detect platform before saving
+    const norm = normalizeSocialUrl(editing.url, editing.platform);
+    if (norm.warning) toast.warning(norm.warning);
+    else if (norm.note) toast.info(norm.note);
+    const cleaned: SocialLink = {
+      ...editing,
+      url: norm.url,
+      platform: norm.platform,
+      // If user asked to embed but URL cannot be embedded, silently downgrade
+      embed: editing.embed && canEmbed({ platform: norm.platform, url: norm.url }),
+    };
+    if (editing.embed && !cleaned.embed) {
+      toast.info("ปิดโหมด embed อัตโนมัติ เพราะ URL นี้ฝังไม่ได้ จะแสดงเป็นปุ่มลิงก์แทน");
+    }
     setSaving(true);
-    const exists = links.some((l) => l.id === editing.id);
+    const exists = links.some((l) => l.id === cleaned.id);
     const next = exists
-      ? links.map((l) => (l.id === editing.id ? editing : l))
-      : [...links, editing];
+      ? links.map((l) => (l.id === cleaned.id ? cleaned : l))
+      : [...links, cleaned];
     const { error } = await save(next);
     setSaving(false);
     if (error) toast.error("บันทึกไม่สำเร็จ: " + error.message);
