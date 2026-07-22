@@ -847,7 +847,7 @@ export function AppSidebar() {
               );
             }
             return (
-              <Collapsible key={sec.key} defaultOpen={!!q || isActive || sec.key === "me"}>
+              <Collapsible key={sec.key} defaultOpen>
                 <SidebarGroup className="!p-0">
                   <CollapsibleTrigger className="w-full group/sec">
                     <div className="px-2 mt-0.5 mb-0.5">
