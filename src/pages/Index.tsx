@@ -628,15 +628,21 @@ const Index = () => {
               ) : null,
 
               cta: showCta ? (
-                <section ref={animateRef} className="bg-muted/50 py-16 scroll-animate opacity-0 translate-y-6">
-                  <div className="max-w-3xl mx-auto px-4 text-center">
-                    <h2 className="text-3xl font-bold text-foreground mb-4">{ctaTitle}</h2>
-                    <p className="text-muted-foreground mb-8">{ctaSubtitle}</p>
-                    <Link to={ctaButtonUrl}>
-                      <Button size="lg" className="rounded-xl font-semibold px-10 h-12 text-base shadow-md">
-                        {ctaButtonText}
-                      </Button>
-                    </Link>
+                <section ref={animateRef} className="py-16 scroll-animate opacity-0 translate-y-6">
+                  <div className="max-w-4xl mx-auto px-4">
+                    <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-r from-[#fecaca] via-[#f9a8a8] to-[#7dd3fc] p-10 sm:p-14 text-center shadow-2xl shadow-[#f9a8a8]/30">
+                      <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-white/20 blur-3xl" />
+                      <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-white/20 blur-3xl" />
+                      <div className="relative">
+                        <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 drop-shadow-sm">{ctaTitle}</h2>
+                        <p className="text-white/90 mb-8 max-w-xl mx-auto">{ctaSubtitle}</p>
+                        <Link to={ctaButtonUrl}>
+                          <Button size="lg" className="rounded-full font-bold px-10 h-12 text-base bg-white text-[#f9a8a8] hover:bg-white/90 shadow-xl hover:scale-105 transition-transform">
+                            {ctaButtonText}
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
                   </div>
                 </section>
               ) : null,
