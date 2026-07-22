@@ -6,7 +6,22 @@ export type UploadFallbackResult = {
   usedFallback: boolean;
 };
 
-const CMS_ADMIN_BUCKETS = new Set(["cms-images"]);
+// Buckets where an admin-only Edge Function fallback exists to bypass
+// client-side RLS errors when the current user is admin/director.
+const CMS_ADMIN_BUCKETS = new Set([
+  "cms-images",
+  "print-templates",
+  "game-covers",
+  "line-richmenu",
+  "document-files",
+  "padlet",
+  "wall-media",
+  "homework-files",
+  "portfolio",
+  "hub-projects",
+  "attendance-photos",
+  "face-photos",
+]);
 
 const isStorageSchemaError = (error: { name?: string; message?: string } | null | undefined) => {
   const message = `${error?.name ?? ""} ${error?.message ?? ""}`.toLowerCase();
@@ -125,6 +140,12 @@ export const uploadPrivateFileWithFallback = async (
   const { error } = await supabase.storage.from(bucket).upload(path, file, options);
 
   if (!error) return { path, usedFallback: false };
+
+  if (CMS_ADMIN_BUCKETS.has(bucket) && isStoragePermissionError(error)) {
+    // Reuse admin backend upload; ignore the returned public URL for private buckets.
+    const result = await uploadCmsImageViaBackend(bucket, path, file, options);
+    return { path: result.path, usedFallback: true };
+  }
 
   if (!isStorageSchemaError(error)) {
     throw error;
