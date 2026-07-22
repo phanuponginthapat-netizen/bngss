@@ -242,12 +242,13 @@ export function getEmbedUrl(link: Pick<SocialLink, "platform" | "url">): string 
     if (link.platform === "tiktok") {
       // /@user/video/<id>  → single video player
       const m = path.match(/\/video\/(\d+)/);
-      if (m) return `https://www.tiktok.com/embed/v2/${m[1]}`;
-      // /@user  → profile embed (อาจโดน rate-limit บ้าง แต่ใช้ได้)
+      if (m) return `https://www.tiktok.com/embed/v2/${m[1]}?lang=th-TH`;
+      // /@user  → profile embed (ใช้ /embed/v2/@user — เวอร์ชันใหม่ที่ยัง render ได้)
       const p = path.match(/^\/@([^/?#]+)\/?$/);
-      if (p) return `https://www.tiktok.com/embed/@${p[1]}`;
+      if (p) return `https://www.tiktok.com/embed/v2/@${p[1]}?lang=th-TH&refer=creator`;
       return null;
     }
+
   } catch {
     return null;
   }
