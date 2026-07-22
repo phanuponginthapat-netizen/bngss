@@ -105,6 +105,76 @@ export interface SocialLink {
 
 export const SOCIAL_LINKS_SETTING_KEY = "social_media_links";
 
+/**
+ * Normalize a URL for embed-friendliness. Strips tracking params, unifies host,
+ * and rewrites obvious mobile/short forms to their canonical embeddable form.
+ * Returns { url, platform, note } — `note` explains any change/limitation.
+ */
+export function normalizeSocialUrl(rawUrl: string, hintPlatform?: SocialPlatformKey): {
+  url: string;
+  platform: SocialPlatformKey;
+  note?: string;
+  warning?: string;
+} {
+  const trimmed = (rawUrl || "").trim();
+  if (!trimmed) return { url: "", platform: hintPlatform ?? "website" };
+  let u: URL;
+  try { u = new URL(trimmed); } catch {
+    return { url: trimmed, platform: hintPlatform ?? "website", warning: "URL ไม่ถูกต้อง" };
+  }
+
+  // Strip common tracking params
+  ["fbclid", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "mibextid", "_rdc", "_rdr"]
+    .forEach((k) => u.searchParams.delete(k));
+
+  const host = u.hostname.replace(/^www\./, "").replace(/^m\./, "").replace(/^web\./, "");
+  u.hostname = host;
+
+  const platform = hintPlatform ?? detectPlatform(u.toString());
+  let note: string | undefined;
+  let warning: string | undefined;
+
+  // ---------- Facebook ----------
+  if (platform === "facebook") {
+    // fb.me / fb.com short → keep, provider resolves
+    // profile.php?id=XXXX → not embeddable via Page Plugin
+    if (u.pathname.includes("profile.php")) {
+      warning = "URL นี้เป็นโปรไฟล์ส่วนตัว Facebook ไม่รองรับการฝัง (embed) จะแสดงเป็นปุ่มลิงก์แทน";
+    }
+    // /share/... short links: keep as-is (Facebook resolves)
+    // /watch/?v=ID → normalize path
+    if (u.pathname === "/watch/" || u.pathname === "/watch") {
+      const v = u.searchParams.get("v");
+      if (v) note = "รองรับการฝังโพสต์วิดีโอ";
+    }
+  }
+
+  // ---------- TikTok ----------
+  if (platform === "tiktok") {
+    // vm.tiktok.com/xxx or vt.tiktok.com/xxx → short links, keep
+    if (/^(vm|vt)\.tiktok\.com$/.test(u.hostname)) {
+      warning = "ลิงก์ย่อ TikTok ไม่สามารถฝังตรงได้ กรุณาวาง URL เต็มของวิดีโอ (/@user/video/ID)";
+    } else {
+      // Rewrite hostname to www.tiktok.com
+      u.hostname = "tiktok.com";
+      // Profile only: /@user (no /video/) → cannot embed
+      if (/^\/@[^/]+\/?$/.test(u.pathname)) {
+        warning = "URL นี้เป็นโปรไฟล์ TikTok ไม่รองรับการฝัง จะแสดงเป็นปุ่มลิงก์แทน (ต้องใช้ URL วิดีโอ)";
+      }
+    }
+  }
+
+  // ---------- YouTube ----------
+  if (platform === "youtube") {
+    // youtu.be/ID?t=xx → keep, embed handles it
+    // /shorts/ID → ok
+    // Strip 'feature' param
+    ["feature", "si", "pp"].forEach((k) => u.searchParams.delete(k));
+  }
+
+  return { url: u.toString(), platform, note, warning };
+}
+
 export function detectPlatform(url: string): SocialPlatformKey {
   const u = url.toLowerCase();
   if (u.includes("facebook.com") || u.includes("fb.com") || u.includes("fb.me")) return "facebook";
