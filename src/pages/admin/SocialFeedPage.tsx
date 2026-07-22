@@ -17,7 +17,7 @@ import { swal } from "@/lib/swal";
 import { useSocialLinks } from "@/hooks/useSocialLinks";
 import {
   SOCIAL_PLATFORMS, PLATFORM_ORDER, detectPlatform,
-  EMBEDDABLE_PLATFORMS, canEmbed,
+  EMBEDDABLE_PLATFORMS, canEmbed, normalizeSocialUrl,
   type SocialLink, type SocialPlatformKey,
 } from "@/lib/socialPlatforms";
 import { SocialWallWidget } from "@/components/social/SocialWallWidget";
