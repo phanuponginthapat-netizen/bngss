@@ -499,8 +499,8 @@ const TimeClockPage = () => {
         swal.toast.info("คุณลงเวลาเข้า-ออกครบแล้ววันนี้");
         return;
       }
-      // ===== Clock-OUT: ต้องอยู่ในช่วงออกงานเท่านั้น =====
-      if (currentTimeStr < outStart || currentTimeStr > outEnd) {
+      // ===== Clock-OUT: ต้องอยู่ในช่วงออกงานเท่านั้น (ข้ามถ้าเป็นโหมดนอกพื้นที่) =====
+      if (!offsiteMode && (currentTimeStr < outStart || currentTimeStr > outEnd)) {
         setClockError({
           kind: "other",
           title: "อยู่นอกช่วงเวลาลงเวลาออก",
@@ -519,21 +519,28 @@ const TimeClockPage = () => {
         });
         return;
       }
-      // Upload clock-out photo
       const outPhotoUrl = await uploadPhoto(capturedPhoto!, target.employee_code || target.id, "out");
+      const updatePayload: any = {
+        clock_out: now.toISOString(),
+        notes: offsiteMode
+          ? `ออกงาน ${currentTimeStr} น. (นอกพื้นที่: ${offsiteLocation})`
+          : `ออกงาน ${currentTimeStr} น.`,
+        clock_out_photo_url: outPhotoUrl,
+      };
+      if (offsiteMode) {
+        updatePayload.is_offsite = true;
+        updatePayload.offsite_reason = offsiteReason;
+        updatePayload.offsite_location = offsiteLocation;
+      }
       const { error } = await supabase.from("time_clock")
-        .update({
-          clock_out: now.toISOString(),
-          notes: `ออกงาน ${currentTimeStr} น.`,
-          clock_out_photo_url: outPhotoUrl,
-        } as any)
+        .update(updatePayload)
         .eq("id", existing.id)
-        .is("clock_out", null); // กันชนกับการอัพเดทพร้อมกัน
+        .is("clock_out", null);
       if (error) throw new Error(error.message);
-      swal.toast.success(`ลงเวลาออกสำเร็จ! เวลา ${currentTimeStr} น.`);
+      swal.toast.success(`ลงเวลาออกสำเร็จ! เวลา ${currentTimeStr} น.${offsiteMode ? " (นอกพื้นที่)" : ""}`);
     } else {
-      // ===== Clock-IN: ต้องอยู่ในช่วงเข้างาน (ไม่เกิน outStart) =====
-      if (currentTimeStr < inStart || currentTimeStr >= outStart) {
+      // ===== Clock-IN: ต้องอยู่ในช่วงเข้างาน (ข้ามถ้าเป็นโหมดนอกพื้นที่) =====
+      if (!offsiteMode && (currentTimeStr < inStart || currentTimeStr >= outStart)) {
         setClockError({
           kind: "other",
           title: "อยู่นอกช่วงเวลาลงเวลาเข้า",
@@ -541,22 +548,32 @@ const TimeClockPage = () => {
         });
         return;
       }
-      // Upload clock-in photo
       const inPhotoUrl = await uploadPhoto(capturedPhoto!, target.employee_code || target.id, "in");
-      const { error } = await supabase.from("time_clock").insert({
+      const insertPayload: any = {
         personnel_id: target.id,
         clock_date: today,
         clock_in: now.toISOString(),
-        status: clockStatus,
+        status: offsiteMode ? "offsite" : clockStatus,
         clock_lat: userLat,
         clock_lng: userLng,
-        gps_verified: true,
-        notes: `เข้างาน ${currentTimeStr} น.`,
+        gps_verified: !offsiteMode,
+        notes: offsiteMode
+          ? `เข้างานนอกพื้นที่ ${currentTimeStr} น. — ${offsiteReason}`
+          : `เข้างาน ${currentTimeStr} น.`,
         clock_in_photo_url: inPhotoUrl,
-      } as any);
+        is_offsite: offsiteMode,
+        offsite_reason: offsiteMode ? offsiteReason : null,
+        offsite_location: offsiteMode ? offsiteLocation : null,
+      };
+      const { error } = await supabase.from("time_clock").insert(insertPayload);
       if (error) throw new Error(error.message);
-      swal.toast.success(`ลงเวลาเข้าสำเร็จ! เวลา ${currentTimeStr} น. สถานะ: ${STATUS_MAP[clockStatus]?.label}`);
+      swal.toast.success(
+        offsiteMode
+          ? `ลงเวลาเข้า (นอกพื้นที่) สำเร็จ! เวลา ${currentTimeStr} น.`
+          : `ลงเวลาเข้าสำเร็จ! เวลา ${currentTimeStr} น. สถานะ: ${STATUS_MAP[clockStatus]?.label}`
+      );
     }
+
 
 
     // Reset photo + camera
