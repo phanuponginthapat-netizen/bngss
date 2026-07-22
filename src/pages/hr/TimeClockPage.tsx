@@ -55,6 +55,11 @@ const TimeClockPage = () => {
   const [clockOutStart, setClockOutStart] = useState("15:30");
   const [clockOutEnd, setClockOutEnd] = useState("17:00");
   const [lateThreshold, setLateThreshold] = useState("08:30");
+  // === Off-site (นอกพื้นที่) ===
+  const [offsiteMode, setOffsiteMode] = useState(false);
+  const [offsiteReason, setOffsiteReason] = useState("");
+  const [offsiteLocation, setOffsiteLocation] = useState("");
+
 
   // Live clock
   useEffect(() => {
@@ -310,6 +315,14 @@ const TimeClockPage = () => {
         return;
       }
 
+      // ===== Off-site mode: ข้ามการตรวจ time-window & GPS =====
+      if (offsiteMode) {
+        if (!offsiteReason.trim() || !offsiteLocation.trim()) {
+          setClockError({ kind: "other", title: "กรอกข้อมูลไม่ครบ", message: "กรุณากรอกเหตุผลและสถานที่ปฏิบัติงานนอกพื้นที่" });
+          setSaving(false);
+          return;
+        }
+      } else {
       // ===== Time-window (basic) — รายละเอียดเข้า/ออก อยู่ใน saveClockRecord (อิง DB จริง) =====
       const nowChk = new Date();
       const curStr = `${String(nowChk.getHours()).padStart(2, "0")}:${String(nowChk.getMinutes()).padStart(2, "0")}`;
@@ -324,17 +337,22 @@ const TimeClockPage = () => {
         setSaving(false);
         return;
       }
+      }
 
 
 
-      // GPS check (ข้ามถ้าผู้ดูแลปิดสวิตช์ gps_enforcement_enabled)
-      const enforceGps = (gpsSettings?.gps_enforcement_enabled ?? "true") !== "false";
+      // GPS check (ข้ามถ้าผู้ดูแลปิดสวิตช์ gps_enforcement_enabled หรืออยู่ในโหมด off-site)
+      const enforceGps = !offsiteMode && ((gpsSettings?.gps_enforcement_enabled ?? "true") !== "false");
       const schoolLat = parseFloat(gpsSettings?.clock_latitude || "0");
+
       const schoolLng = parseFloat(gpsSettings?.clock_longitude || "0");
       const radius = parseFloat(gpsSettings?.clock_radius || "200");
 
       let userLat = 0, userLng = 0;
-      if (enforceGps && schoolLat && schoolLng) {
+      if (offsiteMode) {
+        // ปฏิบัติงานนอกพื้นที่ — พยายามอ่านพิกัดเพื่อ log แต่ไม่บล็อก
+        try { const pos = await getCurrentPosition(); userLat = pos.coords.latitude; userLng = pos.coords.longitude; } catch { /* เงียบ */ }
+      } else if (enforceGps && schoolLat && schoolLng) {
         try {
           const pos = await getCurrentPosition();
           userLat = pos.coords.latitude;
@@ -344,7 +362,7 @@ const TimeClockPage = () => {
             setClockError({
               kind: "range",
               title: "อยู่นอกพิกัดที่กำหนด",
-              message: `คุณอยู่ห่างจากจุดลงเวลา ${Math.round(dist)} เมตร (อนุญาตไม่เกิน ${radius} เมตร) กรุณาเดินเข้ามาในพื้นที่แล้วกด "ลองใหม่"`,
+              message: `คุณอยู่ห่างจากจุดลงเวลา ${Math.round(dist)} เมตร (อนุญาตไม่เกิน ${radius} เมตร) — ถ้ากำลังปฏิบัติงานนอกโรงเรียน กรุณาเปิดโหมด "ปฏิบัติงานนอกพื้นที่" แทน`,
             });
             setSaving(false);
             return;
@@ -353,13 +371,12 @@ const TimeClockPage = () => {
           setClockError({
             kind: "gps",
             title: "ไม่สามารถดึงตำแหน่ง GPS",
-            message: "กรุณาเปิดการเข้าถึงตำแหน่ง (Location) ในเบราว์เซอร์/อุปกรณ์ แล้วกด \"ลองใหม่\"\n\nหรือให้ผู้ดูแลปิดสวิตช์บังคับใช้ GPS ในหน้า \"ตำแหน่งและรัศมีโรงเรียน\" หากพื้นที่นี้สัญญาณ GPS ไม่นิ่ง",
+            message: "กรุณาเปิดการเข้าถึงตำแหน่ง (Location) ในเบราว์เซอร์/อุปกรณ์ แล้วกด \"ลองใหม่\"",
           });
           setSaving(false);
           return;
         }
       } else if (!enforceGps && schoolLat && schoolLng) {
-        // ปิดบังคับ GPS — พยายามอ่านพิกัดเพื่อเก็บ log แต่ไม่บล็อกถ้าอ่านไม่ได้
         try {
           const pos = await getCurrentPosition();
           userLat = pos.coords.latitude;
@@ -369,11 +386,12 @@ const TimeClockPage = () => {
         setClockError({
           kind: "gps",
           title: "ยังไม่ได้ตั้งค่าพิกัดโรงเรียน",
-          message: "ระบบยังไม่ได้กำหนดพิกัดที่อนุญาตให้ลงเวลา กรุณาติดต่อผู้ดูแลระบบ",
+          message: "ระบบยังไม่ได้กำหนดพิกัดที่อนุญาตให้ลงเวลา กรุณาติดต่อผู้ดูแลระบบ (หรือเปิดโหมดปฏิบัติงานนอกพื้นที่)",
         });
         setSaving(false);
         return;
       }
+
 
       // Find personnel
       const target = myPersonnel || (isAdmin ? null : null);
@@ -481,8 +499,8 @@ const TimeClockPage = () => {
         swal.toast.info("คุณลงเวลาเข้า-ออกครบแล้ววันนี้");
         return;
       }
-      // ===== Clock-OUT: ต้องอยู่ในช่วงออกงานเท่านั้น =====
-      if (currentTimeStr < outStart || currentTimeStr > outEnd) {
+      // ===== Clock-OUT: ต้องอยู่ในช่วงออกงานเท่านั้น (ข้ามถ้าเป็นโหมดนอกพื้นที่) =====
+      if (!offsiteMode && (currentTimeStr < outStart || currentTimeStr > outEnd)) {
         setClockError({
           kind: "other",
           title: "อยู่นอกช่วงเวลาลงเวลาออก",
@@ -501,21 +519,28 @@ const TimeClockPage = () => {
         });
         return;
       }
-      // Upload clock-out photo
       const outPhotoUrl = await uploadPhoto(capturedPhoto!, target.employee_code || target.id, "out");
+      const updatePayload: any = {
+        clock_out: now.toISOString(),
+        notes: offsiteMode
+          ? `ออกงาน ${currentTimeStr} น. (นอกพื้นที่: ${offsiteLocation})`
+          : `ออกงาน ${currentTimeStr} น.`,
+        clock_out_photo_url: outPhotoUrl,
+      };
+      if (offsiteMode) {
+        updatePayload.is_offsite = true;
+        updatePayload.offsite_reason = offsiteReason;
+        updatePayload.offsite_location = offsiteLocation;
+      }
       const { error } = await supabase.from("time_clock")
-        .update({
-          clock_out: now.toISOString(),
-          notes: `ออกงาน ${currentTimeStr} น.`,
-          clock_out_photo_url: outPhotoUrl,
-        } as any)
+        .update(updatePayload)
         .eq("id", existing.id)
-        .is("clock_out", null); // กันชนกับการอัพเดทพร้อมกัน
+        .is("clock_out", null);
       if (error) throw new Error(error.message);
-      swal.toast.success(`ลงเวลาออกสำเร็จ! เวลา ${currentTimeStr} น.`);
+      swal.toast.success(`ลงเวลาออกสำเร็จ! เวลา ${currentTimeStr} น.${offsiteMode ? " (นอกพื้นที่)" : ""}`);
     } else {
-      // ===== Clock-IN: ต้องอยู่ในช่วงเข้างาน (ไม่เกิน outStart) =====
-      if (currentTimeStr < inStart || currentTimeStr >= outStart) {
+      // ===== Clock-IN: ต้องอยู่ในช่วงเข้างาน (ข้ามถ้าเป็นโหมดนอกพื้นที่) =====
+      if (!offsiteMode && (currentTimeStr < inStart || currentTimeStr >= outStart)) {
         setClockError({
           kind: "other",
           title: "อยู่นอกช่วงเวลาลงเวลาเข้า",
@@ -523,22 +548,32 @@ const TimeClockPage = () => {
         });
         return;
       }
-      // Upload clock-in photo
       const inPhotoUrl = await uploadPhoto(capturedPhoto!, target.employee_code || target.id, "in");
-      const { error } = await supabase.from("time_clock").insert({
+      const insertPayload: any = {
         personnel_id: target.id,
         clock_date: today,
         clock_in: now.toISOString(),
-        status: clockStatus,
+        status: offsiteMode ? "offsite" : clockStatus,
         clock_lat: userLat,
         clock_lng: userLng,
-        gps_verified: true,
-        notes: `เข้างาน ${currentTimeStr} น.`,
+        gps_verified: !offsiteMode,
+        notes: offsiteMode
+          ? `เข้างานนอกพื้นที่ ${currentTimeStr} น. — ${offsiteReason}`
+          : `เข้างาน ${currentTimeStr} น.`,
         clock_in_photo_url: inPhotoUrl,
-      } as any);
+        is_offsite: offsiteMode,
+        offsite_reason: offsiteMode ? offsiteReason : null,
+        offsite_location: offsiteMode ? offsiteLocation : null,
+      };
+      const { error } = await supabase.from("time_clock").insert(insertPayload);
       if (error) throw new Error(error.message);
-      swal.toast.success(`ลงเวลาเข้าสำเร็จ! เวลา ${currentTimeStr} น. สถานะ: ${STATUS_MAP[clockStatus]?.label}`);
+      swal.toast.success(
+        offsiteMode
+          ? `ลงเวลาเข้า (นอกพื้นที่) สำเร็จ! เวลา ${currentTimeStr} น.`
+          : `ลงเวลาเข้าสำเร็จ! เวลา ${currentTimeStr} น. สถานะ: ${STATUS_MAP[clockStatus]?.label}`
+      );
     }
+
 
 
     // Reset photo + camera
@@ -772,20 +807,66 @@ const TimeClockPage = () => {
                     </p>
                   </div>
                 ) : (
-                  <Button
-                    onClick={handleClockIn}
-                    size="lg"
-                    disabled={saving || !capturedPhoto}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white h-16 px-10 text-base"
-                  >
-                    {saving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CheckCircle className="w-5 h-5 mr-2" />}
-                    {saving
-                      ? "กำลังบันทึก..."
-                      : myTodayRecord && !myTodayRecord.clock_out
-                        ? "ลงเวลาออก (GPS)"
-                        : "ลงเวลาเข้า (GPS)"}
-                  </Button>
+                  <div className="w-full max-w-md space-y-3">
+                    {/* Off-site toggle */}
+                    <div className="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/60 dark:bg-amber-950/20 p-3">
+                      <label className="flex items-start gap-2.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={offsiteMode}
+                          onChange={(e) => setOffsiteMode(e.target.checked)}
+                          className="mt-1 w-4 h-4 accent-amber-600"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                            🧳 ปฏิบัติงานนอกพื้นที่ (ไปอบรม/ธุระโรงเรียน)
+                          </div>
+                          <div className="text-xs text-amber-700/80 dark:text-amber-300/70 mt-0.5">
+                            ข้ามการตรวจ GPS และช่วงเวลาลงเวลา — บันทึกเป็น "นอกพื้นที่"
+                          </div>
+                        </div>
+                      </label>
+                      {offsiteMode && (
+                        <div className="mt-3 space-y-2 pl-6">
+                          <input
+                            type="text"
+                            value={offsiteReason}
+                            onChange={(e) => setOffsiteReason(e.target.value)}
+                            placeholder="เหตุผล เช่น อบรมหลักสูตร PA, ประชุมเขตพื้นที่"
+                            maxLength={200}
+                            className="w-full rounded-lg border border-amber-300 dark:border-amber-800/60 bg-background px-3 py-2 text-sm"
+                          />
+                          <input
+                            type="text"
+                            value={offsiteLocation}
+                            onChange={(e) => setOffsiteLocation(e.target.value)}
+                            placeholder="สถานที่ เช่น ห้องประชุม สพป., โรงแรม XYZ"
+                            maxLength={200}
+                            className="w-full rounded-lg border border-amber-300 dark:border-amber-800/60 bg-background px-3 py-2 text-sm"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      onClick={handleClockIn}
+                      size="lg"
+                      disabled={saving || !capturedPhoto}
+                      className={`w-full h-16 text-base ${
+                        offsiteMode
+                          ? "bg-amber-600 hover:bg-amber-700 text-white"
+                          : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                      }`}
+                    >
+                      {saving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CheckCircle className="w-5 h-5 mr-2" />}
+                      {saving
+                        ? "กำลังบันทึก..."
+                        : myTodayRecord && !myTodayRecord.clock_out
+                          ? offsiteMode ? "ลงเวลาออก (นอกพื้นที่)" : "ลงเวลาออก (GPS)"
+                          : offsiteMode ? "ลงเวลาเข้า (นอกพื้นที่)" : "ลงเวลาเข้า (GPS)"}
+                    </Button>
+                  </div>
                 )}
+
 
                 {/* Teacher info */}
                 {!isAdmin && myPersonnel && (

@@ -376,7 +376,9 @@ export function AppSidebar() {
         { title: L("บันทึกพฤติกรรมนักเรียน", "Behavior"), url: "/dashboard/student/behavior", icon: Shield, color: "text-rose-400", roles: ["admin", "director", "teacher"], desc: L("บันทึกคะแนนความประพฤติ", "Conduct points") },
         { title: L("การลาของนักเรียน", "Student Leave"), url: "/dashboard/student/leave", icon: FileText, color: "text-amber-400", roles: ["admin", "director", "teacher", "student", "parent"], desc: L("ยื่นและอนุมัติใบลา", "Leave requests") },
         { title: L("บันทึกโฮมรูม", "Homeroom"), url: "/dashboard/student/homeroom", icon: Home, color: "text-sky-400", roles: ["admin", "director", "teacher"], desc: L("บันทึกกิจกรรมโฮมรูม", "Daily homeroom notes") },
+        { title: L("พานักเรียนออกนอกพื้นที่", "Off-site Trips"), url: "/dashboard/student/offsite-trips", icon: MapPin, color: "text-amber-400", roles: ["admin", "director", "teacher"], desc: L("ทริป/อบรม · เช็คชื่อนอกพื้นที่", "Trips · off-site attendance") },
       ],
+
     },
     {
       key: "student_health",
