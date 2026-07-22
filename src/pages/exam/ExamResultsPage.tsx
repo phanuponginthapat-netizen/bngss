@@ -79,7 +79,7 @@ export default function ExamResultsPage() {
       <Dialog open={!!view} onOpenChange={() => setView(null)}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader><DialogTitle>ภาพการตรวจ — {view?.student_name_snapshot || view?.student_code_detected}</DialogTitle></DialogHeader>
-          {view?.graded_image_url && <img src={view.graded_image_url} alt="graded" className="w-full" />}
+          {signedUrl && <img src={signedUrl} alt="graded" className="w-full" />}
         </DialogContent>
       </Dialog>
     </div>
