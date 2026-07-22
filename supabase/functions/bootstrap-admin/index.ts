@@ -4,7 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeadersWithBootstrap as corsHeaders } from "../_shared/cors.ts";
 
-const DEFAULT_EMAIL = "admin@school.com";
+import { getAdminEmail } from "../_shared/appConfig.ts";
 
 function genPassword() {
   const buf = new Uint8Array(18);

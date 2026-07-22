@@ -1146,8 +1146,8 @@ async function handleSDQCommand(sb: any, token: string, rt: string, lineUserId: 
 
   // Resolve site URL
   const { data: siteRow } = await sb.from("school_settings").select("setting_value").eq("setting_key", "site_url").maybeSingle();
-  const projectId = Deno.env.get("SUPABASE_PROJECT_ID") || "";
-  const siteUrl: string = siteRow?.setting_value || (projectId ? `https://${projectId}.lovableproject.com` : "https://bngss.lovable.app");
+  const { getPublicOrigin } = await import("../_shared/appConfig.ts");
+  const siteUrl: string = siteRow?.setting_value || (await getPublicOrigin());
 
   const sid = (user as any).id;
   const studentName = `${(user as any).prefix || ""}${(user as any).first_name} ${(user as any).last_name}`;
