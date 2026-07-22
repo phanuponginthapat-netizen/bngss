@@ -4,16 +4,19 @@
  * Use for critical, low-frequency writes like attendance check-in.
  */
 
+import { supabase } from "@/integrations/supabase/client";
+
 const DB_NAME = "offline-queue";
 const STORE = "pending";
 const DB_VERSION = 1;
+const MAX_ATTEMPTS = 10;
 
 type QueuedItem = {
   id: string;
   table: string;
   op: "insert" | "update" | "upsert";
   payload: any;
-  match?: Record<string, any>; // for update
+  match?: Record<string, any>;
   createdAt: number;
   attempts: number;
 };
@@ -32,7 +35,10 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-async function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => Promise<T> | T): Promise<T> {
+async function withStore<T>(
+  mode: IDBTransactionMode,
+  fn: (s: IDBObjectStore) => Promise<T> | T
+): Promise<T> {
   const db = await openDB();
   return new Promise<T>((resolve, reject) => {
     const t = db.transaction(STORE, mode);
@@ -44,83 +50,103 @@ async function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => Promis
   });
 }
 
-export async function enqueue(item: Omit<QueuedItem, "id" | "createdAt" | "attempts">) {
+export async function enqueue(
+  item: Omit<QueuedItem, "id" | "createdAt" | "attempts">
+): Promise<string> {
   const q: QueuedItem = {
     ...item,
     id: crypto.randomUUID(),
     createdAt: Date.now(),
     attempts: 0,
   };
-  await tx("readwrite", (s) => {
+  await withStore("readwrite", (s) => {
     s.put(q);
   });
   return q.id;
 }
 
 export async function pending(): Promise<QueuedItem[]> {
-  return tx("readonly", (s) =>
-    new Promise<QueuedItem[]>((resolve) => {
-      const req = s.getAll();
-      req.onsuccess = () => resolve((req.result || []) as QueuedItem[]);
-    })
-  );
+  try {
+    return await withStore("readonly", (s) =>
+      new Promise<QueuedItem[]>((resolve) => {
+        const req = s.getAll();
+        req.onsuccess = () => resolve((req.result || []) as QueuedItem[]);
+      })
+    );
+  } catch {
+    return [];
+  }
+}
+
+export async function count(): Promise<number> {
+  const list = await pending();
+  return list.length;
 }
 
 export async function remove(id: string) {
-  await tx("readwrite", (s) => {
+  await withStore("readwrite", (s) => {
     s.delete(id);
   });
 }
 
-export async function flush(supabase: any): Promise<{ ok: number; failed: number }> {
-  if (!navigator.onLine) return { ok: 0, failed: 0 };
-  const items = await pending();
+let flushing = false;
+
+/**
+ * Flush pending queue against Supabase.
+ * Dispatches window event "offline-queue:synced" with { ok, failed }.
+ */
+export async function flush(): Promise<{ ok: number; failed: number }> {
+  if (flushing || !navigator.onLine) return { ok: 0, failed: 0 };
+  flushing = true;
   let ok = 0;
   let failed = 0;
-  for (const it of items) {
-    try {
-      let res;
-      if (it.op === "insert") {
-        res = await supabase.from(it.table).insert(it.payload);
-      } else if (it.op === "upsert") {
-        res = await supabase.from(it.table).upsert(it.payload);
-      } else {
-        let q = supabase.from(it.table).update(it.payload);
-        for (const [k, v] of Object.entries(it.match || {})) q = q.eq(k, v);
-        res = await q;
-      }
-      if (res.error) throw res.error;
-      await remove(it.id);
-      ok++;
-    } catch (e) {
-      it.attempts++;
-      // Drop after 10 failed attempts to prevent forever-stuck items
-      if (it.attempts > 10) {
+  try {
+    const items = await pending();
+    for (const it of items) {
+      try {
+        let res: any;
+        if (it.op === "insert") {
+          res = await (supabase.from(it.table as any) as any).insert(it.payload);
+        } else if (it.op === "upsert") {
+          res = await (supabase.from(it.table as any) as any).upsert(it.payload);
+        } else {
+          let q: any = (supabase.from(it.table as any) as any).update(it.payload);
+          for (const [k, v] of Object.entries(it.match || {})) q = q.eq(k, v);
+          res = await q;
+        }
+        if (res.error) throw res.error;
         await remove(it.id);
-      } else {
-        await tx("readwrite", (s) => {
-          s.put(it);
-        });
+        ok++;
+      } catch {
+        it.attempts++;
+        if (it.attempts > MAX_ATTEMPTS) {
+          await remove(it.id);
+        } else {
+          await withStore("readwrite", (s) => {
+            s.put(it);
+          });
+        }
+        failed++;
       }
-      failed++;
     }
+  } finally {
+    flushing = false;
+  }
+  try {
+    window.dispatchEvent(new CustomEvent("offline-queue:synced", { detail: { ok, failed } }));
+  } catch {
+    /* noop */
   }
   return { ok, failed };
 }
 
 /**
- * Start background auto-flush. Call once at app boot.
+ * Install background auto-flush. Call once at app boot.
  */
-export function startAutoFlush(supabase: any) {
-  const tryFlush = () => flush(supabase).catch(() => {});
+export function installOfflineSync() {
+  const tryFlush = () => flush().catch(() => {});
   window.addEventListener("online", tryFlush);
-  // Also poll every 60s in case we missed the event
+  window.addEventListener("focus", tryFlush);
   setInterval(tryFlush, 60_000);
-  // Try immediately
   if (navigator.onLine) tryFlush();
-}
-
-export async function queueSize(): Promise<number> {
-  const list = await pending();
-  return list.length;
 }
