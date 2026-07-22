@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Heart, ThumbsUp, MessageCircle, Image as ImageIcon, Send, Trash2, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { swal } from "@/lib/swal";
 import { detectMediaTypeFromUrl } from "@/lib/media";
 import MediaRenderer from "./MediaRenderer";
 
