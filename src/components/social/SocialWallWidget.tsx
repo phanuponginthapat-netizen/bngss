@@ -77,11 +77,11 @@ export function SocialWallWidget({
     const meta = SOCIAL_PLATFORMS[link.platform] ?? SOCIAL_PLATFORMS.website;
     const Icon = meta.icon;
 
-    // Native iframe size (ตามที่ผู้ให้บริการ render จริง)
+    // Native iframe size (ตามที่ผู้ให้บริการ render จริง — ปรับให้พอดีไม่มีขอบขาวเหลือ)
     const nativeW =
       link.platform === "tiktok" ? 325 : link.platform === "facebook" ? 500 : 560;
     const nativeH =
-      link.platform === "youtube" ? 315 : link.platform === "tiktok" ? 740 : 700;
+      link.platform === "youtube" ? 315 : link.platform === "tiktok" ? 580 : 600;
 
     const useAspect = link.platform === "youtube";
     return (
