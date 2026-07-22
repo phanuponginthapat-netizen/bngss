@@ -8,12 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Trash2, Upload, Pencil, Search, Link2, UserCog } from "lucide-react";
+import { Plus, Trash2, Upload, Pencil, Search, Link2, UserCog, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { SubjectEditDialog } from "./SubjectEditDialog";
 import { ProxySubjectMapDialog } from "./ProxySubjectMapDialog";
 import { TeacherScheduleImportDialog } from "./TeacherScheduleImportDialog";
+import { CopySubjectsDialog } from "./CopySubjectsDialog";
 import { useUserRole } from "@/hooks/useUserRole";
 import { BE_OFFSET } from "@/lib/dateBE";
 
@@ -33,6 +34,8 @@ export const SubjectsTab = ({ subjects, onUploadOpen }: SubjectsTabProps) => {
   const [searchText, setSearchText] = useState("");
   const [proxyMapOpen, setProxyMapOpen] = useState(false);
   const [teacherImportOpen, setTeacherImportOpen] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
+
 
   const proxyCount = useMemo(
     () => subjects.filter((s: any) => typeof s.code === "string" && s.code.startsWith("T-")).length,
@@ -121,6 +124,11 @@ export const SubjectsTab = ({ subjects, onUploadOpen }: SubjectsTabProps) => {
           </Button>
         )}
         {canEdit && <Button variant="outline" onClick={onUploadOpen}><Upload className="w-4 h-4 mr-2" /> อัปโหลดหลักสูตร</Button>}
+        {canEdit && (
+          <Button variant="outline" onClick={() => setCopyOpen(true)}>
+            <Copy className="w-4 h-4 mr-2" /> คัดลอกไปภาคเรียนอื่น
+          </Button>
+        )}
         {canEdit && (
           <Button variant="outline" onClick={() => setTeacherImportOpen(true)}>
             <UserCog className="w-4 h-4 mr-2" /> อัปโหลดตารางสอนรายครู
@@ -215,6 +223,7 @@ export const SubjectsTab = ({ subjects, onUploadOpen }: SubjectsTabProps) => {
       <SubjectEditDialog open={!!editSubject} onOpenChange={(o) => { if (!o) setEditSubject(null); }} subject={editSubject} />
       <ProxySubjectMapDialog open={proxyMapOpen} onOpenChange={setProxyMapOpen} subjects={subjects} />
       <TeacherScheduleImportDialog open={teacherImportOpen} onOpenChange={setTeacherImportOpen} />
+      <CopySubjectsDialog open={copyOpen} onOpenChange={setCopyOpen} subjects={subjects} />
     </div>
   );
 };
