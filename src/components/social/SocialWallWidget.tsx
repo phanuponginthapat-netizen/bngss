@@ -76,31 +76,46 @@ export function SocialWallWidget({
   const renderEmbed = ({ link, src }: { link: SocialLink; src: string }) => {
     const meta = SOCIAL_PLATFORMS[link.platform] ?? SOCIAL_PLATFORMS.website;
     const Icon = meta.icon;
-    // Aspect: YouTube 16:9, Facebook/TikTok 9:16-ish (portrait)
-    const isVideo = link.platform === "youtube";
+    // Aspect ratios ที่โชว์คอนเทนต์ได้เต็มที่สุดสำหรับแต่ละแพลตฟอร์ม
+    const aspect =
+      link.platform === "youtube"
+        ? "16 / 9"
+        : link.platform === "tiktok"
+        ? "9 / 16"
+        : "5 / 7"; // Facebook Page Plugin 500x700
     return (
       <div
         key={link.id}
-        className="rounded-2xl overflow-hidden border border-border/50 bg-card shadow-sm hover:shadow-elevated transition-all"
+        className="group relative rounded-3xl overflow-hidden bg-card shadow-elevated hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 ring-1 ring-border/40 hover:ring-primary/30"
       >
-        <div className={`flex items-center gap-2 px-3 py-2 bg-gradient-to-r ${meta.gradient}`}>
-          <Icon className="h-4 w-4 text-white" strokeWidth={2} />
-          <span className="text-xs font-semibold text-white truncate flex-1">
-            {link.label || meta.label}
-          </span>
+        {/* Header เบลอ + gradient */}
+        <div className={`relative flex items-center gap-2.5 px-4 py-2.5 bg-gradient-to-r ${meta.gradient} overflow-hidden`}>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_50%,rgba(255,255,255,0.2),transparent_60%)] pointer-events-none" />
+          <div className="relative flex items-center justify-center h-7 w-7 rounded-full bg-white/20 backdrop-blur-sm ring-1 ring-white/30">
+            <Icon className="h-3.5 w-3.5 text-white" strokeWidth={2.2} />
+          </div>
+          <div className="relative flex-1 min-w-0">
+            <p className="text-[13px] font-bold text-white truncate leading-tight drop-shadow-sm">
+              {link.label || meta.label}
+            </p>
+            {link.handle && (
+              <p className="text-[10px] text-white/85 truncate leading-tight">{link.handle}</p>
+            )}
+          </div>
           <a
             href={link.url}
             target="_blank"
             rel="noreferrer"
-            className="text-white/80 hover:text-white"
+            className="relative flex items-center justify-center h-7 w-7 rounded-full bg-white/15 hover:bg-white/30 backdrop-blur-sm text-white transition-colors"
             aria-label="เปิดในแท็บใหม่"
           >
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
         </div>
+        {/* iframe */}
         <div
-          className="relative w-full bg-muted/30"
-          style={{ aspectRatio: isVideo ? "16 / 9" : "3 / 4" }}
+          className="relative w-full bg-gradient-to-br from-muted/20 via-muted/10 to-muted/30"
+          style={{ aspectRatio: aspect }}
         >
           <iframe
             src={src}
@@ -120,9 +135,9 @@ export function SocialWallWidget({
   const List = (
     <>
       {loading ? (
-        <div className={gridCols}>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="aspect-square rounded-2xl bg-muted/40 animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="rounded-3xl bg-muted/40 animate-pulse" style={{ aspectRatio: "5 / 7" }} />
           ))}
         </div>
       ) : active.length === 0 ? (
@@ -131,9 +146,9 @@ export function SocialWallWidget({
           ยังไม่ได้เพิ่มลิงค์ Social Media
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-6">
           {embedLinks.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
               {embedLinks.map(renderEmbed)}
             </div>
           )}
