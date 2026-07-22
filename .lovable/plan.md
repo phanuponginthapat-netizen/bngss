@@ -1,50 +1,93 @@
-# เพิ่มการแจ้งเตือนของ LINE OA (LINE Vault) เข้ากลุ่ม
+# แผนพัฒนาระบบ 8 หัวข้อ
 
-ปัจจุบัน LINE OA ของ LINE Vault ถูกใช้แค่ "รับ" ไฟล์จากกลุ่มเท่านั้น — จะขยายให้ "ส่ง" แจ้งเตือนกลับเข้ากลุ่มได้ด้วย โดยแต่ละกลุ่มเลือกได้เองว่าอยากรับแจ้งเตือนประเภทใด
+งานนี้กว้างและกินเวลา — จะทยอยทำเป็น **4 เฟส** เพื่อควบคุมความเสี่ยงและตรวจสอบระหว่างทางได้ ไม่งั้นแก้บั๊คตามไม่ทัน (โดยเฉพาะข้อ 8 Multi-School ที่กระทบทุกตาราง)
 
-## สิ่งที่จะทำ
+---
 
-### 1) ตั้งค่าต่อกลุ่ม (`line_vault_groups`)
-เพิ่มสวิตช์เปิด/ปิดแยกตามประเภท:
-- `notify_leaves` — การขอลา + ผลอนุมัติ (ทั้งครู/นักเรียน)
-- `notify_substitute` — มอบหมายสอนแทน
-- `notify_calendar` — สรุปกิจกรรมของวันนี้ + แจ้งล่วงหน้า 1 วัน
-- `calendar_digest_time` — เวลาส่งสรุปปฏิทินรายวัน (default 07:00)
+## เฟส 1 — ความปลอดภัย/ตรวจสอบย้อนหลัง (Low risk)
 
-พร้อมกรอง scope ตาม `department` ของกลุ่ม (เช่น กลุ่มฝ่ายวิชาการเห็นเฉพาะเรื่องวิชาการ) และ `default_visibility` (admin/department/everyone)
+**1. Backup อัตโนมัติ + Export**
+- Edge Function `weekly-backup`: dump ตารางหลัก (students, attendance, grades, personnel, budget) เป็น JSON/CSV
+- อัปโหลดขึ้น Google Drive ของ admin ผ่าน connector ที่มีอยู่แล้ว
+- ตั้ง cron ทุกวันอาทิตย์ 02:00 น. Bangkok
+- หน้า `AdminBackupPage` — กด Export ด้วยมือ + ดูประวัติ backup
 
-### 2) Edge Function ใหม่: `notify-line-vault-groups`
-- รับ payload: `{ category, title, body, link?, department?, severity? }`
-- ดึงกลุ่มที่เปิด flag ตรงกัน + ตรง department (ถ้าระบุ)
-- ส่ง Flex message ผ่าน `LINE_VAULT_CHANNEL_ACCESS_TOKEN` (คนละ token จาก LINE OA chatbot เดิม)
-- Rate-limit 3 นาทีต่อกลุ่ม (ใช้ `last_notified_at` เดิม) กันสแปม
+**3. Audit Log ครอบคลุมกว่านี้**
+- Trigger บนตาราง: `student_scores`, `students`, `user_roles`, `personnel`, `budget_transactions`, `grades`
+- บันทึก: ใคร/เมื่อไหร่/ค่าเก่า/ค่าใหม่ ลง `audit_logs`
+- หน้า `AuditLogViewer` filter ตาม user/table/date range พร้อม export CSV
 
-### 3) เชื่อม trigger กับเหตุการณ์
-เพิ่มเรียก `notify-line-vault-groups` จากจุดที่มี notification อยู่แล้ว:
-- `staff_leaves` insert → หมวด `leaves` ("ครู X ยื่นลา ...")
-- `staff_leaves` update status → หมวด `leaves` ("อนุมัติ/ไม่อนุมัติ ...")
-- `student_leaves` insert/update → หมวด `leaves`
-- `substitute_teaching` insert → หมวด `substitute` ("มอบหมายสอนแทน คาบ X วันที่ ...")
+## เฟส 2 — Admin/Ops Dashboard (Low risk)
 
-ทำเป็น DB trigger → `pg_net` ยิงเข้า edge function (แนวทางเดียวกับ notify-fanout เดิม) เพื่อให้ทำงานอัตโนมัติทุกครั้ง
+**4. Health Check Dashboard**
+- หน้า `SystemHealthPage` รวม: AI key พูล, storage usage, edge function errors (24h), cron jobs status, active users, subscription expiry
+- Realtime refresh 30s
+- Alert สีแดงเมื่อ threshold เกิน
 
-### 4) Digest ปฏิทินรายวัน
-- Edge function `notify-calendar-digest` — อ่าน `academic_events` ของ "วันนี้" และ "พรุ่งนี้" แล้วสรุปเป็น Flex Carousel ส่งเข้ากลุ่มที่เปิด `notify_calendar`
-- ตั้ง `pg_cron` ทุกวัน 07:00 Asia/Bangkok
+**9. E2E Tests (Playwright)**
+- test suite: login, เช็คชื่อ, ส่งการบ้าน, ออก ปพ.6, dashboard load
+- รันในเครื่อง developer เท่านั้น (ไม่ block CI ปัจจุบัน)
 
-### 5) UI จัดการในหน้า LINE Vault
-เพิ่มการ์ด "ตั้งค่าแจ้งเตือนของกลุ่ม" ในแท็บจัดการกลุ่ม:
-- 3 toggle (ลา / สอนแทน / ปฏิทิน)
-- Time picker สำหรับ digest ปฏิทิน
-- ปุ่ม "ส่งข้อความทดสอบ" ยิงเข้ากลุ่มจริง
+## เฟส 3 — User Experience (Medium risk)
 
-## รายละเอียดเชิงเทคนิค
+**6. Offline Mode**
+- ขยาย `offlineQueue.ts` ให้ครอบคลุม: attendance, behavior_records, student_scores
+- IndexedDB store + Background Sync API
+- UI แสดง "ออฟไลน์ — จะซิงค์เมื่อเน็ตกลับมา" badge
 
-- Migration: `ALTER TABLE line_vault_groups ADD COLUMN notify_leaves boolean DEFAULT false, notify_substitute boolean DEFAULT false, notify_calendar boolean DEFAULT false, calendar_digest_time time DEFAULT '07:00'`
-- Edge functions ใหม่ 2 ตัว: `notify-line-vault-groups`, `notify-calendar-digest`
-- Trigger functions ใหม่บน `staff_leaves`, `student_leaves`, `substitute_teaching` (ใช้ security definer + pg_net.http_post พร้อม CRON_SECRET)
-- Flex builder ใช้ของเดิมใน `_shared/lineFlex.ts` เพื่อโทนสีเดียวกับระบบ
-- Token: อ่านจาก `LINE_VAULT_CHANNEL_ACCESS_TOKEN` (env → fallback `app_secrets`) เหมือน `line-vault-webhook`
-- Log ผลการส่งลง `notification_delivery_log` เพื่อ audit และดู error ย้อนหลัง
+**7. Parent Portal เต็มระบบ (LIFF)**
+- `LiffHomePage` แสดง: ลูก(หลาย)คน, สรุปการเข้าเรียนสัปดาห์นี้, เกรดล่าสุด, แจ้งเตือน
+- เพิ่มหน้า: `LiffBehaviorPage`, `LiffTuitionPage` (ใบแจ้งหนี้), `LiffLeaveApprovePage` (อนุมัติใบลาลูก)
+- ใช้ RLS ที่มีอยู่ (`useParentChildren` hook)
 
-ยืนยันเพื่อเริ่มสร้างครับ
+**10. iOS Push Notification จริง**
+- ตรวจ `Notification.requestPermission()` flow ของ iOS 16.4+ PWA
+- ยืนยัน `serviceWorker` handle `push` event + แสดง notification
+- เพิ่มหน้าทดสอบ `/test-push` — กดปุ่มแล้วส่ง push จริงจาก edge function
+- คู่มือ install PWA บน iOS แบบมีภาพประกอบ
+
+## เฟส 4 — Multi-School (High risk — ระวัง!)
+
+**8. Multi-School Tenant**
+- ⚠️ **ทำเป็นตัวเลือก opt-in ไม่บังคับ** เพราะกระทบ RLS ทุกตาราง
+- Phase 8a (ปลอดภัย): เพิ่ม `school_id` เป็น nullable + default = school เดียวปัจจุบัน
+- Phase 8b (ต้องรีวิว): เขียน RLS ใหม่ให้ filter ตาม `school_id` ของ user + สร้าง `useSchoolContext` hook
+- Phase 8c: หน้า admin สร้าง/สลับโรงเรียน
+- **ก่อนขึ้น 8b/8c จะขอ confirm อีกครั้ง** เพราะย้อนกลับยาก
+
+---
+
+## รายละเอียดเทคนิค
+
+**Migrations ที่ต้องรัน (สรุป):**
+- Trigger + function `log_audit_change()` generic สำหรับหลายตาราง
+- ตาราง `backup_history` เก็บ metadata การ backup
+- ตาราง `system_health_snapshots` เก็บสถิติรายวัน
+- Alter tables เพิ่ม `school_id uuid` (เฉพาะเฟส 4)
+
+**Edge Functions ใหม่:**
+- `weekly-backup`, `send-test-push`, `health-snapshot`, `parent-liff-summary`
+
+**ไฟล์ frontend ใหม่/แก้:**
+- ~15 หน้าใหม่, ~10 ไฟล์ที่ต้องแก้ (LIFF, offline queue)
+
+---
+
+## ประมาณเวลา
+- เฟส 1: ~30 นาที
+- เฟส 2: ~25 นาที
+- เฟส 3: ~40 นาที
+- เฟส 4: ~60 นาที (มี checkpoint หลายจุด)
+
+**รวม ~2.5 ชม.** แบ่งเป็นหลายรอบ
+
+---
+
+## เริ่มยังไง
+
+จะเริ่มลงมือ **เฟส 1 (Backup + Audit Log)** ก่อนทันทีหลัง approve
+เฟสถัดไปจะทำต่อในข้อความถัดไป โดยรายงานผลของเฟสก่อนหน้าให้ตรวจก่อน
+
+**หมายเหตุความเสี่ยง:**
+- Backup ต้องใช้ Google Drive connector ที่ user เชื่อมไว้แล้ว — ถ้าไม่มีจะเก็บใน Supabase Storage แทน
+- เฟส 4 Multi-School จะไม่เปิดใช้จริงจนกว่าจะยืนยัน — ตอนนี้ระบบเป็น single-school ดีอยู่แล้ว
