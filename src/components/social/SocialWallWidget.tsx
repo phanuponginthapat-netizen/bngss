@@ -79,10 +79,11 @@ export function SocialWallWidget({
     // ใช้ fixed height ตรงกับขนาดจริงที่ผู้ให้บริการ render เพื่อไม่ให้เกิดพื้นที่ขาวเหลือ
     const frameHeight =
       link.platform === "youtube"
-        ? undefined // ใช้ aspect 16/9 แทน
+        ? undefined
         : link.platform === "tiktok"
         ? 740
-        : 700; // Facebook Page Plugin height=700
+        : 1000; // Facebook Page Plugin height=1000
+
     const useAspect = link.platform === "youtube";
     return (
       <div
