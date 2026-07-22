@@ -2,8 +2,31 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const ADMIN_ROLES = ["admin", "director"];
-const ALLOWED_BUCKETS = new Set(["cms-images"]);
-const MAX_BYTES = 5 * 1024 * 1024;
+// Admin-managed buckets that can accept uploads via this SECURITY DEFINER
+// fallback when client-side RLS blocks an admin upload.
+const ALLOWED_BUCKETS = new Set([
+  "cms-images",
+  "print-templates",
+  "game-covers",
+  "line-richmenu",
+  "document-files",
+  "padlet",
+  "wall-media",
+  "homework-files",
+  "portfolio",
+  "hub-projects",
+  "attendance-photos",
+  "face-photos",
+]);
+// Buckets that are image-only. Others (documents/media) accept any type.
+const IMAGE_ONLY_BUCKETS = new Set([
+  "cms-images",
+  "game-covers",
+  "line-richmenu",
+  "face-photos",
+  "attendance-photos",
+]);
+const MAX_BYTES = 25 * 1024 * 1024;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
