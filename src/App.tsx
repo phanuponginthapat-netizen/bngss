@@ -468,6 +468,7 @@ const App = () => (
                 <Route path="admin/obec-standards" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><ObecStandardsPage /></ProtectedRoute>} />
                 <Route path="admin/audit-log" element={<ProtectedRoute allowedRoles={["admin","director"]}><AuditLogPage /></ProtectedRoute>} />
                 <Route path="admin/system-health" element={<ProtectedRoute allowedRoles={["admin","director"]}><SystemHealthPage /></ProtectedRoute>} />
+                <Route path="help" element={<HelpCenterPage />} />
                 <Route path="admin/bulk-operations" element={<ProtectedRoute allowedRoles={["admin", "director"]}><BulkOperationsPage /></ProtectedRoute>} />
                 <Route path="admin/departments" element={<ProtectedRoute allowedRoles={["admin","director"]}><DepartmentManagementPage /></ProtectedRoute>} />
                 <Route path="admin/ai-import" element={<ProtectedRoute allowedRoles={["admin", "director"]}><AiImportPage /></ProtectedRoute>} />
