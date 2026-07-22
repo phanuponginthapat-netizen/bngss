@@ -19,6 +19,15 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
+  const runStart = Date.now();
+  const startedAt = new Date().toISOString();
+  const { data: runRow } = await supabase
+    .from("district_snapshot_runs")
+    .insert({ status: "running", started_at: startedAt, triggered_by: "cron" })
+    .select("id")
+    .single();
+  const runId = runRow?.id as string | undefined;
+
   try {
     // Only schools that consented to central hub feed
     const { data: schools } = await supabase
@@ -214,10 +223,46 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, ran_at: new Date().toISOString(), count: results.length, results }), {
+    const failed = results.filter((r) => !r.ok).length;
+    const status = failed === 0 ? "success" : (failed === results.length ? "failed" : "partial");
+    if (runId) {
+      await supabase.from("district_snapshot_runs").update({
+        status,
+        finished_at: new Date().toISOString(),
+        duration_ms: Date.now() - runStart,
+        schools_processed: results.length,
+        schools_failed: failed,
+        results,
+      }).eq("id", runId);
+    }
+
+    // Enqueue outbox delivery to district hub for each successful snapshot
+    try {
+      const hubUrl = Deno.env.get("DISTRICT_HUB_URL");
+      if (hubUrl) {
+        for (const r of results.filter((x) => x.ok)) {
+          await supabase.rpc("district_outbox_enqueue", {
+            p_endpoint: `${hubUrl.replace(/\/$/, "")}/snapshot`,
+            p_payload: { school_id: r.school_id, snapshot_date: today },
+            p_snapshot_id: null,
+            p_max_attempts: 5,
+          });
+        }
+      }
+    } catch (_) { /* non-fatal */ }
+
+    return new Response(JSON.stringify({ ok: true, run_id: runId, ran_at: new Date().toISOString(), count: results.length, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
+    if (runId) {
+      await supabase.from("district_snapshot_runs").update({
+        status: "failed",
+        finished_at: new Date().toISOString(),
+        duration_ms: Date.now() - runStart,
+        error: err instanceof Error ? err.message : String(err),
+      }).eq("id", runId);
+    }
     return new Response(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : String(err) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

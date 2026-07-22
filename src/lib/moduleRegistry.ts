@@ -84,6 +84,7 @@ export const MODULES: ModuleDef[] = [
   { key: "line", label: "LINE OA", labelEn: "LINE OA", desc: "แจ้งเตือน/แชทบอทผ่าน LINE OA", group: "integrations", urlPrefixes: ["/dashboard/admin/line-settings"] },
   { key: "google_chat", label: "Google Chat", labelEn: "Google Chat", desc: "Webhook แจ้งเตือน Google Chat", group: "integrations", urlPrefixes: ["/dashboard/admin/webhooks"] },
   { key: "district_feed", label: "District Feed API", labelEn: "District Feed", desc: "ส่งข้อมูลไปเขตพื้นที่การศึกษา", group: "integrations", urlPrefixes: ["/dashboard/admin/district-feed"] },
+  { key: "district_sync", label: "District Sync", labelEn: "District Sync", desc: "สถานะ snapshot รายคืน + คิวส่งข้อมูล (retry/DLQ)", group: "integrations", urlPrefixes: ["/dashboard/admin/district-sync"] },
   { key: "analytics", label: "วิเคราะห์ข้อมูล", labelEn: "Analytics", desc: "วิเคราะห์ข้อมูลภาพรวมโรงเรียน", group: "integrations", urlPrefixes: ["/dashboard/admin/analytics"] },
   { key: "audit_log", label: "Audit Log", labelEn: "Audit Log", desc: "บันทึกการใช้งานระบบ", group: "integrations", urlPrefixes: ["/dashboard/admin/audit-log"] },
   { key: "system_health", label: "สุขภาพระบบ", labelEn: "System Health", desc: "สถานะ AI, ผู้ใช้ออนไลน์, error logs", group: "integrations", urlPrefixes: ["/dashboard/admin/system-health"] },
