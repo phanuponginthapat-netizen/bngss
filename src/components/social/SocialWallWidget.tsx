@@ -76,17 +76,19 @@ export function SocialWallWidget({
   const renderEmbed = ({ link, src }: { link: SocialLink; src: string }) => {
     const meta = SOCIAL_PLATFORMS[link.platform] ?? SOCIAL_PLATFORMS.website;
     const Icon = meta.icon;
-    // Aspect ratios ที่โชว์คอนเทนต์ได้เต็มที่สุดสำหรับแต่ละแพลตฟอร์ม
-    const aspect =
+    // ใช้ fixed height ตรงกับขนาดจริงที่ผู้ให้บริการ render เพื่อไม่ให้เกิดพื้นที่ขาวเหลือ
+    const frameHeight =
       link.platform === "youtube"
-        ? "16 / 9"
+        ? undefined // ใช้ aspect 16/9 แทน
         : link.platform === "tiktok"
-        ? "9 / 16"
-        : "5 / 7"; // Facebook Page Plugin 500x700
+        ? 740
+        : 700; // Facebook Page Plugin height=700
+    const useAspect = link.platform === "youtube";
     return (
       <div
         key={link.id}
-        className="group relative rounded-3xl overflow-hidden bg-card shadow-elevated hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 ring-1 ring-border/40 hover:ring-primary/30"
+        className="group relative rounded-3xl overflow-hidden bg-card shadow-elevated hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 ring-1 ring-border/40 hover:ring-primary/30 mx-auto w-full"
+        style={{ maxWidth: link.platform === "youtube" ? undefined : 500 }}
       >
         {/* Header เบลอ + gradient */}
         <div className={`relative flex items-center gap-2.5 px-4 py-2.5 bg-gradient-to-r ${meta.gradient} overflow-hidden`}>
@@ -115,7 +117,7 @@ export function SocialWallWidget({
         {/* iframe */}
         <div
           className="relative w-full bg-gradient-to-br from-muted/20 via-muted/10 to-muted/30"
-          style={{ aspectRatio: aspect }}
+          style={useAspect ? { aspectRatio: "16 / 9" } : { height: frameHeight }}
         >
           <iframe
             src={src}
@@ -131,6 +133,7 @@ export function SocialWallWidget({
       </div>
     );
   };
+
 
   const List = (
     <>
