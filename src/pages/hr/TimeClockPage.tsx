@@ -55,6 +55,11 @@ const TimeClockPage = () => {
   const [clockOutStart, setClockOutStart] = useState("15:30");
   const [clockOutEnd, setClockOutEnd] = useState("17:00");
   const [lateThreshold, setLateThreshold] = useState("08:30");
+  // === Off-site (นอกพื้นที่) ===
+  const [offsiteMode, setOffsiteMode] = useState(false);
+  const [offsiteReason, setOffsiteReason] = useState("");
+  const [offsiteLocation, setOffsiteLocation] = useState("");
+
 
   // Live clock
   useEffect(() => {
