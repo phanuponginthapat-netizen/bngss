@@ -172,6 +172,15 @@ export function getEmbedUrl(link: Pick<SocialLink, "platform" | "url">): string 
     }
 
     if (link.platform === "facebook") {
+      // Page Plugin รองรับเฉพาะ "Page" ไม่รองรับโปรไฟล์ส่วนตัว (profile.php?id=...)
+      // และไม่รองรับโพสต์เดี่ยว (/posts/, /videos/, /photos/, /watch/)
+      const lower = (path + u.search).toLowerCase();
+      if (lower.includes("profile.php")) return null;
+      // โพสต์/วิดีโอ/รูป เดี่ยว → ใช้ Post Plugin แทน Page Plugin
+      if (/\/(posts|videos|photos|watch|reel|share)\//.test(lower) || u.searchParams.has("v")) {
+        const href = encodeURIComponent(url);
+        return `https://www.facebook.com/plugins/post.php?href=${href}&width=380&show_text=true`;
+      }
       const href = encodeURIComponent(url);
       return `https://www.facebook.com/plugins/page.php?href=${href}&tabs=timeline&width=380&height=500&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false`;
     }
