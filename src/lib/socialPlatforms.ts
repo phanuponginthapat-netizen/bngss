@@ -242,25 +242,24 @@ export function getEmbedUrl(link: Pick<SocialLink, "platform" | "url">): string 
     }
 
     if (link.platform === "facebook") {
-      // Page Plugin รองรับเฉพาะ "Page" ไม่รองรับโปรไฟล์ส่วนตัว (profile.php?id=...)
-      // และไม่รองรับโพสต์เดี่ยว (/posts/, /videos/, /photos/, /watch/)
       const lower = (path + u.search).toLowerCase();
-      if (lower.includes("profile.php")) return null;
-      // โพสต์/วิดีโอ/รูป เดี่ยว → ใช้ Post Plugin แทน Page Plugin
-      if (/\/(posts|videos|photos|watch|reel|share)\//.test(lower) || u.searchParams.has("v")) {
+      // โพสต์/วิดีโอ/รูป เดี่ยว → ใช้ Post Plugin
+      if (/\/(posts|videos|photos|watch|reel|share)\//.test(lower) || (u.searchParams.has("v") && path.includes("watch"))) {
         const href = encodeURIComponent(url);
         return `https://www.facebook.com/plugins/post.php?href=${href}&width=380&show_text=true`;
       }
+      // Page/Profile timeline → Page Plugin (Facebook รองรับทั้ง Page และ profile.php ที่ตั้งเป็นสาธารณะ)
       const href = encodeURIComponent(url);
       return `https://www.facebook.com/plugins/page.php?href=${href}&tabs=timeline&width=380&height=500&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false`;
     }
 
     if (link.platform === "tiktok") {
-      // /@user/video/<id>  → single video player (embed only)
+      // /@user/video/<id>  → single video player
       const m = path.match(/\/video\/(\d+)/);
       if (m) return `https://www.tiktok.com/embed/v2/${m[1]}`;
-      // NOTE: profile embeds (/embed/@user) are heavily rate-limited by TikTok
-      // and frequently return "overload-protect triggered". Fall back to link.
+      // /@user  → profile embed (อาจโดน rate-limit บ้าง แต่ใช้ได้)
+      const p = path.match(/^\/@([^/?#]+)\/?$/);
+      if (p) return `https://www.tiktok.com/embed/@${p[1]}`;
       return null;
     }
   } catch {
