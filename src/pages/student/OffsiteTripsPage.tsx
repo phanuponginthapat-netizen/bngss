@@ -456,8 +456,9 @@ function AddStudentsPanel({ tripId, existingIds, onAdded }: { tripId: string; ex
   const addAllVisible = async () => {
     const toAdd = students.filter((s: any) => !existingIds.includes(s.id));
     if (!toAdd.length) { swal.toast.info("ทุกคนถูกเพิ่มแล้ว"); return; }
-    const ok = await swal.confirm(`เพิ่มนักเรียนทั้งหมด ${toAdd.length} คน?`);
-    if (!ok.isConfirmed) return;
+    const ok = await swal.confirm({ title: `เพิ่มนักเรียนทั้งหมด ${toAdd.length} คน?` });
+    if (!ok) return;
+
     const rows = toAdd.map((s: any) => ({ trip_id: tripId, student_id: s.id, attendance_status: "expected" }));
     const { error } = await supabase.from("student_offsite_participants").insert(rows as any);
     if (error) { swal.toast.error(error.message); return; }
