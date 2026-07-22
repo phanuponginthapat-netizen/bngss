@@ -396,7 +396,7 @@ function AttendanceList({ tripId, parts, onChanged }: { tripId: string; parts: a
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{s ? `${s.first_name} ${s.last_name}` : "-"}</div>
                     <div className="text-xs text-muted-foreground">
-                      {s?.student_id} · {s?.current_grade}/{s?.current_class}
+                      {s?.student_code} {s?.classrooms ? `· ${s.classrooms.grade_level}/${s.classrooms.name}` : ""}
                     </div>
                     {p.check_in_at && <div className="text-xs text-emerald-600 mt-0.5">เช็คอิน: {formatDT(p.check_in_at)}</div>}
                   </div>
