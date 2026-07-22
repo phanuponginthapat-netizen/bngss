@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
 
 type Shortcut = {
   id: string;
@@ -141,12 +142,10 @@ export default function BrowserShortcutsAdminPage() {
     try {
       const ext = file.name.split(".").pop() || "png";
       const path = `browser-shortcuts/${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from("cms-images").upload(path, file, {
+      const result = await uploadPublicFileWithFallback("cms-images", path, file, {
         cacheControl: "3600", upsert: false, contentType: file.type,
       });
-      if (error) throw error;
-      const { data } = supabase.storage.from("cms-images").getPublicUrl(path);
-      setEditing({ ...editing, logo_url: data.publicUrl });
+      setEditing({ ...editing, logo_url: result.publicUrl });
       toast.success(L("อัปโหลดแล้ว", "Uploaded"));
     } catch (e: any) {
       toast.error(e.message || String(e));
