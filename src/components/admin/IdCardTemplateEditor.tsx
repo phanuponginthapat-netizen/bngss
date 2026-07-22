@@ -123,7 +123,11 @@ const IdCardTemplateEditor = () => {
       }
       qc.invalidateQueries({ queryKey: ["id_card_settings"] });
       qc.invalidateQueries({ queryKey: ["id_card_settings_editor_rows"] });
-      toast.success("บันทึกต้นแบบบัตรสำเร็จ");
+      // ✅ ต้อง invalidate bulk cache ด้วย — useIdCardSettings อ่านจาก cms_settings_bulk (มี localStorage TTL 24 ชม.)
+      qc.invalidateQueries({ queryKey: ["cms_settings_bulk"] });
+      await qc.refetchQueries({ queryKey: ["cms_settings_bulk"] });
+      try { localStorage.removeItem("cms_settings_bulk_v1"); } catch { /* noop */ }
+      toast.success("บันทึกต้นแบบบัตรสำเร็จ — พร้อมใช้พิมพ์บัตรทันที");
     } catch (err: any) {
       toast.error(err.message || "เกิดข้อผิดพลาด");
     }
