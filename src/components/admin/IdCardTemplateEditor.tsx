@@ -123,7 +123,11 @@ const IdCardTemplateEditor = () => {
       }
       qc.invalidateQueries({ queryKey: ["id_card_settings"] });
       qc.invalidateQueries({ queryKey: ["id_card_settings_editor_rows"] });
-      toast.success("บันทึกต้นแบบบัตรสำเร็จ");
+      // ✅ ต้อง invalidate bulk cache ด้วย — useIdCardSettings อ่านจาก cms_settings_bulk (มี localStorage TTL 24 ชม.)
+      qc.invalidateQueries({ queryKey: ["cms_settings_bulk"] });
+      await qc.refetchQueries({ queryKey: ["cms_settings_bulk"] });
+      try { localStorage.removeItem("cms_settings_bulk_v1"); } catch { /* noop */ }
+      toast.success("บันทึกต้นแบบบัตรสำเร็จ — พร้อมใช้พิมพ์บัตรทันที");
     } catch (err: any) {
       toast.error(err.message || "เกิดข้อผิดพลาด");
     }
@@ -132,20 +136,33 @@ const IdCardTemplateEditor = () => {
   };
 
   const uploadImage = async (file: File, type: "logo" | "logo2" | "logo3" | "bg" | "bodybg") => {
-    const { compressImage } = await import("@/lib/imageCompress");
-    const isLogo = type !== "bg" && type !== "bodybg";
-    const compressed = await compressImage(file, { maxWidth: 1024, maxSizeKB: 100, mimeType: isLogo ? "image/png" : "image/jpeg" });
-    const fileName = `id-card/${type}_${Date.now()}_${compressed.name}`;
-    const result = await uploadPublicFileWithFallback("cms-images", fileName, compressed, { upsert: true });
-    const fieldMap: Record<string, keyof CardSettings> = {
-      logo: "logo_url",
-      logo2: "logo_url_2",
-      logo3: "logo_url_3",
-      bg: "bg_image_url",
-      bodybg: "body_bg_image_url",
-    };
-    update(fieldMap[type], result.publicUrl);
-    toast.success(result.usedFallback ? "เพิ่มรูปสำเร็จ (โหมดสำรอง)" : "อัปโหลดสำเร็จ");
+    const __tid_up = toast.loading("กำลังอัปโหลดรูป...");
+    try {
+      const { compressImage } = await import("@/lib/imageCompress");
+      const isLogo = type !== "bg" && type !== "bodybg";
+      const compressed = await compressImage(file, { maxWidth: 1024, maxSizeKB: 100, mimeType: isLogo ? "image/png" : "image/jpeg" });
+      const fileName = `id-card/${type}_${Date.now()}_${compressed.name}`;
+      const result = await uploadPublicFileWithFallback("cms-images", fileName, compressed, { upsert: true });
+      const fieldMap: Record<string, keyof CardSettings> = {
+        logo: "logo_url",
+        logo2: "logo_url_2",
+        logo3: "logo_url_3",
+        bg: "bg_image_url",
+        bodybg: "body_bg_image_url",
+      };
+      update(fieldMap[type], result.publicUrl);
+      toast.dismiss(__tid_up);
+      toast.success(result.usedFallback ? "เพิ่มรูปสำเร็จ (โหมดสำรอง)" : "อัปโหลดสำเร็จ — อย่าลืมกด บันทึก");
+    } catch (err: any) {
+      toast.dismiss(__tid_up);
+      console.error("[IdCard upload]", err);
+      const msg = err?.message || String(err);
+      if (/row-level security|not authorized|permission/i.test(msg)) {
+        toast.error("อัปโหลดไม่ได้ — ต้องเป็นผู้ดูแลระบบเท่านั้น");
+      } else {
+        toast.error(`อัปโหลดล้มเหลว: ${msg}`);
+      }
+    }
   };
 
   const update = (field: keyof CardSettings, value: string) => {
