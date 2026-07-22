@@ -19,6 +19,15 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
+  const runStart = Date.now();
+  const startedAt = new Date().toISOString();
+  const { data: runRow } = await supabase
+    .from("district_snapshot_runs")
+    .insert({ status: "running", started_at: startedAt, triggered_by: "cron" })
+    .select("id")
+    .single();
+  const runId = runRow?.id as string | undefined;
+
   try {
     // Only schools that consented to central hub feed
     const { data: schools } = await supabase
