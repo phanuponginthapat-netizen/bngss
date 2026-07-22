@@ -8,6 +8,7 @@ import { useAuthSession } from "@/hooks/useAuthSession";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import CreditFooter from "@/components/CreditFooter";
+import HomepagePopup from "@/components/cms/HomepagePopup";
 
 
 // Sanitize CMS-authored HTML before injecting into the public landing page
