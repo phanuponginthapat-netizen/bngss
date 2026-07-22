@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Heart, ThumbsUp, MessageCircle, Image as ImageIcon, Send, Trash2, Youtube } from "lucide-react";
+import { Heart, ThumbsUp, MessageCircle, Image as ImageIcon, Send, Trash2, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { detectMediaTypeFromUrl } from "@/lib/media";
 import MediaRenderer from "./MediaRenderer";
@@ -40,6 +40,12 @@ const initials = (a?: any) =>
 const fullName = (a?: any) =>
   `${a?.first_name ?? ""} ${a?.last_name ?? ""}`.trim() || "ผู้ใช้";
 
+interface StagedMedia {
+  path: string;      // storage path
+  previewUrl: string; // local blob URL for preview
+  file: File;
+}
+
 export default function WallFeed({ profileUserId }: { profileUserId?: string }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [posts, setPosts] = useState<WallPost[]>([]);
@@ -47,18 +53,18 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
   const [content, setContent] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [posting, setPosting] = useState(false);
+  const [staged, setStaged] = useState<StagedMedia[]>([]);
+  const [uploading, setUploading] = useState(false);
   const { isAdmin: _rawA, isDirector: _rawD } = useUserRole(); const isAdmin = _rawA || _rawD;
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
   }, []);
 
-  // Resolve a media value to a usable URL. If it already looks like a URL/data/blob,
-  // pass through (compat for legacy rows with stored signed URLs); otherwise sign the storage path.
   const resolveMediaUrl = async (val: string): Promise<string> => {
     if (!val) return val;
     if (/^(https?:|data:|blob:)/.test(val)) return val;
-    const { data } = await supabase.storage.from("wall-media").createSignedUrl(val, 60 * 60); // 1h
+    const { data } = await supabase.storage.from("wall-media").createSignedUrl(val, 60 * 60);
     return data?.signedUrl || val;
   };
 
@@ -78,7 +84,6 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
       }))
     ) as WallPost[];
 
-    // fetch authors via public profile rpc
     const ids = Array.from(new Set(list.map((p) => p.author_id)));
     const authors = new Map<string, any>();
     await Promise.all(
@@ -89,7 +94,6 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
       })
     );
 
-    // my reactions
     let myReactions = new Map<string, string>();
     if (userId && list.length) {
       const { data: rxs } = await supabase
@@ -118,9 +122,36 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, profileUserId]);
 
+  const stageFiles = async (files: FileList | null) => {
+    if (!files || !userId) return;
+    setUploading(true);
+    try {
+      const out: StagedMedia[] = [];
+      for (const file of Array.from(files)) {
+        const path = sanitizeStorageKey(`${userId}/${Date.now()}-${file.name}`);
+        const { error: upErr } = await supabase.storage.from("wall-media").upload(path, file);
+        if (upErr) { toast.error(upErr.message); continue; }
+        out.push({ path, previewUrl: URL.createObjectURL(file), file });
+      }
+      setStaged((prev) => [...prev, ...out]);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeStaged = async (idx: number) => {
+    const item = staged[idx];
+    if (!item) return;
+    URL.revokeObjectURL(item.previewUrl);
+    // best-effort cleanup from storage
+    supabase.storage.from("wall-media").remove([item.path]).catch(() => {});
+    setStaged((prev) => prev.filter((_, i) => i !== idx));
+  };
+
   const submit = async () => {
     if (!userId) return toast.error("กรุณาเข้าสู่ระบบ");
-    if (!content.trim() && !linkUrl.trim()) return toast.error("เพิ่มข้อความหรือลิงก์");
+    if (!content.trim() && !linkUrl.trim() && staged.length === 0)
+      return toast.error("เพิ่มข้อความ ลิงก์ หรือรูป/วิดีโอ");
     setPosting(true);
     const link_type = linkUrl ? detectMediaTypeFromUrl(linkUrl) : null;
     const { error } = await supabase.from("wall_posts").insert({
@@ -128,35 +159,21 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
       content: content.trim() || null,
       link_url: linkUrl.trim() || null,
       link_type,
+      media_urls: staged.map((s) => s.path),
     });
     setPosting(false);
     if (error) return toast.error(error.message);
+    staged.forEach((s) => URL.revokeObjectURL(s.previewUrl));
+    setStaged([]);
     setContent("");
     setLinkUrl("");
     toast.success("โพสต์เรียบร้อย");
-  };
-
-  const uploadImage = async (file: File) => {
-    if (!userId) return;
-    const path = sanitizeStorageKey(`${userId}/${Date.now()}-${file.name}`);
-    const { error: upErr } = await supabase.storage.from("wall-media").upload(path, file);
-    if (upErr) return toast.error(upErr.message);
-    // Store the storage path (not a signed URL) so we can re-sign on read and avoid 365-day expiry.
-    const { error: insErr } = await supabase.from("wall_posts").insert({
-      author_id: userId,
-      content: content.trim() || null,
-      media_urls: [path],
-    });
-    if (insErr) return toast.error(insErr.message);
-    setContent("");
-    toast.success("อัปโหลดรูปภาพแล้ว");
   };
 
   const react = async (post: WallPost, type: string) => {
     if (!userId) return toast.error("กรุณาเข้าสู่ระบบ");
     const wasType = post.my_reaction;
     const removing = wasType === type;
-    // Optimistic UI
     setPosts((prev) =>
       prev.map((p) =>
         p.id === post.id
@@ -192,7 +209,6 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
 
   return (
     <div className="space-y-4">
-      {/* Composer */}
       {userId && !profileUserId && (
         <Card>
           <CardContent className="p-4 space-y-3">
@@ -202,6 +218,29 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
               onChange={(e) => setContent(e.target.value)}
               rows={3}
             />
+
+            {staged.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {staged.map((s, i) => (
+                  <div key={i} className="relative rounded-lg overflow-hidden border bg-muted/30 aspect-video">
+                    {s.file.type.startsWith("video/") ? (
+                      <video src={s.previewUrl} className="w-full h-full object-cover" muted />
+                    ) : (
+                      <img src={s.previewUrl} alt="preview" className="w-full h-full object-cover" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeStaged(i)}
+                      className="absolute top-1 right-1 bg-background/80 hover:bg-background rounded-full p-1 shadow"
+                      aria-label="ลบไฟล์แนบ"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-2">
               <Input
                 placeholder="แนบลิงก์ YouTube / Drive / เว็บไซต์ (ไม่บังคับ)"
@@ -213,14 +252,18 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
                 <input
                   type="file"
                   accept="image/*,video/*"
+                  multiple
                   className="hidden"
-                  onChange={(e) => e.target.files?.[0] && uploadImage(e.target.files[0])}
+                  onChange={(e) => { stageFiles(e.target.files); e.target.value = ""; }}
                 />
-                <Button asChild size="sm" variant="outline">
-                  <span><ImageIcon className="w-4 h-4 mr-1" />รูป/วิดีโอ</span>
+                <Button asChild size="sm" variant="outline" disabled={uploading}>
+                  <span>
+                    {uploading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <ImageIcon className="w-4 h-4 mr-1" />}
+                    รูป/วิดีโอ
+                  </span>
                 </Button>
               </label>
-              <Button size="sm" onClick={submit} disabled={posting}>
+              <Button size="sm" onClick={submit} disabled={posting || uploading}>
                 <Send className="w-4 h-4 mr-1" />โพสต์
               </Button>
             </div>
@@ -292,7 +335,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
               </div>
             </div>
 
-            <CommentSection postId={p.id} userId={userId} />
+            <CommentSection postId={p.id} userId={userId} commentCount={p.comment_count} />
           </CardContent>
         </Card>
       ))}
@@ -300,10 +343,13 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
   );
 }
 
-function CommentSection({ postId, userId }: { postId: string; userId: string | null }) {
-  const [open, setOpen] = useState(false);
+const PREVIEW_LIMIT = 2;
+
+function CommentSection({ postId, userId, commentCount }: { postId: string; userId: string | null; commentCount: number }) {
+  const [expanded, setExpanded] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [text, setText] = useState("");
+  const [loaded, setLoaded] = useState(false);
 
   const load = async () => {
     const { data } = await supabase
@@ -322,11 +368,16 @@ function CommentSection({ postId, userId }: { postId: string; userId: string | n
       })
     );
     setComments(list.map((c) => ({ ...c, author: authors.get(c.user_id) })));
+    setLoaded(true);
   };
 
+  // Load a preview automatically (FB-style) whenever the post has comments.
   useEffect(() => {
-    if (!open) return;
-    load();
+    if (commentCount > 0) load();
+    // eslint-disable-next-line
+  }, [commentCount, postId]);
+
+  useEffect(() => {
     const ch = supabase
       .channel(`comments-${postId}`)
       .on(
@@ -339,7 +390,7 @@ function CommentSection({ postId, userId }: { postId: string; userId: string | n
       supabase.removeChannel(ch);
     };
     // eslint-disable-next-line
-  }, [open, postId]);
+  }, [postId]);
 
   const submit = async () => {
     if (!userId || !text.trim()) return;
@@ -350,37 +401,47 @@ function CommentSection({ postId, userId }: { postId: string; userId: string | n
     setText("");
   };
 
+  const visible = expanded ? comments : comments.slice(-PREVIEW_LIMIT);
+  const hiddenCount = comments.length - visible.length;
+
   return (
-    <div>
-      <Button size="sm" variant="ghost" onClick={() => setOpen((v) => !v)}>
-        <MessageCircle className="w-4 h-4 mr-1" />
-        {open ? "ซ่อนความคิดเห็น" : "แสดงความคิดเห็น"}
-      </Button>
-      {open && (
-        <div className="mt-2 space-y-2">
-          {comments.map((c) => (
-            <div key={c.id} className="flex gap-2 items-start text-sm">
-              <Avatar className="w-7 h-7">
-                <AvatarImage src={c.author?.avatar_url ?? undefined} />
-                <AvatarFallback className="text-[10px]">{initials(c.author)}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 bg-muted/40 rounded-lg px-3 py-2">
-                <p className="font-medium text-xs">{fullName(c.author)}</p>
-                <p className="whitespace-pre-wrap">{c.content}</p>
-              </div>
-            </div>
-          ))}
-          {userId && (
-            <div className="flex gap-2">
-              <Input
-                placeholder="เขียนความคิดเห็น..."
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), submit())}
-              />
-              <Button size="sm" onClick={submit}><Send className="w-4 h-4" /></Button>
-            </div>
-          )}
+    <div className="space-y-2">
+      {loaded && hiddenCount > 0 && (
+        <Button size="sm" variant="ghost" className="h-auto px-1 py-1 text-xs" onClick={() => setExpanded(true)}>
+          <MessageCircle className="w-3.5 h-3.5 mr-1" />
+          ดูความคิดเห็นก่อนหน้าอีก {hiddenCount} ความคิดเห็น
+        </Button>
+      )}
+      {visible.map((c) => (
+        <div key={c.id} className="flex gap-2 items-start text-sm">
+          <Avatar className="w-7 h-7">
+            <AvatarImage src={c.author?.avatar_url ?? undefined} />
+            <AvatarFallback className="text-[10px]">{initials(c.author)}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1 bg-muted/50 rounded-2xl px-3 py-2">
+            <p className="font-medium text-xs">{fullName(c.author)}</p>
+            <p className="whitespace-pre-wrap text-sm">{c.content}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {new Date(c.created_at).toLocaleString("th-TH", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" })}
+            </p>
+          </div>
+        </div>
+      ))}
+      {expanded && comments.length > PREVIEW_LIMIT && (
+        <Button size="sm" variant="ghost" className="h-auto px-1 py-1 text-xs" onClick={() => setExpanded(false)}>
+          ย่อความคิดเห็น
+        </Button>
+      )}
+      {userId && (
+        <div className="flex gap-2 pt-1">
+          <Input
+            placeholder="เขียนความคิดเห็น..."
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), submit())}
+            className="rounded-full"
+          />
+          <Button size="sm" onClick={submit} className="rounded-full"><Send className="w-4 h-4" /></Button>
         </div>
       )}
     </div>
