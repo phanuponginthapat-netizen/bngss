@@ -33,7 +33,7 @@ export default function PublicNavbar() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("cms_nav_menu")
         .select("*")
         .eq("is_published", true)

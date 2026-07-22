@@ -6,7 +6,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 export default function FaqPage() {
   const [rows, setRows] = useState<any[]>([]);
   useEffect(() => {
-    supabase.from("cms_faqs").select("*").eq("is_published", true).order("sort_order").then(({ data }) => setRows(data || []));
+    (supabase as any).from("cms_faqs").select("*").eq("is_published", true).order("sort_order").then(({ data }: any) => setRows(data || []));
   }, []);
 
   return (
