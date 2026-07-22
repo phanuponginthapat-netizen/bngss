@@ -159,9 +159,10 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         ))}
-        <SidebarAccountFooter />
       </SidebarContent>
+      <SidebarAccountFooter />
     </Sidebar>
+
 
   );
 
@@ -979,9 +980,10 @@ export function AppSidebar() {
         )}
           </>
         )}
-        <SidebarAccountFooter />
       </SidebarContent>
+      <SidebarAccountFooter />
     </Sidebar>
+
 
   );
 }
