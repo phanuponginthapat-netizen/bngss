@@ -266,7 +266,7 @@ async function findLinkedUser(sb: any, lineUserId: string) {
       .maybeSingle();
     const { data: roles } = await sb.from("user_roles").select("role").eq("user_id", profile.id);
     const roleList: string[] = (roles || []).map((r: any) => r.role);
-    const isAdmin = roleList.some((r) => ["admin", "director", "super_admin"].includes(r));
+    const isAdmin = roleList.some((r) => ["admin", "director"].includes(r));
     return { type: "teacher" as const, ...profile, prefix: personnel?.prefix, position: personnel?.position, department: personnel?.department, personnel_id: personnel?.id, roles: roleList, isAdmin };
   }
   return null;
@@ -348,7 +348,7 @@ async function handleLinkCommand(sb: any, token: string, rt: string, code: strin
       const { data: rlist } = await sb.from("user_roles").select("role").eq("user_id", prof.id);
       const rr = (rlist || []).map((x: any) => x.role);
       const menuKey = rr.includes("director") ? "line_richmenu_director"
-        : (rr.includes("admin") || rr.includes("super_admin")) ? "line_richmenu_admin"
+        : (rr.includes("admin") ) ? "line_richmenu_admin"
         : "line_richmenu_teacher";
       if (richMenus[menuKey]) await linkRichMenuToUser(token, lineUserId, richMenus[menuKey]);
       else if (richMenus.line_richmenu_teacher) await linkRichMenuToUser(token, lineUserId, richMenus.line_richmenu_teacher);
@@ -1813,7 +1813,7 @@ serve(async (req) => {
             linked = uid ? await findLinkedUser(sb, uid) : null;
             const roles: string[] = ((linked as any)?.roles || []) as string[];
             const isDirector = roles.includes("director");
-            const isAdminRole = roles.includes("admin") || roles.includes("super_admin");
+            const isAdminRole = roles.includes("admin");
             const menuKey = isDirector ? "line_richmenu_director"
               : isAdminRole ? "line_richmenu_admin"
               : linked?.type === "teacher" ? "line_richmenu_teacher"

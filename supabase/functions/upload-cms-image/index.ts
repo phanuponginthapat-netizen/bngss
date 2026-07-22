@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 
-const ADMIN_ROLES = ["admin", "director", "super_admin", "school_admin"];
+const ADMIN_ROLES = ["admin", "director"];
 const ALLOWED_BUCKETS = new Set(["cms-images"]);
 const MAX_BYTES = 5 * 1024 * 1024;
 
