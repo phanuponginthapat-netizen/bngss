@@ -349,7 +349,10 @@ const TimeClockPage = () => {
       const radius = parseFloat(gpsSettings?.clock_radius || "200");
 
       let userLat = 0, userLng = 0;
-      if (enforceGps && schoolLat && schoolLng) {
+      if (offsiteMode) {
+        // ปฏิบัติงานนอกพื้นที่ — พยายามอ่านพิกัดเพื่อ log แต่ไม่บล็อก
+        try { const pos = await getCurrentPosition(); userLat = pos.coords.latitude; userLng = pos.coords.longitude; } catch { /* เงียบ */ }
+      } else if (enforceGps && schoolLat && schoolLng) {
         try {
           const pos = await getCurrentPosition();
           userLat = pos.coords.latitude;
@@ -359,7 +362,7 @@ const TimeClockPage = () => {
             setClockError({
               kind: "range",
               title: "อยู่นอกพิกัดที่กำหนด",
-              message: `คุณอยู่ห่างจากจุดลงเวลา ${Math.round(dist)} เมตร (อนุญาตไม่เกิน ${radius} เมตร) กรุณาเดินเข้ามาในพื้นที่แล้วกด "ลองใหม่"`,
+              message: `คุณอยู่ห่างจากจุดลงเวลา ${Math.round(dist)} เมตร (อนุญาตไม่เกิน ${radius} เมตร) — ถ้ากำลังปฏิบัติงานนอกโรงเรียน กรุณาเปิดโหมด "ปฏิบัติงานนอกพื้นที่" แทน`,
             });
             setSaving(false);
             return;
@@ -368,13 +371,12 @@ const TimeClockPage = () => {
           setClockError({
             kind: "gps",
             title: "ไม่สามารถดึงตำแหน่ง GPS",
-            message: "กรุณาเปิดการเข้าถึงตำแหน่ง (Location) ในเบราว์เซอร์/อุปกรณ์ แล้วกด \"ลองใหม่\"\n\nหรือให้ผู้ดูแลปิดสวิตช์บังคับใช้ GPS ในหน้า \"ตำแหน่งและรัศมีโรงเรียน\" หากพื้นที่นี้สัญญาณ GPS ไม่นิ่ง",
+            message: "กรุณาเปิดการเข้าถึงตำแหน่ง (Location) ในเบราว์เซอร์/อุปกรณ์ แล้วกด \"ลองใหม่\"",
           });
           setSaving(false);
           return;
         }
       } else if (!enforceGps && schoolLat && schoolLng) {
-        // ปิดบังคับ GPS — พยายามอ่านพิกัดเพื่อเก็บ log แต่ไม่บล็อกถ้าอ่านไม่ได้
         try {
           const pos = await getCurrentPosition();
           userLat = pos.coords.latitude;
@@ -384,11 +386,12 @@ const TimeClockPage = () => {
         setClockError({
           kind: "gps",
           title: "ยังไม่ได้ตั้งค่าพิกัดโรงเรียน",
-          message: "ระบบยังไม่ได้กำหนดพิกัดที่อนุญาตให้ลงเวลา กรุณาติดต่อผู้ดูแลระบบ",
+          message: "ระบบยังไม่ได้กำหนดพิกัดที่อนุญาตให้ลงเวลา กรุณาติดต่อผู้ดูแลระบบ (หรือเปิดโหมดปฏิบัติงานนอกพื้นที่)",
         });
         setSaving(false);
         return;
       }
+
 
       // Find personnel
       const target = myPersonnel || (isAdmin ? null : null);
