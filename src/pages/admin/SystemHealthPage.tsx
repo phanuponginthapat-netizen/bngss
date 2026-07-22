@@ -68,16 +68,18 @@ export default function SystemHealthPage() {
     refetchInterval: 30_000,
   });
 
-  // Users online (last 5 min)
+  // Users active in the last 15 min (distinct users in audit_logs)
   const activeUsers = useQuery({
     queryKey: ["health-active-users"],
     queryFn: async () => {
-      const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
-      const { count } = await supabase
-        .from("profiles")
-        .select("id", { count: "exact", head: true })
-        .gte("last_seen_at", fiveMinAgo);
-      return count ?? 0;
+      const since = new Date(Date.now() - 15 * 60_000).toISOString();
+      const { data } = await supabase
+        .from("audit_logs")
+        .select("user_id")
+        .gte("created_at", since)
+        .not("user_id", "is", null);
+      const set = new Set((data || []).map((r: any) => r.user_id));
+      return set.size;
     },
     refetchInterval: 30_000,
   });
