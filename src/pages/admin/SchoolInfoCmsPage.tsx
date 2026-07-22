@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { showSuccess, showError } from "@/lib/swal";
+import swal from "@/lib/swal";
 import { Plus, Trash2, Save } from "lucide-react";
 import RichTextEditor from "@/components/cms/RichTextEditor";
 
@@ -59,8 +59,8 @@ function SectionEditor({ sectionKey, label, type }: { sectionKey: string; label:
     setSaving(true);
     const { error } = await (supabase as any).from("cms_school_info").upsert({ ...row, section_key: sectionKey }, { onConflict: "section_key" });
     setSaving(false);
-    if (error) showError("บันทึกไม่สำเร็จ", error.message);
-    else showSuccess("บันทึกแล้ว");
+    if (error) swal.fire({ icon: "error", title: "บันทึกไม่สำเร็จ", text: error.message });
+    else swal.fire({ icon: "success", title: "บันทึกแล้ว", timer: 1200, showConfirmButton: false });
   };
 
   if (!row) return <Card><CardContent className="p-6">กำลังโหลด...</CardContent></Card>;
@@ -78,7 +78,7 @@ function SectionEditor({ sectionKey, label, type }: { sectionKey: string; label:
         <div><Label>รูปหน้าปก (URL)</Label><Input value={row.cover_image || ""} onChange={(e) => setRow({ ...row, cover_image: e.target.value })} /></div>
 
         {type === "richtext" && (
-          <div><Label>เนื้อหา</Label><RichTextEditor value={content.body || ""} onChange={(v) => setContent({ body: v })} /></div>
+          <div><Label>เนื้อหา</Label><RichTextEditor content={content.body || ""} onChange={(v) => setContent({ body: v })} /></div>
         )}
         {type === "list" && (
           <div>
