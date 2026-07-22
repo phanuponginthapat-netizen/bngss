@@ -141,6 +141,12 @@ export const uploadPrivateFileWithFallback = async (
 
   if (!error) return { path, usedFallback: false };
 
+  if (CMS_ADMIN_BUCKETS.has(bucket) && isStoragePermissionError(error)) {
+    // Reuse admin backend upload; ignore the returned public URL for private buckets.
+    const result = await uploadCmsImageViaBackend(bucket, path, file, options);
+    return { path: result.path, usedFallback: true };
+  }
+
   if (!isStorageSchemaError(error)) {
     throw error;
   }
