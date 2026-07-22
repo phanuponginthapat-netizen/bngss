@@ -306,8 +306,9 @@ function TripDetail({ tripId, isAdmin, onBack }: { tripId: string; isAdmin: bool
                 <Button onClick={() => updateStatus("approved", { approved_at: new Date().toISOString() })} className="bg-emerald-600 hover:bg-emerald-700">อนุมัติ</Button>
                 <Button variant="destructive" onClick={async () => {
                   const reason = await swal.prompt("เหตุผลที่ไม่อนุมัติ");
-                  if (reason.isConfirmed && reason.value) updateStatus("rejected", { rejected_reason: reason.value });
+                  if (reason) updateStatus("rejected", { rejected_reason: reason });
                 }}>ไม่อนุมัติ</Button>
+
               </CardContent>
             )}
             {trip.status === "approved" && (
