@@ -612,7 +612,7 @@ const Index = () => {
                     {features.map((f, i) => {
                       const Icon = iconMap[f.icon] || Star;
                       return (
-                        <Card key={i} className="border-0 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group" style={{ animationDelay: `${i * 100}ms` }}>
+                        <Card key={i} className="border border-[#fecaca]/30 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-[#7dd3fc]/50 transition-all duration-300 rounded-3xl bg-white/90 group" style={{ animationDelay: `${i * 100}ms` }}>
                           <CardContent className="p-6">
                             <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 group-hover:scale-110 transition-all duration-300">
                               <Icon className="w-6 h-6 text-primary" />
@@ -658,7 +658,7 @@ const Index = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                     {newsPosts.slice(0, 6).map((n) => (
                       <Link key={n.id} to={`/dashboard/news/${n.id}`} className="group">
-                        <Card className="h-full border-0 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                        <Card className="h-full border border-[#fecaca]/30 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-[#7dd3fc]/50 transition-all duration-300 rounded-3xl bg-white/90">
                           <CardContent className="p-5">
                             <div className="flex items-center gap-2 mb-3 flex-wrap">
                               {n.is_pinned && <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">📌 ปักหมุด</span>}
