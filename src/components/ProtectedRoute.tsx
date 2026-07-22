@@ -11,8 +11,9 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   const { isReady, session } = useAuthSession();
-  const { role, loading, userId } = useUserRole();
+  const { role, realRole, loading, userId } = useUserRole();
   const location = useLocation();
+
 
   // Check if user has linked their account (only matters for OAuth users)
   const { data: profile, isLoading: profileLoading } = useQuery({
