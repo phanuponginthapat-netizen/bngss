@@ -10,7 +10,8 @@ import { toast } from "sonner";
 import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
 import {
   Upload, Plus, Trash2, GripVertical,
-  PanelTop, Image as ImageIcon, BarChart3, LayoutGrid, Megaphone, PanelBottom, Code2, ArrowUpDown
+  PanelTop, Image as ImageIcon, BarChart3, LayoutGrid, Megaphone, PanelBottom, Code2, ArrowUpDown,
+  User as UserIcon, Link2, Film, Bell
 } from "lucide-react";
 import RichTextEditor from "./RichTextEditor";
 import FullHtmlEditor from "./FullHtmlEditor";
@@ -26,9 +27,13 @@ import { CSS } from "@dnd-kit/utilities";
 const SECTION_DEFS: { key: string; label: string }[] = [
   { key: "stats", label: "แถบสถิติ (Stats Bar)" },
   { key: "banner", label: "ภาพประชาสัมพันธ์ (Banner Carousel)" },
+  { key: "director", label: "สารจากผู้บริหาร (Director)" },
+  { key: "quicklinks", label: "บริการด่วน (Quick Links)" },
   { key: "content", label: "เนื้อหาหน้าแรก (Rich Content)" },
   { key: "page_content", label: "เนื้อหาจากหน้า CMS (home page)" },
   { key: "features", label: "จุดเด่น / บริการ (Features)" },
+  { key: "gallery", label: "อัลบั้มภาพ (Gallery)" },
+  { key: "videos", label: "วิดีโอ (Videos)" },
   { key: "cta", label: "ส่วนเรียกร้อง (CTA)" },
   { key: "news", label: "ข่าวสารและประกาศ" },
   { key: "social", label: "Social Wall (Facebook)" },
@@ -764,6 +769,241 @@ const HomepageEditor = () => {
           </p>
         </CardContent>
       </Card>
+
+      {/* POPUP */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Bell className="w-4 h-4 text-primary" /> ป็อปอัพแจ้งเหตุการณ์สำคัญ (Popup)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Switch checked={get("popup_enabled", "false") === "true"} onCheckedChange={v => set("popup_enabled", v ? "true" : "false")} />
+            <Label>เปิดใช้งานป็อปอัพ</Label>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Popup ID (เปลี่ยนเพื่อแสดงใหม่ทุกคน)</Label>
+              <Input value={get("popup_id", "default")} onChange={e => set("popup_id", e.target.value)} placeholder="เช่น sports-day-2569" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>ความถี่การแสดง</Label>
+              <select className="w-full border border-border rounded-md px-2 py-2 text-sm bg-background"
+                value={get("popup_frequency", "session")}
+                onChange={e => set("popup_frequency", e.target.value)}>
+                <option value="always">แสดงทุกครั้งที่เปิดหน้า</option>
+                <option value="session">แสดงครั้งเดียวต่อ session</option>
+                <option value="once">แสดงครั้งเดียวตลอด (ต่อเครื่อง)</option>
+              </select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>หัวข้อประกาศ</Label>
+            <Input value={get("popup_title")} onChange={e => set("popup_title", e.target.value)} placeholder="เช่น แจ้งหยุดเรียน" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>รูปภาพประกอบ (ไม่บังคับ)</Label>
+            <div className="flex items-center gap-3">
+              {get("popup_image") && (
+                <img loading="lazy" src={get("popup_image")} className="w-24 h-16 rounded-lg object-cover border" alt="popup" />
+              )}
+              <Button size="sm" variant="outline" onClick={() => uploadImage("popup", url => set("popup_image", url))}>
+                <Upload className="w-4 h-4 mr-1" /> อัปโหลดรูป
+              </Button>
+              {get("popup_image") && (
+                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => set("popup_image", "")}>ลบ</Button>
+              )}
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>เนื้อหา (HTML)</Label>
+            <RichTextEditor content={get("popup_content")} onChange={html => set("popup_content", html)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>ข้อความปุ่ม (ไม่บังคับ)</Label>
+              <Input value={get("popup_button_text")} onChange={e => set("popup_button_text", e.target.value)} placeholder="เช่น ดูรายละเอียด" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>ลิงก์ปุ่ม</Label>
+              <Input value={get("popup_button_url")} onChange={e => set("popup_button_url", e.target.value)} placeholder="/page/... หรือ https://..." />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>วันหมดอายุ (ไม่บังคับ)</Label>
+            <Input type="datetime-local" value={get("popup_expires_at")} onChange={e => set("popup_expires_at", e.target.value)} />
+            <p className="text-xs text-muted-foreground">ถ้าเลยเวลานี้จะไม่แสดงป็อปอัพอีก</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* DIRECTOR MESSAGE */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <UserIcon className="w-4 h-4 text-primary" /> สารจากผู้บริหาร (Director)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Switch checked={get("show_director", "false") === "true"} onCheckedChange={v => set("show_director", v ? "true" : "false")} />
+            <Label>แสดงส่วนสารจากผู้บริหาร</Label>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>ชื่อผู้บริหาร</Label>
+              <Input value={get("director_name")} onChange={e => set("director_name", e.target.value)} placeholder="เช่น นายสมชาย ใจดี" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>ตำแหน่ง</Label>
+              <Input value={get("director_position", "ผู้อำนวยการโรงเรียน")} onChange={e => set("director_position", e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>รูปภาพ</Label>
+            <div className="flex items-center gap-3">
+              {get("director_photo") && (
+                <img loading="lazy" src={get("director_photo")} className="w-16 h-16 rounded-full object-cover ring-2 ring-border" alt="director" />
+              )}
+              <Button size="sm" variant="outline" onClick={() => uploadImage("director", url => set("director_photo", url))}>
+                <Upload className="w-4 h-4 mr-1" /> อัปโหลดรูป
+              </Button>
+              {get("director_photo") && (
+                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => set("director_photo", "")}>ลบ</Button>
+              )}
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>ข้อความ / สาร</Label>
+            <RichTextEditor content={get("director_message")} onChange={html => set("director_message", html)} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* QUICK LINKS */}
+      {(() => {
+        const links: { icon?: string; label: string; url: string; color?: string }[] = getJson("homepage_quicklinks", []);
+        const updateLink = (i: number, field: string, val: string) => {
+          const arr = [...links]; arr[i] = { ...arr[i], [field]: val }; setJson("homepage_quicklinks", arr);
+        };
+        const addLink = () => setJson("homepage_quicklinks", [...links, { icon: "Link", label: "", url: "" }]);
+        const removeLink = (i: number) => setJson("homepage_quicklinks", links.filter((_, idx) => idx !== i));
+        return (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Link2 className="w-4 h-4 text-primary" /> บริการด่วน (Quick Links)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Switch checked={get("show_quicklinks", "false") === "true"} onCheckedChange={v => set("show_quicklinks", v ? "true" : "false")} />
+                <Label>แสดงบริการด่วน</Label>
+              </div>
+              <div className="space-y-1.5">
+                <Label>หัวข้อหมวด</Label>
+                <Input value={get("quicklinks_title", "บริการด่วน")} onChange={e => set("quicklinks_title", e.target.value)} />
+              </div>
+              {links.map((l, i) => (
+                <div key={i} className="grid grid-cols-[100px_1fr_1fr_60px_40px] gap-2 items-center">
+                  <Input placeholder="Icon (Lucide)" value={l.icon || ""} onChange={e => updateLink(i, "icon", e.target.value)} />
+                  <Input placeholder="ป้ายชื่อ" value={l.label} onChange={e => updateLink(i, "label", e.target.value)} />
+                  <Input placeholder="URL (/... หรือ https://...)" value={l.url} onChange={e => updateLink(i, "url", e.target.value)} />
+                  <input type="color" value={l.color || "#7dd3fc"} onChange={e => updateLink(i, "color", e.target.value)} className="w-full h-9 rounded border cursor-pointer" />
+                  <Button variant="ghost" size="icon" onClick={() => removeLink(i)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                </div>
+              ))}
+              <Button variant="outline" size="sm" onClick={addLink}><Plus className="w-4 h-4 mr-1" /> เพิ่มลิงก์</Button>
+              <p className="text-xs text-muted-foreground">Icon: ชื่อ Lucide เช่น book-open, users, phone, mail, calendar, download, file-text</p>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* GALLERY */}
+      {(() => {
+        const items: { url: string; caption?: string }[] = getJson("homepage_gallery", []);
+        const updateItem = (i: number, field: string, val: string) => {
+          const arr = [...items]; arr[i] = { ...arr[i], [field]: val }; setJson("homepage_gallery", arr);
+        };
+        const removeItem = (i: number) => setJson("homepage_gallery", items.filter((_, idx) => idx !== i));
+        const addFromUpload = () => uploadImage("gallery", url => setJson("homepage_gallery", [...items, { url, caption: "" }]));
+        return (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-primary" /> อัลบั้มภาพ (Gallery)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Switch checked={get("show_gallery", "false") === "true"} onCheckedChange={v => set("show_gallery", v ? "true" : "false")} />
+                <Label>แสดงอัลบั้มภาพ</Label>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>หัวข้อ</Label>
+                  <Input value={get("gallery_title", "ภาพกิจกรรม")} onChange={e => set("gallery_title", e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>คำบรรยาย</Label>
+                  <Input value={get("gallery_subtitle", "รวมภาพความประทับใจของโรงเรียน")} onChange={e => set("gallery_subtitle", e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {items.map((g, i) => (
+                  <div key={i} className="border rounded-lg p-2 space-y-2">
+                    <img src={g.url} alt="" className="w-full h-24 object-cover rounded" />
+                    <Input placeholder="คำบรรยาย" value={g.caption || ""} onChange={e => updateItem(i, "caption", e.target.value)} className="text-xs" />
+                    <Button variant="ghost" size="sm" className="text-destructive w-full" onClick={() => removeItem(i)}>
+                      <Trash2 className="w-3 h-3 mr-1" /> ลบ
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <Button variant="outline" size="sm" onClick={addFromUpload}><Upload className="w-4 h-4 mr-1" /> เพิ่มภาพ</Button>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* VIDEOS */}
+      {(() => {
+        const items: { url: string; title?: string }[] = getJson("homepage_videos", []);
+        const updateItem = (i: number, field: string, val: string) => {
+          const arr = [...items]; arr[i] = { ...arr[i], [field]: val }; setJson("homepage_videos", arr);
+        };
+        const addItem = () => setJson("homepage_videos", [...items, { url: "", title: "" }]);
+        const removeItem = (i: number) => setJson("homepage_videos", items.filter((_, idx) => idx !== i));
+        return (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Film className="w-4 h-4 text-primary" /> วิดีโอ (YouTube)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Switch checked={get("show_videos", "false") === "true"} onCheckedChange={v => set("show_videos", v ? "true" : "false")} />
+                <Label>แสดงส่วนวิดีโอ</Label>
+              </div>
+              <div className="space-y-1.5">
+                <Label>หัวข้อ</Label>
+                <Input value={get("videos_title", "วิดีโอโรงเรียน")} onChange={e => set("videos_title", e.target.value)} />
+              </div>
+              {items.map((v, i) => (
+                <div key={i} className="grid grid-cols-[1fr_1fr_40px] gap-2 items-center">
+                  <Input placeholder="ชื่อวิดีโอ" value={v.title || ""} onChange={e => updateItem(i, "title", e.target.value)} />
+                  <Input placeholder="URL YouTube (เช่น https://youtu.be/...)" value={v.url} onChange={e => updateItem(i, "url", e.target.value)} />
+                  <Button variant="ghost" size="icon" onClick={() => removeItem(i)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                </div>
+              ))}
+              <Button variant="outline" size="sm" onClick={addItem}><Plus className="w-4 h-4 mr-1" /> เพิ่มวิดีโอ</Button>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* FOOTER */}
       <Card>

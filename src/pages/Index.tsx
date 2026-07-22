@@ -8,6 +8,7 @@ import { useAuthSession } from "@/hooks/useAuthSession";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import CreditFooter from "@/components/CreditFooter";
+import HomepagePopup from "@/components/cms/HomepagePopup";
 
 
 // Sanitize CMS-authored HTML before injecting into the public landing page
@@ -302,6 +303,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#fffaf5] dark:bg-background">
+      {isHome && <HomepagePopup />}
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 dark:bg-card/80 backdrop-blur-xl border-b border-[#fecaca]/40 dark:border-border/40 shadow-[0_1px_20px_-8px_rgba(249,168,168,0.35)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16 gap-4">
@@ -475,7 +477,7 @@ const Index = () => {
           })()}
 
           {(() => {
-            const defaultOrder = ["stats", "banner", "content", "page_content", "features", "cta", "news", "social", "embed"];
+            const defaultOrder = ["stats", "banner", "director", "quicklinks", "content", "page_content", "features", "gallery", "videos", "cta", "news", "social", "embed"];
             let order: string[] = defaultOrder;
             try {
               const saved = JSON.parse(get("homepage_sections_order", "[]"));
@@ -697,6 +699,140 @@ const Index = () => {
                   <SocialWallWidget title="" variant="bare" />
                 </section>
               ) : null,
+
+              director: (() => {
+                if (get("show_director", "false") !== "true") return null;
+                const name = get("director_name");
+                const position = get("director_position", "ผู้อำนวยการโรงเรียน");
+                const photo = get("director_photo");
+                const message = get("director_message");
+                if (!name && !photo && !message) return null;
+                return (
+                  <section ref={animateRef} className="max-w-5xl mx-auto px-4 py-14 scroll-animate opacity-0 translate-y-6">
+                    <Card className="border-0 shadow-2xl rounded-[2rem] bg-white/95 backdrop-blur-xl ring-1 ring-[#fecaca]/40 overflow-hidden">
+                      <CardContent className="p-0">
+                        <div className="grid md:grid-cols-[220px_1fr] gap-6 items-center p-6 sm:p-8">
+                          <div className="mx-auto md:mx-0 relative">
+                            <div className="w-40 h-40 sm:w-48 sm:h-48 rounded-full overflow-hidden ring-4 ring-white shadow-xl border-2 border-[#fecaca]/60 bg-gradient-to-br from-[#e0f2fe] to-[#fecaca]">
+                              {photo ? (
+                                <img src={photo} alt={name} className="w-full h-full object-cover" />
+                              ) : (
+                                <User className="w-full h-full p-8 text-[#0369a1]" />
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-center md:text-left">
+                            <div className="text-xs uppercase tracking-widest text-[#f9a8a8] font-semibold mb-1">สารจากผู้บริหาร</div>
+                            <h2 className="text-2xl sm:text-3xl font-bold text-foreground">{name}</h2>
+                            <p className="text-sm text-muted-foreground mb-4">{position}</p>
+                            {message && (
+                              <div
+                                className="prose prose-sm max-w-none text-muted-foreground leading-relaxed [&_p]:mb-2"
+                                dangerouslySetInnerHTML={{ __html: sanitizeCmsHtml(message) }}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </section>
+                );
+              })(),
+
+              quicklinks: (() => {
+                if (get("show_quicklinks", "false") !== "true") return null;
+                const items: { icon?: string; label: string; url: string; color?: string }[] = getJson("homepage_quicklinks", []);
+                if (!items.length) return null;
+                const title = get("quicklinks_title", "บริการด่วน");
+                return (
+                  <section ref={animateRef} className="max-w-6xl mx-auto px-4 py-12 scroll-animate opacity-0 translate-y-6">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-center text-foreground mb-8">{title}</h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                      {items.map((it, i) => {
+                        const Icon = resolveLucide(it.icon) || Star;
+                        const isExt = /^https?:\/\//i.test(it.url);
+                        const inner = (
+                          <div className="group flex flex-col items-center gap-2 p-4 rounded-2xl bg-white/95 border border-[#fecaca]/30 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-[#7dd3fc]/50 transition-all">
+                            <div
+                              className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform"
+                              style={{ background: it.color || "linear-gradient(135deg,#7dd3fc,#f9a8a8)" }}
+                            >
+                              <Icon className="w-7 h-7 text-white drop-shadow" />
+                            </div>
+                            <span className="text-xs sm:text-sm font-medium text-foreground text-center line-clamp-2">{it.label}</span>
+                          </div>
+                        );
+                        return isExt ? (
+                          <a key={i} href={it.url} target="_blank" rel="noopener noreferrer">{inner}</a>
+                        ) : (
+                          <Link key={i} to={it.url || "/"}>{inner}</Link>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })(),
+
+              gallery: (() => {
+                if (get("show_gallery", "false") !== "true") return null;
+                const items: { url: string; caption?: string }[] = getJson("homepage_gallery", []);
+                if (!items.length) return null;
+                const title = get("gallery_title", "ภาพกิจกรรม");
+                return (
+                  <section ref={animateRef} className="max-w-6xl mx-auto px-4 py-14 scroll-animate opacity-0 translate-y-6">
+                    <div className="text-center mb-8">
+                      <h2 className="text-3xl font-bold text-foreground mb-2">{title}</h2>
+                      <p className="text-sm text-muted-foreground">{get("gallery_subtitle", "รวมภาพความประทับใจของโรงเรียน")}</p>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {items.map((g, i) => (
+                        <a key={i} href={g.url} target="_blank" rel="noopener noreferrer" className="group relative aspect-square rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all">
+                          <img src={g.url} alt={g.caption || `รูปภาพ ${i + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                          {g.caption && (
+                            <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/70 to-transparent">
+                              <p className="text-white text-xs font-medium truncate">{g.caption}</p>
+                            </div>
+                          )}
+                        </a>
+                      ))}
+                    </div>
+                  </section>
+                );
+              })(),
+
+              videos: (() => {
+                if (get("show_videos", "false") !== "true") return null;
+                const items: { url: string; title?: string }[] = getJson("homepage_videos", []);
+                if (!items.length) return null;
+                const title = get("videos_title", "วิดีโอโรงเรียน");
+                const toEmbed = (u: string) => {
+                  const m = u.match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([\w-]{6,})/);
+                  return m ? `https://www.youtube.com/embed/${m[1]}` : u;
+                };
+                return (
+                  <section ref={animateRef} className="max-w-6xl mx-auto px-4 py-14 scroll-animate opacity-0 translate-y-6">
+                    <div className="text-center mb-8">
+                      <h2 className="text-3xl font-bold text-foreground mb-2">{title}</h2>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {items.map((v, i) => (
+                        <div key={i} className="rounded-2xl overflow-hidden shadow-lg bg-black">
+                          <div className="aspect-video">
+                            <iframe
+                              src={toEmbed(v.url)}
+                              title={v.title || `Video ${i + 1}`}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              className="w-full h-full border-0"
+                            />
+                          </div>
+                          {v.title && <div className="p-3 bg-white text-sm font-medium">{v.title}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                );
+              })(),
 
               embed: showCustomEmbed && customEmbedCode ? (
                 <section className="max-w-6xl mx-auto px-4 py-8">
