@@ -76,20 +76,18 @@ export function SocialWallWidget({
   const renderEmbed = ({ link, src }: { link: SocialLink; src: string }) => {
     const meta = SOCIAL_PLATFORMS[link.platform] ?? SOCIAL_PLATFORMS.website;
     const Icon = meta.icon;
-    // ใช้ fixed height ตรงกับขนาดจริงที่ผู้ให้บริการ render เพื่อไม่ให้เกิดพื้นที่ขาวเหลือ
-    const frameHeight =
-      link.platform === "youtube"
-        ? undefined
-        : link.platform === "tiktok"
-        ? 740
-        : 1000; // Facebook Page Plugin height=1000
+
+    // Native iframe size (ตามที่ผู้ให้บริการ render จริง)
+    const nativeW =
+      link.platform === "tiktok" ? 325 : link.platform === "facebook" ? 500 : 560;
+    const nativeH =
+      link.platform === "youtube" ? 315 : link.platform === "tiktok" ? 740 : 700;
 
     const useAspect = link.platform === "youtube";
     return (
       <div
         key={link.id}
-        className="group relative rounded-3xl overflow-hidden bg-card shadow-elevated hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 ring-1 ring-border/40 hover:ring-primary/30 mx-auto w-full"
-        style={{ maxWidth: link.platform === "youtube" ? undefined : 500 }}
+        className="group relative rounded-3xl overflow-hidden bg-card shadow-elevated hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 ring-1 ring-border/40 hover:ring-primary/30 w-full"
       >
         {/* Header เบลอ + gradient */}
         <div className={`relative flex items-center gap-2.5 px-4 py-2.5 bg-gradient-to-r ${meta.gradient} overflow-hidden`}>
@@ -115,25 +113,63 @@ export function SocialWallWidget({
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
         </div>
-        {/* iframe */}
-        <div
-          className="relative w-full bg-gradient-to-br from-muted/20 via-muted/10 to-muted/30"
-          style={useAspect ? { aspectRatio: "16 / 9" } : { height: frameHeight }}
-        >
-          <iframe
-            src={src}
-            title={link.label || meta.label}
-            className="absolute inset-0 w-full h-full"
-            loading="lazy"
-            frameBorder={0}
-            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-            allowFullScreen
-            referrerPolicy="no-referrer-when-downgrade"
-          />
-        </div>
+        {/* iframe: YouTube ใช้ aspect ratio, ที่เหลือ scale ให้เต็มความกว้าง container */}
+        {useAspect ? (
+          <div className="relative w-full bg-gradient-to-br from-muted/20 via-muted/10 to-muted/30" style={{ aspectRatio: "16 / 9" }}>
+            <iframe
+              src={src}
+              title={link.label || meta.label}
+              className="absolute inset-0 w-full h-full"
+              loading="lazy"
+              frameBorder={0}
+              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+              allowFullScreen
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+        ) : (
+          <div
+            className="relative w-full bg-gradient-to-br from-muted/20 via-muted/10 to-muted/30 overflow-hidden"
+            style={{ aspectRatio: `${nativeW} / ${nativeH}` }}
+          >
+            <iframe
+              src={src}
+              title={link.label || meta.label}
+              loading="lazy"
+              frameBorder={0}
+              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+              allowFullScreen
+              referrerPolicy="no-referrer-when-downgrade"
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: `${nativeW}px`,
+                height: `${nativeH}px`,
+                transformOrigin: "top left",
+                // scale ให้ iframe เต็มความกว้าง container (จริงๆคำนวณผ่าน CSS var)
+                transform: `scale(var(--embed-scale, 1))`,
+              }}
+              ref={(el) => {
+                if (!el) return;
+                const parent = el.parentElement;
+                if (!parent) return;
+                const apply = () => {
+                  const w = parent.clientWidth;
+                  const s = w / nativeW;
+                  parent.style.setProperty("--embed-scale", String(s));
+                };
+                apply();
+                const ro = new ResizeObserver(apply);
+                ro.observe(parent);
+              }}
+            />
+          </div>
+        )}
       </div>
     );
   };
+
 
 
   const List = (
