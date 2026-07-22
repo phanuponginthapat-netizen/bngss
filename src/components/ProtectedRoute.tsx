@@ -11,8 +11,9 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   const { isReady, session } = useAuthSession();
-  const { role, loading, userId } = useUserRole();
+  const { role, realRole, loading, userId } = useUserRole();
   const location = useLocation();
+
 
   // Check if user has linked their account (only matters for OAuth users)
   const { data: profile, isLoading: profileLoading } = useQuery({
@@ -59,7 +60,7 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(role)) {
+  if (allowedRoles && !allowedRoles.includes(role) && !(realRole && allowedRoles.includes(realRole))) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
         <h2 className="text-2xl font-bold text-destructive mb-2">ไม่มีสิทธิ์เข้าถึง</h2>
