@@ -167,6 +167,8 @@ const SalaryPage = lazy(() => import("./pages/hr/SalaryPage"));
 const IdPlanPage = lazy(() => import("./pages/hr/IdPlanPage"));
 const PersonnelAssessmentPage = lazy(() => import("./pages/hr/PersonnelAssessmentPage"));
 const TimeClockPage = lazy(() => import("./pages/hr/TimeClockPage"));
+const OffsiteTripsPage = lazy(() => import("./pages/student/OffsiteTripsPage"));
+
 
 const AttendanceDashboardPage = lazy(() => import("./pages/hr/AttendanceDashboardPage"));
 const SchoolLunchPage = lazy(() => import("./pages/admin/SchoolLunchPage"));
