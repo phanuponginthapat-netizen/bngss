@@ -386,6 +386,8 @@ const App = () => (
                 <Route path="student/homeroom" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["student_affairs","academic"]}><HomeroomPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="student/sdq" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["student_affairs"]}><SDQPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="student/home-visit" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><HomeVisitPage /></ProtectedRoute>} />
+                <Route path="student/offsite-trips" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><OffsiteTripsPage /></ProtectedRoute>} />
+
                 {/* General Admin */}
                 <Route path="admin" element={<Navigate to="/dashboard" replace />} />
                 <Route path="admin/news" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["general_admin"]}><NewsPage /></DepartmentRoute></ProtectedRoute>} />
