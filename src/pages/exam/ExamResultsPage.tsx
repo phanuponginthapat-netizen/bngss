@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,10 +6,21 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { resolveStorageUrl } from "@/lib/storageUrl";
 
 export default function ExamResultsPage() {
   const { id } = useParams();
   const [view, setView] = useState<any>(null);
+  const [signedUrl, setSignedUrl] = useState<string>("");
+
+  useEffect(() => {
+    if (view?.graded_image_url) {
+      resolveStorageUrl("exam-scans", view.graded_image_url).then(setSignedUrl);
+    } else {
+      setSignedUrl("");
+    }
+  }, [view?.graded_image_url]);
+
 
   const { data: exam } = useQuery({
     queryKey: ["exam", id],
@@ -68,7 +79,7 @@ export default function ExamResultsPage() {
       <Dialog open={!!view} onOpenChange={() => setView(null)}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader><DialogTitle>ภาพการตรวจ — {view?.student_name_snapshot || view?.student_code_detected}</DialogTitle></DialogHeader>
-          {view?.graded_image_url && <img src={view.graded_image_url} alt="graded" className="w-full" />}
+          {signedUrl && <img src={signedUrl} alt="graded" className="w-full" />}
         </DialogContent>
       </Dialog>
     </div>
