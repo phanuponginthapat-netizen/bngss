@@ -276,7 +276,7 @@ const DirectorDashboard = () => {
                 value={`${stats?.attendanceRate}%`}
                 gradient="gradient-success"
                 progress={parseFloat(stats?.attendanceRate || "0")}
-                onClick={() => navigate("/dashboard/student/face-scan")}
+                onClick={() => navigate("/dashboard/student/face-scan?tab=report")}
               />
               <KpiCard
                 icon={ClipboardList}
@@ -293,7 +293,7 @@ const DirectorDashboard = () => {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card onClick={() => navigate("/dashboard/student/face-scan")} className="border border-border/50 shadow-elevated rounded-2xl lg:col-span-2 cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
+        <Card onClick={() => navigate("/dashboard/student/face-scan?tab=report")} className="border border-border/50 shadow-elevated rounded-2xl lg:col-span-2 cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardHeader className="pb-0">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg gradient-success flex items-center justify-center">
@@ -327,7 +327,7 @@ const DirectorDashboard = () => {
           </CardContent>
         </Card>
 
-        <Card onClick={() => navigate("/dashboard/student/face-scan")} className="border border-border/50 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
+        <Card onClick={() => navigate("/dashboard/student/face-scan?tab=report")} className="border border-border/50 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardHeader className="pb-0">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center">
