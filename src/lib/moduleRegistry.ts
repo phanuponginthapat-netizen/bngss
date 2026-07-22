@@ -86,6 +86,7 @@ export const MODULES: ModuleDef[] = [
   { key: "district_feed", label: "District Feed API", labelEn: "District Feed", desc: "ส่งข้อมูลไปเขตพื้นที่การศึกษา", group: "integrations", urlPrefixes: ["/dashboard/admin/district-feed"] },
   { key: "analytics", label: "วิเคราะห์ข้อมูล", labelEn: "Analytics", desc: "วิเคราะห์ข้อมูลภาพรวมโรงเรียน", group: "integrations", urlPrefixes: ["/dashboard/admin/analytics"] },
   { key: "audit_log", label: "Audit Log", labelEn: "Audit Log", desc: "บันทึกการใช้งานระบบ", group: "integrations", urlPrefixes: ["/dashboard/admin/audit-log"] },
+  { key: "system_health", label: "สุขภาพระบบ", labelEn: "System Health", desc: "สถานะ AI, ผู้ใช้ออนไลน์, error logs", group: "integrations", urlPrefixes: ["/dashboard/admin/system-health"] },
   { key: "bulk_ops", label: "ทำทีละหลายคน (Bulk)", labelEn: "Bulk Ops", desc: "นำเข้า/แก้ไขข้อมูลทีละมาก", group: "integrations", urlPrefixes: ["/dashboard/admin/bulk-operations"] },
   { key: "id_cards", label: "บัตรประจำตัว", labelEn: "ID Cards", desc: "พิมพ์บัตรนักเรียนและบุคลากร", group: "integrations", urlPrefixes: ["/dashboard/admin/id-card", "/dashboard/admin/bulk-id", "/dashboard/admin/bulk-qr", "/dashboard/admin/qr"] },
   { key: "print_center", label: "ศูนย์งานพิมพ์", labelEn: "Print Center", desc: "พิมพ์เอกสารและบัตรรวมศูนย์", group: "integrations", urlPrefixes: ["/dashboard/admin/print-center"] },
