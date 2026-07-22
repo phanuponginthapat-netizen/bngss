@@ -488,14 +488,14 @@ const Index = () => {
 
             const sectionMap: Record<string, JSX.Element | null> = {
               stats: showStats && stats.length > 0 ? (
-                <section ref={animateRef} className="relative -mt-10 z-10 max-w-4xl mx-auto px-4 scroll-animate opacity-0 translate-y-6">
-                  <Card className="border-0 shadow-xl">
+                <section ref={animateRef} className="relative -mt-14 z-10 max-w-4xl mx-auto px-4 scroll-animate opacity-0 translate-y-6">
+                  <Card className="border-0 shadow-2xl rounded-[2rem] bg-white/95 backdrop-blur-xl ring-1 ring-[#fecaca]/40 overflow-hidden">
                     <CardContent className="p-0">
-                      <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-border">
+                      <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-[#fecaca]/40">
                         {stats.map((s, i) => (
-                          <div key={i} className="text-center py-6 px-4">
-                            <div className="text-3xl font-bold text-primary">{s.value}</div>
-                            <div className="text-sm text-muted-foreground mt-1">{s.label}</div>
+                          <div key={i} className="text-center py-7 px-4 relative group">
+                            <div className="text-3xl sm:text-4xl font-bold bg-gradient-to-br from-[#0ea5e9] to-[#f9a8a8] bg-clip-text text-transparent">{s.value}</div>
+                            <div className="text-sm text-muted-foreground mt-1.5 font-medium">{s.label}</div>
                           </div>
                         ))}
                       </div>
