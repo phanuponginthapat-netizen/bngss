@@ -8,12 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Trash2, Upload, Pencil, Search, Link2, UserCog } from "lucide-react";
+import { Plus, Trash2, Upload, Pencil, Search, Link2, UserCog, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { SubjectEditDialog } from "./SubjectEditDialog";
 import { ProxySubjectMapDialog } from "./ProxySubjectMapDialog";
 import { TeacherScheduleImportDialog } from "./TeacherScheduleImportDialog";
+import { CopySubjectsDialog } from "./CopySubjectsDialog";
 import { useUserRole } from "@/hooks/useUserRole";
 import { BE_OFFSET } from "@/lib/dateBE";
 
