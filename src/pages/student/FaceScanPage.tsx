@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,13 @@ import { useUserRole } from "@/hooks/useUserRole";
 const FaceScanPage = () => {
   const { isAdmin, isDirector } = useUserRole();
   const canManage = isAdmin || isDirector;
-  const [tab, setTab] = useState("qr");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") || "qr";
+  const [tab, setTab] = useState(initialTab);
+  const handleTabChange = (v: string) => {
+    setTab(v);
+    setSearchParams(v === "qr" ? {} : { tab: v }, { replace: true });
+  };
 
   const openKiosk = () => window.open("/face-kiosk", "_blank");
 
@@ -32,7 +39,7 @@ const FaceScanPage = () => {
         </div>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab} className="w-full">
+      <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
         <div className="w-full overflow-x-auto">
           <TabsList className={`inline-flex h-auto w-auto min-w-full sm:grid ${canManage ? "sm:grid-cols-7" : "sm:grid-cols-4"} sm:max-w-5xl gap-1`}>
             <TabsTrigger value="qr" className="gap-2 whitespace-nowrap">
