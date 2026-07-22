@@ -489,7 +489,7 @@ function AddStudentsPanel({ tripId, existingIds, onAdded }: { tripId: string; ex
                 <div key={s.id} className="p-2.5 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{s.first_name} {s.last_name}</div>
-                    <div className="text-xs text-muted-foreground">{s.student_id} · {s.current_grade}/{s.current_class}</div>
+                    <div className="text-xs text-muted-foreground">{s.student_code} {s.classrooms ? `· ${s.classrooms.grade_level}/${s.classrooms.name}` : ""}</div>
                   </div>
                   <Button size="sm" variant={already ? "ghost" : "default"} disabled={already} onClick={() => add(s.id)}>
                     {already ? "เพิ่มแล้ว" : "เพิ่ม"}
