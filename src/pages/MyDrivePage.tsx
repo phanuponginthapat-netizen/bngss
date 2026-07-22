@@ -29,6 +29,7 @@ import {
 import { toast } from "sonner";
 import { swal } from "@/lib/swal";
 import { useUserRole } from "@/hooks/useUserRole";
+import { DRIVE_RECONNECT_HINT, DRIVE_RECONNECT_REASON, isDriveCredentialMissingError } from "@/lib/googleDriveErrors";
 
 interface DriveFile {
   id: string;
@@ -109,6 +110,10 @@ function driveStatusCopy(status: string) {
     access_denied: {
       title: "ผู้ใช้ยกเลิกการอนุญาต",
       text: "ยังไม่ได้อนุญาตให้ระบบเข้าถึง Google Drive กรุณากดเชื่อมต่ออีกครั้งและยืนยันสิทธิ์ให้ครบ",
+    },
+    credential_missing: {
+      title: DRIVE_RECONNECT_REASON,
+      text: DRIVE_RECONNECT_HINT,
     },
     no_user: {
       title: "ไม่พบผู้ใช้ในระบบ",
@@ -197,6 +202,24 @@ export default function MyDrivePage() {
     }
   }, [loadConnection]);
 
+  const resetDriveConnectionState = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("app_user_connections").delete().eq("user_id", user.id).eq("connector_id", "google_drive");
+    }
+    setConnection(null);
+    setFiles([]);
+    setNextPageToken(undefined);
+    setBreadcrumb([{ id: "root", name: "My Drive" }]);
+    setLastOAuthStatus("error:credential_missing");
+    setActiveTab("files");
+  }, []);
+
+  const handleDriveReconnectRequired = useCallback(async () => {
+    await resetDriveConnectionState();
+    await swal.error(DRIVE_RECONNECT_REASON, DRIVE_RECONNECT_HINT);
+  }, [resetDriveConnectionState]);
+
   const fetchFiles = useCallback(async (folderId: string, q?: string, token?: string) => {
     setLoading(true);
     try {
@@ -225,12 +248,16 @@ export default function MyDrivePage() {
       setFiles((prev) => token ? [...prev, ...(parsed.files ?? [])] : parsed.files ?? []);
       setNextPageToken(parsed.nextPageToken);
     } catch (e: any) {
+      if (isDriveCredentialMissingError(e)) {
+        await handleDriveReconnectRequired();
+        return;
+      }
       toast.error("โหลดไฟล์ไม่สำเร็จ: " + (e.message ?? e));
     } finally {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [handleDriveReconnectRequired]);
 
   useEffect(() => {
     if (connection) fetchFiles(currentFolder.id);
@@ -315,6 +342,10 @@ export default function MyDrivePage() {
       const parsed = typeof data === "string" ? JSON.parse(data) : data;
       toast.success(`Drive พร้อมใช้งาน: ${parsed?.user?.emailAddress ?? "บัญชีนี้"}`);
     } catch (e: any) {
+      if (isDriveCredentialMissingError(e)) {
+        await handleDriveReconnectRequired();
+        return;
+      }
       toast.error("ทดสอบ Drive ไม่ผ่าน: " + (e.message ?? e));
     } finally {
       setTestingConnection(false);
@@ -354,7 +385,10 @@ export default function MyDrivePage() {
         },
         body: JSON.stringify({ path: `/files/${f.id}`, method: "GET", query: { alt: "media" } }),
       });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        throw new Error(text || `HTTP ${resp.status}`);
+      }
       const blob = await resp.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -362,6 +396,11 @@ export default function MyDrivePage() {
       URL.revokeObjectURL(url);
       toast.success("ดาวน์โหลดสำเร็จ", { id: "dl" });
     } catch (e: any) {
+      if (isDriveCredentialMissingError(e)) {
+        toast.dismiss("dl");
+        await handleDriveReconnectRequired();
+        return;
+      }
       toast.error("ดาวน์โหลดไม่สำเร็จ: " + (e.message ?? e), { id: "dl" });
     }
   };

@@ -1,5 +1,6 @@
 // Helpers for reading/writing files on the user's Google Drive via gdrive-proxy edge function.
 import { supabase } from "@/integrations/supabase/client";
+import { driveReconnectMessage, isDriveCredentialMissingError } from "@/lib/googleDriveErrors";
 
 const FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gdrive-proxy`;
 const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
@@ -19,8 +20,12 @@ async function callProxy(payload: unknown, binary = false): Promise<Response> {
     headers: await authHeaders(),
     body: JSON.stringify(payload),
   });
-  if (!res.ok && !binary) {
+  if (!res.ok) {
     const text = await res.text().catch(() => "");
+    if (isDriveCredentialMissingError(text || `Drive proxy error ${res.status}`)) {
+      throw new Error(driveReconnectMessage());
+    }
+    if (binary) return new Response(text, { status: res.status, statusText: res.statusText, headers: res.headers });
     throw new Error(text || `Drive proxy error ${res.status}`);
   }
   return res;
@@ -78,7 +83,10 @@ export async function downloadFile(fileId: string): Promise<ArrayBuffer> {
     method: "GET",
     query: { alt: "media" },
   }, true);
-  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Download failed: ${res.status}`);
+  }
   return res.arrayBuffer();
 }
 
