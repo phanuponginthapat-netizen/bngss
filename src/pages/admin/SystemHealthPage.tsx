@@ -1,14 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
   Activity, Users, KeyRound, AlertTriangle, Database,
-  Zap, ShieldCheck, RefreshCw, CheckCircle2, XCircle,
+  Zap, ShieldCheck, RefreshCw, CheckCircle2, XCircle, BellRing,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { swal } from "@/lib/swal";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type HealthStat = {
   label: string;
@@ -163,6 +166,121 @@ export default function SystemHealthPage() {
   const errorCount = errors.data ?? 0;
   const criticalAlert = errorCount > 50 || (poolStats.length > 0 && poolStats.every(p => p.status === "error"));
 
+  // --- Realtime alerts ---
+  type LiveEvent = { id: string; ts: string; severity: "warn" | "error"; title: string; detail?: string };
+  const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
+  const notifiedRef = useRef<Set<string>>(new Set());
+  const lastAdminNotifyRef = useRef<number>(0);
+
+  const pushEvent = (ev: LiveEvent) => {
+    setLiveEvents((prev) => [ev, ...prev].slice(0, 25));
+  };
+
+  const notifyAdminsThrottled = async (title: string, message: string, type = "system_alert") => {
+    const now = Date.now();
+    // Throttle DB notify: max 1 per 60 sec per session
+    if (now - lastAdminNotifyRef.current < 60_000) return;
+    lastAdminNotifyRef.current = now;
+    try {
+      await supabase.rpc("notify_admins" as any, {
+        _title: title,
+        _message: message,
+        _type: type,
+      });
+    } catch (err) {
+      console.warn("notify_admins failed:", err);
+    }
+  };
+
+  useEffect(() => {
+    const errorChan = supabase
+      .channel("health-error-logs")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "error_logs" },
+        (payload) => {
+          const row: any = payload.new;
+          const key = `err-${row.id}`;
+          if (notifiedRef.current.has(key)) return;
+          notifiedRef.current.add(key);
+          const title = row.error_type || row.source || "Error ใหม่";
+          const detail = (row.message || row.error_message || "").slice(0, 160);
+          pushEvent({
+            id: key,
+            ts: new Date().toISOString(),
+            severity: "error",
+            title,
+            detail,
+          });
+          swal.toast.error(`🚨 ${title}`);
+          notifyAdminsThrottled(`ระบบพบ Error: ${title}`, detail || "ตรวจสอบใน System Health", "system_error");
+          errors.refetch();
+        }
+      )
+      .subscribe();
+
+    const keyChan = supabase
+      .channel("health-ai-keys")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "ai_provider_keys" },
+        (payload) => {
+          const row: any = payload.new;
+          const prev: any = payload.old;
+          if (prev?.status === row?.status) return;
+          const key = `key-${row.id}-${row.status}`;
+          if (notifiedRef.current.has(key)) return;
+          notifiedRef.current.add(key);
+          if (row.status === "error" || row.status === "cooldown") {
+            const label = `${row.provider_type} — ${row.label || row.id.slice(0, 6)}`;
+            const msg = row.status === "error"
+              ? `AI Key ล้มเหลว: ${label}`
+              : `AI Key เข้าสู่ cooldown: ${label}`;
+            pushEvent({
+              id: key,
+              ts: new Date().toISOString(),
+              severity: row.status === "error" ? "error" : "warn",
+              title: msg,
+            });
+            (row.status === "error" ? swal.toast.error : swal.toast.warning)(msg);
+            if (row.status === "error") {
+              notifyAdminsThrottled(msg, "ตรวจสอบ AI Key Pool ทันที", "ai_key_down");
+            }
+          }
+          keys.refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(errorChan);
+      supabase.removeChannel(keyChan);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Threshold-based alerts (active users near cap, all providers down)
+  const alertedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const au = activeUsers.data ?? 0;
+    if (au > 250 && !alertedRef.current.has("au-high")) {
+      alertedRef.current.add("au-high");
+      swal.toast.warning(`⚠️ ผู้ใช้งาน active ${au} คน ใกล้ขีดจำกัด 300`);
+      notifyAdminsThrottled("ผู้ใช้งาน active ใกล้เต็ม", `ขณะนี้มี active ${au} คน`, "capacity_warning");
+    }
+    if (au <= 200) alertedRef.current.delete("au-high");
+  }, [activeUsers.data]);
+
+  useEffect(() => {
+    const allDown = poolStats.length > 0 && poolStats.every(p => p.status === "error");
+    if (allDown && !alertedRef.current.has("ai-all-down")) {
+      alertedRef.current.add("ai-all-down");
+      swal.toast.error("🚨 AI provider ทั้งหมดหยุดทำงาน");
+      notifyAdminsThrottled("AI provider ทั้งหมดหยุดทำงาน", "ไม่มี key ที่ active ในทุก provider", "ai_pool_down");
+    }
+    if (!allDown) alertedRef.current.delete("ai-all-down");
+  }, [poolStats]);
+
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-6xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -189,6 +307,50 @@ export default function SystemHealthPage() {
           </AlertDescription>
         </Alert>
       )}
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <BellRing className="w-4 h-4 text-primary" />
+            การแจ้งเตือนแบบ Real-time
+            <Badge variant="outline" className="ml-2 text-[10px]">LIVE</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {liveEvents.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-4 text-center">
+              ยังไม่มีเหตุการณ์ผิดปกติ — ระบบทำงานปกติ ✅
+            </div>
+          ) : (
+            <ScrollArea className="h-56">
+              <ul className="space-y-2 pr-2">
+                {liveEvents.map((ev) => (
+                  <li
+                    key={ev.id}
+                    className={`p-2 rounded-md border text-sm flex items-start gap-2 ${
+                      ev.severity === "error"
+                        ? "border-destructive/30 bg-destructive/5"
+                        : "border-amber-300/40 bg-amber-50 dark:bg-amber-950/20"
+                    }`}
+                  >
+                    {ev.severity === "error"
+                      ? <XCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                      : <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium truncate">{ev.title}</div>
+                      {ev.detail && <div className="text-xs text-muted-foreground truncate">{ev.detail}</div>}
+                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                        {new Date(ev.ts).toLocaleTimeString("th-TH")}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard
