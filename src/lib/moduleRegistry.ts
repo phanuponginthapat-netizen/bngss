@@ -97,6 +97,7 @@ export const MODULES: ModuleDef[] = [
   { key: "backup_external", label: "สำรองข้อมูลภายนอก", labelEn: "External Backup", desc: "Backup ไป Google Drive/S3", group: "integrations", urlPrefixes: ["/dashboard/admin/backup-external"] },
 
   // โมดูลเสริม
+  { key: "help", label: "ศูนย์ช่วยเหลือ", labelEn: "Help Center", desc: "คู่มือ FAQ และวิธีใช้งาน", group: "extras", urlPrefixes: ["/dashboard/help", "/help"] },
   { key: "garbage", label: "ธนาคารขยะ", labelEn: "Garbage Bank", desc: "สะสมแต้มขยะรีไซเคิลและของรางวัล", group: "extras", urlPrefixes: ["/dashboard/garbage"] },
   { key: "iot", label: "IoT อุปกรณ์อัจฉริยะ", labelEn: "IoT Smart Devices", desc: "อุปกรณ์ IoT ในโรงเรียน", group: "extras", urlPrefixes: ["/dashboard/iot"] },
   { key: "ict_loans", label: "ยืม-คืน ICT", labelEn: "ICT Loans", desc: "ยืม-คืนอุปกรณ์ ICT", group: "extras", urlPrefixes: ["/dashboard/admin/ict-loans", "/dashboard/admin/ict-loan-history", "/dashboard/admin/ict-devices", "/dashboard/admin/ict-loan-report"] },
