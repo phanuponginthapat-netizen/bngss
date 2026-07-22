@@ -125,6 +125,11 @@ export const SubjectsTab = ({ subjects, onUploadOpen }: SubjectsTabProps) => {
         )}
         {canEdit && <Button variant="outline" onClick={onUploadOpen}><Upload className="w-4 h-4 mr-2" /> อัปโหลดหลักสูตร</Button>}
         {canEdit && (
+          <Button variant="outline" onClick={() => setCopyOpen(true)}>
+            <Copy className="w-4 h-4 mr-2" /> คัดลอกไปภาคเรียนอื่น
+          </Button>
+        )}
+        {canEdit && (
           <Button variant="outline" onClick={() => setTeacherImportOpen(true)}>
             <UserCog className="w-4 h-4 mr-2" /> อัปโหลดตารางสอนรายครู
           </Button>
