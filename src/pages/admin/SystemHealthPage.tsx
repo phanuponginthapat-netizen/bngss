@@ -308,6 +308,50 @@ export default function SystemHealthPage() {
         </Alert>
       )}
 
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <BellRing className="w-4 h-4 text-primary" />
+            การแจ้งเตือนแบบ Real-time
+            <Badge variant="outline" className="ml-2 text-[10px]">LIVE</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {liveEvents.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-4 text-center">
+              ยังไม่มีเหตุการณ์ผิดปกติ — ระบบทำงานปกติ ✅
+            </div>
+          ) : (
+            <ScrollArea className="h-56">
+              <ul className="space-y-2 pr-2">
+                {liveEvents.map((ev) => (
+                  <li
+                    key={ev.id}
+                    className={`p-2 rounded-md border text-sm flex items-start gap-2 ${
+                      ev.severity === "error"
+                        ? "border-destructive/30 bg-destructive/5"
+                        : "border-amber-300/40 bg-amber-50 dark:bg-amber-950/20"
+                    }`}
+                  >
+                    {ev.severity === "error"
+                      ? <XCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                      : <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium truncate">{ev.title}</div>
+                      {ev.detail && <div className="text-xs text-muted-foreground truncate">{ev.detail}</div>}
+                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                        {new Date(ev.ts).toLocaleTimeString("th-TH")}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard
           icon={Users}
