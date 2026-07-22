@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Heart, MessageCircle, Trash2, Pin, Globe, Lock, Users } from "lucide-react";
 import { toast } from "sonner";
+import { swal } from "@/lib/swal";
 
 const fmtDate = (d: string) =>
   new Date(d).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
