@@ -6,7 +6,22 @@ export type UploadFallbackResult = {
   usedFallback: boolean;
 };
 
-const CMS_ADMIN_BUCKETS = new Set(["cms-images"]);
+// Buckets where an admin-only Edge Function fallback exists to bypass
+// client-side RLS errors when the current user is admin/director.
+const CMS_ADMIN_BUCKETS = new Set([
+  "cms-images",
+  "print-templates",
+  "game-covers",
+  "line-richmenu",
+  "document-files",
+  "padlet",
+  "wall-media",
+  "homework-files",
+  "portfolio",
+  "hub-projects",
+  "attendance-photos",
+  "face-photos",
+]);
 
 const isStorageSchemaError = (error: { name?: string; message?: string } | null | undefined) => {
   const message = `${error?.name ?? ""} ${error?.message ?? ""}`.toLowerCase();
