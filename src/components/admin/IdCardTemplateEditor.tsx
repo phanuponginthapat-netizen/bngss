@@ -45,8 +45,8 @@ interface CardSettings {
 }
 
 const DEFAULT_SETTINGS: CardSettings = {
-  school_name: "โรงเรียนสมาร์ทสคูล",
-  school_name_en: "Smart School",
+  school_name: "",
+  school_name_en: "",
   school_address: "",
   school_phone: "",
   header_color_from: "#1e40af",

@@ -31,25 +31,19 @@ import {
   type KioskMode,
 } from "@/lib/generateKioskScript";
 import { useCmsValue } from "@/hooks/useCmsSettings";
+import { guessPublicOrigin } from "@/lib/publicOrigin";
 
 export default function KioskSetupPage() {
   const schoolName = useCmsValue("school_name") || "โรงเรียน";
+  const cmsOrigin = useCmsValue("public_origin");
 
-  // ใช้ published URL เสมอ (ไม่ใช้ preview link ที่ต้อง login Lovable)
+  // Priority: CMS public_origin → real prod window origin → empty (admin must set it in CMS)
   const PUBLIC_ORIGIN = useMemo(() => {
-    const o = window.location.origin;
-    // ถ้าอยู่บน preview/editor/localhost → fallback เป็น published domain
-    if (
-      o.includes("id-preview--") ||
-      o.includes("lovableproject.com") ||
-      o.includes("lovable.dev") ||
-      o.includes("localhost") ||
-      o.includes("127.0.0.1")
-    ) {
-      return "https://bngss.lovable.app";
-    }
-    return o;
-  }, []);
+    const cms = (cmsOrigin || "").trim().replace(/\/+$/, "");
+    if (cms) return cms;
+    return guessPublicOrigin() || "";
+  }, [cmsOrigin]);
+
 
 
   const [mode, setMode] = useState<KioskMode>("door");

@@ -68,7 +68,7 @@ const ARTICLES: Article[] = [
   },
   {
     q: "Kiosk เปิดแล้วเด้งออกเอง?",
-    a: "ระบบมี auto-respawn ให้ ถ้ายังเด้ง ให้ตรวจ /var/log/kiosk.log และตรวจ URL ใน /opt/kiosk-setup.sh ต้องเป็น https://bngss.lovable.app/kiosk (ไม่ใช่ preview URL)",
+    a: "ระบบมี auto-respawn ให้ ถ้ายังเด้ง ให้ตรวจ /var/log/kiosk.log และตรวจ URL ใน /opt/kiosk-setup.sh ต้องเป็นโดเมนที่ตั้งไว้ที่ CMS → public_origin ตามด้วย /kiosk (ไม่ใช่ preview URL)",
     tags: ["Kiosk", "Linux"],
     audience: ["admin"],
   },
