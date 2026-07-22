@@ -30,6 +30,7 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { /* empty body ok */ }
 
   try {
+    const DEFAULT_EMAIL = await getAdminEmail();
     // Get all admins
     const { data: adminRows } = await admin
       .from("user_roles")
