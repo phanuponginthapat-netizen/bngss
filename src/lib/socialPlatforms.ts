@@ -235,8 +235,9 @@ export function getEmbedUrl(link: Pick<SocialLink, "platform" | "url">): string 
         return `https://www.facebook.com/plugins/post.php?href=${href}&width=500&show_text=true`;
       }
       const href = encodeURIComponent(url);
-      // ใช้ width/height สูงสุดที่ Page Plugin รองรับ (500x700) เพื่อให้เห็นโพสต์เต็มที่
-      return `https://www.facebook.com/plugins/page.php?href=${href}&tabs=timeline&width=500&height=700&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true`;
+      // Page Plugin: height สูงสุด ~1000px, width 500 (ค่าที่ Meta รองรับ) เพื่อโชว์โพสต์ได้เยอะ
+      return `https://www.facebook.com/plugins/page.php?href=${href}&tabs=timeline&width=500&height=1000&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true`;
+
     }
 
     if (link.platform === "tiktok") {
