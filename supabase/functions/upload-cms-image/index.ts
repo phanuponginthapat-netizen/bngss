@@ -100,7 +100,9 @@ Deno.serve(async (req) => {
 
     if (!ALLOWED_BUCKETS.has(bucket)) return json({ error: "bucket_not_allowed" }, 400);
     if (!rawPath || !base64) return json({ error: "path_and_file_required" }, 400);
-    if (!contentType.startsWith("image/")) return json({ error: "image_required" }, 400);
+    if (IMAGE_ONLY_BUCKETS.has(bucket) && !contentType.startsWith("image/")) {
+      return json({ error: "image_required" }, 400);
+    }
 
     const bytes = base64ToBytes(base64);
     if (bytes.byteLength > MAX_BYTES) return json({ error: "file_too_large" }, 413);
