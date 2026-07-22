@@ -13,7 +13,7 @@ interface Props {
 }
 
 export default function PublicPageLayout({ title, subtitle, breadcrumbs, children, cover }: Props) {
-  const { settings } = useSystemSettings();
+  const s = useSystemSettings();
   return (
     <div className="min-h-screen bg-[#fffaf5]">
       {/* decorative blobs */}
@@ -51,7 +51,7 @@ export default function PublicPageLayout({ title, subtitle, breadcrumbs, childre
 
       <footer className="border-t border-border/40 bg-background/60 backdrop-blur">
         <div className="mx-auto max-w-7xl px-4 py-8 text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} {settings?.school_name || "โรงเรียน"} · สงวนลิขสิทธิ์
+          © {new Date().getFullYear()} {s.schoolName || "โรงเรียน"} · สงวนลิขสิทธิ์
         </div>
         <CreditFooter />
       </footer>

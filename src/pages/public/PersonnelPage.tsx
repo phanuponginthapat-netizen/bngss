@@ -8,9 +8,17 @@ import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 
 interface P {
-  id: string; prefix?: string | null; first_name?: string | null; last_name?: string | null;
-  position_title?: string | null; position_level?: string | null; department?: string | null;
-  subject_group?: string | null; academic_standing?: string | null; avatar_url?: string | null;
+  id: string;
+  user_id?: string | null;
+  prefix?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  position_title?: string | null;
+  position_level?: string | null;
+  department?: string | null;
+  subject_group?: string | null;
+  academic_standing?: string | null;
+  avatar_url?: string | null;
 }
 
 export default function PersonnelPage() {
@@ -21,18 +29,14 @@ export default function PersonnelPage() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from("personnel")
-        .select("id, prefix, first_name, last_name, position_title, position_level, department, subject_group, academic_standing, avatar_url")
-        .order("sort_rank", { ascending: true, nullsFirst: false })
-        .order("last_name");
+      const { data } = await (supabase.rpc as any)("get_public_org_chart");
       setRows((data ?? []) as P[]);
     })();
   }, []);
 
   const filtered = useMemo(() => {
     let r = rows;
-    if (group === "admin") r = r.filter((x) => (x.position_level || "").match(/ผอ|ผู้อำนวยการ|รอง|บริหาร/));
+    if (group === "admin") r = r.filter((x) => (x.position_level || x.position_title || "").match(/ผอ|ผู้อำนวยการ|รอง|บริหาร/));
     if (q) {
       const s = q.toLowerCase();
       r = r.filter((x) =>

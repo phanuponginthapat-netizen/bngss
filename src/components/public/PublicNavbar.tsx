@@ -25,7 +25,7 @@ const Icon = ({ name, className }: { name?: string | null; className?: string })
 };
 
 export default function PublicNavbar() {
-  const { settings } = useSystemSettings();
+  const s = useSystemSettings();
   const [items, setItems] = useState<NavItem[]>([]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -50,8 +50,8 @@ export default function PublicNavbar() {
     setOpenMenu(null);
   }, [location.pathname]);
 
-  const schoolName = settings?.school_name || "โรงเรียน";
-  const logo = settings?.logo_url;
+  const schoolName = s.schoolName || "โรงเรียน";
+  const logo = s.schoolLogo;
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/85 backdrop-blur-xl">

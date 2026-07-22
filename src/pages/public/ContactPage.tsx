@@ -6,7 +6,7 @@ import { MapPin, Phone, Mail, Clock, Printer } from "lucide-react";
 
 export default function ContactPage() {
   const [info, setInfo] = useState<any>(null);
-  const { settings } = useSystemSettings();
+  const s: any = useSystemSettings();
   useEffect(() => { getSchoolInfo("contact").then(setInfo); }, []);
   const c = info?.content || {};
 
@@ -15,9 +15,9 @@ export default function ContactPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-4">
           {[
-            { icon: MapPin, label: "ที่อยู่", value: c.address || settings?.school_address },
-            { icon: Phone, label: "โทรศัพท์", value: c.phone || settings?.school_phone },
-            { icon: Mail, label: "อีเมล", value: c.email || settings?.school_email },
+            { icon: MapPin, label: "ที่อยู่", value: c.address },
+            { icon: Phone, label: "โทรศัพท์", value: c.phone },
+            { icon: Mail, label: "อีเมล", value: c.email },
             { icon: Printer, label: "โทรสาร", value: c.fax },
             { icon: Clock, label: "เวลาทำการ", value: c.hours },
           ].filter((x) => x.value).map((x, i) => (

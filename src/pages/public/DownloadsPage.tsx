@@ -6,7 +6,7 @@ import { FileText, Download } from "lucide-react";
 export default function DownloadsPage() {
   const [rows, setRows] = useState<any[]>([]);
   useEffect(() => {
-    supabase.from("cms_downloads").select("*").eq("is_published", true).order("sort_order").then(({ data }) => setRows(data || []));
+    (supabase as any).from("cms_downloads").select("*").eq("is_published", true).order("sort_order").then(({ data }: any) => setRows(data || []));
   }, []);
 
   const grouped = useMemo(() => {
@@ -16,7 +16,9 @@ export default function DownloadsPage() {
   }, [rows]);
 
   const bump = async (id: string) => {
-    await supabase.rpc("increment_download_count", { p_id: id }).catch(() => null);
+    try {
+      await (supabase as any).from("cms_downloads").update({ download_count: (rows.find(r => r.id === id)?.download_count || 0) + 1 }).eq("id", id);
+    } catch { /* ignore */ }
   };
 
   return (
