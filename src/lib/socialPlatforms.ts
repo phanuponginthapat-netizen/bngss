@@ -240,14 +240,14 @@ export function getEmbedUrl(link: Pick<SocialLink, "platform" | "url">): string 
     }
 
     if (link.platform === "tiktok") {
-      // /@user/video/<id>  → single video player
+      // /@user/video/<id>  → single video player (endpoint ที่ TikTok รองรับอย่างเป็นทางการ)
       const m = path.match(/\/video\/(\d+)/);
       if (m) return `https://www.tiktok.com/embed/v2/${m[1]}?lang=th-TH`;
-      // /@user  → profile embed (ใช้ /embed/v2/@user — เวอร์ชันใหม่ที่ยัง render ได้)
-      const p = path.match(/^\/@([^/?#]+)\/?$/);
-      if (p) return `https://www.tiktok.com/embed/v2/@${p[1]}?lang=th-TH&refer=creator`;
+      // /@user → profile: TikTok ไม่มี endpoint embed profile อย่างเป็นทางการอีกต่อไป
+      // fallback เป็นการ์ดปุ่มลิงก์แทน (return null)
       return null;
     }
+
 
   } catch {
     return null;
