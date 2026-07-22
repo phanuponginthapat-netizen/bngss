@@ -193,7 +193,7 @@ export default function SystemHealthPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard
           icon={Users}
-          title="ผู้ใช้งานออนไลน์ (5 นาทีล่าสุด)"
+          title="ผู้ใช้งาน active (15 นาทีล่าสุด)"
           loading={activeUsers.isLoading}
           stats={[
             {
