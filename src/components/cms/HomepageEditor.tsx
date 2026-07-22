@@ -10,7 +10,8 @@ import { toast } from "sonner";
 import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
 import {
   Upload, Plus, Trash2, GripVertical,
-  PanelTop, Image as ImageIcon, BarChart3, LayoutGrid, Megaphone, PanelBottom, Code2, ArrowUpDown
+  PanelTop, Image as ImageIcon, BarChart3, LayoutGrid, Megaphone, PanelBottom, Code2, ArrowUpDown,
+  User as UserIcon, Link2, Film, Bell
 } from "lucide-react";
 import RichTextEditor from "./RichTextEditor";
 import FullHtmlEditor from "./FullHtmlEditor";
@@ -26,9 +27,13 @@ import { CSS } from "@dnd-kit/utilities";
 const SECTION_DEFS: { key: string; label: string }[] = [
   { key: "stats", label: "แถบสถิติ (Stats Bar)" },
   { key: "banner", label: "ภาพประชาสัมพันธ์ (Banner Carousel)" },
+  { key: "director", label: "สารจากผู้บริหาร (Director)" },
+  { key: "quicklinks", label: "บริการด่วน (Quick Links)" },
   { key: "content", label: "เนื้อหาหน้าแรก (Rich Content)" },
   { key: "page_content", label: "เนื้อหาจากหน้า CMS (home page)" },
   { key: "features", label: "จุดเด่น / บริการ (Features)" },
+  { key: "gallery", label: "อัลบั้มภาพ (Gallery)" },
+  { key: "videos", label: "วิดีโอ (Videos)" },
   { key: "cta", label: "ส่วนเรียกร้อง (CTA)" },
   { key: "news", label: "ข่าวสารและประกาศ" },
   { key: "social", label: "Social Wall (Facebook)" },
