@@ -281,6 +281,7 @@ export default function SystemHealthPage() {
     if (!allDown) alertedRef.current.delete("ai-all-down");
   }, [poolStats]);
 
+  return (
     <div className="p-4 md:p-6 space-y-4 max-w-6xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
