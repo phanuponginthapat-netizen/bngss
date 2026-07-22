@@ -301,9 +301,9 @@ const Index = () => {
 
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-[#fffaf5] dark:bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-xl border-b border-border/40 shadow-[0_1px_20px_-8px_hsl(var(--primary)/0.15)]">
+      <header className="sticky top-0 z-50 bg-white/80 dark:bg-card/80 backdrop-blur-xl border-b border-[#fecaca]/40 dark:border-border/40 shadow-[0_1px_20px_-8px_rgba(249,168,168,0.35)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16 gap-4">
           {/* Brand */}
           <Link to="/" className="flex items-center gap-2.5 group shrink-0">
@@ -381,11 +381,13 @@ const Index = () => {
             const justifyCls = { top: "justify-start pt-20", middle: "justify-center", bottom: "justify-end pb-20" }[heroTextVertical];
             const isHorizontalIcon = heroIconPosition === "left" || heroIconPosition === "right";
             const Icon = (
-              <div className={`inline-flex items-center justify-center w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white/15 backdrop-blur-md shadow-2xl ring-2 ring-white/20 overflow-hidden animate-[fadeInScale_0.6s_ease-out_0.2s_both] shrink-0`}>
+              <div className={`inline-flex items-center justify-center w-28 h-28 sm:w-32 sm:h-32 rounded-[2rem] bg-white shadow-2xl ring-[6px] ring-white/60 border-4 border-[#fecaca]/60 overflow-hidden animate-[fadeInScale_0.6s_ease-out_0.2s_both] shrink-0 relative`}>
+                <div className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-[#7dd3fc]/70 blur-[2px]" aria-hidden />
+                <div className="absolute -bottom-3 -left-3 w-8 h-8 rounded-full bg-[#f9a8a8]/60 blur-[2px]" aria-hidden />
                 {schoolLogo ? (
-                  <img src={schoolLogo} alt={schoolName} className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-lg" />
+                  <img src={schoolLogo} alt={schoolName} className="w-20 h-20 sm:w-24 sm:h-24 object-contain drop-shadow-lg relative z-10" />
                 ) : (
-                  <GraduationCap className="w-12 h-12 sm:w-14 sm:h-14 drop-shadow-lg" style={{ color: heroTextColor }} />
+                  <GraduationCap className="w-14 h-14 sm:w-16 sm:h-16 drop-shadow-lg relative z-10 text-[#0369a1]" />
                 )}
               </div>
             );
@@ -445,9 +447,13 @@ const Index = () => {
                 }}
               >
                 {!heroBackground && !heroBgColor && (
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-primary/70">
-                    <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full bg-white/5 blur-3xl" />
-                    <div className="absolute bottom-[-30%] left-[-15%] w-[700px] h-[700px] rounded-full bg-white/5 blur-3xl" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#e0f2fe] via-[#7dd3fc] to-[#f9a8a8]">
+                    <div className="absolute top-[-15%] right-[-8%] w-[520px] h-[520px] rounded-full bg-[#fecaca]/60 blur-3xl animate-[fadeInScale_1.2s_ease-out]" />
+                    <div className="absolute bottom-[-25%] left-[-12%] w-[620px] h-[620px] rounded-full bg-[#e0f2fe]/70 blur-3xl animate-[fadeInScale_1.4s_ease-out]" />
+                    <div className="absolute top-[20%] left-[15%] w-32 h-32 rounded-full bg-white/40 blur-2xl" />
+                    <div className="absolute bottom-[18%] right-[20%] w-40 h-40 rounded-full bg-[#fecaca]/50 blur-2xl" />
+                    {/* subtle dotted grid overlay */}
+                    <div className="absolute inset-0 opacity-[0.15]" style={{ backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
                   </div>
                 )}
                 <div className={`relative max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 flex flex-col ${justifyCls} ${heightCls} animate-[fadeInUp_0.8s_ease-out_forwards]`}>
@@ -482,14 +488,14 @@ const Index = () => {
 
             const sectionMap: Record<string, JSX.Element | null> = {
               stats: showStats && stats.length > 0 ? (
-                <section ref={animateRef} className="relative -mt-10 z-10 max-w-4xl mx-auto px-4 scroll-animate opacity-0 translate-y-6">
-                  <Card className="border-0 shadow-xl">
+                <section ref={animateRef} className="relative -mt-14 z-10 max-w-4xl mx-auto px-4 scroll-animate opacity-0 translate-y-6">
+                  <Card className="border-0 shadow-2xl rounded-[2rem] bg-white/95 backdrop-blur-xl ring-1 ring-[#fecaca]/40 overflow-hidden">
                     <CardContent className="p-0">
-                      <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-border">
+                      <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-[#fecaca]/40">
                         {stats.map((s, i) => (
-                          <div key={i} className="text-center py-6 px-4">
-                            <div className="text-3xl font-bold text-primary">{s.value}</div>
-                            <div className="text-sm text-muted-foreground mt-1">{s.label}</div>
+                          <div key={i} className="text-center py-7 px-4 relative group">
+                            <div className="text-3xl sm:text-4xl font-bold bg-gradient-to-br from-[#0ea5e9] to-[#f9a8a8] bg-clip-text text-transparent">{s.value}</div>
+                            <div className="text-sm text-muted-foreground mt-1.5 font-medium">{s.label}</div>
                           </div>
                         ))}
                       </div>
@@ -606,7 +612,7 @@ const Index = () => {
                     {features.map((f, i) => {
                       const Icon = iconMap[f.icon] || Star;
                       return (
-                        <Card key={i} className="border-0 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group" style={{ animationDelay: `${i * 100}ms` }}>
+                        <Card key={i} className="border border-[#fecaca]/30 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-[#7dd3fc]/50 transition-all duration-300 rounded-3xl bg-white/90 group" style={{ animationDelay: `${i * 100}ms` }}>
                           <CardContent className="p-6">
                             <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 group-hover:scale-110 transition-all duration-300">
                               <Icon className="w-6 h-6 text-primary" />
@@ -622,15 +628,21 @@ const Index = () => {
               ) : null,
 
               cta: showCta ? (
-                <section ref={animateRef} className="bg-muted/50 py-16 scroll-animate opacity-0 translate-y-6">
-                  <div className="max-w-3xl mx-auto px-4 text-center">
-                    <h2 className="text-3xl font-bold text-foreground mb-4">{ctaTitle}</h2>
-                    <p className="text-muted-foreground mb-8">{ctaSubtitle}</p>
-                    <Link to={ctaButtonUrl}>
-                      <Button size="lg" className="rounded-xl font-semibold px-10 h-12 text-base shadow-md">
-                        {ctaButtonText}
-                      </Button>
-                    </Link>
+                <section ref={animateRef} className="py-16 scroll-animate opacity-0 translate-y-6">
+                  <div className="max-w-4xl mx-auto px-4">
+                    <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-r from-[#fecaca] via-[#f9a8a8] to-[#7dd3fc] p-10 sm:p-14 text-center shadow-2xl shadow-[#f9a8a8]/30">
+                      <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-white/20 blur-3xl" />
+                      <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-white/20 blur-3xl" />
+                      <div className="relative">
+                        <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 drop-shadow-sm">{ctaTitle}</h2>
+                        <p className="text-white/90 mb-8 max-w-xl mx-auto">{ctaSubtitle}</p>
+                        <Link to={ctaButtonUrl}>
+                          <Button size="lg" className="rounded-full font-bold px-10 h-12 text-base bg-white text-[#f9a8a8] hover:bg-white/90 shadow-xl hover:scale-105 transition-transform">
+                            {ctaButtonText}
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
                   </div>
                 </section>
               ) : null,
@@ -646,7 +658,7 @@ const Index = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                     {newsPosts.slice(0, 6).map((n) => (
                       <Link key={n.id} to={`/dashboard/news/${n.id}`} className="group">
-                        <Card className="h-full border-0 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                        <Card className="h-full border border-[#fecaca]/30 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-[#7dd3fc]/50 transition-all duration-300 rounded-3xl bg-white/90">
                           <CardContent className="p-5">
                             <div className="flex items-center gap-2 mb-3 flex-wrap">
                               {n.is_pinned && <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">📌 ปักหมุด</span>}
