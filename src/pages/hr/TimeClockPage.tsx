@@ -807,20 +807,66 @@ const TimeClockPage = () => {
                     </p>
                   </div>
                 ) : (
-                  <Button
-                    onClick={handleClockIn}
-                    size="lg"
-                    disabled={saving || !capturedPhoto}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white h-16 px-10 text-base"
-                  >
-                    {saving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CheckCircle className="w-5 h-5 mr-2" />}
-                    {saving
-                      ? "กำลังบันทึก..."
-                      : myTodayRecord && !myTodayRecord.clock_out
-                        ? "ลงเวลาออก (GPS)"
-                        : "ลงเวลาเข้า (GPS)"}
-                  </Button>
+                  <div className="w-full max-w-md space-y-3">
+                    {/* Off-site toggle */}
+                    <div className="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/60 dark:bg-amber-950/20 p-3">
+                      <label className="flex items-start gap-2.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={offsiteMode}
+                          onChange={(e) => setOffsiteMode(e.target.checked)}
+                          className="mt-1 w-4 h-4 accent-amber-600"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                            🧳 ปฏิบัติงานนอกพื้นที่ (ไปอบรม/ธุระโรงเรียน)
+                          </div>
+                          <div className="text-xs text-amber-700/80 dark:text-amber-300/70 mt-0.5">
+                            ข้ามการตรวจ GPS และช่วงเวลาลงเวลา — บันทึกเป็น "นอกพื้นที่"
+                          </div>
+                        </div>
+                      </label>
+                      {offsiteMode && (
+                        <div className="mt-3 space-y-2 pl-6">
+                          <input
+                            type="text"
+                            value={offsiteReason}
+                            onChange={(e) => setOffsiteReason(e.target.value)}
+                            placeholder="เหตุผล เช่น อบรมหลักสูตร PA, ประชุมเขตพื้นที่"
+                            maxLength={200}
+                            className="w-full rounded-lg border border-amber-300 dark:border-amber-800/60 bg-background px-3 py-2 text-sm"
+                          />
+                          <input
+                            type="text"
+                            value={offsiteLocation}
+                            onChange={(e) => setOffsiteLocation(e.target.value)}
+                            placeholder="สถานที่ เช่น ห้องประชุม สพป., โรงแรม XYZ"
+                            maxLength={200}
+                            className="w-full rounded-lg border border-amber-300 dark:border-amber-800/60 bg-background px-3 py-2 text-sm"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      onClick={handleClockIn}
+                      size="lg"
+                      disabled={saving || !capturedPhoto}
+                      className={`w-full h-16 text-base ${
+                        offsiteMode
+                          ? "bg-amber-600 hover:bg-amber-700 text-white"
+                          : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                      }`}
+                    >
+                      {saving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CheckCircle className="w-5 h-5 mr-2" />}
+                      {saving
+                        ? "กำลังบันทึก..."
+                        : myTodayRecord && !myTodayRecord.clock_out
+                          ? offsiteMode ? "ลงเวลาออก (นอกพื้นที่)" : "ลงเวลาออก (GPS)"
+                          : offsiteMode ? "ลงเวลาเข้า (นอกพื้นที่)" : "ลงเวลาเข้า (GPS)"}
+                    </Button>
+                  </div>
                 )}
+
 
                 {/* Teacher info */}
                 {!isAdmin && myPersonnel && (
