@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Pencil, Circle as CircleIcon, Square, Type, Trash2, Save, Undo2 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
 
 type Tool = "draw" | "circle" | "rect" | "text" | "select";
 
@@ -105,10 +105,8 @@ export default function AnnotateImageDialog({ open, onOpenChange, imageUrl, init
       const dataUrl = fc.toDataURL({ format: "png", multiplier: 1 });
       const blob = await (await fetch(dataUrl)).blob();
       const path = `homework/annotated/${Date.now()}.png`;
-      const { data, error } = await supabase.storage.from("cms-images").upload(path, blob, { contentType: "image/png", upsert: true });
-      if (error) throw error;
-      const { data: pub } = supabase.storage.from("cms-images").getPublicUrl(data.path);
-      await onSaved(pub.publicUrl);
+      const res = await uploadPublicFileWithFallback("cms-images", path, blob, { contentType: "image/png", upsert: true });
+      await onSaved(res.publicUrl);
       toast.success("บันทึกรูปที่ตรวจแล้ว");
       onOpenChange(false);
     } catch (e: any) {
