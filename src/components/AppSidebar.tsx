@@ -977,8 +977,9 @@ export function AppSidebar() {
         )}
           </>
         )}
+        <SidebarAccountFooter />
       </SidebarContent>
-      <SidebarAccountFooter />
     </Sidebar>
+
   );
 }
