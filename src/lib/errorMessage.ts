@@ -58,6 +58,10 @@ const PATTERNS: Array<[RegExp, { reason: string; hint: string }]> = [
     reason: "เซสชันไม่ถูกต้อง",
     hint: "ล้าง cookie/แคชของเบราว์เซอร์ แล้วเข้าสู่ระบบใหม่",
   }],
+  [/App user credential not found|app_user_credential_missing|GOOGLE_DRIVE_NOT_CONNECTED|reconnect_required/i, {
+    reason: "Google Drive ต้องเชื่อมต่อใหม่",
+    hint: "บัญชี Drive ที่เคยเชื่อมไว้ใช้ไม่ได้แล้ว กรุณากดเชื่อม Google Drive ใหม่อีกครั้ง",
+  }],
   [/Password should be at least/i, {
     reason: "รหัสผ่านสั้นเกินไป",
     hint: "ตั้งรหัสผ่านอย่างน้อย 6 ตัวอักษร ควรมีตัวเลข/ตัวอักษรพิเศษเพิ่มความปลอดภัย",

@@ -10,6 +10,17 @@ const corsHeaders = {
 const GATEWAY = "https://connector-gateway.lovable.dev";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function isMissingAppUserCredential(status: number, bodyText: string) {
+  return status === 401 && /App user credential not found|app_user_credential_missing/i.test(bodyText);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -19,7 +30,7 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
     );
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!user) return json({ error: "unauthorized" }, 401);
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: conn } = await admin
@@ -31,13 +42,18 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!conn?.connection_key) {
-      return new Response(JSON.stringify({ error: "not_connected" }), { status: 428, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return json({
+        error: "not_connected",
+        code: "GOOGLE_DRIVE_NOT_CONNECTED",
+        message: "ยังไม่ได้เชื่อม Google Drive หรือการเชื่อมต่อเดิมหมดอายุ กรุณากดเชื่อมใหม่",
+        reconnect_required: true,
+      }, 428);
     }
 
     const body = await req.json();
     const { path, method = "GET", query = {}, headers = {}, body: reqBody, body_b64, upload_url } = body;
     if (!path && !upload_url) {
-      return new Response(JSON.stringify({ error: "path required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return json({ error: "path required" }, 400);
     }
 
     const baseUrl = upload_url
@@ -78,6 +94,20 @@ Deno.serve(async (req) => {
     // Stream download responses directly
     if (contentType.startsWith("application/json") || contentType.startsWith("text/")) {
       const text = await upstream.text();
+      if (isMissingAppUserCredential(upstream.status, text)) {
+        await admin.from("app_user_connections")
+          .update({ revoked_at: new Date().toISOString() })
+          .eq("user_id", user.id)
+          .eq("connector_id", "google_drive")
+          .is("revoked_at", null);
+
+        return json({
+          error: "app_user_credential_missing",
+          code: "APP_USER_CREDENTIAL_MISSING",
+          message: "บัญชี Google Drive ที่เชื่อมไว้ใช้ไม่ได้แล้ว กรุณากดเชื่อม Google Drive ใหม่อีกครั้ง",
+          reconnect_required: true,
+        }, 428);
+      }
       return new Response(text, { status: upstream.status, headers: { ...corsHeaders, "Content-Type": contentType } });
     }
     return new Response(upstream.body, {
@@ -90,6 +120,6 @@ Deno.serve(async (req) => {
     });
   } catch (e) {
     console.error(e);
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return json({ error: String(e) }, 500);
   }
 });

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { FileText, FileSpreadsheet, Presentation, FileType, RefreshCw, Cloud } from "lucide-react";
 import { listRecentOfficeFiles, editorRouteForMime, iconForMime, DriveFile } from "@/lib/office/driveFileIO";
 import { supabase } from "@/integrations/supabase/client";
+import { isDriveCredentialMissingError } from "@/lib/googleDriveErrors";
 
 const APPS = [
   { key: "docs", title: "เอกสาร", desc: "Word / .docx", icon: FileText, to: "/dashboard/office/docs", color: "from-blue-500 to-blue-600" },
@@ -38,7 +39,7 @@ export default function OfficeHomePage() {
       setFiles(await listRecentOfficeFiles(24));
     } catch (e: any) {
       const msg = String(e?.message ?? e);
-      if (msg.includes("not_connected") || msg.includes("428")) setConnected(false);
+      if (msg.includes("not_connected") || msg.includes("428") || isDriveCredentialMissingError(msg)) setConnected(false);
       else setError(msg);
     } finally {
       setLoading(false);
