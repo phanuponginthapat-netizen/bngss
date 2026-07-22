@@ -201,10 +201,18 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
   };
 
   const removePost = async (id: string) => {
-    if (!confirm("ลบโพสต์นี้?")) return;
+    const ok = await swal.confirm({
+      title: "ยืนยันการลบโพสต์?",
+      text: "โพสต์นี้จะถูกลบถาวร ไม่สามารถกู้คืนได้",
+      confirmText: "ลบโพสต์",
+      cancelText: "ยกเลิก",
+      danger: true,
+    });
+    if (!ok) return;
     const { error } = await supabase.from("wall_posts").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("ลบโพสต์แล้ว");
+    if (error) return swal.error("ลบไม่สำเร็จ", error.message);
+    setPosts((prev) => prev.filter((p) => p.id !== id));
+    swal.success("ลบโพสต์แล้ว");
   };
 
   return (
