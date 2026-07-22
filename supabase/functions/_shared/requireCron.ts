@@ -41,7 +41,7 @@ export async function requireCronOrAdmin(
           .select("role")
           .eq("user_id", user.id);
         const ok = (roles ?? []).some((r: any) =>
-          r.role === "admin" || r.role === "director" || r.role === "super_admin"
+          r.role === "admin" || r.role === "director" 
         );
         if (ok) return null;
         return new Response(JSON.stringify({ error: "Forbidden" }), {

@@ -15743,9 +15743,6 @@ export type Database = {
         | "director"
         | "alumni"
         | "parent"
-        | "super_admin"
-        | "area_admin"
-        | "school_admin"
         | "observer"
       dept_position: "head" | "deputy" | "assistant" | "member"
       dept_role: "member" | "head" | "deputy_head" | "section_head"
@@ -15928,9 +15925,6 @@ export const Constants = {
         "director",
         "alumni",
         "parent",
-        "super_admin",
-        "area_admin",
-        "school_admin",
         "observer",
       ],
       dept_position: ["head", "deputy", "assistant", "member"],
