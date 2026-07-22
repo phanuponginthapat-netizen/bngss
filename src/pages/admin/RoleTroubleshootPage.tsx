@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useAuthSession } from "@/hooks/useAuthSession";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 
 const DEFAULT_TABLES = [
@@ -21,7 +22,8 @@ const DEFAULT_TABLES = [
 type Result = { table: string; ok: boolean; count: number | null; error?: string };
 
 export default function RoleTroubleshootPage() {
-  const { role, realRole, user } = useUserRole() as any;
+  const { role, realRole } = useUserRole();
+  const { user } = useAuthSession();
   const [tables, setTables] = useState<string>(DEFAULT_TABLES.join(", "));
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(false);
