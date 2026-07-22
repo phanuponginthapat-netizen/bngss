@@ -230,14 +230,13 @@ export function getEmbedUrl(link: Pick<SocialLink, "platform" | "url">): string 
 
     if (link.platform === "facebook") {
       const lower = (path + u.search).toLowerCase();
-      // โพสต์/วิดีโอ/รูป เดี่ยว → ใช้ Post Plugin
       if (/\/(posts|videos|photos|watch|reel|share)\//.test(lower) || (u.searchParams.has("v") && path.includes("watch"))) {
         const href = encodeURIComponent(url);
-        return `https://www.facebook.com/plugins/post.php?href=${href}&width=380&show_text=true`;
+        return `https://www.facebook.com/plugins/post.php?href=${href}&width=500&show_text=true`;
       }
-      // Page/Profile timeline → Page Plugin (Facebook รองรับทั้ง Page และ profile.php ที่ตั้งเป็นสาธารณะ)
       const href = encodeURIComponent(url);
-      return `https://www.facebook.com/plugins/page.php?href=${href}&tabs=timeline&width=380&height=500&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false`;
+      // ใช้ width/height สูงสุดที่ Page Plugin รองรับ (500x700) เพื่อให้เห็นโพสต์เต็มที่
+      return `https://www.facebook.com/plugins/page.php?href=${href}&tabs=timeline&width=500&height=700&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true`;
     }
 
     if (link.platform === "tiktok") {
