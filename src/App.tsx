@@ -206,6 +206,7 @@ const SmscCenterPage = lazy(() => import("./pages/admin/SmscCenterPage"));
 const ObecStandardsPage = lazy(() => import("./pages/admin/ObecStandardsPage"));
 const AuditLogPage = lazy(() => import("./pages/admin/AuditLogPage"));
 const SystemHealthPage = lazy(() => import("./pages/admin/SystemHealthPage"));
+const DistrictSyncPage = lazy(() => import("./pages/admin/DistrictSyncPage"));
 const AiImportPage = lazy(() => import("./pages/admin/AiImportPage"));
 
 const BulkOperationsPage = lazy(() => import("./pages/admin/BulkOperationsPage"));
