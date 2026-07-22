@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,36 +7,44 @@ import { Textarea } from "@/components/ui/textarea";
 import { Printer } from "lucide-react";
 import { OfficialDocument, OfficialDocSpec, DOC_KIND_LABELS } from "@/lib/print-engine";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-const SAMPLE: OfficialDocSpec = {
-  kind: "external",
-  school: {
-    name: "โรงเรียนบ้านตัวอย่าง",
-    address: "๑๒๓ หมู่ ๔ ตำบลตัวอย่าง\nอำเภอตัวอย่าง จังหวัดตัวอย่าง ๑๒๓๔๕",
-    phone: "๐ ๒๑๒๓ ๔๕๖๗",
-    email: "school@example.ac.th",
-  },
-  refNo: "ศธ ๐๔๑๒๓/๒๕๖๗",
-  date: "๒๓ มิถุนายน ๒๕๖๙",
-  subject: "ขอเชิญเข้าร่วมการประชุมผู้ปกครองนักเรียน",
-  to: "ผู้ปกครองนักเรียน",
-  refs: ["หนังสือสำนักงานเขตพื้นที่การศึกษา ที่ ศธ ๐๔๐๐๑/๔๕๖ ลงวันที่ ๑ มิถุนายน ๒๕๖๙"],
-  attachments: ["กำหนดการประชุม จำนวน ๑ ฉบับ"],
-  body:
-    "ด้วยโรงเรียนบ้านตัวอย่าง จะจัดประชุมผู้ปกครองนักเรียน ประจำภาคเรียนที่ ๑ ปีการศึกษา ๒๕๖๙ เพื่อชี้แจงนโยบายและแนวทางการจัดการเรียนการสอน ตลอดจนรายงานผลการดำเนินงานของโรงเรียนในรอบที่ผ่านมา\n\nในการนี้ จึงขอเชิญท่านเข้าร่วมประชุมในวันเสาร์ที่ ๓๐ มิถุนายน ๒๕๖๙ เวลา ๐๙.๐๐ น. ณ หอประชุมโรงเรียนบ้านตัวอย่าง ตามกำหนดการที่แนบมาพร้อมนี้",
-  closing: "จึงเรียนมาเพื่อโปรดทราบและเข้าร่วมประชุมตามวัน เวลา และสถานที่ดังกล่าว",
-  salutation: "ขอแสดงความนับถือ",
-  signer: {
-    name: "นายสมชาย ใจดี",
-    position: "ผู้อำนวยการโรงเรียนบ้านตัวอย่าง",
-  },
-};
+import { useCmsValues } from "@/hooks/useCmsSettings";
 
 export default function PrintPreviewPage() {
+  const cms = useCmsValues([
+    "school_name","school_address","school_phone",
+    "admin_email","director_name","director_title",
+  ]);
+  const g = (k: string, d = "") => (cms[k] || d);
+
+  // ตัวอย่างเอกสารดึงจาก CMS ทั้งหมด (ห้าม hardcode ชื่อ/ที่อยู่/ผอ.)
+  const SAMPLE: OfficialDocSpec = useMemo(() => ({
+    kind: "external",
+    school: {
+      name: g("school_name", "—"),
+      address: g("school_address", "—"),
+      phone: g("school_phone", ""),
+      email: g("admin_email", ""),
+    },
+    refNo: "ศธ ๐๐๐๐/…",
+    date: new Date().toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" }),
+    subject: "หัวเรื่อง (แก้ไขได้)",
+    to: "ผู้ปกครองนักเรียน",
+    refs: [],
+    attachments: [],
+    body: `ตัวอย่างเนื้อความ ระบบจะดึงชื่อ ${g("school_name", "โรงเรียน")} จาก CMS โดยอัตโนมัติ`,
+    closing: "จึงเรียนมาเพื่อโปรดทราบ",
+    salutation: "ขอแสดงความนับถือ",
+    signer: {
+      name: g("director_name", "—"),
+      position: g("director_title", "ผู้อำนวยการโรงเรียน"),
+    },
+  }), [cms]);
+
   const [spec, setSpec] = useState<OfficialDocSpec>(SAMPLE);
 
   const update = (patch: Partial<OfficialDocSpec>) =>
     setSpec((s) => ({ ...s, ...patch }));
+
 
   return (
     <div className="min-h-screen bg-muted/30 p-4 print:p-0 print:bg-white">

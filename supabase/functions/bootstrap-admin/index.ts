@@ -4,7 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeadersWithBootstrap as corsHeaders } from "../_shared/cors.ts";
 
-const DEFAULT_EMAIL = "admin@school.com";
+import { getAdminEmail } from "../_shared/appConfig.ts";
 
 function genPassword() {
   const buf = new Uint8Array(18);
@@ -30,6 +30,7 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { /* empty body ok */ }
 
   try {
+    const DEFAULT_EMAIL = await getAdminEmail();
     // Get all admins
     const { data: adminRows } = await admin
       .from("user_roles")

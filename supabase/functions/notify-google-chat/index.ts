@@ -193,8 +193,8 @@ serve(async (req) => {
         .maybeSingle();
       const configured = (data?.setting_value || "").trim();
       if (configured) return configured.replace(/\/+$/, "");
-      // Fallback: published Lovable URL for this project
-      return "https://bngss.lovable.app";
+      const { getPublicOrigin } = await import("../_shared/appConfig.ts");
+      return await getPublicOrigin();
     }
 
     function toAbsolute(raw: string | null | undefined, base: string): string | null {

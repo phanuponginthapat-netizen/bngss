@@ -64,8 +64,10 @@ export async function getAppServer(): Promise<webpush.ApplicationServer> {
         // importKey failures still bubble up below with the real error
       }
       const vapidKeys = await webpush.importVapidKeys({ publicKey, privateKey }, { extractable: false });
+      const { getVapidSubject } = await import("./appConfig.ts");
+      const contactInformation = await getVapidSubject();
       return await webpush.ApplicationServer.new({
-        contactInformation: "mailto:admin@school.com",
+        contactInformation,
         vapidKeys,
       });
     })();

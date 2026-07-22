@@ -123,10 +123,10 @@ serve(async (req) => {
         // LINE rejects http; upgrade to https
         normalizedActionUrl = raw.replace(/^http:\/\//i, "https://");
       } else {
-        const projectId = Deno.env.get("SUPABASE_PROJECT_ID");
+        const { getPublicOrigin } = await import("../_shared/appConfig.ts");
         const siteUrl =
           (await getLineSetting(supabaseAdmin, "site_url")) ||
-          (projectId ? `https://${projectId}.lovableproject.com` : "https://bngss.lovable.app");
+          (await getPublicOrigin());
         const base = siteUrl.replace(/\/+$/, "");
         const path = raw.startsWith("/") ? raw : `/${raw}`;
         normalizedActionUrl = `${base}${path}`;

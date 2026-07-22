@@ -18,7 +18,10 @@ Deno.serve(async (req) => {
   const originParam = url.searchParams.get("origin");
   const referer = req.headers.get("referer");
   let appOrigin = originParam || (referer ? new URL(referer).origin : "");
-  if (!appOrigin) appOrigin = "https://bngss.lovable.app";
+  if (!appOrigin) {
+    const { getPublicOrigin } = await import("../_shared/appConfig.ts");
+    appOrigin = await getPublicOrigin();
+  }
 
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,

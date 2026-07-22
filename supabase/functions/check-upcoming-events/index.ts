@@ -66,8 +66,8 @@ serve(async (req) => {
 
     // Route through notify-google-chat so cards use proper templates,
     // respect per-webhook notification_types filter, and log to google_chat_logs.
-    const projectId = Deno.env.get("SUPABASE_PROJECT_ID");
-    const siteUrl = projectId ? `https://${projectId}.lovableproject.com` : "https://bngss.lovable.app";
+    const { getPublicOrigin } = await import("../_shared/appConfig.ts");
+    const siteUrl = await getPublicOrigin();
     let notifiedCount = 0;
 
     for (const event of uniqueEvents) {

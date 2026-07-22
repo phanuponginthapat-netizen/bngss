@@ -177,7 +177,8 @@ Deno.serve(async (req) => {
   const stateExpiresAt = pickParam(url, body, ["state_exp"]);
   const stateSignature = pickParam(url, body, ["state_sig"]);
 
-  const appOrigin = req.headers.get("origin") ?? Deno.env.get("APP_URL") ?? "https://bngss.lovable.app";
+  const { getPublicOrigin } = await import("../_shared/appConfig.ts");
+  const appOrigin = req.headers.get("origin") ?? Deno.env.get("APP_URL") ?? await getPublicOrigin();
   const back = (msg: string) => {
     const u = new URL(sanitizeReturnUrl(returnTo, appOrigin));
     u.searchParams.set("drive_status", msg);

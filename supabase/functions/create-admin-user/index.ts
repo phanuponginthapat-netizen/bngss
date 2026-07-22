@@ -44,7 +44,8 @@ Deno.serve(async (req) => {
     let body: { email?: string; password?: string; first_name?: string; last_name?: string } = {};
     try { body = await req.json(); } catch {}
 
-    const email = (body.email || "admin@school.com").trim().toLowerCase();
+    const { getAdminEmail } = await import("../_shared/appConfig.ts");
+    const email = (body.email || (await getAdminEmail())).trim().toLowerCase();
     const password = body.password || "Admin@1234";
     const first_name = body.first_name || "ผู้ดูแล";
     const last_name = body.last_name || "ระบบ";
