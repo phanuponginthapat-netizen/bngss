@@ -392,6 +392,7 @@ const App = () => (
                 <Route path="emergency" element={<ProtectedRoute><EmergencyViewPage /></ProtectedRoute>} />
                 <Route path="admin/vaccine" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["general_admin"]}><VaccinePage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="admin/cms" element={<ProtectedRoute allowedRoles={["admin", "director"]}><CmsPage /></ProtectedRoute>} />
+                <Route path="admin/school-info" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SchoolInfoCmsPage /></ProtectedRoute>} />
                 <Route path="admin/id-card" element={<ProtectedRoute allowedRoles={["admin", "director"]}><IdCardTemplatePage /></ProtectedRoute>} />
                 <Route path="admin/print-center" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><PrintCenterPage /></ProtectedRoute>} />
                 <Route path="admin/id-card/bulk-print" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><PrintCenterPage /></ProtectedRoute>} />
