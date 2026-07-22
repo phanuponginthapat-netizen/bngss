@@ -11,6 +11,16 @@ import { resolveStorageUrl } from "@/lib/storageUrl";
 export default function ExamResultsPage() {
   const { id } = useParams();
   const [view, setView] = useState<any>(null);
+  const [signedUrl, setSignedUrl] = useState<string>("");
+
+  useEffect(() => {
+    if (view?.graded_image_url) {
+      resolveStorageUrl("exam-scans", view.graded_image_url).then(setSignedUrl);
+    } else {
+      setSignedUrl("");
+    }
+  }, [view?.graded_image_url]);
+
 
   const { data: exam } = useQuery({
     queryKey: ["exam", id],
