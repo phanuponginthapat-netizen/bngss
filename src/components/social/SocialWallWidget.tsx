@@ -81,7 +81,7 @@ export function SocialWallWidget({
     const nativeW =
       link.platform === "tiktok" ? 325 : link.platform === "facebook" ? 500 : 560;
     const nativeH =
-      link.platform === "youtube" ? 315 : link.platform === "tiktok" ? 420 : 520;
+      link.platform === "youtube" ? 315 : link.platform === "tiktok" ? 420 : 645;
 
     const useAspect = link.platform === "youtube";
     return (
