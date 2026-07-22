@@ -423,10 +423,10 @@ const HomeworkRow = ({ h, lang, L, userId, studentName }: {
       let fileUrl: string | null = h.submission_file_url || null;
       if (file) {
         const path = sanitizeStorageKey(`homework/${h.id}/${Date.now()}_${file.name}`);
-        const { data: up, error: upErr } = await supabase.storage.from("cms-images").upload(path, file, { upsert: true });
+        const { data: up, error: upErr } = await supabase.storage.from("homework-files").upload(path, file, { upsert: true, contentType: file.type || undefined });
         if (upErr) throw upErr;
-        const { data: pub } = supabase.storage.from("cms-images").getPublicUrl(up.path);
-        fileUrl = pub.publicUrl;
+        const { data: signed } = await supabase.storage.from("homework-files").createSignedUrl(up.path, 60 * 60 * 24 * 365 * 5);
+        fileUrl = signed?.signedUrl || null;
       }
       const { error } = await supabase.from("task_assignments").update({
         submission_text: text.trim() || null,
