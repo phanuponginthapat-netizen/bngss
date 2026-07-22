@@ -15619,6 +15619,16 @@ export type Database = {
       }
       normalize_thai_teacher_name: { Args: { input: string }; Returns: string }
       notify_activity_participants_tomorrow: { Args: never; Returns: undefined }
+      notify_admins: {
+        Args: {
+          _message: string
+          _reference_id?: string
+          _reference_type?: string
+          _title: string
+          _type?: string
+        }
+        Returns: number
+      }
       notify_google_chat: {
         Args: {
           _department?: string
