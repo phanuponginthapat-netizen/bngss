@@ -2,6 +2,7 @@ import * as React from "react";
 import * as AvatarPrimitive from "@radix-ui/react-avatar";
 
 import { cn } from "@/lib/utils";
+import { useProfileImageUrl } from "@/lib/profileImageUrl";
 
 const Avatar = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Root>,
@@ -18,19 +19,29 @@ Avatar.displayName = AvatarPrimitive.Root.displayName;
 const AvatarImage = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Image>,
   React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
->(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Image
-    ref={ref}
-    draggable={false}
-    onContextMenu={(e) => e.preventDefault()}
-    onDragStart={(e) => e.preventDefault()}
-    className={cn("aspect-square h-full w-full avatar-protected select-none pointer-events-auto", className)}
-    style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
-    {...props}
-  />
-));
+>(({ className, src, ...props }, ref) => {
+  // Auto-sign private profile-images URLs so every avatar in the app renders
+  // without callers having to remember to call resolveProfileImageUrl().
+  const needsResolve =
+    typeof src === "string" && /\/profile-images\//.test(src) && !src.includes("token=");
+  const resolved = useProfileImageUrl(needsResolve ? src : undefined);
+  const finalSrc = needsResolve ? (resolved ?? undefined) : (src as string | undefined);
+  return (
+    <AvatarPrimitive.Image
+      ref={ref}
+      draggable={false}
+      onContextMenu={(e) => e.preventDefault()}
+      onDragStart={(e) => e.preventDefault()}
+      className={cn("aspect-square h-full w-full avatar-protected select-none pointer-events-auto", className)}
+      style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
+      src={finalSrc}
+      {...props}
+    />
+  );
+});
 
 AvatarImage.displayName = AvatarPrimitive.Image.displayName;
+
 
 const AvatarFallback = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Fallback>,
