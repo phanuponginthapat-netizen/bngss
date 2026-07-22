@@ -1,0 +1,1 @@
+CREATE POLICY "wall author delete" ON public.wall_posts FOR DELETE TO authenticated USING (author_id = auth.uid() OR public.has_role(auth.uid(), 'admin'));
