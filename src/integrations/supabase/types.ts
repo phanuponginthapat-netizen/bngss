@@ -12584,6 +12584,156 @@ export type Database = {
           },
         ]
       }
+      student_offsite_participants: {
+        Row: {
+          attendance_status: string
+          check_in_at: string | null
+          check_in_lat: number | null
+          check_in_lng: number | null
+          check_in_photo_url: string | null
+          check_out_at: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          recorded_by: string | null
+          student_id: string
+          trip_id: string
+          updated_at: string
+        }
+        Insert: {
+          attendance_status?: string
+          check_in_at?: string | null
+          check_in_lat?: number | null
+          check_in_lng?: number | null
+          check_in_photo_url?: string | null
+          check_out_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          recorded_by?: string | null
+          student_id: string
+          trip_id: string
+          updated_at?: string
+        }
+        Update: {
+          attendance_status?: string
+          check_in_at?: string | null
+          check_in_lat?: number | null
+          check_in_lng?: number | null
+          check_in_photo_url?: string | null
+          check_out_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          recorded_by?: string | null
+          student_id?: string
+          trip_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_offsite_participants_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_offsite_participants_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_offsite_participants_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "student_offsite_trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_offsite_trips: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          attachments: Json | null
+          budget: number | null
+          budget_source: string | null
+          co_leaders: Json | null
+          created_at: string
+          created_by: string | null
+          destination: string | null
+          end_at: string
+          id: string
+          leader_personnel_id: string | null
+          notes: string | null
+          purpose: string | null
+          rejected_reason: string | null
+          school_id: string | null
+          start_at: string
+          status: string
+          title: string
+          transportation: string | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          attachments?: Json | null
+          budget?: number | null
+          budget_source?: string | null
+          co_leaders?: Json | null
+          created_at?: string
+          created_by?: string | null
+          destination?: string | null
+          end_at: string
+          id?: string
+          leader_personnel_id?: string | null
+          notes?: string | null
+          purpose?: string | null
+          rejected_reason?: string | null
+          school_id?: string | null
+          start_at: string
+          status?: string
+          title: string
+          transportation?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          attachments?: Json | null
+          budget?: number | null
+          budget_source?: string | null
+          co_leaders?: Json | null
+          created_at?: string
+          created_by?: string | null
+          destination?: string | null
+          end_at?: string
+          id?: string
+          leader_personnel_id?: string | null
+          notes?: string | null
+          purpose?: string | null
+          rejected_reason?: string | null
+          school_id?: string | null
+          start_at?: string
+          status?: string
+          title?: string
+          transportation?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_offsite_trips_leader_personnel_id_fkey"
+            columns: ["leader_personnel_id"]
+            isOneToOne: false
+            referencedRelation: "personnel"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_scores: {
         Row: {
           academic_year: number | null
