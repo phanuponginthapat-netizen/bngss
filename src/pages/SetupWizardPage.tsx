@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import {
   CheckCircle2, XCircle, Loader2, ArrowRight, ArrowLeft, Rocket,
   Database, User, Palette, Cloud, Copy, ExternalLink, Sparkles, ShieldCheck, Wrench,
-  Wand2, Upload, HardDriveDownload,
+  Wand2, Upload, HardDriveDownload, KeyRound,
 } from "lucide-react";
 
 type StepStatus = "idle" | "checking" | "ok" | "fail";
