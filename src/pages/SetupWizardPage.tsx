@@ -303,7 +303,8 @@ export default function SetupWizardPage() {
     if (step === 1) checkDb();
     if (step === 2) checkSchema();
     if (step === 3) checkAdmin();
-    if (step === 5) checkCms();
+    if (step === 4) checkSecrets();
+    if (step === 6) checkCms();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
