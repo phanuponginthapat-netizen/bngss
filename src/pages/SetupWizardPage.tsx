@@ -222,7 +222,7 @@ export default function SetupWizardPage() {
 
       if (opts?.restoreFile) {
         log(`4/5 กู้คืนจากไฟล์ ${opts.restoreFile.name}...`);
-        setStep(3);
+        setStep(4);
         const ok = await runRestore(opts.restoreFile);
         if (!ok) { log("⚠️  กู้คืนมีข้อผิดพลาด — ข้ามไปขั้นถัดไป"); }
         else log("✅ กู้คืนสำเร็จ");
