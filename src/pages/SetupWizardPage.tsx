@@ -85,6 +85,61 @@ export default function SetupWizardPage() {
   };
 
   const [schoolName, setSchoolName] = useState("");
+
+  // ---- secrets
+  const [secretStatus, setSecretStatus] = useState<{
+    required: { key: string; label: string; set: boolean }[];
+    optional: { key: string; label: string; set: boolean }[];
+  }>({ required: [], optional: [] });
+
+  const REQUIRED_SECRETS = [
+    { key: "CRON_SECRET", label: "CRON Secret" },
+    { key: "VAPID_PUBLIC_KEY", label: "VAPID Public Key" },
+    { key: "VAPID_PRIVATE_KEY", label: "VAPID Private Key" },
+  ];
+  const OPTIONAL_SECRETS = [
+    { key: "LINE_CHANNEL_ACCESS_TOKEN", label: "LINE Channel Access Token" },
+    { key: "LINE_LOGIN_CHANNEL_ID", label: "LINE Login Channel ID" },
+    { key: "GOOGLE_CLIENT_ID", label: "Google Client ID" },
+    { key: "GOOGLE_CLIENT_SECRET", label: "Google Client Secret" },
+    { key: "SMTP_HOST", label: "SMTP Host" },
+  ];
+
+  const checkSecrets = async () => {
+    setR("secrets", { status: "checking" });
+    try {
+      // ensure rows exist + mirror env secrets
+      await supabase.rpc("ensure_default_app_secrets" as any);
+      try { await supabase.functions.invoke("sync-env-secrets"); } catch (_) { /* ignore */ }
+
+      const { data, error } = await supabase
+        .from("app_secrets_meta" as any)
+        .select("key, has_value")
+        .in("key", [...REQUIRED_SECRETS.map((s) => s.key), ...OPTIONAL_SECRETS.map((s) => s.key)]);
+      if (error) throw error;
+
+      const map = new Map((data ?? []).map((r: any) => [r.key, !!r.has_value]));
+      const required = REQUIRED_SECRETS.map((s) => ({ ...s, set: map.get(s.key) ?? false }));
+      const optional = OPTIONAL_SECRETS.map((s) => ({ ...s, set: map.get(s.key) ?? false }));
+      setSecretStatus({ required, optional });
+
+      const missingRequired = required.filter((s) => !s.set).length;
+      if (missingRequired === 0) {
+        setR("secrets", { status: "ok", message: "Secrets หลักครบถ้วน", detail: `optional ตั้งแล้ว ${optional.filter((s) => s.set).length}/${optional.length}` });
+        return true;
+      }
+      setR("secrets", {
+        status: "fail",
+        message: `ขาด secrets หลัก ${missingRequired} ตัว`,
+        detail: `สามารถข้ามได้ชั่วคราว แต่ฟีเจอร์บางอย่างจะทำงานไม่สมบูรณ์`,
+      });
+      return false;
+    } catch (e: any) {
+      setR("secrets", { status: "fail", message: "ตรวจ secrets ไม่ได้", detail: e.message });
+      return false;
+    }
+  };
+
   const checkCms = async () => {
     setR("cms", { status: "checking" });
     try {
