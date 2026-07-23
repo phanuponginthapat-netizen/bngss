@@ -483,7 +483,7 @@ VITE_SUPABASE_PROJECT_ID=${envPid ?? "<project-ref>"}`;
               </div>
             )}
 
-            {step === 4 && (
+            {step === 3 && (
               <div className="space-y-3">
                 <p className="text-sm">ระบบต้องมีบัญชี admin อย่างน้อย 1 คน — คนแรกที่สมัครจะถูกตั้งเป็น admin อัตโนมัติ</p>
                 <div className="flex gap-2 flex-wrap">
