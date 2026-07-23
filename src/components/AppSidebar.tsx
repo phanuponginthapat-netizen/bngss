@@ -295,6 +295,20 @@ export function AppSidebar() {
       ],
     },
     {
+      key: "admin_cloud",
+      label: L("ระบบ & Cloud (ผู้ดูแล)", "System & Cloud (Admin)"),
+      icon: CloudDownload,
+      color: "text-sky-400",
+      roles: ["admin", "director"],
+      items: [
+        { title: L("สุขภาพระบบ (Health)", "System Health"), url: "/dashboard/admin/system-health", icon: Activity, color: "text-emerald-400", roles: ["admin", "director"], desc: L("สถานะ Realtime · Edge · Cron · Live Feed", "Realtime, edge, cron & live feed status") },
+        { title: L("ตรวจสอบ RLS Policy", "RLS Audit"), url: "/dashboard/admin/rls-audit", icon: Shield, color: "text-rose-400", roles: ["admin"], desc: L("สรุปสถานะสิทธิ์ INSERT/UPDATE/DELETE ทุกตาราง", "Policy coverage per table") },
+        { title: L("โครงสร้างฐานข้อมูล", "Database Schema"), url: "/dashboard/admin/database-schema", icon: Database, color: "text-indigo-400", roles: ["admin", "director"], desc: L("เปิดดู Schema · Foreign Keys · API endpoints", "Browse schema, FKs & API endpoints") },
+        { title: L("สำรอง & ย้ายระบบ", "Backup & Migration"), url: "/dashboard/admin/backup-center", icon: CloudDownload, color: "text-sky-400", roles: ["admin", "director"], desc: L("One-Click Backup · Restore · ย้าย Supabase", "One-click ZIP backup, restore & migration") },
+        { title: L("Setup Wizard", "Setup Wizard"), url: "/setup", icon: Sparkles, color: "text-fuchsia-400", roles: ["admin"], desc: L("ตั้งค่าเริ่มต้น · Auto Provision · กู้คืนจาก Backup", "First-run setup, auto provision & restore") },
+      ],
+    },
+    {
       key: "admin_kiosk",
       label: L("เครื่องนักเรียนและการเฝ้าดู", "Kiosk & Monitor"),
       icon: MonitorPlay,
