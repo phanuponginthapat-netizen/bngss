@@ -104,13 +104,54 @@ export default function SetupWizardPage() {
     }
   };
 
+  // ---- Step: schema & buckets health check
+  const [health, setHealth] = useState<any>(null);
+  const [creatingBuckets, setCreatingBuckets] = useState(false);
+  const checkSchema = async () => {
+    setR("schema", { status: "checking" });
+    try {
+      const { data, error } = await supabase.functions.invoke("setup-health-check");
+      if (error) throw error;
+      setHealth(data);
+      const missing = (data?.missingTables?.length ?? 0) + (data?.missingBuckets?.length ?? 0);
+      if (data?.ok) {
+        setR("schema", { status: "ok", message: `ครบทุกตาราง (${data.summary.tables.total}) และ bucket (${data.summary.buckets.total})` });
+      } else {
+        setR("schema", {
+          status: "fail",
+          message: `ขาด ${missing} รายการ`,
+          detail: `ตาราง: ${data?.missingTables?.length ?? 0}, buckets: ${data?.missingBuckets?.length ?? 0}`,
+        });
+      }
+    } catch (e: any) {
+      setR("schema", { status: "fail", message: "เรียก setup-health-check ไม่ได้", detail: e.message });
+    }
+  };
+
+  const createMissingBuckets = async () => {
+    setCreatingBuckets(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("setup-create-buckets");
+      if (error) throw error;
+      toast.success(`สร้าง buckets สำเร็จ: ${data?.created?.length ?? 0} รายการ`);
+      if (data?.failed?.length) toast.error(`สร้างไม่สำเร็จ ${data.failed.length} — อาจต้องเป็น admin`);
+      await checkSchema();
+    } catch (e: any) {
+      toast.error(`สร้างไม่สำเร็จ: ${e.message}`);
+    } finally {
+      setCreatingBuckets(false);
+    }
+  };
+
   useEffect(() => {
     if (step === 0) checkEnv();
     if (step === 1) checkDb();
-    if (step === 2) checkAdmin();
-    if (step === 3) checkCms();
+    if (step === 2) checkSchema();
+    if (step === 3) checkAdmin();
+    if (step === 4) checkCms();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
+
 
   const okCount = Object.values(results).filter((r) => r.status === "ok").length;
   const progress = useMemo(() => (okCount / STEPS.length) * 100, [okCount]);
