@@ -224,6 +224,7 @@ const AuditLogPage = lazy(() => import("./pages/admin/AuditLogPage"));
 const SystemHealthPage = lazy(() => import("./pages/admin/SystemHealthPage"));
 const DistrictSyncPage = lazy(() => import("./pages/admin/DistrictSyncPage"));
 const RoleTroubleshootPage = lazy(() => import("./pages/admin/RoleTroubleshootPage"));
+const DatabaseSchemaPage = lazy(() => import("./pages/admin/DatabaseSchemaPage"));
 const RlsAuditPage = lazy(() => import("./pages/admin/RlsAuditPage"));
 const AiImportPage = lazy(() => import("./pages/admin/AiImportPage"));
 
