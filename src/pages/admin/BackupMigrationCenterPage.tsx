@@ -259,6 +259,38 @@ curl -X POST "$SUPABASE_URL/functions/v1/system-restore?truncate=1" \\
 
         {/* ---- BACKUP ---- */}
         <TabsContent value="backup" className="space-y-4">
+          <Card className="border-2 border-primary bg-gradient-to-br from-primary/5 to-primary/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Sparkles className="h-6 w-6 text-primary" /> One-Click Backup (สำรองทั้งระบบไฟล์เดียว)
+              </CardTitle>
+              <CardDescription>
+                กดปุ่มเดียวจบ — รวม <b>ทุกตาราง</b> + <b>ทุก Storage bucket</b> + สคริปต์กู้คืน + คู่มือ ลงในไฟล์ ZIP เดียว
+                เหมือน backup ของ Windows ที่นำไป restore กับเครื่องไหนก็ได้
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button
+                size="lg"
+                onClick={oneClickBackup}
+                disabled={downloading === "oneclick"}
+                className="w-full sm:w-auto"
+              >
+                <Sparkles className={`h-4 w-4 mr-2 ${downloading === "oneclick" ? "animate-pulse" : ""}`} />
+                {downloading === "oneclick" ? "กำลังสำรองข้อมูล..." : "สำรองทั้งระบบ (One-Click)"}
+              </Button>
+              {oneClickProgress && (
+                <div className="space-y-1">
+                  <div className="text-sm text-muted-foreground">{oneClickProgress.label}</div>
+                  <Progress value={oneClickProgress.pct} />
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                💡 ไฟล์ที่ได้นำไป restore ได้ที่แท็บ "กู้คืน" ของระบบใหม่ — ระบบจะกู้คืนทั้งข้อมูลและไฟล์ใน Storage อัตโนมัติ
+              </p>
+            </CardContent>
+          </Card>
+
           <Card className="border-primary/40">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
