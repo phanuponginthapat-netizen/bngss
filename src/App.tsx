@@ -508,6 +508,7 @@ const App = () => (
                 <Route path="admin/district-sync" element={<ProtectedRoute allowedRoles={["admin","director"]}><DistrictSyncPage /></ProtectedRoute>} />
                 <Route path="admin/role-troubleshoot" element={<ProtectedRoute allowedRoles={["admin","director","teacher","student"]}><RoleTroubleshootPage /></ProtectedRoute>} />
                 <Route path="admin/rls-audit" element={<ProtectedRoute allowedRoles={["admin"]}><RlsAuditPage /></ProtectedRoute>} />
+                <Route path="admin/database-schema" element={<ProtectedRoute allowedRoles={["admin","director"]}><DatabaseSchemaPage /></ProtectedRoute>} />
                 <Route path="help" element={<HelpCenterPage />} />
                 <Route path="admin/bulk-operations" element={<ProtectedRoute allowedRoles={["admin", "director"]}><BulkOperationsPage /></ProtectedRoute>} />
                 <Route path="admin/departments" element={<ProtectedRoute allowedRoles={["admin","director"]}><DepartmentManagementPage /></ProtectedRoute>} />
