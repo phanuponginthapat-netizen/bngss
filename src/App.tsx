@@ -118,6 +118,7 @@ const WebhookManagementPage = lazy(() => import("./pages/admin/WebhookManagement
 const AIProvidersPage = lazy(() => import("./pages/admin/AIProvidersPage"));
 const AIKeyPoolPage = lazy(() => import("./pages/admin/AIKeyPoolPage"));
 const BackupExternalPage = lazy(() => import("./pages/admin/BackupExternalPage"));
+const BackupMigrationCenterPage = lazy(() => import("./pages/admin/BackupMigrationCenterPage"));
 const SecretsManagementPage = lazy(() => import("./pages/admin/SecretsManagementPage"));
 const ApiKeysHubPage = lazy(() => import("./pages/admin/ApiKeysHubPage"));
 const AiAnalyticsPage = lazy(() => import("./pages/admin/AiAnalyticsPage"));
