@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import {
   CheckCircle2, XCircle, Loader2, ArrowRight, ArrowLeft, Rocket,
   Database, User, Palette, Cloud, Copy, ExternalLink, Sparkles, ShieldCheck, Wrench,
-  Wand2, Upload, HardDriveDownload,
+  Wand2, Upload, HardDriveDownload, KeyRound,
 } from "lucide-react";
 
 type StepStatus = "idle" | "checking" | "ok" | "fail";
@@ -21,6 +21,7 @@ const STEPS = [
   { key: "db", label: "เชื่อมต่อฐานข้อมูล", icon: Database },
   { key: "schema", label: "ตรวจ Schema & Buckets", icon: ShieldCheck },
   { key: "admin", label: "ตรวจบัญชี Admin", icon: User },
+  { key: "secrets", label: "ตั้งค่า Secrets", icon: KeyRound },
   { key: "restore", label: "กู้คืนจากไฟล์สำรอง", icon: HardDriveDownload },
   { key: "cms", label: "ตั้งค่าโรงเรียน (CMS)", icon: Palette },
   { key: "deploy", label: "Deploy", icon: Rocket },
@@ -84,6 +85,61 @@ export default function SetupWizardPage() {
   };
 
   const [schoolName, setSchoolName] = useState("");
+
+  // ---- secrets
+  const [secretStatus, setSecretStatus] = useState<{
+    required: { key: string; label: string; set: boolean }[];
+    optional: { key: string; label: string; set: boolean }[];
+  }>({ required: [], optional: [] });
+
+  const REQUIRED_SECRETS = [
+    { key: "CRON_SECRET", label: "CRON Secret" },
+    { key: "VAPID_PUBLIC_KEY", label: "VAPID Public Key" },
+    { key: "VAPID_PRIVATE_KEY", label: "VAPID Private Key" },
+  ];
+  const OPTIONAL_SECRETS = [
+    { key: "LINE_CHANNEL_ACCESS_TOKEN", label: "LINE Channel Access Token" },
+    { key: "LINE_LOGIN_CHANNEL_ID", label: "LINE Login Channel ID" },
+    { key: "GOOGLE_CLIENT_ID", label: "Google Client ID" },
+    { key: "GOOGLE_CLIENT_SECRET", label: "Google Client Secret" },
+    { key: "SMTP_HOST", label: "SMTP Host" },
+  ];
+
+  const checkSecrets = async () => {
+    setR("secrets", { status: "checking" });
+    try {
+      // ensure rows exist + mirror env secrets
+      await supabase.rpc("ensure_default_app_secrets" as any);
+      try { await supabase.functions.invoke("sync-env-secrets"); } catch (_) { /* ignore */ }
+
+      const { data, error } = await supabase
+        .from("app_secrets_meta" as any)
+        .select("key, has_value")
+        .in("key", [...REQUIRED_SECRETS.map((s) => s.key), ...OPTIONAL_SECRETS.map((s) => s.key)]);
+      if (error) throw error;
+
+      const map = new Map((data ?? []).map((r: any) => [r.key, !!r.has_value]));
+      const required = REQUIRED_SECRETS.map((s) => ({ ...s, set: map.get(s.key) ?? false }));
+      const optional = OPTIONAL_SECRETS.map((s) => ({ ...s, set: map.get(s.key) ?? false }));
+      setSecretStatus({ required, optional });
+
+      const missingRequired = required.filter((s) => !s.set).length;
+      if (missingRequired === 0) {
+        setR("secrets", { status: "ok", message: "Secrets หลักครบถ้วน", detail: `optional ตั้งแล้ว ${optional.filter((s) => s.set).length}/${optional.length}` });
+        return true;
+      }
+      setR("secrets", {
+        status: "fail",
+        message: `ขาด secrets หลัก ${missingRequired} ตัว`,
+        detail: `สามารถข้ามได้ชั่วคราว แต่ฟีเจอร์บางอย่างจะทำงานไม่สมบูรณ์`,
+      });
+      return false;
+    } catch (e: any) {
+      setR("secrets", { status: "fail", message: "ตรวจ secrets ไม่ได้", detail: e.message });
+      return false;
+    }
+  };
+
   const checkCms = async () => {
     setR("cms", { status: "checking" });
     try {
@@ -189,7 +245,7 @@ export default function SetupWizardPage() {
 
   const skipRestore = () => {
     setR("restore", { status: "ok", message: "ข้ามการกู้คืน (เริ่มต้นระบบเปล่า)" });
-    setStep(5);
+    setStep(6);
   };
 
   // ---- One-click auto provision
@@ -201,15 +257,15 @@ export default function SetupWizardPage() {
     setAutoRunning(true);
     setAutoLog([]);
     try {
-      log("1/5 ตรวจ environment...");
+      log("1/6 ตรวจ environment...");
       if (!checkEnv()) { toast.error("env ไม่ครบ ตั้งค่าก่อน"); return; }
       log("✅ env ครบ");
 
-      log("2/5 ทดสอบเชื่อมต่อฐานข้อมูล...");
+      log("2/6 ทดสอบเชื่อมต่อฐานข้อมูล...");
       if (!(await checkDb())) return;
       log("✅ ฐานข้อมูลพร้อม");
 
-      log("3/5 ตรวจ schema + buckets...");
+      log("3/6 ตรวจ schema + buckets...");
       await checkSchema();
       // create missing buckets automatically
       const h = await (await supabase.functions.invoke("setup-health-check")).data;
@@ -220,23 +276,29 @@ export default function SetupWizardPage() {
         log("✅ buckets ครบ");
       }
 
+      log("4/6 ตรวจบัญชี Admin...");
+      await checkAdmin();
+      log("✅ admin พร้อม");
+
+      log("5/6 ตรวจ Secrets...");
+      await checkSecrets();
+      log("✅ secrets ตรวจสอบแล้ว");
+
       if (opts?.restoreFile) {
-        log(`4/5 กู้คืนจากไฟล์ ${opts.restoreFile.name}...`);
-        setStep(4);
+        log(`6/6 กู้คืนจากไฟล์ ${opts.restoreFile.name}...`);
+        setStep(5);
         const ok = await runRestore(opts.restoreFile);
         if (!ok) { log("⚠️  กู้คืนมีข้อผิดพลาด — ข้ามไปขั้นถัดไป"); }
         else log("✅ กู้คืนสำเร็จ");
       } else {
-        log("4/5 ข้ามการกู้คืน (ไม่มีไฟล์)");
+        log("6/6 ข้ามการกู้คืน (ไม่มีไฟล์)");
         setR("restore", { status: "ok", message: "ข้าม" });
       }
 
-      log("5/5 ตรวจ admin + CMS...");
-      await checkAdmin();
       await checkCms();
       log("✅ เสร็จสิ้น — ตรวจผลลัพธ์แต่ละขั้นด้านล่าง");
       toast.success("Auto-provision เสร็จสิ้น");
-      setStep(6);
+      setStep(7);
     } finally {
       setAutoRunning(false);
     }
@@ -247,7 +309,8 @@ export default function SetupWizardPage() {
     if (step === 1) checkDb();
     if (step === 2) checkSchema();
     if (step === 3) checkAdmin();
-    if (step === 5) checkCms();
+    if (step === 4) checkSecrets();
+    if (step === 6) checkCms();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
@@ -340,7 +403,7 @@ VITE_SUPABASE_PROJECT_ID=${envPid ?? "<project-ref>"}`;
         {/* stepper */}
         <div className="space-y-2">
           <Progress value={progress} />
-          <div className="grid grid-cols-7 gap-1 text-xs">
+          <div className="grid grid-cols-8 gap-1 text-xs">
             {STEPS.map((s, i) => (
               <button key={s.key} onClick={() => setStep(i)}
                 className={`p-2 rounded-lg text-center transition ${
@@ -446,6 +509,77 @@ VITE_SUPABASE_PROJECT_ID=${envPid ?? "<project-ref>"}`;
             )}
 
             {step === 4 && (
+              <div className="space-y-4">
+                <p className="text-sm">
+                  ตั้งค่า API Keys / Secrets ที่ระบบใช้งาน เช่น LINE, Web Push, Google Drive, SMTP
+                  สามารถกรอกภายหลังได้ แต่ฟีเจอร์บางอย่างจะทำงานเมื่อมีค่าเหล่านี้
+                </p>
+
+                <div className="space-y-3">
+                  <div className="font-semibold text-sm">🔐 Secrets หลัก (แนะนำให้ตั้ง)</div>
+                  <div className="grid gap-2">
+                    {secretStatus.required.map((s) => (
+                      <div key={s.key} className="flex items-center justify-between p-3 rounded-lg bg-muted text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className={s.set ? "text-emerald-600" : "text-amber-600"}>
+                            {s.set ? "✅" : "⏳"}
+                          </span>
+                          <span className="font-mono text-xs">{s.key}</span>
+                          <span className="text-muted-foreground text-xs">{s.label}</span>
+                        </div>
+                        <Badge variant={s.set ? "default" : "secondary"} className={s.set ? "bg-emerald-600" : ""}>
+                          {s.set ? "ตั้งแล้ว" : "ยังไม่ได้ตั้ง"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="font-semibold text-sm pt-2">🔌 Secrets เสริม (ตามความจำเป็น)</div>
+                  <div className="grid gap-2">
+                    {secretStatus.optional.map((s) => (
+                      <div key={s.key} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className={s.set ? "text-emerald-600" : "text-muted-foreground"}>
+                            {s.set ? "✅" : "○"}
+                          </span>
+                          <span className="font-mono text-xs">{s.key}</span>
+                          <span className="text-muted-foreground text-xs">{s.label}</span>
+                        </div>
+                        <Badge variant={s.set ? "default" : "outline"} className={s.set ? "bg-emerald-600" : ""}>
+                          {s.set ? "ตั้งแล้ว" : "ยังไม่ได้ตั้ง"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 flex-wrap">
+                  <Link to="/dashboard/admin/secrets">
+                    <Button variant="outline"><KeyRound className="h-4 w-4 mr-2" />เปิดหน้า Secrets</Button>
+                  </Link>
+                  <Button onClick={checkSecrets} variant="outline" size="sm">ตรวจอีกครั้ง</Button>
+                </div>
+                <Alert>
+                  <AlertDescription className="text-xs">
+                    ต้อง login เป็น <b>admin/director</b> ก่อนจึงจะบันทึก secrets ได้ — หรือข้ามขั้นตอนนี้แล้วไปตั้งภายหลัง
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="space-y-3">
+                <p className="text-sm">ระบบต้องมีบัญชี admin อย่างน้อย 1 คน — คนแรกที่สมัครจะถูกตั้งเป็น admin อัตโนมัติ</p>
+                <div className="flex gap-2 flex-wrap">
+                  <Link to="/signup"><Button variant="outline"><User className="h-4 w-4 mr-2" />สมัคร admin คนแรก</Button></Link>
+                  <Link to="/login"><Button variant="outline">ไปหน้า Login</Button></Link>
+                </div>
+                {r?.detail && <p className="text-xs text-muted-foreground">{r.detail}</p>}
+                <Button onClick={checkAdmin} variant="outline" size="sm">ตรวจอีกครั้ง</Button>
+              </div>
+            )}
+
+            {step === 5 && (
               <div className="space-y-3">
                 <p className="text-sm">
                   หากคุณมีไฟล์สำรอง <code>.zip</code> จาก Backup Center — อัปโหลดที่นี่เพื่อกู้คืนข้อมูลเดิมทั้งหมด
@@ -483,19 +617,7 @@ VITE_SUPABASE_PROJECT_ID=${envPid ?? "<project-ref>"}`;
               </div>
             )}
 
-            {step === 3 && (
-              <div className="space-y-3">
-                <p className="text-sm">ระบบต้องมีบัญชี admin อย่างน้อย 1 คน — คนแรกที่สมัครจะถูกตั้งเป็น admin อัตโนมัติ</p>
-                <div className="flex gap-2 flex-wrap">
-                  <Link to="/signup"><Button variant="outline"><User className="h-4 w-4 mr-2" />สมัคร admin คนแรก</Button></Link>
-                  <Link to="/login"><Button variant="outline">ไปหน้า Login</Button></Link>
-                </div>
-                {r?.detail && <p className="text-xs text-muted-foreground">{r.detail}</p>}
-                <Button onClick={checkAdmin} variant="outline" size="sm">ตรวจอีกครั้ง</Button>
-              </div>
-            )}
-
-            {step === 5 && (
+            {step === 6 && (
               <div className="space-y-3">
                 <p className="text-sm">ตั้งชื่อโรงเรียน โลโก้ สี — ระบบจะดึงไปแสดงทุกที่อัตโนมัติ</p>
                 {schoolName && <div className="text-sm">โรงเรียนปัจจุบัน: <b>{schoolName}</b></div>}
@@ -508,7 +630,7 @@ VITE_SUPABASE_PROJECT_ID=${envPid ?? "<project-ref>"}`;
               </div>
             )}
 
-            {step === 6 && (
+            {step === 7 && (
               <div className="space-y-4">
                 <p className="text-sm">เลือกวิธี deploy ระบบขึ้น production:</p>
                 <div className="grid md:grid-cols-2 gap-3">
