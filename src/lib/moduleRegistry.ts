@@ -99,6 +99,7 @@ export const MODULES: ModuleDef[] = [
   { key: "social_feed", label: "Social Wall (Facebook)", labelEn: "Social Wall", desc: "ดึงโพสต์จาก Facebook Page", group: "integrations", urlPrefixes: ["/dashboard/admin/social-feed"] },
   { key: "ai_integrations", label: "API & AI", labelEn: "API & AI", desc: "Secrets ผู้ให้บริการ AI และคีย์พูล", group: "integrations", urlPrefixes: ["/dashboard/admin/api-keys", "/dashboard/admin/ai-providers", "/dashboard/admin/ai-key-pool", "/dashboard/admin/secrets", "/dashboard/admin/ai-import", "/dashboard/admin/ai-analytics"] },
   { key: "backup_external", label: "สำรองข้อมูลภายนอก", labelEn: "External Backup", desc: "Backup ไป Google Drive/S3", group: "integrations", urlPrefixes: ["/dashboard/admin/backup-external"] },
+  { key: "backup_center", label: "Backup & Migration Center", labelEn: "Backup & Migration", desc: "สำรอง/กู้คืน/ย้ายระบบทั้งหมด — 1 คลิก", group: "integrations", urlPrefixes: ["/dashboard/admin/backup-center"] },
 
   // โมดูลเสริม
   { key: "help", label: "ศูนย์ช่วยเหลือ", labelEn: "Help Center", desc: "คู่มือ FAQ และวิธีใช้งาน", group: "extras", urlPrefixes: ["/dashboard/help", "/help"] },
