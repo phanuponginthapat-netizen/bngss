@@ -21,6 +21,7 @@ const STEPS = [
   { key: "db", label: "เชื่อมต่อฐานข้อมูล", icon: Database },
   { key: "schema", label: "ตรวจ Schema & Buckets", icon: ShieldCheck },
   { key: "admin", label: "ตรวจบัญชี Admin", icon: User },
+  { key: "secrets", label: "ตั้งค่า Secrets", icon: KeyRound },
   { key: "restore", label: "กู้คืนจากไฟล์สำรอง", icon: HardDriveDownload },
   { key: "cms", label: "ตั้งค่าโรงเรียน (CMS)", icon: Palette },
   { key: "deploy", label: "Deploy", icon: Rocket },
