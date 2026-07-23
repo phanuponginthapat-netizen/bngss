@@ -189,7 +189,7 @@ export default function SetupWizardPage() {
 
   const skipRestore = () => {
     setR("restore", { status: "ok", message: "ข้ามการกู้คืน (เริ่มต้นระบบเปล่า)" });
-    setStep(4);
+    setStep(5);
   };
 
   // ---- One-click auto provision
