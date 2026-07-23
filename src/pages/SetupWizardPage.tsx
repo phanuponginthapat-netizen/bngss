@@ -257,15 +257,15 @@ export default function SetupWizardPage() {
     setAutoRunning(true);
     setAutoLog([]);
     try {
-      log("1/5 ตรวจ environment...");
+      log("1/6 ตรวจ environment...");
       if (!checkEnv()) { toast.error("env ไม่ครบ ตั้งค่าก่อน"); return; }
       log("✅ env ครบ");
 
-      log("2/5 ทดสอบเชื่อมต่อฐานข้อมูล...");
+      log("2/6 ทดสอบเชื่อมต่อฐานข้อมูล...");
       if (!(await checkDb())) return;
       log("✅ ฐานข้อมูลพร้อม");
 
-      log("3/5 ตรวจ schema + buckets...");
+      log("3/6 ตรวจ schema + buckets...");
       await checkSchema();
       // create missing buckets automatically
       const h = await (await supabase.functions.invoke("setup-health-check")).data;
@@ -276,23 +276,29 @@ export default function SetupWizardPage() {
         log("✅ buckets ครบ");
       }
 
+      log("4/6 ตรวจบัญชี Admin...");
+      await checkAdmin();
+      log("✅ admin พร้อม");
+
+      log("5/6 ตรวจ Secrets...");
+      await checkSecrets();
+      log("✅ secrets ตรวจสอบแล้ว");
+
       if (opts?.restoreFile) {
-        log(`4/5 กู้คืนจากไฟล์ ${opts.restoreFile.name}...`);
-        setStep(4);
+        log(`6/6 กู้คืนจากไฟล์ ${opts.restoreFile.name}...`);
+        setStep(5);
         const ok = await runRestore(opts.restoreFile);
         if (!ok) { log("⚠️  กู้คืนมีข้อผิดพลาด — ข้ามไปขั้นถัดไป"); }
         else log("✅ กู้คืนสำเร็จ");
       } else {
-        log("4/5 ข้ามการกู้คืน (ไม่มีไฟล์)");
+        log("6/6 ข้ามการกู้คืน (ไม่มีไฟล์)");
         setR("restore", { status: "ok", message: "ข้าม" });
       }
 
-      log("5/5 ตรวจ admin + CMS...");
-      await checkAdmin();
       await checkCms();
       log("✅ เสร็จสิ้น — ตรวจผลลัพธ์แต่ละขั้นด้านล่าง");
       toast.success("Auto-provision เสร็จสิ้น");
-      setStep(6);
+      setStep(7);
     } finally {
       setAutoRunning(false);
     }
