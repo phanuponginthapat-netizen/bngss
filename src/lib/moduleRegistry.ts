@@ -89,6 +89,7 @@ export const MODULES: ModuleDef[] = [
   { key: "audit_log", label: "Audit Log", labelEn: "Audit Log", desc: "บันทึกการใช้งานระบบ", group: "integrations", urlPrefixes: ["/dashboard/admin/audit-log"] },
   { key: "system_health", label: "สุขภาพระบบ", labelEn: "System Health", desc: "สถานะ AI, ผู้ใช้ออนไลน์, error logs", group: "integrations", urlPrefixes: ["/dashboard/admin/system-health"] },
   { key: "role_troubleshoot", label: "ตรวจสิทธิ์ตาราง", labelEn: "Role Troubleshoot", desc: "ทดสอบว่า role ปัจจุบันอ่านแต่ละตารางได้หรือไม่", group: "integrations", urlPrefixes: ["/dashboard/admin/role-troubleshoot"] },
+  { key: "rls_audit", label: "ตรวจสถานะ RLS", labelEn: "RLS Audit", desc: "สรุปว่าตารางไหนมี policy อ่าน/เพิ่ม/แก้/ลบครบ", group: "integrations", urlPrefixes: ["/dashboard/admin/rls-audit"] },
   { key: "bulk_ops", label: "ทำทีละหลายคน (Bulk)", labelEn: "Bulk Ops", desc: "นำเข้า/แก้ไขข้อมูลทีละมาก", group: "integrations", urlPrefixes: ["/dashboard/admin/bulk-operations"] },
   { key: "id_cards", label: "บัตรประจำตัว", labelEn: "ID Cards", desc: "พิมพ์บัตรนักเรียนและบุคลากร", group: "integrations", urlPrefixes: ["/dashboard/admin/id-card", "/dashboard/admin/bulk-id", "/dashboard/admin/bulk-qr", "/dashboard/admin/qr"] },
   { key: "print_center", label: "ศูนย์งานพิมพ์", labelEn: "Print Center", desc: "พิมพ์เอกสารและบัตรรวมศูนย์", group: "integrations", urlPrefixes: ["/dashboard/admin/print-center"] },
