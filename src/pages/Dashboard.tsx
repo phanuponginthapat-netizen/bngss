@@ -420,7 +420,7 @@ const Dashboard = () => {
       return (
         <KpiCard icon={UserCheck} label={L("เข้าโรงเรียนวันนี้", "Checked-in Today")} value={`${checkedIn}/${totalStu}`}
           sub={L(`${pct}% · มา ${presentN} · สาย ${lateN} · ขาด ${absentN}`, `${pct}% · On ${presentN} · Late ${lateN} · Abs ${absentN}`)}
-          gradient={COLOR_THEMES[color].gradient} onClick={() => navigate("/dashboard/student/attendance")}
+          gradient={COLOR_THEMES[color].gradient} onClick={() => navigate("/dashboard/student/face-scan?tab=report")}
           progress={pct} />
       );
     },
