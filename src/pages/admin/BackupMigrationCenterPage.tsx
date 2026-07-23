@@ -13,15 +13,17 @@ import { toast } from "sonner";
 import { swal } from "@/lib/swal";
 import {
   Download, Upload, Copy, PackageOpen, ServerCog, Database, Cloud,
-  FolderArchive, ShieldCheck, ArrowRight, ExternalLink, Rocket
+  FolderArchive, ShieldCheck, ArrowRight, ExternalLink, Rocket, Sparkles
 } from "lucide-react";
+import JSZip from "jszip";
 import { todayBangkok } from "@/lib/dateBE";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 export default function BackupMigrationCenterPage() {
-  const [downloading, setDownloading] = useState<null | "tables" | "full" | string>(null);
+  const [downloading, setDownloading] = useState<null | "tables" | "full" | "oneclick" | string>(null);
+  const [oneClickProgress, setOneClickProgress] = useState<{ pct: number; label: string } | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [buckets, setBuckets] = useState<{ name: string }[]>([]);
   const [restoreResult, setRestoreResult] = useState<any>(null);
@@ -30,6 +32,91 @@ export default function BackupMigrationCenterPage() {
   const [targetUrl, setTargetUrl] = useState("");
   const [targetRef, setTargetRef] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const callFn = async (qs: string): Promise<Response> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return fetch(`${SUPABASE_URL}/functions/v1/system-backup?${qs}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session?.access_token ?? ""}`, apikey: ANON },
+    });
+  };
+
+  const oneClickBackup = async () => {
+    setDownloading("oneclick");
+    setOneClickProgress({ pct: 2, label: "เริ่มต้น..." });
+    try {
+      // 1) Full tables + restore kit + storage manifest
+      setOneClickProgress({ pct: 5, label: "กำลังดึงข้อมูลทุกตาราง..." });
+      const fullRes = await callFn("mode=full");
+      if (!fullRes.ok) throw new Error(`tables: ${await fullRes.text()}`);
+      const fullZipBytes = new Uint8Array(await fullRes.arrayBuffer());
+      const inner = await JSZip.loadAsync(fullZipBytes);
+
+      // Start mega ZIP by copying full ZIP contents
+      const mega = new JSZip();
+      for (const name of Object.keys(inner.files)) {
+        const f = inner.files[name];
+        if (f.dir) continue;
+        mega.file(name, await f.async("uint8array"));
+      }
+
+      // 2) List buckets
+      setOneClickProgress({ pct: 15, label: "โหลดรายการ Storage..." });
+      const bRes = await callFn("mode=buckets");
+      const bJson = bRes.ok ? await bRes.json() : { buckets: [] };
+      const bucketList: { name: string }[] = bJson.buckets ?? [];
+
+      // 3) Fetch each bucket, unpack into storage/<bucket>/<path>
+      const storageSummary: Record<string, number> = {};
+      for (let i = 0; i < bucketList.length; i++) {
+        const b = bucketList[i];
+        const pct = 15 + Math.round(((i + 1) / (bucketList.length + 1)) * 75);
+        setOneClickProgress({ pct, label: `Storage: ${b.name} (${i + 1}/${bucketList.length})` });
+        try {
+          const sRes = await callFn(`mode=storage&bucket=${encodeURIComponent(b.name)}`);
+          if (!sRes.ok) { storageSummary[b.name] = -1; continue; }
+          const sBytes = new Uint8Array(await sRes.arrayBuffer());
+          const sZip = await JSZip.loadAsync(sBytes);
+          let count = 0;
+          for (const name of Object.keys(sZip.files)) {
+            const f = sZip.files[name];
+            if (f.dir) continue;
+            if (name === "manifest.json") continue;
+            // File paths inside bucket ZIP are `<bucket>/<path>` — remap to storage/<bucket>/<path>
+            const bytes = await f.async("uint8array");
+            mega.file(`storage/${name}`, bytes);
+            count++;
+          }
+          storageSummary[b.name] = count;
+        } catch (e: any) {
+          storageSummary[b.name] = -1;
+        }
+      }
+
+      // 4) Write combined summary
+      mega.file("one-click-summary.json", JSON.stringify({
+        generated_at: new Date().toISOString(),
+        buckets: storageSummary,
+        note: "One-click bundle. Restore via /system-restore (multipart file=...). Includes tables/*.json AND storage/<bucket>/<path>.",
+      }, null, 2));
+
+      setOneClickProgress({ pct: 95, label: "กำลังบีบอัดเป็นไฟล์เดียว..." });
+      const megaBlob = await mega.generateAsync({ type: "blob", compression: "DEFLATE" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(megaBlob);
+      a.download = `smart-school-oneclick-${todayBangkok()}.zip`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      setOneClickProgress({ pct: 100, label: "เสร็จสิ้น!" });
+      toast.success("สำรองข้อมูลทั้งระบบสำเร็จ ✅");
+    } catch (e: any) {
+      toast.error(`สำรองล้มเหลว: ${e.message ?? e}`);
+    } finally {
+      setDownloading(null);
+      setTimeout(() => setOneClickProgress(null), 2000);
+    }
+  };
+
 
   useEffect(() => {
     (async () => {
@@ -172,6 +259,38 @@ curl -X POST "$SUPABASE_URL/functions/v1/system-restore?truncate=1" \\
 
         {/* ---- BACKUP ---- */}
         <TabsContent value="backup" className="space-y-4">
+          <Card className="border-2 border-primary bg-gradient-to-br from-primary/5 to-primary/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Sparkles className="h-6 w-6 text-primary" /> One-Click Backup (สำรองทั้งระบบไฟล์เดียว)
+              </CardTitle>
+              <CardDescription>
+                กดปุ่มเดียวจบ — รวม <b>ทุกตาราง</b> + <b>ทุก Storage bucket</b> + สคริปต์กู้คืน + คู่มือ ลงในไฟล์ ZIP เดียว
+                เหมือน backup ของ Windows ที่นำไป restore กับเครื่องไหนก็ได้
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button
+                size="lg"
+                onClick={oneClickBackup}
+                disabled={downloading === "oneclick"}
+                className="w-full sm:w-auto"
+              >
+                <Sparkles className={`h-4 w-4 mr-2 ${downloading === "oneclick" ? "animate-pulse" : ""}`} />
+                {downloading === "oneclick" ? "กำลังสำรองข้อมูล..." : "สำรองทั้งระบบ (One-Click)"}
+              </Button>
+              {oneClickProgress && (
+                <div className="space-y-1">
+                  <div className="text-sm text-muted-foreground">{oneClickProgress.label}</div>
+                  <Progress value={oneClickProgress.pct} />
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                💡 ไฟล์ที่ได้นำไป restore ได้ที่แท็บ "กู้คืน" ของระบบใหม่ — ระบบจะกู้คืนทั้งข้อมูลและไฟล์ใน Storage อัตโนมัติ
+              </p>
+            </CardContent>
+          </Card>
+
           <Card className="border-primary/40">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -240,6 +359,9 @@ curl -X POST "$SUPABASE_URL/functions/v1/system-restore?truncate=1" \\
                     </Badge>
                     <Badge variant="outline">{restoreResult.tables_processed} ตาราง</Badge>
                     <Badge variant="outline">{restoreResult.rows_inserted ?? 0} แถว</Badge>
+                    {typeof restoreResult.storage_files_uploaded === "number" && (
+                      <Badge variant="outline">{restoreResult.storage_files_uploaded} ไฟล์ Storage</Badge>
+                    )}
                     {restoreResult.dry_run && <Badge>Dry Run</Badge>}
                   </div>
                   {(restoreResult.errors ?? []).length > 0 && (
