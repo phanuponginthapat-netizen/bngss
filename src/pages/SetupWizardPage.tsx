@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import {
   CheckCircle2, XCircle, Loader2, ArrowRight, ArrowLeft, Rocket,
-  Database, User, Palette, Cloud, Copy, ExternalLink, Sparkles,
+  Database, User, Palette, Cloud, Copy, ExternalLink, Sparkles, ShieldCheck, Wrench,
 } from "lucide-react";
 
 type StepStatus = "idle" | "checking" | "ok" | "fail";
@@ -18,10 +18,12 @@ interface StepResult { status: StepStatus; message?: string; detail?: string; }
 const STEPS = [
   { key: "env", label: "ตรวจ Environment", icon: Cloud },
   { key: "db", label: "เชื่อมต่อฐานข้อมูล", icon: Database },
+  { key: "schema", label: "ตรวจ Schema & Buckets", icon: ShieldCheck },
   { key: "admin", label: "ตรวจบัญชี Admin", icon: User },
   { key: "cms", label: "ตั้งค่าโรงเรียน (CMS)", icon: Palette },
   { key: "deploy", label: "Deploy", icon: Rocket },
 ] as const;
+
 
 export default function SetupWizardPage() {
   const [step, setStep] = useState(0);
@@ -102,13 +104,54 @@ export default function SetupWizardPage() {
     }
   };
 
+  // ---- Step: schema & buckets health check
+  const [health, setHealth] = useState<any>(null);
+  const [creatingBuckets, setCreatingBuckets] = useState(false);
+  const checkSchema = async () => {
+    setR("schema", { status: "checking" });
+    try {
+      const { data, error } = await supabase.functions.invoke("setup-health-check");
+      if (error) throw error;
+      setHealth(data);
+      const missing = (data?.missingTables?.length ?? 0) + (data?.missingBuckets?.length ?? 0);
+      if (data?.ok) {
+        setR("schema", { status: "ok", message: `ครบทุกตาราง (${data.summary.tables.total}) และ bucket (${data.summary.buckets.total})` });
+      } else {
+        setR("schema", {
+          status: "fail",
+          message: `ขาด ${missing} รายการ`,
+          detail: `ตาราง: ${data?.missingTables?.length ?? 0}, buckets: ${data?.missingBuckets?.length ?? 0}`,
+        });
+      }
+    } catch (e: any) {
+      setR("schema", { status: "fail", message: "เรียก setup-health-check ไม่ได้", detail: e.message });
+    }
+  };
+
+  const createMissingBuckets = async () => {
+    setCreatingBuckets(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("setup-create-buckets");
+      if (error) throw error;
+      toast.success(`สร้าง buckets สำเร็จ: ${data?.created?.length ?? 0} รายการ`);
+      if (data?.failed?.length) toast.error(`สร้างไม่สำเร็จ ${data.failed.length} — อาจต้องเป็น admin`);
+      await checkSchema();
+    } catch (e: any) {
+      toast.error(`สร้างไม่สำเร็จ: ${e.message}`);
+    } finally {
+      setCreatingBuckets(false);
+    }
+  };
+
   useEffect(() => {
     if (step === 0) checkEnv();
     if (step === 1) checkDb();
-    if (step === 2) checkAdmin();
-    if (step === 3) checkCms();
+    if (step === 2) checkSchema();
+    if (step === 3) checkAdmin();
+    if (step === 4) checkCms();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
+
 
   const okCount = Object.values(results).filter((r) => r.status === "ok").length;
   const progress = useMemo(() => (okCount / STEPS.length) * 100, [okCount]);
@@ -145,7 +188,7 @@ VITE_SUPABASE_PROJECT_ID=${envPid ?? "<project-ref>"}`;
         {/* stepper */}
         <div className="space-y-2">
           <Progress value={progress} />
-          <div className="grid grid-cols-5 gap-1 text-xs">
+          <div className="grid grid-cols-6 gap-1 text-xs">
             {STEPS.map((s, i) => (
               <button key={s.key} onClick={() => setStep(i)}
                 className={`p-2 rounded-lg text-center transition ${
@@ -208,6 +251,56 @@ VITE_SUPABASE_PROJECT_ID=${envPid ?? "<project-ref>"}`;
 
             {step === 2 && (
               <div className="space-y-3">
+                <p className="text-sm">ตรวจว่า Supabase มีตารางหลัก, RLS policy, และ storage buckets ครบหรือไม่</p>
+                {health && (
+                  <div className="grid md:grid-cols-2 gap-2 text-xs">
+                    <div className="p-3 rounded-lg bg-muted">
+                      <div className="font-semibold mb-1">📋 ตาราง ({health.summary?.tables?.total})</div>
+                      {health.missingTables?.length ? (
+                        <div className="text-red-600">ขาด: {health.missingTables.join(", ")}</div>
+                      ) : (
+                        <div className="text-emerald-600">✅ ครบทุกตาราง</div>
+                      )}
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted">
+                      <div className="font-semibold mb-1">🗂️ Buckets ({health.summary?.buckets?.total})</div>
+                      {health.missingBuckets?.length ? (
+                        <div className="text-red-600">ขาด: {health.missingBuckets.join(", ")}</div>
+                      ) : (
+                        <div className="text-emerald-600">✅ ครบทุก bucket</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {health?.recommendations?.length > 0 && (
+                  <Alert>
+                    <AlertTitle>คำแนะนำ</AlertTitle>
+                    <AlertDescription>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        {health.recommendations.map((rec: string, i: number) => <li key={i}>{rec}</li>)}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                )}
+                <div className="flex gap-2 flex-wrap">
+                  <Button onClick={checkSchema} variant="outline" size="sm">ตรวจอีกครั้ง</Button>
+                  {health?.missingBuckets?.length > 0 && (
+                    <Button onClick={createMissingBuckets} size="sm" disabled={creatingBuckets}>
+                      {creatingBuckets ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Wrench className="h-4 w-4 mr-2" />}
+                      สร้าง buckets ที่ขาด ({health.missingBuckets.length})
+                    </Button>
+                  )}
+                  {health?.missingTables?.length > 0 && (
+                    <a href="/docs/SUPABASE-GUIDE.md" target="_blank" rel="noopener">
+                      <Button size="sm" variant="secondary"><ExternalLink className="h-3 w-3 mr-1" />วิธีรัน migrations</Button>
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="space-y-3">
                 <p className="text-sm">ระบบต้องมีบัญชี admin อย่างน้อย 1 คน — คนแรกที่สมัครจะถูกตั้งเป็น admin อัตโนมัติ</p>
                 <div className="flex gap-2 flex-wrap">
                   <Link to="/signup"><Button variant="outline"><User className="h-4 w-4 mr-2" />สมัคร admin คนแรก</Button></Link>
@@ -218,7 +311,7 @@ VITE_SUPABASE_PROJECT_ID=${envPid ?? "<project-ref>"}`;
               </div>
             )}
 
-            {step === 3 && (
+            {step === 4 && (
               <div className="space-y-3">
                 <p className="text-sm">ตั้งชื่อโรงเรียน โลโก้ สี — ระบบจะดึงไปแสดงทุกที่อัตโนมัติ</p>
                 {schoolName && <div className="text-sm">โรงเรียนปัจจุบัน: <b>{schoolName}</b></div>}
@@ -231,7 +324,8 @@ VITE_SUPABASE_PROJECT_ID=${envPid ?? "<project-ref>"}`;
               </div>
             )}
 
-            {step === 4 && (
+            {step === 5 && (
+
               <div className="space-y-4">
                 <p className="text-sm">เลือกวิธี deploy ระบบขึ้น production:</p>
                 <div className="grid md:grid-cols-2 gap-3">
