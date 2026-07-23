@@ -16122,6 +16122,19 @@ export type Database = {
         }[]
       }
       resync_all_budget_usage: { Args: never; Returns: undefined }
+      rls_policy_audit: {
+        Args: never
+        Returns: {
+          has_delete: boolean
+          has_insert: boolean
+          has_select: boolean
+          has_update: boolean
+          policies: Json
+          policy_count: number
+          rls_enabled: boolean
+          table_name: string
+        }[]
+      }
       search_chat_users: {
         Args: { _term: string }
         Returns: {
