@@ -58,15 +58,19 @@ Deno.serve(async (req) => {
 
   const results: any[] = [];
   const errors: any[] = [];
+  const storageResults: any[] = [];
   let totalInserted = 0;
+  let totalFilesUploaded = 0;
 
-  // Find all tables/*.json entries
   const entries = Object.keys(zip.files).filter(
     (n) => n.startsWith("tables/") && n.endsWith(".json") && !zip.files[n].dir,
   );
+  const storageEntries = Object.keys(zip.files).filter(
+    (n) => n.startsWith("storage/") && !zip.files[n].dir,
+  );
 
-  if (entries.length === 0) {
-    return json({ error: "no tables/*.json entries found in zip" }, 400);
+  if (entries.length === 0 && storageEntries.length === 0) {
+    return json({ error: "no tables/*.json or storage/* entries found in zip" }, 400);
   }
 
   for (const entry of entries) {
@@ -88,7 +92,6 @@ Deno.serve(async (req) => {
       }
 
       if (truncate) {
-        // Best-effort truncate via RPC; fallback to delete-all
         const { error: delErr } = await admin.from(table).delete().neq("id", "00000000-0000-0000-0000-000000000000");
         if (delErr) errors.push({ table, warn: `truncate: ${delErr.message}` });
       }
@@ -98,7 +101,6 @@ Deno.serve(async (req) => {
         const chunk = rows.slice(i, i + PAGE);
         const { error } = await admin.from(table).upsert(chunk, { onConflict: "id", ignoreDuplicates: false });
         if (error) {
-          // fallback: try insert without conflict spec (tables w/o id)
           const { error: insErr } = await admin.from(table).insert(chunk);
           if (insErr) {
             errors.push({ table, chunk: i / PAGE, error: insErr.message });
@@ -112,6 +114,47 @@ Deno.serve(async (req) => {
     } catch (e: any) {
       errors.push({ table, error: e.message });
     }
+  }
+
+  // Restore storage: storage/<bucket>/<path...>
+  const bucketCounts: Record<string, number> = {};
+  const bucketsSeen = new Set<string>();
+  for (const entry of storageEntries) {
+    const rest = entry.replace(/^storage\//, "");
+    const slash = rest.indexOf("/");
+    if (slash < 0) continue;
+    const bucket = rest.slice(0, slash);
+    const path = rest.slice(slash + 1);
+    if (!bucket || !path) continue;
+    if (dryRun) {
+      bucketCounts[bucket] = (bucketCounts[bucket] || 0) + 1;
+      continue;
+    }
+    try {
+      if (!bucketsSeen.has(bucket)) {
+        bucketsSeen.add(bucket);
+        const { data: existing } = await admin.storage.getBucket(bucket);
+        if (!existing) {
+          await admin.storage.createBucket(bucket, { public: false });
+        }
+      }
+      const bytes = await zip.files[entry].async("uint8array");
+      const { error: upErr } = await admin.storage.from(bucket).upload(path, bytes, {
+        upsert: true,
+        contentType: "application/octet-stream",
+      });
+      if (upErr) {
+        errors.push({ bucket, path, error: upErr.message });
+        continue;
+      }
+      bucketCounts[bucket] = (bucketCounts[bucket] || 0) + 1;
+      totalFilesUploaded++;
+    } catch (e: any) {
+      errors.push({ bucket, path, error: e.message });
+    }
+  }
+  for (const [bucket, count] of Object.entries(bucketCounts)) {
+    storageResults.push({ bucket, files: count, ok: true, dry: dryRun });
   }
 
   return json({
