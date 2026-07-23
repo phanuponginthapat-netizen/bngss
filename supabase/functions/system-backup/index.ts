@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
   const isFull = mode === "full";
   const manifest: any = { version: new Date().toISOString(), mode, errors: [] };
 
-  if (mode === "tables") {
+  if (mode === "tables" || isFull) {
     manifest.tables = {};
     const tablesDir = zip.folder("tables")!;
     for (const t of TABLES) {
@@ -89,6 +89,31 @@ Deno.serve(async (req) => {
       } catch (e: any) {
         manifest.errors.push({ table: t, error: e.message });
       }
+    }
+
+    if (isFull) {
+      // Storage manifest (list only — file bytes are per-bucket via mode=storage)
+      const { data: buckets } = await admin.storage.listBuckets();
+      const bucketList: any[] = [];
+      for (const b of buckets || []) {
+        const files: string[] = [];
+        const walk = async (prefix: string) => {
+          const { data: items } = await admin.storage.from(b.name).list(prefix, { limit: 1000 });
+          for (const it of items || []) {
+            const p = prefix ? `${prefix}/${it.name}` : it.name;
+            if (!it.id && !(it as any).metadata) await walk(p);
+            else files.push(p);
+          }
+        };
+        try { await walk(""); } catch (_) { /* ignore */ }
+        bucketList.push({ name: b.name, public: b.public, files: files.length, paths: files.slice(0, 5000) });
+      }
+      manifest.storage = bucketList;
+      zip.file("storage-manifest.json", JSON.stringify(bucketList, null, 2));
+
+      // Bundle restore kit
+      zip.file("RESTORE.md", RESTORE_MD);
+      zip.file("restore.sh", RESTORE_SH);
     }
   } else if (mode === "storage") {
     if (!bucketName) {
@@ -116,7 +141,7 @@ Deno.serve(async (req) => {
 
   zip.file("manifest.json", JSON.stringify(manifest, null, 2));
   const zipBuf = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
-  const tag = mode === "storage" ? `storage-${bucketName}` : "tables";
+  const tag = mode === "storage" ? `storage-${bucketName}` : mode === "full" ? "full" : "tables";
   const filename = `smart-school-${tag}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.zip`;
 
   return new Response(zipBuf, {
