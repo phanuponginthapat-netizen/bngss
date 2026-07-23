@@ -438,7 +438,7 @@ const Dashboard = () => {
     attendance_donut: (color) => {
       const theme = COLOR_THEMES[color];
       return (
-        <Card onClick={() => navigate("/dashboard/student/attendance")} className="border border-border/50 shadow-elevated rounded-2xl h-full cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
+        <Card onClick={() => navigate("/dashboard/student/face-scan?tab=report")} className="border border-border/50 shadow-elevated rounded-2xl h-full cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <span className={`w-1.5 h-4 rounded-full ${theme.gradient}`} />
