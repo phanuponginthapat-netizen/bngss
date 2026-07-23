@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import {
   CheckCircle2, XCircle, Loader2, ArrowRight, ArrowLeft, Rocket,
-  Database, User, Palette, Cloud, Copy, ExternalLink, Sparkles,
+  Database, User, Palette, Cloud, Copy, ExternalLink, Sparkles, ShieldCheck, Wrench,
 } from "lucide-react";
 
 type StepStatus = "idle" | "checking" | "ok" | "fail";
@@ -18,10 +18,12 @@ interface StepResult { status: StepStatus; message?: string; detail?: string; }
 const STEPS = [
   { key: "env", label: "ตรวจ Environment", icon: Cloud },
   { key: "db", label: "เชื่อมต่อฐานข้อมูล", icon: Database },
+  { key: "schema", label: "ตรวจ Schema & Buckets", icon: ShieldCheck },
   { key: "admin", label: "ตรวจบัญชี Admin", icon: User },
   { key: "cms", label: "ตั้งค่าโรงเรียน (CMS)", icon: Palette },
   { key: "deploy", label: "Deploy", icon: Rocket },
 ] as const;
+
 
 export default function SetupWizardPage() {
   const [step, setStep] = useState(0);
