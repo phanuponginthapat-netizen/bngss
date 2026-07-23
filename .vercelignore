@@ -1,0 +1,16 @@
+node_modules
+dist
+.env
+.env.local
+.env.*.local
+supabase/functions
+supabase/.branches
+supabase/.temp
+extension
+scripts
+docs
+playwright-report
+test-results
+.lovable
+mem
+*.log
