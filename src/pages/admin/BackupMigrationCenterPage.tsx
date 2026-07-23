@@ -359,6 +359,9 @@ curl -X POST "$SUPABASE_URL/functions/v1/system-restore?truncate=1" \\
                     </Badge>
                     <Badge variant="outline">{restoreResult.tables_processed} ตาราง</Badge>
                     <Badge variant="outline">{restoreResult.rows_inserted ?? 0} แถว</Badge>
+                    {typeof restoreResult.storage_files_uploaded === "number" && (
+                      <Badge variant="outline">{restoreResult.storage_files_uploaded} ไฟล์ Storage</Badge>
+                    )}
                     {restoreResult.dry_run && <Badge>Dry Run</Badge>}
                   </div>
                   {(restoreResult.errors ?? []).length > 0 && (
