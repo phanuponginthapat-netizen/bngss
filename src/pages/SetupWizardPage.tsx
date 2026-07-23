@@ -403,7 +403,7 @@ VITE_SUPABASE_PROJECT_ID=${envPid ?? "<project-ref>"}`;
         {/* stepper */}
         <div className="space-y-2">
           <Progress value={progress} />
-          <div className="grid grid-cols-7 gap-1 text-xs">
+          <div className="grid grid-cols-8 gap-1 text-xs">
             {STEPS.map((s, i) => (
               <button key={s.key} onClick={() => setStep(i)}
                 className={`p-2 rounded-lg text-center transition ${
