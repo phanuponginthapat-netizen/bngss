@@ -22,7 +22,8 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 export default function BackupMigrationCenterPage() {
-  const [downloading, setDownloading] = useState<null | "tables" | "full" | string>(null);
+  const [downloading, setDownloading] = useState<null | "tables" | "full" | "oneclick" | string>(null);
+  const [oneClickProgress, setOneClickProgress] = useState<{ pct: number; label: string } | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [buckets, setBuckets] = useState<{ name: string }[]>([]);
   const [restoreResult, setRestoreResult] = useState<any>(null);
@@ -31,6 +32,91 @@ export default function BackupMigrationCenterPage() {
   const [targetUrl, setTargetUrl] = useState("");
   const [targetRef, setTargetRef] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const callFn = async (qs: string): Promise<Response> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return fetch(`${SUPABASE_URL}/functions/v1/system-backup?${qs}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session?.access_token ?? ""}`, apikey: ANON },
+    });
+  };
+
+  const oneClickBackup = async () => {
+    setDownloading("oneclick");
+    setOneClickProgress({ pct: 2, label: "เริ่มต้น..." });
+    try {
+      // 1) Full tables + restore kit + storage manifest
+      setOneClickProgress({ pct: 5, label: "กำลังดึงข้อมูลทุกตาราง..." });
+      const fullRes = await callFn("mode=full");
+      if (!fullRes.ok) throw new Error(`tables: ${await fullRes.text()}`);
+      const fullZipBytes = new Uint8Array(await fullRes.arrayBuffer());
+      const inner = await JSZip.loadAsync(fullZipBytes);
+
+      // Start mega ZIP by copying full ZIP contents
+      const mega = new JSZip();
+      for (const name of Object.keys(inner.files)) {
+        const f = inner.files[name];
+        if (f.dir) continue;
+        mega.file(name, await f.async("uint8array"));
+      }
+
+      // 2) List buckets
+      setOneClickProgress({ pct: 15, label: "โหลดรายการ Storage..." });
+      const bRes = await callFn("mode=buckets");
+      const bJson = bRes.ok ? await bRes.json() : { buckets: [] };
+      const bucketList: { name: string }[] = bJson.buckets ?? [];
+
+      // 3) Fetch each bucket, unpack into storage/<bucket>/<path>
+      const storageSummary: Record<string, number> = {};
+      for (let i = 0; i < bucketList.length; i++) {
+        const b = bucketList[i];
+        const pct = 15 + Math.round(((i + 1) / (bucketList.length + 1)) * 75);
+        setOneClickProgress({ pct, label: `Storage: ${b.name} (${i + 1}/${bucketList.length})` });
+        try {
+          const sRes = await callFn(`mode=storage&bucket=${encodeURIComponent(b.name)}`);
+          if (!sRes.ok) { storageSummary[b.name] = -1; continue; }
+          const sBytes = new Uint8Array(await sRes.arrayBuffer());
+          const sZip = await JSZip.loadAsync(sBytes);
+          let count = 0;
+          for (const name of Object.keys(sZip.files)) {
+            const f = sZip.files[name];
+            if (f.dir) continue;
+            if (name === "manifest.json") continue;
+            // File paths inside bucket ZIP are `<bucket>/<path>` — remap to storage/<bucket>/<path>
+            const bytes = await f.async("uint8array");
+            mega.file(`storage/${name}`, bytes);
+            count++;
+          }
+          storageSummary[b.name] = count;
+        } catch (e: any) {
+          storageSummary[b.name] = -1;
+        }
+      }
+
+      // 4) Write combined summary
+      mega.file("one-click-summary.json", JSON.stringify({
+        generated_at: new Date().toISOString(),
+        buckets: storageSummary,
+        note: "One-click bundle. Restore via /system-restore (multipart file=...). Includes tables/*.json AND storage/<bucket>/<path>.",
+      }, null, 2));
+
+      setOneClickProgress({ pct: 95, label: "กำลังบีบอัดเป็นไฟล์เดียว..." });
+      const megaBlob = await mega.generateAsync({ type: "blob", compression: "DEFLATE" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(megaBlob);
+      a.download = `smart-school-oneclick-${todayBangkok()}.zip`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      setOneClickProgress({ pct: 100, label: "เสร็จสิ้น!" });
+      toast.success("สำรองข้อมูลทั้งระบบสำเร็จ ✅");
+    } catch (e: any) {
+      toast.error(`สำรองล้มเหลว: ${e.message ?? e}`);
+    } finally {
+      setDownloading(null);
+      setTimeout(() => setOneClickProgress(null), 2000);
+    }
+  };
+
 
   useEffect(() => {
     (async () => {
