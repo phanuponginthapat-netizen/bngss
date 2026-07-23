@@ -100,6 +100,7 @@ const SDQPage = lazy(() => import("./pages/student/SDQPage"));
 const HomeVisitPage = lazy(() => import("./pages/student/HomeVisitPage"));
 const FaceScanPage = lazy(() => import("./pages/student/FaceScanPage"));
 const FaceKioskPage = lazy(() => import("./pages/FaceKioskPage"));
+const MobileQrScanPage = lazy(() => import("./pages/staff/MobileQrScanPage"));
 
 // General Admin
 const NewsPage = lazy(() => import("./pages/admin/NewsPage"));
@@ -379,6 +380,7 @@ const App = () => (
                 <Route path="student" element={<Navigate to="/dashboard/student/attendance" replace />} />
                 <Route path="student/attendance" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><DepartmentRoute departments={["student_affairs","academic"]} bypassRoles={["parent","student"]}><AttendancePage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="student/face-scan" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><FaceScanPage /></ProtectedRoute>} />
+                <Route path="staff/mobile-qr-scan" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><MobileQrScanPage /></ProtectedRoute>} />
                 <Route path="student/behavior" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><DepartmentRoute departments={["student_affairs"]} bypassRoles={["parent","student"]}><BehaviorPage /></DepartmentRoute></ProtectedRoute>} />
 
                 <Route path="student/leave" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><StudentLeavePage /></ProtectedRoute>} />

@@ -50,6 +50,7 @@ export const MODULES: ModuleDef[] = [
   { key: "sdq", label: "SDQ", labelEn: "SDQ", desc: "แบบประเมินจุดแข็ง-จุดอ่อน", group: "student", urlPrefixes: ["/dashboard/student/sdq"] },
   { key: "home_visit", label: "เยี่ยมบ้าน", labelEn: "Home Visit", desc: "บันทึกการเยี่ยมบ้านนักเรียน", group: "student", urlPrefixes: ["/dashboard/student/home-visit"] },
   { key: "face_scan", label: "สแกนหน้าเช็คชื่อ", labelEn: "Face Check-in", desc: "เช็คชื่อด้วยใบหน้า/QR แจ้ง LINE ผู้ปกครอง", group: "student", urlPrefixes: ["/dashboard/student/face-scan"] },
+  { key: "mobile_qr_scan", label: "สแกน QR (มือถือ)", labelEn: "Mobile QR Scan", desc: "สแกน QR นักเรียนบนมือถือ — รองรับออฟไลน์", group: "student", urlPrefixes: ["/dashboard/staff/mobile-qr-scan"] },
   { key: "health_trend", label: "แนวโน้มสุขภาพ", labelEn: "Health Trend", desc: "กราฟพัฒนาการสุขภาพนักเรียน", group: "student", urlPrefixes: ["/dashboard/student/health-trend"] },
   { key: "eform_inbox", label: "กล่อง E-Form", labelEn: "E-Form Inbox", desc: "อ่านและลงนามเอกสารที่ได้รับ", group: "student", urlPrefixes: ["/dashboard/eform-inbox"] },
 
