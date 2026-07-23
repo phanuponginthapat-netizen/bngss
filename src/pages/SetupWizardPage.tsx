@@ -509,38 +509,59 @@ VITE_SUPABASE_PROJECT_ID=${envPid ?? "<project-ref>"}`;
             )}
 
             {step === 4 && (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <p className="text-sm">
-                  หากคุณมีไฟล์สำรอง <code>.zip</code> จาก Backup Center — อัปโหลดที่นี่เพื่อกู้คืนข้อมูลเดิมทั้งหมด
-                  (เหมือน restore backup ของมือถือหลังแฟลชรอมใหม่)
+                  ตั้งค่า API Keys / Secrets ที่ระบบใช้งาน เช่น LINE, Web Push, Google Drive, SMTP
+                  สามารถกรอกภายหลังได้ แต่ฟีเจอร์บางอย่างจะทำงานเมื่อมีค่าเหล่านี้
                 </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    type="file"
-                    accept=".zip"
-                    onChange={(e) => setRestoreFile(e.target.files?.[0] ?? null)}
-                    className="text-xs"
-                  />
-                  <label className="text-xs inline-flex items-center gap-1">
-                    <input type="checkbox" checked={restoreTruncate} onChange={(e) => setRestoreTruncate(e.target.checked)} />
-                    ล้างข้อมูลเดิมก่อน (destructive)
-                  </label>
+
+                <div className="space-y-3">
+                  <div className="font-semibold text-sm">🔐 Secrets หลัก (แนะนำให้ตั้ง)</div>
+                  <div className="grid gap-2">
+                    {secretStatus.required.map((s) => (
+                      <div key={s.key} className="flex items-center justify-between p-3 rounded-lg bg-muted text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className={s.set ? "text-emerald-600" : "text-amber-600"}>
+                            {s.set ? "✅" : "⏳"}
+                          </span>
+                          <span className="font-mono text-xs">{s.key}</span>
+                          <span className="text-muted-foreground text-xs">{s.label}</span>
+                        </div>
+                        <Badge variant={s.set ? "default" : "secondary"} className={s.set ? "bg-emerald-600" : ""}>
+                          {s.set ? "ตั้งแล้ว" : "ยังไม่ได้ตั้ง"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="font-semibold text-sm pt-2">🔌 Secrets เสริม (ตามความจำเป็น)</div>
+                  <div className="grid gap-2">
+                    {secretStatus.optional.map((s) => (
+                      <div key={s.key} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className={s.set ? "text-emerald-600" : "text-muted-foreground"}>
+                            {s.set ? "✅" : "○"}
+                          </span>
+                          <span className="font-mono text-xs">{s.key}</span>
+                          <span className="text-muted-foreground text-xs">{s.label}</span>
+                        </div>
+                        <Badge variant={s.set ? "default" : "outline"} className={s.set ? "bg-emerald-600" : ""}>
+                          {s.set ? "ตั้งแล้ว" : "ยังไม่ได้ตั้ง"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+
                 <div className="flex gap-2 flex-wrap">
-                  <Button onClick={() => runRestore()} disabled={!restoreFile || restoring}>
-                    {restoring ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <HardDriveDownload className="h-4 w-4 mr-2" />}
-                    เริ่มกู้คืนไฟล์นี้
-                  </Button>
-                  <Button variant="ghost" onClick={skipRestore} disabled={restoring}>ข้ามขั้นนี้ (ไม่กู้คืน)</Button>
+                  <Link to="/dashboard/admin/secrets">
+                    <Button variant="outline"><KeyRound className="h-4 w-4 mr-2" />เปิดหน้า Secrets</Button>
+                  </Link>
+                  <Button onClick={checkSecrets} variant="outline" size="sm">ตรวจอีกครั้ง</Button>
                 </div>
-                {restoreSummary && (
-                  <pre className="bg-muted rounded p-3 text-xs max-h-64 overflow-auto">
-                    {JSON.stringify(restoreSummary, null, 2)}
-                  </pre>
-                )}
                 <Alert>
                   <AlertDescription className="text-xs">
-                    ต้อง login เป็น <b>admin/director</b> ก่อน — ระบบจะ upsert ตาม <code>id</code> ให้อัตโนมัติ (ไฟล์ใหญ่รอสักครู่)
+                    ต้อง login เป็น <b>admin/director</b> ก่อนจึงจะบันทึก secrets ได้ — หรือข้ามขั้นตอนนี้แล้วไปตั้งภายหลัง
                   </AlertDescription>
                 </Alert>
               </div>
