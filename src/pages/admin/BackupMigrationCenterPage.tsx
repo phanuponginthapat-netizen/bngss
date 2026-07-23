@@ -13,8 +13,9 @@ import { toast } from "sonner";
 import { swal } from "@/lib/swal";
 import {
   Download, Upload, Copy, PackageOpen, ServerCog, Database, Cloud,
-  FolderArchive, ShieldCheck, ArrowRight, ExternalLink, Rocket
+  FolderArchive, ShieldCheck, ArrowRight, ExternalLink, Rocket, Sparkles
 } from "lucide-react";
+import JSZip from "jszip";
 import { todayBangkok } from "@/lib/dateBE";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
