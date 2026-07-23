@@ -63,6 +63,9 @@ Deno.serve(async (req) => {
   }
 
   const zip = new JSZip();
+
+  // mode=full: tables + storage-manifest + restore instructions + kit
+  const isFull = mode === "full";
   const manifest: any = { version: new Date().toISOString(), mode, errors: [] };
 
   if (mode === "tables") {
