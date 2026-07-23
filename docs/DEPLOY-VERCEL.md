@@ -1,64 +1,109 @@
-# Deploy ระบบไปยัง Vercel
+# 🚀 Deploy ระบบไปยัง Vercel (ฉบับละเอียด)
 
-ระบบนี้เป็น Vite + React SPA — deploy ได้ผ่าน Vercel ในไม่กี่คลิก
-Backend (database, edge functions, storage) ยังคงอยู่ที่ Supabase / Lovable Cloud เหมือนเดิม
-Vercel ทำหน้าที่ host frontend เท่านั้น
+คู่มือทีละขั้น สำหรับคนที่ไม่ใช่ dev ก็ทำตามได้
 
-## 1. เตรียมโปรเจกต์
+> 💡 **ทางลัด**: หลัง deploy เสร็จ เปิด `/setup` เพื่อรัน Setup Wizard ตรวจสอบทุกอย่างอัตโนมัติ
 
-- ต้องมีบัญชี [vercel.com](https://vercel.com) และเชื่อม GitHub repo ของโปรเจกต์นี้ไว้แล้ว
-- ไฟล์ที่จำเป็นถูกเตรียมไว้แล้วในโค้ด:
-  - `vercel.json` — build config + SPA rewrites + cache headers + security headers
-  - `.vercelignore` — ตัดไฟล์ที่ไม่ต้องอัปโหลด
-  - `.env.example` — เทมเพลตของ environment variables
+---
 
-## 2. Import โปรเจกต์บน Vercel
+## 📋 ต้องมีก่อน
 
-1. เข้า Vercel Dashboard → **Add New → Project**
-2. เลือก GitHub repo ของระบบนี้
-3. Framework Preset จะถูกตรวจจับเป็น **Vite** อัตโนมัติ (ตาม `vercel.json`)
-4. ปล่อยค่า Build/Output ตามค่าเริ่มต้น:
+- บัญชี [GitHub](https://github.com) (ฟรี)
+- บัญชี [Vercel](https://vercel.com) (ฟรี) — sign in ด้วย GitHub ได้เลย
+- Supabase project (จะใช้ Lovable Cloud หรือสร้าง Supabase ตรงๆ ก็ได้)
+
+## 🎯 ภาพรวม 3 ขั้น
+
+```text
+[1] Push โค้ดขึ้น GitHub  →  [2] Import ใน Vercel  →  [3] ตั้ง env + Deploy
+```
+
+---
+
+## ขั้นที่ 1 · Push โค้ดขึ้น GitHub
+
+ถ้าใช้ Lovable — กดปุ่ม **GitHub → Connect** มุมขวาบน ระบบจะสร้าง repo ให้อัตโนมัติ
+
+ถ้าทำเอง:
+```bash
+git init
+git add .
+git commit -m "initial commit"
+git remote add origin https://github.com/<user>/<repo>.git
+git push -u origin main
+```
+
+## ขั้นที่ 2 · Import ที่ Vercel
+
+1. เข้า [vercel.com/new](https://vercel.com/new)
+2. เลือก GitHub repo ที่เพิ่ง push
+3. Framework Preset จะขึ้น **Vite** อัตโนมัติ (ตาม `vercel.json` ที่มีให้แล้ว)
+4. ปล่อย Build settings ตามค่าเริ่มต้น:
    - Build Command: `vite build`
    - Output Directory: `dist`
    - Install Command: `npm install --legacy-peer-deps`
+5. **อย่ากด Deploy** — ไปตั้ง env ก่อน
 
-## 3. ตั้งค่า Environment Variables
+## ขั้นที่ 3 · ตั้ง Environment Variables
 
-ที่ **Project Settings → Environment Variables** ใส่ 3 ค่าต่อไปนี้
-(ค่าเดียวกับใน `.env` ปัจจุบันของ Lovable Cloud หรือ Supabase project ที่ต้องการเชื่อม):
+Vercel → **Settings → Environment Variables** → เพิ่ม 3 ตัว:
 
-| Key | Value |
+| Key | หาค่าได้จาก |
 | --- | --- |
-| `VITE_SUPABASE_URL` | `https://<project-ref>.supabase.co` |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | anon / publishable key |
-| `VITE_SUPABASE_PROJECT_ID` | `<project-ref>` |
+| `VITE_SUPABASE_URL` | Lovable Cloud → Overview / หรือ Supabase → Project URL |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Anon / Publishable key |
+| `VITE_SUPABASE_PROJECT_ID` | Project ref (ส่วนที่อยู่ใน URL: `<ref>.supabase.co`) |
 
-เลือก scope เป็น **Production, Preview, Development** ทั้งหมด
+Scope: ติ๊กทั้ง **Production / Preview / Development**
 
-## 4. Deploy
+จากนั้นกด **Deploy** — Vercel จะ build แล้วได้ URL `https://<project>.vercel.app`
 
-กด **Deploy** — Vercel จะ build และปล่อยเว็บออกมาที่ `https://<project>.vercel.app`
-Custom domain เพิ่มได้ที่ **Settings → Domains**
+---
 
-## 5. ตั้งค่าเพิ่มเติมใน Supabase
+## ขั้นตอนเสริม (สำคัญ)
 
-หลัง deploy สำเร็จ ต้องเพิ่ม URL ของ Vercel ลงใน Supabase เพื่อให้ auth ทำงาน:
+### 🔐 ตั้งค่า Supabase Auth URL
 
-- **Authentication → URL Configuration**
-  - Site URL: `https://<project>.vercel.app` (หรือ custom domain)
-  - Redirect URLs: เพิ่มทั้ง `https://<project>.vercel.app/**` และ preview URL
+Supabase Dashboard → **Authentication → URL Configuration**:
+- Site URL: `https://<project>.vercel.app`
+- Redirect URLs: เพิ่ม `https://<project>.vercel.app/**`
 
-- **หน้า CMS ในระบบ** → ตั้งค่า `public_origin` ให้ตรงกับ URL ของ Vercel
-  (ใช้ในหน้า Admin → CMS Settings)
+**ถ้าไม่ทำ** → login ผ่าน Google จะเด้งไป localhost หรือ error
 
-## 6. Redeploy อัตโนมัติ
+### 🌐 Custom Domain
 
-Vercel จะ redeploy ให้เองทุกครั้งที่ push ไป branch หลัก
-ถ้าเปลี่ยน environment variables ต้อง trigger redeploy ใหม่ 1 ครั้ง
+Vercel → **Settings → Domains** → เพิ่มโดเมน → ทำตาม DNS records ที่ Vercel แสดง
 
-## หมายเหตุ
+จากนั้นกลับไปแก้ Supabase Auth URL ให้ตรงกับ custom domain
 
-- Edge Functions ของระบบ (LINE bot, backup, kiosk, ฯลฯ) ยังรันบน Supabase — Vercel ไม่ได้ host ส่วนนี้
-- ไฟล์ที่อยู่ใน `supabase/functions/` ถูก ignore จาก Vercel deploy อยู่แล้ว
-- Service worker (`/sw.js`) และ manifest ถูกตั้ง cache header ให้ถูกต้อง ไม่ต้องแก้เพิ่ม
-- SPA rewrites รองรับ deep link ทุกหน้า refresh แล้วไม่ 404
+### 🔄 Redeploy อัตโนมัติ
+
+- Push โค้ดใหม่ไป `main` → Vercel redeploy อัตโนมัติ
+- แก้ env → ต้อง trigger redeploy 1 ครั้ง (Deployments → ⋯ → Redeploy)
+
+---
+
+## 🐛 ปัญหาที่พบบ่อย
+
+| อาการ | สาเหตุ | วิธีแก้ |
+| --- | --- | --- |
+| หน้าขาว / blank | env ไม่ครบ | ตรวจ 3 ตัวด้านบน แล้ว redeploy |
+| Login แล้วเด้งกลับ localhost | Supabase Site URL ยังชี้ localhost | แก้ที่ Supabase Auth URL |
+| 404 เมื่อ refresh หน้าลึก | ไม่มี SPA rewrite | ตรวจว่า `vercel.json` ยังอยู่ |
+| Build failed: peer deps | Install command ผิด | ต้องเป็น `npm install --legacy-peer-deps` |
+| Edge functions ไม่ทำงาน | Vercel ไม่ได้ host ส่วนนี้ | Edge functions รันบน Supabase อยู่แล้ว |
+
+---
+
+## ✅ ตรวจสอบหลัง deploy
+
+เปิด `https://<project>.vercel.app/setup` — Setup Wizard จะเช็คให้อัตโนมัติว่า:
+1. ✅ Env ครบ
+2. ✅ เชื่อมต่อ DB ได้
+3. ✅ มี admin
+4. ✅ ตั้ง CMS แล้ว
+5. ✅ พร้อม deploy
+
+---
+
+_กลับไปคู่มือหลัก: [docs/README.md](./README.md)_
