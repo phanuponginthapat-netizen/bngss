@@ -124,6 +124,7 @@ const ApiKeysHubPage = lazy(() => import("./pages/admin/ApiKeysHubPage"));
 const AiAnalyticsPage = lazy(() => import("./pages/admin/AiAnalyticsPage"));
 const SystemUpdatePage = lazy(() => import("./pages/admin/SystemUpdatePage"));
 const KioskSetupPage = lazy(() => import("./pages/admin/KioskSetupPage"));
+const SetupWizardPage = lazy(() => import("./pages/SetupWizardPage"));
 
 const UpstreamSyncPage = lazy(() => import("./pages/admin/UpstreamSyncPage"));
 const FieldVisibilityPage = lazy(() => import("./pages/admin/FieldVisibilityPage"));
