@@ -6,11 +6,13 @@
 
 ## 🚀 Quickstart (เริ่มใช้ระบบใน 5 นาที)
 
-1. **Remix / Clone โปรเจกต์** — Secrets ที่จำเป็น (`CRON_SECRET`, `VAPID_*`) จะถูกสร้างอัตโนมัติ
+> ⚡ **ทางลัดที่ง่ายที่สุด**: หลัง deploy เสร็จ เปิด **`/setup`** — Setup Wizard จะพาทำทีละขั้นอัตโนมัติ
+
+1. **Remix / Clone โปรเจกต์** — Secrets ที่จำเป็น (`CRON_SECRET`, `VAPID_*`) ถูกสร้างอัตโนมัติ
 2. **ตั้ง Secrets เพิ่ม** (ถ้าใช้) — LINE, Google Drive, DashScope, DeepSeek ผ่านเมนู Backend
 3. **Login ครั้งแรก** — `admin@school.com` / `Admin@2026` (เปลี่ยนรหัสทันทีหลัง login)
-4. **ตั้งค่า CMS** → เมนู Admin → CMS Settings (โลโก้, ชื่อโรงเรียน, สี, โดเมน)
-5. **Publish** → ปุ่ม Publish มุมขวาบน หรือ deploy ไป Vercel (ดู [DEPLOY-VERCEL](./DEPLOY-VERCEL.md))
+4. **ตั้งค่า CMS** → Admin → CMS Settings (โลโก้, ชื่อโรงเรียน, สี)
+5. **Publish** → ปุ่มมุมขวาบน หรือ deploy ไป Vercel (ดู [DEPLOY-VERCEL](./DEPLOY-VERCEL.md))
 
 ---
 
@@ -19,7 +21,9 @@
 ### 🛠️ ติดตั้ง & Deploy
 | หัวข้อ | ไฟล์ | เหมาะกับใคร |
 | --- | --- | --- |
+| **Setup Wizard (ในระบบ)** | เปิด `/setup` | ทุกคน |
 | Deploy ไป Vercel | [DEPLOY-VERCEL.md](./DEPLOY-VERCEL.md) | Admin / DevOps |
+| ใช้งาน Supabase / Lovable Cloud | [SUPABASE-GUIDE.md](./SUPABASE-GUIDE.md) | Admin / DevOps |
 | ติดตั้ง Kiosk บน MX Linux | [KIOSK-MXLINUX-SETUP.md](./KIOSK-MXLINUX-SETUP.md) | ช่างเทคนิค |
 | ตั้งค่า RTSP CCTV | [RTSP-CCTV-SETUP.md](./RTSP-CCTV-SETUP.md) | ช่างเทคนิค |
 

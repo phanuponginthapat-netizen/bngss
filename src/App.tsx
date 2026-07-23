@@ -284,6 +284,7 @@ const App = () => (
             <Suspense fallback={<SystemLoader />}>
               <Routes>
               <Route path="/" element={<PublicLayout />} />
+              <Route path="/setup" element={<SetupWizardPage />} />
               <Route path="/page/:slug" element={<PublicLayout />} />
               <Route path="/org-chart" element={<PublicOrgChartPage />} />
               <Route path="/sdq-assess/:studentId" element={<PublicSDQPage />} />
