@@ -581,6 +581,44 @@ VITE_SUPABASE_PROJECT_ID=${envPid ?? "<project-ref>"}`;
 
             {step === 5 && (
               <div className="space-y-3">
+                <p className="text-sm">
+                  หากคุณมีไฟล์สำรอง <code>.zip</code> จาก Backup Center — อัปโหลดที่นี่เพื่อกู้คืนข้อมูลเดิมทั้งหมด
+                  (เหมือน restore backup ของมือถือหลังแฟลชรอมใหม่)
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="file"
+                    accept=".zip"
+                    onChange={(e) => setRestoreFile(e.target.files?.[0] ?? null)}
+                    className="text-xs"
+                  />
+                  <label className="text-xs inline-flex items-center gap-1">
+                    <input type="checkbox" checked={restoreTruncate} onChange={(e) => setRestoreTruncate(e.target.checked)} />
+                    ล้างข้อมูลเดิมก่อน (destructive)
+                  </label>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <Button onClick={() => runRestore()} disabled={!restoreFile || restoring}>
+                    {restoring ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <HardDriveDownload className="h-4 w-4 mr-2" />}
+                    เริ่มกู้คืนไฟล์นี้
+                  </Button>
+                  <Button variant="ghost" onClick={skipRestore} disabled={restoring}>ข้ามขั้นนี้ (ไม่กู้คืน)</Button>
+                </div>
+                {restoreSummary && (
+                  <pre className="bg-muted rounded p-3 text-xs max-h-64 overflow-auto">
+                    {JSON.stringify(restoreSummary, null, 2)}
+                  </pre>
+                )}
+                <Alert>
+                  <AlertDescription className="text-xs">
+                    ต้อง login เป็น <b>admin/director</b> ก่อน — ระบบจะ upsert ตาม <code>id</code> ให้อัตโนมัติ (ไฟล์ใหญ่รอสักครู่)
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
+
+            {step === 6 && (
+              <div className="space-y-3">
                 <p className="text-sm">ตั้งชื่อโรงเรียน โลโก้ สี — ระบบจะดึงไปแสดงทุกที่อัตโนมัติ</p>
                 {schoolName && <div className="text-sm">โรงเรียนปัจจุบัน: <b>{schoolName}</b></div>}
                 <Link to="/dashboard/admin/cms-settings">
@@ -592,7 +630,7 @@ VITE_SUPABASE_PROJECT_ID=${envPid ?? "<project-ref>"}`;
               </div>
             )}
 
-            {step === 6 && (
+            {step === 7 && (
               <div className="space-y-4">
                 <p className="text-sm">เลือกวิธี deploy ระบบขึ้น production:</p>
                 <div className="grid md:grid-cols-2 gap-3">
