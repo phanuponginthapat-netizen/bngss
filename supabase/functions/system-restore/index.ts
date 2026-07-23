@@ -161,6 +161,8 @@ Deno.serve(async (req) => {
     success: errors.length === 0,
     tables_processed: results.length,
     rows_inserted: totalInserted,
+    storage_files_uploaded: totalFilesUploaded,
+    storage_results: storageResults,
     errors,
     results,
     truncate,
