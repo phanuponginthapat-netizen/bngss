@@ -445,7 +445,7 @@ VITE_SUPABASE_PROJECT_ID=${envPid ?? "<project-ref>"}`;
               </div>
             )}
 
-            {step === 3 && (
+            {step === 4 && (
               <div className="space-y-3">
                 <p className="text-sm">
                   หากคุณมีไฟล์สำรอง <code>.zip</code> จาก Backup Center — อัปโหลดที่นี่เพื่อกู้คืนข้อมูลเดิมทั้งหมด
