@@ -26,8 +26,9 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } },
     );
-    const { data: claims } = await userClient.auth.getClaims(authHeader.replace("Bearer ", ""));
-    const uid = claims?.claims?.sub;
+    const { data: userData, error: userErr } = await userClient.auth.getUser(authHeader.replace("Bearer ", ""));
+    if (userErr) throw userErr;
+    const uid = userData?.user?.id;
     if (!uid) throw new Error("no session");
 
     const admin = makeAdmin();
