@@ -15650,6 +15650,14 @@ export type Database = {
         }[]
       }
       get_cloud_usage_summary: { Args: never; Returns: Json }
+      get_db_schema: {
+        Args: never
+        Returns: {
+          col_count: number
+          columns: Json
+          table_name: string
+        }[]
+      }
       get_my_personnel: {
         Args: never
         Returns: {
