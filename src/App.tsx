@@ -224,6 +224,7 @@ const AuditLogPage = lazy(() => import("./pages/admin/AuditLogPage"));
 const SystemHealthPage = lazy(() => import("./pages/admin/SystemHealthPage"));
 const DistrictSyncPage = lazy(() => import("./pages/admin/DistrictSyncPage"));
 const RoleTroubleshootPage = lazy(() => import("./pages/admin/RoleTroubleshootPage"));
+const DatabaseSchemaPage = lazy(() => import("./pages/admin/DatabaseSchemaPage"));
 const RlsAuditPage = lazy(() => import("./pages/admin/RlsAuditPage"));
 const AiImportPage = lazy(() => import("./pages/admin/AiImportPage"));
 
@@ -507,6 +508,7 @@ const App = () => (
                 <Route path="admin/district-sync" element={<ProtectedRoute allowedRoles={["admin","director"]}><DistrictSyncPage /></ProtectedRoute>} />
                 <Route path="admin/role-troubleshoot" element={<ProtectedRoute allowedRoles={["admin","director","teacher","student"]}><RoleTroubleshootPage /></ProtectedRoute>} />
                 <Route path="admin/rls-audit" element={<ProtectedRoute allowedRoles={["admin"]}><RlsAuditPage /></ProtectedRoute>} />
+                <Route path="admin/database-schema" element={<ProtectedRoute allowedRoles={["admin","director"]}><DatabaseSchemaPage /></ProtectedRoute>} />
                 <Route path="help" element={<HelpCenterPage />} />
                 <Route path="admin/bulk-operations" element={<ProtectedRoute allowedRoles={["admin", "director"]}><BulkOperationsPage /></ProtectedRoute>} />
                 <Route path="admin/departments" element={<ProtectedRoute allowedRoles={["admin","director"]}><DepartmentManagementPage /></ProtectedRoute>} />
