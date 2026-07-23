@@ -21,15 +21,19 @@ Deno.serve(async (req) => {
   try {
     const admin = makeAdmin();
 
-    // 1) Tables
-    const { data: tableRows, error: tErr } = await admin
-      .schema("information_schema" as any)
-      .from("tables" as any)
-      .select("table_name")
-      .eq("table_schema", "public");
+    // 1) Tables — probe each critical table (PostgREST doesn't expose information_schema)
+    let tErr: { message: string } | null = null;
+    const missingTables: string[] = [];
+    await Promise.all(
+      CRITICAL_TABLES.map(async (t) => {
+        const { error } = await admin.from(t as any).select("*", { head: true, count: "exact" }).limit(1);
+        // PGRST205 = table not found in schema cache; 42P01 = undefined_table
+        if (error && (error.code === "PGRST205" || error.code === "42P01" || /does not exist|not found/i.test(error.message))) {
+          missingTables.push(t);
+        }
+      })
+    );
 
-    const existingTables = new Set((tableRows ?? []).map((r: any) => r.table_name));
-    const missingTables = CRITICAL_TABLES.filter((t) => !existingTables.has(t));
 
     // 2) Buckets
     const { data: buckets, error: bErr } = await admin.storage.listBuckets();
