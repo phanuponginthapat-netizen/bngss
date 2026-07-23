@@ -1,8 +1,53 @@
-// Backup: tables (fast) or a single storage bucket (per request).
+// Backup: tables (fast), a single storage bucket, or FULL (tables + storage manifest + restore kit).
 // Splitting avoids the 150s edge-function timeout when storage is large.
 // POST /system-backup?mode=tables                  -> zip of all tables as JSON
 // POST /system-backup?mode=storage&bucket=NAME     -> zip of one bucket's files
-// POST /system-backup?mode=buckets                 -> { buckets: [{name,fileCount?}] }
+// POST /system-backup?mode=buckets                 -> { buckets: [{name}] }
+// POST /system-backup?mode=full                    -> tables + storage-manifest.json + RESTORE.md + restore.sh
+//
+// The mode=full bundle is what the "Backup & Migration Center" UI downloads.
+// To restore: create a fresh Supabase project, `supabase db push` migrations
+// from the code repo, then upload the same ZIP to /system-restore.
+
+const RESTORE_MD = `# กู้คืนระบบจากไฟล์สำรอง (Restore Guide)
+
+## กู้คืนแบบเร็ว (2 ขั้น)
+
+1. **สร้าง Supabase project ใหม่** (Cloud หรือ self-host) แล้ว push schema:
+   \`\`\`bash
+   export PROJECT_REF=<ref>
+   export DB_PASSWORD=<password>
+   export SUPABASE_URL=https://<ref>.supabase.co
+   export SERVICE_ROLE_KEY=<service_role>
+   bash scripts/deploy-external-supabase.sh
+   \`\`\`
+   สคริปต์นี้จะ:
+   - รัน migrations ทั้งหมดใน \`supabase/migrations/\` (สร้าง schema, FK, RLS ครบ)
+   - สร้าง storage buckets ทั้ง 22 ตัว
+   - Deploy edge functions ทั้ง 80+ ตัว
+
+2. **อัพโหลด ZIP นี้เข้า Backup Center** (\`/dashboard/admin/backup-center\`) → กด "กู้คืนจากไฟล์"
+   หรือใช้ curl:
+   \`\`\`bash
+   curl -X POST "$SUPABASE_URL/functions/v1/system-restore" \\
+     -H "Authorization: Bearer $ADMIN_JWT" \\
+     -F "file=@smart-school-full-XXX.zip"
+   \`\`\`
+
+## Storage files
+ไฟล์ใน bucket (รูป, PDF ฯลฯ) ต้องดาวน์โหลดแยกด้วย \`?mode=storage&bucket=NAME\` ต่อ bucket
+เพราะขนาดใหญ่เกิน 150s timeout. รายการ bucket + จำนวนไฟล์อยู่ใน \`storage-manifest.json\`
+`;
+
+const RESTORE_SH = `#!/usr/bin/env bash
+# One-shot restore. Requires: SUPABASE_URL, ADMIN_JWT, ZIP_FILE
+set -euo pipefail
+: "\${SUPABASE_URL:?}"; : "\${ADMIN_JWT:?}"; : "\${ZIP_FILE:?}"
+curl -X POST "$SUPABASE_URL/functions/v1/system-restore" \\
+  -H "Authorization: Bearer $ADMIN_JWT" \\
+  -F "file=@$ZIP_FILE"
+`;
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import JSZip from "https://esm.sh/jszip@3.10.1";
 
@@ -63,9 +108,12 @@ Deno.serve(async (req) => {
   }
 
   const zip = new JSZip();
+
+  // mode=full: tables + storage-manifest + restore instructions + kit
+  const isFull = mode === "full";
   const manifest: any = { version: new Date().toISOString(), mode, errors: [] };
 
-  if (mode === "tables") {
+  if (mode === "tables" || isFull) {
     manifest.tables = {};
     const tablesDir = zip.folder("tables")!;
     for (const t of TABLES) {
@@ -86,6 +134,31 @@ Deno.serve(async (req) => {
       } catch (e: any) {
         manifest.errors.push({ table: t, error: e.message });
       }
+    }
+
+    if (isFull) {
+      // Storage manifest (list only — file bytes are per-bucket via mode=storage)
+      const { data: buckets } = await admin.storage.listBuckets();
+      const bucketList: any[] = [];
+      for (const b of buckets || []) {
+        const files: string[] = [];
+        const walk = async (prefix: string) => {
+          const { data: items } = await admin.storage.from(b.name).list(prefix, { limit: 1000 });
+          for (const it of items || []) {
+            const p = prefix ? `${prefix}/${it.name}` : it.name;
+            if (!it.id && !(it as any).metadata) await walk(p);
+            else files.push(p);
+          }
+        };
+        try { await walk(""); } catch (_) { /* ignore */ }
+        bucketList.push({ name: b.name, public: b.public, files: files.length, paths: files.slice(0, 5000) });
+      }
+      manifest.storage = bucketList;
+      zip.file("storage-manifest.json", JSON.stringify(bucketList, null, 2));
+
+      // Bundle restore kit
+      zip.file("RESTORE.md", RESTORE_MD);
+      zip.file("restore.sh", RESTORE_SH);
     }
   } else if (mode === "storage") {
     if (!bucketName) {
@@ -113,7 +186,7 @@ Deno.serve(async (req) => {
 
   zip.file("manifest.json", JSON.stringify(manifest, null, 2));
   const zipBuf = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
-  const tag = mode === "storage" ? `storage-${bucketName}` : "tables";
+  const tag = mode === "storage" ? `storage-${bucketName}` : mode === "full" ? "full" : "tables";
   const filename = `smart-school-${tag}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.zip`;
 
   return new Response(zipBuf, {

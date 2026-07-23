@@ -118,6 +118,7 @@ const WebhookManagementPage = lazy(() => import("./pages/admin/WebhookManagement
 const AIProvidersPage = lazy(() => import("./pages/admin/AIProvidersPage"));
 const AIKeyPoolPage = lazy(() => import("./pages/admin/AIKeyPoolPage"));
 const BackupExternalPage = lazy(() => import("./pages/admin/BackupExternalPage"));
+const BackupMigrationCenterPage = lazy(() => import("./pages/admin/BackupMigrationCenterPage"));
 const SecretsManagementPage = lazy(() => import("./pages/admin/SecretsManagementPage"));
 const ApiKeysHubPage = lazy(() => import("./pages/admin/ApiKeysHubPage"));
 const AiAnalyticsPage = lazy(() => import("./pages/admin/AiAnalyticsPage"));
@@ -413,6 +414,7 @@ const App = () => (
                 <Route path="admin/ai-providers" element={<ProtectedRoute allowedRoles={["admin", "director"]}><Navigate to="/dashboard/admin/api-keys?tab=providers" replace /></ProtectedRoute>} />
                 <Route path="admin/ai-key-pool" element={<ProtectedRoute allowedRoles={["admin", "director"]}><Navigate to="/dashboard/admin/api-keys?tab=pool" replace /></ProtectedRoute>} />
                 <Route path="admin/backup-external" element={<ProtectedRoute allowedRoles={["admin", "director"]}><BackupExternalPage /></ProtectedRoute>} />
+                <Route path="admin/backup-center" element={<ProtectedRoute allowedRoles={["admin", "director"]}><BackupMigrationCenterPage /></ProtectedRoute>} />
                 <Route path="admin/secrets" element={<ProtectedRoute allowedRoles={["admin", "director"]}><Navigate to="/dashboard/admin/api-keys?tab=secrets" replace /></ProtectedRoute>} />
                 <Route path="admin/ai-analytics" element={<ProtectedRoute allowedRoles={["admin", "director"]}><AiAnalyticsPage /></ProtectedRoute>} />
                 <Route path="admin/system-update" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SystemUpdatePage /></ProtectedRoute>} />
