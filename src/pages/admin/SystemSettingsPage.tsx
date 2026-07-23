@@ -171,6 +171,43 @@ const SystemSettingsPage = () => {
         </p>
       </div>
 
+      {/* Quick Links — เครื่องมือ Cloud ที่เพิ่งเพิ่มใหม่ */}
+      <Card className="border-primary/30 bg-gradient-to-br from-sky-50/60 to-fuchsia-50/40 dark:from-sky-950/30 dark:to-fuchsia-950/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <HardDrive className="h-5 w-5 text-primary" />
+            ศูนย์ควบคุม Cloud
+          </CardTitle>
+          <CardDescription>ทางลัดไปยังหน้าที่จำเป็นสำหรับดูแลระบบและย้าย/สำรองข้อมูล</CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {[
+            { to: "/dashboard/admin/system-health", icon: Activity, label: "สุขภาพระบบ", desc: "Realtime · Edge · Cron", color: "text-emerald-600" },
+            { to: "/dashboard/admin/backup-center", icon: Archive, label: "One-Click Backup", desc: "สำรอง · กู้คืน · ย้าย", color: "text-sky-600" },
+            { to: "/dashboard/admin/database-schema", icon: Database, label: "โครงสร้าง DB", desc: "Schema · FK · API", color: "text-indigo-600" },
+            { to: "/dashboard/admin/rls-audit", icon: ShieldAlert, label: "RLS Audit", desc: "สิทธิ์ทุกตาราง", color: "text-rose-600" },
+            { to: "/setup", icon: RefreshCw, label: "Setup Wizard", desc: "Auto Provision", color: "text-fuchsia-600" },
+            { to: "/dashboard/admin/api-keys", icon: History, label: "Secrets & API", desc: "AI · LINE · SMTP", color: "text-amber-600" },
+          ].map((item) => (
+            <a
+              key={item.to}
+              href={item.to}
+              className="group flex items-start gap-3 p-3 rounded-xl border bg-background/70 hover:bg-background hover:shadow-md hover:border-primary/50 transition"
+            >
+              <div className={`p-2 rounded-lg bg-muted ${item.color}`}>
+                <item.icon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="font-semibold text-sm truncate">{item.label}</div>
+                <div className="text-xs text-muted-foreground truncate">{item.desc}</div>
+              </div>
+            </a>
+          ))}
+        </CardContent>
+      </Card>
+
+
+
       {/* Cloud Usage */}
       <Card>
         <CardHeader>
