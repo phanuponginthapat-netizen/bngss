@@ -29,14 +29,29 @@
 
 ---
 
-## 🅱️ ย้ายไป Supabase ของตัวเอง
+## 🅱️ ย้ายไป Supabase ของตัวเอง (One-Click ได้เกือบครบ)
+
+### สรุป Flow (3 คำสั่ง → เสร็จ)
+
+```bash
+# 1. ตั้ง env
+export PROJECT_REF="<ref>"
+export DB_PASSWORD="<db-password>"
+export SUPABASE_URL="https://<ref>.supabase.co"
+export SERVICE_ROLE_KEY="<service-role>"
+
+# 2. รัน schema + FK + RLS ทั้งหมด (500+ migrations)
+bash scripts/deploy-external-supabase.sh
+
+# 3. เข้า /setup ในเว็บ → ระบบตรวจให้เอง + ปุ่ม "สร้าง buckets ที่ขาด" ให้กดครั้งเดียว
+```
 
 ### 1. สร้าง project
 
 - [supabase.com/new](https://supabase.com/new) → เลือก region ใกล้ที่สุด (Singapore สำหรับไทย)
 - จด `Project Ref`, `Project URL`, `anon key`, `service_role key`, `Database password`
 
-### 2. รัน migrations (ครั้งเดียว)
+### 2. รัน migrations (ครั้งเดียว — อัตโนมัติ)
 
 ต้องมี Supabase CLI:
 ```bash
@@ -44,22 +59,39 @@ brew install supabase/tap/supabase   # macOS
 npm i -g supabase                    # อื่นๆ
 ```
 
-จากนั้น:
 ```bash
 export PROJECT_REF="<ref>"
 export DB_PASSWORD="<db-password>"
-export SUPABASE_URL="https://<ref>.supabase.co"
-export SERVICE_ROLE_KEY="<service-role>"
-
 bash scripts/deploy-external-supabase.sh
 ```
 
-สคริปต์นี้จะ:
-- Push migrations ทั้งหมด 500+ ตัว (schema, FK, RLS, triggers)
-- Deploy edge functions ที่ใช้กับ external Supabase
-- ตั้ง search_path ให้ security definer functions
+สคริปต์นี้ทำอัตโนมัติ:
+- Push migrations 500+ ตัว (schema + FK + RLS + triggers + functions)
+- Deploy edge functions ทั้งหมด (รวม `setup-health-check`, `setup-create-buckets`)
+- ตั้ง `search_path` ให้ security definer functions
 
-### 3. Import ข้อมูล
+### 3. แก้ frontend `.env`
+
+```env
+VITE_SUPABASE_URL=https://<ref>.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=<anon-key>
+VITE_SUPABASE_PROJECT_ID=<ref>
+```
+
+Redeploy frontend (Vercel/Lovable)
+
+### 4. เปิด `/setup` — ระบบตรวจให้อัตโนมัติ
+
+Setup Wizard จะรัน `setup-health-check` เอง แสดง:
+- ✅/❌ ตารางหลัก 14 ตัว
+- ✅/❌ Storage buckets 6 ตัว
+- คำแนะนำแก้ทีละข้อ
+
+**ถ้า buckets ขาด** → กดปุ่ม **"สร้าง buckets ที่ขาด"** — ระบบจะสร้างให้ครบในคลิกเดียว (ต้อง login เป็น admin ก่อน)
+
+**ถ้าตารางขาด** → รัน `scripts/deploy-external-supabase.sh` อีกครั้ง
+
+### 5. Import ข้อมูลเดิม (ถ้ามี)
 
 ถ้ามี Backup ZIP จากระบบเดิม:
 ```bash
@@ -73,15 +105,7 @@ curl -X POST "$SUPABASE_URL/functions/v1/system-restore?truncate=1" \
 
 หรือใช้ UI: `/dashboard/admin/backup-center` → Restore tab
 
-### 4. แก้ frontend `.env`
 
-```env
-VITE_SUPABASE_URL=https://<ref>.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=<anon-key>
-VITE_SUPABASE_PROJECT_ID=<ref>
-```
-
-Redeploy — เสร็จ!
 
 ---
 
