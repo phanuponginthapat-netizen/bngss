@@ -414,6 +414,7 @@ const App = () => (
                 <Route path="admin/ai-providers" element={<ProtectedRoute allowedRoles={["admin", "director"]}><Navigate to="/dashboard/admin/api-keys?tab=providers" replace /></ProtectedRoute>} />
                 <Route path="admin/ai-key-pool" element={<ProtectedRoute allowedRoles={["admin", "director"]}><Navigate to="/dashboard/admin/api-keys?tab=pool" replace /></ProtectedRoute>} />
                 <Route path="admin/backup-external" element={<ProtectedRoute allowedRoles={["admin", "director"]}><BackupExternalPage /></ProtectedRoute>} />
+                <Route path="admin/backup-center" element={<ProtectedRoute allowedRoles={["admin", "director"]}><BackupMigrationCenterPage /></ProtectedRoute>} />
                 <Route path="admin/secrets" element={<ProtectedRoute allowedRoles={["admin", "director"]}><Navigate to="/dashboard/admin/api-keys?tab=secrets" replace /></ProtectedRoute>} />
                 <Route path="admin/ai-analytics" element={<ProtectedRoute allowedRoles={["admin", "director"]}><AiAnalyticsPage /></ProtectedRoute>} />
                 <Route path="admin/system-update" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SystemUpdatePage /></ProtectedRoute>} />
