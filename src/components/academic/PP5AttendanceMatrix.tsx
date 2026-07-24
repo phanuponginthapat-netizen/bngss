@@ -22,13 +22,16 @@ interface Props {
   canEdit: boolean;
 }
 
-const fmtDateShort = (iso: string) => {
+const fmtDateBE = (iso: string) => {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
   const be = d.getFullYear() + BE_OFFSET;
-  return `${d.getDate()}/${d.getMonth() + 1}/${String(be).slice(-2)}`;
+  return `${dd}/${mm}/${be}`;
 };
+
 
 const PP5AttendanceMatrix = ({
   subjectId, classroomId, students,
@@ -73,33 +76,47 @@ const PP5AttendanceMatrix = ({
     },
   });
 
-  const absentSet = useMemo(() => {
-    const s = new Set<string>();
-    absences.forEach((a: any) => s.add(`${a.student_id}|${a.attendance_date}`));
-    return s;
+  const statusMap = useMemo(() => {
+    const m = new Map<string, { id: string; status: string }>();
+    absences.forEach((a: any) => m.set(`${a.student_id}|${a.attendance_date}`, { id: a.id, status: a.status }));
+    return m;
   }, [absences]);
 
-  const toggleAbsent = async (studentId: string, dateIso: string) => {
+  const cycleStatus = async (studentId: string, dateIso: string) => {
     if (!canEdit) return;
     if (!dateIso) { toast.error("กรุณากำหนดวันที่ของคาบนี้ก่อน"); return; }
     const key = `${studentId}|${dateIso}`;
-    if (absentSet.has(key)) {
-      // delete absent row
-      const row = absences.find((a: any) => a.student_id === studentId && a.attendance_date === dateIso);
-      if (row) await supabase.from("attendance").delete().eq("id", row.id);
-    } else {
+    const cur = statusMap.get(key);
+    // cycle: (none/มา) -> absent(ขาด) -> leave(ลา) -> none
+    if (!cur) {
       await supabase.from("attendance").upsert({
         student_id: studentId, subject_id: subjectId,
         attendance_date: dateIso, status: "absent",
         academic_year: academicYear, semester,
       } as any, { onConflict: "student_id,attendance_date,subject_id" });
+    } else if (cur.status === "absent") {
+      await supabase.from("attendance").update({ status: "leave" }).eq("id", cur.id);
+    } else {
+      await supabase.from("attendance").delete().eq("id", cur.id);
     }
     qc.invalidateQueries({ queryKey: ["pp5_absences"] });
   };
 
+
   const updateDate = (idx: number, iso: string) => {
-    setDates(prev => prev.map((d, i) => i === idx ? iso : d));
+    const next = dates.map((d, i) => i === idx ? iso : d);
+    setDates(next);
+    void persistDates(next);
   };
+
+  const persistDates = async (arr: string[]) => {
+    if (!canEdit) return;
+    const { error } = await supabase.from("subjects").update({
+      pp5_period_dates: arr.filter(Boolean),
+    } as any).eq("id", subjectId);
+    if (error) toast.error("บันทึกวันที่ไม่สำเร็จ: " + error.message);
+  };
+
 
   const autoFillDates = () => {
     if (!startDate) { toast.error("กรุณาเลือกวันเริ่มต้น"); return; }
@@ -122,6 +139,7 @@ const PP5AttendanceMatrix = ({
       }
     }
     setDates(result);
+    void persistDates(result);
   };
 
   const saveConfig = async () => {
@@ -169,8 +187,7 @@ const PP5AttendanceMatrix = ({
             </Button>
           </div>
           <p className="basis-full text-[11px] text-muted-foreground">
-            คลิกเซลล์เพื่อสลับสถานะ <span className="font-semibold text-destructive">×</span> = ขาด · เว้นว่าง = มาเรียน
-            (ดึงจากการลงเวลาเรียนอัตโนมัติ · ครูแก้ไขเพิ่มได้)
+            คลิกเซลล์เพื่อสลับสถานะ: เว้นว่าง = <span className="font-semibold">มาเรียน</span> · <span className="font-semibold text-destructive">×</span> = ขาด · <span className="font-semibold text-amber-600">ล</span> = ลา · แสดงวันที่แบบ dd/mm/yyyy (พ.ศ.) · วันที่บันทึกอัตโนมัติเมื่อแก้ไข
           </p>
         </CardContent>
       </Card>
@@ -189,14 +206,17 @@ const PP5AttendanceMatrix = ({
             </TableRow>
             <TableRow>
               {dates.map((d, i) => (
-                <TableHead key={i} className="text-center p-0.5 bg-muted/10 align-bottom" style={{ minWidth: 36 }}>
+                <TableHead key={i} className="text-center p-0.5 bg-muted/10 align-bottom" style={{ minWidth: 56 }}>
                   <div className="text-[10px] text-muted-foreground">{i + 1}</div>
                   {canEdit ? (
-                    <Input type="date" value={d || ""}
-                      onChange={e => updateDate(i, e.target.value)}
-                      className="h-6 px-0.5 text-[9px] border-0 rounded-none focus-visible:ring-1 w-[68px]" />
+                    <div className="flex flex-col items-center gap-0.5">
+                      <Input type="date" value={d || ""}
+                        onChange={e => updateDate(i, e.target.value)}
+                        className="h-6 px-0.5 text-[9px] border rounded w-[76px]" />
+                      <div className="text-[9px] font-medium text-primary">{fmtDateBE(d) || "—"}</div>
+                    </div>
                   ) : (
-                    <div className="text-[9px] writing-mode-vertical" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: 70 }}>{fmtDateShort(d)}</div>
+                    <div className="text-[10px] font-medium">{fmtDateBE(d) || "—"}</div>
                   )}
                 </TableHead>
               ))}
@@ -206,9 +226,14 @@ const PP5AttendanceMatrix = ({
             {students.length === 0 ? (
               <TableRow><TableCell colSpan={6 + total} className="text-center py-8 text-muted-foreground">ไม่มีนักเรียน</TableCell></TableRow>
             ) : students.map((s, idx) => {
-              let absent = 0;
-              dates.forEach(d => { if (d && absentSet.has(`${s.id}|${d}`)) absent++; });
-              const attended = total - absent;
+              let absent = 0, leave = 0;
+              dates.forEach(d => {
+                if (!d) return;
+                const st = statusMap.get(`${s.id}|${d}`)?.status;
+                if (st === "absent") absent++;
+                else if (st === "leave") leave++;
+              });
+              const attended = total - absent - leave;
               const pct = Math.round((attended / total) * 100);
               return (
                 <TableRow key={s.id}>
@@ -216,22 +241,29 @@ const PP5AttendanceMatrix = ({
                   <TableCell className="text-center font-mono text-[10px]">{s.student_code}</TableCell>
                   <TableCell className="text-[11px]">{s.prefix}{s.first_name} {s.last_name}</TableCell>
                   {dates.map((d, i) => {
-                    const isAbsent = !!d && absentSet.has(`${s.id}|${d}`);
+                    const st = d ? statusMap.get(`${s.id}|${d}`)?.status : undefined;
+                    const mark = st === "absent" ? "×" : st === "leave" ? "ล" : "";
+                    const cls = st === "absent"
+                      ? "bg-destructive/20 text-destructive font-bold"
+                      : st === "leave"
+                      ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-bold"
+                      : "hover:bg-primary/10";
                     return (
                       <TableCell key={i}
-                        onClick={() => toggleAbsent(s.id, d)}
-                        className={`text-center cursor-pointer select-none ${isAbsent ? "bg-destructive/20 text-destructive font-bold" : "hover:bg-primary/10"} ${!d ? "opacity-40" : ""}`}
-                        title={d ? (isAbsent ? "คลิกเพื่อยกเลิกการขาด" : "คลิกเพื่อทำเครื่องหมายขาด") : "ยังไม่ระบุวันที่"}>
-                        {isAbsent ? "×" : ""}
+                        onClick={() => cycleStatus(s.id, d)}
+                        className={`text-center cursor-pointer select-none ${cls} ${!d ? "opacity-40" : ""}`}
+                        title={d ? "คลิกเพื่อสลับ: มา → ขาด → ลา → มา" : "ยังไม่ระบุวันที่"}>
+                        {mark}
                       </TableCell>
                     );
                   })}
-                  <TableCell className="text-center font-semibold bg-amber-50 dark:bg-amber-950/20">{absent}</TableCell>
+                  <TableCell className="text-center font-semibold bg-amber-50 dark:bg-amber-950/20">{absent}{leave ? ` (+${leave}ล)` : ""}</TableCell>
                   <TableCell className="text-center font-semibold bg-blue-50 dark:bg-blue-950/20">{attended}</TableCell>
                   <TableCell className={`text-center font-bold ${pct >= 80 ? "text-emerald-700 dark:text-emerald-300" : "text-destructive"} bg-emerald-50 dark:bg-emerald-950/20`}>{pct}</TableCell>
                 </TableRow>
               );
             })}
+
           </TableBody>
         </Table>
       </div>
