@@ -139,6 +139,7 @@ const PP5AttendanceMatrix = ({
       }
     }
     setDates(result);
+    void persistDates(result);
   };
 
   const saveConfig = async () => {
