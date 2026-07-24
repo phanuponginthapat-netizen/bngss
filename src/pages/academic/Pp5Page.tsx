@@ -60,13 +60,16 @@ const InlineAddColumn = ({
   value,
   onChange,
   onAdd,
+  weights,
 }: {
   value: { column_name: string; column_type: string; max_score: string; half: string };
   onChange: (v: any) => void;
   onAdd: () => void | Promise<void>;
   nextOrder: number;
+  weights?: { assignment: number; midterm: number; final: number; attendance: number };
 }) => {
   const [open, setOpen] = useState(false);
+  const w = weights ?? { assignment: 70, midterm: 10, final: 20, attendance: 0 };
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -86,12 +89,13 @@ const InlineAddColumn = ({
           <Select value={value.column_type} onValueChange={v => onChange({ ...value, column_type: v })}>
             <SelectTrigger className="h-9 flex-1"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="assignment">งานเก็บ (70%)</SelectItem>
-              <SelectItem value="midterm">กลางภาค (10%)</SelectItem>
-              <SelectItem value="final">ปลายภาค (20%)</SelectItem>
-              <SelectItem value="attendance">จิตพิสัย</SelectItem>
+              <SelectItem value="assignment">งานเก็บ ({w.assignment}%)</SelectItem>
+              <SelectItem value="midterm">กลางภาค ({w.midterm}%)</SelectItem>
+              <SelectItem value="final">ปลายภาค ({w.final}%)</SelectItem>
+              <SelectItem value="attendance">จิตพิสัย ({w.attendance}%)</SelectItem>
             </SelectContent>
           </Select>
+
           <Input
             type="number"
             placeholder="เต็ม"
@@ -846,7 +850,7 @@ const ScoreEntryTab = () => {
                             <TableHead rowSpan={3} className="text-center border align-middle">รวม<br/>(100)</TableHead>
                             <TableHead rowSpan={3} className="text-center border align-middle">ผลการประเมิน<br/>(0-4)</TableHead>
                             <TableHead rowSpan={3} className="text-center border align-middle p-1">
-                              <InlineAddColumn value={columnForm} onChange={setColumnForm} onAdd={handleAddColumn} nextOrder={scoreColumns.length} />
+                              <InlineAddColumn value={columnForm} onChange={setColumnForm} onAdd={handleAddColumn} nextOrder={scoreColumns.length} weights={WEIGHTS} />
                             </TableHead>
                           </TableRow>
                           {/* Row B: column names (rotated) + subtotal headers */}
