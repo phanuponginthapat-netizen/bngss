@@ -104,8 +104,19 @@ const PP5AttendanceMatrix = ({
 
 
   const updateDate = (idx: number, iso: string) => {
-    setDates(prev => prev.map((d, i) => i === idx ? iso : d));
+    const next = dates.map((d, i) => i === idx ? iso : d);
+    setDates(next);
+    void persistDates(next);
   };
+
+  const persistDates = async (arr: string[]) => {
+    if (!canEdit) return;
+    const { error } = await supabase.from("subjects").update({
+      pp5_period_dates: arr.filter(Boolean),
+    } as any).eq("id", subjectId);
+    if (error) toast.error("บันทึกวันที่ไม่สำเร็จ: " + error.message);
+  };
+
 
   const autoFillDates = () => {
     if (!startDate) { toast.error("กรุณาเลือกวันเริ่มต้น"); return; }
