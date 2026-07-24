@@ -187,8 +187,7 @@ const PP5AttendanceMatrix = ({
             </Button>
           </div>
           <p className="basis-full text-[11px] text-muted-foreground">
-            คลิกเซลล์เพื่อสลับสถานะ <span className="font-semibold text-destructive">×</span> = ขาด · เว้นว่าง = มาเรียน
-            (ดึงจากการลงเวลาเรียนอัตโนมัติ · ครูแก้ไขเพิ่มได้)
+            คลิกเซลล์เพื่อสลับสถานะ: เว้นว่าง = <span className="font-semibold">มาเรียน</span> · <span className="font-semibold text-destructive">×</span> = ขาด · <span className="font-semibold text-amber-600">ล</span> = ลา · แสดงวันที่แบบ dd/mm/yyyy (พ.ศ.) · วันที่บันทึกอัตโนมัติเมื่อแก้ไข
           </p>
         </CardContent>
       </Card>
