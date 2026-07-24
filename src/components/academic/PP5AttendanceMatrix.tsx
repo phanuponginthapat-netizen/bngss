@@ -76,29 +76,32 @@ const PP5AttendanceMatrix = ({
     },
   });
 
-  const absentSet = useMemo(() => {
-    const s = new Set<string>();
-    absences.forEach((a: any) => s.add(`${a.student_id}|${a.attendance_date}`));
-    return s;
+  const statusMap = useMemo(() => {
+    const m = new Map<string, { id: string; status: string }>();
+    absences.forEach((a: any) => m.set(`${a.student_id}|${a.attendance_date}`, { id: a.id, status: a.status }));
+    return m;
   }, [absences]);
 
-  const toggleAbsent = async (studentId: string, dateIso: string) => {
+  const cycleStatus = async (studentId: string, dateIso: string) => {
     if (!canEdit) return;
     if (!dateIso) { toast.error("กรุณากำหนดวันที่ของคาบนี้ก่อน"); return; }
     const key = `${studentId}|${dateIso}`;
-    if (absentSet.has(key)) {
-      // delete absent row
-      const row = absences.find((a: any) => a.student_id === studentId && a.attendance_date === dateIso);
-      if (row) await supabase.from("attendance").delete().eq("id", row.id);
-    } else {
+    const cur = statusMap.get(key);
+    // cycle: (none/มา) -> absent(ขาด) -> leave(ลา) -> none
+    if (!cur) {
       await supabase.from("attendance").upsert({
         student_id: studentId, subject_id: subjectId,
         attendance_date: dateIso, status: "absent",
         academic_year: academicYear, semester,
       } as any, { onConflict: "student_id,attendance_date,subject_id" });
+    } else if (cur.status === "absent") {
+      await supabase.from("attendance").update({ status: "leave" }).eq("id", cur.id);
+    } else {
+      await supabase.from("attendance").delete().eq("id", cur.id);
     }
     qc.invalidateQueries({ queryKey: ["pp5_absences"] });
   };
+
 
   const updateDate = (idx: number, iso: string) => {
     setDates(prev => prev.map((d, i) => i === idx ? iso : d));
