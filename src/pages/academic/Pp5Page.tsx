@@ -850,7 +850,7 @@ const ScoreEntryTab = () => {
                             <TableHead rowSpan={3} className="text-center border align-middle">รวม<br/>(100)</TableHead>
                             <TableHead rowSpan={3} className="text-center border align-middle">ผลการประเมิน<br/>(0-4)</TableHead>
                             <TableHead rowSpan={3} className="text-center border align-middle p-1">
-                              <InlineAddColumn value={columnForm} onChange={setColumnForm} onAdd={handleAddColumn} nextOrder={scoreColumns.length} />
+                              <InlineAddColumn value={columnForm} onChange={setColumnForm} onAdd={handleAddColumn} nextOrder={scoreColumns.length} weights={WEIGHTS} />
                             </TableHead>
                           </TableRow>
                           {/* Row B: column names (rotated) + subtotal headers */}
