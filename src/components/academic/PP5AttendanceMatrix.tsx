@@ -22,13 +22,16 @@ interface Props {
   canEdit: boolean;
 }
 
-const fmtDateShort = (iso: string) => {
+const fmtDateBE = (iso: string) => {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
   const be = d.getFullYear() + BE_OFFSET;
-  return `${d.getDate()}/${d.getMonth() + 1}/${String(be).slice(-2)}`;
+  return `${dd}/${mm}/${be}`;
 };
+
 
 const PP5AttendanceMatrix = ({
   subjectId, classroomId, students,
