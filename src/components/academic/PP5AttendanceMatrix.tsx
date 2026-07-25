@@ -242,7 +242,7 @@ const PP5AttendanceMatrix = ({
             </TableRow>
             <TableRow>
               {dates.map((d, i) => (
-                <TableHead key={i} className="text-center p-0.5 bg-muted/10 align-bottom" style={{ minWidth: 56 }}>
+                <TableHead key={i} className="text-center p-0.5 bg-muted/10 align-bottom" style={{ minWidth: 64 }}>
                   <div className="text-[10px] text-muted-foreground">{i + 1}</div>
                   {canEdit ? (
                     <div className="flex flex-col items-center gap-0.5">
@@ -250,6 +250,14 @@ const PP5AttendanceMatrix = ({
                         onChange={e => updateDate(i, e.target.value)}
                         className="h-6 px-0.5 text-[9px] border rounded w-[76px]" />
                       <div className="text-[9px] font-medium text-primary">{fmtDateBE(d) || "—"}</div>
+                      <div className="flex gap-0.5">
+                        <button type="button" title="ทุกคน: มา" onClick={() => bulkFillColumn(d, "present")}
+                          className="text-[9px] px-1 rounded bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40">มา</button>
+                        <button type="button" title="ทุกคน: ขาด" onClick={() => bulkFillColumn(d, "absent")}
+                          className="text-[9px] px-1 rounded bg-destructive/20 hover:bg-destructive/30">×</button>
+                        <button type="button" title="ทุกคน: ลา" onClick={() => bulkFillColumn(d, "leave")}
+                          className="text-[9px] px-1 rounded bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40">ล</button>
+                      </div>
                     </div>
                   ) : (
                     <div className="text-[10px] font-medium">{fmtDateBE(d) || "—"}</div>
@@ -257,6 +265,7 @@ const PP5AttendanceMatrix = ({
                 </TableHead>
               ))}
             </TableRow>
+
           </TableHeader>
           <TableBody>
             {students.length === 0 ? (
