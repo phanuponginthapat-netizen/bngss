@@ -284,7 +284,22 @@ const PP5AttendanceMatrix = ({
                 <TableRow key={s.id}>
                   <TableCell className="text-center">{idx + 1}</TableCell>
                   <TableCell className="text-center font-mono text-[10px]">{s.student_code}</TableCell>
-                  <TableCell className="text-[11px]">{s.prefix}{s.first_name} {s.last_name}</TableCell>
+                  <TableCell className="text-[11px]">
+                    <div className="flex items-center justify-between gap-1">
+                      <span>{s.prefix}{s.first_name} {s.last_name}</span>
+                      {canEdit && (
+                        <div className="flex gap-0.5 shrink-0">
+                          <button type="button" title="ทุกคาบ: มา" onClick={() => bulkFillStudent(s.id, "present")}
+                            className="text-[9px] px-1 rounded bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40">มา</button>
+                          <button type="button" title="ทุกคาบ: ขาด" onClick={() => bulkFillStudent(s.id, "absent")}
+                            className="text-[9px] px-1 rounded bg-destructive/20 hover:bg-destructive/30">×</button>
+                          <button type="button" title="ทุกคาบ: ลา" onClick={() => bulkFillStudent(s.id, "leave")}
+                            className="text-[9px] px-1 rounded bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40">ล</button>
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+
                   {dates.map((d, i) => {
                     const st = d ? statusMap.get(`${s.id}|${d}`)?.status : undefined;
                     const mark = st === "absent" ? "×" : st === "leave" ? "ล" : "";
