@@ -82,25 +82,61 @@ const PP5AttendanceMatrix = ({
     return m;
   }, [absences]);
 
-  const cycleStatus = async (studentId: string, dateIso: string) => {
+  const setStatus = async (studentId: string, dateIso: string, next: "present" | "absent" | "leave") => {
     if (!canEdit) return;
     if (!dateIso) { toast.error("กรุณากำหนดวันที่ของคาบนี้ก่อน"); return; }
     const key = `${studentId}|${dateIso}`;
     const cur = statusMap.get(key);
-    // cycle: (none/มา) -> absent(ขาด) -> leave(ลา) -> none
-    if (!cur) {
-      await supabase.from("attendance").upsert({
+    if (next === "present") {
+      if (cur) {
+        const { error } = await supabase.from("attendance").delete().eq("id", cur.id);
+        if (error) { toast.error("ลบไม่สำเร็จ: " + error.message); return; }
+      }
+    } else if (cur) {
+      if (cur.status !== next) {
+        const { error } = await supabase.from("attendance").update({ status: next }).eq("id", cur.id);
+        if (error) { toast.error("บันทึกไม่สำเร็จ: " + error.message); return; }
+      }
+    } else {
+      const { error } = await supabase.from("attendance").upsert({
         student_id: studentId, subject_id: subjectId,
-        attendance_date: dateIso, status: "absent",
+        attendance_date: dateIso, status: next,
         academic_year: academicYear, semester,
       } as any, { onConflict: "student_id,attendance_date,subject_id" });
-    } else if (cur.status === "absent") {
-      await supabase.from("attendance").update({ status: "leave" }).eq("id", cur.id);
-    } else {
-      await supabase.from("attendance").delete().eq("id", cur.id);
+      if (error) { toast.error("บันทึกไม่สำเร็จ: " + error.message); return; }
     }
     qc.invalidateQueries({ queryKey: ["pp5_absences"] });
   };
+
+  const cycleStatus = async (studentId: string, dateIso: string) => {
+    const cur = statusMap.get(`${studentId}|${dateIso}`);
+    const next = !cur ? "absent" : cur.status === "absent" ? "leave" : "present";
+    await setStatus(studentId, dateIso, next as any);
+  };
+
+  const bulkFillColumn = async (dateIso: string, status: "present" | "absent" | "leave") => {
+    if (!canEdit) return;
+    if (!dateIso) { toast.error("กรุณากำหนดวันที่ของคาบนี้ก่อน"); return; }
+    if (!confirm(`ยืนยันตั้งสถานะ "${status === "present" ? "มาเรียน" : status === "absent" ? "ขาด" : "ลา"}" ให้นักเรียนทุกคนของคาบนี้?`)) return;
+    for (const s of students) {
+      // eslint-disable-next-line no-await-in-loop
+      await setStatus(s.id, dateIso, status);
+    }
+    toast.success("บันทึกเรียบร้อย");
+  };
+
+  const bulkFillStudent = async (studentId: string, status: "present" | "absent" | "leave") => {
+    if (!canEdit) return;
+    const valid = dates.filter(Boolean);
+    if (valid.length === 0) { toast.error("ยังไม่มีวันที่กำกับคาบ"); return; }
+    if (!confirm(`ยืนยันตั้งสถานะ "${status === "present" ? "มาเรียน" : status === "absent" ? "ขาด" : "ลา"}" ทุกคาบให้นักเรียนคนนี้?`)) return;
+    for (const d of valid) {
+      // eslint-disable-next-line no-await-in-loop
+      await setStatus(studentId, d, status);
+    }
+    toast.success("บันทึกเรียบร้อย");
+  };
+
 
 
   const updateDate = (idx: number, iso: string) => {
@@ -206,7 +242,7 @@ const PP5AttendanceMatrix = ({
             </TableRow>
             <TableRow>
               {dates.map((d, i) => (
-                <TableHead key={i} className="text-center p-0.5 bg-muted/10 align-bottom" style={{ minWidth: 56 }}>
+                <TableHead key={i} className="text-center p-0.5 bg-muted/10 align-bottom" style={{ minWidth: 64 }}>
                   <div className="text-[10px] text-muted-foreground">{i + 1}</div>
                   {canEdit ? (
                     <div className="flex flex-col items-center gap-0.5">
@@ -214,6 +250,14 @@ const PP5AttendanceMatrix = ({
                         onChange={e => updateDate(i, e.target.value)}
                         className="h-6 px-0.5 text-[9px] border rounded w-[76px]" />
                       <div className="text-[9px] font-medium text-primary">{fmtDateBE(d) || "—"}</div>
+                      <div className="flex gap-0.5">
+                        <button type="button" title="ทุกคน: มา" onClick={() => bulkFillColumn(d, "present")}
+                          className="text-[9px] px-1 rounded bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40">มา</button>
+                        <button type="button" title="ทุกคน: ขาด" onClick={() => bulkFillColumn(d, "absent")}
+                          className="text-[9px] px-1 rounded bg-destructive/20 hover:bg-destructive/30">×</button>
+                        <button type="button" title="ทุกคน: ลา" onClick={() => bulkFillColumn(d, "leave")}
+                          className="text-[9px] px-1 rounded bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40">ล</button>
+                      </div>
                     </div>
                   ) : (
                     <div className="text-[10px] font-medium">{fmtDateBE(d) || "—"}</div>
@@ -221,6 +265,7 @@ const PP5AttendanceMatrix = ({
                 </TableHead>
               ))}
             </TableRow>
+
           </TableHeader>
           <TableBody>
             {students.length === 0 ? (
@@ -239,7 +284,22 @@ const PP5AttendanceMatrix = ({
                 <TableRow key={s.id}>
                   <TableCell className="text-center">{idx + 1}</TableCell>
                   <TableCell className="text-center font-mono text-[10px]">{s.student_code}</TableCell>
-                  <TableCell className="text-[11px]">{s.prefix}{s.first_name} {s.last_name}</TableCell>
+                  <TableCell className="text-[11px]">
+                    <div className="flex items-center justify-between gap-1">
+                      <span>{s.prefix}{s.first_name} {s.last_name}</span>
+                      {canEdit && (
+                        <div className="flex gap-0.5 shrink-0">
+                          <button type="button" title="ทุกคาบ: มา" onClick={() => bulkFillStudent(s.id, "present")}
+                            className="text-[9px] px-1 rounded bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40">มา</button>
+                          <button type="button" title="ทุกคาบ: ขาด" onClick={() => bulkFillStudent(s.id, "absent")}
+                            className="text-[9px] px-1 rounded bg-destructive/20 hover:bg-destructive/30">×</button>
+                          <button type="button" title="ทุกคาบ: ลา" onClick={() => bulkFillStudent(s.id, "leave")}
+                            className="text-[9px] px-1 rounded bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40">ล</button>
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+
                   {dates.map((d, i) => {
                     const st = d ? statusMap.get(`${s.id}|${d}`)?.status : undefined;
                     const mark = st === "absent" ? "×" : st === "leave" ? "ล" : "";
