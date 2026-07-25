@@ -1,0 +1,2 @@
+ALTER TABLE public.student_column_scores ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'graded';
+ALTER TABLE public.attendance ADD CONSTRAINT attendance_student_date_subject_key UNIQUE (student_id, attendance_date, subject_id);
