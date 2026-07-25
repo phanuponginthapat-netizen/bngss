@@ -102,7 +102,7 @@ const PP5AttendanceMatrix = ({
         student_id: studentId, subject_id: subjectId,
         attendance_date: dateIso, status: next,
         academic_year: academicYear, semester,
-      } as any, { onConflict: "student_id,attendance_date,subject_id" });
+      } as any, { onConflict: "student_id,attendance_date,subject_id", ignoreDuplicates: false });
       if (error) { toast.error("บันทึกไม่สำเร็จ: " + error.message); return; }
     }
     qc.invalidateQueries({ queryKey: ["pp5_absences"] });
