@@ -82,25 +82,61 @@ const PP5AttendanceMatrix = ({
     return m;
   }, [absences]);
 
-  const cycleStatus = async (studentId: string, dateIso: string) => {
+  const setStatus = async (studentId: string, dateIso: string, next: "present" | "absent" | "leave") => {
     if (!canEdit) return;
     if (!dateIso) { toast.error("กรุณากำหนดวันที่ของคาบนี้ก่อน"); return; }
     const key = `${studentId}|${dateIso}`;
     const cur = statusMap.get(key);
-    // cycle: (none/มา) -> absent(ขาด) -> leave(ลา) -> none
-    if (!cur) {
-      await supabase.from("attendance").upsert({
+    if (next === "present") {
+      if (cur) {
+        const { error } = await supabase.from("attendance").delete().eq("id", cur.id);
+        if (error) { toast.error("ลบไม่สำเร็จ: " + error.message); return; }
+      }
+    } else if (cur) {
+      if (cur.status !== next) {
+        const { error } = await supabase.from("attendance").update({ status: next }).eq("id", cur.id);
+        if (error) { toast.error("บันทึกไม่สำเร็จ: " + error.message); return; }
+      }
+    } else {
+      const { error } = await supabase.from("attendance").upsert({
         student_id: studentId, subject_id: subjectId,
-        attendance_date: dateIso, status: "absent",
+        attendance_date: dateIso, status: next,
         academic_year: academicYear, semester,
       } as any, { onConflict: "student_id,attendance_date,subject_id" });
-    } else if (cur.status === "absent") {
-      await supabase.from("attendance").update({ status: "leave" }).eq("id", cur.id);
-    } else {
-      await supabase.from("attendance").delete().eq("id", cur.id);
+      if (error) { toast.error("บันทึกไม่สำเร็จ: " + error.message); return; }
     }
     qc.invalidateQueries({ queryKey: ["pp5_absences"] });
   };
+
+  const cycleStatus = async (studentId: string, dateIso: string) => {
+    const cur = statusMap.get(`${studentId}|${dateIso}`);
+    const next = !cur ? "absent" : cur.status === "absent" ? "leave" : "present";
+    await setStatus(studentId, dateIso, next as any);
+  };
+
+  const bulkFillColumn = async (dateIso: string, status: "present" | "absent" | "leave") => {
+    if (!canEdit) return;
+    if (!dateIso) { toast.error("กรุณากำหนดวันที่ของคาบนี้ก่อน"); return; }
+    if (!confirm(`ยืนยันตั้งสถานะ "${status === "present" ? "มาเรียน" : status === "absent" ? "ขาด" : "ลา"}" ให้นักเรียนทุกคนของคาบนี้?`)) return;
+    for (const s of students) {
+      // eslint-disable-next-line no-await-in-loop
+      await setStatus(s.id, dateIso, status);
+    }
+    toast.success("บันทึกเรียบร้อย");
+  };
+
+  const bulkFillStudent = async (studentId: string, status: "present" | "absent" | "leave") => {
+    if (!canEdit) return;
+    const valid = dates.filter(Boolean);
+    if (valid.length === 0) { toast.error("ยังไม่มีวันที่กำกับคาบ"); return; }
+    if (!confirm(`ยืนยันตั้งสถานะ "${status === "present" ? "มาเรียน" : status === "absent" ? "ขาด" : "ลา"}" ทุกคาบให้นักเรียนคนนี้?`)) return;
+    for (const d of valid) {
+      // eslint-disable-next-line no-await-in-loop
+      await setStatus(studentId, d, status);
+    }
+    toast.success("บันทึกเรียบร้อย");
+  };
+
 
 
   const updateDate = (idx: number, iso: string) => {
