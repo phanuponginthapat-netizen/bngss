@@ -6,9 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Wand2, Save } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CalendarIcon, Wand2, Save, Zap } from "lucide-react";
 import { toast } from "sonner";
-import { BE_OFFSET, bkkDateISO } from "@/lib/dateBE";
+import { cn } from "@/lib/utils";
+import { BE_OFFSET, bkkDateISO, formatDateBE, parseDateBE, toISODate } from "@/lib/dateBE";
 
 interface Props {
   subjectId: string;
@@ -22,16 +26,37 @@ interface Props {
   canEdit: boolean;
 }
 
-const fmtDateBE = (iso: string) => {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const be = d.getFullYear() + BE_OFFSET;
-  return `${dd}/${mm}/${be}`;
-};
+const fmtDateBE = (iso: string) => formatDateBE(iso);
 
+/** Small dd/mm/yyyy (พ.ศ.) date picker — replaces native input to force Thai display */
+const BEDatePicker = ({
+  value, onChange, disabled, className, placeholder = "dd/mm/พ.ศ.",
+}: { value: string; onChange: (iso: string) => void; disabled?: boolean; className?: string; placeholder?: string }) => {
+  const selected = value ? (parseDateBE(value) || undefined) : undefined;
+  return (
+    <Popover>
+      <PopoverTrigger asChild disabled={disabled}>
+        <button type="button" disabled={disabled}
+          className={cn(
+            "h-6 px-1 text-[10px] border rounded flex items-center gap-1 bg-background hover:bg-accent disabled:opacity-50",
+            className
+          )}>
+          <CalendarIcon className="w-2.5 h-2.5" />
+          <span>{value ? fmtDateBE(value) : placeholder}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+        <Calendar
+          mode="single"
+          selected={selected}
+          onSelect={(d) => d && onChange(toISODate(d))}
+          initialFocus
+          className={cn("p-3 pointer-events-auto")}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const PP5AttendanceMatrix = ({
   subjectId, classroomId, students,
@@ -48,9 +73,13 @@ const PP5AttendanceMatrix = ({
     return base.slice(0, total);
   });
 
-  useEffect(() => {
-    setWeeks(weeksPerSemester || 20);
-  }, [weeksPerSemester]);
+  // Range quick-fill state
+  const [rangeFrom, setRangeFrom] = useState<string>("");
+  const [rangeTo, setRangeTo] = useState<string>("");
+  const [rangeStatus, setRangeStatus] = useState<"present" | "absent" | "leave">("absent");
+  const [rangeStudent, setRangeStudent] = useState<string>("__all__");
+
+  useEffect(() => { setWeeks(weeksPerSemester || 20); }, [weeksPerSemester]);
 
   useEffect(() => {
     const base = [...(periodDates || [])];
@@ -59,7 +88,6 @@ const PP5AttendanceMatrix = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodDates?.join(","), total]);
 
-  // Fetch absent records for these students/subject/year/semester
   const studentIds = students.map(s => s.id);
   const { data: absences = [] } = useQuery({
     queryKey: ["pp5_absences", subjectId, semester, academicYear, studentIds.length],
@@ -137,7 +165,27 @@ const PP5AttendanceMatrix = ({
     toast.success("บันทึกเรียบร้อย");
   };
 
-
+  const applyRangeQuickFill = async () => {
+    if (!canEdit) return;
+    if (!rangeFrom || !rangeTo) { toast.error("กรุณาเลือกช่วงวัน (ตั้งแต่–ถึง)"); return; }
+    const from = rangeFrom, to = rangeTo;
+    const [lo, hi] = from <= to ? [from, to] : [to, from];
+    const periods = dates.filter(d => d && d >= lo && d <= hi);
+    if (periods.length === 0) { toast.error("ไม่มีคาบเรียนในช่วงวันที่เลือก"); return; }
+    const targets = rangeStudent === "__all__" ? students : students.filter(s => s.id === rangeStudent);
+    if (targets.length === 0) { toast.error("ไม่พบนักเรียนที่เลือก"); return; }
+    const label = rangeStatus === "present" ? "มาเรียน" : rangeStatus === "absent" ? "ขาด" : "ลา";
+    if (!confirm(`ยืนยันตั้งสถานะ "${label}" — ${periods.length} คาบ × ${targets.length} คน = ${periods.length * targets.length} รายการ?`)) return;
+    let done = 0;
+    for (const s of targets) {
+      for (const d of periods) {
+        // eslint-disable-next-line no-await-in-loop
+        await setStatus(s.id, d, rangeStatus);
+        done++;
+      }
+    }
+    toast.success(`บันทึกเรียบร้อย (${done} รายการ)`);
+  };
 
   const updateDate = (idx: number, iso: string) => {
     const next = dates.map((d, i) => i === idx ? iso : d);
@@ -153,25 +201,23 @@ const PP5AttendanceMatrix = ({
     if (error) toast.error("บันทึกวันที่ไม่สำเร็จ: " + error.message);
   };
 
-
   const autoFillDates = () => {
     if (!startDate) { toast.error("กรุณาเลือกวันเริ่มต้น"); return; }
-    const start = new Date(startDate);
-    if (Number.isNaN(start.getTime())) return;
+    const start = parseDateBE(startDate);
+    if (!start) return;
     const result: string[] = [];
     let cur = new Date(start);
     let added = 0;
     while (added < total) {
-      const day = cur.getDay();
-      if (day !== 0 && day !== 6) { // skip weekends
+      const day = cur.getUTCDay();
+      if (day !== 0 && day !== 6) {
         for (let h = 0; h < hoursPerWeek && added < total; h++) {
-          result.push(bkkDateISO(cur));
+          result.push(toISODate(cur));
           added++;
         }
-        // move +7 days for next week if filled hoursPerWeek for this week
-        cur.setDate(cur.getDate() + 7);
+        cur.setUTCDate(cur.getUTCDate() + 7);
       } else {
-        cur.setDate(cur.getDate() + 1);
+        cur.setUTCDate(cur.getUTCDate() + 1);
       }
     }
     setDates(result);
@@ -210,8 +256,20 @@ const PP5AttendanceMatrix = ({
           <div className="border-l pl-3">
             <Label className="text-xs">เติมวันที่อัตโนมัติ (เริ่มจาก)</Label>
             <div className="flex gap-1">
-              <Input type="date" value={startDate} disabled={!canEdit}
-                onChange={e => setStartDate(e.target.value)} className="w-40 h-8" />
+              <Popover>
+                <PopoverTrigger asChild disabled={!canEdit}>
+                  <Button variant="outline" size="sm" className="h-8 w-40 justify-start font-normal">
+                    <CalendarIcon className="w-3.5 h-3.5 mr-1" />
+                    {startDate ? fmtDateBE(startDate) : <span className="text-muted-foreground">dd/mm/พ.ศ.</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+                  <Calendar mode="single"
+                    selected={startDate ? (parseDateBE(startDate) || undefined) : undefined}
+                    onSelect={(d) => d && setStartDate(toISODate(d))}
+                    initialFocus className={cn("p-3 pointer-events-auto")} />
+                </PopoverContent>
+              </Popover>
               <Button size="sm" variant="outline" onClick={autoFillDates} disabled={!canEdit}>
                 <Wand2 className="w-3.5 h-3.5 mr-1" />เติม
               </Button>
@@ -224,6 +282,80 @@ const PP5AttendanceMatrix = ({
           </div>
           <p className="basis-full text-[11px] text-muted-foreground">
             คลิกเซลล์เพื่อสลับสถานะ: <span className="font-semibold text-blue-700 dark:text-blue-300">มา</span> = มาเรียน · <span className="font-semibold text-destructive">×</span> = ขาด · <span className="font-semibold text-amber-600">ล</span> = ลา · แสดงวันที่แบบ dd/mm/yyyy (พ.ศ.) · วันที่บันทึกอัตโนมัติเมื่อแก้ไข
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Range Quick-Fill */}
+      <Card className="border-primary/30">
+        <CardContent className="p-3 flex flex-wrap items-end gap-2">
+          <div className="flex items-center gap-1 text-sm font-semibold text-primary mr-2">
+            <Zap className="w-4 h-4" />เติมเร็วตามช่วงวัน
+          </div>
+          <div>
+            <Label className="text-xs">ตั้งแต่</Label>
+            <Popover>
+              <PopoverTrigger asChild disabled={!canEdit}>
+                <Button variant="outline" size="sm" className="h-8 w-36 justify-start font-normal">
+                  <CalendarIcon className="w-3.5 h-3.5 mr-1" />
+                  {rangeFrom ? fmtDateBE(rangeFrom) : <span className="text-muted-foreground">dd/mm/พ.ศ.</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+                <Calendar mode="single"
+                  selected={rangeFrom ? (parseDateBE(rangeFrom) || undefined) : undefined}
+                  onSelect={(d) => d && setRangeFrom(toISODate(d))}
+                  initialFocus className={cn("p-3 pointer-events-auto")} />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div>
+            <Label className="text-xs">ถึง</Label>
+            <Popover>
+              <PopoverTrigger asChild disabled={!canEdit}>
+                <Button variant="outline" size="sm" className="h-8 w-36 justify-start font-normal">
+                  <CalendarIcon className="w-3.5 h-3.5 mr-1" />
+                  {rangeTo ? fmtDateBE(rangeTo) : <span className="text-muted-foreground">dd/mm/พ.ศ.</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+                <Calendar mode="single"
+                  selected={rangeTo ? (parseDateBE(rangeTo) || undefined) : undefined}
+                  onSelect={(d) => d && setRangeTo(toISODate(d))}
+                  initialFocus className={cn("p-3 pointer-events-auto")} />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div>
+            <Label className="text-xs">นักเรียน</Label>
+            <Select value={rangeStudent} onValueChange={setRangeStudent} disabled={!canEdit}>
+              <SelectTrigger className="h-8 w-48"><SelectValue /></SelectTrigger>
+              <SelectContent className="max-h-64">
+                <SelectItem value="__all__">— ทั้งหมด ({students.length} คน) —</SelectItem>
+                {students.map(s => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.student_code} {s.prefix}{s.first_name} {s.last_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">สถานะ</Label>
+            <Select value={rangeStatus} onValueChange={(v) => setRangeStatus(v as any)} disabled={!canEdit}>
+              <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="present">มาเรียน</SelectItem>
+                <SelectItem value="absent">ขาด</SelectItem>
+                <SelectItem value="leave">ลา</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button size="sm" onClick={applyRangeQuickFill} disabled={!canEdit}>
+            <Zap className="w-3.5 h-3.5 mr-1" />ใส่สถานะช่วงนี้
+          </Button>
+          <p className="basis-full text-[11px] text-muted-foreground">
+            ระบบจะเลือกเฉพาะ "คาบที่มีวันที่กำกับ" และอยู่ในช่วงวันที่เลือกเท่านั้น
           </p>
         </CardContent>
       </Card>
@@ -242,14 +374,11 @@ const PP5AttendanceMatrix = ({
             </TableRow>
             <TableRow>
               {dates.map((d, i) => (
-                <TableHead key={i} className="text-center p-0.5 bg-muted/10 align-bottom" style={{ minWidth: 64 }}>
+                <TableHead key={i} className="text-center p-0.5 bg-muted/10 align-bottom" style={{ minWidth: 84 }}>
                   <div className="text-[10px] text-muted-foreground">{i + 1}</div>
                   {canEdit ? (
                     <div className="flex flex-col items-center gap-0.5">
-                      <Input type="date" value={d || ""}
-                        onChange={e => updateDate(i, e.target.value)}
-                        className="h-6 px-0.5 text-[9px] border rounded w-[76px]" />
-                      <div className="text-[9px] font-medium text-primary">{fmtDateBE(d) || "—"}</div>
+                      <BEDatePicker value={d || ""} onChange={(iso) => updateDate(i, iso)} />
                       <div className="flex gap-0.5">
                         <button type="button" title="ทุกคน: มา" onClick={() => bulkFillColumn(d, "present")}
                           className="text-[9px] px-1 rounded bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40">มา</button>
@@ -265,7 +394,6 @@ const PP5AttendanceMatrix = ({
                 </TableHead>
               ))}
             </TableRow>
-
           </TableHeader>
           <TableBody>
             {students.length === 0 ? (
@@ -323,7 +451,6 @@ const PP5AttendanceMatrix = ({
                 </TableRow>
               );
             })}
-
           </TableBody>
         </Table>
       </div>
