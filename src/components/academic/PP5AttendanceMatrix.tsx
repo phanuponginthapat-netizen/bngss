@@ -223,7 +223,7 @@ const PP5AttendanceMatrix = ({
             </Button>
           </div>
           <p className="basis-full text-[11px] text-muted-foreground">
-            คลิกเซลล์เพื่อสลับสถานะ: เว้นว่าง = <span className="font-semibold">มาเรียน</span> · <span className="font-semibold text-destructive">×</span> = ขาด · <span className="font-semibold text-amber-600">ล</span> = ลา · แสดงวันที่แบบ dd/mm/yyyy (พ.ศ.) · วันที่บันทึกอัตโนมัติเมื่อแก้ไข
+            คลิกเซลล์เพื่อสลับสถานะ: <span className="font-semibold text-blue-700 dark:text-blue-300">มา</span> = มาเรียน · <span className="font-semibold text-destructive">×</span> = ขาด · <span className="font-semibold text-amber-600">ล</span> = ลา · แสดงวันที่แบบ dd/mm/yyyy (พ.ศ.) · วันที่บันทึกอัตโนมัติเมื่อแก้ไข
           </p>
         </CardContent>
       </Card>
@@ -302,12 +302,12 @@ const PP5AttendanceMatrix = ({
 
                   {dates.map((d, i) => {
                     const st = d ? statusMap.get(`${s.id}|${d}`)?.status : undefined;
-                    const mark = st === "absent" ? "×" : st === "leave" ? "ล" : "";
+                    const mark = st === "absent" ? "×" : st === "leave" ? "ล" : d ? "มา" : "";
                     const cls = st === "absent"
                       ? "bg-destructive/20 text-destructive font-bold"
                       : st === "leave"
                       ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-bold"
-                      : "hover:bg-primary/10";
+                      : "bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300 hover:bg-primary/10";
                     return (
                       <TableCell key={i}
                         onClick={() => cycleStatus(s.id, d)}
