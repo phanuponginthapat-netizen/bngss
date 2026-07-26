@@ -302,12 +302,12 @@ const PP5AttendanceMatrix = ({
 
                   {dates.map((d, i) => {
                     const st = d ? statusMap.get(`${s.id}|${d}`)?.status : undefined;
-                    const mark = st === "absent" ? "×" : st === "leave" ? "ล" : "";
+                    const mark = st === "absent" ? "×" : st === "leave" ? "ล" : d ? "มา" : "";
                     const cls = st === "absent"
                       ? "bg-destructive/20 text-destructive font-bold"
                       : st === "leave"
                       ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-bold"
-                      : "hover:bg-primary/10";
+                      : "bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300 hover:bg-primary/10";
                     return (
                       <TableCell key={i}
                         onClick={() => cycleStatus(s.id, d)}
