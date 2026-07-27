@@ -79,11 +79,11 @@ export async function applyPp5FileToSystem(fileRow: any): Promise<Pp5ApplyResult
     const bucket = Object.values(c.perSubject || {})[0] as any;
     const score = bucket?.totalScore ?? bucket?.examScore;
     if (typeof score !== "number") continue;
-    rows.push({ student_id: sid, column_id: target!.id, score: Math.round(score * 100) / 100, status: "graded" });
+    rows.push({ student_id: sid, column_id: targetId, score: Math.round(score * 100) / 100, status: "graded" });
   }
 
   if (rows.length === 0) {
-    return { applied: 0, skipped: consolidated.length, columnId: target!.id, columnName: target!.column_name, unmatched };
+    return { applied: 0, skipped: consolidated.length, columnId: targetId, columnName: targetName, unmatched };
   }
 
   const { error: upErr } = await supabase
@@ -94,8 +94,8 @@ export async function applyPp5FileToSystem(fileRow: any): Promise<Pp5ApplyResult
   return {
     applied: rows.length,
     skipped: consolidated.length - rows.length,
-    columnId: target!.id,
-    columnName: target!.column_name,
+    columnId: targetId,
+    columnName: targetName,
     unmatched,
   };
 }
