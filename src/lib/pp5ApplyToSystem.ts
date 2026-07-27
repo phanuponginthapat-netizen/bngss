@@ -34,8 +34,13 @@ export async function applyPp5FileToSystem(fileRow: any): Promise<Pp5ApplyResult
     .select("id, column_name, sort_order")
     .eq("subject_id", subjectId);
 
-  let target = (existingCols || []).find((c: any) => c.column_name === COLUMN_NAME);
-  if (!target) {
+  let targetId: string;
+  let targetName: string;
+  const found = (existingCols || []).find((c: any) => c.column_name === COLUMN_NAME);
+  if (found) {
+    targetId = (found as any).id;
+    targetName = (found as any).column_name;
+  } else {
     const nextOrder = (existingCols || []).reduce((m: number, c: any) => Math.max(m, c.sort_order ?? 0), 0) + 1;
     const { data: created, error: createErr } = await supabase
       .from("subject_score_columns")
@@ -51,7 +56,8 @@ export async function applyPp5FileToSystem(fileRow: any): Promise<Pp5ApplyResult
       .select("id, column_name")
       .single();
     if (createErr) throw new Error(`สร้างช่องคะแนนไม่สำเร็จ: ${createErr.message}`);
-    target = created;
+    targetId = (created as any).id;
+    targetName = (created as any).column_name;
   }
 
   // 2. Resolve student_code → student.id within the target classroom
