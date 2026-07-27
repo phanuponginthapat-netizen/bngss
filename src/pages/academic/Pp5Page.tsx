@@ -1542,6 +1542,11 @@ const FileTab = () => {
                                   <Button size="icon" variant="ghost" onClick={() => handleDownload(f.file_url, f.file_name, f.file_path)} title="ดาวน์โหลด">
                                     <Download className="w-4 h-4 text-primary" />
                                   </Button>
+                                  {f.parsed_data && (
+                                    <Button size="icon" variant="ghost" onClick={() => handleApplyToSystem(f)} title="บันทึกคะแนนลงระบบ (สร้างช่อง 'รวม (นำเข้าจากไฟล์)')">
+                                      <Save className="w-4 h-4 text-emerald-600" />
+                                    </Button>
+                                  )}
                                   {isAdmin && (
                                     <Button size="icon" variant="ghost" onClick={() => handleDelete(f.id, f.file_path)} title="ลบ (แอดมินเท่านั้น)">
                                       <Trash2 className="w-4 h-4 text-destructive" />
