@@ -571,8 +571,8 @@ const FileTab = () => {
                                       {f.announced_at ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Megaphone className="w-4 h-4 text-amber-600" />}
                                     </Button>
                                   )}
-                                  {(isAdmin || isDirector) && (
-                                    <Button size="icon" variant="ghost" onClick={() => handleDelete(f.id, f.file_path)} title="ลบ">
+                                  {isAdmin && (
+                                    <Button size="icon" variant="ghost" onClick={() => handleDelete(f.id, f.file_path)} title="ลบ (แอดมินเท่านั้น)">
                                       <Trash2 className="w-4 h-4 text-destructive" />
                                     </Button>
                                   )}
