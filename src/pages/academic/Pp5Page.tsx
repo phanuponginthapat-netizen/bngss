@@ -26,6 +26,7 @@ import { swal } from "@/lib/swal";
 import { CalendarClock, Sparkles } from "lucide-react";
 import { KEY_COMPETENCIES, DESIRABLE_CHARACTERISTICS, READ_THINK_WRITE_STANDARDS } from "@/lib/obecStandards";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { applyPp5FileToSystem } from "@/lib/pp5ApplyToSystem";
 
 const OBEC_PRESETS: Record<string, { title: string; description?: string }[]> = {
   competency: KEY_COMPETENCIES.map(c => ({ title: `${c.no}. ${c.name}`, description: "สมรรถนะสำคัญ สพฐ." })),
@@ -1397,6 +1398,24 @@ const FileTab = () => {
     qc.invalidateQueries({ queryKey: ["pp5_files"] });
   };
 
+  const handleApplyToSystem = async (file: any) => {
+    if (!(await swal.confirm({
+      title: "บันทึกคะแนนจากไฟล์ลงระบบ?",
+      text: `ระบบจะสร้าง/ใช้ช่องคะแนน "รวม (นำเข้าจากไฟล์ ปพ.5)" ในวิชา "${file.subject_name || "-"}" แล้ว upsert คะแนนรวมของนักเรียนทุกคนในไฟล์นี้`,
+    }))) return;
+    const t = toast.loading("กำลังบันทึกคะแนนลงระบบ...");
+    try {
+      const res = await applyPp5FileToSystem(file);
+      toast.dismiss(t);
+      toast.success(`บันทึกสำเร็จ — ${res.applied} คน (ข้าม ${res.skipped} คน)${res.unmatched.length ? ` · ไม่พบรหัส: ${res.unmatched.slice(0, 5).join(", ")}${res.unmatched.length > 5 ? "..." : ""}` : ""}`);
+      qc.invalidateQueries({ queryKey: ["student_column_scores"] });
+      qc.invalidateQueries({ queryKey: ["subject_score_columns"] });
+    } catch (e: any) {
+      toast.dismiss(t);
+      toast.error(e?.message || "บันทึกคะแนนไม่สำเร็จ");
+    }
+  };
+
   const gradeGroups = [
     { label: "อนุบาล", grades: ["อ.1", "อ.2", "อ.3"] },
     { label: "ประถมศึกษา", grades: ["ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6"] },
@@ -1523,6 +1542,11 @@ const FileTab = () => {
                                   <Button size="icon" variant="ghost" onClick={() => handleDownload(f.file_url, f.file_name, f.file_path)} title="ดาวน์โหลด">
                                     <Download className="w-4 h-4 text-primary" />
                                   </Button>
+                                  {f.parsed_data && (
+                                    <Button size="icon" variant="ghost" onClick={() => handleApplyToSystem(f)} title="บันทึกคะแนนลงระบบ (สร้างช่อง 'รวม (นำเข้าจากไฟล์)')">
+                                      <Save className="w-4 h-4 text-emerald-600" />
+                                    </Button>
+                                  )}
                                   {isAdmin && (
                                     <Button size="icon" variant="ghost" onClick={() => handleDelete(f.id, f.file_path)} title="ลบ (แอดมินเท่านั้น)">
                                       <Trash2 className="w-4 h-4 text-destructive" />
