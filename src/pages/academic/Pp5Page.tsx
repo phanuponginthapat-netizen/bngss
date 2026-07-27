@@ -1398,6 +1398,24 @@ const FileTab = () => {
     qc.invalidateQueries({ queryKey: ["pp5_files"] });
   };
 
+  const handleApplyToSystem = async (file: any) => {
+    if (!(await swal.confirm({
+      title: "บันทึกคะแนนจากไฟล์ลงระบบ?",
+      text: `ระบบจะสร้าง/ใช้ช่องคะแนน "รวม (นำเข้าจากไฟล์ ปพ.5)" ในวิชา "${file.subject_name || "-"}" แล้ว upsert คะแนนรวมของนักเรียนทุกคนในไฟล์นี้`,
+    }))) return;
+    const t = toast.loading("กำลังบันทึกคะแนนลงระบบ...");
+    try {
+      const res = await applyPp5FileToSystem(file);
+      toast.dismiss(t);
+      toast.success(`บันทึกสำเร็จ — ${res.applied} คน (ข้าม ${res.skipped} คน)${res.unmatched.length ? ` · ไม่พบรหัส: ${res.unmatched.slice(0, 5).join(", ")}${res.unmatched.length > 5 ? "..." : ""}` : ""}`);
+      qc.invalidateQueries({ queryKey: ["student_column_scores"] });
+      qc.invalidateQueries({ queryKey: ["subject_score_columns"] });
+    } catch (e: any) {
+      toast.dismiss(t);
+      toast.error(e?.message || "บันทึกคะแนนไม่สำเร็จ");
+    }
+  };
+
   const gradeGroups = [
     { label: "อนุบาล", grades: ["อ.1", "อ.2", "อ.3"] },
     { label: "ประถมศึกษา", grades: ["ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6"] },
