@@ -423,6 +423,7 @@ const App = () => (
                 <Route path="admin/ai-analytics" element={<ProtectedRoute allowedRoles={["admin", "director"]}><AiAnalyticsPage /></ProtectedRoute>} />
                 <Route path="admin/system-update" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SystemUpdatePage /></ProtectedRoute>} />
                 <Route path="admin/kiosk-setup" element={<ProtectedRoute allowedRoles={["admin", "director"]}><KioskSetupPage /></ProtectedRoute>} />
+                <Route path="admin/kiosk-health" element={<ProtectedRoute allowedRoles={["admin", "director"]}><KioskDoorHealthPage /></ProtectedRoute>} />
                 
                 <Route path="admin/upstream-sync" element={<ProtectedRoute allowedRoles={["admin", "director"]}><UpstreamSyncPage /></ProtectedRoute>} />
                 <Route path="admin/field-visibility" element={<ProtectedRoute allowedRoles={["admin", "director"]}><FieldVisibilityPage /></ProtectedRoute>} />
