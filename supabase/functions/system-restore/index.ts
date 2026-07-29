@@ -35,6 +35,8 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const truncate = url.searchParams.get("truncate") === "1";
   const dryRun = url.searchParams.get("dry") === "1";
+  const applySchema = url.searchParams.get("schema") !== "0";   // default ON
+  const restoreUsers = url.searchParams.get("users") !== "0";   // default ON
 
   let file: File | null = null;
   try {
@@ -69,8 +71,93 @@ Deno.serve(async (req) => {
     (n) => n.startsWith("storage/") && !zip.files[n].dir,
   );
 
-  if (entries.length === 0 && storageEntries.length === 0) {
-    return json({ error: "no tables/*.json or storage/* entries found in zip" }, 400);
+  const hasSchema = !!zip.files["schema.sql"];
+  const hasBuckets = !!zip.files["buckets.json"];
+  const hasAuth = !!zip.files["auth-users.json"];
+
+  if (entries.length === 0 && storageEntries.length === 0 && !hasSchema && !hasBuckets && !hasAuth) {
+    return json({ error: "no tables/*.json, storage/*, schema.sql, buckets.json or auth-users.json in zip" }, 400);
+  }
+
+  const steps: any[] = [];
+
+  // ---------- STEP 1: schema (tables, FK, indexes, functions, triggers, grants, RLS, policies)
+  if (hasSchema && applySchema && !dryRun) {
+    try {
+      const sql = await zip.files["schema.sql"].async("string");
+      const { error } = await admin.rpc("exec_restore_sql", { _sql: sql });
+      if (error) throw error;
+      steps.push({ step: "schema.sql", ok: true, bytes: sql.length });
+    } catch (e: any) {
+      errors.push({ step: "schema.sql", error: e.message });
+      steps.push({ step: "schema.sql", ok: false, error: e.message });
+    }
+  } else if (hasSchema) {
+    steps.push({ step: "schema.sql", skipped: true, dry: dryRun });
+  }
+
+  // ---------- STEP 1b: extras (extensions, sequences, views, cron)
+  if (zip.files["extras.sql"] && applySchema && !dryRun) {
+    try {
+      const sql = await zip.files["extras.sql"].async("string");
+      const { error } = await admin.rpc("exec_restore_sql", { _sql: sql });
+      if (error) throw error;
+      steps.push({ step: "extras.sql", ok: true });
+    } catch (e: any) {
+      errors.push({ step: "extras.sql", error: e.message });
+      steps.push({ step: "extras.sql", ok: false, error: e.message });
+    }
+  }
+
+  // ---------- STEP 2: buckets (create with same public/limit/mime config)
+  if (hasBuckets) {
+    try {
+      const defs = JSON.parse(await zip.files["buckets.json"].async("string"));
+      let made = 0;
+      for (const b of defs || []) {
+        if (dryRun) { made++; continue; }
+        const { data: existing } = await admin.storage.getBucket(b.name);
+        const opts: any = {
+          public: !!b.public,
+          fileSizeLimit: b.file_size_limit ?? undefined,
+          allowedMimeTypes: b.allowed_mime_types ?? undefined,
+        };
+        if (!existing) await admin.storage.createBucket(b.name, opts);
+        else await admin.storage.updateBucket(b.name, opts);
+        made++;
+      }
+      steps.push({ step: "buckets", ok: true, count: made, dry: dryRun });
+    } catch (e: any) {
+      errors.push({ step: "buckets", error: e.message });
+    }
+  }
+
+  // ---------- STEP 2b: storage RLS policies
+  if (zip.files["storage-policies.sql"] && applySchema && !dryRun) {
+    try {
+      const sql = await zip.files["storage-policies.sql"].async("string");
+      const { error } = await admin.rpc("exec_restore_sql", { _sql: sql });
+      if (error) throw error;
+      steps.push({ step: "storage-policies.sql", ok: true });
+    } catch (e: any) {
+      errors.push({ step: "storage-policies.sql", error: e.message });
+    }
+  }
+
+  // ---------- STEP 3: auth users (password hashes preserved → same logins keep working)
+  if (hasAuth && restoreUsers) {
+    try {
+      const payload = JSON.parse(await zip.files["auth-users.json"].async("string"));
+      if (dryRun) {
+        steps.push({ step: "auth-users", dry: true, users: payload?.users?.length ?? 0 });
+      } else {
+        const { data, error } = await admin.rpc("import_auth_users", { _payload: payload });
+        if (error) throw error;
+        steps.push({ step: "auth-users", ok: true, ...(data as any) });
+      }
+    } catch (e: any) {
+      errors.push({ step: "auth-users", error: e.message });
+    }
   }
 
   for (const entry of entries) {
@@ -159,6 +246,7 @@ Deno.serve(async (req) => {
 
   return json({
     success: errors.length === 0,
+    steps,
     tables_processed: results.length,
     rows_inserted: totalInserted,
     storage_files_uploaded: totalFilesUploaded,

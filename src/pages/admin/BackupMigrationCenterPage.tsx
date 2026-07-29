@@ -29,6 +29,8 @@ export default function BackupMigrationCenterPage() {
   const [restoreResult, setRestoreResult] = useState<any>(null);
   const [truncate, setTruncate] = useState(false);
   const [dryRun, setDryRun] = useState(true);
+  const [withSchema, setWithSchema] = useState(true);
+  const [withUsers, setWithUsers] = useState(true);
   const [targetUrl, setTargetUrl] = useState("");
   const [targetRef, setTargetRef] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -181,6 +183,8 @@ export default function BackupMigrationCenterPage() {
       const qs = new URLSearchParams();
       if (truncate) qs.set("truncate", "1");
       if (dryRun) qs.set("dry", "1");
+      if (!withSchema) qs.set("schema", "0");
+      if (!withUsers) qs.set("users", "0");
       const res = await fetch(`${SUPABASE_URL}/functions/v1/system-restore?${qs}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${session?.access_token ?? ""}`, apikey: ANON },
@@ -297,7 +301,9 @@ curl -X POST "$SUPABASE_URL/functions/v1/system-restore?truncate=1" \\
                 <PackageOpen className="h-5 w-5 text-primary" /> Full Backup (แนะนำ)
               </CardTitle>
               <CardDescription>
-                ZIP เดียวรวม: ข้อมูลทุกตาราง (JSON) + รายการไฟล์ storage + สคริปต์ restore + คู่มือภาษาไทย
+                ZIP เดียวรวม: schema.sql (ตาราง/FK/RLS/policy/ฟังก์ชัน/ทริกเกอร์/สิทธิ์) + storage-policies.sql
+                + buckets.json + auth-users.json (ผู้ใช้ + รหัสผ่านเดิม) + edge-functions.json
+                + ข้อมูลทุกตาราง (JSON) + รายการไฟล์ storage + สคริปต์ restore + คู่มือภาษาไทย
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -332,7 +338,10 @@ curl -X POST "$SUPABASE_URL/functions/v1/system-restore?truncate=1" \\
           <Card>
             <CardHeader>
               <CardTitle>อัพโหลดไฟล์ ZIP เพื่อกู้คืน</CardTitle>
-              <CardDescription>รองรับไฟล์จาก Full Backup หรือ Tables ZIP</CardDescription>
+              <CardDescription>
+                รองรับไฟล์จาก Full Backup — กู้คืนตามลำดับ: โครงสร้าง DB (ตาราง/FK/RLS/ฟังก์ชัน/ทริกเกอร์/สิทธิ์)
+                → Storage buckets + policy → ผู้ใช้ + รหัสผ่านเดิม → ข้อมูลทุกตาราง → ไฟล์ใน Storage
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Input ref={fileRef} type="file" accept=".zip" />
@@ -344,6 +353,14 @@ curl -X POST "$SUPABASE_URL/functions/v1/system-restore?truncate=1" \\
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
                   <Checkbox checked={truncate} onCheckedChange={(v) => setTruncate(!!v)} />
                   <span className="text-destructive">ล้างข้อมูลเดิมก่อน (Truncate)</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox checked={withSchema} onCheckedChange={(v) => setWithSchema(!!v)} />
+                  สร้างโครงสร้าง DB (ตาราง/FK/RLS/ฟังก์ชัน/ทริกเกอร์)
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox checked={withUsers} onCheckedChange={(v) => setWithUsers(!!v)} />
+                  กู้คืนผู้ใช้ + รหัสผ่านเดิม
                 </label>
               </div>
               <Button onClick={uploadRestore} disabled={restoring} size="lg">
@@ -364,6 +381,21 @@ curl -X POST "$SUPABASE_URL/functions/v1/system-restore?truncate=1" \\
                     )}
                     {restoreResult.dry_run && <Badge>Dry Run</Badge>}
                   </div>
+                  {(restoreResult.steps ?? []).length > 0 && (
+                    <div className="space-y-1">
+                      {restoreResult.steps.map((st: any, i: number) => (
+                        <div key={i} className="font-mono text-xs flex items-center gap-2">
+                          <Badge variant={st.ok ? "default" : st.skipped ? "secondary" : "destructive"}>
+                            {st.ok ? "OK" : st.skipped ? "ข้าม" : st.dry ? "Dry" : "ผิดพลาด"}
+                          </Badge>
+                          <span>{st.step}</span>
+                          {typeof st.users === "number" && <span>— users: {st.users}</span>}
+                          {typeof st.count === "number" && <span>— {st.count} buckets</span>}
+                          {st.error && <span className="text-destructive">{st.error}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {(restoreResult.errors ?? []).length > 0 && (
                     <div className="text-destructive space-y-1">
                       {restoreResult.errors.map((e: any, i: number) => (

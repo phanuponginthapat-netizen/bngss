@@ -9,34 +9,52 @@
 // To restore: create a fresh Supabase project, `supabase db push` migrations
 // from the code repo, then upload the same ZIP to /system-restore.
 
-const RESTORE_MD = `# กู้คืนระบบจากไฟล์สำรอง (Restore Guide)
+const RESTORE_MD = `# กู้คืนระบบ 100% จากไฟล์สำรอง (Restore Guide)
 
-## กู้คืนแบบเร็ว (2 ขั้น)
+ZIP นี้ประกอบด้วยทุกอย่างที่จำเป็นในการสร้างระบบขึ้นมาใหม่:
 
-1. **สร้าง Supabase project ใหม่** (Cloud หรือ self-host) แล้ว push schema:
-   \`\`\`bash
-   export PROJECT_REF=<ref>
-   export DB_PASSWORD=<password>
-   export SUPABASE_URL=https://<ref>.supabase.co
-   export SERVICE_ROLE_KEY=<service_role>
-   bash scripts/deploy-external-supabase.sh
-   \`\`\`
-   สคริปต์นี้จะ:
-   - รัน migrations ทั้งหมดใน \`supabase/migrations/\` (สร้าง schema, FK, RLS ครบ)
-   - สร้าง storage buckets ทั้ง 22 ตัว
-   - Deploy edge functions ทั้ง 80+ ตัว
+| ไฟล์ | เนื้อหา |
+|---|---|
+| \`schema.sql\` | ตาราง, คอลัมน์, PK/UNIQUE/CHECK, **Foreign Keys**, Index, ฟังก์ชัน, ทริกเกอร์, GRANT, **RLS + Policy** ครบทุกตาราง |
+| \`storage-policies.sql\` | RLS policy ของ storage.objects |
+| \`buckets.json\` | รายการ bucket + public/private + ขนาดจำกัด + mime types |
+| \`auth-users.json\` | ผู้ใช้ทั้งหมด + **password hash เดิม** + identities (ล็อกอินด้วยรหัสเดิมได้ทันที) |
+| \`edge-functions.json\` | รายชื่อ edge functions ทั้งหมด (โค้ดอยู่ใน repo: \`supabase/functions/\`) |
+| \`tables/*.json\` | ข้อมูลทุกแถวของทุกตาราง |
+| \`storage-manifest.json\` | รายการไฟล์ในทุก bucket |
 
-2. **อัพโหลด ZIP นี้เข้า Backup Center** (\`/dashboard/admin/backup-center\`) → กด "กู้คืนจากไฟล์"
-   หรือใช้ curl:
-   \`\`\`bash
-   curl -X POST "$SUPABASE_URL/functions/v1/system-restore" \\
-     -H "Authorization: Bearer $ADMIN_JWT" \\
-     -F "file=@smart-school-full-XXX.zip"
-   \`\`\`
+## วิธีที่ 1 — กู้คืนผ่านหน้าเว็บ (ง่ายสุด)
 
-## Storage files
-ไฟล์ใน bucket (รูป, PDF ฯลฯ) ต้องดาวน์โหลดแยกด้วย \`?mode=storage&bucket=NAME\` ต่อ bucket
-เพราะขนาดใหญ่เกิน 150s timeout. รายการ bucket + จำนวนไฟล์อยู่ใน \`storage-manifest.json\`
+1. เปิดระบบใหม่ → \`/dashboard/admin/backup-center\` → แท็บ **กู้คืน**
+2. เลือก ZIP นี้ → ติ๊ก "สร้างโครงสร้าง DB" + "กู้คืนผู้ใช้ + รหัสผ่านเดิม"
+3. กด **Dry Run** ก่อน แล้วค่อยกดกู้คืนจริง
+
+ระบบจะทำตามลำดับ: schema → buckets + storage policy → auth users → ข้อมูลตาราง → ไฟล์ storage
+
+## วิธีที่ 2 — กู้คืนผ่าน curl
+
+\`\`\`bash
+export SUPABASE_URL=https://<ref>.supabase.co
+export ADMIN_JWT=<access_token ของ admin>
+curl -X POST "$SUPABASE_URL/functions/v1/system-restore" \\
+  -H "Authorization: Bearer $ADMIN_JWT" \\
+  -F "file=@smart-school-full-XXX.zip"
+\`\`\`
+
+พารามิเตอร์: \`?dry=1\` ทดสอบ, \`?truncate=1\` ล้างข้อมูลเดิมก่อน, \`?schema=0\` ไม่สร้าง schema, \`?users=0\` ไม่กู้ผู้ใช้
+
+## Edge Functions
+
+Deploy จาก repo:
+\`\`\`bash
+supabase functions deploy --project-ref <ref>   # หรือ bash scripts/deploy-external-supabase.sh
+\`\`\`
+อย่าลืมตั้ง secrets ตาม \`scripts/EXTERNAL_SUPABASE_SETUP.md\`
+
+## ไฟล์ใน Storage (รูป/PDF)
+
+ดาวน์โหลดแยกต่อ bucket ด้วย \`?mode=storage&bucket=NAME\` แล้วอัปโหลด ZIP นั้นเข้า \`system-restore\` ได้เลย
+(ไฟล์จะถูกวางกลับใน bucket เดิมอัตโนมัติ)
 `;
 
 const RESTORE_SH = `#!/usr/bin/env bash
@@ -115,6 +133,98 @@ const TABLES = [
 ];
 
 
+const EDGE_FUNCTIONS = [
+  "ai-chat",
+  "ai-import-analyze",
+  "ai-import-execute",
+  "ai-import-test-scores",
+  "analyze-data",
+  "analyze-pdf-template",
+  "announce-pp5-scores",
+  "announce-pp6-scores",
+  "assess-bmi",
+  "attendance-daily-report",
+  "auto-pull-bundle",
+  "backup-data",
+  "backup-snapshot",
+  "backup-to-external",
+  "bootstrap-admin",
+  "calendar-ics",
+  "check-upcoming-events",
+  "cleanup-orphan-storage",
+  "code-login",
+  "create-admin-user",
+  "daily-line-digest",
+  "district-feed-api",
+  "district-feed-create-key",
+  "district-nightly-snapshot",
+  "district-outbox-worker",
+  "exam-generate",
+  "exam-grade",
+  "ext-config",
+  "ext-log",
+  "face-scan-daily-report",
+  "face-scan-summary",
+  "fill-pdf-template",
+  "games-auth",
+  "games-leaderboard",
+  "games-submit",
+  "gchat-summary",
+  "gdrive-admin-status",
+  "gdrive-connect-finish",
+  "gdrive-connect-start",
+  "gdrive-proxy",
+  "get-vapid-key",
+  "import-teacher-schedule",
+  "iot-fetch",
+  "liff-submit-leave",
+  "line-magic-link",
+  "line-quota",
+  "line-vault-delete",
+  "line-vault-download",
+  "line-vault-drive-cleanup",
+  "line-vault-stream",
+  "line-vault-webhook",
+  "line-webhook",
+  "link-account",
+  "lookup-email",
+  "manage-users",
+  "manifest",
+  "mascot-advice",
+  "mcp",
+  "notify-attendance-digest",
+  "notify-calendar-digest",
+  "notify-duty-teachers",
+  "notify-fanout",
+  "notify-google-chat",
+  "notify-ict-overdue",
+  "notify-line",
+  "notify-line-vault-groups",
+  "notify-retry",
+  "parent-login",
+  "parse-curriculum-pdf",
+  "qr-login",
+  "refresh-mascot-advice-weekly",
+  "seed-test-users",
+  "send-push",
+  "send-push-broadcast",
+  "setup-create-buckets",
+  "setup-health-check",
+  "setup-line-richmenu",
+  "social-feed-sync",
+  "suggest-proxy-mapping",
+  "sync-env-secrets",
+  "system-backup",
+  "system-restore",
+  "system-update",
+  "translate-text",
+  "tts-elevenlabs",
+  "tts-th",
+  "upload-cms-image",
+  "upload-line-richmenu"
+];
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -174,6 +284,60 @@ Deno.serve(async (req) => {
     }
 
     if (isFull) {
+      // ---- Schema blueprint: tables, FK, indexes, functions, triggers, grants, RLS, policies
+      try {
+        const { data: schemaSql, error } = await admin.rpc("export_schema_sql");
+        if (error) throw error;
+        zip.file("schema.sql", schemaSql as string);
+        manifest.schema_bytes = (schemaSql as string)?.length ?? 0;
+      } catch (e: any) {
+        manifest.errors.push({ part: "schema.sql", error: e.message });
+      }
+
+      // ---- Extensions, sequences, views, cron jobs
+      try {
+        const { data: extras, error } = await admin.rpc("export_extras_sql");
+        if (error) throw error;
+        zip.file("extras.sql", extras as string);
+      } catch (e: any) {
+        manifest.errors.push({ part: "extras.sql", error: e.message });
+      }
+
+      // ---- Storage RLS policies
+      try {
+        const { data: stPol, error } = await admin.rpc("export_storage_policies_sql");
+        if (error) throw error;
+        zip.file("storage-policies.sql", stPol as string);
+      } catch (e: any) {
+        manifest.errors.push({ part: "storage-policies.sql", error: e.message });
+      }
+
+      // ---- Bucket definitions (public flag, size limit, mime types)
+      try {
+        const { data: bDefs, error } = await admin.rpc("export_storage_buckets");
+        if (error) throw error;
+        zip.file("buckets.json", JSON.stringify(bDefs, null, 2));
+        manifest.buckets = Array.isArray(bDefs) ? bDefs.length : 0;
+      } catch (e: any) {
+        manifest.errors.push({ part: "buckets.json", error: e.message });
+      }
+
+      // ---- Auth users + identities (password hashes preserved → same logins work)
+      if (url.searchParams.get("users") !== "0") {
+        try {
+          const { data: authData, error } = await admin.rpc("export_auth_users");
+          if (error) throw error;
+          zip.file("auth-users.json", JSON.stringify(authData));
+          manifest.auth_users = (authData as any)?.users?.length ?? 0;
+        } catch (e: any) {
+          manifest.errors.push({ part: "auth-users.json", error: e.message });
+        }
+      }
+
+      // ---- Edge function inventory (source lives in the code repo)
+      zip.file("edge-functions.json", JSON.stringify({ functions: EDGE_FUNCTIONS }, null, 2));
+      manifest.edge_functions = EDGE_FUNCTIONS.length;
+
       // Storage manifest (list only — file bytes are per-bucket via mode=storage)
       const { data: buckets } = await admin.storage.listBuckets();
       const bucketList: any[] = [];
@@ -197,6 +361,7 @@ Deno.serve(async (req) => {
       zip.file("RESTORE.md", RESTORE_MD);
       zip.file("restore.sh", RESTORE_SH);
     }
+
   } else if (mode === "storage") {
     if (!bucketName) {
       return new Response(JSON.stringify({ error: "bucket required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });

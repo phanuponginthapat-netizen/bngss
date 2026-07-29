@@ -9,8 +9,16 @@
 
 1. เข้า **Backup & Migration Center → แท็บ "สำรอง"**
 2. กด **"ดาวน์โหลด Full Backup"** — ได้ไฟล์ `smart-school-full-YYYY-MM-DD.zip`
-   ในไฟล์เดียวมี:
-   - `tables/*.json` — ข้อมูลทุกตาราง 90+ ตัว
+   ในไฟล์เดียวมีครบ 100% สำหรับสร้างระบบใหม่:
+   - `schema.sql` — ตาราง, คอลัมน์, PK/UNIQUE/CHECK, **Foreign Keys**, Index,
+     ฟังก์ชัน, ทริกเกอร์, GRANT, **RLS + Policy ทุกตาราง**
+   - `extras.sql` — extensions, sequences, views, **cron jobs (งานตั้งเวลา)**
+   - `storage-policies.sql` — RLS ของ storage.objects
+   - `buckets.json` — bucket ทุกตัว + public/private + ขนาดจำกัด + mime types
+   - `auth-users.json` — ผู้ใช้ทุกคน + **password hash เดิม** + identities
+     (ล็อกอินด้วยรหัสเดิมได้ทันทีหลังกู้คืน)
+   - `edge-functions.json` — รายชื่อ edge functions ทั้งหมด (โค้ดอยู่ใน repo)
+   - `tables/*.json` — ข้อมูลทุกตาราง 250+ ตัว
    - `storage-manifest.json` — รายการไฟล์ใน bucket ทั้งหมด
    - `RESTORE.md` + `restore.sh` — คู่มือ + สคริปต์กู้คืน
    - `manifest.json` — เมตาดาต้าเวอร์ชัน + จำนวนแถว
@@ -20,16 +28,25 @@
 **อัตโนมัติทุกคืน:** ตั้งค่าที่แท็บ "ย้ายระบบ" → ใช้ **External Backup**
 (cron job `backup-to-external` — ต้องกำหนด `EXTERNAL_SUPABASE_URL` + `EXTERNAL_SUPABASE_SERVICE_KEY`)
 
+
 ---
 
 ## 2. กู้คืนจากไฟล์สำรอง (1 คลิก)
 
 1. เข้า **Backup & Migration Center → แท็บ "กู้คืน"**
-2. เลือกไฟล์ ZIP → ทดสอบด้วย **"Dry Run"** ก่อน
-3. ถ้าผลลัพธ์โอเค → เอา Dry Run ออก → กด "เริ่มกู้คืน"
+2. เลือกไฟล์ ZIP → ติ๊ก "สร้างโครงสร้าง DB" + "กู้คืนผู้ใช้ + รหัสผ่านเดิม"
+3. ทดสอบด้วย **"Dry Run"** ก่อน → ถ้าโอเค เอา Dry Run ออก → กด "เริ่มกู้คืน"
 4. ต้องการเขียนทับข้อมูลเดิมทั้งหมด → เปิด **"ล้างข้อมูลเดิมก่อน (Truncate)"**
 
-ระบบใช้ **upsert on id** — ถ้ามีแถวเดิมจะอัพเดต ถ้าไม่มีจะเพิ่ม
+ลำดับการกู้คืนอัตโนมัติ:
+`schema.sql` → `extras.sql` → buckets + storage policy → auth users → ข้อมูลทุกตาราง → ไฟล์ storage
+
+ข้อมูลตารางใช้ **upsert on id** — มีแถวเดิมจะอัพเดต ไม่มีจะเพิ่ม
+ผู้ใช้กู้คืนพร้อม password hash เดิม จึงล็อกอินด้วยรหัสเดิมได้ทันที
+
+> **Edge functions**: กู้คืนโดย deploy จาก repo — `supabase functions deploy --project-ref <ref>`
+> หรือ `bash scripts/deploy-external-supabase.sh` (รายชื่อครบอยู่ใน `edge-functions.json`)
+
 
 ---
 
