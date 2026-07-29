@@ -15616,6 +15616,7 @@ export type Database = {
       ensure_default_app_secrets: { Args: never; Returns: undefined }
       exec_restore_sql: { Args: { _sql: string }; Returns: undefined }
       export_auth_users: { Args: never; Returns: Json }
+      export_extras_sql: { Args: never; Returns: string }
       export_schema_sql: { Args: never; Returns: string }
       export_storage_buckets: { Args: never; Returns: Json }
       export_storage_policies_sql: { Args: never; Returns: string }
