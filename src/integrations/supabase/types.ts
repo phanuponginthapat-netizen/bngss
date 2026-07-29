@@ -15614,6 +15614,11 @@ export type Database = {
         Returns: string
       }
       ensure_default_app_secrets: { Args: never; Returns: undefined }
+      exec_restore_sql: { Args: { _sql: string }; Returns: undefined }
+      export_auth_users: { Args: never; Returns: Json }
+      export_schema_sql: { Args: never; Returns: string }
+      export_storage_buckets: { Args: never; Returns: Json }
+      export_storage_policies_sql: { Args: never; Returns: string }
       finalize_past_substitute_teaching: { Args: never; Returns: number }
       find_profile_id_by_code: { Args: { _code: string }; Returns: string }
       fitness_check_achievements: {
@@ -15932,6 +15937,7 @@ export type Database = {
         Args: { _user_id: string }
         Returns: string[]
       }
+      import_auth_users: { Args: { _payload: Json }; Returns: Json }
       is_admin_or_director: { Args: { _user_id?: string }; Returns: boolean }
       is_budget_planner: { Args: { _user_id: string }; Returns: boolean }
       is_chat_admin: {
