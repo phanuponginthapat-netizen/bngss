@@ -34,11 +34,19 @@
 ## 2. กู้คืนจากไฟล์สำรอง (1 คลิก)
 
 1. เข้า **Backup & Migration Center → แท็บ "กู้คืน"**
-2. เลือกไฟล์ ZIP → ทดสอบด้วย **"Dry Run"** ก่อน
-3. ถ้าผลลัพธ์โอเค → เอา Dry Run ออก → กด "เริ่มกู้คืน"
+2. เลือกไฟล์ ZIP → ติ๊ก "สร้างโครงสร้าง DB" + "กู้คืนผู้ใช้ + รหัสผ่านเดิม"
+3. ทดสอบด้วย **"Dry Run"** ก่อน → ถ้าโอเค เอา Dry Run ออก → กด "เริ่มกู้คืน"
 4. ต้องการเขียนทับข้อมูลเดิมทั้งหมด → เปิด **"ล้างข้อมูลเดิมก่อน (Truncate)"**
 
-ระบบใช้ **upsert on id** — ถ้ามีแถวเดิมจะอัพเดต ถ้าไม่มีจะเพิ่ม
+ลำดับการกู้คืนอัตโนมัติ:
+`schema.sql` → `extras.sql` → buckets + storage policy → auth users → ข้อมูลทุกตาราง → ไฟล์ storage
+
+ข้อมูลตารางใช้ **upsert on id** — มีแถวเดิมจะอัพเดต ไม่มีจะเพิ่ม
+ผู้ใช้กู้คืนพร้อม password hash เดิม จึงล็อกอินด้วยรหัสเดิมได้ทันที
+
+> **Edge functions**: กู้คืนโดย deploy จาก repo — `supabase functions deploy --project-ref <ref>`
+> หรือ `bash scripts/deploy-external-supabase.sh` (รายชื่อครบอยู่ใน `edge-functions.json`)
+
 
 ---
 
