@@ -9,8 +9,16 @@
 
 1. เข้า **Backup & Migration Center → แท็บ "สำรอง"**
 2. กด **"ดาวน์โหลด Full Backup"** — ได้ไฟล์ `smart-school-full-YYYY-MM-DD.zip`
-   ในไฟล์เดียวมี:
-   - `tables/*.json` — ข้อมูลทุกตาราง 90+ ตัว
+   ในไฟล์เดียวมีครบ 100% สำหรับสร้างระบบใหม่:
+   - `schema.sql` — ตาราง, คอลัมน์, PK/UNIQUE/CHECK, **Foreign Keys**, Index,
+     ฟังก์ชัน, ทริกเกอร์, GRANT, **RLS + Policy ทุกตาราง**
+   - `extras.sql` — extensions, sequences, views, **cron jobs (งานตั้งเวลา)**
+   - `storage-policies.sql` — RLS ของ storage.objects
+   - `buckets.json` — bucket ทุกตัว + public/private + ขนาดจำกัด + mime types
+   - `auth-users.json` — ผู้ใช้ทุกคน + **password hash เดิม** + identities
+     (ล็อกอินด้วยรหัสเดิมได้ทันทีหลังกู้คืน)
+   - `edge-functions.json` — รายชื่อ edge functions ทั้งหมด (โค้ดอยู่ใน repo)
+   - `tables/*.json` — ข้อมูลทุกตาราง 250+ ตัว
    - `storage-manifest.json` — รายการไฟล์ใน bucket ทั้งหมด
    - `RESTORE.md` + `restore.sh` — คู่มือ + สคริปต์กู้คืน
    - `manifest.json` — เมตาดาต้าเวอร์ชัน + จำนวนแถว
@@ -19,6 +27,7 @@
 
 **อัตโนมัติทุกคืน:** ตั้งค่าที่แท็บ "ย้ายระบบ" → ใช้ **External Backup**
 (cron job `backup-to-external` — ต้องกำหนด `EXTERNAL_SUPABASE_URL` + `EXTERNAL_SUPABASE_SERVICE_KEY`)
+
 
 ---
 
