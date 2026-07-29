@@ -9,34 +9,52 @@
 // To restore: create a fresh Supabase project, `supabase db push` migrations
 // from the code repo, then upload the same ZIP to /system-restore.
 
-const RESTORE_MD = `# กู้คืนระบบจากไฟล์สำรอง (Restore Guide)
+const RESTORE_MD = `# กู้คืนระบบ 100% จากไฟล์สำรอง (Restore Guide)
 
-## กู้คืนแบบเร็ว (2 ขั้น)
+ZIP นี้ประกอบด้วยทุกอย่างที่จำเป็นในการสร้างระบบขึ้นมาใหม่:
 
-1. **สร้าง Supabase project ใหม่** (Cloud หรือ self-host) แล้ว push schema:
-   \`\`\`bash
-   export PROJECT_REF=<ref>
-   export DB_PASSWORD=<password>
-   export SUPABASE_URL=https://<ref>.supabase.co
-   export SERVICE_ROLE_KEY=<service_role>
-   bash scripts/deploy-external-supabase.sh
-   \`\`\`
-   สคริปต์นี้จะ:
-   - รัน migrations ทั้งหมดใน \`supabase/migrations/\` (สร้าง schema, FK, RLS ครบ)
-   - สร้าง storage buckets ทั้ง 22 ตัว
-   - Deploy edge functions ทั้ง 80+ ตัว
+| ไฟล์ | เนื้อหา |
+|---|---|
+| \`schema.sql\` | ตาราง, คอลัมน์, PK/UNIQUE/CHECK, **Foreign Keys**, Index, ฟังก์ชัน, ทริกเกอร์, GRANT, **RLS + Policy** ครบทุกตาราง |
+| \`storage-policies.sql\` | RLS policy ของ storage.objects |
+| \`buckets.json\` | รายการ bucket + public/private + ขนาดจำกัด + mime types |
+| \`auth-users.json\` | ผู้ใช้ทั้งหมด + **password hash เดิม** + identities (ล็อกอินด้วยรหัสเดิมได้ทันที) |
+| \`edge-functions.json\` | รายชื่อ edge functions ทั้งหมด (โค้ดอยู่ใน repo: \`supabase/functions/\`) |
+| \`tables/*.json\` | ข้อมูลทุกแถวของทุกตาราง |
+| \`storage-manifest.json\` | รายการไฟล์ในทุก bucket |
 
-2. **อัพโหลด ZIP นี้เข้า Backup Center** (\`/dashboard/admin/backup-center\`) → กด "กู้คืนจากไฟล์"
-   หรือใช้ curl:
-   \`\`\`bash
-   curl -X POST "$SUPABASE_URL/functions/v1/system-restore" \\
-     -H "Authorization: Bearer $ADMIN_JWT" \\
-     -F "file=@smart-school-full-XXX.zip"
-   \`\`\`
+## วิธีที่ 1 — กู้คืนผ่านหน้าเว็บ (ง่ายสุด)
 
-## Storage files
-ไฟล์ใน bucket (รูป, PDF ฯลฯ) ต้องดาวน์โหลดแยกด้วย \`?mode=storage&bucket=NAME\` ต่อ bucket
-เพราะขนาดใหญ่เกิน 150s timeout. รายการ bucket + จำนวนไฟล์อยู่ใน \`storage-manifest.json\`
+1. เปิดระบบใหม่ → \`/dashboard/admin/backup-center\` → แท็บ **กู้คืน**
+2. เลือก ZIP นี้ → ติ๊ก "สร้างโครงสร้าง DB" + "กู้คืนผู้ใช้ + รหัสผ่านเดิม"
+3. กด **Dry Run** ก่อน แล้วค่อยกดกู้คืนจริง
+
+ระบบจะทำตามลำดับ: schema → buckets + storage policy → auth users → ข้อมูลตาราง → ไฟล์ storage
+
+## วิธีที่ 2 — กู้คืนผ่าน curl
+
+\`\`\`bash
+export SUPABASE_URL=https://<ref>.supabase.co
+export ADMIN_JWT=<access_token ของ admin>
+curl -X POST "$SUPABASE_URL/functions/v1/system-restore" \\
+  -H "Authorization: Bearer $ADMIN_JWT" \\
+  -F "file=@smart-school-full-XXX.zip"
+\`\`\`
+
+พารามิเตอร์: \`?dry=1\` ทดสอบ, \`?truncate=1\` ล้างข้อมูลเดิมก่อน, \`?schema=0\` ไม่สร้าง schema, \`?users=0\` ไม่กู้ผู้ใช้
+
+## Edge Functions
+
+Deploy จาก repo:
+\`\`\`bash
+supabase functions deploy --project-ref <ref>   # หรือ bash scripts/deploy-external-supabase.sh
+\`\`\`
+อย่าลืมตั้ง secrets ตาม \`scripts/EXTERNAL_SUPABASE_SETUP.md\`
+
+## ไฟล์ใน Storage (รูป/PDF)
+
+ดาวน์โหลดแยกต่อ bucket ด้วย \`?mode=storage&bucket=NAME\` แล้วอัปโหลด ZIP นั้นเข้า \`system-restore\` ได้เลย
+(ไฟล์จะถูกวางกลับใน bucket เดิมอัตโนมัติ)
 `;
 
 const RESTORE_SH = `#!/usr/bin/env bash
