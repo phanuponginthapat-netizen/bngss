@@ -174,6 +174,51 @@ Deno.serve(async (req) => {
     }
 
     if (isFull) {
+      // ---- Schema blueprint: tables, FK, indexes, functions, triggers, grants, RLS, policies
+      try {
+        const { data: schemaSql, error } = await admin.rpc("export_schema_sql");
+        if (error) throw error;
+        zip.file("schema.sql", schemaSql as string);
+        manifest.schema_bytes = (schemaSql as string)?.length ?? 0;
+      } catch (e: any) {
+        manifest.errors.push({ part: "schema.sql", error: e.message });
+      }
+
+      // ---- Storage RLS policies
+      try {
+        const { data: stPol, error } = await admin.rpc("export_storage_policies_sql");
+        if (error) throw error;
+        zip.file("storage-policies.sql", stPol as string);
+      } catch (e: any) {
+        manifest.errors.push({ part: "storage-policies.sql", error: e.message });
+      }
+
+      // ---- Bucket definitions (public flag, size limit, mime types)
+      try {
+        const { data: bDefs, error } = await admin.rpc("export_storage_buckets");
+        if (error) throw error;
+        zip.file("buckets.json", JSON.stringify(bDefs, null, 2));
+        manifest.buckets = Array.isArray(bDefs) ? bDefs.length : 0;
+      } catch (e: any) {
+        manifest.errors.push({ part: "buckets.json", error: e.message });
+      }
+
+      // ---- Auth users + identities (password hashes preserved → same logins work)
+      if (url.searchParams.get("users") !== "0") {
+        try {
+          const { data: authData, error } = await admin.rpc("export_auth_users");
+          if (error) throw error;
+          zip.file("auth-users.json", JSON.stringify(authData));
+          manifest.auth_users = (authData as any)?.users?.length ?? 0;
+        } catch (e: any) {
+          manifest.errors.push({ part: "auth-users.json", error: e.message });
+        }
+      }
+
+      // ---- Edge function inventory (source lives in the code repo)
+      zip.file("edge-functions.json", JSON.stringify({ functions: EDGE_FUNCTIONS }, null, 2));
+      manifest.edge_functions = EDGE_FUNCTIONS.length;
+
       // Storage manifest (list only — file bytes are per-bucket via mode=storage)
       const { data: buckets } = await admin.storage.listBuckets();
       const bucketList: any[] = [];
@@ -197,6 +242,7 @@ Deno.serve(async (req) => {
       zip.file("RESTORE.md", RESTORE_MD);
       zip.file("restore.sh", RESTORE_SH);
     }
+
   } else if (mode === "storage") {
     if (!bucketName) {
       return new Response(JSON.stringify({ error: "bucket required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
