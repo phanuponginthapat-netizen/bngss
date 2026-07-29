@@ -294,6 +294,15 @@ Deno.serve(async (req) => {
         manifest.errors.push({ part: "schema.sql", error: e.message });
       }
 
+      // ---- Extensions, sequences, views, cron jobs
+      try {
+        const { data: extras, error } = await admin.rpc("export_extras_sql");
+        if (error) throw error;
+        zip.file("extras.sql", extras as string);
+      } catch (e: any) {
+        manifest.errors.push({ part: "extras.sql", error: e.message });
+      }
+
       // ---- Storage RLS policies
       try {
         const { data: stPol, error } = await admin.rpc("export_storage_policies_sql");

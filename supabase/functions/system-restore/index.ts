@@ -96,6 +96,19 @@ Deno.serve(async (req) => {
     steps.push({ step: "schema.sql", skipped: true, dry: dryRun });
   }
 
+  // ---------- STEP 1b: extras (extensions, sequences, views, cron)
+  if (zip.files["extras.sql"] && applySchema && !dryRun) {
+    try {
+      const sql = await zip.files["extras.sql"].async("string");
+      const { error } = await admin.rpc("exec_restore_sql", { _sql: sql });
+      if (error) throw error;
+      steps.push({ step: "extras.sql", ok: true });
+    } catch (e: any) {
+      errors.push({ step: "extras.sql", error: e.message });
+      steps.push({ step: "extras.sql", ok: false, error: e.message });
+    }
+  }
+
   // ---------- STEP 2: buckets (create with same public/limit/mime config)
   if (hasBuckets) {
     try {
