@@ -120,21 +120,30 @@ serve(async (req) => {
 
       const classroomIds = Array.from(new Set(((studs as any[]) || []).map((s) => s.classroom_id).filter(Boolean)));
       const gradeByClassroom = new Map<string, string>();
+      const labelByClassroom = new Map<string, string>();
       if (classroomIds.length > 0) {
         const { data: cls, error: cErr } = await sb
           .from("classrooms")
-          .select("id, grade_level")
+          .select("id, grade_level, name, room_number")
           .in("id", classroomIds);
         if (cErr) { console.error("classrooms fetch", cErr); throw cErr; }
-        for (const c of (cls as any[]) || []) gradeByClassroom.set(c.id, c.grade_level || "ไม่ระบุ");
+        for (const c of (cls as any[]) || []) {
+          const g = c.grade_level || "ไม่ระบุ";
+          gradeByClassroom.set(c.id, g);
+          const detail = c.name || (c.room_number ? `ห้อง ${c.room_number}` : "");
+          labelByClassroom.set(c.id, detail ? `${g}/${detail}` : g);
+        }
       }
       const gradeByStudent = new Map<string, string>();
       const nameByStudent = new Map<string, string>();
+      const clsByStudent = new Map<string, string>();
       for (const s of (studs as any[]) || []) {
         gradeByStudent.set(s.id, gradeByClassroom.get(s.classroom_id) || "ไม่ระบุ");
+        clsByStudent.set(s.id, labelByClassroom.get(s.classroom_id) || gradeByClassroom.get(s.classroom_id) || "ไม่ระบุ");
         const nm = [s.prefix, s.first_name, s.last_name].filter(Boolean).join("").trim() || "ไม่ทราบชื่อ";
         nameByStudent.set(s.id, nm);
       }
+
 
       // 2) บันทึกการมาเรียนของวันนี้
       const { data: attRows, error: attErr } = await sb
