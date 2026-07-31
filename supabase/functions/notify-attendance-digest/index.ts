@@ -18,6 +18,11 @@ function thDate(d: string): string {
   catch { return d; }
 }
 
+function shortThDate(d: string): string {
+  const [y, m, day] = d.split("-").map(Number);
+  return `${day}/${m}/${y + 543}`;
+}
+
 async function getVaultToken(sb: any): Promise<string | null> {
   const env = Deno.env.get("LINE_VAULT_CHANNEL_ACCESS_TOKEN")?.trim();
   if (env) return env;
@@ -120,21 +125,30 @@ serve(async (req) => {
 
       const classroomIds = Array.from(new Set(((studs as any[]) || []).map((s) => s.classroom_id).filter(Boolean)));
       const gradeByClassroom = new Map<string, string>();
+      const labelByClassroom = new Map<string, string>();
       if (classroomIds.length > 0) {
         const { data: cls, error: cErr } = await sb
           .from("classrooms")
-          .select("id, grade_level")
+          .select("id, grade_level, name, room_number")
           .in("id", classroomIds);
         if (cErr) { console.error("classrooms fetch", cErr); throw cErr; }
-        for (const c of (cls as any[]) || []) gradeByClassroom.set(c.id, c.grade_level || "ไม่ระบุ");
+        for (const c of (cls as any[]) || []) {
+          const g = c.grade_level || "ไม่ระบุ";
+          gradeByClassroom.set(c.id, g);
+          const detail = c.name || (c.room_number ? `ห้อง ${c.room_number}` : "");
+          labelByClassroom.set(c.id, detail ? `${g}/${detail}` : g);
+        }
       }
       const gradeByStudent = new Map<string, string>();
       const nameByStudent = new Map<string, string>();
+      const clsByStudent = new Map<string, string>();
       for (const s of (studs as any[]) || []) {
         gradeByStudent.set(s.id, gradeByClassroom.get(s.classroom_id) || "ไม่ระบุ");
+        clsByStudent.set(s.id, labelByClassroom.get(s.classroom_id) || gradeByClassroom.get(s.classroom_id) || "ไม่ระบุ");
         const nm = [s.prefix, s.first_name, s.last_name].filter(Boolean).join("").trim() || "ไม่ทราบชื่อ";
         nameByStudent.set(s.id, nm);
       }
+
 
       // 2) บันทึกการมาเรียนของวันนี้
       const { data: attRows, error: attErr } = await sb
@@ -164,7 +178,7 @@ serve(async (req) => {
         else if (st && st !== "absent") byGrade[g].leave++;
         else {
           byGrade[g].absent++;
-          (absentByGrade[g] ||= []).push(nameByStudent.get(s.id) || "ไม่ทราบชื่อ");
+          (absentByGrade[g] ||= []).push(`${nameByStudent.get(s.id) || "ไม่ทราบชื่อ"} (${clsByStudent.get(s.id) || g})`);
         }
       }
       const gradeOrder = ["อ.1","อ.2","อ.3","ป.1","ป.2","ป.3","ป.4","ป.5","ป.6","ม.1","ม.2","ม.3","ม.4","ม.5","ม.6"];
@@ -194,7 +208,7 @@ serve(async (req) => {
       }
       if (!summary) {
         const pct = totals.totalAll > 0 ? Math.round((totals.totalPresent / totals.totalAll) * 1000) / 10 : 0;
-        let s = `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${thDate(today)}\n\n✅ มา ${totals.totalPresent} คน (${pct}%)\n⏰ สาย ${totals.totalLate} คน\n📝 ลา ${totals.totalLeave} คน\n❌ ขาด ${totals.totalAbsent} คน\n────────\nรวม ${totals.totalAll} คน (ณ เวลา 10:00 น.)`;
+        let s = `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${shortThDate(today)}\n\n✅ มา ${totals.totalPresent} คน\n⏰ สาย ${totals.totalLate} คน\n📝 ลา ${totals.totalLeave} คน\n❌ ขาด ${totals.totalAbsent} คน\n────────\nรวม ${totals.totalAll} คน • เข้าเรียน ${pct}%`;
         const absentGrades = Object.keys(absentByGrade).sort(sortGrade);
         if (absentGrades.length > 0) {
           s += `\n\n🚨 รายชื่อนักเรียนที่ขาด (${totals.totalAbsent} คน)`;
