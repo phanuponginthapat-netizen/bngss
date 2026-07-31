@@ -18,6 +18,11 @@ function thDate(d: string): string {
   catch { return d; }
 }
 
+function shortThDate(d: string): string {
+  const [y, m, day] = d.split("-").map(Number);
+  return `${day}/${m}/${y + 543}`;
+}
+
 async function getVaultToken(sb: any): Promise<string | null> {
   const env = Deno.env.get("LINE_VAULT_CHANNEL_ACCESS_TOKEN")?.trim();
   if (env) return env;
@@ -173,7 +178,7 @@ serve(async (req) => {
         else if (st && st !== "absent") byGrade[g].leave++;
         else {
           byGrade[g].absent++;
-          (absentByGrade[g] ||= []).push(nameByStudent.get(s.id) || "ไม่ทราบชื่อ");
+          (absentByGrade[g] ||= []).push(`${nameByStudent.get(s.id) || "ไม่ทราบชื่อ"} (${clsByStudent.get(s.id) || g})`);
         }
       }
       const gradeOrder = ["อ.1","อ.2","อ.3","ป.1","ป.2","ป.3","ป.4","ป.5","ป.6","ม.1","ม.2","ม.3","ม.4","ม.5","ม.6"];
@@ -203,7 +208,7 @@ serve(async (req) => {
       }
       if (!summary) {
         const pct = totals.totalAll > 0 ? Math.round((totals.totalPresent / totals.totalAll) * 1000) / 10 : 0;
-        let s = `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${thDate(today)}\n\n✅ มา ${totals.totalPresent} คน (${pct}%)\n⏰ สาย ${totals.totalLate} คน\n📝 ลา ${totals.totalLeave} คน\n❌ ขาด ${totals.totalAbsent} คน\n────────\nรวม ${totals.totalAll} คน (ณ เวลา 10:00 น.)`;
+        let s = `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${shortThDate(today)}\n\n✅ มา ${totals.totalPresent} คน\n⏰ สาย ${totals.totalLate} คน\n📝 ลา ${totals.totalLeave} คน\n❌ ขาด ${totals.totalAbsent} คน\n────────\nรวม ${totals.totalAll} คน • เข้าเรียน ${pct}%`;
         const absentGrades = Object.keys(absentByGrade).sort(sortGrade);
         if (absentGrades.length > 0) {
           s += `\n\n🚨 รายชื่อนักเรียนที่ขาด (${totals.totalAbsent} คน)`;
