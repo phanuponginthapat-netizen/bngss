@@ -109,53 +109,63 @@ serve(async (req) => {
     let summary = customSummary || "";
     let totals = { totalPresent: 0, totalAbsent: 0, totalLate: 0, totalLeave: 0, totalAll: 0 };
 
+    let attendedCount = 0;
     if (!customImageUrl || !customSummary) {
-      // Pull today's attendance, then look up classroom grade level via students -> classrooms
+      // 1) ฐานนักเรียนทั้งหมด (active) — ใช้เป็นตัวหารเปอร์เซ็นต์
+      const { data: studs, error: sErr } = await sb
+        .from("students")
+        .select("id, classroom_id, prefix, first_name, last_name")
+        .eq("status", "active");
+      if (sErr) { console.error("students fetch", sErr); throw sErr; }
+
+      const classroomIds = Array.from(new Set(((studs as any[]) || []).map((s) => s.classroom_id).filter(Boolean)));
+      const gradeByClassroom = new Map<string, string>();
+      if (classroomIds.length > 0) {
+        const { data: cls, error: cErr } = await sb
+          .from("classrooms")
+          .select("id, grade_level")
+          .in("id", classroomIds);
+        if (cErr) { console.error("classrooms fetch", cErr); throw cErr; }
+        for (const c of (cls as any[]) || []) gradeByClassroom.set(c.id, c.grade_level || "ไม่ระบุ");
+      }
+      const gradeByStudent = new Map<string, string>();
+      const nameByStudent = new Map<string, string>();
+      for (const s of (studs as any[]) || []) {
+        gradeByStudent.set(s.id, gradeByClassroom.get(s.classroom_id) || "ไม่ระบุ");
+        const nm = [s.prefix, s.first_name, s.last_name].filter(Boolean).join("").trim() || "ไม่ทราบชื่อ";
+        nameByStudent.set(s.id, nm);
+      }
+
+      // 2) บันทึกการมาเรียนของวันนี้
       const { data: attRows, error: attErr } = await sb
         .from("attendance")
         .select("status, student_id")
         .eq("attendance_date", today);
       if (attErr) throw attErr;
 
-      const studentIds = Array.from(new Set(((attRows as any[]) || []).map((r) => r.student_id).filter(Boolean)));
-      const gradeByStudent = new Map<string, string>();
-      const nameByStudent = new Map<string, string>();
-      if (studentIds.length > 0) {
-        const { data: studs, error: sErr } = await sb
-          .from("students")
-          .select("id, classroom_id, prefix, first_name, last_name")
-          .in("id", studentIds);
-        if (sErr) { console.error("students fetch", sErr); throw sErr; }
-        const classroomIds = Array.from(new Set(((studs as any[]) || []).map((s) => s.classroom_id).filter(Boolean)));
-        const gradeByClassroom = new Map<string, string>();
-        if (classroomIds.length > 0) {
-          const { data: cls, error: cErr } = await sb
-            .from("classrooms")
-            .select("id, grade_level")
-            .in("id", classroomIds);
-          if (cErr) { console.error("classrooms fetch", cErr); throw cErr; }
-          for (const c of (cls as any[]) || []) gradeByClassroom.set(c.id, c.grade_level || "ไม่ระบุ");
-        }
-        for (const s of (studs as any[]) || []) {
-          gradeByStudent.set(s.id, gradeByClassroom.get(s.classroom_id) || "ไม่ระบุ");
-          const nm = [s.prefix, s.first_name, s.last_name].filter(Boolean).join("").trim() || "ไม่ทราบชื่อ";
-          nameByStudent.set(s.id, nm);
-        }
+      const statusByStudent = new Map<string, string>();
+      for (const r of (attRows as any[]) || []) {
+        if (!r.student_id) continue;
+        const s = (r.status || "present").toLowerCase();
+        const prev = statusByStudent.get(r.student_id);
+        // present/late ชนะ absent (กันกรณีมีหลายแถว)
+        if (!prev || prev === "absent") statusByStudent.set(r.student_id, s);
       }
 
+      // 3) รวมผลรายชั้น — นักเรียนที่ไม่มีบันทึก = ขาด
       const byGrade: Record<string, { present: number; absent: number; late: number; leave: number }> = {};
       const absentByGrade: Record<string, string[]> = {};
-      for (const r of (attRows as any[]) || []) {
-        const g = gradeByStudent.get(r.student_id) || "ไม่ระบุ";
+      for (const s of (studs as any[]) || []) {
+        const g = gradeByStudent.get(s.id) || "ไม่ระบุ";
         if (!byGrade[g]) byGrade[g] = { present: 0, absent: 0, late: 0, leave: 0 };
-        const s = (r.status || "present").toLowerCase();
-        if (s === "present") byGrade[g].present++;
-        else if (s === "absent") {
+        const st = statusByStudent.get(s.id);
+        if (st === "present") byGrade[g].present++;
+        else if (st === "late") byGrade[g].late++;
+        else if (st && st !== "absent") byGrade[g].leave++;
+        else {
           byGrade[g].absent++;
-          (absentByGrade[g] ||= []).push(nameByStudent.get(r.student_id) || "ไม่ทราบชื่อ");
+          (absentByGrade[g] ||= []).push(nameByStudent.get(s.id) || "ไม่ทราบชื่อ");
         }
-        else if (s === "late") byGrade[g].late++;
-        else byGrade[g].leave++;
       }
       const gradeOrder = ["อ.1","อ.2","อ.3","ป.1","ป.2","ป.3","ป.4","ป.5","ป.6","ม.1","ม.2","ม.3","ม.4","ม.5","ม.6"];
       const sortGrade = (a: string, b: string) => {
@@ -174,6 +184,7 @@ serve(async (req) => {
       totals.totalLate = late.reduce((a,b)=>a+b,0);
       totals.totalLeave = leave.reduce((a,b)=>a+b,0);
       totals.totalAll = totals.totalPresent + totals.totalAbsent + totals.totalLate + totals.totalLeave;
+      attendedCount = totals.totalPresent + totals.totalLate;
 
       if (!chartUrl) {
         const chartConfig = labels.length > 0
@@ -198,16 +209,19 @@ serve(async (req) => {
     }
 
 
-    // 🏖️ Holiday auto-detection: if absent > 50, treat as school holiday.
-    // Skip LINE notification and record the date so reports exclude it.
-    // Only applies to auto/cron runs (no custom overrides, no forced group).
+
+    // 🏖️ Holiday auto-detection:
+    //  - ไม่มีนักเรียนมาเลย (สแกน 0 คน) → วันหยุด
+    //  - หรือขาดเกิน 50 คน → วันหยุด
+    // ข้ามการแจ้งเตือน LINE และบันทึกวันไว้ให้รายงานตัดออก
     const HOLIDAY_ABSENT_THRESHOLD = 50;
     const isAutoRun = !customImageUrl && !customSummary && !forceGroupId;
-    if (isAutoRun && totals.totalAbsent > HOLIDAY_ABSENT_THRESHOLD) {
+    const noAttendance = attendedCount === 0;
+    if (isAutoRun && (noAttendance || totals.totalAbsent > HOLIDAY_ABSENT_THRESHOLD)) {
       try {
         await sb.from("attendance_auto_holidays").upsert({
           holiday_date: today,
-          reason: "auto_detected_high_absence",
+          reason: noAttendance ? "auto_detected_no_attendance" : "auto_detected_high_absence",
           absent_count: totals.totalAbsent,
           total_students: totals.totalAll,
           detected_by: "notify-attendance-digest",
@@ -217,9 +231,11 @@ serve(async (req) => {
       }
       return new Response(JSON.stringify({
         ok: true, date: today, skipped: true, reason: "holiday_detected",
-        absent_count: totals.totalAbsent, threshold: HOLIDAY_ABSENT_THRESHOLD, totals,
+        absent_count: totals.totalAbsent, attended: attendedCount,
+        threshold: HOLIDAY_ABSENT_THRESHOLD, totals,
       }), { headers: { ...cors, "Content-Type": "application/json" } });
     }
+
 
     const token = await getVaultToken(sb);
     if (!token) return new Response(JSON.stringify({ error: "LINE_VAULT_CHANNEL_ACCESS_TOKEN not set" }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
