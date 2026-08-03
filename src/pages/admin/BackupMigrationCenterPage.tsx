@@ -190,10 +190,20 @@ export default function BackupMigrationCenterPage() {
         headers: { Authorization: `Bearer ${session?.access_token ?? ""}`, apikey: ANON },
         body: form,
       });
-      const j = await res.json();
+      const raw = await res.text();
+      let j: any;
+      try {
+        j = JSON.parse(raw);
+      } catch {
+        throw new Error(
+          `เซิร์ฟเวอร์ตอบกลับผิดพลาด (HTTP ${res.status}) — ${raw.slice(0, 300) || "ไม่มีข้อความตอบกลับ (ไฟล์อาจใหญ่เกินไป/หมดเวลา)"}`,
+        );
+      }
       setRestoreResult(j);
-      if (j.success) toast.success(`สำเร็จ: ${j.tables_processed} ตาราง, ${j.rows_inserted} แถว`);
+      if (!res.ok) throw new Error(j.error ?? `HTTP ${res.status}`);
+      if (j.success) toast.success(dryRun ? "ทดสอบผ่านทุกขั้นตอน" : `สำเร็จ: ${j.tables_processed} ตาราง, ${j.rows_inserted} แถว`);
       else toast.warning(`เสร็จพร้อม error ${j.errors?.length ?? 0} รายการ — ดูรายละเอียดด้านล่าง`);
+
     } catch (e: any) {
       toast.error(`กู้คืนล้มเหลว: ${e.message ?? e}`);
     } finally {
