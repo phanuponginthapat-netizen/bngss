@@ -160,19 +160,35 @@ Deno.serve(async (req) => {
     }
   }
 
+  // ---------- STEP 3b: dry-run preflight — verify the target env can actually restore
+  if (dryRun) {
+    const { error: rpcErr } = await admin.rpc("exec_restore_sql", { _sql: "select 1" });
+    steps.push({ step: "preflight: exec_restore_sql", ok: !rpcErr, ...(rpcErr ? { error: rpcErr.message } : {}) });
+    if (rpcErr) errors.push({ step: "preflight: exec_restore_sql", error: rpcErr.message });
+    if (hasAuth && restoreUsers) {
+      const { error: uErr } = await admin.rpc("import_auth_users", { _payload: { users: [], dry_run: true } });
+      const missing = uErr && /does not exist|schema cache/i.test(uErr.message);
+      steps.push({ step: "preflight: import_auth_users", ok: !missing, ...(missing ? { error: uErr!.message } : {}) });
+      if (missing) errors.push({ step: "preflight: import_auth_users", error: uErr!.message });
+    }
+  }
+
   for (const entry of entries) {
     const table = entry.replace(/^tables\//, "").replace(/\.json$/, "");
     try {
+      // Dry run: never materialise the JSON (large backups blow the 150s/memory budget).
+      if (dryRun) {
+        const size = (zip.files[entry] as any)?._data?.uncompressedSize ?? 0;
+        results.push({ table, bytes: size, dry: true });
+        continue;
+      }
       const txt = await zip.files[entry].async("string");
       const rows = JSON.parse(txt);
       if (!Array.isArray(rows)) {
         errors.push({ table, error: "not an array" });
         continue;
       }
-      if (dryRun) {
-        results.push({ table, rows: rows.length, dry: true });
-        continue;
-      }
+
       if (rows.length === 0) {
         results.push({ table, rows: 0, ok: true });
         continue;
