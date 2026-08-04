@@ -1,6 +1,6 @@
 // Runs on the school system pages — sync Supabase session into extension storage.
 (function () {
-  const REF = "ivwerrtespnrwigzcpzn";
+  const REF = "dlkyxvhnnffblerwedjz";
   const KEY = `sb-${REF}-auth-token`;
 
   function read() {
@@ -16,7 +16,7 @@
   }
 
   const SUPA_URL = `https://${REF}.supabase.co`;
-  const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2d2VycnRlc3BucndpZ3pjcHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1MTI2MjUsImV4cCI6MjA5NjA4ODYyNX0.GJ56S-1ddjhxpK0ITznvMTAIC3nWV54xpigolzImpIM";
+  const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4";
 
   async function fetchName(userId, token) {
     try {
