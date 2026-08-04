@@ -129,7 +129,7 @@ serve(async (req) => {
       if (classroomIds.length > 0) {
         const { data: cls, error: cErr } = await sb
           .from("classrooms")
-          .select("id, grade_level, name, room_number")
+          .select("id, grade_level, name")
           .in("id", classroomIds);
         if (cErr) { console.error("classrooms fetch", cErr); throw cErr; }
         for (const c of (cls as any[]) || []) {
