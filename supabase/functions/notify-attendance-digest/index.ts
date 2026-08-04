@@ -280,6 +280,7 @@ serve(async (req) => {
     });
   } catch (e) {
     console.error(e);
-    return new Response(JSON.stringify({ error: String(e).slice(0, 300) }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
+    const em = (e as any)?.message || (e as any)?.details || JSON.stringify(e);
+    return new Response(JSON.stringify({ error: String(em).slice(0, 400) }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
   }
 });
