@@ -304,13 +304,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   if (msg?.type === "SET_SESSION") {
+    _agentSpawnFails = 0;
     chrome.storage.local.set({
       session: msg.session,
       ...(msg.systemHome ? { systemHome: msg.systemHome } : {}),
     });
-    // เมื่อล็อกอินสำเร็จ → เปิด agent tab อัตโนมัติ
+    // เมื่อล็อกอินสำเร็จ → เปิด agent tab อัตโนมัติ (เฉพาะนักเรียน)
     if (msg.session?.access_token) ensureAgentTab();
     sendResponse({ ok: true });
+  } else if (msg?.type === "CLEAR_SESSION") {
+    chrome.storage.local.get(["agentTabId"]).then(({ agentTabId }) => {
+      if (agentTabId) chrome.tabs.remove(agentTabId).catch(() => {});
+      chrome.storage.local.remove(["session", "agentTabId"]);
+    });
+    sendResponse({ ok: true });
+
   } else if (msg?.type === "REFRESH_CONFIG") {
     refreshConfig().then(() => sendResponse({ ok: true }));
     return true;
