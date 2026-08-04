@@ -1,9 +1,9 @@
 // Safe Browser — background service worker
-const SUPABASE_URL = "https://ivwerrtespnrwigzcpzn.supabase.co";
-const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2d2VycnRlc3BucndpZ3pjcHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1MTI2MjUsImV4cCI6MjA5NjA4ODYyNX0.GJ56S-1ddjhxpK0ITznvMTAIC3nWV54xpigolzImpIM";
+const SUPABASE_URL = "https://dlkyxvhnnffblerwedjz.supabase.co";
+const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4";
 const DEFAULT_SYSTEM_HOME = "https://bngss.lovable.app/dashboard/browser";
 const AGENT_URL = "https://bngss.lovable.app/dashboard/monitor/agent";
-const DEFAULT_LOGIN_URL = "https://bngss.lovable.app/auth";
+const DEFAULT_LOGIN_URL = "https://bngss.lovable.app/login";
 const CONFIG_URL = `${SUPABASE_URL}/functions/v1/ext-config`;
 const LOG_URL = `${SUPABASE_URL}/functions/v1/ext-log`;
 
@@ -42,30 +42,58 @@ function notify(title, message) {
 // (เพื่อให้ครูสั่ง lock/message/screenshot/screen-share/shutdown ได้เสมอ)
 // -------------------------------------------------------------
 let _ensuringAgent = false;
+let _lastAgentSpawn = 0;
+let _agentSpawnFails = 0;
+
+// เปิดเฉพาะ role นักเรียนเท่านั้น — บุคลากร/ครู ใช้ extension แบบบันทึก log ปกติ
+function isStudentSession(session) {
+  const r = session?.role;
+  return !r || r === "student";
+}
 
 async function ensureAgentTab() {
   if (_ensuringAgent) return;
   _ensuringAgent = true;
   try {
-    const { session } = await chrome.storage.local.get(["session"]);
+    const { session, agentTabId } = await chrome.storage.local.get(["session", "agentTabId"]);
     if (!session?.access_token) return; // ยังไม่ล็อกอิน
+    if (!isStudentSession(session)) return; // บุคลากร — ไม่ต้องเปิด agent
+    if (_agentSpawnFails >= 3) return; // กันวนเปิดแท็บไม่หยุด
+
+    if (agentTabId) {
+      const t = await chrome.tabs.get(agentTabId).catch(() => null);
+      if (t) {
+        const u = t.url || t.pendingUrl || "";
+        // ถ้าโดน redirect ออกจาก agent (เช่นหน้า login) = ล็อกเอาต์แล้ว → หยุดวนเปิด
+        if (u && !u.startsWith(AGENT_URL)) {
+          if (/\/(login|auth)\b/.test(u)) {
+            await chrome.storage.local.remove(["session", "agentTabId"]);
+            return;
+          }
+        } else {
+          chrome.tabs.update(t.id, { pinned: true, muted: true, autoDiscardable: false }).catch(() => {});
+          return;
+        }
+      }
+    }
+
     const tabs = await chrome.tabs.query({});
     const existing = (tabs || []).filter((t) => (t.url || t.pendingUrl || "").startsWith(AGENT_URL));
     if (existing.length > 0) {
-      // ปักหมุด + mute + ไม่ให้ active
       const keep = existing[0];
-      for (let i = 1; i < existing.length; i++) {
-        chrome.tabs.remove(existing[i].id).catch(() => {}); // ลบซ้ำ
-      }
-      chrome.tabs.update(keep.id, {
-        pinned: true,
-        muted: true,
-        autoDiscardable: false,
-      }).catch(() => {});
+      for (let i = 1; i < existing.length; i++) chrome.tabs.remove(existing[i].id).catch(() => {});
+      await chrome.storage.local.set({ agentTabId: keep.id });
+      chrome.tabs.update(keep.id, { pinned: true, muted: true, autoDiscardable: false }).catch(() => {});
       return;
     }
+
+    // rate limit: เปิดใหม่ได้ไม่เกิน 1 ครั้ง/นาที
+    if (Date.now() - _lastAgentSpawn < 60000) return;
+    _lastAgentSpawn = Date.now();
+    _agentSpawnFails++;
     const tab = await chrome.tabs.create({ url: AGENT_URL, pinned: true, active: false });
     if (tab?.id) {
+      await chrome.storage.local.set({ agentTabId: tab.id });
       chrome.tabs.update(tab.id, { muted: true, autoDiscardable: false }).catch(() => {});
     }
   } catch { /* ignore */ }
@@ -74,30 +102,37 @@ async function ensureAgentTab() {
 
 // re-open ถ้านักเรียนปิด agent tab
 chrome.tabs.onRemoved.addListener(async (tabId, info) => {
-  // เว้นตอน browser กำลังปิดทั้งหน้าต่าง
   if (info.isWindowClosing) return;
-  const { session } = await chrome.storage.local.get(["session"]);
-  if (!session?.access_token) return;
-  // เช็คหลังจาก 500ms — ให้ tabs.query ได้ค่าล่าสุด
-  setTimeout(() => { ensureAgentTab(); }, 500);
+  const { session, agentTabId } = await chrome.storage.local.get(["session", "agentTabId"]);
+  if (agentTabId === tabId) await chrome.storage.local.remove(["agentTabId"]);
+  if (!session?.access_token || !isStudentSession(session)) return;
+  setTimeout(() => { ensureAgentTab(); }, 1500);
 });
 
-// กัน user กด "unpin" agent tab
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (!tab?.url?.startsWith(AGENT_URL)) return;
-  if (changeInfo.pinned === false) {
-    chrome.tabs.update(tabId, { pinned: true }).catch(() => {});
+// กัน user กด "unpin" agent tab + จับกรณีโดนเด้งไปหน้า login
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  const url = tab?.url || "";
+  const { agentTabId } = await chrome.storage.local.get(["agentTabId"]);
+  if (agentTabId === tabId && url && !url.startsWith(AGENT_URL) && /\/(login|auth)\b/.test(url)) {
+    // ล็อกเอาต์ → เคลียร์ session แล้วปิดแท็บ agent กันวนซ้ำ
+    await chrome.storage.local.remove(["session", "agentTabId"]);
+    chrome.tabs.remove(tabId).catch(() => {});
+    return;
   }
+  if (!url.startsWith(AGENT_URL)) return;
+  _agentSpawnFails = 0;
+  if (changeInfo.pinned === false) chrome.tabs.update(tabId, { pinned: true }).catch(() => {});
   if (changeInfo.mutedInfo && changeInfo.mutedInfo.muted === false) {
     chrome.tabs.update(tabId, { muted: true }).catch(() => {});
   }
 });
 
-// watchdog — เช็คทุก 1 นาทีว่ามี agent tab อยู่ (กันโดน crash/discard)
-chrome.alarms?.create?.("agent-watchdog", { periodInMinutes: 1 });
+// watchdog — เช็คทุก 2 นาทีว่ามี agent tab อยู่ (กันโดน crash/discard)
+chrome.alarms?.create?.("agent-watchdog", { periodInMinutes: 2 });
 chrome.alarms?.onAlarm.addListener((a) => {
   if (a.name === "agent-watchdog") ensureAgentTab();
 });
+
 
 
 
@@ -269,13 +304,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   if (msg?.type === "SET_SESSION") {
+    _agentSpawnFails = 0;
     chrome.storage.local.set({
       session: msg.session,
       ...(msg.systemHome ? { systemHome: msg.systemHome } : {}),
     });
-    // เมื่อล็อกอินสำเร็จ → เปิด agent tab อัตโนมัติ
+    // เมื่อล็อกอินสำเร็จ → เปิด agent tab อัตโนมัติ (เฉพาะนักเรียน)
     if (msg.session?.access_token) ensureAgentTab();
     sendResponse({ ok: true });
+  } else if (msg?.type === "CLEAR_SESSION") {
+    chrome.storage.local.get(["agentTabId"]).then(({ agentTabId }) => {
+      if (agentTabId) chrome.tabs.remove(agentTabId).catch(() => {});
+      chrome.storage.local.remove(["session", "agentTabId"]);
+    });
+    sendResponse({ ok: true });
+
   } else if (msg?.type === "REFRESH_CONFIG") {
     refreshConfig().then(() => sendResponse({ ok: true }));
     return true;

@@ -129,13 +129,13 @@ serve(async (req) => {
       if (classroomIds.length > 0) {
         const { data: cls, error: cErr } = await sb
           .from("classrooms")
-          .select("id, grade_level, name, room_number")
+          .select("id, grade_level, name")
           .in("id", classroomIds);
         if (cErr) { console.error("classrooms fetch", cErr); throw cErr; }
         for (const c of (cls as any[]) || []) {
           const g = c.grade_level || "ไม่ระบุ";
           gradeByClassroom.set(c.id, g);
-          const detail = c.name || (c.room_number ? `ห้อง ${c.room_number}` : "");
+          const detail = c.name || "";
           labelByClassroom.set(c.id, detail ? `${g}/${detail}` : g);
         }
       }
@@ -280,6 +280,7 @@ serve(async (req) => {
     });
   } catch (e) {
     console.error(e);
-    return new Response(JSON.stringify({ error: String(e).slice(0, 300) }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
+    const em = (e as any)?.message || (e as any)?.details || JSON.stringify(e);
+    return new Response(JSON.stringify({ error: String(em).slice(0, 400) }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
   }
 });

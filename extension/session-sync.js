@@ -1,6 +1,6 @@
 // Runs on the school system pages — sync Supabase session into extension storage.
 (function () {
-  const REF = "ivwerrtespnrwigzcpzn";
+  const REF = "dlkyxvhnnffblerwedjz";
   const KEY = `sb-${REF}-auth-token`;
 
   function read() {
@@ -16,25 +16,48 @@
   }
 
   const SUPA_URL = `https://${REF}.supabase.co`;
-  const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2d2VycnRlc3BucndpZ3pjcHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1MTI2MjUsImV4cCI6MjA5NjA4ODYyNX0.GJ56S-1ddjhxpK0ITznvMTAIC3nWV54xpigolzImpIM";
+  const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4";
 
-  async function fetchName(userId, token) {
+  async function fetchProfile(userId, token) {
+    const out = { name: null, role: null };
     try {
       const r = await fetch(`${SUPA_URL}/rest/v1/profiles?id=eq.${userId}&select=first_name,last_name,nickname`, {
         headers: { apikey: ANON, Authorization: `Bearer ${token}` },
       });
       const arr = await r.json();
       const p = arr?.[0];
-      if (!p) return null;
-      const nick = p.nickname ? ` (${p.nickname})` : "";
-      return `${p.first_name || ""} ${p.last_name || ""}${nick}`.trim() || null;
-    } catch { return null; }
+      if (p) {
+        const nick = p.nickname ? ` (${p.nickname})` : "";
+        out.name = `${p.first_name || ""} ${p.last_name || ""}${nick}`.trim() || null;
+      }
+    } catch { /* ignore */ }
+    try {
+      const r2 = await fetch(`${SUPA_URL}/rest/v1/user_roles?user_id=eq.${userId}&select=role`, {
+        headers: { apikey: ANON, Authorization: `Bearer ${token}` },
+      });
+      const rows = await r2.json();
+      const roles = Array.isArray(rows) ? rows.map((x) => x.role) : [];
+      // ครู/บุคลากร/ผู้บริหาร ถือเป็น staff — ไม่ต้องเปิด Monitor Agent
+      out.role = roles.find((x) => x !== "student") || roles[0] || null;
+    } catch { /* ignore */ }
+    return out;
   }
+
+  let lastToken = null;
 
   async function push() {
     const s = read();
-    if (!s?.access_token) return;
-    const name = s.user?.id ? await fetchName(s.user.id, s.access_token) : null;
+    if (!s?.access_token) {
+      // ออกจากระบบแล้ว → เคลียร์ session ใน extension กันวนเปิดแท็บล็อกอินไม่หยุด
+      if (lastToken !== null) {
+        lastToken = null;
+        try { chrome.runtime.sendMessage({ type: "CLEAR_SESSION" }); } catch {}
+      }
+      return;
+    }
+    if (s.access_token === lastToken) return;
+    lastToken = s.access_token;
+    const prof = s.user?.id ? await fetchProfile(s.user.id, s.access_token) : { name: null, role: null };
     chrome.runtime.sendMessage({
       type: "SET_SESSION",
       systemHome: `${location.origin}/dashboard/browser`,
@@ -42,14 +65,16 @@
         access_token: s.access_token,
         refresh_token: s.refresh_token,
         expires_at: s.expires_at,
-        user: s.user ? { id: s.user.id, email: s.user.email, name } : null,
+        role: prof.role,
+        user: s.user ? { id: s.user.id, email: s.user.email, name: prof.name } : null,
       },
     });
   }
 
   push();
   window.addEventListener("storage", (e) => { if (e.key === KEY) push(); });
-  setInterval(push, 60 * 1000);
+  setInterval(push, 30 * 1000);
+
 
   // Relay Monitor Agent commands (จาก StudentAgentPage) → extension background
   window.addEventListener("message", (ev) => {
