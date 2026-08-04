@@ -135,7 +135,7 @@ serve(async (req) => {
         for (const c of (cls as any[]) || []) {
           const g = c.grade_level || "ไม่ระบุ";
           gradeByClassroom.set(c.id, g);
-          const detail = c.name || (c.room_number ? `ห้อง ${c.room_number}` : "");
+          const detail = c.name || "";
           labelByClassroom.set(c.id, detail ? `${g}/${detail}` : g);
         }
       }
