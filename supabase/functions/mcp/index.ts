@@ -143,7 +143,14 @@ var list_my_attendance_default = defineTool4({
 import { createClient as createClient5 } from "npm:@supabase/supabase-js@^2.100.1";
 import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z4 } from "npm:zod@^4.4.3";
-import { todayBangkok } from "npm:@/lib/dateBE";
+function todayBangkok() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(/* @__PURE__ */ new Date());
+}
 function sb3(ctx) {
   return createClient5(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
