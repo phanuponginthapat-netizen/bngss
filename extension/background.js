@@ -1,11 +1,23 @@
 // Safe Browser — background service worker
-const SUPABASE_URL = "https://dlkyxvhnnffblerwedjz.supabase.co";
-const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4";
+// backend ถูกกำหนดตอน runtime (ระบบเว็บส่งมาให้ผ่าน SET_SESSION) — ค่าด้านล่างเป็นค่าเริ่มต้นเท่านั้น
+const DEFAULT_SUPABASE_URL = "https://gwmszzoqqxmejefhayqf.supabase.co";
+const DEFAULT_ANON_KEY = "sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v";
+let SUPABASE_URL = DEFAULT_SUPABASE_URL;
+let ANON_KEY = DEFAULT_ANON_KEY;
+
+async function loadBackend() {
+  try {
+    const { backend } = await chrome.storage.local.get(["backend"]);
+    if (backend?.url) SUPABASE_URL = String(backend.url).replace(/\/+$/, "");
+    if (backend?.anonKey) ANON_KEY = backend.anonKey;
+  } catch {}
+  return { SUPABASE_URL, ANON_KEY };
+}
+const fnUrl = (name) => `${SUPABASE_URL}/functions/v1/${name}`;
 const DEFAULT_SYSTEM_HOME = "https://bngss.lovable.app/dashboard/browser";
 const AGENT_URL = "https://bngss.lovable.app/dashboard/monitor/agent";
 const DEFAULT_LOGIN_URL = "https://bngss.lovable.app/login";
-const CONFIG_URL = `${SUPABASE_URL}/functions/v1/ext-config`;
-const LOG_URL = `${SUPABASE_URL}/functions/v1/ext-log`;
+
 
 // URL/domains ที่ถือว่า "ระบบโรงเรียน" — อนุญาตเข้าเสมอเพื่อให้ login ได้
 const SCHOOL_HOST_SUFFIXES = ["lovable.app", "supabase.co", "supabase.io"];
@@ -148,7 +160,8 @@ async function getSystemHome() {
 
 async function refreshConfig() {
   try {
-    const r = await fetch(CONFIG_URL, { headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}` } });
+    await loadBackend();
+    const r = await fetch(fnUrl("ext-config"), { headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}` } });
     if (!r.ok) return;
     const cfg = await r.json();
     await chrome.storage.local.set({ config: cfg, configAt: Date.now() });
@@ -202,7 +215,7 @@ async function logVisit(url, action, reason) {
   const { session } = await getState();
   if (!session?.access_token) return;
   try {
-    await fetch(LOG_URL, {
+    await fetch(fnUrl("ext-log"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -305,8 +318,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg?.type === "SET_SESSION") {
     _agentSpawnFails = 0;
+    if (msg.backend?.url) { SUPABASE_URL = String(msg.backend.url).replace(/\/+$/, ""); }
+    if (msg.backend?.anonKey) { ANON_KEY = msg.backend.anonKey; }
     chrome.storage.local.set({
       session: msg.session,
+      ...(msg.backend?.url ? { backend: { url: SUPABASE_URL, anonKey: ANON_KEY } } : {}),
       ...(msg.systemHome ? { systemHome: msg.systemHome } : {}),
     });
     // เมื่อล็อกอินสำเร็จ → เปิด agent tab อัตโนมัติ (เฉพาะนักเรียน)
