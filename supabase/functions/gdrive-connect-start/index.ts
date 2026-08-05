@@ -18,19 +18,30 @@ const SCOPES = [
   "https://www.googleapis.com/auth/drive",
 ];
 
+/** origin ที่อนุญาตให้ redirect กลับ — อ่านจาก env ของ backend โรงเรียนเท่านั้น */
+function allowedOrigins(): string[] {
+  const raw = [
+    Deno.env.get("APP_URL"),
+    Deno.env.get("PUBLIC_ORIGIN"),
+    ...(Deno.env.get("ALLOWED_RETURN_ORIGINS") ?? "").split(","),
+  ];
+  const out: string[] = [];
+  for (const v of raw) {
+    const t = (v ?? "").trim();
+    if (!t) continue;
+    try { out.push(new URL(t).origin); } catch { /* ignore */ }
+  }
+  return out;
+}
+
 function isAllowedReturnUrl(value: string) {
   try {
     const url = new URL(value);
     if (!/^https?:$/.test(url.protocol)) return false;
     const hostname = url.hostname.toLowerCase();
     if (hostname === "localhost" || hostname === "127.0.0.1") return true;
-    if (hostname.endsWith(".lovable.app")) return true;
-    if (hostname === "lovableproject.com" || hostname.endsWith(".lovableproject.com")) return true;
-    if (hostname === "lovableproject-dev.com" || hostname.endsWith(".lovableproject-dev.com")) return true;
-    if (hostname === "beta.lovable.dev" || hostname.endsWith(".beta.lovable.dev")) return true;
-    const appUrl = Deno.env.get("APP_URL");
-    if (appUrl && url.origin === new URL(appUrl).origin) return true;
-    return false;
+    if (hostname.endsWith(".lovable.app")) return true; // โดเมนที่ใช้โฮสต์หน้าเว็บปัจจุบัน
+    return allowedOrigins().includes(url.origin);
   } catch {
     return false;
   }
