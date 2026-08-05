@@ -14,6 +14,7 @@ async function loadBackend() {
   return { SUPABASE_URL, ANON_KEY };
 }
 const fnUrl = (name) => `${SUPABASE_URL}/functions/v1/${name}`;
+loadBackend();
 const DEFAULT_SYSTEM_HOME = "https://bngss.lovable.app/dashboard/browser";
 const AGENT_URL = "https://bngss.lovable.app/dashboard/monitor/agent";
 const DEFAULT_LOGIN_URL = "https://bngss.lovable.app/login";
