@@ -51,10 +51,7 @@ Deno.serve(async (req) => {
 
     // ---- Google Drive path ----
     if (item.drive_file_id) {
-      const driveRes = await fetch(
-        `${GATEWAY}/drive/v3/files/${item.drive_file_id}?alt=media`,
-        { headers: driveAuthHeaders() },
-      );
+      const driveRes = await downloadFile(item.drive_file_id);
       if (!driveRes.ok) {
         const text = await driveRes.text().catch(() => "");
         console.error("[line-vault-stream drive]", driveRes.status, text);
