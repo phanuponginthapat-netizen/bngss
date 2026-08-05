@@ -72,7 +72,7 @@ export default function BackupMigrationCenterPage() {
     try {
       // 1) Full tables + restore kit + storage manifest
       setOneClickProgress({ pct: 5, label: "กำลังดึงข้อมูลทุกตาราง..." });
-      const fullRes = await callFn("mode=full");
+      const fullRes = await callFn(`mode=full${withSecrets ? "&secrets=1" : ""}`);
       if (!fullRes.ok) throw new Error(`tables: ${await fullRes.text()}`);
       const fullZipBytes = new Uint8Array(await fullRes.arrayBuffer());
       const inner = await JSZip.loadAsync(fullZipBytes);
@@ -169,7 +169,10 @@ export default function BackupMigrationCenterPage() {
     setDownloading(key);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const qs = mode === "storage" ? `mode=storage&bucket=${encodeURIComponent(bucket!)}` : `mode=${mode}`;
+      const qs =
+        mode === "storage"
+          ? `mode=storage&bucket=${encodeURIComponent(bucket!)}`
+          : `mode=${mode}${mode === "full" && withSecrets ? "&secrets=1" : ""}`;
       const res = await fetch(`${SUPABASE_URL}/functions/v1/system-backup?${qs}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${session?.access_token ?? ""}`, apikey: ANON },
@@ -341,6 +344,7 @@ curl -X POST "$SUPABASE_URL/functions/v1/system-restore?truncate=1" \\
               <CardDescription>
                 ZIP เดียวรวม: schema.sql (ตาราง/FK/RLS/policy/ฟังก์ชัน/ทริกเกอร์/สิทธิ์) + storage-policies.sql
                 + buckets.json + auth-users.json (ผู้ใช้ + รหัสผ่านเดิม) + edge-functions.json
+                + cron-jobs.json (Jobs ตามเวลา) + secrets.json + set-secrets.sh
                 + ข้อมูลทุกตาราง (JSON) + รายการไฟล์ storage + สคริปต์ restore + คู่มือภาษาไทย
               </CardDescription>
             </CardHeader>
