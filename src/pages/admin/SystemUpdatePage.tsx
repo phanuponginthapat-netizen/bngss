@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Download, Upload, Link as LinkIcon, RefreshCw, History, Package, Database } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getBackendConfig } from "@/lib/runtimeConfig";
 
 export default function SystemUpdatePage() {
   const qc = useQueryClient();
@@ -51,12 +52,12 @@ export default function SystemUpdatePage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const qs = mode === "storage" ? `?mode=storage&bucket=${encodeURIComponent(bucket!)}` : `?mode=tables`;
-      const url = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/system-backup${qs}`;
+      const url = `${getBackendConfig().url}/functions/v1/system-backup${qs}`;
       const res = await fetch(url, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          apikey: getBackendConfig().anonKey,
         },
       });
       if (!res.ok) throw new Error(await res.text());

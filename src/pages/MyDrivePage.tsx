@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { swal } from "@/lib/swal";
 import { useUserRole } from "@/hooks/useUserRole";
 import { DRIVE_RECONNECT_HINT, DRIVE_RECONNECT_REASON, isDriveCredentialMissingError } from "@/lib/googleDriveErrors";
+import { getBackendConfig } from "@/lib/runtimeConfig";
 
 interface DriveFile {
   id: string;
@@ -61,8 +62,8 @@ interface AdminDriveStatus {
 }
 
 const FOLDER_MIME = "application/vnd.google-apps.folder";
-const FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gdrive-proxy`;
-const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+const FUNCTIONS_URL = `${getBackendConfig().url}/functions/v1/gdrive-proxy`;
+const ANON = getBackendConfig().anonKey;
 
 function formatSize(bytes?: string) {
   if (!bytes) return "";
@@ -355,7 +356,7 @@ export default function MyDrivePage() {
   };
 
   const copyCallbackUrl = async () => {
-    const callbackUrl = adminStatus?.callbackUrl ?? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gdrive-connect-finish`;
+    const callbackUrl = adminStatus?.callbackUrl ?? `${getBackendConfig().url}/functions/v1/gdrive-connect-finish`;
     await navigator.clipboard.writeText(callbackUrl);
     toast.success("คัดลอก Callback URL แล้ว");
   };
@@ -477,7 +478,7 @@ export default function MyDrivePage() {
   const AdminSettingsCard = () => {
     if (!canManageDrive) return null;
     const allReady = !!adminStatus?.clientConfigured && !!adminStatus?.connectionKeySecretConfigured && !!adminStatus?.lovableApiKeyConfigured;
-    const callbackUrl = adminStatus?.callbackUrl ?? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gdrive-connect-finish`;
+    const callbackUrl = adminStatus?.callbackUrl ?? `${getBackendConfig().url}/functions/v1/gdrive-connect-finish`;
 
     return (
       <Card className="p-6 space-y-5">

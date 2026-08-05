@@ -317,6 +317,7 @@ var list_my_schedule_default = defineTool9({
 });
 
 // src/lib/mcp/index.ts
+var backendUrl = "https://dlkyxvhnnffblerwedjz.supabase.co";
 var projectRef = "dlkyxvhnnffblerwedjz";
 var mcp_default = defineMcp({
   name: "school-mcp",
@@ -324,7 +325,7 @@ var mcp_default = defineMcp({
   version: "0.2.0",
   instructions: "Tools for the school management system. Use `whoami` for identity, `list_news` for school news, `list_my_notifications` for inbox, `list_my_attendance` / `list_my_homework` / `list_my_grades` / `list_my_eforms` / `list_my_leaves` / `list_my_schedule` for personal academic data. All results are RLS-scoped to the signed-in user.",
   auth: auth.oauth.issuer({
-    issuer: `https://${projectRef}.supabase.co/auth/v1`,
+    issuer: `${backendUrl || `https://${projectRef}.supabase.co`}/auth/v1`,
     acceptedAudiences: "authenticated"
   }),
   tools: [

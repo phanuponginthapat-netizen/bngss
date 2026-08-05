@@ -1,9 +1,10 @@
 // Helpers for reading/writing files on the user's Google Drive via gdrive-proxy edge function.
 import { supabase } from "@/integrations/supabase/client";
 import { driveReconnectMessage, isDriveCredentialMissingError } from "@/lib/googleDriveErrors";
+import { getBackendConfig } from "@/lib/runtimeConfig";
 
-const FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gdrive-proxy`;
-const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+const FUNCTIONS_URL = `${getBackendConfig().url}/functions/v1/gdrive-proxy`;
+const ANON = getBackendConfig().anonKey;
 
 async function authHeaders() {
   const { data } = await supabase.auth.getSession();

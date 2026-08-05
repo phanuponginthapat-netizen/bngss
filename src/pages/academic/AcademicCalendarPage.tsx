@@ -15,8 +15,9 @@ import { CalendarDays, Plus, ChevronLeft, ChevronRight, MapPin, Trash2, Edit, Ex
 import { toast } from "sonner";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { getBackendConfig } from "@/lib/runtimeConfig";
 
-const ICS_FEED_URL = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/calendar-ics`;
+const ICS_FEED_URL = `${getBackendConfig().url}/functions/v1/calendar-ics`;
 
 const EVENT_TYPES = [
   { value: "activity", label: "กิจกรรม", color: "bg-blue-100 text-blue-800" },

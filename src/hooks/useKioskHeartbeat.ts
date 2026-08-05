@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getDeviceId, getDeviceHostnameHint } from "@/lib/deviceId";
+import { getBackendConfig } from "@/lib/runtimeConfig";
 
 type HeartbeatInput = {
   enabled?: boolean;
@@ -96,7 +97,7 @@ export function useKioskHeartbeat(input: HeartbeatInput) {
           last_seen_at: new Date().toISOString(),
         });
         // beacon (best-effort)
-        const url = `${(import.meta as any).env?.VITE_SUPABASE_URL || ""}/rest/v1/kiosk_devices?device_id=eq.${encodeURIComponent(device_id)}`;
+        const url = `${getBackendConfig().url}/rest/v1/kiosk_devices?device_id=eq.${encodeURIComponent(device_id)}`;
         if (url && navigator.sendBeacon) {
           navigator.sendBeacon(url, body);
         }
