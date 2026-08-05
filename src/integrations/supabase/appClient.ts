@@ -35,7 +35,12 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
   // ไม่ throw เพื่อให้หน้า /setup ยังเปิดได้และตั้งค่าใหม่ได้
   console.warn('[backend] ยังไม่ได้ตั้งค่า Supabase URL / anon key — ไปที่ /setup เพื่อตั้งค่า');
+  // กรณี deploy ใหม่ (Vercel/Cloudflare) แล้วลืมตั้ง env → พาไปหน้า Setup Wizard แทนจอขาว
+  if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/setup')) {
+    window.location.replace('/setup?reason=missing-backend-config');
+  }
 }
+
 
 export const SUPABASE_RUNTIME_URL = SUPABASE_URL;
 export const SUPABASE_RUNTIME_ANON_KEY = SUPABASE_PUBLISHABLE_KEY;
