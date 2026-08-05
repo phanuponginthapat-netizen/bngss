@@ -1,4 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
+import { isGoogleDriveStorage } from "@/lib/runtimeConfig";
+import { uploadToDrive } from "@/lib/driveStorage";
 
 export type UploadFallbackResult = {
   path: string;
@@ -111,6 +113,13 @@ export const uploadPublicFileWithFallback = async (
   options?: Parameters<ReturnType<typeof supabase.storage.from>["upload"]>[2]
 ): Promise<UploadFallbackResult> => {
   const path = sanitizeStorageKey(rawPath);
+
+  // โหมด Google Drive: เก็บไฟล์บน Drive แทน Supabase Storage
+  if (isGoogleDriveStorage()) {
+    const res = await uploadToDrive(`${bucket}/${path}`, file, { contentType: options?.contentType });
+    return { path: res.publicUrl, publicUrl: res.publicUrl, usedFallback: true };
+  }
+
   const { error } = await supabase.storage.from(bucket).upload(path, file, options);
 
   if (!error) {
@@ -137,6 +146,12 @@ export const uploadPrivateFileWithFallback = async (
   options?: Parameters<ReturnType<typeof supabase.storage.from>["upload"]>[2]
 ): Promise<{ path: string; usedFallback: boolean }> => {
   const path = sanitizeStorageKey(rawPath);
+
+  if (isGoogleDriveStorage()) {
+    const res = await uploadToDrive(`${bucket}/${path}`, file, { contentType: options?.contentType, public: false });
+    return { path: res.webViewLink || res.publicUrl, usedFallback: true };
+  }
+
   const { error } = await supabase.storage.from(bucket).upload(path, file, options);
 
   if (!error) return { path, usedFallback: false };
