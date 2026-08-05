@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Loader2, Database, Download, Copy, ExternalLink, BookOpen, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { getBackendConfig } from "@/lib/runtimeConfig";
+
 
 type Column = { name: string; type: string; nullable: string; default: string | null };
 type Row = { table_name: string; columns: Column[]; col_count: number };
