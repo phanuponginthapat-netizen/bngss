@@ -1,7 +1,7 @@
 // Starts the Google Drive App User OAuth flow.
 // Returns { authorize_url } that the frontend should redirect the user to.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { buildAuthorizeUrl, hasNativeGoogleOAuth, DRIVE_SCOPES } from "../_shared/googleOauth.ts";
+import { buildAuthorizeUrl, hasNativeGoogleOAuth } from "../_shared/googleOauth.ts";
 import { signState } from "../_shared/oauthState.ts";
 import { lovableFallbackEnabled, NO_LOVABLE_DRIVE_MSG } from "../_shared/standalone.ts";
 
