@@ -478,7 +478,9 @@ export default function MyDrivePage() {
 
   const AdminSettingsCard = () => {
     if (!canManageDrive) return null;
-    const allReady = !!adminStatus?.clientConfigured && !!adminStatus?.connectionKeySecretConfigured && !!adminStatus?.lovableApiKeyConfigured;
+    const nativeMode = adminStatus?.mode === "google_oauth" || !!adminStatus?.nativeOAuthConfigured;
+    const gatewayReady = nativeMode ? true : !!adminStatus?.lovableApiKeyConfigured;
+    const allReady = !!adminStatus?.clientConfigured && !!adminStatus?.connectionKeySecretConfigured && gatewayReady;
     const callbackUrl = adminStatus?.callbackUrl ?? `${getBackendConfig().url}/functions/v1/gdrive-connect-finish`;
 
     return (
