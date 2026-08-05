@@ -36,23 +36,6 @@ function isAllowedReturnUrl(value: string) {
   }
 }
 
-async function signGatewayState(userId: string, returnUrl: string, expiresAt: string) {
-  const secret = Deno.env.get("CRON_SECRET") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(`${userId}:${returnUrl}:${expiresAt}`),
-  );
-  return Array.from(new Uint8Array(signature)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -82,16 +65,10 @@ Deno.serve(async (req) => {
     }
     if (!isAllowedReturnUrl(returnUrl)) {
       console.error("return_url invalid", { returnUrl, rawBody, origin: req.headers.get("origin"), referer: req.headers.get("referer") });
-      return new Response(JSON.stringify({ error: "return_url required", received: returnUrl, hint: "must be http(s) and localhost, *.lovable.app, *.lovableproject.com, or APP_URL origin" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "return_url required", received: returnUrl, hint: "must be http(s) and localhost or the APP_URL / ALLOWED_RETURN_ORIGINS origin" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const functionUrl = new URL(req.url);
-    const finishUrl = new URL(`${functionUrl.origin}/functions/v1/gdrive-connect-finish`);
-    const stateExpiresAt = String(Date.now() + 15 * 60 * 1000);
-    finishUrl.searchParams.set("return_to", returnUrl);
-    finishUrl.searchParams.set("lovable_app_user_id", user.id);
-    finishUrl.searchParams.set("state_exp", stateExpiresAt);
-    finishUrl.searchParams.set("state_sig", await signGatewayState(user.id, returnUrl, stateExpiresAt));
 
     // === Standalone: Google OAuth ของโรงเรียนเอง (ค่าเริ่มต้น) ===
     if (await hasNativeGoogleOAuth()) {
