@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
+import BackendConnectionCard from "@/components/setup/BackendConnectionCard";
+import { getBackendConfig, getConfigSource } from "@/lib/runtimeConfig";
 import {
   CheckCircle2, XCircle, Loader2, ArrowRight, ArrowLeft, Rocket,
   Database, User, Palette, Cloud, Copy, ExternalLink, Sparkles, ShieldCheck, Wrench,
@@ -33,9 +35,10 @@ export default function SetupWizardPage() {
   const setR = (k: string, r: StepResult) => setResults((p) => ({ ...p, [k]: r }));
 
   // ---- env
-  const envUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const envKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
-  const envPid = import.meta.env.VITE_SUPABASE_PROJECT_ID as string | undefined;
+  const runtimeCfg = getBackendConfig();
+  const envUrl = runtimeCfg.url || undefined;
+  const envKey = runtimeCfg.anonKey || undefined;
+  const envPid = runtimeCfg.projectId || undefined;
 
   const checkEnv = () => {
     setR("env", { status: "checking" });
@@ -45,10 +48,10 @@ export default function SetupWizardPage() {
       !envPid && "VITE_SUPABASE_PROJECT_ID",
     ].filter(Boolean) as string[];
     if (missing.length) {
-      setR("env", { status: "fail", message: `ขาด env: ${missing.join(", ")}`, detail: "ตั้งค่าใน Vercel → Settings → Environment Variables" });
+      setR("env", { status: "fail", message: `ขาด env: ${missing.join(", ")}`, detail: "ตั้งค่าในการ์ด 'เชื่อมต่อ Backend ภายนอก' ด้านบน, ไฟล์ /app-config.js หรือ Environment Variables ของ Vercel/Cloudflare" });
       return false;
     }
-    setR("env", { status: "ok", message: "Environment variables ครบถ้วน", detail: `URL: ${envUrl}` });
+    setR("env", { status: "ok", message: "Environment variables ครบถ้วน", detail: `URL: ${envUrl} (แหล่งค่า: ${getConfigSource()})` });
     return true;
   };
 
@@ -345,6 +348,8 @@ VITE_SUPABASE_PROJECT_ID=${envPid ?? "<project-ref>"}`;
           <h1 className="text-3xl md:text-4xl font-bold">ยินดีต้อนรับสู่ Smart School</h1>
           <p className="text-muted-foreground">ทำตาม {STEPS.length} ขั้นตอน — หรือกดปุ่มเดียวให้ระบบทำอัตโนมัติ</p>
         </div>
+
+        <BackendConnectionCard />
 
         {/* ⚡ One-click hero */}
         <Card className="border-2 border-primary/50 bg-gradient-to-br from-primary/5 to-orange-50/50">
