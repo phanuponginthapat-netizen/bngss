@@ -6,6 +6,8 @@ dist
 supabase/.branches
 supabase/.temp
 extension
+scripts
+docs
 playwright-report
 test-results
 .lovable
