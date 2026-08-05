@@ -153,7 +153,7 @@ export async function getServiceAccountToken(scopes = ["https://www.googleapis.c
   }));
   const key = await crypto.subtle.importKey(
     "pkcs8",
-    pemToPkcs8(sa.private_key),
+    pemToPkcs8(sa.private_key).buffer as ArrayBuffer,
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
     false,
     ["sign"],
