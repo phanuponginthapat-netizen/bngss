@@ -31,6 +31,7 @@ import { swal } from "@/lib/swal";
 import { useUserRole } from "@/hooks/useUserRole";
 import { DRIVE_RECONNECT_HINT, DRIVE_RECONNECT_REASON, isDriveCredentialMissingError } from "@/lib/googleDriveErrors";
 import { getBackendConfig } from "@/lib/runtimeConfig";
+import DriveOAuthCredentialsCard from "@/components/drive/DriveOAuthCredentialsCard";
 
 interface DriveFile {
   id: string;
@@ -564,6 +565,7 @@ export default function MyDrivePage() {
           {canManageDrive && (
             <TabsContent value="settings" className="space-y-4">
               <ConnectionSetupCard />
+              <DriveOAuthCredentialsCard onSaved={checkAdminStatus} />
               <AdminSettingsCard />
             </TabsContent>
           )}
@@ -686,6 +688,7 @@ export default function MyDrivePage() {
         {canManageDrive && (
           <TabsContent value="settings" className="space-y-4">
             <ConnectionSetupCard />
+            <DriveOAuthCredentialsCard onSaved={checkAdminStatus} />
             <AdminSettingsCard />
           </TabsContent>
         )}
