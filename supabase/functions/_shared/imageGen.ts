@@ -2,7 +2,7 @@
 // ลำดับ: OpenAI Images → Google Gemini (generativelanguage) → error
 import { getSecret } from "./getSecret.ts";
 import { secretKeys } from "./secretKeys.ts";
-import { lovableFallbackEnabled, NO_LOVABLE_AI_MSG } from "./standalone.ts";
+import { NO_LOVABLE_AI_MSG } from "./standalone.ts";
 
 export interface ImageResult {
   b64: string;
@@ -58,23 +58,6 @@ export async function generateImage(prompt: string, opts?: { size?: string }): P
       } else errors.push(`gemini [${r.status}]: ${t.slice(0, 200)}`);
     } catch (e) {
       errors.push(`gemini: ${String(e)}`);
-    }
-  }
-
-  // 3) Lovable gateway — ปิดโดยค่าเริ่มต้น
-  if (lovableFallbackEnabled()) {
-    const lovKey = Deno.env.get("LOVABLE_API_KEY");
-    if (lovKey) {
-      const r = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${lovKey}` },
-        body: JSON.stringify({ model: "google/gemini-2.5-flash-image", prompt, n: 1 }),
-      });
-      if (r.ok) {
-        const b64 = (await r.json())?.data?.[0]?.b64_json;
-        if (b64) return { b64, provider: "lovable" };
-      }
-      errors.push(`lovable [${r.status}]`);
     }
   }
 
