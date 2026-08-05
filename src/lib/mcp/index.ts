@@ -9,8 +9,10 @@ import listEformsTool from "./tools/list-my-eforms";
 import listLeavesTool from "./tools/list-my-leaves";
 import listScheduleTool from "./tools/list-my-schedule";
 
-const backendUrl = (import.meta.env.VITE_SUPABASE_URL as string) || "";
-const projectRef = (import.meta.env.VITE_SUPABASE_PROJECT_ID as string) || "project-ref-unset";
+// อ่านค่า backend ตอน runtime (Deno env ของ edge function) — ไม่ผูกกับ project ตอน build
+const backendUrl = (
+  (globalThis as any).Deno?.env?.get?.("SUPABASE_URL") ?? ""
+).replace(/\/+$/, "");
 
 export default defineMcp({
   name: "school-mcp",

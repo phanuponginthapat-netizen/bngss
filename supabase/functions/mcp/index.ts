@@ -317,8 +317,7 @@ var list_my_schedule_default = defineTool9({
 });
 
 // src/lib/mcp/index.ts
-var backendUrl = "https://dlkyxvhnnffblerwedjz.supabase.co";
-var projectRef = "dlkyxvhnnffblerwedjz";
+var backendUrl = (globalThis.Deno?.env?.get?.("SUPABASE_URL") ?? "").replace(/\/+$/, "");
 var mcp_default = defineMcp({
   name: "school-mcp",
   title: "School Management MCP",
