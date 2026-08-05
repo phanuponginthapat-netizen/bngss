@@ -145,23 +145,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Final fallback: Lovable AI Gateway — ปิดโดยค่าเริ่มต้น (Standalone)
     if (!aiResp) {
-      const allowLovable = ["1", "true", "yes"].includes((Deno.env.get("ALLOW_LOVABLE_FALLBACK") ?? "").toLowerCase());
-      const lovableKey = allowLovable ? Deno.env.get("LOVABLE_API_KEY") : null;
-      if (lovableKey) {
-        const r = await callLovableGateway(lovableKey, b64);
-        if (r.ok) {
-          aiResp = r;
-          usedKeyLabel = "lovable-gateway";
-        } else {
-          const txt = await r.text();
-          lastStatus = r.status; lastBody = txt;
-          errors.push(`lovable [${r.status}]: ${extractApiErrorMessage(txt)}`);
-        }
-      } else {
-        errors.push("standalone: ไม่ใช้ Lovable AI — ตั้งค่า OPENAI_API_KEY / GEMINI_API_KEY หรือ AI Provider ของโรงเรียนเอง");
-      }
+      errors.push("standalone: ตั้งค่า OPENAI_API_KEY / GEMINI_API_KEY หรือ AI Provider ของโรงเรียนเอง");
     }
 
     if (!aiResp) {
@@ -467,27 +452,6 @@ function callGemini(key: string, b64: string) {
         ],
       }],
       generationConfig: { responseMimeType: "application/json" },
-    }),
-  });
-}
-
-function callLovableGateway(key: string, b64: string) {
-  return fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": key },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "วิเคราะห์ทุกช่องในฟอร์ม PDF นี้" },
-            { type: "file", file: { filename: "template.pdf", file_data: `data:application/pdf;base64,${b64}` } },
-          ],
-        },
-      ],
-      response_format: { type: "json_object" },
     }),
   });
 }

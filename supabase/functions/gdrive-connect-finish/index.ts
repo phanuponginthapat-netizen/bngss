@@ -7,9 +7,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { exchangeCode as googleExchangeCode, fetchGoogleUserInfo, hasNativeGoogleOAuth } from "../_shared/googleOauth.ts";
 import { verifyState } from "../_shared/oauthState.ts";
 
-const GATEWAY = "https://connector-gateway.lovable.dev";
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
-const CLIENT_API_KEY = Deno.env.get("GOOGLE_DRIVE_APP_USER_CONNECTOR_CLIENT_API_KEY") ?? "";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -70,50 +67,6 @@ function pickBodyParam(body: Record<string, unknown>, names: string[]) {
   return null;
 }
 
-async function exchangeConnectionCode(code: string) {
-  const exchangeRes = await fetch(`${GATEWAY}/api/v1/app-users/oauth2/exchange`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-      "X-Client-Api-Key": CLIENT_API_KEY,
-    },
-    body: JSON.stringify({ code }),
-  });
-
-  const text = await exchangeRes.text();
-  let data: Record<string, unknown> = {};
-  try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
-
-  if (!exchangeRes.ok) {
-    console.error("gdrive exchange failed", {
-      status: exchangeRes.status,
-      type: typeof data.type === "string" ? data.type : undefined,
-      title: typeof data.title === "string" ? data.title : undefined,
-    });
-    throw new Error(typeof data.type === "string" ? data.type : "exchange_failed");
-  }
-
-  const connectionKey = pickBodyParam(data, [
-    "connection_key",
-    "connectionKey",
-    "app_user_connection_key",
-    "appUserConnectionKey",
-    "credential_key",
-    "connection_api_key",
-    "api_key",
-    "key",
-  ]);
-
-  return {
-    connectionKey,
-    externalUserId: pickBodyParam(data, ["external_user_id", "provider_user_id", "provider_account_id"]),
-    accountEmail: pickBodyParam(data, ["account_email", "email"]),
-    accountName: pickBodyParam(data, ["account_name", "name"]),
-    scopes: Array.isArray(data.scopes) ? data.scopes : Array.isArray((data.data as Record<string, unknown> | undefined)?.scopes) ? (data.data as Record<string, unknown>).scopes : undefined,
-  };
-}
-
 async function signState(userId: string, returnUrl: string, expiresAt: string) {
   const secret = Deno.env.get("CRON_SECRET") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const key = await crypto.subtle.importKey(
@@ -144,17 +97,18 @@ function sanitizeReturnUrl(value: string | null, fallbackOrigin: string) {
   try {
     const url = new URL(value.startsWith("http") ? value : `${fallbackOrigin}${value.startsWith("/") ? value : `/${value}`}`);
     const hostname = url.hostname.toLowerCase();
-    const appUrl = Deno.env.get("APP_URL");
+    const envOrigins = [
+      Deno.env.get("APP_URL"),
+      Deno.env.get("PUBLIC_ORIGIN"),
+      ...(Deno.env.get("ALLOWED_RETURN_ORIGINS") ?? "").split(","),
+    ]
+      .map((v) => (v ?? "").trim())
+      .filter(Boolean)
+      .map((v) => { try { return new URL(v).origin; } catch { return ""; } });
     const allowed = hostname === "localhost"
       || hostname === "127.0.0.1"
       || hostname.endsWith(".lovable.app")
-      || hostname === "lovableproject.com"
-      || hostname.endsWith(".lovableproject.com")
-      || hostname === "lovableproject-dev.com"
-      || hostname.endsWith(".lovableproject-dev.com")
-      || hostname === "beta.lovable.dev"
-      || hostname.endsWith(".beta.lovable.dev")
-      || (appUrl && url.origin === new URL(appUrl).origin);
+      || envOrigins.includes(url.origin);
     return allowed ? url.toString() : fallback;
   } catch {
     return fallback;
@@ -235,70 +189,11 @@ Deno.serve(async (req) => {
   }
 
   if (errorParam) return back(`error:${errorParam}`);
-  if (!directConnectionKey && !exchangeCode) {
-    console.warn("gdrive finish missing connection handle", {
-      queryKeys: Array.from(url.searchParams.keys()),
-      bodyKeys: Object.keys(body),
-      success: pickParam(url, body, ["success"]),
-    });
-    return back("error:no_key");
-  }
-  if (!appUserId) return back("error:no_user");
-  if (!returnTo || !stateExpiresAt || !stateSignature || Number(stateExpiresAt) < Date.now()) {
-    return back("error:bad_state");
-  }
-  const expectedSignature = await signState(appUserId, returnTo, stateExpiresAt);
-  if (!timingSafeEqual(expectedSignature, stateSignature)) return back("error:bad_state");
 
-  let connectionKey = directConnectionKey;
-  let exchanged: Awaited<ReturnType<typeof exchangeConnectionCode>> | null = null;
-  if (!connectionKey && exchangeCode) {
-    try {
-      exchanged = await exchangeConnectionCode(exchangeCode);
-      connectionKey = exchanged.connectionKey;
-    } catch (error) {
-      return back(`error:${error instanceof Error ? error.message : "exchange_failed"}`);
-    }
-  }
-  if (!connectionKey) return back("error:no_connection_key");
-
-  const admin = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
-
-  // Fetch identity info from Google via gateway so we can display email
-  let email: string | null = null;
-  let name: string | null = null;
-  try {
-    const meRes = await fetch(`${GATEWAY}/google_drive/oauth2/v2/userinfo`, {
-      headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "X-Connection-Api-Key": connectionKey,
-      },
-    });
-    if (meRes.ok) {
-      const j = await meRes.json();
-      email = j.email ?? null;
-      name = j.name ?? null;
-    }
-  } catch (_) { /* non-fatal */ }
-
-  const { error } = await admin.from("app_user_connections").upsert({
-    user_id: appUserId,
-    connector_id: "google_drive",
-    connection_key: connectionKey,
-    external_user_id: exchanged?.externalUserId ?? externalUserId ?? appUserId,
-    account_email: exchanged?.accountEmail ?? email,
-    account_name: exchanged?.accountName ?? name,
-    scopes: exchanged?.scopes,
-    connected_at: new Date().toISOString(),
-    revoked_at: null,
-  }, { onConflict: "user_id,connector_id" });
-
-  if (error) {
-    console.error("db upsert failed", error);
-    return back(`error:${error.code ?? "db"}`);
-  }
-  return back("connected");
+  // Standalone: ไม่รองรับ callback แบบ connector gateway อีกต่อไป
+  console.warn("gdrive finish: non-native callback rejected", {
+    queryKeys: Array.from(url.searchParams.keys()),
+    bodyKeys: Object.keys(body),
+  });
+  return back("error:google_oauth_not_configured");
 });

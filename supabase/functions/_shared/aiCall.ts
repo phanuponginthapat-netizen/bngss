@@ -1,12 +1,12 @@
 // AI call helper — providers loaded from DB (admin-managed) + Key Pool (gemini/groq/openrouter).
-// Lovable provider uses LOVABLE_API_KEY env. Others use api_key column directly (no Lovable gateway).
+// Standalone: ทุก provider ใช้ api_key ของโรงเรียนเอง (ไม่มี Lovable AI gateway)
 // Adds aiCouncil() for multi-model parallel analysis + synthesis.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { callWithPool, type PoolProvider } from "./keyPool.ts";
 import { getSecret } from "./getSecret.ts";
 import { secretKeys } from "./secretKeys.ts";
-import { lovableFallbackEnabled, NO_LOVABLE_AI_MSG } from "./standalone.ts";
+import { NO_LOVABLE_AI_MSG } from "./standalone.ts";
 
 export interface AIMessage {
   role: "system" | "user" | "assistant";
@@ -107,11 +107,8 @@ async function loadProviders(vision: boolean): Promise<ProviderRow[]> {
 }
 
 async function resolveApiKey(p: ProviderRow): Promise<string | undefined> {
-  if (p.provider_type === "lovable") {
-    // Standalone: ไม่ใช้ Lovable AI เว้นแต่เปิด ALLOW_LOVABLE_FALLBACK
-    if (!lovableFallbackEnabled()) return undefined;
-    return (await getSecret(secretKeys.lovable)) || undefined;
-  }
+  // Standalone: ไม่รองรับ provider แบบ Lovable AI แล้ว
+  if (p.provider_type === "lovable") return undefined;
   // For everything else, use the api_key column directly (admin pastes vendor key)
   if (p.api_key && p.api_key.trim()) return p.api_key.trim();
   // Optional env fallbacks for common providers
@@ -159,23 +156,6 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
 
   // Hard fallback if DB empty or no providers configured (Standalone: ไม่ใช้ Lovable AI)
   if (providers.length === 0) {
-    const lovableKey = lovableFallbackEnabled() ? await getSecret(secretKeys.lovable) : null;
-    if (lovableKey) {
-      providers = [{
-        id: "default",
-        name: "Lovable (fallback)",
-        provider_type: "lovable",
-        base_url: "https://ai.gateway.lovable.dev/v1/chat/completions",
-        api_key: null,
-        model: "google/gemini-2.5-pro",
-        priority: 1,
-        enabled: true,
-        supports_vision: true,
-        supports_json: true,
-        monthly_call_limit: null,
-        extra_headers: null,
-      }];
-    }
     // ถ้าไม่มี provider ใน DB เลย ให้ตกไปใช้ Key Pool ด้านล่าง (openai/gemini/groq/openrouter)
   }
 

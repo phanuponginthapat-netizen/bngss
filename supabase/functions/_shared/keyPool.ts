@@ -70,7 +70,7 @@ const PROVIDER_CFG: Record<PoolProvider, {
     buildHeaders: (key) => ({
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
-      "HTTP-Referer": Deno.env.get("PUBLIC_ORIGIN") || Deno.env.get("APP_URL") || "https://bngss.lovable.app",
+      "HTTP-Referer": Deno.env.get("PUBLIC_ORIGIN") || Deno.env.get("APP_URL") || Deno.env.get("SUPABASE_URL") || "",
       "X-Title": "School System",
     }),
     buildBody: (model, messages, opts) => {

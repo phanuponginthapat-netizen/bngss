@@ -8,8 +8,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
 };
 
-const GATEWAY = "https://connector-gateway.lovable.dev";
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -43,8 +41,9 @@ Deno.serve(async (req) => {
       .is("revoked_at", null)
       .maybeSingle();
 
+    // Standalone: รองรับเฉพาะ Google OAuth ของโรงเรียนเอง (ไม่ใช้ connector gateway อีกต่อไป)
     const isNative = conn?.auth_mode === "google_oauth";
-    if (!conn || (isNative ? !conn.refresh_token && !conn.access_token : !conn.connection_key)) {
+    if (!conn || !isNative || (!conn.refresh_token && !conn.access_token)) {
       return json({
         error: "not_connected",
         code: "GOOGLE_DRIVE_NOT_CONNECTED",
@@ -88,19 +87,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    const baseUrl = isNative
-      ? (upload_url ? `https://www.googleapis.com${upload_url}` : `https://www.googleapis.com/drive/v3${path}`)
-      : (upload_url ? `${GATEWAY}/google_drive${upload_url}` : `${GATEWAY}/google_drive/drive/v3${path}`);
+    const baseUrl = upload_url
+      ? `https://www.googleapis.com${upload_url}`
+      : `https://www.googleapis.com/drive/v3${path}`;
     const url = new URL(baseUrl);
     Object.entries(query).forEach(([k, v]) => v != null && url.searchParams.set(k, String(v)));
 
-    const upstreamHeaders: Record<string, string> = isNative
-      ? { "Authorization": `Bearer ${nativeAccessToken}`, ...headers }
-      : {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "X-Connection-Api-Key": conn.connection_key as string,
-        ...headers,
-      };
+    const upstreamHeaders: Record<string, string> = {
+      "Authorization": `Bearer ${nativeAccessToken}`,
+      ...headers,
+    };
 
     let finalBody: BodyInit | undefined;
     if (body_b64) {

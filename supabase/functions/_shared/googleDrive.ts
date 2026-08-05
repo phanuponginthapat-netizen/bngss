@@ -1,11 +1,10 @@
 // Google Drive helper (งานระบบ)
 // โหมดหลัก: เรียก googleapis.com โดยตรงด้วย Service Account / Refresh Token (Standalone)
-// โหมดสำรอง: Lovable connector gateway — ใช้ได้ต่อเมื่อ ALLOW_LOVABLE_FALLBACK=true เท่านั้น
+// ไม่มีโหมดสำรองผ่าน Lovable connector gateway อีกต่อไป (Standalone 100%)
 import { getSystemDriveToken } from "./googleOauth.ts";
-import { lovableFallbackEnabled, NO_LOVABLE_DRIVE_MSG } from "./standalone.ts";
+import { NO_LOVABLE_DRIVE_MSG } from "./standalone.ts";
 
 const GOOGLE_API = "https://www.googleapis.com";
-const GATEWAY = "https://connector-gateway.lovable.dev/google_drive";
 
 type Mode = { base: string; headers: Record<string, string> };
 
@@ -13,16 +12,6 @@ async function resolveMode(): Promise<Mode> {
   const token = await getSystemDriveToken();
   if (token) {
     return { base: GOOGLE_API, headers: { Authorization: `Bearer ${token}` } };
-  }
-  if (lovableFallbackEnabled()) {
-    const lovable = Deno.env.get("LOVABLE_API_KEY");
-    const gdrive = Deno.env.get("GOOGLE_DRIVE_API_KEY");
-    if (lovable && gdrive) {
-      return {
-        base: GATEWAY,
-        headers: { Authorization: `Bearer ${lovable}`, "X-Connection-Api-Key": gdrive },
-      };
-    }
   }
   throw new Error(NO_LOVABLE_DRIVE_MSG);
 }

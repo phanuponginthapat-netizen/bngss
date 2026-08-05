@@ -3,9 +3,10 @@
 // ค่าเริ่มต้น = standalone (ไม่เรียก ai.gateway.lovable.dev หรือ connector-gateway.lovable.dev เลย)
 // ถ้าจำเป็นต้องใช้ของ Lovable ชั่วคราว ให้ตั้ง env ALLOW_LOVABLE_FALLBACK=true
 
+// ปิดถาวร: ระบบตัดขาดจาก Lovable Cloud / Lovable AI / Lovable Connector Gateway 100%
+// ทุกการเชื่อมต่อภายนอกวิ่งผ่าน backend ของโรงเรียนเท่านั้น (Supabase + Google OAuth ของโรงเรียน)
 export function lovableFallbackEnabled(): boolean {
-  const v = (Deno.env.get("ALLOW_LOVABLE_FALLBACK") ?? "").trim().toLowerCase();
-  return v === "1" || v === "true" || v === "yes";
+  return false;
 }
 
 export function isStandalone(): boolean {
