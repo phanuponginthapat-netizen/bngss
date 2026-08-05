@@ -58,14 +58,12 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 
     return json({
-      mode: nativeOAuth ? "google_oauth" : "gateway",
+      mode: nativeOAuth ? "google_oauth" : "not_configured",
       nativeOAuthConfigured: nativeOAuth,
-      clientConfigured: nativeOAuth || Boolean(Deno.env.get("GOOGLE_DRIVE_APP_USER_CONNECTOR_CLIENT_API_KEY")),
+      clientConfigured: nativeOAuth,
       connectionKeySecretConfigured: !tableError,
-      lovableApiKeyConfigured: nativeOAuth || Boolean(Deno.env.get("LOVABLE_API_KEY")),
-      callbackUrl: nativeOAuth
-        ? `${supabaseUrl}/functions/v1/gdrive-connect-finish`
-        : "https://connector-gateway.lovable.dev/api/v1/app-users/oauth2/callback",
+      lovableApiKeyConfigured: false,
+      callbackUrl: `${supabaseUrl}/functions/v1/gdrive-connect-finish`,
       checkedAt: new Date().toISOString(),
     });
   } catch (error) {
