@@ -15630,6 +15630,7 @@ export type Database = {
       export_auth_users: { Args: never; Returns: Json }
       export_cron_jobs: { Args: never; Returns: Json }
       export_extras_sql: { Args: never; Returns: string }
+      export_extras_sql_base: { Args: never; Returns: string }
       export_schema_sql: { Args: never; Returns: string }
       export_storage_buckets: { Args: never; Returns: Json }
       export_storage_policies_sql: { Args: never; Returns: string }
