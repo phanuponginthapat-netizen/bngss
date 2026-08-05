@@ -1,16 +1,36 @@
-// Google Drive gateway helper — routes calls through Lovable connector gateway.
-// Env required: LOVABLE_API_KEY, GOOGLE_DRIVE_API_KEY
+// Google Drive helper (งานระบบ)
+// โหมดหลัก: เรียก googleapis.com โดยตรงด้วย Service Account / Refresh Token (Standalone)
+// โหมดสำรอง: Lovable connector gateway — ใช้ได้ต่อเมื่อ ALLOW_LOVABLE_FALLBACK=true เท่านั้น
+import { getSystemDriveToken } from "./googleOauth.ts";
+import { lovableFallbackEnabled, NO_LOVABLE_DRIVE_MSG } from "./standalone.ts";
 
+const GOOGLE_API = "https://www.googleapis.com";
 const GATEWAY = "https://connector-gateway.lovable.dev/google_drive";
 
-function authHeaders() {
-  const lovable = Deno.env.get("LOVABLE_API_KEY");
-  const gdrive = Deno.env.get("GOOGLE_DRIVE_API_KEY");
-  if (!lovable || !gdrive) throw new Error("Google Drive connector env missing");
-  return {
-    Authorization: `Bearer ${lovable}`,
-    "X-Connection-Api-Key": gdrive,
-  };
+type Mode = { base: string; headers: Record<string, string> };
+
+async function resolveMode(): Promise<Mode> {
+  const token = await getSystemDriveToken();
+  if (token) {
+    return { base: GOOGLE_API, headers: { Authorization: `Bearer ${token}` } };
+  }
+  if (lovableFallbackEnabled()) {
+    const lovable = Deno.env.get("LOVABLE_API_KEY");
+    const gdrive = Deno.env.get("GOOGLE_DRIVE_API_KEY");
+    if (lovable && gdrive) {
+      return {
+        base: GATEWAY,
+        headers: { Authorization: `Bearer ${lovable}`, "X-Connection-Api-Key": gdrive },
+      };
+    }
+  }
+  throw new Error(NO_LOVABLE_DRIVE_MSG);
+}
+
+async function driveFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const mode = await resolveMode();
+  const headers = { ...(init.headers as Record<string, string> | undefined), ...mode.headers };
+  return await fetch(`${mode.base}${path}`, { ...init, headers });
 }
 
 export interface DriveFile {
@@ -26,17 +46,16 @@ export async function ensureFolder(name: string, parentId: string | null): Promi
   const safeName = name.replace(/'/g, "\\'");
   const parentClause = parentId ? ` and '${parentId}' in parents` : " and 'root' in parents";
   const q = `mimeType='application/vnd.google-apps.folder' and name='${safeName}'${parentClause} and trashed=false`;
-  const listRes = await fetch(
-    `${GATEWAY}/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=1`,
-    { headers: authHeaders() },
+  const listRes = await driveFetch(
+    `/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=1&supportsAllDrives=true&includeItemsFromAllDrives=true`,
   );
   if (!listRes.ok) throw new Error(`Drive list folder failed [${listRes.status}]: ${await listRes.text()}`);
   const listData = await listRes.json();
   if (listData.files?.[0]?.id) return listData.files[0].id;
 
-  const createRes = await fetch(`${GATEWAY}/drive/v3/files?fields=id`, {
+  const createRes = await driveFetch(`/drive/v3/files?fields=id&supportsAllDrives=true`, {
     method: "POST",
-    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       name,
       mimeType: "application/vnd.google-apps.folder",
@@ -74,14 +93,11 @@ export async function uploadFile(
   body.set(data, pre.length);
   body.set(post, pre.length + data.length);
 
-  const res = await fetch(
-    `${GATEWAY}/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink,webContentLink,mimeType`,
+  const res = await driveFetch(
+    `/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink,webContentLink,mimeType`,
     {
       method: "POST",
-      headers: {
-        ...authHeaders(),
-        "Content-Type": `multipart/related; boundary=${boundary}`,
-      },
+      headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
       body,
     },
   );
@@ -91,20 +107,21 @@ export async function uploadFile(
 
 /** Get a temporary download URL for a Drive file (returns webContentLink). */
 export async function getDownloadInfo(fileId: string): Promise<{ webViewLink: string; webContentLink?: string; name: string; mimeType: string } | null> {
-  const res = await fetch(
-    `${GATEWAY}/drive/v3/files/${fileId}?fields=id,name,webViewLink,webContentLink,mimeType`,
-    { headers: authHeaders() },
+  const res = await driveFetch(
+    `/drive/v3/files/${fileId}?fields=id,name,webViewLink,webContentLink,mimeType&supportsAllDrives=true`,
   );
   if (!res.ok) return null;
   return await res.json();
 }
 
+/** Download raw file bytes. */
+export async function downloadFile(fileId: string): Promise<Response> {
+  return await driveFetch(`/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`);
+}
+
 /** Delete a Drive file (trash). */
 export async function deleteFile(fileId: string): Promise<void> {
-  await fetch(`${GATEWAY}/drive/v3/files/${fileId}`, {
-    method: "DELETE",
-    headers: authHeaders(),
-  });
+  await driveFetch(`/drive/v3/files/${fileId}?supportsAllDrives=true`, { method: "DELETE" });
 }
 
 /** Ensure folder path like ["LineVault", "2569", "T1", "group-abc"]. Returns leaf folder id. */
@@ -117,3 +134,5 @@ export async function ensureFolderPath(segments: string[]): Promise<string> {
   if (!parent) throw new Error("ensureFolderPath: empty path");
   return parent;
 }
+
+export { driveFetch };
