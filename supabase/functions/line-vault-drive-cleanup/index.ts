@@ -97,10 +97,11 @@ Deno.serve(async (req) => {
               const age = Date.now() - Date.parse(f.createdTime || "");
               if (age > 10 * 60_000) {
 
-                await admin.from("line_vault_drive_trash")
-                  .insert({ drive_file_id: f.id, status: "pending" })
-                  .then(() => stats.scanned_orphans++)
-                  .catch(() => {});
+                try {
+                  await admin.from("line_vault_drive_trash")
+                    .insert({ drive_file_id: f.id, status: "pending" });
+                  stats.scanned_orphans++;
+                } catch (_) { /* ignore */ }
               }
             }
           }
