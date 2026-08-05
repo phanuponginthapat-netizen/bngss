@@ -352,13 +352,12 @@ export default function AIProvidersPage() {
                 {p.notes && <div className="text-xs text-muted-foreground">{p.notes}</div>}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   <div className="md:col-span-2">
-                    <Label className="text-xs">API Key {p.provider_type === "lovable" && "(ใช้ LOVABLE_API_KEY จาก env)"}</Label>
+                    <Label className="text-xs">API Key {p.provider_type === "lovable" && "(โหมดเก่า — แนะนำให้เปลี่ยนเป็น OpenAI/Gemini/DeepSeek)"}</Label>
                     <div className="flex gap-2">
                       <Input
                         type="password"
                         defaultValue=""
-                        placeholder={p.provider_type === "lovable" ? "ไม่ต้องกรอก" : "•••••• (ปล่อยว่างเพื่อคงค่าเดิม)"}
-                        disabled={p.provider_type === "lovable"}
+                        placeholder={"•••••• (ปล่อยว่างเพื่อคงค่าเดิม)"}
                         onBlur={(e) => {
                           if (e.target.value) updateKey(p, e.target.value);
                         }}

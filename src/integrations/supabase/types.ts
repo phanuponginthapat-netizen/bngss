@@ -1110,40 +1110,52 @@ export type Database = {
       }
       app_user_connections: {
         Row: {
+          access_token: string | null
+          access_token_expires_at: string | null
           account_email: string | null
           account_name: string | null
+          auth_mode: string
           connected_at: string
-          connection_key: string
+          connection_key: string | null
           connector_id: string
-          external_user_id: string
+          external_user_id: string | null
           id: string
           last_used_at: string | null
+          refresh_token: string | null
           revoked_at: string | null
           scopes: string[] | null
           user_id: string
         }
         Insert: {
+          access_token?: string | null
+          access_token_expires_at?: string | null
           account_email?: string | null
           account_name?: string | null
+          auth_mode?: string
           connected_at?: string
-          connection_key: string
+          connection_key?: string | null
           connector_id: string
-          external_user_id: string
+          external_user_id?: string | null
           id?: string
           last_used_at?: string | null
+          refresh_token?: string | null
           revoked_at?: string | null
           scopes?: string[] | null
           user_id: string
         }
         Update: {
+          access_token?: string | null
+          access_token_expires_at?: string | null
           account_email?: string | null
           account_name?: string | null
+          auth_mode?: string
           connected_at?: string
-          connection_key?: string
+          connection_key?: string | null
           connector_id?: string
-          external_user_id?: string
+          external_user_id?: string | null
           id?: string
           last_used_at?: string | null
+          refresh_token?: string | null
           revoked_at?: string | null
           scopes?: string[] | null
           user_id?: string

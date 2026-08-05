@@ -6,6 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { callWithPool, type PoolProvider } from "./keyPool.ts";
 import { getSecret } from "./getSecret.ts";
 import { secretKeys } from "./secretKeys.ts";
+import { lovableFallbackEnabled, NO_LOVABLE_AI_MSG } from "./standalone.ts";
 
 export interface AIMessage {
   role: "system" | "user" | "assistant";
@@ -106,7 +107,11 @@ async function loadProviders(vision: boolean): Promise<ProviderRow[]> {
 }
 
 async function resolveApiKey(p: ProviderRow): Promise<string | undefined> {
-  if (p.provider_type === "lovable") return (await getSecret(secretKeys.lovable)) || undefined;
+  if (p.provider_type === "lovable") {
+    // Standalone: ไม่ใช้ Lovable AI เว้นแต่เปิด ALLOW_LOVABLE_FALLBACK
+    if (!lovableFallbackEnabled()) return undefined;
+    return (await getSecret(secretKeys.lovable)) || undefined;
+  }
   // For everything else, use the api_key column directly (admin pastes vendor key)
   if (p.api_key && p.api_key.trim()) return p.api_key.trim();
   // Optional env fallbacks for common providers
@@ -152,9 +157,9 @@ async function logUsage(opts: {
 export async function aiCall(opts: AICallOpts): Promise<AIResult> {
   let providers = await loadProviders(!!opts.vision);
 
-  // Hard fallback if DB empty or no providers configured
+  // Hard fallback if DB empty or no providers configured (Standalone: ไม่ใช้ Lovable AI)
   if (providers.length === 0) {
-    const lovableKey = await getSecret(secretKeys.lovable);
+    const lovableKey = lovableFallbackEnabled() ? await getSecret(secretKeys.lovable) : null;
     if (lovableKey) {
       providers = [{
         id: "default",
@@ -162,15 +167,16 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
         provider_type: "lovable",
         base_url: "https://ai.gateway.lovable.dev/v1/chat/completions",
         api_key: null,
-        model: opts.vision ? "google/gemini-2.5-pro" : "google/gemini-2.5-pro",
+        model: "google/gemini-2.5-pro",
         priority: 1,
         enabled: true,
         supports_vision: true,
+        supports_json: true,
+        monthly_call_limit: null,
         extra_headers: null,
       }];
-    } else {
-      throw new Error("No AI provider configured. Admin must add a provider in /dashboard/admin/ai-providers");
     }
+    // ถ้าไม่มี provider ใน DB เลย ให้ตกไปใช้ Key Pool ด้านล่าง (openai/gemini/groq/openrouter)
   }
 
   const errors: string[] = [];
@@ -198,7 +204,7 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
       };
       // OpenRouter recommends these
       if (p.provider_type === "openrouter") {
-        headers["HTTP-Referer"] = headers["HTTP-Referer"] || "https://lovable.dev";
+        headers["HTTP-Referer"] = headers["HTTP-Referer"] || (Deno.env.get("APP_URL") || "https://school.local");
         headers["X-Title"] = headers["X-Title"] || "School System";
       }
 
@@ -302,6 +308,7 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
         ? "ไม่มี AI provider ที่รองรับ Vision/OCR — admin ต้องเปิดใช้งาน provider ที่ supports_vision=true หรือเพิ่ม key ที่ /dashboard/admin/ai-key-pool"
         : "ไม่มี AI provider ที่เปิดใช้งานและมี API key — admin โปรดตั้งค่าที่ /dashboard/admin/ai-providers หรือ /dashboard/admin/ai-key-pool")
     : "All AI providers failed: " + errors.join(" | ");
+  if (errors.length === 0) console.warn(NO_LOVABLE_AI_MSG);
   throw new Error(hint);
 }
 

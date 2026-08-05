@@ -8,6 +8,7 @@
 //   }).then(r => r.blob()).then(b => URL.createObjectURL(b));
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { downloadFile } from "../_shared/googleDrive.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,18 +16,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Expose-Headers": "content-type, content-length",
 };
-
-const GATEWAY = "https://connector-gateway.lovable.dev/google_drive";
-
-function driveAuthHeaders() {
-  const lovable = Deno.env.get("LOVABLE_API_KEY");
-  const gdrive = Deno.env.get("GOOGLE_DRIVE_API_KEY");
-  if (!lovable || !gdrive) throw new Error("Google Drive connector env missing");
-  return {
-    Authorization: `Bearer ${lovable}`,
-    "X-Connection-Api-Key": gdrive,
-  };
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -62,10 +51,7 @@ Deno.serve(async (req) => {
 
     // ---- Google Drive path ----
     if (item.drive_file_id) {
-      const driveRes = await fetch(
-        `${GATEWAY}/drive/v3/files/${item.drive_file_id}?alt=media`,
-        { headers: driveAuthHeaders() },
-      );
+      const driveRes = await downloadFile(item.drive_file_id);
       if (!driveRes.ok) {
         const text = await driveRes.text().catch(() => "");
         console.error("[line-vault-stream drive]", driveRes.status, text);

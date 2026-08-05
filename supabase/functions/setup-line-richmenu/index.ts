@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders } from "../_shared/cors.ts";
+import { generateImage } from "../_shared/imageGen.ts";
 
 const SIZE = { width: 2500, height: 1686 };
 // 4 คอลัมน์ × 2 แถว = 8 เซลล์ต่อเมนู (LINE รองรับได้ถึง 20 areas)
@@ -130,34 +131,9 @@ const BG_PROMPTS: Record<string, string> = {
 };
 
 async function generateBgPng(role: string): Promise<Uint8Array | null> {
-  const key = Deno.env.get("LOVABLE_API_KEY");
-  if (!key) return null;
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${key}`,
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
-        messages: [{ role: "user", content: BG_PROMPTS[role] }],
-        modalities: ["image", "text"],
-      }),
-    });
-    if (!res.ok) {
-      console.error("AI bg gen failed", role, res.status, await res.text());
-      return null;
-    }
-    const j = await res.json();
-    const imgUrl: string | undefined = j.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    if (!imgUrl) return null;
-    if (imgUrl.startsWith("data:")) {
-      const b64 = imgUrl.split(",")[1];
-      return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-    }
-    const imgRes = await fetch(imgUrl);
-    return new Uint8Array(await imgRes.arrayBuffer());
+    const img = await generateImage(BG_PROMPTS[role] || BG_PROMPTS.default, { size: "1536x1024" });
+    return Uint8Array.from(atob(img.b64), (c) => c.charCodeAt(0));
   } catch (e) {
     console.error("AI bg gen error", role, e);
     return null;

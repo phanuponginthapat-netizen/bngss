@@ -1,5 +1,6 @@
 // Proxies Google Drive API v3 calls on behalf of the signed-in user.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { refreshAccessToken } from "../_shared/googleOauth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,7 +9,7 @@ const corsHeaders = {
 };
 
 const GATEWAY = "https://connector-gateway.lovable.dev";
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -18,6 +19,7 @@ function json(body: unknown, status = 200) {
 }
 
 function isMissingAppUserCredential(status: number, bodyText: string) {
+  if (status === 401) return true;
   return status === 401 && /App user credential not found|app_user_credential_missing/i.test(bodyText);
 }
 
@@ -35,13 +37,14 @@ Deno.serve(async (req) => {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: conn } = await admin
       .from("app_user_connections")
-      .select("connection_key")
+      .select("connection_key, auth_mode, refresh_token, access_token, access_token_expires_at")
       .eq("user_id", user.id)
       .eq("connector_id", "google_drive")
       .is("revoked_at", null)
       .maybeSingle();
 
-    if (!conn?.connection_key) {
+    const isNative = conn?.auth_mode === "google_oauth";
+    if (!conn || (isNative ? !conn.refresh_token && !conn.access_token : !conn.connection_key)) {
       return json({
         error: "not_connected",
         code: "GOOGLE_DRIVE_NOT_CONNECTED",
@@ -56,17 +59,48 @@ Deno.serve(async (req) => {
       return json({ error: "path required" }, 400);
     }
 
-    const baseUrl = upload_url
-      ? `${GATEWAY}/google_drive${upload_url}`
-      : `${GATEWAY}/google_drive/drive/v3${path}`;
+    // โหมด standalone: ต่อ Google API โดยตรงด้วย access token ของผู้ใช้
+    let nativeAccessToken: string | null = null;
+    if (isNative) {
+      const expMs = conn.access_token_expires_at ? Date.parse(conn.access_token_expires_at) : 0;
+      if (conn.access_token && expMs - 60_000 > Date.now()) {
+        nativeAccessToken = conn.access_token;
+      } else if (conn.refresh_token) {
+        try {
+          const t = await refreshAccessToken(conn.refresh_token);
+          nativeAccessToken = t.access_token;
+          await admin.from("app_user_connections").update({
+            access_token: t.access_token,
+            access_token_expires_at: new Date(Date.now() + (t.expires_in ?? 3600) * 1000).toISOString(),
+          }).eq("user_id", user.id).eq("connector_id", "google_drive");
+        } catch (e) {
+          console.error("refresh failed", e);
+          return json({
+            error: "app_user_credential_missing",
+            code: "APP_USER_CREDENTIAL_MISSING",
+            message: "การเชื่อม Google Drive หมดอายุ กรุณากดเชื่อมใหม่อีกครั้ง",
+            reconnect_required: true,
+          }, 428);
+        }
+      }
+      if (!nativeAccessToken) {
+        return json({ error: "not_connected", code: "GOOGLE_DRIVE_NOT_CONNECTED", reconnect_required: true }, 428);
+      }
+    }
+
+    const baseUrl = isNative
+      ? (upload_url ? `https://www.googleapis.com${upload_url}` : `https://www.googleapis.com/drive/v3${path}`)
+      : (upload_url ? `${GATEWAY}/google_drive${upload_url}` : `${GATEWAY}/google_drive/drive/v3${path}`);
     const url = new URL(baseUrl);
     Object.entries(query).forEach(([k, v]) => v != null && url.searchParams.set(k, String(v)));
 
-    const upstreamHeaders: Record<string, string> = {
-      "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-      "X-Connection-Api-Key": conn.connection_key,
-      ...headers,
-    };
+    const upstreamHeaders: Record<string, string> = isNative
+      ? { "Authorization": `Bearer ${nativeAccessToken}`, ...headers }
+      : {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "X-Connection-Api-Key": conn.connection_key as string,
+        ...headers,
+      };
 
     let finalBody: BodyInit | undefined;
     if (body_b64) {

@@ -51,6 +51,8 @@ interface ConnectionInfo {
 }
 
 interface AdminDriveStatus {
+  mode?: "google_oauth" | "gateway";
+  nativeOAuthConfigured?: boolean;
   clientConfigured: boolean;
   connectionKeySecretConfigured: boolean;
   lovableApiKeyConfigured: boolean;
@@ -353,7 +355,7 @@ export default function MyDrivePage() {
   };
 
   const copyCallbackUrl = async () => {
-    const callbackUrl = adminStatus?.callbackUrl ?? "https://connector-gateway.lovable.dev/api/v1/app-users/oauth2/callback";
+    const callbackUrl = adminStatus?.callbackUrl ?? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gdrive-connect-finish`;
     await navigator.clipboard.writeText(callbackUrl);
     toast.success("คัดลอก Callback URL แล้ว");
   };
@@ -475,7 +477,7 @@ export default function MyDrivePage() {
   const AdminSettingsCard = () => {
     if (!canManageDrive) return null;
     const allReady = !!adminStatus?.clientConfigured && !!adminStatus?.connectionKeySecretConfigured && !!adminStatus?.lovableApiKeyConfigured;
-    const callbackUrl = adminStatus?.callbackUrl ?? "https://connector-gateway.lovable.dev/api/v1/app-users/oauth2/callback";
+    const callbackUrl = adminStatus?.callbackUrl ?? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gdrive-connect-finish`;
 
     return (
       <Card className="p-6 space-y-5">
@@ -505,7 +507,7 @@ export default function MyDrivePage() {
         <div className="grid gap-3 md:grid-cols-3">
           <div className="rounded-lg border p-4 space-y-2">
             <KeyRound className="w-5 h-5 text-primary" />
-            <p className="font-medium">Client API Key</p>
+            <p className="font-medium">{adminStatus?.mode === "google_oauth" ? "Google OAuth Client" : "Client API Key"}</p>
             <Badge variant={adminStatus?.clientConfigured ? "default" : "destructive"}>
               {adminStatus?.clientConfigured ? "พร้อม" : "ยังไม่ตั้งค่า"}
             </Badge>
@@ -519,7 +521,7 @@ export default function MyDrivePage() {
           </div>
           <div className="rounded-lg border p-4 space-y-2">
             <ShieldCheck className="w-5 h-5 text-primary" />
-            <p className="font-medium">Gateway Access</p>
+            <p className="font-medium">{adminStatus?.mode === "google_oauth" ? "โหมดเชื่อมต่อ (ระบบของโรงเรียน)" : "Gateway Access"}</p>
             <Badge variant={adminStatus?.lovableApiKeyConfigured ? "default" : "destructive"}>
               {adminStatus?.lovableApiKeyConfigured ? "พร้อม" : "ยังไม่ตั้งค่า"}
             </Badge>

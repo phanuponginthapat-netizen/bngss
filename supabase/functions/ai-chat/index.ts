@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { aiCall, aiCouncil } from "../_shared/aiCall.ts";
 import { rateLimit } from "../_shared/rateLimit.ts";
+import { generateImage } from "../_shared/imageGen.ts";
 
 import { corsHeadersPost as corsHeaders } from "../_shared/cors.ts";
 
@@ -107,42 +108,12 @@ Deno.serve(async (req) => {
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // โหมดสร้างรูปภาพ — เรียก Lovable AI Gateway โดยตรง
+    // โหมดสร้างรูปภาพ — ใช้ผู้ให้บริการของโรงเรียนเอง (Standalone, ไม่ใช้ Lovable AI)
     if (mode === "image") {
-      const lovKey = Deno.env.get("LOVABLE_API_KEY");
-      if (!lovKey) {
-        return new Response(JSON.stringify({ error: "ไม่ได้ตั้งค่า LOVABLE_API_KEY" }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       try {
-        const r = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${lovKey}` },
-          body: JSON.stringify({
-            model: "openai/gpt-image-2",
-            prompt: lastUserMsg,
-            size: "1024x1024",
-            quality: "low",
-            n: 1,
-          }),
-        });
-        if (!r.ok) {
-          const t = await r.text();
-          return new Response(JSON.stringify({ error: `สร้างรูปไม่สำเร็จ: ${t.slice(0, 300)}` }), {
-            status: r.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        const data = await r.json();
-        const b64 = data?.data?.[0]?.b64_json || "";
-        if (!b64) {
-          return new Response(JSON.stringify({ error: "ไม่ได้รูปจากระบบ", raw: JSON.stringify(data).slice(0, 300) }), {
-            status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        const imgUrl = `data:image/png;base64,${b64}`;
-        const reply = `![generated](${imgUrl})`;
-        return new Response(JSON.stringify({ reply, image_url: imgUrl, provider: "lovable-image" }), {
+        const img = await generateImage(lastUserMsg);
+        const imgUrl = `data:image/png;base64,${img.b64}`;
+        return new Response(JSON.stringify({ reply: `![generated](${imgUrl})`, image_url: imgUrl, provider: img.provider }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } catch (e: any) {
@@ -385,34 +356,17 @@ ${strictNoAnswer ? `🚫 ผู้ใช้คนนี้เป็น **นั�
     // ---- Auto-generate illustrative image for student homework (concept, not answer) ----
     if (strictNoAnswer) {
       try {
-        const lovKey = Deno.env.get("LOVABLE_API_KEY");
-        if (lovKey) {
-          const promptGen = await aiCall({
-            messages: [
-              { role: "system", content: "Output 1-2 short English sentences (max 200 chars) describing an educational illustration that helps a child understand the CONCEPT of the problem WITHOUT revealing the final answer. Friendly cartoon whiteboard style, colorful, clear, no numerical answers, no text labels giving away the answer." },
-              { role: "user", content: `Student question: ${lastUserText.slice(0, 500)}\n\nTutor explanation: ${String(result.content || "").slice(0, 400)}\n\nImage prompt:` },
-            ],
-            temperature: 0.5, max_tokens: 120, functionName: "ai-chat-imgprompt",
-          });
-          const imgPrompt = String(promptGen.content || "").trim().slice(0, 400);
-          if (imgPrompt) {
-            const r = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${lovKey}` },
-              body: JSON.stringify({
-                model: "google/gemini-2.5-flash-image",
-                prompt: `Friendly cartoon educational illustration for a child, colorful whiteboard style, no answer text. ${imgPrompt}`,
-                n: 1,
-              }),
-            });
-            if (r.ok) {
-              const data = await r.json();
-              const b64 = data?.data?.[0]?.b64_json;
-              if (b64) {
-                (result as any).content = `${result.content}\n\n![ภาพประกอบช่วยเข้าใจ](data:image/png;base64,${b64})`;
-              }
-            }
-          }
+        const promptGen = await aiCall({
+          messages: [
+            { role: "system", content: "Output 1-2 short English sentences (max 200 chars) describing an educational illustration that helps a child understand the CONCEPT of the problem WITHOUT revealing the final answer. Friendly cartoon whiteboard style, colorful, clear, no numerical answers, no text labels giving away the answer." },
+            { role: "user", content: `Student question: ${lastUserText.slice(0, 500)}\n\nTutor explanation: ${String(result.content || "").slice(0, 400)}\n\nImage prompt:` },
+          ],
+          temperature: 0.5, max_tokens: 120, functionName: "ai-chat-imgprompt",
+        });
+        const imgPrompt = String(promptGen.content || "").trim().slice(0, 400);
+        if (imgPrompt) {
+          const img = await generateImage(`Friendly cartoon educational illustration for a child, colorful whiteboard style, no answer text. ${imgPrompt}`);
+          (result as any).content = `${result.content}\n\n![ภาพประกอบช่วยเข้าใจ](data:image/png;base64,${img.b64})`;
         }
       } catch (_) { /* image is optional */ }
     }
