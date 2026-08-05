@@ -40,7 +40,7 @@ function isAllowedReturnUrl(value: string) {
     if (!/^https?:$/.test(url.protocol)) return false;
     const hostname = url.hostname.toLowerCase();
     if (hostname === "localhost" || hostname === "127.0.0.1") return true;
-    if (hostname.endsWith(".lovable.app")) return true; // โดเมนที่ใช้โฮสต์หน้าเว็บปัจจุบัน
+    if (hostname.endsWith(".lovable.app") || hostname.endsWith(".lovableproject.com") || hostname.endsWith(".lovable.dev")) return true; // โดเมนที่ใช้โฮสต์หน้าเว็บ/พรีวิว
     return allowedOrigins().includes(url.origin);
   } catch {
     return false;

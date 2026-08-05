@@ -108,6 +108,8 @@ function sanitizeReturnUrl(value: string | null, fallbackOrigin: string) {
     const allowed = hostname === "localhost"
       || hostname === "127.0.0.1"
       || hostname.endsWith(".lovable.app")
+      || hostname.endsWith(".lovableproject.com")
+      || hostname.endsWith(".lovable.dev")
       || envOrigins.includes(url.origin);
     return allowed ? url.toString() : fallback;
   } catch {
