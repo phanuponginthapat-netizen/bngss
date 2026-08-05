@@ -11,7 +11,9 @@ const EXACT: Record<string, SecretGuide> = {
   // ============ AI (kept for compat, main list moved to AI Providers) ============
   OPENAI_API_KEY: { title: "OpenAI API Key", url: "https://platform.openai.com/api-keys", steps: ["เข้า platform.openai.com/api-keys", "Create new secret key", "คัดลอก sk-..."] },
   GEMINI_API_KEY: { title: "Google Gemini API Key", url: "https://aistudio.google.com/app/apikey", freeTier: "ฟรี Gemini 2.5 Flash 15 RPM", steps: ["เข้า aistudio.google.com/app/apikey", "Create API key"] },
-  LOVABLE_API_KEY: { title: "Lovable AI Gateway Key", steps: ["Lovable สร้างให้อัตโนมัติ", "ถ้าหาย: Project Settings → Lovable AI → Rotate"] },
+  GOOGLE_OAUTH_CLIENT_ID: { title: "Google OAuth Client ID", steps: ["เปิด Google Cloud Console → APIs & Services → Credentials", "สร้าง OAuth client ID (Web application)", "ใส่ Authorized redirect URI = {SUPABASE_URL}/functions/v1/gdrive-connect-finish"] },
+  GOOGLE_OAUTH_CLIENT_SECRET: { title: "Google OAuth Client Secret", steps: ["คัดลอกจาก OAuth client เดียวกันกับ Client ID"] },
+  GOOGLE_SERVICE_ACCOUNT_JSON: { title: "Google Service Account (สำหรับ Drive ระบบ)", steps: ["Google Cloud Console → IAM → Service Accounts", "สร้าง key แบบ JSON แล้ววางทั้งไฟล์", "แชร์โฟลเดอร์ Drive ให้อีเมล service account"] },
   GROQ_API_KEY: { title: "Groq API Key", url: "https://console.groq.com/keys", freeTier: "ฟรี rate-limited (llama-3.3-70b, mixtral)", steps: ["console.groq.com/keys", "Create API Key → gsk_..."] },
   OPENROUTER_API_KEY: { title: "OpenRouter API Key", url: "https://openrouter.ai/keys", freeTier: "ฟรีบาง model ที่ลงท้าย :free", steps: ["openrouter.ai/keys → Create Key"] },
 
