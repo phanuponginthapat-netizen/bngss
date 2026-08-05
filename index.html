@@ -111,8 +111,10 @@
         // (ถ้า fetch ช้าหรือค้าง หน้า loading จะไม่ค้างตาม เพราะ main.tsx โหลดขนานกัน)
         (function () {
           var CACHE_KEY = "cms_branding_cache";
-          var backendUrl = "%VITE_SUPABASE_URL%";
-          var publishableKey = "%VITE_SUPABASE_PUBLISHABLE_KEY%";
+          var __cfg = (window.__BNG_CONFIG__ || {});
+          try { var __ls = JSON.parse(localStorage.getItem("bng.backend.config") || "{}"); if (__ls && __ls.url) { __cfg = { SUPABASE_URL: __ls.url, SUPABASE_ANON_KEY: __ls.anonKey }; } } catch (e) {}
+          var backendUrl = __cfg.SUPABASE_URL || "%VITE_SUPABASE_URL%";
+          var publishableKey = __cfg.SUPABASE_ANON_KEY || "%VITE_SUPABASE_PUBLISHABLE_KEY%";
           var keys = [
             "app_name",
             "app_short_name",

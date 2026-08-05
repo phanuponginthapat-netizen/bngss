@@ -1,3 +1,4 @@
+import { getBackendConfig } from "@/lib/runtimeConfig";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -140,7 +141,7 @@ export async function applyDynamicBranding() {
     // — URL คงที่ (identity เสถียร, Android WebAPK ไม่ถอนติดตั้งเอง)
     // — เนื้อหา name/short_name/icons/theme_color เปลี่ยนตาม CMS
     // ส่ง ?origin= เพื่อให้ start_url/scope อยู่ same-origin กับหน้าเว็บตามสเปก PWA
-    const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL as string | undefined;
+    const supabaseUrl = getBackendConfig().url || ((import.meta as any).env?.VITE_SUPABASE_URL as string | undefined);
     if (supabaseUrl) {
       // URL คงที่ (ไม่มี cache-buster) เพื่อให้ Android WebAPK คง identity เดิมทุกครั้งที่เปิด
       const manifestUrl = `${supabaseUrl}/functions/v1/manifest?origin=${encodeURIComponent(window.location.origin)}`;
