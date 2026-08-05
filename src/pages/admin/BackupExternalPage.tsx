@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Database, RefreshCw, ShieldCheck, AlertTriangle, Copy, Download } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { getBackendConfig } from "@/lib/runtimeConfig";
 
 const CREATE_TABLE_SQL = `CREATE TABLE IF NOT EXISTS public.backup_snapshots (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -29,12 +30,12 @@ export default function BackupExternalPage() {
     setZipLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/backup-snapshot`;
+      const url = `${getBackendConfig().url}/functions/v1/backup-snapshot`;
       const res = await fetch(url, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${session?.access_token ?? ""}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          apikey: getBackendConfig().anonKey,
         },
       });
       if (!res.ok) {

@@ -9,7 +9,10 @@ import listEformsTool from "./tools/list-my-eforms";
 import listLeavesTool from "./tools/list-my-leaves";
 import listScheduleTool from "./tools/list-my-schedule";
 
-const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "project-ref-unset";
+// อ่านค่า backend ตอน runtime (Deno env ของ edge function) — ไม่ผูกกับ project ตอน build
+const backendUrl = (
+  (globalThis as any).Deno?.env?.get?.("SUPABASE_URL") ?? ""
+).replace(/\/+$/, "");
 
 export default defineMcp({
   name: "school-mcp",
@@ -21,7 +24,7 @@ export default defineMcp({
     "`list_my_eforms` / `list_my_leaves` / `list_my_schedule` for personal academic data. All results " +
     "are RLS-scoped to the signed-in user.",
   auth: auth.oauth.issuer({
-    issuer: `https://${projectRef}.supabase.co/auth/v1`,
+    issuer: `${backendUrl}/auth/v1`,
     acceptedAudiences: "authenticated",
   }),
   tools: [

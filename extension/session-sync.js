@@ -1,9 +1,41 @@
 // Runs on the school system pages — sync Supabase session into extension storage.
 (function () {
-  const REF = "dlkyxvhnnffblerwedjz";
-  const KEY = `sb-${REF}-auth-token`;
+  // ค้นหา backend จาก localStorage ของหน้าเว็บ (ไม่ hardcode project อีกต่อไป)
+  function detect() {
+    let ref = null, url = "", anon = "";
+    try {
+      const cfg = JSON.parse(localStorage.getItem("bng.backend.config") || "{}");
+      if (cfg.url) url = String(cfg.url).replace(/\/+$/, "");
+      if (cfg.anonKey) anon = cfg.anonKey;
+    } catch {}
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i) || "";
+      const m = k.match(/^sb-(.+)-auth-token$/);
+      if (m) { ref = m[1]; break; }
+    }
+    if (!url && ref) url = `https://${ref}.supabase.co`;
+    return { ref, url, anon };
+  }
+
+  let DET = detect();
+  let KEY = DET.ref ? `sb-${DET.ref}-auth-token` : "";
+  let SUPA_URL = DET.url;
+  let ANON = DET.anon;
+
+  // ดึง anon key จาก /app-config.js ของหน้าเว็บ (content script อ่าน window ของเพจไม่ได้)
+  async function loadConfig() {
+    try {
+      const txt = await (await fetch(`${location.origin}/app-config.js`, { cache: "no-store" })).text();
+      const u = txt.match(/SUPABASE_URL:\s*"([^"]+)"/);
+      const a = txt.match(/SUPABASE_ANON_KEY:\s*"([^"]+)"/);
+      if (u && u[1] && !DET.url) SUPA_URL = u[1].replace(/\/+$/, "");
+      if (a && a[1] && !ANON) ANON = a[1];
+    } catch {}
+  }
 
   function read() {
+    if (!KEY) { DET = detect(); KEY = DET.ref ? `sb-${DET.ref}-auth-token` : ""; SUPA_URL = SUPA_URL || DET.url; }
+    if (!KEY) return null;
     try {
       const raw = localStorage.getItem(KEY);
       if (!raw) return null;
@@ -15,8 +47,6 @@
     } catch { return null; }
   }
 
-  const SUPA_URL = `https://${REF}.supabase.co`;
-  const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4";
 
   async function fetchProfile(userId, token) {
     const out = { name: null, role: null };
@@ -60,6 +90,7 @@
     const prof = s.user?.id ? await fetchProfile(s.user.id, s.access_token) : { name: null, role: null };
     chrome.runtime.sendMessage({
       type: "SET_SESSION",
+      backend: { url: SUPA_URL, anonKey: ANON },
       systemHome: `${location.origin}/dashboard/browser`,
       session: {
         access_token: s.access_token,
@@ -71,7 +102,7 @@
     });
   }
 
-  push();
+  (async () => { await loadConfig(); push(); })();
   window.addEventListener("storage", (e) => { if (e.key === KEY) push(); });
   setInterval(push, 30 * 1000);
 

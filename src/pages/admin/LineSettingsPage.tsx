@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import LineQuotaCard from "@/components/line/LineQuotaCard";
 import RichMenuUploader from "@/components/line/RichMenuUploader";
+import { getBackendConfig } from "@/lib/runtimeConfig";
 
 const LINE_SETTINGS_KEYS = [
   "line_channel_access_token",
@@ -48,7 +49,7 @@ const LineSettingsPage = () => {
   const [useFlex, setUseFlex] = useState(true);
   const [linkedStats, setLinkedStats] = useState({ students: 0, staff: 0 });
 
-  const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/line-webhook`;
+  const webhookUrl = `${getBackendConfig().url}/functions/v1/line-webhook`;
 
   useEffect(() => {
     fetchSettings();

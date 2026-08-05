@@ -18,6 +18,7 @@ import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import JSZip from "jszip";
 import { Checkbox } from "@/components/ui/checkbox";
+import { getBackendConfig } from "@/lib/runtimeConfig";
 
 
 type Item = {
@@ -118,8 +119,8 @@ function formatBytes(n: number | null) {
 // to send Authorization headers. This works for Google Drive files too, which
 // can't be embedded via webContentLink from a private account.
 const _urlCache = new Map<string, { url: string; ts: number }>();
-const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string) || "";
-const SUPABASE_ANON = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || "";
+const SUPABASE_URL = getBackendConfig().url;
+const SUPABASE_ANON = getBackendConfig().anonKey;
 
 async function getSignedUrl(itemId: string): Promise<string | null> {
   const cached = _urlCache.get(itemId);
@@ -1091,7 +1092,7 @@ function GroupsManager({ groups, onChange }: { groups: Group[]; onChange: () => 
 }
 
 function VaultSettings() {
-  const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || "";
+  const SUPABASE_URL = getBackendConfig().url;
   const webhookUrl = `${SUPABASE_URL}/functions/v1/line-vault-webhook`;
   const [checking, setChecking] = useState(false);
   const [status, setStatus] = useState<{ token: boolean; webhook_ok?: boolean; error?: string; groups?: number; items?: number } | null>(null);

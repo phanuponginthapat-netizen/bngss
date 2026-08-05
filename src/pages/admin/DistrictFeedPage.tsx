@@ -13,8 +13,9 @@ import { Database, Key, Download, Copy, Trash2, Plus, FileJson, FileSpreadsheet,
 import { Switch } from "@/components/ui/switch";
 import { swal } from "@/lib/swal";
 import MapPicker from "@/components/MapPicker";
+import { getBackendConfig } from "@/lib/runtimeConfig";
 
-const FUNCTIONS_BASE = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1`;
+const FUNCTIONS_BASE = `${getBackendConfig().url}/functions/v1`;
 
 const fmt = (d: string | null) => (d ? new Date(d).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" }) : "-");
 
@@ -32,8 +33,8 @@ export default function DistrictFeedPage() {
   const [lat, setLat] = useState<string>("");
   const [lng, setLng] = useState<string>("");
 
-  const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID as string;
-  const supabaseUrl = `https://${projectRef}.supabase.co`;
+  const projectRef = getBackendConfig().projectId;
+  const supabaseUrl = getBackendConfig().url;
   const apiBaseUrl = `${supabaseUrl}/functions/v1/district-feed-api`;
 
   const viewKeyDetails = (k: any) => {
