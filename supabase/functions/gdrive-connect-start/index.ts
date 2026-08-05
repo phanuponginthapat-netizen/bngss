@@ -1,6 +1,9 @@
 // Starts the Google Drive App User OAuth flow.
 // Returns { authorize_url } that the frontend should redirect the user to.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { buildAuthorizeUrl, hasNativeGoogleOAuth, DRIVE_SCOPES } from "../_shared/googleOauth.ts";
+import { signState } from "../_shared/oauthState.ts";
+import { lovableFallbackEnabled, NO_LOVABLE_DRIVE_MSG } from "../_shared/standalone.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,8 +12,8 @@ const corsHeaders = {
 };
 
 const GATEWAY = "https://connector-gateway.lovable.dev";
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const CLIENT_API_KEY = Deno.env.get("GOOGLE_DRIVE_APP_USER_CONNECTOR_CLIENT_API_KEY")!;
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
+const CLIENT_API_KEY = Deno.env.get("GOOGLE_DRIVE_APP_USER_CONNECTOR_CLIENT_API_KEY") ?? "";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email",
@@ -36,8 +39,8 @@ function isAllowedReturnUrl(value: string) {
   }
 }
 
-async function signState(userId: string, returnUrl: string, expiresAt: string) {
-  const secret = Deno.env.get("CRON_SECRET") ?? Deno.env.get("LOVABLE_API_KEY") ?? "";
+async function signGatewayState(userId: string, returnUrl: string, expiresAt: string) {
+  const secret = Deno.env.get("CRON_SECRET") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(secret),
@@ -91,7 +94,23 @@ Deno.serve(async (req) => {
     finishUrl.searchParams.set("return_to", returnUrl);
     finishUrl.searchParams.set("lovable_app_user_id", user.id);
     finishUrl.searchParams.set("state_exp", stateExpiresAt);
-    finishUrl.searchParams.set("state_sig", await signState(user.id, returnUrl, stateExpiresAt));
+    finishUrl.searchParams.set("state_sig", await signGatewayState(user.id, returnUrl, stateExpiresAt));
+
+    // === Standalone: Google OAuth ของโรงเรียนเอง (ค่าเริ่มต้น) ===
+    if (await hasNativeGoogleOAuth()) {
+      const redirectUri = `${functionUrl.origin}/functions/v1/gdrive-connect-finish`;
+      const state = await signState({ u: user.id, r: returnUrl, e: Date.now() + 15 * 60 * 1000 });
+      const authorizeUrl = await buildAuthorizeUrl({ redirectUri, state, scopes: SCOPES, loginHint: user.email ?? undefined });
+      return new Response(JSON.stringify({ authorize_url: authorizeUrl, mode: "google_oauth" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!lovableFallbackEnabled() || !LOVABLE_API_KEY || !CLIENT_API_KEY) {
+      return new Response(JSON.stringify({ error: "google_oauth_not_configured", message: NO_LOVABLE_DRIVE_MSG }), {
+        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Ask gateway to start OAuth authorization for this app user.
     // Body/response shape mirrors documented gateway conventions.
