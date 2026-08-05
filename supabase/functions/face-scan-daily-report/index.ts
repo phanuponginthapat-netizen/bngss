@@ -124,7 +124,7 @@ serve(async (req) => {
       .select("setting_value")
       .eq("setting_key", "dashboard_base_url")
       .maybeSingle();
-    const baseUrl = ((urlSetting?.setting_value as string) || "https://smartbng.lovable.app").replace(/\/+$/, "");
+    const baseUrl = ((urlSetting?.setting_value as string) || Deno.env.get("PUBLIC_ORIGIN") || Deno.env.get("APP_URL") || "").replace(/\/+$/, "");
     const reportUrl = `${baseUrl}/dashboard/student/face-scan?date=${targetDate}`;
 
     let lineResult: any = { skipped: true };

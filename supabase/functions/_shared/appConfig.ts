@@ -29,9 +29,10 @@ export async function getPublicOrigin(): Promise<string> {
   if (env) return env.replace(/\/+$/, "");
   const cms = await readCms("public_origin");
   if (cms) return cms.replace(/\/+$/, "");
-  const projectId = Deno.env.get("SUPABASE_PROJECT_ID");
-  if (projectId) return `https://${projectId}.lovableproject.com`;
-  throw new Error("PUBLIC_ORIGIN is not configured (env or cms_settings.public_origin)");
+  // ไม่มี fallback ไปโดเมนของ Lovable — ต้องตั้ง PUBLIC_ORIGIN/APP_URL หรือ cms_settings.public_origin
+  const site = await readCms("site_url");
+  if (site) return site.replace(/\/+$/, "");
+  throw new Error("PUBLIC_ORIGIN is not configured (env APP_URL/PUBLIC_ORIGIN or cms_settings.public_origin)");
 }
 
 export async function getAdminEmail(): Promise<string> {
