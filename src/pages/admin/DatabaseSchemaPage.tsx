@@ -95,7 +95,7 @@ export default function DatabaseSchemaPage() {
               {[
                 { label: "SUPABASE_URL", value: PROJECT_URL },
                 { label: "SUPABASE_ANON_KEY", value: ANON_KEY },
-                { label: "PROJECT_ID", value: "dlkyxvhnnffblerwedjz" },
+                { label: "PROJECT_ID", value: RUNTIME.projectId || "" },
               ].map((row) => (
                 <div key={row.label} className="flex items-center gap-2">
                   <Badge variant="secondary" className="shrink-0 min-w-[170px] justify-start">{row.label}</Badge>
