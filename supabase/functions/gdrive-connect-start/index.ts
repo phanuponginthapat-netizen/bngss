@@ -3,7 +3,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { buildAuthorizeUrl, hasNativeGoogleOAuth } from "../_shared/googleOauth.ts";
 import { signState } from "../_shared/oauthState.ts";
-import { lovableFallbackEnabled, NO_LOVABLE_DRIVE_MSG } from "../_shared/standalone.ts";
+import { NO_LOVABLE_DRIVE_MSG } from "../_shared/standalone.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,9 +11,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const GATEWAY = "https://connector-gateway.lovable.dev";
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
-const CLIENT_API_KEY = Deno.env.get("GOOGLE_DRIVE_APP_USER_CONNECTOR_CLIENT_API_KEY") ?? "";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email",
@@ -106,40 +103,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!lovableFallbackEnabled() || !LOVABLE_API_KEY || !CLIENT_API_KEY) {
-      return new Response(JSON.stringify({ error: "google_oauth_not_configured", message: NO_LOVABLE_DRIVE_MSG }), {
-        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Ask gateway to start OAuth authorization for this app user.
-    // Body/response shape mirrors documented gateway conventions.
-    const authRes = await fetch(`${GATEWAY}/api/v1/app-users/oauth2/authorize`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "X-Client-Api-Key": CLIENT_API_KEY,
-      },
-      body: JSON.stringify({
-        connector_id: "google_drive",
-        app_user_id: user.id,
-        return_url: finishUrl.toString(),
-        credentials_configuration: { scopes: SCOPES },
-      }),
+    return new Response(JSON.stringify({ error: "google_oauth_not_configured", message: NO_LOVABLE_DRIVE_MSG }), {
+      status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
-    const text = await authRes.text();
-    if (!authRes.ok) {
-      console.error("gateway authorize failed", authRes.status, text);
-      return new Response(JSON.stringify({ error: "gateway_error", status: authRes.status, details: text }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-    const data = JSON.parse(text);
-    const authorizeUrl = data.authorize_url ?? data.authorization_url ?? data.url;
-    if (!authorizeUrl) {
-      return new Response(JSON.stringify({ error: "no_authorize_url", raw: data }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-    return new Response(JSON.stringify({ authorize_url: authorizeUrl, raw: data }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
