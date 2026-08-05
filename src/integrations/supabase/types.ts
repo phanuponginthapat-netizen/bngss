@@ -16101,6 +16101,7 @@ export type Database = {
           weight: number
         }[]
       }
+      mig_dump_auth: { Args: { _table: string }; Returns: Json }
       normalize_thai_teacher_name: { Args: { input: string }; Returns: string }
       notify_activity_participants_tomorrow: { Args: never; Returns: undefined }
       notify_admins: {
