@@ -160,7 +160,52 @@ Deno.serve(async (req) => {
     }
   }
 
+  // ---------- STEP 3c: Jobs (pg_cron schedules)
+  if (zip.files["cron-jobs.json"]) {
+    try {
+      const payload = JSON.parse(await zip.files["cron-jobs.json"].async("string"));
+      const count = payload?.jobs?.length ?? 0;
+      if (dryRun) {
+        steps.push({ step: "cron-jobs", dry: true, jobs: count });
+      } else {
+        const { data, error } = await admin.rpc("import_cron_jobs", { _payload: payload });
+        if (error) throw error;
+        steps.push({ step: "cron-jobs", ok: true, jobs: count, ...(data as any) });
+      }
+    } catch (e: any) {
+      errors.push({ step: "cron-jobs", error: e.message });
+    }
+  }
+
+  // ---------- STEP 3d: Secrets → app_secrets (edge env secrets still need `supabase secrets set`)
+  if (zip.files["secrets.json"]) {
+    try {
+      const payload = JSON.parse(await zip.files["secrets.json"].async("string"));
+      const secrets: Record<string, string> = payload?.secrets || {};
+      const keys = Object.keys(secrets);
+      if (dryRun || keys.length === 0) {
+        steps.push({
+          step: "secrets",
+          dry: dryRun,
+          names: payload?.names?.length ?? 0,
+          with_values: !!payload?.with_values,
+          note: payload?.with_values
+            ? "ค่าจะถูกเขียนลง app_secrets และต้องรัน set-secrets.sh เพื่อตั้งใน edge functions"
+            : "ไฟล์สำรองเก็บเฉพาะชื่อ secret (ไม่ได้ติ๊กรวมค่า)",
+        });
+      } else {
+        const rows = keys.map((k) => ({ key: k, value: secrets[k] }));
+        const { error } = await admin.from("app_secrets").upsert(rows, { onConflict: "key" });
+        if (error) throw error;
+        steps.push({ step: "secrets", ok: true, count: rows.length });
+      }
+    } catch (e: any) {
+      errors.push({ step: "secrets", error: e.message });
+    }
+  }
+
   // ---------- STEP 3b: dry-run preflight — verify the target env can actually restore
+
   if (dryRun) {
     const { error: rpcErr } = await admin.rpc("exec_restore_sql", { _sql: "select 1" });
     steps.push({ step: "preflight: exec_restore_sql", ok: !rpcErr, ...(rpcErr ? { error: rpcErr.message } : {}) });

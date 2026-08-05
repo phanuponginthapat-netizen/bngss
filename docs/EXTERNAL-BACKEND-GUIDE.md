@@ -57,3 +57,19 @@ supabase functions deploy                    # deploy edge functions ทั้�
 - `supabase-config.toml`, `RESTORE.md`, `restore.sh`
 
 กู้คืน: `/setup` → เลือก ZIP → "เริ่มติดตั้งอัตโนมัติ" หรือแท็บกู้คืนใน Backup Center
+
+## 5. Full Backup ครอบคลุมทุกหัวข้อใน Cloud
+
+| หัวข้อใน Cloud | ไฟล์ในไฟล์สำรอง |
+|---|---|
+| Database | `schema.sql`, `extras.sql`, `tables/*.json`, `migrations/*.sql` |
+| Users | `auth-users.json` (พร้อม password hash เดิม) |
+| Storage | `buckets.json`, `storage-policies.sql`, `storage/<bucket>/<path>` |
+| Secrets | `secrets.json` (+ `set-secrets.sh` สำหรับตั้งค่าที่ปลายทาง) |
+| Jobs | `cron-jobs.json` (กู้คืนอัตโนมัติผ่าน `import_cron_jobs`) |
+| Edge functions | `edge-functions/**` (โค้ดจริง) + `edge-functions.json` |
+
+การกู้คืนจะทำตามลำดับ: schema → buckets/policies → auth users → **Jobs** → **Secrets** → ข้อมูลตาราง → ไฟล์ storage
+
+> ⚠️ ติ๊ก "รวมค่า Secrets" ก่อนดาวน์โหลดถ้าต้องการย้ายแบบใช้งานต่อได้ทันที — ไฟล์ ZIP จะมี API keys อยู่ข้างใน ต้องเก็บให้ปลอดภัย
+> ค่า secret ของ edge functions ตั้งได้ด้วย `bash set-secrets.sh` (ต้องมี Supabase CLI) หรือใส่ใน `.env` ของ docker สำหรับ self-hosted

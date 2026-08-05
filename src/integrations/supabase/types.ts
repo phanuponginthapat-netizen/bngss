@@ -15616,6 +15616,7 @@ export type Database = {
       ensure_default_app_secrets: { Args: never; Returns: undefined }
       exec_restore_sql: { Args: { _sql: string }; Returns: undefined }
       export_auth_users: { Args: never; Returns: Json }
+      export_cron_jobs: { Args: never; Returns: Json }
       export_extras_sql: { Args: never; Returns: string }
       export_schema_sql: { Args: never; Returns: string }
       export_storage_buckets: { Args: never; Returns: Json }
@@ -15939,6 +15940,7 @@ export type Database = {
         Returns: string[]
       }
       import_auth_users: { Args: { _payload: Json }; Returns: Json }
+      import_cron_jobs: { Args: { _payload: Json }; Returns: Json }
       is_admin_or_director: { Args: { _user_id?: string }; Returns: boolean }
       is_budget_planner: { Args: { _user_id: string }; Returns: boolean }
       is_chat_admin: {

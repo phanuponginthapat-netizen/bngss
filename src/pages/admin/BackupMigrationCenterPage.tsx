@@ -52,9 +52,11 @@ export default function BackupMigrationCenterPage() {
   const [dryRun, setDryRun] = useState(true);
   const [withSchema, setWithSchema] = useState(true);
   const [withUsers, setWithUsers] = useState(true);
+  const [withSecrets, setWithSecrets] = useState(true);
   const [targetUrl, setTargetUrl] = useState("");
   const [targetRef, setTargetRef] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+
 
   const callFn = async (qs: string): Promise<Response> => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -70,7 +72,7 @@ export default function BackupMigrationCenterPage() {
     try {
       // 1) Full tables + restore kit + storage manifest
       setOneClickProgress({ pct: 5, label: "กำลังดึงข้อมูลทุกตาราง..." });
-      const fullRes = await callFn("mode=full");
+      const fullRes = await callFn(`mode=full${withSecrets ? "&secrets=1" : ""}`);
       if (!fullRes.ok) throw new Error(`tables: ${await fullRes.text()}`);
       const fullZipBytes = new Uint8Array(await fullRes.arrayBuffer());
       const inner = await JSZip.loadAsync(fullZipBytes);
@@ -167,7 +169,10 @@ export default function BackupMigrationCenterPage() {
     setDownloading(key);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const qs = mode === "storage" ? `mode=storage&bucket=${encodeURIComponent(bucket!)}` : `mode=${mode}`;
+      const qs =
+        mode === "storage"
+          ? `mode=storage&bucket=${encodeURIComponent(bucket!)}`
+          : `mode=${mode}${mode === "full" && withSecrets ? "&secrets=1" : ""}`;
       const res = await fetch(`${SUPABASE_URL}/functions/v1/system-backup?${qs}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${session?.access_token ?? ""}`, apikey: ANON },
@@ -339,15 +344,26 @@ curl -X POST "$SUPABASE_URL/functions/v1/system-restore?truncate=1" \\
               <CardDescription>
                 ZIP เดียวรวม: schema.sql (ตาราง/FK/RLS/policy/ฟังก์ชัน/ทริกเกอร์/สิทธิ์) + storage-policies.sql
                 + buckets.json + auth-users.json (ผู้ใช้ + รหัสผ่านเดิม) + edge-functions.json
+                + cron-jobs.json (Jobs ตามเวลา) + secrets.json + set-secrets.sh
                 + ข้อมูลทุกตาราง (JSON) + รายการไฟล์ storage + สคริปต์ restore + คู่มือภาษาไทย
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
+              <label className="flex items-start gap-2 text-sm">
+                <Checkbox checked={withSecrets} onCheckedChange={(v) => setWithSecrets(!!v)} />
+                <span>
+                  รวม<strong>ค่า</strong> Secrets ลงในไฟล์สำรอง (API keys, tokens)
+                  <span className="block text-xs text-muted-foreground">
+                    ⚠️ ไฟล์จะมีข้อมูลลับ เก็บในที่ปลอดภัย — ถ้าไม่ติ๊กจะเก็บเฉพาะรายชื่อ secret
+                  </span>
+                </span>
+              </label>
               <Button size="lg" onClick={() => download("full")} disabled={downloading === "full"}>
                 <Download className={`h-4 w-4 mr-2 ${downloading === "full" ? "animate-pulse" : ""}`} />
                 {downloading === "full" ? "กำลังสร้างไฟล์..." : "ดาวน์โหลด Full Backup"}
               </Button>
             </CardContent>
+
           </Card>
 
           <Card>
