@@ -456,27 +456,6 @@ function callGemini(key: string, b64: string) {
   });
 }
 
-function callLovableGateway(key: string, b64: string) {
-  return fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": key },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "วิเคราะห์ทุกช่องในฟอร์ม PDF นี้" },
-            { type: "file", file: { filename: "template.pdf", file_data: `data:application/pdf;base64,${b64}` } },
-          ],
-        },
-      ],
-      response_format: { type: "json_object" },
-    }),
-  });
-}
-
 function normalizeOpenAIModel(model: string | null | undefined) {
   const m = String(model || DEFAULT_OPENAI_MODEL).trim();
   const normalized = m.startsWith("openai/") ? m.slice("openai/".length) : m;
