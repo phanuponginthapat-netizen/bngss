@@ -51,19 +51,27 @@ serve(async (req) => {
 
     // Prefer Google Drive
     if (item.drive_file_id) {
-      const { getDownloadInfo } = await import("../_shared/googleDrive.ts");
-      const info = await getDownloadInfo(item.drive_file_id);
-      const url = info?.webContentLink || info?.webViewLink || item.drive_web_view_link;
-      if (!url) throw new Error("ไม่พบลิงก์ใน Google Drive");
-      return new Response(JSON.stringify({
-        url,
-        provider: "google_drive",
-        filename: item.original_filename,
-        mime_type: item.mime_type,
-        kind: item.kind,
-        title: item.title,
-      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      let url: string | null = item.drive_web_view_link ?? null;
+      try {
+        const { getDownloadInfo } = await import("../_shared/googleDrive.ts");
+        const info = await getDownloadInfo(item.drive_file_id);
+        url = info?.webContentLink || info?.webViewLink || url;
+      } catch (driveErr) {
+        console.error("[line-vault-download drive]", (driveErr as any)?.message || driveErr);
+      }
+      if (url) {
+        return new Response(JSON.stringify({
+          url,
+          provider: "google_drive",
+          filename: item.original_filename,
+          mime_type: item.mime_type,
+          kind: item.kind,
+          title: item.title,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (!item.storage_path) throw new Error("ไม่พบลิงก์ใน Google Drive (ยังไม่ได้เชื่อมบัญชี Google Drive ของระบบ)");
     }
+
 
     // Fallback: legacy Supabase storage
     if (!item.storage_path) {
