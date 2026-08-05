@@ -348,12 +348,22 @@ curl -X POST "$SUPABASE_URL/functions/v1/system-restore?truncate=1" \\
                 + ข้อมูลทุกตาราง (JSON) + รายการไฟล์ storage + สคริปต์ restore + คู่มือภาษาไทย
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
+              <label className="flex items-start gap-2 text-sm">
+                <Checkbox checked={withSecrets} onCheckedChange={(v) => setWithSecrets(!!v)} />
+                <span>
+                  รวม<strong>ค่า</strong> Secrets ลงในไฟล์สำรอง (API keys, tokens)
+                  <span className="block text-xs text-muted-foreground">
+                    ⚠️ ไฟล์จะมีข้อมูลลับ เก็บในที่ปลอดภัย — ถ้าไม่ติ๊กจะเก็บเฉพาะรายชื่อ secret
+                  </span>
+                </span>
+              </label>
               <Button size="lg" onClick={() => download("full")} disabled={downloading === "full"}>
                 <Download className={`h-4 w-4 mr-2 ${downloading === "full" ? "animate-pulse" : ""}`} />
                 {downloading === "full" ? "กำลังสร้างไฟล์..." : "ดาวน์โหลด Full Backup"}
               </Button>
             </CardContent>
+
           </Card>
 
           <Card>
