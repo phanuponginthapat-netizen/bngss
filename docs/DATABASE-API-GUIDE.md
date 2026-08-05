@@ -7,9 +7,9 @@
 ## 🔑 1. Credentials (ใช้ค่าปัจจุบันของโปรเจค)
 
 ```env
-SUPABASE_URL=https://dlkyxvhnnffblerwedjz.supabase.co
+SUPABASE_URL=https://gwmszzoqqxmejefhayqf.supabase.co
 SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4
-PROJECT_ID=dlkyxvhnnffblerwedjz
+PROJECT_ID=gwmszzoqqxmejefhayqf
 ```
 
 > `anon key` เป็น publishable key ปลอดภัยที่จะฝังใน client ได้ (RLS จะบังคับสิทธิ์อีกชั้น)
@@ -25,7 +25,7 @@ https://<PROJECT>.supabase.co/rest/v1/<table_name>?select=*
 
 ### ตัวอย่าง cURL — ดึงข้อมูลนักเรียน
 ```bash
-curl "https://dlkyxvhnnffblerwedjz.supabase.co/rest/v1/students?select=id,first_name,last_name&limit=10" \
+curl "https://gwmszzoqqxmejefhayqf.supabase.co/rest/v1/students?select=id,first_name,last_name&limit=10" \
   -H "apikey: $SUPABASE_ANON_KEY" \
   -H "Authorization: Bearer $USER_JWT"
 ```
@@ -46,7 +46,7 @@ curl "https://dlkyxvhnnffblerwedjz.supabase.co/rest/v1/students?select=id,first_
 
 ### วิธี A: Login ด้วย Email/Password
 ```bash
-curl -X POST "https://dlkyxvhnnffblerwedjz.supabase.co/auth/v1/token?grant_type=password" \
+curl -X POST "https://gwmszzoqqxmejefhayqf.supabase.co/auth/v1/token?grant_type=password" \
   -H "apikey: $SUPABASE_ANON_KEY" \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@school.com","password":"Admin@2026"}'
@@ -119,7 +119,7 @@ Endpoint: `https://<PROJECT>.supabase.co/functions/v1/<function-name>`
 ### Google Sheets (Apps Script)
 ```javascript
 function getStudents() {
-  const url = 'https://dlkyxvhnnffblerwedjz.supabase.co/rest/v1/students?select=*&limit=100'
+  const url = 'https://gwmszzoqqxmejefhayqf.supabase.co/rest/v1/students?select=*&limit=100'
   const res = UrlFetchApp.fetch(url, {
     headers: { apikey: 'ANON_KEY', Authorization: 'Bearer USER_JWT' }
   })
@@ -131,7 +131,7 @@ function getStudents() {
 ```python
 import requests
 r = requests.get(
-  "https://dlkyxvhnnffblerwedjz.supabase.co/rest/v1/attendance",
+  "https://gwmszzoqqxmejefhayqf.supabase.co/rest/v1/attendance",
   headers={"apikey": ANON_KEY, "Authorization": f"Bearer {jwt}"},
   params={"select": "*", "date": "eq.2026-07-23"}
 )
