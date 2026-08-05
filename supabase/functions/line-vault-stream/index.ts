@@ -49,28 +49,39 @@ Deno.serve(async (req) => {
       ? `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`
       : `inline; filename*=UTF-8''${encodeURIComponent(filename)}`;
 
+    const admin = createClient(SUPABASE_URL, SERVICE);
+
     // ---- Google Drive path ----
     if (item.drive_file_id) {
-      const driveRes = await downloadFile(item.drive_file_id);
-      if (!driveRes.ok) {
+      let driveRes: Response | null = null;
+      try {
+        driveRes = await downloadFile(item.drive_file_id);
+      } catch (driveErr) {
+        console.error("[line-vault-stream drive unavailable]", (driveErr as any)?.message || driveErr);
+      }
+      if (driveRes?.ok) {
+        const headers = new Headers(corsHeaders);
+        headers.set("Content-Type", item.mime_type || driveRes.headers.get("content-type") || "application/octet-stream");
+        const len = driveRes.headers.get("content-length");
+        if (len) headers.set("Content-Length", len);
+        headers.set("Content-Disposition", disposition);
+        headers.set("Cache-Control", "private, max-age=3600");
+        return new Response(driveRes.body, { status: 200, headers });
+      }
+      if (driveRes) {
         const text = await driveRes.text().catch(() => "");
         console.error("[line-vault-stream drive]", driveRes.status, text);
-        return new Response("drive_fetch_failed", { status: 502, headers: corsHeaders });
       }
-      const headers = new Headers(corsHeaders);
-      headers.set("Content-Type", item.mime_type || driveRes.headers.get("content-type") || "application/octet-stream");
-      const len = driveRes.headers.get("content-length");
-      if (len) headers.set("Content-Length", len);
-      headers.set("Content-Disposition", disposition);
-      headers.set("Cache-Control", "private, max-age=3600");
-      return new Response(driveRes.body, { status: 200, headers });
+      // ตกลงมาใช้ไฟล์สำเนาใน Supabase Storage ถ้ามี
+      if (!item.storage_path) {
+        return new Response("drive_unavailable", { status: 502, headers: corsHeaders });
+      }
     }
 
-    // ---- Supabase Storage fallback ----
+    // ---- Supabase Storage ----
     if (!item.storage_path) {
       return new Response("no_file", { status: 404, headers: corsHeaders });
     }
-    const admin = createClient(SUPABASE_URL, SERVICE);
     const { data: blob, error: dlErr } = await admin.storage
       .from("line-vault")
       .download(item.storage_path);
@@ -83,6 +94,7 @@ Deno.serve(async (req) => {
     headers.set("Content-Disposition", disposition);
     headers.set("Cache-Control", "private, max-age=3600");
     return new Response(blob.stream(), { status: 200, headers });
+
   } catch (e: any) {
     console.error("[line-vault-stream]", e);
     return new Response(e?.message || "internal error", { status: 500, headers: corsHeaders });

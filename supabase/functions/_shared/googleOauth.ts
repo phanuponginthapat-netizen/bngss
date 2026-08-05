@@ -180,17 +180,38 @@ export async function getServiceAccountToken(scopes = ["https://www.googleapis.c
 
 let sysCache: { token: string; exp: number } | null = null;
 
+/** refresh token สำรองจากบัญชี Google Drive ที่ผู้ดูแลเชื่อมไว้ในระบบ (ตาราง app_user_connections) */
+async function driveRefreshTokenFromDb(): Promise<string | null> {
+  try {
+    const url = Deno.env.get("SUPABASE_URL");
+    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!url || !key) return null;
+    const res = await fetch(
+      `${url}/rest/v1/app_user_connections?select=refresh_token&connector_id=eq.google_drive&revoked_at=is.null&refresh_token=not.is.null&order=connected_at.desc&limit=1`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return rows?.[0]?.refresh_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Access token สำหรับงานระบบ (service account ก่อน แล้วค่อย refresh token กลาง) */
 export async function getSystemDriveToken(): Promise<string | null> {
   if (sysCache && sysCache.exp > Date.now() + 60_000) return sysCache.token;
   const sa = await getServiceAccountToken();
   if (sa) return sa;
-  const refresh = (await env("GOOGLE_DRIVE_REFRESH_TOKEN")) || (await env("GOOGLE_REFRESH_TOKEN"));
+  const refresh = (await env("GOOGLE_DRIVE_REFRESH_TOKEN")) ||
+    (await env("GOOGLE_REFRESH_TOKEN")) ||
+    (await driveRefreshTokenFromDb());
   if (!refresh) return null;
   const t = await refreshAccessToken(refresh);
   sysCache = { token: t.access_token, exp: Date.now() + (t.expires_in ?? 3600) * 1000 };
   return t.access_token;
 }
+
 
 export async function hasNativeSystemDrive(): Promise<boolean> {
   try {

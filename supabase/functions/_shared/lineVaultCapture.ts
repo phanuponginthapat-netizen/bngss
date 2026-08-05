@@ -169,35 +169,55 @@ export async function captureLineGroupEvent(
       let driveWebViewLink: string | null = null;
       let storagePath: string | null = null;
 
+      // ใช้ Google Drive เฉพาะเมื่อมีคีย์ระบบจริง ๆ ไม่งั้นเก็บลง Supabase Storage ทันที
+      let driveReady = false;
       try {
-        const { ensureFolderPath, ensureFolder, uploadFile } = await import("./googleDrive.ts");
-        const folderName = (grp.group_name || `group-${groupId.slice(0, 8)}`).replace(/[\\/]/g, "-");
-        let parent: string;
-        if (grp.drive_root_folder_id) {
-          const yearFolder = await ensureFolder(String(y), grp.drive_root_folder_id);
-          parent = await ensureFolder(m, yearFolder);
-        } else {
-          parent = await ensureFolderPath(["LineVault", String(y), folderName, m]);
-        }
-        const uploaded = await uploadFile(`${msg.id}.${ext}`, content.mime, content.data, parent);
-        driveFileId = uploaded.id;
-        driveWebViewLink = uploaded.webViewLink || null;
-        if (!grp.drive_folder_id) {
-          await sb.from("line_vault_groups").update({ drive_folder_id: parent }).eq("id", grp.id);
-        }
-      } catch (driveErr) {
-        console.error("[vault drive upload failed, fallback to bucket]", (driveErr as any)?.message || driveErr);
+        const { hasNativeSystemDrive } = await import("./googleOauth.ts");
+        driveReady = await hasNativeSystemDrive();
+      } catch (_) { driveReady = false; }
+
+      const saveToBucket = async () => {
         const path = `${y}/${m}/${groupId}/${msg.id}.${ext}`;
         const { error: upErr } = await sb.storage.from("line-vault").upload(path, content.data, {
-          contentType: content.mime, upsert: false,
+          contentType: content.mime, upsert: true,
         });
         if (upErr && !`${upErr.message}`.toLowerCase().includes("exists")) {
           console.error("[vault upload]", upErr);
+          return null;
+        }
+        return path;
+      };
+
+      if (driveReady) {
+        try {
+          const { ensureFolderPath, ensureFolder, uploadFile } = await import("./googleDrive.ts");
+          const folderName = (grp.group_name || `group-${groupId.slice(0, 8)}`).replace(/[\\/]/g, "-");
+          let parent: string;
+          if (grp.drive_root_folder_id) {
+            const yearFolder = await ensureFolder(String(y), grp.drive_root_folder_id);
+            parent = await ensureFolder(m, yearFolder);
+          } else {
+            parent = await ensureFolderPath(["LineVault", String(y), folderName, m]);
+          }
+          const uploaded = await uploadFile(`${msg.id}.${ext}`, content.mime, content.data, parent);
+          driveFileId = uploaded.id;
+          driveWebViewLink = uploaded.webViewLink || null;
+          if (!grp.drive_folder_id) {
+            await sb.from("line_vault_groups").update({ drive_folder_id: parent }).eq("id", grp.id);
+          }
+        } catch (driveErr) {
+          console.error("[vault drive upload failed, fallback to bucket]", (driveErr as any)?.message || driveErr);
+        }
+      }
+
+      if (!driveFileId) {
+        storagePath = await saveToBucket();
+        if (!storagePath) {
           await sb.from("line_vault_items").delete().eq("id", rowId);
           return { captured: false, reason: "upload_failed" };
         }
-        storagePath = path;
       }
+
 
       const { error: updErr } = await sb.from("line_vault_items").update({
         storage_path: storagePath,
