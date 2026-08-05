@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
 
     const { hasNativeGoogleOAuth } = await import("../_shared/googleOauth.ts");
     const nativeOAuth = await hasNativeGoogleOAuth();
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseUrl = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/+$/, "");
 
     return json({
       mode: nativeOAuth ? "google_oauth" : "not_configured",

@@ -157,9 +157,9 @@ Deno.serve(async (req) => {
     const code = url.searchParams.get("code");
     if (!code) return nativeBack("error:no_code");
     try {
-      const { getSecret } = await import("../_shared/getSecret.ts");
-      const overrideRedirect = (await getSecret("GOOGLE_OAUTH_REDIRECT_URI")) || Deno.env.get("GOOGLE_OAUTH_REDIRECT_URI");
-      const redirectUri = (overrideRedirect || `${url.origin}${url.pathname}`).trim();
+      // ต้องตรงกับ redirect_uri ที่ gdrive-connect-start ส่งให้ Google แบบ byte-for-byte
+      const backendUrl = (Deno.env.get("SUPABASE_URL") || url.origin).replace(/\/+$/, "");
+      const redirectUri = `${backendUrl}/functions/v1/gdrive-connect-finish`;
       const tokens = await googleExchangeCode(code, redirectUri);
       const info = await fetchGoogleUserInfo(tokens.access_token);
       const admin = createClient(

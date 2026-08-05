@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { KeyRound, Save, Eye, EyeOff } from "lucide-react";
+import { KeyRound, Save, Eye, EyeOff, Clipboard } from "lucide-react";
 import { toast } from "sonner";
+import { getBackendConfig } from "@/lib/runtimeConfig";
 
 const KEYS = {
   id: "GOOGLE_OAUTH_CLIENT_ID",
@@ -21,6 +22,7 @@ type MetaRow = { key: string; has_value?: boolean | null };
  * Edge Functions อ่านผ่าน getSecret() → DB ก่อน แล้วค่อย fallback env
  */
 export default function DriveOAuthCredentialsCard({ onSaved }: { onSaved?: () => void }) {
+  const callbackUrl = `${getBackendConfig().url}/functions/v1/gdrive-connect-finish`;
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const [showSecret, setShowSecret] = useState(false);
@@ -77,6 +79,28 @@ export default function DriveOAuthCredentialsCard({ onSaved }: { onSaved?: () =>
         กรอกค่าจาก Google Cloud Console → Credentials → OAuth client ID (Web application)
         ระบบจะเก็บไว้ในฐานข้อมูลของโรงเรียน ไม่ได้เขียนตายตัวไว้ในโค้ด
       </p>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="g-callback-url">Authorized redirect URI (ต้องตรงทุกตัวอักษร)</Label>
+        <div className="flex gap-2">
+          <Input id="g-callback-url" value={callbackUrl} readOnly className="font-mono text-xs" />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            title="คัดลอก Redirect URI"
+            onClick={async () => {
+              await navigator.clipboard.writeText(callbackUrl);
+              toast.success("คัดลอก Redirect URI แล้ว");
+            }}
+          >
+            <Clipboard className="w-4 h-4" />
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          นำ URL นี้ไปเพิ่มใน Google Cloud Console → OAuth client → Authorized redirect URIs ห้ามมี / ต่อท้าย
+        </p>
+      </div>
 
       <div className="flex flex-wrap gap-2">
         <Badge variant={status[KEYS.id] ? "default" : "secondary"}>
