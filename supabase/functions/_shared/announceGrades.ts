@@ -42,7 +42,7 @@ export async function announceGrades(opts: AnnounceGradesOptions) {
   const codes = consolidated.map((s) => String(s.studentCode)).filter(Boolean);
   const { data: students } = await admin
     .from("students")
-    .select("id, student_code, auth_user_id")
+    .select("id, student_code, auth_user_id, parent_user_id, parent_user_id_2")
     .in("student_code", codes);
   const codeToStudent = new Map<string, { id: string; uid: string | null }>();
   for (const s of students || []) {
@@ -53,15 +53,10 @@ export async function announceGrades(opts: AnnounceGradesOptions) {
   }
 
   // Parent links
-  const studentIds = Array.from(codeToStudent.values()).map((s) => s.id);
-  const { data: parentLinks } = studentIds.length
-    ? await admin.from("parent_student_links").select("student_id, parent_user_id").in("student_id", studentIds)
-    : { data: [] as any[] };
   const studentIdToParents = new Map<string, string[]>();
-  for (const pl of parentLinks || []) {
-    const arr = studentIdToParents.get((pl as any).student_id) || [];
-    arr.push((pl as any).parent_user_id);
-    studentIdToParents.set((pl as any).student_id, arr);
+  for (const s of students || []) {
+    const parents = [(s as any).parent_user_id, (s as any).parent_user_id_2].filter(Boolean) as string[];
+    if (parents.length) studentIdToParents.set((s as any).id, parents);
   }
 
   const msg = opts.buildMessage(file);

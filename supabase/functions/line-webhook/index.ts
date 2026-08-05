@@ -1314,7 +1314,7 @@ async function handleSmartQuery(sb: any, token: string, rt: string, lineUserId: 
 
     // 4) การบ้านที่ต้องส่ง / เหลืออะไรบ้าง
     if (/(การบ้าน|งาน|homework).*(อะไร|บ้าง|เหลือ|ต้องส่ง|กี่)/.test(t) || /(เหลือ|ต้องส่ง).*(การบ้าน|งาน)/.test(t)) {
-      const { data: hws } = await sb.from("homework")
+      const { data: hws } = await sb.from("homework_assignments")
         .select("title, due_date, subjects(name_th,name)")
         .gte("due_date", todayBangkokISO())
         .order("due_date", { ascending: true }).limit(15);

@@ -62,7 +62,7 @@ var list_news_default = defineTool2({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const { data, error } = await sb(ctx).from("news").select("id, title, content, created_at, published").eq("published", true).order("created_at", { ascending: false }).limit(limit);
+    const { data, error } = await sb(ctx).from("news_posts").select("id, title, content, created_at, is_published").eq("is_published", true).order("created_at", { ascending: false }).limit(limit);
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     return {
       content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
