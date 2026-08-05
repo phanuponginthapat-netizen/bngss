@@ -308,6 +308,7 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
         ? "ไม่มี AI provider ที่รองรับ Vision/OCR — admin ต้องเปิดใช้งาน provider ที่ supports_vision=true หรือเพิ่ม key ที่ /dashboard/admin/ai-key-pool"
         : "ไม่มี AI provider ที่เปิดใช้งานและมี API key — admin โปรดตั้งค่าที่ /dashboard/admin/ai-providers หรือ /dashboard/admin/ai-key-pool")
     : "All AI providers failed: " + errors.join(" | ");
+  if (errors.length === 0) console.warn(NO_LOVABLE_AI_MSG);
   throw new Error(hint);
 }
 
