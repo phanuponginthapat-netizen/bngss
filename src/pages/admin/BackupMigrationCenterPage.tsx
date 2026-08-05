@@ -18,8 +18,29 @@ import {
 import JSZip from "jszip";
 import { todayBangkok } from "@/lib/dateBE";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+import { getBackendConfig } from "@/lib/runtimeConfig";
+
+const SUPABASE_URL = getBackendConfig().url;
+const ANON = getBackendConfig().anonKey;
+
+/** แนบ migrations + edge functions (RLS/schema/โค้ดฝั่งเซิร์ฟเวอร์) ลงใน ZIP */
+async function attachDeployKit(zip: JSZip): Promise<{ functions: number; migrations: number } | null> {
+  try {
+    const res = await fetch("/deploy-kit.json", { cache: "no-store" });
+    if (!res.ok) return null;
+    const kit = await res.json();
+    Object.entries(kit.migrations ?? {}).forEach(([name, sql]) =>
+      zip.file(`migrations/${name}`, String(sql)),
+    );
+    Object.entries(kit.functions ?? {}).forEach(([name, code]) =>
+      zip.file(`edge-functions/${name}`, String(code)),
+    );
+    if (kit.config_toml) zip.file("supabase-config.toml", String(kit.config_toml));
+    return kit.counts ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export default function BackupMigrationCenterPage() {
   const [downloading, setDownloading] = useState<null | "tables" | "full" | "oneclick" | string>(null);
@@ -95,10 +116,15 @@ export default function BackupMigrationCenterPage() {
         }
       }
 
-      // 4) Write combined summary
+      // 4) แนบ migrations + edge functions
+      setOneClickProgress({ pct: 92, label: "แนบ migrations + edge functions..." });
+      const kit = await attachDeployKit(mega);
+
+      // 5) Write combined summary
       mega.file("one-click-summary.json", JSON.stringify({
         generated_at: new Date().toISOString(),
         buckets: storageSummary,
+        deploy_kit: kit ?? "unavailable",
         note: "One-click bundle. Restore via /system-restore (multipart file=...). Includes tables/*.json AND storage/<bucket>/<path>.",
       }, null, 2));
 
