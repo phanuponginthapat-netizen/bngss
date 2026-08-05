@@ -338,6 +338,40 @@ Deno.serve(async (req) => {
       zip.file("edge-functions.json", JSON.stringify({ functions: EDGE_FUNCTIONS }, null, 2));
       manifest.edge_functions = EDGE_FUNCTIONS.length;
 
+      // ---- Jobs (pg_cron schedules)
+      try {
+        const { data: cronData, error } = await admin.rpc("export_cron_jobs");
+        if (error) throw error;
+        zip.file("cron-jobs.json", JSON.stringify(cronData, null, 2));
+        manifest.cron_jobs = (cronData as any)?.jobs?.length ?? 0;
+      } catch (e: any) {
+        manifest.errors.push({ part: "cron-jobs.json", error: e.message });
+      }
+
+      // ---- Secrets (edge-function environment). Values only when ?secrets=1.
+      try {
+        const withValues = url.searchParams.get("secrets") === "1";
+        const RESERVED = /^(SUPABASE_|PG|DENO_|_)/;
+        const names = Object.keys(Deno.env.toObject())
+          .filter((k) => !RESERVED.test(k))
+          .sort();
+        const secrets: Record<string, string> = {};
+        if (withValues) for (const k of names) secrets[k] = Deno.env.get(k) ?? "";
+        zip.file(
+          "secrets.json",
+          JSON.stringify({ with_values: withValues, names, secrets }, null, 2),
+        );
+        zip.file(
+          "set-secrets.sh",
+          `#!/usr/bin/env bash\n# ตั้ง secrets ทั้งหมดใน Supabase ปลายทาง (ต้องมี secrets.json ที่มีค่า)\n# ใช้: PROJECT_REF=xxx bash set-secrets.sh   (self-hosted: ใส่ใน docker .env แทน)\nset -euo pipefail\njq -r '.secrets | to_entries[] | "\\(.key)=\\(.value)"' secrets.json > .env.restore\nsupabase secrets set --env-file .env.restore \${PROJECT_REF:+--project-ref $PROJECT_REF}\nrm -f .env.restore\n`,
+        );
+        manifest.secrets = names.length;
+        manifest.secrets_with_values = withValues;
+      } catch (e: any) {
+        manifest.errors.push({ part: "secrets.json", error: e.message });
+      }
+
+
       // Storage manifest (list only — file bytes are per-bucket via mode=storage)
       const { data: buckets } = await admin.storage.listBuckets();
       const bucketList: any[] = [];
