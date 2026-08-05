@@ -1,3 +1,4 @@
+import { getBackendConfig } from "@/lib/runtimeConfig";
 /**
  * Bridge สำหรับ Service Worker Background Sync
  * - เก็บ Supabase URL + anon key + access token ลง IndexedDB
@@ -41,7 +42,7 @@ async function writeConfig(cfg: StoredConfig) {
   });
 }
 
-import { getBackendConfig } from "@/lib/runtimeConfig";
+
 
 const SUPABASE_URL = getBackendConfig().url;
 const SUPABASE_KEY = getBackendConfig().anonKey;
