@@ -83,7 +83,9 @@ Deno.serve(async (req) => {
 
     // === Standalone: Google OAuth ของโรงเรียนเอง (ค่าเริ่มต้น) ===
     if (await hasNativeGoogleOAuth()) {
-      const redirectUri = `${functionUrl.origin}/functions/v1/gdrive-connect-finish`;
+      const { getSecret } = await import("../_shared/getSecret.ts");
+      const overrideRedirect = (await getSecret("GOOGLE_OAUTH_REDIRECT_URI")) || Deno.env.get("GOOGLE_OAUTH_REDIRECT_URI");
+      const redirectUri = (overrideRedirect || `${functionUrl.origin}/functions/v1/gdrive-connect-finish`).trim();
       const state = await signState({ u: user.id, r: returnUrl, e: Date.now() + 15 * 60 * 1000 });
       const authorizeUrl = await buildAuthorizeUrl({ redirectUri, state, scopes: SCOPES, loginHint: user.email ?? undefined });
       return new Response(JSON.stringify({ authorize_url: authorizeUrl, mode: "google_oauth" }), {
