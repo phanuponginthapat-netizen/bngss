@@ -9,13 +9,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Loader2, Database, Download, Copy, ExternalLink, BookOpen, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { getBackendConfig } from "@/lib/runtimeConfig";
+
 
 type Column = { name: string; type: string; nullable: string; default: string | null };
 type Row = { table_name: string; columns: Column[]; col_count: number };
 
-const PROJECT_URL = "https://dlkyxvhnnffblerwedjz.supabase.co";
-const ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4";
+// อ่านจาก runtime config เสมอ เพื่อให้ถูกต้องหลังย้าย backend / deploy ที่อื่น (Vercel ฯลฯ)
+const RUNTIME = getBackendConfig();
+const PROJECT_URL = RUNTIME.url;
+const ANON_KEY = RUNTIME.anonKey;
+
 
 function copy(text: string, label = "คัดลอกแล้ว") {
   navigator.clipboard.writeText(text);
@@ -91,7 +95,7 @@ export default function DatabaseSchemaPage() {
               {[
                 { label: "SUPABASE_URL", value: PROJECT_URL },
                 { label: "SUPABASE_ANON_KEY", value: ANON_KEY },
-                { label: "PROJECT_ID", value: "dlkyxvhnnffblerwedjz" },
+                { label: "PROJECT_ID", value: RUNTIME.projectId || "" },
               ].map((row) => (
                 <div key={row.label} className="flex items-center gap-2">
                   <Badge variant="secondary" className="shrink-0 min-w-[170px] justify-start">{row.label}</Badge>
