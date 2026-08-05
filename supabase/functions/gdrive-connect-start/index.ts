@@ -83,12 +83,13 @@ Deno.serve(async (req) => {
 
     // === Standalone: Google OAuth ของโรงเรียนเอง (ค่าเริ่มต้น) ===
     if (await hasNativeGoogleOAuth()) {
-      const { getSecret } = await import("../_shared/getSecret.ts");
-      const overrideRedirect = (await getSecret("GOOGLE_OAUTH_REDIRECT_URI")) || Deno.env.get("GOOGLE_OAUTH_REDIRECT_URI");
-      const redirectUri = (overrideRedirect || `${functionUrl.origin}/functions/v1/gdrive-connect-finish`).trim();
+      // ใช้ callback ของ backend ที่กำลังให้บริการเสมอ เพื่อป้องกันค่า override เก่าทำให้
+      // Google ปฏิเสธด้วย redirect_uri_mismatch หลังย้าย backend / เปลี่ยนโดเมน
+      const backendUrl = (Deno.env.get("SUPABASE_URL") || functionUrl.origin).replace(/\/+$/, "");
+      const redirectUri = `${backendUrl}/functions/v1/gdrive-connect-finish`;
       const state = await signState({ u: user.id, r: returnUrl, e: Date.now() + 15 * 60 * 1000 });
       const authorizeUrl = await buildAuthorizeUrl({ redirectUri, state, scopes: SCOPES, loginHint: user.email ?? undefined });
-      return new Response(JSON.stringify({ authorize_url: authorizeUrl, mode: "google_oauth" }), {
+      return new Response(JSON.stringify({ authorize_url: authorizeUrl, redirect_uri: redirectUri, mode: "google_oauth" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
