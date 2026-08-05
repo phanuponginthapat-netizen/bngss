@@ -478,7 +478,9 @@ export default function MyDrivePage() {
 
   const AdminSettingsCard = () => {
     if (!canManageDrive) return null;
-    const allReady = !!adminStatus?.clientConfigured && !!adminStatus?.connectionKeySecretConfigured && !!adminStatus?.lovableApiKeyConfigured;
+    const nativeMode = adminStatus?.mode === "google_oauth" || !!adminStatus?.nativeOAuthConfigured;
+    const gatewayReady = nativeMode ? true : !!adminStatus?.lovableApiKeyConfigured;
+    const allReady = !!adminStatus?.clientConfigured && !!adminStatus?.connectionKeySecretConfigured && gatewayReady;
     const callbackUrl = adminStatus?.callbackUrl ?? `${getBackendConfig().url}/functions/v1/gdrive-connect-finish`;
 
     return (
@@ -524,8 +526,8 @@ export default function MyDrivePage() {
           <div className="rounded-lg border p-4 space-y-2">
             <ShieldCheck className="w-5 h-5 text-primary" />
             <p className="font-medium">{adminStatus?.mode === "google_oauth" ? "โหมดเชื่อมต่อ (ระบบของโรงเรียน)" : "Gateway Access"}</p>
-            <Badge variant={adminStatus?.lovableApiKeyConfigured ? "default" : "destructive"}>
-              {adminStatus?.lovableApiKeyConfigured ? "พร้อม" : "ยังไม่ตั้งค่า"}
+            <Badge variant={gatewayReady ? "default" : "destructive"}>
+              {gatewayReady ? "พร้อม" : "ยังไม่ตั้งค่า"}
             </Badge>
           </div>
         </div>
