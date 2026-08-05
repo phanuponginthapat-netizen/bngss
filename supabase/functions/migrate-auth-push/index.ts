@@ -37,12 +37,22 @@ Deno.serve(async (req) => {
     let total = 0;
     for (const table of ["users", "identities"]) {
       const rows = await dump(table);
-      for (let i = 0; i < rows.length; i += 100) {
-        const chunk = JSON.stringify(rows.slice(i, i + 100));
+      // `confirmed_at` is a generated column in auth.users and cannot be written.
+      const GENERATED = new Set(["confirmed_at"]);
+      const clean = (rows as Record<string, unknown>[]).map((r) => {
+        const o: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(r)) if (!GENERATED.has(k)) o[k] = v;
+        return o;
+      });
+      const cols = clean.length ? Object.keys(clean[0]) : [];
+      const colList = cols.map((c) => `"${c}"`).join(", ");
+      for (let i = 0; i < clean.length; i += 100) {
+        const chunk = JSON.stringify(clean.slice(i, i + 100));
         await exec(
-          `insert into auth.${table} select * from json_populate_recordset(null::auth.${table}, $mig$${chunk}$mig$) on conflict (id) do nothing;`,
+          `insert into auth.${table} (${colList}) select ${colList} from json_populate_recordset(null::auth.${table}, $mig$${chunk}$mig$) on conflict (id) do nothing;`,
         );
       }
+
       total += rows.length;
       console.log(`pushed ${table}: ${rows.length}`);
     }
