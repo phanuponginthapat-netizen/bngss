@@ -13,9 +13,11 @@ import { toast } from "sonner";
 type Column = { name: string; type: string; nullable: string; default: string | null };
 type Row = { table_name: string; columns: Column[]; col_count: number };
 
-const PROJECT_URL = "https://dlkyxvhnnffblerwedjz.supabase.co";
-const ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4";
+// อ่านจาก runtime config เสมอ เพื่อให้ถูกต้องหลังย้าย backend / deploy ที่อื่น (Vercel ฯลฯ)
+const RUNTIME = getBackendConfig();
+const PROJECT_URL = RUNTIME.url;
+const ANON_KEY = RUNTIME.anonKey;
+
 
 function copy(text: string, label = "คัดลอกแล้ว") {
   navigator.clipboard.writeText(text);
