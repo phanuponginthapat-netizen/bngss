@@ -145,9 +145,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Final fallback: Lovable AI Gateway (auto-provisioned, no setup required)
+    // Final fallback: Lovable AI Gateway — ปิดโดยค่าเริ่มต้น (Standalone)
     if (!aiResp) {
-      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+      const allowLovable = ["1", "true", "yes"].includes((Deno.env.get("ALLOW_LOVABLE_FALLBACK") ?? "").toLowerCase());
+      const lovableKey = allowLovable ? Deno.env.get("LOVABLE_API_KEY") : null;
       if (lovableKey) {
         const r = await callLovableGateway(lovableKey, b64);
         if (r.ok) {
@@ -159,7 +160,7 @@ Deno.serve(async (req) => {
           errors.push(`lovable [${r.status}]: ${extractApiErrorMessage(txt)}`);
         }
       } else {
-        errors.push("lovable: no LOVABLE_API_KEY");
+        errors.push("standalone: ไม่ใช้ Lovable AI — ตั้งค่า OPENAI_API_KEY / GEMINI_API_KEY หรือ AI Provider ของโรงเรียนเอง");
       }
     }
 
