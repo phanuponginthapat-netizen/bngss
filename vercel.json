@@ -4,10 +4,13 @@
   "outputDirectory": "dist",
   "installCommand": "npm install --legacy-peer-deps",
   "framework": "vite",
-  "cleanUrls": true,
+  "cleanUrls": false,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/((?!assets/|.*\\..*).*)", "destination": "/index.html" }
+    {
+      "source": "/((?!assets/|fonts/|images/|wifi-helper/|.*\\.(?:js|mjs|css|map|png|jpg|jpeg|gif|svg|ico|webp|avif|json|txt|xml|webmanifest|mp3|wav|mp4|zip|sh|py|pdf|woff|woff2|ttf|otf|eot|wasm|onnx|bin)$).*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {
@@ -21,6 +24,18 @@
       "headers": [
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
         { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    },
+    {
+      "source": "/app-config.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/deploy-kit.json",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
       ]
     },
     {
