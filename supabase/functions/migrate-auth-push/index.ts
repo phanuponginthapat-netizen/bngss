@@ -37,8 +37,8 @@ Deno.serve(async (req) => {
     let total = 0;
     for (const table of ["users", "identities"]) {
       const rows = await dump(table);
-      // `confirmed_at` is a generated column in auth.users and cannot be written.
-      const GENERATED = new Set(["confirmed_at"]);
+      // Generated columns (auth.users.confirmed_at, auth.identities.email) cannot be written.
+      const GENERATED = new Set(table === "users" ? ["confirmed_at"] : ["email"]);
       const clean = (rows as Record<string, unknown>[]).map((r) => {
         const o: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(r)) if (!GENERATED.has(k)) o[k] = v;
