@@ -52,9 +52,11 @@ export default function BackupMigrationCenterPage() {
   const [dryRun, setDryRun] = useState(true);
   const [withSchema, setWithSchema] = useState(true);
   const [withUsers, setWithUsers] = useState(true);
+  const [withSecrets, setWithSecrets] = useState(true);
   const [targetUrl, setTargetUrl] = useState("");
   const [targetRef, setTargetRef] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+
 
   const callFn = async (qs: string): Promise<Response> => {
     const { data: { session } } = await supabase.auth.getSession();
