@@ -50,13 +50,10 @@ function readGlobal(): Partial<BackendConfig> {
   };
 }
 
+// ไม่ใช้ค่าจาก build env (VITE_SUPABASE_*) อีกต่อไป — ค่าเหล่านั้นชี้ไป Lovable Cloud
+// ระบบอ่าน backend จาก localStorage (Setup Wizard) หรือ /app-config.js เท่านั้น
 function readEnv(): Partial<BackendConfig> {
-  return {
-    url: (import.meta.env.VITE_SUPABASE_URL as string) || undefined,
-    anonKey: (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || undefined,
-    projectId: (import.meta.env.VITE_SUPABASE_PROJECT_ID as string) || undefined,
-    storageProvider: (import.meta.env.VITE_STORAGE_PROVIDER as "supabase" | "gdrive") || undefined,
-  };
+  return {};
 }
 
 export function getBackendConfig(): BackendConfig {

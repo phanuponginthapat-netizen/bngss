@@ -115,10 +115,18 @@ Deno.serve(async (req) => {
     }
 
     // site_url สำหรับสร้างลิงก์ — fallback ใช้ project domain
-    const projectId = Deno.env.get("SUPABASE_PROJECT_ID") || "7eb2421f-d698-449d-a764-ab9f76e2bc13";
-    const siteUrl =
+    const siteUrl = (
       (await getSetting(sb, "site_url")) ||
-      `https://${projectId}.lovableproject.com`;
+      Deno.env.get("PUBLIC_ORIGIN") ||
+      Deno.env.get("APP_URL") ||
+      ""
+    ).replace(/\/+$/, "");
+    if (!siteUrl) {
+      return new Response(JSON.stringify({ error: "site_url is not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const installUrl = `${siteUrl}/install?ref=line`;
     const guideUrl = `${siteUrl}/dashboard`;
 
