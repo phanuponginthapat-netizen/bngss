@@ -5,15 +5,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { deleteFile } from "../_shared/googleDrive.ts";
-
-const GATEWAY = "https://connector-gateway.lovable.dev/google_drive";
-function driveAuthHeaders() {
-  return {
-    Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`,
-    "X-Connection-Api-Key": Deno.env.get("GOOGLE_DRIVE_API_KEY") ?? "",
-  };
-}
+import { deleteFile, driveFetch } from "../_shared/googleDrive.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -58,11 +50,10 @@ Deno.serve(async (req) => {
         if (g.drive_root_folder_id) roots.add(g.drive_root_folder_id);
       }
       // Also search the default "LineVault" tree by name
-      const defaultRootRes = await fetch(
-        `${GATEWAY}/drive/v3/files?q=${encodeURIComponent(
+      const defaultRootRes = await driveFetch(
+        `/drive/v3/files?q=${encodeURIComponent(
           "mimeType='application/vnd.google-apps.folder' and name='LineVault' and 'root' in parents and trashed=false",
         )}&fields=files(id,name)&pageSize=5`,
-        { headers: driveAuthHeaders() },
       );
       if (defaultRootRes.ok) {
         const dj = await defaultRootRes.json();
@@ -95,7 +86,7 @@ Deno.serve(async (req) => {
             pageSize: "1000",
           });
           if (pageToken) usp.set("pageToken", pageToken);
-          const res = await fetch(`${GATEWAY}/drive/v3/files?${usp}`, { headers: driveAuthHeaders() });
+          const res = await driveFetch(`/drive/v3/files?${usp}`);
           if (!res.ok) break;
           const j = await res.json();
           for (const f of (j.files || [])) {
