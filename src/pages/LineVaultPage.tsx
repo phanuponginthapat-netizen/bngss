@@ -198,7 +198,7 @@ function DocumentThumb({ item, url }: { item: Item; url: string | null }) {
         canvas.height = Math.ceil(viewport.height);
         const context = canvas.getContext("2d");
         if (!context) return;
-        await page.render({ canvasContext: context, viewport }).promise;
+        await page.render({ canvas, canvasContext: context, viewport }).promise;
         if (!cancelled) setPdfImage(canvas.toDataURL("image/jpeg", 0.78));
       } catch (error) {
         console.error("[LineVault PDF thumbnail]", error);
