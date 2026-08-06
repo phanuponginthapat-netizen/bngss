@@ -60,6 +60,7 @@ interface AdminDriveStatus {
   lovableApiKeyConfigured: boolean;
   callbackUrl: string;
   checkedAt: string;
+  clientIdSuffix?: string | null;
 }
 
 const FOLDER_MIME = "application/vnd.google-apps.folder";
@@ -278,6 +279,11 @@ export default function MyDrivePage() {
       if (error) throw new Error(await readInvokeError(error));
       const parsed: any = typeof data === "string" ? JSON.parse(data) : data;
       if (!parsed?.authorize_url) throw new Error("ไม่ได้รับ authorize_url");
+      const oauthUrl = new URL(parsed.authorize_url);
+      const oauthClientId = oauthUrl.searchParams.get("client_id");
+      if (!oauthClientId?.endsWith(".apps.googleusercontent.com")) {
+        throw new Error("Client ID ของ Google OAuth ไม่ถูกต้อง กรุณาตั้งค่า Client ID ใหม่");
+      }
       window.location.href = parsed.authorize_url;
     } catch (e: any) {
       swal.error("เริ่มการเชื่อมต่อไม่สำเร็จ", e.message ?? String(e));

@@ -21,6 +21,32 @@ const extFromMime = (mime: string, fallback = "bin") => {
   return map[mime.toLowerCase()] || fallback;
 };
 
+const mimeFromFilename = (name: string): string | null => {
+  const ext = name.split(".").pop()?.toLowerCase();
+  const map: Record<string, string> = {
+    jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif",
+    mp4: "video/mp4", mov: "video/quicktime", webm: "video/webm",
+    mp3: "audio/mpeg", m4a: "audio/mp4", wav: "audio/wav",
+    pdf: "application/pdf", doc: "application/msword",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    xls: "application/vnd.ms-excel",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ppt: "application/vnd.ms-powerpoint",
+    pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    txt: "text/plain", csv: "text/csv", zip: "application/zip",
+  };
+  return ext ? map[ext] ?? null : null;
+};
+
+function resolvedMime(messageType: string, filename: string, responseMime: string) {
+  const clean = responseMime.split(";")[0].trim().toLowerCase();
+  if (clean && clean !== "application/octet-stream") return clean;
+  if (messageType === "image") return "image/jpeg";
+  if (messageType === "video") return "video/mp4";
+  if (messageType === "audio") return "audio/mpeg";
+  return mimeFromFilename(filename) ?? "application/octet-stream";
+}
+
 export async function captureLineGroupEvent(
   sb: any,
   token: string,
@@ -160,7 +186,8 @@ export async function captureLineGroupEvent(
       const origName: string = msg.fileName || (msg.type === "image"
         ? `photo-${msg.id}.jpg`
         : `${msg.type}-${msg.id}.${extFromMime(content.mime)}`);
-      const ext = origName.includes(".") ? origName.split(".").pop() : extFromMime(content.mime);
+      const contentMime = resolvedMime(msg.type, origName, content.mime);
+      const ext = origName.includes(".") ? origName.split(".").pop() : extFromMime(contentMime);
       const now = new Date();
       const y = now.getFullYear();
       const m = String(now.getMonth() + 1).padStart(2, "0");
@@ -179,7 +206,7 @@ export async function captureLineGroupEvent(
       const saveToBucket = async () => {
         const path = `${y}/${m}/${groupId}/${msg.id}.${ext}`;
         const { error: upErr } = await sb.storage.from("line-vault").upload(path, content.data, {
-          contentType: content.mime, upsert: true,
+          contentType: contentMime, upsert: true,
         });
         if (upErr && !`${upErr.message}`.toLowerCase().includes("exists")) {
           console.error("[vault upload]", upErr);
@@ -187,6 +214,14 @@ export async function captureLineGroupEvent(
         }
         return path;
       };
+
+      // Keep a storage copy for reliable authenticated previews even when Drive
+      // is connected. Drive links/tokens can expire and must not blank thumbnails.
+      storagePath = await saveToBucket();
+      if (!storagePath) {
+        await sb.from("line_vault_items").delete().eq("id", rowId);
+        return { captured: false, reason: "upload_failed" };
+      }
 
       if (driveReady) {
         try {
@@ -199,7 +234,7 @@ export async function captureLineGroupEvent(
           } else {
             parent = await ensureFolderPath(["LineVault", String(y), folderName, m]);
           }
-          const uploaded = await uploadFile(`${msg.id}.${ext}`, content.mime, content.data, parent);
+          const uploaded = await uploadFile(`${msg.id}.${ext}`, contentMime, content.data, parent);
           driveFileId = uploaded.id;
           driveWebViewLink = uploaded.webViewLink || null;
           if (!grp.drive_folder_id) {
@@ -210,20 +245,11 @@ export async function captureLineGroupEvent(
         }
       }
 
-      if (!driveFileId) {
-        storagePath = await saveToBucket();
-        if (!storagePath) {
-          await sb.from("line_vault_items").delete().eq("id", rowId);
-          return { captured: false, reason: "upload_failed" };
-        }
-      }
-
-
       const { error: updErr } = await sb.from("line_vault_items").update({
         storage_path: storagePath,
         drive_file_id: driveFileId,
         drive_web_view_link: driveWebViewLink,
-        mime_type: content.mime,
+        mime_type: contentMime,
         size_bytes: content.data.byteLength,
         original_filename: origName,
       }).eq("id", rowId);

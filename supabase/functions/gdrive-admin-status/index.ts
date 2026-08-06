@@ -53,14 +53,16 @@ Deno.serve(async (req) => {
       .eq("connector_id", "google_drive")
       .limit(1);
 
-    const { hasNativeGoogleOAuth } = await import("../_shared/googleOauth.ts");
-    const nativeOAuth = await hasNativeGoogleOAuth();
+    const { getOAuthClientStatus } = await import("../_shared/googleOauth.ts");
+    const oauthStatus = await getOAuthClientStatus();
+    const nativeOAuth = oauthStatus.configured;
     const supabaseUrl = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/+$/, "");
 
     return json({
       mode: nativeOAuth ? "google_oauth" : "not_configured",
       nativeOAuthConfigured: nativeOAuth,
       clientConfigured: nativeOAuth,
+      clientIdSuffix: oauthStatus.clientIdSuffix,
       connectionKeySecretConfigured: !tableError,
       lovableApiKeyConfigured: false,
       callbackUrl: `${supabaseUrl}/functions/v1/gdrive-connect-finish`,
