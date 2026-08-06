@@ -49,7 +49,23 @@ serve(async (req) => {
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Prefer Google Drive
+    // Prefer the storage mirror because it remains available if Drive OAuth expires.
+    if (item.storage_path) {
+      const admin = createClient(SUPABASE_URL, SERVICE);
+      const expiry = Math.min(Math.max(Number(expires_in) || 600, 60), 3600);
+      const { data: signed, error: signErr } = await admin.storage
+        .from("line-vault")
+        .createSignedUrl(item.storage_path, expiry, { download: item.original_filename || undefined });
+      if (!signErr && signed?.signedUrl) {
+        return new Response(JSON.stringify({
+          url: signed.signedUrl, expires_in: expiry, provider: "storage",
+          filename: item.original_filename, mime_type: item.mime_type, kind: item.kind, title: item.title,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      console.error("[line-vault-download storage]", signErr);
+    }
+
+    // Google Drive fallback for legacy Drive-only rows
     if (item.drive_file_id) {
       let url: string | null = item.drive_web_view_link ?? null;
       try {
@@ -69,35 +85,13 @@ serve(async (req) => {
           title: item.title,
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      if (!item.storage_path) throw new Error("ไม่พบลิงก์ใน Google Drive (ยังไม่ได้เชื่อมบัญชี Google Drive ของระบบ)");
+       throw new Error("ไม่พบลิงก์ใน Google Drive (ยังไม่ได้เชื่อมบัญชี Google Drive ของระบบ)");
     }
 
 
-    // Fallback: legacy Supabase storage
-    if (!item.storage_path) {
-      return new Response(JSON.stringify({ error: "ไม่มีไฟล์แนบ" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const admin = createClient(SUPABASE_URL, SERVICE);
-    const expiry = Math.min(Math.max(Number(expires_in) || 600, 60), 3600);
-    const { data: signed, error: signErr } = await admin.storage
-      .from("line-vault")
-      .createSignedUrl(item.storage_path, expiry, { download: item.original_filename || undefined });
-
-    if (signErr || !signed?.signedUrl) {
-      throw new Error(signErr?.message || "ไม่สามารถสร้างลิงก์ดาวน์โหลดได้");
-    }
-
-    return new Response(JSON.stringify({
-      url: signed.signedUrl,
-      expires_in: expiry,
-      provider: "storage",
-      filename: item.original_filename,
-      mime_type: item.mime_type,
-      kind: item.kind,
-      title: item.title,
-    }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: "ไม่มีไฟล์แนบ" }), {
+      status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
 
   } catch (e: any) {
     console.error("[line-vault-download]", e);

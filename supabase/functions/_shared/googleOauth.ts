@@ -19,10 +19,20 @@ async function env(key: string): Promise<string | null> {
 }
 
 export async function getOAuthClient(): Promise<{ id: string; secret: string } | null> {
-  const id = (await env("GOOGLE_OAUTH_CLIENT_ID")) || (await env("GOOGLE_CLIENT_ID"));
-  const secret = (await env("GOOGLE_OAUTH_CLIENT_SECRET")) || (await env("GOOGLE_CLIENT_SECRET"));
+  const id = ((await env("GOOGLE_OAUTH_CLIENT_ID")) || (await env("GOOGLE_CLIENT_ID")))?.trim();
+  const secret = ((await env("GOOGLE_OAUTH_CLIENT_SECRET")) || (await env("GOOGLE_CLIENT_SECRET")))?.trim();
   if (!id || !secret) return null;
+  if (!id.endsWith(".apps.googleusercontent.com")) return null;
   return { id, secret };
+}
+
+export async function getOAuthClientStatus() {
+  const client = await getOAuthClient();
+  if (!client) return { configured: false, clientIdSuffix: null };
+  return {
+    configured: true,
+    clientIdSuffix: client.id.length > 18 ? `…${client.id.slice(-18)}` : client.id,
+  };
 }
 
 export async function hasNativeGoogleOAuth(): Promise<boolean> {

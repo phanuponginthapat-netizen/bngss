@@ -1,5 +1,6 @@
 // Reports Google Drive App User Connector health for admin settings UI.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { invalidateSecretCache } from "../_shared/getSecret.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,20 +48,59 @@ Deno.serve(async (req) => {
     }
     if (!roleRow) return json({ error: "forbidden" }, 403);
 
+    const requestBody = await req.json().catch(() => ({}));
+    if (requestBody?.action === "save_credentials") {
+      const clientId = typeof requestBody.clientId === "string" ? requestBody.clientId.trim() : "";
+      const clientSecret = typeof requestBody.clientSecret === "string" ? requestBody.clientSecret.trim() : "";
+      if (!clientId && !clientSecret) return json({ error: "credentials_required" }, 400);
+      if (clientId && !clientId.endsWith(".apps.googleusercontent.com")) {
+        return json({ error: "invalid_client_id" }, 400);
+      }
+
+      const rows = [
+        clientId ? {
+          key: "GOOGLE_OAUTH_CLIENT_ID",
+          value: clientId,
+          category: "google",
+          description: "Google OAuth Client ID for Drive",
+          updated_at: new Date().toISOString(),
+          updated_by: user.id,
+        } : null,
+        clientSecret ? {
+          key: "GOOGLE_OAUTH_CLIENT_SECRET",
+          value: clientSecret,
+          category: "google",
+          description: "Google OAuth Client Secret for Drive",
+          updated_at: new Date().toISOString(),
+          updated_by: user.id,
+        } : null,
+      ].filter((row) => row !== null);
+
+      const { error: saveError } = await admin.from("app_secrets").upsert(rows, { onConflict: "key" });
+      if (saveError) {
+        console.error("gdrive credential save failed", saveError);
+        return json({ error: "credential_save_failed" }, 500);
+      }
+      invalidateSecretCache();
+      return json({ success: true });
+    }
+
     const { error: tableError } = await admin
       .from("app_user_connections")
       .select("id", { count: "exact", head: true })
       .eq("connector_id", "google_drive")
       .limit(1);
 
-    const { hasNativeGoogleOAuth } = await import("../_shared/googleOauth.ts");
-    const nativeOAuth = await hasNativeGoogleOAuth();
+    const { getOAuthClientStatus } = await import("../_shared/googleOauth.ts");
+    const oauthStatus = await getOAuthClientStatus();
+    const nativeOAuth = oauthStatus.configured;
     const supabaseUrl = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/+$/, "");
 
     return json({
       mode: nativeOAuth ? "google_oauth" : "not_configured",
       nativeOAuthConfigured: nativeOAuth,
       clientConfigured: nativeOAuth,
+      clientIdSuffix: oauthStatus.clientIdSuffix,
       connectionKeySecretConfigured: !tableError,
       lovableApiKeyConfigured: false,
       callbackUrl: `${supabaseUrl}/functions/v1/gdrive-connect-finish`,

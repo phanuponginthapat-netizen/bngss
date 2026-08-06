@@ -51,7 +51,22 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE);
 
-    // ---- Google Drive path ----
+    // Prefer the storage mirror: it remains previewable if Drive OAuth expires.
+    if (item.storage_path) {
+      const { data: blob, error: dlErr } = await admin.storage
+        .from("line-vault")
+        .download(item.storage_path);
+      if (!dlErr && blob) {
+        const headers = new Headers(corsHeaders);
+        headers.set("Content-Type", item.mime_type || blob.type || "application/octet-stream");
+        headers.set("Content-Disposition", disposition);
+        headers.set("Cache-Control", "private, max-age=3600");
+        return new Response(blob.stream(), { status: 200, headers });
+      }
+      console.error("[line-vault-stream storage]", dlErr);
+    }
+
+    // ---- Google Drive fallback for legacy Drive-only rows ----
     if (item.drive_file_id) {
       let driveRes: Response | null = null;
       try {
@@ -72,28 +87,10 @@ Deno.serve(async (req) => {
         const text = await driveRes.text().catch(() => "");
         console.error("[line-vault-stream drive]", driveRes.status, text);
       }
-      // ตกลงมาใช้ไฟล์สำเนาใน Supabase Storage ถ้ามี
-      if (!item.storage_path) {
-        return new Response("drive_unavailable", { status: 502, headers: corsHeaders });
-      }
+      return new Response("drive_unavailable", { status: 502, headers: corsHeaders });
     }
 
-    // ---- Supabase Storage ----
-    if (!item.storage_path) {
-      return new Response("no_file", { status: 404, headers: corsHeaders });
-    }
-    const { data: blob, error: dlErr } = await admin.storage
-      .from("line-vault")
-      .download(item.storage_path);
-    if (dlErr || !blob) {
-      console.error("[line-vault-stream storage]", dlErr);
-      return new Response("storage_fetch_failed", { status: 502, headers: corsHeaders });
-    }
-    const headers = new Headers(corsHeaders);
-    headers.set("Content-Type", item.mime_type || blob.type || "application/octet-stream");
-    headers.set("Content-Disposition", disposition);
-    headers.set("Cache-Control", "private, max-age=3600");
-    return new Response(blob.stream(), { status: 200, headers });
+    return new Response("no_file", { status: 404, headers: corsHeaders });
 
   } catch (e: any) {
     console.error("[line-vault-stream]", e);

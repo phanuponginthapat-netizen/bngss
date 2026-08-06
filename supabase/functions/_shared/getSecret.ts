@@ -20,10 +20,25 @@ export async function getSecret(key: string): Promise<string | null> {
     const srv = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (url && srv) {
       const admin = createClient(url, srv);
-      const { data } = await admin.rpc("get_app_secret", { _key: key });
-      if (data) {
-        cache[key] = { v: data as string, t: now };
-        return data as string;
+      const { data, error } = await admin.rpc("get_app_secret", { _key: key });
+      let value = typeof data === "string" ? data.trim() : "";
+
+      // External installations may not yet have get_app_secret(), or may have
+      // an older function definition. The service client can safely read the
+      // private table directly, so values saved from the admin UI still win
+      // over stale function environment variables.
+      if (error || !value) {
+        const { data: row } = await admin
+          .from("app_secrets")
+          .select("value")
+          .eq("key", key)
+          .maybeSingle();
+        value = typeof row?.value === "string" ? row.value.trim() : "";
+      }
+
+      if (value) {
+        cache[key] = { v: value, t: now };
+        return value;
       }
     }
   } catch (_) { /* ignore, fall through */ }
