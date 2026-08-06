@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { swal } from "@/lib/swal";
-import { Image as ImageIcon, FileText, StickyNote, Download, Trash2, Search, Upload, Users, Building2, Lock, RefreshCw, Settings as SettingsIcon, Copy, ExternalLink, CheckCircle2, XCircle, KeyRound, Eye, EyeOff, Save, Archive, FolderOpen, MessageSquareText } from "lucide-react";
+import { Image as ImageIcon, FileText, FileSpreadsheet, Presentation, StickyNote, Download, Trash2, Search, Upload, Users, Building2, Lock, RefreshCw, Settings as SettingsIcon, Copy, ExternalLink, CheckCircle2, XCircle, KeyRound, Eye, EyeOff, Save, Archive, FolderOpen, MessageSquareText } from "lucide-react";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import JSZip from "jszip";
@@ -170,6 +170,55 @@ function isOfficeMime(m?: string | null, name?: string | null) {
   return m.includes("word") || m.includes("excel") || m.includes("spreadsheet") || m.includes("presentation") || m.includes("powerpoint");
 }
 
+function fileExtension(name?: string | null) {
+  const match = name?.match(/\.([a-z0-9]+)$/i);
+  return match?.[1]?.toUpperCase() ?? "FILE";
+}
+
+function DocumentThumb({ item, url }: { item: Item; url: string | null }) {
+  const [pdfImage, setPdfImage] = useState<string | null>(null);
+  const isPdf = isPdfMime(item.mime_type, item.original_filename);
+  const ext = fileExtension(item.original_filename);
+
+  useEffect(() => {
+    if (!isPdf || !url || pdfImage) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+        const worker = (await import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url")).default;
+        pdfjs.GlobalWorkerOptions.workerSrc = worker;
+        const bytes = await fetch(url).then((response) => response.arrayBuffer());
+        const pdf = await pdfjs.getDocument({ data: bytes }).promise;
+        const page = await pdf.getPage(1);
+        const base = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: Math.min(1.5, 420 / base.width) });
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+        const context = canvas.getContext("2d");
+        if (!context) return;
+        await page.render({ canvasContext: context, viewport }).promise;
+        if (!cancelled) setPdfImage(canvas.toDataURL("image/jpeg", 0.78));
+      } catch (error) {
+        console.error("[LineVault PDF thumbnail]", error);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isPdf, pdfImage, url]);
+
+  if (pdfImage) return <img src={pdfImage} alt={`ตัวอย่าง ${item.title}`} className="h-full w-full object-cover object-top" />;
+
+  const Icon = /XLS|XLSX|CSV/.test(ext) ? FileSpreadsheet : /PPT|PPTX/.test(ext) ? Presentation : FileText;
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-muted p-4">
+      <Icon className="h-12 w-12 text-primary/75" />
+      <span className="rounded bg-background px-2 py-1 text-xs font-semibold text-foreground shadow-sm">{ext}</span>
+      <span className="max-w-full truncate text-xs text-muted-foreground">{item.original_filename || item.title}</span>
+    </div>
+  );
+}
+
 function LineVaultThumb({ item, className }: { item: Item; className?: string }) {
   const { ref, inView } = useInView<HTMLDivElement>();
   const [url, setUrl] = useState<string | null>(null);
@@ -177,11 +226,11 @@ function LineVaultThumb({ item, className }: { item: Item; className?: string })
   const [err, setErr] = useState(false);
   const isImg = isImageMime(item.mime_type) || item.kind === "photo";
   const isVid = isVideoMime(item.mime_type);
-  const wantThumb = isImg || isVid;
+  const wantThumb = isImg || isVid || item.kind === "file";
 
   useEffect(() => {
     if (!inView || !wantThumb || url) return;
-    getSignedUrl(item.id).then(u => setUrl(u)).catch(() => setErr(true));
+    getSignedUrl(item.id).then(u => { setUrl(u); if (!u) setErr(true); }).catch(() => setErr(true));
   }, [inView, wantThumb, item.id, url]);
 
   // Generate poster frame from video once we have a blob URL
@@ -224,7 +273,7 @@ function LineVaultThumb({ item, className }: { item: Item; className?: string })
 
   return (
     <div ref={ref as any} className={className}>
-      {wantThumb && posterSrc && !err ? (
+      {isImg && posterSrc && !err ? (
         <div className="relative w-full h-full">
           <img
             src={posterSrc}
@@ -243,6 +292,15 @@ function LineVaultThumb({ item, className }: { item: Item; className?: string })
             </div>
           )}
         </div>
+      ) : isVid && posterSrc && !err ? (
+        <div className="relative h-full w-full">
+          <img src={posterSrc} alt={item.title} className="h-full w-full object-cover" />
+          <div className="absolute inset-0 flex items-center justify-center bg-foreground/20">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-background/80 text-foreground">▶</div>
+          </div>
+        </div>
+      ) : item.kind === "file" && !isVid ? (
+        <DocumentThumb item={item} url={url} />
       ) : (
         <div className="w-full h-full bg-muted flex items-center justify-center">
           {isVid
