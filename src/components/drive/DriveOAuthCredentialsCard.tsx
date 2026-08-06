@@ -41,13 +41,6 @@ export default function DriveOAuthCredentialsCard({ onSaved }: { onSaved?: () =>
 
   useEffect(() => { loadStatus(); }, []);
 
-  const upsert = async (key: string, value: string) => {
-    const { error } = await supabase
-      .from("app_secrets" as any)
-      .upsert({ key, value, updated_at: new Date().toISOString() } as any, { onConflict: "key" });
-    if (error) throw new Error(error.message);
-  };
-
   const save = async () => {
     if (!clientId.trim() && !clientSecret.trim()) {
       toast.error("กรอก Client ID หรือ Client Secret อย่างน้อยหนึ่งช่อง");
@@ -55,8 +48,15 @@ export default function DriveOAuthCredentialsCard({ onSaved }: { onSaved?: () =>
     }
     setSaving(true);
     try {
-      if (clientId.trim()) await upsert(KEYS.id, clientId.trim());
-      if (clientSecret.trim()) await upsert(KEYS.secret, clientSecret.trim());
+      const { data, error } = await supabase.functions.invoke("gdrive-admin-status", {
+        body: {
+          action: "save_credentials",
+          clientId: clientId.trim() || undefined,
+          clientSecret: clientSecret.trim() || undefined,
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || "credential_save_failed");
       toast.success("บันทึกค่า Google OAuth แล้ว");
       setClientId("");
       setClientSecret("");
