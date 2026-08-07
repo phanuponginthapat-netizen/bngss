@@ -419,7 +419,7 @@ function renderEl(
     outline: selected ? "2px solid hsl(var(--primary))" : undefined,
     cursor: selected ? "move" : "pointer",
   };
-  const handles = selected && onDrag !== (() => {}) ? (
+  const handles = selected ? (
     <>
       {(["nw","ne","sw","se"] as const).map(pos => (
         <div key={pos} onPointerDown={e => onDrag(e, pos)}
