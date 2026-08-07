@@ -6,7 +6,12 @@ dist
 supabase/.branches
 supabase/.temp
 extension
-scripts
+# Keep scripts/kiosk: Vite imports these shell files as raw assets at build time.
+scripts/.bngss-ext-id.txt
+scripts/.bngss-ext-key.pem
+scripts/deploy-external-functions.sh
+scripts/deploy-external-supabase.sh
+scripts/EXTERNAL_SUPABASE_SETUP.md
 docs
 playwright-report
 test-results
