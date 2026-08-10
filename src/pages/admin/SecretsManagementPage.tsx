@@ -109,10 +109,10 @@ export default function SecretsManagementPage() {
         <KeyRound className="h-7 w-7 text-primary" />
         <div>
           <h1 className="text-2xl font-bold">{lang === "th" ? "API Keys / Secrets" : "API Keys / Secrets"}</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground whitespace-pre-line">
             {lang === "th"
-              ? "'''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''\n                                            \n                                            เพิ่มระบบกีฬาสี การแข่งขัน การแบ่งสาย การจัดการสี การบันทึกผลการแข่งขัน ระหว่างแข่งและหลังแข่ง และการทำเกียรติบัตร พร้อมปริ้นท์(เหมือนระบบปริ้นท์บัตรนักเรียน)"
-              : "'''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''\n                                            \n                                            เพิ่มระบบกีฬาสี การแข่งขัน การแบ่งสาย การจัดการสี การบันทึกผลการแข่งขัน ระหว่างแข่งและหลังแข่ง และการทำเกียรติบัตร พร้อมปริ้นท์(เหมือนระบบปริ้นท์บัตรนักเรียน)"}
+              ? "'''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''\n                                            \n                                            Implement the sports competition system with heats, color teams, and match scheduling.\n\nCreate a results workflow to record scores during matches and automatically finalize standings after each round.\n\nCreate a results workflow to record scores during matches and automatically finalize standings after each round."
+              : "'''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''\n                                            \n                                            Implement the sports competition system with heats, color teams, and match scheduling.\n\nCreate a results workflow to record scores during matches and automatically finalize standings after each round.\n\nCreate a results workflow to record scores during matches and automatically finalize standings after each round."}
           </p>
         </div>
       </div>
