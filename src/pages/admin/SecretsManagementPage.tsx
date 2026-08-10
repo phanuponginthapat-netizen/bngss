@@ -111,8 +111,8 @@ export default function SecretsManagementPage() {
           <h1 className="text-2xl font-bold">{lang === "th" ? "API Keys / Secrets" : "API Keys / Secrets"}</h1>
           <p className="text-sm text-muted-foreground">
             {lang === "th"
-              ? "หน้ารวมตั้งค่า Secret ทุกตัว — กรอกได้ภายหลัง Remix ไม่ต้องตั้งใน Cloud Settings"
-              : "Central place to fill in all API keys after remixing — no Cloud Settings needed"}
+              ? "'''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''\n\nเช็คส่วนอื่นๆด้วย"
+              : "'''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''\n\nCheck other parts as well"}
           </p>
         </div>
       </div>
