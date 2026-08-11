@@ -572,7 +572,8 @@ export default function LineVaultPage() {
             </TabsContent>
           )}
           {isAdmin && (
-            <TabsContent value="settings" className="m-0">
+            <TabsContent value="settings" className="m-0 space-y-4">
+              <StorageBackfillCard onDone={load} />
               <VaultSettings />
             </TabsContent>
           )}
