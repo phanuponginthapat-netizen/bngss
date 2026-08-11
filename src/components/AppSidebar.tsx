@@ -718,7 +718,8 @@ export function AppSidebar() {
 
             const myItems = mark(inSection([
               "/dashboard", "/dashboard/profile", "/dashboard/portfolio",
-              "/dashboard/inbox", "/dashboard/feed", "/dashboard/members", "/",
+              "/dashboard/inbox", "/dashboard/feed", "/dashboard/members",
+              "/dashboard/student/my-face", "/",
             ]));
             const learnItems = mark(inSection([
               "/dashboard/academic/schedule", "/dashboard/academic/calendar",
