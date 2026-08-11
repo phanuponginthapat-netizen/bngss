@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Globe, Download, ShieldCheck, ExternalLink } from "lucide-react";
-import { toast } from "sonner";
 import BrowserShortcutsGrid from "@/components/browser/BrowserShortcutsGrid";
 import BrowserUrlBar from "@/components/browser/BrowserUrlBar";
 import { openBrowserUrl } from "@/hooks/useBrowserShortcuts";
