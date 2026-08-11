@@ -43,16 +43,19 @@ async function loadAppOrigin() {
 loadAppOrigin();
 
 // URL/domains ที่ถือว่า "ระบบโรงเรียน" — อนุญาตเข้าเสมอเพื่อให้ login ได้
-const SCHOOL_HOST_SUFFIXES = ["lovable.app", "vercel.app", "supabase.co", "supabase.io"];
+// หมายเหตุ: ไม่อนุญาต *.vercel.app / *.lovable.app ทั้งหมด (เป็นช่องโหว่) — เฉพาะโดเมนระบบเท่านั้น
+const SCHOOL_HOST_SUFFIXES = ["supabase.co", "supabase.io"];
 function isSchoolUrl(url) {
   try {
     const u = new URL(url);
     if (u.protocol === "chrome-extension:" || u.protocol === "chrome:" || u.protocol === "about:" || u.protocol === "edge:") return true;
     if (u.hostname === "localhost" || u.hostname === "127.0.0.1") return true;
     if (APP_ORIGIN && u.origin === APP_ORIGIN) return true;
+    try { if (DEFAULT_APP_ORIGIN && u.origin === DEFAULT_APP_ORIGIN) return true; } catch {}
     return SCHOOL_HOST_SUFFIXES.some((s) => u.hostname === s || u.hostname.endsWith("." + s));
   } catch { return false; }
 }
+
 
 // เด้ง popup (chrome notification) — throttle 3 วิ กันรัวๆ
 let _lastNotif = 0;
