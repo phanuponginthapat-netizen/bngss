@@ -385,6 +385,7 @@ const App = () => (
                 <Route path="student" element={<Navigate to="/dashboard/student/attendance" replace />} />
                 <Route path="student/attendance" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><DepartmentRoute departments={["student_affairs","academic"]} bypassRoles={["parent","student"]}><AttendancePage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="student/face-scan" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><FaceScanPage /></ProtectedRoute>} />
+                <Route path="student/my-face" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student"]}><MyFaceEnrollPage /></ProtectedRoute>} />
                 <Route path="staff/mobile-qr-scan" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><MobileQrScanPage /></ProtectedRoute>} />
                 <Route path="student/behavior" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><DepartmentRoute departments={["student_affairs"]} bypassRoles={["parent","student"]}><BehaviorPage /></DepartmentRoute></ProtectedRoute>} />
 
