@@ -205,7 +205,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
   useEffect(() => {
     if (!open) return;
     // resolve student
-    setStepIdx(0); setSamples([]); setColorFrameIdx(0); setStatusMsg("");
+    setStepIdx(0); setSamples([]); setColorFrameIdx(0); setStatusMsg(""); setBlockedMsg(null);
     detectMetaRef.current = { misses: 0, stableHits: 0 };
     mouthStateRef.current = { opened: false, openFrames: 0, baseline: 0, samples: [], maxMar: 0 };
     (async () => {
@@ -553,7 +553,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
 
 
   const reset = () => {
-    setStepIdx(0); setSamples([]); setColorFrameIdx(0);
+    setStepIdx(0); setSamples([]); setColorFrameIdx(0); setBlockedMsg(null);
     detectMetaRef.current = { misses: 0, stableHits: 0 };
     mouthStateRef.current = { opened: false, openFrames: 0, baseline: 0, samples: [], maxMar: 0 };
   };
