@@ -572,7 +572,8 @@ export default function LineVaultPage() {
             </TabsContent>
           )}
           {isAdmin && (
-            <TabsContent value="settings" className="m-0">
+            <TabsContent value="settings" className="m-0 space-y-4">
+              <StorageBackfillCard onDone={load} />
               <VaultSettings />
             </TabsContent>
           )}
@@ -1327,5 +1328,81 @@ function VaultSettings() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** สำรองไฟล์เก่าที่อยู่บน Google Drive อย่างเดียว ให้มาเก็บใน Storage ของระบบด้วย */
+function StorageBackfillCard({ onDone }: { onDone: () => void }) {
+  const [pending, setPending] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [log, setLog] = useState<string>("");
+
+  const check = async () => {
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("line-vault-backfill-storage", { body: { dryRun: true } });
+      if (error) throw error;
+      setPending(Number(data?.pending ?? 0));
+    } catch (e: any) {
+      toast.error(e?.message || "ตรวจสอบไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const run = async () => {
+    setBusy(true);
+    setLog("");
+    try {
+      let total = 0;
+      for (let i = 0; i < 20; i++) {
+        const { data, error } = await supabase.functions.invoke("line-vault-backfill-storage", { body: { limit: 25 } });
+        if (error) throw error;
+        total += Number(data?.migrated ?? 0);
+        setPending(Number(data?.remaining ?? 0));
+        setLog(`สำรองแล้ว ${total} ไฟล์ · เหลือ ${data?.remaining ?? 0}`);
+        if ((data?.failures?.length ?? 0) > 0) {
+          setLog(`สำรองแล้ว ${total} ไฟล์ · ล้มเหลว ${data.failures.length} — ${data.failures[0]?.error ?? ""}`);
+          break;
+        }
+        if (!data?.migrated || !data?.remaining) break;
+      }
+      toast.success(`สำรองไฟล์เข้า Storage แล้ว ${total} รายการ`);
+      onDone();
+    } catch (e: any) {
+      toast.error(e?.message || "สำรองไฟล์ไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => { check(); /* eslint-disable-next-line */ }, []);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Archive className="h-4 w-4" /> สำรองไฟล์เก่าจาก Google Drive เข้าระบบ
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          ไฟล์เก่าบางส่วนถูกเก็บไว้บน Google Drive อย่างเดียว ทำให้เปิดดูไม่ได้เมื่อการเชื่อมต่อ Drive หลุด
+          กดปุ่มด้านล่างเพื่อคัดลอกไฟล์เหล่านั้นมาเก็บในระบบให้ถาวร (ต้องเชื่อมต่อ Google Drive อยู่)
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={pending ? "destructive" : "secondary"}>
+            รอสำรอง {pending === null ? "…" : pending} ไฟล์
+          </Badge>
+          <Button size="sm" variant="outline" onClick={check} disabled={busy}>
+            <RefreshCw className="h-4 w-4 mr-1" />ตรวจสอบอีกครั้ง
+          </Button>
+          <Button size="sm" onClick={run} disabled={busy || !pending}>
+            <Download className="h-4 w-4 mr-1" />เริ่มสำรองไฟล์
+          </Button>
+        </div>
+        {log && <p className="text-xs text-muted-foreground">{log}</p>}
+      </CardContent>
+    </Card>
   );
 }
