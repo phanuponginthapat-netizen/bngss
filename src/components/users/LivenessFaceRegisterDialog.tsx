@@ -11,7 +11,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  loadFaceModels, detectFaceWithLandmarks, applyCameraAutoTune, estimateFaceSharpness,
+  loadFaceModels, detectFaceWithLandmarks, applyCameraAutoTune, estimateFaceSharpness, euclidean,
 } from "@/lib/faceApi";
 
 interface Props {
@@ -20,7 +20,26 @@ interface Props {
   studentCode: string;
   displayName: string;
   onComplete?: () => void;
+  /** "direct" = บันทึกลงฐานข้อมูลทันที (เจ้าหน้าที่) · "request" = ส่งคำขอรออนุมัติ (นักเรียนลงทะเบียนเอง) */
+  submitMode?: "direct" | "request";
+  /** เหตุผล (ใช้เมื่อเป็นการลงทะเบียนใหม่ในโหมดคำขอ) */
+  reason?: string;
 }
+
+/** ระยะห่างสูงสุดที่ยอมรับได้ระหว่างตัวอย่างของ "คนเดียวกัน" */
+const SELF_CONSISTENCY_MAX = 0.55;
+/** ถ้าใบหน้าใกล้กับคนอื่นในระบบมากกว่านี้ = ถือว่าซ้ำคน */
+const DUPLICATE_THRESHOLD = 0.42;
+
+const dataUrlToBlob = (dataUrl: string): Blob => {
+  const [meta, b64] = dataUrl.split(",");
+  const mime = /data:(.*?);/.exec(meta)?.[1] || "image/jpeg";
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+};
+
 
 type StepKey = "center" | "mouth" | "left" | "right" | "color" | "done";
 
