@@ -672,15 +672,23 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             <div className="text-center py-4 space-y-2">
               {saving ? (
                 <p className="text-sm flex items-center justify-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />กำลังบันทึก...
+                  <Loader2 className="w-4 h-4 animate-spin" />กำลังตรวจสอบและบันทึก...
                 </p>
+              ) : blockedMsg ? (
+                <div className="rounded-lg border-2 border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive font-medium">
+                  {blockedMsg}
+                </div>
               ) : (
                 <p className="text-emerald-600 font-semibold flex items-center justify-center gap-2">
-                  <CheckCircle2 className="w-5 h-5" />ลงทะเบียนสำเร็จ — ผ่าน Liveness Check
+                  <CheckCircle2 className="w-5 h-5" />
+                  {submitMode === "request"
+                    ? "ส่งคำขอสำเร็จ — รอเจ้าหน้าที่อนุมัติ"
+                    : "ลงทะเบียนสำเร็จ — ผ่าน Liveness Check"}
                 </p>
               )}
             </div>
           )}
+
 
           <div className="flex gap-2 justify-end">
             <Button variant="outline" onClick={reset} disabled={!streaming || saving}>
