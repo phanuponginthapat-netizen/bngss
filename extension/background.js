@@ -474,6 +474,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg?.type === "SET_SESSION") {
     _agentSpawnFails = 0;
+    _remoteOk = true;
+    _lastRemoteCheck = 0;
     if (msg.backend?.url) { SUPABASE_URL = String(msg.backend.url).replace(/\/+$/, ""); }
     if (msg.backend?.anonKey) { ANON_KEY = msg.backend.anonKey; }
     if (msg.systemHome) setAppOrigin(msg.systemHome);
