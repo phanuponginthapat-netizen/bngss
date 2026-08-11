@@ -81,7 +81,7 @@ interface CapturedSample {
   };
 }
 
-const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName, onComplete }: Props) => {
+const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName, onComplete, submitMode = "direct", reason }: Props) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const flashRef = useRef<HTMLDivElement>(null);
