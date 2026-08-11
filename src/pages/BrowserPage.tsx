@@ -38,10 +38,11 @@ export default function BrowserPage() {
   useEffect(() => {
     if (extInstalled && !autoOpened) {
       setAutoOpened(true);
-      const w = window.open(homepage, "_blank", "noopener,noreferrer");
-      if (!w) toast.error("เบราว์เซอร์บล็อกป็อปอัพ กรุณาอนุญาตแล้วกดปุ่ม 'เปิดเบราว์เซอร์'");
+      // ให้ extension เปิดแท็บเดียว (openBrowserUrl จัดการเองว่ามี extension หรือไม่)
+      openBrowserUrl(homepage);
     }
   }, [extInstalled, autoOpened, homepage]);
+
 
   useEffect(() => {
     if (!user) return;
