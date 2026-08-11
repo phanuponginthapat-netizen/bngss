@@ -1,5 +1,6 @@
 project_id = "gwmszzoqqxmejefhayqf"
 
+# --- Public endpoints (no JWT): webhooks, login flows, public feeds ---
 [functions.line-vault-webhook]
 verify_jwt = false
 
@@ -9,3 +10,59 @@ verify_jwt = false
 [functions.setup-health-check]
 verify_jwt = false
 
+[functions.line-webhook]
+verify_jwt = false
+
+[functions.line-magic-link]
+verify_jwt = false
+
+[functions.code-login]
+verify_jwt = false
+
+[functions.parent-login]
+verify_jwt = false
+
+[functions.qr-login]
+verify_jwt = false
+
+[functions.lookup-email]
+verify_jwt = false
+
+[functions.link-account]
+verify_jwt = false
+
+[functions.games-auth]
+verify_jwt = false
+
+[functions.games-submit]
+verify_jwt = false
+
+[functions.games-leaderboard]
+verify_jwt = false
+
+[functions.calendar-ics]
+verify_jwt = false
+
+[functions.manifest]
+verify_jwt = false
+
+[functions.ext-config]
+verify_jwt = false
+
+[functions.ext-log]
+verify_jwt = false
+
+[functions.district-feed-api]
+verify_jwt = false
+
+[functions.gdrive-connect-finish]
+verify_jwt = false
+
+[functions.get-vapid-key]
+verify_jwt = false
+
+[functions.iot-fetch]
+verify_jwt = false
+
+[functions.setup-create-buckets]
+verify_jwt = false
