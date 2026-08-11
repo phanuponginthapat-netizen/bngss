@@ -99,6 +99,7 @@ const HomeroomPage = lazy(() => import("./pages/student/HomeroomPage"));
 const SDQPage = lazy(() => import("./pages/student/SDQPage"));
 const HomeVisitPage = lazy(() => import("./pages/student/HomeVisitPage"));
 const FaceScanPage = lazy(() => import("./pages/student/FaceScanPage"));
+const MyFaceEnrollPage = lazy(() => import("./pages/student/MyFaceEnrollPage"));
 const FaceKioskPage = lazy(() => import("./pages/FaceKioskPage"));
 const MobileQrScanPage = lazy(() => import("./pages/staff/MobileQrScanPage"));
 
