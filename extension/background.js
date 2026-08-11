@@ -486,11 +486,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.session?.access_token) ensureAgentTab();
     sendResponse({ ok: true });
   } else if (msg?.type === "CLEAR_SESSION") {
-    chrome.storage.local.get(["agentTabId"]).then(({ agentTabId }) => {
-      if (agentTabId) chrome.tabs.remove(agentTabId).catch(() => {});
-      chrome.storage.local.remove(["session", "agentTabId"]);
-    });
+    clearSession().then(() => sweepTabs());
     sendResponse({ ok: true });
+
 
   } else if (msg?.type === "REFRESH_CONFIG") {
     refreshConfig().then(() => sendResponse({ ok: true }));
