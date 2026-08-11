@@ -25,6 +25,7 @@ import KioskScreensaver from "@/components/facescan/KioskScreensaver";
 import KioskHelloAi from "@/components/facescan/KioskHelloAi";
 import { useCmsValues } from "@/hooks/useCmsSettings";
 import { wakeKioskScreen } from "@/lib/kioskWake";
+import { getRegisteredFaceImage } from "@/lib/registeredFace";
 
 // ===== Helper: hex → rgba with alpha (สำหรับใช้ theme สีจาก CMS) =====
 const hexA = (hex: string, a: number): string => {
@@ -74,6 +75,11 @@ const FaceKioskPage = () => {
   const [modelReady, setModelReady] = useState(false);
   const [modelStatus, setModelStatus] = useState("กำลังโหลดโมเดล...");
   const [recent, setRecent] = useState<RecentScan[]>([]);
+  const [lastMatch, setLastMatch] = useState<{
+    name: string; studentCode: string; classroom: string; confidence: number;
+    scanType: "entry" | "exit"; capturedFace?: string; registeredFace?: string | null; time: string;
+  } | null>(null);
+  const matchTimerRef = useRef<number | null>(null);
   const [todayCounts, setTodayCounts] = useState<{ entry: number; exit: number }>({ entry: 0, exit: 0 });
   // โหมด QR เท่านั้น — ไม่โหลด/รันโมเดลใบหน้า ประหยัด CPU สำหรับเครื่องสเปกต่ำ (Pavilion x2 / Atom / Celeron)
   const [qrOnly, setQrOnly] = useState<boolean>(() => localStorage.getItem("face_kiosk_qr_only") === "1");
@@ -440,8 +446,17 @@ const FaceKioskPage = () => {
       seenSet.add(studentId);
       setTodayCounts((c) => ({ ...c, [mode]: c[mode] + 1 }));
     }
+    // ใบหน้าที่ลงทะเบียนไว้ (ภาพตอนลงทะเบียน) — แสดงคู่กับใบหน้าที่สแกนได้
+    const registeredFace = await getRegisteredFaceImage(studentId, avatar);
+    setLastMatch({
+      name, studentCode, classroom, confidence, scanType: mode,
+      capturedFace, registeredFace,
+      time: new Date().toLocaleTimeString("th-TH", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+    });
+    if (matchTimerRef.current) window.clearTimeout(matchTimerRef.current);
+    matchTimerRef.current = window.setTimeout(() => setLastMatch(null), 6000);
     setRecent((r) => [{
-      studentId, studentCode, name, classroom, avatar, capturedFace, confidence,
+      studentId, studentCode, name, classroom, avatar: registeredFace, capturedFace, confidence,
       time: new Date().toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
       scanType: mode,
     }, ...r].slice(0, 10));
@@ -1003,6 +1018,41 @@ const FaceKioskPage = () => {
             <div className="absolute top-3 left-3 z-10 bg-black/50 text-pink-200 text-xs font-mono px-2 py-1 rounded tabular-nums">
               {now.toLocaleDateString("en-GB").replace(/\//g, "-")} {now.toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })}
             </div>
+
+            {/* ผลการจับคู่ล่าสุด: ใบหน้าที่ลงทะเบียน vs ใบหน้าตอนสแกน */}
+            {lastMatch && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 animate-scale-in">
+                <div className={`flex items-center gap-4 rounded-2xl px-5 py-3 shadow-2xl backdrop-blur bg-white/95 border-2 ${lastMatch.scanType === "exit" ? "border-rose-400" : "border-emerald-400"}`}>
+                  <div className="text-center">
+                    <div className="w-24 h-24 rounded-xl overflow-hidden bg-slate-100 border-2 border-slate-300">
+                      {lastMatch.registeredFace
+                        ? <img src={lastMatch.registeredFace} alt="ใบหน้าที่ลงทะเบียน" className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">ไม่มีภาพ</div>}
+                    </div>
+                    <p className="text-[11px] font-semibold text-slate-600 mt-1">ที่ลงทะเบียน</p>
+                  </div>
+                  <CheckCircle2 className={`w-8 h-8 ${lastMatch.scanType === "exit" ? "text-rose-500" : "text-emerald-500"}`} />
+                  <div className="text-center">
+                    <div className="w-24 h-24 rounded-xl overflow-hidden bg-slate-100 border-2 border-slate-300">
+                      {lastMatch.capturedFace
+                        ? <img src={lastMatch.capturedFace} alt="ใบหน้าตอนสแกน" className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">-</div>}
+                    </div>
+                    <p className="text-[11px] font-semibold text-slate-600 mt-1">ตอนสแกน</p>
+                  </div>
+                  <div className="pl-3 border-l border-slate-200 min-w-[190px]">
+                    <p className={`text-xs font-bold ${lastMatch.scanType === "exit" ? "text-rose-600" : "text-emerald-600"}`}>
+                      บันทึก{lastMatch.scanType === "exit" ? "ออก" : "เข้า"}โรงเรียนแล้ว
+                    </p>
+                    <p className="text-lg font-bold text-slate-800 leading-tight truncate">{lastMatch.name}</p>
+                    <p className="text-xs text-slate-500">{lastMatch.studentCode} · ชั้น {lastMatch.classroom}</p>
+                    <p className="text-xs text-slate-500 tabular-nums">
+                      {lastMatch.time} · ความมั่นใจ {(lastMatch.confidence * 100).toFixed(0)}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {!streaming && (
               <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-6 text-white">
