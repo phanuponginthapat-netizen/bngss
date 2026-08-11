@@ -15,18 +15,41 @@ async function loadBackend() {
 }
 const fnUrl = (name) => `${SUPABASE_URL}/functions/v1/${name}`;
 loadBackend();
-const DEFAULT_SYSTEM_HOME = "https://bngss.lovable.app/dashboard/browser";
-const AGENT_URL = "https://bngss.lovable.app/dashboard/monitor/agent";
-const DEFAULT_LOGIN_URL = "https://bngss.lovable.app/login";
 
+// ---- App (school system) origin — ปรับตาม deploy ได้ (lovable.app / vercel.app / โดเมนโรงเรียน)
+const DEFAULT_APP_ORIGIN = "https://bngss.vercel.app";
+let APP_ORIGIN = DEFAULT_APP_ORIGIN;
+let DEFAULT_SYSTEM_HOME = `${APP_ORIGIN}/dashboard/browser`;
+let AGENT_URL = `${APP_ORIGIN}/dashboard/monitor/agent`;
+let DEFAULT_LOGIN_URL = `${APP_ORIGIN}/login`;
+
+function setAppOrigin(origin) {
+  try {
+    const o = new URL(origin).origin;
+    if (!o || o === APP_ORIGIN) return;
+    APP_ORIGIN = o;
+    DEFAULT_SYSTEM_HOME = `${o}/dashboard/browser`;
+    AGENT_URL = `${o}/dashboard/monitor/agent`;
+    DEFAULT_LOGIN_URL = `${o}/login`;
+  } catch { /* ignore */ }
+}
+
+async function loadAppOrigin() {
+  try {
+    const { systemHome } = await chrome.storage.local.get(["systemHome"]);
+    if (systemHome) setAppOrigin(systemHome);
+  } catch { /* ignore */ }
+}
+loadAppOrigin();
 
 // URL/domains ที่ถือว่า "ระบบโรงเรียน" — อนุญาตเข้าเสมอเพื่อให้ login ได้
-const SCHOOL_HOST_SUFFIXES = ["lovable.app", "supabase.co", "supabase.io"];
+const SCHOOL_HOST_SUFFIXES = ["lovable.app", "vercel.app", "supabase.co", "supabase.io"];
 function isSchoolUrl(url) {
   try {
     const u = new URL(url);
     if (u.protocol === "chrome-extension:" || u.protocol === "chrome:" || u.protocol === "about:" || u.protocol === "edge:") return true;
     if (u.hostname === "localhost" || u.hostname === "127.0.0.1") return true;
+    if (APP_ORIGIN && u.origin === APP_ORIGIN) return true;
     return SCHOOL_HOST_SUFFIXES.some((s) => u.hostname === s || u.hostname.endsWith("." + s));
   } catch { return false; }
 }
