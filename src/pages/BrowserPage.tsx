@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Globe, Download, ShieldCheck, ExternalLink } from "lucide-react";
-import { toast } from "sonner";
 import BrowserShortcutsGrid from "@/components/browser/BrowserShortcutsGrid";
 import BrowserUrlBar from "@/components/browser/BrowserUrlBar";
 import { openBrowserUrl } from "@/hooks/useBrowserShortcuts";
@@ -38,10 +37,11 @@ export default function BrowserPage() {
   useEffect(() => {
     if (extInstalled && !autoOpened) {
       setAutoOpened(true);
-      const w = window.open(homepage, "_blank", "noopener,noreferrer");
-      if (!w) toast.error("เบราว์เซอร์บล็อกป็อปอัพ กรุณาอนุญาตแล้วกดปุ่ม 'เปิดเบราว์เซอร์'");
+      // ให้ extension เปิดแท็บเดียว (openBrowserUrl จัดการเองว่ามี extension หรือไม่)
+      openBrowserUrl(homepage);
     }
   }, [extInstalled, autoOpened, homepage]);
+
 
   useEffect(() => {
     if (!user) return;

@@ -73,7 +73,7 @@
     return out;
   }
 
-  let lastToken = null;
+  let lastToken = undefined; // undefined = ยังไม่เคยเช็ค → ครั้งแรกที่ไม่มี session จะสั่ง CLEAR_SESSION ด้วย
 
   async function push() {
     const s = read();
@@ -104,7 +104,7 @@
 
   (async () => { await loadConfig(); push(); })();
   window.addEventListener("storage", (e) => { if (e.key === KEY) push(); });
-  setInterval(push, 30 * 1000);
+  setInterval(push, 10 * 1000);
 
 
   // Relay Monitor Agent commands (จาก StudentAgentPage) → extension background

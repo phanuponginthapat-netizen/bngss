@@ -43,16 +43,19 @@ async function loadAppOrigin() {
 loadAppOrigin();
 
 // URL/domains ที่ถือว่า "ระบบโรงเรียน" — อนุญาตเข้าเสมอเพื่อให้ login ได้
-const SCHOOL_HOST_SUFFIXES = ["lovable.app", "vercel.app", "supabase.co", "supabase.io"];
+// หมายเหตุ: ไม่อนุญาต *.vercel.app / *.lovable.app ทั้งหมด (เป็นช่องโหว่) — เฉพาะโดเมนระบบเท่านั้น
+const SCHOOL_HOST_SUFFIXES = ["supabase.co", "supabase.io"];
 function isSchoolUrl(url) {
   try {
     const u = new URL(url);
     if (u.protocol === "chrome-extension:" || u.protocol === "chrome:" || u.protocol === "about:" || u.protocol === "edge:") return true;
     if (u.hostname === "localhost" || u.hostname === "127.0.0.1") return true;
     if (APP_ORIGIN && u.origin === APP_ORIGIN) return true;
+    try { if (DEFAULT_APP_ORIGIN && u.origin === DEFAULT_APP_ORIGIN) return true; } catch {}
     return SCHOOL_HOST_SUFFIXES.some((s) => u.hostname === s || u.hostname.endsWith("." + s));
   } catch { return false; }
 }
+
 
 // เด้ง popup (chrome notification) — throttle 3 วิ กันรัวๆ
 let _lastNotif = 0;
@@ -165,9 +168,15 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 
 // watchdog — เช็คทุก 2 นาทีว่ามี agent tab อยู่ (กันโดน crash/discard)
 chrome.alarms?.create?.("agent-watchdog", { periodInMinutes: 2 });
-chrome.alarms?.onAlarm.addListener((a) => {
+chrome.alarms?.onAlarm.addListener(async (a) => {
   if (a.name === "agent-watchdog") ensureAgentTab();
+  if (a.name === "policy-sweep") {
+    await refreshConfig();          // ดึง rule ล่าสุดก่อนกวาด
+    await getValidSession({ force: true }); // เช็ค logout/หมดอายุ
+    await sweepTabs();
+  }
 });
+
 
 
 
@@ -176,6 +185,91 @@ async function getState() {
   const s = await chrome.storage.local.get(["session", "config", "configAt", "systemHome"]);
   return s;
 }
+
+async function getConfig() {
+  const { config, configAt } = await chrome.storage.local.get(["config", "configAt"]);
+  if (!config || !configAt || Date.now() - configAt > 5 * 60 * 1000) {
+    await refreshConfig();
+    const s = await chrome.storage.local.get(["config"]);
+    return s.config || config || {};
+  }
+  return config;
+}
+
+// -------------------------------------------------------------
+// Session validity — กัน "login ค้าง" หลัง logout จากระบบ
+//  1) หมดอายุตาม expires_at → พยายาม refresh, ถ้าไม่ได้ = เคลียร์
+//  2) ตรวจกับ backend (/auth/v1/user) ทุก 60 วินาที → ถ้า 401 = ถูก logout แล้ว
+// -------------------------------------------------------------
+let _lastRemoteCheck = 0;
+let _remoteOk = true;
+
+async function clearSession(reason) {
+  try {
+    const { agentTabId } = await chrome.storage.local.get(["agentTabId"]);
+    if (agentTabId) chrome.tabs.remove(agentTabId).catch(() => {});
+  } catch {}
+  await chrome.storage.local.remove(["session", "agentTabId"]);
+  _remoteOk = true;
+  _lastRemoteCheck = 0;
+  if (reason) notify("🔒 ออกจากระบบแล้ว", "กรุณาเข้าสู่ระบบใหม่เพื่อใช้งานอินเทอร์เน็ต");
+}
+
+async function tryRefreshSession(session) {
+  if (!session?.refresh_token) return null;
+  try {
+    await loadBackend();
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: ANON_KEY },
+      body: JSON.stringify({ refresh_token: session.refresh_token }),
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    if (!j?.access_token) return null;
+    const next = {
+      ...session,
+      access_token: j.access_token,
+      refresh_token: j.refresh_token || session.refresh_token,
+      expires_at: j.expires_at || Math.floor(Date.now() / 1000) + (j.expires_in || 3600),
+    };
+    await chrome.storage.local.set({ session: next });
+    return next;
+  } catch { return null; }
+}
+
+async function verifyRemote(session) {
+  try {
+    await loadBackend();
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: ANON_KEY, Authorization: `Bearer ${session.access_token}` },
+    });
+    if (r.status === 401 || r.status === 403) return false;
+    return true; // network error / 5xx → ไม่ตัดสิทธิ์
+  } catch { return true; }
+}
+
+async function getValidSession({ force = false } = {}) {
+  const { session } = await chrome.storage.local.get(["session"]);
+  if (!session?.access_token) return null;
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  let cur = session;
+  if (cur.expires_at && cur.expires_at <= nowSec + 30) {
+    cur = await tryRefreshSession(cur);
+    if (!cur) { await clearSession("expired"); return null; }
+  }
+
+  if (force || Date.now() - _lastRemoteCheck > 60 * 1000) {
+    _lastRemoteCheck = Date.now();
+    _remoteOk = await verifyRemote(cur);
+    if (!_remoteOk) { await clearSession("revoked"); return null; }
+  } else if (!_remoteOk) {
+    return null;
+  }
+  return cur;
+}
+
 
 async function getSystemHome() {
   const { systemHome } = await chrome.storage.local.get(["systemHome"]);
@@ -255,24 +349,31 @@ chrome.runtime.onInstalled.addListener(() => { refreshConfig(); ensureAgentTab()
 chrome.runtime.onStartup.addListener(() => { refreshConfig(); ensureAgentTab(); });
 setInterval(refreshConfig, 5 * 60 * 1000);
 
-chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
-  if (details.frameId !== 0) return;
-  const url = details.url;
-  if (!/^https?:/.test(url)) return;
+// -------------------------------------------------------------
+// Enforcement — ใช้ร่วมกันทั้ง onBeforeNavigate / onCommitted / SPA / sweep
+// -------------------------------------------------------------
+function isBlockedPage(url) {
+  return typeof url === "string" && url.startsWith(chrome.runtime.getURL("blocked.html"));
+}
+
+async function enforceUrl(tabId, url) {
+  if (!/^https?:/.test(url || "")) return false;
   let host = "";
-  try { host = new URL(url).hostname; } catch { return; }
+  try { host = new URL(url).hostname; } catch { return false; }
 
-  const { session, config } = await getState();
+  const config = await getConfig();
+  const session = await getValidSession();
 
-  // ===== AUTH GATE: ยังไม่ login → บังคับไปหน้าเข้าสู่ระบบ =====
-  if (!session?.access_token && !isSchoolUrl(url)) {
+  // ===== AUTH GATE: ยังไม่ login (หรือ session หมดอายุ/ถูก logout) → บังคับไปหน้าเข้าสู่ระบบ =====
+  if (!session?.access_token) {
+    if (isSchoolUrl(url)) return false;
     const loginUrl = (config?.browser_login_url && String(config.browser_login_url).trim()) || DEFAULT_LOGIN_URL;
     const reason = "ต้องเข้าสู่ระบบด้วยบัญชีของโรงเรียนก่อนจึงจะใช้งานอินเทอร์เน็ตได้";
     logVisit(url, "auth_required", "no session");
     notify("🔒 ต้องเข้าสู่ระบบก่อน", "เบราว์เซอร์นี้ใช้ได้เฉพาะนักเรียน/ครูของโรงเรียน กรุณาเข้าสู่ระบบก่อน");
     const blockedUrl = chrome.runtime.getURL("blocked.html") + `?u=${encodeURIComponent(url)}&r=${encodeURIComponent(reason)}&mode=login&next=${encodeURIComponent(loginUrl)}`;
-    chrome.tabs.update(details.tabId, { url: blockedUrl });
-    return;
+    chrome.tabs.update(tabId, { url: blockedUrl }).catch(() => {});
+    return true;
   }
 
   const block = parseList(config?.browser_blocklist);
@@ -283,26 +384,57 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   const blockHit = hostMatches(host, block);
   const timeHit = checkTimeRules(host, timeRules);
 
-  if (adHit || blockHit || timeHit) {
-    let reason;
-    let action;
-    if (adHit) {
-      reason = `โฆษณา/แทร็กเกอร์: ${adHit}`;
-      action = "ad_blocked";
-    } else if (timeHit) {
-      const r = timeHit.rule;
-      reason = `⏰ ${r.name || "ห้ามใช้ช่วงเรียน"} — ${r.start}-${r.end} (${timeHit.hit})`;
-      action = "time_blocked";
-      notify("⏰ ถูกบล็อกช่วงเวลาเรียน", `${timeHit.hit} — ${r.name || "ห้ามใช้ช่วงเรียน"} (${r.start}-${r.end})`);
-    } else {
-      reason = config?.browser_block_message || `ถูกบล็อก: ${blockHit}`;
-      action = "blocked";
-    }
-    logVisit(url, action, adHit || (timeHit && timeHit.hit) || blockHit);
-    const blockedUrl = chrome.runtime.getURL("blocked.html") + `?u=${encodeURIComponent(url)}&r=${encodeURIComponent(reason)}${timeHit ? "&mode=time" : ""}`;
-    chrome.tabs.update(details.tabId, { url: blockedUrl });
+  if (!(adHit || blockHit || timeHit)) return false;
+
+  let reason;
+  let action;
+  if (adHit) {
+    reason = `โฆษณา/แทร็กเกอร์: ${adHit}`;
+    action = "ad_blocked";
+  } else if (timeHit) {
+    const r = timeHit.rule;
+    reason = `⏰ ${r.name || "ห้ามใช้ช่วงเรียน"} — ${r.start}-${r.end} (${timeHit.hit})`;
+    action = "time_blocked";
+    notify("⏰ ถูกบล็อกช่วงเวลาเรียน", `${timeHit.hit} — ${r.name || "ห้ามใช้ช่วงเรียน"} (${r.start}-${r.end})`);
+  } else {
+    reason = config?.browser_block_message || `ถูกบล็อก: ${blockHit}`;
+    action = "blocked";
   }
+  logVisit(url, action, adHit || (timeHit && timeHit.hit) || blockHit);
+  const blockedUrl = chrome.runtime.getURL("blocked.html") + `?u=${encodeURIComponent(url)}&r=${encodeURIComponent(reason)}${timeHit ? "&mode=time" : ""}`;
+  chrome.tabs.update(tabId, { url: blockedUrl }).catch(() => {});
+  return true;
+}
+
+chrome.webNavigation.onBeforeNavigate.addListener((d) => {
+  if (d.frameId !== 0) return;
+  enforceUrl(d.tabId, d.url);
 });
+chrome.webNavigation.onCommitted?.addListener((d) => {
+  if (d.frameId !== 0) return;
+  enforceUrl(d.tabId, d.url);
+});
+// SPA / pushState navigation (เช่น youtube, facebook) — ต้องตรวจซ้ำ
+chrome.webNavigation.onHistoryStateUpdated?.addListener((d) => {
+  if (d.frameId !== 0) return;
+  enforceUrl(d.tabId, d.url);
+});
+
+// Sweep — ตรวจทุกแท็บที่เปิดอยู่ทุก 1 นาที
+// ครอบคลุม: เวลาเข้าเงื่อนไข time rule ระหว่างที่เปิดค้างไว้, admin เพิ่ม blocklist ใหม่, session หมดอายุ/logout
+async function sweepTabs() {
+  try {
+    const tabs = await chrome.tabs.query({});
+    for (const t of tabs) {
+      const u = t.url || t.pendingUrl || "";
+      if (!t.id || !/^https?:/.test(u)) continue;
+      if (isBlockedPage(u)) continue;
+      await enforceUrl(t.id, u);
+    }
+  } catch { /* ignore */ }
+}
+chrome.alarms?.create?.("policy-sweep", { periodInMinutes: 1 });
+
 
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
@@ -342,6 +474,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg?.type === "SET_SESSION") {
     _agentSpawnFails = 0;
+    _remoteOk = true;
+    _lastRemoteCheck = 0;
     if (msg.backend?.url) { SUPABASE_URL = String(msg.backend.url).replace(/\/+$/, ""); }
     if (msg.backend?.anonKey) { ANON_KEY = msg.backend.anonKey; }
     if (msg.systemHome) setAppOrigin(msg.systemHome);
@@ -354,11 +488,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.session?.access_token) ensureAgentTab();
     sendResponse({ ok: true });
   } else if (msg?.type === "CLEAR_SESSION") {
-    chrome.storage.local.get(["agentTabId"]).then(({ agentTabId }) => {
-      if (agentTabId) chrome.tabs.remove(agentTabId).catch(() => {});
-      chrome.storage.local.remove(["session", "agentTabId"]);
-    });
+    clearSession().then(() => sweepTabs());
     sendResponse({ ok: true });
+
 
   } else if (msg?.type === "REFRESH_CONFIG") {
     refreshConfig().then(() => sendResponse({ ok: true }));
