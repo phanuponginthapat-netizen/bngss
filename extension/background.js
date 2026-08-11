@@ -168,9 +168,15 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 
 // watchdog — เช็คทุก 2 นาทีว่ามี agent tab อยู่ (กันโดน crash/discard)
 chrome.alarms?.create?.("agent-watchdog", { periodInMinutes: 2 });
-chrome.alarms?.onAlarm.addListener((a) => {
+chrome.alarms?.onAlarm.addListener(async (a) => {
   if (a.name === "agent-watchdog") ensureAgentTab();
+  if (a.name === "policy-sweep") {
+    await refreshConfig();          // ดึง rule ล่าสุดก่อนกวาด
+    await getValidSession({ force: true }); // เช็ค logout/หมดอายุ
+    await sweepTabs();
+  }
 });
+
 
 
 
