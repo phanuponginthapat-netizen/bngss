@@ -11,7 +11,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  loadFaceModels, detectFaceWithLandmarks, applyCameraAutoTune, estimateFaceSharpness,
+  loadFaceModels, detectFaceWithLandmarks, applyCameraAutoTune, estimateFaceSharpness, euclidean,
 } from "@/lib/faceApi";
 
 interface Props {
@@ -20,7 +20,26 @@ interface Props {
   studentCode: string;
   displayName: string;
   onComplete?: () => void;
+  /** "direct" = บันทึกลงฐานข้อมูลทันที (เจ้าหน้าที่) · "request" = ส่งคำขอรออนุมัติ (นักเรียนลงทะเบียนเอง) */
+  submitMode?: "direct" | "request";
+  /** เหตุผล (ใช้เมื่อเป็นการลงทะเบียนใหม่ในโหมดคำขอ) */
+  reason?: string;
 }
+
+/** ระยะห่างสูงสุดที่ยอมรับได้ระหว่างตัวอย่างของ "คนเดียวกัน" */
+const SELF_CONSISTENCY_MAX = 0.55;
+/** ถ้าใบหน้าใกล้กับคนอื่นในระบบมากกว่านี้ = ถือว่าซ้ำคน */
+const DUPLICATE_THRESHOLD = 0.42;
+
+const dataUrlToBlob = (dataUrl: string): Blob => {
+  const [meta, b64] = dataUrl.split(",");
+  const mime = /data:(.*?);/.exec(meta)?.[1] || "image/jpeg";
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+};
+
 
 type StepKey = "center" | "mouth" | "left" | "right" | "color" | "done";
 
@@ -62,7 +81,7 @@ interface CapturedSample {
   };
 }
 
-const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName, onComplete }: Props) => {
+const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName, onComplete, submitMode = "direct", reason }: Props) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const flashRef = useRef<HTMLDivElement>(null);
@@ -86,6 +105,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
   const [samples, setSamples] = useState<CapturedSample[]>([]);
   const [colorFrameIdx, setColorFrameIdx] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [blockedMsg, setBlockedMsg] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
 
 
@@ -185,7 +205,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
   useEffect(() => {
     if (!open) return;
     // resolve student
-    setStepIdx(0); setSamples([]); setColorFrameIdx(0); setStatusMsg("");
+    setStepIdx(0); setSamples([]); setColorFrameIdx(0); setStatusMsg(""); setBlockedMsg(null);
     detectMetaRef.current = { misses: 0, stableHits: 0 };
     mouthStateRef.current = { opened: false, openFrames: 0, baseline: 0, samples: [], maxMar: 0 };
     (async () => {
@@ -432,43 +452,108 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     if (STEPS[stepIdx].key !== "done" || !studentId || saving) return;
     if (samples.length === 0) return;
     (async () => {
-      const __tid_save_1 = toast.loading("กำลังบันทึก...");
-    setSaving(true);
+      const __tid_save_1 = toast.loading(submitMode === "request" ? "กำลังตรวจสอบและส่งคำขอ..." : "กำลังตรวจสอบและบันทึก...");
+      setSaving(true);
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        const { data: ex } = await supabase
-          .from("student_face_descriptors")
-          .select("sample_index")
-          .eq("student_id", studentId)
-          .order("sample_index", { ascending: false }).limit(1);
-        let next = ex && ex[0] ? ex[0].sample_index + 1 : 0;
-        const rows = samples.map((sm) => ({
-          student_id: studentId,
-          sample_index: next++,
-          descriptor: Array.from(sm.descriptor),
-          quality_score: sm.metrics.sharpness,
-          face_image: sm.image,
-          metrics: sm.metrics,
-          captured_by: user?.id,
-          source: "liveness_wizard",
-        }));
-        const { error } = await supabase.from("student_face_descriptors").insert(rows);
-        if (error) throw error;
-        toast.success(`ลงทะเบียนสำเร็จ ${rows.length} ตัวอย่าง (Liveness verified)`);
+        if (!user) throw new Error("กรุณาเข้าสู่ระบบ");
+
+        // ---- 1) ตรวจสอบว่าทุกตัวอย่างเป็น "คนเดียวกัน" (กันสลับหน้าระหว่างขั้นตอน) ----
+        let maxSelf = 0;
+        for (let i = 0; i < samples.length; i++) {
+          for (let j = i + 1; j < samples.length; j++) {
+            const d = euclidean(samples[i].descriptor, samples[j].descriptor);
+            if (d > maxSelf) maxSelf = d;
+          }
+        }
+        if (maxSelf > SELF_CONSISTENCY_MAX) {
+          setBlockedMsg(
+            `ตรวจพบใบหน้าไม่ตรงกันระหว่างขั้นตอน (ค่าต่าง ${maxSelf.toFixed(2)}) — กรุณาลงทะเบียนใหม่โดยให้เป็นคนเดียวกันตลอด`,
+          );
+          throw new Error("ตรวจพบใบหน้ามากกว่า 1 คนระหว่างการลงทะเบียน");
+        }
+
+        // ---- 2) ตรวจสอบใบหน้าซ้ำกับนักเรียนคนอื่นในระบบ (กันจำผิดคน) ----
+        const descriptorArrays = samples.map((sm) => Array.from(sm.descriptor));
+        const { data: dup, error: dupErr } = await supabase.rpc("check_face_duplicate", {
+          _student_id: studentId,
+          _descriptors: descriptorArrays as any,
+          _threshold: DUPLICATE_THRESHOLD,
+        });
+        if (dupErr) throw dupErr;
+        const hit = Array.isArray(dup) ? (dup as any[])[0] : null;
+        if (hit) {
+          setBlockedMsg(
+            `ใบหน้านี้ตรงกับผู้ที่ลงทะเบียนไว้แล้ว: ${hit.match_name ?? ""} (${hit.match_code ?? "-"}) ` +
+            `ระยะห่าง ${Number(hit.min_distance).toFixed(3)} — ระบบไม่อนุญาตให้ลงทะเบียนซ้ำ กรุณาติดต่อเจ้าหน้าที่`,
+          );
+          throw new Error("ใบหน้าซ้ำกับผู้อื่นในระบบ");
+        }
+
+        if (submitMode === "request") {
+          // ---- โหมดนักเรียนลงทะเบียนเอง: ส่งคำขออนุมัติ ----
+          const { data: exist } = await supabase
+            .from("student_face_descriptors").select("id").eq("student_id", studentId).limit(1);
+          const isRereg = (exist?.length ?? 0) > 0;
+
+          const ts = Date.now();
+          const photo_urls: string[] = [];
+          for (let i = 0; i < samples.length; i++) {
+            const blob = dataUrlToBlob(samples[i].image);
+            const path = `requests/${studentId}/${ts}_${i}_selfenroll.jpg`;
+            const { error: upErr } = await supabase.storage
+              .from("face-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+            if (upErr) throw upErr;
+            photo_urls.push(path);
+          }
+
+          const { error } = await supabase.from("face_registration_requests").insert({
+            student_id: studentId,
+            requested_by: user.id,
+            request_type: isRereg ? "reregister" : "initial",
+            reason: reason?.trim() || null,
+            photo_urls,
+            descriptors: descriptorArrays as any,
+            status: "pending",
+          });
+          if (error) throw error;
+          toast.success(`ส่งคำขอลงทะเบียนใบหน้า ${samples.length} ภาพแล้ว รอเจ้าหน้าที่อนุมัติ`);
+        } else {
+          const { data: ex } = await supabase
+            .from("student_face_descriptors")
+            .select("sample_index")
+            .eq("student_id", studentId)
+            .order("sample_index", { ascending: false }).limit(1);
+          let next = ex && ex[0] ? ex[0].sample_index + 1 : 0;
+          const rows = samples.map((sm) => ({
+            student_id: studentId,
+            sample_index: next++,
+            descriptor: Array.from(sm.descriptor),
+            quality_score: sm.metrics.sharpness,
+            face_image: sm.image,
+            metrics: sm.metrics,
+            captured_by: user?.id,
+            source: "liveness_wizard",
+          }));
+          const { error } = await supabase.from("student_face_descriptors").insert(rows);
+          if (error) throw error;
+          toast.success(`ลงทะเบียนสำเร็จ ${rows.length} ตัวอย่าง (Liveness verified)`);
+        }
         stopCamera();
         onComplete?.();
       } catch (e: any) {
-        toast.error("บันทึกล้มเหลว: " + e.message);
+        toast.error("ลงทะเบียนไม่สำเร็จ: " + e.message);
       } finally {
         toast.dismiss(__tid_save_1);
-      setSaving(false);
+        setSaving(false);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepIdx, studentId]);
 
+
   const reset = () => {
-    setStepIdx(0); setSamples([]); setColorFrameIdx(0);
+    setStepIdx(0); setSamples([]); setColorFrameIdx(0); setBlockedMsg(null);
     detectMetaRef.current = { misses: 0, stableHits: 0 };
     mouthStateRef.current = { opened: false, openFrames: 0, baseline: 0, samples: [], maxMar: 0 };
   };
@@ -587,18 +672,26 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             <div className="text-center py-4 space-y-2">
               {saving ? (
                 <p className="text-sm flex items-center justify-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />กำลังบันทึก...
+                  <Loader2 className="w-4 h-4 animate-spin" />กำลังตรวจสอบและบันทึก...
                 </p>
+              ) : blockedMsg ? (
+                <div className="rounded-lg border-2 border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive font-medium">
+                  {blockedMsg}
+                </div>
               ) : (
                 <p className="text-emerald-600 font-semibold flex items-center justify-center gap-2">
-                  <CheckCircle2 className="w-5 h-5" />ลงทะเบียนสำเร็จ — ผ่าน Liveness Check
+                  <CheckCircle2 className="w-5 h-5" />
+                  {submitMode === "request"
+                    ? "ส่งคำขอสำเร็จ — รอเจ้าหน้าที่อนุมัติ"
+                    : "ลงทะเบียนสำเร็จ — ผ่าน Liveness Check"}
                 </p>
               )}
             </div>
           )}
 
+
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={reset} disabled={!streaming || saving}>
+            <Button variant="outline" onClick={reset} disabled={saving}>
               <RotateCcw className="w-4 h-4 mr-2" />เริ่มใหม่
             </Button>
             <Button variant="outline" onClick={() => onOpenChange(false)}>ปิด</Button>

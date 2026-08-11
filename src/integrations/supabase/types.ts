@@ -15610,6 +15610,15 @@ export type Database = {
         Args: { _object_name: string; _user_id: string }
         Returns: boolean
       }
+      check_face_duplicate: {
+        Args: { _descriptors: Json; _student_id: string; _threshold?: number }
+        Returns: {
+          match_code: string
+          match_name: string
+          match_student_id: string
+          min_distance: number
+        }[]
+      }
       cleanup_expired_line_sessions: { Args: never; Returns: undefined }
       create_next_year_periods: {
         Args: { closing_year_be: number }
@@ -15634,6 +15643,7 @@ export type Database = {
       export_schema_sql: { Args: never; Returns: string }
       export_storage_buckets: { Args: never; Returns: Json }
       export_storage_policies_sql: { Args: never; Returns: string }
+      face_distance: { Args: { a: number[]; b: number[] }; Returns: number }
       finalize_past_substitute_teaching: { Args: never; Returns: number }
       find_profile_id_by_code: { Args: { _code: string }; Returns: string }
       fitness_check_achievements: {
