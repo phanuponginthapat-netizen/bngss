@@ -180,6 +180,91 @@ async function getState() {
   return s;
 }
 
+async function getConfig() {
+  const { config, configAt } = await chrome.storage.local.get(["config", "configAt"]);
+  if (!config || !configAt || Date.now() - configAt > 5 * 60 * 1000) {
+    await refreshConfig();
+    const s = await chrome.storage.local.get(["config"]);
+    return s.config || config || {};
+  }
+  return config;
+}
+
+// -------------------------------------------------------------
+// Session validity — กัน "login ค้าง" หลัง logout จากระบบ
+//  1) หมดอายุตาม expires_at → พยายาม refresh, ถ้าไม่ได้ = เคลียร์
+//  2) ตรวจกับ backend (/auth/v1/user) ทุก 60 วินาที → ถ้า 401 = ถูก logout แล้ว
+// -------------------------------------------------------------
+let _lastRemoteCheck = 0;
+let _remoteOk = true;
+
+async function clearSession(reason) {
+  try {
+    const { agentTabId } = await chrome.storage.local.get(["agentTabId"]);
+    if (agentTabId) chrome.tabs.remove(agentTabId).catch(() => {});
+  } catch {}
+  await chrome.storage.local.remove(["session", "agentTabId"]);
+  _remoteOk = true;
+  _lastRemoteCheck = 0;
+  if (reason) notify("🔒 ออกจากระบบแล้ว", "กรุณาเข้าสู่ระบบใหม่เพื่อใช้งานอินเทอร์เน็ต");
+}
+
+async function tryRefreshSession(session) {
+  if (!session?.refresh_token) return null;
+  try {
+    await loadBackend();
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: ANON_KEY },
+      body: JSON.stringify({ refresh_token: session.refresh_token }),
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    if (!j?.access_token) return null;
+    const next = {
+      ...session,
+      access_token: j.access_token,
+      refresh_token: j.refresh_token || session.refresh_token,
+      expires_at: j.expires_at || Math.floor(Date.now() / 1000) + (j.expires_in || 3600),
+    };
+    await chrome.storage.local.set({ session: next });
+    return next;
+  } catch { return null; }
+}
+
+async function verifyRemote(session) {
+  try {
+    await loadBackend();
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: ANON_KEY, Authorization: `Bearer ${session.access_token}` },
+    });
+    if (r.status === 401 || r.status === 403) return false;
+    return true; // network error / 5xx → ไม่ตัดสิทธิ์
+  } catch { return true; }
+}
+
+async function getValidSession({ force = false } = {}) {
+  const { session } = await chrome.storage.local.get(["session"]);
+  if (!session?.access_token) return null;
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  let cur = session;
+  if (cur.expires_at && cur.expires_at <= nowSec + 30) {
+    cur = await tryRefreshSession(cur);
+    if (!cur) { await clearSession("expired"); return null; }
+  }
+
+  if (force || Date.now() - _lastRemoteCheck > 60 * 1000) {
+    _lastRemoteCheck = Date.now();
+    _remoteOk = await verifyRemote(cur);
+    if (!_remoteOk) { await clearSession("revoked"); return null; }
+  } else if (!_remoteOk) {
+    return null;
+  }
+  return cur;
+}
+
+
 async function getSystemHome() {
   const { systemHome } = await chrome.storage.local.get(["systemHome"]);
   return systemHome || DEFAULT_SYSTEM_HOME;
