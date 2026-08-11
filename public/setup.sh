@@ -3,11 +3,11 @@
 #  BNGSS School System — Student Kiosk Setup for MX Linux 25.2
 #  Chromium Light Edition
 #
-#  ใช้:   curl -fsSL https://bngss.lovable.app/setup.sh | bash
+#  ใช้:   curl -fsSL https://bngss.vercel.app/setup.sh | bash
 #         bash setup.sh
 #
 #  Env vars:
-#    SYSTEM_URL         URL ระบบ            (default: https://bngss.lovable.app)
+#    SYSTEM_URL         URL ระบบ            (default: https://bngss.vercel.app)
 #    WIFI_SSID/PASS     Wi-Fi auto-connect
 #    IDLE_LOGOUT_MIN    idle logout นาที    (0 = ปิด)
 #    DAILY_REBOOT_TIME  รีบูตอัตโนมัติ       (default: 03:00)
@@ -55,7 +55,7 @@ cat <<'BANNER'
 BANNER
 echo -e "${N}"
 
-SYSTEM_URL="${SYSTEM_URL:-https://bngss.lovable.app}"
+SYSTEM_URL="${SYSTEM_URL:-https://bngss.vercel.app}"
 EXT_DIR="/opt/bngss-extension"
 CTL_PORT="${CTL_PORT:-9998}"
 IDLE_LOGOUT_MIN="${IDLE_LOGOUT_MIN:-0}"

@@ -10,7 +10,7 @@ EXT_ID="${EXT_ID:-icacgdjhgabapdfflndkjclpkggckdbk}"
 HOST_NAME="com.bngss.wifi"
 HELPER_DIR="/opt/bngss"
 HELPER_BIN="$HELPER_DIR/wifi-helper.py"
-SYSTEM_URL="${SYSTEM_URL:-https://bngss.lovable.app}"
+SYSTEM_URL="${SYSTEM_URL:-https://bngss.vercel.app}"
 
 echo "==> BNGSS Wi-Fi Helper installer"
 echo "    ext id  : $EXT_ID"
