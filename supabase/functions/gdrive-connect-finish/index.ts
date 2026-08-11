@@ -107,9 +107,9 @@ function sanitizeReturnUrl(value: string | null, fallbackOrigin: string) {
       .map((v) => { try { return new URL(v).origin; } catch { return ""; } });
     const allowed = hostname === "localhost"
       || hostname === "127.0.0.1"
-      || hostname.endsWith(".lovable.app")
-      || hostname.endsWith(".lovableproject.com")
-      || hostname.endsWith(".lovable.dev")
+      || hostname.endsWith(".vercel.app")
+      || hostname.endsWith(".pages.dev")
+      || hostname.endsWith(".netlify.app")
       || envOrigins.includes(url.origin);
     return allowed ? url.toString() : fallback;
   } catch {

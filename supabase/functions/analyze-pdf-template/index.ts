@@ -413,7 +413,7 @@ function callOpenAICompatiblePdf(c: OpenAICompatibleCandidate, b64: string) {
     ...(c.extraHeaders || {}),
   };
   if (c.providerType === "openrouter") {
-    headers["HTTP-Referer"] = headers["HTTP-Referer"] || "https://lovable.dev";
+    headers["HTTP-Referer"] = headers["HTTP-Referer"] || Deno.env.get("APP_URL") || "https://bngss.vercel.app";
     headers["X-Title"] = headers["X-Title"] || "School System";
   }
 

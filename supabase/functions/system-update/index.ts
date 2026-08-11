@@ -108,10 +108,13 @@ Deno.serve(async (req) => {
         // Allow-list: only well-known trusted domains for config bundles
         const ALLOWED_SUFFIXES = [
           ".supabase.co", ".supabase.in",
-          ".lovable.app", ".lovable.dev",
+          ".vercel.app", ".pages.dev", ".netlify.app",
           ".githubusercontent.com", ".github.io",
         ];
-        const allowed = ALLOWED_SUFFIXES.some((s) => host === s.slice(1) || host.endsWith(s));
+        const envHosts = [Deno.env.get("APP_URL"), Deno.env.get("PUBLIC_ORIGIN"), ...(Deno.env.get("ALLOWED_BUNDLE_ORIGINS") ?? "").split(",")]
+          .map((v) => { try { return new URL((v ?? "").trim()).hostname.toLowerCase(); } catch { return ""; } })
+          .filter(Boolean);
+        const allowed = envHosts.includes(host) || ALLOWED_SUFFIXES.some((s) => host === s.slice(1) || host.endsWith(s));
         if (!allowed) {
           return json({ error: "host not in allow-list" }, 400);
         }

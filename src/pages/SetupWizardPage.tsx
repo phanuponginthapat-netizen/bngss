@@ -43,9 +43,9 @@ export default function SetupWizardPage() {
   const checkEnv = () => {
     setR("env", { status: "checking" });
     const missing = [
-      !envUrl && "VITE_SUPABASE_URL",
-      !envKey && "VITE_SUPABASE_PUBLISHABLE_KEY",
-      !envPid && "VITE_SUPABASE_PROJECT_ID",
+      !envUrl && "SUPABASE_URL",
+      !envKey && "SUPABASE_ANON_KEY",
+      !envPid && "SUPABASE_PROJECT_ID",
     ].filter(Boolean) as string[];
     if (missing.length) {
       setR("env", { status: "fail", message: `ขาด env: ${missing.join(", ")}`, detail: "ตั้งค่าในการ์ด 'เชื่อมต่อ Backend ภายนอก' ด้านบน, ไฟล์ /app-config.js หรือ Environment Variables ของ Vercel/Cloudflare" });

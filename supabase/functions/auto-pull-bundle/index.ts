@@ -9,9 +9,15 @@ const json = (b: unknown, s = 200) =>
 
 const ALLOWED_SUFFIXES = [
   ".supabase.co", ".supabase.in",
-  ".lovable.app", ".lovable.dev",
+  ".vercel.app", ".pages.dev", ".netlify.app",
   ".githubusercontent.com", ".github.io",
 ];
+
+function envAllowedHosts(): string[] {
+  return [Deno.env.get("APP_URL"), Deno.env.get("PUBLIC_ORIGIN"), ...(Deno.env.get("ALLOWED_BUNDLE_ORIGINS") ?? "").split(",")]
+    .map((v) => { try { return new URL((v ?? "").trim()).hostname.toLowerCase(); } catch { return ""; } })
+    .filter(Boolean);
+}
 
 function isAllowedUrl(u: string): boolean {
   try {
@@ -21,6 +27,7 @@ function isAllowedUrl(u: string): boolean {
     if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return false;
     if (host.includes(":") || host.startsWith("[")) return false;
     if (host === "localhost" || host.endsWith(".local") || host.endsWith(".internal")) return false;
+    if (envAllowedHosts().includes(host)) return true;
     return ALLOWED_SUFFIXES.some((s) => host === s.slice(1) || host.endsWith(s));
   } catch { return false; }
 }
