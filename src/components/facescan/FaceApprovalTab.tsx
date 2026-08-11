@@ -115,9 +115,27 @@ const FaceApprovalTab = () => {
     setBusy(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+
+      // กันจำผิดคน: ตรวจว่าใบหน้าในคำขอไม่ซ้ำกับนักเรียนคนอื่นที่ลงทะเบียนไว้แล้ว
+      const { data: dup, error: dupErr } = await supabase.rpc("check_face_duplicate", {
+        _student_id: req.student_id,
+        _descriptors: req.descriptors as any,
+        _threshold: 0.42,
+      });
+      if (dupErr) throw dupErr;
+      const hit = Array.isArray(dup) ? (dup as any[])[0] : null;
+      if (hit) {
+        toast.error(
+          `อนุมัติไม่ได้ — ใบหน้าซ้ำกับ ${hit.match_name ?? ""} (${hit.match_code ?? "-"}) ระยะห่าง ${Number(hit.min_distance).toFixed(3)}`,
+        );
+        setBusy(false);
+        return;
+      }
+
       const { data: prev } = await supabase.from("student_face_descriptors")
         .select("id").eq("student_id", req.student_id);
       const previous_count = prev?.length ?? 0;
+
 
       // Reregister → replace all; Initial → append
       if (req.request_type === "reregister") {
