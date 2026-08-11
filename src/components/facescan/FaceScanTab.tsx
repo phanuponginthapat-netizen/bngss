@@ -17,6 +17,7 @@ import { useAutoScanMode } from "@/hooks/useAutoScanMode";
 import { useSchoolGeofence, calcDistanceMeters, getCurrentCoords } from "@/hooks/useSchoolGeofence";
 import { MapPin } from "lucide-react";
 import { uploadFaceScanSnapshot } from "@/lib/faceScanUpload";
+import { getRegisteredFaceImage } from "@/lib/registeredFace";
 import { useHomeroomClassrooms } from "@/hooks/useHomeroomClassrooms";
 
 interface RecentScan {
@@ -557,11 +558,13 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
       seenSet.add(studentId);
       setTodayCounts((c) => ({ ...c, [mode]: c[mode] + 1 }));
     }
+    // ใบหน้าที่ลงทะเบียนไว้จริง (ภาพตอนลงทะเบียน) — ใช้เทียบกับใบหน้าที่สแกนได้
+    const regFace = await getRegisteredFaceImage(studentId, registeredFace);
     setRecent((r) => [{
       studentId, studentCode, name, classroom, confidence,
       time: new Date().toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
       capturedFace,
-      registeredFace: registeredFace || undefined,
+      registeredFace: regFace || undefined,
       entryMethod,
       scannerName: scannerName || undefined,
       scanType: mode,

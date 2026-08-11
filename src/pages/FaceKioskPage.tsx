@@ -25,6 +25,7 @@ import KioskScreensaver from "@/components/facescan/KioskScreensaver";
 import KioskHelloAi from "@/components/facescan/KioskHelloAi";
 import { useCmsValues } from "@/hooks/useCmsSettings";
 import { wakeKioskScreen } from "@/lib/kioskWake";
+import { getRegisteredFaceImage } from "@/lib/registeredFace";
 
 // ===== Helper: hex → rgba with alpha (สำหรับใช้ theme สีจาก CMS) =====
 const hexA = (hex: string, a: number): string => {
@@ -440,8 +441,17 @@ const FaceKioskPage = () => {
       seenSet.add(studentId);
       setTodayCounts((c) => ({ ...c, [mode]: c[mode] + 1 }));
     }
+    // ใบหน้าที่ลงทะเบียนไว้ (ภาพตอนลงทะเบียน) — แสดงคู่กับใบหน้าที่สแกนได้
+    const registeredFace = await getRegisteredFaceImage(studentId, avatar);
+    setLastMatch({
+      name, studentCode, classroom, confidence, scanType: mode,
+      capturedFace, registeredFace,
+      time: new Date().toLocaleTimeString("th-TH", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+    });
+    if (matchTimerRef.current) window.clearTimeout(matchTimerRef.current);
+    matchTimerRef.current = window.setTimeout(() => setLastMatch(null), 6000);
     setRecent((r) => [{
-      studentId, studentCode, name, classroom, avatar, capturedFace, confidence,
+      studentId, studentCode, name, classroom, avatar: registeredFace, capturedFace, confidence,
       time: new Date().toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
       scanType: mode,
     }, ...r].slice(0, 10));
