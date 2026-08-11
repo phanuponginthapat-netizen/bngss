@@ -432,40 +432,105 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     if (STEPS[stepIdx].key !== "done" || !studentId || saving) return;
     if (samples.length === 0) return;
     (async () => {
-      const __tid_save_1 = toast.loading("กำลังบันทึก...");
-    setSaving(true);
+      const __tid_save_1 = toast.loading(submitMode === "request" ? "กำลังตรวจสอบและส่งคำขอ..." : "กำลังตรวจสอบและบันทึก...");
+      setSaving(true);
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        const { data: ex } = await supabase
-          .from("student_face_descriptors")
-          .select("sample_index")
-          .eq("student_id", studentId)
-          .order("sample_index", { ascending: false }).limit(1);
-        let next = ex && ex[0] ? ex[0].sample_index + 1 : 0;
-        const rows = samples.map((sm) => ({
-          student_id: studentId,
-          sample_index: next++,
-          descriptor: Array.from(sm.descriptor),
-          quality_score: sm.metrics.sharpness,
-          face_image: sm.image,
-          metrics: sm.metrics,
-          captured_by: user?.id,
-          source: "liveness_wizard",
-        }));
-        const { error } = await supabase.from("student_face_descriptors").insert(rows);
-        if (error) throw error;
-        toast.success(`ลงทะเบียนสำเร็จ ${rows.length} ตัวอย่าง (Liveness verified)`);
+        if (!user) throw new Error("กรุณาเข้าสู่ระบบ");
+
+        // ---- 1) ตรวจสอบว่าทุกตัวอย่างเป็น "คนเดียวกัน" (กันสลับหน้าระหว่างขั้นตอน) ----
+        let maxSelf = 0;
+        for (let i = 0; i < samples.length; i++) {
+          for (let j = i + 1; j < samples.length; j++) {
+            const d = euclidean(samples[i].descriptor, samples[j].descriptor);
+            if (d > maxSelf) maxSelf = d;
+          }
+        }
+        if (maxSelf > SELF_CONSISTENCY_MAX) {
+          setBlockedMsg(
+            `ตรวจพบใบหน้าไม่ตรงกันระหว่างขั้นตอน (ค่าต่าง ${maxSelf.toFixed(2)}) — กรุณาลงทะเบียนใหม่โดยให้เป็นคนเดียวกันตลอด`,
+          );
+          throw new Error("ตรวจพบใบหน้ามากกว่า 1 คนระหว่างการลงทะเบียน");
+        }
+
+        // ---- 2) ตรวจสอบใบหน้าซ้ำกับนักเรียนคนอื่นในระบบ (กันจำผิดคน) ----
+        const descriptorArrays = samples.map((sm) => Array.from(sm.descriptor));
+        const { data: dup, error: dupErr } = await supabase.rpc("check_face_duplicate", {
+          _student_id: studentId,
+          _descriptors: descriptorArrays as any,
+          _threshold: DUPLICATE_THRESHOLD,
+        });
+        if (dupErr) throw dupErr;
+        const hit = Array.isArray(dup) ? (dup as any[])[0] : null;
+        if (hit) {
+          setBlockedMsg(
+            `ใบหน้านี้ตรงกับผู้ที่ลงทะเบียนไว้แล้ว: ${hit.match_name ?? ""} (${hit.match_code ?? "-"}) ` +
+            `ระยะห่าง ${Number(hit.min_distance).toFixed(3)} — ระบบไม่อนุญาตให้ลงทะเบียนซ้ำ กรุณาติดต่อเจ้าหน้าที่`,
+          );
+          throw new Error("ใบหน้าซ้ำกับผู้อื่นในระบบ");
+        }
+
+        if (submitMode === "request") {
+          // ---- โหมดนักเรียนลงทะเบียนเอง: ส่งคำขออนุมัติ ----
+          const { data: exist } = await supabase
+            .from("student_face_descriptors").select("id").eq("student_id", studentId).limit(1);
+          const isRereg = (exist?.length ?? 0) > 0;
+
+          const ts = Date.now();
+          const photo_urls: string[] = [];
+          for (let i = 0; i < samples.length; i++) {
+            const blob = dataUrlToBlob(samples[i].image);
+            const path = `requests/${studentId}/${ts}_${i}_selfenroll.jpg`;
+            const { error: upErr } = await supabase.storage
+              .from("face-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+            if (upErr) throw upErr;
+            photo_urls.push(path);
+          }
+
+          const { error } = await supabase.from("face_registration_requests").insert({
+            student_id: studentId,
+            requested_by: user.id,
+            request_type: isRereg ? "reregister" : "initial",
+            reason: reason?.trim() || null,
+            photo_urls,
+            descriptors: descriptorArrays as any,
+            status: "pending",
+          });
+          if (error) throw error;
+          toast.success(`ส่งคำขอลงทะเบียนใบหน้า ${samples.length} ภาพแล้ว รอเจ้าหน้าที่อนุมัติ`);
+        } else {
+          const { data: ex } = await supabase
+            .from("student_face_descriptors")
+            .select("sample_index")
+            .eq("student_id", studentId)
+            .order("sample_index", { ascending: false }).limit(1);
+          let next = ex && ex[0] ? ex[0].sample_index + 1 : 0;
+          const rows = samples.map((sm) => ({
+            student_id: studentId,
+            sample_index: next++,
+            descriptor: Array.from(sm.descriptor),
+            quality_score: sm.metrics.sharpness,
+            face_image: sm.image,
+            metrics: sm.metrics,
+            captured_by: user?.id,
+            source: "liveness_wizard",
+          }));
+          const { error } = await supabase.from("student_face_descriptors").insert(rows);
+          if (error) throw error;
+          toast.success(`ลงทะเบียนสำเร็จ ${rows.length} ตัวอย่าง (Liveness verified)`);
+        }
         stopCamera();
         onComplete?.();
       } catch (e: any) {
-        toast.error("บันทึกล้มเหลว: " + e.message);
+        toast.error("ลงทะเบียนไม่สำเร็จ: " + e.message);
       } finally {
         toast.dismiss(__tid_save_1);
-      setSaving(false);
+        setSaving(false);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepIdx, studentId]);
+
 
   const reset = () => {
     setStepIdx(0); setSamples([]); setColorFrameIdx(0);
