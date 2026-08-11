@@ -66,6 +66,14 @@ export function openBrowserUrl(raw: string) {
     if (url.includes(".") && !url.includes(" ")) url = "https://" + url;
     else url = "https://www.google.com/search?q=" + encodeURIComponent(url);
   }
-  window.postMessage({ type: "SB_OPEN_URL", url }, "*");
+  // ถ้ามี extension → ให้ extension เปิดแท็บเดียว (จะได้ผ่าน log/filter)
+  // ถ้าไม่มี → เปิดเองด้วย window.open  (เดิมทำทั้งสองอย่าง = เปิดซ้ำ 2 แท็บ)
+  const hasExt =
+    typeof document !== "undefined" &&
+    document.documentElement.getAttribute("data-school-safe-browser") === "1";
+  if (hasExt) {
+    window.postMessage({ type: "SB_OPEN_URL", url }, "*");
+    return;
+  }
   window.open(url, "_blank", "noopener,noreferrer");
 }
