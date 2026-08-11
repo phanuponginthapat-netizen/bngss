@@ -13,7 +13,7 @@
 #
 #  ตัวอย่าง:
 #     sudo KIOSK_MODE=door \
-#          KIOSK_URL="https://bngss.lovable.app/kiosk" \
+#          KIOSK_URL="https://bngss.vercel.app/kiosk" \
 #          KIOSK_WIFI_SSID="MySchoolWiFi" KIOSK_WIFI_PASS="password" \
 #          bash setup-mxlinux-kiosk.sh
 #
@@ -33,7 +33,7 @@ KIOSK_WIFI_PASS="${KIOSK_WIFI_PASS:-}"
 # ── โหลด kiosk_config จาก CMS (ext-config) เพื่อ override ค่าที่ผู้ใช้ตั้งไว้ในหน้า Kiosk Setup ──
 # ผู้ใช้ไม่ต้องส่ง env var เอง — ค่าที่ตั้งในเว็บจะถูกใช้เป็น default โดยอัตโนมัติ
 CMS_BASE="${CMS_BASE:-https://gwmszzoqqxmejefhayqf.supabase.co}"
-CMS_ANON_KEY="${CMS_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4}"
+CMS_ANON_KEY="${CMS_ANON_KEY:-sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v}"
 
 # ทำให้ python3 พร้อมใช้ก่อน — บาง MX Linux minimal ไม่มี python3
 if ! command -v python3 >/dev/null 2>&1; then
@@ -90,17 +90,17 @@ fi
 
 # ค่า default แยกตามโหมด
 if [[ "$KIOSK_MODE" == "student" ]]; then
-  KIOSK_URL="${KIOSK_URL:-https://bngss.lovable.app/}"
+  KIOSK_URL="${KIOSK_URL:-https://bngss.vercel.app/}"
   KIOSK_DAILY_REBOOT="${KIOSK_DAILY_REBOOT-}"                 # student: ไม่ reboot กลางวัน ใช้ shutdown แทน
   KIOSK_IDLE_LOGOUT_MIN="${KIOSK_IDLE_LOGOUT_MIN:-30}"
   KIOSK_IDLE_SHUTDOWN_MIN="${KIOSK_IDLE_SHUTDOWN_MIN:-120}"
   KIOSK_POWER_ON="${KIOSK_POWER_ON:-07:30}"
   KIOSK_POWER_OFF="${KIOSK_POWER_OFF:-17:30}"
   KIOSK_MONITOR_AGENT_URL="${KIOSK_MONITOR_AGENT_URL:-${KIOSK_URL%/}/dashboard/monitor/agent}"
-  KIOSK_EXTENSION_URL="${KIOSK_EXTENSION_URL:-https://bngss.lovable.app/safe-browser-extension.zip}"
+  KIOSK_EXTENSION_URL="${KIOSK_EXTENSION_URL:-https://bngss.vercel.app/safe-browser-extension.zip}"
 else
   KIOSK_MODE="door"
-  KIOSK_URL="${KIOSK_URL:-https://bngss.lovable.app/kiosk}"
+  KIOSK_URL="${KIOSK_URL:-https://bngss.vercel.app/kiosk}"
   KIOSK_DAILY_REBOOT="${KIOSK_DAILY_REBOOT:-03:00}"
   KIOSK_IDLE_LOGOUT_MIN="${KIOSK_IDLE_LOGOUT_MIN:-0}"
   KIOSK_IDLE_SHUTDOWN_MIN="${KIOSK_IDLE_SHUTDOWN_MIN:-0}"
@@ -567,7 +567,7 @@ log "▶  [5.5/10] ดึง branding จาก CMS + ติดตั้ง Plym
 # ดึง config จาก edge function (public) — timeout สั้น ไม่ตายถ้าเน็ตล้ม
 # Edge Functions รันบน Supabase (ไม่ใช่ที่ app URL) — ต้อง hard-code project ref
 CMS_SUPABASE_URL="${CMS_SUPABASE_URL:-https://gwmszzoqqxmejefhayqf.supabase.co}"
-CMS_SUPABASE_ANON="${CMS_SUPABASE_ANON:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4}"
+CMS_SUPABASE_ANON="${CMS_SUPABASE_ANON:-sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v}"
 CMS_JSON=$(curl -sf --max-time 8 "$CMS_SUPABASE_URL/functions/v1/ext-config" \
   -H "apikey: $CMS_SUPABASE_ANON" \
   -H "Authorization: Bearer $CMS_SUPABASE_ANON" \

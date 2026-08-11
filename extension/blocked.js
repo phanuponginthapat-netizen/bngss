@@ -38,10 +38,10 @@
   try {
     chrome.storage.local.get(["config", "systemHome"], ({ config, systemHome }) => {
       const cfg = config || {};
-      const home = systemHome || cfg.browser_default_homepage || "https://bngss.lovable.app/dashboard/browser";
+      const home = systemHome || cfg.browser_default_homepage || "https://bngss.vercel.app/dashboard/browser";
       homeBtn.href = home;
 
-      const login = next || cfg.browser_login_url || "https://bngss.lovable.app/auth";
+      const login = next || cfg.browser_login_url || "https://bngss.vercel.app/auth";
       loginBtn.href = login;
 
       const school = cfg.school_name || cfg.footer_school_name || "โรงเรียน";

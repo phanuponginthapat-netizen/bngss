@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "โรงเรียนของฉัน — Safe Browser",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "เบราว์เซอร์ปลอดภัยสำหรับนักเรียน เชื่อมกับระบบโรงเรียน บันทึกการใช้งาน กรองโฆษณา/เว็บพนัน จัดการ Wi-Fi ในโหมด kiosk และรัน Monitor Agent อัตโนมัติ",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5zUVvXKinnWfV+6ju2+MwZ2fKbDky28LqIIfAAUJnRDVkmWNAbEYndV0bmPXz6EeUR49q3U5NqzVCcPIKDzcCfIOIKrrO+44myUDbiQFAHsXFu9+VAGiNH+rO44L3A0n6dMVpYcowFtB6bBK+MsdcDfMCxO9MFfODn3OkJtcpKIz4tKgB6NdzXGIghxjPOrYpG+H/bplQ7wNHyKCHIjw9FaeEsqEzXdbdtYBgTRP8Xa+3QxgLTkDAfCzMcu2m2NV6gT3wpjGgv/UqIfVVA6RdYQkyZvdcLeuTEW+RoUYAmAkmwQg7vuh0eUeQwahzQP1AnsGSa5KZqthuWFV1jvohwIDAQAB",
   "permissions": ["tabs", "storage", "activeTab", "scripting", "webNavigation", "declarativeNetRequest", "downloads", "alarms", "notifications", "nativeMessaging"],
@@ -20,6 +20,8 @@
       "matches": [
         "https://bngss.lovable.app/*",
         "https://*.lovable.app/*",
+        "https://bngss.vercel.app/*",
+        "https://*.vercel.app/*",
         "http://localhost/*"
       ],
       "js": ["session-sync.js"],
@@ -35,7 +37,10 @@
       "matches": ["<all_urls>"],
       "exclude_matches": [
         "https://bngss.lovable.app/*",
-        "https://*.lovable.app/*"
+        "https://*.lovable.app/*",
+        "https://bngss.vercel.app/*",
+        "https://*.vercel.app/*",
+        "http://localhost/*"
       ],
       "js": ["toolbar.js"],
       "css": ["toolbar.css"],
