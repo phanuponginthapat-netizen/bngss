@@ -344,6 +344,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     _agentSpawnFails = 0;
     if (msg.backend?.url) { SUPABASE_URL = String(msg.backend.url).replace(/\/+$/, ""); }
     if (msg.backend?.anonKey) { ANON_KEY = msg.backend.anonKey; }
+    if (msg.systemHome) setAppOrigin(msg.systemHome);
     chrome.storage.local.set({
       session: msg.session,
       ...(msg.backend?.url ? { backend: { url: SUPABASE_URL, anonKey: ANON_KEY } } : {}),
