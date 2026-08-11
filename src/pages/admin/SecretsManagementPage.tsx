@@ -111,8 +111,8 @@ export default function SecretsManagementPage() {
           <h1 className="text-2xl font-bold">{lang === "th" ? "API Keys / Secrets" : "API Keys / Secrets"}</h1>
           <p className="text-sm text-muted-foreground whitespace-pre-line">
             {lang === "th"
-              ? "'''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''\n                                            \n                                            เช็ค extension กับ linux ติดบัคตรงไหนไหม"
-              : "'''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''\n                                            \n                                            เช็ค extension กับ linux ติดบัคตรงไหนไหม"}
+              ? "'''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''\n                                            \n                                            เช็ค extension กับ linux kiosk แก้บัคให้ใช้งานได้"
+              : "'''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''\n                                            \n                                            เช็ค extension กับ linux kiosk แก้บัคให้ใช้งานได้"}
           </p>
         </div>
       </div>
