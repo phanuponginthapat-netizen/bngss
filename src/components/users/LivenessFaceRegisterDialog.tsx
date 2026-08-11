@@ -691,7 +691,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
 
 
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={reset} disabled={!streaming || saving}>
+            <Button variant="outline" onClick={reset} disabled={saving}>
               <RotateCcw className="w-4 h-4 mr-2" />เริ่มใหม่
             </Button>
             <Button variant="outline" onClick={() => onOpenChange(false)}>ปิด</Button>
