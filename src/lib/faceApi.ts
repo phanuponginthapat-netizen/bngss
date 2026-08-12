@@ -13,27 +13,74 @@ let loaded = false;
 let loadingPromise: Promise<void> | null = null;
 let tinyLoaded = false;
 let tinyLoadingPromise: Promise<void> | null = null;
+let backendPromise: Promise<string> | null = null;
+
+/**
+ * เตรียม TensorFlow.js backend ก่อนใช้งานโมเดล
+ * สำคัญมาก: บนมือถือ/เครื่องที่ WebGL ใช้ไม่ได้ (บล็อก, หน่วยความจำเต็ม, headless)
+ * ถ้าไม่ init backend ล่วงหน้า face-api จะ throw ทุกเฟรม → "ตรวจไม่เจอใบหน้า"
+ */
+export async function ensureTfBackend(onProgress?: (msg: string) => void): Promise<string> {
+  if (backendPromise) return backendPromise;
+  backendPromise = (async () => {
+    const tf: any = (faceapi as any).tf;
+    if (!tf) return "unknown";
+    // ตั้ง path ของ WASM ก่อนเสมอ — เพราะ tf.ready() อาจ init backend wasm เองตั้งแต่ครั้งแรก
+    try {
+      const v = tf.version_wasm || tf.version?.["tfjs-backend-wasm"] || "4.22.0";
+      tf.setWasmPaths?.(`https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@${v}/dist/`);
+    } catch { /* ไม่มีก็ข้าม */ }
+    // WebGL ก่อน (เร็วสุด)
+    try {
+      await tf.setBackend("webgl");
+      await tf.ready();
+      if (tf.getBackend() === "webgl") return "webgl";
+    } catch { /* ลอง wasm ต่อ */ }
+    // WASM (รองรับเกือบทุกเครื่อง — มือถือที่ WebGL ใช้ไม่ได้)
+    try {
+      onProgress?.("กำลังเตรียมตัวประมวลผล (WASM)...");
+      await tf.setBackend("wasm");
+      await tf.ready();
+      if (tf.getBackend() === "wasm") return "wasm";
+    } catch { /* ลอง cpu ต่อ */ }
+
+    try {
+      await tf.setBackend("cpu");
+      await tf.ready();
+      return tf.getBackend();
+    } catch {
+      return "none";
+    }
+  })();
+  return backendPromise;
+}
 
 export async function loadFaceModels(onProgress?: (msg: string) => void): Promise<void> {
   if (loaded) return;
   if (loadingPromise) return loadingPromise;
   loadingPromise = (async () => {
     onProgress?.("กำลังโหลดโมเดล AI (detector + ArcFace)...");
+    const backend = await ensureTfBackend(onProgress);
+    if (backend === "none") throw new Error("อุปกรณ์นี้ประมวลผลโมเดล AI ไม่ได้");
     // Detector + landmarks จาก face-api + ArcFace ONNX สำหรับ 512-D embedding
     // โหลดขนานกัน — ArcFace ~14MB จะใช้เวลานานสุด
     await Promise.all([
       faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
       faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
       faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL), // keep as fallback
-      loadArcFace(onProgress),
+      loadArcFace(onProgress).catch(() => { /* ArcFace ไม่พร้อมก็ยังตรวจจับใบหน้าได้ */ }),
     ]);
     loaded = true;
     onProgress?.("พร้อมใช้งาน");
     // เริ่มโหลด tiny detector ใน background โดยไม่บล็อก UI
     void ensureTinyDetector();
-  })();
+  })().catch((e) => {
+    loadingPromise = null;
+    throw e;
+  });
   return loadingPromise;
 }
+
 
 async function ensureTinyDetector(): Promise<void> {
   if (tinyLoaded) return;
@@ -361,10 +408,16 @@ export async function detectFaceWithLandmarks(
   if (!detected) return null;
 
   const { res, scaleX, scaleY } = detected;
-  const lm = res.landmarks;
-  const arc = await embedWithArcFace(image, lm, scaleX, scaleY);
+  // landmarks จาก detector อาจอยู่ในพิกัดของ canvas ที่ย่อแล้ว → ปรับกลับเป็นพิกัดภาพจริง
+  // เพื่อให้ overlay วาดตรงตำแหน่ง และ ArcFace ครอปหน้าได้ถูกต้อง
+  const rawLm = res.landmarks;
+  const { width: iw, height: ih } = getInputSize(image);
+  const lm = (scaleX !== 1 || scaleY !== 1) && typeof (rawLm as any).forSize === "function"
+    ? (rawLm as any).forSize(iw, ih)
+    : rawLm;
+  const arc = await embedWithArcFace(image, lm, 1, 1);
   return {
-    descriptor: arc ?? res.descriptor,
+    descriptor: arc ?? res.descriptor ?? null,
     box: {
       x: res.detection.box.x * scaleX,
       y: res.detection.box.y * scaleY,
@@ -377,6 +430,7 @@ export async function detectFaceWithLandmarks(
     pitch: estimatePitch(lm),
   };
 }
+
 
 /**
  * Eye Aspect Ratio (Soukupová & Čech, 2016)
