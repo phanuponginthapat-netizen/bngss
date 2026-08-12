@@ -465,6 +465,15 @@ const Login = () => {
         title={lang === "th" ? "สแกน QR บัตรนักเรียน/บุคลากรเพื่อเข้าระบบ" : "Scan student or staff ID QR to sign in"}
       />
 
+      <BarcodeScanner
+        open={parentScanOpen}
+        onClose={() => setParentScanOpen(false)}
+        onScan={(code) => handleParentQrLogin(code)}
+        title={lang === "th" ? "ผู้ปกครอง: สแกน QR บัตรนักเรียน" : "Parent: scan child's ID QR"}
+      />
+
+
+
     </div>
   );
 };
