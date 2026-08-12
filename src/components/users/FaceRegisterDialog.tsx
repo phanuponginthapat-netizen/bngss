@@ -11,6 +11,7 @@ import { swal } from "@/lib/swal";
 import { attachStreamToVideo } from "@/lib/cameraIos";
 import { openCamera, stopStream } from "@/lib/cameraStream";
 import CameraSourcePicker from "@/components/mobile/CameraSourcePicker";
+import CameraFocusLockToggle from "@/components/mobile/CameraFocusLockToggle";
 
 
 
@@ -398,7 +399,10 @@ const FaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName }: Pr
                   </div>
                 )}
               </div>
-              <CameraSourcePicker value={camDeviceId} onChange={pickCamera} refreshKey={camTick} />
+              <div className="flex items-center gap-2 flex-wrap">
+            <CameraSourcePicker value={camDeviceId} onChange={pickCamera} refreshKey={camTick} className="flex-1 min-w-[10rem]" />
+            <CameraFocusLockToggle getStream={() => videoRef.current?.srcObject as MediaStream | null} active={streaming} />
+          </div>
               <div className="flex gap-2 flex-wrap">
 
                 {!streaming ? (

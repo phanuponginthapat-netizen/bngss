@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { attachStreamToVideo } from "@/lib/cameraIos";
 import { openCamera, stopStream } from "@/lib/cameraStream";
 import CameraSourcePicker from "@/components/mobile/CameraSourcePicker";
+import CameraFocusLockToggle from "@/components/mobile/CameraFocusLockToggle";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -537,7 +538,10 @@ const FaceRegisterTab = () => {
             {!streaming && <div className="absolute inset-0 flex items-center justify-center text-white/60"><Camera className="w-12 h-12" /></div>}
           </div>
 
-          <CameraSourcePicker value={camDeviceId} onChange={pickCamera} refreshKey={camTick} />
+          <div className="flex items-center gap-2 flex-wrap">
+            <CameraSourcePicker value={camDeviceId} onChange={pickCamera} refreshKey={camTick} className="flex-1 min-w-[10rem]" />
+            <CameraFocusLockToggle getStream={() => videoRef.current?.srcObject as MediaStream | null} active={streaming} />
+          </div>
 
           <div className="flex gap-2 flex-wrap">
             {!streaming ? (
