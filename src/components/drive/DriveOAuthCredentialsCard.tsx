@@ -42,21 +42,39 @@ export default function DriveOAuthCredentialsCard({ onSaved }: { onSaved?: () =>
   useEffect(() => { loadStatus(); }, []);
 
   const save = async () => {
-    if (!clientId.trim() && !clientSecret.trim()) {
+    const id = clientId.trim();
+    const secret = clientSecret.trim();
+    if (!id && !secret) {
       toast.error("กรอก Client ID หรือ Client Secret อย่างน้อยหนึ่งช่อง");
+      return;
+    }
+    if (id && !id.endsWith(".apps.googleusercontent.com")) {
+      toast.error("Client ID ต้องลงท้ายด้วย .apps.googleusercontent.com");
       return;
     }
     setSaving(true);
     try {
-      const { data, error } = await supabase.functions.invoke("gdrive-admin-status", {
-        body: {
-          action: "save_credentials",
-          clientId: clientId.trim() || undefined,
-          clientSecret: clientSecret.trim() || undefined,
-        },
-      });
-      if (error) throw new Error(error.message);
-      if (!data?.success) throw new Error(data?.error || "credential_save_failed");
+      const { data: userRes } = await supabase.auth.getUser();
+      const uid = userRes?.user?.id ?? null;
+      const now = new Date().toISOString();
+      const rows: any[] = [];
+      if (id) rows.push({ key: KEYS.id, value: id, category: "google", description: "Google OAuth Client ID for Drive", updated_at: now, updated_by: uid });
+      if (secret) rows.push({ key: KEYS.secret, value: secret, category: "google", description: "Google OAuth Client Secret for Drive", updated_at: now, updated_by: uid });
+
+      // เขียนตรงเข้าตาราง app_secrets (RLS อนุญาตเฉพาะ admin/director)
+      const { error: upsertError } = await supabase
+        .from("app_secrets" as any)
+        .upsert(rows, { onConflict: "key" });
+
+      if (upsertError) {
+        // สำรอง: เรียก edge function (กรณี policy ไม่อนุญาตเขียนตรง)
+        const { data, error } = await supabase.functions.invoke("gdrive-admin-status", {
+          body: { action: "save_credentials", clientId: id || undefined, clientSecret: secret || undefined },
+        });
+        if (error) throw new Error(error.message);
+        if (!data?.success) throw new Error(upsertError.message || data?.error || "credential_save_failed");
+      }
+
       toast.success("บันทึกค่า Google OAuth แล้ว");
       setClientId("");
       setClientSecret("");
@@ -68,6 +86,7 @@ export default function DriveOAuthCredentialsCard({ onSaved }: { onSaved?: () =>
       setSaving(false);
     }
   };
+
 
   return (
     <Card className="p-6 space-y-4">
