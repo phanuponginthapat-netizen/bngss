@@ -69,8 +69,8 @@ const FaceDatabaseTab = () => {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {filtered.map((s: any) => (
               <div key={s.id} className="p-3 rounded-lg border bg-card flex items-center gap-3">
-                {s.photo_url ? (
-                  <img src={s.photo_url} alt="" className="w-12 h-12 rounded-full object-cover border" />
+                {s.face_image || s.photo_url ? (
+                  <img src={s.face_image || s.photo_url} alt="" className="w-12 h-12 rounded-full object-cover border" />
                 ) : (
                   <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-xs">
                     {s.first_name?.[0]}
