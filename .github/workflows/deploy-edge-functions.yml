@@ -11,6 +11,10 @@ on:
       - ".github/workflows/deploy-edge-functions.yml"
   workflow_dispatch:
 
+concurrency:
+  group: deploy-edge-functions
+  cancel-in-progress: false
+
 env:
   SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
   PROJECT_REF: gwmszzoqqxmejefhayqf
@@ -23,13 +27,17 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+      - name: Verify secrets
+        run: |
+          : "${SUPABASE_ACCESS_TOKEN:?SUPABASE_ACCESS_TOKEN secret is not set}"
+          : "${PROJECT_REF:?PROJECT_REF is not set}"
       - name: Deploy all edge functions
         run: |
           set -uo pipefail
           failed=""
           for dir in supabase/functions/*/; do
             name="$(basename "$dir")"
-            # ข้าม: _shared (ไม่ใช่ฟังก์ชัน), migrate-auth-push, mcp (Lovable deploy ให้เอง bundle ใหญ่เกิน 5MB)
+            # ข้าม: _shared (ไม่ใช่ฟังก์ชัน), migrate-auth-push (one-time migration), mcp (Lovable deploy ให้เอง bundle ใหญ่เกิน 5MB)
             case "$name" in _shared|migrate-auth-push|mcp) echo "--> skip $name"; continue ;; esac
             echo "--> $name"
             if ! supabase functions deploy "$name" --project-ref "$PROJECT_REF"; then
@@ -41,3 +49,4 @@ jobs:
             echo "::error::functions failed to deploy:$failed"
             exit 1
           fi
+          echo "==> All deployable functions deployed successfully"
