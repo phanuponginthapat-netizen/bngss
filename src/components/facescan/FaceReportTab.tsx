@@ -362,14 +362,31 @@ const FaceReportTab = () => {
   const { data: accurate } = useQuery({
     queryKey: ["face-report-accurate", range.start, range.end, todayStr],
     queryFn: async () => {
-      const [settingRes, studentsRes, scansRes, attRes, leavesRes, eventsRes] = await Promise.all([
+      // ดึงข้อมูลแบบแบ่งหน้า — ไม่ให้ถูกตัดที่ 1,000 แถว (ทำให้ยอด "ขาด" เพี้ยน)
+      const fetchAll = async (build: (from: number, to: number) => any) => {
+        const PAGE = 1000;
+        const out: any[] = [];
+        for (let from = 0; from < 200_000; from += PAGE) {
+          const { data, error } = await build(from, from + PAGE - 1);
+          if (error) break;
+          out.push(...((data as any[]) || []));
+          if (!data || (data as any[]).length < PAGE) break;
+        }
+        return out;
+      };
+
+      const [settingRes, studentsRes, scanRows, attRows, leaveRows, eventsRes] = await Promise.all([
         supabase.from("school_settings").select("setting_value").eq("setting_key", "clock_late_threshold").maybeSingle(),
         supabase.from("students").select("id, prefix, first_name, last_name, student_code, gender, classrooms!students_classroom_id_fkey(grade_level, name, reference_grade_level)").eq("status", "active"),
-        supabase.from("face_scan_logs").select("student_id, scan_date, scan_time").gte("scan_date", range.start).lte("scan_date", range.end),
-        supabase.from("attendance").select("student_id, attendance_date, status").gte("attendance_date", range.start).lte("attendance_date", range.end),
-        supabase.from("student_leaves").select("student_id, start_date, end_date, status").lte("start_date", range.end).gte("end_date", range.start),
+        fetchAll((f, t) => supabase.from("face_scan_logs").select("student_id, scan_date, scan_time").gte("scan_date", range.start).lte("scan_date", range.end).order("scan_date").range(f, t)),
+        fetchAll((f, t) => supabase.from("attendance").select("student_id, attendance_date, status").gte("attendance_date", range.start).lte("attendance_date", range.end).order("attendance_date").range(f, t)),
+        fetchAll((f, t) => supabase.from("student_leaves").select("student_id, start_date, end_date, status").lte("start_date", range.end).gte("end_date", range.start).order("start_date").range(f, t)),
         supabase.from("academic_events").select("event_date, end_date, event_type").eq("event_type", "holiday").lte("event_date", range.end),
       ]);
+      const scansRes = { data: scanRows };
+      const attRes = { data: attRows };
+      const leavesRes = { data: leaveRows };
+
       const lateThreshold = (settingRes.data?.setting_value as string) || "08:30";
       const holidays = new Set<string>();
       for (const ev of (eventsRes.data as any[]) || []) {
@@ -400,14 +417,17 @@ const FaceReportTab = () => {
         if (!p || t < p) m.set(r.student_id, t);
         scanIdx.set(r.scan_date, m);
       }
-      // Attendance index: date -> studentId -> status
+      // Attendance index: date -> studentId -> status (รายคาบหลายแถว/วัน → เลือกตามลำดับความสำคัญ)
+      const statusRank: Record<string, number> = { present: 5, late: 4, leave: 3, sick: 3, absent: 1 };
       const attIdx = new Map<string, Map<string, string>>();
       for (const r of (attRes.data as any[]) || []) {
         if (!effSet.has(r.attendance_date)) continue;
         const m = attIdx.get(r.attendance_date) || new Map<string, string>();
-        m.set(r.student_id, r.status);
+        const prev = m.get(r.student_id);
+        if (!prev || (statusRank[r.status] ?? 0) > (statusRank[prev] ?? 0)) m.set(r.student_id, r.status);
         attIdx.set(r.attendance_date, m);
       }
+
       // Leave coverage: studentId -> Set<date> (approved or pending — count as ลา, not ขาด)
       const leaveIdx = new Map<string, Set<string>>();
       for (const lv of (leavesRes.data as any[]) || []) {
@@ -471,7 +491,7 @@ const FaceReportTab = () => {
             kind = t > lateThreshold + ":00" ? "late" : "present";
           } else if (a === "present") kind = "present";
           else if (a === "late") kind = "late";
-          else if (a === "leave" || onLeave) kind = "leave";
+          else if (a === "leave" || a === "sick" || onLeave) kind = "leave";
           else if (a === "absent") kind = "absent";
           else kind = "absent"; // ไม่มีข้อมูล = ถือว่าขาด
           if (kind === "present") { c.present++; if (isM) c.presentM++; else c.presentF++; }
@@ -1113,12 +1133,14 @@ const FaceReportTab = () => {
                 <thead className="sticky top-0 z-10 bg-slate-100 text-slate-700">
                   <tr>
                     <th rowSpan={2} className="text-left p-2 border-b border-r font-semibold align-middle">ชั้น</th>
-                    <th colSpan={3} className="text-center p-1.5 border-b border-r font-semibold text-xs">จำนวนนักเรียน</th>
-                    <th colSpan={3} className="text-center p-1.5 border-b border-r font-semibold text-xs bg-emerald-50 text-emerald-800">มาเรียน</th>
-                    <th colSpan={3} className="text-center p-1.5 border-b border-r font-semibold text-xs bg-amber-50 text-amber-800">สาย</th>
-                    <th rowSpan={2} className="text-center p-2 border-b border-r font-semibold align-middle bg-sky-50 text-sky-800">ลา</th>
-                    <th colSpan={3} className="text-center p-1.5 border-b border-r font-semibold text-xs bg-rose-50 text-rose-800">ขาด</th>
+                    <th colSpan={3} className="text-center p-1.5 border-b border-r font-semibold text-xs">จำนวนนักเรียน (คน)</th>
+                    <th rowSpan={2} className="text-center p-2 border-b border-r font-semibold align-middle text-xs text-muted-foreground">คน-วัน</th>
+                    <th colSpan={3} className="text-center p-1.5 border-b border-r font-semibold text-xs bg-emerald-50 text-emerald-800">มาเรียน (คน-วัน)</th>
+                    <th colSpan={3} className="text-center p-1.5 border-b border-r font-semibold text-xs bg-amber-50 text-amber-800">สาย (คน-วัน)</th>
+                    <th rowSpan={2} className="text-center p-2 border-b border-r font-semibold align-middle bg-sky-50 text-sky-800">ลา<div className="text-[10px] font-normal opacity-70">คน-วัน</div></th>
+                    <th colSpan={3} className="text-center p-1.5 border-b border-r font-semibold text-xs bg-rose-50 text-rose-800">ขาด (คน-วัน)</th>
                     <th rowSpan={2} className="text-right p-2 border-b font-semibold align-middle">% เข้าเรียน</th>
+
                   </tr>
                   <tr className="text-[11px]">
                     <th className="text-center p-1 border-b border-r font-medium text-muted-foreground">ช</th>
@@ -1142,6 +1164,8 @@ const FaceReportTab = () => {
                       <td className="p-2 text-center border-r text-muted-foreground">{r.sizeM || "-"}</td>
                       <td className="p-2 text-center border-r text-muted-foreground">{r.sizeF || "-"}</td>
                       <td className="p-2 text-center border-r font-semibold">{r.size || "-"}</td>
+                      <td className="p-2 text-center border-r text-xs text-muted-foreground">{r.cd || "-"}</td>
+
                       <td className="p-2 text-center border-r text-emerald-700/80">{r.presentM || "-"}</td>
                       <td className="p-2 text-center border-r text-emerald-700/80">{r.presentF || "-"}</td>
                       <td className="p-2 text-center border-r font-bold text-emerald-700 bg-emerald-50/50">{r.present || "-"}</td>
@@ -1160,7 +1184,7 @@ const FaceReportTab = () => {
                     </tr>
                   ))}
                   {accurate.rows.length === 0 && (
-                    <tr><td colSpan={15} className="p-8 text-center text-muted-foreground">ยังไม่มีข้อมูลในช่วงนี้</td></tr>
+                    <tr><td colSpan={16} className="p-8 text-center text-muted-foreground">ยังไม่มีข้อมูลในช่วงนี้</td></tr>
                   )}
                 </tbody>
                 <tfoot className="sticky bottom-0 bg-slate-100 border-t-2 border-slate-300">
@@ -1169,6 +1193,7 @@ const FaceReportTab = () => {
                     <td className="p-2 text-center border-r">{accurate.totals.sizeM || "-"}</td>
                     <td className="p-2 text-center border-r">{accurate.totals.sizeF || "-"}</td>
                     <td className="p-2 text-center border-r">{accurate.totals.size || "-"}</td>
+                    <td className="p-2 text-center border-r text-xs text-muted-foreground">{accurate.totals.cd || "-"}</td>
                     <td className="p-2 text-center border-r text-emerald-700/80">{accurate.totals.presentM || "-"}</td>
                     <td className="p-2 text-center border-r text-emerald-700/80">{accurate.totals.presentF || "-"}</td>
                     <td className="p-2 text-center border-r text-emerald-700 bg-emerald-50">{accurate.totals.present || "-"}</td>
