@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { attachStreamToVideo } from "@/lib/cameraIos";
+import { openCamera, stopStream } from "@/lib/cameraStream";
+import CameraSourcePicker from "@/components/mobile/CameraSourcePicker";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +36,9 @@ const FaceRegisterTab = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [streaming, setStreaming] = useState(false);
+  const [camDeviceId, setCamDeviceId] = useState<string | undefined>(undefined);
+  const [camTick, setCamTick] = useState(0);
+
   const [studentId, setStudentId] = useState("");
   const [search, setSearch] = useState("");
   const [reason, setReason] = useState("");
@@ -156,18 +162,29 @@ const FaceRegisterTab = () => {
     return [s.first_name, s.last_name, s.student_code].some((v) => String(v || "").toLowerCase().includes(q));
   }).slice(0, 100);
 
-  const startCamera = async () => {
+  const startCamera = async (deviceId?: string) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-      if (videoRef.current) { await attachStreamToVideo(videoRef.current, stream); setStreaming(true); }
-    } catch (e: any) { toast.error("เปิดกล้องไม่สำเร็จ: " + e.message); }
+      const res = await openCamera({ facing: "user", deviceId: deviceId ?? camDeviceId, width: 1280, height: 720 });
+      if (videoRef.current) {
+        await attachStreamToVideo(videoRef.current, res.stream);
+        setStreaming(true);
+        setCamDeviceId(res.deviceId);
+        setCamTick((t) => t + 1);
+      } else {
+        stopStream(res.stream);
+      }
+    } catch (e: any) { toast.error(e?.message || "เปิดกล้องไม่สำเร็จ"); }
   };
   const stopCamera = () => {
-    const s = videoRef.current?.srcObject as MediaStream | null;
-    s?.getTracks().forEach((t) => t.stop());
-    if (videoRef.current) videoRef.current.srcObject = null;
+    stopStream(videoRef.current?.srcObject as MediaStream | null, videoRef.current);
     setStreaming(false);
   };
+  const pickCamera = (deviceId: string) => {
+    setCamDeviceId(deviceId);
+    stopCamera();
+    setTimeout(() => startCamera(deviceId), 150);
+  };
+
   const captureShot = async () => {
     if (!videoRef.current || !modelReady) return;
     setBusy(true);
@@ -520,9 +537,12 @@ const FaceRegisterTab = () => {
             {!streaming && <div className="absolute inset-0 flex items-center justify-center text-white/60"><Camera className="w-12 h-12" /></div>}
           </div>
 
+          <CameraSourcePicker value={camDeviceId} onChange={pickCamera} refreshKey={camTick} />
+
           <div className="flex gap-2 flex-wrap">
             {!streaming ? (
-              <Button onClick={startCamera} disabled={!modelReady} size="sm" variant="outline"><Camera className="w-4 h-4 mr-2" />เปิดกล้อง</Button>
+              <Button onClick={() => startCamera()} disabled={!modelReady} size="sm" variant="outline"><Camera className="w-4 h-4 mr-2" />เปิดกล้อง</Button>
+
             ) : (
               <>
                 <Button onClick={captureShot} disabled={busy} size="sm" className="gradient-primary">
