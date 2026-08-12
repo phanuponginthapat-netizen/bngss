@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Users, HeartPulse, Compass, Info } from "lucide-react";
+import { AlertTriangle, Users, HeartPulse, Compass, Info, FileDown, Loader2 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
   PieChart, Pie, Legend, LineChart, Line,
@@ -184,6 +186,62 @@ export default function WellbeingDashboard() {
 
   const uniqueStudents = new Set([...mental.map((r) => r.student_id), ...career.map((r) => r.student_id)]).size;
 
+  const trendChartRef = useRef<HTMLDivElement | null>(null);
+  const classChartRef = useRef<HTMLDivElement | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  const scopeLabel = useMemo(() => {
+    const parts: string[] = [];
+    parts.push(gradeFilter === "all" ? "ทุกระดับชั้น" : gradeFilter);
+    const cls = classroomOptions.find((c) => c.id === classroomFilter);
+    parts.push(cls ? `ห้อง ${cls.name}` : "ทุกห้อง");
+    if (isFiltered && hasHomeroom) parts.push(`(ครูประจำชั้น: ${teacherFullName})`);
+    return parts.join(" · ");
+  }, [gradeFilter, classroomFilter, classroomOptions, isFiltered, hasHomeroom, teacherFullName]);
+
+  const handleExportPdf = async () => {
+    setExporting(true);
+    try {
+      const { generateWellbeingReportPdf } = await import("@/lib/wellbeingReportPdf");
+      await generateWellbeingReportPdf({
+        scopeLabel,
+        stats: [
+          { label: "นักเรียนที่เข้าร่วม", value: uniqueStudents },
+          { label: "ประเมินสุขภาพจิต", value: mental.length },
+          { label: "วัดแววอาชีพ", value: career.length },
+          { label: "กลุ่มเฝ้าระวัง", value: atRisk.length },
+        ],
+        chartNodes: [
+          { title: "แนวโน้มการประเมินรายเดือน (12 เดือนล่าสุด)", node: trendChartRef.current },
+          { title: "สรุปรายชั้นเรียน", node: classChartRef.current },
+        ],
+        classroomRows: byClassroom.map((c) => ({
+          name: c.name,
+          participants: c.ผู้เข้าร่วม,
+          assessments: c.assessments,
+          career: c.วัดแววอาชีพ,
+          atRisk: c.เฝ้าระวัง,
+        })),
+        riskRows: riskCounts.map((r) => ({ name: r.name, value: r.value })),
+        toolRows: byTool.map((t) => ({ tool: t.tool, total: t.ทั้งหมด, watch: t.เฝ้าระวัง })),
+        atRiskRows: atRisk.map((r) => ({
+          name: `${r.students?.first_name ?? ""} ${r.students?.last_name ?? ""}`.trim() || "-",
+          classroom: r.students?.classrooms?.name ?? "-",
+          tool: r.tool,
+          score: r.total_score,
+          risk: RISK_META[r.risk_level as RiskLevel]?.label ?? r.risk_level,
+          date: new Date(r.created_at).toLocaleDateString("th-TH", { day: "2-digit", month: "short", year: "numeric" }),
+        })),
+      });
+      toast.success("สร้างรายงาน PDF เรียบร้อย");
+    } catch (e) {
+      console.error(e);
+      toast.error("สร้างรายงาน PDF ไม่สำเร็จ");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">กำลังโหลดข้อมูล...</div>;
 
   const stats = [
@@ -207,29 +265,36 @@ export default function WellbeingDashboard() {
       )}
 
       <Card>
-        <CardContent className="p-4 grid gap-3 sm:grid-cols-2 max-w-2xl">
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">ระดับชั้น</div>
-            <Select value={gradeFilter} onValueChange={(v) => { setGradeFilter(v); setClassroomFilter("all"); }}>
-              <SelectTrigger><SelectValue placeholder="ทุกระดับชั้น" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">ทุกระดับชั้น</SelectItem>
-                {grades.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-              </SelectContent>
-            </Select>
+        <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="grid gap-3 sm:grid-cols-2 flex-1 max-w-2xl">
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">ระดับชั้น</div>
+              <Select value={gradeFilter} onValueChange={(v) => { setGradeFilter(v); setClassroomFilter("all"); }}>
+                <SelectTrigger><SelectValue placeholder="ทุกระดับชั้น" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">ทุกระดับชั้น</SelectItem>
+                  {grades.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">ห้องเรียน</div>
+              <Select value={classroomFilter} onValueChange={setClassroomFilter}>
+                <SelectTrigger><SelectValue placeholder="ทุกห้อง" /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value="all">ทุกห้อง</SelectItem>
+                  {classroomOptions.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">ห้องเรียน</div>
-            <Select value={classroomFilter} onValueChange={setClassroomFilter}>
-              <SelectTrigger><SelectValue placeholder="ทุกห้อง" /></SelectTrigger>
-              <SelectContent className="max-h-72">
-                <SelectItem value="all">ทุกห้อง</SelectItem>
-                {classroomOptions.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+          <Button onClick={handleExportPdf} disabled={exporting} className="shrink-0">
+            {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileDown className="h-4 w-4 mr-2" />}
+            {exporting ? "กำลังสร้างรายงาน..." : "ดาวน์โหลดรายงาน PDF"}
+          </Button>
         </CardContent>
       </Card>
+
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
@@ -247,7 +312,7 @@ export default function WellbeingDashboard() {
 
       <Card>
         <CardHeader><CardTitle className="text-base">แนวโน้มการประเมินรายเดือน (12 เดือนล่าสุด)</CardTitle></CardHeader>
-        <CardContent className="h-[320px]">
+        <CardContent ref={trendChartRef} className="h-[320px]">
           {trend.length === 0 ? (
             <p className="text-sm text-muted-foreground">ยังไม่มีข้อมูลสำหรับช่วงที่เลือก</p>
           ) : (
@@ -274,7 +339,7 @@ export default function WellbeingDashboard() {
             <p className="text-sm text-muted-foreground">ยังไม่มีข้อมูลสำหรับช่วงที่เลือก</p>
           ) : (
             <>
-              <div style={{ height: Math.max(220, byClassroom.length * 38) }}>
+              <div ref={classChartRef} style={{ height: Math.max(220, byClassroom.length * 38) }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={byClassroom} layout="vertical" margin={{ left: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
