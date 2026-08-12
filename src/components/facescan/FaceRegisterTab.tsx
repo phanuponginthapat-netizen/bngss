@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { attachStreamToVideo } from "@/lib/cameraIos";
+import { openCamera, stopStream } from "@/lib/cameraStream";
+import CameraSourcePicker from "@/components/mobile/CameraSourcePicker";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +36,9 @@ const FaceRegisterTab = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [streaming, setStreaming] = useState(false);
+  const [camDeviceId, setCamDeviceId] = useState<string | undefined>(undefined);
+  const [camTick, setCamTick] = useState(0);
+
   const [studentId, setStudentId] = useState("");
   const [search, setSearch] = useState("");
   const [reason, setReason] = useState("");
