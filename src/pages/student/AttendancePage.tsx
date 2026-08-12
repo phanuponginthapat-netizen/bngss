@@ -59,22 +59,29 @@ const AttendancePage = () => {
   const { data: records = [] } = useQuery({
     queryKey: ["attendance", academicYear, semester, scopedStudentIds?.join(",") || "all"],
     queryFn: async () => {
-      let query = supabase
-        .from("attendance")
-        .select("*, students(student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level)), subjects(id, name_th, code)")
-        .order("created_at", { ascending: false })
-        .limit(2000);
-
       const dbAcademicYear = toDbAcademicYear(academicYear);
-      if (dbAcademicYear) query = query.eq("academic_year", dbAcademicYear);
-      if (semester > 0) query = query.eq("semester", semester);
-      if (scopedStudentIds) {
-        if (scopedStudentIds.length === 0) return [];
-        query = query.in("student_id", scopedStudentIds);
-      }
+      if (scopedStudentIds && scopedStudentIds.length === 0) return [];
 
-      const { data } = await query;
-      return data || [];
+      // ดึงทั้งหมดแบบแบ่งหน้า เพื่อให้การนับ ขาด/ลา ครบจริง (ไม่ตัดที่ 2000 แถว)
+      const PAGE = 1000;
+      const all: any[] = [];
+      for (let from = 0; from < 50_000; from += PAGE) {
+        let query = supabase
+          .from("attendance")
+          .select("*, students(student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level)), subjects(id, name_th, code)")
+          .order("created_at", { ascending: false })
+          .range(from, from + PAGE - 1);
+
+        if (dbAcademicYear) query = query.eq("academic_year", dbAcademicYear);
+        if (semester > 0) query = query.eq("semester", semester);
+        if (scopedStudentIds) query = query.in("student_id", scopedStudentIds);
+
+        const { data, error } = await query;
+        if (error) break;
+        all.push(...(data || []));
+        if (!data || data.length < PAGE) break;
+      }
+      return all;
     },
     enabled: academicYear > 0,
   });
