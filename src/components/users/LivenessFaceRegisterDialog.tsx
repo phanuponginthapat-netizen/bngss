@@ -311,14 +311,14 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     const faceFrac = box.width / vw;
     const sharpness = estimateFaceSharpness(videoRef.current, box);
 
-    if (faceFrac < 0.09) {
+    if (faceFrac < 0.06) {
       detectMetaRef.current.stableHits = 0;
       setStatusMsg("ใบหน้าเล็กเกินไป — กรุณาเข้าใกล้กล้องอีกนิด");
       loopRef.current = window.setTimeout(runStep, 140) as unknown as number;
       return;
     }
 
-    if (sharpness < 25) {
+    if (sharpness < 10) {
       detectMetaRef.current.stableHits = 0;
       setStatusMsg("ภาพยังเบลอ — อยู่นิ่งๆ หรือเช็ดกล้องก่อน");
       loopRef.current = window.setTimeout(runStep, 140) as unknown as number;
@@ -327,9 +327,10 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
 
     switch (step.key) {
       case "center": {
-        if (faceFrac < 0.14) { detectMetaRef.current.stableHits = 0; setStatusMsg("เข้าใกล้กล้องอีกหน่อย"); break; }
-        if (faceFrac > 0.55) { setStatusMsg("ถอยห่างเล็กน้อย"); break; }
-        if (Math.abs(yaw) > 0.18) { detectMetaRef.current.stableHits = 0; setStatusMsg("หันหน้าตรงกล้อง"); break; }
+        if (faceFrac < 0.10) { detectMetaRef.current.stableHits = 0; setStatusMsg("เข้าใกล้กล้องอีกหน่อย"); break; }
+        if (faceFrac > 0.65) { setStatusMsg("ถอยห่างเล็กน้อย"); break; }
+        if (Math.abs(yaw) > 0.25) { detectMetaRef.current.stableHits = 0; setStatusMsg("หันหน้าตรงกล้อง"); break; }
+
         detectMetaRef.current.stableHits += 1;
         if (detectMetaRef.current.stableHits < 2) {
           setStatusMsg("ตรงแล้ว — อยู่นิ่งอีกนิด");

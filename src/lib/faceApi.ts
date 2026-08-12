@@ -44,13 +44,14 @@ async function ensureTinyDetector(): Promise<void> {
   return tinyLoadingPromise;
 }
 
-// HQ detector — ใช้ SSD MobileNet สำหรับงานที่ต้องการความแม่นยำสูงสุด
-export const detectorOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.7, maxResults: 10 });
+// Detector หลัก — ลด minConfidence ลงให้จับใบหน้าได้ง่ายขึ้น (แสงน้อย/กล้องเว็บแคมคุณภาพต่ำ)
+export const detectorOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.35, maxResults: 10 });
 
 // Fallback Tiny detector — เร็วกว่าแต่แม่นยำน้อยกว่า ใช้เมื่อ HQ ทำงานช้าเกินไป
-export function detectorOptionsHQ(_inputSize: 320 | 416 | 512 | 608 = 608, minConfidence = 0.7) {
+export function detectorOptionsHQ(_inputSize: 320 | 416 | 512 | 608 = 608, minConfidence = 0.5) {
   return new faceapi.SsdMobilenetv1Options({ minConfidence, maxResults: 20 });
 }
+
 
 /**
  * ปรับกล้องอัตโนมัติให้คมชัดที่สุดเท่าที่ฮาร์ดแวร์รองรับ
@@ -117,21 +118,21 @@ async function runSingleFaceDetection(
   input: DetectableInput,
   opts: faceapi.SsdMobilenetv1Options | faceapi.TinyFaceDetectorOptions,
 ) {
+  // ใช้แค่ detection + landmarks (ไม่คำนวณ descriptor 128-D ของ face-api)
+  // เพราะระบบใช้ ArcFace 512-D อยู่แล้ว → เร็วขึ้นมาก ทำให้ลูปจับใบหน้าลื่นและไวขึ้น
   const single = await faceapi
     .detectSingleFace(input as any, opts as any)
-    .withFaceLandmarks()
-    .withFaceDescriptor();
-  if (single) return single;
+    .withFaceLandmarks();
+  if (single) return single as any;
 
   const all = await faceapi
     .detectAllFaces(input as any, opts as any)
-    .withFaceLandmarks()
-    .withFaceDescriptors();
+    .withFaceLandmarks();
   if (!all.length) return null;
 
   return all.sort(
     (a, b) => (b.detection.box.width * b.detection.box.height) - (a.detection.box.width * a.detection.box.height),
-  )[0];
+  )[0] as any;
 }
 
 async function detectSingleFaceRobust(input: DetectableInput) {
@@ -157,8 +158,8 @@ async function detectSingleFaceRobust(input: DetectableInput) {
   const scaleY = enhanced?.scaleY ?? 1;
   attempts.push(
     { input: enhancedInput, scaleX, scaleY, opts: detectorOptions },
-    { input: enhancedInput, scaleX, scaleY, opts: detectorOptionsHQ(512, 0.35) },
-    { input: enhancedInput, scaleX, scaleY, opts: detectorOptionsHQ(608, 0.25) },
+    { input: enhancedInput, scaleX, scaleY, opts: detectorOptionsHQ(512, 0.2) },
+    { input: enhancedInput, scaleX, scaleY, opts: detectorOptionsHQ(608, 0.1) },
   );
 
   for (const attempt of attempts) {
@@ -171,15 +172,18 @@ async function detectSingleFaceRobust(input: DetectableInput) {
   // Fallback สุดท้าย: ใช้ TinyFaceDetector — โหลด lazy ตอนนี้ถ้ายังไม่พร้อม
   try {
     await ensureTinyDetector();
-    const tinyRes = await runSingleFaceDetection(
-      enhancedInput,
-      new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.15 }),
-    );
-    if (tinyRes) return { res: tinyRes, scaleX, scaleY };
+    for (const tinyOpt of [
+      new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.2 }),
+      new faceapi.TinyFaceDetectorOptions({ inputSize: 608, scoreThreshold: 0.1 }),
+    ]) {
+      const tinyRes = await runSingleFaceDetection(enhancedInput, tinyOpt);
+      if (tinyRes) return { res: tinyRes, scaleX, scaleY };
+    }
   } catch { /* tiny ไม่พร้อมก็ข้าม */ }
 
   return null;
 }
+
 
 let _normCanvas: HTMLCanvasElement | null = null;
 /**
