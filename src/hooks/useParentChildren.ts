@@ -13,10 +13,9 @@ export type ParentChild = {
 
 /**
  * Resolve children linked to a parent account.
- * Parent ↔ child relationship is via profiles.student_code → students.student_code.
- * Returns `{ childIds, children, isLoading, isParent }`.
- *
- * For non-parent roles, returns empty/false — pages can branch by role.
+ * Source of truth = students.parent_user_id / parent_user_id_2 (same link used by
+ * the RLS helper `is_parent_of`). Falls back to profiles.student_code for legacy
+ * accounts that were linked by code only.
  */
 export function useParentChildren() {
   const { userId, isParent, loading: roleLoading } = useUserRole();
@@ -26,6 +25,17 @@ export function useParentChildren() {
     enabled: !!userId && isParent,
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<ParentChild[]> => {
+      const cols = "id,student_code,prefix,first_name,last_name,classroom_id";
+
+      const { data: linked, error } = await supabase
+        .from("students")
+        .select(cols)
+        .or(`parent_user_id.eq.${userId},parent_user_id_2.eq.${userId}`);
+
+      if (error) throw error;
+      if (linked && linked.length > 0) return linked as ParentChild[];
+
+      // Legacy fallback: profile carries the child's student_code
       const { data: profile } = await supabase
         .from("profiles")
         .select("student_code")
@@ -35,12 +45,7 @@ export function useParentChildren() {
       const code = profile?.student_code?.trim();
       if (!code) return [];
 
-      const { data, error } = await supabase
-        .from("students")
-        .select("id,student_code,prefix,first_name,last_name,classroom_id")
-        .eq("student_code", code);
-
-      if (error) throw error;
+      const { data } = await supabase.from("students").select(cols).eq("student_code", code);
       return (data ?? []) as ParentChild[];
     },
   });

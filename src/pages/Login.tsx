@@ -55,6 +55,8 @@ const Login = () => {
   const [pDob, setPDob] = useState("");
   const [pLoading, setPLoading] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
+  const [parentScanOpen, setParentScanOpen] = useState(false);
+  const [pQrLoading, setPQrLoading] = useState(false);
   const [userScanOpen, setUserScanOpen] = useState(false);
   const [qrLoading, setQrLoading] = useState(false);
 
@@ -161,6 +163,54 @@ const Login = () => {
   };
 
 
+
+  // ผู้ปกครอง: สแกน QR บัตรนักเรียน → เข้าระบบด้วยบัญชีผู้ปกครองของนักเรียนคนนั้นทันที
+  const handleParentQrLogin = async (qr: string) => {
+    const clean = (qr || "").trim();
+    if (!clean) return;
+    setParentScanOpen(false);
+    setPQrLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("parent-qr-login", { body: { qr: clean } });
+      const code = (data as any)?.error;
+      if (error || !data?.success || !data?.access_token) {
+        const msg =
+          code === "not_found"
+            ? lang === "th" ? "ไม่พบนักเรียนตาม QR นี้" : "Student not found for this QR"
+            : code === "inactive"
+            ? lang === "th" ? "บัญชีนักเรียนถูกระงับ" : "Student account inactive"
+            : code === "not_a_parent_account"
+            ? lang === "th" ? "บัญชีที่ผูกไว้ไม่ใช่บัญชีผู้ปกครอง กรุณาติดต่อผู้ดูแลระบบ" : "Linked account is not a parent account"
+            : code === "invalid_qr" || code === "invalid_input"
+            ? lang === "th" ? "QR ไม่ถูกต้อง" : "Invalid QR code"
+            : code === "rate_limited"
+            ? lang === "th" ? "พยายามบ่อยเกินไป รอสักครู่" : "Too many attempts"
+            : lang === "th" ? "เข้าระบบด้วย QR ไม่สำเร็จ" : "QR login failed";
+        toast.error(msg);
+        setPQrLoading(false);
+        return;
+      }
+      const { error: setErr } = await supabase.auth.setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+      });
+      if (setErr) {
+        toast.error(setErr.message);
+        setPQrLoading(false);
+        return;
+      }
+      if (data?.child?.display_name) {
+        toast.success(
+          lang === "th" ? `เข้าระบบผู้ปกครองของ ${data.child.display_name}` : `Signed in as parent of ${data.child.display_name}`,
+        );
+      }
+      import("@/lib/auditLog").then(({ logAudit }) => logAudit({ action: "login", details: { method: "parent_qr" } }));
+      navigate(await resolvePostLoginRedirect(postLoginTarget), { replace: true });
+    } catch (err) {
+      toast.error((err as Error).message || "QR login failed");
+      setPQrLoading(false);
+    }
+  };
 
   const handleParentLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -303,6 +353,28 @@ const Login = () => {
 
 
             <TabsContent value="parent">
+              <Button
+                type="button"
+                className="w-full h-11 gradient-primary text-primary-foreground font-semibold mb-4"
+                onClick={() => setParentScanOpen(true)}
+                disabled={pQrLoading || pLoading}
+              >
+                <ScanLine className="w-4 h-4 mr-2" />
+                {pQrLoading
+                  ? (lang === "th" ? "กำลังเข้าระบบ..." : "Signing in...")
+                  : (lang === "th" ? "สแกน QR บัตรนักเรียนเพื่อเข้าระบบ" : "Scan child's ID QR to sign in")}
+              </Button>
+              <p className="text-center text-[11px] text-muted-foreground mb-4">
+                {lang === "th"
+                  ? "สแกนครั้งแรกระบบจะสร้างบัญชีผู้ปกครองให้อัตโนมัติ (สิทธิ์อ่านข้อมูลบุตรหลานเท่านั้น)"
+                  : "First scan creates a parent account automatically (read-only access to your child's data)."}
+              </p>
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                <div className="relative flex justify-center text-[11px] uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">{lang === "th" ? "หรือ" : "or"}</span>
+                </div>
+              </div>
               <form onSubmit={handleParentLogin} className="space-y-4">
                 <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
                   {lang === "th"
@@ -392,6 +464,15 @@ const Login = () => {
         onScan={(code) => handleQrLogin(code)}
         title={lang === "th" ? "สแกน QR บัตรนักเรียน/บุคลากรเพื่อเข้าระบบ" : "Scan student or staff ID QR to sign in"}
       />
+
+      <BarcodeScanner
+        open={parentScanOpen}
+        onClose={() => setParentScanOpen(false)}
+        onScan={(code) => handleParentQrLogin(code)}
+        title={lang === "th" ? "ผู้ปกครอง: สแกน QR บัตรนักเรียน" : "Parent: scan child's ID QR"}
+      />
+
+
 
     </div>
   );

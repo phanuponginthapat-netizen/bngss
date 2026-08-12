@@ -16138,6 +16138,12 @@ export type Database = {
         }
         Returns: undefined
       }
+      parent_child_classroom_ids: {
+        Args: { _user_id: string }
+        Returns: string[]
+      }
+      parent_child_codes: { Args: { _user_id: string }; Returns: string[] }
+      parent_child_ids: { Args: { _user_id: string }; Returns: string[] }
       recompute_budget_usage: {
         Args: {
           p_category_id: string
