@@ -1133,12 +1133,14 @@ const FaceReportTab = () => {
                 <thead className="sticky top-0 z-10 bg-slate-100 text-slate-700">
                   <tr>
                     <th rowSpan={2} className="text-left p-2 border-b border-r font-semibold align-middle">ชั้น</th>
-                    <th colSpan={3} className="text-center p-1.5 border-b border-r font-semibold text-xs">จำนวนนักเรียน</th>
-                    <th colSpan={3} className="text-center p-1.5 border-b border-r font-semibold text-xs bg-emerald-50 text-emerald-800">มาเรียน</th>
-                    <th colSpan={3} className="text-center p-1.5 border-b border-r font-semibold text-xs bg-amber-50 text-amber-800">สาย</th>
-                    <th rowSpan={2} className="text-center p-2 border-b border-r font-semibold align-middle bg-sky-50 text-sky-800">ลา</th>
-                    <th colSpan={3} className="text-center p-1.5 border-b border-r font-semibold text-xs bg-rose-50 text-rose-800">ขาด</th>
+                    <th colSpan={3} className="text-center p-1.5 border-b border-r font-semibold text-xs">จำนวนนักเรียน (คน)</th>
+                    <th rowSpan={2} className="text-center p-2 border-b border-r font-semibold align-middle text-xs text-muted-foreground">คน-วัน</th>
+                    <th colSpan={3} className="text-center p-1.5 border-b border-r font-semibold text-xs bg-emerald-50 text-emerald-800">มาเรียน (คน-วัน)</th>
+                    <th colSpan={3} className="text-center p-1.5 border-b border-r font-semibold text-xs bg-amber-50 text-amber-800">สาย (คน-วัน)</th>
+                    <th rowSpan={2} className="text-center p-2 border-b border-r font-semibold align-middle bg-sky-50 text-sky-800">ลา<div className="text-[10px] font-normal opacity-70">คน-วัน</div></th>
+                    <th colSpan={3} className="text-center p-1.5 border-b border-r font-semibold text-xs bg-rose-50 text-rose-800">ขาด (คน-วัน)</th>
                     <th rowSpan={2} className="text-right p-2 border-b font-semibold align-middle">% เข้าเรียน</th>
+
                   </tr>
                   <tr className="text-[11px]">
                     <th className="text-center p-1 border-b border-r font-medium text-muted-foreground">ช</th>
