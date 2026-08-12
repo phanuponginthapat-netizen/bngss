@@ -485,19 +485,64 @@ const StaffLeavePage = () => {
               </div>
 
               <div>
-                <Label className="text-sm font-medium">{lang === "th" ? "ครูผู้สอนแทน" : "Acting Teacher"}</Label>
+                <Label className="text-sm font-medium">{lang === "th" ? "ครูผู้สอนแทน (ทุกคาบ)" : "Acting Teacher (all periods)"}</Label>
                 <Select value={actingTeacher} onValueChange={setActingTeacher}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder={lang === "th" ? "เลือกครูสอนแทน (ถ้ามี)" : "Select substitute (optional)"} /></SelectTrigger>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder={lang === "th" ? "ไม่ระบุ = ระบบจัดให้อัตโนมัติ" : "None = auto-assign"} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">{lang === "th" ? "ไม่ระบุ" : "None"}</SelectItem>
-                    {personnel.filter((p: any) => p.id !== personnelId).map((p: any) => (
-                      <SelectItem key={p.id} value={`${p.first_name} ${p.last_name}`}>
+                    <SelectItem value="none">{lang === "th" ? "ไม่ระบุ (ระบบจัดอัตโนมัติ)" : "None (auto-assign)"}</SelectItem>
+                    {personnel.filter((p: any) => p.id !== applicantId).map((p: any) => (
+                      <SelectItem key={p.id} value={`${p.prefix || ""}${p.first_name} ${p.last_name}`}>
                         {p.prefix || ""}{p.first_name} {p.last_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Per-period substitute selection */}
+              {leaveSlots.length > 0 && (
+                <div className="rounded-lg border p-3 space-y-3 bg-muted/30">
+                  <div>
+                    <Label className="text-sm font-medium">
+                      {lang === "th" ? `เลือกครูสอนแทนรายคาบ (${leaveSlots.length} คาบ)` : `Substitute per period (${leaveSlots.length})`}
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {lang === "th"
+                        ? "คาบที่ไม่ได้เลือก ระบบจะจัดครูที่ว่างให้อัตโนมัติเมื่อใบลาได้รับอนุมัติ"
+                        : "Periods left blank will be auto-assigned to a free teacher on approval."}
+                    </p>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                    {leaveSlots.map((slot) => (
+                      <div key={slot.key} className="grid grid-cols-1 sm:grid-cols-[1fr_1.2fr] gap-2 items-center">
+                        <div className="text-xs">
+                          <span className="font-medium">{slot.date}</span>{" "}
+                          <span className="text-muted-foreground">
+                            {lang === "th" ? `คาบ ${slot.period}` : `P.${slot.period}`}
+                            {slot.classroom ? ` • ${slot.classroom}` : ""}
+                            {slot.subject ? ` • ${slot.subject}` : ""}
+                          </span>
+                        </div>
+                        <Select
+                          value={substitutePlan[slot.key] || "auto"}
+                          onValueChange={(v) => setSubstitutePlan((prev) => ({ ...prev, [slot.key]: v }))}
+                        >
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="auto">{lang === "th" ? "อัตโนมัติ" : "Auto-assign"}</SelectItem>
+                            {personnel.filter((p: any) => p.id !== applicantId).map((p: any) => (
+                              <SelectItem key={p.id} value={`${p.prefix || ""}${p.first_name} ${p.last_name}`}>
+                                {p.prefix || ""}{p.first_name} {p.last_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
 
               <div>
                 <Label className="text-sm font-medium flex items-center gap-1">
