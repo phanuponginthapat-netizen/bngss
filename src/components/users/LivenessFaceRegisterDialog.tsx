@@ -134,6 +134,9 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     loadFaceModels()
       .then(() => { setModelReady(true); setModelError(null); })
       .catch(() => setModelError("โหลดระบบตรวจจับใบหน้าไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วเปิดหน้านี้ใหม่"));
+    // โหลด OpenCV.js แบบเบื้องหลัง (ใช้ช่วยหาใบหน้าเมื่อ face-api ตรวจไม่เจอ)
+    loadOpenCV();
+    return () => { disposeOpenCV(); };
   }, []);
 
   // helper: ครอบใบหน้าจาก video → dataURL (พร้อม padding) + คำนวณ metrics
