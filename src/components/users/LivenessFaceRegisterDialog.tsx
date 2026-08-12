@@ -713,7 +713,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
                 <p className="text-emerald-600 font-semibold flex items-center justify-center gap-2">
                   <CheckCircle2 className="w-5 h-5" />
                   {submitMode === "request"
-                    ? "ส่งคำขอสำเร็จ — รอเจ้าหน้าที่อนุมัติ"
+                    ? "ลงทะเบียนสำเร็จ — ใช้งานได้ทันที"
                     : "ลงทะเบียนสำเร็จ — ผ่าน Liveness Check"}
                 </p>
               )}
