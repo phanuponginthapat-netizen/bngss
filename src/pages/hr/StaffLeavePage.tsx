@@ -124,9 +124,9 @@ const StaffLeavePage = () => {
   const { data: classroomMap = {} } = useQuery({
     queryKey: ["classroom-names-leave"],
     queryFn: async () => {
-      const { data } = await supabase.from("classrooms").select("id, grade_level, room_number");
+      const { data } = await supabase.from("classrooms").select("id, name");
       const map: Record<string, string> = {};
-      (data || []).forEach((c: any) => { map[c.id] = `${c.grade_level}/${c.room_number}`; });
+      (data || []).forEach((c: any) => { map[c.id] = c.name; });
       return map;
     },
   });
