@@ -18,6 +18,7 @@ import { useSchoolGeofence, calcDistanceMeters, getCurrentCoords } from "@/hooks
 import { MapPin } from "lucide-react";
 import { uploadFaceScanSnapshot } from "@/lib/faceScanUpload";
 import { getRegisteredFaceImage } from "@/lib/registeredFace";
+import { learnFromScan } from "@/lib/faceLearning";
 import { useHomeroomClassrooms } from "@/hooks/useHomeroomClassrooms";
 
 interface RecentScan {
@@ -686,6 +687,17 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
                 const willRecord = !inCooldown;
                 const snap = willRecord ? captureFaceCrop(video, box) : undefined;
                 await recordScan(found.studentId, found.studentCode, found.name, found.classroom, m.confidence, snap, found.avatarUrl, "face");
+                // เรียนรู้ใบหน้าอัตโนมัติ — เก็บมุม/แสงใหม่เข้าคลัง เพื่อให้สแกนครั้งต่อไปแม่นขึ้น
+                if (willRecord) {
+                  learnFromScan({
+                    studentId: found.studentId,
+                    descriptor: det.descriptor,
+                    match: m,
+                    sharpness,
+                    faceSize: Math.min(box.width, box.height),
+                    source: "tablet-gate",
+                  }).then((r) => { if (r.learned) refetchKnown(); }).catch(() => {});
+                }
               } else if (!found && !tooBlurry && !notHuman) {
                 if (tNow - unknownCooldownRef.current > 5000) {
                   unknownCooldownRef.current = tNow;
@@ -711,7 +723,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
 
     loop();
     return () => { cancelled = true; };
-  }, [streaming, modelReady, known, threshold, recordScan, setLive, isIOS]);
+  }, [streaming, modelReady, known, threshold, recordScan, setLive, isIOS, refetchKnown]);
 
   // QR scanning loop — ใช้ BarcodeDetector ถ้ามี (Chrome/Android) มิฉะนั้น fallback ไป jsQR (Safari/iOS)
   useEffect(() => {
