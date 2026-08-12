@@ -55,6 +55,8 @@ const Login = () => {
   const [pDob, setPDob] = useState("");
   const [pLoading, setPLoading] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
+  const [parentScanOpen, setParentScanOpen] = useState(false);
+  const [pQrLoading, setPQrLoading] = useState(false);
   const [userScanOpen, setUserScanOpen] = useState(false);
   const [qrLoading, setQrLoading] = useState(false);
 
