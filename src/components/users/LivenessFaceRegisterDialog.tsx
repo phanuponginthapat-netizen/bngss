@@ -928,14 +928,23 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
                 <div className="rounded-lg border-2 border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive font-medium">
                   {blockedMsg}
                 </div>
-              ) : (
+              ) : saveError ? (
+                <div className="space-y-2">
+                  <div className="rounded-lg border-2 border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive font-medium">
+                    บันทึกไม่สำเร็จ: {saveError}
+                  </div>
+                  <Button onClick={retrySave} className="gradient-primary">
+                    <RotateCcw className="w-4 h-4 mr-2" />ลองบันทึกอีกครั้ง
+                  </Button>
+                </div>
+              ) : savedOk ? (
                 <p className="text-emerald-600 font-semibold flex items-center justify-center gap-2">
                   <CheckCircle2 className="w-5 h-5" />
                   {submitMode === "request"
                     ? "ลงทะเบียนสำเร็จ — ใช้งานได้ทันที"
                     : "ลงทะเบียนสำเร็จ — ผ่าน Liveness Check"}
                 </p>
-              )}
+              ) : null}
             </div>
           )}
 
@@ -944,8 +953,11 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             <Button variant="outline" onClick={reset} disabled={saving}>
               <RotateCcw className="w-4 h-4 mr-2" />เริ่มใหม่
             </Button>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>ปิด</Button>
+            <Button variant={savedOk ? "default" : "outline"} onClick={() => onOpenChange(false)} disabled={saving}>
+              {savedOk ? "เสร็จสิ้น" : "ปิด"}
+            </Button>
           </div>
+
 
         </div>
       </DialogContent>
