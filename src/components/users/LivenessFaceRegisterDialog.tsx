@@ -238,7 +238,27 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
       }
       ctx.restore();
 
+      // ---- กรอบสไตล์ OpenCV (Haar cascade) ----
+      if (cvBoxes?.length) {
+        ctx.save();
+        ctx.lineWidth = 2 * unitG;
+        ctx.font = `${11 * unitG}px monospace`;
+        cvBoxes.forEach((b, i) => {
+          const main = i === 0;
+          ctx.strokeStyle = main ? "rgba(34,197,94,0.95)" : "rgba(148,163,184,0.8)";
+          ctx.strokeRect(b.x, b.y, b.width, b.height);
+          const label = `face ${Math.round(b.width)}x${Math.round(b.height)}`;
+          const tw = ctx.measureText(label).width + 8 * unitG;
+          ctx.fillStyle = main ? "rgba(34,197,94,0.95)" : "rgba(148,163,184,0.85)";
+          ctx.fillRect(b.x, Math.max(0, b.y - 15 * unitG), tw, 15 * unitG);
+          ctx.fillStyle = "rgba(0,0,0,0.9)";
+          ctx.fillText(label, b.x + 4 * unitG, Math.max(11 * unitG, b.y - 4 * unitG));
+        });
+        ctx.restore();
+      }
+
       if (!data) return;
+
 
       const color =
         state === "good" ? "rgba(16, 185, 129, 0.95)"
