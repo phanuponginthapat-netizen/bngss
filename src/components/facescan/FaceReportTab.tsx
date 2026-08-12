@@ -1184,7 +1184,7 @@ const FaceReportTab = () => {
                     </tr>
                   ))}
                   {accurate.rows.length === 0 && (
-                    <tr><td colSpan={15} className="p-8 text-center text-muted-foreground">ยังไม่มีข้อมูลในช่วงนี้</td></tr>
+                    <tr><td colSpan={16} className="p-8 text-center text-muted-foreground">ยังไม่มีข้อมูลในช่วงนี้</td></tr>
                   )}
                 </tbody>
                 <tfoot className="sticky bottom-0 bg-slate-100 border-t-2 border-slate-300">
@@ -1193,6 +1193,7 @@ const FaceReportTab = () => {
                     <td className="p-2 text-center border-r">{accurate.totals.sizeM || "-"}</td>
                     <td className="p-2 text-center border-r">{accurate.totals.sizeF || "-"}</td>
                     <td className="p-2 text-center border-r">{accurate.totals.size || "-"}</td>
+                    <td className="p-2 text-center border-r text-xs text-muted-foreground">{accurate.totals.cd || "-"}</td>
                     <td className="p-2 text-center border-r text-emerald-700/80">{accurate.totals.presentM || "-"}</td>
                     <td className="p-2 text-center border-r text-emerald-700/80">{accurate.totals.presentF || "-"}</td>
                     <td className="p-2 text-center border-r text-emerald-700 bg-emerald-50">{accurate.totals.present || "-"}</td>
