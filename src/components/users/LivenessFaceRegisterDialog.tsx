@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   loadFaceModels, detectFaceWithLandmarks, applyCameraAutoTune, estimateFaceSharpness, euclidean,
 } from "@/lib/faceApi";
+import { loadOpenCV, isOpenCVReady, detectFacesCV, disposeOpenCV, type CVBox } from "@/lib/opencvFace";
 
 interface Props {
   open: boolean;
@@ -133,6 +134,9 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     loadFaceModels()
       .then(() => { setModelReady(true); setModelError(null); })
       .catch(() => setModelError("โหลดระบบตรวจจับใบหน้าไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วเปิดหน้านี้ใหม่"));
+    // โหลด OpenCV.js แบบเบื้องหลัง (ใช้ช่วยหาใบหน้าเมื่อ face-api ตรวจไม่เจอ)
+    loadOpenCV();
+    return () => { disposeOpenCV(); };
   }, []);
 
   // helper: ครอบใบหน้าจาก video → dataURL (พร้อม padding) + คำนวณ metrics
@@ -203,6 +207,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     (
       data: Awaited<ReturnType<typeof detectFaceWithLandmarks>> | null,
       state: "good" | "warn" | "bad" = "warn",
+      cvBoxes?: CVBox[],
     ) => {
       const v = videoRef.current;
       const cv = overlayRef.current;
@@ -237,7 +242,27 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
       }
       ctx.restore();
 
+      // ---- กรอบสไตล์ OpenCV (Haar cascade) ----
+      if (cvBoxes?.length) {
+        ctx.save();
+        ctx.lineWidth = 2 * unitG;
+        ctx.font = `${11 * unitG}px monospace`;
+        cvBoxes.forEach((b, i) => {
+          const main = i === 0;
+          ctx.strokeStyle = main ? "rgba(34,197,94,0.95)" : "rgba(148,163,184,0.8)";
+          ctx.strokeRect(b.x, b.y, b.width, b.height);
+          const label = `face ${Math.round(b.width)}x${Math.round(b.height)}`;
+          const tw = ctx.measureText(label).width + 8 * unitG;
+          ctx.fillStyle = main ? "rgba(34,197,94,0.95)" : "rgba(148,163,184,0.85)";
+          ctx.fillRect(b.x, Math.max(0, b.y - 15 * unitG), tw, 15 * unitG);
+          ctx.fillStyle = "rgba(0,0,0,0.9)";
+          ctx.fillText(label, b.x + 4 * unitG, Math.max(11 * unitG, b.y - 4 * unitG));
+        });
+        ctx.restore();
+      }
+
       if (!data) return;
+
 
       const color =
         state === "good" ? "rgba(16, 185, 129, 0.95)"
@@ -426,15 +451,23 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     if (!data) {
       detectMetaRef.current.misses += 1;
       detectMetaRef.current.stableHits = 0;
-      drawOverlay(null);
+      // ── fallback: ใช้ OpenCV Haar cascade ช่วยหาใบหน้า เพื่อบอกผู้ใช้ว่ากล้อง "เห็น" แล้ว ──
+      let cvBoxes: CVBox[] = [];
+      if (isOpenCVReady()) {
+        try { cvBoxes = detectFacesCV(videoRef.current); } catch { cvBoxes = []; }
+      }
+      drawOverlay(null, "warn", cvBoxes);
       setStatusMsg(
-        detectMetaRef.current.misses > 12
-          ? "ยังไม่เจอใบหน้า — ขยับเข้าใกล้กล้อง, เพิ่มแสง และหันหน้าตรง"
-          : "ไม่พบใบหน้า — กรุณาขยับเข้าหากล้อง",
+        cvBoxes.length
+          ? "เจอใบหน้าแล้ว (OpenCV) — จัดหน้าให้อยู่ในวงรีและเพิ่มแสงอีกนิด"
+          : detectMetaRef.current.misses > 12
+            ? "ยังไม่เจอใบหน้า — ขยับเข้าใกล้กล้อง, เพิ่มแสง และหันหน้าตรง"
+            : "ไม่พบใบหน้า — กรุณาขยับเข้าหากล้อง",
       );
       loopRef.current = window.setTimeout(runStep, 140) as unknown as number;
       return;
     }
+
 
     detectMetaRef.current.misses = 0;
 
