@@ -1,0 +1,28 @@
+DROP INDEX IF EXISTS public.idx_attendance_auto_holidays_date;
+DROP INDEX IF EXISTS public.idx_attendance_student_id;
+DROP INDEX IF EXISTS public.idx_attendance_academic_year;
+DROP INDEX IF EXISTS public.idx_attendance_year_sem;
+DROP INDEX IF EXISTS public.idx_eform_recipients_form;
+DROP INDEX IF EXISTS public.idx_face_scan_unique_student_date_type;
+DROP INDEX IF EXISTS public.idx_home_visits_student_id;
+DROP INDEX IF EXISTS public.idx_ict_devices_asset_code;
+DROP INDEX IF EXISTS public.idx_ict_loans_batch_id;
+DROP INDEX IF EXISTS public.idx_import_mapping_memory_lookup;
+DROP INDEX IF EXISTS public.idx_inbox_user;
+DROP INDEX IF EXISTS public.idx_iot_readings_device_recorded;
+DROP INDEX IF EXISTS public.idx_lvi_image_set;
+DROP INDEX IF EXISTS public.idx_notifications_user;
+DROP INDEX IF EXISTS public.idx_personnel_user_id;
+DROP INDEX IF EXISTS public.idx_personnel_user;
+DROP INDEX IF EXISTS public.idx_student_scores_code_subject;
+DROP INDEX IF EXISTS public.idx_students_classroom_id;
+DROP INDEX IF EXISTS public.idx_user_roles_user_role;
+DROP INDEX IF EXISTS public.idx_personnel_employee_code;
+DROP INDEX IF EXISTS public.idx_students_student_code;
+DROP INDEX IF EXISTS public.idx_attendance_date;
+
+CREATE INDEX IF NOT EXISTS idx_attendance_date_status ON public.attendance (attendance_date, status);
+CREATE INDEX IF NOT EXISTS idx_students_status_active ON public.students (status) WHERE status = 'active';
+ANALYZE public.attendance;
+ANALYZE public.students;
+ANALYZE public.face_scan_logs;
