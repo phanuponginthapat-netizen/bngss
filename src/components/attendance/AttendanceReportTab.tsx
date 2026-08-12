@@ -71,20 +71,28 @@ export function AttendanceReportTab({
     );
   }, [records, classStudents, startDate, endDate, holidayDates]);
 
-  // Per-student summary
+  // Per-student summary — นับเป็น "วัน" จริง (1 วัน = 1 ครั้ง) ไม่ใช่นับรายคาบ
+  // ถ้าวันเดียวกันมีหลายคาบ ใช้ลำดับความสำคัญ: มา > สาย > ลา/ป่วย > ขาด
   const studentSummary = useMemo(() => {
+    const PRIORITY: Record<string, number> = { present: 5, late: 4, leave: 3, sick: 2, absent: 1 };
+    // student_id -> date -> best status
+    const byStudent: Record<string, Record<string, string>> = {};
+    filteredRecords.forEach((r: any) => {
+      const st = r.status as string;
+      if (!(st in PRIORITY)) return;
+      const days = (byStudent[r.student_id] ||= {});
+      const prev = days[r.attendance_date];
+      if (!prev || PRIORITY[st] > PRIORITY[prev]) days[r.attendance_date] = st;
+    });
+
     const map: Record<string, { present: number; absent: number; late: number; sick: number; leave: number; total: number }> = {};
     classStudents.forEach((s: any) => {
-      map[s.id] = { present: 0, absent: 0, late: 0, sick: 0, leave: 0, total: 0 };
-    });
-    filteredRecords.forEach((r: any) => {
-      if (map[r.student_id]) {
-        map[r.student_id].total++;
-        const st = r.status as string;
-        if (st in map[r.student_id]) {
-          (map[r.student_id] as any)[st]++;
-        }
-      }
+      const counts = { present: 0, absent: 0, late: 0, sick: 0, leave: 0, total: 0 };
+      Object.values(byStudent[s.id] || {}).forEach((st) => {
+        (counts as any)[st]++;
+        counts.total++;
+      });
+      map[s.id] = counts;
     });
     return map;
   }, [classStudents, filteredRecords]);
