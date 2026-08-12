@@ -85,7 +85,9 @@ function KpiTile({ color, icon, label, value, sub }: { color: keyof typeof TONE 
 const FaceReportTab = () => {
 
   const today = new Date();
-  const [period, setPeriod] = useState<Period>("day");
+  // รายงานจำนวนวันขาดต้องเปิดเป็นภาพรวมเดือนโดยค่าเริ่มต้น
+  // โหมด "วัน" มีวันเรียนเพียงวันเดียว จึงทำให้แต่ละคนแสดงได้สูงสุด 1 วันเสมอ
+  const [period, setPeriod] = useState<Period>("month");
   const [refDate, setRefDate] = useState(bkkDateISO(today));
   const [search, setSearch] = useState("");
   const [sending, setSending] = useState(false);
@@ -1089,9 +1091,9 @@ const FaceReportTab = () => {
             sub={`${accurate.totals.present.toLocaleString()} / ${accurate.totals.cd.toLocaleString()} คน-วัน`} />
           <KpiTile color="amber" icon={<Clock4 className="w-5 h-5" />} label="สาย" value={accurate.totals.late.toLocaleString()}
             sub={`ช ${accurate.totals.lateM} • ญ ${accurate.totals.lateF}`} />
-          <KpiTile color="sky" icon={<FileMinus2 className="w-5 h-5" />} label="ลา" value={accurate.totals.leave.toLocaleString()}
-            sub="มีใบลา / รออนุมัติ" />
-          <KpiTile color="rose" icon={<XCircle className="w-5 h-5" />} label="ขาด" value={accurate.totals.absent.toLocaleString()}
+          <KpiTile color="sky" icon={<FileMinus2 className="w-5 h-5" />} label="ลา (คน-วัน)" value={accurate.totals.leave.toLocaleString()}
+            sub="รวมวันลาของนักเรียนในช่วงที่เลือก" />
+          <KpiTile color="rose" icon={<XCircle className="w-5 h-5" />} label="ขาด (คน-วัน)" value={accurate.totals.absent.toLocaleString()}
             sub={`ช ${accurate.totals.absentM} • ญ ${accurate.totals.absentF}`} />
           <KpiTile color="violet" icon={<Users className="w-5 h-5" />} label="นักเรียนทั้งหมด" value={accurate.totals.size.toLocaleString()}
             sub={`ช ${accurate.totals.sizeM} • ญ ${accurate.totals.sizeF}`} />
