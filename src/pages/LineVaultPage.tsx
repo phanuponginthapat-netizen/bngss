@@ -1385,10 +1385,18 @@ function StorageBackfillCard({ onDone }: { onDone: () => void }) {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
+      if (res.status === 428 || text.includes("GOOGLE_DRIVE_NOT_CONNECTED") || text.includes("not_connected")) {
+        const err: any = new Error(
+          "ยังไม่ได้เชื่อม Google Drive — กรุณากด “เริ่มเชื่อม Google Drive” ในการ์ดด้านบน แล้วอนุญาตสิทธิ์ให้เรียบร้อยก่อน จึงค่อยกดสำรองไฟล์อีกครั้ง",
+        );
+        err.notConnected = true;
+        throw err;
+      }
       throw new Error(`Drive ${res.status}: ${text.slice(0, 160)}`);
     }
     return await res.blob();
   };
+
 
   const run = async () => {
     setBusy(true);
@@ -1425,18 +1433,22 @@ function StorageBackfillCard({ onDone }: { onDone: () => void }) {
             if (updErr) throw updErr;
             total++;
           } catch (e: any) {
+            if (e?.notConnected) throw e;
             failed++;
             setLog(`สำรองแล้ว ${total} ไฟล์ · ล้มเหลว ${failed} — ${e?.message ?? ""}`);
             if (failed >= 3) throw e;
           }
+
           setLog(`สำรองแล้ว ${total} ไฟล์${failed ? ` · ล้มเหลว ${failed}` : ""}`);
         }
       }
       toast.success(`สำรองไฟล์เข้า Storage แล้ว ${total} รายการ`);
       onDone();
     } catch (e: any) {
-      toast.error(e?.message || "สำรองไฟล์ไม่สำเร็จ");
+      setLog(e?.message || "สำรองไฟล์ไม่สำเร็จ");
+      toast.error(e?.message || "สำรองไฟล์ไม่สำเร็จ", e?.notConnected ? { duration: 8000 } : undefined);
     } finally {
+
       await check();
       setBusy(false);
     }
