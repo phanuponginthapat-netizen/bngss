@@ -25,10 +25,19 @@ jobs:
           version: latest
       - name: Deploy all edge functions
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          failed=""
           for dir in supabase/functions/*/; do
             name="$(basename "$dir")"
-            case "$name" in _shared|migrate-auth-push) continue ;; esac
+            # ข้าม: _shared (ไม่ใช่ฟังก์ชัน), migrate-auth-push, mcp (Lovable deploy ให้เอง bundle ใหญ่เกิน 5MB)
+            case "$name" in _shared|migrate-auth-push|mcp) echo "--> skip $name"; continue ;; esac
             echo "--> $name"
-            supabase functions deploy "$name" --project-ref "$PROJECT_REF"
+            if ! supabase functions deploy "$name" --project-ref "$PROJECT_REF"; then
+              echo "::warning::deploy failed: $name"
+              failed="$failed $name"
+            fi
           done
+          if [ -n "$failed" ]; then
+            echo "::error::functions failed to deploy:$failed"
+            exit 1
+          fi
