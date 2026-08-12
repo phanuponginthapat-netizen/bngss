@@ -179,6 +179,7 @@ const StaffLeavePage = () => {
     if (canApprove) setPersonnelId("");
     setLeaveType("sick"); setStartDate(""); setEndDate("");
     setReason(""); setContactPhone((myPersonnel as any)?.profile_phone || ""); setActingTeacher("");
+    setSubstitutePlan({});
     setAttachment(null);
   };
 
@@ -236,6 +237,9 @@ const StaffLeavePage = () => {
         reason,
         contact_phone: contactPhone,
         acting_teacher: normalizedActingTeacher,
+        substitute_plan: leaveSlots
+          .filter((sl) => substitutePlan[sl.key] && substitutePlan[sl.key] !== "auto")
+          .map((sl) => ({ date: sl.date, period: sl.period, teacher: substitutePlan[sl.key] })),
         attachment_url: attachmentPath,
       } as any);
 
