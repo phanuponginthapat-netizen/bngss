@@ -398,7 +398,9 @@ const FaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName }: Pr
                   </div>
                 )}
               </div>
+              <CameraSourcePicker value={camDeviceId} onChange={pickCamera} refreshKey={camTick} />
               <div className="flex gap-2 flex-wrap">
+
                 {!streaming ? (
                   <Button onClick={() => startCamera()} disabled={!modelReady} size="sm">
                     <Camera className="w-4 h-4 mr-2" />เปิดกล้อง
