@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
   ScanFace, CheckCircle2, Eye, ArrowLeft, ArrowRight, Sparkles,
-  Camera, Loader2, RotateCcw, ShieldCheck, SwitchCamera, Smile,
+  Camera, Loader2, RotateCcw, ShieldCheck, SwitchCamera,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
