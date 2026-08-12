@@ -187,9 +187,13 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     [facingMode],
   );
 
-  // วาด overlay (กล่องใบหน้า + จุดจมูก) เพื่อให้ผู้ใช้เห็นว่าระบบกำลังแสกนตรงไหน
+  // วาด overlay การจับใบหน้า: กรอบมุม + จุด landmark 68 จุด + เส้นโครงหน้า
+  // สีบอกสถานะ: เขียว = พร้อมบันทึก, เหลือง = ต้องปรับท่า, แดง = ยังใช้ไม่ได้
   const drawOverlay = useCallback(
-    (data: Awaited<ReturnType<typeof detectFaceWithLandmarks>> | null) => {
+    (
+      data: Awaited<ReturnType<typeof detectFaceWithLandmarks>> | null,
+      state: "good" | "warn" | "bad" = "warn",
+    ) => {
       const v = videoRef.current;
       const cv = overlayRef.current;
       if (!v || !cv) return;
@@ -203,18 +207,82 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
       if (!ctx) return;
       ctx.clearRect(0, 0, vw, vh);
       if (!data) return;
-      ctx.strokeStyle = "rgba(16, 185, 129, 0.9)";
-      ctx.lineWidth = Math.max(2, vw / 320);
-      ctx.strokeRect(data.box.x, data.box.y, data.box.width, data.box.height);
-      const nose = data.landmarks.getNose();
+
+      const color =
+        state === "good" ? "rgba(16, 185, 129, 0.95)"
+        : state === "bad" ? "rgba(244, 63, 94, 0.95)"
+        : "rgba(250, 204, 21, 0.95)";
+      const unit = Math.max(1, vw / 480);
+      const { x, y, width: w, height: h } = data.box;
+
+      // กรอบมุม 4 มุม (แบบกล้องโฟกัส)
+      const c = Math.min(w, h) * 0.22;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3 * unit;
+      ctx.lineCap = "round";
+      const corners: Array<[number, number, number, number, number, number]> = [
+        [x, y + c, x, y, x + c, y],
+        [x + w - c, y, x + w, y, x + w, y + c],
+        [x + w, y + h - c, x + w, y + h, x + w - c, y + h],
+        [x + c, y + h, x, y + h, x, y + h - c],
+      ];
+      for (const [ax, ay, bx, by, cx2, cy2] of corners) {
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
+        ctx.lineTo(cx2, cy2);
+        ctx.stroke();
+      }
+
+      // กรอบบางๆ รอบใบหน้า
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      ctx.lineWidth = 1.2 * unit;
+      ctx.strokeRect(x, y, w, h);
+      ctx.restore();
+
+      // เส้นโครงหน้าจาก landmarks
+      const lm = data.landmarks;
+      const strokePath = (pts: { x: number; y: number }[], close: boolean) => {
+        if (!pts.length) return;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        if (close) ctx.closePath();
+        ctx.stroke();
+      };
+      ctx.save();
+      ctx.globalAlpha = 0.75;
+      ctx.lineWidth = 1.4 * unit;
+      ctx.strokeStyle = color;
+      strokePath(lm.getJawOutline(), false);
+      strokePath(lm.getLeftEye(), true);
+      strokePath(lm.getRightEye(), true);
+      strokePath(lm.getLeftEyeBrow(), false);
+      strokePath(lm.getRightEyeBrow(), false);
+      strokePath(lm.getNose(), false);
+      strokePath(lm.getMouth(), true);
+      ctx.restore();
+
+      // จุด landmark ทั้งหมด
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      for (const p of lm.positions) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 1.3 * unit, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // จุดปลายจมูก (จุดอ้างอิงการหันหน้า)
+      const nose = lm.getNose();
       const tip = nose[6] ?? nose[nose.length - 1];
       ctx.fillStyle = "rgba(244, 63, 94, 0.95)";
       ctx.beginPath();
-      ctx.arc(tip.x, tip.y, Math.max(3, vw / 220), 0, Math.PI * 2);
+      ctx.arc(tip.x, tip.y, 3 * unit, 0, Math.PI * 2);
       ctx.fill();
     },
     [],
   );
+
 
   useEffect(() => {
     if (!open) return;
