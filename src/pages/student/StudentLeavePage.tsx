@@ -258,6 +258,7 @@ const StudentLeaveForm = () => {
 /* ─── Admin / Teacher / Director View ─── */
 const AdminLeaveView = () => {
   const { lang } = useLanguage();
+  const { role } = useUserRole();
   const qc = useQueryClient();
   const studentData = useStudentData();
   const { currentAcademicYear, currentSemester, academicYearOptions } = useAcademicYear();
