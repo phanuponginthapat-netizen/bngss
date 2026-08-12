@@ -505,12 +505,12 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             return [...s, captureSample(data!, "color")];
           });
         }
-        setStatusMsg(`Color ${colorFrameIdx + 1}/${CHALLENGE_COLORS.length} — มองที่กล้อง`);
+        setStatusMsg(`สลับสี ${colorFrameIdx + 1}/${challengeColors.length} — มองที่กล้อง`);
         break;
       }
     }
     loopRef.current = window.setTimeout(runStep, 140) as unknown as number;
-  }, [stepIdx, modelReady, streaming, colorFrameIdx, captureSample, drawOverlay]);
+  }, [stepIdx, modelReady, streaming, colorFrameIdx, challengeColors.length, captureSample, drawOverlay]);
 
 
   useEffect(() => {
