@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
   ScanFace, CheckCircle2, Eye, ArrowLeft, ArrowRight, Sparkles,
-  Camera, Loader2, RotateCcw, ShieldCheck, SwitchCamera, Smile,
+  Camera, Loader2, RotateCcw, ShieldCheck, SwitchCamera,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,7 +41,7 @@ const dataUrlToBlob = (dataUrl: string): Blob => {
 };
 
 
-type StepKey = "center" | "mouth" | "left" | "right" | "color" | "done";
+type StepKey = "center" | "blink" | "left" | "right" | "color" | "done";
 
 interface Step {
   key: StepKey;
@@ -52,15 +52,22 @@ interface Step {
 }
 
 const STEPS: Step[] = [
-  { key: "center",  label: "จัดหน้าให้ตรงกรอบ",        hint: "มองตรงมาที่กล้อง",                icon: ScanFace },
-  { key: "mouth",   label: "อ้าปากค้างไว้",              hint: "อ้าปากกว้างประมาณ 1 วินาที",        icon: Smile },
+  { key: "center",  label: "จัดหน้าให้ตรงกรอบ",        hint: "มองตรงมาที่กล้อง จนกรอบล็อกเป็นสีเขียว", icon: ScanFace },
+  { key: "blink",   label: "กะพริบตา 2 ครั้ง",           hint: "มองที่กล้องแล้วกะพริบตาช้าๆ",        icon: Eye },
   { key: "left",    label: "หันหน้าไปทางซ้าย",          hint: "หันช้าๆ ประมาณ 30 องศา",            icon: ArrowLeft },
   { key: "right",   label: "หันหน้าไปทางขวา",           hint: "หันช้าๆ ประมาณ 30 องศา",            icon: ArrowRight },
-  { key: "color",   label: "Color Challenge (กันรูปปลอม)", hint: "หน้าจอจะเปลี่ยนสี ให้มองที่กล้อง", icon: Sparkles },
+  { key: "color",   label: "Color Challenge (กันรูปปลอม)", hint: "หน้าจอจะสลับสี ให้มองที่กล้อง",   icon: Sparkles },
   { key: "done",    label: "เสร็จสมบูรณ์",              hint: "บันทึกข้อมูลเรียบร้อย",            icon: CheckCircle2 },
 ];
 
-const CHALLENGE_COLORS = ["#ef4444", "#22c55e", "#3b82f6", "#ffffff"]; // red/green/blue/white
+const COLOR_POOL = ["#ef4444", "#22c55e", "#3b82f6", "#ffffff", "#f59e0b", "#a855f7"];
+/** สุ่มลำดับสีใหม่ทุกครั้ง เพื่อกันการเล่นวิดีโอซ้ำหลอกระบบ */
+const makeChallengeColors = () => {
+  const pool = [...COLOR_POOL];
+  const out: string[] = [];
+  while (out.length < 4 && pool.length) out.push(...pool.splice(Math.floor(Math.random() * pool.length), 1));
+  return out;
+};
 
 interface CapturedSample {
   descriptor: Float32Array;
@@ -98,13 +105,16 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
   const busyRef = useRef(false);
   const detectMetaRef = useRef({ misses: 0, stableHits: 0 });
 
-  const mouthStateRef = useRef<{
-    opened: boolean;        // ปาก "อ้า" อยู่หรือยัง
-    openFrames: number;     // กี่เฟรมต่อเนื่องที่ปากอ้า (สำหรับยืนยัน)
-    baseline: number;       // MAR ตอนปากปิด (calibrate ต่อคน)
+  // สถานะการจับ "กะพริบตา" (ตรวจม่านตา/เปลือกตาด้วย EAR)
+  const blinkStateRef = useRef<{
+    baseline: number;       // EAR ตอนลืมตาปกติ (calibrate ต่อคน)
     samples: number[];      // สำหรับคำนวณ baseline
-    maxMar: number;         // MAR สูงสุดที่เห็น (debug)
-  }>({ opened: false, openFrames: 0, baseline: 0, samples: [], maxMar: 0 });
+    closed: boolean;        // ตาปิดอยู่หรือไม่
+    closedFrames: number;   // จำนวนเฟรมที่ตาปิดต่อเนื่อง
+    blinks: number;         // จำนวนครั้งที่กะพริบสำเร็จ
+  }>({ baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0 });
+
+  const [challengeColors, setChallengeColors] = useState<string[]>(makeChallengeColors);
 
   const [studentId, setStudentId] = useState<string | null>(null);
   const [modelReady, setModelReady] = useState(false);
@@ -187,8 +197,8 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     [facingMode],
   );
 
-  // วาด overlay การจับใบหน้า: กรอบมุม + จุด landmark 68 จุด + เส้นโครงหน้า
-  // สีบอกสถานะ: เขียว = พร้อมบันทึก, เหลือง = ต้องปรับท่า, แดง = ยังใช้ไม่ได้
+  // วาด overlay การจับใบหน้า: วงรีไกด์ระยะ + กรอบล็อกเมื่อได้ระยะ + landmark 68 จุด + ม่านตา
+  // สีบอกสถานะ: เขียว = ได้ระยะ/พร้อมบันทึก, เหลือง = ต้องปรับท่า, แดง = ยังใช้ไม่ได้
   const drawOverlay = useCallback(
     (
       data: Awaited<ReturnType<typeof detectFaceWithLandmarks>> | null,
@@ -206,6 +216,27 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
       const ctx = cv.getContext("2d");
       if (!ctx) return;
       ctx.clearRect(0, 0, vw, vh);
+
+      const unitG = Math.max(1, vw / 480);
+      const locked = state === "good";
+
+      // ---- วงรีไกด์ระยะ (อยู่กลางจอเสมอ) ----
+      const gcx = vw / 2, gcy = vh * 0.48;
+      const grx = Math.min(vw, vh) * 0.26, gry = grx * 1.32;
+      ctx.save();
+      ctx.setLineDash(locked ? [] : [10 * unitG, 8 * unitG]);
+      ctx.lineWidth = (locked ? 3 : 2) * unitG;
+      ctx.strokeStyle = locked ? "rgba(16,185,129,0.9)" : "rgba(255,255,255,0.45)";
+      ctx.beginPath();
+      ctx.ellipse(gcx, gcy, grx, gry, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      if (locked) {
+        ctx.shadowColor = "rgba(16,185,129,0.8)";
+        ctx.shadowBlur = 18 * unitG;
+        ctx.stroke();
+      }
+      ctx.restore();
+
       if (!data) return;
 
       const color =
@@ -272,6 +303,40 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         ctx.fill();
       }
 
+      // ---- ม่านตา (iris tracking): วงกลมกลางตา + จุดกึ่งกลาง ----
+      const drawIris = (pts: { x: number; y: number }[]) => {
+        if (!pts.length) return;
+        const cxE = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+        const cyE = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+        const wE = Math.max(...pts.map((p) => p.x)) - Math.min(...pts.map((p) => p.x));
+        const hE = Math.max(...pts.map((p) => p.y)) - Math.min(...pts.map((p) => p.y));
+        const r = Math.max(2 * unit, Math.min(wE * 0.28, Math.max(hE * 0.62, 2 * unit)));
+        ctx.save();
+        ctx.strokeStyle = "rgba(56,189,248,0.95)";
+        ctx.lineWidth = 1.6 * unit;
+        ctx.beginPath();
+        ctx.arc(cxE, cyE, r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = "rgba(56,189,248,0.9)";
+        ctx.beginPath();
+        ctx.arc(cxE, cyE, 1.6 * unit, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      };
+      drawIris(lm.getLeftEye());
+      drawIris(lm.getRightEye());
+
+      // ป้าย LOCKED เมื่อได้ระยะแล้ว
+      if (state === "good") {
+        ctx.save();
+        ctx.fillStyle = "rgba(16,185,129,0.92)";
+        ctx.font = `${12 * unit}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.fillText("● LOCKED", x + w / 2, Math.max(14 * unit, y - 8 * unit));
+        ctx.restore();
+      }
+
+
       // จุดปลายจมูก (จุดอ้างอิงการหันหน้า)
       const nose = lm.getNose();
       const tip = nose[6] ?? nose[nose.length - 1];
@@ -289,7 +354,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     // resolve student
     setStepIdx(0); setSamples([]); setColorFrameIdx(0); setStatusMsg(""); setBlockedMsg(null);
     detectMetaRef.current = { misses: 0, stableHits: 0 };
-    mouthStateRef.current = { opened: false, openFrames: 0, baseline: 0, samples: [], maxMar: 0 };
+    blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0 };
     (async () => {
       const { data: s } = await supabase
         .from("students").select("id").eq("student_code", studentCode).maybeSingle();
@@ -415,46 +480,41 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         setStepIdx((i) => i + 1);
         break;
       }
-      case "mouth": {
-        const st = mouthStateRef.current;
-        // คำนวณ MAR (Mouth Aspect Ratio) จาก landmarks ปาก (48..67)
-        // mouth[0]=48 มุมปากซ้าย, mouth[6]=54 มุมปากขวา
-        // mouth[14]=62, mouth[18]=66 → inner lip กลางบน/ล่าง
-        const mouth = data.landmarks.getMouth();
-        const left = mouth[0], right = mouth[6];
-        const topInner = mouth[14] ?? mouth[3];
-        const botInner = mouth[18] ?? mouth[9];
-        const horiz = Math.hypot(right.x - left.x, right.y - left.y) || 1;
-        const vert = Math.hypot(topInner.x - botInner.x, topInner.y - botInner.y);
-        const mar = vert / horiz;
-        if (mar > st.maxMar) st.maxMar = mar;
-
-        // calibrate baseline ปากปิดในช่วงแรก
+      case "blink": {
+        const st = blinkStateRef.current;
+        // ใช้ EAR (Eye Aspect Ratio) จาก landmarks ดวงตา — ตรวจการกะพริบ/ม่านตาจริง
         if (st.baseline === 0) {
-          st.samples.push(mar);
+          st.samples.push(ear);
           if (st.samples.length < 6) {
-            setStatusMsg(`กำลังปรับค่ากล้อง... (${st.samples.length}/6) ปิดปากปกติ`);
+            setStatusMsg(`กำลังปรับค่าดวงตา... (${st.samples.length}/6) ลืมตาปกติ`);
             break;
           }
-          const sorted = [...st.samples].sort((a, b) => a - b);
-          const low = sorted.slice(0, Math.ceil(sorted.length * 0.6));
-          st.baseline = low.reduce((s, v) => s + v, 0) / low.length;
+          const sorted = [...st.samples].sort((a, b) => b - a);
+          const high = sorted.slice(0, Math.ceil(sorted.length * 0.6));
+          st.baseline = high.reduce((s, v) => s + v, 0) / high.length;
         }
 
-        // ปรับตามสัดส่วนปากของแต่ละคน เพื่อรองรับกล้องมือถือและรูปหน้าที่หลากหลาย
-        const openThr = Math.max(0.22, st.baseline * 1.55, st.baseline + 0.08);
-        const openPct = Math.max(0, Math.min(100, Math.round(((mar - st.baseline) / Math.max(0.12, openThr - st.baseline)) * 100)));
+        const closeThr = Math.max(0.14, st.baseline * 0.68);
+        const openThr = Math.max(closeThr + 0.02, st.baseline * 0.85);
 
-        if (mar > openThr) {
-          st.openFrames += 1;
-          setStatusMsg(`อ้าปากดีแล้ว — ค้างไว้... (${st.openFrames}/3)`);
-          if (st.openFrames >= 3) {
-            setSamples((s) => [...s, captureSample(data!, "mouth")]);
+        if (ear < closeThr) {
+          st.closedFrames += 1;
+          st.closed = true;
+          setStatusMsg("ตาปิดแล้ว — ลืมตาได้เลย");
+        } else if (ear > openThr && st.closed && st.closedFrames >= 1) {
+          st.closed = false;
+          st.closedFrames = 0;
+          st.blinks += 1;
+          if (st.blinks === 1) setSamples((s) => [...s, captureSample(data!, "blink")]);
+          if (st.blinks >= 2) {
+            setStatusMsg("ตรวจม่านตาผ่าน!");
             setStepIdx((i) => i + 1);
+          } else {
+            setStatusMsg(`กะพริบแล้ว ${st.blinks}/2 — กะพริบอีกครั้ง`);
           }
         } else {
-          st.openFrames = 0;
-          setStatusMsg(`อ้าปากกว้างๆ ค้างไว้ (เปิดอยู่ ${openPct}% ต้องการ ≥ 60%)`);
+          st.closedFrames = 0;
+          setStatusMsg(`มองที่กล้องแล้วกะพริบตา (${st.blinks}/2)`);
         }
         break;
       }
@@ -500,12 +560,12 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             return [...s, captureSample(data!, "color")];
           });
         }
-        setStatusMsg(`Color ${colorFrameIdx + 1}/${CHALLENGE_COLORS.length} — มองที่กล้อง`);
+        setStatusMsg(`สลับสี ${colorFrameIdx + 1}/${challengeColors.length} — มองที่กล้อง`);
         break;
       }
     }
     loopRef.current = window.setTimeout(runStep, 140) as unknown as number;
-  }, [stepIdx, modelReady, streaming, colorFrameIdx, captureSample, drawOverlay]);
+  }, [stepIdx, modelReady, streaming, colorFrameIdx, challengeColors.length, captureSample, drawOverlay]);
 
 
   useEffect(() => {
@@ -515,17 +575,19 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     return () => { if (loopRef.current) clearTimeout(loopRef.current); };
   }, [streaming, modelReady, stepIdx, runStep]);
 
-  // Color challenge orchestration
+  // Color challenge orchestration — สุ่มลำดับสีใหม่ทุกครั้งที่เข้าขั้นตอนนี้
   useEffect(() => {
     if (STEPS[stepIdx].key !== "color") return;
+    const colors = makeChallengeColors();
+    setChallengeColors(colors);
     setColorFrameIdx(0);
     let i = 0;
     const tick = () => {
       const el = flashRef.current;
-      if (el) el.style.background = CHALLENGE_COLORS[i];
+      if (el) el.style.background = colors[i];
       i++;
       setColorFrameIdx(i);
-      if (i >= CHALLENGE_COLORS.length) {
+      if (i >= colors.length) {
         setTimeout(() => {
           if (el) el.style.background = "transparent";
           setStepIdx((idx) => idx + 1);
@@ -534,7 +596,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
       }
     };
     tick();
-    const t = setInterval(tick, 1200);
+    const t = setInterval(tick, 1100);
     return () => { clearInterval(t); if (flashRef.current) flashRef.current.style.background = "transparent"; };
   }, [stepIdx]);
 
@@ -654,7 +716,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
   const reset = () => {
     setStepIdx(0); setSamples([]); setColorFrameIdx(0); setBlockedMsg(null);
     detectMetaRef.current = { misses: 0, stableHits: 0 };
-    mouthStateRef.current = { opened: false, openFrames: 0, baseline: 0, samples: [], maxMar: 0 };
+    blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0 };
   };
 
 
