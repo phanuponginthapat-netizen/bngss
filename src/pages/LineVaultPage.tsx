@@ -1341,12 +1341,29 @@ function StorageBackfillCard({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<string>("");
 
+  const extFor = (mime?: string | null, filename?: string | null) => {
+    const fromName = filename?.includes(".") ? filename.split(".").pop() : null;
+    if (fromName && fromName.length <= 5) return fromName.toLowerCase();
+    const m = (mime || "").toLowerCase();
+    if (m.includes("jpeg")) return "jpg";
+    if (m.includes("png")) return "png";
+    if (m.includes("gif")) return "gif";
+    if (m.includes("mp4")) return "mp4";
+    if (m.includes("pdf")) return "pdf";
+    if (m.includes("m4a") || m.includes("aac")) return "m4a";
+    return "bin";
+  };
+
   const check = async () => {
     setBusy(true);
     try {
-      const { data, error } = await supabase.functions.invoke("line-vault-backfill-storage", { body: { dryRun: true } });
+      const { count, error } = await supabase
+        .from("line_vault_items")
+        .select("id", { count: "exact", head: true })
+        .is("storage_path", null)
+        .not("drive_file_id", "is", null);
       if (error) throw error;
-      setPending(Number(data?.pending ?? 0));
+      setPending(count ?? 0);
     } catch (e: any) {
       toast.error(e?.message || "ตรวจสอบไม่สำเร็จ");
     } finally {
@@ -1354,28 +1371,73 @@ function StorageBackfillCard({ onDone }: { onDone: () => void }) {
     }
   };
 
+  const downloadFromDrive = async (fileId: string): Promise<Blob> => {
+    const { data: sess } = await supabase.auth.getSession();
+    const token = sess?.session?.access_token;
+    const res = await fetch(`${SUPABASE_RUNTIME_URL}/functions/v1/gdrive-proxy`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_RUNTIME_ANON_KEY,
+        Authorization: `Bearer ${token ?? SUPABASE_RUNTIME_ANON_KEY}`,
+      },
+      body: JSON.stringify({ path: `/files/${fileId}`, method: "GET", query: { alt: "media", supportsAllDrives: true } }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Drive ${res.status}: ${text.slice(0, 160)}`);
+    }
+    return await res.blob();
+  };
+
   const run = async () => {
     setBusy(true);
     setLog("");
+    let total = 0;
+    let failed = 0;
     try {
-      let total = 0;
-      for (let i = 0; i < 20; i++) {
-        const { data, error } = await supabase.functions.invoke("line-vault-backfill-storage", { body: { limit: 25 } });
+      for (let round = 0; round < 40; round++) {
+        const { data: rows, error } = await supabase
+          .from("line_vault_items")
+          .select("id, drive_file_id, mime_type, original_filename, created_at")
+          .is("storage_path", null)
+          .not("drive_file_id", "is", null)
+          .order("created_at", { ascending: true })
+          .limit(10);
         if (error) throw error;
-        total += Number(data?.migrated ?? 0);
-        setPending(Number(data?.remaining ?? 0));
-        setLog(`สำรองแล้ว ${total} ไฟล์ · เหลือ ${data?.remaining ?? 0}`);
-        if ((data?.failures?.length ?? 0) > 0) {
-          setLog(`สำรองแล้ว ${total} ไฟล์ · ล้มเหลว ${data.failures.length} — ${data.failures[0]?.error ?? ""}`);
-          break;
+        if (!rows || rows.length === 0) break;
+
+        for (const row of rows as any[]) {
+          try {
+            const blob = await downloadFromDrive(row.drive_file_id);
+            const d = new Date(row.created_at);
+            const ext = extFor(row.mime_type, row.original_filename);
+            const path = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/backfill/${row.id}.${ext}`;
+            const { error: upErr } = await supabase.storage.from("line-vault").upload(path, blob, {
+              contentType: row.mime_type || blob.type || "application/octet-stream",
+              upsert: true,
+            });
+            if (upErr) throw upErr;
+            const { error: updErr } = await supabase
+              .from("line_vault_items")
+              .update({ storage_path: path })
+              .eq("id", row.id);
+            if (updErr) throw updErr;
+            total++;
+          } catch (e: any) {
+            failed++;
+            setLog(`สำรองแล้ว ${total} ไฟล์ · ล้มเหลว ${failed} — ${e?.message ?? ""}`);
+            if (failed >= 3) throw e;
+          }
+          setLog(`สำรองแล้ว ${total} ไฟล์${failed ? ` · ล้มเหลว ${failed}` : ""}`);
         }
-        if (!data?.migrated || !data?.remaining) break;
       }
       toast.success(`สำรองไฟล์เข้า Storage แล้ว ${total} รายการ`);
       onDone();
     } catch (e: any) {
       toast.error(e?.message || "สำรองไฟล์ไม่สำเร็จ");
     } finally {
+      await check();
       setBusy(false);
     }
   };
