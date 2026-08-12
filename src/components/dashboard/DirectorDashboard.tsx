@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -59,7 +60,7 @@ const DirectorDashboard = () => {
         supabase.from("students").select("id, gender", { count: "exact" }).eq("status", "active"),
         supabase.from("personnel").select("id, position", { count: "exact" }).eq("status", "active"),
         supabase.from("classrooms").select("id, homeroom_teacher", { count: "exact" }),
-        supabase.from("attendance").select("status, attendance_date").gte("attendance_date", bkkDateISO(new Date(Date.now() - 30 * 86400000))),
+        fetchAllRows((f, t) => supabase.from("attendance").select("status, attendance_date").gte("attendance_date", bkkDateISO(new Date(Date.now() - 30 * 86400000))).order("attendance_date").range(f, t)).then((data) => ({ data })),
         supabase.from("student_leaves").select("id, status"),
         supabase.from("staff_leaves").select("id, status"),
         supabase.from("news_posts").select("id, title, is_published").eq("is_published", true).order("created_at", { ascending: false }).limit(5),

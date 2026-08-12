@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { FileSpreadsheet, TrendingUp, Users, AlertTriangle } from "lucide-react";
-import * as XLSX from "xlsx";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 
 interface Props {
@@ -122,7 +121,7 @@ export function AttendanceReportTab({
     });
   }, [classStudents, studentSummary]);
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
     const rows = classStudents.map((s: any, i: number) => {
       const sm = studentSummary[s.id];
       const rate = sm.total > 0 ? ((sm.present / sm.total) * 100).toFixed(1) : "0";
@@ -139,6 +138,7 @@ export function AttendanceReportTab({
         "อัตราเข้าเรียน(%)": rate,
       };
     });
+    const XLSX = await import("xlsx");
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "รายงานการมาเรียน");
