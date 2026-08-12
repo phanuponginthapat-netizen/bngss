@@ -81,6 +81,15 @@ interface CapturedSample {
   };
 }
 
+interface DuplicateFaceMatch {
+  match_name: string | null;
+  match_code: string | null;
+  min_distance: number;
+}
+
+const errorMessage = (error: unknown) => error instanceof Error ? error.message : "เกิดข้อผิดพลาด";
+const errorName = (error: unknown) => error instanceof DOMException || error instanceof Error ? error.name : "";
+
 const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName, onComplete, submitMode = "direct", reason }: Props) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
@@ -232,13 +241,13 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
       if (videoRef.current) {
         await attachStreamToVideo(videoRef.current, stream);
         setStreaming(true);
-        try { applyCameraAutoTune(stream); } catch {}
+        try { applyCameraAutoTune(stream); } catch { /* บางอุปกรณ์ไม่รองรับ camera constraints เพิ่มเติม */ }
       }
-    } catch (e: any) {
-      const denied = e?.name === "NotAllowedError" || e?.name === "PermissionDeniedError";
+    } catch (e: unknown) {
+      const denied = errorName(e) === "NotAllowedError" || errorName(e) === "PermissionDeniedError";
       toast.error(denied
         ? "ยังไม่ได้อนุญาตใช้กล้อง กรุณากดอนุญาตกล้องในเบราว์เซอร์แล้วลองใหม่"
-        : "เปิดกล้องไม่สำเร็จ: " + (e?.message || "ไม่พบกล้อง"));
+        : "เปิดกล้องไม่สำเร็จ: " + errorMessage(e));
     }
   };
 
@@ -485,11 +494,11 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         const descriptorArrays = samples.map((sm) => Array.from(sm.descriptor));
         const { data: dup, error: dupErr } = await supabase.rpc("check_face_duplicate", {
           _student_id: studentId,
-          _descriptors: descriptorArrays as any,
+          _descriptors: descriptorArrays,
           _threshold: DUPLICATE_THRESHOLD,
         });
         if (dupErr) throw dupErr;
-        const hit = Array.isArray(dup) ? (dup as any[])[0] : null;
+        const hit = Array.isArray(dup) ? (dup as DuplicateFaceMatch[])[0] : null;
         if (hit) {
           setBlockedMsg(
             `ใบหน้านี้ตรงกับผู้ที่ลงทะเบียนไว้แล้ว: ${hit.match_name ?? ""} (${hit.match_code ?? "-"}) ` +
@@ -521,7 +530,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             request_type: isRereg ? "reregister" : "initial",
             reason: reason?.trim() || null,
             photo_urls,
-            descriptors: descriptorArrays as any,
+            descriptors: descriptorArrays,
             status: "pending",
           });
           if (error) throw error;
@@ -549,8 +558,8 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         }
         stopCamera();
         onComplete?.();
-      } catch (e: any) {
-        const message = String(e?.message || "เกิดข้อผิดพลาด");
+      } catch (e: unknown) {
+        const message = errorMessage(e);
         const friendly = message.includes("row-level security") || message.includes("not authorized")
           ? "บัญชีนี้ไม่มีสิทธิ์บันทึกคำขอ กรุณาออกจากระบบแล้วเข้าสู่ระบบนักเรียนใหม่"
           : message.includes("Failed to fetch") || message.includes("NetworkError")
