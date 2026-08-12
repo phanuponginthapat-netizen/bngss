@@ -16355,6 +16355,10 @@ export type Database = {
           student_code: string
         }[]
       }
+      self_enroll_face: {
+        Args: { _photo_urls?: string[]; _reason?: string; _samples: Json }
+        Returns: string
+      }
       send_line_to_student_parents: {
         Args: {
           _image_url?: string
