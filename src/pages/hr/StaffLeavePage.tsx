@@ -88,6 +88,65 @@ const StaffLeavePage = () => {
     },
   });
 
+  // ---- Per-period substitute planning ----
+  const applicantId = canApprove ? personnelId : myPersonnel?.id || "";
+  const applicant: any = personnel.find((p: any) => p.id === applicantId) || (applicantId === myPersonnel?.id ? myPersonnel : null);
+  const applicantFullName = applicant
+    ? `${applicant.prefix || ""}${applicant.first_name} ${applicant.last_name}`
+    : "";
+
+  // list of dates in the leave range (max 31 days)
+  const leaveDates: string[] = (() => {
+    if (!startDate || !endDate) return [];
+    const out: string[] = [];
+    const s = new Date(startDate + "T00:00:00");
+    const e = new Date(endDate + "T00:00:00");
+    if (isNaN(s.getTime()) || isNaN(e.getTime()) || e < s) return [];
+    for (let d = new Date(s); d <= e && out.length < 31; d.setDate(d.getDate() + 1)) {
+      out.push(bkkDateISO(d));
+    }
+    return out;
+  })();
+
+  const { data: mySchedule = [] } = useQuery({
+    queryKey: ["my-teaching-schedule", applicantFullName],
+    enabled: !!applicantFullName,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("schedules")
+        .select("id, day_of_week, period, room, subject_name_raw, classroom_id, subject_id")
+        .eq("teacher_name", applicantFullName)
+        .order("period");
+      return data || [];
+    },
+  });
+
+  const { data: classroomMap = {} } = useQuery({
+    queryKey: ["classroom-names-leave"],
+    queryFn: async () => {
+      const { data } = await supabase.from("classrooms").select("id, grade_level, room_number");
+      const map: Record<string, string> = {};
+      (data || []).forEach((c: any) => { map[c.id] = `${c.grade_level}/${c.room_number}`; });
+      return map;
+    },
+  });
+
+  // slots that need a substitute: one per (date, period) in the leave range
+  const leaveSlots = leaveDates.flatMap((date) => {
+    const dow = ((new Date(date + "T00:00:00").getDay() + 6) % 7) + 1; // Mon=1..Sun=7
+    return mySchedule
+      .filter((s: any) => s.day_of_week === dow)
+      .map((s: any) => ({
+        key: `${date}|${s.period}`,
+        date,
+        period: s.period as number,
+        subject: s.subject_name_raw || "-",
+        classroom: s.classroom_id ? classroomMap[s.classroom_id] || "" : "",
+      }));
+  });
+
+
+
   const { data: records = [] } = useQuery({
     queryKey: ["staff_leaves", canApprove ? "all" : myPersonnel?.id],
     enabled: canApprove || !!myPersonnel?.id,
