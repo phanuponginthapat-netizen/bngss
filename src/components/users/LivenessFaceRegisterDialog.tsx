@@ -782,7 +782,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stepIdx, studentId]);
+  }, [stepIdx, studentId, retryTick]);
 
 
 
