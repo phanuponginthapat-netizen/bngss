@@ -353,6 +353,28 @@ const Login = () => {
 
 
             <TabsContent value="parent">
+              <Button
+                type="button"
+                className="w-full h-11 gradient-primary text-primary-foreground font-semibold mb-4"
+                onClick={() => setParentScanOpen(true)}
+                disabled={pQrLoading || pLoading}
+              >
+                <ScanLine className="w-4 h-4 mr-2" />
+                {pQrLoading
+                  ? (lang === "th" ? "กำลังเข้าระบบ..." : "Signing in...")
+                  : (lang === "th" ? "สแกน QR บัตรนักเรียนเพื่อเข้าระบบ" : "Scan child's ID QR to sign in")}
+              </Button>
+              <p className="text-center text-[11px] text-muted-foreground mb-4">
+                {lang === "th"
+                  ? "สแกนครั้งแรกระบบจะสร้างบัญชีผู้ปกครองให้อัตโนมัติ (สิทธิ์อ่านข้อมูลบุตรหลานเท่านั้น)"
+                  : "First scan creates a parent account automatically (read-only access to your child's data)."}
+              </p>
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                <div className="relative flex justify-center text-[11px] uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">{lang === "th" ? "หรือ" : "or"}</span>
+                </div>
+              </div>
               <form onSubmit={handleParentLogin} className="space-y-4">
                 <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
                   {lang === "th"
