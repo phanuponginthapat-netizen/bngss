@@ -1164,6 +1164,8 @@ const FaceReportTab = () => {
                       <td className="p-2 text-center border-r text-muted-foreground">{r.sizeM || "-"}</td>
                       <td className="p-2 text-center border-r text-muted-foreground">{r.sizeF || "-"}</td>
                       <td className="p-2 text-center border-r font-semibold">{r.size || "-"}</td>
+                      <td className="p-2 text-center border-r text-xs text-muted-foreground">{r.cd || "-"}</td>
+
                       <td className="p-2 text-center border-r text-emerald-700/80">{r.presentM || "-"}</td>
                       <td className="p-2 text-center border-r text-emerald-700/80">{r.presentF || "-"}</td>
                       <td className="p-2 text-center border-r font-bold text-emerald-700 bg-emerald-50/50">{r.present || "-"}</td>
