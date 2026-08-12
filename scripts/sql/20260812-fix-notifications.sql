@@ -117,3 +117,21 @@ BEGIN
     'reference_id', _reference_id));
 EXCEPTION WHEN OTHERS THEN NULL;
 END; $fn$;
+DO $do$
+DECLARE base text := 'https://gwmszzoqqxmejefhayqf.supabase.co';
+        anonk text := 'sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v';
+        j record;
+BEGIN
+  FOR j IN SELECT * FROM (VALUES
+    ('notify-retry-15min',            '*/15 * * * *', 'notify-retry',            '{}'),
+    ('notify-ict-overdue-daily',      '0 1 * * *',    'notify-ict-overdue',      '{"source":"cron"}'),
+    ('notify-calendar-digest-daily',  '30 23 * * *',  'notify-calendar-digest',  '{"source":"cron"}'),
+    ('daily-line-digest-morning',     '30 23 * * *',  'daily-line-digest',       '{"source":"cron"}')
+  ) AS t(jobname, sched, fn, body)
+  LOOP
+    PERFORM cron.unschedule(j.jobname) WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = j.jobname);
+    PERFORM cron.schedule(j.jobname, j.sched, format(
+      $q$SELECT net.http_post(url:='%s/functions/v1/%s', headers:=jsonb_build_object('Content-Type','application/json','apikey','%s','x-cron-secret',COALESCE((SELECT value FROM public.app_secrets WHERE key='CRON_SECRET' LIMIT 1),'')), body:='%s'::jsonb);$q$,
+      base, j.fn, anonk, j.body));
+  END LOOP;
+END $do$;
