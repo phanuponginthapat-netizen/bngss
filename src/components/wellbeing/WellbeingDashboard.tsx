@@ -265,29 +265,36 @@ export default function WellbeingDashboard() {
       )}
 
       <Card>
-        <CardContent className="p-4 grid gap-3 sm:grid-cols-2 max-w-2xl">
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">ระดับชั้น</div>
-            <Select value={gradeFilter} onValueChange={(v) => { setGradeFilter(v); setClassroomFilter("all"); }}>
-              <SelectTrigger><SelectValue placeholder="ทุกระดับชั้น" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">ทุกระดับชั้น</SelectItem>
-                {grades.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-              </SelectContent>
-            </Select>
+        <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="grid gap-3 sm:grid-cols-2 flex-1 max-w-2xl">
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">ระดับชั้น</div>
+              <Select value={gradeFilter} onValueChange={(v) => { setGradeFilter(v); setClassroomFilter("all"); }}>
+                <SelectTrigger><SelectValue placeholder="ทุกระดับชั้น" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">ทุกระดับชั้น</SelectItem>
+                  {grades.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">ห้องเรียน</div>
+              <Select value={classroomFilter} onValueChange={setClassroomFilter}>
+                <SelectTrigger><SelectValue placeholder="ทุกห้อง" /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value="all">ทุกห้อง</SelectItem>
+                  {classroomOptions.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">ห้องเรียน</div>
-            <Select value={classroomFilter} onValueChange={setClassroomFilter}>
-              <SelectTrigger><SelectValue placeholder="ทุกห้อง" /></SelectTrigger>
-              <SelectContent className="max-h-72">
-                <SelectItem value="all">ทุกห้อง</SelectItem>
-                {classroomOptions.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+          <Button onClick={handleExportPdf} disabled={exporting} className="shrink-0">
+            {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileDown className="h-4 w-4 mr-2" />}
+            {exporting ? "กำลังสร้างรายงาน..." : "ดาวน์โหลดรายงาน PDF"}
+          </Button>
         </CardContent>
       </Card>
+
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
