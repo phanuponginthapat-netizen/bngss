@@ -408,6 +408,16 @@ export function AppSidebar() {
       ],
     },
     {
+      key: "wellbeing",
+      label: L("สุขภาพใจและแววอาชีพ", "Wellbeing & Career Aptitude"),
+      icon: Sparkles,
+      color: "text-violet-400",
+      roles: ["admin", "director", "teacher", "student", "parent"],
+      items: [
+        { title: L("เช็คใจ & ค้นหาแววอาชีพ", "Mind Check & Career Aptitude"), url: "/dashboard/hub/wellbeing", icon: Sparkles, color: "text-violet-400", roles: ["admin", "director", "teacher", "student", "parent"], desc: L("แบบประเมิน 2Q/9Q/8Q/ST-5 และวัดแวว 8 ด้าน", "Mental health screening & 8 intelligences") },
+      ],
+    },
+    {
       key: "student_games",
       label: L("ศูนย์เกมการเรียนรู้", "Game Hub"),
       icon: Gamepad2,
