@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Document, Page, pdfjs } from "react-pdf";
 import { PDFDocument, StandardFonts, rgb, degrees } from "pdf-lib";
@@ -51,6 +51,8 @@ export default function PdfToolsPage() {
   const [rotations, setRotations] = useState<Record<number, number>>({});
   const [scale, setScale] = useState(1);
   const [dragAnnot, setDragAnnot] = useState<string | null>(null);
+  // memo กัน react-pdf โหลดไฟล์ใหม่ทุกครั้งที่ re-render
+  const pdfFile = useMemo(() => (pdfBytes ? { data: pdfBytes } : undefined), [pdfBytes]);
 
   useEffect(() => {
     if (!fileIdParam) return;
@@ -335,7 +337,7 @@ export default function PdfToolsPage() {
           <div className="flex-1 overflow-auto p-4 flex justify-center bg-slate-200">
             <div ref={pageWrapRef} className={`relative inline-block shadow-2xl ${tool !== "none" ? "cursor-crosshair" : "cursor-default"}`}
               onClick={handlePageClick}>
-              <Document file={pdfBytes ? { data: pdfBytes } : undefined} onLoadSuccess={({ numPages }) => setNumPages(numPages)}>
+              <Document file={pdfFile} onLoadSuccess={({ numPages }) => setNumPages(numPages)}>
                 <Page pageNumber={pageIdx + 1} width={800 * scale} rotate={rotations[pageIdx] ?? 0} />
               </Document>
               {annots.filter(a => a.page === pageIdx).map(a => (
