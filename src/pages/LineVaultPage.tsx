@@ -1385,10 +1385,18 @@ function StorageBackfillCard({ onDone }: { onDone: () => void }) {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
+      if (res.status === 428 || text.includes("GOOGLE_DRIVE_NOT_CONNECTED") || text.includes("not_connected")) {
+        const err: any = new Error(
+          "ยังไม่ได้เชื่อม Google Drive — กรุณากด “เริ่มเชื่อม Google Drive” ในการ์ดด้านบน แล้วอนุญาตสิทธิ์ให้เรียบร้อยก่อน จึงค่อยกดสำรองไฟล์อีกครั้ง",
+        );
+        err.notConnected = true;
+        throw err;
+      }
       throw new Error(`Drive ${res.status}: ${text.slice(0, 160)}`);
     }
     return await res.blob();
   };
+
 
   const run = async () => {
     setBusy(true);
