@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { todayBangkok } from "@/lib/dateBE";
 import { useQuery } from "@tanstack/react-query";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -77,8 +78,8 @@ export default function MascotHeroWidget() {
     queryFn: async () => {
       const [students, scannedTodayRows, attendanceToday] = await Promise.all([
         supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "active"),
-        supabase.from("face_scan_logs").select("student_id, scan_time").eq("scan_date", today),
-        supabase.from("attendance").select("student_id, status").eq("attendance_date", today),
+        fetchAllRows((f, t) => supabase.from("face_scan_logs").select("student_id, scan_time").eq("scan_date", today).order("student_id").range(f, t)).then((data) => ({ data })),
+        fetchAllRows((f, t) => supabase.from("attendance").select("student_id, status").eq("attendance_date", today).order("student_id").range(f, t)).then((data) => ({ data })),
       ]);
       // นักเรียนที่ "มาโรงเรียน" = present หรือ late (จาก attendance) ∪ มีการสแกนหน้า
       const presentSet = new Set<string>();

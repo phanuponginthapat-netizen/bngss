@@ -4,6 +4,7 @@ import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -99,7 +100,7 @@ const Dashboard = () => {
         supabase.from("personnel").select("id, department, status, position, user_id", { count: "exact" }),
         supabase.from("classrooms").select("id, grade_level, name, homeroom_teacher", { count: "exact" }),
         supabase.from("subjects").select("id", { count: "exact", head: true }),
-        supabase.from("attendance").select("id, status, attendance_date, student_id").eq("attendance_date", todayBangkok()),
+        fetchAllRows((f, t) => supabase.from("attendance").select("id, status, attendance_date, student_id").eq("attendance_date", todayBangkok()).order("id").range(f, t)).then((data) => ({ data })),
         supabase.from("health_records").select("id", { count: "exact", head: true }),
         supabase.from("student_leaves").select("id, status", { count: "exact" }),
         supabase.from("staff_leaves").select("id, status", { count: "exact" }),
@@ -122,8 +123,8 @@ const Dashboard = () => {
         .from("school_settings").select("setting_value")
         .eq("setting_key", "face_scan_late_threshold").maybeSingle();
       const lateThreshold = (lateThresholdSetting.data?.setting_value as string) || "08:00";
-      const faceLogs = await supabase
-        .from("face_scan_logs").select("student_id, scan_time").eq("scan_date", todayISO);
+      const faceLogs = { data: await fetchAllRows((f, t) => supabase
+        .from("face_scan_logs").select("student_id, scan_time").eq("scan_date", todayISO).order("student_id").range(f, t)) };
 
       const statusByStudent = new Map<string, "present" | "late" | "absent">();
       attendance.data?.forEach(a => {

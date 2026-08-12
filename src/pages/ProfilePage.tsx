@@ -336,15 +336,16 @@ const ProfilePage = () => {
     queryKey: ["director_stats"],
     enabled: role === "director" || role === "admin",
     queryFn: async () => {
-      const [students, personnel, classrooms, subjects, attendance] = await Promise.all([
+      const [students, personnel, classrooms, subjects, attendance, presentAttendance] = await Promise.all([
         supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "active"),
         supabase.from("personnel").select("id", { count: "exact", head: true }),
         supabase.from("classrooms").select("id", { count: "exact", head: true }),
         supabase.from("subjects").select("id", { count: "exact", head: true }),
-        supabase.from("attendance").select("id, status"),
+        supabase.from("attendance").select("id", { count: "exact", head: true }),
+        supabase.from("attendance").select("id", { count: "exact", head: true }).eq("status", "present"),
       ]);
-      const totalAtt = attendance.data?.length || 0;
-      const presentAtt = attendance.data?.filter((a: any) => a.status === "present").length || 0;
+      const totalAtt = attendance.count || 0;
+      const presentAtt = presentAttendance.count || 0;
       return {
         students: students.count || 0,
         personnel: personnel.count || 0,

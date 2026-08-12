@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -79,7 +80,7 @@ const fetchData = async (): Promise<SmscData> => {
     supabase.from("subjects").select("id", { count: "exact", head: true }),
     supabase.from("schedules").select("id", { count: "exact", head: true }),
     supabase.from("documents").select("id", { count: "exact", head: true }),
-    supabase.from("attendance").select("status").gte("attendance_date", since),
+    fetchAllRows((f, t) => supabase.from("attendance").select("status").gte("attendance_date", since).order("attendance_date").range(f, t)).then((data) => ({ data })),
     supabase.from("school_test_scores").select("*").order("academic_year", { ascending: false }).limit(200),
     supabase.from("behavior_records").select("behavior_type, student_id").gte("record_date", since),
     supabase.from("behavior_records").select("behavior_type, student_id, students(first_name, last_name)").gte("record_date", since).limit(500),
