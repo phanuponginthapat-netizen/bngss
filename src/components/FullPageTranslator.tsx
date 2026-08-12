@@ -247,27 +247,7 @@ export const FullPageTranslator = () => {
   };
 
   const requestTranslations = async (texts: string[], target: string) => {
-    const { data, error } = await supabase.functions.invoke("translate-text", {
-      body: { texts, target },
-    });
-
-    if (error) throw error;
-
-    const payload = (data ?? {}) as {
-      translations?: string[];
-      fallback?: boolean;
-      code?: string;
-      error?: string;
-    };
-
-    if (payload.fallback) {
-      const err = new Error(payload.error || "translation service unavailable");
-      (err as any).code = payload.code || "SERVICE_UNAVAILABLE";
-      (err as any).fallback = true;
-      throw err;
-    }
-
-    const translations = Array.isArray(payload.translations) ? payload.translations : [];
+    const translations = await translateBatch(texts, target);
 
     if (translations.length !== texts.length) {
       throw new Error("Incomplete translation batch");
@@ -275,6 +255,7 @@ export const FullPageTranslator = () => {
 
     return translations;
   };
+
 
   const translatePage = async () => {
     const target = currentLangRef.current;
