@@ -34,6 +34,11 @@ const SELF_CONSISTENCY_MEDIAN_MAX = 0.62;
 const SAMPLE_OUTLIER_MAX = 0.72;
 /** ถ้าใบหน้าใกล้กับคนอื่นในระบบมากกว่านี้ = ถือว่าซ้ำคน */
 const DUPLICATE_THRESHOLD = 0.36;
+/** จำนวนภาพขั้นต่ำ/สูงสุดที่บันทึกจริง */
+const MIN_SAMPLES = 3;
+const MAX_SAMPLES = 8;
+/** จำกัดจำนวนภาพต่อขั้นตอน เพื่อให้ได้มุมหลากหลาย ไม่ซ้ำท่าเดียว */
+const MAX_PER_STEP = 2;
 
 const median = (xs: number[]) => {
   if (!xs.length) return 0;
