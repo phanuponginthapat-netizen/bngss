@@ -142,15 +142,30 @@ const FaceApprovalTab = () => {
         await supabase.from("student_face_descriptors").delete().eq("student_id", req.student_id);
       }
       const startIdx = req.request_type === "reregister" ? 0 : previous_count;
+
+      // เก็บภาพใบหน้าที่อนุมัติไว้กับ descriptor เพื่อใช้แสดงเทียบตอนสแกนที่คีออส
+      const thumbs = await Promise.all(
+        req.descriptors.map(async (_d, i) => {
+          const path = req.photo_urls?.[i];
+          if (!path) return null;
+          const url = await getSignedUrl(path);
+          if (!url) return null;
+          return (await urlToFaceThumb(url)) || null;
+        }),
+      );
+
       const rows = req.descriptors.map((d, i) => ({
         student_id: req.student_id,
         sample_index: startIdx + i,
         descriptor: d,
         captured_by: req.requested_by,
         source: "request_approved",
+        face_image: thumbs[i],
       }));
       const { error: insErr } = await supabase.from("student_face_descriptors").insert(rows);
       if (insErr) throw insErr;
+      clearRegisteredFaceCache(req.student_id);
+
 
       const { error: updErr } = await supabase.from("face_registration_requests").update({
         status: "approved",
