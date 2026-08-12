@@ -425,46 +425,41 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         setStepIdx((i) => i + 1);
         break;
       }
-      case "mouth": {
-        const st = mouthStateRef.current;
-        // คำนวณ MAR (Mouth Aspect Ratio) จาก landmarks ปาก (48..67)
-        // mouth[0]=48 มุมปากซ้าย, mouth[6]=54 มุมปากขวา
-        // mouth[14]=62, mouth[18]=66 → inner lip กลางบน/ล่าง
-        const mouth = data.landmarks.getMouth();
-        const left = mouth[0], right = mouth[6];
-        const topInner = mouth[14] ?? mouth[3];
-        const botInner = mouth[18] ?? mouth[9];
-        const horiz = Math.hypot(right.x - left.x, right.y - left.y) || 1;
-        const vert = Math.hypot(topInner.x - botInner.x, topInner.y - botInner.y);
-        const mar = vert / horiz;
-        if (mar > st.maxMar) st.maxMar = mar;
-
-        // calibrate baseline ปากปิดในช่วงแรก
+      case "blink": {
+        const st = blinkStateRef.current;
+        // ใช้ EAR (Eye Aspect Ratio) จาก landmarks ดวงตา — ตรวจการกะพริบ/ม่านตาจริง
         if (st.baseline === 0) {
-          st.samples.push(mar);
+          st.samples.push(ear);
           if (st.samples.length < 6) {
-            setStatusMsg(`กำลังปรับค่ากล้อง... (${st.samples.length}/6) ปิดปากปกติ`);
+            setStatusMsg(`กำลังปรับค่าดวงตา... (${st.samples.length}/6) ลืมตาปกติ`);
             break;
           }
-          const sorted = [...st.samples].sort((a, b) => a - b);
-          const low = sorted.slice(0, Math.ceil(sorted.length * 0.6));
-          st.baseline = low.reduce((s, v) => s + v, 0) / low.length;
+          const sorted = [...st.samples].sort((a, b) => b - a);
+          const high = sorted.slice(0, Math.ceil(sorted.length * 0.6));
+          st.baseline = high.reduce((s, v) => s + v, 0) / high.length;
         }
 
-        // ปรับตามสัดส่วนปากของแต่ละคน เพื่อรองรับกล้องมือถือและรูปหน้าที่หลากหลาย
-        const openThr = Math.max(0.22, st.baseline * 1.55, st.baseline + 0.08);
-        const openPct = Math.max(0, Math.min(100, Math.round(((mar - st.baseline) / Math.max(0.12, openThr - st.baseline)) * 100)));
+        const closeThr = Math.max(0.14, st.baseline * 0.68);
+        const openThr = Math.max(closeThr + 0.02, st.baseline * 0.85);
 
-        if (mar > openThr) {
-          st.openFrames += 1;
-          setStatusMsg(`อ้าปากดีแล้ว — ค้างไว้... (${st.openFrames}/3)`);
-          if (st.openFrames >= 3) {
-            setSamples((s) => [...s, captureSample(data!, "mouth")]);
+        if (ear < closeThr) {
+          st.closedFrames += 1;
+          st.closed = true;
+          setStatusMsg("ตาปิดแล้ว — ลืมตาได้เลย");
+        } else if (ear > openThr && st.closed && st.closedFrames >= 1) {
+          st.closed = false;
+          st.closedFrames = 0;
+          st.blinks += 1;
+          if (st.blinks === 1) setSamples((s) => [...s, captureSample(data!, "blink")]);
+          if (st.blinks >= 2) {
+            setStatusMsg("ตรวจม่านตาผ่าน!");
             setStepIdx((i) => i + 1);
+          } else {
+            setStatusMsg(`กะพริบแล้ว ${st.blinks}/2 — กะพริบอีกครั้ง`);
           }
         } else {
-          st.openFrames = 0;
-          setStatusMsg(`อ้าปากกว้างๆ ค้างไว้ (เปิดอยู่ ${openPct}% ต้องการ ≥ 60%)`);
+          st.closedFrames = 0;
+          setStatusMsg(`มองที่กล้องแล้วกะพริบตา (${st.blinks}/2)`);
         }
         break;
       }
