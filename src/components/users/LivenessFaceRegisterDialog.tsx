@@ -655,23 +655,26 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("กรุณาเข้าสู่ระบบ");
 
-        // ---- 1) ตรวจสอบว่าทุกตัวอย่างเป็น "คนเดียวกัน" (กันสลับหน้าระหว่างขั้นตอน) ----
-        let maxSelf = 0;
-        for (let i = 0; i < samples.length; i++) {
-          for (let j = i + 1; j < samples.length; j++) {
-            const d = euclidean(samples[i].descriptor, samples[j].descriptor);
-            if (d > maxSelf) maxSelf = d;
-          }
-        }
-        if (maxSelf > SELF_CONSISTENCY_MAX) {
+        // ---- 1) ตรวจสอบว่าตัวอย่างเป็น "คนเดียวกัน" โดยใช้ค่ากลาง + ตัด outlier ----
+        const medians = samples.map((sa, i) =>
+          median(samples.filter((_, j) => j !== i).map((sb) => euclidean(sa.descriptor, sb.descriptor))),
+        );
+        let usable = samples.filter((_, i) => medians[i] <= SAMPLE_OUTLIER_MAX);
+        if (usable.length < 2) usable = samples;
+        const usableMedians = usable.map((sa, i) =>
+          median(usable.filter((_, j) => j !== i).map((sb) => euclidean(sa.descriptor, sb.descriptor))),
+        );
+        const overall = median(usableMedians);
+        if (samples.length >= 3 && overall > SELF_CONSISTENCY_MEDIAN_MAX) {
           setBlockedMsg(
-            `ตรวจพบใบหน้าไม่ตรงกันระหว่างขั้นตอน (ค่าต่าง ${maxSelf.toFixed(2)}) — กรุณาลงทะเบียนใหม่โดยให้เป็นคนเดียวกันตลอด`,
+            `ตรวจพบใบหน้าไม่ตรงกันระหว่างขั้นตอน (ค่าต่าง ${overall.toFixed(2)}) — กรุณาลงทะเบียนใหม่โดยให้เป็นคนเดียวกันตลอด`,
           );
           throw new Error("ตรวจพบใบหน้ามากกว่า 1 คนระหว่างการลงทะเบียน");
         }
 
         // ---- 2) ตรวจสอบใบหน้าซ้ำกับนักเรียนคนอื่นในระบบ (กันจำผิดคน) ----
-        const descriptorArrays = samples.map((sm) => Array.from(sm.descriptor));
+        const descriptorArrays = usable.map((sm) => Array.from(sm.descriptor));
+
         const { data: dup, error: dupErr } = await supabase.rpc("check_face_duplicate", {
           _student_id: studentId,
           _descriptors: descriptorArrays,
