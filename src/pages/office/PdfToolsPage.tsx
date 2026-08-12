@@ -386,3 +386,12 @@ function hexToRgb(hex: string) {
   const b = parseInt(h.substring(4, 6), 16) / 255;
   return { r, g, b };
 }
+
+let thaiFontCache: ArrayBuffer | null = null;
+async function loadThaiFontBytes(): Promise<ArrayBuffer | null> {
+  if (thaiFontCache) return thaiFontCache;
+  const res = await fetch("/fonts/thsarabunnew.ttf");
+  if (!res.ok) return null;
+  thaiFontCache = await res.arrayBuffer();
+  return thaiFontCache;
+}
