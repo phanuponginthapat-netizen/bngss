@@ -335,8 +335,13 @@ const AdminLeaveView = () => {
   };
 
   const handleApprove = async (id: string) => {
-    const { error } = await supabase.from("student_leaves").update({ status: "approved" } as any).eq("id", id);
+    const { data: upd, error } = await supabase
+      .from("student_leaves")
+      .update({ status: "approved", approved_by: role || "staff" } as any)
+      .eq("id", id)
+      .select("id");
     if (error) { toast.error(error.message); return; }
+    if (!upd || upd.length === 0) { toast.error(lang === "th" ? "ไม่มีสิทธิ์อนุมัติใบลานี้" : "Not allowed to approve"); return; }
     qc.invalidateQueries({ queryKey: ["student_leaves"] });
     toast.success(lang === "th" ? "อนุมัติแล้ว" : "Approved");
     await notifyStudentOfDecision(id, "approved");
@@ -344,8 +349,13 @@ const AdminLeaveView = () => {
   };
 
   const handleReject = async (id: string) => {
-    const { error } = await supabase.from("student_leaves").update({ status: "rejected" } as any).eq("id", id);
+    const { data: upd, error } = await supabase
+      .from("student_leaves")
+      .update({ status: "rejected", approved_by: role || "staff" } as any)
+      .eq("id", id)
+      .select("id");
     if (error) { toast.error(error.message); return; }
+    if (!upd || upd.length === 0) { toast.error(lang === "th" ? "ไม่มีสิทธิ์ดำเนินการใบลานี้" : "Not allowed"); return; }
     qc.invalidateQueries({ queryKey: ["student_leaves"] });
     toast.success(lang === "th" ? "ไม่อนุมัติ" : "Rejected");
     await notifyStudentOfDecision(id, "rejected");
@@ -353,7 +363,8 @@ const AdminLeaveView = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("student_leaves").delete().eq("id", id);
+    const { error: delErr } = await supabase.from("student_leaves").delete().eq("id", id);
+    if (delErr) { toast.error(delErr.message); return; }
     qc.invalidateQueries({ queryKey: ["student_leaves"] });
   };
 
