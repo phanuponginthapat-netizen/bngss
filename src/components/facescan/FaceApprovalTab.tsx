@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
+import { urlToFaceThumb } from "@/lib/faceThumb";
+import { clearRegisteredFaceCache } from "@/lib/registeredFace";
 
 interface RequestRow {
   id: string;
