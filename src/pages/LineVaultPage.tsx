@@ -1445,8 +1445,10 @@ function StorageBackfillCard({ onDone }: { onDone: () => void }) {
       toast.success(`สำรองไฟล์เข้า Storage แล้ว ${total} รายการ`);
       onDone();
     } catch (e: any) {
-      toast.error(e?.message || "สำรองไฟล์ไม่สำเร็จ");
+      setLog(e?.message || "สำรองไฟล์ไม่สำเร็จ");
+      toast.error(e?.message || "สำรองไฟล์ไม่สำเร็จ", e?.notConnected ? { duration: 8000 } : undefined);
     } finally {
+
       await check();
       setBusy(false);
     }
