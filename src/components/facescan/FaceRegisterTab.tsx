@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useUserRole } from "@/hooks/useUserRole";
+import { canvasToFaceThumb } from "@/lib/faceThumb";
+import { clearRegisteredFaceCache } from "@/lib/registeredFace";
 
 
 const FaceRegisterTab = () => {
