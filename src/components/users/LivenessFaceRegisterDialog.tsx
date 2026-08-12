@@ -105,13 +105,16 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
   const busyRef = useRef(false);
   const detectMetaRef = useRef({ misses: 0, stableHits: 0 });
 
-  const mouthStateRef = useRef<{
-    opened: boolean;        // ปาก "อ้า" อยู่หรือยัง
-    openFrames: number;     // กี่เฟรมต่อเนื่องที่ปากอ้า (สำหรับยืนยัน)
-    baseline: number;       // MAR ตอนปากปิด (calibrate ต่อคน)
+  // สถานะการจับ "กะพริบตา" (ตรวจม่านตา/เปลือกตาด้วย EAR)
+  const blinkStateRef = useRef<{
+    baseline: number;       // EAR ตอนลืมตาปกติ (calibrate ต่อคน)
     samples: number[];      // สำหรับคำนวณ baseline
-    maxMar: number;         // MAR สูงสุดที่เห็น (debug)
-  }>({ opened: false, openFrames: 0, baseline: 0, samples: [], maxMar: 0 });
+    closed: boolean;        // ตาปิดอยู่หรือไม่
+    closedFrames: number;   // จำนวนเฟรมที่ตาปิดต่อเนื่อง
+    blinks: number;         // จำนวนครั้งที่กะพริบสำเร็จ
+  }>({ baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0 });
+
+  const [challengeColors, setChallengeColors] = useState<string[]>(makeChallengeColors);
 
   const [studentId, setStudentId] = useState<string | null>(null);
   const [modelReady, setModelReady] = useState(false);
