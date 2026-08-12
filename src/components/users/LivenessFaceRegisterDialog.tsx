@@ -27,10 +27,21 @@ interface Props {
   reason?: string;
 }
 
-/** ระยะห่างสูงสุดที่ยอมรับได้ระหว่างตัวอย่างของ "คนเดียวกัน" */
-const SELF_CONSISTENCY_MAX = 0.55;
+/** ระยะห่าง "ค่ากลาง" สูงสุดที่ยอมรับได้ระหว่างตัวอย่างของคนเดียวกัน
+ *  (ขั้นตอนหันซ้าย/ขวา/กะพริบตา ทำให้ระยะคู่ใดคู่หนึ่งกว้างได้ตามธรรมชาติ) */
+const SELF_CONSISTENCY_MEDIAN_MAX = 0.62;
+/** ตัวอย่างที่ค่ากลางห่างเกินนี้ถือเป็น outlier → ตัดทิ้งแทนการบล็อกทั้งชุด */
+const SAMPLE_OUTLIER_MAX = 0.72;
 /** ถ้าใบหน้าใกล้กับคนอื่นในระบบมากกว่านี้ = ถือว่าซ้ำคน */
-const DUPLICATE_THRESHOLD = 0.42;
+const DUPLICATE_THRESHOLD = 0.36;
+
+const median = (xs: number[]) => {
+  if (!xs.length) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+
 
 const dataUrlToBlob = (dataUrl: string): Blob => {
   const [meta, b64] = dataUrl.split(",");
