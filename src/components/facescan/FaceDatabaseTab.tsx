@@ -18,22 +18,25 @@ const FaceDatabaseTab = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("student_face_descriptors")
-        .select("id, student_id, sample_index, source, created_at, students!inner(id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name))");
+        .select("id, student_id, sample_index, source, created_at, face_image, quality_score, students!inner(id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name))");
       if (error) throw error;
       // Group by student
       const map = new Map<string, any>();
       for (const r of data as any[]) {
         const id = r.student_id;
         if (!map.has(id)) {
-          map.set(id, { ...r.students, sample_count: 0, latest: r.created_at });
+          map.set(id, { ...r.students, sample_count: 0, latest: r.created_at, face_image: null, best_quality: -1 });
         }
         const g = map.get(id);
         g.sample_count++;
         if (r.created_at > g.latest) g.latest = r.created_at;
+        const q = r.quality_score ?? 0;
+        if (r.face_image && q >= g.best_quality) { g.face_image = r.face_image; g.best_quality = q; }
       }
       return Array.from(map.values()).sort((a, b) => a.first_name.localeCompare(b.first_name, "th"));
     },
   });
+
 
   const filtered = data.filter((s: any) => {
     const q = search.toLowerCase().trim();
