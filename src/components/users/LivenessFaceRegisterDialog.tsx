@@ -426,15 +426,23 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     if (!data) {
       detectMetaRef.current.misses += 1;
       detectMetaRef.current.stableHits = 0;
-      drawOverlay(null);
+      // ── fallback: ใช้ OpenCV Haar cascade ช่วยหาใบหน้า เพื่อบอกผู้ใช้ว่ากล้อง "เห็น" แล้ว ──
+      let cvBoxes: CVBox[] = [];
+      if (isOpenCVReady()) {
+        try { cvBoxes = detectFacesCV(videoRef.current); } catch { cvBoxes = []; }
+      }
+      drawOverlay(null, "warn", cvBoxes);
       setStatusMsg(
-        detectMetaRef.current.misses > 12
-          ? "ยังไม่เจอใบหน้า — ขยับเข้าใกล้กล้อง, เพิ่มแสง และหันหน้าตรง"
-          : "ไม่พบใบหน้า — กรุณาขยับเข้าหากล้อง",
+        cvBoxes.length
+          ? "เจอใบหน้าแล้ว (OpenCV) — จัดหน้าให้อยู่ในวงรีและเพิ่มแสงอีกนิด"
+          : detectMetaRef.current.misses > 12
+            ? "ยังไม่เจอใบหน้า — ขยับเข้าใกล้กล้อง, เพิ่มแสง และหันหน้าตรง"
+            : "ไม่พบใบหน้า — กรุณาขยับเข้าหากล้อง",
       );
       loopRef.current = window.setTimeout(runStep, 140) as unknown as number;
       return;
     }
+
 
     detectMetaRef.current.misses = 0;
 
