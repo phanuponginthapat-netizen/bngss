@@ -197,8 +197,8 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     [facingMode],
   );
 
-  // วาด overlay การจับใบหน้า: กรอบมุม + จุด landmark 68 จุด + เส้นโครงหน้า
-  // สีบอกสถานะ: เขียว = พร้อมบันทึก, เหลือง = ต้องปรับท่า, แดง = ยังใช้ไม่ได้
+  // วาด overlay การจับใบหน้า: วงรีไกด์ระยะ + กรอบล็อกเมื่อได้ระยะ + landmark 68 จุด + ม่านตา
+  // สีบอกสถานะ: เขียว = ได้ระยะ/พร้อมบันทึก, เหลือง = ต้องปรับท่า, แดง = ยังใช้ไม่ได้
   const drawOverlay = useCallback(
     (
       data: Awaited<ReturnType<typeof detectFaceWithLandmarks>> | null,
@@ -216,6 +216,27 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
       const ctx = cv.getContext("2d");
       if (!ctx) return;
       ctx.clearRect(0, 0, vw, vh);
+
+      const unitG = Math.max(1, vw / 480);
+      const locked = state === "good";
+
+      // ---- วงรีไกด์ระยะ (อยู่กลางจอเสมอ) ----
+      const gcx = vw / 2, gcy = vh * 0.48;
+      const grx = Math.min(vw, vh) * 0.26, gry = grx * 1.32;
+      ctx.save();
+      ctx.setLineDash(locked ? [] : [10 * unitG, 8 * unitG]);
+      ctx.lineWidth = (locked ? 3 : 2) * unitG;
+      ctx.strokeStyle = locked ? "rgba(16,185,129,0.9)" : "rgba(255,255,255,0.45)";
+      ctx.beginPath();
+      ctx.ellipse(gcx, gcy, grx, gry, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      if (locked) {
+        ctx.shadowColor = "rgba(16,185,129,0.8)";
+        ctx.shadowBlur = 18 * unitG;
+        ctx.stroke();
+      }
+      ctx.restore();
+
       if (!data) return;
 
       const color =
