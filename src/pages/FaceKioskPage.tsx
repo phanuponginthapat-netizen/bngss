@@ -9,6 +9,7 @@ import {
   detectorOptionsHQ, applyCameraAutoTune, preprocessFrame, estimateFaceSharpness,
   type KnownFace,
 } from "@/lib/faceApi";
+import { learnFromScan } from "@/lib/faceLearning";
 import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText } from "@/lib/faceScanAudio";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -570,6 +571,15 @@ const FaceKioskPage = () => {
                 if (confirmed) {
                   const captured = captureFaceCrop(video, box);
                   await recordScan(found.studentId, found.studentCode, found.name, found.classroom, found.avatar, m.confidence, captured);
+                  // เรียนรู้ใบหน้าอัตโนมัติจากการสแกนจริงหน้าคีออส
+                  learnFromScan({
+                    studentId: found.studentId,
+                    descriptor: det.descriptor,
+                    match: m,
+                    sharpness,
+                    faceSize,
+                    source: "kiosk",
+                  }).catch(() => {});
                   confirmRef.current.delete(found.studentId);
                 }
               } else {
