@@ -247,7 +247,7 @@ export default function WellbeingDashboard() {
 
       <Card>
         <CardHeader><CardTitle className="text-base">แนวโน้มการประเมินรายเดือน (12 เดือนล่าสุด)</CardTitle></CardHeader>
-        <CardContent className="h-[320px]">
+        <CardContent ref={trendChartRef} className="h-[320px]">
           {trend.length === 0 ? (
             <p className="text-sm text-muted-foreground">ยังไม่มีข้อมูลสำหรับช่วงที่เลือก</p>
           ) : (
@@ -274,7 +274,7 @@ export default function WellbeingDashboard() {
             <p className="text-sm text-muted-foreground">ยังไม่มีข้อมูลสำหรับช่วงที่เลือก</p>
           ) : (
             <>
-              <div style={{ height: Math.max(220, byClassroom.length * 38) }}>
+              <div ref={classChartRef} style={{ height: Math.max(220, byClassroom.length * 38) }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={byClassroom} layout="vertical" margin={{ left: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
