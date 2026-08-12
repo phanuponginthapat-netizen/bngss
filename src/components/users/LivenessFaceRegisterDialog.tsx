@@ -204,6 +204,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     (
       data: Awaited<ReturnType<typeof detectFaceWithLandmarks>> | null,
       state: "good" | "warn" | "bad" = "warn",
+      cvBoxes?: CVBox[],
     ) => {
       const v = videoRef.current;
       const cv = overlayRef.current;
