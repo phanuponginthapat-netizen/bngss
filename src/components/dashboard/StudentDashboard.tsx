@@ -92,11 +92,21 @@ const StudentDashboard = () => {
           .gte("event_date", todayStr).order("event_date").limit(5),
       ]);
 
-      const total = attendance.data?.length || 0;
-      const present = attendance.data?.filter((a: any) => a.status === "present").length || 0;
-      const absent = attendance.data?.filter((a: any) => a.status === "absent").length || 0;
-      const late = attendance.data?.filter((a: any) => a.status === "late").length || 0;
-      const rate = total > 0 ? ((present / total) * 100).toFixed(1) : "0";
+      // นับเป็น "วัน" จริง — วันเดียวกันหลายคาบนับครั้งเดียว (มา > สาย > ลา > ป่วย > ขาด)
+      const PRIORITY: Record<string, number> = { present: 5, late: 4, leave: 3, sick: 2, absent: 1 };
+      const dayStatus: Record<string, string> = {};
+      (attendance.data || []).forEach((a: any) => {
+        if (!a.attendance_date || !(a.status in PRIORITY)) return;
+        const prev = dayStatus[a.attendance_date];
+        if (!prev || PRIORITY[a.status] > PRIORITY[prev]) dayStatus[a.attendance_date] = a.status;
+      });
+      const days = Object.values(dayStatus);
+      const total = days.length;
+      const present = days.filter((s) => s === "present").length;
+      const absent = days.filter((s) => s === "absent").length;
+      const late = days.filter((s) => s === "late").length;
+      const leaveDays = days.filter((s) => s === "leave" || s === "sick").length;
+      const rate = total > 0 ? (((present + late) / total) * 100).toFixed(1) : "0";
 
       const positiveB = behavior.data?.filter((b: any) => b.behavior_type === "positive").length || 0;
       const negativeB = behavior.data?.filter((b: any) => b.behavior_type === "negative").length || 0;
