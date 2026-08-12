@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Settings, Save, Clock, Monitor, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { clearAdaptiveFlagCache } from "@/lib/faceLearning";
 
 type Win = { start: string; end: string };
 const DEFAULT_ENTRY: Win = { start: "06:00", end: "10:00" };
@@ -34,6 +35,7 @@ const FaceSettingsTab = () => {
   const [helloAiEnabled, setHelloAiEnabled] = useState(true);
   const [powerSave, setPowerSave] = useState(true); // ปิดกล้อง/AI นอกเวลาสแกน (โน๊ตบุ๊คเก่า)
   const [wakeWordEnabled, setWakeWordEnabled] = useState(false); // ปลุกด้วยเสียง "สวัสดี AI"
+  const [adaptiveLearning, setAdaptiveLearning] = useState(true); // เรียนรู้ใบหน้าอัตโนมัติทุกครั้งที่สแกน
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -45,6 +47,7 @@ const FaceSettingsTab = () => {
           "face_scan_threshold", "face_scan_cutoff_time", "face_scan_mode_cutoff",
           "face_scan_entry_window", "face_scan_exit_window",
           "kiosk_idle_timeout_sec", "kiosk_hello_ai_enabled", "kiosk_power_save", "kiosk_wake_word_enabled",
+          "face_adaptive_learning",
         ]);
       for (const r of data || []) {
         if (r.setting_key === "face_scan_threshold") setThreshold(r.setting_value || "0.5");
@@ -62,6 +65,7 @@ const FaceSettingsTab = () => {
         if (r.setting_key === "kiosk_hello_ai_enabled") setHelloAiEnabled(r.setting_value !== "false");
         if (r.setting_key === "kiosk_power_save") setPowerSave(r.setting_value !== "false");
         if (r.setting_key === "kiosk_wake_word_enabled") setWakeWordEnabled(r.setting_value === "true");
+        if (r.setting_key === "face_adaptive_learning") setAdaptiveLearning(r.setting_value !== "false");
       }
     })();
   }, []);
@@ -100,8 +104,10 @@ const FaceSettingsTab = () => {
         { setting_key: "kiosk_hello_ai_enabled", setting_value: helloAiEnabled ? "true" : "false" },
         { setting_key: "kiosk_power_save", setting_value: powerSave ? "true" : "false" },
         { setting_key: "kiosk_wake_word_enabled", setting_value: wakeWordEnabled ? "true" : "false" },
+        { setting_key: "face_adaptive_learning", setting_value: adaptiveLearning ? "true" : "false" },
       ], { onConflict: "setting_key" });
       if (error) throw error;
+      clearAdaptiveFlagCache();
       toast.success("บันทึกแล้ว");
     } catch (e: any) {
       toast.error(e.message);
@@ -117,6 +123,17 @@ const FaceSettingsTab = () => {
           <Label>ระดับความเข้มงวด (Threshold)</Label>
           <Input type="number" step="0.05" min="0.3" max="0.8" value={threshold} onChange={(e) => setThreshold(e.target.value)} />
           <p className="text-xs text-muted-foreground">ต่ำกว่า = เข้มงวดมากขึ้น (จำคนผิดน้อย แต่อาจจำไม่ได้) — แนะนำ 0.5</p>
+        </div>
+
+        <div className="flex items-start justify-between gap-3 rounded-lg border p-3">
+          <div className="space-y-1">
+            <Label className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" />เรียนรู้ใบหน้าอัตโนมัติ (Adaptive Learning)</Label>
+            <p className="text-xs text-muted-foreground">
+              ทุกครั้งที่สแกนสำเร็จด้วยความมั่นใจสูง ระบบจะเก็บมุม/แสงใหม่เข้าคลังใบหน้าของนักเรียนคนนั้น
+              (สูงสุด 2 ครั้ง/คน/วัน) ทำให้การสแกนครั้งต่อ ๆ ไปแม่นยำขึ้นเรื่อย ๆ
+            </p>
+          </div>
+          <Switch checked={adaptiveLearning} onCheckedChange={setAdaptiveLearning} />
         </div>
 
         <div className="space-y-2">
