@@ -13,9 +13,16 @@ export interface TranslatePayload {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function edgeTranslate(body: Record<string, unknown>): Promise<TranslatePayload> {
-  const { data: sessionData } = await supabase.auth.getSession();
+  let { data: sessionData } = await supabase.auth.getSession();
+  const expiresAt = sessionData?.session?.expires_at ?? 0;
+  // token ใกล้หมดอายุ/หมดอายุ → refresh ก่อน ไม่งั้น gateway ตอบ 401 แบบไม่มี CORS
+  if (sessionData?.session && expiresAt * 1000 - Date.now() < 60_000) {
+    const refreshed = await supabase.auth.refreshSession();
+    if (refreshed.data?.session) sessionData = refreshed.data as any;
+  }
   const token = sessionData?.session?.access_token || SUPABASE_RUNTIME_ANON_KEY;
   const url = `${SUPABASE_RUNTIME_URL}/functions/v1/translate-text`;
+
 
   let lastErr: unknown = null;
   for (let attempt = 0; attempt < 3; attempt++) {
