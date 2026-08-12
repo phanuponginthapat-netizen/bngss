@@ -56,7 +56,7 @@ const MyFaceEnrollPage = () => {
     },
   });
 
-  const pending = requests.find((r: any) => r.status === "pending");
+  const pending = null as any;
   const registered = samples.length > 0;
   const fullName = me
     ? `${me.prefix || ""}${me.first_name || ""} ${me.last_name || ""}`.trim()
@@ -186,7 +186,7 @@ const MyFaceEnrollPage = () => {
           <div className="flex gap-2"><Sparkles className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
             เทียบกับใบหน้าทุกคนในระบบ ถ้าซ้ำกับผู้อื่นจะไม่ให้ลงทะเบียน</div>
           <div className="flex gap-2"><Sparkles className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-            คำขอทุกรายการต้องผ่านการอนุมัติจากเจ้าหน้าที่ก่อนใช้งานจริง</div>
+            ผ่าน Liveness แล้วระบบอนุมัติและใช้งานได้ทันที ไม่ต้องรอเจ้าหน้าที่</div>
         </CardContent>
       </Card>
 
