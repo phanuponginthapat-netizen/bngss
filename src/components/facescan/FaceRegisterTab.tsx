@@ -156,18 +156,29 @@ const FaceRegisterTab = () => {
     return [s.first_name, s.last_name, s.student_code].some((v) => String(v || "").toLowerCase().includes(q));
   }).slice(0, 100);
 
-  const startCamera = async () => {
+  const startCamera = async (deviceId?: string) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-      if (videoRef.current) { await attachStreamToVideo(videoRef.current, stream); setStreaming(true); }
-    } catch (e: any) { toast.error("เปิดกล้องไม่สำเร็จ: " + e.message); }
+      const res = await openCamera({ facing: "user", deviceId: deviceId ?? camDeviceId, width: 1280, height: 720 });
+      if (videoRef.current) {
+        await attachStreamToVideo(videoRef.current, res.stream);
+        setStreaming(true);
+        setCamDeviceId(res.deviceId);
+        setCamTick((t) => t + 1);
+      } else {
+        stopStream(res.stream);
+      }
+    } catch (e: any) { toast.error(e?.message || "เปิดกล้องไม่สำเร็จ"); }
   };
   const stopCamera = () => {
-    const s = videoRef.current?.srcObject as MediaStream | null;
-    s?.getTracks().forEach((t) => t.stop());
-    if (videoRef.current) videoRef.current.srcObject = null;
+    stopStream(videoRef.current?.srcObject as MediaStream | null, videoRef.current);
     setStreaming(false);
   };
+  const pickCamera = (deviceId: string) => {
+    setCamDeviceId(deviceId);
+    stopCamera();
+    setTimeout(() => startCamera(deviceId), 150);
+  };
+
   const captureShot = async () => {
     if (!videoRef.current || !modelReady) return;
     setBusy(true);

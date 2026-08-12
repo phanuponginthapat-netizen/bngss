@@ -292,29 +292,24 @@ const FaceKioskPage = () => {
         return;
       }
 
-      // === Local webcam ===
-      const constraints: MediaStreamConstraints = mode === "wide" ? {
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1920 }, height: { ideal: 1080 },
-          frameRate: { ideal: 30, max: 30 },
-        }, audio: false,
-      } : {
-        video: {
-          facingMode: "user",
-          width: { ideal: 1280 }, height: { ideal: 720 },
-          frameRate: { ideal: 30, max: 30 },
-        }, audio: false,
-      };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      await applyCameraAutoTune(stream);
+      // === Local webcam (รองรับกล้อง USB / กล้องหน้า-หลังหลายรุ่น) ===
+      const wide = mode === "wide";
+      const res = await openCamera({
+        facing: wide ? "environment" : "user",
+        width: wide ? 1920 : 1280,
+        height: wide ? 1080 : 720,
+      });
+      await applyCameraAutoTune(res.stream);
       if (videoRef.current) {
-        await attachStreamToVideo(videoRef.current, stream);
+        await attachStreamToVideo(videoRef.current, res.stream);
         setStreaming(true);
+      } else {
+        stopStream(res.stream);
       }
     } catch (e: any) {
-      toast.error("เปิดกล้องไม่สำเร็จ: " + e.message);
+      toast.error(e?.message || "เปิดกล้องไม่สำเร็จ");
     }
+
   }, [camMode, verifyLocation, networkUrl]);
 
   const stopCamera = useCallback(() => {
