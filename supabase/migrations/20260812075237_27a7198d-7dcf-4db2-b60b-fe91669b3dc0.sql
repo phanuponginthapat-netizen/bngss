@@ -1,0 +1,3 @@
+DROP VIEW IF EXISTS public.tmp_audit CASCADE;
+DROP TABLE IF EXISTS public.zz_test CASCADE;
+DROP TABLE IF EXISTS public.zz_test2 CASCADE;
