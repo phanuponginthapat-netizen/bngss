@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { translateBatch } from "@/lib/translateClient";
 
 const STORAGE_KEY = "app.pageTranslateLang";
 const CHANGE_EVENT = "app:page-translate-change";
