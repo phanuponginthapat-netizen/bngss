@@ -520,17 +520,19 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     return () => { if (loopRef.current) clearTimeout(loopRef.current); };
   }, [streaming, modelReady, stepIdx, runStep]);
 
-  // Color challenge orchestration
+  // Color challenge orchestration — สุ่มลำดับสีใหม่ทุกครั้งที่เข้าขั้นตอนนี้
   useEffect(() => {
     if (STEPS[stepIdx].key !== "color") return;
+    const colors = makeChallengeColors();
+    setChallengeColors(colors);
     setColorFrameIdx(0);
     let i = 0;
     const tick = () => {
       const el = flashRef.current;
-      if (el) el.style.background = CHALLENGE_COLORS[i];
+      if (el) el.style.background = colors[i];
       i++;
       setColorFrameIdx(i);
-      if (i >= CHALLENGE_COLORS.length) {
+      if (i >= colors.length) {
         setTimeout(() => {
           if (el) el.style.background = "transparent";
           setStepIdx((idx) => idx + 1);
@@ -539,7 +541,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
       }
     };
     tick();
-    const t = setInterval(tick, 1200);
+    const t = setInterval(tick, 1100);
     return () => { clearInterval(t); if (flashRef.current) flashRef.current.style.background = "transparent"; };
   }, [stepIdx]);
 
