@@ -111,15 +111,14 @@ export const TranslationBubble = () => {
     setLoading(true);
     setTranslation(null);
     try {
-      const { data, error } = await supabase.functions.invoke("translate-text", {
-        body: { text: bubble.text, target },
-      });
-      if (error) throw error;
-      const payload = (data ?? {}) as { translation?: string; fallback?: boolean; code?: string; error?: string };
-      if (payload.fallback) {
-        const code = payload.code;
-        const message =
-          code === "MISSING_PROVIDER_KEY"
+      const result = await translateText(bubble.text, target);
+      setTranslation(result);
+    } catch (e: any) {
+      const code = e?.code;
+      const message =
+        code === "UNAUTHORIZED"
+          ? "กรุณาเข้าสู่ระบบใหม่ก่อนใช้งานการแปล"
+          : code === "MISSING_PROVIDER_KEY"
             ? "ยังไม่ได้ตั้งค่า API key สำหรับผู้ให้บริการแปล"
             : code === "INVALID_PROVIDER_KEY"
               ? "API key ของผู้ให้บริการแปลไม่ถูกต้องหรือไม่มีสิทธิ์"
@@ -127,19 +126,13 @@ export const TranslationBubble = () => {
                 ? "ผู้ให้บริการแปลเกินโควต้าหรือจำกัดอัตราชั่วคราว"
                 : code === "PAYMENT_REQUIRED"
                   ? "บัญชีผู้ให้บริการแปลต้องมีเครดิตหรือเปิด billing"
-                  : code === "ALL_PROVIDERS_FAILED"
-                    ? "ผู้ให้บริการแปลภายนอกที่ตั้งค่าไว้ทั้งหมดใช้งานไม่ได้ในขณะนี้"
-                  : (payload.error || "แปลไม่สำเร็จ");
-        setTranslation("⚠️ " + message);
-        return;
-      }
-      setTranslation(payload.translation || "");
-    } catch (e: any) {
-      setTranslation("⚠️ " + (e?.message || "แปลไม่สำเร็จ"));
+                  : (e?.message || "แปลไม่สำเร็จ");
+      setTranslation("⚠️ " + message);
     } finally {
       setLoading(false);
     }
   };
+
 
   const onSelectTarget = (v: string) => {
     setTarget(v);
