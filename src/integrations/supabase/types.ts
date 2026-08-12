@@ -12368,6 +12368,7 @@ export type Database = {
           rejected_reason: string | null
           start_date: string
           status: string
+          substitute_plan: Json
         }
         Insert: {
           acting_teacher?: string | null
@@ -12384,6 +12385,7 @@ export type Database = {
           rejected_reason?: string | null
           start_date: string
           status?: string
+          substitute_plan?: Json
         }
         Update: {
           acting_teacher?: string | null
@@ -12400,6 +12402,7 @@ export type Database = {
           rejected_reason?: string | null
           start_date?: string
           status?: string
+          substitute_plan?: Json
         }
         Relationships: [
           {
@@ -16285,6 +16288,15 @@ export type Database = {
       }
       parent_child_codes: { Args: { _user_id: string }; Returns: string[] }
       parent_child_ids: { Args: { _user_id: string }; Returns: string[] }
+      pick_auto_substitute: {
+        Args: {
+          _dow: number
+          _exclude_personnel: string
+          _period: number
+          _subject_id?: string
+        }
+        Returns: string
+      }
       recompute_budget_usage: {
         Args: {
           p_category_id: string

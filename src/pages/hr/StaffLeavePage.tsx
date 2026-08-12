@@ -53,8 +53,10 @@ const StaffLeavePage = () => {
   const [reason, setReason] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [actingTeacher, setActingTeacher] = useState("");
+  const [substitutePlan, setSubstitutePlan] = useState<Record<string, string>>({});
   const [attachment, setAttachment] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
 
   // Get current user's personnel record
   const { data: myPersonnel } = useQuery({
@@ -85,6 +87,65 @@ const StaffLeavePage = () => {
       return data || [];
     },
   });
+
+  // ---- Per-period substitute planning ----
+  const applicantId = canApprove ? personnelId : myPersonnel?.id || "";
+  const applicant: any = personnel.find((p: any) => p.id === applicantId) || (applicantId === myPersonnel?.id ? myPersonnel : null);
+  const applicantFullName = applicant
+    ? `${applicant.prefix || ""}${applicant.first_name} ${applicant.last_name}`
+    : "";
+
+  // list of dates in the leave range (max 31 days)
+  const leaveDates: string[] = (() => {
+    if (!startDate || !endDate) return [];
+    const out: string[] = [];
+    const s = new Date(startDate + "T00:00:00");
+    const e = new Date(endDate + "T00:00:00");
+    if (isNaN(s.getTime()) || isNaN(e.getTime()) || e < s) return [];
+    for (let d = new Date(s); d <= e && out.length < 31; d.setDate(d.getDate() + 1)) {
+      out.push(bkkDateISO(d));
+    }
+    return out;
+  })();
+
+  const { data: mySchedule = [] } = useQuery({
+    queryKey: ["my-teaching-schedule", applicantFullName],
+    enabled: !!applicantFullName,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("schedules")
+        .select("id, day_of_week, period, room, subject_name_raw, classroom_id, subject_id")
+        .eq("teacher_name", applicantFullName)
+        .order("period");
+      return data || [];
+    },
+  });
+
+  const { data: classroomMap = {} } = useQuery({
+    queryKey: ["classroom-names-leave"],
+    queryFn: async () => {
+      const { data } = await supabase.from("classrooms").select("id, name");
+      const map: Record<string, string> = {};
+      (data || []).forEach((c: any) => { map[c.id] = c.name; });
+      return map;
+    },
+  });
+
+  // slots that need a substitute: one per (date, period) in the leave range
+  const leaveSlots = leaveDates.flatMap((date) => {
+    const dow = ((new Date(date + "T00:00:00").getDay() + 6) % 7) + 1; // Mon=1..Sun=7
+    return mySchedule
+      .filter((s: any) => s.day_of_week === dow)
+      .map((s: any) => ({
+        key: `${date}|${s.period}`,
+        date,
+        period: s.period as number,
+        subject: s.subject_name_raw || "-",
+        classroom: s.classroom_id ? classroomMap[s.classroom_id] || "" : "",
+      }));
+  });
+
+
 
   const { data: records = [] } = useQuery({
     queryKey: ["staff_leaves", canApprove ? "all" : myPersonnel?.id],
@@ -118,6 +179,7 @@ const StaffLeavePage = () => {
     if (canApprove) setPersonnelId("");
     setLeaveType("sick"); setStartDate(""); setEndDate("");
     setReason(""); setContactPhone((myPersonnel as any)?.profile_phone || ""); setActingTeacher("");
+    setSubstitutePlan({});
     setAttachment(null);
   };
 
@@ -175,6 +237,9 @@ const StaffLeavePage = () => {
         reason,
         contact_phone: contactPhone,
         acting_teacher: normalizedActingTeacher,
+        substitute_plan: leaveSlots
+          .filter((sl) => substitutePlan[sl.key] && substitutePlan[sl.key] !== "auto")
+          .map((sl) => ({ date: sl.date, period: sl.period, teacher: substitutePlan[sl.key] })),
         attachment_url: attachmentPath,
       } as any);
 
@@ -248,32 +313,10 @@ const StaffLeavePage = () => {
         }
       }
 
-      // Auto create substitute teaching record(s) — one per day in the leave range (best-effort)
-      try {
-        const startD = new Date((record as any).start_date);
-        const endD = new Date((record as any).end_date);
-        const actingTeacherName = (record as any).acting_teacher && (record as any).acting_teacher !== "none"
-          ? (record as any).acting_teacher
-          : "";
-        const rows: any[] = [];
-        for (let d = new Date(startD); d <= endD; d.setDate(d.getDate() + 1)) {
-          rows.push({
-            original_teacher: person ? `${(person as any).first_name} ${(person as any).last_name}` : "",
-            substitute_teacher: actingTeacherName,
-            teaching_date: bkkDateISO(d),
-            period: "ทั้งวัน",
-            status: actingTeacherName ? "confirmed" : "pending",
-            notes: `อัตโนมัติจากใบลา (${(record as any).start_date} - ${(record as any).end_date})`,
-            leave_id: (record as any).id,
-          });
-        }
-        if (rows.length > 0) {
-          const { error: subErr } = await supabase.from("substitute_teaching").insert(rows as any);
-          if (subErr) console.error("substitute insert failed:", subErr);
-        }
-      } catch (e) {
-        console.error(e);
-      }
+      // Substitute teaching rows are generated per class period by the database
+      // trigger (auto_create_substitute_on_leave_approval): it uses the teacher's
+      // own per-period choices when provided, otherwise assigns a free teacher automatically.
+
     }
 
     qc.invalidateQueries({ queryKey: ["staff_leaves"] });
@@ -442,19 +485,64 @@ const StaffLeavePage = () => {
               </div>
 
               <div>
-                <Label className="text-sm font-medium">{lang === "th" ? "ครูผู้สอนแทน" : "Acting Teacher"}</Label>
+                <Label className="text-sm font-medium">{lang === "th" ? "ครูผู้สอนแทน (ทุกคาบ)" : "Acting Teacher (all periods)"}</Label>
                 <Select value={actingTeacher} onValueChange={setActingTeacher}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder={lang === "th" ? "เลือกครูสอนแทน (ถ้ามี)" : "Select substitute (optional)"} /></SelectTrigger>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder={lang === "th" ? "ไม่ระบุ = ระบบจัดให้อัตโนมัติ" : "None = auto-assign"} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">{lang === "th" ? "ไม่ระบุ" : "None"}</SelectItem>
-                    {personnel.filter((p: any) => p.id !== personnelId).map((p: any) => (
-                      <SelectItem key={p.id} value={`${p.first_name} ${p.last_name}`}>
+                    <SelectItem value="none">{lang === "th" ? "ไม่ระบุ (ระบบจัดอัตโนมัติ)" : "None (auto-assign)"}</SelectItem>
+                    {personnel.filter((p: any) => p.id !== applicantId).map((p: any) => (
+                      <SelectItem key={p.id} value={`${p.prefix || ""}${p.first_name} ${p.last_name}`}>
                         {p.prefix || ""}{p.first_name} {p.last_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Per-period substitute selection */}
+              {leaveSlots.length > 0 && (
+                <div className="rounded-lg border p-3 space-y-3 bg-muted/30">
+                  <div>
+                    <Label className="text-sm font-medium">
+                      {lang === "th" ? `เลือกครูสอนแทนรายคาบ (${leaveSlots.length} คาบ)` : `Substitute per period (${leaveSlots.length})`}
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {lang === "th"
+                        ? "คาบที่ไม่ได้เลือก ระบบจะจัดครูที่ว่างให้อัตโนมัติเมื่อใบลาได้รับอนุมัติ"
+                        : "Periods left blank will be auto-assigned to a free teacher on approval."}
+                    </p>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                    {leaveSlots.map((slot) => (
+                      <div key={slot.key} className="grid grid-cols-1 sm:grid-cols-[1fr_1.2fr] gap-2 items-center">
+                        <div className="text-xs">
+                          <span className="font-medium">{slot.date}</span>{" "}
+                          <span className="text-muted-foreground">
+                            {lang === "th" ? `คาบ ${slot.period}` : `P.${slot.period}`}
+                            {slot.classroom ? ` • ${slot.classroom}` : ""}
+                            {slot.subject ? ` • ${slot.subject}` : ""}
+                          </span>
+                        </div>
+                        <Select
+                          value={substitutePlan[slot.key] || "auto"}
+                          onValueChange={(v) => setSubstitutePlan((prev) => ({ ...prev, [slot.key]: v }))}
+                        >
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="auto">{lang === "th" ? "อัตโนมัติ" : "Auto-assign"}</SelectItem>
+                            {personnel.filter((p: any) => p.id !== applicantId).map((p: any) => (
+                              <SelectItem key={p.id} value={`${p.prefix || ""}${p.first_name} ${p.last_name}`}>
+                                {p.prefix || ""}{p.first_name} {p.last_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
 
               <div>
                 <Label className="text-sm font-medium flex items-center gap-1">
