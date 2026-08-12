@@ -142,6 +142,8 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
   const [colorFrameIdx, setColorFrameIdx] = useState(0);
   const [saving, setSaving] = useState(false);
   const [blockedMsg, setBlockedMsg] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedOk, setSavedOk] = useState(false);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [modelError, setModelError] = useState<string | null>(null);
 
