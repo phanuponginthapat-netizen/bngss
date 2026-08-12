@@ -163,7 +163,13 @@ export default function PdfToolsPage() {
   const buildPdf = async (): Promise<Blob> => {
     if (!pdfBytes) throw new Error("ไม่มีไฟล์");
     const doc = await PDFDocument.load(pdfBytes);
-    const font = await doc.embedFont(StandardFonts.Helvetica);
+    doc.registerFontkit(fontkit);
+    // ฟอนต์มาตรฐานเขียนภาษาไทยไม่ได้ → ฝัง TH Sarabun ถ้าโหลดได้
+    let font = await doc.embedFont(StandardFonts.Helvetica);
+    try {
+      const bytes = await loadThaiFontBytes();
+      if (bytes) font = await doc.embedFont(bytes, { subset: true });
+    } catch { /* ใช้ฟอนต์มาตรฐานต่อไป */ }
     for (const [idxStr, deg] of Object.entries(rotations)) {
       const p = doc.getPage(Number(idxStr));
       const cur = p.getRotation().angle;
