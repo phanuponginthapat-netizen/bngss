@@ -16,6 +16,7 @@ import {
 import { loadOpenCV, isOpenCVReady, detectFacesCV, disposeOpenCV, type CVBox } from "@/lib/opencvFace";
 import { openCamera, stopStream } from "@/lib/cameraStream";
 import CameraSourcePicker from "@/components/mobile/CameraSourcePicker";
+import CameraFocusLockToggle from "@/components/mobile/CameraFocusLockToggle";
 
 
 interface Props {
@@ -898,7 +899,10 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             )}
           </div>
 
-          <CameraSourcePicker value={camDeviceId} onChange={pickCamera} refreshKey={camTick} />
+          <div className="flex items-center gap-2 flex-wrap">
+            <CameraSourcePicker value={camDeviceId} onChange={pickCamera} refreshKey={camTick} className="flex-1 min-w-[10rem]" />
+            <CameraFocusLockToggle getStream={() => videoRef.current?.srcObject as MediaStream | null} active={streaming} />
+          </div>
 
 
 
