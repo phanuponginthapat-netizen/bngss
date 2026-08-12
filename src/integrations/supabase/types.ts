@@ -2488,6 +2488,72 @@ export type Database = {
           },
         ]
       }
+      career_aptitude_assessments: {
+        Row: {
+          academic_year: number | null
+          answers: Json
+          assessed_by: string | null
+          assessor_type: string
+          created_at: string
+          id: string
+          note: string | null
+          school_id: string | null
+          scores: Json
+          semester: number | null
+          student_id: string
+          suggested_careers: string[]
+          top_areas: string[]
+          updated_at: string
+        }
+        Insert: {
+          academic_year?: number | null
+          answers?: Json
+          assessed_by?: string | null
+          assessor_type?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          school_id?: string | null
+          scores?: Json
+          semester?: number | null
+          student_id: string
+          suggested_careers?: string[]
+          top_areas?: string[]
+          updated_at?: string
+        }
+        Update: {
+          academic_year?: number | null
+          answers?: Json
+          assessed_by?: string | null
+          assessor_type?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          school_id?: string | null
+          scores?: Json
+          semester?: number | null
+          student_id?: string
+          suggested_careers?: string[]
+          top_areas?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "career_aptitude_assessments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "career_aptitude_assessments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cctv_cameras: {
         Row: {
           created_at: string
@@ -9023,6 +9089,81 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      mental_health_assessments: {
+        Row: {
+          academic_year: number | null
+          answers: Json
+          assessed_by: string | null
+          assessor_type: string
+          created_at: string
+          follow_up_note: string | null
+          followed_up: boolean
+          id: string
+          interpretation: string | null
+          recommendation: string | null
+          risk_level: string
+          school_id: string | null
+          semester: number | null
+          student_id: string
+          tool: string
+          total_score: number
+          updated_at: string
+        }
+        Insert: {
+          academic_year?: number | null
+          answers?: Json
+          assessed_by?: string | null
+          assessor_type?: string
+          created_at?: string
+          follow_up_note?: string | null
+          followed_up?: boolean
+          id?: string
+          interpretation?: string | null
+          recommendation?: string | null
+          risk_level?: string
+          school_id?: string | null
+          semester?: number | null
+          student_id: string
+          tool: string
+          total_score?: number
+          updated_at?: string
+        }
+        Update: {
+          academic_year?: number | null
+          answers?: Json
+          assessed_by?: string | null
+          assessor_type?: string
+          created_at?: string
+          follow_up_note?: string | null
+          followed_up?: boolean
+          id?: string
+          interpretation?: string | null
+          recommendation?: string | null
+          risk_level?: string
+          school_id?: string | null
+          semester?: number | null
+          student_id?: string
+          tool?: string
+          total_score?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mental_health_assessments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mental_health_assessments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students_safe"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mfa_settings: {
         Row: {
