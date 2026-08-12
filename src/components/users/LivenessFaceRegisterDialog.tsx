@@ -107,9 +107,14 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
   const [saving, setSaving] = useState(false);
   const [blockedMsg, setBlockedMsg] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  const [modelError, setModelError] = useState<string | null>(null);
 
 
-  useEffect(() => { loadFaceModels().then(() => setModelReady(true)); }, []);
+  useEffect(() => {
+    loadFaceModels()
+      .then(() => { setModelReady(true); setModelError(null); })
+      .catch(() => setModelError("โหลดระบบตรวจจับใบหน้าไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วเปิดหน้านี้ใหม่"));
+  }, []);
 
   // helper: ครอบใบหน้าจาก video → dataURL (พร้อม padding) + คำนวณ metrics
   const captureSample = useCallback(
@@ -230,7 +235,10 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         try { applyCameraAutoTune(stream); } catch {}
       }
     } catch (e: any) {
-      toast.error("เปิดกล้องไม่สำเร็จ: " + e.message);
+      const denied = e?.name === "NotAllowedError" || e?.name === "PermissionDeniedError";
+      toast.error(denied
+        ? "ยังไม่ได้อนุญาตใช้กล้อง กรุณากดอนุญาตกล้องในเบราว์เซอร์แล้วลองใหม่"
+        : "เปิดกล้องไม่สำเร็จ: " + (e?.message || "ไม่พบกล้อง"));
     }
   };
 
@@ -294,14 +302,14 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     const faceFrac = box.width / vw;
     const sharpness = estimateFaceSharpness(videoRef.current, box);
 
-    if (faceFrac < 0.11) {
+    if (faceFrac < 0.09) {
       detectMetaRef.current.stableHits = 0;
       setStatusMsg("ใบหน้าเล็กเกินไป — กรุณาเข้าใกล้กล้องอีกนิด");
       loopRef.current = window.setTimeout(runStep, 140) as unknown as number;
       return;
     }
 
-    if (sharpness < 45) {
+    if (sharpness < 25) {
       detectMetaRef.current.stableHits = 0;
       setStatusMsg("ภาพยังเบลอ — อยู่นิ่งๆ หรือเช็ดกล้องก่อน");
       loopRef.current = window.setTimeout(runStep, 140) as unknown as number;
@@ -350,9 +358,9 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           st.baseline = low.reduce((s, v) => s + v, 0) / low.length;
         }
 
-        // เกณฑ์อ้าปาก: MAR > baseline + 0.20 (หรืออย่างน้อย 0.35)
-        const openThr = Math.max(0.35, st.baseline + 0.20);
-        const openPct = Math.max(0, Math.min(100, Math.round(((mar - st.baseline) / 0.45) * 100)));
+        // ปรับตามสัดส่วนปากของแต่ละคน เพื่อรองรับกล้องมือถือและรูปหน้าที่หลากหลาย
+        const openThr = Math.max(0.22, st.baseline * 1.55, st.baseline + 0.08);
+        const openPct = Math.max(0, Math.min(100, Math.round(((mar - st.baseline) / Math.max(0.12, openThr - st.baseline)) * 100)));
 
         if (mar > openThr) {
           st.openFrames += 1;
@@ -369,7 +377,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
       }
 
       case "left": {
-        if (yaw > 0.28) {
+        if (yaw > 0.18) {
           detectMetaRef.current.stableHits += 1;
           if (detectMetaRef.current.stableHits < 2) {
             setStatusMsg("ดีแล้ว — ค้างไว้อีกนิด");
@@ -386,7 +394,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         break;
       }
       case "right": {
-        if (yaw < -0.28) {
+        if (yaw < -0.18) {
           detectMetaRef.current.stableHits += 1;
           if (detectMetaRef.current.stableHits < 2) {
             setStatusMsg("ดีแล้ว — ค้างไว้อีกนิด");
@@ -542,7 +550,13 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         stopCamera();
         onComplete?.();
       } catch (e: any) {
-        toast.error("ลงทะเบียนไม่สำเร็จ: " + e.message);
+        const message = String(e?.message || "เกิดข้อผิดพลาด");
+        const friendly = message.includes("row-level security") || message.includes("not authorized")
+          ? "บัญชีนี้ไม่มีสิทธิ์บันทึกคำขอ กรุณาออกจากระบบแล้วเข้าสู่ระบบนักเรียนใหม่"
+          : message.includes("Failed to fetch") || message.includes("NetworkError")
+            ? "เชื่อมต่อระบบไม่ได้ กรุณาตรวจอินเทอร์เน็ตแล้วลองอีกครั้ง"
+            : message;
+        toast.error("ลงทะเบียนไม่สำเร็จ: " + friendly, { duration: 9000 });
       } finally {
         toast.dismiss(__tid_save_1);
         setSaving(false);
@@ -631,13 +645,19 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             )}
             {!streaming && (
               <div className="absolute inset-0 flex items-center justify-center">
-                <Button onClick={() => startCamera()} disabled={!modelReady} size="lg" className="gradient-primary">
+                <Button onClick={() => startCamera()} disabled={!modelReady || !!modelError} size="lg" className="gradient-primary">
                   {!modelReady ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Camera className="w-4 h-4 mr-2" />}
-                  {!modelReady ? "กำลังโหลดโมเดล..." : "เริ่มลงทะเบียน"}
+                  {modelError ? "ระบบตรวจจับใบหน้าไม่พร้อม" : !modelReady ? "กำลังโหลดโมเดล..." : "เริ่มลงทะเบียน"}
                 </Button>
               </div>
             )}
           </div>
+
+          {modelError && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              {modelError}
+            </div>
+          )}
 
           {/* Captured samples — gallery (รูปใบหน้าที่ระบบบันทึกไว้ในแต่ละขั้น) */}
           {samples.length > 0 && (
