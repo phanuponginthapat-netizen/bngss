@@ -115,7 +115,7 @@ const StudentDashboard = () => {
       return {
         student,
         classroom: (classroom as any)?.data || null,
-        rate, present, absent, late,
+        rate, present, absent, late, leaveDays,
         positiveB, negativeB, totalPoints,
         recentBehavior: behavior.data || [],
         recentLeaves: leaves.data || [],
