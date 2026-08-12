@@ -69,3 +69,7 @@ verify_jwt = false
 
 [functions.setup-create-buckets]
 verify_jwt = false
+
+# แปลภาษา: ตรวจ JWT เองในฟังก์ชัน เพื่อให้ตอบ error พร้อม CORS (กัน "Failed to send a request")
+[functions.translate-text]
+verify_jwt = false
