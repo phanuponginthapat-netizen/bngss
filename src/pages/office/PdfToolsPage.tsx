@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Document, Page, pdfjs } from "react-pdf";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { PDFDocument, StandardFonts, rgb, degrees } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,8 @@ import { swal } from "@/lib/swal";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// ใช้ worker จากในโปรเจกต์ (ไม่พึ่ง CDN) เพื่อให้ใช้ได้แม้ออฟไลน์/kiosk และตรงเวอร์ชันเสมอ
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 interface Annotation {
   id: string;
