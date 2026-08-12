@@ -642,9 +642,9 @@ html.standalone body {
   padding-bottom: var(--safe-bottom);
   padding-left: var(--safe-left);
   padding-right: var(--safe-right);
-  /* Disable text selection on chrome — feels like native app */
-  -webkit-user-select: none;
-  user-select: none;
+  /* ยังคงคลุมดำ/แปลภาษาได้แม้เปิดแบบ PWA */
+  -webkit-user-select: text;
+  user-select: text;
   /* Smooth momentum scrolling on iOS */
   -webkit-overflow-scrolling: touch;
 }
