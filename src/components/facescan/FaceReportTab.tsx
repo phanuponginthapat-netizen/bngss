@@ -491,7 +491,7 @@ const FaceReportTab = () => {
             kind = t > lateThreshold + ":00" ? "late" : "present";
           } else if (a === "present") kind = "present";
           else if (a === "late") kind = "late";
-          else if (a === "leave" || onLeave) kind = "leave";
+          else if (a === "leave" || a === "sick" || onLeave) kind = "leave";
           else if (a === "absent") kind = "absent";
           else kind = "absent"; // ไม่มีข้อมูล = ถือว่าขาด
           if (kind === "present") { c.present++; if (isM) c.presentM++; else c.presentF++; }
