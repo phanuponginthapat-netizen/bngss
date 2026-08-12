@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useUserRole } from "@/hooks/useUserRole";
+import { canvasToFaceThumb } from "@/lib/faceThumb";
+import { clearRegisteredFaceCache } from "@/lib/registeredFace";
 
 
 const FaceRegisterTab = () => {
@@ -252,6 +254,23 @@ const FaceRegisterTab = () => {
     return urls;
   };
 
+  /** กันจำผิดคน: ตรวจว่าใบหน้าไม่ซ้ำกับนักเรียนคนอื่นที่ลงทะเบียนไว้แล้ว */
+  const assertNotDuplicate = async (sid: string) => {
+    const descriptors = shots.map((s) => Array.from(s.desc));
+    const { data, error } = await supabase.rpc("check_face_duplicate", {
+      _student_id: sid,
+      _descriptors: descriptors as any,
+      _threshold: 0.42,
+    });
+    if (error) throw error;
+    const hit = Array.isArray(data) ? (data as any[])[0] : null;
+    if (hit) {
+      throw new Error(
+        `ใบหน้าซ้ำกับ ${hit.match_name ?? ""} (${hit.match_code ?? "-"}) ระยะห่าง ${Number(hit.min_distance).toFixed(3)} — ไม่อนุญาตให้ลงทะเบียนซ้ำ`,
+      );
+    }
+  };
+
   const submitRequest = async () => {
     if (!studentId || shots.length === 0) { toast.error("เลือกนักเรียนและเพิ่มอย่างน้อย 1 ภาพ"); return; }
     setBusy(true);
@@ -264,6 +283,8 @@ const FaceRegisterTab = () => {
         setBusy(false);
         return;
       }
+
+      await assertNotDuplicate(studentId);
 
       const photo_urls = await uploadShotsToStorage(studentId);
       const descriptors = shots.map((s) => Array.from(s.desc));
@@ -291,6 +312,9 @@ const FaceRegisterTab = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const isRereg = registeredIds.has(studentId);
+
+      await assertNotDuplicate(studentId);
+
       const { data: prev } = await supabase.from("student_face_descriptors")
         .select("id").eq("student_id", studentId);
       const previous_count = prev?.length ?? 0;
@@ -302,6 +326,9 @@ const FaceRegisterTab = () => {
       const rows = shots.map((s, i) => ({
         student_id: studentId, sample_index: startIdx + i,
         descriptor: Array.from(s.desc), captured_by: user?.id, source: s.source,
+        quality_score: s.quality?.score ?? null,
+        metrics: (s.quality as any) ?? null,
+        face_image: canvasToFaceThumb(s.canvas) || null,
       }));
       const { error } = await supabase.from("student_face_descriptors").insert(rows);
       if (error) throw error;
@@ -318,14 +345,17 @@ const FaceRegisterTab = () => {
         performed_by: user?.id,
       });
 
+      clearRegisteredFaceCache(studentId);
       toast.success(`บันทึก ${shots.length} ภาพสำเร็จ`);
       setShots([]); setReason("");
       qc.invalidateQueries({ queryKey: ["face-known"] });
+      qc.invalidateQueries({ queryKey: ["face-known-kiosk"] });
       qc.invalidateQueries({ queryKey: ["face-db"] });
       qc.invalidateQueries({ queryKey: ["face-registered-ids"] });
       qc.invalidateQueries({ queryKey: ["face-history"] });
     } catch (e: any) { toast.error(e.message); } finally { setBusy(false); }
   };
+
 
 
   const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
