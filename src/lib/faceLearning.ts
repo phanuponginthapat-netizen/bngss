@@ -12,23 +12,24 @@
  *   4. จำกัดจำนวนต่อคนต่อวัน และมีเพดานรวมต่อคน (ตัดตัวที่ซ้ำซ้อนที่สุดทิ้ง)
  */
 import { supabase } from "@/integrations/supabase/client";
-import { euclidean, BANK_GRADE, type MatchResult } from "@/lib/faceApi";
+import { BANK_GRADE, type MatchResult } from "@/lib/faceApi";
+import { cosineDistance } from "@/lib/arcface";
 
 export const ADAPTIVE = {
   /** ต้องมั่นใจอย่างน้อยเท่านี้ถึงจะยอมเรียนรู้ */
-  MIN_CONFIDENCE: 0.9,
+  MIN_CONFIDENCE: 0.74,
   /** ระยะห่างจากคนอันดับสอง — ยิ่งมากยิ่งมั่นใจว่าไม่ใช่คนอื่น */
-  MIN_MARGIN: 0.12,
+  MIN_MARGIN: 0.10,
   /** ระยะจากตัวที่ match ต้องแน่นกว่าเกณฑ์ปกติ */
-  MAX_DISTANCE: 0.36,
+  MAX_DISTANCE: 0.26,
   /** ความคมชัดขั้นต่ำของใบหน้าในเฟรม */
   MIN_SHARPNESS: 75,
   /** ขนาดใบหน้าขั้นต่ำ (px) */
   MIN_FACE_PX: Math.max(BANK_GRADE.MIN_FACE_SIZE_SCAN, 120),
   /** ใหม่เกินไป (เหมือนของเดิมเป๊ะ) = ไม่มีประโยชน์ ไม่ต้องเก็บ */
-  NOVELTY_MIN: 0.15,
+  NOVELTY_MIN: 0.08,
   /** ต่างมากเกินไป = เสี่ยงเป็นคนอื่น ไม่เก็บ */
-  NOVELTY_MAX: 0.34,
+  NOVELTY_MAX: 0.26,
   /** เรียนรู้ได้กี่ครั้งต่อคนต่อวัน */
   PER_STUDENT_PER_DAY: 2,
   /** เพดาน descriptor ต่อคน */
@@ -141,7 +142,7 @@ export async function learnFromScan(input: LearnInput): Promise<LearnResult> {
     // 4) ความแปลกใหม่ — ต้องต่างพอที่จะเพิ่มมุมมองใหม่ แต่ไม่ต่างจนน่าสงสัย
     let minDist = Infinity;
     for (const r of existing) {
-      const d = euclidean(probe, (r as any).descriptor as number[]);
+      const d = cosineDistance(probe, (r as any).descriptor as number[]);
       if (d < minDist) minDist = d;
     }
     if (minDist < ADAPTIVE.NOVELTY_MIN) return { learned: false, reason: "redundant" };
@@ -155,7 +156,7 @@ export async function learnFromScan(input: LearnInput): Promise<LearnResult> {
         let nearest = Infinity;
         for (let j = 0; j < existing.length; j++) {
           if (i === j) continue;
-          const d = euclidean(
+          const d = cosineDistance(
             (existing[i] as any).descriptor as number[],
             (existing[j] as any).descriptor as number[],
           );
