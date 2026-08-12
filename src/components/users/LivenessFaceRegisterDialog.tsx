@@ -14,6 +14,9 @@ import {
   loadFaceModels, detectFaceWithLandmarks, applyCameraAutoTune, estimateFaceSharpness, euclidean,
 } from "@/lib/faceApi";
 import { loadOpenCV, isOpenCVReady, detectFacesCV, disposeOpenCV, type CVBox } from "@/lib/opencvFace";
+import { openCamera, stopStream } from "@/lib/cameraStream";
+import CameraSourcePicker from "@/components/mobile/CameraSourcePicker";
+
 
 interface Props {
   open: boolean;
@@ -146,6 +149,9 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
   const [savedOk, setSavedOk] = useState(false);
   const [retryTick, setRetryTick] = useState(0);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  const [camDeviceId, setCamDeviceId] = useState<string | undefined>(undefined);
+  const [camTick, setCamTick] = useState(0);
+
   const [modelError, setModelError] = useState<string | null>(null);
 
 
@@ -411,28 +417,30 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
   }, [open, studentCode]);
 
 
-  const startCamera = async (mode: "user" | "environment" = facingMode) => {
+  const startCamera = async (mode: "user" | "environment" = facingMode, deviceId?: string) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: mode }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      const res = await openCamera({
+        facing: mode,
+        deviceId: deviceId ?? camDeviceId,
+        width: 1280,
+        height: 720,
       });
       if (videoRef.current) {
-        await attachStreamToVideo(videoRef.current, stream);
+        await attachStreamToVideo(videoRef.current, res.stream);
         setStreaming(true);
-        try { applyCameraAutoTune(stream); } catch { /* บางอุปกรณ์ไม่รองรับ camera constraints เพิ่มเติม */ }
+        setCamDeviceId(res.deviceId);
+        setCamTick((t) => t + 1);
+        try { applyCameraAutoTune(res.stream); } catch { /* บางอุปกรณ์ไม่รองรับ camera constraints เพิ่มเติม */ }
+      } else {
+        stopStream(res.stream);
       }
     } catch (e: unknown) {
-      const denied = errorName(e) === "NotAllowedError" || errorName(e) === "PermissionDeniedError";
-      toast.error(denied
-        ? "ยังไม่ได้อนุญาตใช้กล้อง กรุณากดอนุญาตกล้องในเบราว์เซอร์แล้วลองใหม่"
-        : "เปิดกล้องไม่สำเร็จ: " + errorMessage(e));
+      toast.error(errorMessage(e) || "เปิดกล้องไม่สำเร็จ");
     }
   };
 
   const stopCamera = () => {
-    const s = videoRef.current?.srcObject as MediaStream | null;
-    s?.getTracks().forEach((t) => t.stop());
-    if (videoRef.current) videoRef.current.srcObject = null;
+    stopStream(videoRef.current?.srcObject as MediaStream | null, videoRef.current);
     setStreaming(false);
   };
 
@@ -441,8 +449,15 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     setFacingMode(next);
     stopCamera();
     // wait next tick then start
-    setTimeout(() => startCamera(next), 150);
+    setTimeout(() => startCamera(next, undefined), 150);
   };
+
+  const pickCamera = async (deviceId: string) => {
+    setCamDeviceId(deviceId);
+    stopCamera();
+    setTimeout(() => startCamera(facingMode, deviceId), 150);
+  };
+
 
   // detection loop — throttled (~7 fps) so the video element keeps painting smoothly
   const runStep = useCallback(async () => {
