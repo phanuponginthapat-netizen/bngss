@@ -417,14 +417,17 @@ const FaceReportTab = () => {
         if (!p || t < p) m.set(r.student_id, t);
         scanIdx.set(r.scan_date, m);
       }
-      // Attendance index: date -> studentId -> status
+      // Attendance index: date -> studentId -> status (รายคาบหลายแถว/วัน → เลือกตามลำดับความสำคัญ)
+      const statusRank: Record<string, number> = { present: 5, late: 4, leave: 3, sick: 3, absent: 1 };
       const attIdx = new Map<string, Map<string, string>>();
       for (const r of (attRes.data as any[]) || []) {
         if (!effSet.has(r.attendance_date)) continue;
         const m = attIdx.get(r.attendance_date) || new Map<string, string>();
-        m.set(r.student_id, r.status);
+        const prev = m.get(r.student_id);
+        if (!prev || (statusRank[r.status] ?? 0) > (statusRank[prev] ?? 0)) m.set(r.student_id, r.status);
         attIdx.set(r.attendance_date, m);
       }
+
       // Leave coverage: studentId -> Set<date> (approved or pending — count as ลา, not ขาด)
       const leaveIdx = new Map<string, Set<string>>();
       for (const lv of (leavesRes.data as any[]) || []) {
