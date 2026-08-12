@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   loadFaceModels, detectFaceWithLandmarks, applyCameraAutoTune, estimateFaceSharpness, euclidean,
 } from "@/lib/faceApi";
+import { loadOpenCV, isOpenCVReady, detectFacesCV, disposeOpenCV, type CVBox } from "@/lib/opencvFace";
 
 interface Props {
   open: boolean;
