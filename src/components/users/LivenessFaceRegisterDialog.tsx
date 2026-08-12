@@ -787,9 +787,19 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
 
   const reset = () => {
     setStepIdx(0); setSamples([]); setColorFrameIdx(0); setBlockedMsg(null);
+    setSaveError(null); setSavedOk(false); setStatusMsg("");
     detectMetaRef.current = { misses: 0, stableHits: 0 };
     blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0 };
+    if (!streaming) void startCamera();
   };
+
+  /** ลองบันทึกอีกครั้งโดยไม่ต้องถ่ายใหม่ (ใช้กับกรณีเน็ตหลุด/เซิร์ฟเวอร์ตอบช้า) */
+  const retrySave = () => {
+    setSaveError(null);
+    setStepIdx((i) => i); // trigger effect ผ่าน state ด้านล่าง
+    setRetryTick((t) => t + 1);
+  };
+
 
 
   const step = STEPS[stepIdx];
