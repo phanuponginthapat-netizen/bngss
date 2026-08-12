@@ -372,7 +372,6 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     }
 
     detectMetaRef.current.misses = 0;
-    drawOverlay(data);
 
     const { ear, yaw, box } = data;
     const vw = videoRef.current.videoWidth;
@@ -381,6 +380,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
 
     if (faceFrac < 0.06) {
       detectMetaRef.current.stableHits = 0;
+      drawOverlay(data, "bad");
       setStatusMsg("ใบหน้าเล็กเกินไป — กรุณาเข้าใกล้กล้องอีกนิด");
       loopRef.current = window.setTimeout(runStep, 140) as unknown as number;
       return;
@@ -388,10 +388,15 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
 
     if (sharpness < 10) {
       detectMetaRef.current.stableHits = 0;
+      drawOverlay(data, "bad");
       setStatusMsg("ภาพยังเบลอ — อยู่นิ่งๆ หรือเช็ดกล้องก่อน");
       loopRef.current = window.setTimeout(runStep, 140) as unknown as number;
       return;
     }
+
+    // เขียวเมื่อคุณภาพผ่านเกณฑ์และหน้าตรงพอ, เหลืองเมื่อยังต้องปรับท่า
+    drawOverlay(data, faceFrac >= 0.10 && Math.abs(yaw) <= 0.25 ? "good" : "warn");
+
 
     switch (step.key) {
       case "center": {
