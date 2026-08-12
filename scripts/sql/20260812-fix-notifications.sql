@@ -84,3 +84,36 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END; $fn$;
+CREATE OR REPLACE FUNCTION public.trigger_push_notification()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+BEGIN
+  IF COALESCE(NEW.push_sent, false) THEN RETURN NEW; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.push_subscriptions WHERE user_id = NEW.user_id) THEN RETURN NEW; END IF;
+  PERFORM public.edge_call('send-push', jsonb_build_object(
+    'user_id', NEW.user_id,
+    'title', NEW.title,
+    'body', COALESCE(NEW.message,''),
+    'url', public.notification_deep_link(NEW.type, NEW.reference_type, NEW.reference_id),
+    'tag', COALESCE(NEW.type,'notification')));
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END; $fn$;
+
+CREATE OR REPLACE FUNCTION public.notify_google_chat(
+  _notification_type text, _title text, _message text, _department text DEFAULT 'all',
+  _severity text DEFAULT 'info', _url text DEFAULT NULL, _fields jsonb DEFAULT '{}'::jsonb,
+  _reference_table text DEFAULT NULL, _reference_id uuid DEFAULT NULL)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+BEGIN
+  PERFORM public.edge_call('notify-google-chat', jsonb_build_object(
+    'notification_type', _notification_type,
+    'department', COALESCE(_department,'all'),
+    'title', _title,
+    'message', _message,
+    'severity', COALESCE(_severity,'info'),
+    'url', _url,
+    'fields', COALESCE(_fields,'{}'::jsonb),
+    'reference_table', _reference_table,
+    'reference_id', _reference_id));
+EXCEPTION WHEN OTHERS THEN NULL;
+END; $fn$;
