@@ -121,7 +121,7 @@ export function AttendanceReportTab({
     });
   }, [classStudents, studentSummary]);
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
     const rows = classStudents.map((s: any, i: number) => {
       const sm = studentSummary[s.id];
       const rate = sm.total > 0 ? ((sm.present / sm.total) * 100).toFixed(1) : "0";
