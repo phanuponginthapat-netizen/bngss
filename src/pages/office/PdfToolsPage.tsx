@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Document, Page, pdfjs } from "react-pdf";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { PDFDocument, StandardFonts, rgb, degrees } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -14,7 +16,8 @@ import { swal } from "@/lib/swal";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// ใช้ worker จากในโปรเจกต์ (ไม่พึ่ง CDN) เพื่อให้ใช้ได้แม้ออฟไลน์/kiosk และตรงเวอร์ชันเสมอ
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 interface Annotation {
   id: string;
@@ -50,6 +53,8 @@ export default function PdfToolsPage() {
   const [rotations, setRotations] = useState<Record<number, number>>({});
   const [scale, setScale] = useState(1);
   const [dragAnnot, setDragAnnot] = useState<string | null>(null);
+  // memo กัน react-pdf โหลดไฟล์ใหม่ทุกครั้งที่ re-render
+  const pdfFile = useMemo(() => (pdfBytes ? { data: pdfBytes } : undefined), [pdfBytes]);
 
   useEffect(() => {
     if (!fileIdParam) return;
@@ -162,7 +167,13 @@ export default function PdfToolsPage() {
   const buildPdf = async (): Promise<Blob> => {
     if (!pdfBytes) throw new Error("ไม่มีไฟล์");
     const doc = await PDFDocument.load(pdfBytes);
-    const font = await doc.embedFont(StandardFonts.Helvetica);
+    doc.registerFontkit(fontkit);
+    // ฟอนต์มาตรฐานเขียนภาษาไทยไม่ได้ → ฝัง TH Sarabun ถ้าโหลดได้
+    let font = await doc.embedFont(StandardFonts.Helvetica);
+    try {
+      const bytes = await loadThaiFontBytes();
+      if (bytes) font = await doc.embedFont(bytes, { subset: true });
+    } catch { /* ใช้ฟอนต์มาตรฐานต่อไป */ }
     for (const [idxStr, deg] of Object.entries(rotations)) {
       const p = doc.getPage(Number(idxStr));
       const cur = p.getRotation().angle;
@@ -311,15 +322,16 @@ export default function PdfToolsPage() {
             <div className="space-y-1 border-t pt-2">
               <div className="text-xs text-muted-foreground">หน้าทั้งหมด</div>
               <div className="max-h-96 overflow-y-auto space-y-1">
-                {Array.from({ length: numPages }, (_, i) => (
-                  <button key={i} onClick={() => setPageIdx(i)}
-                    className={`w-full aspect-[1/1.4] border-2 rounded overflow-hidden bg-white ${i === pageIdx ? "border-primary" : "border-border"}`}>
-                    <Document file={pdfBytes ? { data: pdfBytes } : undefined}>
+                <Document file={pdfFile} loading={null}>
+                  {Array.from({ length: numPages }, (_, i) => (
+                    <button key={i} onClick={() => setPageIdx(i)}
+                      className={`w-full border-2 rounded overflow-hidden bg-white ${i === pageIdx ? "border-primary" : "border-border"}`}>
                       <Page pageNumber={i + 1} width={180} rotate={rotations[i] ?? 0} renderTextLayer={false} renderAnnotationLayer={false} />
-                    </Document>
-                  </button>
-                ))}
+                    </button>
+                  ))}
+                </Document>
               </div>
+
             </div>
           </aside>
 
@@ -327,7 +339,7 @@ export default function PdfToolsPage() {
           <div className="flex-1 overflow-auto p-4 flex justify-center bg-slate-200">
             <div ref={pageWrapRef} className={`relative inline-block shadow-2xl ${tool !== "none" ? "cursor-crosshair" : "cursor-default"}`}
               onClick={handlePageClick}>
-              <Document file={pdfBytes ? { data: pdfBytes } : undefined} onLoadSuccess={({ numPages }) => setNumPages(numPages)}>
+              <Document file={pdfFile} onLoadSuccess={({ numPages }) => setNumPages(numPages)}>
                 <Page pageNumber={pageIdx + 1} width={800 * scale} rotate={rotations[pageIdx] ?? 0} />
               </Document>
               {annots.filter(a => a.page === pageIdx).map(a => (
@@ -378,4 +390,13 @@ function hexToRgb(hex: string) {
   const g = parseInt(h.substring(2, 4), 16) / 255;
   const b = parseInt(h.substring(4, 6), 16) / 255;
   return { r, g, b };
+}
+
+let thaiFontCache: ArrayBuffer | null = null;
+async function loadThaiFontBytes(): Promise<ArrayBuffer | null> {
+  if (thaiFontCache) return thaiFontCache;
+  const res = await fetch("/fonts/thsarabunnew.ttf");
+  if (!res.ok) return null;
+  thaiFontCache = await res.arrayBuffer();
+  return thaiFontCache;
 }
