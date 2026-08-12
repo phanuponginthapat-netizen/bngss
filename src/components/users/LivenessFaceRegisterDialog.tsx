@@ -303,6 +303,40 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         ctx.fill();
       }
 
+      // ---- ม่านตา (iris tracking): วงกลมกลางตา + จุดกึ่งกลาง ----
+      const drawIris = (pts: { x: number; y: number }[]) => {
+        if (!pts.length) return;
+        const cxE = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+        const cyE = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+        const wE = Math.max(...pts.map((p) => p.x)) - Math.min(...pts.map((p) => p.x));
+        const hE = Math.max(...pts.map((p) => p.y)) - Math.min(...pts.map((p) => p.y));
+        const r = Math.max(2 * unit, Math.min(wE * 0.28, Math.max(hE * 0.62, 2 * unit)));
+        ctx.save();
+        ctx.strokeStyle = "rgba(56,189,248,0.95)";
+        ctx.lineWidth = 1.6 * unit;
+        ctx.beginPath();
+        ctx.arc(cxE, cyE, r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = "rgba(56,189,248,0.9)";
+        ctx.beginPath();
+        ctx.arc(cxE, cyE, 1.6 * unit, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      };
+      drawIris(lm.getLeftEye());
+      drawIris(lm.getRightEye());
+
+      // ป้าย LOCKED เมื่อได้ระยะแล้ว
+      if (state === "good") {
+        ctx.save();
+        ctx.fillStyle = "rgba(16,185,129,0.92)";
+        ctx.font = `${12 * unit}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.fillText("● LOCKED", x + w / 2, Math.max(14 * unit, y - 8 * unit));
+        ctx.restore();
+      }
+
+
       // จุดปลายจมูก (จุดอ้างอิงการหันหน้า)
       const nose = lm.getNose();
       const tip = nose[6] ?? nose[nose.length - 1];
