@@ -27,10 +27,21 @@ interface Props {
   reason?: string;
 }
 
-/** ระยะห่างสูงสุดที่ยอมรับได้ระหว่างตัวอย่างของ "คนเดียวกัน" */
-const SELF_CONSISTENCY_MAX = 0.55;
+/** ระยะห่าง "ค่ากลาง" สูงสุดที่ยอมรับได้ระหว่างตัวอย่างของคนเดียวกัน
+ *  (ขั้นตอนหันซ้าย/ขวา/กะพริบตา ทำให้ระยะคู่ใดคู่หนึ่งกว้างได้ตามธรรมชาติ) */
+const SELF_CONSISTENCY_MEDIAN_MAX = 0.62;
+/** ตัวอย่างที่ค่ากลางห่างเกินนี้ถือเป็น outlier → ตัดทิ้งแทนการบล็อกทั้งชุด */
+const SAMPLE_OUTLIER_MAX = 0.72;
 /** ถ้าใบหน้าใกล้กับคนอื่นในระบบมากกว่านี้ = ถือว่าซ้ำคน */
-const DUPLICATE_THRESHOLD = 0.42;
+const DUPLICATE_THRESHOLD = 0.36;
+
+const median = (xs: number[]) => {
+  if (!xs.length) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+
 
 const dataUrlToBlob = (dataUrl: string): Blob => {
   const [meta, b64] = dataUrl.split(",");
@@ -644,23 +655,26 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("กรุณาเข้าสู่ระบบ");
 
-        // ---- 1) ตรวจสอบว่าทุกตัวอย่างเป็น "คนเดียวกัน" (กันสลับหน้าระหว่างขั้นตอน) ----
-        let maxSelf = 0;
-        for (let i = 0; i < samples.length; i++) {
-          for (let j = i + 1; j < samples.length; j++) {
-            const d = euclidean(samples[i].descriptor, samples[j].descriptor);
-            if (d > maxSelf) maxSelf = d;
-          }
-        }
-        if (maxSelf > SELF_CONSISTENCY_MAX) {
+        // ---- 1) ตรวจสอบว่าตัวอย่างเป็น "คนเดียวกัน" โดยใช้ค่ากลาง + ตัด outlier ----
+        const medians = samples.map((sa, i) =>
+          median(samples.filter((_, j) => j !== i).map((sb) => euclidean(sa.descriptor, sb.descriptor))),
+        );
+        let usable = samples.filter((_, i) => medians[i] <= SAMPLE_OUTLIER_MAX);
+        if (usable.length < 2) usable = samples;
+        const usableMedians = usable.map((sa, i) =>
+          median(usable.filter((_, j) => j !== i).map((sb) => euclidean(sa.descriptor, sb.descriptor))),
+        );
+        const overall = median(usableMedians);
+        if (samples.length >= 3 && overall > SELF_CONSISTENCY_MEDIAN_MAX) {
           setBlockedMsg(
-            `ตรวจพบใบหน้าไม่ตรงกันระหว่างขั้นตอน (ค่าต่าง ${maxSelf.toFixed(2)}) — กรุณาลงทะเบียนใหม่โดยให้เป็นคนเดียวกันตลอด`,
+            `ตรวจพบใบหน้าไม่ตรงกันระหว่างขั้นตอน (ค่าต่าง ${overall.toFixed(2)}) — กรุณาลงทะเบียนใหม่โดยให้เป็นคนเดียวกันตลอด`,
           );
           throw new Error("ตรวจพบใบหน้ามากกว่า 1 คนระหว่างการลงทะเบียน");
         }
 
         // ---- 2) ตรวจสอบใบหน้าซ้ำกับนักเรียนคนอื่นในระบบ (กันจำผิดคน) ----
-        const descriptorArrays = samples.map((sm) => Array.from(sm.descriptor));
+        const descriptorArrays = usable.map((sm) => Array.from(sm.descriptor));
+
         const { data: dup, error: dupErr } = await supabase.rpc("check_face_duplicate", {
           _student_id: studentId,
           _descriptors: descriptorArrays,
