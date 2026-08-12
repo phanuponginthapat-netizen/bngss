@@ -524,17 +524,19 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             photo_urls.push(path);
           }
 
-          const { error } = await supabase.from("face_registration_requests").insert({
-            student_id: studentId,
-            requested_by: user.id,
-            request_type: isRereg ? "reregister" : "initial",
-            reason: reason?.trim() || null,
-            photo_urls,
-            descriptors: descriptorArrays,
-            status: "pending",
+          const { error } = await supabase.rpc("self_enroll_face", {
+            _samples: samples.map((sm) => ({
+              descriptor: Array.from(sm.descriptor),
+              quality_score: sm.metrics.sharpness,
+              face_image: sm.image,
+              metrics: sm.metrics,
+            })) as any,
+            _photo_urls: photo_urls,
+            _reason: reason?.trim() || null,
           });
           if (error) throw error;
-          toast.success(`ส่งคำขอลงทะเบียนใบหน้า ${samples.length} ภาพแล้ว รอเจ้าหน้าที่อนุมัติ`);
+          void isRereg;
+          toast.success(`ลงทะเบียนใบหน้าสำเร็จ ${samples.length} ภาพ — ใช้งานได้ทันที`);
         } else {
           const { data: ex } = await supabase
             .from("student_face_descriptors")
