@@ -91,3 +91,99 @@ export const closeUpVideoConstraints: MediaTrackConstraints = {
   // @ts-ignore
   resizeMode: "none",
 };
+
+/* ===================== Focus / Exposure lock (มือถือ) ===================== */
+
+export type FocusLockSupport = {
+  focus: boolean;
+  exposure: boolean;
+  whiteBalance: boolean;
+  any: boolean;
+};
+
+function getTrack(stream: MediaStream | null | undefined): MediaStreamTrack | null {
+  const t = stream?.getVideoTracks?.()[0];
+  return t && typeof (t as any).getCapabilities === "function" ? t : null;
+}
+
+function caps(track: MediaStreamTrack | null): any {
+  if (!track) return {};
+  try { return (track as any).getCapabilities?.() ?? {}; } catch { return {}; }
+}
+
+/** ตรวจว่ากล้องรองรับการล็อกโฟกัส/ค่าแสงไหม */
+export function getFocusLockSupport(stream: MediaStream | null | undefined): FocusLockSupport {
+  const c = caps(getTrack(stream));
+  const focus = Array.isArray(c.focusMode) && (c.focusMode.includes("manual") || c.focusMode.includes("single-shot"));
+  const exposure = Array.isArray(c.exposureMode) && c.exposureMode.includes("manual");
+  const whiteBalance = Array.isArray(c.whiteBalanceMode) && c.whiteBalanceMode.includes("manual");
+  return { focus, exposure, whiteBalance, any: focus || exposure || whiteBalance };
+}
+
+async function tryApply(track: MediaStreamTrack, sets: MediaTrackConstraintSet[]): Promise<boolean> {
+  if (sets.length === 0) return false;
+  try {
+    await (track as any).applyConstraints({ advanced: sets });
+    return true;
+  } catch {
+    let ok = false;
+    for (const s of sets) {
+      try { await (track as any).applyConstraints({ advanced: [s] }); ok = true; } catch {}
+    }
+    return ok;
+  }
+}
+
+/**
+ * ล็อกโฟกัส + ค่าแสง + white balance ที่ค่าปัจจุบัน (AF/AE lock)
+ * ช่วยลดภาพเบลอ/แสงกระพริบระหว่างถ่ายลงทะเบียนบนมือถือ
+ */
+export async function lockFocusExposure(stream: MediaStream | null | undefined): Promise<boolean> {
+  const track = getTrack(stream);
+  if (!track) return false;
+  const c = caps(track);
+  let settings: any = {};
+  try { settings = (track as any).getSettings?.() ?? {}; } catch {}
+
+  // 1) โฟกัสให้คมก่อน แล้วค่อยล็อก
+  if (Array.isArray(c.focusMode) && c.focusMode.includes("continuous")) {
+    await tryApply(track, [{ focusMode: "continuous" } as any]);
+    await new Promise((r) => setTimeout(r, 600));
+    try { settings = (track as any).getSettings?.() ?? settings; } catch {}
+  }
+
+  const sets: MediaTrackConstraintSet[] = [];
+  if (Array.isArray(c.focusMode)) {
+    if (c.focusMode.includes("manual")) {
+      const set: any = { focusMode: "manual" };
+      if (typeof settings.focusDistance === "number") set.focusDistance = settings.focusDistance;
+      sets.push(set);
+    } else if (c.focusMode.includes("single-shot")) {
+      sets.push({ focusMode: "single-shot" } as any);
+    }
+  }
+  if (Array.isArray(c.exposureMode) && c.exposureMode.includes("manual")) {
+    const set: any = { exposureMode: "manual" };
+    if (typeof settings.exposureTime === "number") set.exposureTime = settings.exposureTime;
+    if (typeof settings.iso === "number") set.iso = settings.iso;
+    sets.push(set);
+  }
+  if (Array.isArray(c.whiteBalanceMode) && c.whiteBalanceMode.includes("manual")) {
+    const set: any = { whiteBalanceMode: "manual" };
+    if (typeof settings.colorTemperature === "number") set.colorTemperature = settings.colorTemperature;
+    sets.push(set);
+  }
+  return tryApply(track, sets);
+}
+
+/** ปลดล็อก กลับไปเป็นออโต้ต่อเนื่อง */
+export async function unlockFocusExposure(stream: MediaStream | null | undefined): Promise<boolean> {
+  const track = getTrack(stream);
+  if (!track) return false;
+  const c = caps(track);
+  const sets: MediaTrackConstraintSet[] = [];
+  if (Array.isArray(c.focusMode) && c.focusMode.includes("continuous")) sets.push({ focusMode: "continuous" } as any);
+  if (Array.isArray(c.exposureMode) && c.exposureMode.includes("continuous")) sets.push({ exposureMode: "continuous" } as any);
+  if (Array.isArray(c.whiteBalanceMode) && c.whiteBalanceMode.includes("continuous")) sets.push({ whiteBalanceMode: "continuous" } as any);
+  return tryApply(track, sets);
+}
