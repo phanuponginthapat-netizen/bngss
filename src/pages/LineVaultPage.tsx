@@ -1433,10 +1433,12 @@ function StorageBackfillCard({ onDone }: { onDone: () => void }) {
             if (updErr) throw updErr;
             total++;
           } catch (e: any) {
+            if (e?.notConnected) throw e;
             failed++;
             setLog(`สำรองแล้ว ${total} ไฟล์ · ล้มเหลว ${failed} — ${e?.message ?? ""}`);
             if (failed >= 3) throw e;
           }
+
           setLog(`สำรองแล้ว ${total} ไฟล์${failed ? ` · ล้มเหลว ${failed}` : ""}`);
         }
       }
