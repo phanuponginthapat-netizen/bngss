@@ -313,32 +313,10 @@ const StaffLeavePage = () => {
         }
       }
 
-      // Auto create substitute teaching record(s) — one per day in the leave range (best-effort)
-      try {
-        const startD = new Date((record as any).start_date);
-        const endD = new Date((record as any).end_date);
-        const actingTeacherName = (record as any).acting_teacher && (record as any).acting_teacher !== "none"
-          ? (record as any).acting_teacher
-          : "";
-        const rows: any[] = [];
-        for (let d = new Date(startD); d <= endD; d.setDate(d.getDate() + 1)) {
-          rows.push({
-            original_teacher: person ? `${(person as any).first_name} ${(person as any).last_name}` : "",
-            substitute_teacher: actingTeacherName,
-            teaching_date: bkkDateISO(d),
-            period: "ทั้งวัน",
-            status: actingTeacherName ? "confirmed" : "pending",
-            notes: `อัตโนมัติจากใบลา (${(record as any).start_date} - ${(record as any).end_date})`,
-            leave_id: (record as any).id,
-          });
-        }
-        if (rows.length > 0) {
-          const { error: subErr } = await supabase.from("substitute_teaching").insert(rows as any);
-          if (subErr) console.error("substitute insert failed:", subErr);
-        }
-      } catch (e) {
-        console.error(e);
-      }
+      // Substitute teaching rows are generated per class period by the database
+      // trigger (auto_create_substitute_on_leave_approval): it uses the teacher's
+      // own per-period choices when provided, otherwise assigns a free teacher automatically.
+
     }
 
     qc.invalidateQueries({ queryKey: ["staff_leaves"] });
