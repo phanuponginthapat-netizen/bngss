@@ -362,14 +362,31 @@ const FaceReportTab = () => {
   const { data: accurate } = useQuery({
     queryKey: ["face-report-accurate", range.start, range.end, todayStr],
     queryFn: async () => {
-      const [settingRes, studentsRes, scansRes, attRes, leavesRes, eventsRes] = await Promise.all([
+      // ดึงข้อมูลแบบแบ่งหน้า — ไม่ให้ถูกตัดที่ 1,000 แถว (ทำให้ยอด "ขาด" เพี้ยน)
+      const fetchAll = async (build: (from: number, to: number) => any) => {
+        const PAGE = 1000;
+        const out: any[] = [];
+        for (let from = 0; from < 200_000; from += PAGE) {
+          const { data, error } = await build(from, from + PAGE - 1);
+          if (error) break;
+          out.push(...((data as any[]) || []));
+          if (!data || (data as any[]).length < PAGE) break;
+        }
+        return out;
+      };
+
+      const [settingRes, studentsRes, scanRows, attRows, leaveRows, eventsRes] = await Promise.all([
         supabase.from("school_settings").select("setting_value").eq("setting_key", "clock_late_threshold").maybeSingle(),
         supabase.from("students").select("id, prefix, first_name, last_name, student_code, gender, classrooms!students_classroom_id_fkey(grade_level, name, reference_grade_level)").eq("status", "active"),
-        supabase.from("face_scan_logs").select("student_id, scan_date, scan_time").gte("scan_date", range.start).lte("scan_date", range.end),
-        supabase.from("attendance").select("student_id, attendance_date, status").gte("attendance_date", range.start).lte("attendance_date", range.end),
-        supabase.from("student_leaves").select("student_id, start_date, end_date, status").lte("start_date", range.end).gte("end_date", range.start),
+        fetchAll((f, t) => supabase.from("face_scan_logs").select("student_id, scan_date, scan_time").gte("scan_date", range.start).lte("scan_date", range.end).order("scan_date").range(f, t)),
+        fetchAll((f, t) => supabase.from("attendance").select("student_id, attendance_date, status").gte("attendance_date", range.start).lte("attendance_date", range.end).order("attendance_date").range(f, t)),
+        fetchAll((f, t) => supabase.from("student_leaves").select("student_id, start_date, end_date, status").lte("start_date", range.end).gte("end_date", range.start).order("start_date").range(f, t)),
         supabase.from("academic_events").select("event_date, end_date, event_type").eq("event_type", "holiday").lte("event_date", range.end),
       ]);
+      const scansRes = { data: scanRows };
+      const attRes = { data: attRows };
+      const leavesRes = { data: leaveRows };
+
       const lateThreshold = (settingRes.data?.setting_value as string) || "08:30";
       const holidays = new Set<string>();
       for (const ev of (eventsRes.data as any[]) || []) {
