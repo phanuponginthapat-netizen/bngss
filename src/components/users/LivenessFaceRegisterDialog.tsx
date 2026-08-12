@@ -648,12 +648,18 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
   useEffect(() => {
     if (STEPS[stepIdx].key !== "done" || !studentId || saving) return;
     if (samples.length === 0) return;
+    if (savedOk || blockedMsg || saveError) return;
     (async () => {
       const __tid_save_1 = toast.loading(submitMode === "request" ? "กำลังตรวจสอบและส่งคำขอ..." : "กำลังตรวจสอบและบันทึก...");
       setSaving(true);
+      setSaveError(null);
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("กรุณาเข้าสู่ระบบ");
+
+        if (samples.length < MIN_SAMPLES) {
+          throw new Error(`เก็บภาพใบหน้าได้เพียง ${samples.length} ภาพ (ต้องการอย่างน้อย ${MIN_SAMPLES}) — กรุณากด "เริ่มใหม่"`);
+        }
 
         // ---- 1) ตรวจสอบว่าตัวอย่างเป็น "คนเดียวกัน" โดยใช้ค่ากลาง + ตัด outlier ----
         const medians = samples.map((sa, i) =>
@@ -672,8 +678,21 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           throw new Error("ตรวจพบใบหน้ามากกว่า 1 คนระหว่างการลงทะเบียน");
         }
 
+        // ---- 1.1) เลือกเฉพาะภาพคุณภาพดีที่สุด ไม่เกินเพดาน (กันข้อมูลบวม) ----
+        const seenSteps = new Map<StepKey, number>();
+        const picked = [...usable]
+          .sort((a, b) => b.metrics.sharpness - a.metrics.sharpness)
+          .filter((sm) => {
+            const n = seenSteps.get(sm.metrics.stepKey) ?? 0;
+            if (n >= MAX_PER_STEP) return false;
+            seenSteps.set(sm.metrics.stepKey, n + 1);
+            return true;
+          })
+          .slice(0, MAX_SAMPLES);
+        const finalSamples = picked.length >= MIN_SAMPLES ? picked : usable.slice(0, MAX_SAMPLES);
+
         // ---- 2) ตรวจสอบใบหน้าซ้ำกับนักเรียนคนอื่นในระบบ (กันจำผิดคน) ----
-        const descriptorArrays = usable.map((sm) => Array.from(sm.descriptor));
+        const descriptorArrays = finalSamples.map((sm) => Array.from(sm.descriptor));
 
         const { data: dup, error: dupErr } = await supabase.rpc("check_face_duplicate", {
           _student_id: studentId,
@@ -691,24 +710,20 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         }
 
         if (submitMode === "request") {
-          // ---- โหมดนักเรียนลงทะเบียนเอง: ส่งคำขออนุมัติ ----
-          const { data: exist } = await supabase
-            .from("student_face_descriptors").select("id").eq("student_id", studentId).limit(1);
-          const isRereg = (exist?.length ?? 0) > 0;
-
+          // ---- โหมดนักเรียนลงทะเบียนเอง: บันทึกและใช้งานได้ทันที ----
           const ts = Date.now();
           const photo_urls: string[] = [];
-          for (let i = 0; i < samples.length; i++) {
-            const blob = dataUrlToBlob(samples[i].image);
+          for (let i = 0; i < finalSamples.length; i++) {
+            const blob = dataUrlToBlob(finalSamples[i].image);
             const path = `requests/${studentId}/${ts}_${i}_selfenroll.jpg`;
             const { error: upErr } = await supabase.storage
-              .from("face-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+              .from("face-photos").upload(path, blob, { contentType: "image/jpeg", upsert: true });
             if (upErr) throw upErr;
             photo_urls.push(path);
           }
 
           const { error } = await supabase.rpc("self_enroll_face", {
-            _samples: samples.map((sm) => ({
+            _samples: finalSamples.map((sm) => ({
               descriptor: Array.from(sm.descriptor),
               quality_score: sm.metrics.sharpness,
               face_image: sm.image,
@@ -718,8 +733,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             _reason: reason?.trim() || null,
           });
           if (error) throw error;
-          void isRereg;
-          toast.success(`ลงทะเบียนใบหน้าสำเร็จ ${samples.length} ภาพ — ใช้งานได้ทันที`);
+          toast.success(`ลงทะเบียนใบหน้าสำเร็จ ${finalSamples.length} ภาพ — ใช้งานได้ทันที`);
         } else {
           const { data: ex } = await supabase
             .from("student_face_descriptors")
@@ -727,7 +741,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             .eq("student_id", studentId)
             .order("sample_index", { ascending: false }).limit(1);
           let next = ex && ex[0] ? ex[0].sample_index + 1 : 0;
-          const rows = samples.map((sm) => ({
+          const rows = finalSamples.map((sm) => ({
             student_id: studentId,
             sample_index: next++,
             descriptor: Array.from(sm.descriptor),
@@ -741,6 +755,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           if (error) throw error;
           toast.success(`ลงทะเบียนสำเร็จ ${rows.length} ตัวอย่าง (Liveness verified)`);
         }
+        setSavedOk(true);
         stopCamera();
         onComplete?.();
       } catch (e: unknown) {
@@ -750,6 +765,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           : message.includes("Failed to fetch") || message.includes("NetworkError")
             ? "เชื่อมต่อระบบไม่ได้ กรุณาตรวจอินเทอร์เน็ตแล้วลองอีกครั้ง"
             : message;
+        setSaveError(friendly);
         toast.error("ลงทะเบียนไม่สำเร็จ: " + friendly, { duration: 9000 });
       } finally {
         toast.dismiss(__tid_save_1);
@@ -758,6 +774,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepIdx, studentId]);
+
 
 
   const reset = () => {
