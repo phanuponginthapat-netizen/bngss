@@ -537,9 +537,12 @@ const FaceRegisterTab = () => {
             {!streaming && <div className="absolute inset-0 flex items-center justify-center text-white/60"><Camera className="w-12 h-12" /></div>}
           </div>
 
+          <CameraSourcePicker value={camDeviceId} onChange={pickCamera} refreshKey={camTick} />
+
           <div className="flex gap-2 flex-wrap">
             {!streaming ? (
-              <Button onClick={startCamera} disabled={!modelReady} size="sm" variant="outline"><Camera className="w-4 h-4 mr-2" />เปิดกล้อง</Button>
+              <Button onClick={() => startCamera()} disabled={!modelReady} size="sm" variant="outline"><Camera className="w-4 h-4 mr-2" />เปิดกล้อง</Button>
+
             ) : (
               <>
                 <Button onClick={captureShot} disabled={busy} size="sm" className="gradient-primary">
