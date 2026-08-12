@@ -164,6 +164,54 @@ const Login = () => {
 
 
 
+  // ผู้ปกครอง: สแกน QR บัตรนักเรียน → เข้าระบบด้วยบัญชีผู้ปกครองของนักเรียนคนนั้นทันที
+  const handleParentQrLogin = async (qr: string) => {
+    const clean = (qr || "").trim();
+    if (!clean) return;
+    setParentScanOpen(false);
+    setPQrLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("parent-qr-login", { body: { qr: clean } });
+      const code = (data as any)?.error;
+      if (error || !data?.success || !data?.access_token) {
+        const msg =
+          code === "not_found"
+            ? lang === "th" ? "ไม่พบนักเรียนตาม QR นี้" : "Student not found for this QR"
+            : code === "inactive"
+            ? lang === "th" ? "บัญชีนักเรียนถูกระงับ" : "Student account inactive"
+            : code === "not_a_parent_account"
+            ? lang === "th" ? "บัญชีที่ผูกไว้ไม่ใช่บัญชีผู้ปกครอง กรุณาติดต่อผู้ดูแลระบบ" : "Linked account is not a parent account"
+            : code === "invalid_qr" || code === "invalid_input"
+            ? lang === "th" ? "QR ไม่ถูกต้อง" : "Invalid QR code"
+            : code === "rate_limited"
+            ? lang === "th" ? "พยายามบ่อยเกินไป รอสักครู่" : "Too many attempts"
+            : lang === "th" ? "เข้าระบบด้วย QR ไม่สำเร็จ" : "QR login failed";
+        toast.error(msg);
+        setPQrLoading(false);
+        return;
+      }
+      const { error: setErr } = await supabase.auth.setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+      });
+      if (setErr) {
+        toast.error(setErr.message);
+        setPQrLoading(false);
+        return;
+      }
+      if (data?.child?.display_name) {
+        toast.success(
+          lang === "th" ? `เข้าระบบผู้ปกครองของ ${data.child.display_name}` : `Signed in as parent of ${data.child.display_name}`,
+        );
+      }
+      import("@/lib/auditLog").then(({ logAudit }) => logAudit({ action: "login", details: { method: "parent_qr" } }));
+      navigate(await resolvePostLoginRedirect(postLoginTarget), { replace: true });
+    } catch (err) {
+      toast.error((err as Error).message || "QR login failed");
+      setPQrLoading(false);
+    }
+  };
+
   const handleParentLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setPLoading(true);
