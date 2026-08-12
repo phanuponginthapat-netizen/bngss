@@ -98,6 +98,12 @@ export async function openCamera(opts: OpenCameraOptions = {}): Promise<OpenCame
     );
   }
 
+  // แอปเนทีฟ (APK/iOS): ขอสิทธิ์กล้องผ่าน Capacitor ก่อน
+  try {
+    const { isNativeApp, ensureNativeCameraPermission } = await import("./nativeCamera");
+    if (isNativeApp()) await ensureNativeCameraPermission();
+  } catch { /* เว็บปกติ */ }
+
   let lastErr: unknown = null;
   for (const c of ladder(opts)) {
     try {
