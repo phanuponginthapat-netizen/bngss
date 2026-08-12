@@ -9,6 +9,9 @@ import { loadFaceModels, getDescriptorFromImage, loadImageFromUrl, applyCameraAu
 import LivenessFaceRegisterDialog from "./LivenessFaceRegisterDialog";
 import { swal } from "@/lib/swal";
 import { attachStreamToVideo } from "@/lib/cameraIos";
+import { openCamera, stopStream } from "@/lib/cameraStream";
+import CameraSourcePicker from "@/components/mobile/CameraSourcePicker";
+
 
 
 interface Props {
@@ -31,6 +34,9 @@ const FaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName }: Pr
   const [syncing, setSyncing] = useState(false);
   const [livenessOpen, setLivenessOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  const [camDeviceId, setCamDeviceId] = useState<string | undefined>(undefined);
+  const [camTick, setCamTick] = useState(0);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploads, setUploads] = useState<Array<{
     id: string; name: string; preview: string; desc: Float32Array | null;
@@ -69,23 +75,23 @@ const FaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName }: Pr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, studentCode]);
 
-  const startCamera = async (mode: "user" | "environment" = facingMode) => {
+  const startCamera = async (mode: "user" | "environment" = facingMode, deviceId?: string) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: mode }, width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
+      const res = await openCamera({ facing: mode, deviceId: deviceId ?? camDeviceId, width: 1280, height: 720 });
       if (videoRef.current) {
-        await attachStreamToVideo(videoRef.current, stream);
+        await attachStreamToVideo(videoRef.current, res.stream);
         setStreaming(true);
-        try { applyCameraAutoTune(stream); } catch {}
+        setCamDeviceId(res.deviceId);
+        setCamTick((t) => t + 1);
+        try { applyCameraAutoTune(res.stream); } catch { /* ไม่รองรับ constraint เพิ่มเติม */ }
+      } else {
+        stopStream(res.stream);
       }
-    } catch (e: any) { toast.error("เปิดกล้องไม่สำเร็จ: " + e.message); }
+    } catch (e: any) { toast.error(e?.message || "เปิดกล้องไม่สำเร็จ"); }
   };
 
   const stopCamera = () => {
-    const s = videoRef.current?.srcObject as MediaStream | null;
-    s?.getTracks().forEach((t) => t.stop());
-    if (videoRef.current) videoRef.current.srcObject = null;
+    stopStream(videoRef.current?.srcObject as MediaStream | null, videoRef.current);
     setStreaming(false);
   };
 
@@ -93,8 +99,15 @@ const FaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName }: Pr
     const next = facingMode === "user" ? "environment" : "user";
     setFacingMode(next);
     stopCamera();
-    setTimeout(() => startCamera(next), 150);
+    setTimeout(() => startCamera(next, undefined), 150);
   };
+
+  const pickCamera = (deviceId: string) => {
+    setCamDeviceId(deviceId);
+    stopCamera();
+    setTimeout(() => startCamera(facingMode, deviceId), 150);
+  };
+
 
   const captureShot = async () => {
     if (!videoRef.current || !modelReady) return;
