@@ -318,15 +318,16 @@ export default function PdfToolsPage() {
             <div className="space-y-1 border-t pt-2">
               <div className="text-xs text-muted-foreground">หน้าทั้งหมด</div>
               <div className="max-h-96 overflow-y-auto space-y-1">
-                {Array.from({ length: numPages }, (_, i) => (
-                  <button key={i} onClick={() => setPageIdx(i)}
-                    className={`w-full aspect-[1/1.4] border-2 rounded overflow-hidden bg-white ${i === pageIdx ? "border-primary" : "border-border"}`}>
-                    <Document file={pdfBytes ? { data: pdfBytes } : undefined}>
+                <Document file={pdfFile} loading={null}>
+                  {Array.from({ length: numPages }, (_, i) => (
+                    <button key={i} onClick={() => setPageIdx(i)}
+                      className={`w-full border-2 rounded overflow-hidden bg-white ${i === pageIdx ? "border-primary" : "border-border"}`}>
                       <Page pageNumber={i + 1} width={180} rotate={rotations[i] ?? 0} renderTextLayer={false} renderAnnotationLayer={false} />
-                    </Document>
-                  </button>
-                ))}
+                    </button>
+                  ))}
+                </Document>
               </div>
+
             </div>
           </aside>
 
