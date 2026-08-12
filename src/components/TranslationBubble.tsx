@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Languages, Loader2, X, Copy, Check } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { translateText } from "@/lib/translateClient";
 import { Button } from "@/components/ui/button";
 import {
   Select,
