@@ -235,9 +235,9 @@ const StudentDashboard = () => {
           {isLoading ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />) : (
             <>
               <MiniKpi icon={CheckCircle2} label={L("เข้าเรียน", "Attendance")} value={`${data.rate}%`} gradient="gradient-success" />
-              <MiniKpi icon={XCircle} label={L("ขาดเรียน", "Absent")} value={data.absent} gradient="gradient-warning" />
+              <MiniKpi icon={XCircle} label={L("ขาดเรียน (วัน)", "Absent (days)")} value={data.absent} gradient="gradient-warning" />
               <MiniKpi icon={Heart} label={L("คะแนนพฤติกรรม", "Behavior Pts")} value={data.totalPoints} gradient="gradient-primary" />
-              <MiniKpi icon={FileText} label={L("ใบลา", "Leaves")} value={data.recentLeaves.length} gradient="gradient-info" />
+              <MiniKpi icon={FileText} label={L("ลา (วัน)", "Leave (days)")} value={data.leaveDays} gradient="gradient-info" />
             </>
           )}
         </div>
