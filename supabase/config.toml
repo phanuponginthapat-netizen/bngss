@@ -22,6 +22,9 @@ verify_jwt = false
 [functions.parent-login]
 verify_jwt = false
 
+[functions.parent-qr-login]
+verify_jwt = false
+
 [functions.qr-login]
 verify_jwt = false
 
