@@ -41,7 +41,7 @@ const dataUrlToBlob = (dataUrl: string): Blob => {
 };
 
 
-type StepKey = "center" | "mouth" | "left" | "right" | "color" | "done";
+type StepKey = "center" | "blink" | "left" | "right" | "color" | "done";
 
 interface Step {
   key: StepKey;
@@ -52,15 +52,22 @@ interface Step {
 }
 
 const STEPS: Step[] = [
-  { key: "center",  label: "จัดหน้าให้ตรงกรอบ",        hint: "มองตรงมาที่กล้อง",                icon: ScanFace },
-  { key: "mouth",   label: "อ้าปากค้างไว้",              hint: "อ้าปากกว้างประมาณ 1 วินาที",        icon: Smile },
+  { key: "center",  label: "จัดหน้าให้ตรงกรอบ",        hint: "มองตรงมาที่กล้อง จนกรอบล็อกเป็นสีเขียว", icon: ScanFace },
+  { key: "blink",   label: "กะพริบตา 2 ครั้ง",           hint: "มองที่กล้องแล้วกะพริบตาช้าๆ",        icon: Eye },
   { key: "left",    label: "หันหน้าไปทางซ้าย",          hint: "หันช้าๆ ประมาณ 30 องศา",            icon: ArrowLeft },
   { key: "right",   label: "หันหน้าไปทางขวา",           hint: "หันช้าๆ ประมาณ 30 องศา",            icon: ArrowRight },
-  { key: "color",   label: "Color Challenge (กันรูปปลอม)", hint: "หน้าจอจะเปลี่ยนสี ให้มองที่กล้อง", icon: Sparkles },
+  { key: "color",   label: "Color Challenge (กันรูปปลอม)", hint: "หน้าจอจะสลับสี ให้มองที่กล้อง",   icon: Sparkles },
   { key: "done",    label: "เสร็จสมบูรณ์",              hint: "บันทึกข้อมูลเรียบร้อย",            icon: CheckCircle2 },
 ];
 
-const CHALLENGE_COLORS = ["#ef4444", "#22c55e", "#3b82f6", "#ffffff"]; // red/green/blue/white
+const COLOR_POOL = ["#ef4444", "#22c55e", "#3b82f6", "#ffffff", "#f59e0b", "#a855f7"];
+/** สุ่มลำดับสีใหม่ทุกครั้ง เพื่อกันการเล่นวิดีโอซ้ำหลอกระบบ */
+const makeChallengeColors = () => {
+  const pool = [...COLOR_POOL];
+  const out: string[] = [];
+  while (out.length < 4 && pool.length) out.push(...pool.splice(Math.floor(Math.random() * pool.length), 1));
+  return out;
+};
 
 interface CapturedSample {
   descriptor: Float32Array;
