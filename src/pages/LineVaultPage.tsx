@@ -504,9 +504,10 @@ export default function LineVaultPage() {
       return { blob, filename: data.filename || item.original_filename || item.title || item.id };
     } catch { return null; }
   }
-
-
-
+  const legacyDriveOnly = useMemo(
+    () => items.filter(i => i.kind !== "note" && !i.storage_path && i.drive_file_id).length,
+    [items],
+  );
 
   return (
     <div className="p-4 md:p-6 space-y-4">
@@ -520,6 +521,26 @@ export default function LineVaultPage() {
           {isAdmin && <ManualUploadDialog onDone={load} />}
         </div>
       </div>
+
+      {legacyDriveOnly > 0 && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <p className="font-medium">
+            มี {legacyDriveOnly} ไฟล์เก่าที่ยังเก็บอยู่บน Google Drive อย่างเดียว จึงยังแสดงตัวอย่างไม่ได้
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            หลังย้ายฐานข้อมูล ระบบยังไม่ได้เชื่อมบัญชี Google Drive ใหม่ ทำให้ดึงไฟล์เก่ามาแสดงไม่ได้
+            {isAdmin
+              ? " กรุณาไปที่แท็บ “ตั้งค่า Vault OA” → เชื่อม Google Drive แล้วกด “เริ่มสำรองไฟล์” เพื่อคัดลอกไฟล์เก่าเข้าระบบให้แสดงตัวอย่างได้ถาวร"
+              : " กรุณาแจ้งผู้ดูแลระบบให้เชื่อมต่อ Google Drive อีกครั้ง"}
+          </p>
+          {isAdmin && (
+            <Button size="sm" variant="outline" className="mt-2" onClick={() => setTab("settings")}>
+              ไปที่การตั้งค่า Drive
+            </Button>
+          )}
+        </div>
+      )}
+
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
         <TabsList>
