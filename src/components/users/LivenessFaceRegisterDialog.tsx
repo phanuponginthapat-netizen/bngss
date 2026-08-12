@@ -396,6 +396,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     if (!open) return;
     // resolve student
     setStepIdx(0); setSamples([]); setColorFrameIdx(0); setStatusMsg(""); setBlockedMsg(null);
+    setSaveError(null); setSavedOk(false);
     detectMetaRef.current = { misses: 0, stableHits: 0 };
     blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0 };
     (async () => {
