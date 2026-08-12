@@ -247,6 +247,7 @@ const GamesHubPage = lazy(() => import("./pages/hub/GamesHubPage"));
 const HrHubPage = lazy(() => import("./pages/hub/HrHubPage"));
 const FinanceHubPage = lazy(() => import("./pages/hub/FinanceHubPage"));
 const StudentHealthHubPage = lazy(() => import("./pages/hub/StudentHealthHubPage"));
+const WellbeingHubPage = lazy(() => import("./pages/hub/WellbeingHubPage"));
 const AdminReportsHubPage = lazy(() => import("./pages/hub/AdminReportsHubPage"));
 
 
