@@ -186,6 +186,9 @@ const FaceKioskPage = () => {
     return () => clearInterval(t);
   }, [screensaver]);
 
+  const [staffFaceEnabled, setStaffFaceEnabled] = useState<boolean>(() => localStorage.getItem("face_kiosk_staff_faces") !== "0");
+  useEffect(() => { localStorage.setItem("face_kiosk_staff_faces", staffFaceEnabled ? "1" : "0"); }, [staffFaceEnabled]);
+
   const { data: known = [] } = useQuery({
     queryKey: ["face-known-kiosk"],
     queryFn: async () => {
