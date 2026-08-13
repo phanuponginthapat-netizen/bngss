@@ -3,13 +3,14 @@ import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { QrCode, ScanFace, UserPlus, Database, BarChart3, Settings, ShieldCheck, Monitor, BatteryFull, Zap } from "lucide-react";
+import { QrCode, ScanFace, UserPlus, Database, BarChart3, Settings, ShieldCheck, Monitor, BatteryFull, Zap, Briefcase } from "lucide-react";
 import FaceScanTab from "@/components/facescan/FaceScanTab";
 import FaceRegisterTab from "@/components/facescan/FaceRegisterTab";
 import FaceDatabaseTab from "@/components/facescan/FaceDatabaseTab";
 import FaceReportTab from "@/components/facescan/FaceReportTab";
 import FaceSettingsTab from "@/components/facescan/FaceSettingsTab";
 import FaceApprovalTab from "@/components/facescan/FaceApprovalTab";
+import StaffFaceTab from "@/components/facescan/StaffFaceTab";
 import { useUserRole } from "@/hooks/useUserRole";
 
 const FaceScanPage = () => {
@@ -41,7 +42,7 @@ const FaceScanPage = () => {
 
       <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
         <div className="w-full overflow-x-auto">
-          <TabsList className={`inline-flex h-auto w-auto min-w-full sm:grid ${canManage ? "sm:grid-cols-7" : "sm:grid-cols-4"} sm:max-w-5xl gap-1`}>
+          <TabsList className={`inline-flex h-auto w-auto min-w-full sm:grid ${canManage ? "sm:grid-cols-8" : "sm:grid-cols-5"} sm:max-w-5xl gap-1`}>
             <TabsTrigger value="qr" className="gap-2 whitespace-nowrap">
               <QrCode className="w-4 h-4" /><span>สแกน QR</span>
               <BatteryFull className="w-3 h-3 text-emerald-500" />
@@ -50,6 +51,7 @@ const FaceScanPage = () => {
               <ScanFace className="w-4 h-4" /><span>สแกนใบหน้า</span>
             </TabsTrigger>
             <TabsTrigger value="register" className="gap-2 whitespace-nowrap"><UserPlus className="w-4 h-4" /><span>ลงทะเบียน</span></TabsTrigger>
+            <TabsTrigger value="staff" className="gap-2 whitespace-nowrap"><Briefcase className="w-4 h-4" /><span>บุคลากร</span></TabsTrigger>
             {canManage && <TabsTrigger value="approval" className="gap-2 whitespace-nowrap"><ShieldCheck className="w-4 h-4" /><span>อนุมัติ</span></TabsTrigger>}
             {canManage && <TabsTrigger value="database" className="gap-2 whitespace-nowrap"><Database className="w-4 h-4" /><span>ฐานข้อมูล</span></TabsTrigger>}
             <TabsTrigger value="report" className="gap-2 whitespace-nowrap"><BarChart3 className="w-4 h-4" /><span>รายงาน</span></TabsTrigger>
@@ -94,6 +96,7 @@ const FaceScanPage = () => {
         </TabsContent>
 
         <TabsContent value="register" className="mt-4"><FaceRegisterTab /></TabsContent>
+        <TabsContent value="staff" className="mt-4"><StaffFaceTab /></TabsContent>
         {canManage && <TabsContent value="approval" className="mt-4"><FaceApprovalTab /></TabsContent>}
         {canManage && <TabsContent value="database" className="mt-4"><FaceDatabaseTab /></TabsContent>}
         <TabsContent value="report" className="mt-4"><FaceReportTab /></TabsContent>
