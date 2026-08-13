@@ -17,6 +17,8 @@ export type KioskRuntimeConfig = {
   powerOn?: string;
   powerOff?: string;
   exitPin?: string;
+  battCritical?: number;
+  battChargeMax?: number;
   updated_at?: string;
 };
 
