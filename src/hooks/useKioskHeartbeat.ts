@@ -2,6 +2,10 @@ import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getDeviceId, getDeviceHostnameHint } from "@/lib/deviceId";
 import { getBackendConfig } from "@/lib/runtimeConfig";
+import { collectKioskTelemetry } from "@/lib/kioskTelemetry";
+
+/** ระยะห่างการบันทึกประวัติสถานะ (สำหรับกราฟ) */
+const SAMPLE_EVERY_MS = 3 * 60_000;
 
 type HeartbeatInput = {
   enabled?: boolean;
