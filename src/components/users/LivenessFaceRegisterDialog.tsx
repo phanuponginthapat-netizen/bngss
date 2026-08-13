@@ -875,18 +875,11 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             {/* live face/nose overlay — แสดงกล่องใบหน้า + จุดจมูกที่กำลังแสกน */}
             <canvas
               ref={overlayRef}
-              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+              className="absolute inset-0 w-full h-full pointer-events-none"
               style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
             />
             <div ref={flashRef} className="absolute inset-0 mix-blend-screen opacity-60 transition-colors duration-300 pointer-events-none" />
 
-            {/* face guide ring */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className={`w-[75%] aspect-[3/4] max-h-[85%] rounded-[50%] border-4 ${
-                statusMsg.includes("ดีมาก") || statusMsg.includes("ตรงแล้ว")
-                  ? "border-emerald-400" : "border-white/60"
-              } transition-colors`} />
-            </div>
             {/* switch camera button */}
             {streaming && (
               <Button
