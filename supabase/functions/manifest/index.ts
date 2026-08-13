@@ -32,6 +32,9 @@ Deno.serve(async (req) => {
     .from("cms_settings")
     .select("key,value")
     .in("key", [
+      "app_name",
+      "app_short_name",
+      "app_favicon_url",
       "hero_title",
       "hero_subtitle",
       "school_name",
@@ -40,6 +43,7 @@ Deno.serve(async (req) => {
       "school_logo_512",
       "primary_color",
       "theme_color",
+      "theme_primary_color",
       "background_color",
       "school_description",
     ]);
