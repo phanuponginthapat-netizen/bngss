@@ -608,16 +608,46 @@ const FaceKioskPage = () => {
                 const confirmed = (confirmRef.current.get(found.studentId)?.count ?? 0) >= CONFIRM_FRAMES;
                 if (confirmed) {
                   const captured = captureFaceCrop(video, box);
-                  await recordScan(found.studentId, found.studentCode, found.name, found.classroom, found.avatar, m.confidence, captured);
-                  // เรียนรู้ใบหน้าอัตโนมัติจากการสแกนจริงหน้าคีออส
-                  learnFromScan({
-                    studentId: found.studentId,
-                    descriptor: det.descriptor,
-                    match: m,
-                    sharpness,
-                    faceSize,
-                    source: "kiosk",
-                  }).catch(() => {});
+                  if (isStaffHit) {
+                    // โหมดทดสอบบุคลากร — แสดงผล/ทักทาย แต่ไม่บันทึกเวลามาเรียน
+                    const last = justScannedRef.current.get(found.studentId) || 0;
+                    if (tNow - last > 15_000) {
+                      justScannedRef.current.set(found.studentId, tNow);
+                      playSuccessSound();
+                      if (voiceEnabled) speakText(`สวัสดี ${found.name}`);
+                      setLastMatch({
+                        name: found.name,
+                        studentCode: found.studentCode || "-",
+                        classroom: `${found.classroom} • บุคลากร (ทดสอบ)`,
+                        confidence: m.confidence,
+                        scanType: scanModeRef.current === "exit" ? "exit" : "entry",
+                        capturedFace: captured,
+                        registeredFace: null,
+                        time: new Date().toLocaleTimeString("th-TH"),
+                      });
+                      setRecent((prev) => [{
+                        studentId: found.studentId,
+                        studentCode: found.studentCode || "-",
+                        name: `${found.name} (บุคลากร)`,
+                        classroom: found.classroom,
+                        avatar: null,
+                        capturedFace: captured,
+                        time: new Date().toLocaleTimeString("th-TH"),
+                        confidence: m.confidence,
+                      }, ...prev].slice(0, 20));
+                    }
+                  } else {
+                    await recordScan(found.studentId, found.studentCode, found.name, found.classroom, found.avatar, m.confidence, captured);
+                    // เรียนรู้ใบหน้าอัตโนมัติจากการสแกนจริงหน้าคีออส
+                    learnFromScan({
+                      studentId: found.studentId,
+                      descriptor: det.descriptor,
+                      match: m,
+                      sharpness,
+                      faceSize,
+                      source: "kiosk",
+                    }).catch(() => {});
+                  }
                   confirmRef.current.delete(found.studentId);
                 }
               } else {
