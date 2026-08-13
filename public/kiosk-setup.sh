@@ -25,6 +25,7 @@
 set -euo pipefail
 
 # ---------- ค่าที่ปรับได้ผ่าน env ----------
+KIOSK_MODE_SET=""; [[ -n "${KIOSK_MODE:-}" ]] && KIOSK_MODE_SET=1   # ผู้ใช้ระบุโหมดเอง → CMS ห้าม override
 KIOSK_MODE="${KIOSK_MODE:-door}"                     # door | student
 KIOSK_USER="${KIOSK_USER:-${SUDO_USER:-$(logname 2>/dev/null || echo demo)}}"
 KIOSK_WIFI_SSID="${KIOSK_WIFI_SSID:-}"
@@ -50,7 +51,7 @@ elif ! command -v python3 >/dev/null 2>&1; then
   echo "⚠  ไม่มี python3 — ข้าม CMS config"
 else
   export CFG_JSON_RAW="$CFG_JSON"
-  EVAL_OUT=$(CFG_JSON_RAW="$CFG_JSON" python3 <<'PYEOF' 2>&1
+  EVAL_OUT=$(CFG_JSON_RAW="$CFG_JSON" KIOSK_MODE_SET="$KIOSK_MODE_SET" python3 <<'PYEOF' 2>&1
 import json,os,sys
 raw={}
 try: raw=json.loads(os.environ.get("CFG_JSON_RAW",""))
@@ -88,6 +89,18 @@ PYEOF
 fi
 # ------------------------------------------------------------
 
+# ปรับ URL ให้ตรงโหมด — CMS เก็บ kioskUrl ค่าเดียว (มักเป็นหน้า /kiosk ของโหมด door)
+if [[ -n "${KIOSK_URL:-}" ]]; then
+  _u="${KIOSK_URL%/}"
+  if [[ "$KIOSK_MODE" == "student" && "$_u" == */kiosk ]]; then
+    KIOSK_URL="${_u%/kiosk}/"
+    echo "► student mode: ปรับ URL → $KIOSK_URL"
+  elif [[ "$KIOSK_MODE" == "door" && "$_u" != */kiosk ]]; then
+    KIOSK_URL="$_u/kiosk"
+    echo "► door mode: ปรับ URL → $KIOSK_URL"
+  fi
+fi
+
 # ค่า default แยกตามโหมด
 if [[ "$KIOSK_MODE" == "student" ]]; then
   KIOSK_URL="${KIOSK_URL:-https://bngss.vercel.app/}"
@@ -97,7 +110,7 @@ if [[ "$KIOSK_MODE" == "student" ]]; then
   KIOSK_POWER_ON="${KIOSK_POWER_ON:-07:30}"
   KIOSK_POWER_OFF="${KIOSK_POWER_OFF:-17:30}"
   KIOSK_MONITOR_AGENT_URL="${KIOSK_MONITOR_AGENT_URL:-${KIOSK_URL%/}/dashboard/monitor/agent}"
-  KIOSK_EXTENSION_URL="${KIOSK_EXTENSION_URL:-https://bngss.vercel.app/safe-browser-extension.zip}"
+  KIOSK_EXTENSION_URL="${KIOSK_EXTENSION_URL:-${KIOSK_URL%/}/safe-browser-extension.zip}"
 else
   KIOSK_MODE="door"
   KIOSK_URL="${KIOSK_URL:-https://bngss.vercel.app/kiosk}"
