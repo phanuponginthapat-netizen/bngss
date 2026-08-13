@@ -670,7 +670,7 @@ const FaceKioskPage = () => {
       cancelled = true;
       if (detectionLoopRef.current) clearTimeout(detectionLoopRef.current);
     };
-  }, [streaming, modelReady, screensaver, known, threshold, recordScan, camMode, qrOnly]);
+  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef]);
 
   // ===== QR Code fallback scan (รองรับกรณีสแกนหน้าไม่ติด) =====
   // อ่าน QR จากเฟรมวิดีโอเดียวกัน ใช้ native BarcodeDetector ถ้ามี
