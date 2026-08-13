@@ -428,14 +428,15 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     detectMetaRef.current = { misses: 0, stableHits: 0 };
     blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0 };
     (async () => {
+      if (personnelId) { setStudentId(personnelId); return; }
       const { data: s } = await supabase
-        .from("students").select("id").eq("student_code", studentCode).maybeSingle();
+        .from("students").select("id").eq("student_code", studentCode || "").maybeSingle();
       if (!s) { toast.error("ไม่พบนักเรียน"); onOpenChange(false); return; }
       setStudentId(s.id);
     })();
     return () => { stopCamera(); if (loopRef.current) { clearTimeout(loopRef.current); loopRef.current = null; } };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, studentCode]);
+  }, [open, studentCode, personnelId]);
 
 
   const startCamera = async (mode: "user" | "environment" = facingMode, deviceId?: string) => {
