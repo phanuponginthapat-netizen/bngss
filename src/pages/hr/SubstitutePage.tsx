@@ -371,15 +371,18 @@ const SubstitutePage = () => {
   // Commit a single pick to DB + send notifications
   const commitOne = async ({ originalName, gap, teacher }: { originalName: string; gap: any; teacher: any }) => {
     const teacherName = fullName(teacher);
-    const { error } = await supabase.from("substitute_teaching").insert({
-      original_teacher: originalName,
-      substitute_teacher: teacherName,
-      teaching_date: selectedDate,
-      period: String(gap.period),
-      subject_id: gap.subject_id,
-      classroom_id: gap.classroom_id,
-      status: "confirmed",
-    } as any);
+    const { error } = await (supabase.from("substitute_teaching") as any).upsert(
+      {
+        original_teacher: originalName,
+        substitute_teacher: teacherName,
+        teaching_date: selectedDate,
+        period: String(gap.period),
+        subject_id: gap.subject_id,
+        classroom_id: gap.classroom_id,
+        status: "confirmed",
+      },
+      { onConflict: "teaching_date,period,classroom_id" }
+    );
     if (error) throw error;
 
     const sched = allSchedules.find(
