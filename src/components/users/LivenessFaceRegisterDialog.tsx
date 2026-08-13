@@ -754,25 +754,48 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           .slice(0, MAX_SAMPLES);
         const finalSamples = picked.length >= MIN_SAMPLES ? picked : usable.slice(0, MAX_SAMPLES);
 
-        // ---- 2) ตรวจสอบใบหน้าซ้ำกับนักเรียนคนอื่นในระบบ (กันจำผิดคน) ----
+        // ---- 2) ตรวจสอบใบหน้าซ้ำกับผู้อื่นในระบบ (กันจำผิดคน) ----
         const descriptorArrays = finalSamples.map((sm) => Array.from(sm.descriptor));
 
-        const { data: dup, error: dupErr } = await supabase.rpc("check_face_duplicate", {
-          _student_id: studentId,
-          _descriptors: descriptorArrays,
-          _threshold: DUPLICATE_THRESHOLD,
-        });
-        if (dupErr) throw dupErr;
-        const hit = Array.isArray(dup) ? (dup as DuplicateFaceMatch[])[0] : null;
-        if (hit) {
-          setBlockedMsg(
-            `ใบหน้านี้ตรงกับผู้ที่ลงทะเบียนไว้แล้ว: ${hit.match_name ?? ""} (${hit.match_code ?? "-"}) ` +
-            `ระยะห่าง ${Number(hit.min_distance).toFixed(3)} — ระบบไม่อนุญาตให้ลงทะเบียนซ้ำ กรุณาติดต่อเจ้าหน้าที่`,
-          );
-          throw new Error("ใบหน้าซ้ำกับผู้อื่นในระบบ");
+        if (!isPersonnel) {
+          const { data: dup, error: dupErr } = await supabase.rpc("check_face_duplicate", {
+            _student_id: studentId,
+            _descriptors: descriptorArrays,
+            _threshold: DUPLICATE_THRESHOLD,
+          });
+          if (dupErr) throw dupErr;
+          const hit = Array.isArray(dup) ? (dup as DuplicateFaceMatch[])[0] : null;
+          if (hit) {
+            setBlockedMsg(
+              `ใบหน้านี้ตรงกับผู้ที่ลงทะเบียนไว้แล้ว: ${hit.match_name ?? ""} (${hit.match_code ?? "-"}) ` +
+              `ระยะห่าง ${Number(hit.min_distance).toFixed(3)} — ระบบไม่อนุญาตให้ลงทะเบียนซ้ำ กรุณาติดต่อเจ้าหน้าที่`,
+            );
+            throw new Error("ใบหน้าซ้ำกับผู้อื่นในระบบ");
+          }
         }
 
-        if (submitMode === "request") {
+        if (isPersonnel) {
+          // ---- โหมดบุคลากร: บันทึกลง personnel_face_descriptors ทันที ----
+          const { data: ex } = await (supabase as any)
+            .from("personnel_face_descriptors")
+            .select("sample_index")
+            .eq("personnel_id", personnelId)
+            .order("sample_index", { ascending: false }).limit(1);
+          let nextP = ex && ex[0] ? ex[0].sample_index + 1 : 0;
+          const rowsP = finalSamples.map((sm) => ({
+            personnel_id: personnelId,
+            sample_index: nextP++,
+            descriptor: Array.from(sm.descriptor),
+            quality_score: sm.metrics.sharpness,
+            face_image: sm.image,
+            metrics: sm.metrics,
+            captured_by: user?.id,
+            source: "liveness_wizard",
+          }));
+          const { error } = await (supabase as any).from("personnel_face_descriptors").insert(rowsP);
+          if (error) throw error;
+          toast.success(`ลงทะเบียนใบหน้าบุคลากรสำเร็จ ${rowsP.length} ภาพ`);
+        } else if (submitMode === "request") {
           // ---- โหมดนักเรียนลงทะเบียนเอง: บันทึกและใช้งานได้ทันที ----
           const ts = Date.now();
           const photo_urls: string[] = [];
