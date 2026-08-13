@@ -131,6 +131,7 @@ export function clearBackendConfig() {
 
 /** ทดสอบว่า URL + anon key ใช้งานได้จริง (ใช้ได้กับ self-hosted ด้วย) */
 export async function testBackendConnection(url: string, anonKey: string) {
+  if (isBlockedBackendUrl(url)) throw new Error("ไม่อนุญาตให้เชื่อมต่อ Lovable Cloud");
   const base = url.replace(/\/+$/, "");
   const res = await fetch(`${base}/rest/v1/?apikey=${encodeURIComponent(anonKey)}`, {
     headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
