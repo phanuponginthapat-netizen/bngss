@@ -89,6 +89,18 @@ PYEOF
 fi
 # ------------------------------------------------------------
 
+# ปรับ URL ให้ตรงโหมด — CMS เก็บ kioskUrl ค่าเดียว (มักเป็นหน้า /kiosk ของโหมด door)
+if [[ -n "${KIOSK_URL:-}" ]]; then
+  _u="${KIOSK_URL%/}"
+  if [[ "$KIOSK_MODE" == "student" && "$_u" == */kiosk ]]; then
+    KIOSK_URL="${_u%/kiosk}/"
+    echo "► student mode: ปรับ URL → $KIOSK_URL"
+  elif [[ "$KIOSK_MODE" == "door" && "$_u" != */kiosk ]]; then
+    KIOSK_URL="$_u/kiosk"
+    echo "► door mode: ปรับ URL → $KIOSK_URL"
+  fi
+fi
+
 # ค่า default แยกตามโหมด
 if [[ "$KIOSK_MODE" == "student" ]]; then
   KIOSK_URL="${KIOSK_URL:-https://bngss.vercel.app/}"
