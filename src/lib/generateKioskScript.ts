@@ -14,6 +14,8 @@ export interface KioskScriptConfig {
   idleShutdownMin?: number;     // student: shutdown after N min idle (0 = off)
   powerOn?: string;             // "HH:MM" BIOS RTC wake (empty = off)
   powerOff?: string;            // "HH:MM" scheduled shutdown (empty = off)
+  battCritical?: number;         // % ต่ำสุดก่อน shutdown ปลอดภัย (0 = ปิด)
+  battChargeMax?: number;        // จำกัดชาร์จสูงสุด % (0 = ไม่จำกัด)
   monitorAgentUrl?: string;
   schoolName?: string;
 }
@@ -93,6 +95,18 @@ export function generateKioskSetupScript(cfg: KioskScriptConfig): string {
     out = out.replace(
       /KIOSK_POWER_OFF="\$\{KIOSK_POWER_OFF:-[^"]*\}"/g,
       `KIOSK_POWER_OFF="\${KIOSK_POWER_OFF:-${escape(cfg.powerOff)}}"`,
+    );
+  }
+  if (cfg.battCritical !== undefined) {
+    out = out.replace(
+      /KIOSK_BATT_CRITICAL="\$\{KIOSK_BATT_CRITICAL:-[^"}]*\}"/,
+      `KIOSK_BATT_CRITICAL="\${KIOSK_BATT_CRITICAL:-${cfg.battCritical}}"`,
+    );
+  }
+  if (cfg.battChargeMax !== undefined) {
+    out = out.replace(
+      /KIOSK_BATT_CHARGE_MAX="\$\{KIOSK_BATT_CHARGE_MAX:-[^"}]*\}"/,
+      `KIOSK_BATT_CHARGE_MAX="\${KIOSK_BATT_CHARGE_MAX:-${cfg.battChargeMax}}"`,
     );
   }
   if (cfg.monitorAgentUrl && cfg.mode === "student") {
