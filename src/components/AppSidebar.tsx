@@ -253,6 +253,7 @@ export function AppSidebar() {
     { title: L("ทำเนียบสมาชิก", "Members"), url: "/dashboard/members", icon: Users, color: "text-emerald-400", desc: L("ค้นหาสมาชิกและดูผลงาน", "Browse members & portfolios") },
     { title: L("บันทึกเวลาปฏิบัติงาน", "Time Clock"), url: "/dashboard/hr/time-clock", icon: Clock, color: "text-amber-400", roles: ["admin", "director", "teacher"], desc: L("บันทึกเวลาเข้า-ออกงาน", "Staff check-in / check-out") },
     { title: L("เช็คชื่อนักเรียน", "Student Check-in"), url: "/dashboard/student/face-scan", icon: ScanFace, color: "text-cyan-400", roles: ["admin", "director", "teacher"], desc: L("เช็คชื่อด้วยใบหน้า/QR แจ้ง LINE ผู้ปกครอง", "Face/QR check-in + LINE notify") },
+    { title: L("ลงทะเบียนใบหน้าบุคลากร", "Staff Face Enrollment"), url: "/dashboard/student/face-scan?tab=staff", icon: ScanFace, color: "text-indigo-400", roles: ["admin", "director", "teacher"], desc: L("ลงทะเบียนใบหน้าครูและบุคลากรเพื่อทดสอบ/สแกนเข้าโรงเรียน", "Enroll staff faces for test/check-in") },
     { title: L("ลงทะเบียนใบหน้าของฉัน", "My Face Enrollment"), url: "/dashboard/student/my-face", icon: ScanFace, color: "text-fuchsia-400", roles: ["student"], desc: L("ลงทะเบียนใบหน้าเพื่อสแกนเข้าโรงเรียน", "Enroll your face for check-in") },
     // ── ทางลัดใช้บ่อย (ดึงออกจากฝ่าย เพื่อความเร็ว) ──
     { title: L("ตารางเรียน/ตารางสอน", "Schedule"), url: "/dashboard/academic/schedule", icon: Calendar, color: "text-orange-400", roles: ["admin", "director", "teacher", "student"], desc: L("ตารางเรียนของนักเรียนและตารางสอนของครู", "Class & teaching schedule") },
@@ -817,6 +818,7 @@ export function AppSidebar() {
               items: take([
                 "/dashboard/hr/time-clock",
                 "/dashboard/student/face-scan",
+                "/dashboard/student/face-scan?tab=staff",
                 "/dashboard/student/attendance",
                 "/dashboard/student/behavior",
                 "/dashboard/student/leave",
