@@ -110,7 +110,7 @@ if [[ "$KIOSK_MODE" == "student" ]]; then
   KIOSK_POWER_ON="${KIOSK_POWER_ON:-07:30}"
   KIOSK_POWER_OFF="${KIOSK_POWER_OFF:-17:30}"
   KIOSK_MONITOR_AGENT_URL="${KIOSK_MONITOR_AGENT_URL:-${KIOSK_URL%/}/dashboard/monitor/agent}"
-  KIOSK_EXTENSION_URL="${KIOSK_EXTENSION_URL:-https://bngss.vercel.app/safe-browser-extension.zip}"
+  KIOSK_EXTENSION_URL="${KIOSK_EXTENSION_URL:-${KIOSK_URL%/}/safe-browser-extension.zip}"
 else
   KIOSK_MODE="door"
   KIOSK_URL="${KIOSK_URL:-https://bngss.vercel.app/kiosk}"
