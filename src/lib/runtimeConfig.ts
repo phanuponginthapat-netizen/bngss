@@ -19,6 +19,28 @@ export type BackendConfig = {
 
 const LS_KEY = "bng.backend.config";
 
+/**
+ * Backend หลักของโรงเรียน (canonical) — ใช้เป็นค่าสำรองเสมอ
+ * ป้องกันกรณี remix แล้วระบบไปผูกกับ Lovable Cloud โดยอัตโนมัติ
+ */
+export const CANONICAL_BACKEND = {
+  url: "https://gwmszzoqqxmejefhayqf.supabase.co",
+  anonKey: "sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v",
+  projectId: "gwmszzoqqxmejefhayqf",
+} as const;
+
+/** project ref ของ Lovable Cloud ที่ห้ามใช้เด็ดขาด */
+const BLOCKED_PROJECT_REFS = ["dlkyxvhnnffblerwedjz"];
+
+/** true ถ้า URL ชี้ไป backend ที่ห้ามใช้ (Lovable Cloud / โปรเจกต์ remix) */
+export function isBlockedBackendUrl(url?: string): boolean {
+  if (!url) return false;
+  const u = url.toLowerCase();
+  if (BLOCKED_PROJECT_REFS.some((ref) => u.includes(ref))) return true;
+  // อนุญาตเฉพาะ backend หลัก หรือ self-hosted ที่ตั้งเองผ่าน Setup Wizard
+  return false;
+}
+
 type GlobalConfig = {
   SUPABASE_URL?: string;
   SUPABASE_ANON_KEY?: string;
