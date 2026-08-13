@@ -406,7 +406,7 @@ export default function BrowserLogsPage() {
                           <TableCell className="text-xs whitespace-nowrap">{new Date(r.created_at).toLocaleString("th-TH")}</TableCell>
                           <TableCell className="text-sm">{[r.profile?.first_name, r.profile?.last_name].filter(Boolean).join(" ") || r.user_id.slice(0, 8)}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">{r.classroom_name ?? "-"}</TableCell>
-                          <TableCell>{r.action === "visit" ? <Badge variant="secondary">เข้าชม</Badge> : r.action === "ad_blocked" ? <Badge className="bg-amber-500">บล็อกโฆษณา</Badge> : <Badge variant="destructive">บล็อก</Badge>}</TableCell>
+                          <TableCell>{r.action === "visit" ? <Badge variant="secondary">เข้าชม</Badge> : r.action === "ad_blocked" ? <Badge className="bg-amber-500">บล็อกโฆษณา</Badge> : r.action === "time_blocked" ? <Badge className="bg-sky-600">บล็อกช่วงเวลา</Badge> : r.action === "keyword_blocked" ? <Badge className="bg-rose-600">บล็อกคำต้องห้าม</Badge> : <Badge variant="destructive">บล็อก</Badge>}</TableCell>
                           <TableCell className="text-xs">{r.domain}</TableCell>
                           <TableCell className="text-xs max-w-[280px] truncate" title={r.url}>{r.url}</TableCell>
                           <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate" title={r.reason ?? ""}>{r.reason ?? "-"}</TableCell>
