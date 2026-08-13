@@ -105,11 +105,10 @@ const StaffFaceTab = () => {
   const known: KnownFace[] = grouped.map((g) => ({
     studentId: g.personnel_id,
     descriptors: g.descriptors,
-    name: fullName(g),
-    classroom: g.position || "บุคลากร",
-    studentCode: g.employee_code || "",
-    avatarUrl: g.face_image || null,
-  })) as any;
+  }));
+  const infoById = new Map<string, { name: string; code: string }>(
+    grouped.map((g) => [g.personnel_id, { name: fullName(g), code: g.employee_code || "" }]),
+  );
 
   const stopCamera = () => {
     cancelRef.current = true;
@@ -155,7 +154,8 @@ const StaffFaceTab = () => {
           const rb = det.detection.box;
           const box = { x: canvas.width - rb.x - rb.width, y: rb.y, width: rb.width, height: rb.height };
           const m = matchDescriptor(det.descriptor, known, 0.45);
-          const hit = m.studentId ? known.find((k) => k.studentId === m.studentId) : null;
+          const hitId = m.studentId;
+          const hit = hitId ? infoById.get(hitId) : null;
           const sharp = estimateFaceSharpness(video, box);
           drawFaceFrame(ctx, {
             box,
@@ -164,11 +164,11 @@ const StaffFaceTab = () => {
           } as any);
           if (hit) {
             setResults((prev) => {
-              if (prev[0]?.id === hit.studentId && Date.now() - new Date(prev[0].time).getTime() < 5000) return prev;
+              if (prev[0]?.id === hitId && Date.now() - new Date(prev[0].time).getTime() < 5000) return prev;
               return [{
-                id: hit.studentId,
+                id: hitId!,
                 name: hit.name,
-                code: hit.studentCode,
+                code: hit.code,
                 distance: m.distance ?? 0,
                 confidence: m.confidence,
                 time: new Date().toISOString(),
