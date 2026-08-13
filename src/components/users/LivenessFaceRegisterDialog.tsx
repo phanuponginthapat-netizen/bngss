@@ -22,13 +22,16 @@ import CameraFocusLockToggle from "@/components/mobile/CameraFocusLockToggle";
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  studentCode: string;
+  /** รหัสนักเรียน (โหมดนักเรียน) — ไม่ต้องส่งเมื่อใช้โหมดบุคลากร */
+  studentCode?: string;
   displayName: string;
   onComplete?: () => void;
   /** "direct" = บันทึกลงฐานข้อมูลทันที (เจ้าหน้าที่) · "request" = ส่งคำขอรออนุมัติ (นักเรียนลงทะเบียนเอง) */
   submitMode?: "direct" | "request";
   /** เหตุผล (ใช้เมื่อเป็นการลงทะเบียนใหม่ในโหมดคำขอ) */
   reason?: string;
+  /** โหมดบุคลากร: ส่ง id ของบุคลากร แล้วระบบจะบันทึกลง personnel_face_descriptors */
+  personnelId?: string;
 }
 
 /** ระยะห่าง "ค่ากลาง" สูงสุดที่ยอมรับได้ระหว่างตัวอย่างของคนเดียวกัน
