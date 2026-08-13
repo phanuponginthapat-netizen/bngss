@@ -818,6 +818,7 @@ export function AppSidebar() {
               items: take([
                 "/dashboard/hr/time-clock",
                 "/dashboard/student/face-scan",
+                "/dashboard/student/face-scan?tab=staff",
                 "/dashboard/student/attendance",
                 "/dashboard/student/behavior",
                 "/dashboard/student/leave",
