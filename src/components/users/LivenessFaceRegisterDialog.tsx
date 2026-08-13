@@ -74,7 +74,7 @@ interface Step {
 
 const STEPS: Step[] = [
   { key: "center",  label: "จัดหน้าให้ตรงกรอบ",        hint: "มองตรงมาที่กล้อง จนกรอบล็อกเป็นสีเขียว", icon: ScanFace },
-  { key: "blink",   label: "กะพริบตา 2 ครั้ง",           hint: "มองที่กล้องแล้วกะพริบตาช้าๆ",        icon: Eye },
+  { key: "blink",   label: "กะพริบตา 1 ครั้ง",           hint: "มองที่กล้องแล้วกะพริบตาตามปกติ",     icon: Eye },
   { key: "left",    label: "หันหน้าไปทางซ้าย",          hint: "หันช้าๆ ประมาณ 30 องศา",            icon: ArrowLeft },
   { key: "right",   label: "หันหน้าไปทางขวา",           hint: "หันช้าๆ ประมาณ 30 องศา",            icon: ArrowRight },
   { key: "color",   label: "Color Challenge (กันรูปปลอม)", hint: "หน้าจอจะสลับสี ให้มองที่กล้อง",   icon: Sparkles },
@@ -572,8 +572,8 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         // ปรับค่าฐาน EAR ต่อคน (ใช้ค่าตอนลืมตาปกติ) — อัปเดตต่อเนื่องกันค่าเพี้ยน
         if (st.baseline === 0) {
           st.samples.push(ear);
-          if (st.samples.length < 5) {
-            setStatusMsg(`กำลังปรับค่าดวงตา... (${st.samples.length}/5) ลืมตาปกติ`);
+          if (st.samples.length < 3) {
+            setStatusMsg(`กำลังปรับค่าดวงตา... (${st.samples.length}/3) ลืมตาปกติ`);
             break;
           }
           const sorted = [...st.samples].sort((a: number, b: number) => b - a);
@@ -585,9 +585,10 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         }
         st.minEar = Math.min(st.minEar, ear);
 
-        // ผ่อนเกณฑ์ให้จับกะพริบได้จริง (EAR ตอนหลับตาไม่ค่อยลงต่ำมากบนกล้องมือถือ)
-        const closeThr = st.baseline * 0.80;
-        const openThr = st.baseline * 0.90;
+        // กล้องหน้ามือถือมักทำให้ landmark เปลือกตาขยับน้อย จึงใช้การลดลงเทียบกับ
+        // baseline ของผู้ใช้แทนค่าตายตัว และยอมรับการปิดตาเพียงเฟรมเดียว
+        const closeThr = st.baseline * 0.86;
+        const openThr = st.baseline * 0.91;
         const elapsed = Date.now() - st.startedAt;
 
         if (ear < closeThr) {
@@ -598,31 +599,22 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           st.closed = false;
           st.closedFrames = 0;
           st.blinks += 1;
-          if (st.blinks === 1) setSamples((s) => [...s, captureSample(data!, "blink")]);
-          if (st.blinks >= 2) {
-            setStatusMsg("ตรวจการกะพริบตาผ่าน!");
-            setStepIdx((i) => i + 1);
-          } else {
-            setStatusMsg(`กะพริบแล้ว ${st.blinks}/2 — กะพริบอีกครั้ง`);
-          }
+          setSamples((s) => [...s, captureSample(data!, "blink")]);
+          setStatusMsg("ตรวจการกะพริบตาผ่าน!");
+          setStepIdx((i) => i + 1);
         } else {
           st.closedFrames = 0;
-          // กันค้าง: ถ้ากะพริบแล้ว 1 ครั้งและใช้เวลานาน ให้ผ่านได้
-          if (st.blinks >= 1 && elapsed > 12000) {
-            setStatusMsg("ตรวจการกะพริบตาผ่าน!");
-            setStepIdx((i) => i + 1);
-            break;
-          }
-          if (elapsed > 20000 && st.minEar < st.baseline * 0.88) {
+          // บางเครื่องพลาดเฟรมตอนลืมตากลับ แต่เห็นค่าตาปิดชัดเจนแล้ว ให้ผ่านได้
+          if (elapsed > 8000 && st.minEar < st.baseline * 0.89) {
             setSamples((s) => [...s, captureSample(data!, "blink")]);
             setStatusMsg("ตรวจการกะพริบตาผ่าน!");
             setStepIdx((i) => i + 1);
             break;
           }
           setStatusMsg(
-            elapsed > 8000
-              ? `กะพริบตาช้าๆ ชัดๆ หลับตา 1 วิแล้วลืม (${st.blinks}/2)`
-              : `มองที่กล้องแล้วกะพริบตา (${st.blinks}/2)`,
+            elapsed > 5000
+              ? "ลองกะพริบช้าๆ แล้วลืมตาตามปกติ"
+              : "มองที่กล้องแล้วกะพริบตา 1 ครั้ง",
           );
         }
         break;
