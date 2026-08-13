@@ -67,15 +67,19 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ชื่อ PWA ใช้ hero_title จาก CMS เป็นหลัก (ตรงกับที่แสดงบนหน้าแรก)
-  // fallback → school_name → schools table → default
-  const name = map.hero_title || map.school_name || schoolName || "ระบบจัดการโรงเรียน";
-  const shortName = map.school_short_name || schoolShort || (name.length > 12 ? name.slice(0, 12) : name);
-  const themeColor = map.theme_color || map.primary_color || "#2563EB";
+  // ชื่อ PWA ใช้ค่าจาก CMS (app_name) เป็นหลัก ให้ตรงกับ branding ฝั่งเว็บ
+  // fallback → hero_title → school_name → schools table → default
+  const name = map.app_name || map.hero_title || map.school_name || schoolName || "ระบบจัดการโรงเรียน";
+  // short_name: ถ้าไม่มีค่าใน CMS ให้ตัดที่ขอบคำ (ไม่ตัดกลางคำแบบ "BNG Smart Sc")
+  const autoShort = name.length > 12
+    ? (name.slice(0, 12).replace(/\s+\S*$/, "") || name.slice(0, 12)).trim()
+    : name;
+  const shortName = map.app_short_name || map.school_short_name || schoolShort || autoShort;
+  const themeColor = map.theme_color || map.primary_color || map.theme_primary_color || "#2563EB";
   const bgColor = map.background_color || "#FFFFFF";
   const description = map.hero_subtitle || map.school_description || `${name} — ระบบบริหารจัดการโรงเรียน`;
-  const logo512 = map.school_logo_512 || map.school_logo || schoolLogo;
-  const logo192 = map.school_logo || map.school_logo_512 || schoolLogo;
+  const logo512 = map.school_logo_512 || map.school_logo || map.app_favicon_url || schoolLogo;
+  const logo192 = map.school_logo || map.school_logo_512 || map.app_favicon_url || schoolLogo;
 
   // ถ้าไม่มีโลโก้ CMS ให้ใช้ไอคอน default ที่โฮสต์บน app origin
   const icon192 = logo192 || `${appOrigin}/icon-192.png`;
