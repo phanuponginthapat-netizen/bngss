@@ -194,17 +194,25 @@ const FaceKioskPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("student_face_descriptors")
-        .select("student_id, descriptor, students!inner(id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name))");
+        .select("student_id, descriptor, face_image, quality_score, students!inner(id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name))");
       if (error) throw error;
-      const map = new Map<string, KnownFace & { name: string; classroom: string; avatar?: string | null; studentCode: string }>();
+      const map = new Map<string, KnownFace & { name: string; classroom: string; avatar?: string | null; studentCode: string; registeredFace?: string | null }>();
       for (const row of data as any[]) {
         const id = row.student_id;
         const s = row.students;
         const name = `${s.prefix || ""}${s.first_name} ${s.last_name}`.trim();
         const cls = s.classrooms ? `${s.classrooms.grade_level || ""}/${s.classrooms.name || ""}` : "-";
         const existing = map.get(id);
-        if (existing) existing.descriptors.push(row.descriptor as number[]);
-        else map.set(id, { studentId: id, descriptors: [row.descriptor as number[]], name, classroom: cls, avatar: s.photo_url, studentCode: s.student_code || "" });
+        if (existing) {
+          existing.descriptors.push(row.descriptor as number[]);
+          if (!existing.registeredFace && row.face_image) existing.registeredFace = row.face_image;
+        } else {
+          map.set(id, {
+            studentId: id, descriptors: [row.descriptor as number[]], name, classroom: cls,
+            avatar: s.photo_url, studentCode: s.student_code || "",
+            registeredFace: row.face_image || null,
+          });
+        }
       }
       return Array.from(map.values());
     },
@@ -218,20 +226,23 @@ const FaceKioskPage = () => {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("personnel_face_descriptors")
-        .select("personnel_id, descriptor, personnel!inner(id, prefix, first_name, last_name, employee_code, position)");
+        .select("personnel_id, descriptor, face_image, personnel!inner(id, prefix, first_name, last_name, employee_code, position)");
       if (error) throw error;
       const map = new Map<string, any>();
       for (const row of (data as any[]) || []) {
         const id = row.personnel_id;
         const p = row.personnel;
         const existing = map.get(id);
-        if (existing) existing.descriptors.push(row.descriptor as number[]);
-        else map.set(id, {
+        if (existing) {
+          existing.descriptors.push(row.descriptor as number[]);
+          if (!existing.registeredFace && row.face_image) existing.registeredFace = row.face_image;
+        } else map.set(id, {
           studentId: id,
           descriptors: [row.descriptor as number[]],
           name: `${p.prefix || ""}${p.first_name} ${p.last_name}`.trim(),
           classroom: p.position || "บุคลากร",
-          avatar: null,
+          avatar: row.face_image || null,
+          registeredFace: row.face_image || null,
           studentCode: p.employee_code || "",
           isStaff: true,
         });
@@ -378,6 +389,7 @@ const FaceKioskPage = () => {
 
   const recordScan = useCallback(async (
     studentId: string, studentCode: string, name: string, classroom: string, avatar: string | null, confidence: number, capturedFace?: string,
+    enrolledFace?: string | null,
   ) => {
     const now = Date.now();
     const mode = scanModeRef.current;
@@ -481,7 +493,7 @@ const FaceKioskPage = () => {
       setTodayCounts((c) => ({ ...c, [mode]: c[mode] + 1 }));
     }
     // ใบหน้าที่ลงทะเบียนไว้ (ภาพตอนลงทะเบียน) — แสดงคู่กับใบหน้าที่สแกนได้
-    const registeredFace = await getRegisteredFaceImage(studentId, avatar);
+    const registeredFace = enrolledFace || (await getRegisteredFaceImage(studentId, avatar));
     setLastMatch({
       name, studentCode, classroom, confidence, scanType: mode,
       capturedFace, registeredFace,
@@ -622,7 +634,7 @@ const FaceKioskPage = () => {
                         confidence: m.confidence,
                         scanType: scanModeRef.current === "exit" ? "exit" : "entry",
                         capturedFace: captured,
-                        registeredFace: null,
+                        registeredFace: (found as any).registeredFace || null,
                         time: new Date().toLocaleTimeString("th-TH"),
                       });
                       setRecent((prev) => [{
@@ -630,14 +642,14 @@ const FaceKioskPage = () => {
                         studentCode: found.studentCode || "-",
                         name: `${found.name} (บุคลากร)`,
                         classroom: found.classroom,
-                        avatar: null,
+                        avatar: (found as any).registeredFace || null,
                         capturedFace: captured,
                         time: new Date().toLocaleTimeString("th-TH"),
                         confidence: m.confidence,
                       }, ...prev].slice(0, 20));
                     }
                   } else {
-                    await recordScan(found.studentId, found.studentCode, found.name, found.classroom, found.avatar, m.confidence, captured);
+                    await recordScan(found.studentId, found.studentCode, found.name, found.classroom, found.avatar, m.confidence, captured, (found as any).registeredFace);
                     // เรียนรู้ใบหน้าอัตโนมัติจากการสแกนจริงหน้าคีออส
                     learnFromScan({
                       studentId: found.studentId,
