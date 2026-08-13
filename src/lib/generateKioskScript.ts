@@ -69,7 +69,7 @@ export function generateKioskSetupScript(cfg: KioskScriptConfig): string {
   }
   if (cfg.dailyReboot !== undefined) {
     out = out.replace(
-      /KIOSK_DAILY_REBOOT="\$\{KIOSK_DAILY_REBOOT:-[^"]*\}"/g,
+      /KIOSK_DAILY_REBOOT="\$\{KIOSK_DAILY_REBOOT:?-[^"]*\}"/g,
       `KIOSK_DAILY_REBOOT="\${KIOSK_DAILY_REBOOT:-${escape(cfg.dailyReboot)}}"`,
     );
   }
@@ -87,13 +87,13 @@ export function generateKioskSetupScript(cfg: KioskScriptConfig): string {
   }
   if (cfg.powerOn !== undefined) {
     out = out.replace(
-      /KIOSK_POWER_ON="\$\{KIOSK_POWER_ON:-[^"]*\}"/g,
+      /KIOSK_POWER_ON="\$\{KIOSK_POWER_ON:?-[^"]*\}"/g,
       `KIOSK_POWER_ON="\${KIOSK_POWER_ON:-${escape(cfg.powerOn)}}"`,
     );
   }
   if (cfg.powerOff !== undefined) {
     out = out.replace(
-      /KIOSK_POWER_OFF="\$\{KIOSK_POWER_OFF:-[^"]*\}"/g,
+      /KIOSK_POWER_OFF="\$\{KIOSK_POWER_OFF:?-[^"]*\}"/g,
       `KIOSK_POWER_OFF="\${KIOSK_POWER_OFF:-${escape(cfg.powerOff)}}"`,
     );
   }
