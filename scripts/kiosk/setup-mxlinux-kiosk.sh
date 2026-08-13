@@ -36,6 +36,17 @@ KIOSK_WIFI_PASS="${KIOSK_WIFI_PASS:-}"
 CMS_BASE="${CMS_BASE:-https://gwmszzoqqxmejefhayqf.supabase.co}"
 CMS_ANON_KEY="${CMS_ANON_KEY:-sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v}"
 
+# ── Backend guard — ต้องเป็น backend ของโรงเรียนเท่านั้น ห้าม Lovable Cloud ──
+CANONICAL_BACKEND="https://gwmszzoqqxmejefhayqf.supabase.co"
+case "$CMS_BASE" in
+  *lovableproject.com*|*lovable.dev*|*dlkyxvhnnffblerwedjz*)
+    echo "⚠  CMS_BASE ชี้ไป Lovable Cloud ($CMS_BASE) — บังคับกลับเป็น backend โรงเรียน"
+    CMS_BASE="$CANONICAL_BACKEND"
+    CMS_ANON_KEY="sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v"
+    ;;
+esac
+echo "► Backend: $CMS_BASE"
+
 # ทำให้ python3 พร้อมใช้ก่อน — บาง MX Linux minimal ไม่มี python3
 if ! command -v python3 >/dev/null 2>&1; then
   echo "► ติดตั้ง python3 (จำเป็นสำหรับ parse CMS config)..."
@@ -309,6 +320,35 @@ USER = os.environ.get("KIOSK_USER","")
 DISPLAY = os.environ.get("DISPLAY", ":0")
 XAUTH = f"/home/{USER}/.Xauthority" if USER else ""
 
+def read_battery():
+    """อ่านสถานะแบตเตอรี่จาก /sys/class/power_supply"""
+    base = "/sys/class/power_supply"
+    out = {"present": False}
+    try:
+        for name in sorted(os.listdir(base)):
+            if not name.upper().startswith("BAT"):
+                continue
+            d = os.path.join(base, name)
+            def rd(f):
+                try:
+                    return open(os.path.join(d, f)).read().strip()
+                except Exception:
+                    return None
+            out = {
+                "present": True,
+                "name": name,
+                "percent": int(rd("capacity") or 0),
+                "status": rd("status"),
+                "charge_limit": rd("charge_control_end_threshold"),
+            }
+            break
+        ac = os.path.join(base, "AC")
+        if os.path.exists(ac):
+            out["on_ac"] = (open(os.path.join(ac, "online")).read().strip() == "1")
+    except Exception:
+        pass
+    return out
+
 def sh(cmd):
     try: subprocess.Popen(cmd, env={**os.environ, "DISPLAY": DISPLAY, "XAUTHORITY": XAUTH})
     except Exception as e: print("err", e)
@@ -325,7 +365,10 @@ class H(BaseHTTPRequestHandler):
         if body: self.wfile.write(body)
     def do_OPTIONS(self): self._ok()
     def do_GET(self):
-        if self.path == "/status": return self._ok(200, json.dumps({"ok":True}).encode())
+        if self.path == "/status":
+            return self._ok(200, json.dumps({"ok":True, "battery": read_battery()}).encode())
+        if self.path == "/battery":
+            return self._ok(200, json.dumps(read_battery()).encode())
         return self._ok(404)
     def do_POST(self):
         length = int(self.headers.get("Content-Length") or 0)
@@ -555,6 +598,24 @@ POLICY=$(cat <<JSON
   "DefaultNotificationsSetting": 1,
   "NotificationsAllowedForUrls": ["$KIOSK_ORIGIN"],
   "DefaultGeolocationSetting": 1,
+  "GeolocationAllowedForUrls": ["$KIOSK_ORIGIN"],
+  "DefaultSensorsSetting": 1,
+  "SensorsAllowedForUrls": ["$KIOSK_ORIGIN"],
+  "DefaultClipboardSetting": 1,
+  "ClipboardAllowedForUrls": ["$KIOSK_ORIGIN"],
+  "DefaultFileSystemReadGuardSetting": 1,
+  "FileSystemReadAskForUrls": ["$KIOSK_ORIGIN"],
+  "DefaultFileSystemWriteGuardSetting": 1,
+  "FileSystemWriteAskForUrls": ["$KIOSK_ORIGIN"],
+  "DefaultPopupsSetting": 1,
+  "PopupsAllowedForUrls": ["$KIOSK_ORIGIN"],
+  "DefaultWebBluetoothGuardSetting": 2,
+  "DefaultWebUsbGuardSetting": 2,
+  "DefaultSerialGuardSetting": 2,
+  "PermissionsPolicyUnloadDefaultEnabled": true,
+  "IncognitoModeAvailability": 1,
+  "DeveloperToolsAvailability": 2,
+  "BrowserGuestModeEnabled": false,
   "PasswordManagerEnabled": false,
   "AutofillAddressEnabled": false,
   "AutofillCreditCardEnabled": false,
@@ -567,7 +628,8 @@ POLICY=$(cat <<JSON
   "ComponentUpdatesEnabled": false,
   "PromptForDownloadLocation": false,
   "HardwareAccelerationModeEnabled": true,
-  "URLBlocklist": ["chrome://settings", "chrome://flags"]
+  "URLBlocklist": ["chrome://settings", "chrome://flags", "chrome://policy", "chrome://extensions", "file://*"],
+  "URLAllowlist": ["$KIOSK_ORIGIN"]
 }
 JSON
 )
