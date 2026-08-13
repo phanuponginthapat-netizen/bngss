@@ -81,7 +81,7 @@ sudo reboot
 14. **Daily reboot**
 15. **Battery guard** — จำกัดชาร์จ (`charge_control_end_threshold`), เขียนสถานะที่ `/run/kiosk-battery.json`, แบตวิกฤต → shutdown ปลอดภัย
 16. **Power schedule** — ปิดเครื่องตามเวลา + ตั้ง BIOS RTC wakealarm ให้เปิดเองตอนเช้า (re-arm ทุก 10 นาที + ก่อน shutdown ทุกครั้ง) พร้อม sync เวลา/RTC=UTC
-17. **สิทธิ์เบราว์เซอร์** — managed policy อนุญาต กล้อง/ไมค์/ตำแหน่ง/แจ้งเตือน/แชร์หน้าจอ เฉพาะโดเมนระบบ, บล็อก USB/Bluetooth/Serial/DevTools/incognito
+17. **สิทธิ์เบราว์เซอร์** — managed policy อนุญาต กล้อง/ไมค์/ตำแหน่ง/แจ้งเตือน/แชร์หน้าจอ เฉพาะโดเมนระบบ, อนุญาต USB (WebUSB ถามก่อนใช้), บล็อก Bluetooth/Serial/DevTools/incognito
 18. **Backend guard** — บังคับใช้ backend ของโรงเรียนเท่านั้น (ถ้าชี้ไป Lovable Cloud จะถูกเปลี่ยนกลับอัตโนมัติ)
 
 ## ตรวจสอบ / Debug

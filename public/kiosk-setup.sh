@@ -615,7 +615,8 @@ POLICY=$(cat <<JSON
   "DefaultPopupsSetting": 1,
   "PopupsAllowedForUrls": ["$KIOSK_ORIGIN"],
   "DefaultWebBluetoothGuardSetting": 2,
-  "DefaultWebUsbGuardSetting": 2,
+  "DefaultWebUsbGuardSetting": 3,
+  "WebUsbAskForUrls": ["$KIOSK_ORIGIN"],
   "DefaultSerialGuardSetting": 2,
   "PermissionsPolicyUnloadDefaultEnabled": true,
   "IncognitoModeAvailability": 1,
@@ -1113,17 +1114,10 @@ EOF
   for pkg in synaptic gnome-software mintinstall software-properties-gtk; do
     apt-get purge -y "$pkg" >/dev/null 2>&1 || true
   done
-  #    - ปิด USB autorun + block execution จาก /media /mnt (student ใช้ USB ได้แค่อ่านไฟล์ ไม่รันโปรแกรม)
-  cat >/etc/systemd/system/kiosk-mount-noexec.service <<'EOF'
-[Unit]
-Description=Force noexec on /media and /mnt
-[Service]
-Type=oneshot
-ExecStart=/bin/bash -c 'for m in /media /mnt; do mount -o remount,noexec,nosuid,nodev "$m" 2>/dev/null || true; done'
-[Install]
-WantedBy=multi-user.target
-EOF
-  systemctl enable kiosk-mount-noexec.service >/dev/null 2>&1 || true
+  #    - USB: ไม่บล็อก (เสียบใช้งานได้ตามปกติ) — ถอด service เดิมถ้าเคยติดตั้งไว้
+  systemctl disable --now kiosk-mount-noexec.service >/dev/null 2>&1 || true
+  rm -f /etc/systemd/system/kiosk-mount-noexec.service
+
 
   #    - ล็อค XFCE ไม่ให้เพิ่ม launcher/right-click desktop
   mkdir -p "$USER_HOME/.config/xfce4/xfconf/xfce-perchannel-xml"
@@ -1135,7 +1129,7 @@ EOF
     <property name="file-icons" type="empty">
       <property name="show-home" type="bool" value="false"/>
       <property name="show-filesystem" type="bool" value="false"/>
-      <property name="show-removable" type="bool" value="false"/>
+      <property name="show-removable" type="bool" value="true"/>
       <property name="show-trash" type="bool" value="false"/>
     </property>
   </property>
@@ -1480,9 +1474,9 @@ EOF
 # ถอน screensaver / thumbnailer / indexer
 apt-get purge -y xscreensaver light-locker tumbler tracker baloo-kf5 2>/dev/null || true
 
-# ปิด USB automount popup
+# USB: เปิด automount ให้เสียบใช้งานได้ปกติ (ไม่บล็อก)
 sudo -u "$KIOSK_USER" DISPLAY=:0 dbus-launch --exit-with-session \
-  xfconf-query -c thunar-volman -p /automount-drives/enabled -s false 2>/dev/null || true
+  xfconf-query -c thunar-volman -p /automount-drives/enabled -s true --create -t bool 2>/dev/null || true
 
 # MX updater popup
 touch "$USER_HOME/.config/mx-updater-disabled" || true
