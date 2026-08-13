@@ -574,17 +574,20 @@ const FaceKioskPage = () => {
               const inCooldown = found ? (tNow - (cooldownRef.current.get(found.studentId) || 0) < 30_000) : false;
               const color = !found
                 ? (tooSmall ? "#94a3b8" : tooBlurry ? "#64748b" : (ambiguous || lowConfidence) ? "#eab308" : "#f97316")
+                : isStaffHit ? "#2563eb"
                 : justScanned ? "#16a34a" : inCooldown ? "#10b981" : "#22c55e";
 
               const label = found
-                ? `${found.name}${justScanned ? " ✓ บันทึกแล้ว" : ""}`
+                ? `${isStaffHit ? "👤 " : ""}${found.name}${isStaffHit ? " (บุคลากร)" : justScanned ? " ✓ บันทึกแล้ว" : ""}`
                 : tooSmall ? "ขยับเข้าใกล้กล้อง"
                 : tooBlurry ? "ภาพเบลอ ให้นิ่งสักครู่"
                 : ambiguous ? "กำลังยืนยันตัวตน..."
                 : lowConfidence ? `มั่นใจ ${Math.round(m.confidence * 100)}% • ต้อง ≥ ${Math.round(MIN_CONFIDENCE * 100)}%`
                 : "ไม่พบในระบบ";
               const sublabel = found
-                ? `เลขที่ ${found.studentCode || "-"} • ชั้น ${found.classroom} • ${Math.round(m.confidence * 100)}% (Δ${m.margin.toFixed(2)}, ช ${Math.round(sharpness)})`
+                ? isStaffHit
+                  ? `บุคลากร ${found.studentCode || "-"} • ${found.classroom} • ${Math.round(m.confidence * 100)}% (ทดสอบ — ไม่บันทึก)`
+                  : `เลขที่ ${found.studentCode || "-"} • ชั้น ${found.classroom} • ${Math.round(m.confidence * 100)}% (Δ${m.margin.toFixed(2)}, ช ${Math.round(sharpness)})`
                 : tooSmall ? `ใบหน้าเล็ก ${Math.round(faceSize)}px`
                 : tooBlurry ? `ความคมชัด ${Math.round(sharpness)} • ต้อง ≥ ${MIN_SHARPNESS}`
                 : ambiguous ? `ห่าง ${m.margin.toFixed(2)} • ต้อง ≥ ${MIN_MARGIN}`
@@ -592,6 +595,7 @@ const FaceKioskPage = () => {
                 : "กรุณาลงทะเบียน";
 
               drawFaceFrame(ctx, { box, label, sublabel, matched: !!found, confidence: m.confidence, color });
+
 
               if (found) {
                 // นับเฟรมยืนยันก่อนบันทึก
