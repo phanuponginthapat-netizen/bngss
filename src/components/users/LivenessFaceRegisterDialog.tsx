@@ -240,20 +240,27 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
       if (!v || !cv) return;
       const vw = v.videoWidth, vh = v.videoHeight;
       if (!vw || !vh) return;
-      if (cv.width !== vw || cv.height !== vh) {
-        cv.width = vw;
-        cv.height = vh;
+      // ขนาดจริงบนหน้าจอ (วิดีโอใช้ object-cover → ต้อง map พิกัดให้ตรงกับส่วนที่มองเห็น)
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const cwCss = cv.clientWidth || vw;
+      const chCss = cv.clientHeight || vh;
+      const cw = Math.round(cwCss * dpr);
+      const ch = Math.round(chCss * dpr);
+      if (cv.width !== cw || cv.height !== ch) {
+        cv.width = cw;
+        cv.height = ch;
       }
       const ctx = cv.getContext("2d");
       if (!ctx) return;
-      ctx.clearRect(0, 0, vw, vh);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, cw, ch);
 
-      const unitG = Math.max(1, vw / 480);
       const locked = state === "good";
+      const unitG = Math.max(1, cw / 480);
 
-      // ---- วงรีไกด์ระยะ (อยู่กลางจอเสมอ) ----
-      const gcx = vw / 2, gcy = vh * 0.48;
-      const grx = Math.min(vw, vh) * 0.26, gry = grx * 1.32;
+      // ---- วงรีไกด์ระยะ (อยู่กลางจอเสมอ, พิกัดหน้าจอ) ----
+      const gcx = cw / 2, gcy = ch * 0.46;
+      const grx = Math.min(cw, ch) * 0.30, gry = Math.min(grx * 1.32, ch * 0.42);
       ctx.save();
       ctx.setLineDash(locked ? [] : [10 * unitG, 8 * unitG]);
       ctx.lineWidth = (locked ? 3 : 2) * unitG;
@@ -267,6 +274,15 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         ctx.stroke();
       }
       ctx.restore();
+
+      // ตั้ง transform แบบ object-cover: ทุกอย่างหลังจากนี้วาดด้วย "พิกัดวิดีโอ" ได้ตรงตำแหน่ง
+      const coverScale = Math.max(cw / vw, ch / vh);
+      ctx.setTransform(
+        coverScale, 0, 0, coverScale,
+        (cw - vw * coverScale) / 2,
+        (ch - vh * coverScale) / 2,
+      );
+
 
       // ---- กรอบสไตล์ OpenCV (Haar cascade) ----
       if (cvBoxes?.length) {
