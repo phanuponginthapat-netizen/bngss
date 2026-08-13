@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Save, RotateCcw, Loader2 } from "lucide-react";
+import { Save, RotateCcw, Loader2, BatteryCharging } from "lucide-react";
 import {
   Download,
   Copy,
@@ -58,6 +58,8 @@ export default function KioskSetupPage() {
   const [powerOn, setPowerOn] = useState("06:30");
   const [powerOff, setPowerOff] = useState("");
   const [exitPin, setExitPin] = useState("");
+  const [battCritical, setBattCritical] = useState(5);
+  const [battChargeMax, setBattChargeMax] = useState(80);
   const [savedUpdatedAt, setSavedUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -103,6 +105,8 @@ export default function KioskSetupPage() {
           if (typeof cfg.powerOn === "string") setPowerOn(cfg.powerOn);
           if (typeof cfg.powerOff === "string") setPowerOff(cfg.powerOff);
           if (typeof cfg.exitPin === "string") setExitPin(cfg.exitPin);
+          if (typeof cfg.battCritical === "number") setBattCritical(cfg.battCritical);
+          if (typeof cfg.battChargeMax === "number") setBattChargeMax(cfg.battChargeMax);
           if (typeof cfg.updated_at === "string") setSavedUpdatedAt(cfg.updated_at);
         }
       } catch (e) {
@@ -144,6 +148,7 @@ export default function KioskSetupPage() {
         mode, kioskUrl: cleanUrl, kioskUser, wifiSsid, wifiPass,
         enableDailyReboot, rebootTime, idleLogoutMin, idleShutdownMin,
         powerOn, powerOff, exitPin,
+        battCritical, battChargeMax,
         updated_at: nowIso,
       };
       const { error } = await supabase
@@ -200,11 +205,13 @@ export default function KioskSetupPage() {
         idleShutdownMin: mode === "student" ? idleShutdownMin : 0,
         powerOn,
         powerOff,
+        battCritical,
+        battChargeMax,
         monitorAgentUrl:
           mode === "student" ? `${PUBLIC_ORIGIN}/dashboard/monitor/agent` : undefined,
         schoolName,
       }),
-    [mode, kioskUrl, kioskUser, wifiSsid, wifiPass, enableDailyReboot, rebootTime, idleLogoutMin, idleShutdownMin, powerOn, powerOff, schoolName, PUBLIC_ORIGIN],
+    [mode, kioskUrl, kioskUser, wifiSsid, wifiPass, enableDailyReboot, rebootTime, idleLogoutMin, idleShutdownMin, powerOn, powerOff, battCritical, battChargeMax, schoolName, PUBLIC_ORIGIN],
   );
 
   const oneLiner = `curl -fsSL ${PUBLIC_ORIGIN}/kiosk-setup.sh | sudo KIOSK_MODE=${mode} bash`;
@@ -455,6 +462,35 @@ export default function KioskSetupPage() {
             </div>
           </div>
 
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-lg border p-3">
+              <Label className="flex items-center gap-2 mb-2">
+                <BatteryCharging className="h-4 w-4" /> ปิดเครื่องเมื่อแบตต่ำกว่า (%)
+              </Label>
+              <Input
+                type="number" min={0} max={50}
+                value={battCritical}
+                onChange={(e) => setBattCritical(Number(e.target.value) || 0)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                0 = ปิดฟีเจอร์ · ป้องกันไฟล์ระบบเสียหายตอนแบตหมด
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <Label className="flex items-center gap-2 mb-2">
+                <BatteryCharging className="h-4 w-4" /> จำกัดชาร์จสูงสุด (%)
+              </Label>
+              <Input
+                type="number" min={0} max={100}
+                value={battChargeMax}
+                onChange={(e) => setBattChargeMax(Number(e.target.value) || 0)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                0 = ไม่จำกัด · ยืดอายุแบตเครื่องที่เสียบไฟตลอด (ต้องรองรับโดยฮาร์ดแวร์)
+              </p>
+            </div>
+          </div>
 
           <div className="grid gap-2 md:grid-cols-3">
             <FeatureBadge icon={Mic} title="Wake Word" desc='"hello ai" พร้อมใช้ทันที' />

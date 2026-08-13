@@ -36,6 +36,17 @@ KIOSK_WIFI_PASS="${KIOSK_WIFI_PASS:-}"
 CMS_BASE="${CMS_BASE:-https://gwmszzoqqxmejefhayqf.supabase.co}"
 CMS_ANON_KEY="${CMS_ANON_KEY:-sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v}"
 
+# ── Backend guard — ต้องเป็น backend ของโรงเรียนเท่านั้น ห้าม Lovable Cloud ──
+CANONICAL_BACKEND="https://gwmszzoqqxmejefhayqf.supabase.co"
+case "$CMS_BASE" in
+  *lovableproject.com*|*lovable.dev*|*dlkyxvhnnffblerwedjz*)
+    echo "⚠  CMS_BASE ชี้ไป Lovable Cloud ($CMS_BASE) — บังคับกลับเป็น backend โรงเรียน"
+    CMS_BASE="$CANONICAL_BACKEND"
+    CMS_ANON_KEY="sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v"
+    ;;
+esac
+echo "► Backend: $CMS_BASE"
+
 # ทำให้ python3 พร้อมใช้ก่อน — บาง MX Linux minimal ไม่มี python3
 if ! command -v python3 >/dev/null 2>&1; then
   echo "► ติดตั้ง python3 (จำเป็นสำหรับ parse CMS config)..."
@@ -124,6 +135,11 @@ else
 fi
 # PIN สำหรับปลดล็อก Alt+F4 / Alt+Tab / Super / F11 / Ctrl+W / Ctrl+Q — default ตรงกับ CMS
 KIOSK_EXIT_PIN="${KIOSK_EXIT_PIN:-bng521987}"
+
+# แบตเตอรี่ (โน้ตบุ๊ก/แท็บเล็ตที่ใช้เป็น kiosk)
+KIOSK_BATT_CRITICAL="${KIOSK_BATT_CRITICAL:-5}"      # % ต่ำสุดก่อน shutdown ปลอดภัย (0 = ปิด)
+KIOSK_BATT_CHARGE_MAX="${KIOSK_BATT_CHARGE_MAX:-80}" # จำกัดชาร์จสูงสุด ยืดอายุแบต (0 = ไม่จำกัด)
+KIOSK_TIMEZONE="${KIOSK_TIMEZONE:-Asia/Bangkok}"
 
 # ------------------------------------------
 
@@ -309,6 +325,35 @@ USER = os.environ.get("KIOSK_USER","")
 DISPLAY = os.environ.get("DISPLAY", ":0")
 XAUTH = f"/home/{USER}/.Xauthority" if USER else ""
 
+def read_battery():
+    """อ่านสถานะแบตเตอรี่จาก /sys/class/power_supply"""
+    base = "/sys/class/power_supply"
+    out = {"present": False}
+    try:
+        for name in sorted(os.listdir(base)):
+            if not name.upper().startswith("BAT"):
+                continue
+            d = os.path.join(base, name)
+            def rd(f):
+                try:
+                    return open(os.path.join(d, f)).read().strip()
+                except Exception:
+                    return None
+            out = {
+                "present": True,
+                "name": name,
+                "percent": int(rd("capacity") or 0),
+                "status": rd("status"),
+                "charge_limit": rd("charge_control_end_threshold"),
+            }
+            break
+        ac = os.path.join(base, "AC")
+        if os.path.exists(ac):
+            out["on_ac"] = (open(os.path.join(ac, "online")).read().strip() == "1")
+    except Exception:
+        pass
+    return out
+
 def sh(cmd):
     try: subprocess.Popen(cmd, env={**os.environ, "DISPLAY": DISPLAY, "XAUTHORITY": XAUTH})
     except Exception as e: print("err", e)
@@ -325,7 +370,10 @@ class H(BaseHTTPRequestHandler):
         if body: self.wfile.write(body)
     def do_OPTIONS(self): self._ok()
     def do_GET(self):
-        if self.path == "/status": return self._ok(200, json.dumps({"ok":True}).encode())
+        if self.path == "/status":
+            return self._ok(200, json.dumps({"ok":True, "battery": read_battery()}).encode())
+        if self.path == "/battery":
+            return self._ok(200, json.dumps(read_battery()).encode())
         return self._ok(404)
     def do_POST(self):
         length = int(self.headers.get("Content-Length") or 0)
@@ -555,6 +603,24 @@ POLICY=$(cat <<JSON
   "DefaultNotificationsSetting": 1,
   "NotificationsAllowedForUrls": ["$KIOSK_ORIGIN"],
   "DefaultGeolocationSetting": 1,
+  "GeolocationAllowedForUrls": ["$KIOSK_ORIGIN"],
+  "DefaultSensorsSetting": 1,
+  "SensorsAllowedForUrls": ["$KIOSK_ORIGIN"],
+  "DefaultClipboardSetting": 1,
+  "ClipboardAllowedForUrls": ["$KIOSK_ORIGIN"],
+  "DefaultFileSystemReadGuardSetting": 1,
+  "FileSystemReadAskForUrls": ["$KIOSK_ORIGIN"],
+  "DefaultFileSystemWriteGuardSetting": 1,
+  "FileSystemWriteAskForUrls": ["$KIOSK_ORIGIN"],
+  "DefaultPopupsSetting": 1,
+  "PopupsAllowedForUrls": ["$KIOSK_ORIGIN"],
+  "DefaultWebBluetoothGuardSetting": 2,
+  "DefaultWebUsbGuardSetting": 2,
+  "DefaultSerialGuardSetting": 2,
+  "PermissionsPolicyUnloadDefaultEnabled": true,
+  "IncognitoModeAvailability": 1,
+  "DeveloperToolsAvailability": 2,
+  "BrowserGuestModeEnabled": false,
   "PasswordManagerEnabled": false,
   "AutofillAddressEnabled": false,
   "AutofillCreditCardEnabled": false,
@@ -567,7 +633,8 @@ POLICY=$(cat <<JSON
   "ComponentUpdatesEnabled": false,
   "PromptForDownloadLocation": false,
   "HardwareAccelerationModeEnabled": true,
-  "URLBlocklist": ["chrome://settings", "chrome://flags"]
+  "URLBlocklist": ["chrome://settings", "chrome://flags", "chrome://policy", "chrome://extensions", "file://*"],
+  "URLAllowlist": ["$KIOSK_ORIGIN"]
 }
 JSON
 )
@@ -1496,6 +1563,77 @@ EOF
   systemctl enable kiosk-daily-reboot.timer >/dev/null 2>&1 || true
 fi
 
+# ---- Battery guard (โน้ตบุ๊ก/แท็บเล็ต) ----
+log "▶  [9.4/10] Battery guard: critical=${KIOSK_BATT_CRITICAL}%  chargeMax=${KIOSK_BATT_CHARGE_MAX}%"
+cat >/opt/kiosk/battery-guard.sh <<EOF
+#!/usr/bin/env bash
+# จำกัดการชาร์จ + ปิดเครื่องปลอดภัยเมื่อแบตวิกฤต (กันไฟล์ระบบเสียหายตอนไฟหมด)
+CRIT="${KIOSK_BATT_CRITICAL}"
+CHARGE_MAX="${KIOSK_BATT_CHARGE_MAX}"
+BASE=/sys/class/power_supply
+BAT=\$(ls -d \$BASE/BAT* 2>/dev/null | head -1)
+[[ -z "\$BAT" ]] && exit 0
+
+# 1) charge threshold (รองรับเฉพาะเครื่องที่มี driver รองรับ)
+if [[ "\$CHARGE_MAX" -gt 0 && -w "\$BAT/charge_control_end_threshold" ]]; then
+  echo "\$CHARGE_MAX" > "\$BAT/charge_control_end_threshold" 2>/dev/null || true
+fi
+
+CAP=\$(cat "\$BAT/capacity" 2>/dev/null || echo 100)
+STAT=\$(cat "\$BAT/status" 2>/dev/null || echo Unknown)
+AC=1
+[[ -f \$BASE/AC/online ]] && AC=\$(cat \$BASE/AC/online)
+printf '{"percent":%s,"status":"%s","on_ac":%s,"ts":"%s"}\n' "\$CAP" "\$STAT" "\$AC" "\$(date -Iseconds)" > /run/kiosk-battery.json 2>/dev/null || true
+
+# 2) แบตวิกฤต + ไม่ได้เสียบไฟ → ตั้ง wakealarm แล้ว shutdown
+if [[ "\$CRIT" -gt 0 && "\$CAP" -le "\$CRIT" && "\$AC" != "1" ]]; then
+  logger "kiosk: battery critical (\$CAP%) → safe shutdown"
+  [[ -x /opt/kiosk/arm-wakealarm.sh ]] && /opt/kiosk/arm-wakealarm.sh || true
+  /sbin/shutdown -h +1 "Battery critical (\$CAP%) — kiosk safe shutdown"
+fi
+EOF
+chmod +x /opt/kiosk/battery-guard.sh
+
+cat >/etc/systemd/system/kiosk-battery.service <<'EOF'
+[Unit]
+Description=Kiosk Battery Guard
+[Service]
+Type=oneshot
+ExecStart=/opt/kiosk/battery-guard.sh
+EOF
+cat >/etc/systemd/system/kiosk-battery.timer <<'EOF'
+[Unit]
+Description=Kiosk Battery Guard Timer
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=2min
+AccuracySec=30s
+[Install]
+WantedBy=timers.target
+EOF
+cat >/etc/cron.d/kiosk-battery <<'EOF'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+*/2 * * * * root /opt/kiosk/battery-guard.sh >/dev/null 2>&1
+EOF
+chmod 0644 /etc/cron.d/kiosk-battery
+systemctl daemon-reload
+systemctl enable --now kiosk-battery.timer >/dev/null 2>&1 || true
+/opt/kiosk/battery-guard.sh || true
+if ls -d /sys/class/power_supply/BAT* >/dev/null 2>&1; then
+  log "   ↳ พบแบตเตอรี่: $(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -1)% — guard ทำงาน"
+else
+  log "   ↳ ไม่พบแบตเตอรี่ (เครื่อง desktop) — guard idle"
+fi
+
+# ---- เวลา/RTC ต้องถูกต้อง ไม่งั้น wakealarm เปิดเครื่องผิดเวลา ----
+log "▶  Sync เวลา: TZ=$KIOSK_TIMEZONE, RTC=UTC, NTP=on"
+timedatectl set-timezone "$KIOSK_TIMEZONE" 2>/dev/null || true
+timedatectl set-local-rtc 0 2>/dev/null || true
+timedatectl set-ntp true 2>/dev/null || true
+hwclock --systohc --utc 2>/dev/null || true
+timedatectl 2>/dev/null | sed 's/^/      /' || true
+
 # ---- Power schedule: shutdown ตามเวลา + BIOS RTC wake ตอนเช้า ----
 # ตอน shutdown จะตั้ง /sys/class/rtc/rtc0/wakealarm ให้เครื่องเปิดเองตอน KIOSK_POWER_ON
 if [[ -n "$KIOSK_POWER_ON" || -n "$KIOSK_POWER_OFF" ]]; then
@@ -1669,7 +1807,9 @@ cat <<EOF
     URL kiosk:          $KIOSK_URL
     Monitor Agent:      ${KIOSK_MONITOR_AGENT_URL:-<ปิด>}
     Wake daemon:        $([[ "$KIOSK_MODE" == "door" ]] && echo "http://127.0.0.1:9999/wake" || echo "<ปิด (student mode)>")
-    Local control:      http://127.0.0.1:9998  (/shutdown /reboot /logout /open-url)
+    Local control:      http://127.0.0.1:9998  (/shutdown /reboot /logout /open-url /battery)
+    Battery guard:      critical ${KIOSK_BATT_CRITICAL}% / charge max ${KIOSK_BATT_CHARGE_MAX}%
+    Backend:            $CMS_BASE
     Idle logout:        $([[ "$KIOSK_IDLE_LOGOUT_MIN" -gt 0 ]] && echo "${KIOSK_IDLE_LOGOUT_MIN} นาที" || echo "ปิด")
     Idle shutdown:      $([[ "$KIOSK_IDLE_SHUTDOWN_MIN" -gt 0 ]] && echo "${KIOSK_IDLE_SHUTDOWN_MIN} นาที" || echo "ปิด")
     Power ON (BIOS):    ${KIOSK_POWER_ON:-ปิด}

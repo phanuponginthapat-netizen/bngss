@@ -14,6 +14,8 @@ export interface KioskScriptConfig {
   idleShutdownMin?: number;     // student: shutdown after N min idle (0 = off)
   powerOn?: string;             // "HH:MM" BIOS RTC wake (empty = off)
   powerOff?: string;            // "HH:MM" scheduled shutdown (empty = off)
+  battCritical?: number;         // % ต่ำสุดก่อน shutdown ปลอดภัย (0 = ปิด)
+  battChargeMax?: number;        // จำกัดชาร์จสูงสุด % (0 = ไม่จำกัด)
   monitorAgentUrl?: string;
   schoolName?: string;
 }
@@ -67,7 +69,7 @@ export function generateKioskSetupScript(cfg: KioskScriptConfig): string {
   }
   if (cfg.dailyReboot !== undefined) {
     out = out.replace(
-      /KIOSK_DAILY_REBOOT="\$\{KIOSK_DAILY_REBOOT:-[^"]*\}"/g,
+      /KIOSK_DAILY_REBOOT="\$\{KIOSK_DAILY_REBOOT:?-[^"]*\}"/g,
       `KIOSK_DAILY_REBOOT="\${KIOSK_DAILY_REBOOT:-${escape(cfg.dailyReboot)}}"`,
     );
   }
@@ -85,14 +87,26 @@ export function generateKioskSetupScript(cfg: KioskScriptConfig): string {
   }
   if (cfg.powerOn !== undefined) {
     out = out.replace(
-      /KIOSK_POWER_ON="\$\{KIOSK_POWER_ON:-[^"]*\}"/g,
+      /KIOSK_POWER_ON="\$\{KIOSK_POWER_ON:?-[^"]*\}"/g,
       `KIOSK_POWER_ON="\${KIOSK_POWER_ON:-${escape(cfg.powerOn)}}"`,
     );
   }
   if (cfg.powerOff !== undefined) {
     out = out.replace(
-      /KIOSK_POWER_OFF="\$\{KIOSK_POWER_OFF:-[^"]*\}"/g,
+      /KIOSK_POWER_OFF="\$\{KIOSK_POWER_OFF:?-[^"]*\}"/g,
       `KIOSK_POWER_OFF="\${KIOSK_POWER_OFF:-${escape(cfg.powerOff)}}"`,
+    );
+  }
+  if (cfg.battCritical !== undefined) {
+    out = out.replace(
+      /KIOSK_BATT_CRITICAL="\$\{KIOSK_BATT_CRITICAL:-[^"}]*\}"/,
+      `KIOSK_BATT_CRITICAL="\${KIOSK_BATT_CRITICAL:-${cfg.battCritical}}"`,
+    );
+  }
+  if (cfg.battChargeMax !== undefined) {
+    out = out.replace(
+      /KIOSK_BATT_CHARGE_MAX="\$\{KIOSK_BATT_CHARGE_MAX:-[^"}]*\}"/,
+      `KIOSK_BATT_CHARGE_MAX="\${KIOSK_BATT_CHARGE_MAX:-${cfg.battChargeMax}}"`,
     );
   }
   if (cfg.monitorAgentUrl && cfg.mode === "student") {

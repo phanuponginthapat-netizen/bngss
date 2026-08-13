@@ -10,7 +10,9 @@ KIOSK_USER="${KIOSK_USER:-${SUDO_USER:-$(logname 2>/dev/null || echo demo)}}"
 USER_HOME=$(getent passwd "$KIOSK_USER" | cut -d: -f6 || echo "")
 
 echo "▶  หยุด + disable services..."
-for s in kiosk-wake kiosk-watchdog kiosk-healthcheck kiosk-daily-reboot.timer kiosk-daily-reboot; do
+for s in kiosk-wake kiosk-watchdog kiosk-healthcheck kiosk-ctl kiosk-daily-reboot.timer kiosk-daily-reboot \
+         kiosk-power-off.timer kiosk-power-off kiosk-power-on.timer kiosk-power-on \
+         kiosk-battery.timer kiosk-battery kiosk-set-wakealarm; do
   systemctl disable --now "$s" 2>/dev/null || true
   rm -f "/etc/systemd/system/$s.service" "/etc/systemd/system/$s.timer" 2>/dev/null || true
 done
@@ -31,6 +33,10 @@ rm -rf /opt/kiosk
 rm -f /etc/lightdm/lightdm.conf.d/60-kiosk-autologin.conf
 rm -f /etc/chromium/policies/managed/kiosk-permissions.json
 rm -f /etc/chromium-browser/policies/managed/kiosk-permissions.json
+rm -f /etc/cron.d/kiosk-power-off /etc/cron.d/kiosk-arm-wakealarm /etc/cron.d/kiosk-battery
+rm -f /etc/sudoers.d/kiosk-power
+rm -f /run/kiosk-battery.json
+echo 0 > /sys/class/rtc/rtc0/wakealarm 2>/dev/null || true
 rm -f /etc/sysctl.d/99-kiosk.conf
 rm -f /etc/security/limits.d/kiosk-nocore.conf
 rm -f /etc/systemd/journald.conf.d/kiosk.conf
@@ -44,7 +50,7 @@ if [[ -n "$USER_HOME" && -d "$USER_HOME/.config/autostart" ]]; then
 fi
 
 echo "▶  คืน GRUB / fstab / lightdm จาก .kiosk.bak..."
-for f in /etc/default/grub /etc/fstab /etc/lightdm/lightdm.conf; do
+for f in /etc/default/grub /etc/fstab /etc/lightdm/lightdm.conf /etc/systemd/logind.conf /etc/UPower/UPower.conf; do
   if [[ -f "$f.kiosk.bak" ]]; then
     cp -a "$f.kiosk.bak" "$f"
     rm -f "$f.kiosk.bak"
