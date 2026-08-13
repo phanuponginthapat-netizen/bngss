@@ -1054,9 +1054,26 @@ const FaceKioskPage = () => {
             </p>
           </div>
 
-          <div className="text-xs text-muted-foreground border-t pt-2">
-            threshold: <b>{threshold}</b> • ใบหน้าในระบบ {known.length}
+          <div className="space-y-2 border-t pt-2">
+            <label className="text-xs font-semibold flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={staffFaceEnabled}
+                onChange={(e) => setStaffFaceEnabled(e.target.checked)}
+              />
+              รวมใบหน้าบุคลากร (โหมดทดสอบ)
+            </label>
+            <p className="text-[10px] text-muted-foreground leading-snug">
+              เมื่อเปิด ระบบจะจดจำใบหน้าบุคลากรที่ลงทะเบียนไว้และแสดงผลบนกล้อง
+              แต่ <b>ไม่บันทึกเวลามาเรียน/ปฏิบัติงาน</b> — ใช้ทดสอบความแม่นยำของเครื่องคีออส
+            </p>
           </div>
+
+          <div className="text-xs text-muted-foreground border-t pt-2">
+            threshold: <b>{threshold}</b> • ใบหน้านักเรียน {known.length}
+            {staffFaceEnabled && <> • บุคลากร {staffKnown.length}</>}
+          </div>
+
         </div>
       )}
 
