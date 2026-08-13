@@ -50,6 +50,7 @@ export function useKioskHeartbeat(input: HeartbeatInput) {
   } = input;
 
   const lastPingRef = useRef<number>(0);
+  const lastSampleRef = useRef<number>(0);
 
   // main heartbeat loop
   useEffect(() => {
@@ -79,6 +80,29 @@ export function useKioskHeartbeat(input: HeartbeatInput) {
           .from("kiosk_devices")
           .upsert([payload], { onConflict: "device_id" });
         lastPingRef.current = Date.now();
+
+        // ---- บันทึกประวัติสถานะเครื่อง (แบต/หน่วยความจำ/uptime) ทุก 3 นาที สำหรับกราฟ ----
+        const now = Date.now();
+        if (now - lastSampleRef.current >= SAMPLE_EVERY_MS) {
+          lastSampleRef.current = now;
+          try {
+            const t = await collectKioskTelemetry();
+            if (!cancelled) {
+              await (supabase as any).from("kiosk_health_samples").insert({
+                device_id,
+                kiosk_mode: kioskMode,
+                status,
+                uptime_sec: uptimeSec,
+                battery_percent: t.battery_percent,
+                battery_charging: t.battery_charging,
+                battery_status: t.battery_status,
+                memory_used_mb: t.memory_used_mb,
+                latency_ms: t.latency_ms,
+                meta: { extension_installed: extensionInstalled },
+              });
+            }
+          } catch { /* silent */ }
+        }
       } catch (e) {
         // silent
       }
