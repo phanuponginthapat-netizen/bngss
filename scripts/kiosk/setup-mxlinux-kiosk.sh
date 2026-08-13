@@ -1129,7 +1129,7 @@ EOF
     <property name="file-icons" type="empty">
       <property name="show-home" type="bool" value="false"/>
       <property name="show-filesystem" type="bool" value="false"/>
-      <property name="show-removable" type="bool" value="false"/>
+      <property name="show-removable" type="bool" value="true"/>
       <property name="show-trash" type="bool" value="false"/>
     </property>
   </property>
@@ -1474,9 +1474,9 @@ EOF
 # ถอน screensaver / thumbnailer / indexer
 apt-get purge -y xscreensaver light-locker tumbler tracker baloo-kf5 2>/dev/null || true
 
-# ปิด USB automount popup
+# USB: เปิด automount ให้เสียบใช้งานได้ปกติ (ไม่บล็อก)
 sudo -u "$KIOSK_USER" DISPLAY=:0 dbus-launch --exit-with-session \
-  xfconf-query -c thunar-volman -p /automount-drives/enabled -s false 2>/dev/null || true
+  xfconf-query -c thunar-volman -p /automount-drives/enabled -s true --create -t bool 2>/dev/null || true
 
 # MX updater popup
 touch "$USER_HOME/.config/mx-updater-disabled" || true
