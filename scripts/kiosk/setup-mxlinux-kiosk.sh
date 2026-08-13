@@ -1114,17 +1114,10 @@ EOF
   for pkg in synaptic gnome-software mintinstall software-properties-gtk; do
     apt-get purge -y "$pkg" >/dev/null 2>&1 || true
   done
-  #    - ปิด USB autorun + block execution จาก /media /mnt (student ใช้ USB ได้แค่อ่านไฟล์ ไม่รันโปรแกรม)
-  cat >/etc/systemd/system/kiosk-mount-noexec.service <<'EOF'
-[Unit]
-Description=Force noexec on /media and /mnt
-[Service]
-Type=oneshot
-ExecStart=/bin/bash -c 'for m in /media /mnt; do mount -o remount,noexec,nosuid,nodev "$m" 2>/dev/null || true; done'
-[Install]
-WantedBy=multi-user.target
-EOF
-  systemctl enable kiosk-mount-noexec.service >/dev/null 2>&1 || true
+  #    - USB: ไม่บล็อก (เสียบใช้งานได้ตามปกติ) — ถอด service เดิมถ้าเคยติดตั้งไว้
+  systemctl disable --now kiosk-mount-noexec.service >/dev/null 2>&1 || true
+  rm -f /etc/systemd/system/kiosk-mount-noexec.service
+
 
   #    - ล็อค XFCE ไม่ให้เพิ่ม launcher/right-click desktop
   mkdir -p "$USER_HOME/.config/xfce4/xfconf/xfce-perchannel-xml"
