@@ -121,7 +121,8 @@ interface DuplicateFaceMatch {
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : "เกิดข้อผิดพลาด";
 const errorName = (error: unknown) => error instanceof DOMException || error instanceof Error ? error.name : "";
 
-const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName, onComplete, submitMode = "direct", reason }: Props) => {
+const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName, onComplete, submitMode = "direct", reason, personnelId }: Props) => {
+  const isPersonnel = !!personnelId;
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const flashRef = useRef<HTMLDivElement>(null);
