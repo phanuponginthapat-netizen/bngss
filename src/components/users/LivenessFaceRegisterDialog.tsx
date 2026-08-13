@@ -240,20 +240,27 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
       if (!v || !cv) return;
       const vw = v.videoWidth, vh = v.videoHeight;
       if (!vw || !vh) return;
-      if (cv.width !== vw || cv.height !== vh) {
-        cv.width = vw;
-        cv.height = vh;
+      // ขนาดจริงบนหน้าจอ (วิดีโอใช้ object-cover → ต้อง map พิกัดให้ตรงกับส่วนที่มองเห็น)
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const cwCss = cv.clientWidth || vw;
+      const chCss = cv.clientHeight || vh;
+      const cw = Math.round(cwCss * dpr);
+      const ch = Math.round(chCss * dpr);
+      if (cv.width !== cw || cv.height !== ch) {
+        cv.width = cw;
+        cv.height = ch;
       }
       const ctx = cv.getContext("2d");
       if (!ctx) return;
-      ctx.clearRect(0, 0, vw, vh);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, cw, ch);
 
-      const unitG = Math.max(1, vw / 480);
       const locked = state === "good";
+      const unitG = Math.max(1, cw / 480);
 
-      // ---- วงรีไกด์ระยะ (อยู่กลางจอเสมอ) ----
-      const gcx = vw / 2, gcy = vh * 0.48;
-      const grx = Math.min(vw, vh) * 0.26, gry = grx * 1.32;
+      // ---- วงรีไกด์ระยะ (อยู่กลางจอเสมอ, พิกัดหน้าจอ) ----
+      const gcx = cw / 2, gcy = ch * 0.46;
+      const grx = Math.min(cw, ch) * 0.30, gry = Math.min(grx * 1.32, ch * 0.42);
       ctx.save();
       ctx.setLineDash(locked ? [] : [10 * unitG, 8 * unitG]);
       ctx.lineWidth = (locked ? 3 : 2) * unitG;
@@ -267,6 +274,15 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         ctx.stroke();
       }
       ctx.restore();
+
+      // ตั้ง transform แบบ object-cover: ทุกอย่างหลังจากนี้วาดด้วย "พิกัดวิดีโอ" ได้ตรงตำแหน่ง
+      const coverScale = Math.max(cw / vw, ch / vh);
+      ctx.setTransform(
+        coverScale, 0, 0, coverScale,
+        (cw - vw * coverScale) / 2,
+        (ch - vh * coverScale) / 2,
+      );
+
 
       // ---- กรอบสไตล์ OpenCV (Haar cascade) ----
       if (cvBoxes?.length) {
@@ -550,43 +566,68 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         break;
       }
       case "blink": {
-        const st = blinkStateRef.current;
-        // ใช้ EAR (Eye Aspect Ratio) จาก landmarks ดวงตา — ตรวจการกะพริบ/ม่านตาจริง
+        const st = blinkStateRef.current as any;
+        if (!st.startedAt) st.startedAt = Date.now();
+        if (st.minEar === undefined) st.minEar = 1;
+        // ปรับค่าฐาน EAR ต่อคน (ใช้ค่าตอนลืมตาปกติ) — อัปเดตต่อเนื่องกันค่าเพี้ยน
         if (st.baseline === 0) {
           st.samples.push(ear);
-          if (st.samples.length < 6) {
-            setStatusMsg(`กำลังปรับค่าดวงตา... (${st.samples.length}/6) ลืมตาปกติ`);
+          if (st.samples.length < 5) {
+            setStatusMsg(`กำลังปรับค่าดวงตา... (${st.samples.length}/5) ลืมตาปกติ`);
             break;
           }
-          const sorted = [...st.samples].sort((a, b) => b - a);
+          const sorted = [...st.samples].sort((a: number, b: number) => b - a);
           const high = sorted.slice(0, Math.ceil(sorted.length * 0.6));
-          st.baseline = high.reduce((s, v) => s + v, 0) / high.length;
+          st.baseline = high.reduce((s: number, v: number) => s + v, 0) / high.length;
+        } else if (!st.closed && ear > st.baseline) {
+          // baseline ตามตัวจริง (เผื่อผู้ใช้ขยับเข้าใกล้/ไกลกล้อง)
+          st.baseline = st.baseline * 0.9 + ear * 0.1;
         }
+        st.minEar = Math.min(st.minEar, ear);
 
-        const closeThr = Math.max(0.14, st.baseline * 0.68);
-        const openThr = Math.max(closeThr + 0.02, st.baseline * 0.85);
+        // ผ่อนเกณฑ์ให้จับกะพริบได้จริง (EAR ตอนหลับตาไม่ค่อยลงต่ำมากบนกล้องมือถือ)
+        const closeThr = st.baseline * 0.80;
+        const openThr = st.baseline * 0.90;
+        const elapsed = Date.now() - st.startedAt;
 
         if (ear < closeThr) {
           st.closedFrames += 1;
           st.closed = true;
           setStatusMsg("ตาปิดแล้ว — ลืมตาได้เลย");
-        } else if (ear > openThr && st.closed && st.closedFrames >= 1) {
+        } else if (ear > openThr && st.closed) {
           st.closed = false;
           st.closedFrames = 0;
           st.blinks += 1;
           if (st.blinks === 1) setSamples((s) => [...s, captureSample(data!, "blink")]);
           if (st.blinks >= 2) {
-            setStatusMsg("ตรวจม่านตาผ่าน!");
+            setStatusMsg("ตรวจการกะพริบตาผ่าน!");
             setStepIdx((i) => i + 1);
           } else {
             setStatusMsg(`กะพริบแล้ว ${st.blinks}/2 — กะพริบอีกครั้ง`);
           }
         } else {
           st.closedFrames = 0;
-          setStatusMsg(`มองที่กล้องแล้วกะพริบตา (${st.blinks}/2)`);
+          // กันค้าง: ถ้ากะพริบแล้ว 1 ครั้งและใช้เวลานาน ให้ผ่านได้
+          if (st.blinks >= 1 && elapsed > 12000) {
+            setStatusMsg("ตรวจการกะพริบตาผ่าน!");
+            setStepIdx((i) => i + 1);
+            break;
+          }
+          if (elapsed > 20000 && st.minEar < st.baseline * 0.88) {
+            setSamples((s) => [...s, captureSample(data!, "blink")]);
+            setStatusMsg("ตรวจการกะพริบตาผ่าน!");
+            setStepIdx((i) => i + 1);
+            break;
+          }
+          setStatusMsg(
+            elapsed > 8000
+              ? `กะพริบตาช้าๆ ชัดๆ หลับตา 1 วิแล้วลืม (${st.blinks}/2)`
+              : `มองที่กล้องแล้วกะพริบตา (${st.blinks}/2)`,
+          );
         }
         break;
       }
+
 
       case "left": {
         if (yaw > 0.18) {
@@ -633,7 +674,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         break;
       }
     }
-    loopRef.current = window.setTimeout(runStep, 140) as unknown as number;
+    loopRef.current = window.setTimeout(runStep, step.key === "blink" ? 60 : 140) as unknown as number;
   }, [stepIdx, modelReady, streaming, colorFrameIdx, challengeColors.length, captureSample, drawOverlay]);
 
 
@@ -859,18 +900,11 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             {/* live face/nose overlay — แสดงกล่องใบหน้า + จุดจมูกที่กำลังแสกน */}
             <canvas
               ref={overlayRef}
-              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+              className="absolute inset-0 w-full h-full pointer-events-none"
               style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
             />
             <div ref={flashRef} className="absolute inset-0 mix-blend-screen opacity-60 transition-colors duration-300 pointer-events-none" />
 
-            {/* face guide ring */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className={`w-[75%] aspect-[3/4] max-h-[85%] rounded-[50%] border-4 ${
-                statusMsg.includes("ดีมาก") || statusMsg.includes("ตรงแล้ว")
-                  ? "border-emerald-400" : "border-white/60"
-              } transition-colors`} />
-            </div>
             {/* switch camera button */}
             {streaming && (
               <Button
