@@ -1,18 +1,49 @@
 {
   "manifest_version": 3,
   "name": "โรงเรียนของฉัน — Safe Browser",
-  "version": "1.6.0",
-  "description": "เบราว์เซอร์ปลอดภัยสำหรับนักเรียน เชื่อมกับระบบโรงเรียน บันทึกการใช้งาน กรองโฆษณา/เว็บพนัน จัดการ Wi-Fi ในโหมด kiosk และรัน Monitor Agent อัตโนมัติ",
+  "version": "1.7.0",
+  "description": "เบราว์เซอร์ปลอดภัยสำหรับนักเรียน เชื่อมกับระบบโรงเรียน บันทึกการใช้งาน กรองโฆษณา/เว็บพนัน/สื่อลามก ด้วยโดเมนและคำต้องห้าม (keyword filter) จัดการ Wi-Fi ในโหมด kiosk และรัน Monitor Agent อัตโนมัติ",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5zUVvXKinnWfV+6ju2+MwZ2fKbDky28LqIIfAAUJnRDVkmWNAbEYndV0bmPXz6EeUR49q3U5NqzVCcPIKDzcCfIOIKrrO+44myUDbiQFAHsXFu9+VAGiNH+rO44L3A0n6dMVpYcowFtB6bBK+MsdcDfMCxO9MFfODn3OkJtcpKIz4tKgB6NdzXGIghxjPOrYpG+H/bplQ7wNHyKCHIjw9FaeEsqEzXdbdtYBgTRP8Xa+3QxgLTkDAfCzMcu2m2NV6gT3wpjGgv/UqIfVVA6RdYQkyZvdcLeuTEW+RoUYAmAkmwQg7vuh0eUeQwahzQP1AnsGSa5KZqthuWFV1jvohwIDAQAB",
-  "permissions": ["tabs", "storage", "activeTab", "scripting", "webNavigation", "declarativeNetRequest", "downloads", "alarms", "notifications", "nativeMessaging"],
-  "host_permissions": ["<all_urls>"],
-  "background": { "service_worker": "background.js" },
-  "icons": { "16": "icon.png", "48": "icon.png", "128": "icon.png" },
-  "action": { "default_popup": "popup.html", "default_title": "Safe Browser", "default_icon": "icon.png" },
+  "permissions": [
+    "tabs",
+    "storage",
+    "activeTab",
+    "scripting",
+    "webNavigation",
+    "declarativeNetRequest",
+    "downloads",
+    "alarms",
+    "notifications",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Safe Browser",
+    "default_icon": "icon.png"
+  },
   "declarative_net_request": {
     "rule_resources": [
-      { "id": "ads",      "enabled": true, "path": "rules/ads.json" },
-      { "id": "gambling", "enabled": true, "path": "rules/gambling.json" }
+      {
+        "id": "ads",
+        "enabled": true,
+        "path": "rules/ads.json"
+      },
+      {
+        "id": "gambling",
+        "enabled": true,
+        "path": "rules/gambling.json"
+      }
     ]
   },
   "content_scripts": [
@@ -24,17 +55,26 @@
         "https://*.vercel.app/*",
         "http://localhost/*"
       ],
-      "js": ["session-sync.js"],
+      "js": [
+        "session-sync.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["*://*.youtube.com/*", "*://*.youtube-nocookie.com/*"],
-      "js": ["yt-ads.js"],
+      "matches": [
+        "*://*.youtube.com/*",
+        "*://*.youtube-nocookie.com/*"
+      ],
+      "js": [
+        "yt-ads.js"
+      ],
       "run_at": "document_start",
       "all_frames": true
     },
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "<all_urls>"
+      ],
       "exclude_matches": [
         "https://bngss.lovable.app/*",
         "https://*.lovable.app/*",
@@ -42,12 +82,41 @@
         "https://*.vercel.app/*",
         "http://localhost/*"
       ],
-      "js": ["toolbar.js"],
-      "css": ["toolbar.css"],
+      "js": [
+        "toolbar.js"
+      ],
+      "css": [
+        "toolbar.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "exclude_matches": [
+        "https://bngss.lovable.app/*",
+        "https://*.lovable.app/*",
+        "https://bngss.vercel.app/*",
+        "https://*.vercel.app/*",
+        "http://localhost/*"
+      ],
+      "js": [
+        "keywords.js",
+        "keyword-guard.js"
+      ],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
-    { "resources": ["blocked.html", "wifi.html"], "matches": ["<all_urls>"] }
+    {
+      "resources": [
+        "blocked.html",
+        "wifi.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
   ]
 }

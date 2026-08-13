@@ -12,6 +12,7 @@ Deno.serve(async (req) => {
   const keys = [
     "browser_blocklist", "browser_ad_domains", "browser_block_message", "browser_default_homepage",
     "browser_time_rules", "browser_login_url",
+    "browser_keywords", "browser_keyword_categories", "browser_keyword_allowlist", "browser_keyword_scan_page",
     "school_name", "school_name_en", "school_logo", "footer_school_name",
     "app_name", "app_short_name", "app_favicon_url", "theme_color", "primary_color",
   ];
