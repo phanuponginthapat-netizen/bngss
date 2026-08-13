@@ -634,7 +634,7 @@ const FaceKioskPage = () => {
                         confidence: m.confidence,
                         scanType: scanModeRef.current === "exit" ? "exit" : "entry",
                         capturedFace: captured,
-                        registeredFace: null,
+                        registeredFace: (found as any).registeredFace || null,
                         time: new Date().toLocaleTimeString("th-TH"),
                       });
                       setRecent((prev) => [{
@@ -642,14 +642,14 @@ const FaceKioskPage = () => {
                         studentCode: found.studentCode || "-",
                         name: `${found.name} (บุคลากร)`,
                         classroom: found.classroom,
-                        avatar: null,
+                        avatar: (found as any).registeredFace || null,
                         capturedFace: captured,
                         time: new Date().toLocaleTimeString("th-TH"),
                         confidence: m.confidence,
                       }, ...prev].slice(0, 20));
                     }
                   } else {
-                    await recordScan(found.studentId, found.studentCode, found.name, found.classroom, found.avatar, m.confidence, captured);
+                    await recordScan(found.studentId, found.studentCode, found.name, found.classroom, found.avatar, m.confidence, captured, (found as any).registeredFace);
                     // เรียนรู้ใบหน้าอัตโนมัติจากการสแกนจริงหน้าคีออส
                     learnFromScan({
                       studentId: found.studentId,
