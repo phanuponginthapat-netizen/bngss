@@ -566,43 +566,68 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         break;
       }
       case "blink": {
-        const st = blinkStateRef.current;
-        // ใช้ EAR (Eye Aspect Ratio) จาก landmarks ดวงตา — ตรวจการกะพริบ/ม่านตาจริง
+        const st = blinkStateRef.current as any;
+        if (!st.startedAt) st.startedAt = Date.now();
+        if (st.minEar === undefined) st.minEar = 1;
+        // ปรับค่าฐาน EAR ต่อคน (ใช้ค่าตอนลืมตาปกติ) — อัปเดตต่อเนื่องกันค่าเพี้ยน
         if (st.baseline === 0) {
           st.samples.push(ear);
-          if (st.samples.length < 6) {
-            setStatusMsg(`กำลังปรับค่าดวงตา... (${st.samples.length}/6) ลืมตาปกติ`);
+          if (st.samples.length < 5) {
+            setStatusMsg(`กำลังปรับค่าดวงตา... (${st.samples.length}/5) ลืมตาปกติ`);
             break;
           }
-          const sorted = [...st.samples].sort((a, b) => b - a);
+          const sorted = [...st.samples].sort((a: number, b: number) => b - a);
           const high = sorted.slice(0, Math.ceil(sorted.length * 0.6));
-          st.baseline = high.reduce((s, v) => s + v, 0) / high.length;
+          st.baseline = high.reduce((s: number, v: number) => s + v, 0) / high.length;
+        } else if (!st.closed && ear > st.baseline) {
+          // baseline ตามตัวจริง (เผื่อผู้ใช้ขยับเข้าใกล้/ไกลกล้อง)
+          st.baseline = st.baseline * 0.9 + ear * 0.1;
         }
+        st.minEar = Math.min(st.minEar, ear);
 
-        const closeThr = Math.max(0.14, st.baseline * 0.68);
-        const openThr = Math.max(closeThr + 0.02, st.baseline * 0.85);
+        // ผ่อนเกณฑ์ให้จับกะพริบได้จริง (EAR ตอนหลับตาไม่ค่อยลงต่ำมากบนกล้องมือถือ)
+        const closeThr = st.baseline * 0.80;
+        const openThr = st.baseline * 0.90;
+        const elapsed = Date.now() - st.startedAt;
 
         if (ear < closeThr) {
           st.closedFrames += 1;
           st.closed = true;
           setStatusMsg("ตาปิดแล้ว — ลืมตาได้เลย");
-        } else if (ear > openThr && st.closed && st.closedFrames >= 1) {
+        } else if (ear > openThr && st.closed) {
           st.closed = false;
           st.closedFrames = 0;
           st.blinks += 1;
           if (st.blinks === 1) setSamples((s) => [...s, captureSample(data!, "blink")]);
           if (st.blinks >= 2) {
-            setStatusMsg("ตรวจม่านตาผ่าน!");
+            setStatusMsg("ตรวจการกะพริบตาผ่าน!");
             setStepIdx((i) => i + 1);
           } else {
             setStatusMsg(`กะพริบแล้ว ${st.blinks}/2 — กะพริบอีกครั้ง`);
           }
         } else {
           st.closedFrames = 0;
-          setStatusMsg(`มองที่กล้องแล้วกะพริบตา (${st.blinks}/2)`);
+          // กันค้าง: ถ้ากะพริบแล้ว 1 ครั้งและใช้เวลานาน ให้ผ่านได้
+          if (st.blinks >= 1 && elapsed > 12000) {
+            setStatusMsg("ตรวจการกะพริบตาผ่าน!");
+            setStepIdx((i) => i + 1);
+            break;
+          }
+          if (elapsed > 20000 && st.minEar < st.baseline * 0.88) {
+            setSamples((s) => [...s, captureSample(data!, "blink")]);
+            setStatusMsg("ตรวจการกะพริบตาผ่าน!");
+            setStepIdx((i) => i + 1);
+            break;
+          }
+          setStatusMsg(
+            elapsed > 8000
+              ? `กะพริบตาช้าๆ ชัดๆ หลับตา 1 วิแล้วลืม (${st.blinks}/2)`
+              : `มองที่กล้องแล้วกะพริบตา (${st.blinks}/2)`,
+          );
         }
         break;
       }
+
 
       case "left": {
         if (yaw > 0.18) {
