@@ -10025,6 +10025,56 @@ export type Database = {
         }
         Relationships: []
       }
+      personnel_face_descriptors: {
+        Row: {
+          captured_by: string | null
+          created_at: string
+          descriptor: number[]
+          face_image: string | null
+          id: string
+          metrics: Json | null
+          model_version: string
+          personnel_id: string
+          quality_score: number | null
+          sample_index: number
+          source: string | null
+        }
+        Insert: {
+          captured_by?: string | null
+          created_at?: string
+          descriptor: number[]
+          face_image?: string | null
+          id?: string
+          metrics?: Json | null
+          model_version?: string
+          personnel_id: string
+          quality_score?: number | null
+          sample_index?: number
+          source?: string | null
+        }
+        Update: {
+          captured_by?: string | null
+          created_at?: string
+          descriptor?: number[]
+          face_image?: string | null
+          id?: string
+          metrics?: Json | null
+          model_version?: string
+          personnel_id?: string
+          quality_score?: number | null
+          sample_index?: number
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personnel_face_descriptors_personnel_id_fkey"
+            columns: ["personnel_id"]
+            isOneToOne: false
+            referencedRelation: "personnel"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portfolio_items: {
         Row: {
           category: string | null
