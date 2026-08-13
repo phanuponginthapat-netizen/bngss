@@ -4,7 +4,7 @@ import { z } from "npm:zod@3";
 
 const BodySchema = z.object({
   url: z.string().url().max(2000),
-  action: z.enum(["visit", "blocked", "ad_blocked"]),
+  action: z.enum(["visit", "blocked", "ad_blocked", "time_blocked", "keyword_blocked"]),
   reason: z.string().max(500).optional().nullable(),
 });
 
