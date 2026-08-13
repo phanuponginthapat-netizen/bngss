@@ -208,6 +208,39 @@ const FaceKioskPage = () => {
     staleTime: 60_000,
   });
 
+  // ===== ใบหน้าบุคลากร (โหมดทดสอบ) — จำได้แต่ไม่บันทึกเวลามาเรียน =====
+  const { data: staffKnown = [] } = useQuery({
+    queryKey: ["face-known-kiosk-staff"],
+    enabled: staffFaceEnabled,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("personnel_face_descriptors")
+        .select("personnel_id, descriptor, personnel!inner(id, prefix, first_name, last_name, employee_code, position)");
+      if (error) throw error;
+      const map = new Map<string, any>();
+      for (const row of (data as any[]) || []) {
+        const id = row.personnel_id;
+        const p = row.personnel;
+        const existing = map.get(id);
+        if (existing) existing.descriptors.push(row.descriptor as number[]);
+        else map.set(id, {
+          studentId: id,
+          descriptors: [row.descriptor as number[]],
+          name: `${p.prefix || ""}${p.first_name} ${p.last_name}`.trim(),
+          classroom: p.position || "บุคลากร",
+          avatar: null,
+          studentCode: p.employee_code || "",
+          isStaff: true,
+        });
+      }
+      return Array.from(map.values());
+    },
+    staleTime: 60_000,
+  });
+
+  const matchKnown = staffFaceEnabled ? ([...(known as any[]), ...(staffKnown as any[])] as any[]) : (known as any[]);
+
+
   useEffect(() => {
     (async () => {
       const today = todayBangkok();
