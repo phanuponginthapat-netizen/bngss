@@ -563,11 +563,12 @@ const FaceKioskPage = () => {
               const sharpness = estimateFaceSharpness(video, box);
               const tooBlurry = sharpness < MIN_SHARPNESS;
 
-              const m = matchDescriptor(det.descriptor, known, threshold);
+              const m = matchDescriptor(det.descriptor, matchKnown, threshold);
               const ambiguous = m.studentId != null && m.margin < MIN_MARGIN;
               const lowConfidence = m.studentId != null && m.confidence < MIN_CONFIDENCE;
               const matchedId = !tooSmall && !tooBlurry && !ambiguous && !lowConfidence ? m.studentId : null;
-              const found = matchedId ? known.find((k: any) => k.studentId === matchedId) as any : null;
+              const found = matchedId ? matchKnown.find((k: any) => k.studentId === matchedId) as any : null;
+              const isStaffHit = !!found?.isStaff;
 
               const justScanned = found ? (tNow - (justScannedRef.current.get(found.studentId) || 0) < 3000) : false;
               const inCooldown = found ? (tNow - (cooldownRef.current.get(found.studentId) || 0) < 30_000) : false;
