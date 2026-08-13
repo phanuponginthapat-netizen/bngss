@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Plus, Trash2, Save, Shield, LogIn } from "lucide-react";
+import { Clock, Plus, Trash2, Save, Shield, LogIn, Filter } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
 type TimeRule = {
@@ -17,6 +18,17 @@ type TimeRule = {
 };
 
 const DAY_LABELS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
+
+// ต้องตรงกับ extension/keywords.js
+const KEYWORD_CATEGORIES: { id: string; label: string; hint: string }[] = [
+  { id: "gambling", label: "การพนัน", hint: "บาคาร่า, คาสิโน, สล็อต, แทงบอล, หวยออนไลน์, ufabet…" },
+  { id: "adult", label: "สื่อลามก / 18+", hint: "หนังโป๊, คลิปหลุด, porn, xvideos, hentai…" },
+  { id: "drugs", label: "ยาเสพติด / บุหรี่ไฟฟ้า", hint: "ยาบ้า, กัญชาส่งด่วน, พอต, vape…" },
+  { id: "violence", label: "ความรุนแรง / อาวุธ", hint: "ขายปืนเถื่อน, วิธีทำระเบิด, gore…" },
+  { id: "selfharm", label: "ทำร้ายตัวเอง", hint: "วิธีฆ่าตัวตาย, กรีดข้อมือ…" },
+  { id: "cheat", label: "ทุจริตการเรียน", hint: "รับทำการบ้าน, ขายข้อสอบ…" },
+];
+const DEFAULT_CATEGORIES = ["gambling", "adult", "drugs", "violence", "selfharm"];
 
 const PRESETS: { label: string; rule: Partial<TimeRule> }[] = [
   {
@@ -56,13 +68,20 @@ export default function BrowserPolicyPage() {
   const [loginUrl, setLoginUrl] = useState("");
   const [blocklist, setBlocklist] = useState("");
   const [blockMsg, setBlockMsg] = useState("");
+  const [kwCats, setKwCats] = useState<string[]>(DEFAULT_CATEGORIES);
+  const [kwCustom, setKwCustom] = useState("");
+  const [kwAllow, setKwAllow] = useState("");
+  const [kwScan, setKwScan] = useState(true);
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from("cms_settings")
         .select("key,value")
-        .in("key", ["browser_time_rules", "browser_login_url", "browser_blocklist", "browser_block_message"]);
+        .in("key", [
+          "browser_time_rules", "browser_login_url", "browser_blocklist", "browser_block_message",
+          "browser_keywords", "browser_keyword_categories", "browser_keyword_allowlist", "browser_keyword_scan_page",
+        ]);
       const m = new Map((data || []).map((r: any) => [r.key, r.value]));
       const raw = m.get("browser_time_rules");
       if (raw) {
@@ -84,6 +103,13 @@ export default function BrowserPolicyPage() {
       setLoginUrl(String(m.get("browser_login_url") || ""));
       setBlocklist(String(m.get("browser_blocklist") || ""));
       setBlockMsg(String(m.get("browser_block_message") || ""));
+      setKwCustom(String(m.get("browser_keywords") || ""));
+      setKwAllow(String(m.get("browser_keyword_allowlist") || ""));
+      setKwScan(String(m.get("browser_keyword_scan_page") ?? "1") !== "0");
+      try {
+        const cats = JSON.parse(String(m.get("browser_keyword_categories") || "[]"));
+        if (Array.isArray(cats) && cats.length) setKwCats(cats.map(String));
+      } catch { /* ignore */ }
       setLoading(false);
     })();
   }, []);
@@ -112,6 +138,10 @@ export default function BrowserPolicyPage() {
       await upsert("browser_login_url", loginUrl.trim());
       await upsert("browser_blocklist", blocklist.trim());
       await upsert("browser_block_message", blockMsg.trim());
+      await upsert("browser_keyword_categories", JSON.stringify(kwCats));
+      await upsert("browser_keywords", kwCustom.trim());
+      await upsert("browser_keyword_allowlist", kwAllow.trim());
+      await upsert("browser_keyword_scan_page", kwScan ? "1" : "0");
       toast.success("บันทึกแล้ว · Extension จะรีเฟรช config ภายใน 5 นาที (หรือกด 'รีเฟรช' จาก popup)");
     } catch (e: any) {
       toast.error(e.message || String(e));
@@ -248,6 +278,67 @@ export default function BrowserPolicyPage() {
               </div>
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Filter className="w-5 h-5 text-primary" /> ตัวกรองคำต้องห้าม (Keyword Filter)</CardTitle>
+          <CardDescription>
+            บล็อกจากคำใน URL / คำค้นหา และสแกนเนื้อหาหน้าเว็บ (ชื่อเรื่อง + ข้อความ) — ครอบคลุมเว็บใหม่ที่ยังไม่มีในบล็อกลิสต์
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-2 sm:grid-cols-2">
+            {KEYWORD_CATEGORIES.map((c) => {
+              const on = kwCats.includes(c.id);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setKwCats((p) => (on ? p.filter((x) => x !== c.id) : [...p, c.id]))}
+                  className={`text-left rounded-xl border p-3 transition ${on ? "border-primary bg-primary/5" : "bg-background hover:bg-muted/40"}`}
+                >
+                  <div className="flex items-center gap-2 font-medium text-sm">
+                    <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${on ? "bg-primary text-primary-foreground border-primary" : ""}`}>
+                      {on ? "✓" : ""}
+                    </span>
+                    {c.label}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{c.hint}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <Label className="text-sm">สแกนเนื้อหาในหน้าเว็บด้วย</Label>
+              <p className="text-xs text-muted-foreground">ถ้าพบคำต้องห้ามในชื่อเรื่อง หรือพบ 2 คำขึ้นไปในเนื้อหา จะบล็อกทันที</p>
+            </div>
+            <Switch checked={kwScan} onCheckedChange={setKwScan} />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label>คำต้องห้ามเพิ่มเติมของโรงเรียน</Label>
+              <textarea
+                value={kwCustom}
+                onChange={(e) => setKwCustom(e.target.value)}
+                placeholder="เว็บพนันxx, คำที่ต้องการบล็อก, keyword"
+                className="mt-1 w-full min-h-[100px] rounded-md border bg-background p-2 text-sm font-mono"
+              />
+            </div>
+            <div>
+              <Label>ข้อยกเว้น (ไม่บล็อกถ้าพบคำเหล่านี้)</Label>
+              <textarea
+                value={kwAllow}
+                onChange={(e) => setKwAllow(e.target.value)}
+                placeholder="โทษของการพนัน, ป้องกันยาเสพติด, สื่อการสอน"
+                className="mt-1 w-full min-h-[100px] rounded-md border bg-background p-2 text-sm font-mono"
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
