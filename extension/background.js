@@ -1,4 +1,5 @@
 // Safe Browser — background service worker
+try { importScripts("keywords.js"); } catch (e) { /* ignore */ }
 // backend ถูกกำหนดตอน runtime (ระบบเว็บส่งมาให้ผ่าน SET_SESSION) — ค่าด้านล่างเป็นค่าเริ่มต้นเท่านั้น
 const DEFAULT_SUPABASE_URL = "https://gwmszzoqqxmejefhayqf.supabase.co";
 const DEFAULT_ANON_KEY = "sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v";
@@ -352,6 +353,11 @@ setInterval(refreshConfig, 5 * 60 * 1000);
 // -------------------------------------------------------------
 // Enforcement — ใช้ร่วมกันทั้ง onBeforeNavigate / onCommitted / SPA / sweep
 // -------------------------------------------------------------
+function categoryLabel(cat) {
+  try { return self.SB_KEYWORD_CATEGORIES?.[cat]?.label || (cat === "custom" ? "คำที่โรงเรียนกำหนด" : cat); }
+  catch { return cat; }
+}
+
 function isBlockedPage(url) {
   return typeof url === "string" && url.startsWith(chrome.runtime.getURL("blocked.html"));
 }
@@ -384,7 +390,18 @@ async function enforceUrl(tabId, url) {
   const blockHit = hostMatches(host, block);
   const timeHit = checkTimeRules(host, timeRules);
 
-  if (!(adHit || blockHit || timeHit)) return false;
+  // ---- Keyword filter: ตรวจคำต้องห้ามใน URL (โดเมน + path + query + คำค้นหา) ----
+  let kwHit = null;
+  try {
+    if (self.sbBuildKeywordList) {
+      const list = self.sbBuildKeywordList(config);
+      let hay = url;
+      try { hay = decodeURIComponent(url); } catch { /* ignore */ }
+      kwHit = self.sbMatchKeywords(hay.replace(/[+_\-]/g, " "), list);
+    }
+  } catch { /* ignore */ }
+
+  if (!(adHit || blockHit || timeHit || kwHit)) return false;
 
   let reason;
   let action;
@@ -396,11 +413,15 @@ async function enforceUrl(tabId, url) {
     reason = `⏰ ${r.name || "ห้ามใช้ช่วงเรียน"} — ${r.start}-${r.end} (${timeHit.hit})`;
     action = "time_blocked";
     notify("⏰ ถูกบล็อกช่วงเวลาเรียน", `${timeHit.hit} — ${r.name || "ห้ามใช้ช่วงเรียน"} (${r.start}-${r.end})`);
+  } else if (kwHit) {
+    reason = `🚫 พบคำต้องห้าม "${kwHit.w}" (${categoryLabel(kwHit.cat)}) — ${config?.browser_block_message || "เว็บไซต์นี้ไม่อนุญาตตามนโยบายของโรงเรียน"}`;
+    action = "keyword_blocked";
+    notify("🚫 ถูกบล็อกด้วยตัวกรองคำ", `พบคำต้องห้าม: ${kwHit.w} (${categoryLabel(kwHit.cat)})`);
   } else {
     reason = config?.browser_block_message || `ถูกบล็อก: ${blockHit}`;
     action = "blocked";
   }
-  logVisit(url, action, adHit || (timeHit && timeHit.hit) || blockHit);
+  logVisit(url, action, adHit || (timeHit && timeHit.hit) || blockHit || (kwHit && kwHit.w));
   const blockedUrl = chrome.runtime.getURL("blocked.html") + `?u=${encodeURIComponent(url)}&r=${encodeURIComponent(reason)}${timeHit ? "&mode=time" : ""}`;
   chrome.tabs.update(tabId, { url: blockedUrl }).catch(() => {});
   return true;
@@ -470,6 +491,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === "WIFI") {
     const { type, ...rest } = msg;
     wifiCall(rest).then((r) => sendResponse(r));
+    return true;
+  }
+  if (msg?.type === "KEYWORD_HIT") {
+    const tabId = sender.tab?.id;
+    if (tabId && msg.url && !isBlockedPage(msg.url)) {
+      getConfig().then((cfg) => {
+        const base = cfg?.browser_block_message || "เว็บไซต์นี้ไม่อนุญาตตามนโยบายของโรงเรียน";
+        const reason = `🚫 พบคำต้องห้าม "${msg.word}" (${categoryLabel(msg.category)}) ใน${msg.where || "หน้าเว็บ"} — ${base}`;
+        logVisit(msg.url, "keyword_blocked", msg.word);
+        notify("🚫 ถูกบล็อกด้วยตัวกรองคำ", `พบคำต้องห้าม: ${msg.word} (${categoryLabel(msg.category)})`);
+        const blockedUrl = chrome.runtime.getURL("blocked.html") + `?u=${encodeURIComponent(msg.url)}&r=${encodeURIComponent(reason)}`;
+        chrome.tabs.update(tabId, { url: blockedUrl }).catch(() => {});
+      });
+    }
+    sendResponse({ ok: true });
     return true;
   }
   if (msg?.type === "SET_SESSION") {
