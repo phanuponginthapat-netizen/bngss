@@ -186,6 +186,9 @@ const FaceKioskPage = () => {
     return () => clearInterval(t);
   }, [screensaver]);
 
+  const [staffFaceEnabled, setStaffFaceEnabled] = useState<boolean>(() => localStorage.getItem("face_kiosk_staff_faces") !== "0");
+  useEffect(() => { localStorage.setItem("face_kiosk_staff_faces", staffFaceEnabled ? "1" : "0"); }, [staffFaceEnabled]);
+
   const { data: known = [] } = useQuery({
     queryKey: ["face-known-kiosk"],
     queryFn: async () => {
@@ -207,6 +210,39 @@ const FaceKioskPage = () => {
     },
     staleTime: 60_000,
   });
+
+  // ===== ใบหน้าบุคลากร (โหมดทดสอบ) — จำได้แต่ไม่บันทึกเวลามาเรียน =====
+  const { data: staffKnown = [] } = useQuery({
+    queryKey: ["face-known-kiosk-staff"],
+    enabled: staffFaceEnabled,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("personnel_face_descriptors")
+        .select("personnel_id, descriptor, personnel!inner(id, prefix, first_name, last_name, employee_code, position)");
+      if (error) throw error;
+      const map = new Map<string, any>();
+      for (const row of (data as any[]) || []) {
+        const id = row.personnel_id;
+        const p = row.personnel;
+        const existing = map.get(id);
+        if (existing) existing.descriptors.push(row.descriptor as number[]);
+        else map.set(id, {
+          studentId: id,
+          descriptors: [row.descriptor as number[]],
+          name: `${p.prefix || ""}${p.first_name} ${p.last_name}`.trim(),
+          classroom: p.position || "บุคลากร",
+          avatar: null,
+          studentCode: p.employee_code || "",
+          isStaff: true,
+        });
+      }
+      return Array.from(map.values());
+    },
+    staleTime: 60_000,
+  });
+
+  const matchKnown = staffFaceEnabled ? ([...(known as any[]), ...(staffKnown as any[])] as any[]) : (known as any[]);
+
 
   useEffect(() => {
     (async () => {
@@ -527,27 +563,31 @@ const FaceKioskPage = () => {
               const sharpness = estimateFaceSharpness(video, box);
               const tooBlurry = sharpness < MIN_SHARPNESS;
 
-              const m = matchDescriptor(det.descriptor, known, threshold);
+              const m = matchDescriptor(det.descriptor, matchKnown, threshold);
               const ambiguous = m.studentId != null && m.margin < MIN_MARGIN;
               const lowConfidence = m.studentId != null && m.confidence < MIN_CONFIDENCE;
               const matchedId = !tooSmall && !tooBlurry && !ambiguous && !lowConfidence ? m.studentId : null;
-              const found = matchedId ? known.find((k: any) => k.studentId === matchedId) as any : null;
+              const found = matchedId ? matchKnown.find((k: any) => k.studentId === matchedId) as any : null;
+              const isStaffHit = !!found?.isStaff;
 
               const justScanned = found ? (tNow - (justScannedRef.current.get(found.studentId) || 0) < 3000) : false;
               const inCooldown = found ? (tNow - (cooldownRef.current.get(found.studentId) || 0) < 30_000) : false;
               const color = !found
                 ? (tooSmall ? "#94a3b8" : tooBlurry ? "#64748b" : (ambiguous || lowConfidence) ? "#eab308" : "#f97316")
+                : isStaffHit ? "#2563eb"
                 : justScanned ? "#16a34a" : inCooldown ? "#10b981" : "#22c55e";
 
               const label = found
-                ? `${found.name}${justScanned ? " ✓ บันทึกแล้ว" : ""}`
+                ? `${isStaffHit ? "👤 " : ""}${found.name}${isStaffHit ? " (บุคลากร)" : justScanned ? " ✓ บันทึกแล้ว" : ""}`
                 : tooSmall ? "ขยับเข้าใกล้กล้อง"
                 : tooBlurry ? "ภาพเบลอ ให้นิ่งสักครู่"
                 : ambiguous ? "กำลังยืนยันตัวตน..."
                 : lowConfidence ? `มั่นใจ ${Math.round(m.confidence * 100)}% • ต้อง ≥ ${Math.round(MIN_CONFIDENCE * 100)}%`
                 : "ไม่พบในระบบ";
               const sublabel = found
-                ? `เลขที่ ${found.studentCode || "-"} • ชั้น ${found.classroom} • ${Math.round(m.confidence * 100)}% (Δ${m.margin.toFixed(2)}, ช ${Math.round(sharpness)})`
+                ? isStaffHit
+                  ? `บุคลากร ${found.studentCode || "-"} • ${found.classroom} • ${Math.round(m.confidence * 100)}% (ทดสอบ — ไม่บันทึก)`
+                  : `เลขที่ ${found.studentCode || "-"} • ชั้น ${found.classroom} • ${Math.round(m.confidence * 100)}% (Δ${m.margin.toFixed(2)}, ช ${Math.round(sharpness)})`
                 : tooSmall ? `ใบหน้าเล็ก ${Math.round(faceSize)}px`
                 : tooBlurry ? `ความคมชัด ${Math.round(sharpness)} • ต้อง ≥ ${MIN_SHARPNESS}`
                 : ambiguous ? `ห่าง ${m.margin.toFixed(2)} • ต้อง ≥ ${MIN_MARGIN}`
@@ -555,6 +595,7 @@ const FaceKioskPage = () => {
                 : "กรุณาลงทะเบียน";
 
               drawFaceFrame(ctx, { box, label, sublabel, matched: !!found, confidence: m.confidence, color });
+
 
               if (found) {
                 // นับเฟรมยืนยันก่อนบันทึก
@@ -567,16 +608,46 @@ const FaceKioskPage = () => {
                 const confirmed = (confirmRef.current.get(found.studentId)?.count ?? 0) >= CONFIRM_FRAMES;
                 if (confirmed) {
                   const captured = captureFaceCrop(video, box);
-                  await recordScan(found.studentId, found.studentCode, found.name, found.classroom, found.avatar, m.confidence, captured);
-                  // เรียนรู้ใบหน้าอัตโนมัติจากการสแกนจริงหน้าคีออส
-                  learnFromScan({
-                    studentId: found.studentId,
-                    descriptor: det.descriptor,
-                    match: m,
-                    sharpness,
-                    faceSize,
-                    source: "kiosk",
-                  }).catch(() => {});
+                  if (isStaffHit) {
+                    // โหมดทดสอบบุคลากร — แสดงผล/ทักทาย แต่ไม่บันทึกเวลามาเรียน
+                    const last = justScannedRef.current.get(found.studentId) || 0;
+                    if (tNow - last > 15_000) {
+                      justScannedRef.current.set(found.studentId, tNow);
+                      playSuccessSound();
+                      if (voiceEnabled) speakText(`สวัสดี ${found.name}`);
+                      setLastMatch({
+                        name: found.name,
+                        studentCode: found.studentCode || "-",
+                        classroom: `${found.classroom} • บุคลากร (ทดสอบ)`,
+                        confidence: m.confidence,
+                        scanType: scanModeRef.current === "exit" ? "exit" : "entry",
+                        capturedFace: captured,
+                        registeredFace: null,
+                        time: new Date().toLocaleTimeString("th-TH"),
+                      });
+                      setRecent((prev) => [{
+                        studentId: found.studentId,
+                        studentCode: found.studentCode || "-",
+                        name: `${found.name} (บุคลากร)`,
+                        classroom: found.classroom,
+                        avatar: null,
+                        capturedFace: captured,
+                        time: new Date().toLocaleTimeString("th-TH"),
+                        confidence: m.confidence,
+                      }, ...prev].slice(0, 20));
+                    }
+                  } else {
+                    await recordScan(found.studentId, found.studentCode, found.name, found.classroom, found.avatar, m.confidence, captured);
+                    // เรียนรู้ใบหน้าอัตโนมัติจากการสแกนจริงหน้าคีออส
+                    learnFromScan({
+                      studentId: found.studentId,
+                      descriptor: det.descriptor,
+                      match: m,
+                      sharpness,
+                      faceSize,
+                      source: "kiosk",
+                    }).catch(() => {});
+                  }
                   confirmRef.current.delete(found.studentId);
                 }
               } else {
@@ -599,7 +670,7 @@ const FaceKioskPage = () => {
       cancelled = true;
       if (detectionLoopRef.current) clearTimeout(detectionLoopRef.current);
     };
-  }, [streaming, modelReady, screensaver, known, threshold, recordScan, camMode, qrOnly]);
+  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef]);
 
   // ===== QR Code fallback scan (รองรับกรณีสแกนหน้าไม่ติด) =====
   // อ่าน QR จากเฟรมวิดีโอเดียวกัน ใช้ native BarcodeDetector ถ้ามี
@@ -983,9 +1054,26 @@ const FaceKioskPage = () => {
             </p>
           </div>
 
-          <div className="text-xs text-muted-foreground border-t pt-2">
-            threshold: <b>{threshold}</b> • ใบหน้าในระบบ {known.length}
+          <div className="space-y-2 border-t pt-2">
+            <label className="text-xs font-semibold flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={staffFaceEnabled}
+                onChange={(e) => setStaffFaceEnabled(e.target.checked)}
+              />
+              รวมใบหน้าบุคลากร (โหมดทดสอบ)
+            </label>
+            <p className="text-[10px] text-muted-foreground leading-snug">
+              เมื่อเปิด ระบบจะจดจำใบหน้าบุคลากรที่ลงทะเบียนไว้และแสดงผลบนกล้อง
+              แต่ <b>ไม่บันทึกเวลามาเรียน/ปฏิบัติงาน</b> — ใช้ทดสอบความแม่นยำของเครื่องคีออส
+            </p>
           </div>
+
+          <div className="text-xs text-muted-foreground border-t pt-2">
+            threshold: <b>{threshold}</b> • ใบหน้านักเรียน {known.length}
+            {staffFaceEnabled && <> • บุคลากร {staffKnown.length}</>}
+          </div>
+
         </div>
       )}
 
