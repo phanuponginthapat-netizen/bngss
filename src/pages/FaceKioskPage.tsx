@@ -493,7 +493,7 @@ const FaceKioskPage = () => {
       setTodayCounts((c) => ({ ...c, [mode]: c[mode] + 1 }));
     }
     // ใบหน้าที่ลงทะเบียนไว้ (ภาพตอนลงทะเบียน) — แสดงคู่กับใบหน้าที่สแกนได้
-    const registeredFace = await getRegisteredFaceImage(studentId, avatar);
+    const registeredFace = enrolledFace || (await getRegisteredFaceImage(studentId, avatar));
     setLastMatch({
       name, studentCode, classroom, confidence, scanType: mode,
       capturedFace, registeredFace,
