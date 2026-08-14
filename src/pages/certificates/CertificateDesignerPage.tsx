@@ -302,8 +302,9 @@ export default function CertificateDesignerPage() {
         </Card>
 
         {/* คุณสมบัติข้อความ */}
-        <Card>
-          <CardContent className="p-3 space-y-3">
+        <Card className="min-w-0">
+          <CardContent className="p-3 space-y-3 max-w-full overflow-x-hidden">
+
             {!field && <p className="text-sm text-muted-foreground">คลิกข้อความบนเกียรติบัตรเพื่อแก้ไข</p>}
             {field && (
               <>
