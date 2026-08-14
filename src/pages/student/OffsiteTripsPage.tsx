@@ -11,8 +11,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { swal } from "@/lib/swal";
-import { MapPin, Plus, CalendarClock, Users, CheckCircle2, XCircle, Clock3, LogOut, ClipboardList, ArrowLeft, Search, ShieldCheck } from "lucide-react";
+import { MapPin, Plus, CalendarClock, Users, CheckCircle2, XCircle, Clock3, LogOut, ClipboardList, ArrowLeft, Search, ShieldCheck, Crosshair, ImagePlus, Loader2 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
+import TripPhotosTab from "@/components/offsite/TripPhotosTab";
+import { getCurrentCoords, reverseGeocode, mapsLink, formatCoords } from "@/lib/geolocation";
 
 type Trip = {
   id: string;
