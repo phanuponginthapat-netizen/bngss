@@ -60,3 +60,51 @@ export function formatThaiShort(input: Date | string | number): string {
   }).format(d);
 }
 
+
+/* ---------- เวลา 24 ชม. (Asia/Bangkok) — ห้ามใช้ AM/PM ทั้งระบบ ---------- */
+
+const _bkkParts = (d: Date) =>
+  new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  }).formatToParts(d).reduce<Record<string, string>>((a, p) => ((a[p.type] = p.value), a), {});
+
+/** "HH:mm" (24 ชม. เวลาไทย) */
+export function fmtTime24(input: Date | string | number, withSeconds = false): string {
+  const d = input instanceof Date ? input : new Date(input);
+  if (isNaN(d.getTime())) return "";
+  const p = _bkkParts(d);
+  return withSeconds ? `${p.hour}:${p.minute}:${p.second}` : `${p.hour}:${p.minute}`;
+}
+
+/** "dd/MM/yyyy HH:mm" (ค.ศ., เวลาไทย) */
+export function fmtDateTime24(input: Date | string | number, withSeconds = false): string {
+  const d = input instanceof Date ? input : new Date(input);
+  if (isNaN(d.getTime())) return "";
+  const p = _bkkParts(d);
+  return `${p.day}/${p.month}/${p.year} ${fmtTime24(d, withSeconds)}`;
+}
+
+/** "12 พ.ค. 2569 08:30 น." */
+export function fmtThaiDateTime24(input: Date | string | number, withSeconds = false): string {
+  const d = input instanceof Date ? input : new Date(input);
+  if (isNaN(d.getTime())) return "";
+  return `${formatThaiShort(d)} ${fmtTime24(d, withSeconds)} น.`;
+}
+
+/** แปลงข้อความเวลาที่นำเข้า (รองรับ 1:05 PM / 13.05 / 13:05 น.) → "HH:mm[:ss]" */
+export function toTime24(input?: string | null, withSeconds = true): string | null {
+  if (!input) return null;
+  const s = String(input).trim().toLowerCase().replace(/\s+/g, " ");
+  const m = s.match(/^(\d{1,2})[:.](\d{2})(?:[:.](\d{2}))?\s*(am|pm|น\.?)?$/);
+  if (!m) return null;
+  let h = Number(m[1]);
+  const mi = Number(m[2]);
+  const se = Number(m[3] || 0);
+  if (m[4] === "pm" && h < 12) h += 12;
+  if (m[4] === "am" && h === 12) h = 0;
+  if (h > 23 || mi > 59 || se > 59) return null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return withSeconds ? `${pad(h)}:${pad(mi)}:${pad(se)}` : `${pad(h)}:${pad(mi)}`;
+}
