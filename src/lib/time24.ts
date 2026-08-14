@@ -48,8 +48,9 @@ export function installTime24() {
     ) => Intl.DateTimeFormat)(locales, opts);
   } as unknown as typeof Intl.DateTimeFormat;
 
-  PatchedDTF.prototype = OriginalDTF.prototype;
+  (PatchedDTF as { prototype: unknown }).prototype = OriginalDTF.prototype;
   PatchedDTF.supportedLocalesOf = OriginalDTF.supportedLocalesOf.bind(OriginalDTF);
+
 
   Intl.DateTimeFormat = PatchedDTF;
 
