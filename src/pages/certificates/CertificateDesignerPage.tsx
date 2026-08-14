@@ -241,7 +241,8 @@ export default function CertificateDesignerPage() {
         </Card>
 
         {/* ผืนผ้าใบ */}
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
+
           <CardContent className="p-3 space-y-3">
             <div className="flex flex-wrap items-end gap-2">
               <div className="flex-1 min-w-[160px]">
