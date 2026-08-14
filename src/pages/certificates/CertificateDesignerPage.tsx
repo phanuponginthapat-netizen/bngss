@@ -203,9 +203,10 @@ export default function CertificateDesignerPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_300px] gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[200px_minmax(0,1fr)_280px] gap-3 xl:gap-4 w-full max-w-full">
         {/* รายการเทมเพลต */}
-        <Card>
+        <Card className="min-w-0">
+
           <CardContent className="p-3 space-y-2">
             <Button size="sm" className="w-full" variant="secondary"
               onClick={() => { setEditing(emptyTemplate()); setSelected(null); }}>
