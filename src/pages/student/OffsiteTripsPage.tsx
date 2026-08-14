@@ -21,6 +21,9 @@ type Trip = {
   title: string;
   purpose: string | null;
   destination: string | null;
+  destination_lat: number | null;
+  destination_lng: number | null;
+  destination_address: string | null;
   start_at: string;
   end_at: string;
   leader_personnel_id: string | null;
