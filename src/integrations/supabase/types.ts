@@ -12863,6 +12863,53 @@ export type Database = {
           },
         ]
       }
+      student_offsite_photos: {
+        Row: {
+          caption: string | null
+          created_at: string
+          id: string
+          lat: number | null
+          lng: number | null
+          photo_url: string
+          taken_at: string
+          trip_id: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          photo_url: string
+          taken_at?: string
+          trip_id: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          photo_url?: string
+          taken_at?: string
+          trip_id?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_offsite_photos_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "student_offsite_trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_offsite_trips: {
         Row: {
           approved_at: string | null
@@ -12874,6 +12921,9 @@ export type Database = {
           created_at: string
           created_by: string | null
           destination: string | null
+          destination_address: string | null
+          destination_lat: number | null
+          destination_lng: number | null
           end_at: string
           id: string
           leader_personnel_id: string | null
@@ -12897,6 +12947,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           destination?: string | null
+          destination_address?: string | null
+          destination_lat?: number | null
+          destination_lng?: number | null
           end_at: string
           id?: string
           leader_personnel_id?: string | null
@@ -12920,6 +12973,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           destination?: string | null
+          destination_address?: string | null
+          destination_lat?: number | null
+          destination_lng?: number | null
           end_at?: string
           id?: string
           leader_personnel_id?: string | null
