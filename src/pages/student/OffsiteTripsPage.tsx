@@ -369,15 +369,20 @@ function TripDetail({ tripId, isAdmin, onBack }: { tripId: string; isAdmin: bool
           <Tabs defaultValue="attendance">
             <TabsList>
               <TabsTrigger value="attendance"><Users className="w-4 h-4 mr-1" />เช็คชื่อนักเรียน ({parts.length})</TabsTrigger>
+              <TabsTrigger value="photos"><ImagePlus className="w-4 h-4 mr-1" />รูปภาพ</TabsTrigger>
               <TabsTrigger value="add">เพิ่มนักเรียน</TabsTrigger>
             </TabsList>
             <TabsContent value="attendance">
               <AttendanceList tripId={tripId} parts={parts} onChanged={() => qc.invalidateQueries({ queryKey: ["offsite_parts", tripId] })} />
             </TabsContent>
+            <TabsContent value="photos">
+              <TripPhotosTab tripId={tripId} canEdit={trip.status !== "cancelled"} />
+            </TabsContent>
             <TabsContent value="add">
               <AddStudentsPanel tripId={tripId} existingIds={parts.map((p: any) => p.student_id)} onAdded={() => qc.invalidateQueries({ queryKey: ["offsite_parts", tripId] })} />
             </TabsContent>
           </Tabs>
+
         </>
       )}
     </div>
