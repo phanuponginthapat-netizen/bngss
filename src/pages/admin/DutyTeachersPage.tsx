@@ -16,6 +16,7 @@ const swalError = (t: string, x?: string) => swal.error(t, x);
 const swalSuccess = (t: string, x?: string) => swal.success(t, x);
 const swalConfirm = (title: string, text?: string) => swal.confirm({ title, text });
 import { format } from "date-fns";
+import { Time24Input } from "@/components/ui/time24-input";
 
 type Location = { id: string; name: string; description: string | null; active: boolean; order_index: number };
 type Personnel = { id: string; prefix: string | null; first_name: string; last_name: string };
@@ -419,8 +420,8 @@ function AssignmentDialog({ state, locations, personnel, onClose, onSave }: any)
             <div><Label>วันที่</Label><Input type="date" value={f.duty_date || ""} onChange={e => setF({ ...f, duty_date: e.target.value, day_of_week: null })} /></div>
           )}
           <div className="grid grid-cols-2 gap-2">
-            <div><Label>เวลาเริ่ม</Label><Input type="time" value={f.start_time || ""} onChange={e => setF({ ...f, start_time: e.target.value })} /></div>
-            <div><Label>เวลาเลิก</Label><Input type="time" value={f.end_time || ""} onChange={e => setF({ ...f, end_time: e.target.value })} /></div>
+            <div><Label>เวลาเริ่ม</Label><Time24Input withSeconds={false} value={f.start_time || ""} onChange={v => setF({ ...f, start_time: v })} /></div>
+            <div><Label>เวลาเลิก</Label><Time24Input withSeconds={false} value={f.end_time || ""} onChange={v => setF({ ...f, end_time: v })} /></div>
           </div>
           <div><Label>ตำแหน่ง (เช่น หัวหน้าเวร)</Label><Input value={f.role_label || ""} onChange={e => setF({ ...f, role_label: e.target.value })} /></div>
           <div><Label>หมายเหตุ</Label><Textarea value={f.notes || ""} onChange={e => setF({ ...f, notes: e.target.value })} /></div>
