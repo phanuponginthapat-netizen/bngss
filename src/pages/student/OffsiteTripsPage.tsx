@@ -11,14 +11,19 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { swal } from "@/lib/swal";
-import { MapPin, Plus, CalendarClock, Users, CheckCircle2, XCircle, Clock3, LogOut, ClipboardList, ArrowLeft, Search, ShieldCheck } from "lucide-react";
+import { MapPin, Plus, CalendarClock, Users, CheckCircle2, XCircle, Clock3, LogOut, ClipboardList, ArrowLeft, Search, ShieldCheck, Crosshair, ImagePlus, Loader2 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
+import TripPhotosTab from "@/components/offsite/TripPhotosTab";
+import { getCurrentCoords, reverseGeocode, mapsLink, formatCoords } from "@/lib/geolocation";
 
 type Trip = {
   id: string;
   title: string;
   purpose: string | null;
   destination: string | null;
+  destination_lat: number | null;
+  destination_lng: number | null;
+  destination_address: string | null;
   start_at: string;
   end_at: string;
   leader_personnel_id: string | null;
@@ -163,8 +168,31 @@ function CreateTripDialog({ open, onOpenChange, onCreated }: { open: boolean; on
     end_at: toLocalInput(new Date(Date.now() + 4 * 3600 * 1000)),
     transportation: "",
     notes: "",
+    lat: null as number | null,
+    lng: null as number | null,
+    address: "",
   });
   const [saving, setSaving] = useState(false);
+  const [locating, setLocating] = useState(false);
+
+  const pickCurrentLocation = async () => {
+    setLocating(true);
+    try {
+      const c = await getCurrentCoords();
+      if (!c) { swal.toast.error("ไม่สามารถดึงพิกัดได้ — กรุณาอนุญาตการเข้าถึงตำแหน่ง"); return; }
+      const address = await reverseGeocode(c.lat, c.lng);
+      setForm((f) => ({
+        ...f,
+        lat: c.lat,
+        lng: c.lng,
+        address,
+        destination: f.destination || address,
+      }));
+      swal.toast.success("ดึงพิกัดสำเร็จ");
+    } finally {
+      setLocating(false);
+    }
+  };
 
   const submit = async () => {
     if (!form.title.trim()) { swal.toast.error("กรุณากรอกชื่อกิจกรรม"); return; }
@@ -176,6 +204,9 @@ function CreateTripDialog({ open, onOpenChange, onCreated }: { open: boolean; on
         title: form.title.trim(),
         purpose: form.purpose.trim() || null,
         destination: form.destination.trim() || null,
+        destination_lat: form.lat,
+        destination_lng: form.lng,
+        destination_address: form.address || null,
         start_at: new Date(form.start_at).toISOString(),
         end_at: new Date(form.end_at).toISOString(),
         transportation: form.transportation.trim() || null,
@@ -187,7 +218,7 @@ function CreateTripDialog({ open, onOpenChange, onCreated }: { open: boolean; on
       swal.toast.success("สร้างทริปสำเร็จ");
       onOpenChange(false);
       onCreated();
-      setForm({ ...form, title: "", purpose: "", destination: "", transportation: "", notes: "" });
+      setForm({ ...form, title: "", purpose: "", destination: "", transportation: "", notes: "", lat: null, lng: null, address: "" });
     } catch (e: any) {
       swal.toast.error(e?.message || "บันทึกไม่สำเร็จ");
     } finally {
@@ -214,7 +245,19 @@ function CreateTripDialog({ open, onOpenChange, onCreated }: { open: boolean; on
           <div>
             <Label>สถานที่/จุดหมาย</Label>
             <Input value={form.destination} onChange={(e) => setForm({ ...form, destination: e.target.value })} placeholder="เช่น หอประชุม สพป., มหาวิทยาลัย XYZ" />
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <Button type="button" size="sm" variant="outline" className="gap-1" disabled={locating} onClick={pickCurrentLocation}>
+                {locating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crosshair className="w-4 h-4" />} ดึงพิกัดปัจจุบัน
+              </Button>
+              {form.lat != null && form.lng != null && (
+                <a href={mapsLink(form.lat, form.lng)} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+                  <MapPin className="w-3 h-3" /> {formatCoords(form.lat, form.lng)}
+                </a>
+              )}
+            </div>
+            {form.address && <p className="text-[11px] text-muted-foreground mt-1">{form.address}</p>}
           </div>
+
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label>เริ่ม *</Label>
@@ -296,6 +339,16 @@ function TripDetail({ tripId, isAdmin, onBack }: { tripId: string; isAdmin: bool
                     {trip.destination && <span className="mr-3">📍 {trip.destination}</span>}
                     <span>🕒 {formatDT(trip.start_at)} — {formatDT(trip.end_at)}</span>
                   </div>
+                  {trip.destination_lat != null && trip.destination_lng != null && (
+                    <a
+                      href={mapsLink(trip.destination_lat, trip.destination_lng)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-primary hover:underline inline-flex items-center gap-1 mt-1"
+                    >
+                      <MapPin className="w-3 h-3" /> เปิดแผนที่ · {formatCoords(trip.destination_lat, trip.destination_lng)}
+                    </a>
+                  )}
                   {trip.purpose && <p className="text-sm mt-2">{trip.purpose}</p>}
                 </div>
                 <Badge className={meta.cls}>{meta.label}</Badge>
@@ -326,15 +379,20 @@ function TripDetail({ tripId, isAdmin, onBack }: { tripId: string; isAdmin: bool
           <Tabs defaultValue="attendance">
             <TabsList>
               <TabsTrigger value="attendance"><Users className="w-4 h-4 mr-1" />เช็คชื่อนักเรียน ({parts.length})</TabsTrigger>
+              <TabsTrigger value="photos"><ImagePlus className="w-4 h-4 mr-1" />รูปภาพ</TabsTrigger>
               <TabsTrigger value="add">เพิ่มนักเรียน</TabsTrigger>
             </TabsList>
             <TabsContent value="attendance">
               <AttendanceList tripId={tripId} parts={parts} onChanged={() => qc.invalidateQueries({ queryKey: ["offsite_parts", tripId] })} />
             </TabsContent>
+            <TabsContent value="photos">
+              <TripPhotosTab tripId={tripId} canEdit={trip.status !== "cancelled"} />
+            </TabsContent>
             <TabsContent value="add">
               <AddStudentsPanel tripId={tripId} existingIds={parts.map((p: any) => p.student_id)} onAdded={() => qc.invalidateQueries({ queryKey: ["offsite_parts", tripId] })} />
             </TabsContent>
           </Tabs>
+
         </>
       )}
     </div>
@@ -345,12 +403,17 @@ function AttendanceList({ tripId, parts, onChanged }: { tripId: string; parts: a
   const setStatus = async (id: string, status: string) => {
     const now = new Date().toISOString();
     const patch: any = { attendance_status: status };
-    if (status === "present" || status === "late") patch.check_in_at = now;
+    if (status === "present" || status === "late") {
+      patch.check_in_at = now;
+      const c = await getCurrentCoords(8000);
+      if (c) { patch.check_in_lat = c.lat; patch.check_in_lng = c.lng; }
+    }
     if (status === "left_early") patch.check_out_at = now;
     const { error } = await supabase.from("student_offsite_participants").update(patch).eq("id", id);
     if (error) { swal.toast.error(error.message); return; }
     onChanged();
   };
+
 
   const bulkMark = async (status: string) => {
     const ok = await swal.confirm({ title: `ทำเครื่องหมาย "${ATT_META[status].label}" ให้ทุกคน?` });
@@ -399,6 +462,11 @@ function AttendanceList({ tripId, parts, onChanged }: { tripId: string; parts: a
                       {s?.student_code} {s?.classrooms ? `· ${s.classrooms.grade_level}/${s.classrooms.name}` : ""}
                     </div>
                     {p.check_in_at && <div className="text-xs text-emerald-600 mt-0.5">เช็คอิน: {formatDT(p.check_in_at)}</div>}
+                    {p.check_in_lat != null && p.check_in_lng != null && (
+                      <a href={mapsLink(p.check_in_lat, p.check_in_lng)} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+                        <MapPin className="w-3 h-3" /> {formatCoords(p.check_in_lat, p.check_in_lng)}
+                      </a>
+                    )}
                   </div>
                   <Badge variant="outline" className={m.cls}>{m.label}</Badge>
                   <Select value={p.attendance_status} onValueChange={(v) => setStatus(p.id, v)}>
