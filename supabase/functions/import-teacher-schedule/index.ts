@@ -81,10 +81,10 @@ Deno.serve(async (req) => {
     const prompt = `คุณเป็นผู้ช่วยอ่านเอกสารตารางสอนของครู "${teacherDisplay}" จากโรงเรียนไทย
 หน้าที่: แตกตารางสอนของครูคนนี้เป็น JSON array แต่ละ row คือ 1 คาบ
 รูปแบบที่ตอบ:
-{ "rows": [ { "day_of_week": 1-7, "period": <int>, "start_time": "HH:MM:SS", "end_time": "HH:MM:SS", "subject_name": "<ชื่อวิชาเต็ม>", "classroom_name": "<ต้องเป็นห้องเฉพาะเช่น ป.1/1 หรือ ม.2/1 ห้ามตัดเลขห้องออก>", "grade_level": "<เช่น ป.1>", "room": "<สถานที่/ห้องที่ใช้สอน เช่น 'Learning Center', 'ห้องคอม 1', 'โรงยิม' ถ้าไม่ระบุให้เป็น null>" } ] }
+{ "rows": [ { "day_of_week": 1-7, "period": <int>, "period_span": <int จำนวนคาบติดกันของช่องนั้น ปกติ 1 ถ้าเป็นคาบคู่ให้ใส่ 2 หรือ 3>, "start_time": "HH:MM:SS", "end_time": "HH:MM:SS", "subject_name": "<ชื่อวิชาเต็ม>", "classroom_name": "<ต้องเป็นห้องเฉพาะเช่น ป.1/1 หรือ ม.2/1 ห้ามตัดเลขห้องออก>", "grade_level": "<เช่น ป.1>", "room": "<สถานที่/ห้องที่ใช้สอน เช่น 'Learning Center', 'ห้องคอม 1', 'โรงยิม' ถ้าไม่ระบุให้เป็น null>" } ] }
 กฎ:
 - day_of_week: จันทร์=1, อังคาร=2, พุธ=3, พฤหัสบดี=4, ศุกร์=5, เสาร์=6, อาทิตย์=7
-- แตก 1 row ต่อ 1 คาบ ห้ามรวม
+- แตก 1 row ต่อ 1 คาบ ห้ามรวม — แต่ถ้าช่องในเอกสารถูก "รวมเซลล์" คร่อมหลายคาบ (คาบคู่) ให้แตกทุกคาบและใส่ period_span เท่ากับจำนวนคาบที่คร่อม พร้อม period เริ่มต้นของแต่ละ row ตามจริง
 - classroom_name: ใส่ตามที่ปรากฏในเอกสาร เช่น "ป.1" หรือ "ป.1/1" หรือ "ม.2/2" ถ้าเอกสารระบุแค่ระดับชั้น (เช่น "ป.1") ก็ให้ใส่ "ป.1" ไม่ต้องเติม "/1" เอง (ระบบจะจับคู่ห้องให้)
 - room: ห้อง/สถานที่ที่ใช้สอนคาบนั้น (ไม่ใช่ชื่อชั้นเรียน) เช่น "Learning Center", "ห้องวิทยาศาสตร์", "ห้อง LAB", "โรงยิม", "ห้องประชุม" ถ้าเอกสารไม่ระบุให้ตอบ null
 - ต้องมี subject_name และ classroom_name ครบทุก row (อ่านจาก header/ช่องในเอกสาร) ห้ามใส่ "undefined" หรือเว้นว่าง
@@ -214,11 +214,43 @@ Deno.serve(async (req) => {
         academic_year: yr,
         semester: sem,
         room,
+        duration_periods: Math.max(1, Math.min(4, Number(r.period_span) || 1)),
       });
 
     }
 
+    // ===== รวมคาบติดกันที่เป็นวิชา/ห้องเดียวกัน → คาบคู่ (duration_periods) =====
+    const mergeConsecutive = (rows: any[]) => {
+      const sorted = [...rows].sort(
+        (a, b) =>
+          String(a.classroom_id).localeCompare(String(b.classroom_id)) ||
+          a.day_of_week - b.day_of_week ||
+          a.period - b.period,
+      );
+      const out: any[] = [];
+      for (const row of sorted) {
+        const prev = out[out.length - 1];
+        const sameSubject = prev &&
+          prev.classroom_id === row.classroom_id &&
+          prev.day_of_week === row.day_of_week &&
+          (prev.subject_id ? prev.subject_id === row.subject_id : prev.subject_name_raw === row.subject_name_raw) &&
+          (prev.room || null) === (row.room || null);
+        const adjacent = prev && prev.period + (prev.duration_periods || 1) === row.period;
+        if (sameSubject && adjacent && (prev.duration_periods || 1) < 4) {
+          prev.duration_periods = (prev.duration_periods || 1) + (row.duration_periods || 1);
+          prev.end_time = row.end_time || prev.end_time;
+          continue;
+        }
+        out.push({ ...row });
+      }
+      return out;
+    };
+    const mergedInsert = mergeConsecutive(toInsert);
+    toInsert.length = 0;
+    toInsert.push(...mergedInsert);
+
     // Upsert per slot — ลบเฉพาะ row ของครูคนนี้เท่านั้น (ไม่ทับครูคนอื่น)
+
     let updated = 0;
     for (const row of toInsert) {
       // 1) ถ้ามี slot เดียวกันของครูคนนี้อยู่ → ลบก่อน (อัพเดต)
