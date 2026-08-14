@@ -339,6 +339,16 @@ function TripDetail({ tripId, isAdmin, onBack }: { tripId: string; isAdmin: bool
                     {trip.destination && <span className="mr-3">📍 {trip.destination}</span>}
                     <span>🕒 {formatDT(trip.start_at)} — {formatDT(trip.end_at)}</span>
                   </div>
+                  {trip.destination_lat != null && trip.destination_lng != null && (
+                    <a
+                      href={mapsLink(trip.destination_lat, trip.destination_lng)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-primary hover:underline inline-flex items-center gap-1 mt-1"
+                    >
+                      <MapPin className="w-3 h-3" /> เปิดแผนที่ · {formatCoords(trip.destination_lat, trip.destination_lng)}
+                    </a>
+                  )}
                   {trip.purpose && <p className="text-sm mt-2">{trip.purpose}</p>}
                 </div>
                 <Badge className={meta.cls}>{meta.label}</Badge>
