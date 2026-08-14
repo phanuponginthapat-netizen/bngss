@@ -1,3 +1,7 @@
+// ⚠️ ต้องมาก่อนทุก import ที่ format วันเวลา — บังคับ 24 ชม. + Asia/Bangkok ทั้งระบบ
+import { installTime24 } from "./lib/time24";
+installTime24();
+
 // Polyfills for newer TC39 proposals used by pdfjs-dist v6 (Chrome <133, Safari, Firefox)
 import "core-js/modules/es.map.get-or-insert-computed.js";
 import "core-js/modules/es.weak-map.get-or-insert-computed.js";
