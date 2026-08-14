@@ -462,6 +462,11 @@ function AttendanceList({ tripId, parts, onChanged }: { tripId: string; parts: a
                       {s?.student_code} {s?.classrooms ? `· ${s.classrooms.grade_level}/${s.classrooms.name}` : ""}
                     </div>
                     {p.check_in_at && <div className="text-xs text-emerald-600 mt-0.5">เช็คอิน: {formatDT(p.check_in_at)}</div>}
+                    {p.check_in_lat != null && p.check_in_lng != null && (
+                      <a href={mapsLink(p.check_in_lat, p.check_in_lng)} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+                        <MapPin className="w-3 h-3" /> {formatCoords(p.check_in_lat, p.check_in_lng)}
+                      </a>
+                    )}
                   </div>
                   <Badge variant="outline" className={m.cls}>{m.label}</Badge>
                   <Select value={p.attendance_status} onValueChange={(v) => setStatus(p.id, v)}>
