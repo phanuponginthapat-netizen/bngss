@@ -219,7 +219,19 @@ function CreateTripDialog({ open, onOpenChange, onCreated }: { open: boolean; on
           <div>
             <Label>สถานที่/จุดหมาย</Label>
             <Input value={form.destination} onChange={(e) => setForm({ ...form, destination: e.target.value })} placeholder="เช่น หอประชุม สพป., มหาวิทยาลัย XYZ" />
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <Button type="button" size="sm" variant="outline" className="gap-1" disabled={locating} onClick={pickCurrentLocation}>
+                {locating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crosshair className="w-4 h-4" />} ดึงพิกัดปัจจุบัน
+              </Button>
+              {form.lat != null && form.lng != null && (
+                <a href={mapsLink(form.lat, form.lng)} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+                  <MapPin className="w-3 h-3" /> {formatCoords(form.lat, form.lng)}
+                </a>
+              )}
+            </div>
+            {form.address && <p className="text-[11px] text-muted-foreground mt-1">{form.address}</p>}
           </div>
+
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label>เริ่ม *</Label>
