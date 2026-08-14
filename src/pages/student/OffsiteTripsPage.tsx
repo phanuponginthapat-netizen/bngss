@@ -403,12 +403,17 @@ function AttendanceList({ tripId, parts, onChanged }: { tripId: string; parts: a
   const setStatus = async (id: string, status: string) => {
     const now = new Date().toISOString();
     const patch: any = { attendance_status: status };
-    if (status === "present" || status === "late") patch.check_in_at = now;
+    if (status === "present" || status === "late") {
+      patch.check_in_at = now;
+      const c = await getCurrentCoords(8000);
+      if (c) { patch.check_in_lat = c.lat; patch.check_in_lng = c.lng; }
+    }
     if (status === "left_early") patch.check_out_at = now;
     const { error } = await supabase.from("student_offsite_participants").update(patch).eq("id", id);
     if (error) { swal.toast.error(error.message); return; }
     onChanged();
   };
+
 
   const bulkMark = async (status: string) => {
     const ok = await swal.confirm({ title: `ทำเครื่องหมาย "${ATT_META[status].label}" ให้ทุกคน?` });
