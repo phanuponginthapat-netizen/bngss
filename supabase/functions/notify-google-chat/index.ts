@@ -43,6 +43,7 @@ function nowBangkok() {
     timeZone: "Asia/Bangkok",
     dateStyle: "medium",
     timeStyle: "short",
+    hour12: false,
   }).format(d);
 }
 

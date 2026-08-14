@@ -1273,7 +1273,7 @@ async function handleSmartQuery(sb: any, token: string, rt: string, lineUserId: 
         .order("scan_time", { ascending: false }).limit(20);
       if (!scans?.length) { await replyText(token, rt, `📋 ไม่มีบันทึกเวลาเข้า-ออก ${label}`, qrParent); return true; }
       const items = scans.map((s: any) => {
-        const tm = new Date(s.scan_time).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" });
+        const tm = new Date(s.scan_time).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Bangkok" });
         return `${s.scan_date} ${tm} ${s.scan_type === "in" ? "🟢เข้า" : "🔴ออก"}`;
       });
       await replyFlex(token, rt, "เวลาเข้า-ออก", buildListCard(`⏰ เวลาเข้า-ออก ${label}`, items, "#0984E3"), qrParent);

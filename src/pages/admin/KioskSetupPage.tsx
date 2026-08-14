@@ -32,6 +32,7 @@ import {
 } from "@/lib/generateKioskScript";
 import { useCmsValue } from "@/hooks/useCmsSettings";
 import { guessPublicOrigin } from "@/lib/publicOrigin";
+import { Time24Input } from "@/components/ui/time24-input";
 
 export default function KioskSetupPage() {
   const schoolName = useCmsValue("school_name") || "โรงเรียน";
@@ -381,10 +382,10 @@ export default function KioskSetupPage() {
             </div>
             <div className="flex items-center gap-3">
               {enableDailyReboot && (
-                <Input
-                  type="time"
+                <Time24Input
+                  withSeconds={false}
                   value={rebootTime}
-                  onChange={(e) => setRebootTime(e.target.value)}
+                  onChange={setRebootTime}
                   className="w-28"
                 />
               )}
@@ -440,10 +441,7 @@ export default function KioskSetupPage() {
               <Label className="flex items-center gap-2 mb-2">
                 <Timer className="h-4 w-4" /> เปิดเครื่องอัตโนมัติ (BIOS RTC wake)
               </Label>
-              <Input
-                type="time" value={powerOn}
-                onChange={(e) => setPowerOn(e.target.value)}
-              />
+              <Time24Input withSeconds={false} value={powerOn} onChange={setPowerOn} />
               <p className="text-xs text-muted-foreground mt-1">
                 เว้นว่าง = ปิด · ใช้ BIOS wakealarm ตั้งก่อน shutdown
               </p>
@@ -452,10 +450,7 @@ export default function KioskSetupPage() {
               <Label className="flex items-center gap-2 mb-2">
                 <Timer className="h-4 w-4" /> ปิดเครื่องอัตโนมัติ
               </Label>
-              <Input
-                type="time" value={powerOff}
-                onChange={(e) => setPowerOff(e.target.value)}
-              />
+              <Time24Input withSeconds={false} value={powerOff} onChange={setPowerOff} />
               <p className="text-xs text-muted-foreground mt-1">
                 เว้นว่าง = ปิด · เหมาะกับเครื่องนักเรียนหลังเลิกเรียน
               </p>

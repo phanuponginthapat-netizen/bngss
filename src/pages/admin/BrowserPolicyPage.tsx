@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, Plus, Trash2, Save, Shield, LogIn, Filter } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { Time24Input } from "@/components/ui/time24-input";
 
 type TimeRule = {
   name: string;
@@ -241,11 +242,11 @@ export default function BrowserPolicyPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <Label>เวลาเริ่ม</Label>
-                    <Input type="time" value={r.start} onChange={(e) => patch(i, { start: e.target.value })} />
+                    <Time24Input withSeconds={false} value={r.start} onChange={(v) => patch(i, { start: v })} />
                   </div>
                   <div>
                     <Label>เวลาสิ้นสุด</Label>
-                    <Input type="time" value={r.end} onChange={(e) => patch(i, { end: e.target.value })} />
+                    <Time24Input withSeconds={false} value={r.end} onChange={(v) => patch(i, { end: v })} />
                   </div>
                 </div>
               </div>

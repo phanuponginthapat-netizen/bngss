@@ -15901,6 +15901,9 @@ export type Database = {
         Returns: undefined
       }
       fitness_points_balance: { Args: { _user_id: string }; Returns: number }
+      fmt_datetime24: { Args: { _ts: string }; Returns: string }
+      fmt_datetime24_be: { Args: { _ts: string }; Returns: string }
+      fmt_time24: { Args: { _ts: string }; Returns: string }
       get_admin_dashboard_stats: { Args: never; Returns: Json }
       get_app_secret: { Args: { _key: string }; Returns: string }
       get_available_academic_years: { Args: never; Returns: number[] }
@@ -16388,6 +16391,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      now_bkk: { Args: never; Returns: string }
       parent_child_classroom_ids: {
         Args: { _user_id: string }
         Returns: string[]
@@ -16499,6 +16503,7 @@ export type Database = {
         Args: { _student_id: string }
         Returns: boolean
       }
+      to_time24: { Args: { _txt: string }; Returns: string }
       user_can_view_news_audience: {
         Args: { _audience: string }
         Returns: boolean
