@@ -1,0 +1,58 @@
+ALTER ROLE anon SET timezone = 'Asia/Bangkok';
+ALTER ROLE authenticated SET timezone = 'Asia/Bangkok';
+ALTER ROLE service_role SET timezone = 'Asia/Bangkok';
+
+CREATE OR REPLACE FUNCTION public.now_bkk()
+RETURNS timestamptz LANGUAGE sql STABLE SET search_path = public AS $$
+  SELECT now() AT TIME ZONE 'UTC' AT TIME ZONE 'UTC'
+$$;
+
+CREATE OR REPLACE FUNCTION public.fmt_time24(_ts timestamptz)
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public AS $$
+  SELECT CASE WHEN _ts IS NULL THEN NULL
+    ELSE to_char(_ts AT TIME ZONE 'Asia/Bangkok', 'HH24:MI') END
+$$;
+
+CREATE OR REPLACE FUNCTION public.fmt_datetime24(_ts timestamptz)
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public AS $$
+  SELECT CASE WHEN _ts IS NULL THEN NULL
+    ELSE to_char(_ts AT TIME ZONE 'Asia/Bangkok', 'DD/MM/YYYY HH24:MI') END
+$$;
+
+CREATE OR REPLACE FUNCTION public.fmt_datetime24_be(_ts timestamptz)
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public AS $$
+  SELECT CASE WHEN _ts IS NULL THEN NULL ELSE
+    to_char(_ts AT TIME ZONE 'Asia/Bangkok', 'DD/MM/')
+    || (EXTRACT(YEAR FROM (_ts AT TIME ZONE 'Asia/Bangkok'))::int + 543)::text
+    || ' ' || to_char(_ts AT TIME ZONE 'Asia/Bangkok', 'HH24:MI') || ' น.'
+  END
+$$;
+
+CREATE OR REPLACE FUNCTION public.to_time24(_txt text)
+RETURNS time LANGUAGE plpgsql IMMUTABLE SET search_path = public AS $$
+DECLARE
+  s text; m text[]; h int; mi int; se int;
+BEGIN
+  IF _txt IS NULL OR btrim(_txt) = '' THEN RETURN NULL; END IF;
+  s := lower(btrim(_txt));
+  m := regexp_match(s, '^([0-9]{1,2})[:.]([0-9]{2})(?:[:.]([0-9]{2}))?\s*(am|pm|น\.?)?$');
+  IF m IS NULL THEN RETURN NULL; END IF;
+  h := m[1]::int; mi := m[2]::int; se := COALESCE(m[3], '0')::int;
+  IF m[4] = 'pm' AND h < 12 THEN h := h + 12; END IF;
+  IF m[4] = 'am' AND h = 12 THEN h := 0; END IF;
+  IF h > 23 OR mi > 59 OR se > 59 THEN RETURN NULL; END IF;
+  RETURN make_time(h, mi, se);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.now_bkk() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.fmt_time24(timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.fmt_datetime24(timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.fmt_datetime24_be(timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.to_time24(text) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION public.now_bkk() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.fmt_time24(timestamptz) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.fmt_datetime24(timestamptz) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.fmt_datetime24_be(timestamptz) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.to_time24(text) TO authenticated, service_role;
