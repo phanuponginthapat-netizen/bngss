@@ -48,7 +48,7 @@ export default function PrintPreviewPage() {
 
   return (
     <div className="min-h-screen bg-muted/30 p-4 print:p-0 print:bg-white">
-      <div className="mx-auto max-w-[1400px] grid lg:grid-cols-[360px_1fr] gap-4 print:block">
+      <div className="mx-auto max-w-[1400px] grid lg:grid-cols-[360px_minmax(0,1fr)] gap-4 print:block">
         {/* Form panel */}
         <Card className="p-4 space-y-3 print:hidden h-fit sticky top-4">
           <div className="flex items-center justify-between">

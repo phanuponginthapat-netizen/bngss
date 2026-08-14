@@ -342,7 +342,7 @@ export default function TemplateEditorPage() {
         </CardContent>
       </Card>
 
-      <div className={`grid grid-cols-1 gap-4 ${showFieldsList ? "lg:grid-cols-[240px_1fr_360px]" : "lg:grid-cols-[1fr_360px]"}`}>
+      <div className={`grid grid-cols-1 gap-4 ${showFieldsList ? "lg:grid-cols-[240px_minmax(0,1fr)_360px]" : "lg:grid-cols-[minmax(0,1fr)_360px]"}`}>
         {showFieldsList && (
           <Card className="self-start sticky top-4 max-h-[80vh] flex flex-col">
             <CardHeader className="pb-2">

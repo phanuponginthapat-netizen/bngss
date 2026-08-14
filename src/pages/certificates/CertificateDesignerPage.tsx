@@ -203,9 +203,10 @@ export default function CertificateDesignerPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_300px] gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[200px_minmax(0,1fr)_280px] gap-3 xl:gap-4 w-full max-w-full">
         {/* รายการเทมเพลต */}
-        <Card>
+        <Card className="min-w-0">
+
           <CardContent className="p-3 space-y-2">
             <Button size="sm" className="w-full" variant="secondary"
               onClick={() => { setEditing(emptyTemplate()); setSelected(null); }}>
@@ -240,7 +241,8 @@ export default function CertificateDesignerPage() {
         </Card>
 
         {/* ผืนผ้าใบ */}
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
+
           <CardContent className="p-3 space-y-3">
             <div className="flex flex-wrap items-end gap-2">
               <div className="flex-1 min-w-[160px]">
@@ -300,8 +302,9 @@ export default function CertificateDesignerPage() {
         </Card>
 
         {/* คุณสมบัติข้อความ */}
-        <Card>
-          <CardContent className="p-3 space-y-3">
+        <Card className="min-w-0">
+          <CardContent className="p-3 space-y-3 max-w-full overflow-x-hidden">
+
             {!field && <p className="text-sm text-muted-foreground">คลิกข้อความบนเกียรติบัตรเพื่อแก้ไข</p>}
             {field && (
               <>

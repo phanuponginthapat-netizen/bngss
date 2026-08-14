@@ -135,7 +135,7 @@ export default function GameDetailPage() {
       <Button variant="ghost" size="sm" asChild><Link to="/dashboard/games"><ArrowLeft className="w-4 h-4 mr-1" />กลับคลังเกม</Link></Button>
 
       <Card>
-        <div className="grid md:grid-cols-[320px_1fr] gap-4">
+        <div className="grid md:grid-cols-[320px_minmax(0,1fr)] gap-4">
           <div className="aspect-[16/10] md:aspect-auto md:h-full bg-muted">
             {game.cover_url ? <img src={game.cover_url} alt={game.title} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Trophy className="w-12 h-12 text-muted-foreground" /></div>}
           </div>

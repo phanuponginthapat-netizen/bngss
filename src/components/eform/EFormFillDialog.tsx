@@ -367,7 +367,7 @@ export const EFormFillDialog = ({ open, onOpenChange, template, context }: Props
           </DialogHeader>
 
 
-          <div className={`grid grid-cols-1 ${inputFields.length === 0 && !isPdfMode ? "lg:grid-cols-1" : "lg:grid-cols-[320px_1fr]"} gap-4 flex-1 min-h-0 overflow-hidden`}>
+          <div className={`grid grid-cols-1 ${inputFields.length === 0 && !isPdfMode ? "lg:grid-cols-1" : "lg:grid-cols-[320px_minmax(0,1fr)]"} gap-4 flex-1 min-h-0 overflow-hidden`}>
             {/* Fields panel */}
             {(inputFields.length > 0 || isPdfMode) && (
             <Card className="overflow-hidden flex flex-col">

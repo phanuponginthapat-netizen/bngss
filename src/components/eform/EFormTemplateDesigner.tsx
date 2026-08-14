@@ -319,7 +319,7 @@ const EFormTemplateDesigner = ({ initialHtml, initialFields, onChange, headerExt
   if (!editor) return null;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-2 h-full min-h-[70dvh] lg:min-h-0">
+    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-2 h-full min-h-[70dvh] lg:min-h-0">
       {/* ===== Editor canvas ===== */}
       <Card className="overflow-hidden">
         <CardContent className="p-0">

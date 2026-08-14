@@ -137,7 +137,7 @@ export function EFormPdfDesigner({ pdfPath, overlays, onChange }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-3 h-full min-h-0">
+    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-3 h-full min-h-0">
       {/* Canvas area */}
       <Card className="overflow-hidden flex flex-col min-h-0">
         <div className="flex items-center gap-2 p-2 border-b bg-muted/30 shrink-0 flex-wrap">
