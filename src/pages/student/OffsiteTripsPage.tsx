@@ -168,8 +168,31 @@ function CreateTripDialog({ open, onOpenChange, onCreated }: { open: boolean; on
     end_at: toLocalInput(new Date(Date.now() + 4 * 3600 * 1000)),
     transportation: "",
     notes: "",
+    lat: null as number | null,
+    lng: null as number | null,
+    address: "",
   });
   const [saving, setSaving] = useState(false);
+  const [locating, setLocating] = useState(false);
+
+  const pickCurrentLocation = async () => {
+    setLocating(true);
+    try {
+      const c = await getCurrentCoords();
+      if (!c) { swal.toast.error("ไม่สามารถดึงพิกัดได้ — กรุณาอนุญาตการเข้าถึงตำแหน่ง"); return; }
+      const address = await reverseGeocode(c.lat, c.lng);
+      setForm((f) => ({
+        ...f,
+        lat: c.lat,
+        lng: c.lng,
+        address,
+        destination: f.destination || address,
+      }));
+      swal.toast.success("ดึงพิกัดสำเร็จ");
+    } finally {
+      setLocating(false);
+    }
+  };
 
   const submit = async () => {
     if (!form.title.trim()) { swal.toast.error("กรุณากรอกชื่อกิจกรรม"); return; }
@@ -181,6 +204,9 @@ function CreateTripDialog({ open, onOpenChange, onCreated }: { open: boolean; on
         title: form.title.trim(),
         purpose: form.purpose.trim() || null,
         destination: form.destination.trim() || null,
+        destination_lat: form.lat,
+        destination_lng: form.lng,
+        destination_address: form.address || null,
         start_at: new Date(form.start_at).toISOString(),
         end_at: new Date(form.end_at).toISOString(),
         transportation: form.transportation.trim() || null,
@@ -192,7 +218,7 @@ function CreateTripDialog({ open, onOpenChange, onCreated }: { open: boolean; on
       swal.toast.success("สร้างทริปสำเร็จ");
       onOpenChange(false);
       onCreated();
-      setForm({ ...form, title: "", purpose: "", destination: "", transportation: "", notes: "" });
+      setForm({ ...form, title: "", purpose: "", destination: "", transportation: "", notes: "", lat: null, lng: null, address: "" });
     } catch (e: any) {
       swal.toast.error(e?.message || "บันทึกไม่สำเร็จ");
     } finally {
