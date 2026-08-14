@@ -849,7 +849,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
   useEffect(() => () => stopCamera(), [stopCamera]);
 
   return (
-    <div className="grid xl:grid-cols-[1fr_300px] gap-4">
+    <div className="grid xl:grid-cols-[minmax(0,1fr)_300px] gap-4">
       <Card className="overflow-hidden">
         <CardContent className="p-3 space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-2">

@@ -1117,7 +1117,7 @@ const CmsPage = () => {
         </a>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-4">
         {/* Sidebar nav */}
         <Card className="shadow-card border-0 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
           <CardContent className="p-3 space-y-4">

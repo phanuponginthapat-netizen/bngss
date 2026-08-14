@@ -212,7 +212,7 @@ export default function OverlayDesigner({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-3">
+    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-3">
       <div className="border rounded-lg overflow-hidden bg-muted/40">
         <div className="bg-muted px-3 py-1.5 text-xs flex items-center justify-between">
           <span>คลิกบนพื้นหลังเพื่อเพิ่มฟิลด์ · ลากเพื่อย้าย · ลากมุมขวาล่างเพื่อปรับขนาด</span>
