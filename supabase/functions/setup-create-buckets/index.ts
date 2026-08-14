@@ -8,6 +8,7 @@ const BUCKET_CONFIG: Record<string, { public: boolean; fileSizeLimit?: number }>
   "cms-logos": { public: true, fileSizeLimit: 10 * 1024 * 1024 },
   "wall-media": { public: true, fileSizeLimit: 50 * 1024 * 1024 },
   "padlet-media": { public: true, fileSizeLimit: 25 * 1024 * 1024 },
+  "certificate-assets": { public: true, fileSizeLimit: 10 * 1024 * 1024 },
   "documents": { public: false, fileSizeLimit: 25 * 1024 * 1024 },
   "backups": { public: false, fileSizeLimit: 500 * 1024 * 1024 },
 };

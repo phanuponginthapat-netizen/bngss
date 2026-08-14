@@ -137,6 +137,8 @@ const SchedulePage = () => {
   const [cellDialog, setCellDialog] = useState<{ day: number; period: number } | null>(null);
   const [selectedSubject, setSelectedSubject] = useState("");
   const [selectedRoom, setSelectedRoom] = useState("");
+  const [selectedDuration, setSelectedDuration] = useState("1");
+
   const [autoScheduling, setAutoScheduling] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -381,6 +383,34 @@ const SchedulePage = () => {
     return schedules;
   }, [viewMode, effectiveTeacherId, effectiveTeacherName, effectiveTeacherFirstName, filterClass, schedules, isStudent, isParent]);
 
+  // ===== Double-period (คาบคู่) helpers =====
+  const spanOf = (s: any) => Math.max(1, Math.min(4, Number(s?.duration_periods) || 1));
+
+  /** item ที่ "เริ่ม" ที่ช่องนี้ */
+  const startingAt = (day: number, period: number) =>
+    filtered.find((s: any) => s.day_of_week === day && s.period === period);
+
+  /** item ที่ "คร่อม" ช่องนี้อยู่ (แต่ไม่ได้เริ่มที่นี่) — ไม่ต้องวาด td */
+  const coveredBy = (day: number, period: number) =>
+    filtered.find(
+      (s: any) =>
+        s.day_of_week === day && s.period < period && s.period + spanOf(s) > period
+    );
+
+  /** จำนวนคาบติดกันสูงสุดที่วางได้จากคาบนี้ (ไม่ข้ามพักเที่ยง / ไม่ชนคาบอื่น) */
+  const maxSpanFrom = (day: number, period: number) => {
+    let max = 1;
+    for (let n = 1; n <= 4; n++) {
+      const p = period + n;
+      if (p > periodsPerDay) break;
+      if (period + n - 1 === lunchAfterPeriod) break; // ห้ามคร่อมพักเที่ยง
+      if (startingAt(day, p) || coveredBy(day, p)) break;
+      max = n + 1;
+    }
+    return max;
+  };
+
+
 
 
   const getSubjectName = (sid: string) => {
@@ -412,6 +442,8 @@ const SchedulePage = () => {
     setCellDialog({ day, period });
     setSelectedSubject("");
     setSelectedRoom("");
+    setSelectedDuration("1");
+
   };
 
   const getClassroomSubjects = () => {
@@ -441,6 +473,8 @@ const SchedulePage = () => {
       teacher_id: assignment?.personnel?.id || null,
       semester: filterSemester,
       room: selectedRoom.trim() || null,
+      duration_periods: Math.max(1, Math.min(maxSpanFrom(cellDialog.day, cellDialog.period), parseInt(selectedDuration) || 1)),
+
     } as any);
 
     if (error) { toast.error(error.message); return; }
@@ -777,14 +811,15 @@ const SchedulePage = () => {
                         {p}
                       </td>
                       {days.map((d) => {
-                        const item = filtered.find(
-                          (s: any) => s.day_of_week === d.val && s.period === p
-                        );
+                        if (coveredBy(d.val, p)) return null; // ถูกคาบคู่ครอบอยู่แล้ว
+                        const item = startingAt(d.val, p);
+                        const span = item ? spanOf(item) : 1;
                         const subType = item ? getSubjectType(item.subject_id) : "";
                         const roomBookings = bookingByDayPeriod[`${d.val}-${p}`] || [];
                         return (
                           <td
                             key={`${d.val}-${p}`}
+                            rowSpan={span > 1 ? span : undefined}
                             className={`border border-border p-1 text-center align-top transition-colors ${
                               item
                                 ? cellBgClass(subType)
@@ -794,6 +829,7 @@ const SchedulePage = () => {
                             }`}
                             onClick={() => !item && handleCellClick(d.val, p)}
                           >
+
                             {item ? (
                               <div className="relative group min-h-[50px]">
                                 {(() => {
@@ -815,11 +851,22 @@ const SchedulePage = () => {
                                     ? classrooms.find((c: any) => c.id === item.classroom_id)?.name || ""
                                     : item.teacher_name}
                                 </div>
+                                {(viewMode !== "mySchedule") && (
+                                  <div className="text-[10px] text-sky-700 dark:text-sky-400 truncate text-center" title="ห้องเรียน">
+                                    🏷️ {classrooms.find((c: any) => c.id === item.classroom_id)?.name || "-"}
+                                  </div>
+                                )}
                                 {item.room && (
                                   <div className="text-[10px] font-medium text-indigo-600 dark:text-indigo-400 truncate text-center" title={item.room}>
                                     📍 {item.room}
                                   </div>
                                 )}
+                                {span > 1 && (
+                                  <div className="text-[10px] font-semibold text-fuchsia-600 dark:text-fuchsia-400 text-center">
+                                    ⧉ คาบคู่ ({item.period}-{item.period + span - 1})
+                                  </div>
+                                )}
+
                                 {roomBookings.map((b: any) => (
                                   <div
                                     key={b.id}
@@ -947,6 +994,25 @@ const SchedulePage = () => {
                       placeholder={lang === "th" ? "เช่น Learning Center, ห้องคอมฯ 1" : "e.g. Learning Center"}
                     />
                   </div>
+                  {cellDialog && (
+                    <div>
+                      <Label>{lang === "th" ? "จำนวนคาบติดกัน (คาบคู่)" : "Consecutive periods"}</Label>
+                      <Select value={selectedDuration} onValueChange={setSelectedDuration}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: maxSpanFrom(cellDialog.day, cellDialog.period) }, (_, i) => i + 1).map((n) => (
+                            <SelectItem key={n} value={String(n)}>
+                              {n === 1 ? (lang === "th" ? "1 คาบ (ปกติ)" : "1 period") : `${n} ${lang === "th" ? "คาบติดกัน" : "periods"} (${cellDialog.period}-${cellDialog.period + n - 1})`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {lang === "th" ? "คาบคู่จะไม่ข้ามพักกลางวันและไม่ทับคาบอื่น" : "Double periods never cross lunch or overlap"}
+                      </p>
+                    </div>
+                  )}
+
                   <Button onClick={handleAssignToCell} className="w-full" disabled={!selectedSubject}>
                     {lang === "th" ? "บันทึก" : "Save"}
                   </Button>

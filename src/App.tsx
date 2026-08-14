@@ -70,6 +70,10 @@ const AcademicManagementPage = lazy(() => import("./pages/academic/AcademicManag
 const AllStudentsPage = lazy(() => import("./pages/academic/AllStudentsPage"));
 const AlumniPage = lazy(() => import("./pages/academic/AlumniPage"));
 const AcademicCalendarPage = lazy(() => import("./pages/academic/AcademicCalendarPage"));
+const ActivitiesPage = lazy(() => import("./pages/activities/ActivitiesPage"));
+const ActivityDetailPage = lazy(() => import("./pages/activities/ActivityDetailPage"));
+const CertificateDesignerPage = lazy(() => import("./pages/certificates/CertificateDesignerPage"));
+const CertificatePrintPage = lazy(() => import("./pages/certificates/CertificatePrintPage"));
 const Pp3Page = lazy(() => import("./pages/academic/Pp3Page"));
 const Pp4Page = lazy(() => import("./pages/academic/Pp4Page"));
 const Pp8Page = lazy(() => import("./pages/academic/Pp8Page"));
@@ -380,6 +384,10 @@ const App = () => (
                 <Route path="academic/all-students" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["academic","student_affairs"]} bypassRoles={["teacher"]}><AllStudentsPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="academic/alumni" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["academic"]}><AlumniPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="academic/calendar" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><AcademicCalendarPage /></ProtectedRoute>} />
+                <Route path="activities" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><ActivitiesPage /></ProtectedRoute>} />
+                <Route path="activities/:id" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><ActivityDetailPage /></ProtectedRoute>} />
+                <Route path="certificates" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><CertificateDesignerPage /></ProtectedRoute>} />
+                <Route path="certificates/print" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><CertificatePrintPage /></ProtectedRoute>} />
                 <Route path="academic/teaching-hub" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><TeachingHubPage /></ProtectedRoute>} />
                 <Route path="academic/lesson-plans" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><LessonPlansPage /></ProtectedRoute>} />
                 <Route path="academic/logbook" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><TeachingLogbookPage /></ProtectedRoute>} />

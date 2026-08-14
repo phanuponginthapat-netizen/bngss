@@ -264,6 +264,8 @@ export function AppSidebar() {
     { title: L("บันทึกการมาเรียน", "Attendance"), url: "/dashboard/student/attendance", icon: ClipboardList, color: "text-emerald-400", roles: ["admin", "director", "teacher"], desc: L("เช็คชื่อหน้าเสาธงและรายคาบ", "Assembly & per-period") },
     { title: L("บันทึกพฤติกรรม", "Behavior"), url: "/dashboard/student/behavior", icon: Shield, color: "text-rose-400", roles: ["admin", "director", "teacher"], desc: L("บันทึกคะแนนความประพฤติ", "Conduct points") },
     { title: L("ศูนย์เกมการเรียนรู้", "Game Hub"), url: "/dashboard/hub/games", icon: Gamepad2, color: "text-fuchsia-400", roles: ["admin", "director", "teacher", "student"], desc: L("คลังเกม · จัดการเกม · API Keys", "Store · Manage · API keys") },
+    { title: L("กิจกรรมและการแข่งขัน", "Activities & Competitions"), url: "/dashboard/activities", icon: Trophy, color: "text-amber-400", roles: ["admin", "director", "teacher", "student", "parent"], desc: L("กีฬาสี วันวิทยาศาสตร์ วันภาษาไทย · สมัคร จัดสาย บันทึกผล", "Register, brackets & results") },
+    { title: L("เกียรติบัตร", "Certificates"), url: "/dashboard/certificates", icon: Award, color: "text-yellow-400", roles: ["admin", "director", "teacher"], desc: L("ออกแบบเทมเพลตและพิมพ์เกียรติบัตรหลายใบ", "Design & bulk print certificates") },
     { title: L("ปฏิทินวิชาการ", "Academic Calendar"), url: "/dashboard/academic/calendar", icon: CalendarDays, color: "text-teal-400", roles: ["admin", "director", "teacher", "student"], desc: L("กิจกรรม สอบ และวันสำคัญ", "Events, exams & key dates") },
   ];
 
