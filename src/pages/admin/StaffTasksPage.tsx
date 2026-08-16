@@ -126,6 +126,7 @@ export default function StaffTasksPage() {
         assigned_date: today,
         due_date: dueDate || null,
         notes: priority,
+        attachments: uploaded,
       }));
 
       const { error } = await supabase.from("task_assignments").insert(rows);
