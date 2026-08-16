@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CheckCircle2, Clock, AlertTriangle, ListTodo } from "lucide-react";
+import { TaskAttachmentViewer } from "@/components/tasks/TaskAttachmentViewer";
 
 interface TeacherTasksPanelProps {
   userId?: string | null;
@@ -85,6 +86,7 @@ export const TeacherTasksPanel = ({ userId, personnelId }: TeacherTasksPanelProp
                     <span>สั่งเมื่อ: {new Date(task.assigned_date).toLocaleDateString("th-TH")}</span>
                     {task.due_date && <span>กำหนดส่ง: {new Date(task.due_date).toLocaleDateString("th-TH")}</span>}
                   </div>
+                  <TaskAttachmentViewer attachments={(task as any).attachments} />
                 </div>
                 {task.status !== "completed" && (
                   <div className="flex gap-1 shrink-0">

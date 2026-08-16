@@ -12,7 +12,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ClipboardList, Send, Loader2, Trash2, Users, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { ClipboardList, Send, Loader2, Trash2, Users, CheckCircle2, Clock, AlertTriangle, ImagePlus, X } from "lucide-react";
+import { TaskAttachmentViewer } from "@/components/tasks/TaskAttachmentViewer";
 
 type Priority = "high" | "normal" | "low";
 
@@ -35,6 +36,7 @@ export default function StaffTasksPage() {
   const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState<Priority>("normal");
   const [selected, setSelected] = useState<string[]>([]);
+  const [images, setImages] = useState<File[]>([]);
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -101,6 +103,19 @@ export default function StaffTasksPage() {
     setSaving(true);
     try {
       const today = new Date().toISOString().slice(0, 10);
+
+      // อัปโหลดรูปแนบ (ถ้ามี)
+      const uploaded: { path: string; name: string }[] = [];
+      for (const file of images) {
+        const ext = file.name.split(".").pop() || "jpg";
+        const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("task-attachments")
+          .upload(path, file, { contentType: file.type || "image/jpeg", upsert: false });
+        if (upErr) throw new Error(`อัปโหลดรูปไม่สำเร็จ: ${upErr.message}`);
+        uploaded.push({ path, name: file.name });
+      }
+
       const rows = selected.map((uid) => ({
         title: title.trim(),
         description: description.trim() || null,
@@ -111,6 +126,7 @@ export default function StaffTasksPage() {
         assigned_date: today,
         due_date: dueDate || null,
         notes: priority,
+        attachments: uploaded,
       }));
 
       const { error } = await supabase.from("task_assignments").insert(rows);
@@ -137,6 +153,7 @@ export default function StaffTasksPage() {
       setDueDate("");
       setPriority("normal");
       setSelected([]);
+      setImages([]);
       qc.invalidateQueries({ queryKey: ["staff-tasks-sent"] });
     } catch (e: any) {
       toast.error(e.message || "บันทึกไม่สำเร็จ");
@@ -225,6 +242,49 @@ export default function StaffTasksPage() {
                     </Select>
                   </div>
                 </div>
+
+                <div className="space-y-1">
+                  <Label>รูปแนบ</Label>
+                  <label className="flex items-center gap-2 border border-dashed border-border rounded-lg p-3 cursor-pointer hover:bg-muted/40 transition">
+                    <ImagePlus className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      แนบรูปประกอบงาน (เลือกได้หลายรูป / ถ่ายจากกล้อง)
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        setImages((prev) => [...prev, ...files].slice(0, 10));
+                        e.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+                  {images.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {images.map((f, i) => (
+                        <div key={i} className="relative">
+                          <img
+                            src={URL.createObjectURL(f)}
+                            alt={`รูปแนบที่ ${i + 1}`}
+                            className="w-20 h-20 object-cover rounded-lg border border-border/60"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setImages((prev) => prev.filter((_, x) => x !== i))}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
+                            aria-label="ลบรูป"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <Button onClick={submit} disabled={saving} className="w-full">
                   {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                   มอบหมายงาน ({selected.length} คน)
@@ -307,6 +367,7 @@ export default function StaffTasksPage() {
                       <span>สั่งเมื่อ: {new Date(t.assigned_date).toLocaleDateString("th-TH")}</span>
                       {t.due_date && <span>กำหนดส่ง: {new Date(t.due_date).toLocaleDateString("th-TH")}</span>}
                     </div>
+                    <TaskAttachmentViewer attachments={(t as any).attachments} />
                   </div>
                   <Button size="icon" variant="ghost" className="shrink-0" onClick={() => removeTask(t.id)}>
                     <Trash2 className="w-4 h-4 text-destructive" />
