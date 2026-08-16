@@ -1,0 +1,4 @@
+create policy "task attach read" on storage.objects for select to authenticated using (bucket_id = 'task-attachments');
+create policy "task attach insert own" on storage.objects for insert to authenticated with check (bucket_id = 'task-attachments' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "task attach update own" on storage.objects for update to authenticated using (bucket_id = 'task-attachments' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "task attach delete own" on storage.objects for delete to authenticated using (bucket_id = 'task-attachments' and (storage.foldername(name))[1] = auth.uid()::text);
