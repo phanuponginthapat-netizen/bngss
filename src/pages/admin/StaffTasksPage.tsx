@@ -242,6 +242,49 @@ export default function StaffTasksPage() {
                     </Select>
                   </div>
                 </div>
+
+                <div className="space-y-1">
+                  <Label>รูปแนบ</Label>
+                  <label className="flex items-center gap-2 border border-dashed border-border rounded-lg p-3 cursor-pointer hover:bg-muted/40 transition">
+                    <ImagePlus className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      แนบรูปประกอบงาน (เลือกได้หลายรูป / ถ่ายจากกล้อง)
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        setImages((prev) => [...prev, ...files].slice(0, 10));
+                        e.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+                  {images.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {images.map((f, i) => (
+                        <div key={i} className="relative">
+                          <img
+                            src={URL.createObjectURL(f)}
+                            alt={`รูปแนบที่ ${i + 1}`}
+                            className="w-20 h-20 object-cover rounded-lg border border-border/60"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setImages((prev) => prev.filter((_, x) => x !== i))}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
+                            aria-label="ลบรูป"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <Button onClick={submit} disabled={saving} className="w-full">
                   {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                   มอบหมายงาน ({selected.length} คน)
