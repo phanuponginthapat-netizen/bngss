@@ -12,7 +12,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ClipboardList, Send, Loader2, Trash2, Users, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { ClipboardList, Send, Loader2, Trash2, Users, CheckCircle2, Clock, AlertTriangle, ImagePlus, X } from "lucide-react";
+import { TaskAttachmentViewer } from "@/components/tasks/TaskAttachmentViewer";
 
 type Priority = "high" | "normal" | "low";
 
