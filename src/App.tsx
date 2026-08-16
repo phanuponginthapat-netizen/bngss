@@ -388,7 +388,9 @@ const App = () => (
                 <Route path="activities" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><ActivitiesPage /></ProtectedRoute>} />
                 <Route path="activities/:id" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><ActivityDetailPage /></ProtectedRoute>} />
                 <Route path="certificates" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><CertificateDesignerPage /></ProtectedRoute>} />
+                <Route path="admin/staff-tasks" element={<ProtectedRoute allowedRoles={["admin", "director"]}><StaffTasksPage /></ProtectedRoute>} />
                 <Route path="certificates/print" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><CertificatePrintPage /></ProtectedRoute>} />
+
                 <Route path="academic/teaching-hub" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><TeachingHubPage /></ProtectedRoute>} />
                 <Route path="academic/lesson-plans" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><LessonPlansPage /></ProtectedRoute>} />
                 <Route path="academic/logbook" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><TeachingLogbookPage /></ProtectedRoute>} />
