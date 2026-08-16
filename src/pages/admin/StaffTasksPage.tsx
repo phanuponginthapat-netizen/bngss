@@ -153,6 +153,7 @@ export default function StaffTasksPage() {
       setDueDate("");
       setPriority("normal");
       setSelected([]);
+      setImages([]);
       qc.invalidateQueries({ queryKey: ["staff-tasks-sent"] });
     } catch (e: any) {
       toast.error(e.message || "บันทึกไม่สำเร็จ");
