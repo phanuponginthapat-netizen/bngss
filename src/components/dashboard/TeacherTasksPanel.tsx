@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CheckCircle2, Clock, AlertTriangle, ListTodo } from "lucide-react";
+import { TaskAttachmentViewer } from "@/components/tasks/TaskAttachmentViewer";
 
 interface TeacherTasksPanelProps {
   userId?: string | null;
