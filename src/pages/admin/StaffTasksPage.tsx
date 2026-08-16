@@ -36,6 +36,7 @@ export default function StaffTasksPage() {
   const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState<Priority>("normal");
   const [selected, setSelected] = useState<string[]>([]);
+  const [images, setImages] = useState<File[]>([]);
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
 
