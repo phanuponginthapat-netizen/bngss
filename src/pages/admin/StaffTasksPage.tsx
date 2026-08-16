@@ -367,6 +367,7 @@ export default function StaffTasksPage() {
                       <span>สั่งเมื่อ: {new Date(t.assigned_date).toLocaleDateString("th-TH")}</span>
                       {t.due_date && <span>กำหนดส่ง: {new Date(t.due_date).toLocaleDateString("th-TH")}</span>}
                     </div>
+                    <TaskAttachmentViewer attachments={(t as any).attachments} />
                   </div>
                   <Button size="icon" variant="ghost" className="shrink-0" onClick={() => removeTask(t.id)}>
                     <Trash2 className="w-4 h-4 text-destructive" />
