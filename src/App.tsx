@@ -74,6 +74,7 @@ const ActivitiesPage = lazy(() => import("./pages/activities/ActivitiesPage"));
 const ActivityDetailPage = lazy(() => import("./pages/activities/ActivityDetailPage"));
 const CertificateDesignerPage = lazy(() => import("./pages/certificates/CertificateDesignerPage"));
 const CertificatePrintPage = lazy(() => import("./pages/certificates/CertificatePrintPage"));
+const StaffTasksPage = lazy(() => import("./pages/admin/StaffTasksPage"));
 const Pp3Page = lazy(() => import("./pages/academic/Pp3Page"));
 const Pp4Page = lazy(() => import("./pages/academic/Pp4Page"));
 const Pp8Page = lazy(() => import("./pages/academic/Pp8Page"));
@@ -387,7 +388,9 @@ const App = () => (
                 <Route path="activities" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><ActivitiesPage /></ProtectedRoute>} />
                 <Route path="activities/:id" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><ActivityDetailPage /></ProtectedRoute>} />
                 <Route path="certificates" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><CertificateDesignerPage /></ProtectedRoute>} />
+                <Route path="admin/staff-tasks" element={<ProtectedRoute allowedRoles={["admin", "director"]}><StaffTasksPage /></ProtectedRoute>} />
                 <Route path="certificates/print" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><CertificatePrintPage /></ProtectedRoute>} />
+
                 <Route path="academic/teaching-hub" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><TeachingHubPage /></ProtectedRoute>} />
                 <Route path="academic/lesson-plans" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><LessonPlansPage /></ProtectedRoute>} />
                 <Route path="academic/logbook" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><TeachingLogbookPage /></ProtectedRoute>} />

@@ -266,6 +266,7 @@ export function AppSidebar() {
     { title: L("ศูนย์เกมการเรียนรู้", "Game Hub"), url: "/dashboard/hub/games", icon: Gamepad2, color: "text-fuchsia-400", roles: ["admin", "director", "teacher", "student"], desc: L("คลังเกม · จัดการเกม · API Keys", "Store · Manage · API keys") },
     { title: L("กิจกรรมและการแข่งขัน", "Activities & Competitions"), url: "/dashboard/activities", icon: Trophy, color: "text-amber-400", roles: ["admin", "director", "teacher", "student", "parent"], desc: L("กีฬาสี วันวิทยาศาสตร์ วันภาษาไทย · สมัคร จัดสาย บันทึกผล", "Register, brackets & results") },
     { title: L("เกียรติบัตร", "Certificates"), url: "/dashboard/certificates", icon: Award, color: "text-yellow-400", roles: ["admin", "director", "teacher"], desc: L("ออกแบบเทมเพลตและพิมพ์เกียรติบัตรหลายใบ", "Design & bulk print certificates") },
+    { title: L("สั่งงานบุคลากร", "Assign Staff Tasks"), url: "/dashboard/admin/staff-tasks", icon: ClipboardList, color: "text-orange-400", roles: ["admin", "director"], desc: L("ผอ. มอบหมายงานให้ครู/บุคลากร · ติดตามสถานะ", "Assign & track staff tasks") },
     { title: L("ปฏิทินวิชาการ", "Academic Calendar"), url: "/dashboard/academic/calendar", icon: CalendarDays, color: "text-teal-400", roles: ["admin", "director", "teacher", "student"], desc: L("กิจกรรม สอบ และวันสำคัญ", "Events, exams & key dates") },
   ];
 
