@@ -85,6 +85,7 @@ export const TeacherTasksPanel = ({ userId, personnelId }: TeacherTasksPanelProp
                     <span>สั่งเมื่อ: {new Date(task.assigned_date).toLocaleDateString("th-TH")}</span>
                     {task.due_date && <span>กำหนดส่ง: {new Date(task.due_date).toLocaleDateString("th-TH")}</span>}
                   </div>
+                  <TaskAttachmentViewer attachments={(task as any).attachments} />
                 </div>
                 {task.status !== "completed" && (
                   <div className="flex gap-1 shrink-0">
