@@ -74,6 +74,7 @@ const ActivitiesPage = lazy(() => import("./pages/activities/ActivitiesPage"));
 const ActivityDetailPage = lazy(() => import("./pages/activities/ActivityDetailPage"));
 const CertificateDesignerPage = lazy(() => import("./pages/certificates/CertificateDesignerPage"));
 const CertificatePrintPage = lazy(() => import("./pages/certificates/CertificatePrintPage"));
+const StaffTasksPage = lazy(() => import("./pages/admin/StaffTasksPage"));
 const Pp3Page = lazy(() => import("./pages/academic/Pp3Page"));
 const Pp4Page = lazy(() => import("./pages/academic/Pp4Page"));
 const Pp8Page = lazy(() => import("./pages/academic/Pp8Page"));
