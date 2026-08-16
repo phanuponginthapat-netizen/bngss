@@ -103,6 +103,19 @@ export default function StaffTasksPage() {
     setSaving(true);
     try {
       const today = new Date().toISOString().slice(0, 10);
+
+      // อัปโหลดรูปแนบ (ถ้ามี)
+      const uploaded: { path: string; name: string }[] = [];
+      for (const file of images) {
+        const ext = file.name.split(".").pop() || "jpg";
+        const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("task-attachments")
+          .upload(path, file, { contentType: file.type || "image/jpeg", upsert: false });
+        if (upErr) throw new Error(`อัปโหลดรูปไม่สำเร็จ: ${upErr.message}`);
+        uploaded.push({ path, name: file.name });
+      }
+
       const rows = selected.map((uid) => ({
         title: title.trim(),
         description: description.trim() || null,
