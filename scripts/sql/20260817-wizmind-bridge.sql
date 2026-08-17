@@ -33,11 +33,11 @@ alter table public.camera_face_events enable row level security;
 
 drop policy if exists "cfe staff read" on public.camera_face_events;
 create policy "cfe staff read" on public.camera_face_events
-  for select to authenticated using (public.is_staff_user());
+  for select to authenticated using (public.is_staff_user(auth.uid()));
 
 drop policy if exists "cfe staff update" on public.camera_face_events;
 create policy "cfe staff update" on public.camera_face_events
-  for update to authenticated using (public.is_staff_user()) with check (public.is_staff_user());
+  for update to authenticated using (public.is_staff_user(auth.uid())) with check (public.is_staff_user(auth.uid()));
 
 -- realtime
 alter table public.camera_face_events replica identity full;
@@ -51,7 +51,7 @@ end $$;
 drop policy if exists "camera events staff read" on storage.objects;
 create policy "camera events staff read" on storage.objects
   for select to authenticated
-  using (bucket_id = 'camera-events' and public.is_staff_user());
+  using (bucket_id = 'camera-events' and public.is_staff_user(auth.uid()));
 
 -- retention helper: ลบ event เก่ากว่า 7 วัน
 create or replace function public.purge_camera_face_events(_days int default 7)
