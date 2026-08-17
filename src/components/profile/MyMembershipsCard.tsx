@@ -173,7 +173,7 @@ export default function MyMembershipsCard() {
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Departments */}
+        {/* Departments (read-only — assigned by admin/director) */}
         <section className="space-y-3">
           <h4 className="font-semibold text-sm flex items-center gap-2">
             <Building2 className="w-4 h-4 text-primary" /> ฝ่ายงาน
@@ -184,41 +184,20 @@ export default function MyMembershipsCard() {
                 <Badge variant="secondary" className="font-medium">
                   {DEPARTMENTS.find(x => x.value === d.department)?.label || d.department}
                 </Badge>
-                <Select value={d.dept_role} onValueChange={(v: DeptRole) => updateDeptRole.mutate({ id: d.id, role: v })}>
-                  <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {DEPT_ROLES.map(r => <SelectItem key={r} value={r}>{DEPT_ROLE_LABEL_TH[r]}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button size="sm" variant="ghost" onClick={() => removeDept.mutate(d.id)} className="ml-auto text-destructive">
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {DEPT_ROLE_LABEL_TH[d.dept_role as DeptRole] || d.dept_role}
+                </span>
               </div>
             ))}
             {(depts.data || []).length === 0 && (
               <p className="text-xs text-muted-foreground italic">ยังไม่ได้เพิ่มฝ่าย</p>
             )}
           </div>
-          <div className="flex flex-wrap gap-2 pt-2 border-t">
-            <Select value={newDept} onValueChange={(v: SchoolDepartment) => setNewDept(v)}>
-              <SelectTrigger className="w-[220px] h-9"><SelectValue placeholder="เลือกฝ่ายที่จะเพิ่ม" /></SelectTrigger>
-              <SelectContent>
-                {DEPARTMENTS.filter(d => !usedDepts.has(d.value)).map(d => (
-                  <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={newDeptRole} onValueChange={(v: DeptRole) => setNewDeptRole(v)}>
-              <SelectTrigger className="w-[160px] h-9"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {DEPT_ROLES.map(r => <SelectItem key={r} value={r}>{DEPT_ROLE_LABEL_TH[r]}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Button size="sm" onClick={() => addDept.mutate()} disabled={!newDept || addDept.isPending}>
-              <Plus className="w-4 h-4 mr-1" /> เพิ่มฝ่าย
-            </Button>
-          </div>
+          <p className="text-xs text-muted-foreground pt-2 border-t">
+            การกำหนดฝ่ายงานและตำแหน่ง (หัวหน้า/รอง/หัวหน้าหมวด) ทำได้โดยผู้ดูแลระบบหรือผู้อำนวยการเท่านั้น
+          </p>
         </section>
+
 
         {/* Subject Groups */}
         <section className="space-y-3">
