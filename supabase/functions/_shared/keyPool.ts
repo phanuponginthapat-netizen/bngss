@@ -43,8 +43,8 @@ const PROVIDER_CFG: Record<PoolProvider, {
   },
   gemini: {
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-    defaultModel: "gemini-2.5-flash",
-    visionModel: "gemini-2.5-flash",
+    defaultModel: "gemini-3.6-flash",
+    visionModel: "gemini-3.6-flash",
     buildHeaders: (key) => ({ "Content-Type": "application/json", Authorization: `Bearer ${key}` }),
     buildBody: (model, messages, opts) => {
       const body: any = { model, messages, temperature: opts.temperature ?? 0.7 };
@@ -55,8 +55,8 @@ const PROVIDER_CFG: Record<PoolProvider, {
   },
   groq: {
     url: "https://api.groq.com/openai/v1/chat/completions",
-    defaultModel: "llama-3.3-70b-versatile",
-    visionModel: "llama-3.2-90b-vision-preview",
+    defaultModel: "llama-3.1-8b-instant",
+    visionModel: "meta-llama/llama-4-scout-17b-16e-instruct",
     buildHeaders: (key) => ({ "Content-Type": "application/json", Authorization: `Bearer ${key}` }),
     buildBody: (model, messages, opts) => {
       const body: any = { model, messages, temperature: opts.temperature ?? 0.7 };
