@@ -858,6 +858,18 @@ export function AppSidebar() {
                 "/dashboard/hub/games",
               ]),
             },
+            {
+              key: "events",
+              label: L("กิจกรรมและงานที่ได้รับมอบหมาย", "Activities & Tasks"),
+              color: "text-fuchsia-400",
+              dot: "bg-fuchsia-400",
+              icon: Trophy,
+              items: take([
+                "/dashboard/activities",
+                "/dashboard/certificates",
+                "/dashboard/admin/staff-tasks",
+              ]),
+            },
           ];
           // ให้ /dashboard/browser ตกไปหมวด "เครื่องมือ" (div_tools) แทน เพื่อไม่ให้ซ้ำ
           used.add("/dashboard/browser");
