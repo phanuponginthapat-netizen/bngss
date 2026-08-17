@@ -3,6 +3,8 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { todayBangkokISO } from "../_shared/thaiDate.ts";
+import { modelCandidates, isModelNotFound } from "./modelAliases.ts";
+
 
 export type PoolProvider =
   | "openai" | "gemini" | "groq" | "openrouter"
