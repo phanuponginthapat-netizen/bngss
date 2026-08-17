@@ -677,7 +677,7 @@ export function AppSidebar() {
       })
       .filter((s) => s.items.length > 0);
     const leftover = visibleDepts.filter((d) => !used.has(d.key));
-    if (leftover.length) out.push({ key: "more", label: L("อื่นๆ", "More"), icon: FolderOpen, depts: [], color: "text-slate-400", dot: "bg-slate-400", items: leftover });
+    if (leftover.length) out.push({ key: "more_depts", label: L("ฝ่ายงานอื่นๆ", "Other Divisions"), icon: FolderOpen, depts: [], color: "text-slate-400", dot: "bg-slate-400", items: leftover });
     return out;
   }, [visibleDepts, lang, role]);
 
@@ -877,8 +877,8 @@ export function AppSidebar() {
           const leftover = visibleMain.filter((i) => !used.has(i.url));
           if (leftover.length) {
             mainSections.push({
-              key: "more",
-              label: L("อื่นๆ", "More"),
+              key: "more_main",
+              label: L("เมนูอื่นๆ", "Other Menus"),
               color: "text-slate-300",
               dot: "bg-slate-300",
               icon: FolderOpen,
