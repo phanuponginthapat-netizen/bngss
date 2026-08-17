@@ -7,6 +7,8 @@ import { callWithPool, type PoolProvider } from "./keyPool.ts";
 import { getSecret } from "./getSecret.ts";
 import { secretKeys } from "./secretKeys.ts";
 import { NO_LOVABLE_AI_MSG } from "./standalone.ts";
+import { modelCandidates, isModelNotFound } from "./modelAliases.ts";
+
 
 export interface AIMessage {
   role: "system" | "user" | "assistant";
