@@ -246,10 +246,25 @@ const AssetManagementPage = () => {
   };
 
 
+  const num = (v: any, fallback = 0) => {
+    const n = parseFloat(String(v ?? "").replace(/,/g, ""));
+    return Number.isFinite(n) ? n : fallback;
+  };
+  const saveErrorMessage = (msg: string) => {
+    const m = String(msg || "");
+    if (/duplicate key/i.test(m) && /asset_code/i.test(m)) return "รหัสครุภัณฑ์นี้มีอยู่แล้วในระบบ";
+    if (/duplicate key/i.test(m) && /serial/i.test(m)) return "S/N นี้ถูกใช้แล้ว";
+    if (/duplicate key/i.test(m)) return "ข้อมูลซ้ำกับรายการที่มีอยู่";
+    if (/row-level security|permission denied/i.test(m)) return "คุณไม่มีสิทธิ์บันทึกข้อมูลครุภัณฑ์ (ต้องเป็นแอดมิน/ผอ. หรือเจ้าหน้าที่พัสดุ)";
+    if (/invalid input syntax/i.test(m)) return "รูปแบบข้อมูลไม่ถูกต้อง กรุณาตรวจสอบตัวเลข/วันที่";
+    return m || "บันทึกไม่สำเร็จ";
+  };
+
   const handleAdd = async () => {
-    if (!form.asset_code || !form.asset_name || !form.acquisition_cost) {
+    if (!form.asset_code?.trim() || !form.asset_name?.trim() || !form.acquisition_cost) {
       toast.error("กรุณากรอกข้อมูลให้ครบ"); return;
     }
+    if (num(form.acquisition_cost, -1) < 0) { toast.error("มูลค่าต้องไม่ติดลบ"); return; }
     const snErr = validateSN(form.serial_number);
     if (snErr) { toast.error(snErr); return; }
     const dup = findDuplicateSN(form.serial_number);
@@ -257,11 +272,16 @@ const AssetManagementPage = () => {
       toast.error(`S/N นี้ถูกใช้แล้วกับ "${dup.asset_name}" (${dup.asset_code})`);
       return;
     }
+    const dupCode = (assets || []).find(
+      (a: any) => String(a.asset_code || "").trim().toLowerCase() === form.asset_code.trim().toLowerCase()
+    );
+    if (dupCode) { toast.error(`รหัสครุภัณฑ์ "${form.asset_code}" ถูกใช้แล้ว`); return; }
     setUploading(true);
     const newUrls = await uploadPhotos(photoFiles);
     const allPhotos = [...form.photos, ...newUrls];
-    const cost = parseFloat(form.acquisition_cost);
-    const depRate = parseFloat(form.depreciation_rate) / 100;
+    const cost = num(form.acquisition_cost);
+    const depRate = num(form.depreciation_rate) / 100;
+
 
     // Get responsible name from profile if user_id selected
     let responsibleName = form.responsible_person;
