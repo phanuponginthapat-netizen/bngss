@@ -39,6 +39,10 @@ import { useWeatherData } from "@/hooks/useWeatherData";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import GpsTrackingCard from "@/components/GpsTrackingCard";
 import { saveErrorMessage } from "@/lib/saveError";
+import AttachmentUploader from "@/components/homework/AttachmentUploader";
+import { type Attachment } from "@/lib/homeworkStorage";
+import { notify } from "@/lib/notify";
+import { Loader2 } from "lucide-react";
 
 interface SubjectItem {
   id: string;
@@ -682,6 +686,9 @@ const SubjectTabContent = ({ subject, enrollmentCount, schedules, navigate, pers
   const [hwDesc, setHwDesc] = useState("");
   const [hwDue, setHwDue] = useState("");
   const [hwClassroom, setHwClassroom] = useState("");
+  const [hwMaxScore, setHwMaxScore] = useState("10");
+  const [hwAttachments, setHwAttachments] = useState<Attachment[]>([]);
+  const [hwSaving, setHwSaving] = useState(false);
 
   const todaySchedules = schedules.filter(s => s.day_of_week === new Date().getDay());
   const DAY_NAMES = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
@@ -721,31 +728,57 @@ const SubjectTabContent = ({ subject, enrollmentCount, schedules, navigate, pers
     if (!hwClassroom) { toast.error("กรุณาเลือกห้องเรียน"); return; }
     if (!userId) return;
 
-    const { data: students } = await supabase.from("students")
-      .select("id, auth_user_id").eq("classroom_id", hwClassroom).eq("status", "active");
+    const parsedMax = hwMaxScore.trim() === "" ? null : Number(hwMaxScore);
+    if (parsedMax !== null && (Number.isNaN(parsedMax) || parsedMax <= 0)) {
+      toast.error("คะแนนเต็มต้องเป็นตัวเลขมากกว่า 0");
+      return;
+    }
 
-    const rows = (students || []).map(s => ({
-      task_type: "homework" as const,
+    const tid = toast.loading("กำลังบันทึก...");
+    setHwSaving(true);
+    const { data: inserted, error } = await supabase.from("task_assignments").insert({
+      task_type: "homework",
       title: hwTitle.trim(),
       description: hwDesc.trim() || null,
-      assigned_by: userId,
-      assigned_to_user_id: s.auth_user_id || null,
-      assigned_to_student_id: s.id,
+      due_date: hwDue || null,
       subject_id: subject.id,
       classroom_id: hwClassroom,
-      due_date: hwDue || null,
-      status: "pending" as const,
-    }));
-
-    if (rows.length === 0) { toast.error("ไม่พบนักเรียนในห้องเรียนนี้"); return; }
-
-    const { error } = await supabase.from("task_assignments").insert(rows);
+      assigned_by: userId,
+      replies: [],
+      attachments: hwAttachments as any,
+      max_score: parsedMax,
+    }).select("id").maybeSingle();
+    toast.dismiss(tid);
+    setHwSaving(false);
     if (error) { toast.error(saveErrorMessage(error)); return; }
-    toast.success(`สั่งการบ้านให้นักเรียน ${rows.length} คนสำเร็จ`);
+    toast.success("สร้างการบ้านแล้ว");
+
+    try {
+      const { data: studs } = await supabase.from("students")
+        .select("auth_user_id")
+        .eq("classroom_id", hwClassroom)
+        .eq("status", "active")
+        .not("auth_user_id", "is", null);
+      const uids = (studs ?? []).map((s: any) => s.auth_user_id).filter(Boolean);
+      if (uids.length > 0) {
+        await notify({
+          user_ids: uids,
+          title: `📚 การบ้านใหม่: ${hwTitle.trim()}`,
+          body: `${subject.name_th || subject.code || "วิชา"}${hwDue ? ` · กำหนดส่ง ${hwDue}` : ""}`,
+          type: "homework",
+          severity: "info",
+          reference_id: inserted?.id,
+          reference_type: "task_assignments",
+          url: "/dashboard/homework",
+          channels: ["in_app", "push", "line"],
+        });
+      }
+    } catch (e) { console.warn("homework notify failed", e); }
 
     qc.invalidateQueries({ queryKey: ["subject_homework"] });
     setCreateOpen(false);
     setHwTitle(""); setHwDesc(""); setHwDue(""); setHwClassroom("");
+    setHwMaxScore("10"); setHwAttachments([]);
   };
 
   return (
@@ -815,18 +848,10 @@ const SubjectTabContent = ({ subject, enrollmentCount, schedules, navigate, pers
             <DialogTrigger asChild>
               <Button size="sm"><Plus className="w-4 h-4 mr-1" /> สั่งการบ้าน</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader><DialogTitle>สั่งการบ้าน - {subject.name_th || subject.code}</DialogTitle></DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label>ชื่อการบ้าน</Label>
-                  <Input value={hwTitle} onChange={e => setHwTitle(e.target.value)} placeholder="เช่น ใบงานบทที่ 3" />
-                </div>
-                <div>
-                  <Label>รายละเอียด</Label>
-                  <Textarea value={hwDesc} onChange={e => setHwDesc(e.target.value)} placeholder="อธิบายงาน..." rows={3} />
-                </div>
-                <div>
+            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader><DialogTitle>สั่งการบ้านใหม่ - {subject.name_th || subject.code}</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
                   <Label>ห้องเรียน</Label>
                   <Select value={hwClassroom} onValueChange={setHwClassroom}>
                     <SelectTrigger><SelectValue placeholder="เลือกห้องเรียน" /></SelectTrigger>
@@ -834,14 +859,48 @@ const SubjectTabContent = ({ subject, enrollmentCount, schedules, navigate, pers
                       {(subject.classrooms || []).map((c: any) => (
                         <SelectItem key={c.id} value={c.id}>{c.name} ({c.grade_level})</SelectItem>
                       ))}
+                      {(subject.classrooms || []).length === 0 && (
+                        <div className="p-2 text-xs text-muted-foreground">ยังไม่มีห้องเรียนที่สอนวิชานี้</div>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
+                <div className="space-y-1.5">
+                  <Label>หัวข้อ</Label>
+                  <Input value={hwTitle} onChange={e => setHwTitle(e.target.value)} placeholder="เช่น แบบฝึกหัดบทที่ 3" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>รายละเอียด</Label>
+                  <Textarea value={hwDesc} onChange={e => setHwDesc(e.target.value)} placeholder="อธิบายงาน..." rows={4} />
+                </div>
+                <div className="space-y-1.5">
                   <Label>กำหนดส่ง</Label>
                   <BEDatePicker value={hwDue} onChange={(v) => setHwDue(v)} />
                 </div>
-                <Button onClick={handleAssignHomework} className="w-full">มอบหมายการบ้าน</Button>
+                <div className="space-y-1.5">
+                  <Label>คะแนนเต็ม <span className="text-xs text-muted-foreground font-normal">(เว้นว่างถ้าไม่ให้คะแนน)</span></Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    step="0.5"
+                    value={hwMaxScore}
+                    onChange={e => setHwMaxScore(e.target.value)}
+                    placeholder="เช่น 10, 20, 100"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>ไฟล์การบ้าน / ใบงาน (นักเรียนสามารถแก้ไขในเว็บได้ทันที)</Label>
+                  <AttachmentUploader
+                    folder="tasks"
+                    value={hwAttachments}
+                    onChange={setHwAttachments}
+                    maxFiles={5}
+                  />
+                </div>
+                <Button onClick={handleAssignHomework} disabled={hwSaving} className="w-full">
+                  {hwSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                  สั่งการบ้าน
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
