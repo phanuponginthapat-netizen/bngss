@@ -262,6 +262,73 @@ export function AutoImportDialogBase<T>({
                         {it.parsed && (
                           <div className="text-xs space-y-2">
                             {renderMeta(it, (patch) => updateItem(it.file, patch))}
+
+                            {/* ปีการศึกษา: ย้อนหลัง / ปัจจุบัน / ล่วงหน้า + แก้ไขได้ */}
+                            <div className="rounded-md border bg-muted/40 p-2 space-y-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[11px] font-medium text-muted-foreground">ปีการศึกษาของไฟล์</span>
+                                {it.yearCheck && (
+                                  <Badge
+                                    variant={it.yearCheck.status === "current" ? "secondary" : it.yearCheck.status === "past" ? "outline" : "destructive"}
+                                    className="text-[10px]"
+                                  >
+                                    {it.yearCheck.status === "past" ? "ย้อนหลัง" : it.yearCheck.status === "future" ? "ล่วงหน้า" : "ปัจจุบัน"} · {it.yearCheck.label}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  className="h-8 w-28 text-xs"
+                                  placeholder="ปี พ.ศ."
+                                  value={it.yearOverride ?? it.parsed.meta.academicYear ?? ""}
+                                  onChange={async (e) => {
+                                    const y = Number(e.target.value) || undefined;
+                                    updateItem(it.file, { yearOverride: y });
+                                    if (y) updateItem(it.file, { yearCheck: await checkAcademicYear(y, it.semesterOverride ?? it.parsed?.meta.semester) });
+                                  }}
+                                />
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  max={2}
+                                  className="h-8 w-20 text-xs"
+                                  placeholder="ภาค"
+                                  value={it.semesterOverride ?? it.parsed.meta.semester ?? ""}
+                                  onChange={(e) => updateItem(it.file, { semesterOverride: Number(e.target.value) || undefined })}
+                                />
+                              </div>
+                            </div>
+
+                            {/* ตรวจรายชื่อกับระบบ → ศิษย์เก่า */}
+                            {it.missingStudents !== undefined && (
+                              <div className="rounded-md border bg-muted/40 p-2 space-y-1">
+                                <p className="text-[11px] text-muted-foreground">
+                                  พบในระบบ {it.matchedStudents ?? 0} คน · ไม่พบ {it.missingStudents.length} คน
+                                </p>
+                                {it.missingStudents.length > 0 && (
+                                  <>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                      <Checkbox
+                                        checked={!!it.createAlumni}
+                                        onCheckedChange={(v) => updateItem(it.file, { createAlumni: !!v })}
+                                      />
+                                      <span className="text-[11px]">
+                                        บรรจุผู้ที่ไม่พบเป็น "ศิษย์เก่า" อัตโนมัติ ({it.missingStudents.length} คน)
+                                      </span>
+                                    </label>
+                                    <p className="text-[10px] text-muted-foreground truncate">
+                                      {it.missingStudents.slice(0, 6).map((m) => `${m.studentCode} ${m.studentName}`).join(", ")}
+                                      {it.missingStudents.length > 6 ? " …" : ""}
+                                    </p>
+                                  </>
+                                )}
+                                {typeof it.alumniCreated === "number" && it.alumniCreated > 0 && (
+                                  <p className="text-[10px] text-green-600">บรรจุศิษย์เก่าแล้ว {it.alumniCreated} คน</p>
+                                )}
+                              </div>
+                            )}
+
                             <div className="flex flex-wrap gap-1 pt-1">
                               {it.parsed.sheets.map((s) => (
                                 <Badge key={s.sheetName} variant="outline" className="text-[10px]">
