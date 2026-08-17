@@ -928,6 +928,25 @@ const SchedulePage = () => {
                                   </div>
                                 )}
 
+                                {extraItems.map((ex: any) => (
+                                  <div
+                                    key={ex.id}
+                                    className="mt-0.5 border-t border-border/60 pt-0.5 text-[10px] text-center truncate"
+                                    title={getSubjectName(ex.subject_id) || ex.subject_name_raw || ""}
+                                  >
+                                    <span className="font-semibold text-foreground">
+                                      {getSubjectName(ex.subject_id) || ex.subject_name_raw || "-"}
+                                    </span>
+                                    <span className="text-muted-foreground">
+                                      {" "}· {viewMode === "mySchedule"
+                                        ? classrooms.find((c: any) => c.id === ex.classroom_id)?.name || ""
+                                        : ex.teacher_name || ""}
+                                    </span>
+                                  </div>
+                                ))}
+
+
+
                                 {roomBookings.map((b: any) => (
                                   <div
                                     key={b.id}
