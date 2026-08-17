@@ -26,7 +26,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -50,7 +50,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -74,7 +74,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -98,7 +98,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -122,7 +122,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -149,7 +149,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -173,7 +173,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -197,7 +197,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -222,7 +222,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -271,7 +271,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -295,7 +295,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -319,7 +319,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -379,7 +379,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -403,7 +403,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -430,7 +430,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -454,7 +454,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -478,7 +478,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -504,7 +504,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -528,7 +528,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -552,7 +552,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -578,7 +578,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -602,7 +602,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -628,7 +628,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -652,7 +652,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -678,7 +678,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -702,7 +702,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -726,7 +726,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -765,7 +765,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -789,7 +789,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -813,7 +813,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
@@ -844,7 +844,7 @@ BEGIN
           EXIT;
         END IF;
         PERFORM pg_sleep(0.4 * _ddl_try);
-      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+      WHEN insufficient_privilege OR undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
         RAISE NOTICE 'skipped: %', SQLERRM;
         EXIT;
     END;
