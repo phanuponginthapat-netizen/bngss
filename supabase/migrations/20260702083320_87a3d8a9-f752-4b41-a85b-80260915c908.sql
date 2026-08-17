@@ -21,10 +21,12 @@ GRANT ALL ON public.browser_shortcuts TO service_role;
 ALTER TABLE public.browser_shortcuts ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "authenticated can read shortcuts" ON public.browser_shortcuts;
+DROP POLICY IF EXISTS "authenticated can read shortcuts" ON public.browser_shortcuts;
 CREATE POLICY "authenticated can read shortcuts"
   ON public.browser_shortcuts FOR SELECT
   TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "admins manage shortcuts" ON public.browser_shortcuts;
 DROP POLICY IF EXISTS "admins manage shortcuts" ON public.browser_shortcuts;
 CREATE POLICY "admins manage shortcuts"
   ON public.browser_shortcuts FOR ALL
@@ -32,6 +34,7 @@ CREATE POLICY "admins manage shortcuts"
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
+DROP TRIGGER IF EXISTS trg_browser_shortcuts_updated ON public.browser_shortcuts;
 CREATE TRIGGER trg_browser_shortcuts_updated
   BEFORE UPDATE ON public.browser_shortcuts
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

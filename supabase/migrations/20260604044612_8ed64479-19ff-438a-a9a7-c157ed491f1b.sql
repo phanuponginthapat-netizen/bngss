@@ -11,6 +11,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.app_secrets TO authenticated;
 GRANT ALL ON public.app_secrets TO service_role;
 ALTER TABLE public.app_secrets ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "admins manage app secrets" ON public.app_secrets;
+DROP POLICY IF EXISTS "admins manage app secrets" ON public.app_secrets;
 CREATE POLICY "admins manage app secrets" ON public.app_secrets FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'))
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));

@@ -10,6 +10,7 @@ ALTER TABLE public.task_assignments
 -- (already covered by existing policy via assigned_to_user_id, but add a
 -- fallback for cases where auth_user_id wasn't linked yet — match by student)
 DROP POLICY IF EXISTS "Students can view own homework via student_id" ON public.task_assignments;
+DROP POLICY IF EXISTS "Students can view own homework via student_id" ON public.task_assignments;
 CREATE POLICY "Students can view own homework via student_id"
 ON public.task_assignments
 FOR SELECT
@@ -22,6 +23,7 @@ USING (
 
 -- Allow the student (matched via students.auth_user_id) to update their own
 -- submission/status even if assigned_to_user_id wasn't set at creation time
+DROP POLICY IF EXISTS "Students can submit own homework" ON public.task_assignments;
 DROP POLICY IF EXISTS "Students can submit own homework" ON public.task_assignments;
 CREATE POLICY "Students can submit own homework"
 ON public.task_assignments

@@ -21,15 +21,18 @@ INSERT INTO storage.buckets (id, name, public) VALUES ('home-visit-photos', 'hom
 
 -- Storage RLS policies
 DROP POLICY IF EXISTS "Authenticated users can upload home visit photos" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload home visit photos" ON storage.objects;
 CREATE POLICY "Authenticated users can upload home visit photos"
 ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (bucket_id = 'home-visit-photos');
 
 DROP POLICY IF EXISTS "Anyone can view home visit photos" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can view home visit photos" ON storage.objects;
 CREATE POLICY "Anyone can view home visit photos"
 ON storage.objects FOR SELECT TO public
 USING (bucket_id = 'home-visit-photos');
 
+DROP POLICY IF EXISTS "Authenticated users can delete home visit photos" ON storage.objects;
 DROP POLICY IF EXISTS "Authenticated users can delete home visit photos" ON storage.objects;
 CREATE POLICY "Authenticated users can delete home visit photos"
 ON storage.objects FOR DELETE TO authenticated

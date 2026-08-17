@@ -35,6 +35,7 @@ FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- RLS: same-school members can read active templates; admin/director manage; creator manage own
 DROP POLICY IF EXISTS "Same-school members read active templates" ON public.eform_templates;
+DROP POLICY IF EXISTS "Same-school members read active templates" ON public.eform_templates;
 CREATE POLICY "Same-school members read active templates"
 ON public.eform_templates FOR SELECT TO authenticated
 USING (
@@ -42,6 +43,7 @@ USING (
   AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()))
 );
 
+DROP POLICY IF EXISTS "Admin/Director manage templates in school" ON public.eform_templates;
 DROP POLICY IF EXISTS "Admin/Director manage templates in school" ON public.eform_templates;
 CREATE POLICY "Admin/Director manage templates in school"
 ON public.eform_templates FOR ALL TO authenticated
@@ -54,6 +56,7 @@ WITH CHECK (
   AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()))
 );
 
+DROP POLICY IF EXISTS "Creator manage own templates" ON public.eform_templates;
 DROP POLICY IF EXISTS "Creator manage own templates" ON public.eform_templates;
 CREATE POLICY "Creator manage own templates"
 ON public.eform_templates FOR ALL TO authenticated

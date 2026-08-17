@@ -2,6 +2,7 @@
 -- Fix 1: home_visits homeroom policy — use UUID matching instead of fragile name string matching
 DROP POLICY IF EXISTS "Homeroom teacher manage home_visits (secure)" ON public.home_visits;
 
+DROP POLICY IF EXISTS "Homeroom teacher manage home_visits (secure)" ON public.home_visits;
 CREATE POLICY "Homeroom teacher manage home_visits (secure)"
 ON public.home_visits
 FOR ALL
@@ -25,6 +26,7 @@ WITH CHECK (
 -- Fix 2: students teacher SELECT — scope to same school as the teacher
 DROP POLICY IF EXISTS "Staff can view all students" ON public.students;
 
+DROP POLICY IF EXISTS "Staff can view students in their school" ON public.students;
 DROP POLICY IF EXISTS "Staff can view students in their school" ON public.students;
 CREATE POLICY "Staff can view students in their school"
 ON public.students

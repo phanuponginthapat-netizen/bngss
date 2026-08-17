@@ -42,7 +42,9 @@ BEGIN
 END;
 $$;
 
--- Create trigger on notifications table
+-- DROP TRIGGER IF EXISTS on ON notifications;
+Create trigger on notifications table
+DROP TRIGGER IF EXISTS on_notification_send_push ON public.notifications;
 CREATE TRIGGER on_notification_send_push
 AFTER INSERT ON public.notifications
 FOR EACH ROW

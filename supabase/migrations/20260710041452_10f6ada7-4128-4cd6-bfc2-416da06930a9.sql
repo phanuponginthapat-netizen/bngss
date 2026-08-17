@@ -19,6 +19,7 @@ GRANT ALL ON public.home_visit_summaries TO service_role;
 ALTER TABLE public.home_visit_summaries ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Staff can view home visit summaries" ON public.home_visit_summaries;
+DROP POLICY IF EXISTS "Staff can view home visit summaries" ON public.home_visit_summaries;
 CREATE POLICY "Staff can view home visit summaries"
   ON public.home_visit_summaries FOR SELECT TO authenticated
   USING (
@@ -28,6 +29,7 @@ CREATE POLICY "Staff can view home visit summaries"
   );
 
 DROP POLICY IF EXISTS "Staff can insert home visit summaries" ON public.home_visit_summaries;
+DROP POLICY IF EXISTS "Staff can insert home visit summaries" ON public.home_visit_summaries;
 CREATE POLICY "Staff can insert home visit summaries"
   ON public.home_visit_summaries FOR INSERT TO authenticated
   WITH CHECK (
@@ -36,6 +38,7 @@ CREATE POLICY "Staff can insert home visit summaries"
     OR public.has_role(auth.uid(), 'teacher'::app_role)
   );
 
+DROP POLICY IF EXISTS "Staff can update home visit summaries" ON public.home_visit_summaries;
 DROP POLICY IF EXISTS "Staff can update home visit summaries" ON public.home_visit_summaries;
 CREATE POLICY "Staff can update home visit summaries"
   ON public.home_visit_summaries FOR UPDATE TO authenticated
@@ -51,6 +54,7 @@ CREATE POLICY "Staff can update home visit summaries"
   );
 
 DROP POLICY IF EXISTS "Admin/director can delete home visit summaries" ON public.home_visit_summaries;
+DROP POLICY IF EXISTS "Admin/director can delete home visit summaries" ON public.home_visit_summaries;
 CREATE POLICY "Admin/director can delete home visit summaries"
   ON public.home_visit_summaries FOR DELETE TO authenticated
   USING (
@@ -58,6 +62,7 @@ CREATE POLICY "Admin/director can delete home visit summaries"
     OR public.has_role(auth.uid(), 'director'::app_role)
   );
 
+DROP TRIGGER IF EXISTS trg_home_visit_summaries_updated ON public.home_visit_summaries;
 CREATE TRIGGER trg_home_visit_summaries_updated
   BEFORE UPDATE ON public.home_visit_summaries
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

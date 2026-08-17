@@ -17,10 +17,12 @@ CREATE TABLE IF NOT EXISTS public.school_settings (
 ALTER TABLE public.school_settings ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone authenticated can view school_settings" ON public.school_settings;
+DROP POLICY IF EXISTS "Anyone authenticated can view school_settings" ON public.school_settings;
 CREATE POLICY "Anyone authenticated can view school_settings"
   ON public.school_settings FOR SELECT
   TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Admin can manage school_settings" ON public.school_settings;
 DROP POLICY IF EXISTS "Admin can manage school_settings" ON public.school_settings;
 CREATE POLICY "Admin can manage school_settings"
   ON public.school_settings FOR ALL

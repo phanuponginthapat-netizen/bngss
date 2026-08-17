@@ -113,6 +113,7 @@ GRANT ALL ON public.hub_push_log TO service_role;
 ALTER TABLE public.hub_push_log ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Admins view hub push log" ON public.hub_push_log;
+DROP POLICY IF EXISTS "Admins view hub push log" ON public.hub_push_log;
 CREATE POLICY "Admins view hub push log" ON public.hub_push_log
   FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));

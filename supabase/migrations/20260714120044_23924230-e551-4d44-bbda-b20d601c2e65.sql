@@ -10,6 +10,7 @@ DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Admins can manage all profiles" ON public.profiles;
 
 DROP POLICY IF EXISTS "Admin/Director view profiles in their school" ON public.profiles;
+DROP POLICY IF EXISTS "Admin/Director view profiles in their school" ON public.profiles;
 CREATE POLICY "Admin/Director view profiles in their school"
 ON public.profiles FOR SELECT TO authenticated
 USING (
@@ -17,6 +18,7 @@ USING (
   AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()))
 );
 
+DROP POLICY IF EXISTS "Admins manage profiles in their school" ON public.profiles;
 DROP POLICY IF EXISTS "Admins manage profiles in their school" ON public.profiles;
 CREATE POLICY "Admins manage profiles in their school"
 ON public.profiles FOR ALL TO authenticated
@@ -30,6 +32,7 @@ WITH CHECK (
 );
 
 DROP POLICY IF EXISTS "Authenticated can read homework files" ON storage.objects;
+DROP POLICY IF EXISTS "Homework files: owner or same-school members" ON storage.objects;
 DROP POLICY IF EXISTS "Homework files: owner or same-school members" ON storage.objects;
 CREATE POLICY "Homework files: owner or same-school members"
 ON storage.objects FOR SELECT TO authenticated
@@ -98,10 +101,12 @@ BEFORE UPDATE ON public.eform_templates
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 DROP POLICY IF EXISTS "Same-school members read active templates" ON public.eform_templates;
+DROP POLICY IF EXISTS "Same-school members read active templates" ON public.eform_templates;
 CREATE POLICY "Same-school members read active templates"
 ON public.eform_templates FOR SELECT TO authenticated
 USING (is_active = true AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid())));
 
+DROP POLICY IF EXISTS "Admin/Director manage templates in school" ON public.eform_templates;
 DROP POLICY IF EXISTS "Admin/Director manage templates in school" ON public.eform_templates;
 CREATE POLICY "Admin/Director manage templates in school"
 ON public.eform_templates FOR ALL TO authenticated
@@ -114,6 +119,7 @@ WITH CHECK (
   AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()))
 );
 
+DROP POLICY IF EXISTS "Creator manage own templates" ON public.eform_templates;
 DROP POLICY IF EXISTS "Creator manage own templates" ON public.eform_templates;
 CREATE POLICY "Creator manage own templates"
 ON public.eform_templates FOR ALL TO authenticated
@@ -139,6 +145,7 @@ ALTER TABLE public.classrooms ADD COLUMN IF NOT EXISTS reference_grade_level tex
 COMMENT ON COLUMN public.classrooms.reference_grade_level IS 'For special-needs classrooms: the actual grade level (ป.1-ม.6) the students belong to for reporting/aggregation. NULL means use grade_level directly.';
 
 DROP POLICY IF EXISTS "Auth users can view homework_assignments" ON public.homework_assignments;
+DROP POLICY IF EXISTS "Auth users can view homework_assignments in their school" ON public.homework_assignments;
 DROP POLICY IF EXISTS "Auth users can view homework_assignments in their school" ON public.homework_assignments;
 CREATE POLICY "Auth users can view homework_assignments in their school"
 ON public.homework_assignments FOR SELECT TO authenticated
@@ -230,14 +237,17 @@ END $$;
 
 DROP POLICY IF EXISTS "Admin/director manage ai_providers" ON public.ai_providers;
 DROP POLICY IF EXISTS "service_role only ai_providers" ON public.ai_providers;
+DROP POLICY IF EXISTS "service_role only ai_providers" ON public.ai_providers;
 CREATE POLICY "service_role only ai_providers" ON public.ai_providers
   AS PERMISSIVE FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Anyone can view cms settings" ON public.cms_settings;
 DROP POLICY IF EXISTS "Anon view public cms keys" ON public.cms_settings;
+DROP POLICY IF EXISTS "Anon view public cms keys" ON public.cms_settings;
 CREATE POLICY "Anon view public cms keys" ON public.cms_settings
   FOR SELECT TO anon
   USING (key NOT ILIKE 'id_card%' AND key NOT ILIKE '%template%' AND key NOT ILIKE '%secret%' AND key NOT ILIKE '%internal%' AND key NOT ILIKE 'admin_%');
+DROP POLICY IF EXISTS "Auth view all cms settings" ON public.cms_settings;
 DROP POLICY IF EXISTS "Auth view all cms settings" ON public.cms_settings;
 CREATE POLICY "Auth view all cms settings" ON public.cms_settings
   FOR SELECT TO authenticated USING (true);
@@ -312,8 +322,10 @@ END $$;
 DROP POLICY IF EXISTS "Authenticated can broadcast realtime" ON realtime.messages;
 DROP POLICY IF EXISTS "Authenticated can read realtime" ON realtime.messages;
 DROP POLICY IF EXISTS "Deny all realtime broadcast/presence by default" ON realtime.messages;
+DROP POLICY IF EXISTS "Deny all realtime broadcast/presence by default" ON realtime.messages;
 CREATE POLICY "Deny all realtime broadcast/presence by default"
 ON realtime.messages FOR SELECT TO authenticated USING (false);
+DROP POLICY IF EXISTS "Deny all realtime inserts by default" ON realtime.messages;
 DROP POLICY IF EXISTS "Deny all realtime inserts by default" ON realtime.messages;
 CREATE POLICY "Deny all realtime inserts by default"
 ON realtime.messages FOR INSERT TO authenticated WITH CHECK (false);
@@ -366,8 +378,10 @@ GRANT ALL ON public.print_templates TO service_role;
 ALTER TABLE public.print_templates ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates;
+DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates;
 CREATE POLICY "Anyone authenticated can read active templates"
   ON public.print_templates FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Admins and directors manage templates" ON public.print_templates;
 DROP POLICY IF EXISTS "Admins and directors manage templates" ON public.print_templates;
 CREATE POLICY "Admins and directors manage templates"
   ON public.print_templates FOR ALL TO authenticated
@@ -390,8 +404,10 @@ GRANT ALL ON public.print_template_versions TO service_role;
 ALTER TABLE public.print_template_versions ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Auth read versions" ON public.print_template_versions;
+DROP POLICY IF EXISTS "Auth read versions" ON public.print_template_versions;
 CREATE POLICY "Auth read versions"
   ON public.print_template_versions FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Admins write versions" ON public.print_template_versions;
 DROP POLICY IF EXISTS "Admins write versions" ON public.print_template_versions;
 CREATE POLICY "Admins write versions"
   ON public.print_template_versions FOR INSERT TO authenticated

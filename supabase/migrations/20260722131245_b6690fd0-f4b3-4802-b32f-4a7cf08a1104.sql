@@ -83,6 +83,7 @@ GRANT ALL ON public.district_snapshot_runs TO service_role;
 ALTER TABLE public.district_snapshot_runs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Admins view snapshot runs" ON public.district_snapshot_runs;
+DROP POLICY IF EXISTS "Admins view snapshot runs" ON public.district_snapshot_runs;
 CREATE POLICY "Admins view snapshot runs" ON public.district_snapshot_runs
   FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
@@ -114,10 +115,12 @@ GRANT ALL ON public.district_feed_outbox TO service_role;
 ALTER TABLE public.district_feed_outbox ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Admins view outbox" ON public.district_feed_outbox;
+DROP POLICY IF EXISTS "Admins view outbox" ON public.district_feed_outbox;
 CREATE POLICY "Admins view outbox" ON public.district_feed_outbox
   FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
+DROP POLICY IF EXISTS "Admins manage outbox" ON public.district_feed_outbox;
 DROP POLICY IF EXISTS "Admins manage outbox" ON public.district_feed_outbox;
 CREATE POLICY "Admins manage outbox" ON public.district_feed_outbox
   FOR UPDATE TO authenticated

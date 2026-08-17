@@ -65,7 +65,10 @@ DROP POLICY IF EXISTS "Shared masters readable by shared roles" ON public.print_
 
 -- Recreate enum
 ALTER TYPE public.app_role RENAME TO app_role_old;
-CREATE TYPE public.app_role AS ENUM ('admin','teacher','student','director','alumni','parent','observer');
+DO $do$ BEGIN
+  CREATE TYPE public.app_role AS ENUM ('admin','teacher','student','director','alumni','parent','observer');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $do$;
 ALTER TABLE public.user_roles ALTER COLUMN role TYPE public.app_role USING role::text::public.app_role;
 
 DROP FUNCTION IF EXISTS public.has_role(uuid, public.app_role_old) CASCADE;
@@ -84,6 +87,7 @@ GRANT EXECUTE ON FUNCTION public.get_user_role(uuid) TO authenticated, service_r
 
 DROP TYPE public.app_role_old CASCADE;
 
+DROP POLICY IF EXISTS "Shared masters readable by shared roles" ON public.print_templates;
 CREATE POLICY "Shared masters readable by shared roles" ON public.print_templates FOR SELECT
   USING (
     is_system_master = true AND published_at IS NOT NULL

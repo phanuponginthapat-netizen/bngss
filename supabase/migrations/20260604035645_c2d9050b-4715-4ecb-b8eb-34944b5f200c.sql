@@ -27,6 +27,7 @@ END $$;
 
 -- Fix overly permissive RLS on google_chat_logs (was open to public role with WITH CHECK true)
 DROP POLICY IF EXISTS "Service role can insert chat logs" ON public.google_chat_logs;
+DROP POLICY IF EXISTS "Service role can insert chat logs" ON public.google_chat_logs;
 CREATE POLICY "Service role can insert chat logs"
 ON public.google_chat_logs
 FOR INSERT

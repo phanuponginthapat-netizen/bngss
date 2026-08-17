@@ -1,6 +1,7 @@
 GRANT SELECT ON public.school_settings TO anon;
 
 DROP POLICY IF EXISTS "Anon view public kiosk settings" ON public.school_settings;
+DROP POLICY IF EXISTS "Anon view public kiosk settings" ON public.school_settings;
 CREATE POLICY "Anon view public kiosk settings"
 ON public.school_settings
 FOR SELECT

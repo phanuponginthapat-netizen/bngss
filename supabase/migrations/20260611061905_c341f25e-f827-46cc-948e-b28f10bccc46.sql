@@ -2,6 +2,7 @@
 DROP POLICY IF EXISTS "Staff manage student_scores" ON public.student_scores;
 
 DROP POLICY IF EXISTS "Admins and directors manage all student_scores" ON public.student_scores;
+DROP POLICY IF EXISTS "Admins and directors manage all student_scores" ON public.student_scores;
 CREATE POLICY "Admins and directors manage all student_scores"
 ON public.student_scores
 FOR ALL
@@ -9,6 +10,7 @@ TO authenticated
 USING (has_role(auth.uid(),'admin'::app_role) OR has_role(auth.uid(),'director'::app_role))
 WITH CHECK (has_role(auth.uid(),'admin'::app_role) OR has_role(auth.uid(),'director'::app_role));
 
+DROP POLICY IF EXISTS "Teachers manage scores for their own assigned subjects" ON public.student_scores;
 DROP POLICY IF EXISTS "Teachers manage scores for their own assigned subjects" ON public.student_scores;
 CREATE POLICY "Teachers manage scores for their own assigned subjects"
 ON public.student_scores

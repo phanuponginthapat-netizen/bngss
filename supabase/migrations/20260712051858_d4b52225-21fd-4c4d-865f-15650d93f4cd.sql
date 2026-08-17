@@ -1,6 +1,7 @@
 DROP POLICY IF EXISTS "teachers can create boards" ON public.padlet_boards;
 
 DROP POLICY IF EXISTS "staff can create boards" ON public.padlet_boards;
+DROP POLICY IF EXISTS "staff can create boards" ON public.padlet_boards;
 CREATE POLICY "staff can create boards"
 ON public.padlet_boards FOR INSERT TO authenticated
 WITH CHECK (

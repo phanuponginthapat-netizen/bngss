@@ -7,6 +7,7 @@ ON CONFLICT (key) DO NOTHING;
 
 -- Extend public allowlist policy so anon/authenticated can read these two keys
 DROP POLICY IF EXISTS "Public can view allowlisted cms settings" ON public.cms_settings;
+DROP POLICY IF EXISTS "Public can view allowlisted cms settings" ON public.cms_settings;
 CREATE POLICY "Public can view allowlisted cms settings"
 ON public.cms_settings FOR SELECT
 TO anon, authenticated

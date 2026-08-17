@@ -22,25 +22,30 @@ GRANT ALL ON public.dashboard_shortcuts TO service_role;
 ALTER TABLE public.dashboard_shortcuts ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can view active shortcuts" ON public.dashboard_shortcuts;
+DROP POLICY IF EXISTS "Anyone can view active shortcuts" ON public.dashboard_shortcuts;
 CREATE POLICY "Anyone can view active shortcuts"
   ON public.dashboard_shortcuts FOR SELECT
   USING (is_active = true OR public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Admins can insert shortcuts" ON public.dashboard_shortcuts;
 DROP POLICY IF EXISTS "Admins can insert shortcuts" ON public.dashboard_shortcuts;
 CREATE POLICY "Admins can insert shortcuts"
   ON public.dashboard_shortcuts FOR INSERT TO authenticated
   WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
 DROP POLICY IF EXISTS "Admins can update shortcuts" ON public.dashboard_shortcuts;
+DROP POLICY IF EXISTS "Admins can update shortcuts" ON public.dashboard_shortcuts;
 CREATE POLICY "Admins can update shortcuts"
   ON public.dashboard_shortcuts FOR UPDATE TO authenticated
   USING (public.has_role(auth.uid(), 'admin'));
 
 DROP POLICY IF EXISTS "Admins can delete shortcuts" ON public.dashboard_shortcuts;
+DROP POLICY IF EXISTS "Admins can delete shortcuts" ON public.dashboard_shortcuts;
 CREATE POLICY "Admins can delete shortcuts"
   ON public.dashboard_shortcuts FOR DELETE TO authenticated
   USING (public.has_role(auth.uid(), 'admin'));
 
+DROP TRIGGER IF EXISTS trg_dashboard_shortcuts_updated_at ON public.dashboard_shortcuts;
 CREATE TRIGGER trg_dashboard_shortcuts_updated_at
   BEFORE UPDATE ON public.dashboard_shortcuts
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

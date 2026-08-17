@@ -5,6 +5,7 @@ ALTER TABLE public.cms_settings
 
 DROP POLICY IF EXISTS "Anon view public cms keys" ON public.cms_settings;
 DROP POLICY IF EXISTS "Anon view explicitly public cms keys" ON public.cms_settings;
+DROP POLICY IF EXISTS "Anon view explicitly public cms keys" ON public.cms_settings;
 CREATE POLICY "Anon view explicitly public cms keys"
 ON public.cms_settings FOR SELECT
 TO anon
@@ -12,6 +13,7 @@ USING (is_public = true);
 
 -- 2. game_hub_scores: reaffirm strict scoped read (drop any legacy USING(true))
 DROP POLICY IF EXISTS "scores_read_all_auth" ON public.game_hub_scores;
+DROP POLICY IF EXISTS "scores_read_scoped" ON public.game_hub_scores;
 DROP POLICY IF EXISTS "scores_read_scoped" ON public.game_hub_scores;
 CREATE POLICY "scores_read_scoped"
 ON public.game_hub_scores FOR SELECT

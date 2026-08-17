@@ -20,14 +20,18 @@ GRANT ALL ON public.dashboard_shortcuts TO service_role;
 ALTER TABLE public.dashboard_shortcuts ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can view active shortcuts" ON public.dashboard_shortcuts;
+DROP POLICY IF EXISTS "Anyone can view active shortcuts" ON public.dashboard_shortcuts;
 CREATE POLICY "Anyone can view active shortcuts" ON public.dashboard_shortcuts FOR SELECT
   USING (is_active = true OR public.has_role(auth.uid(), 'admin'));
+DROP POLICY IF EXISTS "Admins can insert shortcuts" ON public.dashboard_shortcuts;
 DROP POLICY IF EXISTS "Admins can insert shortcuts" ON public.dashboard_shortcuts;
 CREATE POLICY "Admins can insert shortcuts" ON public.dashboard_shortcuts FOR INSERT TO authenticated
   WITH CHECK (public.has_role(auth.uid(), 'admin'));
 DROP POLICY IF EXISTS "Admins can update shortcuts" ON public.dashboard_shortcuts;
+DROP POLICY IF EXISTS "Admins can update shortcuts" ON public.dashboard_shortcuts;
 CREATE POLICY "Admins can update shortcuts" ON public.dashboard_shortcuts FOR UPDATE TO authenticated
   USING (public.has_role(auth.uid(), 'admin'));
+DROP POLICY IF EXISTS "Admins can delete shortcuts" ON public.dashboard_shortcuts;
 DROP POLICY IF EXISTS "Admins can delete shortcuts" ON public.dashboard_shortcuts;
 CREATE POLICY "Admins can delete shortcuts" ON public.dashboard_shortcuts FOR DELETE TO authenticated
   USING (public.has_role(auth.uid(), 'admin'));
@@ -60,7 +64,7 @@ INSERT INTO public.dashboard_shortcuts (label_th, label_en, icon, bg_class, targ
 ON CONFLICT DO NOTHING;
 
 DO $$ BEGIN
-  CREATE TYPE public.dept_role AS ENUM ('member','head','deputy_head','section_head');
+CREATE TYPE public.dept_role AS ENUM ('member','head','deputy_head','section_head');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 ALTER TABLE public.user_departments
@@ -95,8 +99,10 @@ GRANT ALL ON public.user_subject_groups TO service_role;
 ALTER TABLE public.user_subject_groups ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users view own subject groups" ON public.user_subject_groups;
+DROP POLICY IF EXISTS "Users view own subject groups" ON public.user_subject_groups;
 CREATE POLICY "Users view own subject groups" ON public.user_subject_groups FOR SELECT TO authenticated
 USING (user_id = auth.uid() OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
+DROP POLICY IF EXISTS "Admin manage subject groups" ON public.user_subject_groups;
 DROP POLICY IF EXISTS "Admin manage subject groups" ON public.user_subject_groups;
 CREATE POLICY "Admin manage subject groups" ON public.user_subject_groups FOR ALL TO authenticated
 USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
@@ -141,15 +147,19 @@ GRANT ALL ON public.kiosk_devices TO service_role;
 ALTER TABLE public.kiosk_devices ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "users can upsert own device row" ON public.kiosk_devices;
+DROP POLICY IF EXISTS "users can upsert own device row" ON public.kiosk_devices;
 CREATE POLICY "users can upsert own device row" ON public.kiosk_devices FOR INSERT TO authenticated
 WITH CHECK (user_id = auth.uid() OR user_id IS NULL);
+DROP POLICY IF EXISTS "users can update own device row" ON public.kiosk_devices;
 DROP POLICY IF EXISTS "users can update own device row" ON public.kiosk_devices;
 CREATE POLICY "users can update own device row" ON public.kiosk_devices FOR UPDATE TO authenticated
 USING (user_id = auth.uid() OR user_id IS NULL OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director') OR public.has_role(auth.uid(), 'teacher'))
 WITH CHECK (user_id = auth.uid() OR user_id IS NULL OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director') OR public.has_role(auth.uid(), 'teacher'));
 DROP POLICY IF EXISTS "staff can view all devices" ON public.kiosk_devices;
+DROP POLICY IF EXISTS "staff can view all devices" ON public.kiosk_devices;
 CREATE POLICY "staff can view all devices" ON public.kiosk_devices FOR SELECT TO authenticated
 USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director') OR public.has_role(auth.uid(), 'teacher') OR user_id = auth.uid());
+DROP POLICY IF EXISTS "admins can delete devices" ON public.kiosk_devices;
 DROP POLICY IF EXISTS "admins can delete devices" ON public.kiosk_devices;
 CREATE POLICY "admins can delete devices" ON public.kiosk_devices FOR DELETE TO authenticated
 USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
@@ -185,15 +195,19 @@ GRANT ALL ON public.home_visit_summaries TO service_role;
 ALTER TABLE public.home_visit_summaries ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Staff can view home visit summaries" ON public.home_visit_summaries;
+DROP POLICY IF EXISTS "Staff can view home visit summaries" ON public.home_visit_summaries;
 CREATE POLICY "Staff can view home visit summaries" ON public.home_visit_summaries FOR SELECT TO authenticated
 USING (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'director'::app_role) OR public.has_role(auth.uid(), 'teacher'::app_role));
+DROP POLICY IF EXISTS "Staff can insert home visit summaries" ON public.home_visit_summaries;
 DROP POLICY IF EXISTS "Staff can insert home visit summaries" ON public.home_visit_summaries;
 CREATE POLICY "Staff can insert home visit summaries" ON public.home_visit_summaries FOR INSERT TO authenticated
 WITH CHECK (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'director'::app_role) OR public.has_role(auth.uid(), 'teacher'::app_role));
 DROP POLICY IF EXISTS "Staff can update home visit summaries" ON public.home_visit_summaries;
+DROP POLICY IF EXISTS "Staff can update home visit summaries" ON public.home_visit_summaries;
 CREATE POLICY "Staff can update home visit summaries" ON public.home_visit_summaries FOR UPDATE TO authenticated
 USING (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'director'::app_role) OR public.has_role(auth.uid(), 'teacher'::app_role))
 WITH CHECK (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'director'::app_role) OR public.has_role(auth.uid(), 'teacher'::app_role));
+DROP POLICY IF EXISTS "Admin/director can delete home visit summaries" ON public.home_visit_summaries;
 DROP POLICY IF EXISTS "Admin/director can delete home visit summaries" ON public.home_visit_summaries;
 CREATE POLICY "Admin/director can delete home visit summaries" ON public.home_visit_summaries FOR DELETE TO authenticated
 USING (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'director'::app_role));
@@ -215,6 +229,7 @@ CREATE TABLE IF NOT EXISTS public.line_richmenu_state (
 GRANT SELECT ON public.line_richmenu_state TO authenticated;
 GRANT ALL ON public.line_richmenu_state TO service_role;
 ALTER TABLE public.line_richmenu_state ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "admin read richmenu state" ON public.line_richmenu_state;
 DROP POLICY IF EXISTS "admin read richmenu state" ON public.line_richmenu_state;
 CREATE POLICY "admin read richmenu state" ON public.line_richmenu_state FOR SELECT TO authenticated
 USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
@@ -253,14 +268,18 @@ GRANT ALL ON public.homework_submissions TO service_role;
 ALTER TABLE public.homework_submissions ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "students manage own submissions" ON public.homework_submissions;
+DROP POLICY IF EXISTS "students manage own submissions" ON public.homework_submissions;
 CREATE POLICY "students manage own submissions" ON public.homework_submissions FOR ALL TO authenticated
 USING (student_id = auth.uid()) WITH CHECK (student_id = auth.uid());
+DROP POLICY IF EXISTS "assignment owner can view submissions" ON public.homework_submissions;
 DROP POLICY IF EXISTS "assignment owner can view submissions" ON public.homework_submissions;
 CREATE POLICY "assignment owner can view submissions" ON public.homework_submissions FOR SELECT TO authenticated
 USING (EXISTS (SELECT 1 FROM public.homework_assignments a WHERE a.id = assignment_id AND (a.created_by = auth.uid() OR a.school_id = public.get_user_school_id(auth.uid()))));
 DROP POLICY IF EXISTS "assignment owner can grade submissions" ON public.homework_submissions;
+DROP POLICY IF EXISTS "assignment owner can grade submissions" ON public.homework_submissions;
 CREATE POLICY "assignment owner can grade submissions" ON public.homework_submissions FOR UPDATE TO authenticated
 USING (EXISTS (SELECT 1 FROM public.homework_assignments a WHERE a.id = assignment_id AND (a.created_by = auth.uid() OR public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'director'::app_role))));
+DROP POLICY IF EXISTS "admins manage all submissions" ON public.homework_submissions;
 DROP POLICY IF EXISTS "admins manage all submissions" ON public.homework_submissions;
 CREATE POLICY "admins manage all submissions" ON public.homework_submissions FOR ALL TO authenticated
 USING (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'director'::app_role))

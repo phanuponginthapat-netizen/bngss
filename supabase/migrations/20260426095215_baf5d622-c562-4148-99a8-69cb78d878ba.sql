@@ -54,15 +54,18 @@ DROP POLICY IF EXISTS "Auth users can view students" ON public.students;
 DROP POLICY IF EXISTS "Staff can manage students" ON public.students;
 
 DROP POLICY IF EXISTS "Super/Area admin view all students" ON public.students;
+DROP POLICY IF EXISTS "Super/Area admin view all students" ON public.students;
 CREATE POLICY "Super/Area admin view all students"
 ON public.students FOR SELECT TO authenticated
 USING (is_super_admin(auth.uid()) OR is_area_admin(auth.uid()));
 
 DROP POLICY IF EXISTS "School users view own school students" ON public.students;
+DROP POLICY IF EXISTS "School users view own school students" ON public.students;
 CREATE POLICY "School users view own school students"
 ON public.students FOR SELECT TO authenticated
 USING (school_id IS NULL OR school_id = get_user_school_id(auth.uid()));
 
+DROP POLICY IF EXISTS "Staff manage own school students" ON public.students;
 DROP POLICY IF EXISTS "Staff manage own school students" ON public.students;
 CREATE POLICY "Staff manage own school students"
 ON public.students FOR ALL TO authenticated
@@ -76,6 +79,7 @@ WITH CHECK (
 );
 
 DROP POLICY IF EXISTS "Super admin manage all students" ON public.students;
+DROP POLICY IF EXISTS "Super admin manage all students" ON public.students;
 CREATE POLICY "Super admin manage all students"
 ON public.students FOR ALL TO authenticated
 USING (is_super_admin(auth.uid()))
@@ -86,15 +90,18 @@ DROP POLICY IF EXISTS "Auth users can view personnel" ON public.personnel;
 DROP POLICY IF EXISTS "Staff can manage personnel" ON public.personnel;
 
 DROP POLICY IF EXISTS "Super/Area admin view all personnel" ON public.personnel;
+DROP POLICY IF EXISTS "Super/Area admin view all personnel" ON public.personnel;
 CREATE POLICY "Super/Area admin view all personnel"
 ON public.personnel FOR SELECT TO authenticated
 USING (is_super_admin(auth.uid()) OR is_area_admin(auth.uid()));
 
 DROP POLICY IF EXISTS "School users view own school personnel" ON public.personnel;
+DROP POLICY IF EXISTS "School users view own school personnel" ON public.personnel;
 CREATE POLICY "School users view own school personnel"
 ON public.personnel FOR SELECT TO authenticated
 USING (school_id IS NULL OR school_id = get_user_school_id(auth.uid()));
 
+DROP POLICY IF EXISTS "Admin/Director manage own school personnel" ON public.personnel;
 DROP POLICY IF EXISTS "Admin/Director manage own school personnel" ON public.personnel;
 CREATE POLICY "Admin/Director manage own school personnel"
 ON public.personnel FOR ALL TO authenticated
@@ -108,6 +115,7 @@ WITH CHECK (
 );
 
 DROP POLICY IF EXISTS "Super admin manage all personnel" ON public.personnel;
+DROP POLICY IF EXISTS "Super admin manage all personnel" ON public.personnel;
 CREATE POLICY "Super admin manage all personnel"
 ON public.personnel FOR ALL TO authenticated
 USING (is_super_admin(auth.uid()))
@@ -118,15 +126,18 @@ DROP POLICY IF EXISTS "Auth users can view classrooms" ON public.classrooms;
 DROP POLICY IF EXISTS "Staff can manage classrooms" ON public.classrooms;
 
 DROP POLICY IF EXISTS "Super/Area admin view all classrooms" ON public.classrooms;
+DROP POLICY IF EXISTS "Super/Area admin view all classrooms" ON public.classrooms;
 CREATE POLICY "Super/Area admin view all classrooms"
 ON public.classrooms FOR SELECT TO authenticated
 USING (is_super_admin(auth.uid()) OR is_area_admin(auth.uid()));
 
 DROP POLICY IF EXISTS "School users view own classrooms" ON public.classrooms;
+DROP POLICY IF EXISTS "School users view own classrooms" ON public.classrooms;
 CREATE POLICY "School users view own classrooms"
 ON public.classrooms FOR SELECT TO authenticated
 USING (school_id IS NULL OR school_id = get_user_school_id(auth.uid()));
 
+DROP POLICY IF EXISTS "Staff manage own school classrooms" ON public.classrooms;
 DROP POLICY IF EXISTS "Staff manage own school classrooms" ON public.classrooms;
 CREATE POLICY "Staff manage own school classrooms"
 ON public.classrooms FOR ALL TO authenticated
@@ -140,6 +151,7 @@ WITH CHECK (
 );
 
 DROP POLICY IF EXISTS "Super admin manage all classrooms" ON public.classrooms;
+DROP POLICY IF EXISTS "Super admin manage all classrooms" ON public.classrooms;
 CREATE POLICY "Super admin manage all classrooms"
 ON public.classrooms FOR ALL TO authenticated
 USING (is_super_admin(auth.uid()))
@@ -150,15 +162,18 @@ DROP POLICY IF EXISTS "Auth users can view attendance" ON public.attendance;
 DROP POLICY IF EXISTS "Staff can manage attendance" ON public.attendance;
 
 DROP POLICY IF EXISTS "Super/Area admin view all attendance" ON public.attendance;
+DROP POLICY IF EXISTS "Super/Area admin view all attendance" ON public.attendance;
 CREATE POLICY "Super/Area admin view all attendance"
 ON public.attendance FOR SELECT TO authenticated
 USING (is_super_admin(auth.uid()) OR is_area_admin(auth.uid()));
 
 DROP POLICY IF EXISTS "School staff view own school attendance" ON public.attendance;
+DROP POLICY IF EXISTS "School staff view own school attendance" ON public.attendance;
 CREATE POLICY "School staff view own school attendance"
 ON public.attendance FOR SELECT TO authenticated
 USING (school_id IS NULL OR school_id = get_user_school_id(auth.uid()));
 
+DROP POLICY IF EXISTS "Staff manage own school attendance" ON public.attendance;
 DROP POLICY IF EXISTS "Staff manage own school attendance" ON public.attendance;
 CREATE POLICY "Staff manage own school attendance"
 ON public.attendance FOR ALL TO authenticated
@@ -176,15 +191,18 @@ DROP POLICY IF EXISTS "Auth users can view behavior_records" ON public.behavior_
 DROP POLICY IF EXISTS "Staff can manage behavior_records" ON public.behavior_records;
 
 DROP POLICY IF EXISTS "Super/Area admin view all behavior" ON public.behavior_records;
+DROP POLICY IF EXISTS "Super/Area admin view all behavior" ON public.behavior_records;
 CREATE POLICY "Super/Area admin view all behavior"
 ON public.behavior_records FOR SELECT TO authenticated
 USING (is_super_admin(auth.uid()) OR is_area_admin(auth.uid()));
 
 DROP POLICY IF EXISTS "School staff view own school behavior" ON public.behavior_records;
+DROP POLICY IF EXISTS "School staff view own school behavior" ON public.behavior_records;
 CREATE POLICY "School staff view own school behavior"
 ON public.behavior_records FOR SELECT TO authenticated
 USING (school_id IS NULL OR school_id = get_user_school_id(auth.uid()));
 
+DROP POLICY IF EXISTS "Staff manage own school behavior" ON public.behavior_records;
 DROP POLICY IF EXISTS "Staff manage own school behavior" ON public.behavior_records;
 CREATE POLICY "Staff manage own school behavior"
 ON public.behavior_records FOR ALL TO authenticated
@@ -202,15 +220,18 @@ DROP POLICY IF EXISTS "Auth users can view enrollments" ON public.enrollments;
 DROP POLICY IF EXISTS "Staff can manage enrollments" ON public.enrollments;
 
 DROP POLICY IF EXISTS "Super/Area admin view all enrollments" ON public.enrollments;
+DROP POLICY IF EXISTS "Super/Area admin view all enrollments" ON public.enrollments;
 CREATE POLICY "Super/Area admin view all enrollments"
 ON public.enrollments FOR SELECT TO authenticated
 USING (is_super_admin(auth.uid()) OR is_area_admin(auth.uid()));
 
 DROP POLICY IF EXISTS "School users view own school enrollments" ON public.enrollments;
+DROP POLICY IF EXISTS "School users view own school enrollments" ON public.enrollments;
 CREATE POLICY "School users view own school enrollments"
 ON public.enrollments FOR SELECT TO authenticated
 USING (school_id IS NULL OR school_id = get_user_school_id(auth.uid()));
 
+DROP POLICY IF EXISTS "Staff manage own school enrollments" ON public.enrollments;
 DROP POLICY IF EXISTS "Staff manage own school enrollments" ON public.enrollments;
 CREATE POLICY "Staff manage own school enrollments"
 ON public.enrollments FOR ALL TO authenticated
@@ -229,20 +250,24 @@ DROP POLICY IF EXISTS "Auth users can create documents" ON public.documents;
 DROP POLICY IF EXISTS "Admin/Director can manage documents" ON public.documents;
 
 DROP POLICY IF EXISTS "Super/Area admin view all documents" ON public.documents;
+DROP POLICY IF EXISTS "Super/Area admin view all documents" ON public.documents;
 CREATE POLICY "Super/Area admin view all documents"
 ON public.documents FOR SELECT TO authenticated
 USING (is_super_admin(auth.uid()) OR is_area_admin(auth.uid()));
 
+DROP POLICY IF EXISTS "School users view own school documents" ON public.documents;
 DROP POLICY IF EXISTS "School users view own school documents" ON public.documents;
 CREATE POLICY "School users view own school documents"
 ON public.documents FOR SELECT TO authenticated
 USING (school_id IS NULL OR school_id = get_user_school_id(auth.uid()));
 
 DROP POLICY IF EXISTS "Auth users create documents in own school" ON public.documents;
+DROP POLICY IF EXISTS "Auth users create documents in own school" ON public.documents;
 CREATE POLICY "Auth users create documents in own school"
 ON public.documents FOR INSERT TO authenticated
 WITH CHECK (school_id IS NULL OR school_id = get_user_school_id(auth.uid()) OR is_super_admin(auth.uid()));
 
+DROP POLICY IF EXISTS "Admin/Director manage own school documents" ON public.documents;
 DROP POLICY IF EXISTS "Admin/Director manage own school documents" ON public.documents;
 CREATE POLICY "Admin/Director manage own school documents"
 ON public.documents FOR ALL TO authenticated
@@ -260,15 +285,18 @@ DROP POLICY IF EXISTS "Auth users can view news_posts" ON public.news_posts;
 DROP POLICY IF EXISTS "Admin/Director can manage news_posts" ON public.news_posts;
 
 DROP POLICY IF EXISTS "Super/Area admin view all news" ON public.news_posts;
+DROP POLICY IF EXISTS "Super/Area admin view all news" ON public.news_posts;
 CREATE POLICY "Super/Area admin view all news"
 ON public.news_posts FOR SELECT TO authenticated
 USING (is_super_admin(auth.uid()) OR is_area_admin(auth.uid()));
 
 DROP POLICY IF EXISTS "School users view own school news" ON public.news_posts;
+DROP POLICY IF EXISTS "School users view own school news" ON public.news_posts;
 CREATE POLICY "School users view own school news"
 ON public.news_posts FOR SELECT TO authenticated
 USING (school_id IS NULL OR school_id = get_user_school_id(auth.uid()));
 
+DROP POLICY IF EXISTS "Admin/Director manage own school news" ON public.news_posts;
 DROP POLICY IF EXISTS "Admin/Director manage own school news" ON public.news_posts;
 CREATE POLICY "Admin/Director manage own school news"
 ON public.news_posts FOR ALL TO authenticated
@@ -286,15 +314,18 @@ DROP POLICY IF EXISTS "Auth users can view budget_transactions" ON public.budget
 DROP POLICY IF EXISTS "Admin/Director can manage budget_transactions" ON public.budget_transactions;
 
 DROP POLICY IF EXISTS "Super/Area admin view all budget" ON public.budget_transactions;
+DROP POLICY IF EXISTS "Super/Area admin view all budget" ON public.budget_transactions;
 CREATE POLICY "Super/Area admin view all budget"
 ON public.budget_transactions FOR SELECT TO authenticated
 USING (is_super_admin(auth.uid()) OR is_area_admin(auth.uid()));
 
 DROP POLICY IF EXISTS "School staff view own school budget" ON public.budget_transactions;
+DROP POLICY IF EXISTS "School staff view own school budget" ON public.budget_transactions;
 CREATE POLICY "School staff view own school budget"
 ON public.budget_transactions FOR SELECT TO authenticated
 USING (school_id IS NULL OR school_id = get_user_school_id(auth.uid()));
 
+DROP POLICY IF EXISTS "Admin/Director manage own school budget" ON public.budget_transactions;
 DROP POLICY IF EXISTS "Admin/Director manage own school budget" ON public.budget_transactions;
 CREATE POLICY "Admin/Director manage own school budget"
 ON public.budget_transactions FOR ALL TO authenticated
@@ -312,15 +343,18 @@ DROP POLICY IF EXISTS "Auth users can view assets" ON public.assets;
 DROP POLICY IF EXISTS "Admin/Director can manage assets" ON public.assets;
 
 DROP POLICY IF EXISTS "Super/Area admin view all assets" ON public.assets;
+DROP POLICY IF EXISTS "Super/Area admin view all assets" ON public.assets;
 CREATE POLICY "Super/Area admin view all assets"
 ON public.assets FOR SELECT TO authenticated
 USING (is_super_admin(auth.uid()) OR is_area_admin(auth.uid()));
 
 DROP POLICY IF EXISTS "School users view own school assets" ON public.assets;
+DROP POLICY IF EXISTS "School users view own school assets" ON public.assets;
 CREATE POLICY "School users view own school assets"
 ON public.assets FOR SELECT TO authenticated
 USING (school_id IS NULL OR school_id = get_user_school_id(auth.uid()));
 
+DROP POLICY IF EXISTS "Admin/Director manage own school assets" ON public.assets;
 DROP POLICY IF EXISTS "Admin/Director manage own school assets" ON public.assets;
 CREATE POLICY "Admin/Director manage own school assets"
 ON public.assets FOR ALL TO authenticated
@@ -338,15 +372,18 @@ DROP POLICY IF EXISTS "Auth users can view academic_events" ON public.academic_e
 DROP POLICY IF EXISTS "Admin/Director can manage academic_events" ON public.academic_events;
 
 DROP POLICY IF EXISTS "Super/Area admin view all academic_events" ON public.academic_events;
+DROP POLICY IF EXISTS "Super/Area admin view all academic_events" ON public.academic_events;
 CREATE POLICY "Super/Area admin view all academic_events"
 ON public.academic_events FOR SELECT TO authenticated
 USING (is_super_admin(auth.uid()) OR is_area_admin(auth.uid()));
 
 DROP POLICY IF EXISTS "School users view own school academic_events" ON public.academic_events;
+DROP POLICY IF EXISTS "School users view own school academic_events" ON public.academic_events;
 CREATE POLICY "School users view own school academic_events"
 ON public.academic_events FOR SELECT TO authenticated
 USING (school_id IS NULL OR school_id = get_user_school_id(auth.uid()));
 
+DROP POLICY IF EXISTS "Admin/Director manage own school academic_events" ON public.academic_events;
 DROP POLICY IF EXISTS "Admin/Director manage own school academic_events" ON public.academic_events;
 CREATE POLICY "Admin/Director manage own school academic_events"
 ON public.academic_events FOR ALL TO authenticated

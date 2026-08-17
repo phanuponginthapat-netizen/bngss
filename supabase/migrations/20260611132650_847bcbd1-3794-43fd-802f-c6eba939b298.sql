@@ -45,6 +45,7 @@ DROP POLICY IF EXISTS "Staff manage student_leaves" ON public.student_leaves;
 DROP POLICY IF EXISTS "school_scope_teacher" ON public.student_leaves;
 
 DROP POLICY IF EXISTS "Admin director manage student_leaves" ON public.student_leaves;
+DROP POLICY IF EXISTS "Admin director manage student_leaves" ON public.student_leaves;
 CREATE POLICY "Admin director manage student_leaves"
 ON public.student_leaves
 FOR ALL
@@ -58,6 +59,7 @@ WITH CHECK (
   OR public.has_role(auth.uid(), 'director'::app_role)
 );
 
+DROP POLICY IF EXISTS "Homeroom teacher manage student_leaves" ON public.student_leaves;
 DROP POLICY IF EXISTS "Homeroom teacher manage student_leaves" ON public.student_leaves;
 CREATE POLICY "Homeroom teacher manage student_leaves"
 ON public.student_leaves

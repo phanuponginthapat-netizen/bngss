@@ -29,9 +29,11 @@ GRANT SELECT ON public.hub_projects TO anon;
 ALTER TABLE public.hub_projects ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "view projects in school" ON public.hub_projects;
+DROP POLICY IF EXISTS "view projects in school" ON public.hub_projects;
 CREATE POLICY "view projects in school" ON public.hub_projects FOR SELECT TO authenticated
   USING (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid())
     OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
+DROP POLICY IF EXISTS "staff manage projects" ON public.hub_projects;
 DROP POLICY IF EXISTS "staff manage projects" ON public.hub_projects;
 CREATE POLICY "staff manage projects" ON public.hub_projects FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))
@@ -71,8 +73,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.hub_project_budgets TO authentica
 GRANT ALL ON public.hub_project_budgets TO service_role;
 ALTER TABLE public.hub_project_budgets ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "view budgets via project" ON public.hub_project_budgets;
+DROP POLICY IF EXISTS "view budgets via project" ON public.hub_project_budgets;
 CREATE POLICY "view budgets via project" ON public.hub_project_budgets FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.hub_projects p WHERE p.id = project_id));
+DROP POLICY IF EXISTS "staff manage budgets" ON public.hub_project_budgets;
 DROP POLICY IF EXISTS "staff manage budgets" ON public.hub_project_budgets;
 CREATE POLICY "staff manage budgets" ON public.hub_project_budgets FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))
@@ -97,8 +101,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.hub_project_expenses TO authentic
 GRANT ALL ON public.hub_project_expenses TO service_role;
 ALTER TABLE public.hub_project_expenses ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "view expenses via project" ON public.hub_project_expenses;
+DROP POLICY IF EXISTS "view expenses via project" ON public.hub_project_expenses;
 CREATE POLICY "view expenses via project" ON public.hub_project_expenses FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.hub_projects p WHERE p.id = project_id));
+DROP POLICY IF EXISTS "staff manage expenses" ON public.hub_project_expenses;
 DROP POLICY IF EXISTS "staff manage expenses" ON public.hub_project_expenses;
 CREATE POLICY "staff manage expenses" ON public.hub_project_expenses FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))
@@ -127,11 +133,14 @@ GRANT ALL ON public.hub_project_updates TO service_role;
 GRANT SELECT ON public.hub_project_updates TO anon;
 ALTER TABLE public.hub_project_updates ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "view updates via project" ON public.hub_project_updates;
+DROP POLICY IF EXISTS "view updates via project" ON public.hub_project_updates;
 CREATE POLICY "view updates via project" ON public.hub_project_updates FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.hub_projects p WHERE p.id = project_id));
 DROP POLICY IF EXISTS "anon view published updates" ON public.hub_project_updates;
+DROP POLICY IF EXISTS "anon view published updates" ON public.hub_project_updates;
 CREATE POLICY "anon view published updates" ON public.hub_project_updates FOR SELECT TO anon
   USING (is_published = true);
+DROP POLICY IF EXISTS "staff manage updates" ON public.hub_project_updates;
 DROP POLICY IF EXISTS "staff manage updates" ON public.hub_project_updates;
 CREATE POLICY "staff manage updates" ON public.hub_project_updates FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))

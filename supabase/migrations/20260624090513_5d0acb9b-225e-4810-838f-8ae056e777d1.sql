@@ -18,6 +18,7 @@ GRANT ALL ON public.upstream_subscription TO service_role;
 ALTER TABLE public.upstream_subscription ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Admins manage upstream subscription" ON public.upstream_subscription;
+DROP POLICY IF EXISTS "Admins manage upstream subscription" ON public.upstream_subscription;
 CREATE POLICY "Admins manage upstream subscription"
   ON public.upstream_subscription
   FOR ALL
@@ -25,6 +26,7 @@ CREATE POLICY "Admins manage upstream subscription"
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
+DROP TRIGGER IF EXISTS trg_upstream_subscription_updated ON public.upstream_subscription;
 CREATE TRIGGER trg_upstream_subscription_updated
   BEFORE UPDATE ON public.upstream_subscription
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

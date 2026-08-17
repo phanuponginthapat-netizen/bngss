@@ -1,6 +1,7 @@
 
 -- 1) ai_provider_keys: explicit restrictive SELECT requiring admin/director
 DROP POLICY IF EXISTS "Restrict ai_provider_keys SELECT to admin/director" ON public.ai_provider_keys;
+DROP POLICY IF EXISTS "Restrict ai_provider_keys SELECT to admin/director" ON public.ai_provider_keys;
 CREATE POLICY "Restrict ai_provider_keys SELECT to admin/director"
 ON public.ai_provider_keys
 AS RESTRICTIVE
@@ -9,6 +10,7 @@ TO authenticated
 USING (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role));
 
 -- 2) district_snapshots: tighten restrictive policy so NULL school_id is not readable by school admins
+DROP POLICY IF EXISTS "school_scope_restrictive" ON public.district_snapshots;
 DROP POLICY IF EXISTS "school_scope_restrictive" ON public.district_snapshots;
 CREATE POLICY "school_scope_restrictive"
 ON public.district_snapshots
@@ -24,6 +26,7 @@ DROP POLICY IF EXISTS "Authenticated update eform pdfs" ON storage.objects;
 DROP POLICY IF EXISTS "Authenticated delete eform pdfs" ON storage.objects;
 
 DROP POLICY IF EXISTS "eform-pdfs owner or admin read" ON storage.objects;
+DROP POLICY IF EXISTS "eform-pdfs owner or admin read" ON storage.objects;
 CREATE POLICY "eform-pdfs owner or admin read"
 ON storage.objects
 FOR SELECT
@@ -37,6 +40,7 @@ USING (
   )
 );
 
+DROP POLICY IF EXISTS "eform-pdfs owner or admin update" ON storage.objects;
 DROP POLICY IF EXISTS "eform-pdfs owner or admin update" ON storage.objects;
 CREATE POLICY "eform-pdfs owner or admin update"
 ON storage.objects
@@ -59,6 +63,7 @@ WITH CHECK (
   )
 );
 
+DROP POLICY IF EXISTS "eform-pdfs owner or admin delete" ON storage.objects;
 DROP POLICY IF EXISTS "eform-pdfs owner or admin delete" ON storage.objects;
 CREATE POLICY "eform-pdfs owner or admin delete"
 ON storage.objects

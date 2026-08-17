@@ -16,11 +16,13 @@ CREATE INDEX IF NOT EXISTS idx_face_desc_student ON public.student_face_descript
 ALTER TABLE public.student_face_descriptors ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "staff manage face descriptors" ON public.student_face_descriptors;
+DROP POLICY IF EXISTS "staff manage face descriptors" ON public.student_face_descriptors;
 CREATE POLICY "staff manage face descriptors" ON public.student_face_descriptors
   FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));
 
+DROP POLICY IF EXISTS "students view own face desc" ON public.student_face_descriptors;
 DROP POLICY IF EXISTS "students view own face desc" ON public.student_face_descriptors;
 CREATE POLICY "students view own face desc" ON public.student_face_descriptors
   FOR SELECT TO authenticated
@@ -45,16 +47,19 @@ CREATE INDEX IF NOT EXISTS idx_face_scan_student ON public.face_scan_logs(studen
 ALTER TABLE public.face_scan_logs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "staff manage scan logs" ON public.face_scan_logs;
+DROP POLICY IF EXISTS "staff manage scan logs" ON public.face_scan_logs;
 CREATE POLICY "staff manage scan logs" ON public.face_scan_logs
   FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));
 
 DROP POLICY IF EXISTS "students view own scan logs" ON public.face_scan_logs;
+DROP POLICY IF EXISTS "students view own scan logs" ON public.face_scan_logs;
 CREATE POLICY "students view own scan logs" ON public.face_scan_logs
   FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()));
 
+DROP POLICY IF EXISTS "parents view child scan logs" ON public.face_scan_logs;
 DROP POLICY IF EXISTS "parents view child scan logs" ON public.face_scan_logs;
 CREATE POLICY "parents view child scan logs" ON public.face_scan_logs
   FOR SELECT TO authenticated
@@ -85,11 +90,13 @@ BEGIN
   RETURN NEW;
 END $$;
 
+DROP TRIGGER IF EXISTS trg_auto_attendance_face_scan ON public.face_scan_logs;
 CREATE TRIGGER trg_auto_attendance_face_scan
   AFTER INSERT ON public.face_scan_logs
   FOR EACH ROW EXECUTE FUNCTION public.auto_attendance_on_face_scan();
 
 -- 4. Auto fill school_id
+DROP TRIGGER IF EXISTS trg_face_scan_school_id ON public.face_scan_logs;
 CREATE TRIGGER trg_face_scan_school_id
   BEFORE INSERT ON public.face_scan_logs
   FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id();

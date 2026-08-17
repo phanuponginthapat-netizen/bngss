@@ -29,6 +29,7 @@ GRANT EXECUTE ON FUNCTION public.teacher_teaches_subject(uuid, uuid) TO authenti
 
 -- INSERT: ครูต้องสอนวิชานั้น (หรือ subject_id เป็น NULL = เช็คโฮมรูม)
 DROP POLICY IF EXISTS "Staff can insert attendance" ON public.attendance;
+DROP POLICY IF EXISTS "Staff can insert attendance" ON public.attendance;
 CREATE POLICY "Staff can insert attendance"
 ON public.attendance FOR INSERT
 TO authenticated
@@ -42,6 +43,7 @@ WITH CHECK (
 );
 
 -- UPDATE
+DROP POLICY IF EXISTS "Staff can update attendance" ON public.attendance;
 DROP POLICY IF EXISTS "Staff can update attendance" ON public.attendance;
 CREATE POLICY "Staff can update attendance"
 ON public.attendance FOR UPDATE
@@ -64,6 +66,7 @@ WITH CHECK (
 );
 
 -- DELETE
+DROP POLICY IF EXISTS "Staff can delete attendance" ON public.attendance;
 DROP POLICY IF EXISTS "Staff can delete attendance" ON public.attendance;
 CREATE POLICY "Staff can delete attendance"
 ON public.attendance FOR DELETE

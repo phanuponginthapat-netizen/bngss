@@ -20,6 +20,7 @@ AS $$
 $$;
 
 DROP POLICY IF EXISTS "Homeroom teachers can update their students" ON public.students;
+DROP POLICY IF EXISTS "Homeroom teachers can update their students" ON public.students;
 CREATE POLICY "Homeroom teachers can update their students"
 ON public.students
 FOR UPDATE

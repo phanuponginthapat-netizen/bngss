@@ -2,6 +2,7 @@
 -- 1. asset-photos storage: restrict read to staff
 DROP POLICY IF EXISTS "Authenticated can read asset photos" ON storage.objects;
 DROP POLICY IF EXISTS "Staff read asset photos" ON storage.objects;
+DROP POLICY IF EXISTS "Staff read asset photos" ON storage.objects;
 CREATE POLICY "Staff read asset photos"
 ON storage.objects FOR SELECT
 USING (
@@ -15,6 +16,7 @@ USING (
 
 -- 2. hub-projects storage: restrict read to staff
 DROP POLICY IF EXISTS "hub-projects read auth" ON storage.objects;
+DROP POLICY IF EXISTS "hub-projects read staff" ON storage.objects;
 DROP POLICY IF EXISTS "hub-projects read staff" ON storage.objects;
 CREATE POLICY "hub-projects read staff"
 ON storage.objects FOR SELECT
@@ -30,6 +32,7 @@ USING (
 -- 3. game_hub_scores: scope reads
 DROP POLICY IF EXISTS "scores_read_all_auth" ON public.game_hub_scores;
 DROP POLICY IF EXISTS "scores_read_scoped" ON public.game_hub_scores;
+DROP POLICY IF EXISTS "scores_read_scoped" ON public.game_hub_scores;
 CREATE POLICY "scores_read_scoped"
 ON public.game_hub_scores FOR SELECT
 USING (
@@ -43,6 +46,7 @@ USING (
 -- 4. iot_readings: staff only
 DROP POLICY IF EXISTS "Authenticated users can view iot readings" ON public.iot_readings;
 DROP POLICY IF EXISTS "Staff can view iot readings" ON public.iot_readings;
+DROP POLICY IF EXISTS "Staff can view iot readings" ON public.iot_readings;
 CREATE POLICY "Staff can view iot readings"
 ON public.iot_readings FOR SELECT
 USING (
@@ -53,6 +57,7 @@ USING (
 
 -- 5. print_templates: only shared/active with role match
 DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates;
+DROP POLICY IF EXISTS "Active templates readable by shared roles" ON public.print_templates;
 DROP POLICY IF EXISTS "Active templates readable by shared roles" ON public.print_templates;
 CREATE POLICY "Active templates readable by shared roles"
 ON public.print_templates FOR SELECT
@@ -72,6 +77,7 @@ USING (
 -- 6. school_milk_records / school_lunch_records: same-school staff only
 DROP POLICY IF EXISTS "Auth users can view school_milk_records" ON public.school_milk_records;
 DROP POLICY IF EXISTS "Same-school staff view school_milk_records" ON public.school_milk_records;
+DROP POLICY IF EXISTS "Same-school staff view school_milk_records" ON public.school_milk_records;
 CREATE POLICY "Same-school staff view school_milk_records"
 ON public.school_milk_records FOR SELECT
 USING (
@@ -82,6 +88,7 @@ USING (
 );
 
 DROP POLICY IF EXISTS "Auth users can view school_lunch_records" ON public.school_lunch_records;
+DROP POLICY IF EXISTS "Same-school staff view school_lunch_records" ON public.school_lunch_records;
 DROP POLICY IF EXISTS "Same-school staff view school_lunch_records" ON public.school_lunch_records;
 CREATE POLICY "Same-school staff view school_lunch_records"
 ON public.school_lunch_records FOR SELECT
@@ -95,6 +102,7 @@ USING (
 -- 7. school_test_scores: admin/director OR same-school staff
 DROP POLICY IF EXISTS "Auth users view test scores" ON public.school_test_scores;
 DROP POLICY IF EXISTS "Same-school staff view test scores" ON public.school_test_scores;
+DROP POLICY IF EXISTS "Same-school staff view test scores" ON public.school_test_scores;
 CREATE POLICY "Same-school staff view test scores"
 ON public.school_test_scores FOR SELECT
 USING (
@@ -106,6 +114,7 @@ USING (
 
 -- 8. academic_events: scope to same school (or NULL for global system events restricted to staff)
 DROP POLICY IF EXISTS "Auth users view academic events" ON public.academic_events;
+DROP POLICY IF EXISTS "Same-school users view academic events" ON public.academic_events;
 DROP POLICY IF EXISTS "Same-school users view academic events" ON public.academic_events;
 CREATE POLICY "Same-school users view academic events"
 ON public.academic_events FOR SELECT
@@ -150,6 +159,7 @@ FOR EACH ROW EXECUTE FUNCTION public.admissions_require_school_id();
 
 DROP POLICY IF EXISTS "Admin/Director can view admissions" ON public.admissions;
 DROP POLICY IF EXISTS "Admin/Director view admissions (same school)" ON public.admissions;
+DROP POLICY IF EXISTS "Admin/Director view admissions (same school)" ON public.admissions;
 CREATE POLICY "Admin/Director view admissions (same school)"
 ON public.admissions FOR SELECT
 USING (
@@ -159,6 +169,7 @@ USING (
 );
 
 DROP POLICY IF EXISTS "Admin/Director can manage admissions" ON public.admissions;
+DROP POLICY IF EXISTS "Admin/Director manage admissions (same school)" ON public.admissions;
 DROP POLICY IF EXISTS "Admin/Director manage admissions (same school)" ON public.admissions;
 CREATE POLICY "Admin/Director manage admissions (same school)"
 ON public.admissions FOR ALL
@@ -174,6 +185,7 @@ WITH CHECK (
 );
 
 -- 10. cms_settings anon policy: switch to explicit deny of any sensitive-looking key
+DROP POLICY IF EXISTS "Anon view public cms keys" ON public.cms_settings;
 DROP POLICY IF EXISTS "Anon view public cms keys" ON public.cms_settings;
 CREATE POLICY "Anon view public cms keys"
 ON public.cms_settings FOR SELECT

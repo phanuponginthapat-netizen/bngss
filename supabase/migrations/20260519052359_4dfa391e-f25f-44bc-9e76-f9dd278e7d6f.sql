@@ -12,6 +12,7 @@ ALTER TABLE public.line_sessions ENABLE ROW LEVEL SECURITY;
 
 -- Only service role (edge functions) touches this — no client access policies
 DROP POLICY IF EXISTS "Service role only - line_sessions select" ON public.line_sessions;
+DROP POLICY IF EXISTS "Service role only - line_sessions select" ON public.line_sessions;
 CREATE POLICY "Service role only - line_sessions select"
   ON public.line_sessions FOR SELECT TO authenticated USING (false);
 
@@ -34,9 +35,11 @@ CREATE TABLE IF NOT EXISTS public.line_user_preferences (
 ALTER TABLE public.line_user_preferences ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Service role only - line_user_preferences select" ON public.line_user_preferences;
+DROP POLICY IF EXISTS "Service role only - line_user_preferences select" ON public.line_user_preferences;
 CREATE POLICY "Service role only - line_user_preferences select"
   ON public.line_user_preferences FOR SELECT TO authenticated USING (false);
 
+DROP TRIGGER IF EXISTS update_line_user_preferences_updated_at ON public.line_user_preferences;
 CREATE TRIGGER update_line_user_preferences_updated_at
   BEFORE UPDATE ON public.line_user_preferences
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

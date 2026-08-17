@@ -18,7 +18,9 @@ GRANT ALL ON public.browser_shortcuts TO service_role;
 ALTER TABLE public.browser_shortcuts ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "authenticated can read shortcuts" ON public.browser_shortcuts;
+DROP POLICY IF EXISTS "authenticated can read shortcuts" ON public.browser_shortcuts;
 CREATE POLICY "authenticated can read shortcuts" ON public.browser_shortcuts FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "admins manage shortcuts" ON public.browser_shortcuts;
 DROP POLICY IF EXISTS "admins manage shortcuts" ON public.browser_shortcuts;
 CREATE POLICY "admins manage shortcuts" ON public.browser_shortcuts FOR ALL TO authenticated
 USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
@@ -94,19 +96,25 @@ GRANT ALL ON public.lesson_plans TO service_role;
 ALTER TABLE public.lesson_plans ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "lesson_plans_own_select" ON public.lesson_plans;
+DROP POLICY IF EXISTS "lesson_plans_own_select" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_own_select" ON public.lesson_plans FOR SELECT TO authenticated USING (user_id = auth.uid());
 DROP POLICY IF EXISTS "lesson_plans_own_insert" ON public.lesson_plans;
+DROP POLICY IF EXISTS "lesson_plans_own_insert" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_own_insert" ON public.lesson_plans FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "lesson_plans_own_update" ON public.lesson_plans;
 DROP POLICY IF EXISTS "lesson_plans_own_update" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_own_update" ON public.lesson_plans FOR UPDATE TO authenticated
 USING (user_id = auth.uid() AND status <> 'approved') WITH CHECK (user_id = auth.uid());
 DROP POLICY IF EXISTS "lesson_plans_own_delete" ON public.lesson_plans;
+DROP POLICY IF EXISTS "lesson_plans_own_delete" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_own_delete" ON public.lesson_plans FOR DELETE TO authenticated
 USING (user_id = auth.uid() AND status IN ('draft','revise_needed'));
+DROP POLICY IF EXISTS "lesson_plans_admin_all" ON public.lesson_plans;
 DROP POLICY IF EXISTS "lesson_plans_admin_all" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_admin_all" ON public.lesson_plans FOR ALL TO authenticated
 USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
 WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
+DROP POLICY IF EXISTS "lesson_plans_peer_view_approved" ON public.lesson_plans;
 DROP POLICY IF EXISTS "lesson_plans_peer_view_approved" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_peer_view_approved" ON public.lesson_plans FOR SELECT TO authenticated
 USING (status = 'approved');
@@ -147,8 +155,10 @@ GRANT ALL ON public.teaching_logbook TO service_role;
 ALTER TABLE public.teaching_logbook ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "logbook_own_all" ON public.teaching_logbook;
+DROP POLICY IF EXISTS "logbook_own_all" ON public.teaching_logbook;
 CREATE POLICY "logbook_own_all" ON public.teaching_logbook FOR ALL TO authenticated
 USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "logbook_admin_view" ON public.teaching_logbook;
 DROP POLICY IF EXISTS "logbook_admin_view" ON public.teaching_logbook;
 CREATE POLICY "logbook_admin_view" ON public.teaching_logbook FOR SELECT TO authenticated
 USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
@@ -232,25 +242,33 @@ ALTER TABLE public.padlet_boards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.padlet_notes ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "boards viewable by authenticated" ON public.padlet_boards;
+DROP POLICY IF EXISTS "boards viewable by authenticated" ON public.padlet_boards;
 CREATE POLICY "boards viewable by authenticated" ON public.padlet_boards FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "teachers can create boards" ON public.padlet_boards;
 DROP POLICY IF EXISTS "teachers can create boards" ON public.padlet_boards;
 CREATE POLICY "teachers can create boards" ON public.padlet_boards FOR INSERT TO authenticated
 WITH CHECK (auth.uid() = owner_id AND (public.has_role(auth.uid(), 'teacher') OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director')));
 DROP POLICY IF EXISTS "owners or admins update boards" ON public.padlet_boards;
+DROP POLICY IF EXISTS "owners or admins update boards" ON public.padlet_boards;
 CREATE POLICY "owners or admins update boards" ON public.padlet_boards FOR UPDATE TO authenticated
 USING (owner_id = auth.uid() OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
+DROP POLICY IF EXISTS "owners or admins delete boards" ON public.padlet_boards;
 DROP POLICY IF EXISTS "owners or admins delete boards" ON public.padlet_boards;
 CREATE POLICY "owners or admins delete boards" ON public.padlet_boards FOR DELETE TO authenticated
 USING (owner_id = auth.uid() OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
 DROP POLICY IF EXISTS "notes viewable by authenticated" ON public.padlet_notes;
+DROP POLICY IF EXISTS "notes viewable by authenticated" ON public.padlet_notes;
 CREATE POLICY "notes viewable by authenticated" ON public.padlet_notes FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "authenticated can post notes" ON public.padlet_notes;
 DROP POLICY IF EXISTS "authenticated can post notes" ON public.padlet_notes;
 CREATE POLICY "authenticated can post notes" ON public.padlet_notes FOR INSERT TO authenticated
 WITH CHECK (auth.uid() = author_id AND EXISTS (SELECT 1 FROM public.padlet_boards b WHERE b.id = board_id AND (b.allow_guest_post = true OR b.owner_id = auth.uid())));
 DROP POLICY IF EXISTS "authors or board owners update notes" ON public.padlet_notes;
+DROP POLICY IF EXISTS "authors or board owners update notes" ON public.padlet_notes;
 CREATE POLICY "authors or board owners update notes" ON public.padlet_notes FOR UPDATE TO authenticated
 USING (author_id = auth.uid() OR EXISTS (SELECT 1 FROM public.padlet_boards b WHERE b.id = board_id AND b.owner_id = auth.uid()) OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
+DROP POLICY IF EXISTS "authors or board owners delete notes" ON public.padlet_notes;
 DROP POLICY IF EXISTS "authors or board owners delete notes" ON public.padlet_notes;
 CREATE POLICY "authors or board owners delete notes" ON public.padlet_notes FOR DELETE TO authenticated
 USING (author_id = auth.uid() OR EXISTS (SELECT 1 FROM public.padlet_boards b WHERE b.id = board_id AND b.owner_id = auth.uid()) OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
@@ -272,6 +290,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.upstream_subscription TO authenti
 GRANT ALL ON public.upstream_subscription TO service_role;
 ALTER TABLE public.upstream_subscription ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins manage upstream subscription" ON public.upstream_subscription;
 DROP POLICY IF EXISTS "Admins manage upstream subscription" ON public.upstream_subscription;
 CREATE POLICY "Admins manage upstream subscription" ON public.upstream_subscription FOR ALL TO authenticated
 USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))

@@ -5,11 +5,13 @@ ON CONFLICT (id) DO NOTHING;
 
 -- RLS policies สำหรับ document-files bucket
 DROP POLICY IF EXISTS "Authenticated users can read document files" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can read document files" ON storage.objects;
 CREATE POLICY "Authenticated users can read document files"
 ON storage.objects FOR SELECT
 TO authenticated
 USING (bucket_id = 'document-files');
 
+DROP POLICY IF EXISTS "Authenticated users can upload document files" ON storage.objects;
 DROP POLICY IF EXISTS "Authenticated users can upload document files" ON storage.objects;
 CREATE POLICY "Authenticated users can upload document files"
 ON storage.objects FOR INSERT
@@ -17,11 +19,13 @@ TO authenticated
 WITH CHECK (bucket_id = 'document-files');
 
 DROP POLICY IF EXISTS "Authenticated users can update own document files" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can update own document files" ON storage.objects;
 CREATE POLICY "Authenticated users can update own document files"
 ON storage.objects FOR UPDATE
 TO authenticated
 USING (bucket_id = 'document-files');
 
+DROP POLICY IF EXISTS "Admin/Director can delete document files" ON storage.objects;
 DROP POLICY IF EXISTS "Admin/Director can delete document files" ON storage.objects;
 CREATE POLICY "Admin/Director can delete document files"
 ON storage.objects FOR DELETE
@@ -40,6 +44,7 @@ ALTER TABLE public.document_recipients
   ADD COLUMN IF NOT EXISTS replied_at timestamp with time zone;
 
 -- อนุญาตให้ผู้รับอัปเดตเฉพาะแถวของตัวเอง (ตอบกลับ/อ่าน)
+DROP POLICY IF EXISTS "Recipients can update own row" ON public.document_recipients;
 DROP POLICY IF EXISTS "Recipients can update own row" ON public.document_recipients;
 CREATE POLICY "Recipients can update own row"
 ON public.document_recipients

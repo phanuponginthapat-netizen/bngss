@@ -3,6 +3,7 @@ DROP POLICY IF EXISTS "Admins can manage cms settings" ON public.cms_settings;
 DROP POLICY IF EXISTS "Auth view non-sensitive cms settings" ON public.cms_settings;
 DROP POLICY IF EXISTS "Anon view public cms keys" ON public.cms_settings;
 
+DROP POLICY IF EXISTS "Admins can manage cms settings" ON public.cms_settings;
 CREATE POLICY "Admins can manage cms settings"
   ON public.cms_settings
   FOR ALL
@@ -10,6 +11,7 @@ CREATE POLICY "Admins can manage cms settings"
   USING ((SELECT public.has_role(auth.uid(), 'admin'::app_role)))
   WITH CHECK ((SELECT public.has_role(auth.uid(), 'admin'::app_role)));
 
+DROP POLICY IF EXISTS "Auth view non-sensitive cms settings" ON public.cms_settings;
 CREATE POLICY "Auth view non-sensitive cms settings"
   ON public.cms_settings
   FOR SELECT
@@ -30,6 +32,7 @@ CREATE POLICY "Auth view non-sensitive cms settings"
     )
   );
 
+DROP POLICY IF EXISTS "Anon view public cms keys" ON public.cms_settings;
 CREATE POLICY "Anon view public cms keys"
   ON public.cms_settings
   FOR SELECT

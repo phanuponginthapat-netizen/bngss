@@ -23,6 +23,7 @@ GRANT ALL ON public.ai_provider_keys TO service_role;
 ALTER TABLE public.ai_provider_keys ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Admins manage ai provider keys" ON public.ai_provider_keys;
+DROP POLICY IF EXISTS "Admins manage ai provider keys" ON public.ai_provider_keys;
 CREATE POLICY "Admins manage ai provider keys"
   ON public.ai_provider_keys
   FOR ALL
@@ -32,6 +33,7 @@ CREATE POLICY "Admins manage ai provider keys"
 
 CREATE INDEX IF NOT EXISTS idx_aipk_provider_status ON public.ai_provider_keys(provider_type, status, priority, used_today);
 
+DROP TRIGGER IF EXISTS trg_aipk_updated_at ON public.ai_provider_keys;
 CREATE TRIGGER trg_aipk_updated_at
   BEFORE UPDATE ON public.ai_provider_keys
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

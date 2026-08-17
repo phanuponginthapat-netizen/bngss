@@ -1,7 +1,7 @@
 
 -- 1. Create role enum
 DO $$ BEGIN
-  CREATE TYPE public.app_role AS ENUM ('admin', 'teacher', 'student', 'director');
+CREATE TYPE public.app_role AS ENUM ('admin', 'teacher', 'student', 'director');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- 2. Create user_roles table
@@ -57,11 +57,13 @@ $$;
 
 -- 6. RLS policies for user_roles
 DROP POLICY IF EXISTS "Users can view own roles" ON public.user_roles;
+DROP POLICY IF EXISTS "Users can view own roles" ON public.user_roles;
 CREATE POLICY "Users can view own roles"
   ON public.user_roles FOR SELECT
   TO authenticated
   USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Admins can manage all roles" ON public.user_roles;
 DROP POLICY IF EXISTS "Admins can manage all roles" ON public.user_roles;
 CREATE POLICY "Admins can manage all roles"
   ON public.user_roles FOR ALL
@@ -71,11 +73,13 @@ CREATE POLICY "Admins can manage all roles"
 
 -- 7. RLS policies for profiles
 DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile"
   ON public.profiles FOR SELECT
   TO authenticated
   USING (id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile"
   ON public.profiles FOR UPDATE
@@ -83,11 +87,13 @@ CREATE POLICY "Users can update own profile"
   USING (id = auth.uid());
 
 DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
 CREATE POLICY "Admins can view all profiles"
   ON public.profiles FOR SELECT
   TO authenticated
   USING (public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Admins can manage all profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Admins can manage all profiles" ON public.profiles;
 CREATE POLICY "Admins can manage all profiles"
   ON public.profiles FOR ALL
@@ -116,6 +122,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

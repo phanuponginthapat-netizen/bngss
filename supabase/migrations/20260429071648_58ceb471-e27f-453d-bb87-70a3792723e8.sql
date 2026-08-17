@@ -11,13 +11,16 @@ ON CONFLICT (id) DO NOTHING;
 
 -- RLS for storage
 DROP POLICY IF EXISTS "Attendance photos public read" ON storage.objects;
+DROP POLICY IF EXISTS "Attendance photos public read" ON storage.objects;
 CREATE POLICY "Attendance photos public read" ON storage.objects
   FOR SELECT USING (bucket_id = 'attendance-photos');
 
 DROP POLICY IF EXISTS "Auth users can upload attendance photos" ON storage.objects;
+DROP POLICY IF EXISTS "Auth users can upload attendance photos" ON storage.objects;
 CREATE POLICY "Auth users can upload attendance photos" ON storage.objects
   FOR INSERT TO authenticated WITH CHECK (bucket_id = 'attendance-photos');
 
+DROP POLICY IF EXISTS "Admin can manage attendance photos" ON storage.objects;
 DROP POLICY IF EXISTS "Admin can manage attendance photos" ON storage.objects;
 CREATE POLICY "Admin can manage attendance photos" ON storage.objects
   FOR ALL TO authenticated USING (

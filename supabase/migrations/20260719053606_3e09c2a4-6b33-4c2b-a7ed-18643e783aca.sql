@@ -3,6 +3,7 @@
 DROP POLICY IF EXISTS "Auth view all cms settings" ON public.cms_settings;
 
 DROP POLICY IF EXISTS "Admin/director view all cms settings" ON public.cms_settings;
+DROP POLICY IF EXISTS "Admin/director view all cms settings" ON public.cms_settings;
 CREATE POLICY "Admin/director view all cms settings"
 ON public.cms_settings
 FOR SELECT
@@ -16,6 +17,7 @@ GRANT SELECT (raw) ON public.social_posts TO service_role;
 
 -- 3) school scope restrictive policies for operational tables
 DROP POLICY IF EXISTS "school_scope_restrictive" ON public.bus_routes;
+DROP POLICY IF EXISTS "school_scope_restrictive" ON public.bus_routes;
 CREATE POLICY "school_scope_restrictive"
 ON public.bus_routes
 AS RESTRICTIVE
@@ -23,6 +25,7 @@ FOR ALL
 TO authenticated
 USING ((school_id IS NULL) OR (school_id = public.get_user_school_id(auth.uid())));
 
+DROP POLICY IF EXISTS "school_scope_restrictive" ON public.vehicle_bookings;
 DROP POLICY IF EXISTS "school_scope_restrictive" ON public.vehicle_bookings;
 CREATE POLICY "school_scope_restrictive"
 ON public.vehicle_bookings
@@ -32,6 +35,7 @@ TO authenticated
 USING ((school_id IS NULL) OR (school_id = public.get_user_school_id(auth.uid())));
 
 DROP POLICY IF EXISTS "school_scope_restrictive" ON public.room_bookings;
+DROP POLICY IF EXISTS "school_scope_restrictive" ON public.room_bookings;
 CREATE POLICY "school_scope_restrictive"
 ON public.room_bookings
 AS RESTRICTIVE
@@ -40,6 +44,7 @@ TO authenticated
 USING ((school_id IS NULL) OR (school_id = public.get_user_school_id(auth.uid())));
 
 DROP POLICY IF EXISTS "school_scope_restrictive" ON public.duty_assignments;
+DROP POLICY IF EXISTS "school_scope_restrictive" ON public.duty_assignments;
 CREATE POLICY "school_scope_restrictive"
 ON public.duty_assignments
 AS RESTRICTIVE
@@ -47,6 +52,7 @@ FOR ALL
 TO authenticated
 USING ((school_id IS NULL) OR (school_id = public.get_user_school_id(auth.uid())));
 
+DROP POLICY IF EXISTS "school_scope_restrictive" ON public.duty_logs;
 DROP POLICY IF EXISTS "school_scope_restrictive" ON public.duty_logs;
 CREATE POLICY "school_scope_restrictive"
 ON public.duty_logs

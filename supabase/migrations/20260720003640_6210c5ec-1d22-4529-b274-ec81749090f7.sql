@@ -77,6 +77,7 @@ DROP TRIGGER IF EXISTS line_vault_staff_leave_upd ON public.staff_leaves;
 CREATE TRIGGER line_vault_staff_leave_ins
   AFTER INSERT ON public.staff_leaves
   FOR EACH ROW EXECUTE FUNCTION public.trg_line_vault_staff_leave();
+DROP TRIGGER IF EXISTS line_vault_staff_leave_upd ON public.staff_leaves;
 CREATE TRIGGER line_vault_staff_leave_upd
   AFTER UPDATE OF status ON public.staff_leaves
   FOR EACH ROW EXECUTE FUNCTION public.trg_line_vault_staff_leave();
@@ -121,6 +122,7 @@ DROP TRIGGER IF EXISTS line_vault_student_leave_upd ON public.student_leaves;
 CREATE TRIGGER line_vault_student_leave_ins
   AFTER INSERT ON public.student_leaves
   FOR EACH ROW EXECUTE FUNCTION public.trg_line_vault_student_leave();
+DROP TRIGGER IF EXISTS line_vault_student_leave_upd ON public.student_leaves;
 CREATE TRIGGER line_vault_student_leave_upd
   AFTER UPDATE OF status ON public.student_leaves
   FOR EACH ROW EXECUTE FUNCTION public.trg_line_vault_student_leave();

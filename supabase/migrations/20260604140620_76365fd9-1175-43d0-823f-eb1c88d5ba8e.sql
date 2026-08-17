@@ -2,6 +2,7 @@
 -- 1) error_logs: ต้อง login ก่อนจึงจะ insert ได้
 DROP POLICY IF EXISTS "anyone can insert errors" ON public.error_logs;
 DROP POLICY IF EXISTS "authenticated can insert errors" ON public.error_logs;
+DROP POLICY IF EXISTS "authenticated can insert errors" ON public.error_logs;
 CREATE POLICY "authenticated can insert errors"
   ON public.error_logs FOR INSERT TO authenticated
   WITH CHECK (auth.uid() IS NOT NULL);

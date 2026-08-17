@@ -1,6 +1,6 @@
 -- ENUM ของฝ่ายงานในโรงเรียน (ตามมาตรฐาน 4 ฝ่าย + ผู้บริหาร)
 DO $$ BEGIN
-  CREATE TYPE public.school_department AS ENUM (
+CREATE TYPE public.school_department AS ENUM (
     'academic',          -- ฝ่ายวิชาการ
     'student_affairs',   -- ฝ่ายกิจการนักเรียน
     'general_admin',     -- ฝ่ายบริหารงานทั่วไป
@@ -49,6 +49,7 @@ $$;
 
 -- RLS policies
 DROP POLICY IF EXISTS "Users view own departments" ON public.user_departments;
+DROP POLICY IF EXISTS "Users view own departments" ON public.user_departments;
 CREATE POLICY "Users view own departments" ON public.user_departments
 FOR SELECT TO authenticated
 USING (
@@ -58,11 +59,13 @@ USING (
 );
 
 DROP POLICY IF EXISTS "Admin manage departments" ON public.user_departments;
+DROP POLICY IF EXISTS "Admin manage departments" ON public.user_departments;
 CREATE POLICY "Admin manage departments" ON public.user_departments
 FOR ALL TO authenticated
 USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
 WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
+DROP TRIGGER IF EXISTS update_user_departments_updated_at ON public.user_departments;
 CREATE TRIGGER update_user_departments_updated_at
 BEFORE UPDATE ON public.user_departments
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

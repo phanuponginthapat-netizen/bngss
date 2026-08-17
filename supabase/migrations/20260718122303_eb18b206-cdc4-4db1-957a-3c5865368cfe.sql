@@ -18,6 +18,7 @@ BEGIN
 END $$;
 
 DROP POLICY IF EXISTS "Users insert own kiosk device" ON public.kiosk_devices;
+DROP POLICY IF EXISTS "Users insert own kiosk device" ON public.kiosk_devices;
 CREATE POLICY "Users insert own kiosk device"
 ON public.kiosk_devices
 FOR INSERT

@@ -4,12 +4,14 @@
 ALTER TABLE IF EXISTS realtime.messages ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Authenticated can read realtime" ON realtime.messages;
+DROP POLICY IF EXISTS "Authenticated can read realtime" ON realtime.messages;
 CREATE POLICY "Authenticated can read realtime"
   ON realtime.messages
   FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Authenticated can broadcast realtime" ON realtime.messages;
 DROP POLICY IF EXISTS "Authenticated can broadcast realtime" ON realtime.messages;
 CREATE POLICY "Authenticated can broadcast realtime"
   ON realtime.messages

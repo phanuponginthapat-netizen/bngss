@@ -13,6 +13,7 @@ GRANT SELECT ON public.wall_reaction_audit TO authenticated;
 GRANT ALL ON public.wall_reaction_audit TO service_role;
 ALTER TABLE public.wall_reaction_audit ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "admins_view_audit" ON public.wall_reaction_audit;
+DROP POLICY IF EXISTS "admins_view_audit" ON public.wall_reaction_audit;
 CREATE POLICY "admins_view_audit" ON public.wall_reaction_audit
   FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));

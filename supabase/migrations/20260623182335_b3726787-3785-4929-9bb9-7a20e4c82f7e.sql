@@ -66,12 +66,14 @@ GRANT EXECUTE ON FUNCTION public.is_document_recipient(uuid, uuid) TO service_ro
 GRANT EXECUTE ON FUNCTION public.can_access_document_recipient(uuid, uuid, uuid) TO service_role;
 
 DROP POLICY IF EXISTS "Recipients and staff can view document_recipients" ON public.document_recipients;
+DROP POLICY IF EXISTS "Recipients and staff can view document_recipients" ON public.document_recipients;
 CREATE POLICY "Recipients and staff can view document_recipients"
 ON public.document_recipients
 FOR SELECT
 TO authenticated
 USING (public.can_access_document_recipient(id, document_id, auth.uid()));
 
+DROP POLICY IF EXISTS "Recipients can update own row" ON public.document_recipients;
 DROP POLICY IF EXISTS "Recipients can update own row" ON public.document_recipients;
 CREATE POLICY "Recipients can update own row"
 ON public.document_recipients

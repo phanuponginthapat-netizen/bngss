@@ -24,6 +24,7 @@ FOR EACH ROW EXECUTE FUNCTION public.prevent_student_code_self_edit();
 
 -- 2. Re-key sensitive policies off students.auth_user_id only (drop profile.student_code fallback)
 DROP POLICY IF EXISTS "Students view their own incomplete grade reports" ON public.incomplete_grade_reports;
+DROP POLICY IF EXISTS "Students view their own incomplete grade reports" ON public.incomplete_grade_reports;
 CREATE POLICY "Students view their own incomplete grade reports"
 ON public.incomplete_grade_reports
 FOR SELECT
@@ -33,6 +34,7 @@ USING (
 );
 
 DROP POLICY IF EXISTS "Students create their own fix requests" ON public.incomplete_grade_fix_requests;
+DROP POLICY IF EXISTS "Students create their own fix requests" ON public.incomplete_grade_fix_requests;
 CREATE POLICY "Students create their own fix requests"
 ON public.incomplete_grade_fix_requests
 FOR INSERT
@@ -41,6 +43,7 @@ WITH CHECK (
   student_id IN (SELECT s.id FROM public.students s WHERE s.auth_user_id = auth.uid())
 );
 
+DROP POLICY IF EXISTS "Students update note on their own fix requests" ON public.incomplete_grade_fix_requests;
 DROP POLICY IF EXISTS "Students update note on their own fix requests" ON public.incomplete_grade_fix_requests;
 CREATE POLICY "Students update note on their own fix requests"
 ON public.incomplete_grade_fix_requests
@@ -54,6 +57,7 @@ WITH CHECK (
 );
 
 DROP POLICY IF EXISTS "Students view their own fix requests" ON public.incomplete_grade_fix_requests;
+DROP POLICY IF EXISTS "Students view their own fix requests" ON public.incomplete_grade_fix_requests;
 CREATE POLICY "Students view their own fix requests"
 ON public.incomplete_grade_fix_requests
 FOR SELECT
@@ -62,6 +66,7 @@ USING (
   student_id IN (SELECT s.id FROM public.students s WHERE s.auth_user_id = auth.uid())
 );
 
+DROP POLICY IF EXISTS "ap_read_scoped" ON public.activity_participants;
 DROP POLICY IF EXISTS "ap_read_scoped" ON public.activity_participants;
 CREATE POLICY "ap_read_scoped"
 ON public.activity_participants
@@ -78,6 +83,7 @@ USING (
   )
 );
 
+DROP POLICY IF EXISTS "as_read_scoped" ON public.activity_scores;
 DROP POLICY IF EXISTS "as_read_scoped" ON public.activity_scores;
 CREATE POLICY "as_read_scoped"
 ON public.activity_scores
@@ -98,6 +104,7 @@ USING (
 
 -- 3. Fix chat_reports admin update tautology
 DROP POLICY IF EXISTS "admin updates reports" ON public.chat_reports;
+DROP POLICY IF EXISTS "admin updates reports" ON public.chat_reports;
 CREATE POLICY "admin updates reports"
 ON public.chat_reports
 FOR UPDATE
@@ -107,6 +114,7 @@ WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 
 -- 4. Re-scope public-role policies to authenticated
 DROP POLICY IF EXISTS "Users update own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users update own profile" ON public.profiles;
 CREATE POLICY "Users update own profile"
 ON public.profiles
 FOR UPDATE
@@ -115,6 +123,7 @@ USING (auth.uid() = id)
 WITH CHECK (auth.uid() = id);
 
 DROP POLICY IF EXISTS "own sleep logs" ON public.fitness_sleep_logs;
+DROP POLICY IF EXISTS "own sleep logs" ON public.fitness_sleep_logs;
 CREATE POLICY "own sleep logs"
 ON public.fitness_sleep_logs
 FOR ALL
@@ -122,6 +131,7 @@ TO authenticated
 USING (user_id = auth.uid())
 WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Sender can manage recipients" ON public.eform_recipients;
 DROP POLICY IF EXISTS "Sender can manage recipients" ON public.eform_recipients;
 CREATE POLICY "Sender can manage recipients"
 ON public.eform_recipients
@@ -135,6 +145,7 @@ WITH CHECK (
 );
 
 DROP POLICY IF EXISTS "admin/director can manage matrix" ON public.role_notification_defaults;
+DROP POLICY IF EXISTS "admin/director can manage matrix" ON public.role_notification_defaults;
 CREATE POLICY "admin/director can manage matrix"
 ON public.role_notification_defaults
 FOR ALL
@@ -142,6 +153,7 @@ TO authenticated
 USING (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role))
 WITH CHECK (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role));
 
+DROP POLICY IF EXISTS "anyone can read matrix" ON public.role_notification_defaults;
 DROP POLICY IF EXISTS "anyone can read matrix" ON public.role_notification_defaults;
 CREATE POLICY "anyone can read matrix"
 ON public.role_notification_defaults

@@ -36,6 +36,7 @@ GRANT EXECUTE ON FUNCTION public.is_document_owner(uuid, uuid) TO authenticated,
 
 -- documents: replace recursive recipient policy
 DROP POLICY IF EXISTS "Recipients view their documents" ON public.documents;
+DROP POLICY IF EXISTS "Recipients view their documents" ON public.documents;
 CREATE POLICY "Recipients view their documents"
 ON public.documents
 FOR SELECT
@@ -43,6 +44,7 @@ TO authenticated
 USING (public.is_document_recipient(id, auth.uid()));
 
 -- document_recipients: replace recursive owner-check policies
+DROP POLICY IF EXISTS "Recipients and staff can view document_recipients" ON public.document_recipients;
 DROP POLICY IF EXISTS "Recipients and staff can view document_recipients" ON public.document_recipients;
 CREATE POLICY "Recipients and staff can view document_recipients"
 ON public.document_recipients
@@ -55,6 +57,7 @@ USING (
   OR public.is_document_owner(document_id, auth.uid())
 );
 
+DROP POLICY IF EXISTS "Doc owner or admin can add recipients" ON public.document_recipients;
 DROP POLICY IF EXISTS "Doc owner or admin can add recipients" ON public.document_recipients;
 CREATE POLICY "Doc owner or admin can add recipients"
 ON public.document_recipients

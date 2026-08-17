@@ -6,6 +6,7 @@ DROP POLICY IF EXISTS "CMS staff can upload cms images" ON storage.objects;
 DROP POLICY IF EXISTS "CMS staff can update cms images" ON storage.objects;
 DROP POLICY IF EXISTS "CMS staff can delete cms images" ON storage.objects;
 
+DROP POLICY IF EXISTS "CMS staff can upload cms images" ON storage.objects;
 CREATE POLICY "CMS staff can upload cms images" ON storage.objects
   FOR INSERT TO authenticated
   WITH CHECK (
@@ -17,6 +18,7 @@ CREATE POLICY "CMS staff can upload cms images" ON storage.objects
     )
   );
 
+DROP POLICY IF EXISTS "CMS staff can update cms images" ON storage.objects;
 CREATE POLICY "CMS staff can update cms images" ON storage.objects
   FOR UPDATE TO authenticated
   USING (
@@ -28,6 +30,7 @@ CREATE POLICY "CMS staff can update cms images" ON storage.objects
     )
   );
 
+DROP POLICY IF EXISTS "CMS staff can delete cms images" ON storage.objects;
 CREATE POLICY "CMS staff can delete cms images" ON storage.objects
   FOR DELETE TO authenticated
   USING (

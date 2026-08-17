@@ -16,12 +16,14 @@ CREATE INDEX IF NOT EXISTS idx_import_mapping_memory_lookup ON public.import_map
 ALTER TABLE public.import_mapping_memory ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Admin manage import mapping memory" ON public.import_mapping_memory;
+DROP POLICY IF EXISTS "Admin manage import mapping memory" ON public.import_mapping_memory;
 CREATE POLICY "Admin manage import mapping memory"
 ON public.import_mapping_memory FOR ALL
 TO authenticated
 USING (public.has_role(auth.uid(), 'admin'))
 WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
+DROP TRIGGER IF EXISTS trg_import_mapping_memory_updated_at ON public.import_mapping_memory;
 CREATE TRIGGER trg_import_mapping_memory_updated_at
 BEFORE UPDATE ON public.import_mapping_memory
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

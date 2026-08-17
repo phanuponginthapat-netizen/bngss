@@ -15,8 +15,10 @@ GRANT ALL ON public.duty_locations TO service_role;
 ALTER TABLE public.duty_locations ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "duty_locations_select_auth" ON public.duty_locations;
+DROP POLICY IF EXISTS "duty_locations_select_auth" ON public.duty_locations;
 CREATE POLICY "duty_locations_select_auth" ON public.duty_locations
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "duty_locations_admin_write" ON public.duty_locations;
 DROP POLICY IF EXISTS "duty_locations_admin_write" ON public.duty_locations;
 CREATE POLICY "duty_locations_admin_write" ON public.duty_locations
   FOR ALL TO authenticated
@@ -48,8 +50,10 @@ GRANT ALL ON public.duty_assignments TO service_role;
 ALTER TABLE public.duty_assignments ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "duty_assign_select_auth" ON public.duty_assignments;
+DROP POLICY IF EXISTS "duty_assign_select_auth" ON public.duty_assignments;
 CREATE POLICY "duty_assign_select_auth" ON public.duty_assignments
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "duty_assign_admin_write" ON public.duty_assignments;
 DROP POLICY IF EXISTS "duty_assign_admin_write" ON public.duty_assignments;
 CREATE POLICY "duty_assign_admin_write" ON public.duty_assignments
   FOR ALL TO authenticated
@@ -80,8 +84,10 @@ GRANT ALL ON public.duty_logs TO service_role;
 ALTER TABLE public.duty_logs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "duty_logs_select_auth" ON public.duty_logs;
+DROP POLICY IF EXISTS "duty_logs_select_auth" ON public.duty_logs;
 CREATE POLICY "duty_logs_select_auth" ON public.duty_logs
   FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "duty_logs_insert_self_or_admin" ON public.duty_logs;
 DROP POLICY IF EXISTS "duty_logs_insert_self_or_admin" ON public.duty_logs;
 CREATE POLICY "duty_logs_insert_self_or_admin" ON public.duty_logs
   FOR INSERT TO authenticated
@@ -92,6 +98,7 @@ CREATE POLICY "duty_logs_insert_self_or_admin" ON public.duty_logs
     OR public.has_role(auth.uid(),'director')
   );
 DROP POLICY IF EXISTS "duty_logs_update_owner_or_admin" ON public.duty_logs;
+DROP POLICY IF EXISTS "duty_logs_update_owner_or_admin" ON public.duty_logs;
 CREATE POLICY "duty_logs_update_owner_or_admin" ON public.duty_logs
   FOR UPDATE TO authenticated
   USING (
@@ -100,6 +107,7 @@ CREATE POLICY "duty_logs_update_owner_or_admin" ON public.duty_logs
     OR public.has_role(auth.uid(),'super_admin')
     OR public.has_role(auth.uid(),'director')
   );
+DROP POLICY IF EXISTS "duty_logs_delete_admin" ON public.duty_logs;
 DROP POLICY IF EXISTS "duty_logs_delete_admin" ON public.duty_logs;
 CREATE POLICY "duty_logs_delete_admin" ON public.duty_logs
   FOR DELETE TO authenticated

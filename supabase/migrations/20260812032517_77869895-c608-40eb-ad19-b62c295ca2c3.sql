@@ -40,6 +40,7 @@ $$;
 
 -- students: parents can read only their own children
 DROP POLICY IF EXISTS "Parents view their children" ON public.students;
+DROP POLICY IF EXISTS "Parents view their children" ON public.students;
 CREATE POLICY "Parents view their children"
 ON public.students FOR SELECT TO authenticated
 USING (
@@ -49,11 +50,13 @@ USING (
 
 -- health records
 DROP POLICY IF EXISTS "Parents view child health records" ON public.health_records;
+DROP POLICY IF EXISTS "Parents view child health records" ON public.health_records;
 CREATE POLICY "Parents view child health records"
 ON public.health_records FOR SELECT TO authenticated
 USING (student_id = ANY (public.parent_child_ids(auth.uid())));
 
 -- SDQ
+DROP POLICY IF EXISTS "Parents view child sdq" ON public.sdq_records;
 DROP POLICY IF EXISTS "Parents view child sdq" ON public.sdq_records;
 CREATE POLICY "Parents view child sdq"
 ON public.sdq_records FOR SELECT TO authenticated
@@ -61,17 +64,20 @@ USING (student_id = ANY (public.parent_child_ids(auth.uid())));
 
 -- enrollments
 DROP POLICY IF EXISTS "Parents view child enrollments" ON public.enrollments;
+DROP POLICY IF EXISTS "Parents view child enrollments" ON public.enrollments;
 CREATE POLICY "Parents view child enrollments"
 ON public.enrollments FOR SELECT TO authenticated
 USING (student_id = ANY (public.parent_child_ids(auth.uid())));
 
 -- scores
 DROP POLICY IF EXISTS "Parents view child scores" ON public.student_scores;
+DROP POLICY IF EXISTS "Parents view child scores" ON public.student_scores;
 CREATE POLICY "Parents view child scores"
 ON public.student_scores FOR SELECT TO authenticated
 USING (student_code = ANY (public.parent_child_codes(auth.uid())));
 
 -- homework / task assignments (personal + class-wide)
+DROP POLICY IF EXISTS "Parents view child homework" ON public.task_assignments;
 DROP POLICY IF EXISTS "Parents view child homework" ON public.task_assignments;
 CREATE POLICY "Parents view child homework"
 ON public.task_assignments FOR SELECT TO authenticated

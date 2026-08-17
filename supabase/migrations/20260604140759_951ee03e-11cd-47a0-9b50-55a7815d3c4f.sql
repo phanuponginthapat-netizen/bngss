@@ -8,6 +8,7 @@ DROP POLICY IF EXISTS "ICT photos public read" ON storage.objects;
 
 -- จำกัด list ให้เฉพาะเจ้าของไฟล์หรือ admin/director (อ่านผ่าน public URL ยังทำได้)
 DROP POLICY IF EXISTS "Owner or admin can list public buckets" ON storage.objects;
+DROP POLICY IF EXISTS "Owner or admin can list public buckets" ON storage.objects;
 CREATE POLICY "Owner or admin can list public buckets"
   ON storage.objects FOR SELECT TO authenticated
   USING (

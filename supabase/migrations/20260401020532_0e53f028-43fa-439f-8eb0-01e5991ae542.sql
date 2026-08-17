@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS public.budget_transactions (
 );
 ALTER TABLE public.budget_transactions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Auth users manage budget_transactions" ON public.budget_transactions;
+DROP POLICY IF EXISTS "Auth users manage budget_transactions" ON public.budget_transactions;
 CREATE POLICY "Auth users manage budget_transactions" ON public.budget_transactions FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Procurement (e-GP)
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS public.procurement_records (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 ALTER TABLE public.procurement_records ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Auth users manage procurement_records" ON public.procurement_records;
 DROP POLICY IF EXISTS "Auth users manage procurement_records" ON public.procurement_records;
 CREATE POLICY "Auth users manage procurement_records" ON public.procurement_records FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
@@ -61,6 +63,7 @@ CREATE TABLE IF NOT EXISTS public.assets (
 );
 ALTER TABLE public.assets ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Auth users manage assets" ON public.assets;
+DROP POLICY IF EXISTS "Auth users manage assets" ON public.assets;
 CREATE POLICY "Auth users manage assets" ON public.assets FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Student Subsidies (กสศ.)
@@ -81,6 +84,7 @@ CREATE TABLE IF NOT EXISTS public.student_subsidies (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 ALTER TABLE public.student_subsidies ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Auth users manage student_subsidies" ON public.student_subsidies;
 DROP POLICY IF EXISTS "Auth users manage student_subsidies" ON public.student_subsidies;
 CREATE POLICY "Auth users manage student_subsidies" ON public.student_subsidies FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
@@ -103,6 +107,7 @@ CREATE TABLE IF NOT EXISTS public.salary_records (
 );
 ALTER TABLE public.salary_records ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Auth users manage salary_records" ON public.salary_records;
+DROP POLICY IF EXISTS "Auth users manage salary_records" ON public.salary_records;
 CREATE POLICY "Auth users manage salary_records" ON public.salary_records FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- ID Plan (Individual Development Plan)
@@ -122,5 +127,6 @@ CREATE TABLE IF NOT EXISTS public.id_plan_records (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 ALTER TABLE public.id_plan_records ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Auth users manage id_plan_records" ON public.id_plan_records;
 DROP POLICY IF EXISTS "Auth users manage id_plan_records" ON public.id_plan_records;
 CREATE POLICY "Auth users manage id_plan_records" ON public.id_plan_records FOR ALL TO authenticated USING (true) WITH CHECK (true);

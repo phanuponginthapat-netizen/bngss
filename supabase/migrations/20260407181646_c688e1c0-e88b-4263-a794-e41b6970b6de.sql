@@ -24,7 +24,9 @@ CREATE TABLE IF NOT EXISTS public.school_lunch_records (
 ALTER TABLE public.school_lunch_records ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Auth users can view school_lunch_records" ON public.school_lunch_records;
+DROP POLICY IF EXISTS "Auth users can view school_lunch_records" ON public.school_lunch_records;
 CREATE POLICY "Auth users can view school_lunch_records" ON public.school_lunch_records FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Staff can manage school_lunch_records" ON public.school_lunch_records;
 DROP POLICY IF EXISTS "Staff can manage school_lunch_records" ON public.school_lunch_records;
 CREATE POLICY "Staff can manage school_lunch_records" ON public.school_lunch_records FOR ALL TO authenticated
   USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director') OR has_role(auth.uid(), 'teacher'))
@@ -59,7 +61,9 @@ CREATE TABLE IF NOT EXISTS public.school_milk_records (
 ALTER TABLE public.school_milk_records ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Auth users can view school_milk_records" ON public.school_milk_records;
+DROP POLICY IF EXISTS "Auth users can view school_milk_records" ON public.school_milk_records;
 CREATE POLICY "Auth users can view school_milk_records" ON public.school_milk_records FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Staff can manage school_milk_records" ON public.school_milk_records;
 DROP POLICY IF EXISTS "Staff can manage school_milk_records" ON public.school_milk_records;
 CREATE POLICY "Staff can manage school_milk_records" ON public.school_milk_records FOR ALL TO authenticated
   USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director') OR has_role(auth.uid(), 'teacher'))
@@ -102,7 +106,9 @@ CREATE TABLE IF NOT EXISTS public.action_plans (
 ALTER TABLE public.action_plans ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Auth users can view action_plans" ON public.action_plans;
+DROP POLICY IF EXISTS "Auth users can view action_plans" ON public.action_plans;
 CREATE POLICY "Auth users can view action_plans" ON public.action_plans FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Staff can manage action_plans" ON public.action_plans;
 DROP POLICY IF EXISTS "Staff can manage action_plans" ON public.action_plans;
 CREATE POLICY "Staff can manage action_plans" ON public.action_plans FOR ALL TO authenticated
   USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director') OR has_role(auth.uid(), 'teacher'))

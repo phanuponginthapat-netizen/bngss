@@ -23,11 +23,15 @@ GRANT ALL ON public.special_rooms TO service_role;
 ALTER TABLE public.special_rooms ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Special rooms readable" ON public.special_rooms;
+DROP POLICY IF EXISTS "Special rooms readable" ON public.special_rooms;
 CREATE POLICY "Special rooms readable" ON public.special_rooms FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Admin manage rooms insert" ON public.special_rooms;
 DROP POLICY IF EXISTS "Admin manage rooms insert" ON public.special_rooms;
 CREATE POLICY "Admin manage rooms insert" ON public.special_rooms FOR INSERT TO authenticated WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
 DROP POLICY IF EXISTS "Admin manage rooms update" ON public.special_rooms;
+DROP POLICY IF EXISTS "Admin manage rooms update" ON public.special_rooms;
 CREATE POLICY "Admin manage rooms update" ON public.special_rooms FOR UPDATE TO authenticated USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
+DROP POLICY IF EXISTS "Admin manage rooms delete" ON public.special_rooms;
 DROP POLICY IF EXISTS "Admin manage rooms delete" ON public.special_rooms;
 CREATE POLICY "Admin manage rooms delete" ON public.special_rooms FOR DELETE TO authenticated USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
 

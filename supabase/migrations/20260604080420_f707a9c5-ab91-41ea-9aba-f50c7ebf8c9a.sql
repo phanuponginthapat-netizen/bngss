@@ -20,14 +20,17 @@ GRANT ALL ON public.error_logs TO service_role;
 ALTER TABLE public.error_logs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "anyone can insert errors" ON public.error_logs;
+DROP POLICY IF EXISTS "anyone can insert errors" ON public.error_logs;
 CREATE POLICY "anyone can insert errors" ON public.error_logs
   FOR INSERT TO anon, authenticated WITH CHECK (true);
 
+DROP POLICY IF EXISTS "admins view errors" ON public.error_logs;
 DROP POLICY IF EXISTS "admins view errors" ON public.error_logs;
 CREATE POLICY "admins view errors" ON public.error_logs
   FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
 
+DROP POLICY IF EXISTS "admins delete errors" ON public.error_logs;
 DROP POLICY IF EXISTS "admins delete errors" ON public.error_logs;
 CREATE POLICY "admins delete errors" ON public.error_logs
   FOR DELETE TO authenticated
@@ -52,9 +55,11 @@ GRANT ALL ON public.rate_limit_logs TO service_role;
 ALTER TABLE public.rate_limit_logs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "service insert rate logs" ON public.rate_limit_logs;
+DROP POLICY IF EXISTS "service insert rate logs" ON public.rate_limit_logs;
 CREATE POLICY "service insert rate logs" ON public.rate_limit_logs
   FOR INSERT TO anon, authenticated WITH CHECK (true);
 
+DROP POLICY IF EXISTS "admins view rate logs" ON public.rate_limit_logs;
 DROP POLICY IF EXISTS "admins view rate logs" ON public.rate_limit_logs;
 CREATE POLICY "admins view rate logs" ON public.rate_limit_logs
   FOR SELECT TO authenticated

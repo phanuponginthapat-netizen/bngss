@@ -2,10 +2,12 @@
 -- behavior_records
 DROP POLICY IF EXISTS "school_scope_restrictive" ON public.behavior_records;
 DROP POLICY IF EXISTS "school_scope_teacher" ON public.behavior_records;
+DROP POLICY IF EXISTS "school_scope_restrictive" ON public.behavior_records;
 CREATE POLICY "school_scope_restrictive" ON public.behavior_records
   AS RESTRICTIVE FOR ALL TO authenticated
   USING ((school_id IS NULL) OR (school_id = (SELECT get_user_school_id(auth.uid()))))
   WITH CHECK ((school_id IS NULL) OR (school_id = (SELECT get_user_school_id(auth.uid()))));
+DROP POLICY IF EXISTS "school_scope_teacher" ON public.behavior_records;
 CREATE POLICY "school_scope_teacher" ON public.behavior_records
   AS RESTRICTIVE FOR ALL TO authenticated
   USING (
@@ -20,10 +22,12 @@ CREATE POLICY "school_scope_teacher" ON public.behavior_records
 -- health_records
 DROP POLICY IF EXISTS "school_scope_restrictive" ON public.health_records;
 DROP POLICY IF EXISTS "school_scope_teacher" ON public.health_records;
+DROP POLICY IF EXISTS "school_scope_restrictive" ON public.health_records;
 CREATE POLICY "school_scope_restrictive" ON public.health_records
   AS RESTRICTIVE FOR ALL TO authenticated
   USING ((school_id IS NULL) OR (school_id = (SELECT get_user_school_id(auth.uid()))))
   WITH CHECK ((school_id IS NULL) OR (school_id = (SELECT get_user_school_id(auth.uid()))));
+DROP POLICY IF EXISTS "school_scope_teacher" ON public.health_records;
 CREATE POLICY "school_scope_teacher" ON public.health_records
   AS RESTRICTIVE FOR ALL TO authenticated
   USING (
@@ -37,12 +41,14 @@ CREATE POLICY "school_scope_teacher" ON public.health_records
 
 -- sdq_records
 DROP POLICY IF EXISTS "school_scope_restrictive" ON public.sdq_records;
+DROP POLICY IF EXISTS "school_scope_restrictive" ON public.sdq_records;
 CREATE POLICY "school_scope_restrictive" ON public.sdq_records
   AS RESTRICTIVE FOR ALL TO authenticated
   USING ((school_id IS NULL) OR (school_id = (SELECT get_user_school_id(auth.uid()))))
   WITH CHECK ((school_id IS NULL) OR (school_id = (SELECT get_user_school_id(auth.uid()))));
 
 -- exam_submissions
+DROP POLICY IF EXISTS "exam_submissions teacher" ON public.exam_submissions;
 DROP POLICY IF EXISTS "exam_submissions teacher" ON public.exam_submissions;
 CREATE POLICY "exam_submissions teacher" ON public.exam_submissions
   FOR ALL TO authenticated
@@ -63,6 +69,7 @@ CREATE POLICY "exam_submissions teacher" ON public.exam_submissions
 
 -- print_templates: restrict blanket read
 DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates;
+DROP POLICY IF EXISTS "Authenticated can read active templates" ON public.print_templates;
 DROP POLICY IF EXISTS "Authenticated can read active templates" ON public.print_templates;
 CREATE POLICY "Authenticated can read active templates" ON public.print_templates
   FOR SELECT TO authenticated

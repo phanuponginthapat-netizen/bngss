@@ -15,12 +15,14 @@ ALTER TABLE public.assets
 -- Replace overly-narrow SELECT policy with one that allows ALL authenticated users to view
 DROP POLICY IF EXISTS "Staff can view assets" ON public.assets;
 DROP POLICY IF EXISTS "Authenticated can view assets" ON public.assets;
+DROP POLICY IF EXISTS "Authenticated can view assets" ON public.assets;
 CREATE POLICY "Authenticated can view assets"
   ON public.assets FOR SELECT
   TO authenticated
   USING (true);
 
 -- Ensure admins/directors can manage
+DROP POLICY IF EXISTS "Admins manage assets" ON public.assets;
 DROP POLICY IF EXISTS "Admins manage assets" ON public.assets;
 CREATE POLICY "Admins manage assets"
   ON public.assets FOR ALL

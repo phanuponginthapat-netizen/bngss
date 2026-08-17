@@ -1,5 +1,6 @@
 DROP POLICY IF EXISTS "leave-attachments read owner or admin" ON storage.objects;
 DROP POLICY IF EXISTS "leave-attachments read owner or staff" ON storage.objects;
+DROP POLICY IF EXISTS "leave-attachments read owner or staff" ON storage.objects;
 CREATE POLICY "leave-attachments read owner or staff" ON storage.objects
 FOR SELECT TO authenticated
 USING (

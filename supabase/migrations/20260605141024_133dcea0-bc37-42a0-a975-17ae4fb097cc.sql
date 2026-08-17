@@ -13,6 +13,7 @@ GRANT INSERT, UPDATE, DELETE ON public.iot_devices TO authenticated;
 
 -- 3) students: remove NULL-school bypass so teachers without school_id cannot see all students
 DROP POLICY IF EXISTS "Staff can view students in their school" ON public.students;
+DROP POLICY IF EXISTS "Staff can view students in their school" ON public.students;
 CREATE POLICY "Staff can view students in their school"
 ON public.students FOR SELECT
 USING (
@@ -27,12 +28,14 @@ USING (
 
 -- 4) student_face_descriptors: allow teachers to read (needed for face-scan check-in)
 DROP POLICY IF EXISTS "Teachers can view face descriptors" ON public.student_face_descriptors;
+DROP POLICY IF EXISTS "Teachers can view face descriptors" ON public.student_face_descriptors;
 CREATE POLICY "Teachers can view face descriptors"
 ON public.student_face_descriptors FOR SELECT
 USING (public.has_role(auth.uid(),'teacher'));
 
 -- 5) Storage: pp5-files — restrict SELECT to staff only
 DROP POLICY IF EXISTS "Authenticated can view pp5 files" ON storage.objects;
+DROP POLICY IF EXISTS "Staff can view pp5 files" ON storage.objects;
 DROP POLICY IF EXISTS "Staff can view pp5 files" ON storage.objects;
 CREATE POLICY "Staff can view pp5 files"
 ON storage.objects FOR SELECT
@@ -48,6 +51,7 @@ USING (
 
 -- 6) Storage: ict-loan-photos — restrict SELECT to staff only
 DROP POLICY IF EXISTS "Authenticated can view ict loan photos" ON storage.objects;
+DROP POLICY IF EXISTS "Staff can view ict loan photos" ON storage.objects;
 DROP POLICY IF EXISTS "Staff can view ict loan photos" ON storage.objects;
 CREATE POLICY "Staff can view ict loan photos"
 ON storage.objects FOR SELECT

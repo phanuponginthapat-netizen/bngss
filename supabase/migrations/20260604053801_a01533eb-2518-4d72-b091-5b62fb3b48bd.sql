@@ -21,8 +21,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.exams TO authenticated;
 GRANT ALL ON public.exams TO service_role;
 ALTER TABLE public.exams ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "exam owner read" ON public.exams;
+DROP POLICY IF EXISTS "exam owner read" ON public.exams;
 CREATE POLICY "exam owner read" ON public.exams FOR SELECT TO authenticated
   USING (teacher_id = auth.uid() OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
+DROP POLICY IF EXISTS "exam owner write" ON public.exams;
 DROP POLICY IF EXISTS "exam owner write" ON public.exams;
 CREATE POLICY "exam owner write" ON public.exams FOR ALL TO authenticated
   USING (teacher_id = auth.uid() OR public.has_role(auth.uid(),'admin'))
@@ -46,6 +48,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.exam_questions TO authenticated;
 GRANT ALL ON public.exam_questions TO service_role;
 ALTER TABLE public.exam_questions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "exam_questions via exam" ON public.exam_questions;
+DROP POLICY IF EXISTS "exam_questions via exam" ON public.exam_questions;
 CREATE POLICY "exam_questions via exam" ON public.exam_questions FOR ALL TO authenticated
   USING (EXISTS (SELECT 1 FROM public.exams e WHERE e.id = exam_id AND (e.teacher_id = auth.uid() OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'))))
   WITH CHECK (EXISTS (SELECT 1 FROM public.exams e WHERE e.id = exam_id AND (e.teacher_id = auth.uid() OR public.has_role(auth.uid(),'admin'))));
@@ -62,6 +65,7 @@ CREATE TABLE IF NOT EXISTS public.exam_sheets (
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.exam_sheets TO authenticated;
 GRANT ALL ON public.exam_sheets TO service_role;
 ALTER TABLE public.exam_sheets ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "exam_sheets via exam" ON public.exam_sheets;
 DROP POLICY IF EXISTS "exam_sheets via exam" ON public.exam_sheets;
 CREATE POLICY "exam_sheets via exam" ON public.exam_sheets FOR ALL TO authenticated
   USING (EXISTS (SELECT 1 FROM public.exams e WHERE e.id = exam_id AND (e.teacher_id = auth.uid() OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'))))
@@ -89,9 +93,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.exam_submissions TO authenticated
 GRANT ALL ON public.exam_submissions TO service_role;
 ALTER TABLE public.exam_submissions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "exam_submissions teacher" ON public.exam_submissions;
+DROP POLICY IF EXISTS "exam_submissions teacher" ON public.exam_submissions;
 CREATE POLICY "exam_submissions teacher" ON public.exam_submissions FOR ALL TO authenticated
   USING (EXISTS (SELECT 1 FROM public.exams e WHERE e.id = exam_id AND (e.teacher_id = auth.uid() OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'))))
   WITH CHECK (EXISTS (SELECT 1 FROM public.exams e WHERE e.id = exam_id AND (e.teacher_id = auth.uid() OR public.has_role(auth.uid(),'admin'))));
+DROP POLICY IF EXISTS "exam_submissions student own" ON public.exam_submissions;
 DROP POLICY IF EXISTS "exam_submissions student own" ON public.exam_submissions;
 CREATE POLICY "exam_submissions student own" ON public.exam_submissions FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()));

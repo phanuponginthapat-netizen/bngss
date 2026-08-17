@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS public.google_chat_webhooks (
 ALTER TABLE public.google_chat_webhooks ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Admins can manage webhooks" ON public.google_chat_webhooks;
+DROP POLICY IF EXISTS "Admins can manage webhooks" ON public.google_chat_webhooks;
 CREATE POLICY "Admins can manage webhooks" ON public.google_chat_webhooks
   FOR ALL TO authenticated
   USING (public.has_role(auth.uid(), 'admin'))

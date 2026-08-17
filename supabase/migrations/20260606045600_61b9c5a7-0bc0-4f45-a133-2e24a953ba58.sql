@@ -23,6 +23,7 @@ END $$;
 
 -- Make sure iot_devices SELECT is restricted to staff (admin/director/teacher) only
 DROP POLICY IF EXISTS "Staff can view iot devices" ON public.iot_devices;
+DROP POLICY IF EXISTS "Staff can view iot devices" ON public.iot_devices;
 CREATE POLICY "Staff can view iot devices"
 ON public.iot_devices FOR SELECT
 TO authenticated

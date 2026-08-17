@@ -2,6 +2,7 @@
 DROP POLICY IF EXISTS "Auth users can view salary_records" ON public.salary_records;
 
 DROP POLICY IF EXISTS "Owner or admin/director can view salary_records" ON public.salary_records;
+DROP POLICY IF EXISTS "Owner or admin/director can view salary_records" ON public.salary_records;
 CREATE POLICY "Owner or admin/director can view salary_records"
 ON public.salary_records
 FOR SELECT
@@ -21,12 +22,14 @@ USING (
 ALTER TABLE IF EXISTS realtime.messages ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Deny all realtime broadcast/presence by default" ON realtime.messages;
+DROP POLICY IF EXISTS "Deny all realtime broadcast/presence by default" ON realtime.messages;
 CREATE POLICY "Deny all realtime broadcast/presence by default"
 ON realtime.messages
 FOR SELECT
 TO authenticated
 USING (false);
 
+DROP POLICY IF EXISTS "Deny all realtime inserts by default" ON realtime.messages;
 DROP POLICY IF EXISTS "Deny all realtime inserts by default" ON realtime.messages;
 CREATE POLICY "Deny all realtime inserts by default"
 ON realtime.messages

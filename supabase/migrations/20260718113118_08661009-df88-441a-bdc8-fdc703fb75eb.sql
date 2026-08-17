@@ -9,6 +9,7 @@ DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Admins can manage all profiles" ON public.profiles;
 
 DROP POLICY IF EXISTS "Admin/Director view profiles in their school" ON public.profiles;
+DROP POLICY IF EXISTS "Admin/Director view profiles in their school" ON public.profiles;
 CREATE POLICY "Admin/Director view profiles in their school"
 ON public.profiles FOR SELECT TO authenticated
 USING (
@@ -16,6 +17,7 @@ USING (
   AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()))
 );
 
+DROP POLICY IF EXISTS "Admins manage profiles in their school" ON public.profiles;
 DROP POLICY IF EXISTS "Admins manage profiles in their school" ON public.profiles;
 CREATE POLICY "Admins manage profiles in their school"
 ON public.profiles FOR ALL TO authenticated
@@ -29,6 +31,7 @@ WITH CHECK (
 );
 
 DROP POLICY IF EXISTS "Authenticated can read homework files" ON storage.objects;
+DROP POLICY IF EXISTS "Homework files: owner or same-school members" ON storage.objects;
 DROP POLICY IF EXISTS "Homework files: owner or same-school members" ON storage.objects;
 CREATE POLICY "Homework files: owner or same-school members"
 ON storage.objects FOR SELECT TO authenticated
@@ -97,10 +100,12 @@ BEFORE UPDATE ON public.eform_templates
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 DROP POLICY IF EXISTS "Same-school members read active templates" ON public.eform_templates;
+DROP POLICY IF EXISTS "Same-school members read active templates" ON public.eform_templates;
 CREATE POLICY "Same-school members read active templates"
 ON public.eform_templates FOR SELECT TO authenticated
 USING (is_active = true AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid())));
 
+DROP POLICY IF EXISTS "Admin/Director manage templates in school" ON public.eform_templates;
 DROP POLICY IF EXISTS "Admin/Director manage templates in school" ON public.eform_templates;
 CREATE POLICY "Admin/Director manage templates in school"
 ON public.eform_templates FOR ALL TO authenticated
@@ -113,6 +118,7 @@ WITH CHECK (
   AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()))
 );
 
+DROP POLICY IF EXISTS "Creator manage own templates" ON public.eform_templates;
 DROP POLICY IF EXISTS "Creator manage own templates" ON public.eform_templates;
 CREATE POLICY "Creator manage own templates"
 ON public.eform_templates FOR ALL TO authenticated
@@ -137,6 +143,7 @@ ON CONFLICT DO NOTHING;
 ALTER TABLE public.classrooms ADD COLUMN IF NOT EXISTS reference_grade_level text;
 
 DROP POLICY IF EXISTS "Auth users can view homework_assignments" ON public.homework_assignments;
+DROP POLICY IF EXISTS "Auth users can view homework_assignments in their school" ON public.homework_assignments;
 DROP POLICY IF EXISTS "Auth users can view homework_assignments in their school" ON public.homework_assignments;
 CREATE POLICY "Auth users can view homework_assignments in their school"
 ON public.homework_assignments FOR SELECT TO authenticated
@@ -228,14 +235,17 @@ END $$;
 
 DROP POLICY IF EXISTS "Admin/director manage ai_providers" ON public.ai_providers;
 DROP POLICY IF EXISTS "service_role only ai_providers" ON public.ai_providers;
+DROP POLICY IF EXISTS "service_role only ai_providers" ON public.ai_providers;
 CREATE POLICY "service_role only ai_providers" ON public.ai_providers
   AS PERMISSIVE FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Anyone can view cms settings" ON public.cms_settings;
 DROP POLICY IF EXISTS "Anon view public cms keys" ON public.cms_settings;
+DROP POLICY IF EXISTS "Anon view public cms keys" ON public.cms_settings;
 CREATE POLICY "Anon view public cms keys" ON public.cms_settings
   FOR SELECT TO anon
   USING (key NOT ILIKE 'id_card%' AND key NOT ILIKE '%template%' AND key NOT ILIKE '%secret%' AND key NOT ILIKE '%internal%' AND key NOT ILIKE 'admin_%');
+DROP POLICY IF EXISTS "Auth view all cms settings" ON public.cms_settings;
 DROP POLICY IF EXISTS "Auth view all cms settings" ON public.cms_settings;
 CREATE POLICY "Auth view all cms settings" ON public.cms_settings
   FOR SELECT TO authenticated USING (true);
@@ -353,8 +363,10 @@ GRANT ALL ON public.print_templates TO service_role;
 ALTER TABLE public.print_templates ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates;
+DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates;
 CREATE POLICY "Anyone authenticated can read active templates"
   ON public.print_templates FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Admins and directors manage templates" ON public.print_templates;
 DROP POLICY IF EXISTS "Admins and directors manage templates" ON public.print_templates;
 CREATE POLICY "Admins and directors manage templates"
   ON public.print_templates FOR ALL TO authenticated
@@ -377,8 +389,10 @@ GRANT ALL ON public.print_template_versions TO service_role;
 ALTER TABLE public.print_template_versions ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Auth read versions" ON public.print_template_versions;
+DROP POLICY IF EXISTS "Auth read versions" ON public.print_template_versions;
 CREATE POLICY "Auth read versions"
   ON public.print_template_versions FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Admins write versions" ON public.print_template_versions;
 DROP POLICY IF EXISTS "Admins write versions" ON public.print_template_versions;
 CREATE POLICY "Admins write versions"
   ON public.print_template_versions FOR INSERT TO authenticated
@@ -447,9 +461,12 @@ GRANT ALL ON public.browser_logs TO service_role;
 ALTER TABLE public.browser_logs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "own insert" ON public.browser_logs;
+DROP POLICY IF EXISTS "own insert" ON public.browser_logs;
 CREATE POLICY "own insert" ON public.browser_logs FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 DROP POLICY IF EXISTS "own select" ON public.browser_logs;
+DROP POLICY IF EXISTS "own select" ON public.browser_logs;
 CREATE POLICY "own select" ON public.browser_logs FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "admin select all" ON public.browser_logs;
 DROP POLICY IF EXISTS "admin select all" ON public.browser_logs;
 CREATE POLICY "admin select all" ON public.browser_logs FOR SELECT TO authenticated
 USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
@@ -481,15 +498,19 @@ GRANT ALL ON public.game_hub_games TO service_role;
 ALTER TABLE public.game_hub_games ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "games_read_active" ON public.game_hub_games;
+DROP POLICY IF EXISTS "games_read_active" ON public.game_hub_games;
 CREATE POLICY "games_read_active" ON public.game_hub_games FOR SELECT TO authenticated
   USING (is_active = true OR created_by = auth.uid() OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
+DROP POLICY IF EXISTS "games_insert_teacher_admin" ON public.game_hub_games;
 DROP POLICY IF EXISTS "games_insert_teacher_admin" ON public.game_hub_games;
 CREATE POLICY "games_insert_teacher_admin" ON public.game_hub_games FOR INSERT TO authenticated
   WITH CHECK (created_by = auth.uid() AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher')));
 DROP POLICY IF EXISTS "games_update_owner_admin" ON public.game_hub_games;
+DROP POLICY IF EXISTS "games_update_owner_admin" ON public.game_hub_games;
 CREATE POLICY "games_update_owner_admin" ON public.game_hub_games FOR UPDATE TO authenticated
   USING (created_by = auth.uid() OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'))
   WITH CHECK (created_by = auth.uid() OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
+DROP POLICY IF EXISTS "games_delete_owner_admin" ON public.game_hub_games;
 DROP POLICY IF EXISTS "games_delete_owner_admin" ON public.game_hub_games;
 CREATE POLICY "games_delete_owner_admin" ON public.game_hub_games FOR DELETE TO authenticated
   USING (created_by = auth.uid() OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
@@ -512,10 +533,13 @@ GRANT ALL ON public.game_hub_scores TO service_role;
 ALTER TABLE public.game_hub_scores ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "scores_read_all_auth" ON public.game_hub_scores;
+DROP POLICY IF EXISTS "scores_read_all_auth" ON public.game_hub_scores;
 CREATE POLICY "scores_read_all_auth" ON public.game_hub_scores FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "scores_insert_self" ON public.game_hub_scores;
 DROP POLICY IF EXISTS "scores_insert_self" ON public.game_hub_scores;
 CREATE POLICY "scores_insert_self" ON public.game_hub_scores FOR INSERT TO authenticated
   WITH CHECK (auth_user_id = auth.uid() OR public.has_role(auth.uid(),'admin'));
+DROP POLICY IF EXISTS "scores_delete_admin" ON public.game_hub_scores;
 DROP POLICY IF EXISTS "scores_delete_admin" ON public.game_hub_scores;
 CREATE POLICY "scores_delete_admin" ON public.game_hub_scores FOR DELETE TO authenticated
   USING (public.has_role(auth.uid(),'admin'));
@@ -535,6 +559,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.game_hub_api_keys TO authenticate
 GRANT ALL ON public.game_hub_api_keys TO service_role;
 ALTER TABLE public.game_hub_api_keys ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "apikeys_admin_only" ON public.game_hub_api_keys;
 DROP POLICY IF EXISTS "apikeys_admin_only" ON public.game_hub_api_keys;
 CREATE POLICY "apikeys_admin_only" ON public.game_hub_api_keys FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
@@ -581,6 +606,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS print_templates_default_per_category_uidx
   ON public.print_templates(category) WHERE is_default_for_category = true;
 
 DROP POLICY IF EXISTS "Shared masters readable by shared roles" ON public.print_templates;
+DROP POLICY IF EXISTS "Shared masters readable by shared roles" ON public.print_templates;
 CREATE POLICY "Shared masters readable by shared roles"
 ON public.print_templates FOR SELECT TO authenticated
 USING (
@@ -602,11 +628,14 @@ GRANT ALL ON public.template_fill_history TO service_role;
 ALTER TABLE public.template_fill_history ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "All authenticated can read fill history" ON public.template_fill_history;
+DROP POLICY IF EXISTS "All authenticated can read fill history" ON public.template_fill_history;
 CREATE POLICY "All authenticated can read fill history"
   ON public.template_fill_history FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Authenticated can insert fill history" ON public.template_fill_history;
+DROP POLICY IF EXISTS "Authenticated can insert fill history" ON public.template_fill_history;
 CREATE POLICY "Authenticated can insert fill history"
   ON public.template_fill_history FOR INSERT TO authenticated WITH CHECK (auth.uid() = filled_by);
+DROP POLICY IF EXISTS "Admin/Director manage fill history" ON public.template_fill_history;
 DROP POLICY IF EXISTS "Admin/Director manage fill history" ON public.template_fill_history;
 CREATE POLICY "Admin/Director manage fill history"
   ON public.template_fill_history FOR ALL TO authenticated
@@ -632,7 +661,9 @@ GRANT ALL ON public.browser_shortcuts TO service_role;
 ALTER TABLE public.browser_shortcuts ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "authenticated can read shortcuts" ON public.browser_shortcuts;
+DROP POLICY IF EXISTS "authenticated can read shortcuts" ON public.browser_shortcuts;
 CREATE POLICY "authenticated can read shortcuts" ON public.browser_shortcuts FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "admins manage shortcuts" ON public.browser_shortcuts;
 DROP POLICY IF EXISTS "admins manage shortcuts" ON public.browser_shortcuts;
 CREATE POLICY "admins manage shortcuts" ON public.browser_shortcuts FOR ALL TO authenticated
 USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
@@ -707,19 +738,25 @@ GRANT ALL ON public.lesson_plans TO service_role;
 ALTER TABLE public.lesson_plans ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "lesson_plans_own_select" ON public.lesson_plans;
+DROP POLICY IF EXISTS "lesson_plans_own_select" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_own_select" ON public.lesson_plans FOR SELECT TO authenticated USING (user_id = auth.uid());
 DROP POLICY IF EXISTS "lesson_plans_own_insert" ON public.lesson_plans;
+DROP POLICY IF EXISTS "lesson_plans_own_insert" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_own_insert" ON public.lesson_plans FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "lesson_plans_own_update" ON public.lesson_plans;
 DROP POLICY IF EXISTS "lesson_plans_own_update" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_own_update" ON public.lesson_plans FOR UPDATE TO authenticated
 USING (user_id = auth.uid() AND status <> 'approved') WITH CHECK (user_id = auth.uid());
 DROP POLICY IF EXISTS "lesson_plans_own_delete" ON public.lesson_plans;
+DROP POLICY IF EXISTS "lesson_plans_own_delete" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_own_delete" ON public.lesson_plans FOR DELETE TO authenticated
 USING (user_id = auth.uid() AND status IN ('draft','revise_needed'));
+DROP POLICY IF EXISTS "lesson_plans_admin_all" ON public.lesson_plans;
 DROP POLICY IF EXISTS "lesson_plans_admin_all" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_admin_all" ON public.lesson_plans FOR ALL TO authenticated
 USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
 WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
+DROP POLICY IF EXISTS "lesson_plans_peer_view_approved" ON public.lesson_plans;
 DROP POLICY IF EXISTS "lesson_plans_peer_view_approved" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_peer_view_approved" ON public.lesson_plans FOR SELECT TO authenticated
 USING (status = 'approved');
@@ -759,8 +796,10 @@ GRANT ALL ON public.teaching_logbook TO service_role;
 ALTER TABLE public.teaching_logbook ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "logbook_own_all" ON public.teaching_logbook;
+DROP POLICY IF EXISTS "logbook_own_all" ON public.teaching_logbook;
 CREATE POLICY "logbook_own_all" ON public.teaching_logbook FOR ALL TO authenticated
 USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "logbook_admin_view" ON public.teaching_logbook;
 DROP POLICY IF EXISTS "logbook_admin_view" ON public.teaching_logbook;
 CREATE POLICY "logbook_admin_view" ON public.teaching_logbook FOR SELECT TO authenticated
 USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
@@ -843,25 +882,33 @@ ALTER TABLE public.padlet_boards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.padlet_notes ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "boards viewable by authenticated" ON public.padlet_boards;
+DROP POLICY IF EXISTS "boards viewable by authenticated" ON public.padlet_boards;
 CREATE POLICY "boards viewable by authenticated" ON public.padlet_boards FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "teachers can create boards" ON public.padlet_boards;
 DROP POLICY IF EXISTS "teachers can create boards" ON public.padlet_boards;
 CREATE POLICY "teachers can create boards" ON public.padlet_boards FOR INSERT TO authenticated
 WITH CHECK (auth.uid() = owner_id AND (public.has_role(auth.uid(), 'teacher') OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director')));
 DROP POLICY IF EXISTS "owners or admins update boards" ON public.padlet_boards;
+DROP POLICY IF EXISTS "owners or admins update boards" ON public.padlet_boards;
 CREATE POLICY "owners or admins update boards" ON public.padlet_boards FOR UPDATE TO authenticated
 USING (owner_id = auth.uid() OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
+DROP POLICY IF EXISTS "owners or admins delete boards" ON public.padlet_boards;
 DROP POLICY IF EXISTS "owners or admins delete boards" ON public.padlet_boards;
 CREATE POLICY "owners or admins delete boards" ON public.padlet_boards FOR DELETE TO authenticated
 USING (owner_id = auth.uid() OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
 DROP POLICY IF EXISTS "notes viewable by authenticated" ON public.padlet_notes;
+DROP POLICY IF EXISTS "notes viewable by authenticated" ON public.padlet_notes;
 CREATE POLICY "notes viewable by authenticated" ON public.padlet_notes FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "authenticated can post notes" ON public.padlet_notes;
 DROP POLICY IF EXISTS "authenticated can post notes" ON public.padlet_notes;
 CREATE POLICY "authenticated can post notes" ON public.padlet_notes FOR INSERT TO authenticated
 WITH CHECK (auth.uid() = author_id AND EXISTS (SELECT 1 FROM public.padlet_boards b WHERE b.id = board_id AND (b.allow_guest_post = true OR b.owner_id = auth.uid())));
 DROP POLICY IF EXISTS "authors or board owners update notes" ON public.padlet_notes;
+DROP POLICY IF EXISTS "authors or board owners update notes" ON public.padlet_notes;
 CREATE POLICY "authors or board owners update notes" ON public.padlet_notes FOR UPDATE TO authenticated
 USING (author_id = auth.uid() OR EXISTS (SELECT 1 FROM public.padlet_boards b WHERE b.id = board_id AND b.owner_id = auth.uid()) OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
+DROP POLICY IF EXISTS "authors or board owners delete notes" ON public.padlet_notes;
 DROP POLICY IF EXISTS "authors or board owners delete notes" ON public.padlet_notes;
 CREATE POLICY "authors or board owners delete notes" ON public.padlet_notes FOR DELETE TO authenticated
 USING (author_id = auth.uid() OR EXISTS (SELECT 1 FROM public.padlet_boards b WHERE b.id = board_id AND b.owner_id = auth.uid()) OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
@@ -882,6 +929,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.upstream_subscription TO authenti
 GRANT ALL ON public.upstream_subscription TO service_role;
 ALTER TABLE public.upstream_subscription ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins manage upstream subscription" ON public.upstream_subscription;
 DROP POLICY IF EXISTS "Admins manage upstream subscription" ON public.upstream_subscription;
 CREATE POLICY "Admins manage upstream subscription" ON public.upstream_subscription FOR ALL TO authenticated
 USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))

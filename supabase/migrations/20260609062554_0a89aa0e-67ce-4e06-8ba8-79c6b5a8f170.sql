@@ -1,5 +1,6 @@
 DROP POLICY IF EXISTS "Staff can view students in their school" ON public.students;
 
+DROP POLICY IF EXISTS "Staff can view students in their school" ON public.students;
 CREATE POLICY "Staff can view students in their school"
 ON public.students FOR SELECT
 USING (

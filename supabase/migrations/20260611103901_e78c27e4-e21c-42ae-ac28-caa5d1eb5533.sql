@@ -5,6 +5,7 @@ DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 
 -- Simple, non-recursive UPDATE policy
 DROP POLICY IF EXISTS "Users update own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users update own profile" ON public.profiles;
 CREATE POLICY "Users update own profile"
 ON public.profiles
 FOR UPDATE

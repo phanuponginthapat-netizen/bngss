@@ -24,12 +24,14 @@ ALTER TABLE public.kiosk_devices ENABLE ROW LEVEL SECURITY;
 
 -- ทุกคนที่ล็อกอินอยู่ อัปเดต/สร้างแถวของตัวเองได้ (ส่ง heartbeat)
 DROP POLICY IF EXISTS "users can upsert own device row" ON public.kiosk_devices;
+DROP POLICY IF EXISTS "users can upsert own device row" ON public.kiosk_devices;
 CREATE POLICY "users can upsert own device row"
   ON public.kiosk_devices
   FOR INSERT
   TO authenticated
   WITH CHECK (user_id = auth.uid() OR user_id IS NULL);
 
+DROP POLICY IF EXISTS "users can update own device row" ON public.kiosk_devices;
 DROP POLICY IF EXISTS "users can update own device row" ON public.kiosk_devices;
 CREATE POLICY "users can update own device row"
   ON public.kiosk_devices
@@ -39,6 +41,7 @@ CREATE POLICY "users can update own device row"
   WITH CHECK (user_id = auth.uid() OR user_id IS NULL OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director') OR public.has_role(auth.uid(), 'teacher'));
 
 -- admin / director / teacher: ดูเครื่องทั้งหมด
+DROP POLICY IF EXISTS "staff can view all devices" ON public.kiosk_devices;
 DROP POLICY IF EXISTS "staff can view all devices" ON public.kiosk_devices;
 CREATE POLICY "staff can view all devices"
   ON public.kiosk_devices
@@ -53,6 +56,7 @@ CREATE POLICY "staff can view all devices"
 
 -- admin / director: ลบเครื่องได้
 DROP POLICY IF EXISTS "admins can delete devices" ON public.kiosk_devices;
+DROP POLICY IF EXISTS "admins can delete devices" ON public.kiosk_devices;
 CREATE POLICY "admins can delete devices"
   ON public.kiosk_devices
   FOR DELETE
@@ -63,6 +67,7 @@ CREATE INDEX IF NOT EXISTS kiosk_devices_last_seen_idx ON public.kiosk_devices (
 CREATE INDEX IF NOT EXISTS kiosk_devices_user_id_idx ON public.kiosk_devices (user_id);
 CREATE INDEX IF NOT EXISTS kiosk_devices_status_idx ON public.kiosk_devices (status);
 
+DROP TRIGGER IF EXISTS kiosk_devices_updated_at ON public.kiosk_devices;
 CREATE TRIGGER kiosk_devices_updated_at
   BEFORE UPDATE ON public.kiosk_devices
   FOR EACH ROW

@@ -1,5 +1,6 @@
 
 DROP POLICY IF EXISTS "app_secrets admin read" ON public.app_secrets;
+DROP POLICY IF EXISTS "app_secrets admin read" ON public.app_secrets;
 CREATE POLICY "app_secrets admin read" ON public.app_secrets
 FOR SELECT TO authenticated
 USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));

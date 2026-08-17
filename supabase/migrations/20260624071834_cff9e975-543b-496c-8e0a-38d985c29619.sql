@@ -7,6 +7,7 @@ DROP POLICY IF EXISTS "Students can update their own loans" ON public.ict_loans;
 
 -- SELECT: admin/director see all; borrower sees own
 DROP POLICY IF EXISTS "ict_loans_select_admin_director" ON public.ict_loans;
+DROP POLICY IF EXISTS "ict_loans_select_admin_director" ON public.ict_loans;
 CREATE POLICY "ict_loans_select_admin_director"
   ON public.ict_loans FOR SELECT TO authenticated
   USING (
@@ -14,6 +15,7 @@ CREATE POLICY "ict_loans_select_admin_director"
     public.has_role(auth.uid(), 'director')
   );
 
+DROP POLICY IF EXISTS "ict_loans_select_own_borrower" ON public.ict_loans;
 DROP POLICY IF EXISTS "ict_loans_select_own_borrower" ON public.ict_loans;
 CREATE POLICY "ict_loans_select_own_borrower"
   ON public.ict_loans FOR SELECT TO authenticated
@@ -24,6 +26,7 @@ CREATE POLICY "ict_loans_select_own_borrower"
 
 -- INSERT: admin/director, or teacher creating a loan
 DROP POLICY IF EXISTS "ict_loans_insert_staff" ON public.ict_loans;
+DROP POLICY IF EXISTS "ict_loans_insert_staff" ON public.ict_loans;
 CREATE POLICY "ict_loans_insert_staff"
   ON public.ict_loans FOR INSERT TO authenticated
   WITH CHECK (
@@ -33,6 +36,7 @@ CREATE POLICY "ict_loans_insert_staff"
   );
 
 -- UPDATE: admin/director, or the borrower themselves (return their own)
+DROP POLICY IF EXISTS "ict_loans_update_admin_director" ON public.ict_loans;
 DROP POLICY IF EXISTS "ict_loans_update_admin_director" ON public.ict_loans;
 CREATE POLICY "ict_loans_update_admin_director"
   ON public.ict_loans FOR UPDATE TO authenticated
@@ -46,6 +50,7 @@ CREATE POLICY "ict_loans_update_admin_director"
   );
 
 DROP POLICY IF EXISTS "ict_loans_update_own_borrower" ON public.ict_loans;
+DROP POLICY IF EXISTS "ict_loans_update_own_borrower" ON public.ict_loans;
 CREATE POLICY "ict_loans_update_own_borrower"
   ON public.ict_loans FOR UPDATE TO authenticated
   USING (
@@ -58,6 +63,7 @@ CREATE POLICY "ict_loans_update_own_borrower"
   );
 
 -- DELETE: admin/director only
+DROP POLICY IF EXISTS "ict_loans_delete_admin_director" ON public.ict_loans;
 DROP POLICY IF EXISTS "ict_loans_delete_admin_director" ON public.ict_loans;
 CREATE POLICY "ict_loans_delete_admin_director"
   ON public.ict_loans FOR DELETE TO authenticated

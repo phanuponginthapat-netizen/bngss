@@ -92,6 +92,7 @@ ALTER TABLE public.social_posts
 
 DROP POLICY IF EXISTS "Public can read social posts" ON public.social_posts;
 DROP POLICY IF EXISTS "Public can read published social posts" ON public.social_posts;
+DROP POLICY IF EXISTS "Public can read published social posts" ON public.social_posts;
 CREATE POLICY "Public can read published social posts"
 ON public.social_posts
 FOR SELECT

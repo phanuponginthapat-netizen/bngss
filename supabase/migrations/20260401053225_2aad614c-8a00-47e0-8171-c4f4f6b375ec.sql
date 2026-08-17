@@ -21,11 +21,13 @@ ALTER TABLE public.academic_events ENABLE ROW LEVEL SECURITY;
 
 -- RLS: Authenticated users can view all events
 DROP POLICY IF EXISTS "Auth users can view academic_events" ON public.academic_events;
+DROP POLICY IF EXISTS "Auth users can view academic_events" ON public.academic_events;
 CREATE POLICY "Auth users can view academic_events"
   ON public.academic_events FOR SELECT TO authenticated
   USING (true);
 
 -- RLS: Admin/Director can manage events
+DROP POLICY IF EXISTS "Admin/Director can manage academic_events" ON public.academic_events;
 DROP POLICY IF EXISTS "Admin/Director can manage academic_events" ON public.academic_events;
 CREATE POLICY "Admin/Director can manage academic_events"
   ON public.academic_events FOR ALL TO authenticated

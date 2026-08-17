@@ -43,6 +43,7 @@ AS $$
 $$;
 
 DROP POLICY IF EXISTS "eform attach: sender can upload" ON storage.objects;
+DROP POLICY IF EXISTS "eform attach: sender can upload" ON storage.objects;
 CREATE POLICY "eform attach: sender can upload"
 ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (
@@ -50,6 +51,7 @@ WITH CHECK (
   AND public.can_upload_eform_attachment(storage.objects.name, auth.uid())
 );
 
+DROP POLICY IF EXISTS "eform attach: sender can delete" ON storage.objects;
 DROP POLICY IF EXISTS "eform attach: sender can delete" ON storage.objects;
 CREATE POLICY "eform attach: sender can delete"
 ON storage.objects FOR DELETE TO authenticated
@@ -59,6 +61,7 @@ USING (
 );
 
 DROP POLICY IF EXISTS "eform attach: sender/recipients can read" ON storage.objects;
+DROP POLICY IF EXISTS "eform attach: sender or recipient can view" ON storage.objects;
 DROP POLICY IF EXISTS "eform attach: sender or recipient can view" ON storage.objects;
 CREATE POLICY "eform attach: sender or recipient can view"
 ON storage.objects FOR SELECT TO authenticated

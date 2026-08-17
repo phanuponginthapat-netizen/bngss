@@ -4,20 +4,24 @@ VALUES ('cold-archive', 'cold-archive', false)
 ON CONFLICT (id) DO NOTHING;
 
 DROP POLICY IF EXISTS "Admin/Director read cold-archive" ON storage.objects;
+DROP POLICY IF EXISTS "Admin/Director read cold-archive" ON storage.objects;
 CREATE POLICY "Admin/Director read cold-archive"
 ON storage.objects FOR SELECT TO authenticated
 USING (bucket_id = 'cold-archive' AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director')));
 
+DROP POLICY IF EXISTS "Admin/Director write cold-archive" ON storage.objects;
 DROP POLICY IF EXISTS "Admin/Director write cold-archive" ON storage.objects;
 CREATE POLICY "Admin/Director write cold-archive"
 ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (bucket_id = 'cold-archive' AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director')));
 
 DROP POLICY IF EXISTS "Admin/Director update cold-archive" ON storage.objects;
+DROP POLICY IF EXISTS "Admin/Director update cold-archive" ON storage.objects;
 CREATE POLICY "Admin/Director update cold-archive"
 ON storage.objects FOR UPDATE TO authenticated
 USING (bucket_id = 'cold-archive' AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director')));
 
+DROP POLICY IF EXISTS "Admin can delete cold-archive" ON storage.objects;
 DROP POLICY IF EXISTS "Admin can delete cold-archive" ON storage.objects;
 CREATE POLICY "Admin can delete cold-archive"
 ON storage.objects FOR DELETE TO authenticated
@@ -37,10 +41,12 @@ CREATE TABLE IF NOT EXISTS public.archive_logs (
 ALTER TABLE public.archive_logs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Admin/Director view archive_logs" ON public.archive_logs;
+DROP POLICY IF EXISTS "Admin/Director view archive_logs" ON public.archive_logs;
 CREATE POLICY "Admin/Director view archive_logs"
 ON public.archive_logs FOR SELECT TO authenticated
 USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
 
+DROP POLICY IF EXISTS "Admin/Director insert archive_logs" ON public.archive_logs;
 DROP POLICY IF EXISTS "Admin/Director insert archive_logs" ON public.archive_logs;
 CREATE POLICY "Admin/Director insert archive_logs"
 ON public.archive_logs FOR INSERT TO authenticated

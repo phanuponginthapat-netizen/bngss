@@ -1,4 +1,5 @@
 DROP POLICY IF EXISTS "Students can view class-wide homework" ON public.task_assignments;
+DROP POLICY IF EXISTS "Students can view class-wide homework" ON public.task_assignments;
 CREATE POLICY "Students can view class-wide homework"
 ON public.task_assignments
 FOR SELECT

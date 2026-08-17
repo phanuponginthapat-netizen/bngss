@@ -3,6 +3,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.school_test_scores TO authenticat
 GRANT ALL ON public.school_test_scores TO service_role;
 
 DROP POLICY IF EXISTS "Admin manage test scores" ON public.school_test_scores;
+DROP POLICY IF EXISTS "Admin manage test scores" ON public.school_test_scores;
 CREATE POLICY "Admin manage test scores"
 ON public.school_test_scores
 FOR ALL

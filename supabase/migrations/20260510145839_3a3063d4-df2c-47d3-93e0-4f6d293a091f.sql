@@ -12,6 +12,7 @@ CREATE INDEX IF NOT EXISTS idx_ict_loans_personnel ON public.ict_loans (personne
 -- Update viewable policy to include personnel
 DROP POLICY IF EXISTS "Loans viewable by staff or own student" ON public.ict_loans;
 DROP POLICY IF EXISTS "Loans viewable by staff student or personnel" ON public.ict_loans;
+DROP POLICY IF EXISTS "Loans viewable by staff student or personnel" ON public.ict_loans;
 CREATE POLICY "Loans viewable by staff student or personnel"
 ON public.ict_loans FOR SELECT
 USING (

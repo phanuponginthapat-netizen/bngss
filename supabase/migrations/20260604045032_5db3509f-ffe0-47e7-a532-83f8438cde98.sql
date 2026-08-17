@@ -14,6 +14,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.config_bundles TO authenticated;
 GRANT ALL ON public.config_bundles TO service_role;
 ALTER TABLE public.config_bundles ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "admins manage config bundles" ON public.config_bundles;
+DROP POLICY IF EXISTS "admins manage config bundles" ON public.config_bundles;
 CREATE POLICY "admins manage config bundles" ON public.config_bundles FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'))
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
