@@ -176,9 +176,7 @@ $$;
 DO $$
 BEGIN
   BEGIN
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
+          IF NOT EXISTS (
         SELECT 1 FROM pg_publication_tables
         WHERE pubname = 'supabase_realtime'
           AND schemaname = 'public'
@@ -186,13 +184,10 @@ BEGIN
       ) THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
       END IF;
-    END $$;
   EXCEPTION WHEN duplicate_object THEN NULL;
   END;
   BEGIN
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
+          IF NOT EXISTS (
         SELECT 1 FROM pg_publication_tables
         WHERE pubname = 'supabase_realtime'
           AND schemaname = 'public'
@@ -200,7 +195,6 @@ BEGIN
       ) THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.homework_submissions;
       END IF;
-    END $$;
   EXCEPTION WHEN duplicate_object THEN NULL;
   END;
 END $$;
