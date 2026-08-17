@@ -58,14 +58,18 @@ CREATE INDEX IF NOT EXISTS idx_ict_loans_device ON public.ict_loans(device_id);
 CREATE INDEX IF NOT EXISTS idx_ict_loans_status ON public.ict_loans(status);
 
 -- Updated_at triggers
+DROP TRIGGER IF EXISTS trg_ict_devices_updated_at ON public.ict_devices;
 CREATE TRIGGER trg_ict_devices_updated_at BEFORE UPDATE ON public.ict_devices
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DROP TRIGGER IF EXISTS trg_ict_loans_updated_at ON public.ict_loans;
 CREATE TRIGGER trg_ict_loans_updated_at BEFORE UPDATE ON public.ict_loans
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- Auto-fill school_id
+DROP TRIGGER IF EXISTS trg_ict_devices_fill_school ON public.ict_devices;
 CREATE TRIGGER trg_ict_devices_fill_school BEFORE INSERT ON public.ict_devices
   FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id();
+DROP TRIGGER IF EXISTS trg_ict_loans_fill_school ON public.ict_loans;
 CREATE TRIGGER trg_ict_loans_fill_school BEFORE INSERT ON public.ict_loans
   FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id();
 

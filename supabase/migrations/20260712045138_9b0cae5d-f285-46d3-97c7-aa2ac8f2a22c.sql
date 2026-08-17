@@ -108,9 +108,11 @@ USING (
   public.has_role(auth.uid(), 'director')
 );
 
+DROP TRIGGER IF EXISTS update_padlet_boards_updated_at ON public.padlet_boards;
 CREATE TRIGGER update_padlet_boards_updated_at BEFORE UPDATE ON public.padlet_boards
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_padlet_notes_updated_at ON public.padlet_notes;
 CREATE TRIGGER update_padlet_notes_updated_at BEFORE UPDATE ON public.padlet_notes
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 

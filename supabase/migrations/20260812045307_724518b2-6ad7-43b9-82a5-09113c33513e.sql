@@ -56,6 +56,7 @@ CREATE POLICY "school_scope_restrictive" ON public.mental_health_assessments AS 
 USING (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()))
 WITH CHECK (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()));
 
+DROP TRIGGER IF EXISTS trg_mha_updated_at ON public.mental_health_assessments;
 CREATE TRIGGER trg_mha_updated_at BEFORE UPDATE ON public.mental_health_assessments
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
@@ -110,10 +111,13 @@ CREATE POLICY "school_scope_restrictive" ON public.career_aptitude_assessments A
 USING (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()))
 WITH CHECK (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()));
 
+DROP TRIGGER IF EXISTS trg_career_updated_at ON public.career_aptitude_assessments;
 CREATE TRIGGER trg_career_updated_at BEFORE UPDATE ON public.career_aptitude_assessments
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+DROP TRIGGER IF EXISTS trg_mha_school ON public.mental_health_assessments;
 CREATE TRIGGER trg_mha_school BEFORE INSERT ON public.mental_health_assessments
 FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id();
+DROP TRIGGER IF EXISTS trg_career_school ON public.career_aptitude_assessments;
 CREATE TRIGGER trg_career_school BEFORE INSERT ON public.career_aptitude_assessments
 FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id();

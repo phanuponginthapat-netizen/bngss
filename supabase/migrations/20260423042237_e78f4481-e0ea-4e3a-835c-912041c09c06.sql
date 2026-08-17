@@ -362,11 +362,14 @@ GROUP BY s.id;
 -- 10) Auto-update updated_at triggers
 -- ============================================
 
+DROP TRIGGER IF EXISTS update_areas_updated_at ON public.areas;
 CREATE TRIGGER update_areas_updated_at BEFORE UPDATE ON public.areas
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_schools_updated_at ON public.schools;
 CREATE TRIGGER update_schools_updated_at BEFORE UPDATE ON public.schools
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_school_test_scores_updated_at ON public.school_test_scores;
 CREATE TRIGGER update_school_test_scores_updated_at BEFORE UPDATE ON public.school_test_scores
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

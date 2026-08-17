@@ -100,5 +100,6 @@ CREATE INDEX IF NOT EXISTS idx_exams_teacher ON public.exams(teacher_id);
 CREATE INDEX IF NOT EXISTS idx_exam_questions_exam ON public.exam_questions(exam_id);
 CREATE INDEX IF NOT EXISTS idx_exam_submissions_exam ON public.exam_submissions(exam_id);
 
+DROP TRIGGER IF EXISTS trg_exams_updated ON public.exams;
 CREATE TRIGGER trg_exams_updated BEFORE UPDATE ON public.exams
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

@@ -67,8 +67,10 @@ CREATE INDEX IF NOT EXISTS idx_garbage_redemptions_created ON public.garbage_red
 -- ============ TRIGGERS ============
 
 -- updated_at
+DROP TRIGGER IF EXISTS trg_garbage_items_updated ON public.garbage_items;
 CREATE TRIGGER trg_garbage_items_updated BEFORE UPDATE ON public.garbage_items
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DROP TRIGGER IF EXISTS trg_garbage_rewards_updated ON public.garbage_rewards;
 CREATE TRIGGER trg_garbage_rewards_updated BEFORE UPDATE ON public.garbage_rewards
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 

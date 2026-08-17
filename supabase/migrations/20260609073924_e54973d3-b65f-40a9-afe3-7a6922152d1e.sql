@@ -38,6 +38,7 @@ CREATE POLICY "staff manage projects" ON public.hub_projects FOR ALL TO authenti
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));
 
 CREATE INDEX IF NOT EXISTS idx_hub_projects_school ON public.hub_projects(school_id, fiscal_year);
+DROP TRIGGER IF EXISTS trg_hub_projects_updated ON public.hub_projects;
 CREATE TRIGGER trg_hub_projects_updated BEFORE UPDATE ON public.hub_projects
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
@@ -50,6 +51,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
+DROP TRIGGER IF EXISTS trg_hub_project_fill_school ON public.hub_projects;
 CREATE TRIGGER trg_hub_project_fill_school BEFORE INSERT ON public.hub_projects
   FOR EACH ROW EXECUTE FUNCTION public.hub_project_fill_school();
 
@@ -134,6 +136,7 @@ DROP POLICY IF EXISTS "staff manage updates" ON public.hub_project_updates;
 CREATE POLICY "staff manage updates" ON public.hub_project_updates FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));
+DROP TRIGGER IF EXISTS trg_hub_project_updates_updated ON public.hub_project_updates;
 CREATE TRIGGER trg_hub_project_updates_updated BEFORE UPDATE ON public.hub_project_updates
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
@@ -150,8 +153,10 @@ BEGIN
   WHERE p.id = pid;
   RETURN NULL;
 END $$;
+DROP TRIGGER IF EXISTS trg_recompute_on_budget ON public.hub_project_budgets;
 CREATE TRIGGER trg_recompute_on_budget AFTER INSERT OR UPDATE OR DELETE ON public.hub_project_budgets
   FOR EACH ROW EXECUTE FUNCTION public.recompute_hub_project_totals();
+DROP TRIGGER IF EXISTS trg_recompute_on_expense ON public.hub_project_expenses;
 CREATE TRIGGER trg_recompute_on_expense AFTER INSERT OR UPDATE OR DELETE ON public.hub_project_expenses
   FOR EACH ROW EXECUTE FUNCTION public.recompute_hub_project_totals();
 
