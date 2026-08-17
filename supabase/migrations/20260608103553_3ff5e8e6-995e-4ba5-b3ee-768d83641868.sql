@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.auto_create_substitute_on_leave_approval() CASCADE;
 CREATE OR REPLACE FUNCTION public.auto_create_substitute_on_leave_approval()
 RETURNS trigger
 LANGUAGE plpgsql

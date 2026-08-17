@@ -1,4 +1,5 @@
 -- Guard trigger: profiles self-update cannot escalate school_id/is_approved/account_linked
+DROP FUNCTION IF EXISTS public.prevent_profile_privilege_escalation() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_profile_privilege_escalation()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -32,6 +33,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Guard trigger: personnel self-update cannot change school_id/department/position
+DROP FUNCTION IF EXISTS public.prevent_personnel_self_escalation() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_personnel_self_escalation()
 RETURNS TRIGGER
 LANGUAGE plpgsql

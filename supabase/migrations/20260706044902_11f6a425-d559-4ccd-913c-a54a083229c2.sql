@@ -4,6 +4,7 @@
 
 -- Safety net: personnel has required NOT NULL fields. Older profile rows can have
 -- NULL/blank values, so normalize them before insert/update constraints run.
+DROP FUNCTION IF EXISTS public.ensure_personnel_required_fields() CASCADE;
 CREATE OR REPLACE FUNCTION public.ensure_personnel_required_fields()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -43,6 +44,7 @@ END
 $guard$;
 -- 1) When a teacher/director/admin role is granted, create the personnel row
 --    from the profile if it doesn't exist yet.
+DROP FUNCTION IF EXISTS public.ensure_personnel_from_profile() CASCADE;
 CREATE OR REPLACE FUNCTION public.ensure_personnel_from_profile()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -105,6 +107,7 @@ $guard$;
 -- 2) When a profile is updated, propagate the relevant fields
 --    (first_name, last_name, phone, position_title, department, employee_code)
 --    to the linked personnel row so the org chart auto-updates.
+DROP FUNCTION IF EXISTS public.sync_profile_to_personnel() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_profile_to_personnel()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -169,6 +172,7 @@ WHERE ur.role IN ('teacher','director','admin')
 ON CONFLICT (employee_code) DO NOTHING;
 -- 4) Also sync from personnel back to profile position_title/department when
 --    edited from the personnel page, so both views stay consistent.
+DROP FUNCTION IF EXISTS public.sync_personnel_to_profile() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_personnel_to_profile()
 RETURNS TRIGGER
 LANGUAGE plpgsql

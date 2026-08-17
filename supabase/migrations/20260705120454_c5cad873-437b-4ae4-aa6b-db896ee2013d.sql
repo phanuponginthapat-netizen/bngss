@@ -14,6 +14,7 @@ $guard$;
 UPDATE public.user_departments
    SET dept_role = 'head'
  WHERE is_head = true AND dept_role = 'member';
+DROP FUNCTION IF EXISTS public.sync_user_dept_is_head() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_user_dept_is_head()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -157,6 +158,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 4) helper: role ในฝ่าย
+DROP FUNCTION IF EXISTS public.get_user_dept_role(uuid, public.school_department) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_user_dept_role(_user_id uuid, _dept public.school_department)
 RETURNS public.dept_role
 LANGUAGE sql

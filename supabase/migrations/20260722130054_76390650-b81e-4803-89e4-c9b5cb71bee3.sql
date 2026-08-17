@@ -142,10 +142,12 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.is_admin_or_director(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_admin_or_director(_user_id uuid DEFAULT auth.uid())
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public' AS $$
   SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role IN ('admin'::app_role,'director'::app_role))
 $$;
+DROP FUNCTION IF EXISTS public.prevent_personnel_self_escalation() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_personnel_self_escalation()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
 BEGIN
@@ -181,6 +183,7 @@ ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'alumni';
 ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'parent';
 ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'observer';
 
+DROP FUNCTION IF EXISTS public.has_role(uuid, public.app_role) CASCADE;
 CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role public.app_role)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public' AS $$
   SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = _role)
@@ -192,6 +195,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.get_user_role(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_user_role(_user_id uuid)
 RETURNS public.app_role LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public' AS $$
   SELECT role FROM public.user_roles WHERE user_id = _user_id LIMIT 1

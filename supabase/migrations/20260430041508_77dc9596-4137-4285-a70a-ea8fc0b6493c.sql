@@ -150,6 +150,7 @@ BEGIN
 
 END $$;
 -- 3. ปรับ trigger เพิ่มแต้มให้รองรับบุคลากร
+DROP FUNCTION IF EXISTS public.add_points_on_deposit() CASCADE;
 CREATE OR REPLACE FUNCTION public.add_points_on_deposit()
  RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $function$
 BEGIN
@@ -169,6 +170,7 @@ BEGIN
   RETURN NEW;
 END $function$;
 -- 4. ปรับ trigger ตัดแต้ม/สต๊อกให้รองรับบุคลากร
+DROP FUNCTION IF EXISTS public.process_redemption() CASCADE;
 CREATE OR REPLACE FUNCTION public.process_redemption()
  RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $function$
 DECLARE

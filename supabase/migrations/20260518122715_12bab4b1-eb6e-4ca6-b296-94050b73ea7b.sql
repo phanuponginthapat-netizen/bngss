@@ -1,4 +1,5 @@
 -- 1) Notify parents when behavior is recorded
+DROP FUNCTION IF EXISTS public.notify_parents_on_behavior() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_parents_on_behavior()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -53,6 +54,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 2) Notify parents when student score is added or updated
+DROP FUNCTION IF EXISTS public.notify_parents_on_score() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_parents_on_score()
 RETURNS trigger
 LANGUAGE plpgsql

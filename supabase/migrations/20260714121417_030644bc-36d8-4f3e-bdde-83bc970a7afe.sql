@@ -461,6 +461,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.set_lesson_plan_defaults() CASCADE;
 CREATE OR REPLACE FUNCTION public.set_lesson_plan_defaults()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -485,6 +486,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.set_logbook_defaults() CASCADE;
 CREATE OR REPLACE FUNCTION public.set_logbook_defaults()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN

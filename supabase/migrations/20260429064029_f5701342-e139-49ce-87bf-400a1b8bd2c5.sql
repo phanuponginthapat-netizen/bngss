@@ -42,6 +42,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- helper: ตรวจว่าผู้ใช้สังกัดฝ่ายนี้หรือไม่
+DROP FUNCTION IF EXISTS public.has_department(uuid, public.school_department) CASCADE;
 CREATE OR REPLACE FUNCTION public.has_department(_user_id uuid, _dept public.school_department)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
@@ -52,6 +53,7 @@ AS $$
   );
 $$;
 -- helper: ดึงรายชื่อฝ่ายของผู้ใช้
+DROP FUNCTION IF EXISTS public.get_user_departments(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_user_departments(_user_id uuid)
 RETURNS public.school_department[]
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public

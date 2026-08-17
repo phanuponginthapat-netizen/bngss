@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.self_enroll_face(jsonb, text[], text) CASCADE;
 CREATE OR REPLACE FUNCTION public.self_enroll_face(_samples jsonb, _photo_urls text[] DEFAULT '{}', _reason text DEFAULT NULL)
 RETURNS uuid
 LANGUAGE plpgsql

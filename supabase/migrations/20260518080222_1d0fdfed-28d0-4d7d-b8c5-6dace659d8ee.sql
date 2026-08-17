@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.sync_gender_from_prefix() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_gender_from_prefix()
 RETURNS TRIGGER
 LANGUAGE plpgsql

@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.enforce_eform_recipient_role() CASCADE;
 CREATE OR REPLACE FUNCTION public.enforce_eform_recipient_role()
 RETURNS trigger
 LANGUAGE plpgsql

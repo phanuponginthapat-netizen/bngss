@@ -7,6 +7,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Upsert helper callable by service_role (SECURITY DEFINER so it bypasses RLS cleanly)
+DROP FUNCTION IF EXISTS public.set_app_secret(text, text, text, text) CASCADE;
 CREATE OR REPLACE FUNCTION public.set_app_secret(_key text, _value text, _category text DEFAULT 'auto', _description text DEFAULT NULL)
 RETURNS void
 LANGUAGE plpgsql

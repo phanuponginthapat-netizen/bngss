@@ -222,6 +222,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Auto-fill school_id from creator if not provided
+DROP FUNCTION IF EXISTS public.lcb_fill_school() CASCADE;
 CREATE OR REPLACE FUNCTION public.lcb_fill_school()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN

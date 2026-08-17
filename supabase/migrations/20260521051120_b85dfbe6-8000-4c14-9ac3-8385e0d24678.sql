@@ -24,6 +24,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- ============== fill_schedule_teacher_id + subject_id ==============
+DROP FUNCTION IF EXISTS public.fill_schedule_teacher_id() CASCADE;
 CREATE OR REPLACE FUNCTION public.fill_schedule_teacher_id()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -108,6 +109,7 @@ $guard$;
 -- Backfill subject_id (re-run trigger by touching rows)
 UPDATE public.schedules SET subject_name_raw = subject_name_raw WHERE subject_id IS NULL AND subject_name_raw IS NOT NULL;
 -- ============== auto-sync teacher_assignments ==============
+DROP FUNCTION IF EXISTS public.sync_teacher_assignment_from_schedule() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_teacher_assignment_from_schedule()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -211,6 +213,7 @@ WHERE pf.personnel_id IS NULL AND pf.teacher_name IS NOT NULL
   AND public.normalize_thai_teacher_name(CONCAT(p.prefix, p.first_name, ' ', p.last_name))
       = public.normalize_thai_teacher_name(pf.teacher_name);
 -- ============== validate_schedules RPC ==============
+DROP FUNCTION IF EXISTS public.validate_schedules(integer, integer) CASCADE;
 CREATE OR REPLACE FUNCTION public.validate_schedules(_year integer DEFAULT NULL, _sem integer DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 DECLARE

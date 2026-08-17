@@ -176,6 +176,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 3. Auto-mark attendance trigger
+DROP FUNCTION IF EXISTS public.auto_attendance_on_face_scan() CASCADE;
 CREATE OR REPLACE FUNCTION public.auto_attendance_on_face_scan()
 RETURNS TRIGGER
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public

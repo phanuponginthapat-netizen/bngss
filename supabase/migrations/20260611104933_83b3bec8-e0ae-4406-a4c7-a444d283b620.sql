@@ -74,6 +74,7 @@ END
 $guard$;
 -- Improve duplicate face scan trigger: instead of silently dropping (which confuses the client),
 -- raise a proper unique_violation so the client can detect "already scanned today" cleanly.
+DROP FUNCTION IF EXISTS public.prevent_duplicate_face_scan() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_duplicate_face_scan()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN

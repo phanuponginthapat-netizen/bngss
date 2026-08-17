@@ -14,6 +14,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 2) Prevent users from changing student_code on their own profile (admins can still change it)
+DROP FUNCTION IF EXISTS public.prevent_self_student_code_change() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_self_student_code_change()
 RETURNS trigger
 LANGUAGE plpgsql

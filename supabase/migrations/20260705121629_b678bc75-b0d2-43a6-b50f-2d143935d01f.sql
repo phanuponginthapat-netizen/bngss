@@ -1,4 +1,5 @@
 -- helper: ครูคนนี้สอนวิชานี้หรือไม่ (จาก teacher_assignments หรือ schedules.teacher_name)
+DROP FUNCTION IF EXISTS public.teacher_teaches_subject(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.teacher_teaches_subject(_user_id uuid, _subject_id uuid)
 RETURNS boolean
 LANGUAGE sql

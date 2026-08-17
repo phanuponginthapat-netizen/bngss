@@ -659,6 +659,7 @@ BEGIN
   END IF;
 END $$;
 -- Counters
+DROP FUNCTION IF EXISTS public.wall_post_counters() CASCADE;
 CREATE OR REPLACE FUNCTION public.wall_post_counters() RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE pid uuid;
 BEGIN
@@ -700,6 +701,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Auto-fill school_id from author profile
+DROP FUNCTION IF EXISTS public.fill_wall_school() CASCADE;
 CREATE OR REPLACE FUNCTION public.fill_wall_school() RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 BEGIN
   IF NEW.school_id IS NULL THEN
@@ -721,6 +723,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.fill_portfolio_school() CASCADE;
 CREATE OR REPLACE FUNCTION public.fill_portfolio_school() RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 BEGIN
   IF NEW.school_id IS NULL THEN

@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.resolve_scanned_student(text) CASCADE;
 CREATE OR REPLACE FUNCTION public.resolve_scanned_student(_input text)
 RETURNS TABLE (
   id uuid,

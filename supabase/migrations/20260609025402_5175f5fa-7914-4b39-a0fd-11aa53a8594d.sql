@@ -8,6 +8,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.finalize_past_substitute_teaching() CASCADE;
 CREATE OR REPLACE FUNCTION public.finalize_past_substitute_teaching()
 RETURNS INTEGER
 LANGUAGE plpgsql

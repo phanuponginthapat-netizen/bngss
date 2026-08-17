@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public._is_admin_or_director() CASCADE;
 CREATE OR REPLACE FUNCTION public._is_admin_or_director()
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
@@ -6,6 +7,7 @@ AS $$
       OR public.has_role(auth.uid(), 'director'::app_role);
 $$;
 -- homework_submissions
+DROP FUNCTION IF EXISTS public.guard_homework_submissions_update() CASCADE;
 CREATE OR REPLACE FUNCTION public.guard_homework_submissions_update()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE is_owner boolean;
@@ -40,6 +42,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- personnel
+DROP FUNCTION IF EXISTS public.guard_personnel_update() CASCADE;
 CREATE OR REPLACE FUNCTION public.guard_personnel_update()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -73,6 +76,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- staff_leaves
+DROP FUNCTION IF EXISTS public.guard_staff_leaves_update() CASCADE;
 CREATE OR REPLACE FUNCTION public.guard_staff_leaves_update()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -103,6 +107,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- task_assignments
+DROP FUNCTION IF EXISTS public.guard_task_assignments_update() CASCADE;
 CREATE OR REPLACE FUNCTION public.guard_task_assignments_update()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE is_student_owner boolean;

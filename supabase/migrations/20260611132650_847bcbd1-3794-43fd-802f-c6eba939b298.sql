@@ -1,4 +1,5 @@
 -- Helper: ครูคนนี้เป็นครูประจำชั้นของนักเรียนคนนี้หรือไม่ (จับชื่อแบบหลวม ๆ ตามที่ UI ใช้)
+DROP FUNCTION IF EXISTS public.is_homeroom_teacher_of_student(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_homeroom_teacher_of_student(_user_id uuid, _student_id uuid)
 RETURNS boolean
 LANGUAGE sql

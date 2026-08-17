@@ -122,6 +122,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- บวกแต้มเมื่อฝากขยะ
+DROP FUNCTION IF EXISTS public.add_points_on_deposit() CASCADE;
 CREATE OR REPLACE FUNCTION public.add_points_on_deposit()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -149,6 +150,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- หักแต้ม + ตัดสต๊อก เมื่อแลกของ (ตรวจ balance ใน trigger BEFORE INSERT)
+DROP FUNCTION IF EXISTS public.process_redemption() CASCADE;
 CREATE OR REPLACE FUNCTION public.process_redemption()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE

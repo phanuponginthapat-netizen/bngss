@@ -14,6 +14,7 @@ EXCEPTION WHEN OTHERS THEN
 END
 $extguard$;
 -- Auto archive function: delete read notifications & inbox_items older than 6 months
+DROP FUNCTION IF EXISTS public.archive_old_data() CASCADE;
 CREATE OR REPLACE FUNCTION public.archive_old_data()
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -78,6 +79,7 @@ SELECT cron.schedule(
   $$ SELECT public.archive_old_data(); $$
 );
 -- Cloud usage estimation function (admin only)
+DROP FUNCTION IF EXISTS public.get_cloud_usage_summary() CASCADE;
 CREATE OR REPLACE FUNCTION public.get_cloud_usage_summary()
 RETURNS jsonb
 LANGUAGE plpgsql

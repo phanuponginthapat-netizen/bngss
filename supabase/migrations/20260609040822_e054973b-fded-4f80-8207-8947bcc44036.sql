@@ -1,4 +1,5 @@
 DROP FUNCTION IF EXISTS public.list_school_members();
+DROP FUNCTION IF EXISTS public.list_school_members() CASCADE;
 CREATE OR REPLACE FUNCTION public.list_school_members()
 RETURNS TABLE (
   id uuid,

@@ -103,6 +103,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Helper: clean expired sessions (called by edge function as needed)
+DROP FUNCTION IF EXISTS public.cleanup_expired_line_sessions() CASCADE;
 CREATE OR REPLACE FUNCTION public.cleanup_expired_line_sessions()
 RETURNS void
 LANGUAGE sql

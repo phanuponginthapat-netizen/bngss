@@ -308,6 +308,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Notify recipients when an eform is sent to them
+DROP FUNCTION IF EXISTS public.notify_on_eform_recipient() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_on_eform_recipient()
 RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public

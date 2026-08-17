@@ -173,6 +173,7 @@ END $$;
 -- ============================================
 -- 2. AUTO: notification → inbox
 -- ============================================
+DROP FUNCTION IF EXISTS public.sync_notification_to_inbox() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_notification_to_inbox()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -210,6 +211,7 @@ $guard$;
 -- ============================================
 -- 3. AUTO: ลาครูอนุมัติ → สร้างสอนแทนจาก schedules
 -- ============================================
+DROP FUNCTION IF EXISTS public.auto_create_substitute_on_leave_approval() CASCADE;
 CREATE OR REPLACE FUNCTION public.auto_create_substitute_on_leave_approval()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -262,6 +264,7 @@ $guard$;
 -- ============================================
 -- 4. AUTO: แจ้งซ่อม → แจ้งเตือนแอดมิน
 -- ============================================
+DROP FUNCTION IF EXISTS public.notify_on_damage_report() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_on_damage_report()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -302,6 +305,7 @@ $guard$;
 -- ============================================
 -- 5. AUTO: นักเรียนขาดเรียน → แจ้งผู้ปกครอง
 -- ============================================
+DROP FUNCTION IF EXISTS public.notify_parents_on_absence() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_parents_on_absence()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE

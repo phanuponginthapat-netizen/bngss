@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.find_profile_id_by_code(text) CASCADE;
 CREATE OR REPLACE FUNCTION public.find_profile_id_by_code(_code text)
 RETURNS uuid
 LANGUAGE sql

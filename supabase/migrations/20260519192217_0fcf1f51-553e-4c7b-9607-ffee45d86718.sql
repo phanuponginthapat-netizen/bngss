@@ -1,6 +1,7 @@
 -- Enhanced auto-link: match personnel by employee_code, email, OR first_name+last_name.
 -- Also fill in personnel.prefix/last_name from profile when placeholder values exist,
 -- then the existing schedule-name trigger will normalize schedules automatically.
+DROP FUNCTION IF EXISTS public.auto_link_personnel_on_profile() CASCADE;
 CREATE OR REPLACE FUNCTION public.auto_link_personnel_on_profile()
 RETURNS trigger
 LANGUAGE plpgsql

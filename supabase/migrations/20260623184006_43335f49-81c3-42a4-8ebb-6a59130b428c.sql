@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.normalize_department_name(text) CASCADE;
 CREATE OR REPLACE FUNCTION public.normalize_department_name(_name text)
 RETURNS text
 LANGUAGE sql
@@ -44,6 +45,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.is_document_recipient(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_document_recipient(_doc uuid, _user uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -71,6 +73,7 @@ AS $$
       )
   );
 $$;
+DROP FUNCTION IF EXISTS public.can_access_document_recipient(uuid, uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.can_access_document_recipient(_recipient_row uuid, _doc uuid, _user uuid)
 RETURNS boolean
 LANGUAGE sql

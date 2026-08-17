@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.notify_on_garbage_redemption() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_on_garbage_redemption()
 RETURNS trigger
 LANGUAGE plpgsql

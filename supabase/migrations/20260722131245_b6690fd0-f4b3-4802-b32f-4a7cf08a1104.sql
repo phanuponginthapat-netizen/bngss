@@ -1,4 +1,5 @@
 -- 1) Enforce school_id via trigger on all school-scoped tables
+DROP FUNCTION IF EXISTS public.enforce_school_id() CASCADE;
 CREATE OR REPLACE FUNCTION public.enforce_school_id()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -241,6 +242,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Helper: enqueue outbox item (usable by edge functions)
+DROP FUNCTION IF EXISTS public.district_outbox_enqueue(text, jsonb, uuid, integer) CASCADE;
 CREATE OR REPLACE FUNCTION public.district_outbox_enqueue(
   p_endpoint text,
   p_payload jsonb,

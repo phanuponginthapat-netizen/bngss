@@ -1,4 +1,5 @@
 -- 1) student_leaves
+DROP FUNCTION IF EXISTS public.gchat_on_student_leave() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_student_leave()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE sname text; cls text;
@@ -53,6 +54,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 2) eforms (new send)
+DROP FUNCTION IF EXISTS public.gchat_on_eform() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_eform()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE rcount int;
@@ -92,6 +94,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 2b) eform_recipients (signed / rejected) — fire once when status flips
+DROP FUNCTION IF EXISTS public.gchat_on_eform_recipient() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_eform_recipient()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE etitle text; total int; signed int;
@@ -139,6 +142,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 3) ict_loans
+DROP FUNCTION IF EXISTS public.gchat_on_ict_loan() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_ict_loan()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE device_name text; borrower text;
@@ -188,6 +192,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 4) asset_damage_reports
+DROP FUNCTION IF EXISTS public.gchat_on_damage_report() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_damage_report()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE asset_name text;
@@ -230,6 +235,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 5) garbage_deposits — notify on high-value deposits (>=20 points) to avoid spam
+DROP FUNCTION IF EXISTS public.gchat_on_garbage_deposit() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_garbage_deposit()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE who text; item_name text;
@@ -268,6 +274,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 6) garbage_user_badges
+DROP FUNCTION IF EXISTS public.gchat_on_garbage_badge() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_garbage_badge()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE who text; bname text; bicon text;

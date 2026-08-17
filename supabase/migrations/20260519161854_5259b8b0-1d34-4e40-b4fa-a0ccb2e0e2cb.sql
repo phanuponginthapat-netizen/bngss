@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.is_homeroom_of_classroom(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_homeroom_of_classroom(_user_id uuid, _classroom_id uuid)
 RETURNS boolean
 LANGUAGE sql

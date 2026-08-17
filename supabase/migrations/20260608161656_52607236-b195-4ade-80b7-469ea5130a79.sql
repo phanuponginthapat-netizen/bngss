@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.search_public_profiles(text) CASCADE;
 CREATE OR REPLACE FUNCTION public.search_public_profiles(_q text)
 RETURNS TABLE (
   id uuid,

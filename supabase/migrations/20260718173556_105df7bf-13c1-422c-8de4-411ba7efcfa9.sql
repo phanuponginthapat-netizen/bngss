@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.is_admin_or_director(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_admin_or_director(_user_id uuid DEFAULT auth.uid())
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$
@@ -7,6 +8,7 @@ AS $$
       AND role IN ('admin'::app_role, 'director'::app_role, 'super_admin'::app_role)
   )
 $$;
+DROP FUNCTION IF EXISTS public.is_homeroom_teacher_of(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_homeroom_teacher_of(_student_id uuid, _user_id uuid DEFAULT auth.uid())
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$
@@ -18,6 +20,7 @@ AS $$
     WHERE s.id = _student_id AND p.user_id = _user_id
   )
 $$;
+DROP FUNCTION IF EXISTS public.is_teacher_of_student(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_teacher_of_student(_student_id uuid, _user_id uuid DEFAULT auth.uid())
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$
@@ -31,6 +34,7 @@ AS $$
       WHERE s.id = _student_id AND p.user_id = _user_id
     )
 $$;
+DROP FUNCTION IF EXISTS public.is_parent_of_student(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_parent_of_student(_student_id uuid, _user_id uuid DEFAULT auth.uid())
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$

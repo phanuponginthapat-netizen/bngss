@@ -185,6 +185,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 UPDATE public.user_departments SET dept_role = 'head' WHERE is_head = true AND dept_role = 'member';
+DROP FUNCTION IF EXISTS public.sync_user_dept_is_head() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_user_dept_is_head()
 RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN NEW.is_head := (NEW.dept_role IN ('head','deputy_head')); RETURN NEW; END; $$;
@@ -311,6 +312,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.get_user_dept_role(uuid, public.school_department) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_user_dept_role(_user_id uuid, _dept public.school_department)
 RETURNS public.dept_role
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
@@ -850,6 +852,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.tg_homework_submissions_updated() CASCADE;
 CREATE OR REPLACE FUNCTION public.tg_homework_submissions_updated()
 RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;

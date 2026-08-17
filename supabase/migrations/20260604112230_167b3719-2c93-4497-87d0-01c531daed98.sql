@@ -2,6 +2,7 @@
 -- and document_recipients policies reference documents.
 -- Use SECURITY DEFINER helpers to bypass RLS for these cross-table checks.
 
+DROP FUNCTION IF EXISTS public.is_document_recipient(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_document_recipient(_doc uuid, _user uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -14,6 +15,7 @@ AS $$
     WHERE document_id = _doc AND recipient_user_id = _user
   );
 $$;
+DROP FUNCTION IF EXISTS public.is_document_owner(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_document_owner(_doc uuid, _user uuid)
 RETURNS boolean
 LANGUAGE sql

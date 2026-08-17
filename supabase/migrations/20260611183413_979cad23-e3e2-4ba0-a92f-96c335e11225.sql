@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.get_personnel_avatars(uuid[]) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_personnel_avatars(_user_ids uuid[])
 RETURNS TABLE (id uuid, avatar_url text, position_title text)
 LANGUAGE sql

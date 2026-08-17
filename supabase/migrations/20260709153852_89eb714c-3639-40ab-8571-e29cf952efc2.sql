@@ -1,4 +1,5 @@
 -- 1) homework_submissions: block students from editing grading columns
+DROP FUNCTION IF EXISTS public.prevent_student_grade_tamper_homework() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_student_grade_tamper_homework()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -51,6 +52,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 2) task_assignments: block students from editing grade/feedback/etc.
+DROP FUNCTION IF EXISTS public.prevent_student_grade_tamper_tasks() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_student_grade_tamper_tasks()
 RETURNS TRIGGER
 LANGUAGE plpgsql

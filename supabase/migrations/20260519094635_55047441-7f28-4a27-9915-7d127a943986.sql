@@ -1,4 +1,5 @@
 -- Helper: ดึง base URL ของแอป (ตั้งใน school_settings: app_base_url)
+DROP FUNCTION IF EXISTS public.app_base_url() CASCADE;
 CREATE OR REPLACE FUNCTION public.app_base_url()
 RETURNS text
 LANGUAGE sql
@@ -12,6 +13,7 @@ AS $$
   );
 $$;
 -- 1) Face scan
+DROP FUNCTION IF EXISTS public.gchat_on_face_scan() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_face_scan()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -53,6 +55,7 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
 -- 2) Attendance (absent)
+DROP FUNCTION IF EXISTS public.gchat_on_absence() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_absence()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -88,6 +91,7 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
 -- 3) Behavior records (any)
+DROP FUNCTION IF EXISTS public.gchat_on_behavior_any() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_behavior_any()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -133,6 +137,7 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
 -- 4) Score → ปพ.5
+DROP FUNCTION IF EXISTS public.gchat_on_score() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_score()
 RETURNS trigger
 LANGUAGE plpgsql

@@ -1,4 +1,5 @@
 -- Helper: children ids of a parent (security definer, avoids RLS recursion)
+DROP FUNCTION IF EXISTS public.parent_child_ids(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.parent_child_ids(_user_id uuid)
 RETURNS uuid[]
 LANGUAGE sql
@@ -11,6 +12,7 @@ AS $$
   WHERE (s.parent_user_id = _user_id OR s.parent_user_id_2 = _user_id)
     AND public.has_role(_user_id, 'parent'::app_role);
 $$;
+DROP FUNCTION IF EXISTS public.parent_child_codes(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.parent_child_codes(_user_id uuid)
 RETURNS text[]
 LANGUAGE sql
@@ -23,6 +25,7 @@ AS $$
   WHERE (s.parent_user_id = _user_id OR s.parent_user_id_2 = _user_id)
     AND public.has_role(_user_id, 'parent'::app_role);
 $$;
+DROP FUNCTION IF EXISTS public.parent_child_classroom_ids(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.parent_child_classroom_ids(_user_id uuid)
 RETURNS uuid[]
 LANGUAGE sql

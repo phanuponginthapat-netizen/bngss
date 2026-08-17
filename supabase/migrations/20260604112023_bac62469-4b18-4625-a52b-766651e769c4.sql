@@ -1,5 +1,6 @@
 -- Harden notification triggers: never block inserts, skip when no subscription/recipient exists.
 
+DROP FUNCTION IF EXISTS public.notify_line_on_notification() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_line_on_notification()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -58,6 +59,7 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
+DROP FUNCTION IF EXISTS public.trigger_push_notification() CASCADE;
 CREATE OR REPLACE FUNCTION public.trigger_push_notification()
 RETURNS trigger
 LANGUAGE plpgsql

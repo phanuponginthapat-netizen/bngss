@@ -10,6 +10,7 @@ $guard$;
 UPDATE public.profiles SET is_approved = true 
 WHERE id IN (SELECT user_id FROM public.user_roles WHERE role = 'admin');
 -- Update handle_new_user to set is_approved = false for new signups
+DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 CREATE OR REPLACE FUNCTION public.handle_new_user()
  RETURNS trigger
  LANGUAGE plpgsql

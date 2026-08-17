@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.ensure_personnel_required_fields() CASCADE;
 CREATE OR REPLACE FUNCTION public.ensure_personnel_required_fields()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -42,6 +43,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.ensure_personnel_from_profile() CASCADE;
 CREATE OR REPLACE FUNCTION public.ensure_personnel_from_profile()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -102,6 +104,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.sync_profile_to_personnel() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_profile_to_personnel()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -144,6 +147,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.sync_personnel_to_profile() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_personnel_to_profile()
 RETURNS TRIGGER
 LANGUAGE plpgsql

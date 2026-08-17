@@ -1,4 +1,5 @@
 -- Rewrite to use proper UUID relationships
+DROP FUNCTION IF EXISTS public.is_homeroom_teacher_of_student(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_homeroom_teacher_of_student(_user_id uuid, _student_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -31,6 +32,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- List of classroom IDs the user is homeroom teacher of (main or assistant)
+DROP FUNCTION IF EXISTS public.homeroom_classroom_ids_of(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.homeroom_classroom_ids_of(_user_id uuid)
 RETURNS SETOF uuid
 LANGUAGE sql

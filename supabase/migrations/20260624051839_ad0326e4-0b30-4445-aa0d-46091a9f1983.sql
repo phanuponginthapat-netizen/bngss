@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.notify_google_chat(text, text, text, text, text, text, jsonb, text, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_google_chat(
   _notification_type text,
   _title text,

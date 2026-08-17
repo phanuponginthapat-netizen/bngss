@@ -1,4 +1,5 @@
 -- Notify all admin users at once
+DROP FUNCTION IF EXISTS public.notify_admins(text, text, text, text, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_admins(
   _title text,
   _message text,

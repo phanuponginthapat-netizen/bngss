@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.get_classroom_subject_teachers(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_classroom_subject_teachers(_classroom_id uuid)
 RETURNS TABLE (
   personnel_id uuid,

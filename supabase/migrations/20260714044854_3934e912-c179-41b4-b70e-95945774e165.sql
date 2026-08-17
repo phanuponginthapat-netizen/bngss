@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public._is_admin_or_director() CASCADE;
 CREATE OR REPLACE FUNCTION public._is_admin_or_director()
 RETURNS boolean
 LANGUAGE sql

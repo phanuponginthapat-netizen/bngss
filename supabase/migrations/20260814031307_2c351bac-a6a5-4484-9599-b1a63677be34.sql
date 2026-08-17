@@ -1,20 +1,24 @@
 ALTER ROLE anon SET timezone = 'Asia/Bangkok';
 ALTER ROLE authenticated SET timezone = 'Asia/Bangkok';
 ALTER ROLE service_role SET timezone = 'Asia/Bangkok';
+DROP FUNCTION IF EXISTS public.now_bkk() CASCADE;
 CREATE OR REPLACE FUNCTION public.now_bkk()
 RETURNS timestamptz LANGUAGE sql STABLE SET search_path = public AS $$
   SELECT now() AT TIME ZONE 'UTC' AT TIME ZONE 'UTC'
 $$;
+DROP FUNCTION IF EXISTS public.fmt_time24(timestamptz) CASCADE;
 CREATE OR REPLACE FUNCTION public.fmt_time24(_ts timestamptz)
 RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public AS $$
   SELECT CASE WHEN _ts IS NULL THEN NULL
     ELSE to_char(_ts AT TIME ZONE 'Asia/Bangkok', 'HH24:MI') END
 $$;
+DROP FUNCTION IF EXISTS public.fmt_datetime24(timestamptz) CASCADE;
 CREATE OR REPLACE FUNCTION public.fmt_datetime24(_ts timestamptz)
 RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public AS $$
   SELECT CASE WHEN _ts IS NULL THEN NULL
     ELSE to_char(_ts AT TIME ZONE 'Asia/Bangkok', 'DD/MM/YYYY HH24:MI') END
 $$;
+DROP FUNCTION IF EXISTS public.fmt_datetime24_be(timestamptz) CASCADE;
 CREATE OR REPLACE FUNCTION public.fmt_datetime24_be(_ts timestamptz)
 RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public AS $$
   SELECT CASE WHEN _ts IS NULL THEN NULL ELSE
@@ -23,6 +27,7 @@ RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public AS $$
     || ' ' || to_char(_ts AT TIME ZONE 'Asia/Bangkok', 'HH24:MI') || ' น.'
   END
 $$;
+DROP FUNCTION IF EXISTS public.to_time24(text) CASCADE;
 CREATE OR REPLACE FUNCTION public.to_time24(_txt text)
 RETURNS time LANGUAGE plpgsql IMMUTABLE SET search_path = public AS $$
 DECLARE

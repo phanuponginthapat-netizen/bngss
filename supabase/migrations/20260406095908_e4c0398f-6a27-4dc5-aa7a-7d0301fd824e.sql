@@ -7,6 +7,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Create function to auto-link personnel when profile is created
+DROP FUNCTION IF EXISTS public.auto_link_personnel_on_profile() CASCADE;
 CREATE OR REPLACE FUNCTION public.auto_link_personnel_on_profile()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -58,6 +59,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Function to get current user's linked personnel record
+DROP FUNCTION IF EXISTS public.get_my_personnel() CASCADE;
 CREATE OR REPLACE FUNCTION public.get_my_personnel()
 RETURNS SETOF public.personnel
 LANGUAGE sql
@@ -68,6 +70,7 @@ AS $$
   SELECT * FROM public.personnel WHERE user_id = auth.uid();
 $$;
 -- Function to get current user's linked student record
+DROP FUNCTION IF EXISTS public.get_my_student() CASCADE;
 CREATE OR REPLACE FUNCTION public.get_my_student()
 RETURNS SETOF public.students
 LANGUAGE sql

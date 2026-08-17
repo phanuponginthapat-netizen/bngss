@@ -189,6 +189,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Auto-update parent eform.status from recipient activity
+DROP FUNCTION IF EXISTS public.recompute_eform_status() CASCADE;
 CREATE OR REPLACE FUNCTION public.recompute_eform_status()
 RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -237,6 +238,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Notify sender on recipient action
+DROP FUNCTION IF EXISTS public.notify_sender_on_recipient_action() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_sender_on_recipient_action()
 RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public

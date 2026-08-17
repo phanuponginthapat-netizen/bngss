@@ -1,5 +1,6 @@
 -- Maintain reaction_count and comment_count on wall_posts via triggers
 
+DROP FUNCTION IF EXISTS public.wall_post_reactions_count_fn() CASCADE;
 CREATE OR REPLACE FUNCTION public.wall_post_reactions_count_fn()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -33,6 +34,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.wall_post_comments_count_fn() CASCADE;
 CREATE OR REPLACE FUNCTION public.wall_post_comments_count_fn()
 RETURNS TRIGGER
 LANGUAGE plpgsql

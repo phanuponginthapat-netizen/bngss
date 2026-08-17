@@ -1,4 +1,5 @@
 -- Fix 1: submission trigger should only fire when status = 'graded'
+DROP FUNCTION IF EXISTS public.sync_homework_submission_to_pp5() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_homework_submission_to_pp5()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -49,6 +50,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Fix 2: due_date = today ยังไม่ใช่ overdue
+DROP FUNCTION IF EXISTS public.mark_overdue_homework_columns() CASCADE;
 CREATE OR REPLACE FUNCTION public.mark_overdue_homework_columns()
 RETURNS integer
 LANGUAGE plpgsql

@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.normalize_thai_teacher_name(text) CASCADE;
 CREATE OR REPLACE FUNCTION public.normalize_thai_teacher_name(input text)
 RETURNS text
 LANGUAGE sql
@@ -27,6 +28,7 @@ AS $$
     'g'
   )
 $$;
+DROP FUNCTION IF EXISTS public.fill_schedule_teacher_id() CASCADE;
 CREATE OR REPLACE FUNCTION public.fill_schedule_teacher_id()
 RETURNS TRIGGER
 LANGUAGE plpgsql

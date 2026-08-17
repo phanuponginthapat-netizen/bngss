@@ -1,6 +1,7 @@
 -- ============================================================
 -- 1) Auto-update updated_at triggers for all major tables
 -- ============================================================
+DROP FUNCTION IF EXISTS public.update_updated_at_column() CASCADE;
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -30,6 +31,7 @@ $$;
 -- ============================================================
 -- 2) Auto-compute total_score when student_scores are inserted/updated
 -- ============================================================
+DROP FUNCTION IF EXISTS public.auto_compute_total_score() CASCADE;
 CREATE OR REPLACE FUNCTION public.auto_compute_total_score()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -59,6 +61,7 @@ $guard$;
 -- ============================================================
 -- 3) Notify admin when staff leave is created
 -- ============================================================
+DROP FUNCTION IF EXISTS public.notify_on_staff_leave() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_on_staff_leave()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -106,6 +109,7 @@ $guard$;
 -- ============================================================
 -- 4) Notify on negative behavior record
 -- ============================================================
+DROP FUNCTION IF EXISTS public.notify_on_negative_behavior() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_on_negative_behavior()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -153,6 +157,7 @@ $guard$;
 -- ============================================================
 -- 5) Auto-create notification when document is created
 -- ============================================================
+DROP FUNCTION IF EXISTS public.notify_on_document_created() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_on_document_created()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -194,6 +199,7 @@ $guard$;
 -- ============================================================
 -- 6) Auto-create screening record when student is created
 -- ============================================================
+DROP FUNCTION IF EXISTS public.auto_create_student_screening() CASCADE;
 CREATE OR REPLACE FUNCTION public.auto_create_student_screening()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -222,6 +228,7 @@ $guard$;
 -- ============================================================
 -- 7) Notify admin when student leave is created
 -- ============================================================
+DROP FUNCTION IF EXISTS public.notify_on_student_leave() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_on_student_leave()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -267,6 +274,7 @@ $guard$;
 -- ============================================================
 -- 8) Auto-notify on emergency broadcast
 -- ============================================================
+DROP FUNCTION IF EXISTS public.notify_on_emergency() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_on_emergency()
 RETURNS TRIGGER AS $$
 DECLARE

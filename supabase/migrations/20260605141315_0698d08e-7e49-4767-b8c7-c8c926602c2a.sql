@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.notify_homeroom_on_ai_risk() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_homeroom_on_ai_risk()
 RETURNS trigger
 LANGUAGE plpgsql

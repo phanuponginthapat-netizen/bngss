@@ -21,6 +21,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 2. Helper to test if a student belongs to the caller's school
+DROP FUNCTION IF EXISTS public.student_in_user_school(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.student_in_user_school(_student_id uuid)
 RETURNS boolean
 LANGUAGE sql

@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.auto_map_schedule_teacher_on_personnel() CASCADE;
 CREATE OR REPLACE FUNCTION public.auto_map_schedule_teacher_on_personnel()
 RETURNS trigger
 LANGUAGE plpgsql

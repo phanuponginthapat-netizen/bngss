@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.mig_dump_auth(text) CASCADE;
 CREATE OR REPLACE FUNCTION public.mig_dump_auth(_table text)
 RETURNS jsonb
 LANGUAGE plpgsql

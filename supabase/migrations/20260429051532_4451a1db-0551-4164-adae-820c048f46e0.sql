@@ -143,6 +143,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- แจ้งเตือนผู้ส่งเมื่อผู้รับตอบกลับ
+DROP FUNCTION IF EXISTS public.notify_sender_on_document_reply() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_sender_on_document_reply()
 RETURNS trigger
 LANGUAGE plpgsql

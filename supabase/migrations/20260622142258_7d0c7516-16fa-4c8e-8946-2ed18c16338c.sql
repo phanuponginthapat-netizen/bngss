@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.reset_content_data() CASCADE;
 CREATE OR REPLACE FUNCTION public.reset_content_data()
 RETURNS jsonb
 LANGUAGE plpgsql

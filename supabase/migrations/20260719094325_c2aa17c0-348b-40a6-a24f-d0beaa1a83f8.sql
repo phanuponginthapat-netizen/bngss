@@ -38,6 +38,7 @@ EXCEPTION
 END
 $idxguard$;
 -- Auto-fill academic_year/semester on insert if null (Bangkok TZ)
+DROP FUNCTION IF EXISTS public.line_vault_autofill_ay() CASCADE;
 CREATE OR REPLACE FUNCTION public.line_vault_autofill_ay()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE

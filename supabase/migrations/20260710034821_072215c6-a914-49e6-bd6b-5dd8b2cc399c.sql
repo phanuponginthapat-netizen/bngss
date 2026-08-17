@@ -1,6 +1,7 @@
 -- ============================================================
 -- Prevent students from self-grading homework_submissions
 -- ============================================================
+DROP FUNCTION IF EXISTS public.prevent_homework_submission_self_grading() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_homework_submission_self_grading()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -47,6 +48,7 @@ $guard$;
 -- ============================================================
 -- Prevent students from self-grading task_assignments
 -- ============================================================
+DROP FUNCTION IF EXISTS public.prevent_task_assignment_self_grading() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_task_assignment_self_grading()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -87,6 +89,7 @@ $guard$;
 -- Extend personnel self-escalation trigger to cover
 -- employee_code and status (in addition to school_id/department/position)
 -- ============================================================
+DROP FUNCTION IF EXISTS public.prevent_personnel_self_escalation() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_personnel_self_escalation()
 RETURNS TRIGGER
 LANGUAGE plpgsql

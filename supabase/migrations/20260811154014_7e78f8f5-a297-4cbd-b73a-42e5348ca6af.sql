@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.face_distance(real[], real[]) CASCADE;
 CREATE OR REPLACE FUNCTION public.face_distance(a real[], b real[])
 RETURNS real
 LANGUAGE sql
@@ -8,6 +9,7 @@ AS $$
   FROM unnest(a) WITH ORDINALITY AS x(v, i)
   JOIN unnest(b) WITH ORDINALITY AS y(v, i) USING (i);
 $$;
+DROP FUNCTION IF EXISTS public.check_face_duplicate(uuid, jsonb, real) CASCADE;
 CREATE OR REPLACE FUNCTION public.check_face_duplicate(
   _student_id uuid,
   _descriptors jsonb,

@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.get_staff_profiles() CASCADE;
 CREATE OR REPLACE FUNCTION public.get_staff_profiles()
 RETURNS TABLE (id uuid, first_name text, last_name text, phone text, position_title text)
 LANGUAGE sql

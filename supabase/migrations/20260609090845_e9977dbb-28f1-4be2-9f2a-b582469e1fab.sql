@@ -1,4 +1,5 @@
 -- Notify post author when someone reacts or comments on their wall post
+DROP FUNCTION IF EXISTS public.notify_wall_post_reaction() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_wall_post_reaction()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -52,6 +53,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.notify_wall_post_comment() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_wall_post_comment()
 RETURNS TRIGGER
 LANGUAGE plpgsql

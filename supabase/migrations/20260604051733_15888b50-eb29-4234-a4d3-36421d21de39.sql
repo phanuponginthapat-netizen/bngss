@@ -1,4 +1,5 @@
 -- Prevent alumni/inactive students from overlapping current classrooms
+DROP FUNCTION IF EXISTS public.clear_classroom_on_graduation() CASCADE;
 CREATE OR REPLACE FUNCTION public.clear_classroom_on_graduation()
 RETURNS TRIGGER
 LANGUAGE plpgsql

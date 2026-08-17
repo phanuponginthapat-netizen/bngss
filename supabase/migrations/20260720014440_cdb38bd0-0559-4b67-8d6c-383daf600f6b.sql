@@ -53,6 +53,7 @@ EXCEPTION
   WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
 END
 $idxguard$;
+DROP FUNCTION IF EXISTS public.queue_drive_file_deletion() CASCADE;
 CREATE OR REPLACE FUNCTION public.queue_drive_file_deletion()
 RETURNS trigger
 LANGUAGE plpgsql

@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.personnel_block_sensitive_self_update() CASCADE;
 CREATE OR REPLACE FUNCTION public.personnel_block_sensitive_self_update()
 RETURNS trigger
 LANGUAGE plpgsql

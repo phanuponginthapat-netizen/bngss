@@ -27,6 +27,7 @@ EXCEPTION
 END
 $idxguard$;
 -- Function: notify all users (inbox + push) when news is published or emergency is sent
+DROP FUNCTION IF EXISTS public.notify_users_on_news() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_users_on_news()
 RETURNS TRIGGER
 LANGUAGE plpgsql

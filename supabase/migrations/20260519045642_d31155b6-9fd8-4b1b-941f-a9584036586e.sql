@@ -193,6 +193,7 @@ DROP TABLE IF EXISTS public.parent_student_links CASCADE;
 -- 4) Delete any parent role assignments (data is empty but be safe)
 DELETE FROM public.user_roles WHERE role = 'parent';
 -- 5) Replace parent-notification triggers: send LINE directly to student's 3 LINE IDs
+DROP FUNCTION IF EXISTS public.send_line_to_student_parents(uuid, text, text) CASCADE;
 CREATE OR REPLACE FUNCTION public.send_line_to_student_parents(
   _student_id uuid, _title text, _message text
 ) RETURNS void
@@ -233,6 +234,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- notify_parents_on_absence
+DROP FUNCTION IF EXISTS public.notify_parents_on_absence() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_parents_on_absence()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE student_name text;
@@ -245,6 +247,7 @@ BEGIN
   RETURN NEW;
 END $$;
 -- notify_parents_on_behavior
+DROP FUNCTION IF EXISTS public.notify_parents_on_behavior() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_parents_on_behavior()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE student_name text; emoji text; type_label text;
@@ -259,6 +262,7 @@ BEGIN
   RETURN NEW;
 END $$;
 -- notify_parents_on_score
+DROP FUNCTION IF EXISTS public.notify_parents_on_score() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_parents_on_score()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE student_uuid uuid; student_name text; subj_name text; msg text;
@@ -274,6 +278,7 @@ BEGIN
   RETURN NEW;
 END $$;
 -- notify_on_face_scan - keep teacher/admin notifications via notifications table, send LINE to all 3 slots
+DROP FUNCTION IF EXISTS public.notify_on_face_scan() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_on_face_scan()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE student_name text; cls_id uuid; homeroom_name text; homeroom_uid uuid; scan_label text; msg_body text;
@@ -303,6 +308,7 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
 -- 6) RPC: link a LINE userId into the next empty slot for a given student
+DROP FUNCTION IF EXISTS public.link_line_to_student_slot(uuid, text) CASCADE;
 CREATE OR REPLACE FUNCTION public.link_line_to_student_slot(_student_id uuid, _line_user_id text)
 RETURNS int LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE s record; slot int := 0;

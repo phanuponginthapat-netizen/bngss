@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.export_cron_jobs() CASCADE;
 CREATE OR REPLACE FUNCTION public.export_cron_jobs()
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -41,6 +42,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.import_cron_jobs(jsonb) CASCADE;
 CREATE OR REPLACE FUNCTION public.import_cron_jobs(_payload jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql

@@ -1,4 +1,5 @@
 -- Function: auto-enroll students when teacher_assignment is created
+DROP FUNCTION IF EXISTS public.auto_enroll_students_on_assignment() CASCADE;
 CREATE OR REPLACE FUNCTION public.auto_enroll_students_on_assignment()
 RETURNS trigger
 LANGUAGE plpgsql

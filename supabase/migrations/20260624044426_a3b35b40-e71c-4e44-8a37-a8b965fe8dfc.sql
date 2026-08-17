@@ -27,6 +27,7 @@ $guard$;
 -- status: 'manual' | 'pending' | 'graded' | 'overdue'
 
 -- 2) Auto-create score column + pending student rows when a homework assignment is created
+DROP FUNCTION IF EXISTS public.sync_homework_to_pp5() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_homework_to_pp5()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -96,6 +97,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 3) When a submission is graded (final_score set) -> update score & mark graded
+DROP FUNCTION IF EXISTS public.sync_homework_submission_to_pp5() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_homework_submission_to_pp5()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -144,6 +146,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 4) Mark overdue: pending rows whose homework due_date passed become 'overdue'/score=0
+DROP FUNCTION IF EXISTS public.mark_overdue_homework_columns() CASCADE;
 CREATE OR REPLACE FUNCTION public.mark_overdue_homework_columns()
 RETURNS integer
 LANGUAGE plpgsql

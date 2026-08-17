@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.sync_student_to_profile() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_student_to_profile()
 RETURNS TRIGGER
 LANGUAGE plpgsql

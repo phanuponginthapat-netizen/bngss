@@ -1,4 +1,5 @@
 -- Auto-map schedule teacher_name to canonical full name when matching personnel is created/updated
+DROP FUNCTION IF EXISTS public.auto_map_schedule_teacher_on_personnel() CASCADE;
 CREATE OR REPLACE FUNCTION public.auto_map_schedule_teacher_on_personnel()
 RETURNS trigger
 LANGUAGE plpgsql

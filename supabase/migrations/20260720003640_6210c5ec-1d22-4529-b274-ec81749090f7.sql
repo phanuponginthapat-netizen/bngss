@@ -12,6 +12,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Helper: fire an edge function via pg_net with the shared cron secret
+DROP FUNCTION IF EXISTS public.line_vault_dispatch(text, jsonb) CASCADE;
 CREATE OR REPLACE FUNCTION public.line_vault_dispatch(category text, payload jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -45,6 +46,7 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$;
 -- staff_leaves triggers (insert + status change)
+DROP FUNCTION IF EXISTS public.trg_line_vault_staff_leave() CASCADE;
 CREATE OR REPLACE FUNCTION public.trg_line_vault_staff_leave()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -114,6 +116,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- student_leaves triggers
+DROP FUNCTION IF EXISTS public.trg_line_vault_student_leave() CASCADE;
 CREATE OR REPLACE FUNCTION public.trg_line_vault_student_leave()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -187,6 +190,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- substitute_teaching insert trigger
+DROP FUNCTION IF EXISTS public.trg_line_vault_substitute() CASCADE;
 CREATE OR REPLACE FUNCTION public.trg_line_vault_substitute()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE

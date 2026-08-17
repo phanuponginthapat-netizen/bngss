@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.student_in_user_school(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.student_in_user_school(_student_id uuid)
 RETURNS boolean
 LANGUAGE sql
