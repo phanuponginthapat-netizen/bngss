@@ -19,25 +19,30 @@ $$;
 
 -- Parent SELECT policies
 DROP POLICY IF EXISTS "Parents view child attendance" ON public.attendance;
+DROP POLICY IF EXISTS "Parents view child attendance" ON public.attendance;
 CREATE POLICY "Parents view child attendance"
   ON public.attendance FOR SELECT
   USING (public.is_parent_of(auth.uid(), student_id));
 
+DROP POLICY IF EXISTS "Parents view child behavior" ON public.behavior_records;
 DROP POLICY IF EXISTS "Parents view child behavior" ON public.behavior_records;
 CREATE POLICY "Parents view child behavior"
   ON public.behavior_records FOR SELECT
   USING (public.is_parent_of(auth.uid(), student_id));
 
 DROP POLICY IF EXISTS "Parents view child leaves" ON public.student_leaves;
+DROP POLICY IF EXISTS "Parents view child leaves" ON public.student_leaves;
 CREATE POLICY "Parents view child leaves"
   ON public.student_leaves FOR SELECT
   USING (public.is_parent_of(auth.uid(), student_id));
 
 DROP POLICY IF EXISTS "Parents request child leaves" ON public.student_leaves;
+DROP POLICY IF EXISTS "Parents request child leaves" ON public.student_leaves;
 CREATE POLICY "Parents request child leaves"
   ON public.student_leaves FOR INSERT
   WITH CHECK (public.is_parent_of(auth.uid(), student_id));
 
+DROP POLICY IF EXISTS "Parents view child health" ON public.health_measurements;
 DROP POLICY IF EXISTS "Parents view child health" ON public.health_measurements;
 CREATE POLICY "Parents view child health"
   ON public.health_measurements FOR SELECT

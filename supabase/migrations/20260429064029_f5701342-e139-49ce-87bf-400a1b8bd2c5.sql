@@ -1,12 +1,15 @@
 -- ENUM ของฝ่ายงานในโรงเรียน (ตามมาตรฐาน 4 ฝ่าย + ผู้บริหาร)
 DO $$ BEGIN
-  CREATE TYPE public.school_department AS ENUM (
+DO $do$ BEGIN
+    CREATE TYPE public.school_department AS ENUM (
     'academic',          -- ฝ่ายวิชาการ
     'student_affairs',   -- ฝ่ายกิจการนักเรียน
     'general_admin',     -- ฝ่ายบริหารงานทั่วไป
     'finance_personnel', -- ฝ่ายงบประมาณและบุคคล
     'director_office'    -- สำนักผู้อำนวยการ
   );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $do$;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ตารางจัดเก็บฝ่ายของผู้ใช้ (1 user มีได้หลายฝ่าย)
@@ -49,6 +52,7 @@ $$;
 
 -- RLS policies
 DROP POLICY IF EXISTS "Users view own departments" ON public.user_departments;
+DROP POLICY IF EXISTS "Users view own departments" ON public.user_departments;
 CREATE POLICY "Users view own departments" ON public.user_departments
 FOR SELECT TO authenticated
 USING (
@@ -57,6 +61,7 @@ USING (
   OR public.has_role(auth.uid(), 'director')
 );
 
+DROP POLICY IF EXISTS "Admin manage departments" ON public.user_departments;
 DROP POLICY IF EXISTS "Admin manage departments" ON public.user_departments;
 CREATE POLICY "Admin manage departments" ON public.user_departments
 FOR ALL TO authenticated

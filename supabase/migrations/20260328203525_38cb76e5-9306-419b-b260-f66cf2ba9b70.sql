@@ -15,10 +15,12 @@ ALTER TABLE public.cms_pages ENABLE ROW LEVEL SECURITY;
 
 -- Public can read published pages
 DROP POLICY IF EXISTS "Anyone can view published cms pages" ON public.cms_pages;
+DROP POLICY IF EXISTS "Anyone can view published cms pages" ON public.cms_pages;
 CREATE POLICY "Anyone can view published cms pages" ON public.cms_pages
   FOR SELECT USING (is_published = true);
 
 -- Admins can manage all pages
+DROP POLICY IF EXISTS "Admins can manage cms pages" ON public.cms_pages;
 DROP POLICY IF EXISTS "Admins can manage cms pages" ON public.cms_pages;
 CREATE POLICY "Admins can manage cms pages" ON public.cms_pages
   FOR ALL TO authenticated
@@ -39,9 +41,11 @@ CREATE TABLE IF NOT EXISTS public.cms_menu_items (
 ALTER TABLE public.cms_menu_items ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can view visible menu items" ON public.cms_menu_items;
+DROP POLICY IF EXISTS "Anyone can view visible menu items" ON public.cms_menu_items;
 CREATE POLICY "Anyone can view visible menu items" ON public.cms_menu_items
   FOR SELECT USING (is_visible = true);
 
+DROP POLICY IF EXISTS "Admins can manage menu items" ON public.cms_menu_items;
 DROP POLICY IF EXISTS "Admins can manage menu items" ON public.cms_menu_items;
 CREATE POLICY "Admins can manage menu items" ON public.cms_menu_items
   FOR ALL TO authenticated
@@ -59,9 +63,11 @@ CREATE TABLE IF NOT EXISTS public.cms_settings (
 ALTER TABLE public.cms_settings ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can view cms settings" ON public.cms_settings;
+DROP POLICY IF EXISTS "Anyone can view cms settings" ON public.cms_settings;
 CREATE POLICY "Anyone can view cms settings" ON public.cms_settings
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Admins can manage cms settings" ON public.cms_settings;
 DROP POLICY IF EXISTS "Admins can manage cms settings" ON public.cms_settings;
 CREATE POLICY "Admins can manage cms settings" ON public.cms_settings
   FOR ALL TO authenticated
@@ -98,14 +104,17 @@ INSERT INTO storage.buckets (id, name, public) VALUES ('cms-images', 'cms-images
 ON CONFLICT (id) DO NOTHING;
 
 DROP POLICY IF EXISTS "Anyone can view cms images" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can view cms images" ON storage.objects;
 CREATE POLICY "Anyone can view cms images" ON storage.objects
   FOR SELECT USING (bucket_id = 'cms-images');
 
+DROP POLICY IF EXISTS "Admins can upload cms images" ON storage.objects;
 DROP POLICY IF EXISTS "Admins can upload cms images" ON storage.objects;
 CREATE POLICY "Admins can upload cms images" ON storage.objects
   FOR INSERT TO authenticated
   WITH CHECK (bucket_id = 'cms-images' AND public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Admins can delete cms images" ON storage.objects;
 DROP POLICY IF EXISTS "Admins can delete cms images" ON storage.objects;
 CREATE POLICY "Admins can delete cms images" ON storage.objects
   FOR DELETE TO authenticated

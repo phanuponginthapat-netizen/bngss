@@ -37,16 +37,19 @@ ALTER TABLE public.pa_indicator_scores ENABLE ROW LEVEL SECURITY;
 
 -- RLS for pa_agreements
 DROP POLICY IF EXISTS "Auth users can view pa_agreements" ON public.pa_agreements;
+DROP POLICY IF EXISTS "Auth users can view pa_agreements" ON public.pa_agreements;
 CREATE POLICY "Auth users can view pa_agreements"
   ON public.pa_agreements FOR SELECT TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Admin/Director can manage pa_agreements" ON public.pa_agreements;
 DROP POLICY IF EXISTS "Admin/Director can manage pa_agreements" ON public.pa_agreements;
 CREATE POLICY "Admin/Director can manage pa_agreements"
   ON public.pa_agreements FOR ALL TO authenticated
   USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director'))
   WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director'));
 
+DROP POLICY IF EXISTS "Users can manage own pa_agreements" ON public.pa_agreements;
 DROP POLICY IF EXISTS "Users can manage own pa_agreements" ON public.pa_agreements;
 CREATE POLICY "Users can manage own pa_agreements"
   ON public.pa_agreements FOR ALL TO authenticated
@@ -55,16 +58,19 @@ CREATE POLICY "Users can manage own pa_agreements"
 
 -- RLS for pa_indicator_scores
 DROP POLICY IF EXISTS "Auth users can view pa_indicator_scores" ON public.pa_indicator_scores;
+DROP POLICY IF EXISTS "Auth users can view pa_indicator_scores" ON public.pa_indicator_scores;
 CREATE POLICY "Auth users can view pa_indicator_scores"
   ON public.pa_indicator_scores FOR SELECT TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Admin/Director can manage pa_indicator_scores" ON public.pa_indicator_scores;
 DROP POLICY IF EXISTS "Admin/Director can manage pa_indicator_scores" ON public.pa_indicator_scores;
 CREATE POLICY "Admin/Director can manage pa_indicator_scores"
   ON public.pa_indicator_scores FOR ALL TO authenticated
   USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director'))
   WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director'));
 
+DROP POLICY IF EXISTS "Users can manage own pa_indicator_scores" ON public.pa_indicator_scores;
 DROP POLICY IF EXISTS "Users can manage own pa_indicator_scores" ON public.pa_indicator_scores;
 CREATE POLICY "Users can manage own pa_indicator_scores"
   ON public.pa_indicator_scores FOR ALL TO authenticated

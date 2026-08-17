@@ -1,5 +1,6 @@
 DROP POLICY IF EXISTS "Homework files: owner or same-school members" ON storage.objects;
 
+DROP POLICY IF EXISTS "Homework files: owner or same-school members" ON storage.objects;
 CREATE POLICY "Homework files: owner or same-school members"
 ON storage.objects
 FOR SELECT

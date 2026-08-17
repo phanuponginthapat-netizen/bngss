@@ -35,11 +35,13 @@ CREATE INDEX IF NOT EXISTS idx_iot_devices_group ON public.iot_devices(dashboard
 ALTER TABLE public.iot_devices ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Authenticated users can view iot devices" ON public.iot_devices;
+DROP POLICY IF EXISTS "Authenticated users can view iot devices" ON public.iot_devices;
 CREATE POLICY "Authenticated users can view iot devices"
 ON public.iot_devices FOR SELECT
 TO authenticated
 USING (true);
 
+DROP POLICY IF EXISTS "Admins can insert iot devices" ON public.iot_devices;
 DROP POLICY IF EXISTS "Admins can insert iot devices" ON public.iot_devices;
 CREATE POLICY "Admins can insert iot devices"
 ON public.iot_devices FOR INSERT
@@ -47,11 +49,13 @@ TO authenticated
 WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
 DROP POLICY IF EXISTS "Admins can update iot devices" ON public.iot_devices;
+DROP POLICY IF EXISTS "Admins can update iot devices" ON public.iot_devices;
 CREATE POLICY "Admins can update iot devices"
 ON public.iot_devices FOR UPDATE
 TO authenticated
 USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director') OR public.has_role(auth.uid(), 'teacher'));
 
+DROP POLICY IF EXISTS "Admins can delete iot devices" ON public.iot_devices;
 DROP POLICY IF EXISTS "Admins can delete iot devices" ON public.iot_devices;
 CREATE POLICY "Admins can delete iot devices"
 ON public.iot_devices FOR DELETE
@@ -78,11 +82,13 @@ CREATE INDEX IF NOT EXISTS idx_iot_readings_device_time ON public.iot_readings(d
 ALTER TABLE public.iot_readings ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Authenticated users can view iot readings" ON public.iot_readings;
+DROP POLICY IF EXISTS "Authenticated users can view iot readings" ON public.iot_readings;
 CREATE POLICY "Authenticated users can view iot readings"
 ON public.iot_readings FOR SELECT
 TO authenticated
 USING (true);
 
+DROP POLICY IF EXISTS "Admin/teacher can insert iot readings" ON public.iot_readings;
 DROP POLICY IF EXISTS "Admin/teacher can insert iot readings" ON public.iot_readings;
 CREATE POLICY "Admin/teacher can insert iot readings"
 ON public.iot_readings FOR INSERT
@@ -93,6 +99,7 @@ WITH CHECK (
   OR public.has_role(auth.uid(), 'teacher')
 );
 
+DROP POLICY IF EXISTS "Admins can delete iot readings" ON public.iot_readings;
 DROP POLICY IF EXISTS "Admins can delete iot readings" ON public.iot_readings;
 CREATE POLICY "Admins can delete iot readings"
 ON public.iot_readings FOR DELETE

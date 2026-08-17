@@ -24,17 +24,20 @@ GRANT ALL ON public.student_offsite_photos TO service_role;
 ALTER TABLE public.student_offsite_photos ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "offsite_photos_admin_all" ON public.student_offsite_photos;
+DROP POLICY IF EXISTS "offsite_photos_admin_all" ON public.student_offsite_photos;
 CREATE POLICY "offsite_photos_admin_all" ON public.student_offsite_photos
   FOR ALL TO authenticated
   USING (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role))
   WITH CHECK (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role));
 
 DROP POLICY IF EXISTS "offsite_photos_teacher_manage" ON public.student_offsite_photos;
+DROP POLICY IF EXISTS "offsite_photos_teacher_manage" ON public.student_offsite_photos;
 CREATE POLICY "offsite_photos_teacher_manage" ON public.student_offsite_photos
   FOR ALL TO authenticated
   USING (has_role(auth.uid(), 'teacher'::app_role))
   WITH CHECK (has_role(auth.uid(), 'teacher'::app_role));
 
+DROP POLICY IF EXISTS "offsite_photos_student_read" ON public.student_offsite_photos;
 DROP POLICY IF EXISTS "offsite_photos_student_read" ON public.student_offsite_photos;
 CREATE POLICY "offsite_photos_student_read" ON public.student_offsite_photos
   FOR SELECT TO authenticated
@@ -50,10 +53,12 @@ CREATE TRIGGER trg_offsite_photos_updated
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 DROP POLICY IF EXISTS "offsite_photos_staff_read" ON storage.objects;
+DROP POLICY IF EXISTS "offsite_photos_staff_read" ON storage.objects;
 CREATE POLICY "offsite_photos_staff_read" ON storage.objects
   FOR SELECT TO authenticated
   USING (bucket_id = 'offsite-photos');
 
+DROP POLICY IF EXISTS "offsite_photos_staff_write" ON storage.objects;
 DROP POLICY IF EXISTS "offsite_photos_staff_write" ON storage.objects;
 CREATE POLICY "offsite_photos_staff_write" ON storage.objects
   FOR INSERT TO authenticated
@@ -61,6 +66,7 @@ CREATE POLICY "offsite_photos_staff_write" ON storage.objects
     has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role) OR has_role(auth.uid(), 'teacher'::app_role)
   ));
 
+DROP POLICY IF EXISTS "offsite_photos_staff_delete" ON storage.objects;
 DROP POLICY IF EXISTS "offsite_photos_staff_delete" ON storage.objects;
 CREATE POLICY "offsite_photos_staff_delete" ON storage.objects
   FOR DELETE TO authenticated

@@ -58,6 +58,7 @@ GRANT EXECUTE ON FUNCTION public.is_parent_of_student(uuid, uuid) TO authenticat
 DROP POLICY IF EXISTS "dept_member_view" ON public.guidance_records;
 
 DROP POLICY IF EXISTS "dept_member_view_nonconf" ON public.guidance_records;
+DROP POLICY IF EXISTS "dept_member_view_nonconf" ON public.guidance_records;
 CREATE POLICY "dept_member_view_nonconf" ON public.guidance_records
 FOR SELECT TO authenticated
 USING (
@@ -71,6 +72,7 @@ USING (
 
 -- worksheets: require authentication for published rows
 DROP POLICY IF EXISTS "ws_read_published" ON public.worksheets;
+DROP POLICY IF EXISTS "ws_read_published_auth" ON public.worksheets;
 DROP POLICY IF EXISTS "ws_read_published_auth" ON public.worksheets;
 CREATE POLICY "ws_read_published_auth" ON public.worksheets
 FOR SELECT TO authenticated

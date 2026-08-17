@@ -33,6 +33,7 @@ BEFORE UPDATE ON public.profiles
 FOR EACH ROW EXECUTE FUNCTION public.prevent_sensitive_profile_self_update();
 
 DROP POLICY IF EXISTS "Authenticated can read asset photos" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated can read asset photos" ON storage.objects;
 CREATE POLICY "Authenticated can read asset photos"
 ON storage.objects FOR SELECT
 TO authenticated

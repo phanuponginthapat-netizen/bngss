@@ -16,10 +16,12 @@ GRANT ALL ON public.attendance_auto_holidays TO service_role;
 ALTER TABLE public.attendance_auto_holidays ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "authenticated read holidays" ON public.attendance_auto_holidays;
+DROP POLICY IF EXISTS "authenticated read holidays" ON public.attendance_auto_holidays;
 CREATE POLICY "authenticated read holidays"
   ON public.attendance_auto_holidays FOR SELECT
   TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "admin manage holidays" ON public.attendance_auto_holidays;
 DROP POLICY IF EXISTS "admin manage holidays" ON public.attendance_auto_holidays;
 CREATE POLICY "admin manage holidays"
   ON public.attendance_auto_holidays FOR ALL

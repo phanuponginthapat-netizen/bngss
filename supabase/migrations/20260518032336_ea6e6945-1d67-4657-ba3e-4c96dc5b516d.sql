@@ -1,5 +1,6 @@
 -- อนุญาตให้ผู้ใช้สร้าง personnel record ของตัวเองได้ (สำหรับ First Login Setup)
 DROP POLICY IF EXISTS "Users can insert their own personnel record" ON public.personnel;
+DROP POLICY IF EXISTS "Users can insert their own personnel record" ON public.personnel;
 CREATE POLICY "Users can insert their own personnel record"
   ON public.personnel
   FOR INSERT
@@ -8,6 +9,7 @@ CREATE POLICY "Users can insert their own personnel record"
 
 -- อนุญาตให้ผู้ใช้แก้ไข personnel record ของตัวเองได้
 -- ป้องกันการเปลี่ยน user_id ไปเป็นคนอื่นด้วย WITH CHECK
+DROP POLICY IF EXISTS "Users can update their own personnel record" ON public.personnel;
 DROP POLICY IF EXISTS "Users can update their own personnel record" ON public.personnel;
 CREATE POLICY "Users can update their own personnel record"
   ON public.personnel

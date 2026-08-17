@@ -1,9 +1,11 @@
 
 -- 1) เพิ่ม Foreign Key ให้ padlet_boards เพื่อให้ PostgREST embed subjects/classrooms ได้
+ALTER TABLE public.padlet_boards DROP CONSTRAINT IF EXISTS padlet_boards_subject_id_fkey;
 ALTER TABLE public.padlet_boards
   ADD CONSTRAINT padlet_boards_subject_id_fkey
   FOREIGN KEY (subject_id) REFERENCES public.subjects(id) ON DELETE SET NULL;
 
+ALTER TABLE public.padlet_boards DROP CONSTRAINT IF EXISTS padlet_boards_classroom_id_fkey;
 ALTER TABLE public.padlet_boards
   ADD CONSTRAINT padlet_boards_classroom_id_fkey
   FOREIGN KEY (classroom_id) REFERENCES public.classrooms(id) ON DELETE SET NULL;

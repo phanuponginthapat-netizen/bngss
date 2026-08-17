@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS public.document_recipients (
 ALTER TABLE public.document_recipients ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Auth users manage document_recipients" ON public.document_recipients;
+DROP POLICY IF EXISTS "Auth users manage document_recipients" ON public.document_recipients;
 CREATE POLICY "Auth users manage document_recipients"
   ON public.document_recipients FOR ALL
   TO authenticated

@@ -8,6 +8,7 @@ DROP POLICY IF EXISTS "Auth users can manage students" ON public.students;
 
 -- Staff (admin, director, teacher) can fully manage student records
 DROP POLICY IF EXISTS "Staff can manage students" ON public.students;
+DROP POLICY IF EXISTS "Staff can manage students" ON public.students;
 CREATE POLICY "Staff can manage students"
   ON public.students
   FOR ALL
@@ -25,6 +26,7 @@ CREATE POLICY "Staff can manage students"
 
 -- Students can view their own record (already partially covered by parent/staff policies; add explicit self-view)
 DROP POLICY IF EXISTS "Students can view their own record" ON public.students;
+DROP POLICY IF EXISTS "Students can view their own record" ON public.students;
 CREATE POLICY "Students can view their own record"
   ON public.students
   FOR SELECT
@@ -38,6 +40,7 @@ CREATE POLICY "Students can view their own record"
 DROP POLICY IF EXISTS "Auth users manage student_subsidies" ON public.student_subsidies;
 
 -- Only staff can read/write subsidy/income eligibility data
+DROP POLICY IF EXISTS "Staff can manage student_subsidies" ON public.student_subsidies;
 DROP POLICY IF EXISTS "Staff can manage student_subsidies" ON public.student_subsidies;
 CREATE POLICY "Staff can manage student_subsidies"
   ON public.student_subsidies
@@ -55,6 +58,7 @@ CREATE POLICY "Staff can manage student_subsidies"
   );
 
 -- Parents may view subsidy status of their linked students (read-only)
+DROP POLICY IF EXISTS "Parents can view linked student subsidies" ON public.student_subsidies;
 DROP POLICY IF EXISTS "Parents can view linked student subsidies" ON public.student_subsidies;
 CREATE POLICY "Parents can view linked student subsidies"
   ON public.student_subsidies

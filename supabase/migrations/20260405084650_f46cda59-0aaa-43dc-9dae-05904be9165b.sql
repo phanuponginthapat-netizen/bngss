@@ -17,9 +17,12 @@ CREATE TABLE IF NOT EXISTS public.pp6_files (
 ALTER TABLE public.pp6_files ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Auth users can view pp6_files" ON public.pp6_files;
+DROP POLICY IF EXISTS "Auth users can view pp6_files" ON public.pp6_files;
 CREATE POLICY "Auth users can view pp6_files" ON public.pp6_files FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Auth users can upload pp6_files" ON public.pp6_files;
+DROP POLICY IF EXISTS "Auth users can upload pp6_files" ON public.pp6_files;
 CREATE POLICY "Auth users can upload pp6_files" ON public.pp6_files FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "Admin/Director can delete pp6_files" ON public.pp6_files;
 DROP POLICY IF EXISTS "Admin/Director can delete pp6_files" ON public.pp6_files;
 CREATE POLICY "Admin/Director can delete pp6_files" ON public.pp6_files FOR DELETE TO authenticated USING (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role));
 
@@ -28,8 +31,11 @@ INSERT INTO storage.buckets (id, name, public) VALUES ('pp6-files', 'pp6-files',
 
 -- Storage policies
 DROP POLICY IF EXISTS "Anyone can view pp6 files" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can view pp6 files" ON storage.objects;
 CREATE POLICY "Anyone can view pp6 files" ON storage.objects FOR SELECT USING (bucket_id = 'pp6-files');
 DROP POLICY IF EXISTS "Auth users can upload pp6 files" ON storage.objects;
+DROP POLICY IF EXISTS "Auth users can upload pp6 files" ON storage.objects;
 CREATE POLICY "Auth users can upload pp6 files" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'pp6-files');
+DROP POLICY IF EXISTS "Admin can delete pp6 files" ON storage.objects;
 DROP POLICY IF EXISTS "Admin can delete pp6 files" ON storage.objects;
 CREATE POLICY "Admin can delete pp6 files" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'pp6-files');

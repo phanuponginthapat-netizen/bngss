@@ -2,6 +2,7 @@
 DROP POLICY IF EXISTS "Users can insert their own personnel record" ON public.personnel;
 
 DROP POLICY IF EXISTS "Admins manage personnel inserts" ON public.personnel;
+DROP POLICY IF EXISTS "Admins manage personnel inserts" ON public.personnel;
 CREATE POLICY "Admins manage personnel inserts"
 ON public.personnel FOR INSERT TO authenticated
 WITH CHECK (
@@ -11,6 +12,7 @@ WITH CHECK (
 -- 2. face-photos bucket: restrict INSERT to staff roles only
 DROP POLICY IF EXISTS "Auth users can upload face photos" ON storage.objects;
 
+DROP POLICY IF EXISTS "Staff can upload face photos" ON storage.objects;
 DROP POLICY IF EXISTS "Staff can upload face photos" ON storage.objects;
 CREATE POLICY "Staff can upload face photos"
 ON storage.objects FOR INSERT TO authenticated
@@ -25,6 +27,7 @@ WITH CHECK (
 -- 3. attendance-photos bucket: restrict INSERT to staff roles only
 DROP POLICY IF EXISTS "Auth users can upload attendance photos" ON storage.objects;
 
+DROP POLICY IF EXISTS "Staff can upload attendance photos" ON storage.objects;
 DROP POLICY IF EXISTS "Staff can upload attendance photos" ON storage.objects;
 CREATE POLICY "Staff can upload attendance photos"
 ON storage.objects FOR INSERT TO authenticated
@@ -65,6 +68,7 @@ END $$;
 DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
 
 DROP POLICY IF EXISTS "Users update own profile (preserve must_change_password)" ON public.profiles;
+DROP POLICY IF EXISTS "Users update own profile (preserve must_change_password)" ON public.profiles;
 CREATE POLICY "Users update own profile (preserve must_change_password)"
 ON public.profiles FOR UPDATE TO authenticated
 USING (auth.uid() = id)
@@ -77,6 +81,7 @@ WITH CHECK (
 -- (replace the name-string match with personnel-table identity match)
 DROP POLICY IF EXISTS "Homeroom teacher manage home_visits" ON public.home_visits;
 
+DROP POLICY IF EXISTS "Homeroom teacher manage home_visits (secure)" ON public.home_visits;
 DROP POLICY IF EXISTS "Homeroom teacher manage home_visits (secure)" ON public.home_visits;
 CREATE POLICY "Homeroom teacher manage home_visits (secure)"
 ON public.home_visits FOR ALL TO authenticated

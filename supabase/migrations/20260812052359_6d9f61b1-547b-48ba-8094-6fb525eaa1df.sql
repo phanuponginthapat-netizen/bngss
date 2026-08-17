@@ -1,4 +1,5 @@
 DROP POLICY IF EXISTS "Students can upload their own face request photos" ON storage.objects;
+DROP POLICY IF EXISTS "Students can upload their own face request photos" ON storage.objects;
 CREATE POLICY "Students can upload their own face request photos" ON storage.objects FOR INSERT TO authenticated WITH CHECK (
   bucket_id = 'face-photos'
   AND name LIKE 'requests/%/%'
@@ -9,6 +10,7 @@ CREATE POLICY "Students can upload their own face request photos" ON storage.obj
   )
 );
 
+DROP POLICY IF EXISTS "Students can view their own face request photos" ON storage.objects;
 DROP POLICY IF EXISTS "Students can view their own face request photos" ON storage.objects;
 CREATE POLICY "Students can view their own face request photos" ON storage.objects FOR SELECT TO authenticated USING (
   bucket_id = 'face-photos'

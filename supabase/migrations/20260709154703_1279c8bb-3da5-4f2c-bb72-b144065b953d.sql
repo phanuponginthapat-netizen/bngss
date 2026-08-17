@@ -1,6 +1,7 @@
 
 DROP POLICY IF EXISTS "Auth users can view action_plans" ON public.action_plans;
 DROP POLICY IF EXISTS "Staff can view action_plans" ON public.action_plans;
+DROP POLICY IF EXISTS "Staff can view action_plans" ON public.action_plans;
 CREATE POLICY "Staff can view action_plans"
 ON public.action_plans FOR SELECT TO authenticated
 USING (
@@ -11,6 +12,7 @@ USING (
 
 DROP POLICY IF EXISTS "Authenticated can view assets" ON public.assets;
 DROP POLICY IF EXISTS "Staff can view assets" ON public.assets;
+DROP POLICY IF EXISTS "Staff can view assets" ON public.assets;
 CREATE POLICY "Staff can view assets"
 ON public.assets FOR SELECT TO authenticated
 USING (
@@ -20,6 +22,7 @@ USING (
 );
 
 DROP POLICY IF EXISTS "Devices viewable by authenticated" ON public.ict_devices;
+DROP POLICY IF EXISTS "Staff or borrower can view ict_devices" ON public.ict_devices;
 DROP POLICY IF EXISTS "Staff or borrower can view ict_devices" ON public.ict_devices;
 CREATE POLICY "Staff or borrower can view ict_devices"
 ON public.ict_devices FOR SELECT TO authenticated
@@ -36,6 +39,7 @@ USING (
 );
 
 DROP POLICY IF EXISTS "Anyone authenticated can view school_settings" ON public.school_settings;
+DROP POLICY IF EXISTS "Admin/director can view school_settings" ON public.school_settings;
 DROP POLICY IF EXISTS "Admin/director can view school_settings" ON public.school_settings;
 CREATE POLICY "Admin/director can view school_settings"
 ON public.school_settings FOR SELECT TO authenticated
@@ -87,6 +91,7 @@ AS $$
 $$;
 
 DROP POLICY IF EXISTS "Staff can insert attendance" ON public.attendance;
+DROP POLICY IF EXISTS "Staff can insert attendance" ON public.attendance;
 CREATE POLICY "Staff can insert attendance"
 ON public.attendance FOR INSERT TO authenticated
 WITH CHECK (
@@ -101,6 +106,7 @@ WITH CHECK (
   )
 );
 
+DROP POLICY IF EXISTS "Staff can update attendance" ON public.attendance;
 DROP POLICY IF EXISTS "Staff can update attendance" ON public.attendance;
 CREATE POLICY "Staff can update attendance"
 ON public.attendance FOR UPDATE TO authenticated
@@ -127,6 +133,7 @@ WITH CHECK (
   )
 );
 
+DROP POLICY IF EXISTS "Staff can delete attendance" ON public.attendance;
 DROP POLICY IF EXISTS "Staff can delete attendance" ON public.attendance;
 CREATE POLICY "Staff can delete attendance"
 ON public.attendance FOR DELETE TO authenticated

@@ -15,6 +15,7 @@ GRANT ALL ON public.line_richmenu_state TO service_role;
 ALTER TABLE public.line_richmenu_state ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "admin read richmenu state" ON public.line_richmenu_state;
+DROP POLICY IF EXISTS "admin read richmenu state" ON public.line_richmenu_state;
 CREATE POLICY "admin read richmenu state" ON public.line_richmenu_state
   FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));

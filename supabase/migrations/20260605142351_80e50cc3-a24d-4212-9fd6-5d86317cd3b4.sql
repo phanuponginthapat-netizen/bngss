@@ -1,6 +1,7 @@
 REVOKE EXECUTE ON FUNCTION public.notify_homeroom_on_ai_risk() FROM anon, authenticated, public;
 
 DROP POLICY IF EXISTS "Borrower can view own ict loan photos" ON storage.objects;
+DROP POLICY IF EXISTS "Borrower can view own ict loan photos" ON storage.objects;
 CREATE POLICY "Borrower can view own ict loan photos"
 ON storage.objects FOR SELECT
 TO authenticated

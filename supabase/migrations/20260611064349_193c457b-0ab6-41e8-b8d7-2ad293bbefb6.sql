@@ -3,6 +3,7 @@ ALTER TABLE public.task_assignments
 
 -- Allow students to update only the submissions column for class-wide homework in their classroom
 DROP POLICY IF EXISTS "Students can submit class-wide homework" ON public.task_assignments;
+DROP POLICY IF EXISTS "Students can submit class-wide homework" ON public.task_assignments;
 CREATE POLICY "Students can submit class-wide homework"
 ON public.task_assignments
 FOR UPDATE

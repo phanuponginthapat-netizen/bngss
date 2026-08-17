@@ -4,6 +4,7 @@ REVOKE SELECT (api_key) ON public.ai_provider_keys FROM anon, authenticated;
 
 -- 2) app_secrets: admin-only access
 DROP POLICY IF EXISTS "admins manage app secrets" ON public.app_secrets;
+DROP POLICY IF EXISTS "admins manage app secrets" ON public.app_secrets;
 CREATE POLICY "admins manage app secrets" ON public.app_secrets
   FOR ALL TO authenticated
   USING (has_role(auth.uid(), 'admin'::app_role))
@@ -24,6 +25,7 @@ CREATE POLICY school_scope_restrictive ON public.district_snapshots
   );
 
 -- 4) homework_submissions: restrict viewing to assignment creator + admin/director
+DROP POLICY IF EXISTS "assignment owner can view submissions" ON public.homework_submissions;
 DROP POLICY IF EXISTS "assignment owner can view submissions" ON public.homework_submissions;
 CREATE POLICY "assignment owner can view submissions" ON public.homework_submissions
   FOR SELECT TO authenticated

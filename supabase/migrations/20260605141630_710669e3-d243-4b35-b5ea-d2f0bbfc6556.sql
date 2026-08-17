@@ -16,11 +16,13 @@ GRANT ALL ON public.ai_user_memory TO service_role;
 ALTER TABLE public.ai_user_memory ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users manage own AI memory" ON public.ai_user_memory;
+DROP POLICY IF EXISTS "Users manage own AI memory" ON public.ai_user_memory;
 CREATE POLICY "Users manage own AI memory"
   ON public.ai_user_memory FOR ALL
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Admin/director view all AI memory" ON public.ai_user_memory;
 DROP POLICY IF EXISTS "Admin/director view all AI memory" ON public.ai_user_memory;
 CREATE POLICY "Admin/director view all AI memory"
   ON public.ai_user_memory FOR SELECT

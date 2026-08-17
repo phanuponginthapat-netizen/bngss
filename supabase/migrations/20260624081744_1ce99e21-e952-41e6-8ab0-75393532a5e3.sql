@@ -32,6 +32,7 @@ WITH CHECK (
 
 -- 2) homework_submissions: students self-service via students.auth_user_id
 DROP POLICY IF EXISTS "students manage own submissions" ON public.homework_submissions;
+DROP POLICY IF EXISTS "students manage own submissions" ON public.homework_submissions;
 CREATE POLICY "students manage own submissions"
 ON public.homework_submissions
 FOR ALL

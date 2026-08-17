@@ -24,21 +24,26 @@ CREATE INDEX IF NOT EXISTS idx_inbox_ref ON public.inbox_items(reference_table, 
 ALTER TABLE public.inbox_items ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users view own inbox" ON public.inbox_items;
+DROP POLICY IF EXISTS "Users view own inbox" ON public.inbox_items;
 CREATE POLICY "Users view own inbox" ON public.inbox_items
   FOR SELECT TO authenticated USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users update own inbox" ON public.inbox_items;
 DROP POLICY IF EXISTS "Users update own inbox" ON public.inbox_items;
 CREATE POLICY "Users update own inbox" ON public.inbox_items
   FOR UPDATE TO authenticated USING (user_id = auth.uid());
 
 DROP POLICY IF EXISTS "Users delete own inbox" ON public.inbox_items;
+DROP POLICY IF EXISTS "Users delete own inbox" ON public.inbox_items;
 CREATE POLICY "Users delete own inbox" ON public.inbox_items
   FOR DELETE TO authenticated USING (user_id = auth.uid());
 
 DROP POLICY IF EXISTS "System can insert inbox" ON public.inbox_items;
+DROP POLICY IF EXISTS "System can insert inbox" ON public.inbox_items;
 CREATE POLICY "System can insert inbox" ON public.inbox_items
   FOR INSERT TO authenticated WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Admin manage all inbox" ON public.inbox_items;
 DROP POLICY IF EXISTS "Admin manage all inbox" ON public.inbox_items;
 CREATE POLICY "Admin manage all inbox" ON public.inbox_items
   FOR ALL TO authenticated

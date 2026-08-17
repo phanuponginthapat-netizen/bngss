@@ -68,7 +68,10 @@ UPDATE public.user_roles SET role = 'admin'
 DO $$
 BEGIN
   -- สร้าง enum ใหม่
-  CREATE TYPE app_role_new AS ENUM ('admin','teacher','student','director','alumni','parent');
+DO $do$ BEGIN
+    CREATE TYPE app_role_new AS ENUM ('admin','teacher','student','director','alumni','parent');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $do$;
 
   -- เปลี่ยน column ทั้งหมดให้ใช้ enum ใหม่
   ALTER TABLE public.user_roles
@@ -99,6 +102,7 @@ CREATE TABLE IF NOT EXISTS public.district_api_keys (
 ALTER TABLE public.district_api_keys ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Admins manage api keys" ON public.district_api_keys;
+DROP POLICY IF EXISTS "Admins manage api keys" ON public.district_api_keys;
 CREATE POLICY "Admins manage api keys"
   ON public.district_api_keys
   FOR ALL
@@ -121,6 +125,7 @@ CREATE TABLE IF NOT EXISTS public.district_feed_logs (
 ALTER TABLE public.district_feed_logs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Admins view logs" ON public.district_feed_logs;
+DROP POLICY IF EXISTS "Admins view logs" ON public.district_feed_logs;
 CREATE POLICY "Admins view logs"
   ON public.district_feed_logs
   FOR SELECT
@@ -128,11 +133,13 @@ CREATE POLICY "Admins view logs"
 
 -- 10) สร้าง basic policies ใหม่สำหรับ schools (admin ระดับโรงเรียน)
 DROP POLICY IF EXISTS "Admins manage schools" ON public.schools;
+DROP POLICY IF EXISTS "Admins manage schools" ON public.schools;
 CREATE POLICY "Admins manage schools"
   ON public.schools FOR ALL
   USING (public.has_role(auth.uid(), 'admin'))
   WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Authenticated view schools" ON public.schools;
 DROP POLICY IF EXISTS "Authenticated view schools" ON public.schools;
 CREATE POLICY "Authenticated view schools"
   ON public.schools FOR SELECT

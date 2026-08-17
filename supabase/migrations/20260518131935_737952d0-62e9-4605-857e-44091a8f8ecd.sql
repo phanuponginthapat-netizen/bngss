@@ -24,17 +24,20 @@ ALTER TABLE public.social_posts ENABLE ROW LEVEL SECURITY;
 
 -- Public can read (for homepage)
 DROP POLICY IF EXISTS "Public can read social posts" ON public.social_posts;
+DROP POLICY IF EXISTS "Public can read social posts" ON public.social_posts;
 CREATE POLICY "Public can read social posts"
   ON public.social_posts FOR SELECT
   USING (true);
 
 -- Admin/director can delete
 DROP POLICY IF EXISTS "Admin/director can delete social posts" ON public.social_posts;
+DROP POLICY IF EXISTS "Admin/director can delete social posts" ON public.social_posts;
 CREATE POLICY "Admin/director can delete social posts"
   ON public.social_posts FOR DELETE
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
 -- Admin/director can update (e.g. hide)
+DROP POLICY IF EXISTS "Admin/director can update social posts" ON public.social_posts;
 DROP POLICY IF EXISTS "Admin/director can update social posts" ON public.social_posts;
 CREATE POLICY "Admin/director can update social posts"
   ON public.social_posts FOR UPDATE

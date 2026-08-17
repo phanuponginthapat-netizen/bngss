@@ -38,6 +38,7 @@ DROP POLICY IF EXISTS "Parents can view linked students" ON public.students;
 DROP POLICY IF EXISTS "Parents view child vaccines" ON public.vaccine_records;
 
 -- Recreate ict_loans policy without parent_student_links reference
+DROP POLICY IF EXISTS "Loans viewable by staff student or personnel" ON public.ict_loans;
 CREATE POLICY "Loans viewable by staff student or personnel"
 ON public.ict_loans FOR SELECT TO authenticated
 USING (

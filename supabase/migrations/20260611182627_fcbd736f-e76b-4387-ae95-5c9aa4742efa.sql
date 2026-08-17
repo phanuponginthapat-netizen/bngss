@@ -14,6 +14,7 @@ GRANT ALL ON public.mascot_advice_cache TO service_role;
 ALTER TABLE public.mascot_advice_cache ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users read own mascot cache" ON public.mascot_advice_cache;
+DROP POLICY IF EXISTS "Users read own mascot cache" ON public.mascot_advice_cache;
 CREATE POLICY "Users read own mascot cache"
   ON public.mascot_advice_cache
   FOR SELECT TO authenticated

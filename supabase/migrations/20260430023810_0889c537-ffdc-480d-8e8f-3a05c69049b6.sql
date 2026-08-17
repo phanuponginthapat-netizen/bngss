@@ -1,6 +1,7 @@
 -- 1. asset_damage_reports
 DROP POLICY IF EXISTS "Auth users can create damage reports" ON public.asset_damage_reports;
 DROP POLICY IF EXISTS "Users create own damage reports" ON public.asset_damage_reports;
+DROP POLICY IF EXISTS "Users create own damage reports" ON public.asset_damage_reports;
 CREATE POLICY "Users create own damage reports"
   ON public.asset_damage_reports FOR INSERT TO authenticated
   WITH CHECK (
@@ -11,6 +12,7 @@ CREATE POLICY "Users create own damage reports"
 
 -- 2. document_recipients
 DROP POLICY IF EXISTS "Auth users can create document_recipients" ON public.document_recipients;
+DROP POLICY IF EXISTS "Doc owner or admin can add recipients" ON public.document_recipients;
 DROP POLICY IF EXISTS "Doc owner or admin can add recipients" ON public.document_recipients;
 CREATE POLICY "Doc owner or admin can add recipients"
   ON public.document_recipients FOR INSERT TO authenticated
@@ -23,6 +25,7 @@ CREATE POLICY "Doc owner or admin can add recipients"
 -- 3. inbox_items
 DROP POLICY IF EXISTS "System can insert inbox" ON public.inbox_items;
 DROP POLICY IF EXISTS "Users insert own inbox or admin insert any" ON public.inbox_items;
+DROP POLICY IF EXISTS "Users insert own inbox or admin insert any" ON public.inbox_items;
 CREATE POLICY "Users insert own inbox or admin insert any"
   ON public.inbox_items FOR INSERT TO authenticated
   WITH CHECK (
@@ -33,6 +36,7 @@ CREATE POLICY "Users insert own inbox or admin insert any"
 
 -- 4. notifications
 DROP POLICY IF EXISTS "Authenticated users can insert notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Users insert own notifications or admin insert any" ON public.notifications;
 DROP POLICY IF EXISTS "Users insert own notifications or admin insert any" ON public.notifications;
 CREATE POLICY "Users insert own notifications or admin insert any"
   ON public.notifications FOR INSERT TO authenticated
@@ -45,6 +49,7 @@ CREATE POLICY "Users insert own notifications or admin insert any"
 -- 5. pp5_files
 DROP POLICY IF EXISTS "Auth users can upload pp5_files" ON public.pp5_files;
 DROP POLICY IF EXISTS "Staff can upload pp5_files" ON public.pp5_files;
+DROP POLICY IF EXISTS "Staff can upload pp5_files" ON public.pp5_files;
 CREATE POLICY "Staff can upload pp5_files"
   ON public.pp5_files FOR INSERT TO authenticated
   WITH CHECK (
@@ -55,6 +60,7 @@ CREATE POLICY "Staff can upload pp5_files"
 
 -- 6. pp6_files
 DROP POLICY IF EXISTS "Auth users can upload pp6_files" ON public.pp6_files;
+DROP POLICY IF EXISTS "Staff can upload pp6_files" ON public.pp6_files;
 DROP POLICY IF EXISTS "Staff can upload pp6_files" ON public.pp6_files;
 CREATE POLICY "Staff can upload pp6_files"
   ON public.pp6_files FOR INSERT TO authenticated

@@ -5,6 +5,7 @@ DROP POLICY IF EXISTS "Homeroom teachers can view their students' chat logs" ON 
 -- 2. kiosk_devices: restrict teacher SELECT to own devices only
 DROP POLICY IF EXISTS "staff can view all devices" ON public.kiosk_devices;
 DROP POLICY IF EXISTS "Admins directors view all devices; users view own" ON public.kiosk_devices;
+DROP POLICY IF EXISTS "Admins directors view all devices; users view own" ON public.kiosk_devices;
 CREATE POLICY "Admins directors view all devices; users view own"
 ON public.kiosk_devices FOR SELECT
 TO authenticated
@@ -15,6 +16,7 @@ USING (
 );
 
 DROP POLICY IF EXISTS "users can update own device row" ON public.kiosk_devices;
+DROP POLICY IF EXISTS "Users update own device; admins any" ON public.kiosk_devices;
 DROP POLICY IF EXISTS "Users update own device; admins any" ON public.kiosk_devices;
 CREATE POLICY "Users update own device; admins any"
 ON public.kiosk_devices FOR UPDATE
@@ -34,6 +36,7 @@ WITH CHECK (
 DROP POLICY IF EXISTS "Service role only - line_user_preferences select" ON public.line_user_preferences;
 
 DROP POLICY IF EXISTS "Owners view their line preferences" ON public.line_user_preferences;
+DROP POLICY IF EXISTS "Owners view their line preferences" ON public.line_user_preferences;
 CREATE POLICY "Owners view their line preferences"
 ON public.line_user_preferences FOR SELECT
 TO authenticated
@@ -46,6 +49,7 @@ USING (
   OR has_role(auth.uid(), 'director'::app_role)
 );
 
+DROP POLICY IF EXISTS "Owners update their line preferences" ON public.line_user_preferences;
 DROP POLICY IF EXISTS "Owners update their line preferences" ON public.line_user_preferences;
 CREATE POLICY "Owners update their line preferences"
 ON public.line_user_preferences FOR UPDATE
@@ -65,6 +69,7 @@ WITH CHECK (
 
 -- 4. personnel: teachers only see personnel in their explicit school (drop NULL fallback)
 DROP POLICY IF EXISTS "Staff can view personnel" ON public.personnel;
+DROP POLICY IF EXISTS "Staff can view personnel (scoped)" ON public.personnel;
 DROP POLICY IF EXISTS "Staff can view personnel (scoped)" ON public.personnel;
 CREATE POLICY "Staff can view personnel (scoped)"
 ON public.personnel FOR SELECT
@@ -92,6 +97,7 @@ GRANT UPDATE (
 -- Admin/Director keep full UPDATE via their ALL policy (service_role has ALL)
 GRANT UPDATE ON public.students TO service_role;
 
+DROP POLICY IF EXISTS "Homeroom teachers update limited student fields" ON public.students;
 DROP POLICY IF EXISTS "Homeroom teachers update limited student fields" ON public.students;
 CREATE POLICY "Homeroom teachers update limited student fields"
 ON public.students FOR UPDATE

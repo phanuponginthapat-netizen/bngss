@@ -29,17 +29,20 @@ ALTER TABLE public.ai_chat_logs ENABLE ROW LEVEL SECURITY;
 
 -- ผู้ใช้ดูประวัติของตัวเองได้
 DROP POLICY IF EXISTS "Users can view their own chat logs" ON public.ai_chat_logs;
+DROP POLICY IF EXISTS "Users can view their own chat logs" ON public.ai_chat_logs;
 CREATE POLICY "Users can view their own chat logs"
 ON public.ai_chat_logs FOR SELECT TO authenticated
 USING (user_id = auth.uid());
 
 -- admin / director ดูได้ทั้งหมด เพื่อวิเคราะห์ความเสี่ยง
 DROP POLICY IF EXISTS "Admins and directors can view all chat logs" ON public.ai_chat_logs;
+DROP POLICY IF EXISTS "Admins and directors can view all chat logs" ON public.ai_chat_logs;
 CREATE POLICY "Admins and directors can view all chat logs"
 ON public.ai_chat_logs FOR SELECT TO authenticated
 USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
 
 -- ครูที่เป็น homeroom ดู log ของนักเรียนในห้องตัวเองได้
+DROP POLICY IF EXISTS "Homeroom teachers can view their students' chat logs" ON public.ai_chat_logs;
 DROP POLICY IF EXISTS "Homeroom teachers can view their students' chat logs" ON public.ai_chat_logs;
 CREATE POLICY "Homeroom teachers can view their students' chat logs"
 ON public.ai_chat_logs FOR SELECT TO authenticated

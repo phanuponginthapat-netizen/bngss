@@ -12,9 +12,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.ai_bot_knowledge TO authenticated
 GRANT ALL ON public.ai_bot_knowledge TO service_role;
 ALTER TABLE public.ai_bot_knowledge ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Authenticated can read enabled knowledge" ON public.ai_bot_knowledge;
+DROP POLICY IF EXISTS "Authenticated can read enabled knowledge" ON public.ai_bot_knowledge;
 CREATE POLICY "Authenticated can read enabled knowledge"
   ON public.ai_bot_knowledge FOR SELECT TO authenticated
   USING (enabled = true OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
+DROP POLICY IF EXISTS "Admin/director can manage knowledge" ON public.ai_bot_knowledge;
 DROP POLICY IF EXISTS "Admin/director can manage knowledge" ON public.ai_bot_knowledge;
 CREATE POLICY "Admin/director can manage knowledge"
   ON public.ai_bot_knowledge FOR ALL TO authenticated

@@ -44,9 +44,12 @@ ALTER TABLE public.enrollments ENABLE ROW LEVEL SECURITY;
 
 -- RLS policies for authenticated users
 DROP POLICY IF EXISTS "Auth users can manage classrooms" ON public.classrooms;
+DROP POLICY IF EXISTS "Auth users can manage classrooms" ON public.classrooms;
 CREATE POLICY "Auth users can manage classrooms" ON public.classrooms FOR ALL TO authenticated USING (true) WITH CHECK (true);
 DROP POLICY IF EXISTS "Auth users can manage students" ON public.students;
+DROP POLICY IF EXISTS "Auth users can manage students" ON public.students;
 CREATE POLICY "Auth users can manage students" ON public.students FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Auth users can manage enrollments" ON public.enrollments;
 DROP POLICY IF EXISTS "Auth users can manage enrollments" ON public.enrollments;
 CREATE POLICY "Auth users can manage enrollments" ON public.enrollments FOR ALL TO authenticated USING (true) WITH CHECK (true);
 

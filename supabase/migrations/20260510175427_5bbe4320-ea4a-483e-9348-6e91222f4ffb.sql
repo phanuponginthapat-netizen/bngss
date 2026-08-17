@@ -14,6 +14,7 @@ GRANT SELECT ON public.assets_public_lookup TO anon, authenticated;
 
 -- Staff (admin/director/teacher) can read full asset details
 DROP POLICY IF EXISTS "Staff can view assets" ON public.assets;
+DROP POLICY IF EXISTS "Staff can view assets" ON public.assets;
 CREATE POLICY "Staff can view assets"
 ON public.assets FOR SELECT
 TO authenticated
@@ -35,6 +36,7 @@ USING (
 DROP POLICY IF EXISTS "Auth users can view document_recipients" ON public.document_recipients;
 
 DROP POLICY IF EXISTS "Recipients and staff can view document_recipients" ON public.document_recipients;
+DROP POLICY IF EXISTS "Recipients and staff can view document_recipients" ON public.document_recipients;
 CREATE POLICY "Recipients and staff can view document_recipients"
 ON public.document_recipients FOR SELECT
 TO authenticated
@@ -55,6 +57,7 @@ USING (
 DROP POLICY IF EXISTS "Auth users can view early_childhood_dev" ON public.early_childhood_dev;
 
 DROP POLICY IF EXISTS "Staff can view early_childhood_dev" ON public.early_childhood_dev;
+DROP POLICY IF EXISTS "Staff can view early_childhood_dev" ON public.early_childhood_dev;
 CREATE POLICY "Staff can view early_childhood_dev"
 ON public.early_childhood_dev FOR SELECT
 TO authenticated
@@ -64,6 +67,7 @@ USING (
   has_role(auth.uid(),'teacher')
 );
 
+DROP POLICY IF EXISTS "Parents view linked early_childhood_dev" ON public.early_childhood_dev;
 DROP POLICY IF EXISTS "Parents view linked early_childhood_dev" ON public.early_childhood_dev;
 CREATE POLICY "Parents view linked early_childhood_dev"
 ON public.early_childhood_dev FOR SELECT
@@ -76,6 +80,7 @@ USING (
 );
 
 DROP POLICY IF EXISTS "Students view own early_childhood_dev" ON public.early_childhood_dev;
+DROP POLICY IF EXISTS "Students view own early_childhood_dev" ON public.early_childhood_dev;
 CREATE POLICY "Students view own early_childhood_dev"
 ON public.early_childhood_dev FOR SELECT
 TO authenticated
@@ -86,6 +91,7 @@ USING (
 -- ============================================
 -- 4. FIX: behavior_records — staff manage + student self-view
 -- ============================================
+DROP POLICY IF EXISTS "Staff can manage behavior_records" ON public.behavior_records;
 DROP POLICY IF EXISTS "Staff can manage behavior_records" ON public.behavior_records;
 CREATE POLICY "Staff can manage behavior_records"
 ON public.behavior_records FOR ALL
@@ -101,6 +107,7 @@ WITH CHECK (
   has_role(auth.uid(),'teacher')
 );
 
+DROP POLICY IF EXISTS "Students view own behavior" ON public.behavior_records;
 DROP POLICY IF EXISTS "Students view own behavior" ON public.behavior_records;
 CREATE POLICY "Students view own behavior"
 ON public.behavior_records FOR SELECT

@@ -1,2 +1,3 @@
 DROP POLICY IF EXISTS "Teachers can manage assessment_criteria" ON public.assessment_criteria;
+DROP POLICY IF EXISTS "Teachers can manage assessment_criteria" ON public.assessment_criteria;
 CREATE POLICY "Teachers can manage assessment_criteria" ON public.assessment_criteria FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'teacher'::app_role)) WITH CHECK (public.has_role(auth.uid(), 'teacher'::app_role));

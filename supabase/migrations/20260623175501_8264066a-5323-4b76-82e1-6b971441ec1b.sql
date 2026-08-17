@@ -59,6 +59,7 @@ DROP POLICY IF EXISTS "School admin/director can view school eforms" ON public.e
 DROP POLICY IF EXISTS "Super/area admin can view all eforms" ON public.eforms;
 DROP POLICY IF EXISTS "Sender can manage own eforms" ON public.eforms;
 
+DROP POLICY IF EXISTS "Sender can manage own eforms" ON public.eforms;
 CREATE POLICY "Sender can manage own eforms"
 ON public.eforms
 FOR ALL
@@ -66,6 +67,7 @@ TO authenticated
 USING (sender_id = auth.uid())
 WITH CHECK (sender_id = auth.uid());
 
+DROP POLICY IF EXISTS "Recipients and school leaders can view eforms" ON public.eforms;
 DROP POLICY IF EXISTS "Recipients and school leaders can view eforms" ON public.eforms;
 CREATE POLICY "Recipients and school leaders can view eforms"
 ON public.eforms
@@ -78,12 +80,14 @@ DROP POLICY IF EXISTS "Recipient can update own row" ON public.eform_recipients;
 DROP POLICY IF EXISTS "Sender can manage recipients" ON public.eform_recipients;
 DROP POLICY IF EXISTS "School admin/director can view recipients" ON public.eform_recipients;
 
+DROP POLICY IF EXISTS "Recipient can view own row" ON public.eform_recipients;
 CREATE POLICY "Recipient can view own row"
 ON public.eform_recipients
 FOR SELECT
 TO authenticated
 USING (recipient_id = auth.uid());
 
+DROP POLICY IF EXISTS "Recipient can update own row" ON public.eform_recipients;
 CREATE POLICY "Recipient can update own row"
 ON public.eform_recipients
 FOR UPDATE
@@ -91,6 +95,7 @@ TO authenticated
 USING (recipient_id = auth.uid())
 WITH CHECK (recipient_id = auth.uid());
 
+DROP POLICY IF EXISTS "Sender can manage recipients" ON public.eform_recipients;
 CREATE POLICY "Sender can manage recipients"
 ON public.eform_recipients
 FOR ALL
@@ -98,6 +103,7 @@ TO authenticated
 USING (public.is_eform_sender(eform_id, auth.uid()))
 WITH CHECK (public.is_eform_sender(eform_id, auth.uid()));
 
+DROP POLICY IF EXISTS "School leaders can view recipients" ON public.eform_recipients;
 DROP POLICY IF EXISTS "School leaders can view recipients" ON public.eform_recipients;
 CREATE POLICY "School leaders can view recipients"
 ON public.eform_recipients
@@ -113,12 +119,14 @@ DROP POLICY IF EXISTS "Recipients view eform attachments" ON public.eform_attach
 DROP POLICY IF EXISTS "Sender can manage attachments" ON public.eform_attachments;
 
 DROP POLICY IF EXISTS "Users can view attachments of accessible eforms" ON public.eform_attachments;
+DROP POLICY IF EXISTS "Users can view attachments of accessible eforms" ON public.eform_attachments;
 CREATE POLICY "Users can view attachments of accessible eforms"
 ON public.eform_attachments
 FOR SELECT
 TO authenticated
 USING (public.can_access_eform(eform_id, auth.uid()));
 
+DROP POLICY IF EXISTS "Sender can manage attachments" ON public.eform_attachments;
 CREATE POLICY "Sender can manage attachments"
 ON public.eform_attachments
 FOR ALL

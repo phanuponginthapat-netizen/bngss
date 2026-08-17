@@ -22,20 +22,24 @@ GRANT ALL ON public.dashboard_shortcuts TO service_role;
 ALTER TABLE public.dashboard_shortcuts ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can view active shortcuts" ON public.dashboard_shortcuts;
+DROP POLICY IF EXISTS "Anyone can view active shortcuts" ON public.dashboard_shortcuts;
 CREATE POLICY "Anyone can view active shortcuts"
   ON public.dashboard_shortcuts FOR SELECT
   USING (is_active = true OR public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Admins can insert shortcuts" ON public.dashboard_shortcuts;
 DROP POLICY IF EXISTS "Admins can insert shortcuts" ON public.dashboard_shortcuts;
 CREATE POLICY "Admins can insert shortcuts"
   ON public.dashboard_shortcuts FOR INSERT TO authenticated
   WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
 DROP POLICY IF EXISTS "Admins can update shortcuts" ON public.dashboard_shortcuts;
+DROP POLICY IF EXISTS "Admins can update shortcuts" ON public.dashboard_shortcuts;
 CREATE POLICY "Admins can update shortcuts"
   ON public.dashboard_shortcuts FOR UPDATE TO authenticated
   USING (public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Admins can delete shortcuts" ON public.dashboard_shortcuts;
 DROP POLICY IF EXISTS "Admins can delete shortcuts" ON public.dashboard_shortcuts;
 CREATE POLICY "Admins can delete shortcuts"
   ON public.dashboard_shortcuts FOR DELETE TO authenticated

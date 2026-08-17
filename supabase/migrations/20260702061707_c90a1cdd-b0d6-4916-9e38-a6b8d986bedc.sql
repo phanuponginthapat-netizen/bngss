@@ -14,9 +14,12 @@ GRANT ALL ON public.browser_logs TO service_role;
 ALTER TABLE public.browser_logs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "own insert" ON public.browser_logs;
+DROP POLICY IF EXISTS "own insert" ON public.browser_logs;
 CREATE POLICY "own insert" ON public.browser_logs FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 DROP POLICY IF EXISTS "own select" ON public.browser_logs;
+DROP POLICY IF EXISTS "own select" ON public.browser_logs;
 CREATE POLICY "own select" ON public.browser_logs FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "admin select all" ON public.browser_logs;
 DROP POLICY IF EXISTS "admin select all" ON public.browser_logs;
 CREATE POLICY "admin select all" ON public.browser_logs FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
 

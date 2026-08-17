@@ -15,6 +15,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS print_templates_default_per_category_uidx
 
 -- RLS: allow shared roles to read published master templates
 DROP POLICY IF EXISTS "Shared masters readable by shared roles" ON public.print_templates;
+DROP POLICY IF EXISTS "Shared masters readable by shared roles" ON public.print_templates;
 CREATE POLICY "Shared masters readable by shared roles"
 ON public.print_templates
 FOR SELECT

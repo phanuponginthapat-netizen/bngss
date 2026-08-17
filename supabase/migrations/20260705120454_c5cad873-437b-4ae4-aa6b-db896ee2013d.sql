@@ -1,6 +1,9 @@
 -- 1) enum ตำแหน่งในฝ่าย/หมวด
 DO $$ BEGIN
-  CREATE TYPE public.dept_role AS ENUM ('member','head','deputy_head','section_head');
+DO $do$ BEGIN
+    CREATE TYPE public.dept_role AS ENUM ('member','head','deputy_head','section_head');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $do$;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- 2) ขยาย user_departments ให้มี dept_role + sync is_head
@@ -49,6 +52,7 @@ GRANT ALL ON public.user_subject_groups TO service_role;
 ALTER TABLE public.user_subject_groups ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users view own subject groups" ON public.user_subject_groups;
+DROP POLICY IF EXISTS "Users view own subject groups" ON public.user_subject_groups;
 CREATE POLICY "Users view own subject groups"
 ON public.user_subject_groups FOR SELECT
 TO authenticated
@@ -58,6 +62,7 @@ USING (
   OR public.has_role(auth.uid(), 'director')
 );
 
+DROP POLICY IF EXISTS "Admin manage subject groups" ON public.user_subject_groups;
 DROP POLICY IF EXISTS "Admin manage subject groups" ON public.user_subject_groups;
 CREATE POLICY "Admin manage subject groups"
 ON public.user_subject_groups FOR ALL

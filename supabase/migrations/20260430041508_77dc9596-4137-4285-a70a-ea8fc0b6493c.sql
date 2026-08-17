@@ -2,12 +2,14 @@
 -- 1. เพิ่ม personnel_id และทำให้ student_id เป็น nullable
 ALTER TABLE public.garbage_deposits ADD COLUMN IF NOT EXISTS personnel_id uuid REFERENCES public.personnel(id) ON DELETE CASCADE;
 ALTER TABLE public.garbage_deposits ALTER COLUMN student_id DROP NOT NULL;
+ALTER TABLE public.garbage_deposits DROP CONSTRAINT IF EXISTS garbage_deposits_holder_check;
 ALTER TABLE public.garbage_deposits ADD CONSTRAINT garbage_deposits_holder_check 
   CHECK ((student_id IS NOT NULL AND personnel_id IS NULL) OR (student_id IS NULL AND personnel_id IS NOT NULL));
 CREATE INDEX IF NOT EXISTS idx_garbage_deposits_personnel ON public.garbage_deposits(personnel_id);
 
 ALTER TABLE public.garbage_redemptions ADD COLUMN IF NOT EXISTS personnel_id uuid REFERENCES public.personnel(id) ON DELETE CASCADE;
 ALTER TABLE public.garbage_redemptions ALTER COLUMN student_id DROP NOT NULL;
+ALTER TABLE public.garbage_redemptions DROP CONSTRAINT IF EXISTS garbage_redemptions_holder_check;
 ALTER TABLE public.garbage_redemptions ADD CONSTRAINT garbage_redemptions_holder_check 
   CHECK ((student_id IS NOT NULL AND personnel_id IS NULL) OR (student_id IS NULL AND personnel_id IS NOT NULL));
 CREATE INDEX IF NOT EXISTS idx_garbage_redemptions_personnel ON public.garbage_redemptions(personnel_id);
@@ -21,8 +23,10 @@ CREATE TABLE IF NOT EXISTS public.garbage_personnel_points (
 ALTER TABLE public.garbage_personnel_points ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "gpp_select_staff" ON public.garbage_personnel_points;
+DROP POLICY IF EXISTS "gpp_select_staff" ON public.garbage_personnel_points;
 CREATE POLICY "gpp_select_staff" ON public.garbage_personnel_points FOR SELECT TO authenticated
   USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
+DROP POLICY IF EXISTS "gpp_select_self" ON public.garbage_personnel_points;
 DROP POLICY IF EXISTS "gpp_select_self" ON public.garbage_personnel_points;
 CREATE POLICY "gpp_select_self" ON public.garbage_personnel_points FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.personnel p WHERE p.id = garbage_personnel_points.personnel_id AND p.user_id = auth.uid()));
@@ -88,9 +92,11 @@ END $function$;
 
 -- 5. RLS เพิ่มเติม: ให้บุคลากรเห็นรายการของตัวเอง
 DROP POLICY IF EXISTS "garbage_deposits_select_personnel_self" ON public.garbage_deposits;
+DROP POLICY IF EXISTS "garbage_deposits_select_personnel_self" ON public.garbage_deposits;
 CREATE POLICY "garbage_deposits_select_personnel_self" ON public.garbage_deposits FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.personnel p WHERE p.id = garbage_deposits.personnel_id AND p.user_id = auth.uid()));
 
+DROP POLICY IF EXISTS "garbage_redemptions_select_personnel_self" ON public.garbage_redemptions;
 DROP POLICY IF EXISTS "garbage_redemptions_select_personnel_self" ON public.garbage_redemptions;
 CREATE POLICY "garbage_redemptions_select_personnel_self" ON public.garbage_redemptions FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.personnel p WHERE p.id = garbage_redemptions.personnel_id AND p.user_id = auth.uid()));

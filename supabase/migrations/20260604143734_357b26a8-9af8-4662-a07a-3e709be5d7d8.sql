@@ -1,5 +1,5 @@
 DROP VIEW IF EXISTS public.ai_usage_summary;
-CREATE VIEW public.ai_usage_summary
+CREATE OR REPLACE VIEW public.ai_usage_summary
 WITH (security_invoker=on) AS
 SELECT
   l.user_id,

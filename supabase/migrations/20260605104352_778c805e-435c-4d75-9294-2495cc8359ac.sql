@@ -6,11 +6,13 @@ DROP POLICY IF EXISTS "Anyone can view ict loan photos" ON storage.objects;
 DROP POLICY IF EXISTS "Public can view ict loan photos" ON storage.objects;
 
 -- Authenticated SELECT for pp5-files
+DROP POLICY IF EXISTS "Authenticated can view pp5 files" ON storage.objects;
 CREATE POLICY "Authenticated can view pp5 files"
 ON storage.objects FOR SELECT TO authenticated
 USING (bucket_id = 'pp5-files');
 
 -- Authenticated SELECT for ict-loan-photos
+DROP POLICY IF EXISTS "Authenticated can view ict loan photos" ON storage.objects;
 DROP POLICY IF EXISTS "Authenticated can view ict loan photos" ON storage.objects;
 CREATE POLICY "Authenticated can view ict loan photos"
 ON storage.objects FOR SELECT TO authenticated

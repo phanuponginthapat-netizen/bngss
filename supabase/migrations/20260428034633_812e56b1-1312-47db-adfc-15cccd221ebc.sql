@@ -58,11 +58,13 @@ ALTER TABLE public.eform_recipients ENABLE ROW LEVEL SECURITY;
 
 -- eforms: sender, recipients, school admins/director, super/area admin can read
 DROP POLICY IF EXISTS "Sender can manage own eforms" ON public.eforms;
+DROP POLICY IF EXISTS "Sender can manage own eforms" ON public.eforms;
 CREATE POLICY "Sender can manage own eforms"
 ON public.eforms FOR ALL TO authenticated
 USING (sender_id = auth.uid())
 WITH CHECK (sender_id = auth.uid());
 
+DROP POLICY IF EXISTS "Recipients can view eforms sent to them" ON public.eforms;
 DROP POLICY IF EXISTS "Recipients can view eforms sent to them" ON public.eforms;
 CREATE POLICY "Recipients can view eforms sent to them"
 ON public.eforms FOR SELECT TO authenticated
@@ -72,6 +74,7 @@ USING (EXISTS (
 ));
 
 DROP POLICY IF EXISTS "School admin/director can view school eforms" ON public.eforms;
+DROP POLICY IF EXISTS "School admin/director can view school eforms" ON public.eforms;
 CREATE POLICY "School admin/director can view school eforms"
 ON public.eforms FOR SELECT TO authenticated
 USING (
@@ -80,16 +83,19 @@ USING (
 );
 
 DROP POLICY IF EXISTS "Super/area admin can view all eforms" ON public.eforms;
+DROP POLICY IF EXISTS "Super/area admin can view all eforms" ON public.eforms;
 CREATE POLICY "Super/area admin can view all eforms"
 ON public.eforms FOR SELECT TO authenticated
 USING (is_super_admin(auth.uid()) OR is_area_admin(auth.uid()));
 
 -- eform_recipients: recipient sees/updates own row; sender + school admin can view
 DROP POLICY IF EXISTS "Recipient can view own row" ON public.eform_recipients;
+DROP POLICY IF EXISTS "Recipient can view own row" ON public.eform_recipients;
 CREATE POLICY "Recipient can view own row"
 ON public.eform_recipients FOR SELECT TO authenticated
 USING (recipient_id = auth.uid());
 
+DROP POLICY IF EXISTS "Recipient can update own row" ON public.eform_recipients;
 DROP POLICY IF EXISTS "Recipient can update own row" ON public.eform_recipients;
 CREATE POLICY "Recipient can update own row"
 ON public.eform_recipients FOR UPDATE TO authenticated
@@ -97,11 +103,13 @@ USING (recipient_id = auth.uid())
 WITH CHECK (recipient_id = auth.uid());
 
 DROP POLICY IF EXISTS "Sender can manage recipients" ON public.eform_recipients;
+DROP POLICY IF EXISTS "Sender can manage recipients" ON public.eform_recipients;
 CREATE POLICY "Sender can manage recipients"
 ON public.eform_recipients FOR ALL TO authenticated
 USING (EXISTS (SELECT 1 FROM public.eforms e WHERE e.id = eform_recipients.eform_id AND e.sender_id = auth.uid()))
 WITH CHECK (EXISTS (SELECT 1 FROM public.eforms e WHERE e.id = eform_recipients.eform_id AND e.sender_id = auth.uid()));
 
+DROP POLICY IF EXISTS "School admin/director can view recipients" ON public.eform_recipients;
 DROP POLICY IF EXISTS "School admin/director can view recipients" ON public.eform_recipients;
 CREATE POLICY "School admin/director can view recipients"
 ON public.eform_recipients FOR SELECT TO authenticated

@@ -40,20 +40,28 @@ ALTER TABLE public.student_scores ENABLE ROW LEVEL SECURITY;
 
 -- RLS policies
 DROP POLICY IF EXISTS "Authenticated users can view subjects" ON public.subjects;
+DROP POLICY IF EXISTS "Authenticated users can view subjects" ON public.subjects;
 CREATE POLICY "Authenticated users can view subjects" ON public.subjects FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated users can insert subjects" ON public.subjects;
 DROP POLICY IF EXISTS "Authenticated users can insert subjects" ON public.subjects;
 CREATE POLICY "Authenticated users can insert subjects" ON public.subjects FOR INSERT TO authenticated WITH CHECK (true);
 DROP POLICY IF EXISTS "Authenticated users can update subjects" ON public.subjects;
+DROP POLICY IF EXISTS "Authenticated users can update subjects" ON public.subjects;
 CREATE POLICY "Authenticated users can update subjects" ON public.subjects FOR UPDATE TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated users can delete subjects" ON public.subjects;
 DROP POLICY IF EXISTS "Authenticated users can delete subjects" ON public.subjects;
 CREATE POLICY "Authenticated users can delete subjects" ON public.subjects FOR DELETE TO authenticated USING (true);
 
 DROP POLICY IF EXISTS "Authenticated users can view scores" ON public.student_scores;
+DROP POLICY IF EXISTS "Authenticated users can view scores" ON public.student_scores;
 CREATE POLICY "Authenticated users can view scores" ON public.student_scores FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated users can insert scores" ON public.student_scores;
 DROP POLICY IF EXISTS "Authenticated users can insert scores" ON public.student_scores;
 CREATE POLICY "Authenticated users can insert scores" ON public.student_scores FOR INSERT TO authenticated WITH CHECK (true);
 DROP POLICY IF EXISTS "Authenticated users can update scores" ON public.student_scores;
+DROP POLICY IF EXISTS "Authenticated users can update scores" ON public.student_scores;
 CREATE POLICY "Authenticated users can update scores" ON public.student_scores FOR UPDATE TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated users can delete scores" ON public.student_scores;
 DROP POLICY IF EXISTS "Authenticated users can delete scores" ON public.student_scores;
 CREATE POLICY "Authenticated users can delete scores" ON public.student_scores FOR DELETE TO authenticated USING (true);
 

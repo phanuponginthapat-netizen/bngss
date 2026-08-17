@@ -23,15 +23,19 @@ GRANT ALL ON public.game_hub_games TO service_role;
 ALTER TABLE public.game_hub_games ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "games_read_active" ON public.game_hub_games;
+DROP POLICY IF EXISTS "games_read_active" ON public.game_hub_games;
 CREATE POLICY "games_read_active" ON public.game_hub_games FOR SELECT TO authenticated
   USING (is_active = true OR created_by = auth.uid() OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
+DROP POLICY IF EXISTS "games_insert_teacher_admin" ON public.game_hub_games;
 DROP POLICY IF EXISTS "games_insert_teacher_admin" ON public.game_hub_games;
 CREATE POLICY "games_insert_teacher_admin" ON public.game_hub_games FOR INSERT TO authenticated
   WITH CHECK (created_by = auth.uid() AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher')));
 DROP POLICY IF EXISTS "games_update_owner_admin" ON public.game_hub_games;
+DROP POLICY IF EXISTS "games_update_owner_admin" ON public.game_hub_games;
 CREATE POLICY "games_update_owner_admin" ON public.game_hub_games FOR UPDATE TO authenticated
   USING (created_by = auth.uid() OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'))
   WITH CHECK (created_by = auth.uid() OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
+DROP POLICY IF EXISTS "games_delete_owner_admin" ON public.game_hub_games;
 DROP POLICY IF EXISTS "games_delete_owner_admin" ON public.game_hub_games;
 CREATE POLICY "games_delete_owner_admin" ON public.game_hub_games FOR DELETE TO authenticated
   USING (created_by = auth.uid() OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
@@ -54,10 +58,13 @@ GRANT ALL ON public.game_hub_scores TO service_role;
 ALTER TABLE public.game_hub_scores ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "scores_read_all_auth" ON public.game_hub_scores;
+DROP POLICY IF EXISTS "scores_read_all_auth" ON public.game_hub_scores;
 CREATE POLICY "scores_read_all_auth" ON public.game_hub_scores FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "scores_insert_self" ON public.game_hub_scores;
 DROP POLICY IF EXISTS "scores_insert_self" ON public.game_hub_scores;
 CREATE POLICY "scores_insert_self" ON public.game_hub_scores FOR INSERT TO authenticated
   WITH CHECK (auth_user_id = auth.uid() OR public.has_role(auth.uid(),'admin'));
+DROP POLICY IF EXISTS "scores_delete_admin" ON public.game_hub_scores;
 DROP POLICY IF EXISTS "scores_delete_admin" ON public.game_hub_scores;
 CREATE POLICY "scores_delete_admin" ON public.game_hub_scores FOR DELETE TO authenticated
   USING (public.has_role(auth.uid(),'admin'));
@@ -77,6 +84,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.game_hub_api_keys TO authenticate
 GRANT ALL ON public.game_hub_api_keys TO service_role;
 ALTER TABLE public.game_hub_api_keys ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "apikeys_admin_only" ON public.game_hub_api_keys;
 DROP POLICY IF EXISTS "apikeys_admin_only" ON public.game_hub_api_keys;
 CREATE POLICY "apikeys_admin_only" ON public.game_hub_api_keys FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));

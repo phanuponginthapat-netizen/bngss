@@ -1,4 +1,5 @@
 DROP POLICY IF EXISTS "Teachers can view all students in same school" ON public.students;
+DROP POLICY IF EXISTS "Teachers can view all students in same school" ON public.students;
 CREATE POLICY "Teachers can view all students in same school" ON public.students
 FOR SELECT TO authenticated
 USING (

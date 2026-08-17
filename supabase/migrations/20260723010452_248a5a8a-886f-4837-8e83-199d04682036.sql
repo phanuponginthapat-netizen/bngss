@@ -1,6 +1,7 @@
 
 -- student_face_descriptors: staff manage
 DROP POLICY IF EXISTS "staff manage face descriptors" ON public.student_face_descriptors;
+DROP POLICY IF EXISTS "staff manage face descriptors" ON public.student_face_descriptors;
 CREATE POLICY "staff manage face descriptors"
 ON public.student_face_descriptors FOR ALL TO authenticated
 USING (
@@ -15,6 +16,7 @@ WITH CHECK (
 );
 
 -- face_registration_requests: staff manage
+DROP POLICY IF EXISTS "staff manage face registration requests" ON public.face_registration_requests;
 DROP POLICY IF EXISTS "staff manage face registration requests" ON public.face_registration_requests;
 CREATE POLICY "staff manage face registration requests"
 ON public.face_registration_requests FOR ALL TO authenticated
@@ -31,11 +33,13 @@ WITH CHECK (
 
 -- Students can view their own requests
 DROP POLICY IF EXISTS "students view own face requests" ON public.face_registration_requests;
+DROP POLICY IF EXISTS "students view own face requests" ON public.face_registration_requests;
 CREATE POLICY "students view own face requests"
 ON public.face_registration_requests FOR SELECT TO authenticated
 USING (requested_by = auth.uid());
 
 -- face_registration_history: staff view + insert
+DROP POLICY IF EXISTS "staff view face history" ON public.face_registration_history;
 DROP POLICY IF EXISTS "staff view face history" ON public.face_registration_history;
 CREATE POLICY "staff view face history"
 ON public.face_registration_history FOR SELECT TO authenticated
@@ -46,6 +50,7 @@ USING (
 );
 
 DROP POLICY IF EXISTS "staff insert face history" ON public.face_registration_history;
+DROP POLICY IF EXISTS "staff insert face history" ON public.face_registration_history;
 CREATE POLICY "staff insert face history"
 ON public.face_registration_history FOR INSERT TO authenticated
 WITH CHECK (
@@ -55,6 +60,7 @@ WITH CHECK (
 );
 
 -- kiosk_devices: admins/directors full manage; owner select/update own
+DROP POLICY IF EXISTS "admins manage kiosk devices" ON public.kiosk_devices;
 DROP POLICY IF EXISTS "admins manage kiosk devices" ON public.kiosk_devices;
 CREATE POLICY "admins manage kiosk devices"
 ON public.kiosk_devices FOR ALL TO authenticated
@@ -68,10 +74,12 @@ WITH CHECK (
 );
 
 DROP POLICY IF EXISTS "owner view own kiosk device" ON public.kiosk_devices;
+DROP POLICY IF EXISTS "owner view own kiosk device" ON public.kiosk_devices;
 CREATE POLICY "owner view own kiosk device"
 ON public.kiosk_devices FOR SELECT TO authenticated
 USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "owner update own kiosk device" ON public.kiosk_devices;
 DROP POLICY IF EXISTS "owner update own kiosk device" ON public.kiosk_devices;
 CREATE POLICY "owner update own kiosk device"
 ON public.kiosk_devices FOR UPDATE TO authenticated

@@ -14,6 +14,7 @@ DROP POLICY IF EXISTS "Parents view linked student screenings" ON public.student
 ALTER TABLE public.student_screenings ENABLE ROW LEVEL SECURITY;
 
 -- Staff manage screenings for students in their school
+DROP POLICY IF EXISTS "Staff manage own school screenings" ON public.student_screenings;
 CREATE POLICY "Staff manage own school screenings"
 ON public.student_screenings
 FOR ALL
@@ -46,6 +47,7 @@ WITH CHECK (
 );
 
 -- Super/Area admin view all
+DROP POLICY IF EXISTS "Super/Area admin view all screenings" ON public.student_screenings;
 CREATE POLICY "Super/Area admin view all screenings"
 ON public.student_screenings
 FOR SELECT
@@ -53,6 +55,7 @@ TO authenticated
 USING (is_super_admin(auth.uid()) OR is_area_admin(auth.uid()));
 
 -- Students view their own screenings
+DROP POLICY IF EXISTS "Students view their own screenings" ON public.student_screenings;
 CREATE POLICY "Students view their own screenings"
 ON public.student_screenings
 FOR SELECT
@@ -64,6 +67,7 @@ USING (
 );
 
 -- Parents view linked student screenings
+DROP POLICY IF EXISTS "Parents view linked student screenings" ON public.student_screenings;
 CREATE POLICY "Parents view linked student screenings"
 ON public.student_screenings
 FOR SELECT

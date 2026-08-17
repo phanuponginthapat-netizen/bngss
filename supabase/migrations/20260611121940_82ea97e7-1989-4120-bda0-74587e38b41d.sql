@@ -20,6 +20,7 @@ REVOKE SELECT (api_key) ON public.ai_providers FROM authenticated;
 
 -- 3. hub_projects: don't expose rows with NULL school_id to unrelated users
 DROP POLICY IF EXISTS "view projects in school" ON public.hub_projects;
+DROP POLICY IF EXISTS "view projects in school" ON public.hub_projects;
 CREATE POLICY "view projects in school" ON public.hub_projects
   FOR SELECT TO authenticated
   USING (
@@ -29,6 +30,7 @@ CREATE POLICY "view projects in school" ON public.hub_projects
   );
 
 -- 4. wall_post_reactions: scope to posts the user can already see
+DROP POLICY IF EXISTS "reactions read" ON public.wall_post_reactions;
 DROP POLICY IF EXISTS "reactions read" ON public.wall_post_reactions;
 CREATE POLICY "reactions read" ON public.wall_post_reactions
   FOR SELECT TO authenticated
@@ -46,6 +48,7 @@ CREATE POLICY "reactions read" ON public.wall_post_reactions
   );
 
 -- 5. personnel: teachers should only see personnel within their own school
+DROP POLICY IF EXISTS "Staff can view personnel" ON public.personnel;
 DROP POLICY IF EXISTS "Staff can view personnel" ON public.personnel;
 CREATE POLICY "Staff can view personnel" ON public.personnel
   FOR SELECT TO authenticated

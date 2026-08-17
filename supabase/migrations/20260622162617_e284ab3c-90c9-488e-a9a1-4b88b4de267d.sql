@@ -36,10 +36,12 @@ GRANT ALL ON public.print_templates TO service_role;
 ALTER TABLE public.print_templates ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates;
+DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates;
 CREATE POLICY "Anyone authenticated can read active templates"
   ON public.print_templates FOR SELECT TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Admins and directors manage templates" ON public.print_templates;
 DROP POLICY IF EXISTS "Admins and directors manage templates" ON public.print_templates;
 CREATE POLICY "Admins and directors manage templates"
   ON public.print_templates FOR ALL TO authenticated
@@ -64,9 +66,11 @@ GRANT ALL ON public.print_template_versions TO service_role;
 ALTER TABLE public.print_template_versions ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Auth read versions" ON public.print_template_versions;
+DROP POLICY IF EXISTS "Auth read versions" ON public.print_template_versions;
 CREATE POLICY "Auth read versions"
   ON public.print_template_versions FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Admins write versions" ON public.print_template_versions;
 DROP POLICY IF EXISTS "Admins write versions" ON public.print_template_versions;
 CREATE POLICY "Admins write versions"
   ON public.print_template_versions FOR INSERT TO authenticated

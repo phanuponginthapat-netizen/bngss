@@ -41,9 +41,11 @@ ALTER TABLE public.padlet_boards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.padlet_notes ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "boards viewable by authenticated" ON public.padlet_boards;
+DROP POLICY IF EXISTS "boards viewable by authenticated" ON public.padlet_boards;
 CREATE POLICY "boards viewable by authenticated"
 ON public.padlet_boards FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "teachers can create boards" ON public.padlet_boards;
 DROP POLICY IF EXISTS "teachers can create boards" ON public.padlet_boards;
 CREATE POLICY "teachers can create boards"
 ON public.padlet_boards FOR INSERT TO authenticated
@@ -56,6 +58,7 @@ WITH CHECK (
 );
 
 DROP POLICY IF EXISTS "owners or admins update boards" ON public.padlet_boards;
+DROP POLICY IF EXISTS "owners or admins update boards" ON public.padlet_boards;
 CREATE POLICY "owners or admins update boards"
 ON public.padlet_boards FOR UPDATE TO authenticated
 USING (
@@ -64,6 +67,7 @@ USING (
   public.has_role(auth.uid(), 'director')
 );
 
+DROP POLICY IF EXISTS "owners or admins delete boards" ON public.padlet_boards;
 DROP POLICY IF EXISTS "owners or admins delete boards" ON public.padlet_boards;
 CREATE POLICY "owners or admins delete boards"
 ON public.padlet_boards FOR DELETE TO authenticated
@@ -74,9 +78,11 @@ USING (
 );
 
 DROP POLICY IF EXISTS "notes viewable by authenticated" ON public.padlet_notes;
+DROP POLICY IF EXISTS "notes viewable by authenticated" ON public.padlet_notes;
 CREATE POLICY "notes viewable by authenticated"
 ON public.padlet_notes FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "authenticated can post notes" ON public.padlet_notes;
 DROP POLICY IF EXISTS "authenticated can post notes" ON public.padlet_notes;
 CREATE POLICY "authenticated can post notes"
 ON public.padlet_notes FOR INSERT TO authenticated
@@ -89,6 +95,7 @@ WITH CHECK (
 );
 
 DROP POLICY IF EXISTS "authors or board owners update notes" ON public.padlet_notes;
+DROP POLICY IF EXISTS "authors or board owners update notes" ON public.padlet_notes;
 CREATE POLICY "authors or board owners update notes"
 ON public.padlet_notes FOR UPDATE TO authenticated
 USING (
@@ -98,6 +105,7 @@ USING (
   public.has_role(auth.uid(), 'director')
 );
 
+DROP POLICY IF EXISTS "authors or board owners delete notes" ON public.padlet_notes;
 DROP POLICY IF EXISTS "authors or board owners delete notes" ON public.padlet_notes;
 CREATE POLICY "authors or board owners delete notes"
 ON public.padlet_notes FOR DELETE TO authenticated
@@ -122,15 +130,18 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.padlet_boards;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.padlet_notes;
 
 DROP POLICY IF EXISTS "padlet read authenticated" ON storage.objects;
+DROP POLICY IF EXISTS "padlet read authenticated" ON storage.objects;
 CREATE POLICY "padlet read authenticated"
 ON storage.objects FOR SELECT TO authenticated
 USING (bucket_id = 'padlet');
 
 DROP POLICY IF EXISTS "padlet upload authenticated" ON storage.objects;
+DROP POLICY IF EXISTS "padlet upload authenticated" ON storage.objects;
 CREATE POLICY "padlet upload authenticated"
 ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (bucket_id = 'padlet');
 
+DROP POLICY IF EXISTS "padlet delete own" ON storage.objects;
 DROP POLICY IF EXISTS "padlet delete own" ON storage.objects;
 CREATE POLICY "padlet delete own"
 ON storage.objects FOR DELETE TO authenticated

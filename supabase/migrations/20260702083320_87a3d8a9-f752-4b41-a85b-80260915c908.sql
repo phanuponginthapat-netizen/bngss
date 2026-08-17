@@ -21,10 +21,12 @@ GRANT ALL ON public.browser_shortcuts TO service_role;
 ALTER TABLE public.browser_shortcuts ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "authenticated can read shortcuts" ON public.browser_shortcuts;
+DROP POLICY IF EXISTS "authenticated can read shortcuts" ON public.browser_shortcuts;
 CREATE POLICY "authenticated can read shortcuts"
   ON public.browser_shortcuts FOR SELECT
   TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "admins manage shortcuts" ON public.browser_shortcuts;
 DROP POLICY IF EXISTS "admins manage shortcuts" ON public.browser_shortcuts;
 CREATE POLICY "admins manage shortcuts"
   ON public.browser_shortcuts FOR ALL

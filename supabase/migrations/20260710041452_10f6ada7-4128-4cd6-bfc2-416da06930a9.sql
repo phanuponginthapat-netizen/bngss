@@ -19,6 +19,7 @@ GRANT ALL ON public.home_visit_summaries TO service_role;
 ALTER TABLE public.home_visit_summaries ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Staff can view home visit summaries" ON public.home_visit_summaries;
+DROP POLICY IF EXISTS "Staff can view home visit summaries" ON public.home_visit_summaries;
 CREATE POLICY "Staff can view home visit summaries"
   ON public.home_visit_summaries FOR SELECT TO authenticated
   USING (
@@ -28,6 +29,7 @@ CREATE POLICY "Staff can view home visit summaries"
   );
 
 DROP POLICY IF EXISTS "Staff can insert home visit summaries" ON public.home_visit_summaries;
+DROP POLICY IF EXISTS "Staff can insert home visit summaries" ON public.home_visit_summaries;
 CREATE POLICY "Staff can insert home visit summaries"
   ON public.home_visit_summaries FOR INSERT TO authenticated
   WITH CHECK (
@@ -36,6 +38,7 @@ CREATE POLICY "Staff can insert home visit summaries"
     OR public.has_role(auth.uid(), 'teacher'::app_role)
   );
 
+DROP POLICY IF EXISTS "Staff can update home visit summaries" ON public.home_visit_summaries;
 DROP POLICY IF EXISTS "Staff can update home visit summaries" ON public.home_visit_summaries;
 CREATE POLICY "Staff can update home visit summaries"
   ON public.home_visit_summaries FOR UPDATE TO authenticated
@@ -50,6 +53,7 @@ CREATE POLICY "Staff can update home visit summaries"
     OR public.has_role(auth.uid(), 'teacher'::app_role)
   );
 
+DROP POLICY IF EXISTS "Admin/director can delete home visit summaries" ON public.home_visit_summaries;
 DROP POLICY IF EXISTS "Admin/director can delete home visit summaries" ON public.home_visit_summaries;
 CREATE POLICY "Admin/director can delete home visit summaries"
   ON public.home_visit_summaries FOR DELETE TO authenticated

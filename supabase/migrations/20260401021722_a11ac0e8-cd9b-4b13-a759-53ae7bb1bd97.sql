@@ -23,6 +23,7 @@ ALTER TABLE public.personnel_assessments ENABLE ROW LEVEL SECURITY;
 
 -- Teachers can manage their own assessments
 DROP POLICY IF EXISTS "Users can manage own assessments" ON public.personnel_assessments;
+DROP POLICY IF EXISTS "Users can manage own assessments" ON public.personnel_assessments;
 CREATE POLICY "Users can manage own assessments"
 ON public.personnel_assessments
 FOR ALL TO authenticated
@@ -30,6 +31,7 @@ USING (user_id = auth.uid())
 WITH CHECK (user_id = auth.uid());
 
 -- Admin/Director can view all assessments
+DROP POLICY IF EXISTS "Admin/Director can view all assessments" ON public.personnel_assessments;
 DROP POLICY IF EXISTS "Admin/Director can view all assessments" ON public.personnel_assessments;
 CREATE POLICY "Admin/Director can view all assessments"
 ON public.personnel_assessments

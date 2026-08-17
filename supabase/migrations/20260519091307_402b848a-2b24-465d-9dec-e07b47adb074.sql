@@ -19,10 +19,12 @@ CREATE TABLE IF NOT EXISTS public.google_chat_logs (
 ALTER TABLE public.google_chat_logs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Admin/Director can view chat logs" ON public.google_chat_logs;
+DROP POLICY IF EXISTS "Admin/Director can view chat logs" ON public.google_chat_logs;
 CREATE POLICY "Admin/Director can view chat logs"
 ON public.google_chat_logs FOR SELECT
 USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
 
+DROP POLICY IF EXISTS "Service role can insert chat logs" ON public.google_chat_logs;
 DROP POLICY IF EXISTS "Service role can insert chat logs" ON public.google_chat_logs;
 CREATE POLICY "Service role can insert chat logs"
 ON public.google_chat_logs FOR INSERT
