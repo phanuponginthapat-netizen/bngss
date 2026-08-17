@@ -136,7 +136,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const channels = new Set(payload.channels ?? ["in_app", "push", "line"]);
+    const channels = new Set<string>(payload.channels ?? ["in_app", "push", "line"]);
+    // Google Workspace personal DM (LINE-OA style) — auto-enabled when the service
+    // account secrets exist, unless the caller explicitly listed channels without it.
+    if (Deno.env.get("GOOGLE_CHAT_SA_JSON") && Deno.env.get("GOOGLE_CHAT_IMPERSONATE_USER") && !payload.channels) {
+      channels.add("gchat_dm");
+    }
     const type = payload.type || "notification";
     const severity: Severity = payload.severity ?? "info";
     const sevRank = SEVERITY_RANK[severity] ?? 0;
