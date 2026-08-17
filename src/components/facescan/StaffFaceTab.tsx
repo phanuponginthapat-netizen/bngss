@@ -109,6 +109,20 @@ const StaffFaceTab = () => {
   const [streaming, setStreaming] = useState(false);
   const [modelMsg, setModelMsg] = useState("");
   const [results, setResults] = useState<SimResult[]>([]);
+  const [autoLearn, setAutoLearn] = useState(true);
+  const autoLearnRef = useRef(true);
+  useEffect(() => { autoLearnRef.current = autoLearn; }, [autoLearn]);
+  const learnedRef = useRef<Record<string, number>>({});
+  const [learnLog, setLearnLog] = useState<string[]>([]);
+
+  // ---------- multi-photo learning ----------
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [learnTarget, setLearnTarget] = useState<string>("");
+  const [uploadSearch, setUploadSearch] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0 });
+  const [uploadResults, setUploadResults] = useState<FileLearnResult[]>([]);
+
 
   const known: KnownFace[] = grouped.map((g) => ({
     studentId: g.personnel_id,
