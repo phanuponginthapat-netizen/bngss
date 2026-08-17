@@ -627,11 +627,11 @@ export function AppSidebar() {
     { key: "div_admin",    label: L("งานผู้ดูแลระบบ",           "System Admin"),     icon: Shield,      depts: DIV_ADMIN,    color: "text-slate-300",   dot: "bg-slate-300", adminOnly: true },
   ];
 
-  // Section ordering per role — 4 divisions + tools (+ admin group for admin only)
+  // Section ordering per role — งานหลักก่อน แล้วค่อยเครื่องมือ/ผู้ดูแลระบบท้ายสุด
   const sectionOrderPerRole: Record<string, string[]> = {
-    admin:    ["div_tools", "div_academic", "div_student", "div_general", "div_budget", "div_admin"],
-    director: ["div_tools", "div_academic", "div_student", "div_budget", "div_general"],
-    teacher:  ["div_tools", "div_academic", "div_student", "div_general", "div_budget"],
+    admin:    ["div_academic", "div_student", "div_general", "div_budget", "div_tools", "div_admin"],
+    director: ["div_academic", "div_student", "div_budget", "div_general", "div_tools"],
+    teacher:  ["div_academic", "div_student", "div_general", "div_budget", "div_tools"],
     student:  ["div_tools"],
     parent:   ["div_tools"],
     alumni:   ["div_tools"],
