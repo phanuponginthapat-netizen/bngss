@@ -1051,7 +1051,30 @@ const FaceKioskPage = () => {
               <b> MediaMTX</b> หรือ <b>go2rtc</b> แปลง RTSP → HLS ก่อน
               (ดูคู่มือใน <code>docs/RTSP-CCTV-SETUP.md</code>)
             </p>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px] flex-1"
+                disabled={netTesting || !networkUrl.trim()}
+                onClick={async () => {
+                  setNetTesting(true);
+                  localStorage.setItem(NETWORK_CAM_URL_KEY, networkUrl);
+                  const r = await testStreamUrl(networkUrl);
+                  setNetStatus(r.message);
+                  r.ok ? toast.success(r.message) : toast.error(r.message, { duration: 9000 });
+                  setNetTesting(false);
+                }}
+              >
+                {netTesting ? "กำลังทดสอบ…" : "ทดสอบการเชื่อมต่อ"}
+              </Button>
+              <span className="text-[10px] text-muted-foreground">
+                {networkUrl.trim() ? describeStreamKind(classifyKind(networkUrl)) : ""}
+              </span>
+            </div>
+            {netStatus && <p className="text-[10px] text-muted-foreground break-words">สถานะ: {netStatus}</p>}
           </div>
+
 
           <div className="space-y-2 border-t pt-2">
             <label className="text-xs font-semibold flex items-center gap-2">
