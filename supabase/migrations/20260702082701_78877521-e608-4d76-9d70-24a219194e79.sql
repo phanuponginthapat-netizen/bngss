@@ -48,7 +48,8 @@ CREATE TRIGGER trg_dashboard_shortcuts_updated_at
 ALTER PUBLICATION supabase_realtime ADD TABLE public.dashboard_shortcuts;
 
 -- Seed with existing tiles
-INSERT INTO public.dashboard_shortcuts (label_th, label_en, icon, bg_class, target_url, sort_order) VALUES
+INSERT INTO public.dashboard_shortcuts (label_th, label_en, icon, bg_class, target_url, sort_order)
+SELECT * FROM (VALUES
 ('เช็คชื่อ-การมาเรียน','Attendance','ClipboardList','bg-gradient-to-br from-emerald-400 to-teal-600','/dashboard/student/attendance',10),
 ('สแกนนักเรียน','Scan Student','ScanFace','bg-gradient-to-br from-cyan-400 to-blue-600','/dashboard/student/face-scan',20),
 ('ตารางเรียน-ตารางสอน','Schedule','Calendar','bg-gradient-to-br from-amber-400 to-orange-500','/dashboard/academic/schedule',30),
@@ -62,4 +63,6 @@ INSERT INTO public.dashboard_shortcuts (label_th, label_en, icon, bg_class, targ
 ('ทรัพย์สิน & ครุภัณฑ์','Assets','Package','bg-gradient-to-br from-indigo-400 to-purple-600','/dashboard/finance/assets',110),
 ('บุคลากร','HR','Users','bg-gradient-to-br from-violet-400 to-fuchsia-600','/dashboard/hr/personnel',120),
 ('กล่องข้อความ','Inbox','Inbox','bg-gradient-to-br from-sky-400 to-blue-600','/dashboard/inbox',130),
-('ศูนย์รวมโมดูล','Module Hub','Network','bg-gradient-to-br from-slate-400 to-slate-600','/dashboard/hub',140);
+('ศูนย์รวมโมดูล','Module Hub','Network','bg-gradient-to-br from-slate-400 to-slate-600','/dashboard/hub',140)
+) AS v(label_th, label_en, icon, bg_class, target_url, sort_order)
+WHERE NOT EXISTS (SELECT 1 FROM public.dashboard_shortcuts t WHERE t.target_url = v.target_url);

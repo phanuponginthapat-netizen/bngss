@@ -117,9 +117,12 @@ CREATE TRIGGER trg_duty_logs_updated BEFORE UPDATE ON public.duty_logs
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- 5. Seed default locations
-INSERT INTO public.duty_locations (name, order_index) VALUES
+INSERT INTO public.duty_locations (name, order_index)
+SELECT * FROM (VALUES
   ('หน้าประตูโรงเรียน', 1),
   ('โรงอาหาร', 2),
   ('อาคารเรียน', 3),
   ('สนามกีฬา', 4),
-  ('ห้องน้ำนักเรียน', 5);
+  ('ห้องน้ำนักเรียน', 5)
+) AS v(name, order_index)
+WHERE NOT EXISTS (SELECT 1 FROM public.duty_locations t WHERE t.name = v.name);

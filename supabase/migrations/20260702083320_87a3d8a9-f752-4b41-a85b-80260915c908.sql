@@ -38,7 +38,8 @@ CREATE TRIGGER trg_browser_shortcuts_updated
 
 ALTER PUBLICATION supabase_realtime ADD TABLE public.browser_shortcuts;
 
-INSERT INTO public.browser_shortcuts (label_th, label_en, icon, target_url, bg_class, sort_order) VALUES
+INSERT INTO public.browser_shortcuts (label_th, label_en, icon, target_url, bg_class, sort_order)
+SELECT * FROM (VALUES
   ('Docs','Docs','FileText','https://docs.google.com','bg-gradient-to-br from-sky-400 to-blue-600',10),
   ('Sheets','Sheets','Sheet','https://sheets.google.com','bg-gradient-to-br from-green-400 to-emerald-600',20),
   ('Slides','Slides','Presentation','https://slides.google.com','bg-gradient-to-br from-yellow-400 to-amber-500',30),
@@ -48,4 +49,6 @@ INSERT INTO public.browser_shortcuts (label_th, label_en, icon, target_url, bg_c
   ('YouTube','YouTube','Youtube','https://www.youtube.com','bg-gradient-to-br from-red-400 to-rose-600',70),
   ('Translate','Translate','Languages','https://translate.google.com','bg-gradient-to-br from-cyan-400 to-blue-600',80),
   ('Maps','Maps','Map','https://www.google.com/maps','bg-gradient-to-br from-orange-400 to-red-500',90),
-  ('Wikipedia','Wikipedia','BookOpen','https://th.wikipedia.org','bg-gradient-to-br from-slate-400 to-slate-600',100);
+  ('Wikipedia','Wikipedia','BookOpen','https://th.wikipedia.org','bg-gradient-to-br from-slate-400 to-slate-600',100)
+) AS v(label_th, label_en, icon, target_url, bg_class, sort_order)
+WHERE NOT EXISTS (SELECT 1 FROM public.browser_shortcuts t WHERE t.target_url = v.target_url);
