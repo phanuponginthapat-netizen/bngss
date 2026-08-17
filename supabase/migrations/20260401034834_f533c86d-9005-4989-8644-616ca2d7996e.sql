@@ -181,30 +181,300 @@ ALTER TABLE public.substitute_teaching ADD CONSTRAINT substitute_teaching_subjec
 -- =============================================
 -- 2) ENABLE REALTIME ON ALL KEY TABLES
 -- =============================================
-ALTER PUBLICATION supabase_realtime ADD TABLE public.students;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.personnel;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.classrooms;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.attendance;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.behavior_records;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.student_leaves;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.student_screenings;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.home_visits;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.homeroom_records;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.health_records;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.early_childhood_dev;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.enrollments;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.student_scores;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.staff_leaves;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.staff_evaluations;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.salary_records;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.documents;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.budget_transactions;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.assets;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.procurement_records;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.schedules;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.subjects;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.sdq_records;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.student_subsidies;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.id_plan_records;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.news_posts;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'students'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.students;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'personnel'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.personnel;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'classrooms'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.classrooms;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'attendance'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.attendance;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'behavior_records'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.behavior_records;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'student_leaves'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.student_leaves;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'student_screenings'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.student_screenings;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'home_visits'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.home_visits;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'homeroom_records'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.homeroom_records;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'health_records'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.health_records;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'early_childhood_dev'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.early_childhood_dev;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'enrollments'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.enrollments;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'student_scores'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.student_scores;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'staff_leaves'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.staff_leaves;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'staff_evaluations'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.staff_evaluations;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'salary_records'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.salary_records;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'documents'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.documents;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'budget_transactions'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.budget_transactions;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'assets'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.assets;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'procurement_records'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.procurement_records;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'schedules'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.schedules;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'subjects'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.subjects;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'sdq_records'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.sdq_records;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'student_subsidies'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.student_subsidies;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'id_plan_records'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.id_plan_records;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'notifications'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'news_posts'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.news_posts;
+  END IF;
+END $$;

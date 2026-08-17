@@ -28,4 +28,24 @@ CREATE TRIGGER trg_ai_integrations_updated
 BEFORE UPDATE ON public.ai_integrations
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.ai_integrations;
+DO $$
+
+BEGIN
+
+  IF NOT EXISTS (
+
+    SELECT 1 FROM pg_publication_tables
+
+    WHERE pubname = 'supabase_realtime'
+
+      AND schemaname = 'public'
+
+      AND tablename = 'ai_integrations'
+
+  ) THEN
+
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.ai_integrations;
+
+  END IF;
+
+END $$;

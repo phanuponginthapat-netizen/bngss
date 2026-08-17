@@ -38,5 +38,25 @@ CREATE TRIGGER trg_aipk_updated_at
   BEFORE UPDATE ON public.ai_provider_keys
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.ai_provider_keys;
+DO $$
+
+BEGIN
+
+  IF NOT EXISTS (
+
+    SELECT 1 FROM pg_publication_tables
+
+    WHERE pubname = 'supabase_realtime'
+
+      AND schemaname = 'public'
+
+      AND tablename = 'ai_provider_keys'
+
+  ) THEN
+
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.ai_provider_keys;
+
+  END IF;
+
+END $$;
 ALTER TABLE public.ai_provider_keys REPLICA IDENTITY FULL;

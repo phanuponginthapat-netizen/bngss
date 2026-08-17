@@ -107,8 +107,17 @@ BEFORE UPDATE ON public.print_templates
 FOR EACH ROW EXECUTE FUNCTION public.bump_print_template_version();
 
 -- Realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE public.print_templates;
-
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'print_templates'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.print_templates;
+  END IF;
+END $$;
 -- Seed common codes (empty defaults — admins customise)
 INSERT INTO public.print_templates(code, name, description, paper, orientation, body_html, is_default, sample_data)
 VALUES

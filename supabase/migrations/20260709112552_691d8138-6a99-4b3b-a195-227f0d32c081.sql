@@ -73,5 +73,25 @@ CREATE TRIGGER kiosk_devices_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION public.update_updated_at_column();
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.kiosk_devices;
+DO $$
+
+BEGIN
+
+  IF NOT EXISTS (
+
+    SELECT 1 FROM pg_publication_tables
+
+    WHERE pubname = 'supabase_realtime'
+
+      AND schemaname = 'public'
+
+      AND tablename = 'kiosk_devices'
+
+  ) THEN
+
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.kiosk_devices;
+
+  END IF;
+
+END $$;
 ALTER TABLE public.kiosk_devices REPLICA IDENTITY FULL;

@@ -44,4 +44,14 @@ CREATE POLICY "Admin/director can update social posts"
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
 -- Realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE public.social_posts;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'social_posts'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.social_posts;
+  END IF;
+END $$;

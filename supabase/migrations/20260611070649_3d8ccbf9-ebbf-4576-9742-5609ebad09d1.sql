@@ -60,5 +60,25 @@ CREATE INDEX IF NOT EXISTS idx_notif_log_created ON public.notification_delivery
 CREATE INDEX IF NOT EXISTS idx_notif_log_user ON public.notification_delivery_log(user_id, created_at DESC);
 
 -- 3) Add to realtime publication
-ALTER PUBLICATION supabase_realtime ADD TABLE public.notification_preferences;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.notification_delivery_log;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'notification_preferences'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.notification_preferences;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'notification_delivery_log'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.notification_delivery_log;
+  END IF;
+END $$;

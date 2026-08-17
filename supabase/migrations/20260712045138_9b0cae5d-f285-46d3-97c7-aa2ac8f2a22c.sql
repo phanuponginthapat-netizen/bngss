@@ -126,9 +126,28 @@ FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 ALTER TABLE public.padlet_boards REPLICA IDENTITY FULL;
 ALTER TABLE public.padlet_notes REPLICA IDENTITY FULL;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.padlet_boards;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.padlet_notes;
-
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'padlet_boards'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.padlet_boards;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'padlet_notes'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.padlet_notes;
+  END IF;
+END $$;
 DROP POLICY IF EXISTS "padlet read authenticated" ON storage.objects;
 DROP POLICY IF EXISTS "padlet read authenticated" ON storage.objects;
 CREATE POLICY "padlet read authenticated"

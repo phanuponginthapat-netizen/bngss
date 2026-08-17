@@ -170,4 +170,47 @@ CREATE TRIGGER trg_recompute_on_expense AFTER INSERT OR UPDATE OR DELETE ON publ
   FOR EACH ROW EXECUTE FUNCTION public.recompute_hub_project_totals();
 
 -- Add to realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE public.hub_projects, public.hub_project_budgets, public.hub_project_expenses, public.hub_project_updates;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'hub_projects'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.hub_projects;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'hub_project_budgets'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.hub_project_budgets;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'hub_project_expenses'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.hub_project_expenses;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'hub_project_updates'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.hub_project_updates;
+  END IF;
+END $$;

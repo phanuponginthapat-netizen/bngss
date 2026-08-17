@@ -31,8 +31,27 @@ DROP POLICY IF EXISTS "gpp_select_self" ON public.garbage_personnel_points;
 CREATE POLICY "gpp_select_self" ON public.garbage_personnel_points FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.personnel p WHERE p.id = garbage_personnel_points.personnel_id AND p.user_id = auth.uid()));
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.garbage_personnel_points;
+DO $$
 
+BEGIN
+
+  IF NOT EXISTS (
+
+    SELECT 1 FROM pg_publication_tables
+
+    WHERE pubname = 'supabase_realtime'
+
+      AND schemaname = 'public'
+
+      AND tablename = 'garbage_personnel_points'
+
+  ) THEN
+
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.garbage_personnel_points;
+
+  END IF;
+
+END $$;
 -- 3. ปรับ trigger เพิ่มแต้มให้รองรับบุคลากร
 CREATE OR REPLACE FUNCTION public.add_points_on_deposit()
  RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $function$

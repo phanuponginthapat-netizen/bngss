@@ -2,13 +2,43 @@
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND tablename='students') THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.students;
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime'
+          AND schemaname = 'public'
+          AND tablename = 'students'
+      ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.students;
+      END IF;
+    END $$;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND tablename='home_visit_summaries') THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.home_visit_summaries;
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime'
+          AND schemaname = 'public'
+          AND tablename = 'home_visit_summaries'
+      ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.home_visit_summaries;
+      END IF;
+    END $$;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND tablename='vaccine_records') THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.vaccine_records;
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime'
+          AND schemaname = 'public'
+          AND tablename = 'vaccine_records'
+      ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.vaccine_records;
+      END IF;
+    END $$;
   END IF;
 END $$;
 

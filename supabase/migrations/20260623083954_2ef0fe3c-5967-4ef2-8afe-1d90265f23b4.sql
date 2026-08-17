@@ -87,5 +87,15 @@ FOR EACH ROW EXECUTE FUNCTION public.tg_homework_submissions_updated();
 -- Realtime
 ALTER TABLE public.homework_submissions REPLICA IDENTITY FULL;
 DO $$ BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.homework_submissions;
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'homework_submissions'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.homework_submissions;
+    END IF;
+  END $$;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;

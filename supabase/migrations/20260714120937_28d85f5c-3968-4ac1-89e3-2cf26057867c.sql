@@ -42,7 +42,17 @@ CREATE TRIGGER trg_dashboard_shortcuts_updated_at BEFORE UPDATE ON public.dashbo
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='dashboard_shortcuts') THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.dashboard_shortcuts;
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime'
+          AND schemaname = 'public'
+          AND tablename = 'dashboard_shortcuts'
+      ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.dashboard_shortcuts;
+      END IF;
+    END $$;
   END IF;
 END $$;
 
@@ -174,7 +184,17 @@ FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='kiosk_devices') THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.kiosk_devices;
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime'
+          AND schemaname = 'public'
+          AND tablename = 'kiosk_devices'
+      ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.kiosk_devices;
+      END IF;
+    END $$;
   END IF;
 END $$;
 ALTER TABLE public.kiosk_devices REPLICA IDENTITY FULL;
@@ -298,6 +318,16 @@ FOR EACH ROW EXECUTE FUNCTION public.tg_homework_submissions_updated();
 ALTER TABLE public.homework_submissions REPLICA IDENTITY FULL;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='homework_submissions') THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.homework_submissions;
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime'
+          AND schemaname = 'public'
+          AND tablename = 'homework_submissions'
+      ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.homework_submissions;
+      END IF;
+    END $$;
   END IF;
 END $$;

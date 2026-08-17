@@ -42,4 +42,24 @@ CREATE TRIGGER trg_health_measurements_updated_at
   BEFORE UPDATE ON public.health_measurements
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.health_measurements;
+DO $$
+
+BEGIN
+
+  IF NOT EXISTS (
+
+    SELECT 1 FROM pg_publication_tables
+
+    WHERE pubname = 'supabase_realtime'
+
+      AND schemaname = 'public'
+
+      AND tablename = 'health_measurements'
+
+  ) THEN
+
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.health_measurements;
+
+  END IF;
+
+END $$;

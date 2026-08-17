@@ -59,4 +59,14 @@ SET room_id = (SELECT id FROM public.special_rooms ORDER BY created_at LIMIT 1)
 WHERE room_id IS NULL;
 
 -- Realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE public.special_rooms;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'special_rooms'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.special_rooms;
+  END IF;
+END $$;
