@@ -24,7 +24,6 @@ import {
   LineChart as LineChartIcon,
 } from "lucide-react";
 import {
-import { saveErrorMessage } from "@/lib/saveError";
   ResponsiveContainer,
   LineChart,
   Line,
@@ -36,6 +35,7 @@ import { saveErrorMessage } from "@/lib/saveError";
   Tooltip,
   Legend,
 } from "recharts";
+import { saveErrorMessage } from "@/lib/saveError";
 
 /**
  * หน้าเช็คสถานะการทำงานของ Kiosk โหมด "door" (ตู้สแกนหน้าประตูโรงเรียน)

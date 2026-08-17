@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { swal } from "@/lib/swal";
-import { saveErrorMessage } from "@/lib/saveError";
+import { saveErrorMessage, safeInt } from "@/lib/saveError";
 
 interface Props {
   open: boolean;
@@ -58,8 +58,8 @@ export const CopySubjectsDialog = ({ open, onOpenChange, subjects }: Props) => {
     );
   }, [subjects, src]);
 
-  const tgtYear = parseInt(tgtYearBE) - BE_OFFSET;
-  const tgtSemNum = parseInt(tgtSem);
+  const tgtYear = safeInt(tgtYearBE, new Date().getFullYear() + BE_OFFSET) - BE_OFFSET;
+  const tgtSemNum = safeInt(tgtSem, 1);
 
   const existingAtTarget = useMemo(() => {
     return new Set(

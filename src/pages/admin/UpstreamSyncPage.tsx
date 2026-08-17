@@ -11,6 +11,7 @@ import { CloudDownload, Plus, RefreshCw, Trash2, Link as LinkIcon } from "lucide
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { saveErrorMessage } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 export default function UpstreamSyncPage() {
   const qc = useQueryClient();
@@ -59,12 +60,16 @@ export default function UpstreamSyncPage() {
   };
 
   const remove = async (id: string) => {
-    await supabase.from("upstream_subscription" as any).delete().eq("id", id);
+    const ok = await swal.confirm({ title: lang === "th" ? "ลบต้นทางนี้?" : "Remove this upstream?", danger: true, confirmText: lang === "th" ? "ลบ" : "Delete" });
+    if (!ok) return;
+    const { error } = await supabase.from("upstream_subscription" as any).delete().eq("id", id);
+    if (error) return toast.error(saveErrorMessage(error));
     qc.invalidateQueries({ queryKey: ["upstream_subscription"] });
   };
 
   const toggleAuto = async (id: string, v: boolean) => {
-    await supabase.from("upstream_subscription" as any).update({ auto_pull: v }).eq("id", id);
+    const { error } = await supabase.from("upstream_subscription" as any).update({ auto_pull: v }).eq("id", id);
+    if (error) return toast.error(saveErrorMessage(error));
     qc.invalidateQueries({ queryKey: ["upstream_subscription"] });
   };
 

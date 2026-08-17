@@ -10,11 +10,11 @@ import { toast } from "sonner";
 import BackendConnectionCard from "@/components/setup/BackendConnectionCard";
 import { getBackendConfig, getConfigSource } from "@/lib/runtimeConfig";
 import {
-import { saveErrorMessage } from "@/lib/saveError";
   CheckCircle2, XCircle, Loader2, ArrowRight, ArrowLeft, Rocket,
   Database, User, Palette, Cloud, Copy, ExternalLink, Sparkles, ShieldCheck, Wrench,
   Wand2, Upload, HardDriveDownload, KeyRound,
 } from "lucide-react";
+import { saveErrorMessage } from "@/lib/saveError";
 
 type StepStatus = "idle" | "checking" | "ok" | "fail";
 interface StepResult { status: StepStatus; message?: string; detail?: string; }

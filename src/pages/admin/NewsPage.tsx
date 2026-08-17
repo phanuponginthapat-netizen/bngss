@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, AlertTriangle, Megaphone, Pin, PinOff, Search } from "lucide-react";
 import { notify } from "@/lib/notify";
 import { saveErrorMessage } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 const CATEGORIES = [
   { value: "general", label: "ทั่วไป", labelEn: "General" },
@@ -42,12 +43,14 @@ const NewsPage = () => {
   const [newsTitle, setNewsTitle] = useState("");
   const [newsContent, setNewsContent] = useState("");
   const [newsCategory, setNewsCategory] = useState("general");
+  const [newsSaving, setNewsSaving] = useState(false);
 
   // Emergency state
   const [emerOpen, setEmerOpen] = useState(false);
   const [emerTitle, setEmerTitle] = useState("");
   const [emerMessage, setEmerMessage] = useState("");
   const [emerSeverity, setEmerSeverity] = useState("info");
+  const [emerSaving, setEmerSaving] = useState(false);
 
   const { data: newsRecords = [] } = useQuery({
     queryKey: ["news_posts"],
@@ -66,7 +69,10 @@ const NewsPage = () => {
   });
 
   const handleAddNews = async () => {
-    if (!newsTitle) return;
+    if (!newsTitle.trim()) { toast.error(lang === "th" ? "กรุณากรอกหัวข้อข่าว" : "Please enter a title"); return; }
+    if (newsSaving) return;
+    setNewsSaving(true);
+    try {
     const { data: inserted, error } = await supabase.from("news_posts").insert({
       title: newsTitle,
       content: newsContent,
@@ -98,6 +104,9 @@ const NewsPage = () => {
           });
         }
       } catch {/* non-blocking */}
+    }
+    } finally {
+      setNewsSaving(false);
     }
   };
 

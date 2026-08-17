@@ -13,10 +13,10 @@ import LivenessFaceRegisterDialog from "@/components/users/LivenessFaceRegisterD
 import { useMyPersonnel } from "@/hooks/useMyPersonnel";
 import { useUserRole } from "@/hooks/useUserRole";
 import {
-import { saveErrorMessage } from "@/lib/saveError";
   loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame,
   detectorOptionsHQ, estimateFaceSharpness, type KnownFace,
 } from "@/lib/faceApi";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface SimResult {
   id: string;

@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { ClipboardList, Send, Loader2, Trash2, Users, CheckCircle2, Clock, AlertTriangle, ImagePlus, X } from "lucide-react";
 import { TaskAttachmentViewer } from "@/components/tasks/TaskAttachmentViewer";
 import { saveErrorMessage } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 type Priority = "high" | "normal" | "low";
 
@@ -164,6 +165,8 @@ export default function StaffTasksPage() {
   };
 
   const removeTask = async (id: string) => {
+    const ok = await swal.confirm({ title: "ลบงานนี้?", danger: true, confirmText: "ลบ" });
+    if (!ok) return;
     const { error } = await supabase.from("task_assignments").delete().eq("id", id);
     if (error) return toast.error(saveErrorMessage(error));
     toast.success("ลบงานแล้ว");

@@ -18,10 +18,10 @@ import { useNavigate } from "react-router-dom";
 import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
 import { compressImage } from "@/lib/imageCompress";
 import {
-import { saveErrorMessage } from "@/lib/saveError";
   CertificateRenderer, CERT_FONTS, CERT_TOKENS, defaultFields,
   type CertField, type CertTemplate,
 } from "@/components/certificates/CertificateRenderer";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const db = supabase as any;
 const uid = () => `f_${Math.random().toString(36).slice(2, 9)}`;
