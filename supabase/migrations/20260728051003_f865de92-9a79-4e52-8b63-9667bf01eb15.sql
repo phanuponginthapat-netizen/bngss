@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.trg_line_vault_staff_leave() CASCADE;
 CREATE OR REPLACE FUNCTION public.trg_line_vault_staff_leave()
 RETURNS trigger
 LANGUAGE plpgsql

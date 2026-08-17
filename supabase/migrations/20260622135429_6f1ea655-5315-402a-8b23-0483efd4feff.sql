@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.auto_fill_school_id() CASCADE;
 CREATE OR REPLACE FUNCTION public.auto_fill_school_id()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN

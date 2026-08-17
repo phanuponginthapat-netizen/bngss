@@ -1,4 +1,5 @@
 -- 90-day retention for browser_logs (พรบ.คอมฯ ม.26)
+DROP FUNCTION IF EXISTS public.cleanup_browser_logs_90d() CASCADE;
 CREATE OR REPLACE FUNCTION public.cleanup_browser_logs_90d()
 RETURNS void
 LANGUAGE sql

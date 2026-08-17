@@ -1,4 +1,5 @@
 -- 1) profiles → personnel
+DROP FUNCTION IF EXISTS public.sync_profile_to_personnel() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_profile_to_personnel()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -41,6 +42,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 2) personnel → profiles
+DROP FUNCTION IF EXISTS public.sync_personnel_to_profile() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_personnel_to_profile()
 RETURNS trigger
 LANGUAGE plpgsql

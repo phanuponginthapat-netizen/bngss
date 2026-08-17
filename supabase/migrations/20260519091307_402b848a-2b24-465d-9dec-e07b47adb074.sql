@@ -82,6 +82,7 @@ EXCEPTION
 END
 $idxguard$;
 -- 2) Helper DB function
+DROP FUNCTION IF EXISTS public.notify_google_chat(text, text, text, text, text, text, jsonb, text, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_google_chat(
   _notification_type text,
   _title text,
@@ -128,6 +129,7 @@ BEGIN
   END;
 END $$;
 -- 3) news_posts
+DROP FUNCTION IF EXISTS public.gchat_on_news() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_news()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
@@ -162,6 +164,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 4) emergency_broadcasts
+DROP FUNCTION IF EXISTS public.gchat_on_emergency() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_emergency()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
@@ -192,6 +195,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 5) documents
+DROP FUNCTION IF EXISTS public.gchat_on_document() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_document()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
@@ -222,6 +226,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 6) staff_leaves
+DROP FUNCTION IF EXISTS public.gchat_on_staff_leave() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_staff_leave()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
@@ -267,6 +272,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 7) substitute_teaching
+DROP FUNCTION IF EXISTS public.gchat_on_substitute() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_substitute()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
@@ -300,6 +306,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 8) serious behavior
+DROP FUNCTION IF EXISTS public.gchat_on_serious_behavior() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_serious_behavior()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$

@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.prevent_self_student_code_change() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_self_student_code_change()
 RETURNS trigger
 LANGUAGE plpgsql

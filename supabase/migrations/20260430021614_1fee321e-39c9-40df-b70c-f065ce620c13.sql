@@ -1,6 +1,7 @@
 -- ============================================
 -- 1. เพิ่มฟังก์ชัน auto-link student กับ auth user
 -- ============================================
+DROP FUNCTION IF EXISTS public.auto_link_student_on_profile() CASCADE;
 CREATE OR REPLACE FUNCTION public.auto_link_student_on_profile()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -300,6 +301,7 @@ $guard$;
 -- ============================================
 -- 6. Procurement → Budget auto-deduct
 -- ============================================
+DROP FUNCTION IF EXISTS public.auto_deduct_budget_on_procurement() CASCADE;
 CREATE OR REPLACE FUNCTION public.auto_deduct_budget_on_procurement()
 RETURNS trigger
 LANGUAGE plpgsql

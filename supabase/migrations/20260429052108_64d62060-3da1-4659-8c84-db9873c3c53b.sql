@@ -158,6 +158,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 3) ฟังก์ชันลบข้อมูลเก่ากว่า 3 ปีการศึกษา
+DROP FUNCTION IF EXISTS public.archive_and_purge_old_data(int) CASCADE;
 CREATE OR REPLACE FUNCTION public.archive_and_purge_old_data(_retention_years int DEFAULT 3)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -247,6 +248,7 @@ BEGIN
 END;
 $$;
 -- 4) RPC สำหรับ admin ดูจำนวนข้อมูลที่จะถูกลบ (preview)
+DROP FUNCTION IF EXISTS public.get_purge_preview(int) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_purge_preview(_retention_years int DEFAULT 3)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -283,6 +285,7 @@ BEGIN
 END;
 $$;
 -- 5) RPC ดูปีการศึกษาทั้งหมดที่มีข้อมูลในระบบ
+DROP FUNCTION IF EXISTS public.get_available_academic_years() CASCADE;
 CREATE OR REPLACE FUNCTION public.get_available_academic_years()
 RETURNS int[]
 LANGUAGE sql

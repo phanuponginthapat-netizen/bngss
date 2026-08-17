@@ -139,6 +139,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.is_homeroom_of_student(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_homeroom_of_student(_user_id uuid, _student_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -154,6 +155,7 @@ AS $$
       AND p.user_id = _user_id
   );
 $$;
+DROP FUNCTION IF EXISTS public.teacher_teaches_subject(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.teacher_teaches_subject(_user_id uuid, _subject_id uuid)
 RETURNS boolean
 LANGUAGE sql

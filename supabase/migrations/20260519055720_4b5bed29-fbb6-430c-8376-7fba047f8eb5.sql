@@ -3,6 +3,7 @@ INSERT INTO public.school_settings (setting_key, setting_value)
 VALUES ('line_auto_push_enabled', 'false')
 ON CONFLICT (setting_key) DO NOTHING;
 -- แก้ send_line_to_student_parents ให้เคารพ setting นี้
+DROP FUNCTION IF EXISTS public.send_line_to_student_parents(uuid, text, text) CASCADE;
 CREATE OR REPLACE FUNCTION public.send_line_to_student_parents(_student_id uuid, _title text, _message text)
  RETURNS void
  LANGUAGE plpgsql

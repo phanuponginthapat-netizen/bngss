@@ -13,6 +13,7 @@ WHERE key IN (
   'FIREWORKS_API_KEY','NVIDIA_API_KEY','GITHUB_MODELS_TOKEN',
   'PERPLEXITY_API_KEY','ANTHROPIC_API_KEY'
 ) AND (value IS NULL OR value = '');
+DROP FUNCTION IF EXISTS public.ensure_default_app_secrets() CASCADE;
 CREATE OR REPLACE FUNCTION public.ensure_default_app_secrets()
 RETURNS void
 LANGUAGE plpgsql

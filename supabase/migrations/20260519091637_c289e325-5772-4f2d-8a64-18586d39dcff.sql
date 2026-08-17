@@ -1,4 +1,5 @@
 -- 1) Face scan → Google Chat
+DROP FUNCTION IF EXISTS public.gchat_on_face_scan() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_face_scan()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -55,6 +56,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 2) Attendance (absent) → Google Chat
+DROP FUNCTION IF EXISTS public.gchat_on_absence() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_absence()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -105,6 +107,7 @@ END
 $guard$;
 -- 3) Behavior records (all types) → Google Chat
 -- (มี gchat_on_serious_behavior อยู่แล้วสำหรับลบ ≥5 คะแนน เก็บไว้เพื่อ severity warning)
+DROP FUNCTION IF EXISTS public.gchat_on_behavior_any() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_behavior_any()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -164,6 +167,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 4) Score records → Google Chat (วิชาการ)
+DROP FUNCTION IF EXISTS public.gchat_on_score() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_score()
 RETURNS trigger
 LANGUAGE plpgsql

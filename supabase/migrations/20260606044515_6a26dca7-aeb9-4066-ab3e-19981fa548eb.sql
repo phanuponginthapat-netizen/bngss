@@ -16,6 +16,7 @@ EXCEPTION
 END
 $idxguard$;
 -- Update sync trigger to populate notification_id
+DROP FUNCTION IF EXISTS public.sync_notification_to_inbox() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_notification_to_inbox()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -40,6 +41,7 @@ BEGIN
   RETURN NEW;
 END $function$;
 -- Propagate read state notification -> inbox
+DROP FUNCTION IF EXISTS public.propagate_notification_read_to_inbox() CASCADE;
 CREATE OR REPLACE FUNCTION public.propagate_notification_read_to_inbox()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -72,6 +74,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Propagate read state inbox -> notification
+DROP FUNCTION IF EXISTS public.propagate_inbox_read_to_notification() CASCADE;
 CREATE OR REPLACE FUNCTION public.propagate_inbox_read_to_notification()
 RETURNS trigger
 LANGUAGE plpgsql

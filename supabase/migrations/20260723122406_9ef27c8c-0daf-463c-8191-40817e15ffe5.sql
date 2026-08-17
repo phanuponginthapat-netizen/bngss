@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.get_db_schema() CASCADE;
 CREATE OR REPLACE FUNCTION public.get_db_schema()
 RETURNS TABLE(table_name text, columns jsonb, col_count int)
 LANGUAGE sql

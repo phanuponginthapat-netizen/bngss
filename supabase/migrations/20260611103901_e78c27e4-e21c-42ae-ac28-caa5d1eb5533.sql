@@ -47,6 +47,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Trigger to prevent self-escalation of must_change_password (false -> true)
+DROP FUNCTION IF EXISTS public.guard_must_change_password() CASCADE;
 CREATE OR REPLACE FUNCTION public.guard_must_change_password()
 RETURNS trigger
 LANGUAGE plpgsql

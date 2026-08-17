@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.gchat_on_absence() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_absence()
  RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
 AS $function$
@@ -21,6 +22,7 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $function$;
+DROP FUNCTION IF EXISTS public.gchat_on_face_scan() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_face_scan()
  RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
 AS $function$
@@ -49,6 +51,7 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $function$;
+DROP FUNCTION IF EXISTS public.gchat_on_student_leave() CASCADE;
 CREATE OR REPLACE FUNCTION public.gchat_on_student_leave()
  RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
 AS $function$
@@ -87,6 +90,7 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $function$;
+DROP FUNCTION IF EXISTS public.notify_homeroom_on_ai_risk() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_homeroom_on_ai_risk()
  RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
 AS $function$

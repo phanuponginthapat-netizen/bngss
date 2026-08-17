@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.send_line_to_student_parents(uuid, text, text, text) CASCADE;
 CREATE OR REPLACE FUNCTION public.send_line_to_student_parents(_student_id uuid, _title text, _message text, _image_url text DEFAULT NULL)
 RETURNS void
 LANGUAGE plpgsql
@@ -47,6 +48,7 @@ BEGIN
   END;
 END $function$;
 -- Update face scan trigger to forward captured face URL
+DROP FUNCTION IF EXISTS public.notify_on_face_scan() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_on_face_scan()
 RETURNS trigger
 LANGUAGE plpgsql

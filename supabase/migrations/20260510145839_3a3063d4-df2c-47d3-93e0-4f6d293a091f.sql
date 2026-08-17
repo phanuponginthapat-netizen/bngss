@@ -74,6 +74,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Update notify trigger to handle personnel borrowers too
+DROP FUNCTION IF EXISTS public.notify_student_on_ict_loan() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_student_on_ict_loan()
 RETURNS trigger
 LANGUAGE plpgsql

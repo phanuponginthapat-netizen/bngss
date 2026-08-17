@@ -1,4 +1,5 @@
 -- Trigger: ส่ง notification ในระบบเมื่อได้แต้มจากการฝากขยะ (จะ trigger push อัตโนมัติผ่าน trigger_push_notification ที่มีอยู่)
+DROP FUNCTION IF EXISTS public.notify_on_garbage_deposit() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_on_garbage_deposit()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -53,6 +54,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Trigger: notify เมื่อได้รับ Badge ใหม่
+DROP FUNCTION IF EXISTS public.notify_on_badge_earned() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_on_badge_earned()
 RETURNS trigger
 LANGUAGE plpgsql

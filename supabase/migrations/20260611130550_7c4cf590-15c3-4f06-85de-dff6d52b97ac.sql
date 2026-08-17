@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.prevent_sensitive_profile_self_update() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_sensitive_profile_self_update()
 RETURNS trigger
 LANGUAGE plpgsql

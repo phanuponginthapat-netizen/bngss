@@ -1,6 +1,7 @@
 -- ============================================================
 -- 1) student_leaves (approved) → auto-fill attendance "ลา"
 -- ============================================================
+DROP FUNCTION IF EXISTS public.sync_leave_to_attendance() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_leave_to_attendance()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -65,6 +66,7 @@ $guard$;
 -- ============================================================
 -- 2) homework_submissions (graded) → notify parents via LINE
 -- ============================================================
+DROP FUNCTION IF EXISTS public.notify_parents_on_homework_graded() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_parents_on_homework_graded()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -129,6 +131,7 @@ $guard$;
 -- ============================================================
 -- 3) sync_homework_to_pp5: handle classroom_id change
 -- ============================================================
+DROP FUNCTION IF EXISTS public.sync_homework_to_pp5() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_homework_to_pp5()
 RETURNS TRIGGER
 LANGUAGE plpgsql

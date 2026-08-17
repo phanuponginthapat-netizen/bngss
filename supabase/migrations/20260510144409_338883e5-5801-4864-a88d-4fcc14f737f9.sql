@@ -150,6 +150,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Sync device status from loan
+DROP FUNCTION IF EXISTS public.sync_ict_device_status_on_loan() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_ict_device_status_on_loan()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -195,6 +196,7 @@ EXCEPTION
 END
 $idxguard$;
 -- Notify student when borrowed/returned
+DROP FUNCTION IF EXISTS public.notify_student_on_ict_loan() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_student_on_ict_loan()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE

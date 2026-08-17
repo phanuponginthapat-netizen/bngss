@@ -150,6 +150,7 @@ EXCEPTION
   WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
 END
 $idxguard$;
+DROP FUNCTION IF EXISTS public.user_in_school_department(public.school_department) CASCADE;
 CREATE OR REPLACE FUNCTION public.user_in_school_department(_dept public.school_department)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (

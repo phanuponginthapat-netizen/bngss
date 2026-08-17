@@ -9,6 +9,7 @@ $guard$;
 -- Update all existing unapproved profiles
 UPDATE public.profiles SET is_approved = true WHERE is_approved = false;
 -- Update the trigger function to set is_approved = true
+DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 CREATE OR REPLACE FUNCTION public.handle_new_user()
  RETURNS trigger
  LANGUAGE plpgsql

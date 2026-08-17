@@ -1,4 +1,5 @@
 -- Sync face_scan_logs → attendance (assembly = subject_id NULL)
+DROP FUNCTION IF EXISTS public.sync_face_scan_to_attendance() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_face_scan_to_attendance()
 RETURNS TRIGGER
 LANGUAGE plpgsql

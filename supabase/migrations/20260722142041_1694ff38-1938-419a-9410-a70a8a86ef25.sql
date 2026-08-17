@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.tg_notify_wall_reaction() CASCADE;
 CREATE OR REPLACE FUNCTION public.tg_notify_wall_reaction()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -31,6 +32,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.tg_notify_wall_comment() CASCADE;
 CREATE OR REPLACE FUNCTION public.tg_notify_wall_comment()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE

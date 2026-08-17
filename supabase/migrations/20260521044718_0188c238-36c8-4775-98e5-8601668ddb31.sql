@@ -22,6 +22,7 @@ EXCEPTION
 END
 $idxguard$;
 -- 2) Trigger function to auto-fill teacher_id from teacher_name
+DROP FUNCTION IF EXISTS public.fill_schedule_teacher_id() CASCADE;
 CREATE OR REPLACE FUNCTION public.fill_schedule_teacher_id()
 RETURNS TRIGGER
 LANGUAGE plpgsql

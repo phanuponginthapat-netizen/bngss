@@ -127,6 +127,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.auto_fill_school_id() CASCADE;
 CREATE OR REPLACE FUNCTION public.auto_fill_school_id()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -388,6 +389,7 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
+DROP FUNCTION IF EXISTS public.auto_assign_school_id() CASCADE;
 CREATE OR REPLACE FUNCTION public.auto_assign_school_id()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE only_school uuid;
@@ -540,6 +542,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.reset_content_data() CASCADE;
 CREATE OR REPLACE FUNCTION public.reset_content_data()
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -889,6 +892,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.bump_print_template_version() CASCADE;
 CREATE OR REPLACE FUNCTION public.bump_print_template_version()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN

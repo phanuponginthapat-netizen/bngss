@@ -1,4 +1,5 @@
 -- 1) district_snapshots: restrict NULL-school rows to users who have explicit district feed access
+DROP FUNCTION IF EXISTS public.has_district_access(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.has_district_access(_user_id uuid)
 RETURNS boolean
 LANGUAGE sql

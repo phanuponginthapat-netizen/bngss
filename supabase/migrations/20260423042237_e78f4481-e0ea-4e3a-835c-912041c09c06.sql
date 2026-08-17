@@ -106,6 +106,7 @@ $guard$;
 -- 4) Security definer helpers
 -- ============================================
 
+DROP FUNCTION IF EXISTS public.get_user_school_id(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_user_school_id(_user_id uuid)
 RETURNS uuid
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
@@ -114,6 +115,7 @@ AS $$
   WHERE user_id = _user_id AND is_primary = true AND school_id IS NOT NULL
   LIMIT 1
 $$;
+DROP FUNCTION IF EXISTS public.get_user_area_id(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_user_area_id(_user_id uuid)
 RETURNS uuid
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
@@ -126,18 +128,21 @@ AS $$
       WHERE us.user_id = _user_id LIMIT 1)
   )
 $$;
+DROP FUNCTION IF EXISTS public.is_super_admin(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_super_admin(_user_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$
   SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = 'super_admin')
 $$;
+DROP FUNCTION IF EXISTS public.is_area_admin(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_area_admin(_user_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$
   SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = 'area_admin')
 $$;
+DROP FUNCTION IF EXISTS public.can_access_school(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.can_access_school(_user_id uuid, _school_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public

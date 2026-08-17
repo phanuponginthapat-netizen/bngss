@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.prevent_duplicate_face_scan() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_duplicate_face_scan()
 RETURNS trigger
 LANGUAGE plpgsql

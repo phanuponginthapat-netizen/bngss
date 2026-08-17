@@ -1,4 +1,5 @@
 -- ============ 1) Schema blueprint exporter ============
+DROP FUNCTION IF EXISTS public.export_schema_sql() CASCADE;
 CREATE OR REPLACE FUNCTION public.export_schema_sql()
 RETURNS text
 LANGUAGE plpgsql
@@ -196,6 +197,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- ============ 2) Auth users export / import (keep same passwords) ============
+DROP FUNCTION IF EXISTS public.export_auth_users() CASCADE;
 CREATE OR REPLACE FUNCTION public.export_auth_users()
 RETURNS jsonb
 LANGUAGE sql
@@ -251,6 +253,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.import_auth_users(jsonb) CASCADE;
 CREATE OR REPLACE FUNCTION public.import_auth_users(_payload jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -340,6 +343,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- ============ 3) Storage bucket config export ============
+DROP FUNCTION IF EXISTS public.export_storage_buckets() CASCADE;
 CREATE OR REPLACE FUNCTION public.export_storage_buckets()
 RETURNS jsonb
 LANGUAGE sql
@@ -369,6 +373,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- ============ 4) Storage RLS policies export ============
+DROP FUNCTION IF EXISTS public.export_storage_policies_sql() CASCADE;
 CREATE OR REPLACE FUNCTION public.export_storage_policies_sql()
 RETURNS text
 LANGUAGE plpgsql
@@ -413,6 +418,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- ============ 5) Restore-time SQL executor (service_role only) ============
+DROP FUNCTION IF EXISTS public.exec_restore_sql(text) CASCADE;
 CREATE OR REPLACE FUNCTION public.exec_restore_sql(_sql text)
 RETURNS void
 LANGUAGE plpgsql

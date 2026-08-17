@@ -1,4 +1,5 @@
 -- Public directory of personnel: any authenticated role can read safe fields only
+DROP FUNCTION IF EXISTS public.get_personnel_directory() CASCADE;
 CREATE OR REPLACE FUNCTION public.get_personnel_directory()
 RETURNS TABLE (
   id uuid,
@@ -38,6 +39,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Public lookup for a set of profile IDs (safe fields only)
+DROP FUNCTION IF EXISTS public.get_profiles_public(uuid[]) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_profiles_public(_ids uuid[])
 RETURNS TABLE (
   id uuid,
@@ -75,6 +77,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Public lookup by student_code (avatars for ID card printing etc.)
+DROP FUNCTION IF EXISTS public.get_student_avatars_by_codes(text[]) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_student_avatars_by_codes(_codes text[])
 RETURNS TABLE (student_code text, avatar_url text)
 LANGUAGE sql

@@ -5,6 +5,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.notify_on_student_leave() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_on_student_leave()
 RETURNS trigger
 LANGUAGE plpgsql

@@ -7,6 +7,7 @@ EXCEPTION WHEN OTHERS THEN
 END
 $extguard$;
 -- Create trigger function to send LINE notification
+DROP FUNCTION IF EXISTS public.notify_line_on_notification() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_line_on_notification()
 RETURNS trigger
 LANGUAGE plpgsql

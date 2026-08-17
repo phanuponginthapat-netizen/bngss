@@ -113,6 +113,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.log_audit_event(text, jsonb, text, text) CASCADE;
 CREATE OR REPLACE FUNCTION public.log_audit_event(
   _action text,
   _details jsonb DEFAULT NULL,

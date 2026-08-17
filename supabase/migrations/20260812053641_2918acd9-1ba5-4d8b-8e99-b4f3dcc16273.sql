@@ -13,6 +13,7 @@ EXCEPTION
   WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
 END
 $idxguard$;
+DROP FUNCTION IF EXISTS public.pick_auto_substitute(int, int, uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.pick_auto_substitute(
   _dow int, _period int, _exclude_personnel uuid, _subject_id uuid DEFAULT NULL
 ) RETURNS text
@@ -49,6 +50,7 @@ AS $$
     p.first_name
   LIMIT 1;
 $$;
+DROP FUNCTION IF EXISTS public.auto_create_substitute_on_leave_approval() CASCADE;
 CREATE OR REPLACE FUNCTION public.auto_create_substitute_on_leave_approval()
 RETURNS trigger
 LANGUAGE plpgsql

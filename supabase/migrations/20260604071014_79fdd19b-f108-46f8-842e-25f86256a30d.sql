@@ -46,6 +46,7 @@ WHERE c.homeroom_teacher_2_id IS NULL
     OR c.homeroom_teacher_2 = p.first_name
   );
 -- 3) Keep homeroom_teacher text in sync with FK (for back-compat with old UI bits)
+DROP FUNCTION IF EXISTS public.sync_classroom_homeroom_text() CASCADE;
 CREATE OR REPLACE FUNCTION public.sync_classroom_homeroom_text()
 RETURNS TRIGGER
 LANGUAGE plpgsql

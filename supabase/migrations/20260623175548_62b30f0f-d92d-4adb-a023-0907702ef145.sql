@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.is_eform_sender(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_eform_sender(_eform_id uuid, _user_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -13,6 +14,7 @@ AS $$
         AND e.sender_id = _user_id
     );
 $$;
+DROP FUNCTION IF EXISTS public.can_access_eform(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.can_access_eform(_eform_id uuid, _user_id uuid)
 RETURNS boolean
 LANGUAGE sql

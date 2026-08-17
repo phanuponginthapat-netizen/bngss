@@ -1,4 +1,5 @@
 -- Generic auto-audit trigger function
+DROP FUNCTION IF EXISTS public.tg_auto_audit() CASCADE;
 CREATE OR REPLACE FUNCTION public.tg_auto_audit()
 RETURNS TRIGGER
 LANGUAGE plpgsql

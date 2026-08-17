@@ -1,4 +1,5 @@
 -- Fix auto_link_student_on_profile: students table has no `email` column
+DROP FUNCTION IF EXISTS public.auto_link_student_on_profile() CASCADE;
 CREATE OR REPLACE FUNCTION public.auto_link_student_on_profile()
 RETURNS trigger
 LANGUAGE plpgsql

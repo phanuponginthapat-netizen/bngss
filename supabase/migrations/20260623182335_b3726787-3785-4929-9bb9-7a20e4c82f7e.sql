@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.is_document_recipient(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_document_recipient(_doc uuid, _user uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -25,6 +26,7 @@ AS $$
       )
   );
 $$;
+DROP FUNCTION IF EXISTS public.can_access_document_recipient(uuid, uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.can_access_document_recipient(_recipient_row uuid, _doc uuid, _user uuid)
 RETURNS boolean
 LANGUAGE sql

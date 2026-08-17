@@ -1,4 +1,5 @@
 -- Helper: parent ↔ child via profiles.student_code = students.student_code
+DROP FUNCTION IF EXISTS public.is_parent_of(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_parent_of(_user_id uuid, _student_id uuid)
 RETURNS boolean
 LANGUAGE sql

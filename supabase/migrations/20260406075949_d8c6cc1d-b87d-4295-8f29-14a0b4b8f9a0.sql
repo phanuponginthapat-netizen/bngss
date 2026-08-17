@@ -7,6 +7,7 @@ EXCEPTION WHEN OTHERS THEN
 END
 $extguard$;
 -- Create function to trigger push notification
+DROP FUNCTION IF EXISTS public.trigger_push_notification() CASCADE;
 CREATE OR REPLACE FUNCTION public.trigger_push_notification()
 RETURNS trigger
 LANGUAGE plpgsql

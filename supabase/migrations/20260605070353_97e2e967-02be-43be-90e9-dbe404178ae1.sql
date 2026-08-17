@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.can_access_eform_attachment(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.can_access_eform_attachment(_eform_id uuid, _user_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -22,6 +23,7 @@ AS $$
       )
   );
 $$;
+DROP FUNCTION IF EXISTS public.can_upload_eform_attachment(text, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.can_upload_eform_attachment(_object_name text, _user_id uuid)
 RETURNS boolean
 LANGUAGE sql

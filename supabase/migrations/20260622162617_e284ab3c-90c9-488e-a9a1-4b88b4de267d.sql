@@ -196,6 +196,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Auto-bump version + snapshot history on update
+DROP FUNCTION IF EXISTS public.bump_print_template_version() CASCADE;
 CREATE OR REPLACE FUNCTION public.bump_print_template_version()
 RETURNS TRIGGER
 LANGUAGE plpgsql

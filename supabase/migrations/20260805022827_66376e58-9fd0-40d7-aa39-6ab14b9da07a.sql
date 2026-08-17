@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.export_extras_sql() CASCADE;
 CREATE OR REPLACE FUNCTION public.export_extras_sql()
 RETURNS text
 LANGUAGE plpgsql

@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.archive_old_data() CASCADE;
 CREATE OR REPLACE FUNCTION public.archive_old_data()
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -57,6 +58,7 @@ BEGIN
   );
 END;
 $function$;
+DROP FUNCTION IF EXISTS public.archive_and_purge_old_data(integer) CASCADE;
 CREATE OR REPLACE FUNCTION public.archive_and_purge_old_data(_retention_years integer DEFAULT 3)
 RETURNS jsonb
 LANGUAGE plpgsql

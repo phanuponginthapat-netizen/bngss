@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.rls_policy_audit() CASCADE;
 CREATE OR REPLACE FUNCTION public.rls_policy_audit()
 RETURNS TABLE (
   table_name text,

@@ -1,4 +1,5 @@
 -- 1) homework_submissions: prevent students from self-grading
+DROP FUNCTION IF EXISTS public.prevent_student_grade_tamper_homework() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_student_grade_tamper_homework()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -41,6 +42,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 2) task_assignments: prevent students from self-grading
+DROP FUNCTION IF EXISTS public.prevent_student_grade_tamper_task() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_student_grade_tamper_task()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -76,6 +78,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 3) profiles: prevent users from self-escalating school/approval/password fields
+DROP FUNCTION IF EXISTS public.prevent_profile_self_escalation() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_profile_self_escalation()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE

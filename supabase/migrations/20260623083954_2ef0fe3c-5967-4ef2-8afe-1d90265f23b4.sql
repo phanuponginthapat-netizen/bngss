@@ -162,6 +162,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- updated_at trigger
+DROP FUNCTION IF EXISTS public.tg_homework_submissions_updated() CASCADE;
 CREATE OR REPLACE FUNCTION public.tg_homework_submissions_updated()
 RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;

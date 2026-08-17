@@ -1,4 +1,5 @@
 -- 1. Prevent students from spoofing student_code on profiles
+DROP FUNCTION IF EXISTS public.prevent_student_code_self_edit() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_student_code_self_edit()
 RETURNS TRIGGER
 LANGUAGE plpgsql

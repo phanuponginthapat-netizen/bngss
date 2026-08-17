@@ -1,4 +1,5 @@
 -- ฟังก์ชันแปลง พ.ศ. → ค.ศ. อัตโนมัติก่อน insert/update
+DROP FUNCTION IF EXISTS public.normalize_academic_year() CASCADE;
 CREATE OR REPLACE FUNCTION public.normalize_academic_year()
 RETURNS trigger
 LANGUAGE plpgsql

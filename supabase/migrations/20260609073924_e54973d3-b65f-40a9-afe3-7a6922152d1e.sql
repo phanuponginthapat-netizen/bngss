@@ -119,6 +119,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- Auto fill school_id
+DROP FUNCTION IF EXISTS public.hub_project_fill_school() CASCADE;
 CREATE OR REPLACE FUNCTION public.hub_project_fill_school() RETURNS TRIGGER
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 BEGIN
@@ -430,6 +431,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- ============== Auto-recompute budget totals ==============
+DROP FUNCTION IF EXISTS public.recompute_hub_project_totals() CASCADE;
 CREATE OR REPLACE FUNCTION public.recompute_hub_project_totals() RETURNS TRIGGER
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE pid uuid;

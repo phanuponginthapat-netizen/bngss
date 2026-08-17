@@ -341,6 +341,7 @@ $guard$;
 UPDATE public.admissions
    SET school_id = (SELECT id FROM public.schools ORDER BY created_at LIMIT 1)
  WHERE school_id IS NULL;
+DROP FUNCTION IF EXISTS public.admissions_require_school_id() CASCADE;
 CREATE OR REPLACE FUNCTION public.admissions_require_school_id()
 RETURNS trigger
 LANGUAGE plpgsql

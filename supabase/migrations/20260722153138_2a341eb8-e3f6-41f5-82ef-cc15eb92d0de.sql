@@ -133,6 +133,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.tg_offsite_trip_touch() CASCADE;
 CREATE OR REPLACE FUNCTION public.tg_offsite_trip_touch()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -275,6 +276,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.tg_offsite_participant_touch() CASCADE;
 CREATE OR REPLACE FUNCTION public.tg_offsite_participant_touch()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN NEW.updated_at := now(); RETURN NEW; END $$;

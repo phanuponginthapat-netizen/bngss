@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.trg_line_vault_substitute() CASCADE;
 CREATE OR REPLACE FUNCTION public.trg_line_vault_substitute()
 RETURNS trigger
 LANGUAGE plpgsql

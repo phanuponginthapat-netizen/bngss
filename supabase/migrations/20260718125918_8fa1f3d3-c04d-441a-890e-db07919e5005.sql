@@ -1,4 +1,5 @@
 -- 1) profiles: prevent self-escalation
+DROP FUNCTION IF EXISTS public.prevent_profile_self_escalation() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_profile_self_escalation()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -25,6 +26,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 2) personnel: prevent self-editing sensitive fields
+DROP FUNCTION IF EXISTS public.prevent_personnel_self_escalation() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_personnel_self_escalation()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN

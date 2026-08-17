@@ -35,6 +35,7 @@ EXCEPTION
 END
 $idxguard$;
 -- 2) trigger แจ้งเตือนใบลาบุคลากร (admin + director) + กันซ้ำ 5 นาที
+DROP FUNCTION IF EXISTS public.notify_on_staff_leave() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_on_staff_leave()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $function$
 DECLARE recipient_id UUID; personnel_name TEXT;
@@ -63,6 +64,7 @@ BEGIN
   RETURN NEW;
 END; $function$;
 -- 3) trigger แจ้งเตือนนักเรียนลา — กันซ้ำ 5 นาที
+DROP FUNCTION IF EXISTS public.notify_on_student_leave() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_on_student_leave()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $function$
 DECLARE

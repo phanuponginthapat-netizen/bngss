@@ -50,6 +50,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
   RAISE NOTICE 'skipped: %', SQLERRM;
 END
 $guard$;
+DROP FUNCTION IF EXISTS public.get_app_secret(TEXT) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_app_secret(_key TEXT)
 RETURNS TEXT
 LANGUAGE sql

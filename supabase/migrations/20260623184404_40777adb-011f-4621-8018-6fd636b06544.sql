@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.notify_wall_post_reaction() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_wall_post_reaction()
 RETURNS trigger
 LANGUAGE plpgsql

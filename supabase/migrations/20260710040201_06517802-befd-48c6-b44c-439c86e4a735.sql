@@ -1,4 +1,5 @@
 -- 1) Profiles: prevent self-escalation via UPDATE (school_id, department, is_approved, employee_code, student_code, account_linked, role-ish fields)
+DROP FUNCTION IF EXISTS public.prevent_profile_self_escalation() CASCADE;
 CREATE OR REPLACE FUNCTION public.prevent_profile_self_escalation()
 RETURNS TRIGGER
 LANGUAGE plpgsql

@@ -56,6 +56,7 @@ BEGIN
   IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.budget_transactions SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
 END $$;
 -- Auto-fill trigger: set school_id from profile if missing on insert
+DROP FUNCTION IF EXISTS public.auto_set_school_id() CASCADE;
 CREATE OR REPLACE FUNCTION public.auto_set_school_id()
 RETURNS trigger
 LANGUAGE plpgsql

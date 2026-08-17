@@ -15,6 +15,7 @@ EXCEPTION
 END
 $idxguard$;
 -- Security definer helper: can current user see a scoped board?
+DROP FUNCTION IF EXISTS public.padlet_can_view_board(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.padlet_can_view_board(_board_id uuid)
 RETURNS boolean
 LANGUAGE plpgsql

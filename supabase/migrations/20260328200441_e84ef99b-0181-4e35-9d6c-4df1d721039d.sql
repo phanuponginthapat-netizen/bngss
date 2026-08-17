@@ -35,6 +35,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 4. Security definer function to check roles (avoids recursive RLS)
+DROP FUNCTION IF EXISTS public.has_role(UUID, app_role) CASCADE;
 CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role app_role)
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -48,6 +49,7 @@ AS $$
   )
 $$;
 -- 5. Function to get user role
+DROP FUNCTION IF EXISTS public.get_user_role(UUID) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_user_role(_user_id UUID)
 RETURNS app_role
 LANGUAGE sql
@@ -208,6 +210,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 8. Auto-create profile on signup
+DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql

@@ -1,4 +1,5 @@
 -- Helper: notify admins + directors
+DROP FUNCTION IF EXISTS public.notify_admins_directors(text, text, text, text, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_admins_directors(_title text, _message text, _type text, _ref_type text, _ref_id uuid)
 RETURNS void
 LANGUAGE plpgsql
@@ -13,6 +14,7 @@ BEGIN
 END;
 $$;
 -- 1) ICT loan: notify borrower on approval / return
+DROP FUNCTION IF EXISTS public.notify_ict_loan_status_change() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_ict_loan_status_change()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -67,6 +69,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 2) Health measurement: notify the student
+DROP FUNCTION IF EXISTS public.notify_health_measurement() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_health_measurement()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -103,6 +106,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 3) Asset damage report: notify admins + directors
+DROP FUNCTION IF EXISTS public.notify_asset_damage_report() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_asset_damage_report()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -138,6 +142,7 @@ EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR unde
 END
 $guard$;
 -- 4) Vaccine record: notify the student
+DROP FUNCTION IF EXISTS public.notify_vaccine_record() CASCADE;
 CREATE OR REPLACE FUNCTION public.notify_vaccine_record()
 RETURNS trigger
 LANGUAGE plpgsql

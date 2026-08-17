@@ -9,6 +9,7 @@ SELECT 'SINGLE_SCHOOL',
   (SELECT value FROM public.cms_settings WHERE key='school_logo'),
   true
 WHERE NOT EXISTS (SELECT 1 FROM public.schools);
+DROP FUNCTION IF EXISTS public.current_school_id() CASCADE;
 CREATE OR REPLACE FUNCTION public.current_school_id()
 RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public' AS $$
   SELECT id FROM public.schools ORDER BY created_at ASC LIMIT 1
@@ -41,6 +42,7 @@ BEGIN
   END LOOP;
 END $$;
 -- Enforce single school going forward
+DROP FUNCTION IF EXISTS public.enforce_single_school() CASCADE;
 CREATE OR REPLACE FUNCTION public.enforce_single_school()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN

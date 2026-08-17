@@ -1,4 +1,5 @@
 DELETE FROM public.app_secrets WHERE key IN ('FB_PAGE_ACCESS_TOKEN','FB_PAGE_ID');
+DROP FUNCTION IF EXISTS public.ensure_default_app_secrets() CASCADE;
 CREATE OR REPLACE FUNCTION public.ensure_default_app_secrets()
 RETURNS void
 LANGUAGE plpgsql
