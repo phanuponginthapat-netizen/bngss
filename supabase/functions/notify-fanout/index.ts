@@ -20,7 +20,7 @@ interface FanoutRequest {
   reference_id?: string | null;
   reference_type?: string | null;
   url?: string | null;                      // deep link (e.g. /dashboard/inbox)
-  channels?: Array<"in_app" | "push" | "line" | "gchat">;  // optional override
+  channels?: Array<"in_app" | "push" | "line" | "gchat" | "gchat_dm">;  // optional override
   // Google Chat
   gchat_categories?: string[];              // webhook categories to also post to
   fields?: Record<string, string>;          // extra key/value details rendered in the gchat card
