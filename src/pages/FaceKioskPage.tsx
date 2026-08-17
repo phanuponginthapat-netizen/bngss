@@ -532,11 +532,14 @@ const FaceKioskPage = () => {
 
     const { data: { user } } = await supabase.auth.getUser();
     const uploadedFaceUrl = await uploadFaceScanSnapshot(capturedFace, studentId);
+    // อุณหภูมิจาก micro:bit (null เมื่อไม่ได้เชื่อมต่อ → ใช้กฎเดิมของระบบ)
+    const scanTemp = gateRef.current.getLiveTemp();
     const { data, error } = await supabase.from("face_scan_logs").insert({
       student_id: studentId, scan_type: mode, confidence,
       scanned_by: user?.id, device_label: `tablet-kiosk-${mode}`,
       captured_face_url: uploadedFaceUrl,
-    }).select("id").maybeSingle();
+      ...(scanTemp != null ? { temperature_c: scanTemp } : {}),
+    } as any).select("id").maybeSingle();
     if (error) {
       if (error.code === "23505") {
         seenSet.add(studentId);
