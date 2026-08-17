@@ -475,7 +475,7 @@ const SubstitutePage = () => {
     setUploadingProof(true);
 
     try {
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const ext = ((file.name.match(/\.([A-Za-z0-9]{1,8})$/)?.[1] || "jpg").toLowerCase()).toLowerCase();
       const path = `${detailSub.id}/${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage.from("substitute-proof").upload(path, file, { upsert: true });
       if (upErr) throw upErr;

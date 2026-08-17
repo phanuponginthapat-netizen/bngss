@@ -150,7 +150,7 @@ export default function BrowserShortcutsAdminPage() {
     if (file.size > 2 * 1024 * 1024) return toast.error(L("ไฟล์ต้องไม่เกิน 2MB", "Max 2MB"));
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "png";
+      const ext = (file.name.match(/\.([A-Za-z0-9]{1,8})$/)?.[1] || "png").toLowerCase();
       const path = `browser-shortcuts/${crypto.randomUUID()}.${ext}`;
       const result = await uploadPublicFileWithFallback("cms-images", path, file, {
         cacheControl: "3600", upsert: false, contentType: file.type,

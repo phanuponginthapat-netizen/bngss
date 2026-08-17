@@ -12,7 +12,7 @@ export const LEAVE_BUCKET = "leave-attachments";
 export async function uploadLeaveAttachment(file: File, _ownerHint?: string): Promise<string> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("ต้องเข้าสู่ระบบก่อนอัปโหลดไฟล์");
-  const ext = file.name.split(".").pop() || "bin";
+  const ext = (file.name.match(/\.([A-Za-z0-9]{1,8})$/)?.[1] || "bin").toLowerCase();
   const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const { error } = await supabase.storage
     .from(LEAVE_BUCKET)

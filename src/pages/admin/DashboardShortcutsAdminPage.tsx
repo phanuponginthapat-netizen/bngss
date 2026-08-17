@@ -169,7 +169,7 @@ export default function DashboardShortcutsAdminPage() {
     }
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "png";
+      const ext = (file.name.match(/\.([A-Za-z0-9]{1,8})$/)?.[1] || "png").toLowerCase();
       const path = `dashboard-shortcuts/${crypto.randomUUID()}.${ext}`;
       const result = await uploadPublicFileWithFallback("cms-images", path, file, {
         cacheControl: "3600",

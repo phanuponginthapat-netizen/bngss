@@ -100,7 +100,7 @@ export default function GameHubAdminPage() {
     if (!user?.id) return;
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "png";
+      const ext = (file.name.match(/\.([A-Za-z0-9]{1,8})$/)?.[1] || "png").toLowerCase();
       const path = `${user.id}/${Date.now()}.${ext}`;
       const { error } = await supabase.storage.from("game-covers").upload(path, file, { upsert: false });
       if (error) throw error;

@@ -11,6 +11,8 @@ import { parsePP5Workbook, type PP5ParsedWorkbook } from "@/lib/pp5AutoParser";
 import { checkAcademicYear, matchStudents, provisionAlumni, type YearCheck } from "@/lib/ppImportChecks";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { sanitizeStorageKey } from "@/lib/uploadFallback";
+
 
 export interface AutoImportResolvedTarget {
   gradeLevel: string;
@@ -110,8 +112,10 @@ export function AutoImportDialogBase<T>({
     const ready = items.filter((it) => it.status === "ready" && it.parsed);
     if (ready.length === 0) return toast.error("ไม่มีไฟล์พร้อมนำเข้า");
     setBusy(true);
+    let okCount = 0;
     const { data: userData } = await supabase.auth.getUser();
     const uid = userData?.user?.id;
+
 
     for (const it of ready) {
       updateItem(it.file, { status: "uploading" });
@@ -149,8 +153,14 @@ export function AutoImportDialogBase<T>({
           await (supabase.from(tableName) as any).delete().eq("id", (dupe as any).id);
         }
 
-        const cleanName = it.file.name.replace(/[^\w.\-ก-๙\s]/g, "_");
-        const path = `${year}/${storageFolder || gradeLevel}/${Date.now()}_${cleanName}`;
+        // Supabase Storage รับเฉพาะ key แบบ ASCII — ชื่อไฟล์/ระดับชั้นภาษาไทยทำให้ "Invalid key"
+        // (ชื่อไฟล์จริงยังถูกเก็บในคอลัมน์ file_name)
+        const ext = (it.file.name.match(/\.([A-Za-z0-9]{1,8})$/)?.[1] || "xlsx").toLowerCase();
+        const uniq = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const rawKey = `${year}/${storageFolder || gradeLevel}/${uniq}_${it.file.name.replace(/\.[A-Za-z0-9]{1,8}$/, "")}`;
+        const path = `${sanitizeStorageKey(rawKey)}.${ext}`;
+
+
         const { error: upErr } = await supabase.storage.from(bucket).upload(path, it.file, {
           contentType: it.file.type || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           upsert: false,
@@ -191,14 +201,20 @@ export function AutoImportDialogBase<T>({
         });
         if (insErr) throw insErr;
 
-        updateItem(it.file, { status: "done", alumniCreated });
+        okCount += 1;
+        updateItem(it.file, { status: "done", alumniCreated, error: undefined });
       } catch (e: any) {
-        updateItem(it.file, { status: "error", error: e?.message });
+        updateItem(it.file, { status: "error", error: e?.message || "นำเข้าไม่สำเร็จ" });
       }
     }
     setBusy(false);
-    toast.success("นำเข้าไฟล์สำเร็จ — กดปุ่ม 'ประกาศ' ในหน้าไฟล์เพื่อแจ้งนักเรียน");
-    onImportSuccess?.();
+    if (okCount > 0) {
+      toast.success(`นำเข้าสำเร็จ ${okCount} ไฟล์ — กดปุ่ม 'ประกาศ' ในหน้าไฟล์เพื่อแจ้งนักเรียน`);
+      onImportSuccess?.();
+    } else {
+      toast.error("นำเข้าไม่สำเร็จ — ตรวจข้อความผิดพลาดในแต่ละไฟล์");
+    }
+
   };
 
   return (
@@ -251,14 +267,23 @@ export function AutoImportDialogBase<T>({
                         {it.error && (
                           <div className="space-y-1">
                             <p className="text-xs text-destructive">{it.error}</p>
-                            {it.duplicateOf && !it.confirmedDuplicate && (
-                              <Button size="sm" variant="outline" className="h-7 text-xs"
-                                onClick={() => updateItem(it.file, { status: "ready", error: undefined, confirmedDuplicate: true })}>
-                                อัปโหลดทับ (ไฟล์เก่าจะถูกลบ)
-                              </Button>
-                            )}
+                            <div className="flex flex-wrap gap-2">
+                              {it.duplicateOf && !it.confirmedDuplicate && (
+                                <Button size="sm" variant="outline" className="h-7 text-xs"
+                                  onClick={() => updateItem(it.file, { status: "ready", error: undefined, confirmedDuplicate: true })}>
+                                  อัปโหลดทับ (ไฟล์เก่าจะถูกลบ)
+                                </Button>
+                              )}
+                              {it.parsed && !it.duplicateOf && (
+                                <Button size="sm" variant="outline" className="h-7 text-xs"
+                                  onClick={() => updateItem(it.file, { status: "ready", error: undefined })}>
+                                  ลองนำเข้าใหม่
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         )}
+
                         {it.parsed && (
                           <div className="text-xs space-y-2">
                             <div className="grid gap-3 lg:grid-cols-2 items-start">

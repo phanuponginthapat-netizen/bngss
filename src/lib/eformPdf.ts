@@ -29,7 +29,7 @@ export interface PdfOverlayField {
 
 /** Upload a PDF file and return its storage path (not signed URL). */
 export async function uploadEformPdf(file: File): Promise<string> {
-  const ext = file.name.split(".").pop() || "pdf";
+  const ext = (file.name.match(/\.([A-Za-z0-9]{1,8})$/)?.[1] || "pdf").toLowerCase();
   const path = `${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage
     .from(EFORM_PDF_BUCKET)
