@@ -550,7 +550,7 @@ const FaceKioskPage = () => {
     justScannedRef.current.set(cdKey, now);
     playSuccessSound();
     if (voiceEnabled) speakText(`สแกน${modeLabel}สำเร็จ ${name}`);
-    void runGate(name);
+    void runGate(name, { id: studentId, kind: "student" });
     if (!seenSet.has(studentId)) {
       seenSet.add(studentId);
       setTodayCounts((c) => ({ ...c, [mode]: c[mode] + 1 }));
@@ -737,7 +737,7 @@ const FaceKioskPage = () => {
                       justScannedRef.current.set(found.studentId, tNow);
                       playSuccessSound();
                       const mode = scanModeRef.current === "exit" ? "exit" : "entry";
-                      void runGate(found.name);
+                      void runGate(found.name, { id: found.studentId, kind: "personnel" });
                       let clockNote = "บุคลากร (ทดสอบ)";
                       if (staffClockRef.current) {
                         clockNote = await clockStaff(found.studentId, mode, captured, m.confidence, found.name);
