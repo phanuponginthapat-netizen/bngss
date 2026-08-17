@@ -92,6 +92,22 @@ export function AppSidebar() {
   const location = useLocation();
   const { role } = useUserRole(); // effective role (respects view-mode override)
   const [search, setSearch] = useState("");
+
+  // Remember which sections the user left open (per browser).
+  const SECTION_STATE_KEY = "sidebar_open_sections_v2";
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(window.localStorage.getItem(SECTION_STATE_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  });
+  const setSectionOpen = (key: string, open: boolean) =>
+    setOpenSections((prev) => {
+      const next = { ...prev, [key]: open };
+      try { window.localStorage.setItem(SECTION_STATE_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
   const { appName, schoolName, schoolLogo } = useSystemSettings();
   const { isModuleEnabled } = useModuleToggles();
   const headerTitle = appName;
@@ -611,11 +627,11 @@ export function AppSidebar() {
     { key: "div_admin",    label: L("งานผู้ดูแลระบบ",           "System Admin"),     icon: Shield,      depts: DIV_ADMIN,    color: "text-slate-300",   dot: "bg-slate-300", adminOnly: true },
   ];
 
-  // Section ordering per role — 4 divisions + tools (+ admin group for admin only)
+  // Section ordering per role — งานหลักก่อน แล้วค่อยเครื่องมือ/ผู้ดูแลระบบท้ายสุด
   const sectionOrderPerRole: Record<string, string[]> = {
-    admin:    ["div_tools", "div_academic", "div_student", "div_general", "div_budget", "div_admin"],
-    director: ["div_tools", "div_academic", "div_student", "div_budget", "div_general"],
-    teacher:  ["div_tools", "div_academic", "div_student", "div_general", "div_budget"],
+    admin:    ["div_academic", "div_student", "div_general", "div_budget", "div_tools", "div_admin"],
+    director: ["div_academic", "div_student", "div_budget", "div_general", "div_tools"],
+    teacher:  ["div_academic", "div_student", "div_general", "div_budget", "div_tools"],
     student:  ["div_tools"],
     parent:   ["div_tools"],
     alumni:   ["div_tools"],
@@ -842,6 +858,18 @@ export function AppSidebar() {
                 "/dashboard/hub/games",
               ]),
             },
+            {
+              key: "events",
+              label: L("กิจกรรมและงานที่ได้รับมอบหมาย", "Activities & Tasks"),
+              color: "text-fuchsia-400",
+              dot: "bg-fuchsia-400",
+              icon: Trophy,
+              items: take([
+                "/dashboard/activities",
+                "/dashboard/certificates",
+                "/dashboard/admin/staff-tasks",
+              ]),
+            },
           ];
           // ให้ /dashboard/browser ตกไปหมวด "เครื่องมือ" (div_tools) แทน เพื่อไม่ให้ซ้ำ
           used.add("/dashboard/browser");
@@ -884,8 +912,9 @@ export function AppSidebar() {
                 </SidebarGroup>
               );
             }
+            const open = q ? true : (openSections[sec.key] ?? (sec.key === "me" || isActive));
             return (
-              <Collapsible key={sec.key} defaultOpen>
+              <Collapsible key={sec.key} open={open} onOpenChange={(v) => setSectionOpen(sec.key, v)}>
                 <SidebarGroup className="!p-0">
                   <CollapsibleTrigger className="w-full group/sec">
                     <div className="px-2 mt-0.5 mb-0.5">
@@ -914,12 +943,14 @@ export function AppSidebar() {
         {groupedDepts.map((sec, sIdx) => {
           const flatItems = sec.items.flatMap((d) => d.items);
           const isActive = flatItems.some((i) => location.pathname === i.url);
+          // ฝ่ายงานเริ่มต้นเป็นแบบพับไว้ (ยกเว้นฝ่ายที่กำลังใช้งานอยู่) เพื่อลดการเลื่อนหน้าจอ
+          const open = q ? true : (openSections[sec.key] ?? isActive);
           return (
             <div key={sec.key} className="mt-1">
               {collapsed ? (
                 sIdx > 0 && <div className={`mx-auto my-3 h-0.5 w-6 rounded-full ${sec.dot} opacity-70`} />
               ) : (
-                <Collapsible defaultOpen>
+                <Collapsible open={open} onOpenChange={(v) => setSectionOpen(sec.key, v)}>
 
                   <SidebarGroup className="!p-0">
                     <CollapsibleTrigger className="w-full group/sec">
