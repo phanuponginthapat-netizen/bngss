@@ -27,7 +27,7 @@ import { CalendarClock, Sparkles } from "lucide-react";
 import { KEY_COMPETENCIES, DESIRABLE_CHARACTERISTICS, READ_THINK_WRITE_STANDARDS } from "@/lib/obecStandards";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { applyPp5FileToSystem } from "@/lib/pp5ApplyToSystem";
-import { saveErrorMessage } from "@/lib/saveError";
+import { saveErrorMessage, safeNum } from "@/lib/saveError";
 
 const OBEC_PRESETS: Record<string, { title: string; description?: string }[]> = {
   competency: KEY_COMPETENCIES.map(c => ({ title: `${c.no}. ${c.name}`, description: "สมรรถนะสำคัญ สพฐ." })),
@@ -350,19 +350,20 @@ const ScoreEntryTab = () => {
   };
 
   const handleDeleteIndicator = async (id: string) => {
-    await supabase.from("subject_indicators").delete().eq("id", id);
+    const { error } = await supabase.from("subject_indicators").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["subject_indicators"] });
   };
 
   const handleAddColumn = async () => {
-    if (!columnForm.column_name || !currentAssignment) return;
+    if (!columnForm.column_name || !currentAssignment) { toast.error("กรุณากรอกชื่อช่องคะแนน"); return; }
     const { error } = await supabase.from("subject_score_columns").insert({
       subject_id: currentAssignment.subject_id,
       personnel_id: currentAssignment.personnel_id,
       column_name: columnForm.column_name,
       column_type: columnForm.column_type,
       half: columnForm.column_type === "assignment" ? columnForm.half : "pre",
-      max_score: parseFloat(columnForm.max_score),
+      max_score: safeNum(columnForm.max_score, 10),
       sort_order: scoreColumns.length,
     } as any);
     if (error) { toast.error(saveErrorMessage(error)); return; }
@@ -373,7 +374,8 @@ const ScoreEntryTab = () => {
   };
 
   const handleDeleteColumn = async (id: string) => {
-    await supabase.from("subject_score_columns").delete().eq("id", id);
+    const { error } = await supabase.from("subject_score_columns").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["subject_score_columns"] });
   };
 
@@ -452,7 +454,8 @@ const ScoreEntryTab = () => {
         max_score: 1,
         sort_order: activityColumns.length + i,
       }));
-      await supabase.from("subject_score_columns").insert(rows as any);
+      const { error } = await supabase.from("subject_score_columns").insert(rows as any);
+      if (error) { toast.error(saveErrorMessage(error)); return; }
       qc.invalidateQueries({ queryKey: ["subject_score_columns"] });
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -472,10 +475,11 @@ const ScoreEntryTab = () => {
     midMax: number; finMax: number;
   }) => {
     if (!currentAssignment) return;
-    await supabase.from("subject_score_columns")
+    const { error: delErr } = await supabase.from("subject_score_columns")
       .delete()
       .eq("subject_id", currentAssignment.subject_id)
       .in("column_type", ["assignment", "midterm", "final"]);
+    if (delErr) { toast.error(saveErrorMessage(delErr)); return; }
     const rows: any[] = [];
     let order = 0;
     for (let i = 0; i < cfg.preCount; i++) {
@@ -565,7 +569,7 @@ const ScoreEntryTab = () => {
       const midtermTotal = sumGroup(s.id, midtermColumns);
       const finalTotal = sumGroup(s.id, finalColumns);
       const attendanceTotal = sumGroup(s.id, attendanceColumns);
-      await supabase.from("student_scores").upsert({
+      const { error } = await supabase.from("student_scores").upsert({
         student_name: studentName,
         student_code: (s as any).student_code,
         subject_id: currentAssignment!.subject_id,
@@ -577,6 +581,7 @@ const ScoreEntryTab = () => {
         grade,
         grade_point: gradePoint,
       }, { onConflict: "student_code,subject_id" });
+      if (error) { toast.error(saveErrorMessage(error)); return; }
       count++;
     }
     toast.success(`ตัดเกรดอัตโนมัติสำเร็จ ${count} คน (ถ่วงน้ำหนัก ${WEIGHTS.assignment}/${WEIGHTS.midterm}/${WEIGHTS.final}${attendanceColumns.length ? "+จิตพิสัย" : ""})`);
