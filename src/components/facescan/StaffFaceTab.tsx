@@ -196,12 +196,63 @@ const StaffFaceTab = () => {
                 time: new Date().toISOString(),
               }, ...prev].slice(0, 20);
             });
+
+            // เรียนรู้ใบหน้าเพิ่มอัตโนมัติ (เก็บมุม/แสงใหม่เข้าคลังของบุคลากรคนนั้น)
+            if (autoLearnRef.current && hitId) {
+              const last = learnedRef.current[hitId] || 0;
+              if (Date.now() - last > 20_000) {
+                learnedRef.current[hitId] = Date.now();
+                void learnPersonnelFromScan({
+                  personnelId: hitId,
+                  descriptor: det.descriptor,
+                  match: m,
+                  sharpness: sharp,
+                  source: "staff-simulate",
+                }).then((r) => {
+                  if (r.learned) {
+                    setLearnLog((prev) => [`${new Date().toLocaleTimeString("th-TH")} · เรียนรู้ใบหน้า ${hit.name} เพิ่ม (รวม ${r.total} ภาพ)`, ...prev].slice(0, 10));
+                    qc.invalidateQueries({ queryKey: ["staff-face-db"] });
+                  }
+                });
+              }
+            }
           }
         }
       }
     } catch { /* ignore frame error */ }
     setTimeout(loop, 350);
   };
+
+  const runPhotoLearning = async (files: File[]) => {
+    if (!learnTarget) return toast.error("เลือกบุคลากรก่อน");
+    if (files.length === 0) return;
+    setUploading(true);
+    setUploadResults([]);
+    setUploadProgress({ done: 0, total: files.length });
+    try {
+      setModelMsg("กำลังโหลดโมเดล...");
+      await loadFaceModels((m) => setModelMsg(m));
+      setModelMsg("");
+      const res = await addPersonnelSamplesFromFiles(learnTarget, files, (done, total, r) => {
+        setUploadProgress({ done, total });
+        setUploadResults((prev) => [...prev, r]);
+      });
+      const added = res.filter((r) => r.status === "added").length;
+      if (added > 0) {
+        toast.success(`เรียนรู้เพิ่ม ${added} ภาพ (จาก ${files.length} ไฟล์)`);
+        qc.invalidateQueries({ queryKey: ["staff-face-db"] });
+      } else {
+        toast.warning("ไม่มีภาพใดถูกเพิ่ม — ดูเหตุผลรายไฟล์ด้านล่าง");
+      }
+    } catch (e: any) {
+      toast.error(saveErrorMessage(e));
+    } finally {
+      setUploading(false);
+      setModelMsg("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
 
   return (
     <div className="space-y-4">
