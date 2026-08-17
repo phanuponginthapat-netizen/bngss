@@ -251,10 +251,32 @@ function normalizeGradeLevel(raw: string): string {
   return s;
 }
 
+/** value that is really a table header ("รายวิชา (ชื่อเต็ม)", "กรุณาเลือก") rather than data */
+const isHeaderLikeValue = (v: string) =>
+  /^(รายวิชา|รหัสวิชา|ชื่อวิชา|ชื่อ\s*-\s*สกุล|กรุณาเลือก|ชื่อเต็ม|น้ำหนัก|หน่วยกิต|จำนวน|ประเภท|-)/i.test(v.trim());
+
+/** "1", "๒", "ปลายปี", "ตลอดปี" → numeric semester */
+
+function normalizeSemester(raw: string): number | undefined {
+  const s = raw.trim();
+  if (!s) return undefined;
+  if (isNum(s)) {
+    const n = Number(s);
+    return n === 1 || n === 2 ? n : undefined;
+  }
+  if (/๑/.test(s)) return 1;
+  if (/๒/.test(s)) return 2;
+  if (/ต้นปี|ภาคต้น|เทอม\s*1|ที่\s*1/.test(s)) return 1;
+  if (/ปลายปี|ภาคปลาย|เทอม\s*2|ที่\s*2/.test(s)) return 2;
+  if (/ตลอดปี|ทั้งปี|รายปี/.test(s)) return 1;
+  return undefined;
+}
+
 function extractMeta(wb: XLSX.WorkBook): PP5ParsedWorkbook["meta"] {
   const meta: PP5ParsedWorkbook["meta"] = {};
+  let academicYearExplicit = false; // "ปีการศึกษา" beats a bare "พ.ศ." row
   for (const name of wb.SheetNames) {
-    if (!/home|โปรแกรม|ข้อมูลพื้นฐาน/i.test(name)) continue;
+    if (!/home|โปรแกรม|ข้อมูลพื้นฐาน|ปก|ข้อมูล/i.test(name)) continue;
     const grid = sheetToGrid(wb.Sheets[name]);
     for (const row of grid) {
       for (let c = 0; c < row.length; c++) {
@@ -266,33 +288,56 @@ function extractMeta(wb: XLSX.WorkBook): PP5ParsedWorkbook["meta"] {
           if (v) { val = v; break; }
         }
         if (!val) continue;
-        if (/^โรงเรียน/i.test(label) && !meta.schoolName) meta.schoolName = val;
-        else if (/^ระดับชั้น/i.test(label) && !meta.gradeLevel) meta.gradeLevel = normalizeGradeLevel(val);
-        else if (/^ภาคเรียน/i.test(label) && !meta.semester && isNum(val)) meta.semester = Number(val);
-        else if (/^ปีการศึกษา/i.test(label) && !meta.academicYear && isNum(val)) meta.academicYear = Number(val);
+        if (/^(โรงเรียน|ชื่อสถานศึกษา|สถานศึกษา|ชื่อโรงเรียน)/i.test(label) && !meta.schoolName) meta.schoolName = val;
+        else if (/^(ระดับชั้น|ชั้น|ชั้นเรียน)/i.test(label) && !meta.gradeLevel) meta.gradeLevel = normalizeGradeLevel(val);
+        else if (/^(ภาคเรียน|ภาคการศึกษา)/i.test(label) && !meta.semester) meta.semester = normalizeSemester(val);
+        else if (/^ปีการศึกษา/i.test(label) && isNum(val)) {
+          if (!academicYearExplicit) { meta.academicYear = Number(val); academicYearExplicit = true; }
+        }
         else if (/^ปี\s*พ\.?\s*ศ/i.test(label) && !meta.academicYear && isNum(val)) meta.academicYear = Number(val);
         else if (/^(ครูผู้สอน|ผู้สอน)/i.test(label) && !meta.teacherName) meta.teacherName = val;
         else if (/^ครูประจำชั้น|ครูที่ปรึกษา/i.test(label) && !meta.teacherName) meta.teacherName = val;
-        else if (/^รายวิชา/i.test(label) && !meta.subjectName) meta.subjectName = val.replace(/\s+/g, " ").trim();
-        else if (/^รหัสวิชา/i.test(label) && !meta.subjectCode) meta.subjectCode = val;
+        else if (/^รายวิชา\s*:?$/i.test(label) && !meta.subjectName && !isHeaderLikeValue(val)) meta.subjectName = val.replace(/\s+/g, " ").trim();
+        else if (/^รหัสวิชา\s*:?$/i.test(label) && !meta.subjectCode && !isHeaderLikeValue(val)) meta.subjectCode = val;
+
         else if (/^กลุ่มสาระ/i.test(label) && !meta.department) meta.department = val;
+      }
+    }
+  }
+  // fallback: free-text "ปีการศึกษา 2568" / "ภาคเรียนที่ 2" anywhere on the info sheets
+  if (!meta.academicYear || !meta.semester) {
+    for (const name of wb.SheetNames) {
+      if (!/home|โปรแกรม|ข้อมูลพื้นฐาน|ปก|ข้อมูล/i.test(name)) continue;
+      const text = sheetToGrid(wb.Sheets[name]).flat().map(nz).join(" ");
+      if (!meta.academicYear) {
+        const m = text.match(/ปีการศึกษา\s*(?:ที่\s*)?(\d{4})/);
+        if (m) meta.academicYear = Number(m[1]);
+      }
+      if (!meta.semester) {
+        const m = text.match(/ภาคเรียน(?:ที่)?\s*([^\s,]{1,10})/);
+        if (m) meta.semester = normalizeSemester(m[1]);
       }
     }
   }
   return meta;
 }
 
+
 // ─── Consolidation ────────────────────────────────────────────────────────────
-function sumNonAggregated(st: PP5ParsedStudentRow): { sum: number; count: number } {
-  let sum = 0, count = 0;
+function sumNonAggregated(st: PP5ParsedStudentRow): { sum: number; count: number; max: number } {
+  let sum = 0, count = 0, max = 0;
   for (const subj of Object.keys(st.subjects)) {
     if (isAggregated(subj)) continue;
     for (const col of st.subjects[subj].columns) {
       if (isAggregated(col.header)) continue;
-      if (typeof col.value === "number" && !isNaN(col.value)) { sum += col.value; count++; }
+      if (typeof col.value === "number" && !isNaN(col.value)) {
+        sum += col.value; count++;
+        // the sub-header row of OBEC sheets holds "คะแนนเต็ม" of each column
+        max += isNum(col.header) ? Number(col.header) : 0;
+      }
     }
   }
-  return { sum, count };
+  return { sum, count, max };
 }
 
 const isMainScoreSheet = (name: string) =>
@@ -308,10 +353,20 @@ function applyToBucket(
   sh: PP5ParsedSheet,
   st: PP5ParsedStudentRow,
   sum: number,
-  count: number
+  count: number,
+  max = 0,
 ) {
   const avg = count > 0 ? sum / count : 0;
-  const value = st.directTotal !== undefined ? st.directTotal : (sh.kind === "exam_scores" ? sum : Math.round(avg * 100) / 100);
+  // only trust the "คะแนนเต็ม" row when the raw sum actually fits inside it
+  const pct = max > 0 && sum <= max * 1.02 ? Math.round((sum / max) * 10000) / 100 : undefined;
+  const value =
+    sh.kind === "exam_scores"
+      ? (pct !== undefined ? pct : st.directTotal !== undefined ? st.directTotal : sum)
+      : st.directTotal !== undefined
+        ? st.directTotal
+        : pct !== undefined
+          ? pct
+          : Math.round(avg * 100) / 100;
 
   if (sh.kind === "exam_scores") {
     if (isMainScoreSheet(sh.sheetName)) {
@@ -343,7 +398,72 @@ function finalizeBucket(s: any) {
   }
 }
 
+/** true when the workbook has no single canonical subject but sheets carry many subject columns (ปพ.6) */
+function looksMultiSubject(sheets: PP5ParsedSheet[], meta: PP5ParsedWorkbook["meta"]): boolean {
+  if (meta.subjectName?.trim() || meta.subjectCode?.trim()) return false; // ปพ.5 = one subject per file
+  return sheets.some(
+    (s) => s.subjects.filter((x) => !isAggregated(x) && !isSeqHeader(x) && /[ก-๙a-z]/i.test(x)).length >= 2,
+  );
+}
+
+/** ปพ.6: subject names live in the top header row → one bucket per subject column-group */
+function consolidateMulti(sheets: PP5ParsedSheet[]): PP5ParsedWorkbook["consolidated"] {
+  const byStudent = new Map<string, { studentCode: string; studentName: string; perSubject: Record<string, any> }>();
+  for (const sh of sheets) {
+    for (const st of sh.students) {
+      if (!byStudent.has(st.studentCode)) {
+        byStudent.set(st.studentCode, { studentCode: st.studentCode, studentName: st.studentName, perSubject: {} });
+      }
+      const rec = byStudent.get(st.studentCode)!;
+      for (const [subjName, data] of Object.entries(st.subjects)) {
+        if (!subjName || isAggregated(subjName) || isSeqHeader(subjName) || /^col_\d+$/.test(subjName)) continue;
+        if (!/[ก-๙a-z]/i.test(subjName)) continue; // numeric placeholder headers (0, 1, ...)
+        let sum = 0, maxSum = 0, count = 0;
+        let grade: string | undefined;
+        for (const col of data.columns) {
+          const h = String(col.header || "").trim();
+          if (isGradeHeader(h)) {
+            const g = nz(col.value);
+            if (g) grade = g;
+            continue;
+          }
+          if (typeof col.value === "number" && !isNaN(col.value)) {
+            sum += col.value;
+            count++;
+            maxSum += isNum(h) ? Number(h) : 100; // sub-header row usually holds "คะแนนเต็ม"
+          }
+        }
+        if (count === 0 && !grade) continue;
+        const bucket = (rec.perSubject[subjName] ||= {});
+        const pct = count > 0 && maxSum > 0 ? Math.round((sum / maxSum) * 10000) / 100 : undefined;
+        if (sh.kind === "character") { if (pct !== undefined) bucket.characterLevel = pct; continue; }
+        if (sh.kind === "competency") { if (pct !== undefined) bucket.competencyLevel = pct; continue; }
+        if (sh.kind === "reading_thinking") { if (pct !== undefined) bucket.readingLevel = pct; continue; }
+        if (sh.kind === "attendance") { if (count > 0) bucket.attendanceHours = Math.round(sum); continue; }
+        // exam / score sheets
+        if (grade) { bucket.grade = grade; bucket.gradeFromFile = true; }
+        if (pct !== undefined) {
+          bucket.examScore = pct;
+          bucket.totalScore = pct;
+          if (!bucket.gradeFromFile) bucket.grade = computeGrade(pct);
+        }
+      }
+    }
+  }
+  for (const rec of byStudent.values()) {
+    for (const [k, v] of Object.entries(rec.perSubject)) {
+      if (v.totalScore === undefined && !v.grade) delete rec.perSubject[k];
+    }
+  }
+  return Array.from(byStudent.values()).filter((r) => Object.keys(r.perSubject).length > 0);
+}
+
+
 function consolidate(sheets: PP5ParsedSheet[], meta: PP5ParsedWorkbook["meta"]): PP5ParsedWorkbook["consolidated"] {
+  if (looksMultiSubject(sheets, meta)) {
+    const multi = consolidateMulti(sheets);
+    if (multi.length > 0) return multi;
+  }
   const canonicalSubject = meta.subjectName?.trim() || "รายวิชา";
   const byStudent = new Map<string, { studentCode: string; studentName: string; perSubject: Record<string, any> }>();
 
@@ -356,14 +476,15 @@ function consolidate(sheets: PP5ParsedSheet[], meta: PP5ParsedWorkbook["meta"]):
       const rec = byStudent.get(key)!;
       if (!rec.perSubject[canonicalSubject]) rec.perSubject[canonicalSubject] = {};
       const bucket = rec.perSubject[canonicalSubject];
-      const { sum, count } = sumNonAggregated(st);
+      const { sum, count, max } = sumNonAggregated(st);
       if (count === 0 && st.directTotal === undefined && !st.directGrade) continue;
-      applyToBucket(bucket, sh, st, sum, count);
+      applyToBucket(bucket, sh, st, sum, count, max);
     }
   }
   for (const rec of byStudent.values()) for (const s of Object.values(rec.perSubject)) finalizeBucket(s);
   return Array.from(byStudent.values());
 }
+
 
 // ─── Entry point ──────────────────────────────────────────────────────────────
 export async function parsePP5Workbook(file: File | ArrayBuffer): Promise<PP5ParsedWorkbook> {

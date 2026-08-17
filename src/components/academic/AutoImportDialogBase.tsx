@@ -8,6 +8,9 @@ import { toast } from "sonner";
 import { Upload, FileSpreadsheet, CheckCircle2, X, Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { parsePP5Workbook, type PP5ParsedWorkbook } from "@/lib/pp5AutoParser";
+import { checkAcademicYear, matchStudents, provisionAlumni, type YearCheck } from "@/lib/ppImportChecks";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export interface AutoImportResolvedTarget {
   gradeLevel: string;
@@ -30,6 +33,13 @@ export interface AutoImportItem<T = any> {
   error?: string;
   duplicateOf?: string;
   confirmedDuplicate?: boolean;
+  yearCheck?: YearCheck;
+  yearOverride?: number;
+  semesterOverride?: number;
+  missingStudents?: { studentCode: string; studentName: string }[];
+  matchedStudents?: number;
+  createAlumni?: boolean;
+  alumniCreated?: number;
   meta: T; // per-mode extra state (assignmentId / classroomId etc.)
 }
 
@@ -80,6 +90,16 @@ export function AutoImportDialogBase<T>({
           error: parsed.sheets.length === 0 ? "ไม่พบตารางนักเรียนในไฟล์นี้" : undefined,
           meta: nextMeta,
         });
+        if (parsed.sheets.length > 0) {
+          const yearCheck = await checkAcademicYear(parsed.meta.academicYear || 0, parsed.meta.semester);
+          const match = await matchStudents(parsed.consolidated);
+          updateItem(file, {
+            yearCheck,
+            matchedStudents: match.matched,
+            missingStudents: match.missing,
+            createAlumni: match.missing.length > 0,
+          });
+        }
       } catch (e: any) {
         updateItem(file, { status: "error", error: e?.message || "อ่านไฟล์ไม่สำเร็จ" });
       }
@@ -98,7 +118,16 @@ export function AutoImportDialogBase<T>({
       try {
         const target = resolveTarget(it);
         if ("error" in target) throw new Error(target.error);
-        const { gradeLevel, year, semester, dedupWhere, insertExtra, parsedExtra, storageFolder } = target;
+        const { gradeLevel, dedupWhere, insertExtra, parsedExtra, storageFolder } = target;
+        const year = it.yearOverride || target.year;
+        const semester = it.semesterOverride || target.semester;
+
+        // นักเรียนที่ไม่มีในระบบ = ศิษย์เก่า → บรรจุก่อนนำเข้าคะแนน
+        let alumniCreated = 0;
+        if (it.createAlumni && it.missingStudents?.length) {
+          const res = await provisionAlumni(it.missingStudents, { gradeLevel, academicYear: year });
+          alumniCreated = res.created;
+        }
 
         // Dedup check
         let dupQuery = (supabase.from(tableName) as any)
@@ -162,7 +191,7 @@ export function AutoImportDialogBase<T>({
         });
         if (insErr) throw insErr;
 
-        updateItem(it.file, { status: "done" });
+        updateItem(it.file, { status: "done", alumniCreated });
       } catch (e: any) {
         updateItem(it.file, { status: "error", error: e?.message });
       }
@@ -233,6 +262,73 @@ export function AutoImportDialogBase<T>({
                         {it.parsed && (
                           <div className="text-xs space-y-2">
                             {renderMeta(it, (patch) => updateItem(it.file, patch))}
+
+                            {/* ปีการศึกษา: ย้อนหลัง / ปัจจุบัน / ล่วงหน้า + แก้ไขได้ */}
+                            <div className="rounded-md border bg-muted/40 p-2 space-y-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[11px] font-medium text-muted-foreground">ปีการศึกษาของไฟล์</span>
+                                {it.yearCheck && (
+                                  <Badge
+                                    variant={it.yearCheck.status === "current" ? "secondary" : it.yearCheck.status === "past" ? "outline" : "destructive"}
+                                    className="text-[10px]"
+                                  >
+                                    {it.yearCheck.status === "past" ? "ย้อนหลัง" : it.yearCheck.status === "future" ? "ล่วงหน้า" : "ปัจจุบัน"} · {it.yearCheck.label}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  className="h-8 w-28 text-xs"
+                                  placeholder="ปี พ.ศ."
+                                  value={it.yearOverride ?? it.parsed.meta.academicYear ?? ""}
+                                  onChange={async (e) => {
+                                    const y = Number(e.target.value) || undefined;
+                                    updateItem(it.file, { yearOverride: y });
+                                    if (y) updateItem(it.file, { yearCheck: await checkAcademicYear(y, it.semesterOverride ?? it.parsed?.meta.semester) });
+                                  }}
+                                />
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  max={2}
+                                  className="h-8 w-20 text-xs"
+                                  placeholder="ภาค"
+                                  value={it.semesterOverride ?? it.parsed.meta.semester ?? ""}
+                                  onChange={(e) => updateItem(it.file, { semesterOverride: Number(e.target.value) || undefined })}
+                                />
+                              </div>
+                            </div>
+
+                            {/* ตรวจรายชื่อกับระบบ → ศิษย์เก่า */}
+                            {it.missingStudents !== undefined && (
+                              <div className="rounded-md border bg-muted/40 p-2 space-y-1">
+                                <p className="text-[11px] text-muted-foreground">
+                                  พบในระบบ {it.matchedStudents ?? 0} คน · ไม่พบ {it.missingStudents.length} คน
+                                </p>
+                                {it.missingStudents.length > 0 && (
+                                  <>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                      <Checkbox
+                                        checked={!!it.createAlumni}
+                                        onCheckedChange={(v) => updateItem(it.file, { createAlumni: !!v })}
+                                      />
+                                      <span className="text-[11px]">
+                                        บรรจุผู้ที่ไม่พบเป็น "ศิษย์เก่า" อัตโนมัติ ({it.missingStudents.length} คน)
+                                      </span>
+                                    </label>
+                                    <p className="text-[10px] text-muted-foreground truncate">
+                                      {it.missingStudents.slice(0, 6).map((m) => `${m.studentCode} ${m.studentName}`).join(", ")}
+                                      {it.missingStudents.length > 6 ? " …" : ""}
+                                    </p>
+                                  </>
+                                )}
+                                {typeof it.alumniCreated === "number" && it.alumniCreated > 0 && (
+                                  <p className="text-[10px] text-green-600">บรรจุศิษย์เก่าแล้ว {it.alumniCreated} คน</p>
+                                )}
+                              </div>
+                            )}
+
                             <div className="flex flex-wrap gap-1 pt-1">
                               {it.parsed.sheets.map((s) => (
                                 <Badge key={s.sheetName} variant="outline" className="text-[10px]">
