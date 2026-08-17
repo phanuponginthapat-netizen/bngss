@@ -154,3 +154,41 @@ hls:
 - ฟีเจอร์ face detection ในตัวกล้อง (WizMind) **ไม่ถูกใช้** — ระบบตรวจใบหน้าเองจากเฟรมวิดีโอ
 - latency รวม (กล้อง → MediaMTX → HLS → เบราว์เซอร์) ประมาณ 1.5–3 วินาที
 - ถ้าเครื่องคีออสสเปกต่ำ ให้ใช้ subtype=1 (704x576) ที่ระยะใกล้ประตู จะลด CPU ได้มาก
+
+---
+
+## ใช้ WizMind ช่วยให้ไวและแม่นขึ้น (Dahua AI ในตัวกล้อง)
+
+WizMind **ตรวจจับ/จับภาพใบหน้าได้เอง** แต่ **จำใบหน้าเทียบกับฐานข้อมูลของระบบเราไม่ได้** (embedding คนละชุด)
+ดังนั้นใช้แบบ "กล้องช่วยคัดกรอง + ระบบเราจำหน้า" จะได้ผลดีที่สุด
+
+### สถาปัตยกรรมที่แนะนำ (Hybrid)
+```text
+กล้อง WizMind ──(ONVIF/HTTP event: FaceDetection)──> Bridge/Server
+      │                                                  │
+      └──(RTSP/HLS ภาพสด)──> Kiosk                        └─ ดึง Face Snapshot (ภาพใบหน้าที่ crop แล้ว)
+                                                            └─> ส่งเข้า face-recognize ของระบบ
+```
+
+### ได้อะไรบ้าง
+- **ไวขึ้น**: ระบบเราไม่ต้องรัน face-detector ทุกเฟรม → CPU คีออสลดลงมาก ประมวลผลเฉพาะตอนกล้องแจ้งว่าเจอหน้า
+- **แม่นขึ้น**: กล้องส่ง crop ใบหน้าคมชัด (จับจังหวะ best-shot เอง) + WDR/IR ในตัว ทำให้ภาพเข้า embedding คุณภาพดีกว่าเฟรม HLS ที่ถูกบีบอัด
+- **ลดภาพหลอน**: กรอง motion/ยานพาหนะ/สัตว์ออกด้วย SMD ก่อนถึงระบบเรา
+
+### ข้อจำกัด
+- ต้องมี bridge เล็ก ๆ (Node/Python) ในวง LAN คอยรับ event จากกล้อง แล้วยิงเข้า edge function `face-recognize` เพราะเบราว์เซอร์คุยกับ ONVIF โดยตรงไม่ได้
+- ต้องเปิด **Face Detection** (ไม่ใช่ Face Recognition) และ **Snapshot upload** บนกล้อง
+- ไม่ใช่ทุกเฟิร์มแวร์รองรับ ONVIF metadata เท่ากัน — ถ้าไม่รองรับ ให้ใช้โหมด HTTP snapshot polling แทน
+
+### ตั้งค่าบนกล้อง (IPC-HFW5559E1-ZE-IL / HFW5442E-ZE)
+1. AI → **Face Detection**: เปิด, ตั้ง Min face size ≈ 100 px
+2. Snapshot → เปิด **Face Snapshot** + ส่งแบบ **HTTP POST / FTP** ไปยัง bridge
+3. Event → Linkage: เปิด **Snapshot** และ **Alarm Upload**
+4. Video: H.264, FPS 15, I-frame 1 วินาที (คงเดิมสำหรับสตรีมภาพสด)
+
+### สรุปการเลือกโหมด
+| โหมด | latency | ความแม่น | ต้องติดตั้งเพิ่ม |
+|---|---|---|---|
+| HLS อย่างเดียว (ปัจจุบัน) | 1.5–3 วิ | ดี | MediaMTX |
+| WebRTC (go2rtc) | 0.3–0.8 วิ | ดี | go2rtc |
+| **WizMind + Bridge** | **0.5–1.5 วิ** | **ดีที่สุด** | MediaMTX + bridge service |
