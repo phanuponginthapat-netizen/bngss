@@ -10,6 +10,7 @@
 // Auth: header `x-bridge-key` (หรือ ?key=) เทียบกับ secret WIZMIND_BRIDGE_KEY
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getSecret } from "../_shared/getSecret.ts";
+import { generateWizmindBridgeKey } from "../_shared/provisionSecrets.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
