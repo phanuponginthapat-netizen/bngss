@@ -18,3 +18,14 @@ CREATE POLICY "eform attach: sender or recipient can view" ON storage.objects FO
 USING (bucket_id = 'eform-attachments'
   AND (storage.foldername(name))[1] ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
   AND can_access_eform_attachment(((storage.foldername(name))[1])::uuid, auth.uid()));
+
+-- รอบตรวจเพิ่มเติม: ฟังก์ชันอัปโหลดไฟล์แนบ eform ยังแคสต์โฟลเดอร์แรกเป็น uuid โดยไม่ตรวจรูปแบบ
+CREATE OR REPLACE FUNCTION public.can_upload_eform_attachment(_object_name text, _user_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public','storage' AS $function$
+  SELECT (storage.foldername(_object_name))[1] ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+  AND public.can_access_eform_attachment(((storage.foldername(_object_name))[1])::uuid, _user_id)
+  AND EXISTS (
+    SELECT 1 FROM public.eforms e
+    WHERE e.id = ((storage.foldername(_object_name))[1])::uuid AND e.sender_id = _user_id
+  );
+$function$;
