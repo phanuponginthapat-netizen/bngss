@@ -17,7 +17,8 @@ import { Plus, Trash2, TrendingUp, TrendingDown, DollarSign, BarChart3, Wallet, 
 import { toBE, currentBEYear } from "@/lib/utils";
 import { useUserRole } from "@/hooks/useUserRole";
 import { StatCard } from "@/components/shared";
-import { saveErrorMessage } from "@/lib/saveError";
+import { saveErrorMessage, safeNum, safeInt, nullIfEmpty } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 const CATEGORIES = [
   { value: "operational", th: "ค่าดำเนินการ" },
@@ -48,6 +49,8 @@ const BudgetAccountingPage = () => {
   const canManageBalance = role === "admin" || role === "director";
   const [open, setOpen] = useState(false);
   const [balanceOpen, setBalanceOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savingBalance, setSavingBalance] = useState(false);
   const [txType, setTxType] = useState("expense");
   const [category, setCategory] = useState("operational");
   const [projectName, setProjectName] = useState("");
@@ -106,16 +109,24 @@ const BudgetAccountingPage = () => {
   if (!availableYears.includes(currentYear)) availableYears.unshift(currentYear);
 
   const handleAdd = async () => {
+    if (saving) return;
     if (!description || !amount) { toast.error("กรุณากรอกข้อมูลให้ครบ"); return; }
-    const { error } = await supabase.from("budget_transactions").insert({
-      transaction_type: txType, category, project_name: projectName, description,
-      amount: parseFloat(amount), budget_source: budgetSource, quarter: parseInt(quarter),
-      receipt_number: receiptNumber, notes,
-    } as any);
-    if (error) { toast.error(saveErrorMessage(error)); return; }
-    toast.success("บันทึกสำเร็จ");
-    qc.invalidateQueries({ queryKey: ["budget_transactions"] });
-    setOpen(false); resetForm();
+    const amt = safeNum(amount, 0);
+    if (amt <= 0) { toast.error("จำนวนเงินต้องมากกว่า 0"); return; }
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("budget_transactions").insert({
+        transaction_type: txType, category, project_name: nullIfEmpty(projectName), description,
+        amount: amt, budget_source: budgetSource, quarter: safeInt(quarter, 1),
+        receipt_number: nullIfEmpty(receiptNumber), notes: nullIfEmpty(notes),
+      } as any);
+      if (error) { toast.error(saveErrorMessage(error)); return; }
+      toast.success("บันทึกสำเร็จ");
+      qc.invalidateQueries({ queryKey: ["budget_transactions"] });
+      setOpen(false); resetForm();
+    } finally {
+      setSaving(false);
+    }
   };
 
   const resetForm = () => {
@@ -125,26 +136,41 @@ const BudgetAccountingPage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("budget_transactions").delete().eq("id", id);
+    const ok = await swal.confirm({ title: "ต้องการลบรายการนี้หรือไม่?", danger: true });
+    if (!ok) return;
+    const { error } = await supabase.from("budget_transactions").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
+    toast.success("ลบสำเร็จ");
     qc.invalidateQueries({ queryKey: ["budget_transactions"] });
   };
 
   const handleAddBalance = async () => {
+    if (savingBalance) return;
     if (!balAccountName || !balAmount) { toast.error("กรุณากรอกข้อมูลให้ครบ"); return; }
-    const { error } = await supabase.from("account_balances").insert({
-      account_name: balAccountName,
-      balance: parseFloat(balAmount),
-      notes: balNotes,
-    } as any);
-    if (error) { toast.error(saveErrorMessage(error)); return; }
-    toast.success("บันทึกยอมคงเหลือสำเร็จ");
-    qc.invalidateQueries({ queryKey: ["account_balances"] });
-    setBalanceOpen(false);
-    setBalAccountName(""); setBalAmount(""); setBalNotes("");
+    const bal = safeNum(balAmount, 0);
+    setSavingBalance(true);
+    try {
+      const { error } = await supabase.from("account_balances").insert({
+        account_name: balAccountName,
+        balance: bal,
+        notes: nullIfEmpty(balNotes),
+      } as any);
+      if (error) { toast.error(saveErrorMessage(error)); return; }
+      toast.success("บันทึกยอมคงเหลือสำเร็จ");
+      qc.invalidateQueries({ queryKey: ["account_balances"] });
+      setBalanceOpen(false);
+      setBalAccountName(""); setBalAmount(""); setBalNotes("");
+    } finally {
+      setSavingBalance(false);
+    }
   };
 
   const handleDeleteBalance = async (id: string) => {
-    await supabase.from("account_balances").delete().eq("id", id);
+    const ok = await swal.confirm({ title: "ต้องการลบยอดคงเหลือนี้หรือไม่?", danger: true });
+    if (!ok) return;
+    const { error } = await supabase.from("account_balances").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
+    toast.success("ลบสำเร็จ");
     qc.invalidateQueries({ queryKey: ["account_balances"] });
   };
 
@@ -175,7 +201,7 @@ const BudgetAccountingPage = () => {
                   <div><Label>ชื่อบัญชี *</Label><Input value={balAccountName} onChange={e => setBalAccountName(e.target.value)} placeholder="เช่น บัญชีเงินอุดหนุน" /></div>
                   <div><Label>ยอดคงเหลือ (บาท) *</Label><Input type="number" value={balAmount} onChange={e => setBalAmount(e.target.value)} /></div>
                   <div><Label>หมายเหตุ</Label><Textarea value={balNotes} onChange={e => setBalNotes(e.target.value)} rows={2} /></div>
-                  <Button onClick={handleAddBalance} className="w-full">บันทึก</Button>
+                  <Button onClick={handleAddBalance} className="w-full" disabled={savingBalance}>{savingBalance ? "กำลังบันทึก..." : "บันทึก"}</Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -221,7 +247,7 @@ const BudgetAccountingPage = () => {
                 </div>
                 <div><Label>เลขที่ใบเสร็จ</Label><Input value={receiptNumber} onChange={e => setReceiptNumber(e.target.value)} /></div>
                 <div><Label>หมายเหตุ</Label><Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} /></div>
-                <Button onClick={handleAdd} className="w-full">บันทึก</Button>
+                <Button onClick={handleAdd} className="w-full" disabled={saving}>{saving ? "กำลังบันทึก..." : "บันทึก"}</Button>
               </div>
             </DialogContent>
           </Dialog>

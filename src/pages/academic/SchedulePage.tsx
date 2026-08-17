@@ -137,6 +137,8 @@ const SchedulePage = () => {
   const [filterSemester, setFilterSemester] = useState<number>(1);
   const [cellDialog, setCellDialog] = useState<{ day: number; period: number } | null>(null);
   const [savingCell, setSavingCell] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [savingLocks, setSavingLocks] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState("");
   const [selectedRoom, setSelectedRoom] = useState("");
   const [selectedDuration, setSelectedDuration] = useState("1");
@@ -573,6 +575,9 @@ const SchedulePage = () => {
   };
 
   const handleSaveSettings = async () => {
+    if (savingSettings) return;
+    setSavingSettings(true);
+    try {
     const val = parseInt(periodsInput);
     if (!val || val < 1 || val > 15) {
       toast.error("กรุณากรอกจำนวนคาบ 1-15");
@@ -601,6 +606,9 @@ const SchedulePage = () => {
     qc.invalidateQueries({ queryKey: ["school_settings"] });
     qc.invalidateQueries({ queryKey: ["period_schedule_config"] });
     setSettingsOpen(false);
+    } finally {
+      setSavingSettings(false);
+    }
   };
 
   // Open activity lock dialog with current saved values
@@ -617,6 +625,8 @@ const SchedulePage = () => {
   };
 
   const handleSaveActivityLocks = async () => {
+    if (savingLocks) return;
+    setSavingLocks(true);
     const locks: ActivityLock[] = [];
     Object.entries(localLocks).forEach(([subjectId, val]) => {
       const day = parseInt(val.day);
@@ -633,10 +643,11 @@ const SchedulePage = () => {
         { onConflict: "setting_key" }
       );
 
-    if (error) { toast.error(saveErrorMessage(error)); return; }
+    if (error) { toast.error(saveErrorMessage(error)); setSavingLocks(false); return; }
     toast.success("บันทึกการล็อควันกิจกรรมสำเร็จ");
     qc.invalidateQueries({ queryKey: ["school_settings", "activity_locks"] });
     setActivityLockOpen(false);
+    setSavingLocks(false);
   };
 
   const cellBgClass = (subjectType: string) => {
@@ -1121,7 +1132,7 @@ const SchedulePage = () => {
               );
             })()}
 
-            <Button onClick={handleSaveSettings} className="w-full">บันทึก</Button>
+            <Button onClick={handleSaveSettings} className="w-full" disabled={savingSettings}>{savingSettings ? "กำลังบันทึก..." : "บันทึก"}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1203,8 +1214,8 @@ const SchedulePage = () => {
               })
             )}
           </div>
-          <Button onClick={handleSaveActivityLocks} className="w-full mt-2">
-            {lang === "th" ? "บันทึกการล็อก" : "Save Locks"}
+          <Button onClick={handleSaveActivityLocks} className="w-full mt-2" disabled={savingLocks}>
+            {savingLocks ? (lang === "th" ? "กำลังบันทึก..." : "Saving...") : (lang === "th" ? "บันทึกการล็อก" : "Save Locks")}
           </Button>
         </DialogContent>
       </Dialog>
