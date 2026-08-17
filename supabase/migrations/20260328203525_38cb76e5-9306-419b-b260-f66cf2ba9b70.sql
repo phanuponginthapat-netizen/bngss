@@ -94,7 +94,8 @@ INSERT INTO public.cms_menu_items (label, url, sort_order) VALUES
 ON CONFLICT DO NOTHING;
 
 -- Storage bucket for CMS images
-INSERT INTO storage.buckets (id, name, public) VALUES ('cms-images', 'cms-images', true);
+INSERT INTO storage.buckets (id, name, public) VALUES ('cms-images', 'cms-images', true)
+ON CONFLICT (id) DO NOTHING;
 
 DROP POLICY IF EXISTS "Anyone can view cms images" ON storage.objects;
 CREATE POLICY "Anyone can view cms images" ON storage.objects

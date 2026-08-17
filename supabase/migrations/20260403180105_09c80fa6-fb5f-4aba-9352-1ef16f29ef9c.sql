@@ -36,7 +36,8 @@ TO authenticated
 USING (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role));
 
 -- Storage bucket for PP5 files
-INSERT INTO storage.buckets (id, name, public) VALUES ('pp5-files', 'pp5-files', true);
+INSERT INTO storage.buckets (id, name, public) VALUES ('pp5-files', 'pp5-files', true)
+ON CONFLICT (id) DO NOTHING;
 
 DROP POLICY IF EXISTS "Auth users can view pp5 files" ON storage.objects;
 CREATE POLICY "Auth users can view pp5 files"
