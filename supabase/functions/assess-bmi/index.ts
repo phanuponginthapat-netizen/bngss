@@ -11,8 +11,9 @@ async function requireAuth(req: Request): Promise<Response | null> {
     });
   }
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!);
-  const { data, error } = await sb.auth.getClaims(token);
-  if (error || !data?.claims?.sub) {
+  const { data, error } = await sb.auth.getUser(token);
+  if (error || !data?.user?.id) {
+
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

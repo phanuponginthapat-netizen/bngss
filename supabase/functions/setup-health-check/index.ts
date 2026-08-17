@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
       missingBuckets,
       rlsMissing,
       recommendations: buildRecommendations(missingTables, missingBuckets, adminCount),
-      errors: { tables: tErr?.message, buckets: bErr?.message },
+      errors: { tables: (tErr as any)?.message, buckets: (bErr as any)?.message },
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ ok: false, error: (e as Error).message }), {

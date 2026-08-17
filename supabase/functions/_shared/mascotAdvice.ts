@@ -97,7 +97,7 @@ export async function generateMascotMessages(ctx: any, role: string): Promise<st
   ];
 
   // 🚨 รวบรวมตัวเลขทุกตัวที่อยู่ในบริบทจริง — ใช้ตรวจว่า AI แต่งตัวเลขเองหรือไม่
-  const ctxStr = JSON.stringify(inner);
+  const ctxStr = JSON.stringify(compact);
   const ctxNumbers = new Set<string>((ctxStr.match(/\d+(?:\.\d+)?/g) || []));
   const SAFE_SMALL = new Set(["0", "1", "2", "3", "4", "5", "10", "100"]); // เลขนับทั่วไป
 

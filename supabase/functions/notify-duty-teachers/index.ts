@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     const p = a.personnel;
     if (!p?.user_id) continue;
     const line = `• ${a.duty_locations?.name ?? "-"} ${a.start_time ?? ""}${a.end_time ? `–${a.end_time}` : ""}${a.role_label ? ` (${a.role_label})` : ""}`;
-    const entry = byUser.get(p.user_id) ?? { name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(), email: p.email, items: [] };
+    const entry = byUser.get(p.user_id) ?? { name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(), email: p.email, items: [] as string[] };
     entry.items.push(line);
     byUser.set(p.user_id, entry);
   }
