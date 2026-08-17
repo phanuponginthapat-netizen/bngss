@@ -728,31 +728,57 @@ const SubjectTabContent = ({ subject, enrollmentCount, schedules, navigate, pers
     if (!hwClassroom) { toast.error("กรุณาเลือกห้องเรียน"); return; }
     if (!userId) return;
 
-    const { data: students } = await supabase.from("students")
-      .select("id, auth_user_id").eq("classroom_id", hwClassroom).eq("status", "active");
+    const parsedMax = hwMaxScore.trim() === "" ? null : Number(hwMaxScore);
+    if (parsedMax !== null && (Number.isNaN(parsedMax) || parsedMax <= 0)) {
+      toast.error("คะแนนเต็มต้องเป็นตัวเลขมากกว่า 0");
+      return;
+    }
 
-    const rows = (students || []).map(s => ({
-      task_type: "homework" as const,
+    const tid = toast.loading("กำลังบันทึก...");
+    setHwSaving(true);
+    const { data: inserted, error } = await supabase.from("task_assignments").insert({
+      task_type: "homework",
       title: hwTitle.trim(),
       description: hwDesc.trim() || null,
-      assigned_by: userId,
-      assigned_to_user_id: s.auth_user_id || null,
-      assigned_to_student_id: s.id,
+      due_date: hwDue || null,
       subject_id: subject.id,
       classroom_id: hwClassroom,
-      due_date: hwDue || null,
-      status: "pending" as const,
-    }));
-
-    if (rows.length === 0) { toast.error("ไม่พบนักเรียนในห้องเรียนนี้"); return; }
-
-    const { error } = await supabase.from("task_assignments").insert(rows);
+      assigned_by: userId,
+      replies: [],
+      attachments: hwAttachments as any,
+      max_score: parsedMax,
+    }).select("id").maybeSingle();
+    toast.dismiss(tid);
+    setHwSaving(false);
     if (error) { toast.error(saveErrorMessage(error)); return; }
-    toast.success(`สั่งการบ้านให้นักเรียน ${rows.length} คนสำเร็จ`);
+    toast.success("สร้างการบ้านแล้ว");
+
+    try {
+      const { data: studs } = await supabase.from("students")
+        .select("auth_user_id")
+        .eq("classroom_id", hwClassroom)
+        .eq("status", "active")
+        .not("auth_user_id", "is", null);
+      const uids = (studs ?? []).map((s: any) => s.auth_user_id).filter(Boolean);
+      if (uids.length > 0) {
+        await notify({
+          user_ids: uids,
+          title: `📚 การบ้านใหม่: ${hwTitle.trim()}`,
+          body: `${subject.name_th || subject.code || "วิชา"}${hwDue ? ` · กำหนดส่ง ${hwDue}` : ""}`,
+          type: "homework",
+          severity: "info",
+          reference_id: inserted?.id,
+          reference_type: "task_assignments",
+          url: "/dashboard/homework",
+          channels: ["in_app", "push", "line"],
+        });
+      }
+    } catch (e) { console.warn("homework notify failed", e); }
 
     qc.invalidateQueries({ queryKey: ["subject_homework"] });
     setCreateOpen(false);
     setHwTitle(""); setHwDesc(""); setHwDue(""); setHwClassroom("");
+    setHwMaxScore("10"); setHwAttachments([]);
   };
 
   return (
