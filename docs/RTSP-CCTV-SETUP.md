@@ -192,3 +192,77 @@ WizMind **ตรวจจับ/จับภาพใบหน้าได้เ
 | HLS อย่างเดียว (ปัจจุบัน) | 1.5–3 วิ | ดี | MediaMTX |
 | WebRTC (go2rtc) | 0.3–0.8 วิ | ดี | go2rtc |
 | **WizMind + Bridge** | **0.5–1.5 วิ** | **ดีที่สุด** | MediaMTX + bridge service |
+
+---
+
+## WizMind Bridge (โหมด realtime — แนะนำสำหรับความเร็ว/ความแม่นยำสูงสุด)
+
+สถาปัตยกรรม hybrid: กล้อง **ตรวจจับ + เลือกภาพ best-shot** ส่วนระบบ **จำว่าเป็นใคร**
+
+```text
+Dahua WizMind (AI Face Detection)
+        │ event: FaceDetection  →  snapshot.cgi
+        ▼
+scripts/kiosk/wizmind-bridge.mjs      (เครื่องในวงแลนเดียวกับกล้อง)
+        │ POST + x-bridge-key
+        ▼
+Edge Function  /functions/v1/wizmind-bridge
+        │ upload → bucket `camera-events`
+        │ insert → public.camera_face_events
+        ▼  (Supabase Realtime)
+หน้า Face Kiosk → จดจำใบหน้า → บันทึกเวลาเข้า/ออกทันที
+```
+
+หน่วง ~0.5–1.5 วินาที และ Kiosk ไม่ต้องรัน detection ทั้งเฟรม → CPU ลดลงมาก
+
+### 1) ตั้งค่ากล้อง
+- เปิด **AI → Face Detection** (WizMind) และเลือกโหมด *Optimal/Best shot*
+- Encode: **H.264**, FPS 15–25, I-frame 1s, ปิด Smart Codec
+- ปรับซูมให้ใบหน้ากว้าง ≥ 100 px
+
+### 2) รัน bridge (เครื่อง Kiosk หรือ mini PC ในวงแลนกล้อง)
+
+```bash
+node scripts/kiosk/wizmind-bridge.mjs \
+  --endpoint https://<project>.supabase.co/functions/v1/wizmind-bridge \
+  --key "$WIZMIND_BRIDGE_KEY" \
+  --camera gate-1 --camera-name "ประตูหน้า" \
+  --host 192.168.1.108 --user admin --pass 'xxxxx' \
+  --listen 8099
+```
+
+- `--host` = โหมดเกาะ event stream ของกล้อง (แนะนำ)
+- `--listen` = เปิดพอร์ตให้กล้อง/NVR POST ภาพเข้ามาเอง (HTTP upload)
+- `--codes` เปลี่ยน event ได้ (ค่าเริ่มต้น `FaceDetection,SmartMotionHuman`)
+- `--min-gap` กันยิงถี่ (ms, ค่าเริ่มต้น 700)
+
+รันเป็น systemd service:
+
+```ini
+[Unit]
+Description=WizMind Face Bridge
+After=network-online.target
+
+[Service]
+Environment=WIZMIND_ENDPOINT=https://<project>.supabase.co/functions/v1/wizmind-bridge
+Environment=WIZMIND_BRIDGE_KEY=xxxxx
+Environment=WIZMIND_CAM_HOST=192.168.1.108
+Environment=WIZMIND_CAM_USER=admin
+Environment=WIZMIND_CAM_PASS=xxxxx
+Environment=WIZMIND_CAMERA_ID=gate-1
+ExecStart=/usr/bin/node /opt/bng/wizmind-bridge.mjs
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### 3) เปิดใช้ที่หน้า Face Kiosk
+ตั้งค่ากล้อง (ไอคอนเฟือง) → ติ๊ก **โหมด WizMind Bridge (realtime จาก CCTV)** →
+ใส่ `camera_id` ให้ตรงกับ `--camera` (เว้นว่าง = รับทุกกล้อง)
+
+### 4) คีย์และความปลอดภัย
+- คีย์ `WIZMIND_BRIDGE_KEY` ถูกสร้างอัตโนมัติเมื่อเรียก endpoint ครั้งแรก (ดูค่าที่หน้า Secrets)
+- bucket `camera-events` เป็น private — เขียนได้เฉพาะ edge function, อ่านได้เฉพาะบุคลากร
+- เก็บภาพย้อนหลัง: เรียก `select public.purge_camera_face_events(7)` เพื่อลบ event เก่ากว่า 7 วัน
