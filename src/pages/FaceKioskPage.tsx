@@ -196,6 +196,11 @@ const FaceKioskPage = () => {
 
   const [staffFaceEnabled, setStaffFaceEnabled] = useState<boolean>(() => localStorage.getItem("face_kiosk_staff_faces") !== "0");
   useEffect(() => { localStorage.setItem("face_kiosk_staff_faces", staffFaceEnabled ? "1" : "0"); }, [staffFaceEnabled]);
+  // ลงเวลาปฏิบัติงานบุคลากรอัตโนมัติเมื่อสแกนใบหน้าผ่านคีออส
+  const [staffClockEnabled, setStaffClockEnabled] = useState<boolean>(() => localStorage.getItem("face_kiosk_staff_clock") === "1");
+  useEffect(() => { localStorage.setItem("face_kiosk_staff_clock", staffClockEnabled ? "1" : "0"); }, [staffClockEnabled]);
+  const staffClockRef = useRef(staffClockEnabled);
+  useEffect(() => { staffClockRef.current = staffClockEnabled; }, [staffClockEnabled]);
 
   // ===== WizMind / CCTV bridge (realtime) =====
   const [wizmindOn, setWizmindOn] = useState<boolean>(() => localStorage.getItem(WIZMIND_ENABLED_KEY) === "1");
