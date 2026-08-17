@@ -1,6 +1,8 @@
 
 -- 1. Create role enum
-CREATE TYPE public.app_role AS ENUM ('admin', 'teacher', 'student', 'director');
+DO $$ BEGIN
+  CREATE TYPE public.app_role AS ENUM ('admin', 'teacher', 'student', 'director');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- 2. Create user_roles table
 CREATE TABLE IF NOT EXISTS public.user_roles (
