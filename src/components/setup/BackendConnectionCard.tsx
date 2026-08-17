@@ -13,6 +13,7 @@ import {
   saveBackendConfig,
   clearBackendConfig,
   testBackendConnection,
+  isUsingDefaultBackend,
 } from "@/lib/runtimeConfig";
 
 /**
@@ -63,6 +64,15 @@ export default function BackendConnectionCard() {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {isUsingDefaultBackend() && (
+          <Alert>
+            <AlertDescription className="text-xs">
+              กำลังใช้ <b>backend เริ่มต้น</b> ของโรงเรียนต้นทาง — ถ้านำระบบไปใช้ที่อื่น
+              ให้กรอก Supabase ของคุณเองด้านล่าง หรือแก้ไฟล์ <code>/app-config.js</code>{" "}
+              (ดูขั้นตอนทั้งหมดที่ <code>docs/PORTABLE-DEPLOY.md</code>)
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="grid md:grid-cols-2 gap-3">
           <div className="space-y-1">
             <Label>Supabase URL</Label>
