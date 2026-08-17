@@ -236,16 +236,21 @@ const FaceKioskPage = () => {
         } catch { /* ไม่ให้การบันทึก log ขัดจังหวะการทำงานประตู */ }
       };
       if (!res.allow) {
-        if (res.reason === "fever") {
-          playFeverAlert();
-          if (voiceEnabled) speakText(`ตรวจพบอุณหภูมิสูง ${name} กรุณาพบเจ้าหน้าที่`);
-          toast.error("อุณหภูมิสูง — ไม่อนุญาตให้ผ่าน", { description: `${name} • ${res.detail}`, duration: 6000 });
-        } else {
-          playWeaponAlert();
-          if (voiceEnabled) speakText("ตรวจพบวัตถุโลหะ กรุณาพบเจ้าหน้าที่");
-          toast.error("ตรวจพบวัตถุโลหะ — ไม่อนุญาตให้ผ่าน", { description: `${name} • ${res.detail}`, duration: 8000 });
-        }
-        void logEvent(res.reason === "fever" ? "fever" : "weapon", false, false);
+        // พบโลหะ/วัตถุต้องสงสัย → ปิดประตู + แจ้งชื่อ
+        playWeaponAlert();
+        if (voiceEnabled) speakText(`${name} มีสิ่งของต้องสงสัย ขอให้คุณครูตรวจสอบ`);
+        toast.error("พบวัตถุต้องสงสัย — ประตูปิด", { description: `${name} • ${res.detail}`, duration: 8000 });
+        void logEvent("weapon", false, false);
+        return;
+      }
+      if (res.reason === "fever") {
+        // ไข้สูง → เตือนแต่ยังเปิดประตูให้ผ่าน
+        playFeverAlert();
+        const t = res.tempC != null ? res.tempC.toFixed(1) : "";
+        if (voiceEnabled) speakText(`${name} มีไข้สูง อุณหภูมิ ${t} องศา กรุณาพบเจ้าหน้าที่`);
+        toast.warning("อุณหภูมิสูง", { description: `${name} • ${res.detail}`, duration: 6000 });
+        void logEvent("fever", true, res.opened);
+        if (res.opened) playGateOpenSound();
         return;
       }
       if (res.opened) {
