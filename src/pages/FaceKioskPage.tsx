@@ -97,7 +97,10 @@ const FaceKioskPage = () => {
   const [savedPos, setSavedPos] = useState({ x: 50, y: 50 });
   const [faceCount, setFaceCount] = useState(0);
   const [networkUrl, setNetworkUrl] = useState<string>(() => localStorage.getItem(NETWORK_CAM_URL_KEY) || "");
-  const hlsRef = useRef<Hls | null>(null);
+  const [netStatus, setNetStatus] = useState<string>("");
+  const [netTesting, setNetTesting] = useState(false);
+  const netCamRef = useRef<NetworkCameraHandle | null>(null);
+
 
   const { value: thresholdSetting } = useSchoolSetting("face_scan_threshold");
   const { value: voiceSetting } = useSchoolSetting("face_scan_voice");
