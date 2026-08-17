@@ -124,9 +124,7 @@ CREATE TRIGGER game_hub_games_updated_at BEFORE UPDATE ON public.game_hub_games
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='game_hub_games') THEN
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
+          IF NOT EXISTS (
         SELECT 1 FROM pg_publication_tables
         WHERE pubname = 'supabase_realtime'
           AND schemaname = 'public'
@@ -134,12 +132,9 @@ DO $$ BEGIN
       ) THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.game_hub_games;
       END IF;
-    END $$;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='game_hub_scores') THEN
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
+          IF NOT EXISTS (
         SELECT 1 FROM pg_publication_tables
         WHERE pubname = 'supabase_realtime'
           AND schemaname = 'public'
@@ -147,7 +142,6 @@ DO $$ BEGIN
       ) THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.game_hub_scores;
       END IF;
-    END $$;
   END IF;
 END $$;
 
