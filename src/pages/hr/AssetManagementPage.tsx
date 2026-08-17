@@ -246,10 +246,25 @@ const AssetManagementPage = () => {
   };
 
 
+  const num = (v: any, fallback = 0) => {
+    const n = parseFloat(String(v ?? "").replace(/,/g, ""));
+    return Number.isFinite(n) ? n : fallback;
+  };
+  const saveErrorMessage = (msg: string) => {
+    const m = String(msg || "");
+    if (/duplicate key/i.test(m) && /asset_code/i.test(m)) return "รหัสครุภัณฑ์นี้มีอยู่แล้วในระบบ";
+    if (/duplicate key/i.test(m) && /serial/i.test(m)) return "S/N นี้ถูกใช้แล้ว";
+    if (/duplicate key/i.test(m)) return "ข้อมูลซ้ำกับรายการที่มีอยู่";
+    if (/row-level security|permission denied/i.test(m)) return "คุณไม่มีสิทธิ์บันทึกข้อมูลครุภัณฑ์ (ต้องเป็นแอดมิน/ผอ. หรือเจ้าหน้าที่พัสดุ)";
+    if (/invalid input syntax/i.test(m)) return "รูปแบบข้อมูลไม่ถูกต้อง กรุณาตรวจสอบตัวเลข/วันที่";
+    return m || "บันทึกไม่สำเร็จ";
+  };
+
   const handleAdd = async () => {
-    if (!form.asset_code || !form.asset_name || !form.acquisition_cost) {
+    if (!form.asset_code?.trim() || !form.asset_name?.trim() || !form.acquisition_cost) {
       toast.error("กรุณากรอกข้อมูลให้ครบ"); return;
     }
+    if (num(form.acquisition_cost, -1) < 0) { toast.error("มูลค่าต้องไม่ติดลบ"); return; }
     const snErr = validateSN(form.serial_number);
     if (snErr) { toast.error(snErr); return; }
     const dup = findDuplicateSN(form.serial_number);
@@ -257,11 +272,16 @@ const AssetManagementPage = () => {
       toast.error(`S/N นี้ถูกใช้แล้วกับ "${dup.asset_name}" (${dup.asset_code})`);
       return;
     }
+    const dupCode = (records || []).find(
+      (a: any) => String(a.asset_code || "").trim().toLowerCase() === form.asset_code.trim().toLowerCase()
+    );
+    if (dupCode) { toast.error(`รหัสครุภัณฑ์ "${form.asset_code}" ถูกใช้แล้ว`); return; }
     setUploading(true);
     const newUrls = await uploadPhotos(photoFiles);
     const allPhotos = [...form.photos, ...newUrls];
-    const cost = parseFloat(form.acquisition_cost);
-    const depRate = parseFloat(form.depreciation_rate) / 100;
+    const cost = num(form.acquisition_cost);
+    const depRate = num(form.depreciation_rate) / 100;
+
 
     // Get responsible name from profile if user_id selected
     let responsibleName = form.responsible_person;
@@ -271,20 +291,20 @@ const AssetManagementPage = () => {
     }
 
     const { error } = await supabase.from("assets").insert({
-      asset_code: form.asset_code, asset_name: form.asset_name, category: form.category,
-      acquisition_cost: cost, depreciation_rate: parseFloat(form.depreciation_rate),
-      current_value: cost * (1 - depRate), location: form.location,
+      asset_code: form.asset_code.trim(), asset_name: form.asset_name.trim(), category: form.category,
+      acquisition_cost: cost, depreciation_rate: num(form.depreciation_rate),
+      current_value: Math.max(0, cost * (1 - depRate)), location: form.location,
       responsible_person: responsibleName,
       responsible_user_id: form.responsible_user_id || null,
       condition: form.condition,
-      notes: form.notes, useful_life_years: parseInt(form.useful_life_years),
-      acquisition_date: form.acquisition_date,
-      serial_number: form.serial_number || null,
+      notes: form.notes, useful_life_years: Math.max(1, num(form.useful_life_years, 5)),
+      acquisition_date: form.acquisition_date || null,
+      serial_number: form.serial_number?.trim() || null,
       barcode: form.barcode || null,
-      quantity: Math.max(1, parseInt(form.quantity) || 1),
+      quantity: Math.max(1, num(form.quantity, 1)),
       building: form.building || null, room: form.room || null, floor: form.floor || null,
-      latitude: form.latitude ? parseFloat(form.latitude) : null,
-      longitude: form.longitude ? parseFloat(form.longitude) : null,
+      latitude: form.latitude ? num(form.latitude) : null,
+      longitude: form.longitude ? num(form.longitude) : null,
       gfmis_code: form.gfmis_code || null,
       budget_source: form.budget_source || null,
       supplier: form.supplier || null,
@@ -293,15 +313,19 @@ const AssetManagementPage = () => {
       ...(allPhotos[0] ? { photo_url: allPhotos[0] } : {}),
     } as any);
     setUploading(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error.message)); return; }
     toast.success("ลงทะเบียนสินทรัพย์สำเร็จ");
     qc.invalidateQueries({ queryKey: ["assets"] });
+
     setOpen(false); setPhotoFiles([]);
     setForm(emptyForm());
   };
 
   const handleEdit = async () => {
     if (!editAsset) return;
+    if (!String(editAsset.asset_code || "").trim() || !String(editAsset.asset_name || "").trim()) {
+      toast.error("กรุณากรอกรหัสและชื่อครุภัณฑ์"); return;
+    }
     const snErr = validateSN(editAsset.serial_number || "");
     if (snErr) { toast.error(snErr); return; }
     const dup = findDuplicateSN(editAsset.serial_number || "", editAsset.id);
@@ -309,17 +333,22 @@ const AssetManagementPage = () => {
       toast.error(`S/N นี้ถูกใช้แล้วกับ "${dup.asset_name}" (${dup.asset_code})`);
       return;
     }
+    const dupCode = (records || []).find(
+      (a: any) => a.id !== editAsset.id &&
+        String(a.asset_code || "").trim().toLowerCase() === String(editAsset.asset_code).trim().toLowerCase()
+    );
+    if (dupCode) { toast.error(`รหัสครุภัณฑ์ "${editAsset.asset_code}" ถูกใช้แล้ว`); return; }
     setUploading(true);
     const newUrls = await uploadPhotos(photoFiles);
     const existing = Array.isArray(editAsset.photos) ? editAsset.photos : [];
     const allPhotos = [...existing, ...newUrls];
 
-    const cost = parseFloat(editAsset.acquisition_cost);
-    const depRate = parseFloat(editAsset.depreciation_rate) / 100;
+    const cost = num(editAsset.acquisition_cost);
+    const depRate = num(editAsset.depreciation_rate) / 100;
     const ageYears = editAsset.acquisition_date
       ? (Date.now() - new Date(editAsset.acquisition_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
       : 0;
-    const currentValue = Math.max(0, cost * Math.pow(1 - depRate, Math.floor(ageYears)));
+    const currentValue = Math.max(0, cost * Math.pow(1 - depRate, Math.max(0, Math.floor(ageYears))));
 
     let responsibleName = editAsset.responsible_person;
     if (editAsset.responsible_user_id) {
@@ -328,31 +357,32 @@ const AssetManagementPage = () => {
     }
 
     const { error } = await supabase.from("assets").update({
-      asset_code: editAsset.asset_code, asset_name: editAsset.asset_name,
+      asset_code: String(editAsset.asset_code).trim(), asset_name: String(editAsset.asset_name).trim(),
       category: editAsset.category, acquisition_cost: cost,
-      depreciation_rate: parseFloat(editAsset.depreciation_rate),
+      depreciation_rate: num(editAsset.depreciation_rate),
       current_value: currentValue, location: editAsset.location,
       responsible_person: responsibleName,
       responsible_user_id: editAsset.responsible_user_id || null,
       condition: editAsset.condition,
-      notes: editAsset.notes, useful_life_years: parseInt(editAsset.useful_life_years),
-      acquisition_date: editAsset.acquisition_date,
+      notes: editAsset.notes, useful_life_years: Math.max(1, num(editAsset.useful_life_years, 5)),
+      acquisition_date: editAsset.acquisition_date || null,
       photos: allPhotos,
       photo_url: allPhotos[0] || editAsset.photo_url || null,
-      serial_number: editAsset.serial_number || null,
+      serial_number: String(editAsset.serial_number || "").trim() || null,
       barcode: editAsset.barcode || null,
-      quantity: Math.max(1, parseInt(editAsset.quantity) || 1),
+      quantity: Math.max(1, num(editAsset.quantity, 1)),
       building: editAsset.building || null, room: editAsset.room || null, floor: editAsset.floor || null,
-      latitude: editAsset.latitude ? parseFloat(editAsset.latitude) : null,
-      longitude: editAsset.longitude ? parseFloat(editAsset.longitude) : null,
+      latitude: editAsset.latitude ? num(editAsset.latitude) : null,
+      longitude: editAsset.longitude ? num(editAsset.longitude) : null,
       gfmis_code: editAsset.gfmis_code || null,
       budget_source: editAsset.budget_source || null,
       supplier: editAsset.supplier || null,
       warranty_until: editAsset.warranty_until || null,
     } as any).eq("id", editAsset.id);
     setUploading(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error.message)); return; }
     toast.success("แก้ไขสำเร็จ");
+
     qc.invalidateQueries({ queryKey: ["assets"] });
     setEditAsset(null); setPhotoFiles([]);
   };
@@ -369,20 +399,23 @@ const AssetManagementPage = () => {
   const handleDelete = async (id: string) => {
     if (!(await swal.confirm({ title: "ต้องการลบสินทรัพย์นี้หรือไม่?", danger: true }))) return;
     const { error } = await supabase.from("assets").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error.message)); return; }
     qc.invalidateQueries({ queryKey: ["assets"] });
     qc.invalidateQueries({ queryKey: ["asset_damage_reports"] });
     toast.success("ลบสำเร็จ");
   };
 
   const handleReportDamage = async () => {
-    if (!reportAssetId || !reportDesc || !reporterName) {
+    if (!reportAssetId || !reportDesc.trim() || !reporterName.trim()) {
       toast.error("กรุณากรอกข้อมูลให้ครบ"); return;
     }
+    if (uploading) return;
+    setUploading(true);
     const { error } = await supabase.from("asset_damage_reports").insert({
-      asset_id: reportAssetId, description: reportDesc, reporter_name: reporterName,
+      asset_id: reportAssetId, description: reportDesc.trim(), reporter_name: reporterName.trim(),
     } as any);
-    if (error) { toast.error(error.message); return; }
+    setUploading(false);
+    if (error) { toast.error(saveErrorMessage(error.message)); return; }
     toast.success("แจ้งชำรุดสำเร็จ");
     qc.invalidateQueries({ queryKey: ["asset_damage_reports"] });
     setReportOpen(false); setReportAssetId(""); setReportDesc(""); setReporterName("");
