@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
+import { saveErrorMessage, safeInt } from "@/lib/saveError";
 import { Sparkles, Loader2, Save } from "lucide-react";
 import { useAuthSession } from "@/hooks/useAuthSession";
 
