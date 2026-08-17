@@ -682,6 +682,9 @@ const SubjectTabContent = ({ subject, enrollmentCount, schedules, navigate, pers
   const [hwDesc, setHwDesc] = useState("");
   const [hwDue, setHwDue] = useState("");
   const [hwClassroom, setHwClassroom] = useState("");
+  const [hwMaxScore, setHwMaxScore] = useState("10");
+  const [hwAttachments, setHwAttachments] = useState<Attachment[]>([]);
+  const [hwSaving, setHwSaving] = useState(false);
 
   const todaySchedules = schedules.filter(s => s.day_of_week === new Date().getDay());
   const DAY_NAMES = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
