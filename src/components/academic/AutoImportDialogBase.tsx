@@ -11,6 +11,8 @@ import { parsePP5Workbook, type PP5ParsedWorkbook } from "@/lib/pp5AutoParser";
 import { checkAcademicYear, matchStudents, provisionAlumni, type YearCheck } from "@/lib/ppImportChecks";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { sanitizeStorageKey } from "@/lib/uploadFallback";
+
 
 export interface AutoImportResolvedTarget {
   gradeLevel: string;
