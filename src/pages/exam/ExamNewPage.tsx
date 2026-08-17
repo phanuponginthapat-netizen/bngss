@@ -103,11 +103,12 @@ export default function ExamNewPage() {
       setQuestions(data.questions || []);
       toast.success(`สร้างข้อสอบ ${data.questions?.length || 0} ข้อแล้ว`);
     } catch (e: any) {
-      toast.error(e?.message || "สร้างข้อสอบไม่สำเร็จ");
+      toast.error(saveErrorMessage(e, "สร้างข้อสอบไม่สำเร็จ"));
     } finally { setGenLoading(false); }
   }
 
   async function save() {
+    if (saving) return;
     if (!user) return toast.error("กรุณาเข้าสู่ระบบ");
     if (!form.title) return toast.error("กรุณาตั้งชื่อข้อสอบ");
     if (!selected) return toast.error("กรุณาเลือกวิชา/ห้องเรียน");
@@ -143,16 +144,17 @@ export default function ExamNewPage() {
       const { error: qErr } = await supabase.from("exam_questions").insert(rows as any);
       if (qErr) throw qErr;
 
-      await supabase.from("exam_sheets").insert({
+      const { error: sErr } = await supabase.from("exam_sheets").insert({
         exam_id: exam.id,
         layout_config: { format: "A4", bubbles_per_question: 4, choice_format: form.choice_format },
         student_code_digits: 5,
       });
+      if (sErr) throw sErr;
 
       toast.success("บันทึกข้อสอบสำเร็จ");
       nav(`/dashboard/exam/${exam.id}`);
     } catch (e: any) {
-      toast.error(e?.message || "บันทึกไม่สำเร็จ");
+      toast.error(saveErrorMessage(e, "บันทึกไม่สำเร็จ"));
     } finally { toast.dismiss(__tid_save_1);
       setSaving(false); }
   }
@@ -204,7 +206,7 @@ export default function ExamNewPage() {
           <div>
             <Label>จำนวนข้อ</Label>
             <Input type="number" min={1} max={60} value={form.question_count}
-              onChange={(e) => setForm({ ...form, question_count: parseInt(e.target.value) || 10 })} />
+              onChange={(e) => setForm({ ...form, question_count: Math.min(200, Math.max(1, safeInt(e.target.value, 10))) })} />
           </div>
           <div>
             <Label>รูปแบบตัวเลือก</Label>
