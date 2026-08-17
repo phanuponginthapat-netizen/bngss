@@ -626,30 +626,35 @@ const FaceKioskPage = () => {
                 if (confirmed) {
                   const captured = captureFaceCrop(video, box);
                   if (isStaffHit) {
-                    // โหมดทดสอบบุคลากร — แสดงผล/ทักทาย แต่ไม่บันทึกเวลามาเรียน
                     const last = justScannedRef.current.get(found.studentId) || 0;
                     if (tNow - last > 15_000) {
                       justScannedRef.current.set(found.studentId, tNow);
                       playSuccessSound();
-                      if (voiceEnabled) speakText(`สวัสดี ${found.name}`);
+                      const mode = scanModeRef.current === "exit" ? "exit" : "entry";
+                      let clockNote = "บุคลากร (ทดสอบ)";
+                      if (staffClockRef.current) {
+                        clockNote = await clockStaff(found.studentId, mode, captured, m.confidence, found.name);
+                      } else if (voiceEnabled) {
+                        speakText(`สวัสดี ${found.name}`);
+                      }
                       setLastMatch({
                         name: found.name,
                         studentCode: found.studentCode || "-",
-                        classroom: `${found.classroom} • บุคลากร (ทดสอบ)`,
+                        classroom: `${found.classroom} • ${clockNote}`,
                         confidence: m.confidence,
-                        scanType: scanModeRef.current === "exit" ? "exit" : "entry",
+                        scanType: mode,
                         capturedFace: captured,
                         registeredFace: (found as any).registeredFace || null,
-                        time: new Date().toLocaleTimeString("th-TH"),
+                        time: new Date().toLocaleTimeString("th-TH", { hour12: false }),
                       });
                       setRecent((prev) => [{
                         studentId: found.studentId,
                         studentCode: found.studentCode || "-",
                         name: `${found.name} (บุคลากร)`,
-                        classroom: found.classroom,
+                        classroom: clockNote,
                         avatar: (found as any).registeredFace || null,
                         capturedFace: captured,
-                        time: new Date().toLocaleTimeString("th-TH"),
+                        time: new Date().toLocaleTimeString("th-TH", { hour12: false }),
                         confidence: m.confidence,
                       }, ...prev].slice(0, 20));
                     }
