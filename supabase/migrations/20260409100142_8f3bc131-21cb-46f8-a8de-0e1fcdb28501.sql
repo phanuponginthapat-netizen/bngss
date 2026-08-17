@@ -59,81 +59,241 @@ CREATE INDEX IF NOT EXISTS idx_sdq_student_id ON public.sdq_records (student_id)
 -- Enable realtime for key tables
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.students;
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'students'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.students;
+    END IF;
+  END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.classrooms;
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'classrooms'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.classrooms;
+    END IF;
+  END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.behavior_records;
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'behavior_records'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.behavior_records;
+    END IF;
+  END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.student_leaves;
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'student_leaves'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.student_leaves;
+    END IF;
+  END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.home_visits;
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'home_visits'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.home_visits;
+    END IF;
+  END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.homeroom_records;
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'homeroom_records'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.homeroom_records;
+    END IF;
+  END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.staff_leaves;
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'staff_leaves'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.staff_leaves;
+    END IF;
+  END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.documents;
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'documents'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.documents;
+    END IF;
+  END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.budget_transactions;
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'budget_transactions'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.budget_transactions;
+    END IF;
+  END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.assets;
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'assets'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.assets;
+    END IF;
+  END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.student_scores;
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'student_scores'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.student_scores;
+    END IF;
+  END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.enrollments;
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'enrollments'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.enrollments;
+    END IF;
+  END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.schedules;
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'schedules'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.schedules;
+    END IF;
+  END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.health_records;
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'health_records'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.health_records;
+    END IF;
+  END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.sdq_records;
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'sdq_records'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.sdq_records;
+    END IF;
+  END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.parent_student_links;
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'parent_student_links'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.parent_student_links;
+    END IF;
+  END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;

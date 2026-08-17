@@ -35,4 +35,14 @@ CREATE POLICY "Admin/Director can manage academic_events"
   WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director'));
 
 -- Enable realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE public.academic_events;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'academic_events'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.academic_events;
+  END IF;
+END $$;

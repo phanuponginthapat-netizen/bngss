@@ -11,4 +11,24 @@ TO authenticated
 USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
 WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.school_test_scores;
+DO $$
+
+BEGIN
+
+  IF NOT EXISTS (
+
+    SELECT 1 FROM pg_publication_tables
+
+    WHERE pubname = 'supabase_realtime'
+
+      AND schemaname = 'public'
+
+      AND tablename = 'school_test_scores'
+
+  ) THEN
+
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.school_test_scores;
+
+  END IF;
+
+END $$;

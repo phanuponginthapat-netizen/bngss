@@ -39,8 +39,27 @@ CREATE TRIGGER trg_browser_shortcuts_updated
   BEFORE UPDATE ON public.browser_shortcuts
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.browser_shortcuts;
+DO $$
 
+BEGIN
+
+  IF NOT EXISTS (
+
+    SELECT 1 FROM pg_publication_tables
+
+    WHERE pubname = 'supabase_realtime'
+
+      AND schemaname = 'public'
+
+      AND tablename = 'browser_shortcuts'
+
+  ) THEN
+
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.browser_shortcuts;
+
+  END IF;
+
+END $$;
 INSERT INTO public.browser_shortcuts (label_th, label_en, icon, target_url, bg_class, sort_order)
 SELECT * FROM (VALUES
   ('Docs','Docs','FileText','https://docs.google.com','bg-gradient-to-br from-sky-400 to-blue-600',10),

@@ -88,9 +88,28 @@ CREATE POLICY "Users can manage own pa_indicator_scores"
   );
 
 -- Enable realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE public.pa_agreements;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.pa_indicator_scores;
-
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'pa_agreements'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.pa_agreements;
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'pa_indicator_scores'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.pa_indicator_scores;
+  END IF;
+END $$;
 -- Updated_at trigger
 DROP TRIGGER IF EXISTS update_pa_agreements_updated_at ON public.pa_agreements;
 CREATE TRIGGER update_pa_agreements_updated_at

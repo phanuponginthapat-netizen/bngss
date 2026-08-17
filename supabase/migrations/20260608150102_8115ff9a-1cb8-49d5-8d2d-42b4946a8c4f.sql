@@ -45,8 +45,17 @@ CREATE POLICY "portfolio owner delete"  ON public.portfolio_items FOR DELETE TO 
 DROP TRIGGER IF EXISTS trg_portfolio_updated ON public.portfolio_items;
 CREATE TRIGGER trg_portfolio_updated BEFORE UPDATE ON public.portfolio_items FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE INDEX IF NOT EXISTS idx_portfolio_user ON public.portfolio_items(user_id, is_pinned DESC, sort_order, created_at DESC);
-ALTER PUBLICATION supabase_realtime ADD TABLE public.portfolio_items;
-
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'portfolio_items'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.portfolio_items;
+  END IF;
+END $$;
 -- Wall posts (user-generated feed, distinct from FB Page mirror social_posts)
 CREATE TABLE IF NOT EXISTS public.wall_posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -85,8 +94,17 @@ DROP TRIGGER IF EXISTS trg_wall_posts_updated ON public.wall_posts;
 CREATE TRIGGER trg_wall_posts_updated BEFORE UPDATE ON public.wall_posts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE INDEX IF NOT EXISTS idx_wall_posts_feed ON public.wall_posts(school_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_wall_posts_author ON public.wall_posts(author_id, created_at DESC);
-ALTER PUBLICATION supabase_realtime ADD TABLE public.wall_posts;
-
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'wall_posts'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.wall_posts;
+  END IF;
+END $$;
 -- Reactions
 CREATE TABLE IF NOT EXISTS public.wall_post_reactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -111,8 +129,17 @@ CREATE POLICY "reactions update" ON public.wall_post_reactions FOR UPDATE TO aut
 DROP POLICY IF EXISTS "reactions delete" ON public.wall_post_reactions;
 DROP POLICY IF EXISTS "reactions delete" ON public.wall_post_reactions;
 CREATE POLICY "reactions delete" ON public.wall_post_reactions FOR DELETE TO authenticated USING (user_id = auth.uid());
-ALTER PUBLICATION supabase_realtime ADD TABLE public.wall_post_reactions;
-
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'wall_post_reactions'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.wall_post_reactions;
+  END IF;
+END $$;
 -- Comments
 CREATE TABLE IF NOT EXISTS public.wall_post_comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -141,8 +168,17 @@ CREATE POLICY "comments delete" ON public.wall_post_comments FOR DELETE TO authe
 DROP TRIGGER IF EXISTS trg_wall_comments_updated ON public.wall_post_comments;
 CREATE TRIGGER trg_wall_comments_updated BEFORE UPDATE ON public.wall_post_comments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE INDEX IF NOT EXISTS idx_wall_comments_post ON public.wall_post_comments(post_id, created_at);
-ALTER PUBLICATION supabase_realtime ADD TABLE public.wall_post_comments;
-
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'wall_post_comments'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.wall_post_comments;
+  END IF;
+END $$;
 -- Counters
 CREATE OR REPLACE FUNCTION public.wall_post_counters() RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE pid uuid;

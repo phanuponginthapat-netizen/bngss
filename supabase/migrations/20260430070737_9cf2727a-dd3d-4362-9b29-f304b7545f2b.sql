@@ -19,4 +19,14 @@ UPDATE public.iot_devices SET system_category = 'environment'
   WHERE system_category = 'other' AND (lower(unit) IN ('°c','%','ppm'));
 
 -- Enable realtime for live charts
-ALTER PUBLICATION supabase_realtime ADD TABLE public.iot_readings;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'iot_readings'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.iot_readings;
+  END IF;
+END $$;

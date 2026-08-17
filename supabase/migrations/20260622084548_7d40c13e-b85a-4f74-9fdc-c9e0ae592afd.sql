@@ -63,4 +63,24 @@ ON public.eform_templates FOR ALL TO authenticated
 USING (created_by = auth.uid())
 WITH CHECK (created_by = auth.uid());
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.eform_templates;
+DO $$
+
+BEGIN
+
+  IF NOT EXISTS (
+
+    SELECT 1 FROM pg_publication_tables
+
+    WHERE pubname = 'supabase_realtime'
+
+      AND schemaname = 'public'
+
+      AND tablename = 'eform_templates'
+
+  ) THEN
+
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.eform_templates;
+
+  END IF;
+
+END $$;

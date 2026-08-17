@@ -127,7 +127,17 @@ USING (created_by = auth.uid()) WITH CHECK (created_by = auth.uid());
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='eform_templates') THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.eform_templates;
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime'
+          AND schemaname = 'public'
+          AND tablename = 'eform_templates'
+      ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.eform_templates;
+      END IF;
+    END $$;
   END IF;
 END $$;
 
@@ -440,7 +450,17 @@ FOR EACH ROW EXECUTE FUNCTION public.bump_print_template_version();
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='print_templates') THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.print_templates;
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime'
+          AND schemaname = 'public'
+          AND tablename = 'print_templates'
+      ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.print_templates;
+      END IF;
+    END $$;
   END IF;
 END $$;
 

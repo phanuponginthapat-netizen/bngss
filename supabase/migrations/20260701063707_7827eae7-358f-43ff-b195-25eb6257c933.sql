@@ -94,5 +94,35 @@ CREATE TRIGGER game_hub_games_updated_at
   BEFORE UPDATE ON public.game_hub_games
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.game_hub_scores;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.game_hub_games;
+DO $$
+
+BEGIN
+
+  IF NOT EXISTS (
+
+    SELECT 1 FROM pg_publication_tables
+
+    WHERE pubname = 'supabase_realtime'
+
+      AND schemaname = 'public'
+
+      AND tablename = 'game_hub_scores'
+
+  ) THEN
+
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.game_hub_scores;
+
+  END IF;
+
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'game_hub_games'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.game_hub_games;
+  END IF;
+END $$;

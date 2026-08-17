@@ -50,8 +50,27 @@ CREATE TRIGGER trg_dashboard_shortcuts_updated_at
   BEFORE UPDATE ON public.dashboard_shortcuts
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.dashboard_shortcuts;
+DO $$
 
+BEGIN
+
+  IF NOT EXISTS (
+
+    SELECT 1 FROM pg_publication_tables
+
+    WHERE pubname = 'supabase_realtime'
+
+      AND schemaname = 'public'
+
+      AND tablename = 'dashboard_shortcuts'
+
+  ) THEN
+
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.dashboard_shortcuts;
+
+  END IF;
+
+END $$;
 -- Seed with existing tiles
 INSERT INTO public.dashboard_shortcuts (label_th, label_en, icon, bg_class, target_url, sort_order)
 SELECT * FROM (VALUES
