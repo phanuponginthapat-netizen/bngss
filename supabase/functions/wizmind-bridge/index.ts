@@ -41,9 +41,15 @@ Deno.serve(async (req) => {
 
   const url = new URL(req.url);
   const provided = req.headers.get("x-bridge-key") || url.searchParams.get("key") || "";
-  const expected = (await getSecret("WIZMIND_BRIDGE_KEY")) || Deno.env.get("WIZMIND_BRIDGE_KEY") || "";
-  if (!expected) return json({ error: "bridge_key_not_configured" }, 503);
+  let expected = (await getSecret("WIZMIND_BRIDGE_KEY")) || Deno.env.get("WIZMIND_BRIDGE_KEY") || "";
+  if (!expected) {
+    // สร้างคีย์ให้อัตโนมัติในการเรียกครั้งแรก (ดูค่าได้ที่หน้า Secrets ของระบบ)
+    try { expected = await generateWizmindBridgeKey(); } catch { /* ignore */ }
+    if (!expected) return json({ error: "bridge_key_not_configured" }, 503);
+    return json({ error: "bridge_key_provisioned", hint: "คีย์ถูกสร้างใหม่แล้ว — ดูค่าที่หน้าตั้งค่า Secrets (WIZMIND_BRIDGE_KEY)" }, 401);
+  }
   if (provided !== expected) return json({ error: "unauthorized" }, 401);
+
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
