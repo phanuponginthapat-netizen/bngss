@@ -10149,12 +10149,18 @@ export type Database = {
       pp5_files: {
         Row: {
           academic_year: number
+          announced_at: string | null
+          announced_by: string | null
+          applied_at: string | null
+          classroom_id: string | null
           created_at: string
           file_name: string
           file_path: string
           file_url: string
           grade_level: string
           id: string
+          parse_status: string | null
+          parsed_data: Json | null
           personnel_id: string | null
           semester: number | null
           subject_code: string | null
@@ -10165,12 +10171,18 @@ export type Database = {
         }
         Insert: {
           academic_year?: number
+          announced_at?: string | null
+          announced_by?: string | null
+          applied_at?: string | null
+          classroom_id?: string | null
           created_at?: string
           file_name: string
           file_path: string
           file_url: string
           grade_level: string
           id?: string
+          parse_status?: string | null
+          parsed_data?: Json | null
           personnel_id?: string | null
           semester?: number | null
           subject_code?: string | null
@@ -10181,12 +10193,18 @@ export type Database = {
         }
         Update: {
           academic_year?: number
+          announced_at?: string | null
+          announced_by?: string | null
+          applied_at?: string | null
+          classroom_id?: string | null
           created_at?: string
           file_name?: string
           file_path?: string
           file_url?: string
           grade_level?: string
           id?: string
+          parse_status?: string | null
+          parsed_data?: Json | null
           personnel_id?: string | null
           semester?: number | null
           subject_code?: string | null
@@ -10196,6 +10214,13 @@ export type Database = {
           uploaded_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "pp5_files_classroom_id_fkey"
+            columns: ["classroom_id"]
+            isOneToOne: false
+            referencedRelation: "classrooms"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pp5_files_personnel_id_fkey"
             columns: ["personnel_id"]
@@ -10215,6 +10240,9 @@ export type Database = {
       pp6_files: {
         Row: {
           academic_year: number
+          announced_at: string | null
+          announced_by: string | null
+          applied_at: string | null
           classroom_id: string | null
           classroom_name: string | null
           created_at: string
@@ -10223,6 +10251,8 @@ export type Database = {
           file_url: string
           grade_level: string
           id: string
+          parse_status: string | null
+          parsed_data: Json | null
           personnel_id: string | null
           semester: number | null
           subject_id: string | null
@@ -10231,6 +10261,9 @@ export type Database = {
         }
         Insert: {
           academic_year?: number
+          announced_at?: string | null
+          announced_by?: string | null
+          applied_at?: string | null
           classroom_id?: string | null
           classroom_name?: string | null
           created_at?: string
@@ -10239,6 +10272,8 @@ export type Database = {
           file_url: string
           grade_level: string
           id?: string
+          parse_status?: string | null
+          parsed_data?: Json | null
           personnel_id?: string | null
           semester?: number | null
           subject_id?: string | null
@@ -10247,6 +10282,9 @@ export type Database = {
         }
         Update: {
           academic_year?: number
+          announced_at?: string | null
+          announced_by?: string | null
+          applied_at?: string | null
           classroom_id?: string | null
           classroom_name?: string | null
           created_at?: string
@@ -10255,6 +10293,8 @@ export type Database = {
           file_url?: string
           grade_level?: string
           id?: string
+          parse_status?: string | null
+          parsed_data?: Json | null
           personnel_id?: string | null
           semester?: number | null
           subject_id?: string | null
