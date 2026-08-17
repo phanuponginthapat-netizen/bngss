@@ -23,7 +23,6 @@ import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { uploadLeaveAttachment, openLeaveAttachment } from "@/lib/leaveAttachment";
 import NotificationHighlightScroller from "@/components/NotificationHighlightScroller";
 import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
-import { saveErrorMessage } from "@/lib/saveError";
 
 const LEAVE_TYPES = [
   { value: "sick", th: "ลาป่วย", en: "Sick Leave" },
