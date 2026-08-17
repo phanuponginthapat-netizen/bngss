@@ -388,31 +388,70 @@ const SchedulePage = () => {
   }, [viewMode, effectiveTeacherId, effectiveTeacherName, effectiveTeacherFirstName, filterClass, schedules, isStudent, isParent]);
 
   // ===== Double-period (คาบคู่) helpers =====
-  const spanOf = (s: any) => Math.max(1, Math.min(4, Number(s?.duration_periods) || 1));
+  const rawSpanOf = (s: any) => Math.max(1, Math.min(4, Number(s?.duration_periods) || 1));
 
-  /** item ที่ "เริ่ม" ที่ช่องนี้ */
-  const startingAt = (day: number, period: number) =>
-    filtered.find((s: any) => s.day_of_week === day && s.period === period);
+  /**
+   * สร้างตารางกริดจริง: แต่ละช่อง (วัน,คาบ) เก็บรายการที่ "เริ่ม" ที่ช่องนั้น
+   * และ rowSpan ที่ปลอดภัย (ไม่เกินจำนวนคาบ, ไม่คร่อมพักเที่ยง, ไม่ทับช่องที่มีของอยู่)
+   * ป้องกันตารางเพี้ยนเมื่อข้อมูลนำเข้ามี duration_periods ผิด หรือมีหลายรายการในช่องเดียว
+   */
+  const grid = useMemo(() => {
+    const cells = new Map<string, { items: any[]; span: number }>();
+    const covered = new Set<string>();
+    const key = (d: number, p: number) => `${d}-${p}`;
 
-  /** item ที่ "คร่อม" ช่องนี้อยู่ (แต่ไม่ได้เริ่มที่นี่) — ไม่ต้องวาด td */
-  const coveredBy = (day: number, period: number) =>
-    filtered.find(
-      (s: any) =>
-        s.day_of_week === day && s.period < period && s.period + spanOf(s) > period
-    );
+    // 1) จัดรายการเข้าช่องเริ่มต้น
+    for (const s of filtered as any[]) {
+      const d = Number(s.day_of_week);
+      const p = Number(s.period);
+      if (!d || !p || p < 1 || p > periodsPerDay) continue;
+      const cell = cells.get(key(d, p)) || { items: [], span: 1 };
+      cell.items.push(s);
+      cells.set(key(d, p), cell);
+    }
+
+    // 2) คำนวณ rowSpan ที่ปลอดภัย (เฉพาะช่องที่มีรายการเดียว)
+    for (const [k, cell] of cells) {
+      const [dStr, pStr] = k.split("-");
+      const d = Number(dStr);
+      const p = Number(pStr);
+      if (cell.items.length !== 1) { cell.span = 1; continue; }
+      let span = rawSpanOf(cell.items[0]);
+      span = Math.min(span, periodsPerDay - p + 1);
+      // ห้ามคร่อมพักเที่ยง
+      if (lunchAfterPeriod >= p && lunchAfterPeriod < p + span - 1) {
+        span = lunchAfterPeriod - p + 1;
+      }
+      // ห้ามทับช่องที่มีรายการอื่นอยู่แล้ว
+      for (let n = 1; n < span; n++) {
+        if (cells.has(key(d, p + n))) { span = n; break; }
+      }
+      cell.span = Math.max(1, span);
+      for (let n = 1; n < cell.span; n++) covered.add(key(d, p + n));
+    }
+
+    return { cells, covered };
+  }, [filtered, periodsPerDay, lunchAfterPeriod]);
+
+  const cellAt = (day: number, period: number) => grid.cells.get(`${day}-${period}`);
+  const isCovered = (day: number, period: number) => grid.covered.has(`${day}-${period}`);
+
+  /** item ที่ "เริ่ม" ที่ช่องนี้ (ตัวแรก) */
+  const startingAt = (day: number, period: number) => cellAt(day, period)?.items[0];
 
   /** จำนวนคาบติดกันสูงสุดที่วางได้จากคาบนี้ (ไม่ข้ามพักเที่ยง / ไม่ชนคาบอื่น) */
   const maxSpanFrom = (day: number, period: number) => {
     let max = 1;
-    for (let n = 1; n <= 4; n++) {
+    for (let n = 1; n <= 3; n++) {
       const p = period + n;
       if (p > periodsPerDay) break;
       if (period + n - 1 === lunchAfterPeriod) break; // ห้ามคร่อมพักเที่ยง
-      if (startingAt(day, p) || coveredBy(day, p)) break;
+      if (cellAt(day, p) || isCovered(day, p)) break;
       max = n + 1;
     }
     return max;
   };
+
 
 
 
