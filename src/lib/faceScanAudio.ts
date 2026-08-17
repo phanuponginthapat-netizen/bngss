@@ -75,3 +75,31 @@ export function speakText(text: string) {
     window.speechSynthesis.speak(u);
   } catch { /* noop */ }
 }
+
+/** เตือนไข้สูง — เสียงสองจังหวะสูงต่ำซ้ำ */
+export function playFeverAlert() {
+  tone(1046, 0.16, 0, "sawtooth", 0.07);
+  tone(784, 0.16, 0.18, "sawtooth", 0.07);
+  tone(1046, 0.16, 0.36, "sawtooth", 0.07);
+}
+
+/** เตือนพบโลหะ/อาวุธ — ไซเรนสั้น */
+export function playWeaponAlert() {
+  for (let i = 0; i < 4; i++) {
+    tone(660, 0.1, i * 0.16, "square", 0.09);
+    tone(990, 0.1, i * 0.16 + 0.08, "square", 0.09);
+  }
+}
+
+/** เสียงประตูเปิด */
+export function playGateOpenSound() {
+  tone(523, 0.1, 0, "sine", 0.07);
+  tone(659, 0.1, 0.09, "sine", 0.07);
+  tone(880, 0.16, 0.18, "sine", 0.07);
+}
+
+/** เสียงปฏิเสธการผ่านประตู */
+export function playGateDeniedSound() {
+  tone(300, 0.22, 0, "sawtooth", 0.07);
+  tone(200, 0.28, 0.2, "sawtooth", 0.07);
+}
