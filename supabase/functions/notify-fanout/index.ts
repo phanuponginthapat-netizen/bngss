@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
         };
       }
     } catch (_) { /* fall back to defaults */ }
-    if (channels.has("gchat") && routing.gchat[category] === false) channels.delete("gchat");
+    if (routing.gchat[category] === false) { channels.delete("gchat"); channels.delete("gchat_dm"); }
     if (channels.has("line")  && routing.line[category]  === false) channels.delete("line");
 
     const userIds = [...new Set(payload.user_ids.filter(Boolean))];
