@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { todayBangkok } from "@/lib/dateBE";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,10 +61,10 @@ const AssetReportsPage = () => {
 
   const { data: records = [] } = useQuery({
     queryKey: ["assets-report"],
-    queryFn: async () => {
-      const { data } = await supabase.from("assets").select("*").order("category");
-      return data || [];
-    },
+    queryFn: async () =>
+      fetchAllRows((from, to) =>
+        supabase.from("assets").select("*").order("category").order("id").range(from, to),
+      ),
   });
 
   const locations = useMemo(() => {

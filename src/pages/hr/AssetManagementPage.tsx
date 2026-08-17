@@ -30,6 +30,7 @@ import MapPicker from "@/components/MapPicker";
 import { Link, useNavigate } from "react-router-dom";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { swal } from "@/lib/swal";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { ASSET_CATEGORIES, ASSET_CATEGORIES_FULL, getCategoryDef, BUDGET_SOURCES } from "@/lib/assetCategories";
 
 const CONDITIONS = [
@@ -106,10 +107,10 @@ const AssetManagementPage = () => {
 
   const { data: records = [] } = useQuery({
     queryKey: ["assets"],
-    queryFn: async () => {
-      const { data } = await supabase.from("assets").select("*").order("created_at", { ascending: false });
-      return data || [];
-    },
+    queryFn: async () =>
+      fetchAllRows((from, to) =>
+        supabase.from("assets").select("*").order("created_at", { ascending: false }).order("id").range(from, to),
+      ),
   });
 
   const { data: personnel = [] } = useQuery({
@@ -149,10 +150,15 @@ const AssetManagementPage = () => {
 
   const { data: damageReports = [] } = useQuery({
     queryKey: ["asset_damage_reports"],
-    queryFn: async () => {
-      const { data } = await supabase.from("asset_damage_reports").select("*, assets(asset_code, asset_name)").order("created_at", { ascending: false });
-      return data || [];
-    },
+    queryFn: async () =>
+      fetchAllRows((from, to) =>
+        supabase
+          .from("asset_damage_reports")
+          .select("*, assets(asset_code, asset_name)")
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      ),
   });
 
   // Auto-apply category defaults on category change (add form only)
@@ -362,8 +368,10 @@ const AssetManagementPage = () => {
 
   const handleDelete = async (id: string) => {
     if (!(await swal.confirm({ title: "ต้องการลบสินทรัพย์นี้หรือไม่?", danger: true }))) return;
-    await supabase.from("assets").delete().eq("id", id);
+    const { error } = await supabase.from("assets").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
     qc.invalidateQueries({ queryKey: ["assets"] });
+    qc.invalidateQueries({ queryKey: ["asset_damage_reports"] });
     toast.success("ลบสำเร็จ");
   };
 
@@ -381,9 +389,10 @@ const AssetManagementPage = () => {
   };
 
   const handleUpdateReportStatus = async (id: string, status: string, resolution_notes?: string) => {
-    await supabase.from("asset_damage_reports").update({
+    const { error } = await supabase.from("asset_damage_reports").update({
       status, ...(status === "resolved" ? { resolved_at: new Date().toISOString(), resolution_notes } : {}),
     } as any).eq("id", id);
+    if (error) { toast.error(error.message); return; }
     qc.invalidateQueries({ queryKey: ["asset_damage_reports"] });
     toast.success("อัปเดตสถานะสำเร็จ");
   };
