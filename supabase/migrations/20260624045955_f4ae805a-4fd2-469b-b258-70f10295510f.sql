@@ -33,20 +33,54 @@ END;
 $$;
 -- ตั้ง trigger ใหม่ให้ฟังการเปลี่ยน status ด้วย (เผื่อครูกดอนุมัติทีหลัง)
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP TRIGGER IF EXISTS trg_homework_submission_to_pp5 ON public.homework_submissions';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP TRIGGER IF EXISTS trg_homework_submission_to_pp5 ON public.homework_submissions';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE TRIGGER trg_homework_submission_to_pp5
-AFTER INSERT OR UPDATE OF final_score, status
-ON public.homework_submissions
-FOR EACH ROW EXECUTE FUNCTION public.sync_homework_submission_to_pp5()';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE TRIGGER trg_homework_submission_to_pp5
+    AFTER INSERT OR UPDATE OF final_score, status
+    ON public.homework_submissions
+    FOR EACH ROW EXECUTE FUNCTION public.sync_homework_submission_to_pp5()';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 -- Fix 2: due_date = today ยังไม่ใช่ overdue

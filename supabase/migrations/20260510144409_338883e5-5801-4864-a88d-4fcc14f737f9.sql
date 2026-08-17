@@ -89,64 +89,200 @@ END
 $idxguard$;
 -- Updated_at triggers
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP TRIGGER IF EXISTS trg_ict_devices_updated_at ON public.ict_devices';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP TRIGGER IF EXISTS trg_ict_devices_updated_at ON public.ict_devices';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE TRIGGER trg_ict_devices_updated_at BEFORE UPDATE ON public.ict_devices
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE TRIGGER trg_ict_devices_updated_at BEFORE UPDATE ON public.ict_devices
+      FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP TRIGGER IF EXISTS trg_ict_loans_updated_at ON public.ict_loans';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP TRIGGER IF EXISTS trg_ict_loans_updated_at ON public.ict_loans';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE TRIGGER trg_ict_loans_updated_at BEFORE UPDATE ON public.ict_loans
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE TRIGGER trg_ict_loans_updated_at BEFORE UPDATE ON public.ict_loans
+      FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 -- Auto-fill school_id
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP TRIGGER IF EXISTS trg_ict_devices_fill_school ON public.ict_devices';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP TRIGGER IF EXISTS trg_ict_devices_fill_school ON public.ict_devices';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE TRIGGER trg_ict_devices_fill_school BEFORE INSERT ON public.ict_devices
-  FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id()';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE TRIGGER trg_ict_devices_fill_school BEFORE INSERT ON public.ict_devices
+      FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id()';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP TRIGGER IF EXISTS trg_ict_loans_fill_school ON public.ict_loans';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP TRIGGER IF EXISTS trg_ict_loans_fill_school ON public.ict_loans';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE TRIGGER trg_ict_loans_fill_school BEFORE INSERT ON public.ict_loans
-  FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id()';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE TRIGGER trg_ict_loans_fill_school BEFORE INSERT ON public.ict_loans
+      FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id()';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 -- Sync device status from loan
@@ -171,19 +307,53 @@ BEGIN
   RETURN NEW;
 END $$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP TRIGGER IF EXISTS trg_ict_loans_sync_device ON public.ict_loans';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP TRIGGER IF EXISTS trg_ict_loans_sync_device ON public.ict_loans';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE TRIGGER trg_ict_loans_sync_device
-  AFTER INSERT OR UPDATE ON public.ict_loans
-  FOR EACH ROW EXECUTE FUNCTION public.sync_ict_device_status_on_loan()';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE TRIGGER trg_ict_loans_sync_device
+      AFTER INSERT OR UPDATE ON public.ict_loans
+      FOR EACH ROW EXECUTE FUNCTION public.sync_ict_device_status_on_loan()';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 -- Prevent double-borrow: only one active loan per device
@@ -219,131 +389,403 @@ BEGIN
   RETURN NEW;
 END $$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP TRIGGER IF EXISTS trg_ict_loans_notify ON public.ict_loans';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP TRIGGER IF EXISTS trg_ict_loans_notify ON public.ict_loans';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE TRIGGER trg_ict_loans_notify
-  AFTER INSERT OR UPDATE ON public.ict_loans
-  FOR EACH ROW EXECUTE FUNCTION public.notify_student_on_ict_loan()';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE TRIGGER trg_ict_loans_notify
+      AFTER INSERT OR UPDATE ON public.ict_loans
+      FOR EACH ROW EXECUTE FUNCTION public.notify_student_on_ict_loan()';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 -- RLS
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'ALTER TABLE public.ict_devices ENABLE ROW LEVEL SECURITY';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'ALTER TABLE public.ict_devices ENABLE ROW LEVEL SECURITY';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'ALTER TABLE public.ict_loans ENABLE ROW LEVEL SECURITY';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'ALTER TABLE public.ict_loans ENABLE ROW LEVEL SECURITY';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Devices viewable by authenticated" ON public.ict_devices';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Devices viewable by authenticated" ON public.ict_devices';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Devices viewable by authenticated" ON public.ict_devices';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Devices viewable by authenticated" ON public.ict_devices';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE POLICY "Devices viewable by authenticated"
-  ON public.ict_devices FOR SELECT TO authenticated USING (true)';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE POLICY "Devices viewable by authenticated"
+      ON public.ict_devices FOR SELECT TO authenticated USING (true)';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Devices manage by staff" ON public.ict_devices';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Devices manage by staff" ON public.ict_devices';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Devices manage by staff" ON public.ict_devices';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Devices manage by staff" ON public.ict_devices';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE POLICY "Devices manage by staff"
-  ON public.ict_devices FOR ALL TO authenticated
-  USING (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))
-  WITH CHECK (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE POLICY "Devices manage by staff"
+      ON public.ict_devices FOR ALL TO authenticated
+      USING (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))
+      WITH CHECK (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Loans viewable by staff or own student" ON public.ict_loans';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Loans viewable by staff or own student" ON public.ict_loans';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Loans viewable by staff or own student" ON public.ict_loans';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Loans viewable by staff or own student" ON public.ict_loans';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE POLICY "Loans viewable by staff or own student"
-  ON public.ict_loans FOR SELECT TO authenticated
-  USING (
-    has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher'')
-    OR EXISTS (SELECT 1 FROM public.students s WHERE s.id = ict_loans.student_id AND s.auth_user_id = auth.uid())
-    OR EXISTS (SELECT 1 FROM public.parent_student_links psl WHERE psl.student_id = ict_loans.student_id AND psl.parent_user_id = auth.uid())
-  )';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE POLICY "Loans viewable by staff or own student"
+      ON public.ict_loans FOR SELECT TO authenticated
+      USING (
+        has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher'')
+        OR EXISTS (SELECT 1 FROM public.students s WHERE s.id = ict_loans.student_id AND s.auth_user_id = auth.uid())
+        OR EXISTS (SELECT 1 FROM public.parent_student_links psl WHERE psl.student_id = ict_loans.student_id AND psl.parent_user_id = auth.uid())
+      )';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Loans managed by staff" ON public.ict_loans';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Loans managed by staff" ON public.ict_loans';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Loans managed by staff" ON public.ict_loans';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Loans managed by staff" ON public.ict_loans';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE POLICY "Loans managed by staff"
-  ON public.ict_loans FOR ALL TO authenticated
-  USING (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))
-  WITH CHECK (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE POLICY "Loans managed by staff"
+      ON public.ict_loans FOR ALL TO authenticated
+      USING (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))
+      WITH CHECK (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 -- Storage bucket
@@ -351,77 +793,230 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('ict-loan-photos', 'ict-loan-photos', true)
 ON CONFLICT (id) DO NOTHING;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "ICT photos public read" ON storage.objects';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "ICT photos public read" ON storage.objects';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "ICT photos public read" ON storage.objects';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "ICT photos public read" ON storage.objects';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE POLICY "ICT photos public read"
-  ON storage.objects FOR SELECT
-  USING (bucket_id = ''ict-loan-photos'')';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE POLICY "ICT photos public read"
+      ON storage.objects FOR SELECT
+      USING (bucket_id = ''ict-loan-photos'')';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "ICT photos staff upload" ON storage.objects';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "ICT photos staff upload" ON storage.objects';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "ICT photos staff upload" ON storage.objects';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "ICT photos staff upload" ON storage.objects';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE POLICY "ICT photos staff upload"
-  ON storage.objects FOR INSERT TO authenticated
-  WITH CHECK (
-    bucket_id = ''ict-loan-photos'' AND
-    (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))
-  )';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE POLICY "ICT photos staff upload"
+      ON storage.objects FOR INSERT TO authenticated
+      WITH CHECK (
+        bucket_id = ''ict-loan-photos'' AND
+        (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))
+      )';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "ICT photos staff update" ON storage.objects';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "ICT photos staff update" ON storage.objects';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "ICT photos staff update" ON storage.objects';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "ICT photos staff update" ON storage.objects';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE POLICY "ICT photos staff update"
-  ON storage.objects FOR UPDATE TO authenticated
-  USING (
-    bucket_id = ''ict-loan-photos'' AND
-    (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))
-  )';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE POLICY "ICT photos staff update"
+      ON storage.objects FOR UPDATE TO authenticated
+      USING (
+        bucket_id = ''ict-loan-photos'' AND
+        (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))
+      )';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;

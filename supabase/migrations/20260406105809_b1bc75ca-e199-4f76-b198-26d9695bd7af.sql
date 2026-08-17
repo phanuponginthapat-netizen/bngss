@@ -30,171 +30,511 @@ CREATE TABLE IF NOT EXISTS public.pa_indicator_scores (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'ALTER TABLE public.pa_agreements ENABLE ROW LEVEL SECURITY';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'ALTER TABLE public.pa_agreements ENABLE ROW LEVEL SECURITY';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'ALTER TABLE public.pa_indicator_scores ENABLE ROW LEVEL SECURITY';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'ALTER TABLE public.pa_indicator_scores ENABLE ROW LEVEL SECURITY';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 -- RLS for pa_agreements
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view pa_agreements" ON public.pa_agreements';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Auth users can view pa_agreements" ON public.pa_agreements';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view pa_agreements" ON public.pa_agreements';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Auth users can view pa_agreements" ON public.pa_agreements';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE POLICY "Auth users can view pa_agreements"
-  ON public.pa_agreements FOR SELECT TO authenticated
-  USING (true)';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE POLICY "Auth users can view pa_agreements"
+      ON public.pa_agreements FOR SELECT TO authenticated
+      USING (true)';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage pa_agreements" ON public.pa_agreements';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage pa_agreements" ON public.pa_agreements';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage pa_agreements" ON public.pa_agreements';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage pa_agreements" ON public.pa_agreements';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE POLICY "Admin/Director can manage pa_agreements"
-  ON public.pa_agreements FOR ALL TO authenticated
-  USING (has_role(auth.uid(), ''admin'') OR has_role(auth.uid(), ''director''))
-  WITH CHECK (has_role(auth.uid(), ''admin'') OR has_role(auth.uid(), ''director''))';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE POLICY "Admin/Director can manage pa_agreements"
+      ON public.pa_agreements FOR ALL TO authenticated
+      USING (has_role(auth.uid(), ''admin'') OR has_role(auth.uid(), ''director''))
+      WITH CHECK (has_role(auth.uid(), ''admin'') OR has_role(auth.uid(), ''director''))';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Users can manage own pa_agreements" ON public.pa_agreements';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Users can manage own pa_agreements" ON public.pa_agreements';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Users can manage own pa_agreements" ON public.pa_agreements';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Users can manage own pa_agreements" ON public.pa_agreements';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE POLICY "Users can manage own pa_agreements"
-  ON public.pa_agreements FOR ALL TO authenticated
-  USING (created_by = auth.uid())
-  WITH CHECK (created_by = auth.uid())';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE POLICY "Users can manage own pa_agreements"
+      ON public.pa_agreements FOR ALL TO authenticated
+      USING (created_by = auth.uid())
+      WITH CHECK (created_by = auth.uid())';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 -- RLS for pa_indicator_scores
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view pa_indicator_scores" ON public.pa_indicator_scores';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Auth users can view pa_indicator_scores" ON public.pa_indicator_scores';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view pa_indicator_scores" ON public.pa_indicator_scores';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Auth users can view pa_indicator_scores" ON public.pa_indicator_scores';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE POLICY "Auth users can view pa_indicator_scores"
-  ON public.pa_indicator_scores FOR SELECT TO authenticated
-  USING (true)';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE POLICY "Auth users can view pa_indicator_scores"
+      ON public.pa_indicator_scores FOR SELECT TO authenticated
+      USING (true)';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage pa_indicator_scores" ON public.pa_indicator_scores';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage pa_indicator_scores" ON public.pa_indicator_scores';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage pa_indicator_scores" ON public.pa_indicator_scores';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage pa_indicator_scores" ON public.pa_indicator_scores';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE POLICY "Admin/Director can manage pa_indicator_scores"
-  ON public.pa_indicator_scores FOR ALL TO authenticated
-  USING (has_role(auth.uid(), ''admin'') OR has_role(auth.uid(), ''director''))
-  WITH CHECK (has_role(auth.uid(), ''admin'') OR has_role(auth.uid(), ''director''))';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE POLICY "Admin/Director can manage pa_indicator_scores"
+      ON public.pa_indicator_scores FOR ALL TO authenticated
+      USING (has_role(auth.uid(), ''admin'') OR has_role(auth.uid(), ''director''))
+      WITH CHECK (has_role(auth.uid(), ''admin'') OR has_role(auth.uid(), ''director''))';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Users can manage own pa_indicator_scores" ON public.pa_indicator_scores';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Users can manage own pa_indicator_scores" ON public.pa_indicator_scores';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP POLICY IF EXISTS "Users can manage own pa_indicator_scores" ON public.pa_indicator_scores';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP POLICY IF EXISTS "Users can manage own pa_indicator_scores" ON public.pa_indicator_scores';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE POLICY "Users can manage own pa_indicator_scores"
-  ON public.pa_indicator_scores FOR ALL TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.pa_agreements pa 
-      WHERE pa.id = pa_agreement_id AND pa.created_by = auth.uid()
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.pa_agreements pa 
-      WHERE pa.id = pa_agreement_id AND pa.created_by = auth.uid()
-    )
-  )';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE POLICY "Users can manage own pa_indicator_scores"
+      ON public.pa_indicator_scores FOR ALL TO authenticated
+      USING (
+        EXISTS (
+          SELECT 1 FROM public.pa_agreements pa 
+          WHERE pa.id = pa_agreement_id AND pa.created_by = auth.uid()
+        )
+      )
+      WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM public.pa_agreements pa 
+          WHERE pa.id = pa_agreement_id AND pa.created_by = auth.uid()
+        )
+      )';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 -- Enable realtime
@@ -222,18 +562,52 @@ BEGIN
 END $$;
 -- Updated_at trigger
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'DROP TRIGGER IF EXISTS update_pa_agreements_updated_at ON public.pa_agreements';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'DROP TRIGGER IF EXISTS update_pa_agreements_updated_at ON public.pa_agreements';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
 DO $guard$
+DECLARE
+  _ddl_try int := 0;
 BEGIN
-  EXECUTE 'CREATE TRIGGER update_pa_agreements_updated_at
-  BEFORE UPDATE ON public.pa_agreements
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
-EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
-  RAISE NOTICE 'skipped: %', SQLERRM;
+  LOOP
+    BEGIN
+    SET LOCAL lock_timeout = '5s';
+      EXECUTE 'CREATE TRIGGER update_pa_agreements_updated_at
+      BEFORE UPDATE ON public.pa_agreements
+      FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+    EXIT;
+    EXCEPTION
+      WHEN deadlock_detected OR lock_not_available THEN
+        _ddl_try := _ddl_try + 1;
+        IF _ddl_try >= 10 THEN
+          RAISE NOTICE 'giving up after lock contention: %', SQLERRM;
+          EXIT;
+        END IF;
+        PERFORM pg_sleep(0.4 * _ddl_try);
+      WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+        RAISE NOTICE 'skipped: %', SQLERRM;
+        EXIT;
+    END;
+  END LOOP;
 END
 $guard$;
