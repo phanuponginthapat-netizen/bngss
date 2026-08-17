@@ -32,6 +32,7 @@ import { useCmsValues } from "@/hooks/useCmsSettings";
 import { wakeKioskScreen } from "@/lib/kioskWake";
 import { getRegisteredFaceImage } from "@/lib/registeredFace";
 import { saveErrorMessage } from "@/lib/saveError";
+import { notifyRole } from "@/lib/notify";
 import {
   subscribeWizmindEvents, loadEventImage, releaseEventImage, markEventProcessed,
   isEventFresh, WIZMIND_ENABLED_KEY, WIZMIND_CAMERA_KEY, type CameraFaceEvent,
