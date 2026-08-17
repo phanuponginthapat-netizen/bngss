@@ -1,0 +1,1 @@
+ALTER TABLE public.face_scan_logs ADD COLUMN IF NOT EXISTS temperature_c numeric(4,1);
