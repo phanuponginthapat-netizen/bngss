@@ -6,7 +6,9 @@ Theme พาสเทล Sky & Peach, radius 1rem, ฟอนต์ Outfit/Figtre
 Roles อยู่ใน user_roles + has_role() เท่านั้น — ห้ามเก็บ role ใน profiles/personnel
 Sidebar อยู่ทางขวา, trigger อยู่ใน User avatar dropdown มุมบนขวา (ไม่มี trigger มุมบนซ้าย)
 Bucket `profile-images` ต้อง public เพื่อให้ URL เก่าใน DB ทำงาน — ถ้า workspace บล็อก public buckets ให้ใช้ RLS `profile_images_public_read` อนุญาต anon SELECT
+ห้ามเขียน RLS policy `using (true)` ให้ authenticated บนตารางข้อมูลบุคคล — ต้องมี is_staff_user()/สิทธิ์เจ้าของเสมอ
 
 ## Memories
 - [Notification role matrix](mem/features/notification-role-matrix.md) — role_notification_defaults + precedence School>Role>User
 - [Security hardening phase 2](mem/features/security-hardening.md) — REVOKE anon/authenticated จาก SECURITY DEFINER, whitelist ฟังก์ชัน public
+- [Role/RLS matrix](mem/features/role-rls-matrix.md) — สิทธิ์อ่าน/เขียนของแต่ละ role ต่อกลุ่มตาราง + กติกาเขียน policy
