@@ -21,6 +21,8 @@ mkdir -p "$OUT_DIR"
   echo "-- generated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
   echo "-- =============================================================="
   echo "SET statement_timeout = 0;"
+  echo "SET lock_timeout = '5s';"
+  echo "SET idle_in_transaction_session_timeout = '60s';"
   echo "SET client_min_messages = warning;"
   echo
 } > "$OUT"
