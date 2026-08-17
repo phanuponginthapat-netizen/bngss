@@ -1,6 +1,6 @@
 
 -- IoT Devices table
-CREATE TABLE public.iot_devices (
+CREATE TABLE IF NOT EXISTS public.iot_devices (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
@@ -29,8 +29,8 @@ CREATE TABLE public.iot_devices (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_iot_devices_active ON public.iot_devices(is_active);
-CREATE INDEX idx_iot_devices_group ON public.iot_devices(dashboard_group);
+CREATE INDEX IF NOT EXISTS idx_iot_devices_active ON public.iot_devices(is_active);
+CREATE INDEX IF NOT EXISTS idx_iot_devices_group ON public.iot_devices(dashboard_group);
 
 ALTER TABLE public.iot_devices ENABLE ROW LEVEL SECURITY;
 
@@ -59,7 +59,7 @@ BEFORE UPDATE ON public.iot_devices
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- IoT Readings (time-series)
-CREATE TABLE public.iot_readings (
+CREATE TABLE IF NOT EXISTS public.iot_readings (
   id BIGSERIAL PRIMARY KEY,
   device_id UUID NOT NULL REFERENCES public.iot_devices(id) ON DELETE CASCADE,
   value TEXT,
@@ -68,7 +68,7 @@ CREATE TABLE public.iot_readings (
   recorded_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_iot_readings_device_time ON public.iot_readings(device_id, recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_iot_readings_device_time ON public.iot_readings(device_id, recorded_at DESC);
 
 ALTER TABLE public.iot_readings ENABLE ROW LEVEL SECURITY;
 

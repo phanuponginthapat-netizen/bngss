@@ -1,5 +1,5 @@
 
-CREATE TABLE public.upstream_subscription (
+CREATE TABLE IF NOT EXISTS public.upstream_subscription (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL DEFAULT 'default',
   bundle_url text NOT NULL,

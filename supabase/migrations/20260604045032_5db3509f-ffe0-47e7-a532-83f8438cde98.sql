@@ -1,5 +1,5 @@
 
-CREATE TABLE public.config_bundles (
+CREATE TABLE IF NOT EXISTS public.config_bundles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   version TEXT NOT NULL,
   source_url TEXT,

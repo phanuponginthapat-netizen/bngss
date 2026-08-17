@@ -1,5 +1,5 @@
 -- AI Providers (managed by admin)
-CREATE TABLE public.ai_providers (
+CREATE TABLE IF NOT EXISTS public.ai_providers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   provider_type text NOT NULL DEFAULT 'openai_compatible',
@@ -32,7 +32,7 @@ CREATE TRIGGER trg_ai_providers_updated
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- AI Usage Logs
-CREATE TABLE public.ai_usage_logs (
+CREATE TABLE IF NOT EXISTS public.ai_usage_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   provider_id uuid REFERENCES public.ai_providers(id) ON DELETE SET NULL,
   provider_name text,
@@ -62,8 +62,8 @@ CREATE POLICY "Service role inserts logs"
   TO authenticated
   WITH CHECK (true);
 
-CREATE INDEX idx_ai_usage_logs_created ON public.ai_usage_logs(created_at DESC);
-CREATE INDEX idx_ai_usage_logs_provider ON public.ai_usage_logs(provider_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_usage_logs_created ON public.ai_usage_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_usage_logs_provider ON public.ai_usage_logs(provider_id, created_at DESC);
 
 -- Seed default providers (Lovable enabled; others need API key from admin)
 INSERT INTO public.ai_providers (name, provider_type, base_url, model, priority, enabled, supports_vision, notes)

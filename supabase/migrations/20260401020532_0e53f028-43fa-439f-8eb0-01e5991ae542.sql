@@ -1,6 +1,6 @@
 
 -- Budget/Financial tables
-CREATE TABLE public.budget_transactions (
+CREATE TABLE IF NOT EXISTS public.budget_transactions (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   transaction_date DATE NOT NULL DEFAULT CURRENT_DATE,
   transaction_type TEXT NOT NULL DEFAULT 'expense',
@@ -20,7 +20,7 @@ ALTER TABLE public.budget_transactions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Auth users manage budget_transactions" ON public.budget_transactions FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Procurement (e-GP)
-CREATE TABLE public.procurement_records (
+CREATE TABLE IF NOT EXISTS public.procurement_records (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   procurement_date DATE NOT NULL DEFAULT CURRENT_DATE,
   procurement_type TEXT NOT NULL DEFAULT 'purchase',
@@ -40,7 +40,7 @@ ALTER TABLE public.procurement_records ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Auth users manage procurement_records" ON public.procurement_records FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Asset Management
-CREATE TABLE public.assets (
+CREATE TABLE IF NOT EXISTS public.assets (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   asset_code TEXT NOT NULL,
   asset_name TEXT NOT NULL,
@@ -61,7 +61,7 @@ ALTER TABLE public.assets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Auth users manage assets" ON public.assets FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Student Subsidies (กสศ.)
-CREATE TABLE public.student_subsidies (
+CREATE TABLE IF NOT EXISTS public.student_subsidies (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   student_id UUID REFERENCES public.students(id) ON DELETE CASCADE,
   subsidy_type TEXT NOT NULL DEFAULT 'ปัจจัยพื้นฐาน',
@@ -81,7 +81,7 @@ ALTER TABLE public.student_subsidies ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Auth users manage student_subsidies" ON public.student_subsidies FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Salary records
-CREATE TABLE public.salary_records (
+CREATE TABLE IF NOT EXISTS public.salary_records (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   personnel_id UUID REFERENCES public.personnel(id) ON DELETE CASCADE,
   salary_month INTEGER NOT NULL,
@@ -101,7 +101,7 @@ ALTER TABLE public.salary_records ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Auth users manage salary_records" ON public.salary_records FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- ID Plan (Individual Development Plan)
-CREATE TABLE public.id_plan_records (
+CREATE TABLE IF NOT EXISTS public.id_plan_records (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   personnel_id UUID REFERENCES public.personnel(id) ON DELETE CASCADE,
   academic_year INTEGER DEFAULT EXTRACT(year FROM now()),

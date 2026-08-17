@@ -1,5 +1,5 @@
 
-CREATE TABLE public.google_chat_webhooks (
+CREATE TABLE IF NOT EXISTS public.google_chat_webhooks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   department text NOT NULL,
   webhook_url text NOT NULL,

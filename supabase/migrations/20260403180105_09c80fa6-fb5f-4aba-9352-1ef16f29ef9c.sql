@@ -1,6 +1,6 @@
 
 -- Table to track uploaded PP5 files
-CREATE TABLE public.pp5_files (
+CREATE TABLE IF NOT EXISTS public.pp5_files (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   file_name TEXT NOT NULL,
   file_url TEXT NOT NULL,

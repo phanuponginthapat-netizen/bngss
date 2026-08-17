@@ -1,5 +1,5 @@
 -- Create subjects table
-CREATE TABLE public.subjects (
+CREATE TABLE IF NOT EXISTS public.subjects (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
   name_th TEXT NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE public.subjects (
 );
 
 -- Create student_scores table
-CREATE TABLE public.student_scores (
+CREATE TABLE IF NOT EXISTS public.student_scores (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   student_name TEXT NOT NULL,
   student_code TEXT,

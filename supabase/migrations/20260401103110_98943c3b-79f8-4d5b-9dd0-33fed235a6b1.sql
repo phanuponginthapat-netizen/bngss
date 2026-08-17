@@ -1,6 +1,6 @@
 
 -- Account balances table
-CREATE TABLE public.account_balances (
+CREATE TABLE IF NOT EXISTS public.account_balances (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   account_name TEXT NOT NULL,
   balance NUMERIC NOT NULL DEFAULT 0,
@@ -25,7 +25,7 @@ CREATE POLICY "Admin/Director can manage account_balances"
   WITH CHECK (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role));
 
 -- Asset damage reports table
-CREATE TABLE public.asset_damage_reports (
+CREATE TABLE IF NOT EXISTS public.asset_damage_reports (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   asset_id UUID REFERENCES public.assets(id) ON DELETE CASCADE NOT NULL,
   reported_by_user_id UUID REFERENCES auth.users(id),

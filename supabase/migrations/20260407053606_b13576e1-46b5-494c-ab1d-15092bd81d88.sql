@@ -1,5 +1,5 @@
 
-CREATE TABLE public.task_assignments (
+CREATE TABLE IF NOT EXISTS public.task_assignments (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   task_type TEXT NOT NULL DEFAULT 'homework',
   title TEXT NOT NULL,

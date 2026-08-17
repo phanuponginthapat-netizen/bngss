@@ -1,5 +1,5 @@
 -- AI Chat Logs: เก็บประวัติการสนทนา AI ต่อ user เพื่อวิเคราะห์ความเสี่ยง
-CREATE TABLE public.ai_chat_logs (
+CREATE TABLE IF NOT EXISTS public.ai_chat_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   session_id UUID,
@@ -17,10 +17,10 @@ CREATE TABLE public.ai_chat_logs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_ai_chat_logs_user ON public.ai_chat_logs(user_id, created_at DESC);
-CREATE INDEX idx_ai_chat_logs_risk ON public.ai_chat_logs(risk_level, created_at DESC)
+CREATE INDEX IF NOT EXISTS idx_ai_chat_logs_user ON public.ai_chat_logs(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_chat_logs_risk ON public.ai_chat_logs(risk_level, created_at DESC)
   WHERE risk_level IN ('medium','high');
-CREATE INDEX idx_ai_chat_logs_topic ON public.ai_chat_logs(topic, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_chat_logs_topic ON public.ai_chat_logs(topic, created_at DESC);
 
 GRANT SELECT, INSERT ON public.ai_chat_logs TO authenticated;
 GRANT ALL ON public.ai_chat_logs TO service_role;

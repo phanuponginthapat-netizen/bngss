@@ -1,4 +1,4 @@
-CREATE TABLE public.kiosk_devices (
+CREATE TABLE IF NOT EXISTS public.kiosk_devices (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   device_id text NOT NULL UNIQUE,
   user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -55,9 +55,9 @@ CREATE POLICY "admins can delete devices"
   TO authenticated
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
-CREATE INDEX kiosk_devices_last_seen_idx ON public.kiosk_devices (last_seen_at DESC);
-CREATE INDEX kiosk_devices_user_id_idx ON public.kiosk_devices (user_id);
-CREATE INDEX kiosk_devices_status_idx ON public.kiosk_devices (status);
+CREATE INDEX IF NOT EXISTS kiosk_devices_last_seen_idx ON public.kiosk_devices (last_seen_at DESC);
+CREATE INDEX IF NOT EXISTS kiosk_devices_user_id_idx ON public.kiosk_devices (user_id);
+CREATE INDEX IF NOT EXISTS kiosk_devices_status_idx ON public.kiosk_devices (status);
 
 CREATE TRIGGER kiosk_devices_updated_at
   BEFORE UPDATE ON public.kiosk_devices

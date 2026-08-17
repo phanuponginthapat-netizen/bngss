@@ -1,6 +1,6 @@
 
 -- Create pp6_files table (similar to pp5_files)
-CREATE TABLE public.pp6_files (
+CREATE TABLE IF NOT EXISTS public.pp6_files (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   uploaded_by UUID,

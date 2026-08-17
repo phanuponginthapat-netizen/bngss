@@ -1,5 +1,5 @@
 
-CREATE TABLE public.game_hub_games (
+CREATE TABLE IF NOT EXISTS public.game_hub_games (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL,
   description text,
@@ -32,7 +32,7 @@ CREATE POLICY "games_update_owner_admin" ON public.game_hub_games FOR UPDATE TO 
 CREATE POLICY "games_delete_owner_admin" ON public.game_hub_games FOR DELETE TO authenticated
   USING (created_by = auth.uid() OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
 
-CREATE TABLE public.game_hub_scores (
+CREATE TABLE IF NOT EXISTS public.game_hub_scores (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   game_id uuid NOT NULL REFERENCES public.game_hub_games(id) ON DELETE CASCADE,
   student_id uuid NOT NULL,
@@ -43,8 +43,8 @@ CREATE TABLE public.game_hub_scores (
   source text NOT NULL DEFAULT 'in_app' CHECK (source IN ('in_app','external')),
   played_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX ON public.game_hub_scores (game_id, score DESC);
-CREATE INDEX ON public.game_hub_scores (student_id);
+CREATE INDEX IF NOT EXISTS ON public.game_hub_scores (game_id, score DESC);
+CREATE INDEX IF NOT EXISTS ON public.game_hub_scores (student_id);
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.game_hub_scores TO authenticated;
 GRANT ALL ON public.game_hub_scores TO service_role;
 ALTER TABLE public.game_hub_scores ENABLE ROW LEVEL SECURITY;
@@ -55,7 +55,7 @@ CREATE POLICY "scores_insert_self" ON public.game_hub_scores FOR INSERT TO authe
 CREATE POLICY "scores_delete_admin" ON public.game_hub_scores FOR DELETE TO authenticated
   USING (public.has_role(auth.uid(),'admin'));
 
-CREATE TABLE public.game_hub_api_keys (
+CREATE TABLE IF NOT EXISTS public.game_hub_api_keys (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   key_hash text NOT NULL,

@@ -1,6 +1,6 @@
 
 -- ============== Hub Projects ==============
-CREATE TABLE public.hub_projects (
+CREATE TABLE IF NOT EXISTS public.hub_projects (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   school_id UUID REFERENCES public.schools(id) ON DELETE CASCADE,
   hub_project_code TEXT,
@@ -35,7 +35,7 @@ CREATE POLICY "staff manage projects" ON public.hub_projects FOR ALL TO authenti
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));
 
-CREATE INDEX idx_hub_projects_school ON public.hub_projects(school_id, fiscal_year);
+CREATE INDEX IF NOT EXISTS idx_hub_projects_school ON public.hub_projects(school_id, fiscal_year);
 CREATE TRIGGER trg_hub_projects_updated BEFORE UPDATE ON public.hub_projects
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
@@ -52,7 +52,7 @@ CREATE TRIGGER trg_hub_project_fill_school BEFORE INSERT ON public.hub_projects
   FOR EACH ROW EXECUTE FUNCTION public.hub_project_fill_school();
 
 -- ============== Budgets received ==============
-CREATE TABLE public.hub_project_budgets (
+CREATE TABLE IF NOT EXISTS public.hub_project_budgets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES public.hub_projects(id) ON DELETE CASCADE,
   amount NUMERIC(14,2) NOT NULL CHECK (amount >= 0),
@@ -73,7 +73,7 @@ CREATE POLICY "staff manage budgets" ON public.hub_project_budgets FOR ALL TO au
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));
 
 -- ============== Expenses ==============
-CREATE TABLE public.hub_project_expenses (
+CREATE TABLE IF NOT EXISTS public.hub_project_expenses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES public.hub_projects(id) ON DELETE CASCADE,
   expense_date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -97,7 +97,7 @@ CREATE POLICY "staff manage expenses" ON public.hub_project_expenses FOR ALL TO 
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));
 
 -- ============== Progress updates (feed) ==============
-CREATE TABLE public.hub_project_updates (
+CREATE TABLE IF NOT EXISTS public.hub_project_updates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES public.hub_projects(id) ON DELETE CASCADE,
   update_date DATE NOT NULL DEFAULT CURRENT_DATE,

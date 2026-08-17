@@ -1,6 +1,6 @@
 
 -- 1) Notification preferences per user
-CREATE TABLE public.notification_preferences (
+CREATE TABLE IF NOT EXISTS public.notification_preferences (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   in_app_enabled boolean NOT NULL DEFAULT true,
@@ -30,7 +30,7 @@ CREATE TRIGGER trg_notif_prefs_updated
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- 2) Delivery log
-CREATE TABLE public.notification_delivery_log (
+CREATE TABLE IF NOT EXISTS public.notification_delivery_log (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid,
   channel text NOT NULL, -- in_app | push | line | gchat
@@ -51,8 +51,8 @@ CREATE POLICY "admin/director can read logs" ON public.notification_delivery_log
   FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
-CREATE INDEX idx_notif_log_created ON public.notification_delivery_log(created_at DESC);
-CREATE INDEX idx_notif_log_user ON public.notification_delivery_log(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notif_log_created ON public.notification_delivery_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notif_log_user ON public.notification_delivery_log(user_id, created_at DESC);
 
 -- 3) Add to realtime publication
 ALTER PUBLICATION supabase_realtime ADD TABLE public.notification_preferences;

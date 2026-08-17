@@ -1,6 +1,6 @@
 
 -- ========== cms_school_info ==========
-CREATE TABLE public.cms_school_info (
+CREATE TABLE IF NOT EXISTS public.cms_school_info (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   section_key text NOT NULL UNIQUE,
   title text NOT NULL,
@@ -29,7 +29,7 @@ CREATE POLICY "Admins manage school info"
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
 -- ========== cms_downloads ==========
-CREATE TABLE public.cms_downloads (
+CREATE TABLE IF NOT EXISTS public.cms_downloads (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL,
   description text,
@@ -61,7 +61,7 @@ CREATE POLICY "Admins manage downloads"
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
 -- ========== cms_faqs ==========
-CREATE TABLE public.cms_faqs (
+CREATE TABLE IF NOT EXISTS public.cms_faqs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   question text NOT NULL,
   answer text NOT NULL,
@@ -88,7 +88,7 @@ CREATE POLICY "Admins manage faqs"
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
 -- ========== cms_nav_menu ==========
-CREATE TABLE public.cms_nav_menu (
+CREATE TABLE IF NOT EXISTS public.cms_nav_menu (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   parent_id uuid REFERENCES public.cms_nav_menu(id) ON DELETE CASCADE,
   label text NOT NULL,

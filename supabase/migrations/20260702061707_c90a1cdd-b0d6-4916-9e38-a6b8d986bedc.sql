@@ -1,5 +1,5 @@
 
-CREATE TABLE public.browser_logs (
+CREATE TABLE IF NOT EXISTS public.browser_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   url text NOT NULL,
@@ -17,5 +17,5 @@ CREATE POLICY "own insert" ON public.browser_logs FOR INSERT TO authenticated WI
 CREATE POLICY "own select" ON public.browser_logs FOR SELECT TO authenticated USING (auth.uid() = user_id);
 CREATE POLICY "admin select all" ON public.browser_logs FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
 
-CREATE INDEX browser_logs_user_created_idx ON public.browser_logs(user_id, created_at DESC);
-CREATE INDEX browser_logs_domain_idx ON public.browser_logs(domain);
+CREATE INDEX IF NOT EXISTS browser_logs_user_created_idx ON public.browser_logs(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS browser_logs_domain_idx ON public.browser_logs(domain);

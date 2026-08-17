@@ -1,6 +1,6 @@
 
 -- คำขอลงทะเบียนใบหน้า
-CREATE TABLE public.face_registration_requests (
+CREATE TABLE IF NOT EXISTS public.face_registration_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   requested_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -15,8 +15,8 @@ CREATE TABLE public.face_registration_requests (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_face_req_student ON public.face_registration_requests(student_id);
-CREATE INDEX idx_face_req_status ON public.face_registration_requests(status);
+CREATE INDEX IF NOT EXISTS idx_face_req_student ON public.face_registration_requests(student_id);
+CREATE INDEX IF NOT EXISTS idx_face_req_status ON public.face_registration_requests(status);
 
 ALTER TABLE public.face_registration_requests ENABLE ROW LEVEL SECURITY;
 
@@ -58,7 +58,7 @@ BEFORE UPDATE ON public.face_registration_requests
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- ประวัติการเปลี่ยนแปลงใบหน้า
-CREATE TABLE public.face_registration_history (
+CREATE TABLE IF NOT EXISTS public.face_registration_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   request_id UUID REFERENCES public.face_registration_requests(id) ON DELETE SET NULL,
@@ -71,8 +71,8 @@ CREATE TABLE public.face_registration_history (
   performed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   performed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_face_hist_student ON public.face_registration_history(student_id);
-CREATE INDEX idx_face_hist_request ON public.face_registration_history(request_id);
+CREATE INDEX IF NOT EXISTS idx_face_hist_student ON public.face_registration_history(student_id);
+CREATE INDEX IF NOT EXISTS idx_face_hist_request ON public.face_registration_history(request_id);
 
 ALTER TABLE public.face_registration_history ENABLE ROW LEVEL SECURITY;
 

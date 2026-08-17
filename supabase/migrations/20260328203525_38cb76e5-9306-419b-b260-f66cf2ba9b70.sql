@@ -1,6 +1,6 @@
 
 -- CMS pages table for admin-managed website content
-CREATE TABLE public.cms_pages (
+CREATE TABLE IF NOT EXISTS public.cms_pages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   slug text NOT NULL UNIQUE,
   title text NOT NULL,
@@ -24,7 +24,7 @@ CREATE POLICY "Admins can manage cms pages" ON public.cms_pages
   WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
 -- CMS menu items
-CREATE TABLE public.cms_menu_items (
+CREATE TABLE IF NOT EXISTS public.cms_menu_items (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   label text NOT NULL,
   url text,
@@ -45,7 +45,7 @@ CREATE POLICY "Admins can manage menu items" ON public.cms_menu_items
   WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
 -- CMS hero/banner settings
-CREATE TABLE public.cms_settings (
+CREATE TABLE IF NOT EXISTS public.cms_settings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   key text NOT NULL UNIQUE,
   value text,

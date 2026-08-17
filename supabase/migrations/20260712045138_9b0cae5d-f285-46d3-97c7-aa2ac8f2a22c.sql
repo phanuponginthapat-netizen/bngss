@@ -1,5 +1,5 @@
 
-CREATE TABLE public.padlet_boards (
+CREATE TABLE IF NOT EXISTS public.padlet_boards (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id uuid NOT NULL,
   title text NOT NULL,
@@ -13,7 +13,7 @@ CREATE TABLE public.padlet_boards (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.padlet_notes (
+CREATE TABLE IF NOT EXISTS public.padlet_notes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   board_id uuid NOT NULL REFERENCES public.padlet_boards(id) ON DELETE CASCADE,
   author_id uuid,
@@ -29,8 +29,8 @@ CREATE TABLE public.padlet_notes (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_padlet_notes_board ON public.padlet_notes(board_id, position);
-CREATE INDEX idx_padlet_boards_owner ON public.padlet_boards(owner_id);
+CREATE INDEX IF NOT EXISTS idx_padlet_notes_board ON public.padlet_notes(board_id, position);
+CREATE INDEX IF NOT EXISTS idx_padlet_boards_owner ON public.padlet_boards(owner_id);
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.padlet_boards TO authenticated;
 GRANT ALL ON public.padlet_boards TO service_role;

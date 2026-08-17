@@ -1,5 +1,5 @@
 -- Create classrooms table
-CREATE TABLE public.classrooms (
+CREATE TABLE IF NOT EXISTS public.classrooms (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL, -- e.g. 'ม.1/1', 'ป.3/2'
   grade_level TEXT NOT NULL, -- e.g. 'ม.1', 'ป.3'
@@ -11,7 +11,7 @@ CREATE TABLE public.classrooms (
 );
 
 -- Create students table
-CREATE TABLE public.students (
+CREATE TABLE IF NOT EXISTS public.students (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   student_code TEXT NOT NULL UNIQUE,
   prefix TEXT DEFAULT 'ด.ช.',
@@ -24,7 +24,7 @@ CREATE TABLE public.students (
 );
 
 -- Create enrollments table (linking students to subjects)
-CREATE TABLE public.enrollments (
+CREATE TABLE IF NOT EXISTS public.enrollments (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   subject_id UUID NOT NULL REFERENCES public.subjects(id) ON DELETE CASCADE,
@@ -52,7 +52,7 @@ CREATE TRIGGER update_classrooms_updated_at BEFORE UPDATE ON public.classrooms F
 CREATE TRIGGER update_students_updated_at BEFORE UPDATE ON public.students FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- Create indexes
-CREATE INDEX idx_students_classroom ON public.students(classroom_id);
-CREATE INDEX idx_enrollments_student ON public.enrollments(student_id);
-CREATE INDEX idx_enrollments_subject ON public.enrollments(subject_id);
-CREATE INDEX idx_enrollments_classroom ON public.enrollments(classroom_id);
+CREATE INDEX IF NOT EXISTS idx_students_classroom ON public.students(classroom_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_student ON public.enrollments(student_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_subject ON public.enrollments(subject_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_classroom ON public.enrollments(classroom_id);

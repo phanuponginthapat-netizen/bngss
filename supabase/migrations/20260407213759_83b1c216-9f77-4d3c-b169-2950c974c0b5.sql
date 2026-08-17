@@ -1,1 +1,1 @@
-ALTER TABLE public.classrooms ADD COLUMN homeroom_teacher_2 text DEFAULT NULL;
+ALTER TABLE public.classrooms ADD COLUMN IF NOT EXISTS homeroom_teacher_2 text DEFAULT NULL;

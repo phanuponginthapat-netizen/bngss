@@ -1,6 +1,6 @@
 
 -- PA Agreements main table
-CREATE TABLE public.pa_agreements (
+CREATE TABLE IF NOT EXISTS public.pa_agreements (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   personnel_id UUID REFERENCES public.personnel(id) ON DELETE CASCADE,
   academic_year INTEGER DEFAULT EXTRACT(year FROM now()),
@@ -19,7 +19,7 @@ CREATE TABLE public.pa_agreements (
 );
 
 -- PA Indicator Scores
-CREATE TABLE public.pa_indicator_scores (
+CREATE TABLE IF NOT EXISTS public.pa_indicator_scores (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   pa_agreement_id UUID NOT NULL REFERENCES public.pa_agreements(id) ON DELETE CASCADE,
   domain INTEGER NOT NULL DEFAULT 1, -- ด้านที่ 1 หรือ 2

@@ -1,5 +1,5 @@
 
-CREATE TABLE public.app_secrets (
+CREATE TABLE IF NOT EXISTS public.app_secrets (
   key TEXT PRIMARY KEY,
   value TEXT,
   description TEXT,

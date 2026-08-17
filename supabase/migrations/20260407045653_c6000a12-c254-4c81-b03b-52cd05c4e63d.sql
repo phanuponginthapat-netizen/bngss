@@ -1,12 +1,12 @@
 
 -- Add evidence_images column to pa_indicator_scores
 ALTER TABLE public.pa_indicator_scores
-ADD COLUMN evidence_images text[] DEFAULT '{}';
+ADD COLUMN IF NOT EXISTS evidence_images text[] DEFAULT '{}';
 
 -- Add PDF file columns to pa_agreements
 ALTER TABLE public.pa_agreements
-ADD COLUMN pdf_file_url text,
-ADD COLUMN pdf_file_name text;
+ADD COLUMN IF NOT EXISTS pdf_file_url text,
+ADD COLUMN IF NOT EXISTS pdf_file_name text;
 
 -- Create storage bucket for PA files
 INSERT INTO storage.buckets (id, name, public)

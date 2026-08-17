@@ -3,7 +3,7 @@
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS line_user_id_2 text;
 
 -- Create parent-student linking table
-CREATE TABLE public.parent_student_links (
+CREATE TABLE IF NOT EXISTS public.parent_student_links (
   id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   parent_user_id uuid NOT NULL,
   student_id uuid NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
@@ -12,7 +12,7 @@ CREATE TABLE public.parent_student_links (
   created_at timestamp with time zone NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX idx_parent_student_unique ON public.parent_student_links(parent_user_id, student_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_parent_student_unique ON public.parent_student_links(parent_user_id, student_id);
 
 ALTER TABLE public.parent_student_links ENABLE ROW LEVEL SECURITY;
 

@@ -1,5 +1,5 @@
 
-CREATE TABLE public.browser_shortcuts (
+CREATE TABLE IF NOT EXISTS public.browser_shortcuts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   label_th TEXT NOT NULL,
   label_en TEXT NOT NULL,

@@ -1,5 +1,5 @@
 
-CREATE TABLE public.dashboard_shortcuts (
+CREATE TABLE IF NOT EXISTS public.dashboard_shortcuts (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   label_th TEXT NOT NULL,
   label_en TEXT NOT NULL,

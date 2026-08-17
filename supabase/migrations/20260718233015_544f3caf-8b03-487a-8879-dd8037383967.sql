@@ -1,6 +1,6 @@
 
 -- 1. Duty locations
-CREATE TABLE public.duty_locations (
+CREATE TABLE IF NOT EXISTS public.duty_locations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT,
@@ -22,7 +22,7 @@ CREATE POLICY "duty_locations_admin_write" ON public.duty_locations
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'super_admin') OR public.has_role(auth.uid(),'director'));
 
 -- 2. Duty assignments
-CREATE TABLE public.duty_assignments (
+CREATE TABLE IF NOT EXISTS public.duty_assignments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   location_id UUID NOT NULL REFERENCES public.duty_locations(id) ON DELETE CASCADE,
   teacher_id UUID NOT NULL REFERENCES public.personnel(id) ON DELETE CASCADE,
@@ -38,9 +38,9 @@ CREATE TABLE public.duty_assignments (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CHECK (duty_date IS NOT NULL OR day_of_week IS NOT NULL)
 );
-CREATE INDEX idx_duty_assign_date ON public.duty_assignments(duty_date);
-CREATE INDEX idx_duty_assign_dow ON public.duty_assignments(day_of_week);
-CREATE INDEX idx_duty_assign_teacher ON public.duty_assignments(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_duty_assign_date ON public.duty_assignments(duty_date);
+CREATE INDEX IF NOT EXISTS idx_duty_assign_dow ON public.duty_assignments(day_of_week);
+CREATE INDEX IF NOT EXISTS idx_duty_assign_teacher ON public.duty_assignments(teacher_id);
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.duty_assignments TO authenticated;
 GRANT ALL ON public.duty_assignments TO service_role;
 ALTER TABLE public.duty_assignments ENABLE ROW LEVEL SECURITY;
@@ -53,7 +53,7 @@ CREATE POLICY "duty_assign_admin_write" ON public.duty_assignments
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'super_admin') OR public.has_role(auth.uid(),'director'));
 
 -- 3. Duty logs (incident/report per shift)
-CREATE TABLE public.duty_logs (
+CREATE TABLE IF NOT EXISTS public.duty_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   assignment_id UUID REFERENCES public.duty_assignments(id) ON DELETE SET NULL,
   location_id UUID REFERENCES public.duty_locations(id) ON DELETE SET NULL,
@@ -69,8 +69,8 @@ CREATE TABLE public.duty_logs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_duty_logs_date ON public.duty_logs(log_date);
-CREATE INDEX idx_duty_logs_teacher ON public.duty_logs(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_duty_logs_date ON public.duty_logs(log_date);
+CREATE INDEX IF NOT EXISTS idx_duty_logs_teacher ON public.duty_logs(teacher_id);
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.duty_logs TO authenticated;
 GRANT ALL ON public.duty_logs TO service_role;
 ALTER TABLE public.duty_logs ENABLE ROW LEVEL SECURITY;

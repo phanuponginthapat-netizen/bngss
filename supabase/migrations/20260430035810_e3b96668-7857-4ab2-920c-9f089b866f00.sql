@@ -1,7 +1,7 @@
 -- ============ TABLES ============
 
 -- ประเภทขยะที่รับฝาก
-CREATE TABLE public.garbage_items (
+CREATE TABLE IF NOT EXISTS public.garbage_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   unit TEXT NOT NULL DEFAULT 'kg',
@@ -13,7 +13,7 @@ CREATE TABLE public.garbage_items (
 );
 
 -- สินค้ารางวัล
-CREATE TABLE public.garbage_rewards (
+CREATE TABLE IF NOT EXISTS public.garbage_rewards (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   image_url TEXT,
@@ -26,14 +26,14 @@ CREATE TABLE public.garbage_rewards (
 );
 
 -- ยอดแต้มรวมต่อนักเรียน (denormalized cache)
-CREATE TABLE public.garbage_student_points (
+CREATE TABLE IF NOT EXISTS public.garbage_student_points (
   student_id UUID PRIMARY KEY REFERENCES public.students(id) ON DELETE CASCADE,
   total_points INT NOT NULL DEFAULT 0,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- บันทึกการฝากขยะ
-CREATE TABLE public.garbage_deposits (
+CREATE TABLE IF NOT EXISTS public.garbage_deposits (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   item_id UUID NOT NULL REFERENCES public.garbage_items(id),
@@ -46,7 +46,7 @@ CREATE TABLE public.garbage_deposits (
 );
 
 -- บันทึกการแลกรางวัล
-CREATE TABLE public.garbage_redemptions (
+CREATE TABLE IF NOT EXISTS public.garbage_redemptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   reward_id UUID NOT NULL REFERENCES public.garbage_rewards(id),
@@ -58,11 +58,11 @@ CREATE TABLE public.garbage_redemptions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_garbage_deposits_student ON public.garbage_deposits(student_id);
-CREATE INDEX idx_garbage_deposits_created ON public.garbage_deposits(created_at DESC);
-CREATE INDEX idx_garbage_deposits_item ON public.garbage_deposits(item_id);
-CREATE INDEX idx_garbage_redemptions_student ON public.garbage_redemptions(student_id);
-CREATE INDEX idx_garbage_redemptions_created ON public.garbage_redemptions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_garbage_deposits_student ON public.garbage_deposits(student_id);
+CREATE INDEX IF NOT EXISTS idx_garbage_deposits_created ON public.garbage_deposits(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_garbage_deposits_item ON public.garbage_deposits(item_id);
+CREATE INDEX IF NOT EXISTS idx_garbage_redemptions_student ON public.garbage_redemptions(student_id);
+CREATE INDEX IF NOT EXISTS idx_garbage_redemptions_created ON public.garbage_redemptions(created_at DESC);
 
 -- ============ TRIGGERS ============
 

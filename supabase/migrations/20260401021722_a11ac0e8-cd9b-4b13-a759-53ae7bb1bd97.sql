@@ -7,7 +7,7 @@ ADD COLUMN IF NOT EXISTS hire_date date,
 ADD COLUMN IF NOT EXISTS leave_date date;
 
 -- Create personnel_assessments table for personality/aptitude self-assessment
-CREATE TABLE public.personnel_assessments (
+CREATE TABLE IF NOT EXISTS public.personnel_assessments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   assessment_type text NOT NULL DEFAULT 'personality',

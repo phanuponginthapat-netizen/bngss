@@ -1,4 +1,4 @@
-CREATE TABLE public.user_dashboard_widgets (
+CREATE TABLE IF NOT EXISTS public.user_dashboard_widgets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   widget_key TEXT NOT NULL,
@@ -27,4 +27,4 @@ CREATE TRIGGER update_user_dashboard_widgets_updated_at
   BEFORE UPDATE ON public.user_dashboard_widgets
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-CREATE INDEX idx_user_dashboard_widgets_user ON public.user_dashboard_widgets(user_id, position);
+CREATE INDEX IF NOT EXISTS idx_user_dashboard_widgets_user ON public.user_dashboard_widgets(user_id, position);

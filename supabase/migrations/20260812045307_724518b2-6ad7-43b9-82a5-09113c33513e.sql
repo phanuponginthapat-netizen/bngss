@@ -1,4 +1,4 @@
-CREATE TABLE public.mental_health_assessments (
+CREATE TABLE IF NOT EXISTS public.mental_health_assessments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   school_id uuid,
@@ -18,8 +18,8 @@ CREATE TABLE public.mental_health_assessments (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_mha_student ON public.mental_health_assessments(student_id, created_at DESC);
-CREATE INDEX idx_mha_risk ON public.mental_health_assessments(risk_level);
+CREATE INDEX IF NOT EXISTS idx_mha_student ON public.mental_health_assessments(student_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_mha_risk ON public.mental_health_assessments(risk_level);
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.mental_health_assessments TO authenticated;
 GRANT ALL ON public.mental_health_assessments TO service_role;
@@ -50,7 +50,7 @@ WITH CHECK (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid(
 CREATE TRIGGER trg_mha_updated_at BEFORE UPDATE ON public.mental_health_assessments
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-CREATE TABLE public.career_aptitude_assessments (
+CREATE TABLE IF NOT EXISTS public.career_aptitude_assessments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   school_id uuid,
@@ -67,7 +67,7 @@ CREATE TABLE public.career_aptitude_assessments (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_career_student ON public.career_aptitude_assessments(student_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_career_student ON public.career_aptitude_assessments(student_id, created_at DESC);
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.career_aptitude_assessments TO authenticated;
 GRANT ALL ON public.career_aptitude_assessments TO service_role;

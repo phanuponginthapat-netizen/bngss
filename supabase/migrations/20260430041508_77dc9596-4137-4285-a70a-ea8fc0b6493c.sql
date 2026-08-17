@@ -1,19 +1,19 @@
 
 -- 1. เพิ่ม personnel_id และทำให้ student_id เป็น nullable
-ALTER TABLE public.garbage_deposits ADD COLUMN personnel_id uuid REFERENCES public.personnel(id) ON DELETE CASCADE;
+ALTER TABLE public.garbage_deposits ADD COLUMN IF NOT EXISTS personnel_id uuid REFERENCES public.personnel(id) ON DELETE CASCADE;
 ALTER TABLE public.garbage_deposits ALTER COLUMN student_id DROP NOT NULL;
 ALTER TABLE public.garbage_deposits ADD CONSTRAINT garbage_deposits_holder_check 
   CHECK ((student_id IS NOT NULL AND personnel_id IS NULL) OR (student_id IS NULL AND personnel_id IS NOT NULL));
-CREATE INDEX idx_garbage_deposits_personnel ON public.garbage_deposits(personnel_id);
+CREATE INDEX IF NOT EXISTS idx_garbage_deposits_personnel ON public.garbage_deposits(personnel_id);
 
-ALTER TABLE public.garbage_redemptions ADD COLUMN personnel_id uuid REFERENCES public.personnel(id) ON DELETE CASCADE;
+ALTER TABLE public.garbage_redemptions ADD COLUMN IF NOT EXISTS personnel_id uuid REFERENCES public.personnel(id) ON DELETE CASCADE;
 ALTER TABLE public.garbage_redemptions ALTER COLUMN student_id DROP NOT NULL;
 ALTER TABLE public.garbage_redemptions ADD CONSTRAINT garbage_redemptions_holder_check 
   CHECK ((student_id IS NOT NULL AND personnel_id IS NULL) OR (student_id IS NULL AND personnel_id IS NOT NULL));
-CREATE INDEX idx_garbage_redemptions_personnel ON public.garbage_redemptions(personnel_id);
+CREATE INDEX IF NOT EXISTS idx_garbage_redemptions_personnel ON public.garbage_redemptions(personnel_id);
 
 -- 2. เพิ่มตารางแต้มสำหรับบุคลากร (แยกชัดเจน เพราะ FK cascade ต่างกัน)
-CREATE TABLE public.garbage_personnel_points (
+CREATE TABLE IF NOT EXISTS public.garbage_personnel_points (
   personnel_id uuid PRIMARY KEY REFERENCES public.personnel(id) ON DELETE CASCADE,
   total_points integer NOT NULL DEFAULT 0,
   updated_at timestamp with time zone NOT NULL DEFAULT now()

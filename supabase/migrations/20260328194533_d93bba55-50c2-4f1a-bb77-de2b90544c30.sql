@@ -1,6 +1,6 @@
 
 -- Attendance
-CREATE TABLE public.attendance (
+CREATE TABLE IF NOT EXISTS public.attendance (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid REFERENCES public.students(id) ON DELETE CASCADE,
   subject_id uuid REFERENCES public.subjects(id) ON DELETE SET NULL,
@@ -14,7 +14,7 @@ CREATE TABLE public.attendance (
 );
 
 -- Behavior records
-CREATE TABLE public.behavior_records (
+CREATE TABLE IF NOT EXISTS public.behavior_records (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid REFERENCES public.students(id) ON DELETE CASCADE,
   record_date date NOT NULL DEFAULT CURRENT_DATE,
@@ -26,7 +26,7 @@ CREATE TABLE public.behavior_records (
 );
 
 -- Student leaves
-CREATE TABLE public.student_leaves (
+CREATE TABLE IF NOT EXISTS public.student_leaves (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid REFERENCES public.students(id) ON DELETE CASCADE,
   leave_type text NOT NULL DEFAULT 'sick',
@@ -39,7 +39,7 @@ CREATE TABLE public.student_leaves (
 );
 
 -- Student screenings
-CREATE TABLE public.student_screenings (
+CREATE TABLE IF NOT EXISTS public.student_screenings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid REFERENCES public.students(id) ON DELETE CASCADE,
   academic_year integer DEFAULT EXTRACT(year FROM now()),
@@ -53,7 +53,7 @@ CREATE TABLE public.student_screenings (
 );
 
 -- Homeroom records
-CREATE TABLE public.homeroom_records (
+CREATE TABLE IF NOT EXISTS public.homeroom_records (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid REFERENCES public.students(id) ON DELETE CASCADE,
   classroom_id uuid REFERENCES public.classrooms(id) ON DELETE SET NULL,
@@ -66,7 +66,7 @@ CREATE TABLE public.homeroom_records (
 );
 
 -- SDQ records
-CREATE TABLE public.sdq_records (
+CREATE TABLE IF NOT EXISTS public.sdq_records (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid REFERENCES public.students(id) ON DELETE CASCADE,
   academic_year integer DEFAULT EXTRACT(year FROM now()),
@@ -82,7 +82,7 @@ CREATE TABLE public.sdq_records (
 );
 
 -- Home visits
-CREATE TABLE public.home_visits (
+CREATE TABLE IF NOT EXISTS public.home_visits (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid REFERENCES public.students(id) ON DELETE CASCADE,
   visit_date date NOT NULL DEFAULT CURRENT_DATE,
@@ -95,7 +95,7 @@ CREATE TABLE public.home_visits (
 );
 
 -- Health records
-CREATE TABLE public.health_records (
+CREATE TABLE IF NOT EXISTS public.health_records (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid REFERENCES public.students(id) ON DELETE CASCADE,
   visit_date date NOT NULL DEFAULT CURRENT_DATE,
@@ -107,7 +107,7 @@ CREATE TABLE public.health_records (
 );
 
 -- News posts
-CREATE TABLE public.news_posts (
+CREATE TABLE IF NOT EXISTS public.news_posts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL,
   content text,
@@ -120,7 +120,7 @@ CREATE TABLE public.news_posts (
 );
 
 -- Documents (e-saraban)
-CREATE TABLE public.documents (
+CREATE TABLE IF NOT EXISTS public.documents (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   doc_number text NOT NULL,
   title text NOT NULL,
@@ -134,7 +134,7 @@ CREATE TABLE public.documents (
 );
 
 -- Emergency broadcasts
-CREATE TABLE public.emergency_broadcasts (
+CREATE TABLE IF NOT EXISTS public.emergency_broadcasts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL,
   message text NOT NULL,
@@ -146,7 +146,7 @@ CREATE TABLE public.emergency_broadcasts (
 );
 
 -- Vaccine records
-CREATE TABLE public.vaccine_records (
+CREATE TABLE IF NOT EXISTS public.vaccine_records (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid REFERENCES public.students(id) ON DELETE CASCADE,
   vaccine_name text NOT NULL,
@@ -159,7 +159,7 @@ CREATE TABLE public.vaccine_records (
 );
 
 -- Personnel
-CREATE TABLE public.personnel (
+CREATE TABLE IF NOT EXISTS public.personnel (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   employee_code text NOT NULL UNIQUE,
   prefix text DEFAULT 'นาย',
@@ -176,7 +176,7 @@ CREATE TABLE public.personnel (
 );
 
 -- Time clock
-CREATE TABLE public.time_clock (
+CREATE TABLE IF NOT EXISTS public.time_clock (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   personnel_id uuid REFERENCES public.personnel(id) ON DELETE CASCADE,
   clock_date date NOT NULL DEFAULT CURRENT_DATE,
@@ -188,7 +188,7 @@ CREATE TABLE public.time_clock (
 );
 
 -- Staff leaves
-CREATE TABLE public.staff_leaves (
+CREATE TABLE IF NOT EXISTS public.staff_leaves (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   personnel_id uuid REFERENCES public.personnel(id) ON DELETE CASCADE,
   leave_type text NOT NULL DEFAULT 'personal',
@@ -201,7 +201,7 @@ CREATE TABLE public.staff_leaves (
 );
 
 -- Staff evaluations
-CREATE TABLE public.staff_evaluations (
+CREATE TABLE IF NOT EXISTS public.staff_evaluations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   personnel_id uuid REFERENCES public.personnel(id) ON DELETE CASCADE,
   evaluator_name text NOT NULL,
@@ -214,7 +214,7 @@ CREATE TABLE public.staff_evaluations (
 );
 
 -- Substitute teaching
-CREATE TABLE public.substitute_teaching (
+CREATE TABLE IF NOT EXISTS public.substitute_teaching (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   original_teacher text NOT NULL,
   substitute_teacher text NOT NULL,
@@ -228,7 +228,7 @@ CREATE TABLE public.substitute_teaching (
 );
 
 -- Admissions
-CREATE TABLE public.admissions (
+CREATE TABLE IF NOT EXISTS public.admissions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   academic_year integer DEFAULT EXTRACT(year FROM now()),
   applicant_prefix text DEFAULT 'ด.ช.',
@@ -247,7 +247,7 @@ CREATE TABLE public.admissions (
 );
 
 -- Homework assignments
-CREATE TABLE public.homework_assignments (
+CREATE TABLE IF NOT EXISTS public.homework_assignments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   subject_id uuid REFERENCES public.subjects(id) ON DELETE CASCADE,
   classroom_id uuid REFERENCES public.classrooms(id) ON DELETE SET NULL,
@@ -260,7 +260,7 @@ CREATE TABLE public.homework_assignments (
 );
 
 -- Schedules
-CREATE TABLE public.schedules (
+CREATE TABLE IF NOT EXISTS public.schedules (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   classroom_id uuid REFERENCES public.classrooms(id) ON DELETE CASCADE,
   subject_id uuid REFERENCES public.subjects(id) ON DELETE CASCADE,
@@ -275,7 +275,7 @@ CREATE TABLE public.schedules (
 );
 
 -- Early childhood development
-CREATE TABLE public.early_childhood_dev (
+CREATE TABLE IF NOT EXISTS public.early_childhood_dev (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid REFERENCES public.students(id) ON DELETE CASCADE,
   academic_year integer DEFAULT EXTRACT(year FROM now()),

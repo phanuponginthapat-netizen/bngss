@@ -1,5 +1,5 @@
 
-CREATE TABLE public.ai_provider_keys (
+CREATE TABLE IF NOT EXISTS public.ai_provider_keys (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   provider_type TEXT NOT NULL CHECK (provider_type IN ('gemini','groq','openrouter')),
   api_key TEXT NOT NULL,
@@ -29,7 +29,7 @@ CREATE POLICY "Admins manage ai provider keys"
   USING (public.has_role(auth.uid(), 'admin'))
   WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
-CREATE INDEX idx_aipk_provider_status ON public.ai_provider_keys(provider_type, status, priority, used_today);
+CREATE INDEX IF NOT EXISTS idx_aipk_provider_status ON public.ai_provider_keys(provider_type, status, priority, used_today);
 
 CREATE TRIGGER trg_aipk_updated_at
   BEFORE UPDATE ON public.ai_provider_keys

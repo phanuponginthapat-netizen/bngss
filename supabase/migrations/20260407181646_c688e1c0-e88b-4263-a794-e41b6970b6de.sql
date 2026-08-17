@@ -1,6 +1,6 @@
 
 -- ===== 1. School Lunch Records =====
-CREATE TABLE public.school_lunch_records (
+CREATE TABLE IF NOT EXISTS public.school_lunch_records (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   lunch_date DATE NOT NULL DEFAULT CURRENT_DATE,
   academic_year INTEGER DEFAULT EXTRACT(year FROM now()),
@@ -29,7 +29,7 @@ CREATE POLICY "Staff can manage school_lunch_records" ON public.school_lunch_rec
   WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director') OR has_role(auth.uid(), 'teacher'));
 
 -- ===== 2. School Milk Records =====
-CREATE TABLE public.school_milk_records (
+CREATE TABLE IF NOT EXISTS public.school_milk_records (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   distribution_date DATE NOT NULL DEFAULT CURRENT_DATE,
   academic_year INTEGER DEFAULT EXTRACT(year FROM now()),
@@ -62,7 +62,7 @@ CREATE POLICY "Staff can manage school_milk_records" ON public.school_milk_recor
   WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director') OR has_role(auth.uid(), 'teacher'));
 
 -- ===== 3. Action Plans (PDCA) =====
-CREATE TABLE public.action_plans (
+CREATE TABLE IF NOT EXISTS public.action_plans (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   plan_code TEXT,
   title TEXT NOT NULL,

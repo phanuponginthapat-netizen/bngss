@@ -1,6 +1,6 @@
 
 -- 1. Face descriptors table
-CREATE TABLE public.student_face_descriptors (
+CREATE TABLE IF NOT EXISTS public.student_face_descriptors (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   sample_index INTEGER NOT NULL DEFAULT 0,
@@ -11,7 +11,7 @@ CREATE TABLE public.student_face_descriptors (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (student_id, sample_index)
 );
-CREATE INDEX idx_face_desc_student ON public.student_face_descriptors(student_id);
+CREATE INDEX IF NOT EXISTS idx_face_desc_student ON public.student_face_descriptors(student_id);
 
 ALTER TABLE public.student_face_descriptors ENABLE ROW LEVEL SECURITY;
 
@@ -25,7 +25,7 @@ CREATE POLICY "students view own face desc" ON public.student_face_descriptors
   USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()));
 
 -- 2. Face scan logs
-CREATE TABLE public.face_scan_logs (
+CREATE TABLE IF NOT EXISTS public.face_scan_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   scan_date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -37,8 +37,8 @@ CREATE TABLE public.face_scan_logs (
   school_id UUID,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_face_scan_date_student ON public.face_scan_logs(scan_date, student_id);
-CREATE INDEX idx_face_scan_student ON public.face_scan_logs(student_id);
+CREATE INDEX IF NOT EXISTS idx_face_scan_date_student ON public.face_scan_logs(scan_date, student_id);
+CREATE INDEX IF NOT EXISTS idx_face_scan_student ON public.face_scan_logs(student_id);
 
 ALTER TABLE public.face_scan_logs ENABLE ROW LEVEL SECURITY;
 

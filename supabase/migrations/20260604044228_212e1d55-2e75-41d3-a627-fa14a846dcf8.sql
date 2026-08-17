@@ -1,5 +1,5 @@
 
-CREATE TABLE public.ai_integrations (
+CREATE TABLE IF NOT EXISTS public.ai_integrations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   provider TEXT NOT NULL CHECK (provider IN ('elevenlabs','xiaozhi')),
   name TEXT NOT NULL,
