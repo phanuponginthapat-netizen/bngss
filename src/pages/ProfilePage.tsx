@@ -396,7 +396,8 @@ const ProfilePage = () => {
   });
 
   const markDocRead = async (recipientId: string) => {
-    await supabase.from("document_recipients" as any).update({ is_read: true, read_at: new Date().toISOString() } as any).eq("id", recipientId);
+    const { error } = await supabase.from("document_recipients" as any).update({ is_read: true, read_at: new Date().toISOString() } as any).eq("id", recipientId);
+    if (error) { toast.error(saveErrorMessage(error, "อัปเดตสถานะการอ่านไม่สำเร็จ")); return; }
     queryClient.invalidateQueries({ queryKey: ["profile_my_documents"] });
   };
 
@@ -440,26 +441,44 @@ const ProfilePage = () => {
     return { full: fullRes.publicUrl, thumb: thumbRes.publicUrl };
   };
 
+  const [uploadingImg, setUploadingImg] = useState<"avatar" | "cover" | null>(null);
+
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !profile) return;
-    const urls = await uploadImagePair(file, "avatar");
-    if (urls) {
+    if (!file || !profile || uploadingImg) return;
+    setUploadingImg("avatar");
+    try {
+      const urls = await uploadImagePair(file, "avatar");
+      if (!urls) return;
       // avatar_url = thumb (ใช้ในทุก list/nav), avatar_full_url = full (ใช้ในหน้าโปรไฟล์)
+      const { error } = await supabase.from("profiles").update({ avatar_url: urls.thumb, avatar_full_url: urls.full } as any).eq("id", userId!);
+      if (error) { toast.error(saveErrorMessage(error, "อัปโหลดรูปโปรไฟล์ไม่สำเร็จ")); return; }
       setProfile({ ...profile, avatar_url: urls.thumb, avatar_full_url: urls.full } as any);
-      await supabase.from("profiles").update({ avatar_url: urls.thumb, avatar_full_url: urls.full } as any).eq("id", userId!);
       toast.success("อัปโหลดรูปโปรไฟล์สำเร็จ");
+    } catch (err: any) {
+      toast.error(saveErrorMessage(err, "อัปโหลดรูปโปรไฟล์ไม่สำเร็จ"));
+    } finally {
+      setUploadingImg(null);
+      e.target.value = "";
     }
   };
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !profile) return;
-    const urls = await uploadImagePair(file, "cover");
-    if (urls) {
+    if (!file || !profile || uploadingImg) return;
+    setUploadingImg("cover");
+    try {
+      const urls = await uploadImagePair(file, "cover");
+      if (!urls) return;
+      const { error } = await supabase.from("profiles").update({ cover_photo_url: urls.full, cover_thumb_url: urls.thumb } as any).eq("id", userId!);
+      if (error) { toast.error(saveErrorMessage(error, "อัปโหลดรูปปกไม่สำเร็จ")); return; }
       setProfile({ ...profile, cover_photo_url: urls.full, cover_thumb_url: urls.thumb } as any);
-      await supabase.from("profiles").update({ cover_photo_url: urls.full, cover_thumb_url: urls.thumb } as any).eq("id", userId!);
       toast.success("อัปโหลดรูปปกสำเร็จ");
+    } catch (err: any) {
+      toast.error(saveErrorMessage(err, "อัปโหลดรูปปกไม่สำเร็จ"));
+    } finally {
+      setUploadingImg(null);
+      e.target.value = "";
     }
   };
 
@@ -497,7 +516,7 @@ const ProfilePage = () => {
       personnelErr = pErr;
     }
 
-    if (error || personnelErr) toast.error((error || personnelErr)!.message);
+    if (error || personnelErr) toast.error(saveErrorMessage(error || personnelErr));
     else {
       toast.success("บันทึกข้อมูลสำเร็จ");
       setEditing(false);
