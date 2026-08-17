@@ -16,7 +16,8 @@ import { Plus, Trash2, BookOpen, GraduationCap, Sparkles, Lightbulb, Paperclip, 
 import { useUserRole } from "@/hooks/useUserRole";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { StatCard } from "@/components/shared";
-import { saveErrorMessage } from "@/lib/saveError";
+import { saveErrorMessage, safeInt, nullIfEmpty } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 const PLAN_TYPES = [
   { value: "training", th: "อบรม/สัมมนา" },
@@ -84,6 +85,7 @@ const IdPlanPage = () => {
   const { role, userId, isAdmin, isDirector } = useUserRole();
   const canManageAll = isAdmin || isDirector;
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [personnelId, setPersonnelId] = useState("");
   const [planType, setPlanType] = useState("training");
   const [title, setTitle] = useState("");
@@ -190,25 +192,35 @@ const IdPlanPage = () => {
   };
 
   const handleAdd = async () => {
+    if (saving) return;
     const targetPersonnelId = canManageAll ? personnelId : myPersonnel?.id;
-    if (!targetPersonnelId || !title) { toast.error("กรุณากรอกข้อมูลให้ครบ"); return; }
-    const { error } = await supabase.from("id_plan_records").insert({
-      personnel_id: targetPersonnelId, plan_type: planType, title, description,
-      training_hours: hours ? parseInt(hours) : 0,
-      training_date: trainingDate || null, organizer, notes,
-      order_doc_path: orderDocPath || null,
-      image_paths: imagePaths,
-    } as any);
-    if (error) { toast.error(saveErrorMessage(error)); return; }
-    toast.success("บันทึกสำเร็จ");
-    qc.invalidateQueries({ queryKey: ["id_plan_records"] });
-    qc.invalidateQueries({ queryKey: ["my_id_plan_records"] });
-    setOpen(false); setTitle(""); setDescription(""); setHours(""); setTrainingDate(""); setOrganizer(""); setNotes("");
-    setOrderDocPath(""); setImagePaths([]);
+    if (!targetPersonnelId || !title.trim()) { toast.error("กรุณากรอกข้อมูลให้ครบ"); return; }
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("id_plan_records").insert({
+        personnel_id: targetPersonnelId, plan_type: planType, title: title.trim(), description: nullIfEmpty(description),
+        training_hours: hours ? safeInt(hours, 0) : 0,
+        training_date: nullIfEmpty(trainingDate), organizer: nullIfEmpty(organizer), notes: nullIfEmpty(notes),
+        order_doc_path: orderDocPath || null,
+        image_paths: imagePaths,
+      } as any);
+      if (error) { toast.error(saveErrorMessage(error)); return; }
+      toast.success("บันทึกสำเร็จ");
+      qc.invalidateQueries({ queryKey: ["id_plan_records"] });
+      qc.invalidateQueries({ queryKey: ["my_id_plan_records"] });
+      setOpen(false); setTitle(""); setDescription(""); setHours(""); setTrainingDate(""); setOrganizer(""); setNotes("");
+      setOrderDocPath(""); setImagePaths([]);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("id_plan_records").delete().eq("id", id);
+    const ok = await swal.confirm({ title: "ต้องการลบแผนพัฒนานี้หรือไม่?", danger: true });
+    if (!ok) return;
+    const { error } = await supabase.from("id_plan_records").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
+    toast.success("ลบสำเร็จ");
     qc.invalidateQueries({ queryKey: ["id_plan_records"] });
     qc.invalidateQueries({ queryKey: ["my_id_plan_records"] });
   };
@@ -325,7 +337,7 @@ const IdPlanPage = () => {
                 {uploadingImages && <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> กำลังอัปโหลด...</p>}
               </div>
 
-              <Button onClick={handleAdd} className="w-full" disabled={!canManageAll && !myPersonnel?.id}>บันทึก</Button>
+              <Button onClick={handleAdd} className="w-full" disabled={saving || (!canManageAll && !myPersonnel?.id)}>{saving ? "กำลังบันทึก..." : "บันทึก"}</Button>
             </div>
           </DialogContent>
         </Dialog>
