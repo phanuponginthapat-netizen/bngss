@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Upload, FileSpreadsheet, CheckCircle2, X, Sparkles, Loader2 } from "lucide-react";
+import { Upload, FileSpreadsheet, CheckCircle2, X, Sparkles, Loader2, AlertTriangle, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { parsePP5Workbook, type PP5ParsedWorkbook } from "@/lib/pp5AutoParser";
 import { checkAcademicYear, matchStudents, provisionAlumni, type YearCheck } from "@/lib/ppImportChecks";
@@ -380,4 +380,63 @@ export function AutoImportDialogBase<T>({
 export function MetaField({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
   return (<div><span className="text-muted-foreground">{label}: </span><span className="font-medium">{value}</span></div>);
+}
+
+function CheckRow({ ok, warn, text }: { ok: boolean; warn?: boolean; text: string }) {
+  return (
+    <div className="flex items-start gap-1.5">
+      {ok ? (
+        <CheckCircle2 className="w-3.5 h-3.5 text-green-600 shrink-0 mt-[1px]" />
+      ) : warn ? (
+        <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-[1px]" />
+      ) : (
+        <XCircle className="w-3.5 h-3.5 text-destructive shrink-0 mt-[1px]" />
+      )}
+      <span className={`text-[11px] ${ok ? "text-muted-foreground" : warn ? "text-amber-600" : "text-destructive"}`}>{text}</span>
+    </div>
+  );
+}
+
+function ValidationList({
+  item,
+  resolveTarget,
+}: {
+  item: AutoImportItem<any>;
+  resolveTarget: (item: AutoImportItem<any>) => AutoImportResolvedTarget | { error: string };
+}) {
+  const parsed = item.parsed;
+  if (!parsed) return null;
+  const target = resolveTarget(item);
+  const targetError = (target as any)?.error as string | undefined;
+  const year = item.yearOverride ?? parsed.meta.academicYear;
+  const semester = item.semesterOverride ?? parsed.meta.semester;
+  const students = parsed.consolidated.length;
+  const missing = item.missingStudents?.length ?? 0;
+  const matched = item.matchedStudents ?? 0;
+
+  return (
+    <div className="space-y-1">
+      <CheckRow ok={!targetError} text={targetError ? targetError : "จับคู่รายวิชา/ห้องเรียนเรียบร้อย"} />
+      <CheckRow ok={!!year} warn={!year} text={year ? `ปีการศึกษา ${year}${semester ? ` · ภาค ${semester}` : ""}` : "ยังไม่ระบุปีการศึกษา"} />
+      {item.yearCheck && item.yearCheck.status !== "current" && (
+        <CheckRow
+          ok={false}
+          warn
+          text={item.yearCheck.status === "past" ? `เป็นข้อมูลย้อนหลัง (${item.yearCheck.label})` : `เป็นปีล่วงหน้า (${item.yearCheck.label})`}
+        />
+      )}
+      <CheckRow ok={students > 0} text={`พบนักเรียนในไฟล์ ${students} คน`} />
+      <CheckRow ok={parsed.sheets.length > 0} text={`อ่านได้ ${parsed.sheets.length} sheet`} />
+      {item.missingStudents !== undefined && (
+        <CheckRow
+          ok={missing === 0}
+          warn={missing > 0 && !!item.createAlumni}
+          text={missing === 0 ? `ตรงกับระบบครบ ${matched} คน` : `พบในระบบ ${matched} คน · ไม่พบ ${missing} คน${item.createAlumni ? " (จะบรรจุเป็นศิษย์เก่า)" : ""}`}
+        />
+      )}
+      {item.duplicateOf && (
+        <CheckRow ok={false} warn={!!item.confirmedDuplicate} text={item.confirmedDuplicate ? "ยืนยันอัปโหลดทับไฟล์เดิม" : "มีไฟล์เดิมอยู่แล้ว"} />
+      )}
+    </div>
+  );
 }
