@@ -30,6 +30,10 @@ import { useCmsValues } from "@/hooks/useCmsSettings";
 import { wakeKioskScreen } from "@/lib/kioskWake";
 import { getRegisteredFaceImage } from "@/lib/registeredFace";
 import { saveErrorMessage } from "@/lib/saveError";
+import {
+  subscribeWizmindEvents, loadEventImage, releaseEventImage, markEventProcessed,
+  isEventFresh, WIZMIND_ENABLED_KEY, WIZMIND_CAMERA_KEY, type CameraFaceEvent,
+} from "@/lib/wizmindEvents";
 
 // ===== Helper: hex → rgba with alpha (สำหรับใช้ theme สีจาก CMS) =====
 const hexA = (hex: string, a: number): string => {
