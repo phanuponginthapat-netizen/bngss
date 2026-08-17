@@ -6,17 +6,24 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScanFace, UserPlus, Camera, CameraOff, Trash2, Database, CheckCircle2, AlertTriangle, FlaskConical } from "lucide-react";
+import { ScanFace, UserPlus, Camera, CameraOff, Trash2, Database, CheckCircle2, AlertTriangle, FlaskConical, Images, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { swal } from "@/lib/swal";
 import LivenessFaceRegisterDialog from "@/components/users/LivenessFaceRegisterDialog";
 import { useMyPersonnel } from "@/hooks/useMyPersonnel";
 import { useUserRole } from "@/hooks/useUserRole";
+import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
 import {
   loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame,
   detectorOptionsHQ, estimateFaceSharpness, type KnownFace,
 } from "@/lib/faceApi";
+import {
+  addPersonnelSamplesFromFiles, learnPersonnelFromScan, PERSONNEL_LEARN,
+  type FileLearnResult,
+} from "@/lib/personnelFaceLearning";
 import { saveErrorMessage } from "@/lib/saveError";
+
 
 interface SimResult {
   id: string;
@@ -102,6 +109,20 @@ const StaffFaceTab = () => {
   const [streaming, setStreaming] = useState(false);
   const [modelMsg, setModelMsg] = useState("");
   const [results, setResults] = useState<SimResult[]>([]);
+  const [autoLearn, setAutoLearn] = useState(true);
+  const autoLearnRef = useRef(true);
+  useEffect(() => { autoLearnRef.current = autoLearn; }, [autoLearn]);
+  const learnedRef = useRef<Record<string, number>>({});
+  const [learnLog, setLearnLog] = useState<string[]>([]);
+
+  // ---------- multi-photo learning ----------
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [learnTarget, setLearnTarget] = useState<string>("");
+  const [uploadSearch, setUploadSearch] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0 });
+  const [uploadResults, setUploadResults] = useState<FileLearnResult[]>([]);
+
 
   const known: KnownFace[] = grouped.map((g) => ({
     studentId: g.personnel_id,
@@ -175,6 +196,26 @@ const StaffFaceTab = () => {
                 time: new Date().toISOString(),
               }, ...prev].slice(0, 20);
             });
+
+            // เรียนรู้ใบหน้าเพิ่มอัตโนมัติ (เก็บมุม/แสงใหม่เข้าคลังของบุคลากรคนนั้น)
+            if (autoLearnRef.current && hitId) {
+              const last = learnedRef.current[hitId] || 0;
+              if (Date.now() - last > 20_000) {
+                learnedRef.current[hitId] = Date.now();
+                void learnPersonnelFromScan({
+                  personnelId: hitId,
+                  descriptor: det.descriptor,
+                  match: m,
+                  sharpness: sharp,
+                  source: "staff-simulate",
+                }).then((r) => {
+                  if (r.learned) {
+                    setLearnLog((prev) => [`${new Date().toLocaleTimeString("th-TH")} · เรียนรู้ใบหน้า ${hit.name} เพิ่ม (รวม ${r.total} ภาพ)`, ...prev].slice(0, 10));
+                    qc.invalidateQueries({ queryKey: ["staff-face-db"] });
+                  }
+                });
+              }
+            }
           }
         }
       }
@@ -182,14 +223,47 @@ const StaffFaceTab = () => {
     setTimeout(loop, 350);
   };
 
+  const runPhotoLearning = async (files: File[]) => {
+    if (!learnTarget) return toast.error("เลือกบุคลากรก่อน");
+    if (files.length === 0) return;
+    setUploading(true);
+    setUploadResults([]);
+    setUploadProgress({ done: 0, total: files.length });
+    try {
+      setModelMsg("กำลังโหลดโมเดล...");
+      await loadFaceModels((m) => setModelMsg(m));
+      setModelMsg("");
+      const res = await addPersonnelSamplesFromFiles(learnTarget, files, (done, total, r) => {
+        setUploadProgress({ done, total });
+        setUploadResults((prev) => [...prev, r]);
+      });
+      const added = res.filter((r) => r.status === "added").length;
+      if (added > 0) {
+        toast.success(`เรียนรู้เพิ่ม ${added} ภาพ (จาก ${files.length} ไฟล์)`);
+        qc.invalidateQueries({ queryKey: ["staff-face-db"] });
+      } else {
+        toast.warning("ไม่มีภาพใดถูกเพิ่ม — ดูเหตุผลรายไฟล์ด้านล่าง");
+      }
+    } catch (e: any) {
+      toast.error(saveErrorMessage(e));
+    } finally {
+      setUploading(false);
+      setModelMsg("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+
   return (
     <div className="space-y-4">
       <Tabs defaultValue="register">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="register" className="gap-2"><UserPlus className="w-4 h-4" />ลงทะเบียน</TabsTrigger>
+          <TabsTrigger value="photos" className="gap-2"><Images className="w-4 h-4" />เรียนรู้จากหลายรูป</TabsTrigger>
           <TabsTrigger value="simulate" className="gap-2"><FlaskConical className="w-4 h-4" />จำลองสแกน</TabsTrigger>
           <TabsTrigger value="db" className="gap-2"><Database className="w-4 h-4" />ฐานข้อมูล</TabsTrigger>
         </TabsList>
+
 
         {/* ---------- ลงทะเบียน ---------- */}
         <TabsContent value="register" className="mt-4 space-y-4">
@@ -255,7 +329,105 @@ const StaffFaceTab = () => {
           )}
         </TabsContent>
 
+        {/* ---------- เรียนรู้จากหลายรูป ---------- */}
+        <TabsContent value="photos" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2"><Images className="w-4 h-4 text-primary" />เรียนรู้ใบหน้าจากหลายรูป</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                อัปโหลดรูปใบหน้าหลายรูป (ต่างมุม/ต่างแสง/ใส่แว่น) ระบบจะแปลงเป็นข้อมูลใบหน้าและเก็บเข้าคลังของบุคลากรคนนั้น
+                — เก็บได้สูงสุด {PERSONNEL_LEARN.MAX_PER_PERSON} ภาพต่อคน รูปที่ซ้ำซ้อนหรือคล้ายคนละคนจะถูกข้ามอัตโนมัติ
+              </p>
+
+              <Input placeholder="ค้นหาชื่อ/รหัสบุคลากร..." value={uploadSearch} onChange={(e) => setUploadSearch(e.target.value)} />
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[260px] overflow-y-auto">
+                {personnel
+                  .filter((p: any) => {
+                    const q = uploadSearch.toLowerCase().trim();
+                    if (!q) return true;
+                    return [p.first_name, p.last_name, p.employee_code].some((v) => String(v || "").toLowerCase().includes(q));
+                  })
+                  .filter((p: any) => canManageOthers || p.id === me?.id)
+                  .map((p: any) => {
+                    const n = grouped.find((g) => g.personnel_id === p.id)?.sample_count || 0;
+                    const active = learnTarget === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setLearnTarget(p.id)}
+                        className={`p-3 rounded-lg border text-left transition ${active ? "border-primary bg-primary/10" : "bg-card hover:bg-accent/40"}`}
+                      >
+                        <p className="font-medium text-sm truncate">{fullName(p)}</p>
+                        <p className="text-xs text-muted-foreground truncate">{p.employee_code} · {p.position}</p>
+                        <Badge variant={n ? "secondary" : "outline"} className="mt-1 text-xs">{n} ภาพ</Badge>
+                      </button>
+                    );
+                  })}
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => void runPhotoLearning(Array.from(e.target.files || []))}
+              />
+              <div className="flex flex-wrap gap-2 items-center">
+                <Button
+                  className="gradient-primary gap-2"
+                  disabled={!learnTarget || uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Images className="w-4 h-4" />}
+                  เลือกรูป (หลายรูปได้)
+                </Button>
+                {modelMsg && <span className="text-xs text-muted-foreground">{modelMsg}</span>}
+              </div>
+
+              {uploading && uploadProgress.total > 0 && (
+                <div className="space-y-1">
+                  <Progress value={(uploadProgress.done / uploadProgress.total) * 100} />
+                  <p className="text-xs text-muted-foreground">ประมวลผล {uploadProgress.done}/{uploadProgress.total} ไฟล์</p>
+                </div>
+              )}
+
+              {uploadResults.length > 0 && (
+                <div className="space-y-1 max-h-[280px] overflow-y-auto">
+                  {uploadResults.map((r, i) => (
+                    <div key={`${r.fileName}-${i}`} className="flex items-center gap-2 rounded-lg border p-2 text-sm">
+                      {r.thumbnail ? (
+                        <img src={r.thumbnail} alt="" className="w-8 h-8 rounded object-cover border" />
+                      ) : (
+                        <div className="w-8 h-8 rounded bg-muted" />
+                      )}
+                      <span className="flex-1 truncate">{r.fileName}</span>
+                      {r.status === "added" ? (
+                        <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 gap-1">
+                          <CheckCircle2 className="w-3 h-3" />เพิ่มแล้ว
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="gap-1 text-muted-foreground">
+                          <AlertTriangle className="w-3 h-3" />
+                          {r.status === "no-face" ? "ไม่พบใบหน้า"
+                            : r.status === "redundant" ? "ซ้ำกับที่มีอยู่"
+                            : r.status === "too-different" ? "ต่างมากเกินไป"
+                            : r.message || "ผิดพลาด"}
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* ---------- จำลองสแกน ---------- */}
+
         <TabsContent value="simulate" className="mt-4 space-y-4">
           <Card>
             <CardContent className="p-4 space-y-3">
@@ -285,6 +457,23 @@ const StaffFaceTab = () => {
                 )}
                 {results.length > 0 && <Button variant="ghost" onClick={() => setResults([])}>ล้างผล</Button>}
               </div>
+
+              <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                <div>
+                  <p className="text-sm font-medium">เรียนรู้ใบหน้าเพิ่มอัตโนมัติระหว่างสแกน</p>
+                  <p className="text-xs text-muted-foreground">เก็บมุม/แสงใหม่เข้าคลังเมื่อจับคู่ได้อย่างมั่นใจ (สูงสุด {PERSONNEL_LEARN.MAX_PER_PERSON} ภาพ/คน)</p>
+                </div>
+                <Switch checked={autoLearn} onCheckedChange={setAutoLearn} />
+              </div>
+
+              {learnLog.length > 0 && (
+                <div className="rounded-lg border bg-muted/30 p-2 space-y-1">
+                  {learnLog.map((l, i) => (
+                    <p key={i} className="text-xs text-muted-foreground">{l}</p>
+                  ))}
+                </div>
+              )}
+
 
               <div className="space-y-2">
                 {results.length === 0 ? (
