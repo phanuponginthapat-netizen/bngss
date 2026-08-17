@@ -395,36 +395,47 @@ function consolidateMulti(sheets: PP5ParsedSheet[]): PP5ParsedWorkbook["consolid
       const rec = byStudent.get(st.studentCode)!;
       for (const [subjName, data] of Object.entries(st.subjects)) {
         if (!subjName || isAggregated(subjName) || isSeqHeader(subjName) || /^col_\d+$/.test(subjName)) continue;
-        const bucket = (rec.perSubject[subjName] ||= {});
-        let total: number | undefined;
-        const others: number[] = [];
+        if (!/[ก-๙a-z]/i.test(subjName)) continue; // numeric placeholder headers (0, 1, ...)
+        let sum = 0, maxSum = 0, count = 0;
+        let grade: string | undefined;
         for (const col of data.columns) {
-          const h = String(col.header || "");
+          const h = String(col.header || "").trim();
           if (isGradeHeader(h)) {
             const g = nz(col.value);
-            if (g) { bucket.grade = g; bucket.gradeFromFile = true; }
+            if (g) grade = g;
             continue;
           }
           if (typeof col.value === "number" && !isNaN(col.value)) {
-            if (isTotalHeader(h) || /คะแนน/.test(h)) total = Math.max(total ?? 0, col.value);
-            else others.push(col.value);
+            sum += col.value;
+            count++;
+            maxSum += isNum(h) ? Number(h) : 100; // sub-header row usually holds "คะแนนเต็ม"
           }
         }
-        if (total === undefined && others.length) total = others.reduce((a, b) => a + b, 0);
-        if (typeof total === "number") {
-          bucket.examScore = Math.round(total * 100) / 100;
-          bucket.totalScore = bucket.examScore;
-          if (!bucket.gradeFromFile) bucket.grade = computeGrade(Math.min(100, total));
+        if (count === 0 && !grade) continue;
+        const bucket = (rec.perSubject[subjName] ||= {});
+        const pct = count > 0 && maxSum > 0 ? Math.round((sum / maxSum) * 10000) / 100 : undefined;
+        if (sh.kind === "character") { if (pct !== undefined) bucket.characterLevel = pct; continue; }
+        if (sh.kind === "competency") { if (pct !== undefined) bucket.competencyLevel = pct; continue; }
+        if (sh.kind === "reading_thinking") { if (pct !== undefined) bucket.readingLevel = pct; continue; }
+        if (sh.kind === "attendance") { if (count > 0) bucket.attendanceHours = Math.round(sum); continue; }
+        // exam / score sheets
+        if (grade) { bucket.grade = grade; bucket.gradeFromFile = true; }
+        if (pct !== undefined) {
+          bucket.examScore = pct;
+          bucket.totalScore = pct;
+          if (!bucket.gradeFromFile) bucket.grade = computeGrade(pct);
         }
       }
-      // drop empty buckets so downstream distribution doesn't create blank rows
-      for (const [k, v] of Object.entries(rec.perSubject)) {
-        if (v.totalScore === undefined && !v.grade) delete rec.perSubject[k];
-      }
+    }
+  }
+  for (const rec of byStudent.values()) {
+    for (const [k, v] of Object.entries(rec.perSubject)) {
+      if (v.totalScore === undefined && !v.grade) delete rec.perSubject[k];
     }
   }
   return Array.from(byStudent.values()).filter((r) => Object.keys(r.perSubject).length > 0);
 }
+
 
 function consolidate(sheets: PP5ParsedSheet[], meta: PP5ParsedWorkbook["meta"]): PP5ParsedWorkbook["consolidated"] {
   if (looksMultiSubject(sheets, meta)) {
