@@ -56,6 +56,9 @@ export const SECRET_PRESET_CATEGORIES: SecretPresetCategory[] = [
     label: "การแจ้งเตือน / Chat",
     presets: [
       { key: "GOOGLE_CHAT_WEBHOOK_URL", label: "Google Chat Webhook URL", description: "ส่งข้อความเข้า Space", freeTier: "ฟรี (Google Workspace)" },
+      { key: "GOOGLE_CHAT_SA_JSON", label: "Google Chat Service Account JSON", description: "ส่ง DM ส่วนตัวแบบ LINE OA (ต้องเปิด Domain-Wide Delegation)", freeTier: "ฟรี (ต้องมี Google Workspace)" },
+      { key: "GOOGLE_CHAT_IMPERSONATE_USER", label: "Google Chat Impersonate User", description: "อีเมล Workspace ที่บอทสวมสิทธิ์ส่ง DM เช่น notify@school.ac.th", freeTier: "ฟรี" },
+      { key: "GOOGLE_CHAT_WORKSPACE_DOMAIN", label: "Google Chat Workspace Domain", description: "โดเมนโรงเรียน เช่น school.ac.th (กันส่งไป Gmail ส่วนตัว)", freeTier: "ฟรี" },
       { key: "SLACK_WEBHOOK_URL", label: "Slack Incoming Webhook", description: "แจ้งเตือนเข้า Slack channel", freeTier: "ฟรี" },
       { key: "DISCORD_WEBHOOK_URL", label: "Discord Webhook URL", description: "แจ้งเตือนเข้า Discord", freeTier: "ฟรีไม่จำกัด" },
       { key: "TELEGRAM_BOT_TOKEN", label: "Telegram Bot Token", description: "แจ้งเตือนผ่าน Telegram Bot", freeTier: "ฟรีไม่จำกัด" },

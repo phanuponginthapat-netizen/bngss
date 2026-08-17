@@ -20,7 +20,7 @@ interface FanoutRequest {
   reference_id?: string | null;
   reference_type?: string | null;
   url?: string | null;                      // deep link (e.g. /dashboard/inbox)
-  channels?: Array<"in_app" | "push" | "line" | "gchat">;  // optional override
+  channels?: Array<"in_app" | "push" | "line" | "gchat" | "gchat_dm">;  // optional override
   // Google Chat
   gchat_categories?: string[];              // webhook categories to also post to
   fields?: Record<string, string>;          // extra key/value details rendered in the gchat card
@@ -136,7 +136,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const channels = new Set(payload.channels ?? ["in_app", "push", "line"]);
+    const channels = new Set<string>(payload.channels ?? ["in_app", "push", "line"]);
+    // Google Workspace personal DM (LINE-OA style) — auto-enabled when the service
+    // account secrets exist, unless the caller explicitly listed channels without it.
+    if (Deno.env.get("GOOGLE_CHAT_SA_JSON") && Deno.env.get("GOOGLE_CHAT_IMPERSONATE_USER") && !payload.channels) {
+      channels.add("gchat_dm");
+    }
     const type = payload.type || "notification";
     const severity: Severity = payload.severity ?? "info";
     const sevRank = SEVERITY_RANK[severity] ?? 0;
@@ -162,7 +167,7 @@ Deno.serve(async (req) => {
         };
       }
     } catch (_) { /* fall back to defaults */ }
-    if (channels.has("gchat") && routing.gchat[category] === false) channels.delete("gchat");
+    if (routing.gchat[category] === false) { channels.delete("gchat"); channels.delete("gchat_dm"); }
     if (channels.has("line")  && routing.line[category]  === false) channels.delete("line");
 
     const userIds = [...new Set(payload.user_ids.filter(Boolean))];
@@ -459,6 +464,41 @@ Deno.serve(async (req) => {
           }
         }));
       }
+
+      // Google Chat personal DM (Workspace users) — respects the same per-user gchat preference
+      if (channels.has("gchat_dm")) {
+        const dmUsers = userIds.filter((u) => shouldSend(u, "gchat"));
+        if (dmUsers.length > 0) {
+          try {
+            const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/notify-google-chat-dm`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
+              },
+              body: JSON.stringify({
+                user_ids: dmUsers,
+                title: payload.title,
+                message: payload.body || payload.title,
+                notification_type: type,
+                severity,
+                url: payload.url,
+                image_url: payload.image_url,
+                fields: payload.fields,
+              }),
+            });
+            const out = await res.json().catch(() => ({}));
+            const sent = Number(out?.sent ?? 0);
+            dmUsers.forEach((u) =>
+              log(u, "gchat", res.ok && sent > 0 ? "sent" : "skipped", res.ok ? `dm sent:${sent}` : `dm status:${res.status}`)
+            );
+          } catch (e: any) {
+            dmUsers.forEach((u) => log(u, "gchat", "failed", `dm ${e?.message}`));
+          }
+        }
+      }
+
+
 
       if (logRows.length > 0) {
         try { await admin.from("notification_delivery_log").insert(logRows); } catch (_) {}
