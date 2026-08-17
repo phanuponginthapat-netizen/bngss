@@ -206,7 +206,7 @@ export function AutoImportDialogBase<T>({
       <DialogTrigger asChild>
         <Button className="gap-2"><Sparkles className="w-4 h-4" />{triggerLabel}</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-4xl sm:max-h-[90vh] flex flex-col">
+      <DialogContent className="w-[96vw] max-w-[96vw] xl:max-w-[1280px] h-[92vh] max-h-[92vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />{dialogTitle}
