@@ -2,7 +2,6 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
-import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
 import { deployKitPlugin } from "./vite-deploy-kit";
 
 
@@ -15,7 +14,7 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
-  plugins: [react(), mode === "development" && componentTagger(), mcpPlugin(), deployKitPlugin()].filter(Boolean),
+  plugins: [react(), mode === "development" && componentTagger(), deployKitPlugin()].filter(Boolean),
   resolve: {
     alias: [
       // ใช้ client แบบ runtime config (รองรับ Supabase self-hosted / เปลี่ยน backend หลัง deploy)
