@@ -47,7 +47,7 @@ revoke all on function public.get_public_asset(uuid) from public;
 grant execute on function public.get_public_asset(uuid) to anon, authenticated;
 
 create or replace function public.get_public_asset_contact(_asset_id uuid)
-returns table (full_name text, position text, phone text)
+returns table (full_name text, position_title text, phone text)
 language sql
 stable
 security definer
@@ -55,7 +55,7 @@ set search_path = public
 as $$
   select
     trim(coalesce(p.prefix, '') || coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')),
-    p.position,
+    p."position",
     p.phone
   from public.assets a
   join public.personnel p on p.user_id = a.responsible_user_id
