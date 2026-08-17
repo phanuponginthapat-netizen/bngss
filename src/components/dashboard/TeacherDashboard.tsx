@@ -848,18 +848,10 @@ const SubjectTabContent = ({ subject, enrollmentCount, schedules, navigate, pers
             <DialogTrigger asChild>
               <Button size="sm"><Plus className="w-4 h-4 mr-1" /> สั่งการบ้าน</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader><DialogTitle>สั่งการบ้าน - {subject.name_th || subject.code}</DialogTitle></DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label>ชื่อการบ้าน</Label>
-                  <Input value={hwTitle} onChange={e => setHwTitle(e.target.value)} placeholder="เช่น ใบงานบทที่ 3" />
-                </div>
-                <div>
-                  <Label>รายละเอียด</Label>
-                  <Textarea value={hwDesc} onChange={e => setHwDesc(e.target.value)} placeholder="อธิบายงาน..." rows={3} />
-                </div>
-                <div>
+            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader><DialogTitle>สั่งการบ้านใหม่ - {subject.name_th || subject.code}</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
                   <Label>ห้องเรียน</Label>
                   <Select value={hwClassroom} onValueChange={setHwClassroom}>
                     <SelectTrigger><SelectValue placeholder="เลือกห้องเรียน" /></SelectTrigger>
@@ -867,14 +859,48 @@ const SubjectTabContent = ({ subject, enrollmentCount, schedules, navigate, pers
                       {(subject.classrooms || []).map((c: any) => (
                         <SelectItem key={c.id} value={c.id}>{c.name} ({c.grade_level})</SelectItem>
                       ))}
+                      {(subject.classrooms || []).length === 0 && (
+                        <div className="p-2 text-xs text-muted-foreground">ยังไม่มีห้องเรียนที่สอนวิชานี้</div>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
+                <div className="space-y-1.5">
+                  <Label>หัวข้อ</Label>
+                  <Input value={hwTitle} onChange={e => setHwTitle(e.target.value)} placeholder="เช่น แบบฝึกหัดบทที่ 3" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>รายละเอียด</Label>
+                  <Textarea value={hwDesc} onChange={e => setHwDesc(e.target.value)} placeholder="อธิบายงาน..." rows={4} />
+                </div>
+                <div className="space-y-1.5">
                   <Label>กำหนดส่ง</Label>
                   <BEDatePicker value={hwDue} onChange={(v) => setHwDue(v)} />
                 </div>
-                <Button onClick={handleAssignHomework} className="w-full">มอบหมายการบ้าน</Button>
+                <div className="space-y-1.5">
+                  <Label>คะแนนเต็ม <span className="text-xs text-muted-foreground font-normal">(เว้นว่างถ้าไม่ให้คะแนน)</span></Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    step="0.5"
+                    value={hwMaxScore}
+                    onChange={e => setHwMaxScore(e.target.value)}
+                    placeholder="เช่น 10, 20, 100"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>ไฟล์การบ้าน / ใบงาน (นักเรียนสามารถแก้ไขในเว็บได้ทันที)</Label>
+                  <AttachmentUploader
+                    folder="tasks"
+                    value={hwAttachments}
+                    onChange={setHwAttachments}
+                    maxFiles={5}
+                  />
+                </div>
+                <Button onClick={handleAssignHomework} disabled={hwSaving} className="w-full">
+                  {hwSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                  สั่งการบ้าน
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
