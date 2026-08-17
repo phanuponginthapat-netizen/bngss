@@ -1248,9 +1248,25 @@ const FaceKioskPage = () => {
             </label>
             <p className="text-[10px] text-muted-foreground leading-snug">
               เมื่อเปิด ระบบจะจดจำใบหน้าบุคลากรที่ลงทะเบียนไว้และแสดงผลบนกล้อง
-              แต่ <b>ไม่บันทึกเวลามาเรียน/ปฏิบัติงาน</b> — ใช้ทดสอบความแม่นยำของเครื่องคีออส
             </p>
+            {staffFaceEnabled && (
+              <>
+                <label className="text-xs font-semibold flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={staffClockEnabled}
+                    onChange={(e) => setStaffClockEnabled(e.target.checked)}
+                  />
+                  ลงเวลาปฏิบัติงานอัตโนมัติ
+                </label>
+                <p className="text-[10px] text-muted-foreground leading-snug">
+                  เมื่อเปิด บุคลากรที่สแกนใบหน้าจะถูกบันทึก <b>เวลาเข้า/ออกงาน</b> ตามโหมดสแกนของเครื่อง
+                  (เข้าหลัง 08:30 น. = สาย, วันละ 1 รายการ) — ถ้าปิดไว้จะเป็นโหมดทดสอบเท่านั้น
+                </p>
+              </>
+            )}
           </div>
+
 
           <div className="space-y-2 border-t pt-2">
             <label className="text-xs font-semibold flex items-center gap-2">
