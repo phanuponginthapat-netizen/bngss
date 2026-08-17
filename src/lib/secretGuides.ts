@@ -81,6 +81,20 @@ const EXACT: Record<string, SecretGuide> = {
 
   // ============ Notifications / Chat ============
   GOOGLE_CHAT_WEBHOOK_URL: { title: "Google Chat Webhook URL", steps: ["Google Chat → Space → Apps & integrations → Webhooks → Add", "คัดลอก URL"] },
+  GOOGLE_CHAT_SA_JSON: {
+    title: "Google Chat Service Account JSON (DM ส่วนตัว)",
+    url: "https://console.cloud.google.com/apis/credentials",
+    steps: [
+      "Google Cloud Console → เปิดใช้งาน Google Chat API",
+      "สร้าง Service Account → Keys → Add key → JSON แล้วดาวน์โหลด",
+      "คัดลอก Client ID (ตัวเลขยาว) ของ service account",
+      "Workspace Admin → Security → API controls → Domain-wide delegation → Add new",
+      "ใส่ Client ID + scope: .../auth/chat.spaces.create, .../auth/chat.spaces, .../auth/chat.messages.create",
+      "วางเนื้อหาไฟล์ JSON ทั้งไฟล์เป็นค่า secret นี้",
+    ],
+  },
+  GOOGLE_CHAT_IMPERSONATE_USER: { title: "Google Chat Impersonate User", steps: ["ใช้อีเมล Workspace ของโรงเรียนที่จะเป็นผู้ส่ง DM เช่น notify@school.ac.th"] },
+  GOOGLE_CHAT_WORKSPACE_DOMAIN: { title: "Google Chat Workspace Domain", steps: ["ใส่โดเมนโรงเรียน เช่น school.ac.th — ระบบจะส่ง DM เฉพาะอีเมลในโดเมนนี้"] },
   SLACK_WEBHOOK_URL: {
     title: "Slack Incoming Webhook",
     url: "https://api.slack.com/apps",
