@@ -8,6 +8,9 @@ import { toast } from "sonner";
 import { Upload, FileSpreadsheet, CheckCircle2, X, Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { parsePP5Workbook, type PP5ParsedWorkbook } from "@/lib/pp5AutoParser";
+import { checkAcademicYear, matchStudents, provisionAlumni, type YearCheck } from "@/lib/ppImportChecks";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export interface AutoImportResolvedTarget {
   gradeLevel: string;
@@ -30,6 +33,13 @@ export interface AutoImportItem<T = any> {
   error?: string;
   duplicateOf?: string;
   confirmedDuplicate?: boolean;
+  yearCheck?: YearCheck;
+  yearOverride?: number;
+  semesterOverride?: number;
+  missingStudents?: { studentCode: string; studentName: string }[];
+  matchedStudents?: number;
+  createAlumni?: boolean;
+  alumniCreated?: number;
   meta: T; // per-mode extra state (assignmentId / classroomId etc.)
 }
 
@@ -80,6 +90,16 @@ export function AutoImportDialogBase<T>({
           error: parsed.sheets.length === 0 ? "ไม่พบตารางนักเรียนในไฟล์นี้" : undefined,
           meta: nextMeta,
         });
+        if (parsed.sheets.length > 0) {
+          const yearCheck = await checkAcademicYear(parsed.meta.academicYear || 0, parsed.meta.semester);
+          const match = await matchStudents(parsed.consolidated);
+          updateItem(file, {
+            yearCheck,
+            matchedStudents: match.matched,
+            missingStudents: match.missing,
+            createAlumni: match.missing.length > 0,
+          });
+        }
       } catch (e: any) {
         updateItem(file, { status: "error", error: e?.message || "อ่านไฟล์ไม่สำเร็จ" });
       }
@@ -98,7 +118,16 @@ export function AutoImportDialogBase<T>({
       try {
         const target = resolveTarget(it);
         if ("error" in target) throw new Error(target.error);
-        const { gradeLevel, year, semester, dedupWhere, insertExtra, parsedExtra, storageFolder } = target;
+        const { gradeLevel, dedupWhere, insertExtra, parsedExtra, storageFolder } = target;
+        const year = it.yearOverride || target.year;
+        const semester = it.semesterOverride || target.semester;
+
+        // นักเรียนที่ไม่มีในระบบ = ศิษย์เก่า → บรรจุก่อนนำเข้าคะแนน
+        let alumniCreated = 0;
+        if (it.createAlumni && it.missingStudents?.length) {
+          const res = await provisionAlumni(it.missingStudents, { gradeLevel, academicYear: year });
+          alumniCreated = res.created;
+        }
 
         // Dedup check
         let dupQuery = (supabase.from(tableName) as any)
@@ -162,7 +191,7 @@ export function AutoImportDialogBase<T>({
         });
         if (insErr) throw insErr;
 
-        updateItem(it.file, { status: "done" });
+        updateItem(it.file, { status: "done", alumniCreated });
       } catch (e: any) {
         updateItem(it.file, { status: "error", error: e?.message });
       }
