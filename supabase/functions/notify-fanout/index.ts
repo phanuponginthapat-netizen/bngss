@@ -465,6 +465,41 @@ Deno.serve(async (req) => {
         }));
       }
 
+      // Google Chat personal DM (Workspace users) — respects the same per-user gchat preference
+      if (channels.has("gchat_dm")) {
+        const dmUsers = userIds.filter((u) => shouldSend(u, "gchat"));
+        if (dmUsers.length > 0) {
+          try {
+            const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/notify-google-chat-dm`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
+              },
+              body: JSON.stringify({
+                user_ids: dmUsers,
+                title: payload.title,
+                message: payload.body || payload.title,
+                notification_type: type,
+                severity,
+                url: payload.url,
+                image_url: payload.image_url,
+                fields: payload.fields,
+              }),
+            });
+            const out = await res.json().catch(() => ({}));
+            const sent = Number(out?.sent ?? 0);
+            dmUsers.forEach((u) =>
+              log(u, "gchat", res.ok && sent > 0 ? "sent" : "skipped", res.ok ? `dm sent:${sent}` : `dm status:${res.status}`)
+            );
+          } catch (e: any) {
+            dmUsers.forEach((u) => log(u, "gchat", "failed", `dm ${e?.message}`));
+          }
+        }
+      }
+
+
+
       if (logRows.length > 0) {
         try { await admin.from("notification_delivery_log").insert(logRows); } catch (_) {}
       }
