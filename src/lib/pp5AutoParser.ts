@@ -297,8 +297,8 @@ function extractMeta(wb: XLSX.WorkBook): PP5ParsedWorkbook["meta"] {
         else if (/^ปี\s*พ\.?\s*ศ/i.test(label) && !meta.academicYear && isNum(val)) meta.academicYear = Number(val);
         else if (/^(ครูผู้สอน|ผู้สอน)/i.test(label) && !meta.teacherName) meta.teacherName = val;
         else if (/^ครูประจำชั้น|ครูที่ปรึกษา/i.test(label) && !meta.teacherName) meta.teacherName = val;
-        else if (/^รายวิชา/i.test(label) && !meta.subjectName && !isHeaderLikeValue(val)) meta.subjectName = val.replace(/\s+/g, " ").trim();
-        else if (/^รหัสวิชา/i.test(label) && !meta.subjectCode && !isHeaderLikeValue(val)) meta.subjectCode = val;
+        else if (/^รายวิชา\s*:?$/i.test(label) && !meta.subjectName && !isHeaderLikeValue(val)) meta.subjectName = val.replace(/\s+/g, " ").trim();
+        else if (/^รหัสวิชา\s*:?$/i.test(label) && !meta.subjectCode && !isHeaderLikeValue(val)) meta.subjectCode = val;
 
         else if (/^กลุ่มสาระ/i.test(label) && !meta.department) meta.department = val;
       }
@@ -399,11 +399,10 @@ function finalizeBucket(s: any) {
 
 /** true when the workbook has no single canonical subject but sheets carry many subject columns (ปพ.6) */
 function looksMultiSubject(sheets: PP5ParsedSheet[], meta: PP5ParsedWorkbook["meta"]): boolean {
-  const manySubjects = sheets.some(
-    (s) => s.subjects.filter((x) => !isAggregated(x) && !isSeqHeader(x) && /[ก-๙a-z]/i.test(x)).length >= 3,
+  if (meta.subjectName?.trim() || meta.subjectCode?.trim()) return false; // ปพ.5 = one subject per file
+  return sheets.some(
+    (s) => s.subjects.filter((x) => !isAggregated(x) && !isSeqHeader(x) && /[ก-๙a-z]/i.test(x)).length >= 2,
   );
-  if (manySubjects) return true; // ปพ.6 layout wins even if a stray "รายวิชา" label was picked up
-  return !meta.subjectName?.trim() && sheets.some((s) => s.subjects.filter((x) => !isAggregated(x) && !isSeqHeader(x)).length >= 2);
 }
 
 /** ปพ.6: subject names live in the top header row → one bucket per subject column-group */
