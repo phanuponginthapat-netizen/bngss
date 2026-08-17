@@ -15,7 +15,8 @@ import { toast } from "sonner";
 import { Plus, Trash2, Banknote, Award } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { BE_OFFSET } from "@/lib/dateBE";
-import { saveErrorMessage } from "@/lib/saveError";
+import { saveErrorMessage, safeNum, safeInt, nullIfEmpty } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 const MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
@@ -28,6 +29,7 @@ const SalaryPage = () => {
   const { role, userId, isAdmin, isDirector } = useUserRole();
   const canManageAll = isAdmin || isDirector;
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [personnelId, setPersonnelId] = useState("");
   const [month, setMonth] = useState(String(new Date().getMonth() + 1));
   const [year, setYear] = useState(String(new Date().getFullYear() + BE_OFFSET));
@@ -84,28 +86,39 @@ const SalaryPage = () => {
   });
 
   const handleAdd = async () => {
+    if (saving) return;
     const targetPersonnelId = canManageAll ? personnelId : myPersonnel?.id;
     if (!targetPersonnelId || !baseSalary) { toast.error("กรุณากรอกข้อมูลให้ครบ"); return; }
-    const base = parseFloat(baseSalary);
-    const pos = parseFloat(posAllowance);
-    const other = parseFloat(otherAllowance);
-    const ded = parseFloat(deductions);
+    const base = safeNum(baseSalary, 0);
+    if (base <= 0) { toast.error("กรุณากรอกเงินเดือนให้มากกว่า 0"); return; }
+    const pos = safeNum(posAllowance, 0);
+    const other = safeNum(otherAllowance, 0);
+    const ded = safeNum(deductions, 0);
     const net = base + pos + other - ded;
-    const { error } = await supabase.from("salary_records").insert({
-      personnel_id: targetPersonnelId, salary_month: parseInt(month), salary_year: parseInt(year) - BE_OFFSET,
-      base_salary: base, position_allowance: pos, other_allowance: other, deductions: ded,
-      net_salary: net, salary_step: salaryStep, promotion_round: promotionRound,
-      decoration_request: decorationRequest, notes,
-    } as any);
-    if (error) { toast.error(saveErrorMessage(error)); return; }
-    toast.success("บันทึกสำเร็จ");
-    qc.invalidateQueries({ queryKey: ["salary_records"] });
-    qc.invalidateQueries({ queryKey: ["my_salary_records"] });
-    setOpen(false);
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("salary_records").insert({
+        personnel_id: targetPersonnelId, salary_month: safeInt(month, 1), salary_year: safeInt(year, 0) - BE_OFFSET,
+        base_salary: base, position_allowance: pos, other_allowance: other, deductions: ded,
+        net_salary: net, salary_step: nullIfEmpty(salaryStep), promotion_round: nullIfEmpty(promotionRound),
+        decoration_request: nullIfEmpty(decorationRequest), notes: nullIfEmpty(notes),
+      } as any);
+      if (error) { toast.error(saveErrorMessage(error)); return; }
+      toast.success("บันทึกสำเร็จ");
+      qc.invalidateQueries({ queryKey: ["salary_records"] });
+      qc.invalidateQueries({ queryKey: ["my_salary_records"] });
+      setOpen(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("salary_records").delete().eq("id", id);
+    const ok = await swal.confirm({ title: "ต้องการลบรายการเงินเดือนนี้หรือไม่?", danger: true });
+    if (!ok) return;
+    const { error } = await supabase.from("salary_records").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
+    toast.success("ลบสำเร็จ");
     qc.invalidateQueries({ queryKey: ["salary_records"] });
     qc.invalidateQueries({ queryKey: ["my_salary_records"] });
   };
@@ -187,7 +200,7 @@ const SalaryPage = () => {
                 </Select>
               </div>
               <div><Label>หมายเหตุ</Label><Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} /></div>
-              <Button onClick={handleAdd} className="w-full" disabled={!canManageAll && !myPersonnel?.id}>บันทึก</Button>
+              <Button onClick={handleAdd} className="w-full" disabled={saving || (!canManageAll && !myPersonnel?.id)}>{saving ? "กำลังบันทึก..." : "บันทึก"}</Button>
             </div>
           </DialogContent>
         </Dialog>
