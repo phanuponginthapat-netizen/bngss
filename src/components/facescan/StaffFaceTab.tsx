@@ -257,11 +257,13 @@ const StaffFaceTab = () => {
   return (
     <div className="space-y-4">
       <Tabs defaultValue="register">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="register" className="gap-2"><UserPlus className="w-4 h-4" />ลงทะเบียน</TabsTrigger>
+          <TabsTrigger value="photos" className="gap-2"><Images className="w-4 h-4" />เรียนรู้จากหลายรูป</TabsTrigger>
           <TabsTrigger value="simulate" className="gap-2"><FlaskConical className="w-4 h-4" />จำลองสแกน</TabsTrigger>
           <TabsTrigger value="db" className="gap-2"><Database className="w-4 h-4" />ฐานข้อมูล</TabsTrigger>
         </TabsList>
+
 
         {/* ---------- ลงทะเบียน ---------- */}
         <TabsContent value="register" className="mt-4 space-y-4">
