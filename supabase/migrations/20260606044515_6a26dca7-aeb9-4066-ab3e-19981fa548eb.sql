@@ -1,10 +1,20 @@
 -- Link inbox items back to source notifications and keep read state in sync
 
-ALTER TABLE public.inbox_items
-  ADD COLUMN IF NOT EXISTS notification_id uuid REFERENCES public.notifications(id) ON DELETE CASCADE;
-
-CREATE INDEX IF NOT EXISTS idx_inbox_items_notification_id ON public.inbox_items(notification_id);
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.inbox_items
+  ADD COLUMN IF NOT EXISTS notification_id uuid REFERENCES public.notifications(id) ON DELETE CASCADE';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_inbox_items_notification_id ON public.inbox_items(notification_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 -- Update sync trigger to populate notification_id
 CREATE OR REPLACE FUNCTION public.sync_notification_to_inbox()
  RETURNS trigger
@@ -29,7 +39,6 @@ BEGIN
   );
   RETURN NEW;
 END $function$;
-
 -- Propagate read state notification -> inbox
 CREATE OR REPLACE FUNCTION public.propagate_notification_read_to_inbox()
 RETURNS trigger
@@ -46,12 +55,22 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_propagate_notification_read ON public.notifications;
-CREATE TRIGGER trg_propagate_notification_read
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_propagate_notification_read ON public.notifications';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_propagate_notification_read
 AFTER UPDATE OF is_read ON public.notifications
-FOR EACH ROW EXECUTE FUNCTION public.propagate_notification_read_to_inbox();
-
+FOR EACH ROW EXECUTE FUNCTION public.propagate_notification_read_to_inbox()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Propagate read state inbox -> notification
 CREATE OR REPLACE FUNCTION public.propagate_inbox_read_to_notification()
 RETURNS trigger
@@ -68,8 +87,19 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_propagate_inbox_read ON public.inbox_items;
-CREATE TRIGGER trg_propagate_inbox_read
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_propagate_inbox_read ON public.inbox_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_propagate_inbox_read
 AFTER UPDATE OF is_read ON public.inbox_items
-FOR EACH ROW EXECUTE FUNCTION public.propagate_inbox_read_to_notification();
+FOR EACH ROW EXECUTE FUNCTION public.propagate_inbox_read_to_notification()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

@@ -1,5 +1,4 @@
 select cron.unschedule('line-vault-drive-cleanup') where exists (select 1 from cron.job where jobname='line-vault-drive-cleanup');
-
 select cron.schedule('line-vault-drive-cleanup','*/5 * * * *', $job$
   SELECT net.http_post(
     url := 'https://dlkyxvhnnffblerwedjz.supabase.co/functions/v1/line-vault-drive-cleanup',

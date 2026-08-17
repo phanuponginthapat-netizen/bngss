@@ -1,10 +1,19 @@
-
-ALTER TABLE public.padlet_boards
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.padlet_boards
   ADD COLUMN IF NOT EXISTS subject_id uuid REFERENCES public.subjects(id) ON DELETE SET NULL,
-  ADD COLUMN IF NOT EXISTS classroom_id uuid REFERENCES public.classrooms(id) ON DELETE SET NULL;
-
-CREATE INDEX IF NOT EXISTS idx_padlet_boards_scope ON public.padlet_boards(classroom_id, subject_id);
-
+  ADD COLUMN IF NOT EXISTS classroom_id uuid REFERENCES public.classrooms(id) ON DELETE SET NULL';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_padlet_boards_scope ON public.padlet_boards(classroom_id, subject_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 -- Security definer helper: can current user see a scoped board?
 CREATE OR REPLACE FUNCTION public.padlet_can_view_board(_board_id uuid)
 RETURNS boolean
@@ -64,33 +73,109 @@ BEGIN
   RETURN false;
 END;
 $$;
-
-REVOKE EXECUTE ON FUNCTION public.padlet_can_view_board(uuid) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.padlet_can_view_board(uuid) TO authenticated;
-
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.padlet_can_view_board(uuid) FROM PUBLIC, anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.padlet_can_view_board(uuid) TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Replace board SELECT policy with scope-aware one
-DROP POLICY IF EXISTS "boards viewable by authenticated" ON public.padlet_boards;
-DROP POLICY IF EXISTS "boards viewable by scope" ON public.padlet_boards;
-DROP POLICY IF EXISTS "boards viewable by scope" ON public.padlet_boards;
-CREATE POLICY "boards viewable by scope"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "boards viewable by authenticated" ON public.padlet_boards';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "boards viewable by scope" ON public.padlet_boards';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "boards viewable by scope" ON public.padlet_boards';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "boards viewable by scope"
 ON public.padlet_boards FOR SELECT
 TO authenticated
-USING (public.padlet_can_view_board(id));
-
+USING (public.padlet_can_view_board(id))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Notes: viewable only if user can view parent board
-DROP POLICY IF EXISTS "notes viewable by authenticated" ON public.padlet_notes;
-DROP POLICY IF EXISTS "notes viewable by board scope" ON public.padlet_notes;
-DROP POLICY IF EXISTS "notes viewable by board scope" ON public.padlet_notes;
-CREATE POLICY "notes viewable by board scope"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "notes viewable by authenticated" ON public.padlet_notes';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "notes viewable by board scope" ON public.padlet_notes';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "notes viewable by board scope" ON public.padlet_notes';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "notes viewable by board scope"
 ON public.padlet_notes FOR SELECT
 TO authenticated
-USING (public.padlet_can_view_board(board_id));
-
+USING (public.padlet_can_view_board(board_id))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Notes: authenticated can post only if they can view board AND board allows guest post (or they own board)
-DROP POLICY IF EXISTS "authenticated can post notes" ON public.padlet_notes;
-DROP POLICY IF EXISTS "scoped users can post notes" ON public.padlet_notes;
-DROP POLICY IF EXISTS "scoped users can post notes" ON public.padlet_notes;
-CREATE POLICY "scoped users can post notes"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "authenticated can post notes" ON public.padlet_notes';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "scoped users can post notes" ON public.padlet_notes';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "scoped users can post notes" ON public.padlet_notes';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "scoped users can post notes"
 ON public.padlet_notes FOR INSERT
 TO authenticated
 WITH CHECK (
@@ -100,4 +185,8 @@ WITH CHECK (
     SELECT 1 FROM public.padlet_boards b
     WHERE b.id = board_id AND (b.allow_guest_post = true OR b.owner_id = auth.uid())
   )
-);
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

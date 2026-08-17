@@ -3,47 +3,117 @@ DO $$ BEGIN
     ALTER PUBLICATION supabase_realtime DROP TABLE public.iot_devices;
   END IF;
 END $$;
-
-DROP POLICY IF EXISTS "Admin and Director can view all profiles" ON public.profiles;
-DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
-DROP POLICY IF EXISTS "Admins can manage all profiles" ON public.profiles;
-
-DROP POLICY IF EXISTS "Admin/Director view profiles in their school" ON public.profiles;
-DROP POLICY IF EXISTS "Admin/Director view profiles in their school" ON public.profiles;
-CREATE POLICY "Admin/Director view profiles in their school"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin and Director can view all profiles" ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins can manage all profiles" ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director view profiles in their school" ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director view profiles in their school" ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/Director view profiles in their school"
 ON public.profiles FOR SELECT TO authenticated
 USING (
-  (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'director'::app_role))
+  (public.has_role(auth.uid(), ''admin''::app_role) OR public.has_role(auth.uid(), ''director''::app_role))
   AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()))
-);
-
-DROP POLICY IF EXISTS "Admins manage profiles in their school" ON public.profiles;
-DROP POLICY IF EXISTS "Admins manage profiles in their school" ON public.profiles;
-CREATE POLICY "Admins manage profiles in their school"
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage profiles in their school" ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage profiles in their school" ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins manage profiles in their school"
 ON public.profiles FOR ALL TO authenticated
 USING (
-  public.has_role(auth.uid(), 'admin'::app_role)
+  public.has_role(auth.uid(), ''admin''::app_role)
   AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()))
 )
 WITH CHECK (
-  public.has_role(auth.uid(), 'admin'::app_role)
+  public.has_role(auth.uid(), ''admin''::app_role)
   AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()))
-);
-
-DROP POLICY IF EXISTS "Authenticated can read homework files" ON storage.objects;
-DROP POLICY IF EXISTS "Homework files: owner or same-school members" ON storage.objects;
-DROP POLICY IF EXISTS "Homework files: owner or same-school members" ON storage.objects;
-CREATE POLICY "Homework files: owner or same-school members"
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can read homework files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Homework files: owner or same-school members" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Homework files: owner or same-school members" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Homework files: owner or same-school members"
 ON storage.objects FOR SELECT TO authenticated
 USING (
-  bucket_id = 'homework-files' AND (
+  bucket_id = ''homework-files'' AND (
     owner = auth.uid()
-    OR public.has_role(auth.uid(), 'admin'::app_role)
-    OR public.has_role(auth.uid(), 'director'::app_role)
+    OR public.has_role(auth.uid(), ''admin''::app_role)
+    OR public.has_role(auth.uid(), ''director''::app_role)
     OR EXISTS (
       SELECT 1 FROM public.task_assignments t
       LEFT JOIN public.classrooms c ON c.id = t.classroom_id
-      WHERE t.id::text = split_part(name, '/', 1)
+      WHERE t.id::text = split_part(name, ''/'', 1)
         AND (
           t.assigned_by = auth.uid()
           OR t.assigned_to_user_id = auth.uid()
@@ -51,8 +121,11 @@ USING (
         )
     )
   )
-);
-
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.auto_fill_school_id()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -64,7 +137,6 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-
 CREATE TABLE IF NOT EXISTS public.eform_templates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   school_id UUID REFERENCES public.schools(id) ON DELETE CASCADE,
@@ -81,49 +153,149 @@ CREATE TABLE IF NOT EXISTS public.eform_templates (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.eform_templates TO authenticated;
-GRANT ALL ON public.eform_templates TO service_role;
-ALTER TABLE public.eform_templates ENABLE ROW LEVEL SECURITY;
-
-CREATE INDEX IF NOT EXISTS idx_eform_templates_school ON public.eform_templates(school_id);
-CREATE INDEX IF NOT EXISTS idx_eform_templates_active ON public.eform_templates(is_active);
-
-DROP TRIGGER IF EXISTS eform_templates_auto_school_id ON public.eform_templates;
-CREATE TRIGGER eform_templates_auto_school_id
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.eform_templates TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.eform_templates TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.eform_templates ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_eform_templates_school ON public.eform_templates(school_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_eform_templates_active ON public.eform_templates(is_active)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS eform_templates_auto_school_id ON public.eform_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER eform_templates_auto_school_id
 BEFORE INSERT ON public.eform_templates
-FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id();
-
-DROP TRIGGER IF EXISTS eform_templates_set_updated_at ON public.eform_templates;
-CREATE TRIGGER eform_templates_set_updated_at
+FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS eform_templates_set_updated_at ON public.eform_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER eform_templates_set_updated_at
 BEFORE UPDATE ON public.eform_templates
-FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
-DROP POLICY IF EXISTS "Same-school members read active templates" ON public.eform_templates;
-DROP POLICY IF EXISTS "Same-school members read active templates" ON public.eform_templates;
-CREATE POLICY "Same-school members read active templates"
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Same-school members read active templates" ON public.eform_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Same-school members read active templates" ON public.eform_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Same-school members read active templates"
 ON public.eform_templates FOR SELECT TO authenticated
-USING (is_active = true AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid())));
-
-DROP POLICY IF EXISTS "Admin/Director manage templates in school" ON public.eform_templates;
-DROP POLICY IF EXISTS "Admin/Director manage templates in school" ON public.eform_templates;
-CREATE POLICY "Admin/Director manage templates in school"
+USING (is_active = true AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid())))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director manage templates in school" ON public.eform_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director manage templates in school" ON public.eform_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/Director manage templates in school"
 ON public.eform_templates FOR ALL TO authenticated
 USING (
-  (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'director'::app_role))
+  (public.has_role(auth.uid(), ''admin''::app_role) OR public.has_role(auth.uid(), ''director''::app_role))
   AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()))
 )
 WITH CHECK (
-  (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'director'::app_role))
+  (public.has_role(auth.uid(), ''admin''::app_role) OR public.has_role(auth.uid(), ''director''::app_role))
   AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()))
-);
-
-DROP POLICY IF EXISTS "Creator manage own templates" ON public.eform_templates;
-DROP POLICY IF EXISTS "Creator manage own templates" ON public.eform_templates;
-CREATE POLICY "Creator manage own templates"
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Creator manage own templates" ON public.eform_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Creator manage own templates" ON public.eform_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Creator manage own templates"
 ON public.eform_templates FOR ALL TO authenticated
-USING (created_by = auth.uid()) WITH CHECK (created_by = auth.uid());
-
+USING (created_by = auth.uid()) WITH CHECK (created_by = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='eform_templates') THEN
     IF NOT EXISTS (
@@ -136,7 +308,6 @@ DO $$ BEGIN
       END IF;
   END IF;
 END $$;
-
 INSERT INTO public.ai_providers (name, provider_type, base_url, model, priority, enabled, supports_vision, supports_json, notes)
 VALUES
   ('Lovable AI Gateway', 'lovable', 'https://ai.gateway.lovable.dev/v1/chat/completions', 'google/gemini-2.5-flash', 1, true, true, true, 'ใช้ LOVABLE_API_KEY'),
@@ -146,16 +317,43 @@ VALUES
   ('Google Gemini', 'gemini', 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', 'gemini-2.0-flash', 5, true, true, true, 'ใช้ GEMINI_API_KEY'),
   ('DashScope (Qwen)', 'dashscope', 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions', 'qwen-plus', 6, true, true, true, 'ใช้ DASHSCOPE_API_KEY')
 ON CONFLICT DO NOTHING;
-
-ALTER TABLE public.classrooms ADD COLUMN IF NOT EXISTS reference_grade_level text;
-
-DROP POLICY IF EXISTS "Auth users can view homework_assignments" ON public.homework_assignments;
-DROP POLICY IF EXISTS "Auth users can view homework_assignments in their school" ON public.homework_assignments;
-DROP POLICY IF EXISTS "Auth users can view homework_assignments in their school" ON public.homework_assignments;
-CREATE POLICY "Auth users can view homework_assignments in their school"
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.classrooms ADD COLUMN IF NOT EXISTS reference_grade_level text';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view homework_assignments" ON public.homework_assignments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view homework_assignments in their school" ON public.homework_assignments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view homework_assignments in their school" ON public.homework_assignments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users can view homework_assignments in their school"
 ON public.homework_assignments FOR SELECT TO authenticated
-USING (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()));
-
+USING (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 DO $$
 DECLARE
   t text;
@@ -182,7 +380,6 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
-
 CREATE OR REPLACE FUNCTION public.auto_assign_school_id()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE only_school uuid;
@@ -193,16 +390,25 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_profiles_auto_school ON public.profiles;
-CREATE TRIGGER trg_profiles_auto_school
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_profiles_auto_school ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_profiles_auto_school
   BEFORE INSERT OR UPDATE OF school_id ON public.profiles
-  FOR EACH ROW EXECUTE FUNCTION public.auto_assign_school_id();
-
+  FOR EACH ROW EXECUTE FUNCTION public.auto_assign_school_id()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 UPDATE public.profiles
    SET school_id = (SELECT id FROM public.schools WHERE is_active = true ORDER BY created_at LIMIT 1)
  WHERE school_id IS NULL;
-
 DO $$
 DECLARE
   t text;
@@ -227,7 +433,6 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
-
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='profiles') THEN
     ALTER PUBLICATION supabase_realtime DROP TABLE public.profiles;
@@ -239,24 +444,87 @@ DO $$ BEGIN
     ALTER PUBLICATION supabase_realtime DROP TABLE public.pdpa_consents;
   END IF;
 END $$;
-
-DROP POLICY IF EXISTS "Admin/director manage ai_providers" ON public.ai_providers;
-DROP POLICY IF EXISTS "service_role only ai_providers" ON public.ai_providers;
-DROP POLICY IF EXISTS "service_role only ai_providers" ON public.ai_providers;
-CREATE POLICY "service_role only ai_providers" ON public.ai_providers
-  AS PERMISSIVE FOR ALL TO service_role USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Anyone can view cms settings" ON public.cms_settings;
-DROP POLICY IF EXISTS "Anon view public cms keys" ON public.cms_settings;
-DROP POLICY IF EXISTS "Anon view public cms keys" ON public.cms_settings;
-CREATE POLICY "Anon view public cms keys" ON public.cms_settings
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/director manage ai_providers" ON public.ai_providers';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "service_role only ai_providers" ON public.ai_providers';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "service_role only ai_providers" ON public.ai_providers';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "service_role only ai_providers" ON public.ai_providers
+  AS PERMISSIVE FOR ALL TO service_role USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Anyone can view cms settings" ON public.cms_settings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Anon view public cms keys" ON public.cms_settings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Anon view public cms keys" ON public.cms_settings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Anon view public cms keys" ON public.cms_settings
   FOR SELECT TO anon
-  USING (key NOT ILIKE 'id_card%' AND key NOT ILIKE '%template%' AND key NOT ILIKE '%secret%' AND key NOT ILIKE '%internal%' AND key NOT ILIKE 'admin_%');
-DROP POLICY IF EXISTS "Auth view all cms settings" ON public.cms_settings;
-DROP POLICY IF EXISTS "Auth view all cms settings" ON public.cms_settings;
-CREATE POLICY "Auth view all cms settings" ON public.cms_settings
-  FOR SELECT TO authenticated USING (true);
-
+  USING (key NOT ILIKE ''id_card%'' AND key NOT ILIKE ''%template%'' AND key NOT ILIKE ''%secret%'' AND key NOT ILIKE ''%internal%'' AND key NOT ILIKE ''admin_%'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth view all cms settings" ON public.cms_settings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth view all cms settings" ON public.cms_settings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth view all cms settings" ON public.cms_settings
+  FOR SELECT TO authenticated USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.reset_content_data()
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -312,29 +580,54 @@ BEGIN
   RETURN jsonb_build_object('ok', true, 'summary', _summary);
 END;
 $$;
-
-REVOKE ALL ON FUNCTION public.reset_content_data() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.reset_content_data() TO service_role;
-
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.reset_content_data() FROM PUBLIC';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.reset_content_data() TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='google_chat_webhooks') THEN
     ALTER PUBLICATION supabase_realtime DROP TABLE public.google_chat_webhooks;
   END IF;
 END $$;
-
-ALTER TABLE public.subjects
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.subjects
   ADD COLUMN IF NOT EXISTS weight_assignment numeric NOT NULL DEFAULT 70,
   ADD COLUMN IF NOT EXISTS weight_midterm    numeric NOT NULL DEFAULT 10,
   ADD COLUMN IF NOT EXISTS weight_final      numeric NOT NULL DEFAULT 20,
   ADD COLUMN IF NOT EXISTS weight_attendance numeric NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS weeks_per_semester integer NOT NULL DEFAULT 20,
-  ADD COLUMN IF NOT EXISTS pp5_period_dates date[] NOT NULL DEFAULT '{}'::date[];
-
-ALTER TABLE public.subject_score_columns
-  ADD COLUMN IF NOT EXISTS half text NOT NULL DEFAULT 'pre',
-  ADD COLUMN IF NOT EXISTS indicator_id uuid REFERENCES public.subject_indicators(id) ON DELETE SET NULL;
-CREATE INDEX IF NOT EXISTS idx_subject_score_columns_indicator ON public.subject_score_columns(indicator_id);
-
+  ADD COLUMN IF NOT EXISTS pp5_period_dates date[] NOT NULL DEFAULT ''{}''::date[]';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.subject_score_columns
+  ADD COLUMN IF NOT EXISTS half text NOT NULL DEFAULT ''pre'',
+  ADD COLUMN IF NOT EXISTS indicator_id uuid REFERENCES public.subject_indicators(id) ON DELETE SET NULL';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_subject_score_columns_indicator ON public.subject_score_columns(indicator_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 CREATE TABLE IF NOT EXISTS public.print_templates (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   code TEXT NOT NULL,
@@ -361,25 +654,87 @@ CREATE TABLE IF NOT EXISTS public.print_templates (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-
-CREATE INDEX IF NOT EXISTS idx_print_templates_code ON public.print_templates(code);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_print_templates_one_default ON public.print_templates(code) WHERE is_default = true;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.print_templates TO authenticated;
-GRANT ALL ON public.print_templates TO service_role;
-ALTER TABLE public.print_templates ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates;
-DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates;
-CREATE POLICY "Anyone authenticated can read active templates"
-  ON public.print_templates FOR SELECT TO authenticated USING (true);
-DROP POLICY IF EXISTS "Admins and directors manage templates" ON public.print_templates;
-DROP POLICY IF EXISTS "Admins and directors manage templates" ON public.print_templates;
-CREATE POLICY "Admins and directors manage templates"
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_print_templates_code ON public.print_templates(code)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS idx_print_templates_one_default ON public.print_templates(code) WHERE is_default = true';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.print_templates TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.print_templates TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.print_templates ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Anyone authenticated can read active templates"
+  ON public.print_templates FOR SELECT TO authenticated USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins and directors manage templates" ON public.print_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins and directors manage templates" ON public.print_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins and directors manage templates"
   ON public.print_templates FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
+  USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))
+  WITH CHECK (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE TABLE IF NOT EXISTS public.print_template_versions (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   template_id UUID NOT NULL REFERENCES public.print_templates(id) ON DELETE CASCADE,
@@ -388,23 +743,79 @@ CREATE TABLE IF NOT EXISTS public.print_template_versions (
   changed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   changed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-
-CREATE INDEX IF NOT EXISTS idx_pt_versions_template ON public.print_template_versions(template_id);
-
-GRANT SELECT, INSERT ON public.print_template_versions TO authenticated;
-GRANT ALL ON public.print_template_versions TO service_role;
-ALTER TABLE public.print_template_versions ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Auth read versions" ON public.print_template_versions;
-DROP POLICY IF EXISTS "Auth read versions" ON public.print_template_versions;
-CREATE POLICY "Auth read versions"
-  ON public.print_template_versions FOR SELECT TO authenticated USING (true);
-DROP POLICY IF EXISTS "Admins write versions" ON public.print_template_versions;
-DROP POLICY IF EXISTS "Admins write versions" ON public.print_template_versions;
-CREATE POLICY "Admins write versions"
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_pt_versions_template ON public.print_template_versions(template_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT ON public.print_template_versions TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.print_template_versions TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.print_template_versions ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth read versions" ON public.print_template_versions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth read versions" ON public.print_template_versions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth read versions"
+  ON public.print_template_versions FOR SELECT TO authenticated USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins write versions" ON public.print_template_versions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins write versions" ON public.print_template_versions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins write versions"
   ON public.print_template_versions FOR INSERT TO authenticated
-  WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
+  WITH CHECK (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.bump_print_template_version()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -424,12 +835,22 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_bump_print_template_version ON public.print_templates;
-CREATE TRIGGER trg_bump_print_template_version
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_bump_print_template_version ON public.print_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_bump_print_template_version
 BEFORE UPDATE ON public.print_templates
-FOR EACH ROW EXECUTE FUNCTION public.bump_print_template_version();
-
+FOR EACH ROW EXECUTE FUNCTION public.bump_print_template_version()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='print_templates') THEN
     IF NOT EXISTS (
@@ -442,7 +863,6 @@ DO $$ BEGIN
       END IF;
   END IF;
 END $$;
-
 INSERT INTO public.print_templates(code, name, description, paper, orientation, body_html, is_default, sample_data)
 VALUES
   ('pp5', 'แบบบันทึกผลการพัฒนาคุณภาพผู้เรียน (ปพ.5)', 'ฟอร์มพิมพ์ ปพ.5', 'A4', 'landscape', '<h2>{{school.name}}</h2><p>ปพ.5 ชั้น {{class.label}} ภาคเรียนที่ {{semester}}/{{year}}</p>', true,
@@ -454,12 +874,10 @@ VALUES
   ('transcript', 'ระเบียนแสดงผลการเรียน (ปพ.1)', 'Transcript', 'A4', 'portrait', '<h2>{{school.name}}</h2>', true, '{}'::jsonb),
   ('report_card', 'สมุดรายงานประจำตัว', 'สมุดพก', 'A4', 'portrait', '<h2>{{student.full_name}}</h2>', true, '{}'::jsonb)
 ON CONFLICT DO NOTHING;
-
 DO $$ BEGIN
   BEGIN REVOKE EXECUTE ON FUNCTION public.auto_assign_school_id() FROM anon, authenticated, PUBLIC; EXCEPTION WHEN OTHERS THEN NULL; END;
   BEGIN REVOKE EXECUTE ON FUNCTION public.bump_print_template_version() FROM anon, authenticated, PUBLIC; EXCEPTION WHEN OTHERS THEN NULL; END;
 END $$;
-
 CREATE TABLE IF NOT EXISTS public.browser_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -470,24 +888,105 @@ CREATE TABLE IF NOT EXISTS public.browser_logs (
   user_agent text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-GRANT SELECT, INSERT ON public.browser_logs TO authenticated;
-GRANT ALL ON public.browser_logs TO service_role;
-ALTER TABLE public.browser_logs ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "own insert" ON public.browser_logs;
-DROP POLICY IF EXISTS "own insert" ON public.browser_logs;
-CREATE POLICY "own insert" ON public.browser_logs FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
-DROP POLICY IF EXISTS "own select" ON public.browser_logs;
-DROP POLICY IF EXISTS "own select" ON public.browser_logs;
-CREATE POLICY "own select" ON public.browser_logs FOR SELECT TO authenticated USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "admin select all" ON public.browser_logs;
-DROP POLICY IF EXISTS "admin select all" ON public.browser_logs;
-CREATE POLICY "admin select all" ON public.browser_logs FOR SELECT TO authenticated
-USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
-
-CREATE INDEX IF NOT EXISTS browser_logs_user_created_idx ON public.browser_logs(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS browser_logs_domain_idx ON public.browser_logs(domain);
-
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT ON public.browser_logs TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.browser_logs TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.browser_logs ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "own insert" ON public.browser_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "own insert" ON public.browser_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "own insert" ON public.browser_logs FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "own select" ON public.browser_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "own select" ON public.browser_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "own select" ON public.browser_logs FOR SELECT TO authenticated USING (auth.uid() = user_id)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "admin select all" ON public.browser_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "admin select all" ON public.browser_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "admin select all" ON public.browser_logs FOR SELECT TO authenticated
+USING (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS browser_logs_user_created_idx ON public.browser_logs(user_id, created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS browser_logs_domain_idx ON public.browser_logs(domain)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 CREATE TABLE IF NOT EXISTS public.game_hub_games (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL,
@@ -507,28 +1006,116 @@ CREATE TABLE IF NOT EXISTS public.game_hub_games (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.game_hub_games TO authenticated;
-GRANT ALL ON public.game_hub_games TO service_role;
-ALTER TABLE public.game_hub_games ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "games_read_active" ON public.game_hub_games;
-DROP POLICY IF EXISTS "games_read_active" ON public.game_hub_games;
-CREATE POLICY "games_read_active" ON public.game_hub_games FOR SELECT TO authenticated
-  USING (is_active = true OR created_by = auth.uid() OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
-DROP POLICY IF EXISTS "games_insert_teacher_admin" ON public.game_hub_games;
-DROP POLICY IF EXISTS "games_insert_teacher_admin" ON public.game_hub_games;
-CREATE POLICY "games_insert_teacher_admin" ON public.game_hub_games FOR INSERT TO authenticated
-  WITH CHECK (created_by = auth.uid() AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher')));
-DROP POLICY IF EXISTS "games_update_owner_admin" ON public.game_hub_games;
-DROP POLICY IF EXISTS "games_update_owner_admin" ON public.game_hub_games;
-CREATE POLICY "games_update_owner_admin" ON public.game_hub_games FOR UPDATE TO authenticated
-  USING (created_by = auth.uid() OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'))
-  WITH CHECK (created_by = auth.uid() OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
-DROP POLICY IF EXISTS "games_delete_owner_admin" ON public.game_hub_games;
-DROP POLICY IF EXISTS "games_delete_owner_admin" ON public.game_hub_games;
-CREATE POLICY "games_delete_owner_admin" ON public.game_hub_games FOR DELETE TO authenticated
-  USING (created_by = auth.uid() OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
-
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.game_hub_games TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.game_hub_games TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.game_hub_games ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "games_read_active" ON public.game_hub_games';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "games_read_active" ON public.game_hub_games';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "games_read_active" ON public.game_hub_games FOR SELECT TO authenticated
+  USING (is_active = true OR created_by = auth.uid() OR public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "games_insert_teacher_admin" ON public.game_hub_games';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "games_insert_teacher_admin" ON public.game_hub_games';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "games_insert_teacher_admin" ON public.game_hub_games FOR INSERT TO authenticated
+  WITH CHECK (created_by = auth.uid() AND (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher'')))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "games_update_owner_admin" ON public.game_hub_games';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "games_update_owner_admin" ON public.game_hub_games';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "games_update_owner_admin" ON public.game_hub_games FOR UPDATE TO authenticated
+  USING (created_by = auth.uid() OR public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director''))
+  WITH CHECK (created_by = auth.uid() OR public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "games_delete_owner_admin" ON public.game_hub_games';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "games_delete_owner_admin" ON public.game_hub_games';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "games_delete_owner_admin" ON public.game_hub_games FOR DELETE TO authenticated
+  USING (created_by = auth.uid() OR public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE TABLE IF NOT EXISTS public.game_hub_scores (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   game_id uuid NOT NULL REFERENCES public.game_hub_games(id) ON DELETE CASCADE,
@@ -540,24 +1127,106 @@ CREATE TABLE IF NOT EXISTS public.game_hub_scores (
   source text NOT NULL DEFAULT 'in_app' CHECK (source IN ('in_app','external')),
   played_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS game_hub_scores_game_score_idx ON public.game_hub_scores (game_id, score DESC);
-CREATE INDEX IF NOT EXISTS game_hub_scores_student_idx ON public.game_hub_scores (student_id);
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.game_hub_scores TO authenticated;
-GRANT ALL ON public.game_hub_scores TO service_role;
-ALTER TABLE public.game_hub_scores ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "scores_read_all_auth" ON public.game_hub_scores;
-DROP POLICY IF EXISTS "scores_read_all_auth" ON public.game_hub_scores;
-CREATE POLICY "scores_read_all_auth" ON public.game_hub_scores FOR SELECT TO authenticated USING (true);
-DROP POLICY IF EXISTS "scores_insert_self" ON public.game_hub_scores;
-DROP POLICY IF EXISTS "scores_insert_self" ON public.game_hub_scores;
-CREATE POLICY "scores_insert_self" ON public.game_hub_scores FOR INSERT TO authenticated
-  WITH CHECK (auth_user_id = auth.uid() OR public.has_role(auth.uid(),'admin'));
-DROP POLICY IF EXISTS "scores_delete_admin" ON public.game_hub_scores;
-DROP POLICY IF EXISTS "scores_delete_admin" ON public.game_hub_scores;
-CREATE POLICY "scores_delete_admin" ON public.game_hub_scores FOR DELETE TO authenticated
-  USING (public.has_role(auth.uid(),'admin'));
-
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS game_hub_scores_game_score_idx ON public.game_hub_scores (game_id, score DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS game_hub_scores_student_idx ON public.game_hub_scores (student_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.game_hub_scores TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.game_hub_scores TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.game_hub_scores ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "scores_read_all_auth" ON public.game_hub_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "scores_read_all_auth" ON public.game_hub_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "scores_read_all_auth" ON public.game_hub_scores FOR SELECT TO authenticated USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "scores_insert_self" ON public.game_hub_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "scores_insert_self" ON public.game_hub_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "scores_insert_self" ON public.game_hub_scores FOR INSERT TO authenticated
+  WITH CHECK (auth_user_id = auth.uid() OR public.has_role(auth.uid(),''admin''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "scores_delete_admin" ON public.game_hub_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "scores_delete_admin" ON public.game_hub_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "scores_delete_admin" ON public.game_hub_scores FOR DELETE TO authenticated
+  USING (public.has_role(auth.uid(),''admin''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE TABLE IF NOT EXISTS public.game_hub_api_keys (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -569,19 +1238,64 @@ CREATE TABLE IF NOT EXISTS public.game_hub_api_keys (
   created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.game_hub_api_keys TO authenticated;
-GRANT ALL ON public.game_hub_api_keys TO service_role;
-ALTER TABLE public.game_hub_api_keys ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "apikeys_admin_only" ON public.game_hub_api_keys;
-DROP POLICY IF EXISTS "apikeys_admin_only" ON public.game_hub_api_keys;
-CREATE POLICY "apikeys_admin_only" ON public.game_hub_api_keys FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
-
-DROP TRIGGER IF EXISTS game_hub_games_updated_at ON public.game_hub_games;
-CREATE TRIGGER game_hub_games_updated_at BEFORE UPDATE ON public.game_hub_games
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.game_hub_api_keys TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.game_hub_api_keys TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.game_hub_api_keys ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "apikeys_admin_only" ON public.game_hub_api_keys';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "apikeys_admin_only" ON public.game_hub_api_keys';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "apikeys_admin_only" ON public.game_hub_api_keys FOR ALL TO authenticated
+  USING (public.has_role(auth.uid(),''admin'')) WITH CHECK (public.has_role(auth.uid(),''admin''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS game_hub_games_updated_at ON public.game_hub_games';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER game_hub_games_updated_at BEFORE UPDATE ON public.game_hub_games
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='game_hub_games') THEN
     IF NOT EXISTS (
@@ -604,21 +1318,33 @@ DO $$ BEGIN
       END IF;
   END IF;
 END $$;
-
-ALTER TABLE public.ict_loans 
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.ict_loans 
   ADD COLUMN IF NOT EXISTS period_number integer,
   ADD COLUMN IF NOT EXISTS subject_id uuid REFERENCES public.subjects(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS teaching_topic text,
   ADD COLUMN IF NOT EXISTS classroom_id uuid REFERENCES public.classrooms(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS batch_id uuid,
-  ADD COLUMN IF NOT EXISTS quantity integer NOT NULL DEFAULT 1;
-CREATE INDEX IF NOT EXISTS idx_ict_loans_batch ON public.ict_loans(batch_id);
-
-ALTER TABLE public.print_templates
+  ADD COLUMN IF NOT EXISTS quantity integer NOT NULL DEFAULT 1';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_ict_loans_batch ON public.ict_loans(batch_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.print_templates
   ADD COLUMN IF NOT EXISTS source_pdf_path text,
   ADD COLUMN IF NOT EXISTS source_pdf_pages integer,
-  ADD COLUMN IF NOT EXISTS field_map jsonb NOT NULL DEFAULT '[]'::jsonb,
-  ADD COLUMN IF NOT EXISTS analyze_status text NOT NULL DEFAULT 'idle',
+  ADD COLUMN IF NOT EXISTS field_map jsonb NOT NULL DEFAULT ''[]''::jsonb,
+  ADD COLUMN IF NOT EXISTS analyze_status text NOT NULL DEFAULT ''idle'',
   ADD COLUMN IF NOT EXISTS analyze_error text,
   ADD COLUMN IF NOT EXISTS analyzed_at timestamptz,
   ADD COLUMN IF NOT EXISTS category text,
@@ -626,22 +1352,53 @@ ALTER TABLE public.print_templates
   ADD COLUMN IF NOT EXISTS last_used_at timestamptz,
   ADD COLUMN IF NOT EXISTS is_system_master boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS is_default_for_category boolean NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS shared_with_roles text[] NOT NULL DEFAULT ARRAY['admin','director','teacher']::text[],
-  ADD COLUMN IF NOT EXISTS published_at timestamptz;
-
-CREATE INDEX IF NOT EXISTS print_templates_category_idx ON public.print_templates(category) WHERE is_system_master = true;
-CREATE UNIQUE INDEX IF NOT EXISTS print_templates_default_per_category_uidx
-  ON public.print_templates(category) WHERE is_default_for_category = true;
-
-DROP POLICY IF EXISTS "Shared masters readable by shared roles" ON public.print_templates;
-DROP POLICY IF EXISTS "Shared masters readable by shared roles" ON public.print_templates;
-CREATE POLICY "Shared masters readable by shared roles"
+  ADD COLUMN IF NOT EXISTS shared_with_roles text[] NOT NULL DEFAULT ARRAY[''admin'',''director'',''teacher'']::text[],
+  ADD COLUMN IF NOT EXISTS published_at timestamptz';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS print_templates_category_idx ON public.print_templates(category) WHERE is_system_master = true';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS print_templates_default_per_category_uidx
+  ON public.print_templates(category) WHERE is_default_for_category = true';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Shared masters readable by shared roles" ON public.print_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Shared masters readable by shared roles" ON public.print_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Shared masters readable by shared roles"
 ON public.print_templates FOR SELECT TO authenticated
 USING (
   is_system_master = true AND published_at IS NOT NULL
   AND EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role::text = ANY(shared_with_roles))
-);
-
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE TABLE IF NOT EXISTS public.template_fill_history (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   template_id uuid NOT NULL REFERENCES public.print_templates(id) ON DELETE CASCADE,
@@ -651,25 +1408,95 @@ CREATE TABLE IF NOT EXISTS public.template_fill_history (
   output_pdf_path text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.template_fill_history TO authenticated;
-GRANT ALL ON public.template_fill_history TO service_role;
-ALTER TABLE public.template_fill_history ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "All authenticated can read fill history" ON public.template_fill_history;
-DROP POLICY IF EXISTS "All authenticated can read fill history" ON public.template_fill_history;
-CREATE POLICY "All authenticated can read fill history"
-  ON public.template_fill_history FOR SELECT TO authenticated USING (true);
-DROP POLICY IF EXISTS "Authenticated can insert fill history" ON public.template_fill_history;
-DROP POLICY IF EXISTS "Authenticated can insert fill history" ON public.template_fill_history;
-CREATE POLICY "Authenticated can insert fill history"
-  ON public.template_fill_history FOR INSERT TO authenticated WITH CHECK (auth.uid() = filled_by);
-DROP POLICY IF EXISTS "Admin/Director manage fill history" ON public.template_fill_history;
-DROP POLICY IF EXISTS "Admin/Director manage fill history" ON public.template_fill_history;
-CREATE POLICY "Admin/Director manage fill history"
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.template_fill_history TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.template_fill_history TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.template_fill_history ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "All authenticated can read fill history" ON public.template_fill_history';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "All authenticated can read fill history" ON public.template_fill_history';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "All authenticated can read fill history"
+  ON public.template_fill_history FOR SELECT TO authenticated USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can insert fill history" ON public.template_fill_history';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can insert fill history" ON public.template_fill_history';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Authenticated can insert fill history"
+  ON public.template_fill_history FOR INSERT TO authenticated WITH CHECK (auth.uid() = filled_by)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director manage fill history" ON public.template_fill_history';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director manage fill history" ON public.template_fill_history';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/Director manage fill history"
   ON public.template_fill_history FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
+  USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))
+  WITH CHECK (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE TABLE IF NOT EXISTS public.browser_shortcuts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   label_th TEXT NOT NULL,
@@ -684,23 +1511,86 @@ CREATE TABLE IF NOT EXISTS public.browser_shortcuts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.browser_shortcuts TO authenticated;
-GRANT ALL ON public.browser_shortcuts TO service_role;
-ALTER TABLE public.browser_shortcuts ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "authenticated can read shortcuts" ON public.browser_shortcuts;
-DROP POLICY IF EXISTS "authenticated can read shortcuts" ON public.browser_shortcuts;
-CREATE POLICY "authenticated can read shortcuts" ON public.browser_shortcuts FOR SELECT TO authenticated USING (true);
-DROP POLICY IF EXISTS "admins manage shortcuts" ON public.browser_shortcuts;
-DROP POLICY IF EXISTS "admins manage shortcuts" ON public.browser_shortcuts;
-CREATE POLICY "admins manage shortcuts" ON public.browser_shortcuts FOR ALL TO authenticated
-USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
-WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
-DROP TRIGGER IF EXISTS trg_browser_shortcuts_updated ON public.browser_shortcuts;
-CREATE TRIGGER trg_browser_shortcuts_updated BEFORE UPDATE ON public.browser_shortcuts
-FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.browser_shortcuts TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.browser_shortcuts TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.browser_shortcuts ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "authenticated can read shortcuts" ON public.browser_shortcuts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "authenticated can read shortcuts" ON public.browser_shortcuts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "authenticated can read shortcuts" ON public.browser_shortcuts FOR SELECT TO authenticated USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "admins manage shortcuts" ON public.browser_shortcuts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "admins manage shortcuts" ON public.browser_shortcuts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "admins manage shortcuts" ON public.browser_shortcuts FOR ALL TO authenticated
+USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))
+WITH CHECK (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_browser_shortcuts_updated ON public.browser_shortcuts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_browser_shortcuts_updated BEFORE UPDATE ON public.browser_shortcuts
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='browser_shortcuts') THEN
     IF NOT EXISTS (
@@ -713,7 +1603,6 @@ DO $$ BEGIN
       END IF;
   END IF;
 END $$;
-
 INSERT INTO public.browser_shortcuts (label_th, label_en, icon, target_url, bg_class, sort_order) VALUES
   ('Docs','Docs','FileText','https://docs.google.com','bg-gradient-to-br from-sky-400 to-blue-600',10),
   ('Sheets','Sheets','Sheet','https://sheets.google.com','bg-gradient-to-br from-green-400 to-emerald-600',20),
@@ -726,7 +1615,6 @@ INSERT INTO public.browser_shortcuts (label_th, label_en, icon, target_url, bg_c
   ('Maps','Maps','Map','https://www.google.com/maps','bg-gradient-to-br from-orange-400 to-red-500',90),
   ('Wikipedia','Wikipedia','BookOpen','https://th.wikipedia.org','bg-gradient-to-br from-slate-400 to-slate-600',100)
 ON CONFLICT DO NOTHING;
-
 CREATE TABLE IF NOT EXISTS public.lesson_plans (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
@@ -763,39 +1651,193 @@ CREATE TABLE IF NOT EXISTS public.lesson_plans (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_lesson_plans_user ON public.lesson_plans(user_id);
-CREATE INDEX IF NOT EXISTS idx_lesson_plans_teacher ON public.lesson_plans(teacher_id);
-CREATE INDEX IF NOT EXISTS idx_lesson_plans_year_sem ON public.lesson_plans(academic_year, semester);
-CREATE INDEX IF NOT EXISTS idx_lesson_plans_subject ON public.lesson_plans(subject_id);
-CREATE INDEX IF NOT EXISTS idx_lesson_plans_status ON public.lesson_plans(status);
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.lesson_plans TO authenticated;
-GRANT ALL ON public.lesson_plans TO service_role;
-ALTER TABLE public.lesson_plans ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "lesson_plans_own_select" ON public.lesson_plans;
-DROP POLICY IF EXISTS "lesson_plans_own_select" ON public.lesson_plans;
-CREATE POLICY "lesson_plans_own_select" ON public.lesson_plans FOR SELECT TO authenticated USING (user_id = auth.uid());
-DROP POLICY IF EXISTS "lesson_plans_own_insert" ON public.lesson_plans;
-DROP POLICY IF EXISTS "lesson_plans_own_insert" ON public.lesson_plans;
-CREATE POLICY "lesson_plans_own_insert" ON public.lesson_plans FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
-DROP POLICY IF EXISTS "lesson_plans_own_update" ON public.lesson_plans;
-DROP POLICY IF EXISTS "lesson_plans_own_update" ON public.lesson_plans;
-CREATE POLICY "lesson_plans_own_update" ON public.lesson_plans FOR UPDATE TO authenticated
-USING (user_id = auth.uid() AND status <> 'approved') WITH CHECK (user_id = auth.uid());
-DROP POLICY IF EXISTS "lesson_plans_own_delete" ON public.lesson_plans;
-DROP POLICY IF EXISTS "lesson_plans_own_delete" ON public.lesson_plans;
-CREATE POLICY "lesson_plans_own_delete" ON public.lesson_plans FOR DELETE TO authenticated
-USING (user_id = auth.uid() AND status IN ('draft','revise_needed'));
-DROP POLICY IF EXISTS "lesson_plans_admin_all" ON public.lesson_plans;
-DROP POLICY IF EXISTS "lesson_plans_admin_all" ON public.lesson_plans;
-CREATE POLICY "lesson_plans_admin_all" ON public.lesson_plans FOR ALL TO authenticated
-USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
-WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-DROP POLICY IF EXISTS "lesson_plans_peer_view_approved" ON public.lesson_plans;
-DROP POLICY IF EXISTS "lesson_plans_peer_view_approved" ON public.lesson_plans;
-CREATE POLICY "lesson_plans_peer_view_approved" ON public.lesson_plans FOR SELECT TO authenticated
-USING (status = 'approved');
-
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_lesson_plans_user ON public.lesson_plans(user_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_lesson_plans_teacher ON public.lesson_plans(teacher_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_lesson_plans_year_sem ON public.lesson_plans(academic_year, semester)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_lesson_plans_subject ON public.lesson_plans(subject_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_lesson_plans_status ON public.lesson_plans(status)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.lesson_plans TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.lesson_plans TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.lesson_plans ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "lesson_plans_own_select" ON public.lesson_plans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "lesson_plans_own_select" ON public.lesson_plans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "lesson_plans_own_select" ON public.lesson_plans FOR SELECT TO authenticated USING (user_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "lesson_plans_own_insert" ON public.lesson_plans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "lesson_plans_own_insert" ON public.lesson_plans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "lesson_plans_own_insert" ON public.lesson_plans FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "lesson_plans_own_update" ON public.lesson_plans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "lesson_plans_own_update" ON public.lesson_plans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "lesson_plans_own_update" ON public.lesson_plans FOR UPDATE TO authenticated
+USING (user_id = auth.uid() AND status <> ''approved'') WITH CHECK (user_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "lesson_plans_own_delete" ON public.lesson_plans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "lesson_plans_own_delete" ON public.lesson_plans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "lesson_plans_own_delete" ON public.lesson_plans FOR DELETE TO authenticated
+USING (user_id = auth.uid() AND status IN (''draft'',''revise_needed''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "lesson_plans_admin_all" ON public.lesson_plans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "lesson_plans_admin_all" ON public.lesson_plans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "lesson_plans_admin_all" ON public.lesson_plans FOR ALL TO authenticated
+USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))
+WITH CHECK (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "lesson_plans_peer_view_approved" ON public.lesson_plans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "lesson_plans_peer_view_approved" ON public.lesson_plans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "lesson_plans_peer_view_approved" ON public.lesson_plans FOR SELECT TO authenticated
+USING (status = ''approved'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE TABLE IF NOT EXISTS public.teaching_logbook (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
@@ -822,23 +1864,99 @@ CREATE TABLE IF NOT EXISTS public.teaching_logbook (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_logbook_user ON public.teaching_logbook(user_id);
-CREATE INDEX IF NOT EXISTS idx_logbook_teacher ON public.teaching_logbook(teacher_id);
-CREATE INDEX IF NOT EXISTS idx_logbook_date ON public.teaching_logbook(teaching_date DESC);
-CREATE INDEX IF NOT EXISTS idx_logbook_year_sem ON public.teaching_logbook(academic_year, semester);
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.teaching_logbook TO authenticated;
-GRANT ALL ON public.teaching_logbook TO service_role;
-ALTER TABLE public.teaching_logbook ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "logbook_own_all" ON public.teaching_logbook;
-DROP POLICY IF EXISTS "logbook_own_all" ON public.teaching_logbook;
-CREATE POLICY "logbook_own_all" ON public.teaching_logbook FOR ALL TO authenticated
-USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
-DROP POLICY IF EXISTS "logbook_admin_view" ON public.teaching_logbook;
-DROP POLICY IF EXISTS "logbook_admin_view" ON public.teaching_logbook;
-CREATE POLICY "logbook_admin_view" ON public.teaching_logbook FOR SELECT TO authenticated
-USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_logbook_user ON public.teaching_logbook(user_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_logbook_teacher ON public.teaching_logbook(teacher_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_logbook_date ON public.teaching_logbook(teaching_date DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_logbook_year_sem ON public.teaching_logbook(academic_year, semester)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.teaching_logbook TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.teaching_logbook TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.teaching_logbook ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "logbook_own_all" ON public.teaching_logbook';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "logbook_own_all" ON public.teaching_logbook';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "logbook_own_all" ON public.teaching_logbook FOR ALL TO authenticated
+USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "logbook_admin_view" ON public.teaching_logbook';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "logbook_admin_view" ON public.teaching_logbook';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "logbook_admin_view" ON public.teaching_logbook FOR SELECT TO authenticated
+USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.set_lesson_plan_defaults()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -848,10 +1966,21 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-DROP TRIGGER IF EXISTS trg_lesson_plans_defaults ON public.lesson_plans;
-CREATE TRIGGER trg_lesson_plans_defaults BEFORE INSERT OR UPDATE ON public.lesson_plans
-FOR EACH ROW EXECUTE FUNCTION public.set_lesson_plan_defaults();
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_lesson_plans_defaults ON public.lesson_plans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_lesson_plans_defaults BEFORE INSERT OR UPDATE ON public.lesson_plans
+FOR EACH ROW EXECUTE FUNCTION public.set_lesson_plan_defaults()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.set_logbook_defaults()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -861,12 +1990,35 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-DROP TRIGGER IF EXISTS trg_logbook_defaults ON public.teaching_logbook;
-CREATE TRIGGER trg_logbook_defaults BEFORE INSERT OR UPDATE ON public.teaching_logbook
-FOR EACH ROW EXECUTE FUNCTION public.set_logbook_defaults();
-
-ALTER TABLE public.lesson_plans REPLICA IDENTITY FULL;
-ALTER TABLE public.teaching_logbook REPLICA IDENTITY FULL;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_logbook_defaults ON public.teaching_logbook';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_logbook_defaults BEFORE INSERT OR UPDATE ON public.teaching_logbook
+FOR EACH ROW EXECUTE FUNCTION public.set_logbook_defaults()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.lesson_plans REPLICA IDENTITY FULL';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.teaching_logbook REPLICA IDENTITY FULL';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='lesson_plans') THEN
     IF NOT EXISTS (
@@ -889,7 +2041,6 @@ DO $$ BEGIN
       END IF;
   END IF;
 END $$;
-
 CREATE TABLE IF NOT EXISTS public.padlet_boards (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id uuid NOT NULL,
@@ -903,7 +2054,6 @@ CREATE TABLE IF NOT EXISTS public.padlet_boards (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS public.padlet_notes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   board_id uuid NOT NULL REFERENCES public.padlet_boards(id) ON DELETE CASCADE,
@@ -919,49 +2069,236 @@ CREATE TABLE IF NOT EXISTS public.padlet_notes (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_padlet_notes_board ON public.padlet_notes(board_id, position);
-CREATE INDEX IF NOT EXISTS idx_padlet_boards_owner ON public.padlet_boards(owner_id);
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.padlet_boards TO authenticated;
-GRANT ALL ON public.padlet_boards TO service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.padlet_notes TO authenticated;
-GRANT ALL ON public.padlet_notes TO service_role;
-
-ALTER TABLE public.padlet_boards ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.padlet_notes ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "boards viewable by authenticated" ON public.padlet_boards;
-DROP POLICY IF EXISTS "boards viewable by authenticated" ON public.padlet_boards;
-CREATE POLICY "boards viewable by authenticated" ON public.padlet_boards FOR SELECT TO authenticated USING (true);
-DROP POLICY IF EXISTS "teachers can create boards" ON public.padlet_boards;
-DROP POLICY IF EXISTS "teachers can create boards" ON public.padlet_boards;
-CREATE POLICY "teachers can create boards" ON public.padlet_boards FOR INSERT TO authenticated
-WITH CHECK (auth.uid() = owner_id AND (public.has_role(auth.uid(), 'teacher') OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director')));
-DROP POLICY IF EXISTS "owners or admins update boards" ON public.padlet_boards;
-DROP POLICY IF EXISTS "owners or admins update boards" ON public.padlet_boards;
-CREATE POLICY "owners or admins update boards" ON public.padlet_boards FOR UPDATE TO authenticated
-USING (owner_id = auth.uid() OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-DROP POLICY IF EXISTS "owners or admins delete boards" ON public.padlet_boards;
-DROP POLICY IF EXISTS "owners or admins delete boards" ON public.padlet_boards;
-CREATE POLICY "owners or admins delete boards" ON public.padlet_boards FOR DELETE TO authenticated
-USING (owner_id = auth.uid() OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
-DROP POLICY IF EXISTS "notes viewable by authenticated" ON public.padlet_notes;
-DROP POLICY IF EXISTS "notes viewable by authenticated" ON public.padlet_notes;
-CREATE POLICY "notes viewable by authenticated" ON public.padlet_notes FOR SELECT TO authenticated USING (true);
-DROP POLICY IF EXISTS "authenticated can post notes" ON public.padlet_notes;
-DROP POLICY IF EXISTS "authenticated can post notes" ON public.padlet_notes;
-CREATE POLICY "authenticated can post notes" ON public.padlet_notes FOR INSERT TO authenticated
-WITH CHECK (auth.uid() = author_id AND EXISTS (SELECT 1 FROM public.padlet_boards b WHERE b.id = board_id AND (b.allow_guest_post = true OR b.owner_id = auth.uid())));
-DROP POLICY IF EXISTS "authors or board owners update notes" ON public.padlet_notes;
-DROP POLICY IF EXISTS "authors or board owners update notes" ON public.padlet_notes;
-CREATE POLICY "authors or board owners update notes" ON public.padlet_notes FOR UPDATE TO authenticated
-USING (author_id = auth.uid() OR EXISTS (SELECT 1 FROM public.padlet_boards b WHERE b.id = board_id AND b.owner_id = auth.uid()) OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-DROP POLICY IF EXISTS "authors or board owners delete notes" ON public.padlet_notes;
-DROP POLICY IF EXISTS "authors or board owners delete notes" ON public.padlet_notes;
-CREATE POLICY "authors or board owners delete notes" ON public.padlet_notes FOR DELETE TO authenticated
-USING (author_id = auth.uid() OR EXISTS (SELECT 1 FROM public.padlet_boards b WHERE b.id = board_id AND b.owner_id = auth.uid()) OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_padlet_notes_board ON public.padlet_notes(board_id, position)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_padlet_boards_owner ON public.padlet_boards(owner_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.padlet_boards TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.padlet_boards TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.padlet_notes TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.padlet_notes TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.padlet_boards ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.padlet_notes ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "boards viewable by authenticated" ON public.padlet_boards';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "boards viewable by authenticated" ON public.padlet_boards';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "boards viewable by authenticated" ON public.padlet_boards FOR SELECT TO authenticated USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "teachers can create boards" ON public.padlet_boards';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "teachers can create boards" ON public.padlet_boards';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "teachers can create boards" ON public.padlet_boards FOR INSERT TO authenticated
+WITH CHECK (auth.uid() = owner_id AND (public.has_role(auth.uid(), ''teacher'') OR public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director'')))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "owners or admins update boards" ON public.padlet_boards';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "owners or admins update boards" ON public.padlet_boards';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "owners or admins update boards" ON public.padlet_boards FOR UPDATE TO authenticated
+USING (owner_id = auth.uid() OR public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "owners or admins delete boards" ON public.padlet_boards';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "owners or admins delete boards" ON public.padlet_boards';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "owners or admins delete boards" ON public.padlet_boards FOR DELETE TO authenticated
+USING (owner_id = auth.uid() OR public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "notes viewable by authenticated" ON public.padlet_notes';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "notes viewable by authenticated" ON public.padlet_notes';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "notes viewable by authenticated" ON public.padlet_notes FOR SELECT TO authenticated USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "authenticated can post notes" ON public.padlet_notes';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "authenticated can post notes" ON public.padlet_notes';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "authenticated can post notes" ON public.padlet_notes FOR INSERT TO authenticated
+WITH CHECK (auth.uid() = author_id AND EXISTS (SELECT 1 FROM public.padlet_boards b WHERE b.id = board_id AND (b.allow_guest_post = true OR b.owner_id = auth.uid())))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "authors or board owners update notes" ON public.padlet_notes';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "authors or board owners update notes" ON public.padlet_notes';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "authors or board owners update notes" ON public.padlet_notes FOR UPDATE TO authenticated
+USING (author_id = auth.uid() OR EXISTS (SELECT 1 FROM public.padlet_boards b WHERE b.id = board_id AND b.owner_id = auth.uid()) OR public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "authors or board owners delete notes" ON public.padlet_notes';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "authors or board owners delete notes" ON public.padlet_notes';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "authors or board owners delete notes" ON public.padlet_notes FOR DELETE TO authenticated
+USING (author_id = auth.uid() OR EXISTS (SELECT 1 FROM public.padlet_boards b WHERE b.id = board_id AND b.owner_id = auth.uid()) OR public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE TABLE IF NOT EXISTS public.upstream_subscription (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL DEFAULT 'default',
@@ -974,16 +2311,62 @@ CREATE TABLE IF NOT EXISTS public.upstream_subscription (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.upstream_subscription TO authenticated;
-GRANT ALL ON public.upstream_subscription TO service_role;
-ALTER TABLE public.upstream_subscription ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Admins manage upstream subscription" ON public.upstream_subscription;
-DROP POLICY IF EXISTS "Admins manage upstream subscription" ON public.upstream_subscription;
-CREATE POLICY "Admins manage upstream subscription" ON public.upstream_subscription FOR ALL TO authenticated
-USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
-WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
-DROP TRIGGER IF EXISTS trg_upstream_subscription_updated ON public.upstream_subscription;
-CREATE TRIGGER trg_upstream_subscription_updated BEFORE UPDATE ON public.upstream_subscription
-FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.upstream_subscription TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.upstream_subscription TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.upstream_subscription ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage upstream subscription" ON public.upstream_subscription';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage upstream subscription" ON public.upstream_subscription';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins manage upstream subscription" ON public.upstream_subscription FOR ALL TO authenticated
+USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))
+WITH CHECK (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_upstream_subscription_updated ON public.upstream_subscription';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_upstream_subscription_updated BEFORE UPDATE ON public.upstream_subscription
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

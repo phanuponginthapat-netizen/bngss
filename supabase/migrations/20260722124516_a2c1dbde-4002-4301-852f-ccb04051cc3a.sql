@@ -1,4 +1,3 @@
-
 -- Notify all admin users at once
 CREATE OR REPLACE FUNCTION public.notify_admins(
   _title text,
@@ -24,10 +23,20 @@ BEGIN
   RETURN inserted_count;
 END;
 $$;
-
-REVOKE EXECUTE ON FUNCTION public.notify_admins(text,text,text,text,uuid) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.notify_admins(text,text,text,text,uuid) TO authenticated;
-
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.notify_admins(text,text,text,text,uuid) FROM PUBLIC, anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.notify_admins(text,text,text,text,uuid) TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Realtime
 DO $$
 BEGIN

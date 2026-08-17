@@ -1,4 +1,3 @@
-
 -- Dedupe subjects table: keep the earliest row per (school_id, name_th, grade_level, semester, academic_year)
 -- and re-point all FKs to the canonical id, then delete duplicates.
 
@@ -36,7 +35,12 @@ BEGIN
     DELETE FROM public.subjects WHERE id = ANY(dup_ids);
   END LOOP;
 END $$;
-
 -- Prevent future duplicates
-CREATE UNIQUE INDEX IF NOT EXISTS subjects_unique_per_school_grade_sem_year
-  ON public.subjects (school_id, name_th, grade_level, semester, academic_year);
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS subjects_unique_per_school_grade_sem_year
+  ON public.subjects (school_id, name_th, grade_level, semester, academic_year)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;

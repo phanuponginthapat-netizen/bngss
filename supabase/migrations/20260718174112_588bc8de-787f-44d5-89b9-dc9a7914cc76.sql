@@ -1,4 +1,3 @@
-
 DO $$
 DECLARE
   fn_record RECORD;

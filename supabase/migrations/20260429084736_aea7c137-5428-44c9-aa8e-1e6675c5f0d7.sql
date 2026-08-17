@@ -1,4 +1,4 @@
-
+DROP FUNCTION IF EXISTS public.get_public_profile(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_public_profile(_id uuid)
 RETURNS TABLE (
   id uuid,
@@ -33,5 +33,10 @@ AS $$
     AND p.is_approved = true
   LIMIT 1;
 $$;
-
-GRANT EXECUTE ON FUNCTION public.get_public_profile(uuid) TO anon, authenticated;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_public_profile(uuid) TO anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

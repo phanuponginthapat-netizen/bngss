@@ -1,4 +1,3 @@
-
 -- PA Agreements main table
 CREATE TABLE IF NOT EXISTS public.pa_agreements (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -17,7 +16,6 @@ CREATE TABLE IF NOT EXISTS public.pa_agreements (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_by UUID
 );
-
 -- PA Indicator Scores
 CREATE TABLE IF NOT EXISTS public.pa_indicator_scores (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -31,48 +29,157 @@ CREATE TABLE IF NOT EXISTS public.pa_indicator_scores (
   evaluator_comment TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
-ALTER TABLE public.pa_agreements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.pa_indicator_scores ENABLE ROW LEVEL SECURITY;
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.pa_agreements ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.pa_indicator_scores ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- RLS for pa_agreements
-DROP POLICY IF EXISTS "Auth users can view pa_agreements" ON public.pa_agreements;
-DROP POLICY IF EXISTS "Auth users can view pa_agreements" ON public.pa_agreements;
-CREATE POLICY "Auth users can view pa_agreements"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view pa_agreements" ON public.pa_agreements';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view pa_agreements" ON public.pa_agreements';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users can view pa_agreements"
   ON public.pa_agreements FOR SELECT TO authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS "Admin/Director can manage pa_agreements" ON public.pa_agreements;
-DROP POLICY IF EXISTS "Admin/Director can manage pa_agreements" ON public.pa_agreements;
-CREATE POLICY "Admin/Director can manage pa_agreements"
+  USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage pa_agreements" ON public.pa_agreements';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage pa_agreements" ON public.pa_agreements';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/Director can manage pa_agreements"
   ON public.pa_agreements FOR ALL TO authenticated
-  USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director'))
-  WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director'));
-
-DROP POLICY IF EXISTS "Users can manage own pa_agreements" ON public.pa_agreements;
-DROP POLICY IF EXISTS "Users can manage own pa_agreements" ON public.pa_agreements;
-CREATE POLICY "Users can manage own pa_agreements"
+  USING (has_role(auth.uid(), ''admin'') OR has_role(auth.uid(), ''director''))
+  WITH CHECK (has_role(auth.uid(), ''admin'') OR has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users can manage own pa_agreements" ON public.pa_agreements';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users can manage own pa_agreements" ON public.pa_agreements';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Users can manage own pa_agreements"
   ON public.pa_agreements FOR ALL TO authenticated
   USING (created_by = auth.uid())
-  WITH CHECK (created_by = auth.uid());
-
+  WITH CHECK (created_by = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- RLS for pa_indicator_scores
-DROP POLICY IF EXISTS "Auth users can view pa_indicator_scores" ON public.pa_indicator_scores;
-DROP POLICY IF EXISTS "Auth users can view pa_indicator_scores" ON public.pa_indicator_scores;
-CREATE POLICY "Auth users can view pa_indicator_scores"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view pa_indicator_scores" ON public.pa_indicator_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view pa_indicator_scores" ON public.pa_indicator_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users can view pa_indicator_scores"
   ON public.pa_indicator_scores FOR SELECT TO authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS "Admin/Director can manage pa_indicator_scores" ON public.pa_indicator_scores;
-DROP POLICY IF EXISTS "Admin/Director can manage pa_indicator_scores" ON public.pa_indicator_scores;
-CREATE POLICY "Admin/Director can manage pa_indicator_scores"
+  USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage pa_indicator_scores" ON public.pa_indicator_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage pa_indicator_scores" ON public.pa_indicator_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/Director can manage pa_indicator_scores"
   ON public.pa_indicator_scores FOR ALL TO authenticated
-  USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director'))
-  WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director'));
-
-DROP POLICY IF EXISTS "Users can manage own pa_indicator_scores" ON public.pa_indicator_scores;
-DROP POLICY IF EXISTS "Users can manage own pa_indicator_scores" ON public.pa_indicator_scores;
-CREATE POLICY "Users can manage own pa_indicator_scores"
+  USING (has_role(auth.uid(), ''admin'') OR has_role(auth.uid(), ''director''))
+  WITH CHECK (has_role(auth.uid(), ''admin'') OR has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users can manage own pa_indicator_scores" ON public.pa_indicator_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users can manage own pa_indicator_scores" ON public.pa_indicator_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Users can manage own pa_indicator_scores"
   ON public.pa_indicator_scores FOR ALL TO authenticated
   USING (
     EXISTS (
@@ -85,8 +192,11 @@ CREATE POLICY "Users can manage own pa_indicator_scores"
       SELECT 1 FROM public.pa_agreements pa 
       WHERE pa.id = pa_agreement_id AND pa.created_by = auth.uid()
     )
-  );
-
+  )';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Enable realtime
 DO $$
 BEGIN
@@ -111,7 +221,19 @@ BEGIN
   END IF;
 END $$;
 -- Updated_at trigger
-DROP TRIGGER IF EXISTS update_pa_agreements_updated_at ON public.pa_agreements;
-CREATE TRIGGER update_pa_agreements_updated_at
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS update_pa_agreements_updated_at ON public.pa_agreements';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER update_pa_agreements_updated_at
   BEFORE UPDATE ON public.pa_agreements
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

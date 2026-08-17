@@ -9,15 +9,50 @@ CREATE TABLE IF NOT EXISTS public.wall_reaction_audit (
   error text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-GRANT SELECT ON public.wall_reaction_audit TO authenticated;
-GRANT ALL ON public.wall_reaction_audit TO service_role;
-ALTER TABLE public.wall_reaction_audit ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "admins_view_audit" ON public.wall_reaction_audit;
-DROP POLICY IF EXISTS "admins_view_audit" ON public.wall_reaction_audit;
-CREATE POLICY "admins_view_audit" ON public.wall_reaction_audit
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT ON public.wall_reaction_audit TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.wall_reaction_audit TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.wall_reaction_audit ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "admins_view_audit" ON public.wall_reaction_audit';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "admins_view_audit" ON public.wall_reaction_audit';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "admins_view_audit" ON public.wall_reaction_audit
   FOR SELECT TO authenticated
-  USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
-
+  USING (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.notify_wall_post_reaction()
 RETURNS trigger
 LANGUAGE plpgsql

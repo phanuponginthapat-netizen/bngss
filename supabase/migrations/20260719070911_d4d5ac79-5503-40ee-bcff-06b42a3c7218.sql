@@ -1,4 +1,3 @@
-
 -- Prune unused seeded secrets from app_secrets and rewrite defaults to only
 -- include keys that are actually referenced by edge functions or the app.
 
@@ -14,7 +13,6 @@ WHERE key IN (
   'FIREWORKS_API_KEY','NVIDIA_API_KEY','GITHUB_MODELS_TOKEN',
   'PERPLEXITY_API_KEY','ANTHROPIC_API_KEY'
 ) AND (value IS NULL OR value = '');
-
 CREATE OR REPLACE FUNCTION public.ensure_default_app_secrets()
 RETURNS void
 LANGUAGE plpgsql
@@ -40,8 +38,18 @@ BEGIN
   ON CONFLICT (key) DO NOTHING;
 END;
 $$;
-
-REVOKE ALL ON FUNCTION public.ensure_default_app_secrets() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.ensure_default_app_secrets() TO authenticated, service_role;
-
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.ensure_default_app_secrets() FROM PUBLIC, anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.ensure_default_app_secrets() TO authenticated, service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 SELECT public.ensure_default_app_secrets();

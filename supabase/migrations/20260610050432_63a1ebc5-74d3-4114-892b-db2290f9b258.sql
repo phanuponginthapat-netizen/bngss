@@ -14,5 +14,10 @@ AS $$
   )
   ORDER BY p.first_name NULLS LAST, p.last_name NULLS LAST;
 $$;
-
-GRANT EXECUTE ON FUNCTION public.get_staff_profiles() TO authenticated;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_staff_profiles() TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

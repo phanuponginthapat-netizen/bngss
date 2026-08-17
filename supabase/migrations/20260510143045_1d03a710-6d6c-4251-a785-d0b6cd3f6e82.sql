@@ -1,6 +1,5 @@
 -- Clean up sparse/duplicate schedules for test ป.5/1 classroom
 DELETE FROM public.schedules WHERE classroom_id = '11111111-1111-1111-1111-111111111111';
-
 -- Insert a full week timetable round-robin (5 days × 7 periods = 35 slots, fills 26 slots)
 DO $$
 DECLARE

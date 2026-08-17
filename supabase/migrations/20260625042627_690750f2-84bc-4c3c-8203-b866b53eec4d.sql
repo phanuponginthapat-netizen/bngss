@@ -1,4 +1,3 @@
-
 -- Fix garuda emblem size + signature block position in seeded official templates
 -- 1. Smaller garuda (1.5cm ≈ 43pt) for correspondence-type forms (แบบ ๑,๒,๓,๑๐)
 UPDATE eform_templates
@@ -6,14 +5,12 @@ SET content_html = REPLACE(content_html,
   'data-eform-field="garuda_emblem" style="display:inline-block;width:80pt;height:80pt;"',
   'data-eform-field="garuda_emblem" style="display:inline-block;width:43pt;height:43pt;"')
 WHERE name IN ('แบบ ๑ หนังสือภายนอก','แบบ ๒ บันทึกข้อความ','แบบ ๓ หนังสือประทับตรา','แบบ ๑๐ หนังสือรับรอง');
-
 -- 2. Larger garuda (3cm ≈ 85pt) for command/announcement/regulation-type (แบบ ๔–๙)
 UPDATE eform_templates
 SET content_html = REPLACE(content_html,
   'data-eform-field="garuda_emblem" style="display:inline-block;width:80pt;height:80pt;"',
   'data-eform-field="garuda_emblem" style="display:inline-block;width:85pt;height:85pt;"')
 WHERE name IN ('แบบ ๔ คำสั่ง','แบบ ๕ ระเบียบ','แบบ ๖ ข้อบังคับ','แบบ ๗ ประกาศ','แบบ ๘ แถลงการณ์','แบบ ๙ ข่าว');
-
 -- 3. Move signature block to right-half of page (per official Thai gov standard)
 UPDATE eform_templates
 SET content_html = REPLACE(REPLACE(REPLACE(REPLACE(content_html,

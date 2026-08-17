@@ -1,14 +1,29 @@
-
 -- 1) Link score columns to homework + add status to student_column_scores
-ALTER TABLE public.subject_score_columns
-  ADD COLUMN IF NOT EXISTS homework_assignment_id uuid REFERENCES public.homework_assignments(id) ON DELETE CASCADE;
-
-CREATE UNIQUE INDEX IF NOT EXISTS uq_subject_score_columns_homework
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.subject_score_columns
+  ADD COLUMN IF NOT EXISTS homework_assignment_id uuid REFERENCES public.homework_assignments(id) ON DELETE CASCADE';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS uq_subject_score_columns_homework
   ON public.subject_score_columns(homework_assignment_id)
-  WHERE homework_assignment_id IS NOT NULL;
-
-ALTER TABLE public.student_column_scores
-  ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'manual';
+  WHERE homework_assignment_id IS NOT NULL';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.student_column_scores
+  ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT ''manual''';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- status: 'manual' | 'pending' | 'graded' | 'overdue'
 
 -- 2) Auto-create score column + pending student rows when a homework assignment is created
@@ -63,13 +78,23 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_homework_to_pp5 ON public.homework_assignments;
-CREATE TRIGGER trg_homework_to_pp5
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_homework_to_pp5 ON public.homework_assignments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_homework_to_pp5
 AFTER INSERT OR UPDATE OF title, total_score, subject_id, classroom_id
 ON public.homework_assignments
-FOR EACH ROW EXECUTE FUNCTION public.sync_homework_to_pp5();
-
+FOR EACH ROW EXECUTE FUNCTION public.sync_homework_to_pp5()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 3) When a submission is graded (final_score set) -> update score & mark graded
 CREATE OR REPLACE FUNCTION public.sync_homework_submission_to_pp5()
 RETURNS TRIGGER
@@ -101,13 +126,23 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_homework_submission_to_pp5 ON public.homework_submissions;
-CREATE TRIGGER trg_homework_submission_to_pp5
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_homework_submission_to_pp5 ON public.homework_submissions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_homework_submission_to_pp5
 AFTER INSERT OR UPDATE OF final_score
 ON public.homework_submissions
-FOR EACH ROW EXECUTE FUNCTION public.sync_homework_submission_to_pp5();
-
+FOR EACH ROW EXECUTE FUNCTION public.sync_homework_submission_to_pp5()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 4) Mark overdue: pending rows whose homework due_date passed become 'overdue'/score=0
 CREATE OR REPLACE FUNCTION public.mark_overdue_homework_columns()
 RETURNS integer
@@ -133,10 +168,20 @@ BEGIN
   RETURN v_count;
 END;
 $$;
-
-REVOKE ALL ON FUNCTION public.mark_overdue_homework_columns() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.mark_overdue_homework_columns() TO authenticated;
-
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.mark_overdue_homework_columns() FROM PUBLIC';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.mark_overdue_homework_columns() TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 5) Backfill existing homework assignments (so historical ones gain columns too)
 DO $$
 DECLARE r record;

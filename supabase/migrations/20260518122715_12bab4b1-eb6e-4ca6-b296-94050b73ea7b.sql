@@ -1,4 +1,3 @@
-
 -- 1) Notify parents when behavior is recorded
 CREATE OR REPLACE FUNCTION public.notify_parents_on_behavior()
 RETURNS trigger
@@ -37,12 +36,22 @@ BEGIN
   END LOOP;
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_notify_parents_on_behavior ON public.behavior_records;
-CREATE TRIGGER trg_notify_parents_on_behavior
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_notify_parents_on_behavior ON public.behavior_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_notify_parents_on_behavior
 AFTER INSERT ON public.behavior_records
-FOR EACH ROW EXECUTE FUNCTION public.notify_parents_on_behavior();
-
+FOR EACH ROW EXECUTE FUNCTION public.notify_parents_on_behavior()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 2) Notify parents when student score is added or updated
 CREATE OR REPLACE FUNCTION public.notify_parents_on_score()
 RETURNS trigger
@@ -91,8 +100,19 @@ BEGIN
   END LOOP;
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_notify_parents_on_score ON public.student_scores;
-CREATE TRIGGER trg_notify_parents_on_score
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_notify_parents_on_score ON public.student_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_notify_parents_on_score
 AFTER INSERT OR UPDATE ON public.student_scores
-FOR EACH ROW EXECUTE FUNCTION public.notify_parents_on_score();
+FOR EACH ROW EXECUTE FUNCTION public.notify_parents_on_score()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

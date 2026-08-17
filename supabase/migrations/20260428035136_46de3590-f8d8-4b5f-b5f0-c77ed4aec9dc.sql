@@ -1,8 +1,13 @@
 -- Recipient: add reject fields
-ALTER TABLE public.eform_recipients
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.eform_recipients
   ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS reject_reason TEXT;
-
+  ADD COLUMN IF NOT EXISTS reject_reason TEXT';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Attachments table
 CREATE TABLE IF NOT EXISTS public.eform_attachments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -14,13 +19,37 @@ CREATE TABLE IF NOT EXISTS public.eform_attachments (
   uploaded_by UUID,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_eform_attachments_form ON public.eform_attachments(eform_id);
-
-ALTER TABLE public.eform_attachments ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "View attachments of accessible eforms" ON public.eform_attachments;
-DROP POLICY IF EXISTS "View attachments of accessible eforms" ON public.eform_attachments;
-CREATE POLICY "View attachments of accessible eforms"
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_eform_attachments_form ON public.eform_attachments(eform_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.eform_attachments ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "View attachments of accessible eforms" ON public.eform_attachments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "View attachments of accessible eforms" ON public.eform_attachments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "View attachments of accessible eforms"
 ON public.eform_attachments FOR SELECT TO authenticated
 USING (EXISTS (
   SELECT 1 FROM public.eforms e
@@ -29,55 +58,122 @@ USING (EXISTS (
       e.sender_id = auth.uid()
       OR EXISTS (SELECT 1 FROM public.eform_recipients r WHERE r.eform_id = e.id AND r.recipient_id = auth.uid())
       OR is_super_admin(auth.uid()) OR is_area_admin(auth.uid())
-      OR (has_role(auth.uid(),'admin'::app_role) OR has_role(auth.uid(),'director'::app_role))
+      OR (has_role(auth.uid(),''admin''::app_role) OR has_role(auth.uid(),''director''::app_role))
     )
-));
-
-DROP POLICY IF EXISTS "Sender can manage attachments" ON public.eform_attachments;
-DROP POLICY IF EXISTS "Sender can manage attachments" ON public.eform_attachments;
-CREATE POLICY "Sender can manage attachments"
+))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Sender can manage attachments" ON public.eform_attachments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Sender can manage attachments" ON public.eform_attachments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Sender can manage attachments"
 ON public.eform_attachments FOR ALL TO authenticated
 USING (EXISTS (SELECT 1 FROM public.eforms e WHERE e.id = eform_attachments.eform_id AND e.sender_id = auth.uid()))
-WITH CHECK (EXISTS (SELECT 1 FROM public.eforms e WHERE e.id = eform_attachments.eform_id AND e.sender_id = auth.uid()));
-
+WITH CHECK (EXISTS (SELECT 1 FROM public.eforms e WHERE e.id = eform_attachments.eform_id AND e.sender_id = auth.uid()))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Storage bucket
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('eform-attachments', 'eform-attachments', false)
 ON CONFLICT (id) DO NOTHING;
-
 -- Storage policies: path = <eform_id>/<filename>
-DROP POLICY IF EXISTS "eform attach: sender can upload" ON storage.objects;
-DROP POLICY IF EXISTS "eform attach: sender can upload" ON storage.objects;
-CREATE POLICY "eform attach: sender can upload"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "eform attach: sender can upload" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "eform attach: sender can upload" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "eform attach: sender can upload"
 ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (
-  bucket_id = 'eform-attachments'
+  bucket_id = ''eform-attachments''
   AND EXISTS (
     SELECT 1 FROM public.eforms e
     WHERE e.id::text = (storage.foldername(name))[1]
       AND e.sender_id = auth.uid()
   )
-);
-
-DROP POLICY IF EXISTS "eform attach: sender can delete" ON storage.objects;
-DROP POLICY IF EXISTS "eform attach: sender can delete" ON storage.objects;
-CREATE POLICY "eform attach: sender can delete"
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "eform attach: sender can delete" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "eform attach: sender can delete" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "eform attach: sender can delete"
 ON storage.objects FOR DELETE TO authenticated
 USING (
-  bucket_id = 'eform-attachments'
+  bucket_id = ''eform-attachments''
   AND EXISTS (
     SELECT 1 FROM public.eforms e
     WHERE e.id::text = (storage.foldername(name))[1]
       AND e.sender_id = auth.uid()
   )
-);
-
-DROP POLICY IF EXISTS "eform attach: sender/recipients can read" ON storage.objects;
-DROP POLICY IF EXISTS "eform attach: sender/recipients can read" ON storage.objects;
-CREATE POLICY "eform attach: sender/recipients can read"
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "eform attach: sender/recipients can read" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "eform attach: sender/recipients can read" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "eform attach: sender/recipients can read"
 ON storage.objects FOR SELECT TO authenticated
 USING (
-  bucket_id = 'eform-attachments'
+  bucket_id = ''eform-attachments''
   AND EXISTS (
     SELECT 1 FROM public.eforms e
     WHERE e.id::text = (storage.foldername(name))[1]
@@ -87,8 +183,11 @@ USING (
         OR is_super_admin(auth.uid()) OR is_area_admin(auth.uid())
       )
   )
-);
-
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Auto-update parent eform.status from recipient activity
 CREATE OR REPLACE FUNCTION public.recompute_eform_status()
 RETURNS trigger
@@ -121,12 +220,22 @@ BEGIN
   UPDATE public.eforms SET status = new_status, updated_at = now() WHERE id = NEW.eform_id;
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS eform_recipients_recompute ON public.eform_recipients;
-CREATE TRIGGER eform_recipients_recompute
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS eform_recipients_recompute ON public.eform_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER eform_recipients_recompute
 AFTER INSERT OR UPDATE ON public.eform_recipients
-FOR EACH ROW EXECUTE FUNCTION public.recompute_eform_status();
-
+FOR EACH ROW EXECUTE FUNCTION public.recompute_eform_status()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Notify sender on recipient action
 CREATE OR REPLACE FUNCTION public.notify_sender_on_recipient_action()
 RETURNS trigger
@@ -158,8 +267,19 @@ BEGIN
 
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS eform_recipients_notify_sender ON public.eform_recipients;
-CREATE TRIGGER eform_recipients_notify_sender
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS eform_recipients_notify_sender ON public.eform_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER eform_recipients_notify_sender
 AFTER UPDATE ON public.eform_recipients
-FOR EACH ROW EXECUTE FUNCTION public.notify_sender_on_recipient_action();
+FOR EACH ROW EXECUTE FUNCTION public.notify_sender_on_recipient_action()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

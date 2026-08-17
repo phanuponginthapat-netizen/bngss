@@ -1,7 +1,11 @@
-
 -- Allow backend service role to read/write app_secrets so edge functions can auto-provision
-GRANT SELECT, INSERT, UPDATE ON public.app_secrets TO service_role;
-
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE ON public.app_secrets TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Upsert helper callable by service_role (SECURITY DEFINER so it bypasses RLS cleanly)
 CREATE OR REPLACE FUNCTION public.set_app_secret(_key text, _value text, _category text DEFAULT 'auto', _description text DEFAULT NULL)
 RETURNS void
@@ -19,6 +23,17 @@ BEGIN
         updated_at = now();
 END;
 $$;
-
-REVOKE ALL ON FUNCTION public.set_app_secret(text, text, text, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.set_app_secret(text, text, text, text) TO service_role;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.set_app_secret(text, text, text, text) FROM PUBLIC';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.set_app_secret(text, text, text, text) TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

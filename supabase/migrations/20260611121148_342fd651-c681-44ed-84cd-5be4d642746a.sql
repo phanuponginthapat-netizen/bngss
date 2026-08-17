@@ -1,4 +1,3 @@
-
 DO $$
 DECLARE
   t text;

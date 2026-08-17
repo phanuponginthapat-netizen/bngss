@@ -20,9 +20,20 @@ DROP INDEX IF EXISTS public.idx_user_roles_user_role;
 DROP INDEX IF EXISTS public.idx_personnel_employee_code;
 DROP INDEX IF EXISTS public.idx_students_student_code;
 DROP INDEX IF EXISTS public.idx_attendance_date;
-
-CREATE INDEX IF NOT EXISTS idx_attendance_date_status ON public.attendance (attendance_date, status);
-CREATE INDEX IF NOT EXISTS idx_students_status_active ON public.students (status) WHERE status = 'active';
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_attendance_date_status ON public.attendance (attendance_date, status)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_students_status_active ON public.students (status) WHERE status = ''active''';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 ANALYZE public.attendance;
 ANALYZE public.students;
 ANALYZE public.face_scan_logs;

@@ -1,4 +1,3 @@
-
 DO $$
 DECLARE
   t text;
@@ -15,6 +14,7 @@ DECLARE
   ];
 BEGIN
   FOREACH t IN ARRAY tables LOOP
+    CONTINUE WHEN to_regclass('public.'||quote_ident(t)) IS NULL;
     EXECUTE format('DROP POLICY IF EXISTS "Admins can manage %I" ON public.%I', t, t);
     EXECUTE format($f$
       CREATE POLICY "Admins can manage %1$I" ON public.%1$I

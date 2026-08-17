@@ -1,4 +1,3 @@
-
 -- Portfolio items
 CREATE TABLE IF NOT EXISTS public.portfolio_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -20,31 +19,181 @@ CREATE TABLE IF NOT EXISTS public.portfolio_items (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.portfolio_items TO authenticated;
-GRANT SELECT ON public.portfolio_items TO anon;
-GRANT ALL ON public.portfolio_items TO service_role;
-ALTER TABLE public.portfolio_items ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "portfolio public read" ON public.portfolio_items;
-DROP POLICY IF EXISTS "portfolio public read" ON public.portfolio_items;
-CREATE POLICY "portfolio public read"   ON public.portfolio_items FOR SELECT USING (visibility='public');
-DROP POLICY IF EXISTS "portfolio school read" ON public.portfolio_items;
-DROP POLICY IF EXISTS "portfolio school read" ON public.portfolio_items;
-CREATE POLICY "portfolio school read"   ON public.portfolio_items FOR SELECT TO authenticated USING (visibility IN ('school','public') AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid())));
-DROP POLICY IF EXISTS "portfolio owner read" ON public.portfolio_items;
-DROP POLICY IF EXISTS "portfolio owner read" ON public.portfolio_items;
-CREATE POLICY "portfolio owner read"    ON public.portfolio_items FOR SELECT TO authenticated USING (user_id = auth.uid());
-DROP POLICY IF EXISTS "portfolio owner write" ON public.portfolio_items;
-DROP POLICY IF EXISTS "portfolio owner write" ON public.portfolio_items;
-CREATE POLICY "portfolio owner write"   ON public.portfolio_items FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
-DROP POLICY IF EXISTS "portfolio owner update" ON public.portfolio_items;
-DROP POLICY IF EXISTS "portfolio owner update" ON public.portfolio_items;
-CREATE POLICY "portfolio owner update"  ON public.portfolio_items FOR UPDATE TO authenticated USING (user_id = auth.uid());
-DROP POLICY IF EXISTS "portfolio owner delete" ON public.portfolio_items;
-DROP POLICY IF EXISTS "portfolio owner delete" ON public.portfolio_items;
-CREATE POLICY "portfolio owner delete"  ON public.portfolio_items FOR DELETE TO authenticated USING (user_id = auth.uid() OR public.has_role(auth.uid(),'admin'));
-DROP TRIGGER IF EXISTS trg_portfolio_updated ON public.portfolio_items;
-CREATE TRIGGER trg_portfolio_updated BEFORE UPDATE ON public.portfolio_items FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-CREATE INDEX IF NOT EXISTS idx_portfolio_user ON public.portfolio_items(user_id, is_pinned DESC, sort_order, created_at DESC);
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.portfolio_items TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT ON public.portfolio_items TO anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.portfolio_items TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.portfolio_items ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "portfolio public read" ON public.portfolio_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "portfolio public read" ON public.portfolio_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "portfolio public read"   ON public.portfolio_items FOR SELECT USING (visibility=''public'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "portfolio school read" ON public.portfolio_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "portfolio school read" ON public.portfolio_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "portfolio school read"   ON public.portfolio_items FOR SELECT TO authenticated USING (visibility IN (''school'',''public'') AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid())))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "portfolio owner read" ON public.portfolio_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "portfolio owner read" ON public.portfolio_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "portfolio owner read"    ON public.portfolio_items FOR SELECT TO authenticated USING (user_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "portfolio owner write" ON public.portfolio_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "portfolio owner write" ON public.portfolio_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "portfolio owner write"   ON public.portfolio_items FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "portfolio owner update" ON public.portfolio_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "portfolio owner update" ON public.portfolio_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "portfolio owner update"  ON public.portfolio_items FOR UPDATE TO authenticated USING (user_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "portfolio owner delete" ON public.portfolio_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "portfolio owner delete" ON public.portfolio_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "portfolio owner delete"  ON public.portfolio_items FOR DELETE TO authenticated USING (user_id = auth.uid() OR public.has_role(auth.uid(),''admin''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_portfolio_updated ON public.portfolio_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_portfolio_updated BEFORE UPDATE ON public.portfolio_items FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_portfolio_user ON public.portfolio_items(user_id, is_pinned DESC, sort_order, created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -72,28 +221,160 @@ CREATE TABLE IF NOT EXISTS public.wall_posts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.wall_posts TO authenticated;
-GRANT SELECT ON public.wall_posts TO anon;
-GRANT ALL ON public.wall_posts TO service_role;
-ALTER TABLE public.wall_posts ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "wall public read" ON public.wall_posts;
-DROP POLICY IF EXISTS "wall public read" ON public.wall_posts;
-CREATE POLICY "wall public read"  ON public.wall_posts FOR SELECT USING (visibility='public');
-DROP POLICY IF EXISTS "wall school read" ON public.wall_posts;
-DROP POLICY IF EXISTS "wall school read" ON public.wall_posts;
-CREATE POLICY "wall school read"  ON public.wall_posts FOR SELECT TO authenticated USING (visibility IN ('school','public') AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid())));
-DROP POLICY IF EXISTS "wall author read" ON public.wall_posts;
-DROP POLICY IF EXISTS "wall author read" ON public.wall_posts;
-CREATE POLICY "wall author read"  ON public.wall_posts FOR SELECT TO authenticated USING (author_id = auth.uid());
-DROP POLICY IF EXISTS "wall author write" ON public.wall_posts;
-DROP POLICY IF EXISTS "wall author write" ON public.wall_posts;
-CREATE POLICY "wall author write" ON public.wall_posts FOR INSERT TO authenticated WITH CHECK (author_id = auth.uid());
-CREATE POLICY "wall author update"ON public.wall_posts FOR UPDATE TO authenticated USING (author_id = auth.uid());
-CREATE POLICY "wall author delete"ON public.wall_posts FOR DELETE TO authenticated USING (author_id = auth.uid() OR public.has_role(auth.uid(),'admin'));
-DROP TRIGGER IF EXISTS trg_wall_posts_updated ON public.wall_posts;
-CREATE TRIGGER trg_wall_posts_updated BEFORE UPDATE ON public.wall_posts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-CREATE INDEX IF NOT EXISTS idx_wall_posts_feed ON public.wall_posts(school_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_wall_posts_author ON public.wall_posts(author_id, created_at DESC);
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.wall_posts TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT ON public.wall_posts TO anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.wall_posts TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.wall_posts ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "wall public read" ON public.wall_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "wall public read" ON public.wall_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "wall public read"  ON public.wall_posts FOR SELECT USING (visibility=''public'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "wall school read" ON public.wall_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "wall school read" ON public.wall_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "wall school read"  ON public.wall_posts FOR SELECT TO authenticated USING (visibility IN (''school'',''public'') AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid())))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "wall author read" ON public.wall_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "wall author read" ON public.wall_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "wall author read"  ON public.wall_posts FOR SELECT TO authenticated USING (author_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "wall author write" ON public.wall_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "wall author write" ON public.wall_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "wall author write" ON public.wall_posts FOR INSERT TO authenticated WITH CHECK (author_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "wall author update"ON public.wall_posts FOR UPDATE TO authenticated USING (author_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "wall author delete"ON public.wall_posts FOR DELETE TO authenticated USING (author_id = auth.uid() OR public.has_role(auth.uid(),''admin''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_wall_posts_updated ON public.wall_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_wall_posts_updated BEFORE UPDATE ON public.wall_posts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_wall_posts_feed ON public.wall_posts(school_id, created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_wall_posts_author ON public.wall_posts(author_id, created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -114,21 +395,111 @@ CREATE TABLE IF NOT EXISTS public.wall_post_reactions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(post_id, user_id)
 );
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.wall_post_reactions TO authenticated;
-GRANT ALL ON public.wall_post_reactions TO service_role;
-ALTER TABLE public.wall_post_reactions ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "reactions read" ON public.wall_post_reactions;
-DROP POLICY IF EXISTS "reactions read" ON public.wall_post_reactions;
-CREATE POLICY "reactions read"   ON public.wall_post_reactions FOR SELECT TO authenticated USING (true);
-DROP POLICY IF EXISTS "reactions write" ON public.wall_post_reactions;
-DROP POLICY IF EXISTS "reactions write" ON public.wall_post_reactions;
-CREATE POLICY "reactions write"  ON public.wall_post_reactions FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
-DROP POLICY IF EXISTS "reactions update" ON public.wall_post_reactions;
-DROP POLICY IF EXISTS "reactions update" ON public.wall_post_reactions;
-CREATE POLICY "reactions update" ON public.wall_post_reactions FOR UPDATE TO authenticated USING (user_id = auth.uid());
-DROP POLICY IF EXISTS "reactions delete" ON public.wall_post_reactions;
-DROP POLICY IF EXISTS "reactions delete" ON public.wall_post_reactions;
-CREATE POLICY "reactions delete" ON public.wall_post_reactions FOR DELETE TO authenticated USING (user_id = auth.uid());
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.wall_post_reactions TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.wall_post_reactions TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.wall_post_reactions ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "reactions read" ON public.wall_post_reactions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "reactions read" ON public.wall_post_reactions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "reactions read"   ON public.wall_post_reactions FOR SELECT TO authenticated USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "reactions write" ON public.wall_post_reactions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "reactions write" ON public.wall_post_reactions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "reactions write"  ON public.wall_post_reactions FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "reactions update" ON public.wall_post_reactions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "reactions update" ON public.wall_post_reactions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "reactions update" ON public.wall_post_reactions FOR UPDATE TO authenticated USING (user_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "reactions delete" ON public.wall_post_reactions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "reactions delete" ON public.wall_post_reactions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "reactions delete" ON public.wall_post_reactions FOR DELETE TO authenticated USING (user_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -150,24 +521,132 @@ CREATE TABLE IF NOT EXISTS public.wall_post_comments (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.wall_post_comments TO authenticated;
-GRANT ALL ON public.wall_post_comments TO service_role;
-ALTER TABLE public.wall_post_comments ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "comments read" ON public.wall_post_comments;
-DROP POLICY IF EXISTS "comments read" ON public.wall_post_comments;
-CREATE POLICY "comments read"   ON public.wall_post_comments FOR SELECT TO authenticated USING (true);
-DROP POLICY IF EXISTS "comments write" ON public.wall_post_comments;
-DROP POLICY IF EXISTS "comments write" ON public.wall_post_comments;
-CREATE POLICY "comments write"  ON public.wall_post_comments FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
-DROP POLICY IF EXISTS "comments update" ON public.wall_post_comments;
-DROP POLICY IF EXISTS "comments update" ON public.wall_post_comments;
-CREATE POLICY "comments update" ON public.wall_post_comments FOR UPDATE TO authenticated USING (user_id = auth.uid());
-DROP POLICY IF EXISTS "comments delete" ON public.wall_post_comments;
-DROP POLICY IF EXISTS "comments delete" ON public.wall_post_comments;
-CREATE POLICY "comments delete" ON public.wall_post_comments FOR DELETE TO authenticated USING (user_id = auth.uid() OR public.has_role(auth.uid(),'admin'));
-DROP TRIGGER IF EXISTS trg_wall_comments_updated ON public.wall_post_comments;
-CREATE TRIGGER trg_wall_comments_updated BEFORE UPDATE ON public.wall_post_comments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-CREATE INDEX IF NOT EXISTS idx_wall_comments_post ON public.wall_post_comments(post_id, created_at);
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.wall_post_comments TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.wall_post_comments TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.wall_post_comments ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "comments read" ON public.wall_post_comments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "comments read" ON public.wall_post_comments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "comments read"   ON public.wall_post_comments FOR SELECT TO authenticated USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "comments write" ON public.wall_post_comments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "comments write" ON public.wall_post_comments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "comments write"  ON public.wall_post_comments FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "comments update" ON public.wall_post_comments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "comments update" ON public.wall_post_comments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "comments update" ON public.wall_post_comments FOR UPDATE TO authenticated USING (user_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "comments delete" ON public.wall_post_comments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "comments delete" ON public.wall_post_comments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "comments delete" ON public.wall_post_comments FOR DELETE TO authenticated USING (user_id = auth.uid() OR public.has_role(auth.uid(),''admin''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_wall_comments_updated ON public.wall_post_comments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_wall_comments_updated BEFORE UPDATE ON public.wall_post_comments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_wall_comments_post ON public.wall_post_comments(post_id, created_at)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -192,11 +671,34 @@ BEGIN
   END IF;
   RETURN NULL;
 END $$;
-DROP TRIGGER IF EXISTS trg_react_count ON public.wall_post_reactions;
-CREATE TRIGGER trg_react_count AFTER INSERT OR DELETE OR UPDATE ON public.wall_post_reactions FOR EACH ROW EXECUTE FUNCTION public.wall_post_counters();
-DROP TRIGGER IF EXISTS trg_comm_count ON public.wall_post_comments;
-CREATE TRIGGER trg_comm_count  AFTER INSERT OR DELETE ON public.wall_post_comments FOR EACH ROW EXECUTE FUNCTION public.wall_post_counters();
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_react_count ON public.wall_post_reactions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_react_count AFTER INSERT OR DELETE OR UPDATE ON public.wall_post_reactions FOR EACH ROW EXECUTE FUNCTION public.wall_post_counters()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_comm_count ON public.wall_post_comments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_comm_count  AFTER INSERT OR DELETE ON public.wall_post_comments FOR EACH ROW EXECUTE FUNCTION public.wall_post_counters()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Auto-fill school_id from author profile
 CREATE OR REPLACE FUNCTION public.fill_wall_school() RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 BEGIN
@@ -205,9 +707,20 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-DROP TRIGGER IF EXISTS trg_fill_wall_school ON public.wall_posts;
-CREATE TRIGGER trg_fill_wall_school BEFORE INSERT ON public.wall_posts FOR EACH ROW EXECUTE FUNCTION public.fill_wall_school();
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_fill_wall_school ON public.wall_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_fill_wall_school BEFORE INSERT ON public.wall_posts FOR EACH ROW EXECUTE FUNCTION public.fill_wall_school()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.fill_portfolio_school() RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 BEGIN
   IF NEW.school_id IS NULL THEN
@@ -215,5 +728,17 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-DROP TRIGGER IF EXISTS trg_fill_portfolio_school ON public.portfolio_items;
-CREATE TRIGGER trg_fill_portfolio_school BEFORE INSERT ON public.portfolio_items FOR EACH ROW EXECUTE FUNCTION public.fill_portfolio_school();
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_fill_portfolio_school ON public.portfolio_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_fill_portfolio_school BEFORE INSERT ON public.portfolio_items FOR EACH ROW EXECUTE FUNCTION public.fill_portfolio_school()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

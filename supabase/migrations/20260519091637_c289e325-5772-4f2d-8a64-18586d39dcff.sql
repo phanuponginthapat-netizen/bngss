@@ -38,12 +38,22 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_gchat_on_face_scan ON public.face_scan_logs;
-CREATE TRIGGER trg_gchat_on_face_scan
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_gchat_on_face_scan ON public.face_scan_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_gchat_on_face_scan
 AFTER INSERT ON public.face_scan_logs
-FOR EACH ROW EXECUTE FUNCTION public.gchat_on_face_scan();
-
+FOR EACH ROW EXECUTE FUNCTION public.gchat_on_face_scan()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 2) Attendance (absent) → Google Chat
 CREATE OR REPLACE FUNCTION public.gchat_on_absence()
 RETURNS trigger
@@ -77,12 +87,22 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_gchat_on_absence ON public.attendance;
-CREATE TRIGGER trg_gchat_on_absence
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_gchat_on_absence ON public.attendance';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_gchat_on_absence
 AFTER INSERT OR UPDATE OF status ON public.attendance
-FOR EACH ROW EXECUTE FUNCTION public.gchat_on_absence();
-
+FOR EACH ROW EXECUTE FUNCTION public.gchat_on_absence()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 3) Behavior records (all types) → Google Chat
 -- (มี gchat_on_serious_behavior อยู่แล้วสำหรับลบ ≥5 คะแนน เก็บไว้เพื่อ severity warning)
 CREATE OR REPLACE FUNCTION public.gchat_on_behavior_any()
@@ -127,12 +147,22 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_gchat_on_behavior_any ON public.behavior_records;
-CREATE TRIGGER trg_gchat_on_behavior_any
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_gchat_on_behavior_any ON public.behavior_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_gchat_on_behavior_any
 AFTER INSERT ON public.behavior_records
-FOR EACH ROW EXECUTE FUNCTION public.gchat_on_behavior_any();
-
+FOR EACH ROW EXECUTE FUNCTION public.gchat_on_behavior_any()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 4) Score records → Google Chat (วิชาการ)
 CREATE OR REPLACE FUNCTION public.gchat_on_score()
 RETURNS trigger
@@ -168,8 +198,19 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_gchat_on_score ON public.student_scores;
-CREATE TRIGGER trg_gchat_on_score
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_gchat_on_score ON public.student_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_gchat_on_score
 AFTER INSERT OR UPDATE ON public.student_scores
-FOR EACH ROW EXECUTE FUNCTION public.gchat_on_score();
+FOR EACH ROW EXECUTE FUNCTION public.gchat_on_score()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

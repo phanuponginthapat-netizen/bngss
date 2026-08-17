@@ -1,4 +1,3 @@
-
 -- 0) ลบใบลาซ้ำ (สถานะ pending) เก็บอันเก่าสุด
 DELETE FROM public.staff_leaves a
 USING public.staff_leaves b
@@ -8,7 +7,6 @@ WHERE a.status='pending' AND b.status='pending'
   AND a.start_date=b.start_date
   AND a.end_date=b.end_date
   AND a.id > b.id;
-
 DELETE FROM public.student_leaves a
 USING public.student_leaves b
 WHERE a.status='pending' AND b.status='pending'
@@ -17,16 +15,25 @@ WHERE a.status='pending' AND b.status='pending'
   AND a.start_date=b.start_date
   AND a.end_date=b.end_date
   AND a.id > b.id;
-
 -- 1) unique index กันยื่นซ้ำ
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_staff_leaves_pending_personnel_dates
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS uniq_staff_leaves_pending_personnel_dates
 ON public.staff_leaves (personnel_id, leave_type, start_date, end_date)
-WHERE status = 'pending';
-
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_student_leaves_pending_dates
+WHERE status = ''pending''';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS uniq_student_leaves_pending_dates
 ON public.student_leaves (student_id, leave_type, start_date, end_date)
-WHERE status = 'pending';
-
+WHERE status = ''pending''';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 -- 2) trigger แจ้งเตือนใบลาบุคลากร (admin + director) + กันซ้ำ 5 นาที
 CREATE OR REPLACE FUNCTION public.notify_on_staff_leave()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $function$
@@ -55,7 +62,6 @@ BEGIN
   END LOOP;
   RETURN NEW;
 END; $function$;
-
 -- 3) trigger แจ้งเตือนนักเรียนลา — กันซ้ำ 5 นาที
 CREATE OR REPLACE FUNCTION public.notify_on_student_leave()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $function$
@@ -103,7 +109,6 @@ BEGIN
   END LOOP;
   RETURN NEW;
 END; $function$;
-
 -- 4) ล้างการแจ้งเตือนซ้ำเดิม
 DELETE FROM public.notifications n
 USING public.notifications n2

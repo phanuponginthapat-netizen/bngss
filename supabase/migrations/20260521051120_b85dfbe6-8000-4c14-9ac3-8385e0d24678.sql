@@ -1,4 +1,3 @@
-
 -- ============== schedules: unique slot ==============
 DELETE FROM public.schedules s1
 USING public.schedules s2
@@ -8,12 +7,22 @@ WHERE s1.id < s2.id
   AND s1.period = s2.period
   AND COALESCE(s1.academic_year,0) = COALESCE(s2.academic_year,0)
   AND COALESCE(s1.semester,0) = COALESCE(s2.semester,0);
-
-ALTER TABLE public.schedules DROP CONSTRAINT IF EXISTS schedules_unique_slot;
-ALTER TABLE public.schedules
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.schedules DROP CONSTRAINT IF EXISTS schedules_unique_slot';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.schedules
   ADD CONSTRAINT schedules_unique_slot
-  UNIQUE (classroom_id, day_of_week, period, academic_year, semester);
-
+  UNIQUE (classroom_id, day_of_week, period, academic_year, semester)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============== fill_schedule_teacher_id + subject_id ==============
 CREATE OR REPLACE FUNCTION public.fill_schedule_teacher_id()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -73,17 +82,31 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-REVOKE EXECUTE ON FUNCTION public.fill_schedule_teacher_id() FROM PUBLIC, anon, authenticated;
-
-DROP TRIGGER IF EXISTS trg_fill_schedule_teacher_id ON public.schedules;
-CREATE TRIGGER trg_fill_schedule_teacher_id
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.fill_schedule_teacher_id() FROM PUBLIC, anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_fill_schedule_teacher_id ON public.schedules';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_fill_schedule_teacher_id
 BEFORE INSERT OR UPDATE OF teacher_name, teacher_id, subject_name_raw, subject_id, classroom_id
-ON public.schedules FOR EACH ROW EXECUTE FUNCTION public.fill_schedule_teacher_id();
-
+ON public.schedules FOR EACH ROW EXECUTE FUNCTION public.fill_schedule_teacher_id()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Backfill subject_id (re-run trigger by touching rows)
 UPDATE public.schedules SET subject_name_raw = subject_name_raw WHERE subject_id IS NULL AND subject_name_raw IS NOT NULL;
-
 -- ============== auto-sync teacher_assignments ==============
 CREATE OR REPLACE FUNCTION public.sync_teacher_assignment_from_schedule()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -100,47 +123,93 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-REVOKE EXECUTE ON FUNCTION public.sync_teacher_assignment_from_schedule() FROM PUBLIC, anon, authenticated;
-
-DROP TRIGGER IF EXISTS trg_sync_teacher_assignment ON public.schedules;
-CREATE TRIGGER trg_sync_teacher_assignment
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.sync_teacher_assignment_from_schedule() FROM PUBLIC, anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_sync_teacher_assignment ON public.schedules';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_sync_teacher_assignment
 AFTER INSERT OR UPDATE OF teacher_id, subject_id, classroom_id ON public.schedules
-FOR EACH ROW EXECUTE FUNCTION public.sync_teacher_assignment_from_schedule();
-
+FOR EACH ROW EXECUTE FUNCTION public.sync_teacher_assignment_from_schedule()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============== pp5_files / pp6_files ==============
-ALTER TABLE public.pp5_files
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.pp5_files
   ADD COLUMN IF NOT EXISTS subject_id uuid REFERENCES public.subjects(id) ON DELETE SET NULL,
-  ADD COLUMN IF NOT EXISTS personnel_id uuid REFERENCES public.personnel(id) ON DELETE SET NULL;
-CREATE INDEX IF NOT EXISTS idx_pp5_files_subject_id ON public.pp5_files(subject_id);
-CREATE INDEX IF NOT EXISTS idx_pp5_files_personnel_id ON public.pp5_files(personnel_id);
-
-ALTER TABLE public.pp6_files
+  ADD COLUMN IF NOT EXISTS personnel_id uuid REFERENCES public.personnel(id) ON DELETE SET NULL';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_pp5_files_subject_id ON public.pp5_files(subject_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_pp5_files_personnel_id ON public.pp5_files(personnel_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.pp6_files
   ADD COLUMN IF NOT EXISTS subject_id uuid REFERENCES public.subjects(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS personnel_id uuid REFERENCES public.personnel(id) ON DELETE SET NULL,
-  ADD COLUMN IF NOT EXISTS classroom_id uuid REFERENCES public.classrooms(id) ON DELETE SET NULL;
-CREATE INDEX IF NOT EXISTS idx_pp6_files_subject_id ON public.pp6_files(subject_id);
-CREATE INDEX IF NOT EXISTS idx_pp6_files_personnel_id ON public.pp6_files(personnel_id);
-
+  ADD COLUMN IF NOT EXISTS classroom_id uuid REFERENCES public.classrooms(id) ON DELETE SET NULL';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_pp6_files_subject_id ON public.pp6_files(subject_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_pp6_files_personnel_id ON public.pp6_files(personnel_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 UPDATE public.pp5_files pf SET subject_id = s.id
 FROM public.subjects s
 WHERE pf.subject_id IS NULL
   AND s.name_th = pf.subject_name
   AND s.grade_level = pf.grade_level
   AND COALESCE(s.semester, pf.semester) = pf.semester;
-
 UPDATE public.pp5_files pf SET personnel_id = p.id
 FROM public.personnel p
 WHERE pf.personnel_id IS NULL AND pf.teacher_name IS NOT NULL
   AND public.normalize_thai_teacher_name(CONCAT(p.prefix, p.first_name, ' ', p.last_name))
       = public.normalize_thai_teacher_name(pf.teacher_name);
-
 UPDATE public.pp6_files pf SET personnel_id = p.id
 FROM public.personnel p
 WHERE pf.personnel_id IS NULL AND pf.teacher_name IS NOT NULL
   AND public.normalize_thai_teacher_name(CONCAT(p.prefix, p.first_name, ' ', p.last_name))
       = public.normalize_thai_teacher_name(pf.teacher_name);
-
 -- ============== validate_schedules RPC ==============
 CREATE OR REPLACE FUNCTION public.validate_schedules(_year integer DEFAULT NULL, _sem integer DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
@@ -204,5 +273,10 @@ BEGIN
   RETURN result;
 END;
 $$;
-
-GRANT EXECUTE ON FUNCTION public.validate_schedules(integer, integer) TO authenticated;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.validate_schedules(integer, integer) TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

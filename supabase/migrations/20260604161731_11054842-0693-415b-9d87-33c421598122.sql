@@ -1,4 +1,3 @@
-
 -- 1) Remove sensitive tables from realtime publication
 DO $$
 DECLARE
@@ -19,74 +18,309 @@ BEGIN
     END;
   END LOOP;
 END $$;
-
 -- 2) document-files: only owner/recipient/admin/director
-DROP POLICY IF EXISTS "Authenticated users can read document files" ON storage.objects;
-DROP POLICY IF EXISTS "Document owners or recipients can read" ON storage.objects;
-DROP POLICY IF EXISTS "Document owners or recipients can read" ON storage.objects;
-CREATE POLICY "Document owners or recipients can read"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can read document files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Document owners or recipients can read" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Document owners or recipients can read" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Document owners or recipients can read"
 ON storage.objects FOR SELECT TO authenticated
 USING (
-  bucket_id = 'document-files'
+  bucket_id = ''document-files''
   AND (
-    public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director')
+    public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'')
     OR EXISTS (
       SELECT 1 FROM public.documents d
-      WHERE storage.objects.name LIKE '%' || d.id::text || '%'
+      WHERE storage.objects.name LIKE ''%'' || d.id::text || ''%''
         AND (d.created_by = auth.uid() OR public.is_document_recipient(d.id, auth.uid()))
     )
   )
-);
-
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 3) exam-scans: staff only
-DROP POLICY IF EXISTS "Authenticated users can read exam scans" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated users can upload exam scans" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated users can update exam scans" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated users can delete exam scans" ON storage.objects;
-DROP POLICY IF EXISTS "Staff can read exam scans" ON storage.objects;
-DROP POLICY IF EXISTS "Staff can read exam scans" ON storage.objects;
-CREATE POLICY "Staff can read exam scans" ON storage.objects FOR SELECT TO authenticated
-USING (bucket_id = 'exam-scans' AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher')));
-DROP POLICY IF EXISTS "Staff can write exam scans" ON storage.objects;
-DROP POLICY IF EXISTS "Staff can write exam scans" ON storage.objects;
-CREATE POLICY "Staff can write exam scans" ON storage.objects FOR INSERT TO authenticated
-WITH CHECK (bucket_id = 'exam-scans' AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher')));
-DROP POLICY IF EXISTS "Staff can update exam scans" ON storage.objects;
-DROP POLICY IF EXISTS "Staff can update exam scans" ON storage.objects;
-CREATE POLICY "Staff can update exam scans" ON storage.objects FOR UPDATE TO authenticated
-USING (bucket_id = 'exam-scans' AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher')));
-DROP POLICY IF EXISTS "Staff can delete exam scans" ON storage.objects;
-DROP POLICY IF EXISTS "Staff can delete exam scans" ON storage.objects;
-CREATE POLICY "Staff can delete exam scans" ON storage.objects FOR DELETE TO authenticated
-USING (bucket_id = 'exam-scans' AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher')));
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can read exam scans" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can upload exam scans" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can update exam scans" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can delete exam scans" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can read exam scans" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can read exam scans" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff can read exam scans" ON storage.objects FOR SELECT TO authenticated
+USING (bucket_id = ''exam-scans'' AND (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher'')))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can write exam scans" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can write exam scans" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff can write exam scans" ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = ''exam-scans'' AND (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher'')))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can update exam scans" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can update exam scans" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff can update exam scans" ON storage.objects FOR UPDATE TO authenticated
+USING (bucket_id = ''exam-scans'' AND (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher'')))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can delete exam scans" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can delete exam scans" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff can delete exam scans" ON storage.objects FOR DELETE TO authenticated
+USING (bucket_id = ''exam-scans'' AND (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher'')))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 4) asset-photos: staff only write
-DROP POLICY IF EXISTS "Authenticated users can upload asset photos" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated users can update asset photos" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated users can delete asset photos" ON storage.objects;
-DROP POLICY IF EXISTS "Staff write asset photos ins" ON storage.objects;
-DROP POLICY IF EXISTS "Staff write asset photos ins" ON storage.objects;
-CREATE POLICY "Staff write asset photos ins" ON storage.objects FOR INSERT TO authenticated
-WITH CHECK (bucket_id = 'asset-photos' AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher')));
-DROP POLICY IF EXISTS "Staff write asset photos upd" ON storage.objects;
-DROP POLICY IF EXISTS "Staff write asset photos upd" ON storage.objects;
-CREATE POLICY "Staff write asset photos upd" ON storage.objects FOR UPDATE TO authenticated
-USING (bucket_id = 'asset-photos' AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher')));
-DROP POLICY IF EXISTS "Staff write asset photos del" ON storage.objects;
-DROP POLICY IF EXISTS "Staff write asset photos del" ON storage.objects;
-CREATE POLICY "Staff write asset photos del" ON storage.objects FOR DELETE TO authenticated
-USING (bucket_id = 'asset-photos' AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher')));
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can upload asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can update asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can delete asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff write asset photos ins" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff write asset photos ins" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff write asset photos ins" ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = ''asset-photos'' AND (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher'')))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff write asset photos upd" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff write asset photos upd" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff write asset photos upd" ON storage.objects FOR UPDATE TO authenticated
+USING (bucket_id = ''asset-photos'' AND (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher'')))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff write asset photos del" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff write asset photos del" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff write asset photos del" ON storage.objects FOR DELETE TO authenticated
+USING (bucket_id = ''asset-photos'' AND (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher'')))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 5) home-visit-photos: staff only INSERT
-DROP POLICY IF EXISTS "Authenticated users can upload home visit photos" ON storage.objects;
-DROP POLICY IF EXISTS "Staff upload home visit photos" ON storage.objects;
-DROP POLICY IF EXISTS "Staff upload home visit photos" ON storage.objects;
-CREATE POLICY "Staff upload home visit photos" ON storage.objects FOR INSERT TO authenticated
-WITH CHECK (bucket_id = 'home-visit-photos' AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher')));
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can upload home visit photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff upload home visit photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff upload home visit photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff upload home visit photos" ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = ''home-visit-photos'' AND (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher'')))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 6) pp5-files: staff only upload
-DROP POLICY IF EXISTS "Auth users can upload pp5 files" ON storage.objects;
-DROP POLICY IF EXISTS "Staff upload pp5 files" ON storage.objects;
-DROP POLICY IF EXISTS "Staff upload pp5 files" ON storage.objects;
-CREATE POLICY "Staff upload pp5 files" ON storage.objects FOR INSERT TO authenticated
-WITH CHECK (bucket_id = 'pp5-files' AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher')));
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can upload pp5 files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff upload pp5 files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff upload pp5 files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff upload pp5 files" ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = ''pp5-files'' AND (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher'')))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

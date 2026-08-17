@@ -1,4 +1,3 @@
-
 -- ============================================================
 -- 1) Auto-update updated_at triggers for all major tables
 -- ============================================================
@@ -9,7 +8,6 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SET search_path = public;
-
 DO $$
 DECLARE
   tbl TEXT;
@@ -29,7 +27,6 @@ BEGIN
   END LOOP;
 END;
 $$;
-
 -- ============================================================
 -- 2) Auto-compute total_score when student_scores are inserted/updated
 -- ============================================================
@@ -42,13 +39,23 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SET search_path = public;
-
-DROP TRIGGER IF EXISTS compute_total_score ON public.student_scores;
-CREATE TRIGGER compute_total_score
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS compute_total_score ON public.student_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER compute_total_score
   BEFORE INSERT OR UPDATE ON public.student_scores
   FOR EACH ROW
-  EXECUTE FUNCTION public.auto_compute_total_score();
-
+  EXECUTE FUNCTION public.auto_compute_total_score()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============================================================
 -- 3) Notify admin when staff leave is created
 -- ============================================================
@@ -79,13 +86,23 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
-DROP TRIGGER IF EXISTS notify_staff_leave ON public.staff_leaves;
-CREATE TRIGGER notify_staff_leave
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS notify_staff_leave ON public.staff_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER notify_staff_leave
   AFTER INSERT ON public.staff_leaves
   FOR EACH ROW
-  EXECUTE FUNCTION public.notify_on_staff_leave();
-
+  EXECUTE FUNCTION public.notify_on_staff_leave()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============================================================
 -- 4) Notify on negative behavior record
 -- ============================================================
@@ -116,13 +133,23 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
-DROP TRIGGER IF EXISTS notify_negative_behavior ON public.behavior_records;
-CREATE TRIGGER notify_negative_behavior
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS notify_negative_behavior ON public.behavior_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER notify_negative_behavior
   AFTER INSERT ON public.behavior_records
   FOR EACH ROW
-  EXECUTE FUNCTION public.notify_on_negative_behavior();
-
+  EXECUTE FUNCTION public.notify_on_negative_behavior()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============================================================
 -- 5) Auto-create notification when document is created
 -- ============================================================
@@ -147,13 +174,23 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
-DROP TRIGGER IF EXISTS notify_document_created ON public.documents;
-CREATE TRIGGER notify_document_created
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS notify_document_created ON public.documents';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER notify_document_created
   AFTER INSERT ON public.documents
   FOR EACH ROW
-  EXECUTE FUNCTION public.notify_on_document_created();
-
+  EXECUTE FUNCTION public.notify_on_document_created()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============================================================
 -- 6) Auto-create screening record when student is created
 -- ============================================================
@@ -165,13 +202,23 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
-DROP TRIGGER IF EXISTS auto_screening_on_student ON public.students;
-CREATE TRIGGER auto_screening_on_student
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS auto_screening_on_student ON public.students';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER auto_screening_on_student
   AFTER INSERT ON public.students
   FOR EACH ROW
-  EXECUTE FUNCTION public.auto_create_student_screening();
-
+  EXECUTE FUNCTION public.auto_create_student_screening()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============================================================
 -- 7) Notify admin when student leave is created
 -- ============================================================
@@ -200,13 +247,23 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
-DROP TRIGGER IF EXISTS notify_student_leave ON public.student_leaves;
-CREATE TRIGGER notify_student_leave
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS notify_student_leave ON public.student_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER notify_student_leave
   AFTER INSERT ON public.student_leaves
   FOR EACH ROW
-  EXECUTE FUNCTION public.notify_on_student_leave();
-
+  EXECUTE FUNCTION public.notify_on_student_leave()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============================================================
 -- 8) Auto-notify on emergency broadcast
 -- ============================================================
@@ -231,9 +288,20 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
-DROP TRIGGER IF EXISTS notify_emergency ON public.emergency_broadcasts;
-CREATE TRIGGER notify_emergency
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS notify_emergency ON public.emergency_broadcasts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER notify_emergency
   AFTER INSERT ON public.emergency_broadcasts
   FOR EACH ROW
-  EXECUTE FUNCTION public.notify_on_emergency();
+  EXECUTE FUNCTION public.notify_on_emergency()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

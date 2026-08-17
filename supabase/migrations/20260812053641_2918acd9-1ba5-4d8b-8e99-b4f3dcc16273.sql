@@ -1,8 +1,18 @@
-ALTER TABLE public.staff_leaves ADD COLUMN IF NOT EXISTS substitute_plan jsonb NOT NULL DEFAULT '[]'::jsonb;
-
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_substitute_teaching_slot
-  ON public.substitute_teaching (original_teacher, teaching_date, period);
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.staff_leaves ADD COLUMN IF NOT EXISTS substitute_plan jsonb NOT NULL DEFAULT ''[]''::jsonb';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS uniq_substitute_teaching_slot
+  ON public.substitute_teaching (original_teacher, teaching_date, period)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 CREATE OR REPLACE FUNCTION public.pick_auto_substitute(
   _dow int, _period int, _exclude_personnel uuid, _subject_id uuid DEFAULT NULL
 ) RETURNS text
@@ -39,7 +49,6 @@ AS $$
     p.first_name
   LIMIT 1;
 $$;
-
 CREATE OR REPLACE FUNCTION public.auto_create_substitute_on_leave_approval()
 RETURNS trigger
 LANGUAGE plpgsql

@@ -1,4 +1,3 @@
-
 -- ============== Hub Projects ==============
 CREATE TABLE IF NOT EXISTS public.hub_projects (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -23,27 +22,102 @@ CREATE TABLE IF NOT EXISTS public.hub_projects (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.hub_projects TO authenticated;
-GRANT ALL ON public.hub_projects TO service_role;
-GRANT SELECT ON public.hub_projects TO anon;
-ALTER TABLE public.hub_projects ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "view projects in school" ON public.hub_projects;
-DROP POLICY IF EXISTS "view projects in school" ON public.hub_projects;
-CREATE POLICY "view projects in school" ON public.hub_projects FOR SELECT TO authenticated
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.hub_projects TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.hub_projects TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT ON public.hub_projects TO anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.hub_projects ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "view projects in school" ON public.hub_projects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "view projects in school" ON public.hub_projects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "view projects in school" ON public.hub_projects FOR SELECT TO authenticated
   USING (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid())
-    OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
-DROP POLICY IF EXISTS "staff manage projects" ON public.hub_projects;
-DROP POLICY IF EXISTS "staff manage projects" ON public.hub_projects;
-CREATE POLICY "staff manage projects" ON public.hub_projects FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))
-  WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));
-
-CREATE INDEX IF NOT EXISTS idx_hub_projects_school ON public.hub_projects(school_id, fiscal_year);
-DROP TRIGGER IF EXISTS trg_hub_projects_updated ON public.hub_projects;
-CREATE TRIGGER trg_hub_projects_updated BEFORE UPDATE ON public.hub_projects
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
+    OR public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "staff manage projects" ON public.hub_projects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "staff manage projects" ON public.hub_projects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "staff manage projects" ON public.hub_projects FOR ALL TO authenticated
+  USING (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher''))
+  WITH CHECK (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_hub_projects_school ON public.hub_projects(school_id, fiscal_year)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_hub_projects_updated ON public.hub_projects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_hub_projects_updated BEFORE UPDATE ON public.hub_projects
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Auto fill school_id
 CREATE OR REPLACE FUNCTION public.hub_project_fill_school() RETURNS TRIGGER
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
@@ -53,10 +127,21 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-DROP TRIGGER IF EXISTS trg_hub_project_fill_school ON public.hub_projects;
-CREATE TRIGGER trg_hub_project_fill_school BEFORE INSERT ON public.hub_projects
-  FOR EACH ROW EXECUTE FUNCTION public.hub_project_fill_school();
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_hub_project_fill_school ON public.hub_projects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_hub_project_fill_school BEFORE INSERT ON public.hub_projects
+  FOR EACH ROW EXECUTE FUNCTION public.hub_project_fill_school()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============== Budgets received ==============
 CREATE TABLE IF NOT EXISTS public.hub_project_budgets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -69,19 +154,72 @@ CREATE TABLE IF NOT EXISTS public.hub_project_budgets (
   created_by UUID,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.hub_project_budgets TO authenticated;
-GRANT ALL ON public.hub_project_budgets TO service_role;
-ALTER TABLE public.hub_project_budgets ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "view budgets via project" ON public.hub_project_budgets;
-DROP POLICY IF EXISTS "view budgets via project" ON public.hub_project_budgets;
-CREATE POLICY "view budgets via project" ON public.hub_project_budgets FOR SELECT TO authenticated
-  USING (EXISTS (SELECT 1 FROM public.hub_projects p WHERE p.id = project_id));
-DROP POLICY IF EXISTS "staff manage budgets" ON public.hub_project_budgets;
-DROP POLICY IF EXISTS "staff manage budgets" ON public.hub_project_budgets;
-CREATE POLICY "staff manage budgets" ON public.hub_project_budgets FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))
-  WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));
-
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.hub_project_budgets TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.hub_project_budgets TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.hub_project_budgets ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "view budgets via project" ON public.hub_project_budgets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "view budgets via project" ON public.hub_project_budgets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "view budgets via project" ON public.hub_project_budgets FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM public.hub_projects p WHERE p.id = project_id))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "staff manage budgets" ON public.hub_project_budgets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "staff manage budgets" ON public.hub_project_budgets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "staff manage budgets" ON public.hub_project_budgets FOR ALL TO authenticated
+  USING (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher''))
+  WITH CHECK (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============== Expenses ==============
 CREATE TABLE IF NOT EXISTS public.hub_project_expenses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -97,19 +235,72 @@ CREATE TABLE IF NOT EXISTS public.hub_project_expenses (
   created_by UUID,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.hub_project_expenses TO authenticated;
-GRANT ALL ON public.hub_project_expenses TO service_role;
-ALTER TABLE public.hub_project_expenses ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "view expenses via project" ON public.hub_project_expenses;
-DROP POLICY IF EXISTS "view expenses via project" ON public.hub_project_expenses;
-CREATE POLICY "view expenses via project" ON public.hub_project_expenses FOR SELECT TO authenticated
-  USING (EXISTS (SELECT 1 FROM public.hub_projects p WHERE p.id = project_id));
-DROP POLICY IF EXISTS "staff manage expenses" ON public.hub_project_expenses;
-DROP POLICY IF EXISTS "staff manage expenses" ON public.hub_project_expenses;
-CREATE POLICY "staff manage expenses" ON public.hub_project_expenses FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))
-  WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));
-
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.hub_project_expenses TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.hub_project_expenses TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.hub_project_expenses ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "view expenses via project" ON public.hub_project_expenses';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "view expenses via project" ON public.hub_project_expenses';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "view expenses via project" ON public.hub_project_expenses FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM public.hub_projects p WHERE p.id = project_id))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "staff manage expenses" ON public.hub_project_expenses';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "staff manage expenses" ON public.hub_project_expenses';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "staff manage expenses" ON public.hub_project_expenses FOR ALL TO authenticated
+  USING (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher''))
+  WITH CHECK (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============== Progress updates (feed) ==============
 CREATE TABLE IF NOT EXISTS public.hub_project_updates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -128,27 +319,116 @@ CREATE TABLE IF NOT EXISTS public.hub_project_updates (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.hub_project_updates TO authenticated;
-GRANT ALL ON public.hub_project_updates TO service_role;
-GRANT SELECT ON public.hub_project_updates TO anon;
-ALTER TABLE public.hub_project_updates ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "view updates via project" ON public.hub_project_updates;
-DROP POLICY IF EXISTS "view updates via project" ON public.hub_project_updates;
-CREATE POLICY "view updates via project" ON public.hub_project_updates FOR SELECT TO authenticated
-  USING (EXISTS (SELECT 1 FROM public.hub_projects p WHERE p.id = project_id));
-DROP POLICY IF EXISTS "anon view published updates" ON public.hub_project_updates;
-DROP POLICY IF EXISTS "anon view published updates" ON public.hub_project_updates;
-CREATE POLICY "anon view published updates" ON public.hub_project_updates FOR SELECT TO anon
-  USING (is_published = true);
-DROP POLICY IF EXISTS "staff manage updates" ON public.hub_project_updates;
-DROP POLICY IF EXISTS "staff manage updates" ON public.hub_project_updates;
-CREATE POLICY "staff manage updates" ON public.hub_project_updates FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))
-  WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));
-DROP TRIGGER IF EXISTS trg_hub_project_updates_updated ON public.hub_project_updates;
-CREATE TRIGGER trg_hub_project_updates_updated BEFORE UPDATE ON public.hub_project_updates
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.hub_project_updates TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.hub_project_updates TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT ON public.hub_project_updates TO anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.hub_project_updates ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "view updates via project" ON public.hub_project_updates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "view updates via project" ON public.hub_project_updates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "view updates via project" ON public.hub_project_updates FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM public.hub_projects p WHERE p.id = project_id))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "anon view published updates" ON public.hub_project_updates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "anon view published updates" ON public.hub_project_updates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "anon view published updates" ON public.hub_project_updates FOR SELECT TO anon
+  USING (is_published = true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "staff manage updates" ON public.hub_project_updates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "staff manage updates" ON public.hub_project_updates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "staff manage updates" ON public.hub_project_updates FOR ALL TO authenticated
+  USING (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher''))
+  WITH CHECK (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_hub_project_updates_updated ON public.hub_project_updates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_hub_project_updates_updated BEFORE UPDATE ON public.hub_project_updates
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============== Auto-recompute budget totals ==============
 CREATE OR REPLACE FUNCTION public.recompute_hub_project_totals() RETURNS TRIGGER
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
@@ -162,13 +442,36 @@ BEGIN
   WHERE p.id = pid;
   RETURN NULL;
 END $$;
-DROP TRIGGER IF EXISTS trg_recompute_on_budget ON public.hub_project_budgets;
-CREATE TRIGGER trg_recompute_on_budget AFTER INSERT OR UPDATE OR DELETE ON public.hub_project_budgets
-  FOR EACH ROW EXECUTE FUNCTION public.recompute_hub_project_totals();
-DROP TRIGGER IF EXISTS trg_recompute_on_expense ON public.hub_project_expenses;
-CREATE TRIGGER trg_recompute_on_expense AFTER INSERT OR UPDATE OR DELETE ON public.hub_project_expenses
-  FOR EACH ROW EXECUTE FUNCTION public.recompute_hub_project_totals();
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_recompute_on_budget ON public.hub_project_budgets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_recompute_on_budget AFTER INSERT OR UPDATE OR DELETE ON public.hub_project_budgets
+  FOR EACH ROW EXECUTE FUNCTION public.recompute_hub_project_totals()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_recompute_on_expense ON public.hub_project_expenses';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_recompute_on_expense AFTER INSERT OR UPDATE OR DELETE ON public.hub_project_expenses
+  FOR EACH ROW EXECUTE FUNCTION public.recompute_hub_project_totals()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Add to realtime
 DO $$
 BEGIN

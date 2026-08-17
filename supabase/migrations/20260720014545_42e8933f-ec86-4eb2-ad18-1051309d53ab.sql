@@ -1,4 +1,3 @@
-
 DO $$
 DECLARE
   v_job_id int;
@@ -8,7 +7,6 @@ BEGIN
     PERFORM cron.unschedule(v_job_id);
   END IF;
 END$$;
-
 SELECT cron.schedule(
   'line-vault-drive-cleanup',
   '*/5 * * * *',

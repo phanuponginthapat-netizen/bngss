@@ -11,29 +11,121 @@ CREATE TABLE IF NOT EXISTS public.user_dashboard_widgets (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (user_id, widget_key)
 );
-
-ALTER TABLE public.user_dashboard_widgets ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Users view own widgets" ON public.user_dashboard_widgets;
-DROP POLICY IF EXISTS "Users view own widgets" ON public.user_dashboard_widgets;
-CREATE POLICY "Users view own widgets" ON public.user_dashboard_widgets
-  FOR SELECT USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users insert own widgets" ON public.user_dashboard_widgets;
-DROP POLICY IF EXISTS "Users insert own widgets" ON public.user_dashboard_widgets;
-CREATE POLICY "Users insert own widgets" ON public.user_dashboard_widgets
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users update own widgets" ON public.user_dashboard_widgets;
-DROP POLICY IF EXISTS "Users update own widgets" ON public.user_dashboard_widgets;
-CREATE POLICY "Users update own widgets" ON public.user_dashboard_widgets
-  FOR UPDATE USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users delete own widgets" ON public.user_dashboard_widgets;
-DROP POLICY IF EXISTS "Users delete own widgets" ON public.user_dashboard_widgets;
-CREATE POLICY "Users delete own widgets" ON public.user_dashboard_widgets
-  FOR DELETE USING (auth.uid() = user_id);
-
-DROP TRIGGER IF EXISTS update_user_dashboard_widgets_updated_at ON public.user_dashboard_widgets;
-CREATE TRIGGER update_user_dashboard_widgets_updated_at
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.user_dashboard_widgets ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users view own widgets" ON public.user_dashboard_widgets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users view own widgets" ON public.user_dashboard_widgets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Users view own widgets" ON public.user_dashboard_widgets
+  FOR SELECT USING (auth.uid() = user_id)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users insert own widgets" ON public.user_dashboard_widgets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users insert own widgets" ON public.user_dashboard_widgets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Users insert own widgets" ON public.user_dashboard_widgets
+  FOR INSERT WITH CHECK (auth.uid() = user_id)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users update own widgets" ON public.user_dashboard_widgets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users update own widgets" ON public.user_dashboard_widgets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Users update own widgets" ON public.user_dashboard_widgets
+  FOR UPDATE USING (auth.uid() = user_id)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users delete own widgets" ON public.user_dashboard_widgets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users delete own widgets" ON public.user_dashboard_widgets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Users delete own widgets" ON public.user_dashboard_widgets
+  FOR DELETE USING (auth.uid() = user_id)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS update_user_dashboard_widgets_updated_at ON public.user_dashboard_widgets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER update_user_dashboard_widgets_updated_at
   BEFORE UPDATE ON public.user_dashboard_widgets
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
-CREATE INDEX IF NOT EXISTS idx_user_dashboard_widgets_user ON public.user_dashboard_widgets(user_id, position);
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_user_dashboard_widgets_user ON public.user_dashboard_widgets(user_id, position)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;

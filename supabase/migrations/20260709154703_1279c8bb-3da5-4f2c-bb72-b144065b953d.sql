@@ -1,53 +1,144 @@
-
-DROP POLICY IF EXISTS "Auth users can view action_plans" ON public.action_plans;
-DROP POLICY IF EXISTS "Staff can view action_plans" ON public.action_plans;
-DROP POLICY IF EXISTS "Staff can view action_plans" ON public.action_plans;
-CREATE POLICY "Staff can view action_plans"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view action_plans" ON public.action_plans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can view action_plans" ON public.action_plans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can view action_plans" ON public.action_plans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff can view action_plans"
 ON public.action_plans FOR SELECT TO authenticated
 USING (
-  has_role(auth.uid(), 'admin'::app_role)
-  OR has_role(auth.uid(), 'director'::app_role)
-  OR has_role(auth.uid(), 'teacher'::app_role)
-);
-
-DROP POLICY IF EXISTS "Authenticated can view assets" ON public.assets;
-DROP POLICY IF EXISTS "Staff can view assets" ON public.assets;
-DROP POLICY IF EXISTS "Staff can view assets" ON public.assets;
-CREATE POLICY "Staff can view assets"
+  has_role(auth.uid(), ''admin''::app_role)
+  OR has_role(auth.uid(), ''director''::app_role)
+  OR has_role(auth.uid(), ''teacher''::app_role)
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can view assets" ON public.assets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can view assets" ON public.assets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can view assets" ON public.assets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff can view assets"
 ON public.assets FOR SELECT TO authenticated
 USING (
-  has_role(auth.uid(), 'admin'::app_role)
-  OR has_role(auth.uid(), 'director'::app_role)
-  OR has_role(auth.uid(), 'teacher'::app_role)
-);
-
-DROP POLICY IF EXISTS "Devices viewable by authenticated" ON public.ict_devices;
-DROP POLICY IF EXISTS "Staff or borrower can view ict_devices" ON public.ict_devices;
-DROP POLICY IF EXISTS "Staff or borrower can view ict_devices" ON public.ict_devices;
-CREATE POLICY "Staff or borrower can view ict_devices"
+  has_role(auth.uid(), ''admin''::app_role)
+  OR has_role(auth.uid(), ''director''::app_role)
+  OR has_role(auth.uid(), ''teacher''::app_role)
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Devices viewable by authenticated" ON public.ict_devices';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff or borrower can view ict_devices" ON public.ict_devices';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff or borrower can view ict_devices" ON public.ict_devices';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff or borrower can view ict_devices"
 ON public.ict_devices FOR SELECT TO authenticated
 USING (
-  has_role(auth.uid(), 'admin'::app_role)
-  OR has_role(auth.uid(), 'director'::app_role)
-  OR has_role(auth.uid(), 'teacher'::app_role)
+  has_role(auth.uid(), ''admin''::app_role)
+  OR has_role(auth.uid(), ''director''::app_role)
+  OR has_role(auth.uid(), ''teacher''::app_role)
   OR EXISTS (
     SELECT 1 FROM public.ict_loans l
     WHERE l.device_id = ict_devices.id
       AND l.borrowed_by = auth.uid()
       AND l.returned_at IS NULL
   )
-);
-
-DROP POLICY IF EXISTS "Anyone authenticated can view school_settings" ON public.school_settings;
-DROP POLICY IF EXISTS "Admin/director can view school_settings" ON public.school_settings;
-DROP POLICY IF EXISTS "Admin/director can view school_settings" ON public.school_settings;
-CREATE POLICY "Admin/director can view school_settings"
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Anyone authenticated can view school_settings" ON public.school_settings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/director can view school_settings" ON public.school_settings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/director can view school_settings" ON public.school_settings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/director can view school_settings"
 ON public.school_settings FOR SELECT TO authenticated
 USING (
-  has_role(auth.uid(), 'admin'::app_role)
-  OR has_role(auth.uid(), 'director'::app_role)
-);
-
+  has_role(auth.uid(), ''admin''::app_role)
+  OR has_role(auth.uid(), ''director''::app_role)
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.is_homeroom_of_student(_user_id uuid, _student_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -63,7 +154,6 @@ AS $$
       AND p.user_id = _user_id
   );
 $$;
-
 CREATE OR REPLACE FUNCTION public.teacher_teaches_subject(_user_id uuid, _subject_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -89,32 +179,62 @@ AS $$
       )
     );
 $$;
-
-DROP POLICY IF EXISTS "Staff can insert attendance" ON public.attendance;
-DROP POLICY IF EXISTS "Staff can insert attendance" ON public.attendance;
-CREATE POLICY "Staff can insert attendance"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can insert attendance" ON public.attendance';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can insert attendance" ON public.attendance';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff can insert attendance"
 ON public.attendance FOR INSERT TO authenticated
 WITH CHECK (
-  has_role(auth.uid(), 'admin'::app_role)
-  OR has_role(auth.uid(), 'director'::app_role)
+  has_role(auth.uid(), ''admin''::app_role)
+  OR has_role(auth.uid(), ''director''::app_role)
   OR (
-    has_role(auth.uid(), 'teacher'::app_role)
+    has_role(auth.uid(), ''teacher''::app_role)
     AND (
       (attendance.subject_id IS NOT NULL AND teacher_teaches_subject(auth.uid(), attendance.subject_id))
       OR (attendance.subject_id IS NULL AND is_homeroom_of_student(auth.uid(), attendance.student_id))
     )
   )
-);
-
-DROP POLICY IF EXISTS "Staff can update attendance" ON public.attendance;
-DROP POLICY IF EXISTS "Staff can update attendance" ON public.attendance;
-CREATE POLICY "Staff can update attendance"
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can update attendance" ON public.attendance';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can update attendance" ON public.attendance';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff can update attendance"
 ON public.attendance FOR UPDATE TO authenticated
 USING (
-  has_role(auth.uid(), 'admin'::app_role)
-  OR has_role(auth.uid(), 'director'::app_role)
+  has_role(auth.uid(), ''admin''::app_role)
+  OR has_role(auth.uid(), ''director''::app_role)
   OR (
-    has_role(auth.uid(), 'teacher'::app_role)
+    has_role(auth.uid(), ''teacher''::app_role)
     AND (
       (attendance.subject_id IS NOT NULL AND teacher_teaches_subject(auth.uid(), attendance.subject_id))
       OR (attendance.subject_id IS NULL AND is_homeroom_of_student(auth.uid(), attendance.student_id))
@@ -122,29 +242,50 @@ USING (
   )
 )
 WITH CHECK (
-  has_role(auth.uid(), 'admin'::app_role)
-  OR has_role(auth.uid(), 'director'::app_role)
+  has_role(auth.uid(), ''admin''::app_role)
+  OR has_role(auth.uid(), ''director''::app_role)
   OR (
-    has_role(auth.uid(), 'teacher'::app_role)
+    has_role(auth.uid(), ''teacher''::app_role)
     AND (
       (attendance.subject_id IS NOT NULL AND teacher_teaches_subject(auth.uid(), attendance.subject_id))
       OR (attendance.subject_id IS NULL AND is_homeroom_of_student(auth.uid(), attendance.student_id))
     )
   )
-);
-
-DROP POLICY IF EXISTS "Staff can delete attendance" ON public.attendance;
-DROP POLICY IF EXISTS "Staff can delete attendance" ON public.attendance;
-CREATE POLICY "Staff can delete attendance"
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can delete attendance" ON public.attendance';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can delete attendance" ON public.attendance';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff can delete attendance"
 ON public.attendance FOR DELETE TO authenticated
 USING (
-  has_role(auth.uid(), 'admin'::app_role)
-  OR has_role(auth.uid(), 'director'::app_role)
+  has_role(auth.uid(), ''admin''::app_role)
+  OR has_role(auth.uid(), ''director''::app_role)
   OR (
-    has_role(auth.uid(), 'teacher'::app_role)
+    has_role(auth.uid(), ''teacher''::app_role)
     AND (
       (attendance.subject_id IS NOT NULL AND teacher_teaches_subject(auth.uid(), attendance.subject_id))
       OR (attendance.subject_id IS NULL AND is_homeroom_of_student(auth.uid(), attendance.student_id))
     )
   )
-);
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

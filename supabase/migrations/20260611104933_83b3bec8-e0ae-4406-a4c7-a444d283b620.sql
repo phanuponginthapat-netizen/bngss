@@ -1,4 +1,3 @@
-
 -- Backfill NULL school_id on existing data + add missing autofill triggers
 DO $$
 DECLARE v_school uuid;
@@ -42,16 +41,37 @@ BEGIN
   UPDATE public.special_rooms     SET school_id = v_school WHERE school_id IS NULL;
   UPDATE public.wall_posts        SET school_id = v_school WHERE school_id IS NULL;
 END $$;
-
 -- Add missing autofill triggers
-DROP TRIGGER IF EXISTS trg_autofill_school_id ON public.subjects;
-CREATE TRIGGER trg_autofill_school_id BEFORE INSERT ON public.subjects
-  FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id();
-
-DROP TRIGGER IF EXISTS trg_autofill_school_id ON public.schedules;
-CREATE TRIGGER trg_autofill_school_id BEFORE INSERT ON public.schedules
-  FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id();
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_autofill_school_id ON public.subjects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_autofill_school_id BEFORE INSERT ON public.subjects
+  FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_autofill_school_id ON public.schedules';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_autofill_school_id BEFORE INSERT ON public.schedules
+  FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Improve duplicate face scan trigger: instead of silently dropping (which confuses the client),
 -- raise a proper unique_violation so the client can detect "already scanned today" cleanly.
 CREATE OR REPLACE FUNCTION public.prevent_duplicate_face_scan()

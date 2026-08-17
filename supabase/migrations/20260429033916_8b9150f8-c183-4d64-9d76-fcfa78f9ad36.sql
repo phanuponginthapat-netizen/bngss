@@ -1,4 +1,3 @@
-
 -- ========================================
 -- ลบระบบเขตพื้นที่ (Areas/Super Admin) ออกจากระบบ
 -- คงตาราง schools และ school_id ไว้สำหรับ multi-school support
@@ -33,22 +32,24 @@ BEGIN
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', r.policyname, r.tablename);
   END LOOP;
 END $$;
-
 -- 2) ลบตารางที่เกี่ยวกับ area/broadcast/user_schools
 DROP TABLE IF EXISTS public.broadcast_recipients CASCADE;
 DROP TABLE IF EXISTS public.area_broadcasts CASCADE;
 DROP TABLE IF EXISTS public.user_schools CASCADE;
 DROP TABLE IF EXISTS public.areas CASCADE;
-
 -- 3) ลบ helper functions
 DROP FUNCTION IF EXISTS public.is_super_admin(uuid) CASCADE;
 DROP FUNCTION IF EXISTS public.is_area_admin(uuid) CASCADE;
 DROP FUNCTION IF EXISTS public.get_user_area_id(uuid) CASCADE;
 DROP FUNCTION IF EXISTS public.can_access_school(uuid, uuid) CASCADE;
-
 -- 4) ลบ area_id จาก schools
-ALTER TABLE public.schools DROP COLUMN IF EXISTS area_id CASCADE;
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.schools DROP COLUMN IF EXISTS area_id CASCADE';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 5) แก้ get_user_school_id ให้ดึงจาก profiles แทน user_schools
 DROP FUNCTION IF EXISTS public.get_user_school_id(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_user_school_id(_user_id uuid)
@@ -59,11 +60,9 @@ SET search_path = public
 AS $$
   SELECT school_id FROM public.profiles WHERE id = _user_id LIMIT 1
 $$;
-
 -- 6) ดาวน์เกรด role super_admin -> admin (สำหรับ admin@school.com และอื่นๆ)
 UPDATE public.user_roles SET role = 'admin'
   WHERE role IN ('super_admin','area_admin','school_admin');
-
 -- 7) ลบค่า enum ที่ไม่ใช้ (ต้องสร้าง type ใหม่)
 DO $$
 BEGIN
@@ -80,7 +79,6 @@ CREATE TYPE app_role_new AS ENUM ('admin','teacher','student','director','alumni
 EXCEPTION WHEN others THEN
   RAISE NOTICE 'Enum migration: %', SQLERRM;
 END $$;
-
 -- 8) สร้างตารางสำหรับ District Feed API keys
 CREATE TABLE IF NOT EXISTS public.district_api_keys (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -95,17 +93,38 @@ CREATE TABLE IF NOT EXISTS public.district_api_keys (
   expires_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
-ALTER TABLE public.district_api_keys ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Admins manage api keys" ON public.district_api_keys;
-DROP POLICY IF EXISTS "Admins manage api keys" ON public.district_api_keys;
-CREATE POLICY "Admins manage api keys"
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.district_api_keys ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage api keys" ON public.district_api_keys';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage api keys" ON public.district_api_keys';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins manage api keys"
   ON public.district_api_keys
   FOR ALL
-  USING (public.has_role(auth.uid(), 'admin'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin'));
-
+  USING (public.has_role(auth.uid(), ''admin''))
+  WITH CHECK (public.has_role(auth.uid(), ''admin''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 9) สร้าง audit log สำหรับ district feed
 CREATE TABLE IF NOT EXISTS public.district_feed_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -118,26 +137,82 @@ CREATE TABLE IF NOT EXISTS public.district_feed_logs (
   response_size INT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
-ALTER TABLE public.district_feed_logs ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Admins view logs" ON public.district_feed_logs;
-DROP POLICY IF EXISTS "Admins view logs" ON public.district_feed_logs;
-CREATE POLICY "Admins view logs"
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.district_feed_logs ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins view logs" ON public.district_feed_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins view logs" ON public.district_feed_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins view logs"
   ON public.district_feed_logs
   FOR SELECT
-  USING (public.has_role(auth.uid(), 'admin'));
-
+  USING (public.has_role(auth.uid(), ''admin''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 10) สร้าง basic policies ใหม่สำหรับ schools (admin ระดับโรงเรียน)
-DROP POLICY IF EXISTS "Admins manage schools" ON public.schools;
-DROP POLICY IF EXISTS "Admins manage schools" ON public.schools;
-CREATE POLICY "Admins manage schools"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage schools" ON public.schools';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage schools" ON public.schools';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins manage schools"
   ON public.schools FOR ALL
-  USING (public.has_role(auth.uid(), 'admin'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin'));
-
-DROP POLICY IF EXISTS "Authenticated view schools" ON public.schools;
-DROP POLICY IF EXISTS "Authenticated view schools" ON public.schools;
-CREATE POLICY "Authenticated view schools"
+  USING (public.has_role(auth.uid(), ''admin''))
+  WITH CHECK (public.has_role(auth.uid(), ''admin''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated view schools" ON public.schools';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated view schools" ON public.schools';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Authenticated view schools"
   ON public.schools FOR SELECT
-  USING (auth.uid() IS NOT NULL);
+  USING (auth.uid() IS NOT NULL)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

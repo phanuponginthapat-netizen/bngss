@@ -1,4 +1,3 @@
-
 -- Rewrite to use proper UUID relationships
 CREATE OR REPLACE FUNCTION public.is_homeroom_teacher_of_student(_user_id uuid, _student_id uuid)
 RETURNS boolean
@@ -17,10 +16,20 @@ AS $$
       AND p.user_id = _user_id
   );
 $$;
-
-REVOKE EXECUTE ON FUNCTION public.is_homeroom_teacher_of_student(uuid, uuid) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.is_homeroom_teacher_of_student(uuid, uuid) TO authenticated, service_role;
-
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.is_homeroom_teacher_of_student(uuid, uuid) FROM PUBLIC, anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.is_homeroom_teacher_of_student(uuid, uuid) TO authenticated, service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- List of classroom IDs the user is homeroom teacher of (main or assistant)
 CREATE OR REPLACE FUNCTION public.homeroom_classroom_ids_of(_user_id uuid)
 RETURNS SETOF uuid
@@ -35,12 +44,46 @@ AS $$
     ON (p.id = c.homeroom_teacher_id OR p.id = c.homeroom_teacher_2_id)
   WHERE p.user_id = _user_id;
 $$;
-
-REVOKE EXECUTE ON FUNCTION public.homeroom_classroom_ids_of(uuid) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.homeroom_classroom_ids_of(uuid) TO authenticated, service_role;
-
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.homeroom_classroom_ids_of(uuid) FROM PUBLIC, anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.homeroom_classroom_ids_of(uuid) TO authenticated, service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Indexes to keep RLS lookups fast
-CREATE INDEX IF NOT EXISTS idx_personnel_user_id ON public.personnel(user_id);
-CREATE INDEX IF NOT EXISTS idx_classrooms_homeroom_teacher_id ON public.classrooms(homeroom_teacher_id);
-CREATE INDEX IF NOT EXISTS idx_classrooms_homeroom_teacher_2_id ON public.classrooms(homeroom_teacher_2_id);
-CREATE INDEX IF NOT EXISTS idx_students_classroom_id ON public.students(classroom_id);
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_personnel_user_id ON public.personnel(user_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_classrooms_homeroom_teacher_id ON public.classrooms(homeroom_teacher_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_classrooms_homeroom_teacher_2_id ON public.classrooms(homeroom_teacher_2_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_students_classroom_id ON public.students(classroom_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;

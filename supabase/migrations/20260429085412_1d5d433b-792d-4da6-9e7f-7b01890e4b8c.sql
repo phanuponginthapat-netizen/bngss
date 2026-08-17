@@ -9,41 +9,117 @@ CREATE TABLE IF NOT EXISTS public.pdpa_consents (
   user_agent TEXT,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-
-CREATE INDEX IF NOT EXISTS idx_pdpa_consents_user ON public.pdpa_consents(user_id, accepted_at DESC);
-
-ALTER TABLE public.pdpa_consents ENABLE ROW LEVEL SECURITY;
-
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_pdpa_consents_user ON public.pdpa_consents(user_id, accepted_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.pdpa_consents ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Users can view their own consents
-DROP POLICY IF EXISTS "Users can view own pdpa consents" ON public.pdpa_consents;
-DROP POLICY IF EXISTS "Users can view own pdpa consents" ON public.pdpa_consents;
-CREATE POLICY "Users can view own pdpa consents"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users can view own pdpa consents" ON public.pdpa_consents';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users can view own pdpa consents" ON public.pdpa_consents';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Users can view own pdpa consents"
 ON public.pdpa_consents FOR SELECT
 TO authenticated
-USING (auth.uid() = user_id);
-
+USING (auth.uid() = user_id)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Users can insert their own consents
-DROP POLICY IF EXISTS "Users can insert own pdpa consents" ON public.pdpa_consents;
-DROP POLICY IF EXISTS "Users can insert own pdpa consents" ON public.pdpa_consents;
-CREATE POLICY "Users can insert own pdpa consents"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users can insert own pdpa consents" ON public.pdpa_consents';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users can insert own pdpa consents" ON public.pdpa_consents';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Users can insert own pdpa consents"
 ON public.pdpa_consents FOR INSERT
 TO authenticated
-WITH CHECK (auth.uid() = user_id);
-
+WITH CHECK (auth.uid() = user_id)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Admins/Directors can view all consents (audit)
-DROP POLICY IF EXISTS "Admins can view all pdpa consents" ON public.pdpa_consents;
-DROP POLICY IF EXISTS "Admins can view all pdpa consents" ON public.pdpa_consents;
-CREATE POLICY "Admins can view all pdpa consents"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins can view all pdpa consents" ON public.pdpa_consents';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins can view all pdpa consents" ON public.pdpa_consents';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins can view all pdpa consents"
 ON public.pdpa_consents FOR SELECT
 TO authenticated
-USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
+USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Add must_change_password flag to profiles for forced password reset by admin
-ALTER TABLE public.profiles
-  ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false;
-
-ALTER TABLE public.profiles
-  ADD COLUMN IF NOT EXISTS pdpa_accepted_at TIMESTAMP WITH TIME ZONE;
-
-ALTER TABLE public.profiles
-  ADD COLUMN IF NOT EXISTS pdpa_version TEXT;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS pdpa_accepted_at TIMESTAMP WITH TIME ZONE';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS pdpa_version TEXT';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

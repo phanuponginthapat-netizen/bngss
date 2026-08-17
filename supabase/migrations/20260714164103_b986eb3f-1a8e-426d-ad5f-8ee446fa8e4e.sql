@@ -1,141 +1,346 @@
-
 -- 1. asset-photos storage: restrict read to staff
-DROP POLICY IF EXISTS "Authenticated can read asset photos" ON storage.objects;
-DROP POLICY IF EXISTS "Staff read asset photos" ON storage.objects;
-DROP POLICY IF EXISTS "Staff read asset photos" ON storage.objects;
-CREATE POLICY "Staff read asset photos"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can read asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff read asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff read asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff read asset photos"
 ON storage.objects FOR SELECT
 USING (
-  bucket_id = 'asset-photos'
+  bucket_id = ''asset-photos''
   AND (
-    has_role(auth.uid(), 'admin'::app_role)
-    OR has_role(auth.uid(), 'director'::app_role)
-    OR has_role(auth.uid(), 'teacher'::app_role)
+    has_role(auth.uid(), ''admin''::app_role)
+    OR has_role(auth.uid(), ''director''::app_role)
+    OR has_role(auth.uid(), ''teacher''::app_role)
   )
-);
-
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 2. hub-projects storage: restrict read to staff
-DROP POLICY IF EXISTS "hub-projects read auth" ON storage.objects;
-DROP POLICY IF EXISTS "hub-projects read staff" ON storage.objects;
-DROP POLICY IF EXISTS "hub-projects read staff" ON storage.objects;
-CREATE POLICY "hub-projects read staff"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "hub-projects read auth" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "hub-projects read staff" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "hub-projects read staff" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "hub-projects read staff"
 ON storage.objects FOR SELECT
 USING (
-  bucket_id = 'hub-projects'
+  bucket_id = ''hub-projects''
   AND (
-    has_role(auth.uid(), 'admin'::app_role)
-    OR has_role(auth.uid(), 'director'::app_role)
-    OR has_role(auth.uid(), 'teacher'::app_role)
+    has_role(auth.uid(), ''admin''::app_role)
+    OR has_role(auth.uid(), ''director''::app_role)
+    OR has_role(auth.uid(), ''teacher''::app_role)
   )
-);
-
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 3. game_hub_scores: scope reads
-DROP POLICY IF EXISTS "scores_read_all_auth" ON public.game_hub_scores;
-DROP POLICY IF EXISTS "scores_read_scoped" ON public.game_hub_scores;
-DROP POLICY IF EXISTS "scores_read_scoped" ON public.game_hub_scores;
-CREATE POLICY "scores_read_scoped"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "scores_read_all_auth" ON public.game_hub_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "scores_read_scoped" ON public.game_hub_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "scores_read_scoped" ON public.game_hub_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "scores_read_scoped"
 ON public.game_hub_scores FOR SELECT
 USING (
   auth_user_id = auth.uid()
-  OR has_role(auth.uid(), 'admin'::app_role)
-  OR has_role(auth.uid(), 'director'::app_role)
-  OR has_role(auth.uid(), 'teacher'::app_role)
+  OR has_role(auth.uid(), ''admin''::app_role)
+  OR has_role(auth.uid(), ''director''::app_role)
+  OR has_role(auth.uid(), ''teacher''::app_role)
   OR is_parent_of(auth.uid(), student_id)
-);
-
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 4. iot_readings: staff only
-DROP POLICY IF EXISTS "Authenticated users can view iot readings" ON public.iot_readings;
-DROP POLICY IF EXISTS "Staff can view iot readings" ON public.iot_readings;
-DROP POLICY IF EXISTS "Staff can view iot readings" ON public.iot_readings;
-CREATE POLICY "Staff can view iot readings"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can view iot readings" ON public.iot_readings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can view iot readings" ON public.iot_readings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can view iot readings" ON public.iot_readings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff can view iot readings"
 ON public.iot_readings FOR SELECT
 USING (
-  has_role(auth.uid(), 'admin'::app_role)
-  OR has_role(auth.uid(), 'director'::app_role)
-  OR has_role(auth.uid(), 'teacher'::app_role)
-);
-
+  has_role(auth.uid(), ''admin''::app_role)
+  OR has_role(auth.uid(), ''director''::app_role)
+  OR has_role(auth.uid(), ''teacher''::app_role)
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 5. print_templates: only shared/active with role match
-DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates;
-DROP POLICY IF EXISTS "Active templates readable by shared roles" ON public.print_templates;
-DROP POLICY IF EXISTS "Active templates readable by shared roles" ON public.print_templates;
-CREATE POLICY "Active templates readable by shared roles"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Active templates readable by shared roles" ON public.print_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Active templates readable by shared roles" ON public.print_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Active templates readable by shared roles"
 ON public.print_templates FOR SELECT
 USING (
   is_active = true
   AND (
-    has_role(auth.uid(), 'admin'::app_role)
-    OR has_role(auth.uid(), 'director'::app_role)
+    has_role(auth.uid(), ''admin''::app_role)
+    OR has_role(auth.uid(), ''director''::app_role)
     OR EXISTS (
       SELECT 1 FROM public.user_roles ur
       WHERE ur.user_id = auth.uid()
         AND ur.role::text = ANY (COALESCE(print_templates.shared_with_roles, ARRAY[]::text[]))
     )
   )
-);
-
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 6. school_milk_records / school_lunch_records: same-school staff only
-DROP POLICY IF EXISTS "Auth users can view school_milk_records" ON public.school_milk_records;
-DROP POLICY IF EXISTS "Same-school staff view school_milk_records" ON public.school_milk_records;
-DROP POLICY IF EXISTS "Same-school staff view school_milk_records" ON public.school_milk_records;
-CREATE POLICY "Same-school staff view school_milk_records"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view school_milk_records" ON public.school_milk_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Same-school staff view school_milk_records" ON public.school_milk_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Same-school staff view school_milk_records" ON public.school_milk_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Same-school staff view school_milk_records"
 ON public.school_milk_records FOR SELECT
 USING (
-  (has_role(auth.uid(), 'admin'::app_role)
-    OR has_role(auth.uid(), 'director'::app_role)
-    OR has_role(auth.uid(), 'teacher'::app_role))
+  (has_role(auth.uid(), ''admin''::app_role)
+    OR has_role(auth.uid(), ''director''::app_role)
+    OR has_role(auth.uid(), ''teacher''::app_role))
   AND (school_id IS NULL OR school_id = get_user_school_id(auth.uid()))
-);
-
-DROP POLICY IF EXISTS "Auth users can view school_lunch_records" ON public.school_lunch_records;
-DROP POLICY IF EXISTS "Same-school staff view school_lunch_records" ON public.school_lunch_records;
-DROP POLICY IF EXISTS "Same-school staff view school_lunch_records" ON public.school_lunch_records;
-CREATE POLICY "Same-school staff view school_lunch_records"
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view school_lunch_records" ON public.school_lunch_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Same-school staff view school_lunch_records" ON public.school_lunch_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Same-school staff view school_lunch_records" ON public.school_lunch_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Same-school staff view school_lunch_records"
 ON public.school_lunch_records FOR SELECT
 USING (
-  (has_role(auth.uid(), 'admin'::app_role)
-    OR has_role(auth.uid(), 'director'::app_role)
-    OR has_role(auth.uid(), 'teacher'::app_role))
+  (has_role(auth.uid(), ''admin''::app_role)
+    OR has_role(auth.uid(), ''director''::app_role)
+    OR has_role(auth.uid(), ''teacher''::app_role))
   AND (school_id IS NULL OR school_id = get_user_school_id(auth.uid()))
-);
-
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 7. school_test_scores: admin/director OR same-school staff
-DROP POLICY IF EXISTS "Auth users view test scores" ON public.school_test_scores;
-DROP POLICY IF EXISTS "Same-school staff view test scores" ON public.school_test_scores;
-DROP POLICY IF EXISTS "Same-school staff view test scores" ON public.school_test_scores;
-CREATE POLICY "Same-school staff view test scores"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users view test scores" ON public.school_test_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Same-school staff view test scores" ON public.school_test_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Same-school staff view test scores" ON public.school_test_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Same-school staff view test scores"
 ON public.school_test_scores FOR SELECT
 USING (
-  (has_role(auth.uid(), 'admin'::app_role)
-    OR has_role(auth.uid(), 'director'::app_role)
-    OR has_role(auth.uid(), 'teacher'::app_role))
+  (has_role(auth.uid(), ''admin''::app_role)
+    OR has_role(auth.uid(), ''director''::app_role)
+    OR has_role(auth.uid(), ''teacher''::app_role))
   AND (school_id IS NULL OR school_id = get_user_school_id(auth.uid()))
-);
-
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 8. academic_events: scope to same school (or NULL for global system events restricted to staff)
-DROP POLICY IF EXISTS "Auth users view academic events" ON public.academic_events;
-DROP POLICY IF EXISTS "Same-school users view academic events" ON public.academic_events;
-DROP POLICY IF EXISTS "Same-school users view academic events" ON public.academic_events;
-CREATE POLICY "Same-school users view academic events"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users view academic events" ON public.academic_events';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Same-school users view academic events" ON public.academic_events';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Same-school users view academic events" ON public.academic_events';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Same-school users view academic events"
 ON public.academic_events FOR SELECT
 USING (
   auth.uid() IS NOT NULL
   AND (
     school_id = get_user_school_id(auth.uid())
     OR (school_id IS NULL AND (
-      has_role(auth.uid(), 'admin'::app_role)
-      OR has_role(auth.uid(), 'director'::app_role)
-      OR has_role(auth.uid(), 'teacher'::app_role)
+      has_role(auth.uid(), ''admin''::app_role)
+      OR has_role(auth.uid(), ''director''::app_role)
+      OR has_role(auth.uid(), ''teacher''::app_role)
     ))
   )
-);
-
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 9. admissions: require non-null school_id for future rows, tighten policies
 -- Enforce non-null via trigger (avoid failing on existing rows)
 UPDATE public.admissions
    SET school_id = (SELECT id FROM public.schools ORDER BY created_at LIMIT 1)
  WHERE school_id IS NULL;
-
 CREATE OR REPLACE FUNCTION public.admissions_require_school_id()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -152,52 +357,126 @@ BEGIN
   RETURN NEW;
 END;
 $fn$;
-DROP TRIGGER IF EXISTS admissions_require_school_id_trg ON public.admissions;
-CREATE TRIGGER admissions_require_school_id_trg
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS admissions_require_school_id_trg ON public.admissions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER admissions_require_school_id_trg
 BEFORE INSERT OR UPDATE ON public.admissions
-FOR EACH ROW EXECUTE FUNCTION public.admissions_require_school_id();
-
-DROP POLICY IF EXISTS "Admin/Director can view admissions" ON public.admissions;
-DROP POLICY IF EXISTS "Admin/Director view admissions (same school)" ON public.admissions;
-DROP POLICY IF EXISTS "Admin/Director view admissions (same school)" ON public.admissions;
-CREATE POLICY "Admin/Director view admissions (same school)"
+FOR EACH ROW EXECUTE FUNCTION public.admissions_require_school_id()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can view admissions" ON public.admissions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director view admissions (same school)" ON public.admissions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director view admissions (same school)" ON public.admissions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/Director view admissions (same school)"
 ON public.admissions FOR SELECT
 USING (
-  (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role))
+  (has_role(auth.uid(), ''admin''::app_role) OR has_role(auth.uid(), ''director''::app_role))
   AND school_id IS NOT NULL
   AND school_id = get_user_school_id(auth.uid())
-);
-
-DROP POLICY IF EXISTS "Admin/Director can manage admissions" ON public.admissions;
-DROP POLICY IF EXISTS "Admin/Director manage admissions (same school)" ON public.admissions;
-DROP POLICY IF EXISTS "Admin/Director manage admissions (same school)" ON public.admissions;
-CREATE POLICY "Admin/Director manage admissions (same school)"
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage admissions" ON public.admissions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director manage admissions (same school)" ON public.admissions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director manage admissions (same school)" ON public.admissions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/Director manage admissions (same school)"
 ON public.admissions FOR ALL
 USING (
-  (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role))
+  (has_role(auth.uid(), ''admin''::app_role) OR has_role(auth.uid(), ''director''::app_role))
   AND school_id IS NOT NULL
   AND school_id = get_user_school_id(auth.uid())
 )
 WITH CHECK (
-  (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role))
+  (has_role(auth.uid(), ''admin''::app_role) OR has_role(auth.uid(), ''director''::app_role))
   AND school_id IS NOT NULL
   AND school_id = get_user_school_id(auth.uid())
-);
-
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 10. cms_settings anon policy: switch to explicit deny of any sensitive-looking key
-DROP POLICY IF EXISTS "Anon view public cms keys" ON public.cms_settings;
-DROP POLICY IF EXISTS "Anon view public cms keys" ON public.cms_settings;
-CREATE POLICY "Anon view public cms keys"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Anon view public cms keys" ON public.cms_settings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Anon view public cms keys" ON public.cms_settings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Anon view public cms keys"
 ON public.cms_settings FOR SELECT
 TO anon
 USING (
-  key !~* '(password|secret|token|api[_-]?key|private|credential|webhook|internal|admin|service[_-]?role|jwt|bearer|auth|salt|hash|pin|otp|smtp|line[_-]?channel|refresh)'
-  AND key NOT ILIKE 'id_card%'
-  AND key NOT ILIKE '%template%'
-  AND key NOT ILIKE '%_key'
-  AND key NOT ILIKE '%_token%'
-);
-
+  key !~* ''(password|secret|token|api[_-]?key|private|credential|webhook|internal|admin|service[_-]?role|jwt|bearer|auth|salt|hash|pin|otp|smtp|line[_-]?channel|refresh)''
+  AND key NOT ILIKE ''id_card%''
+  AND key NOT ILIKE ''%template%''
+  AND key NOT ILIKE ''%_key''
+  AND key NOT ILIKE ''%_token%''
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 11. SECURITY DEFINER function EXECUTE hardening
 -- Revoke EXECUTE from PUBLIC, anon, authenticated on ALL SECURITY DEFINER trigger functions
 DO $$
@@ -215,7 +494,6 @@ BEGIN
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM authenticated', r.sig);
   END LOOP;
 END $$;
-
 -- For non-trigger SECURITY DEFINER: revoke anon by default, keep authenticated;
 -- then re-grant anon for the small allowlist of truly public RPCs.
 DO $$
@@ -236,7 +514,6 @@ BEGIN
     END;
   END LOOP;
 END $$;
-
 -- Allowlist: public/anon-callable RPCs used by public pages
 DO $$
 DECLARE r record;

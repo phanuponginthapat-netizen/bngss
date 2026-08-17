@@ -1,8 +1,25 @@
 -- 1. Column-level REVOKE for secrets so Data API clients can't read them
-REVOKE SELECT (api_key) ON public.ai_provider_keys FROM anon, authenticated;
-REVOKE SELECT (api_key) ON public.ai_providers FROM anon, authenticated;
-REVOKE SELECT (api_token) ON public.iot_devices FROM anon, authenticated;
-
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE SELECT (api_key) ON public.ai_provider_keys FROM anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE SELECT (api_key) ON public.ai_providers FROM anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE SELECT (api_token) ON public.iot_devices FROM anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 2. Helper to test if a student belongs to the caller's school
 CREATE OR REPLACE FUNCTION public.student_in_user_school(_student_id uuid)
 RETURNS boolean
@@ -20,7 +37,6 @@ AS $$
       )
   );
 $$;
-
 -- 3. RESTRICTIVE school-scope policy for teachers on student-linked tables.
 --    Admin/director bypass; teachers only see/modify rows for students in their school.
 DO $$

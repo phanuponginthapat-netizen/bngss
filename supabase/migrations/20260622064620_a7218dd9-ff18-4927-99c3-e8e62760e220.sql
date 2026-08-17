@@ -1,50 +1,118 @@
-
 -- 1. Remove iot_devices from realtime (sensitive columns leak via WAL)
 ALTER PUBLICATION supabase_realtime DROP TABLE public.iot_devices;
-
 -- 2. Profiles: scope admin/director access by school
-DROP POLICY IF EXISTS "Admin and Director can view all profiles" ON public.profiles;
-DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
-DROP POLICY IF EXISTS "Admins can manage all profiles" ON public.profiles;
-
-DROP POLICY IF EXISTS "Admin/Director view profiles in their school" ON public.profiles;
-DROP POLICY IF EXISTS "Admin/Director view profiles in their school" ON public.profiles;
-CREATE POLICY "Admin/Director view profiles in their school"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin and Director can view all profiles" ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins can manage all profiles" ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director view profiles in their school" ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director view profiles in their school" ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/Director view profiles in their school"
 ON public.profiles FOR SELECT TO authenticated
 USING (
-  (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'director'::app_role))
+  (public.has_role(auth.uid(), ''admin''::app_role) OR public.has_role(auth.uid(), ''director''::app_role))
   AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()))
-);
-
-DROP POLICY IF EXISTS "Admins manage profiles in their school" ON public.profiles;
-DROP POLICY IF EXISTS "Admins manage profiles in their school" ON public.profiles;
-CREATE POLICY "Admins manage profiles in their school"
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage profiles in their school" ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage profiles in their school" ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins manage profiles in their school"
 ON public.profiles FOR ALL TO authenticated
 USING (
-  public.has_role(auth.uid(), 'admin'::app_role)
+  public.has_role(auth.uid(), ''admin''::app_role)
   AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()))
 )
 WITH CHECK (
-  public.has_role(auth.uid(), 'admin'::app_role)
+  public.has_role(auth.uid(), ''admin''::app_role)
   AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()))
-);
-
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 3. Homework files: scope by ownership / school
-DROP POLICY IF EXISTS "Authenticated can read homework files" ON storage.objects;
-
-DROP POLICY IF EXISTS "Homework files: owner or same-school members" ON storage.objects;
-DROP POLICY IF EXISTS "Homework files: owner or same-school members" ON storage.objects;
-CREATE POLICY "Homework files: owner or same-school members"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can read homework files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Homework files: owner or same-school members" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Homework files: owner or same-school members" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Homework files: owner or same-school members"
 ON storage.objects FOR SELECT TO authenticated
 USING (
-  bucket_id = 'homework-files' AND (
+  bucket_id = ''homework-files'' AND (
     owner = auth.uid()
-    OR public.has_role(auth.uid(), 'admin'::app_role)
-    OR public.has_role(auth.uid(), 'director'::app_role)
+    OR public.has_role(auth.uid(), ''admin''::app_role)
+    OR public.has_role(auth.uid(), ''director''::app_role)
     OR EXISTS (
       SELECT 1 FROM public.task_assignments t
       LEFT JOIN public.classrooms c ON c.id = t.classroom_id
-      WHERE t.id::text = split_part(name, '/', 1)
+      WHERE t.id::text = split_part(name, ''/'', 1)
         AND (
           t.assigned_by = auth.uid()
           OR t.assigned_to_user_id = auth.uid()
@@ -52,4 +120,8 @@ USING (
         )
     )
   )
-);
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

@@ -1,4 +1,3 @@
-
 -- Auto-sync personnel record from profiles + user_roles so the org chart
 -- always reflects the teacher's own profile without manual data entry.
 
@@ -25,13 +24,23 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_ensure_personnel_required_fields ON public.personnel;
-CREATE TRIGGER trg_ensure_personnel_required_fields
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_ensure_personnel_required_fields ON public.personnel';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_ensure_personnel_required_fields
 BEFORE INSERT OR UPDATE OF employee_code, first_name, last_name, position, department, status, user_id
 ON public.personnel
-FOR EACH ROW EXECUTE FUNCTION public.ensure_personnel_required_fields();
-
+FOR EACH ROW EXECUTE FUNCTION public.ensure_personnel_required_fields()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 1) When a teacher/director/admin role is granted, create the personnel row
 --    from the profile if it doesn't exist yet.
 CREATE OR REPLACE FUNCTION public.ensure_personnel_from_profile()
@@ -77,12 +86,22 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_ensure_personnel_from_profile ON public.user_roles;
-CREATE TRIGGER trg_ensure_personnel_from_profile
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_ensure_personnel_from_profile ON public.user_roles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_ensure_personnel_from_profile
 AFTER INSERT ON public.user_roles
-FOR EACH ROW EXECUTE FUNCTION public.ensure_personnel_from_profile();
-
+FOR EACH ROW EXECUTE FUNCTION public.ensure_personnel_from_profile()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 2) When a profile is updated, propagate the relevant fields
 --    (first_name, last_name, phone, position_title, department, employee_code)
 --    to the linked personnel row so the org chart auto-updates.
@@ -109,13 +128,23 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_sync_profile_to_personnel ON public.profiles;
-CREATE TRIGGER trg_sync_profile_to_personnel
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_sync_profile_to_personnel ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_sync_profile_to_personnel
 AFTER UPDATE OF first_name, last_name, phone, position_title, department, employee_code
 ON public.profiles
-FOR EACH ROW EXECUTE FUNCTION public.sync_profile_to_personnel();
-
+FOR EACH ROW EXECUTE FUNCTION public.sync_profile_to_personnel()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 3) Backfill: create personnel rows for any existing teacher/director/admin
 --    that doesn't have one yet, using their profile data.
 INSERT INTO public.personnel (
@@ -138,7 +167,6 @@ LEFT JOIN public.personnel p ON p.user_id = ur.user_id
 WHERE ur.role IN ('teacher','director','admin')
   AND p.id IS NULL
 ON CONFLICT (employee_code) DO NOTHING;
-
 -- 4) Also sync from personnel back to profile position_title/department when
 --    edited from the personnel page, so both views stay consistent.
 CREATE OR REPLACE FUNCTION public.sync_personnel_to_profile()
@@ -168,9 +196,20 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_sync_personnel_to_profile ON public.personnel;
-CREATE TRIGGER trg_sync_personnel_to_profile
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_sync_personnel_to_profile ON public.personnel';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_sync_personnel_to_profile
 AFTER INSERT OR UPDATE OF first_name, last_name, phone, position, department, employee_code, user_id
 ON public.personnel
-FOR EACH ROW EXECUTE FUNCTION public.sync_personnel_to_profile();
+FOR EACH ROW EXECUTE FUNCTION public.sync_personnel_to_profile()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

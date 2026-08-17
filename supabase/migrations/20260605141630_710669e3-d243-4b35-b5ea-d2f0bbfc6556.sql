@@ -1,4 +1,3 @@
-
 CREATE TABLE IF NOT EXISTS public.ai_user_memory (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   summary text DEFAULT '',
@@ -9,30 +8,90 @@ CREATE TABLE IF NOT EXISTS public.ai_user_memory (
   updated_at timestamptz NOT NULL DEFAULT now(),
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
-GRANT SELECT, UPDATE, DELETE ON public.ai_user_memory TO authenticated;
-GRANT ALL ON public.ai_user_memory TO service_role;
-
-ALTER TABLE public.ai_user_memory ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Users manage own AI memory" ON public.ai_user_memory;
-DROP POLICY IF EXISTS "Users manage own AI memory" ON public.ai_user_memory;
-CREATE POLICY "Users manage own AI memory"
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, UPDATE, DELETE ON public.ai_user_memory TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.ai_user_memory TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.ai_user_memory ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users manage own AI memory" ON public.ai_user_memory';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users manage own AI memory" ON public.ai_user_memory';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Users manage own AI memory"
   ON public.ai_user_memory FOR ALL
   USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
-
-DROP POLICY IF EXISTS "Admin/director view all AI memory" ON public.ai_user_memory;
-DROP POLICY IF EXISTS "Admin/director view all AI memory" ON public.ai_user_memory;
-CREATE POLICY "Admin/director view all AI memory"
+  WITH CHECK (user_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/director view all AI memory" ON public.ai_user_memory';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/director view all AI memory" ON public.ai_user_memory';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/director view all AI memory"
   ON public.ai_user_memory FOR SELECT
-  USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
-
-DROP TRIGGER IF EXISTS trg_ai_user_memory_updated_at ON public.ai_user_memory;
-CREATE TRIGGER trg_ai_user_memory_updated_at
+  USING (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_ai_user_memory_updated_at ON public.ai_user_memory';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_ai_user_memory_updated_at
   BEFORE UPDATE ON public.ai_user_memory
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Realtime sync across devices
 DO $$
 BEGIN
@@ -56,5 +115,17 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.ai_chat_logs;
   END IF;
 END $$;
-ALTER TABLE public.ai_chat_logs REPLICA IDENTITY FULL;
-ALTER TABLE public.ai_user_memory REPLICA IDENTITY FULL;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.ai_chat_logs REPLICA IDENTITY FULL';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.ai_user_memory REPLICA IDENTITY FULL';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

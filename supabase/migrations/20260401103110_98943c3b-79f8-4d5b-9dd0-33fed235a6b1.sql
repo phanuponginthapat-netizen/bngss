@@ -1,4 +1,3 @@
-
 -- Account balances table
 CREATE TABLE IF NOT EXISTS public.account_balances (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -11,23 +10,61 @@ CREATE TABLE IF NOT EXISTS public.account_balances (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-
-ALTER TABLE public.account_balances ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Auth users can view account_balances" ON public.account_balances;
-DROP POLICY IF EXISTS "Auth users can view account_balances" ON public.account_balances;
-CREATE POLICY "Auth users can view account_balances"
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.account_balances ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view account_balances" ON public.account_balances';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view account_balances" ON public.account_balances';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users can view account_balances"
   ON public.account_balances FOR SELECT
-  TO authenticated USING (true);
-
-DROP POLICY IF EXISTS "Admin/Director can manage account_balances" ON public.account_balances;
-DROP POLICY IF EXISTS "Admin/Director can manage account_balances" ON public.account_balances;
-CREATE POLICY "Admin/Director can manage account_balances"
+  TO authenticated USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage account_balances" ON public.account_balances';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage account_balances" ON public.account_balances';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/Director can manage account_balances"
   ON public.account_balances FOR ALL
   TO authenticated
-  USING (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role))
-  WITH CHECK (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role));
-
+  USING (has_role(auth.uid(), ''admin''::app_role) OR has_role(auth.uid(), ''director''::app_role))
+  WITH CHECK (has_role(auth.uid(), ''admin''::app_role) OR has_role(auth.uid(), ''director''::app_role))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Asset damage reports table
 CREATE TABLE IF NOT EXISTS public.asset_damage_reports (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -41,60 +78,194 @@ CREATE TABLE IF NOT EXISTS public.asset_damage_reports (
   resolution_notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-
-ALTER TABLE public.asset_damage_reports ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Auth users can view damage reports" ON public.asset_damage_reports;
-DROP POLICY IF EXISTS "Auth users can view damage reports" ON public.asset_damage_reports;
-CREATE POLICY "Auth users can view damage reports"
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.asset_damage_reports ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view damage reports" ON public.asset_damage_reports';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view damage reports" ON public.asset_damage_reports';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users can view damage reports"
   ON public.asset_damage_reports FOR SELECT
-  TO authenticated USING (true);
-
-DROP POLICY IF EXISTS "Auth users can create damage reports" ON public.asset_damage_reports;
-DROP POLICY IF EXISTS "Auth users can create damage reports" ON public.asset_damage_reports;
-CREATE POLICY "Auth users can create damage reports"
+  TO authenticated USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can create damage reports" ON public.asset_damage_reports';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can create damage reports" ON public.asset_damage_reports';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users can create damage reports"
   ON public.asset_damage_reports FOR INSERT
-  TO authenticated WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Admin/Director can manage damage reports" ON public.asset_damage_reports;
-DROP POLICY IF EXISTS "Admin/Director can manage damage reports" ON public.asset_damage_reports;
-CREATE POLICY "Admin/Director can manage damage reports"
+  TO authenticated WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage damage reports" ON public.asset_damage_reports';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage damage reports" ON public.asset_damage_reports';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/Director can manage damage reports"
   ON public.asset_damage_reports FOR ALL
   TO authenticated
-  USING (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role))
-  WITH CHECK (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role));
-
+  USING (has_role(auth.uid(), ''admin''::app_role) OR has_role(auth.uid(), ''director''::app_role))
+  WITH CHECK (has_role(auth.uid(), ''admin''::app_role) OR has_role(auth.uid(), ''director''::app_role))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Add columns to assets
-ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS photo_url TEXT;
-ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS useful_life_years INTEGER DEFAULT 5;
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS photo_url TEXT';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS useful_life_years INTEGER DEFAULT 5';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Storage bucket for asset photos
 INSERT INTO storage.buckets (id, name, public) VALUES ('asset-photos', 'asset-photos', true)
 ON CONFLICT (id) DO NOTHING;
-
-DROP POLICY IF EXISTS "Anyone can view asset photos" ON storage.objects;
-DROP POLICY IF EXISTS "Anyone can view asset photos" ON storage.objects;
-CREATE POLICY "Anyone can view asset photos"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Anyone can view asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Anyone can view asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Anyone can view asset photos"
   ON storage.objects FOR SELECT
-  USING (bucket_id = 'asset-photos');
-
-DROP POLICY IF EXISTS "Auth users can upload asset photos" ON storage.objects;
-DROP POLICY IF EXISTS "Auth users can upload asset photos" ON storage.objects;
-CREATE POLICY "Auth users can upload asset photos"
+  USING (bucket_id = ''asset-photos'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can upload asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can upload asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users can upload asset photos"
   ON storage.objects FOR INSERT
   TO authenticated
-  WITH CHECK (bucket_id = 'asset-photos');
-
-DROP POLICY IF EXISTS "Auth users can update asset photos" ON storage.objects;
-DROP POLICY IF EXISTS "Auth users can update asset photos" ON storage.objects;
-CREATE POLICY "Auth users can update asset photos"
+  WITH CHECK (bucket_id = ''asset-photos'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can update asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can update asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users can update asset photos"
   ON storage.objects FOR UPDATE
   TO authenticated
-  USING (bucket_id = 'asset-photos');
-
-DROP POLICY IF EXISTS "Auth users can delete asset photos" ON storage.objects;
-DROP POLICY IF EXISTS "Auth users can delete asset photos" ON storage.objects;
-CREATE POLICY "Auth users can delete asset photos"
+  USING (bucket_id = ''asset-photos'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can delete asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can delete asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users can delete asset photos"
   ON storage.objects FOR DELETE
   TO authenticated
-  USING (bucket_id = 'asset-photos');
+  USING (bucket_id = ''asset-photos'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

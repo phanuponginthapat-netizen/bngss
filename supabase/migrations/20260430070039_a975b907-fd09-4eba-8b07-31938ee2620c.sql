@@ -1,4 +1,3 @@
-
 -- Fix auto_link_student_on_profile: students table has no `email` column
 CREATE OR REPLACE FUNCTION public.auto_link_student_on_profile()
 RETURNS trigger

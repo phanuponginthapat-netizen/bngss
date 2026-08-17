@@ -1,6 +1,7 @@
-
 -- 1) Add LINE slots and parent contact columns to students
-ALTER TABLE public.students
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.students
   ADD COLUMN IF NOT EXISTS line_user_id_2 text,
   ADD COLUMN IF NOT EXISTS line_user_id_3 text,
   ADD COLUMN IF NOT EXISTS parent_name_1 text,
@@ -11,50 +12,186 @@ ALTER TABLE public.students
   ADD COLUMN IF NOT EXISTS parent_relation_3 text,
   ADD COLUMN IF NOT EXISTS parent_phone_1 text,
   ADD COLUMN IF NOT EXISTS parent_phone_2 text,
-  ADD COLUMN IF NOT EXISTS parent_phone_3 text;
-
-CREATE INDEX IF NOT EXISTS idx_students_line_user_id_2 ON public.students(line_user_id_2) WHERE line_user_id_2 IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_students_line_user_id_3 ON public.students(line_user_id_3) WHERE line_user_id_3 IS NOT NULL;
-
+  ADD COLUMN IF NOT EXISTS parent_phone_3 text';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_students_line_user_id_2 ON public.students(line_user_id_2) WHERE line_user_id_2 IS NOT NULL';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_students_line_user_id_3 ON public.students(line_user_id_3) WHERE line_user_id_3 IS NOT NULL';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 -- 2) Drop all RLS policies that reference parent role or parent_student_links
-DROP POLICY IF EXISTS "Parents can view linked student attendance" ON public.attendance;
-DROP POLICY IF EXISTS "Parents can view linked student behavior" ON public.behavior_records;
-DROP POLICY IF EXISTS "Parents view linked early_childhood_dev" ON public.early_childhood_dev;
-DROP POLICY IF EXISTS "parents view child scan logs" ON public.face_scan_logs;
-DROP POLICY IF EXISTS "Parents can view linked student health records" ON public.health_records;
-DROP POLICY IF EXISTS "Parents can view linked student home visits" ON public.home_visits;
-DROP POLICY IF EXISTS "Loans viewable by staff student or personnel" ON public.ict_loans;
-DROP POLICY IF EXISTS "Parents can create links" ON public.parent_student_links;
-DROP POLICY IF EXISTS "Parents can view linked student sdq records" ON public.sdq_records;
-DROP POLICY IF EXISTS "Parents view linked student assessment scores" ON public.student_assessment_scores;
-DROP POLICY IF EXISTS "Parents view linked student column scores" ON public.student_column_scores;
-DROP POLICY IF EXISTS "Parents can create student leave" ON public.student_leaves;
-DROP POLICY IF EXISTS "Parents can view linked student leaves" ON public.student_leaves;
-DROP POLICY IF EXISTS "Parents view linked student scores" ON public.student_scores;
-DROP POLICY IF EXISTS "Parents view linked student screenings" ON public.student_screenings;
-DROP POLICY IF EXISTS "Parents can view linked student subsidies" ON public.student_subsidies;
-DROP POLICY IF EXISTS "Parents view linked subsidies" ON public.student_subsidies;
-DROP POLICY IF EXISTS "Parents can view linked students" ON public.students;
-DROP POLICY IF EXISTS "Parents view child vaccines" ON public.vaccine_records;
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents can view linked student attendance" ON public.attendance';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents can view linked student behavior" ON public.behavior_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents view linked early_childhood_dev" ON public.early_childhood_dev';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "parents view child scan logs" ON public.face_scan_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents can view linked student health records" ON public.health_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents can view linked student home visits" ON public.home_visits';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Loans viewable by staff student or personnel" ON public.ict_loans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents can create links" ON public.parent_student_links';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents can view linked student sdq records" ON public.sdq_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents view linked student assessment scores" ON public.student_assessment_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents view linked student column scores" ON public.student_column_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents can create student leave" ON public.student_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents can view linked student leaves" ON public.student_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents view linked student scores" ON public.student_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents view linked student screenings" ON public.student_screenings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents can view linked student subsidies" ON public.student_subsidies';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents view linked subsidies" ON public.student_subsidies';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents can view linked students" ON public.students';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents view child vaccines" ON public.vaccine_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Recreate ict_loans policy without parent_student_links reference
-DROP POLICY IF EXISTS "Loans viewable by staff student or personnel" ON public.ict_loans;
-CREATE POLICY "Loans viewable by staff student or personnel"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Loans viewable by staff student or personnel" ON public.ict_loans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Loans viewable by staff student or personnel"
 ON public.ict_loans FOR SELECT TO authenticated
 USING (
-  public.has_role(auth.uid(),'admin')
-  OR public.has_role(auth.uid(),'director')
-  OR public.has_role(auth.uid(),'teacher')
+  public.has_role(auth.uid(),''admin'')
+  OR public.has_role(auth.uid(),''director'')
+  OR public.has_role(auth.uid(),''teacher'')
   OR EXISTS (SELECT 1 FROM public.students s WHERE s.id = ict_loans.student_id AND s.auth_user_id = auth.uid())
   OR EXISTS (SELECT 1 FROM public.personnel p WHERE p.id = ict_loans.personnel_id AND p.user_id = auth.uid())
-);
-
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 3) Drop parent_student_links table
 DROP TABLE IF EXISTS public.parent_student_links CASCADE;
-
 -- 4) Delete any parent role assignments (data is empty but be safe)
 DELETE FROM public.user_roles WHERE role = 'parent';
-
 -- 5) Replace parent-notification triggers: send LINE directly to student's 3 LINE IDs
 CREATE OR REPLACE FUNCTION public.send_line_to_student_parents(
   _student_id uuid, _title text, _message text
@@ -88,8 +225,13 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN NULL;
   END;
 END $$;
-REVOKE EXECUTE ON FUNCTION public.send_line_to_student_parents(uuid,text,text) FROM anon, authenticated, public;
-
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.send_line_to_student_parents(uuid,text,text) FROM anon, authenticated, public';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- notify_parents_on_absence
 CREATE OR REPLACE FUNCTION public.notify_parents_on_absence()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -102,7 +244,6 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-
 -- notify_parents_on_behavior
 CREATE OR REPLACE FUNCTION public.notify_parents_on_behavior()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -117,7 +258,6 @@ BEGIN
     NEW.description || CASE WHEN COALESCE(NEW.points,0)<>0 THEN ' ('||NEW.points||' คะแนน)' ELSE '' END);
   RETURN NEW;
 END $$;
-
 -- notify_parents_on_score
 CREATE OR REPLACE FUNCTION public.notify_parents_on_score()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -133,7 +273,6 @@ BEGIN
   PERFORM public.send_line_to_student_parents(student_uuid, '📊 ผลคะแนน: '||COALESCE(student_name,''), msg);
   RETURN NEW;
 END $$;
-
 -- notify_on_face_scan - keep teacher/admin notifications via notifications table, send LINE to all 3 slots
 CREATE OR REPLACE FUNCTION public.notify_on_face_scan()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -163,7 +302,6 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
-
 -- 6) RPC: link a LINE userId into the next empty slot for a given student
 CREATE OR REPLACE FUNCTION public.link_line_to_student_slot(_student_id uuid, _line_user_id text)
 RETURNS int LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -182,4 +320,10 @@ BEGIN
   END IF;
   RETURN slot;
 END $$;
-REVOKE EXECUTE ON FUNCTION public.link_line_to_student_slot(uuid,text) FROM anon, authenticated, public;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.link_line_to_student_slot(uuid,text) FROM anon, authenticated, public';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

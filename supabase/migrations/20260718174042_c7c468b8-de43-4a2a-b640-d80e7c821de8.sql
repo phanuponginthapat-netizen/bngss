@@ -1,4 +1,3 @@
-
 DO $$
 DECLARE
   fn_record RECORD;
@@ -33,7 +32,6 @@ BEGIN
     END;
   END LOOP;
 END $$;
-
 -- Ensure search_path set on every SECURITY DEFINER function
 DO $$
 DECLARE

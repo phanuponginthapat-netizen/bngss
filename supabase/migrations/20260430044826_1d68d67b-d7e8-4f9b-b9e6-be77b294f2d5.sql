@@ -1,56 +1,339 @@
-
-DROP POLICY IF EXISTS "Anyone can view cms images" ON storage.objects;
-DROP POLICY IF EXISTS "Anyone can view profile images" ON storage.objects;
-DROP POLICY IF EXISTS "Anyone can view asset photos" ON storage.objects;
-DROP POLICY IF EXISTS "Attendance photos public read" ON storage.objects;
-DROP POLICY IF EXISTS "garbage_images_public_read" ON storage.objects;
-DROP POLICY IF EXISTS "Auth users can view pp5 files" ON storage.objects;
-
-DROP POLICY IF EXISTS "Authenticated can view cms images" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated can view cms images" ON storage.objects;
-CREATE POLICY "Authenticated can view cms images" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'cms-images');
-DROP POLICY IF EXISTS "Authenticated can view profile images" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated can view profile images" ON storage.objects;
-CREATE POLICY "Authenticated can view profile images" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'profile-images');
-DROP POLICY IF EXISTS "Authenticated can view asset photos" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated can view asset photos" ON storage.objects;
-CREATE POLICY "Authenticated can view asset photos" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'asset-photos');
-DROP POLICY IF EXISTS "Authenticated can view attendance photos" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated can view attendance photos" ON storage.objects;
-CREATE POLICY "Authenticated can view attendance photos" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'attendance-photos');
-DROP POLICY IF EXISTS "Authenticated can view garbage images" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated can view garbage images" ON storage.objects;
-CREATE POLICY "Authenticated can view garbage images" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'garbage-images');
-DROP POLICY IF EXISTS "Authenticated can view pp5 files" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated can view pp5 files" ON storage.objects;
-CREATE POLICY "Authenticated can view pp5 files" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'pp5-files');
-
-REVOKE EXECUTE ON FUNCTION public.archive_and_purge_old_data(integer) FROM anon, public;
-REVOKE EXECUTE ON FUNCTION public.archive_old_data() FROM anon, public;
-REVOKE EXECUTE ON FUNCTION public.get_purge_preview(integer) FROM anon, public;
-REVOKE EXECUTE ON FUNCTION public.get_cloud_usage_summary() FROM anon, public;
-REVOKE EXECUTE ON FUNCTION public.get_available_academic_years() FROM anon, public;
-REVOKE EXECUTE ON FUNCTION public.get_user_school_id(uuid) FROM anon, public;
-REVOKE EXECUTE ON FUNCTION public.get_user_role(uuid) FROM anon, public;
-REVOKE EXECUTE ON FUNCTION public.get_user_departments(uuid) FROM anon, public;
-REVOKE EXECUTE ON FUNCTION public.has_department(uuid, school_department) FROM anon, public;
-REVOKE EXECUTE ON FUNCTION public.has_role(uuid, app_role) FROM anon, public;
-REVOKE EXECUTE ON FUNCTION public.get_my_personnel() FROM anon, public;
-REVOKE EXECUTE ON FUNCTION public.get_my_student() FROM anon, public;
-
-GRANT EXECUTE ON FUNCTION public.archive_and_purge_old_data(integer) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.archive_old_data() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_purge_preview(integer) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_cloud_usage_summary() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_available_academic_years() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_user_school_id(uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_user_role(uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_user_departments(uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.has_department(uuid, school_department) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.has_role(uuid, app_role) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_my_personnel() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_my_student() TO authenticated;
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Anyone can view cms images" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Anyone can view profile images" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Anyone can view asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Attendance photos public read" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_images_public_read" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view pp5 files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can view cms images" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can view cms images" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Authenticated can view cms images" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = ''cms-images'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can view profile images" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can view profile images" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Authenticated can view profile images" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = ''profile-images'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can view asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can view asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Authenticated can view asset photos" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = ''asset-photos'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can view attendance photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can view attendance photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Authenticated can view attendance photos" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = ''attendance-photos'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can view garbage images" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can view garbage images" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Authenticated can view garbage images" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = ''garbage-images'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can view pp5 files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can view pp5 files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Authenticated can view pp5 files" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = ''pp5-files'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.archive_and_purge_old_data(integer) FROM anon, public';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.archive_old_data() FROM anon, public';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.get_purge_preview(integer) FROM anon, public';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.get_cloud_usage_summary() FROM anon, public';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.get_available_academic_years() FROM anon, public';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.get_user_school_id(uuid) FROM anon, public';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.get_user_role(uuid) FROM anon, public';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.get_user_departments(uuid) FROM anon, public';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.has_department(uuid, school_department) FROM anon, public';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.has_role(uuid, app_role) FROM anon, public';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.get_my_personnel() FROM anon, public';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.get_my_student() FROM anon, public';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.archive_and_purge_old_data(integer) TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.archive_old_data() TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_purge_preview(integer) TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_cloud_usage_summary() TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_available_academic_years() TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_user_school_id(uuid) TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_user_role(uuid) TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_user_departments(uuid) TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.has_department(uuid, school_department) TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.has_role(uuid, app_role) TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_my_personnel() TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_my_student() TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE TABLE IF NOT EXISTS public.garbage_badges (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   code text UNIQUE NOT NULL,
@@ -63,17 +346,57 @@ CREATE TABLE IF NOT EXISTS public.garbage_badges (
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
-ALTER TABLE public.garbage_badges ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "All auth view badges" ON public.garbage_badges;
-DROP POLICY IF EXISTS "All auth view badges" ON public.garbage_badges;
-CREATE POLICY "All auth view badges" ON public.garbage_badges FOR SELECT TO authenticated USING (true);
-DROP POLICY IF EXISTS "Admin manage badges" ON public.garbage_badges;
-DROP POLICY IF EXISTS "Admin manage badges" ON public.garbage_badges;
-CREATE POLICY "Admin manage badges" ON public.garbage_badges FOR ALL TO authenticated
-USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director'))
-WITH CHECK (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director'));
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.garbage_badges ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "All auth view badges" ON public.garbage_badges';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "All auth view badges" ON public.garbage_badges';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "All auth view badges" ON public.garbage_badges FOR SELECT TO authenticated USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin manage badges" ON public.garbage_badges';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin manage badges" ON public.garbage_badges';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin manage badges" ON public.garbage_badges FOR ALL TO authenticated
+USING (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director''))
+WITH CHECK (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE TABLE IF NOT EXISTS public.garbage_user_badges (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   badge_id uuid NOT NULL REFERENCES public.garbage_badges(id) ON DELETE CASCADE,
@@ -84,19 +407,70 @@ CREATE TABLE IF NOT EXISTS public.garbage_user_badges (
   UNIQUE (badge_id, personnel_id),
   CHECK ((student_id IS NOT NULL) OR (personnel_id IS NOT NULL))
 );
-
-CREATE INDEX IF NOT EXISTS idx_gub_student ON public.garbage_user_badges(student_id);
-CREATE INDEX IF NOT EXISTS idx_gub_personnel ON public.garbage_user_badges(personnel_id);
-
-ALTER TABLE public.garbage_user_badges ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Auth view earned badges" ON public.garbage_user_badges;
-DROP POLICY IF EXISTS "Auth view earned badges" ON public.garbage_user_badges;
-CREATE POLICY "Auth view earned badges" ON public.garbage_user_badges FOR SELECT TO authenticated USING (true);
-DROP POLICY IF EXISTS "Staff insert earned badges" ON public.garbage_user_badges;
-DROP POLICY IF EXISTS "Staff insert earned badges" ON public.garbage_user_badges;
-CREATE POLICY "Staff insert earned badges" ON public.garbage_user_badges FOR INSERT TO authenticated
-WITH CHECK (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
-
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_gub_student ON public.garbage_user_badges(student_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_gub_personnel ON public.garbage_user_badges(personnel_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.garbage_user_badges ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth view earned badges" ON public.garbage_user_badges';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth view earned badges" ON public.garbage_user_badges';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth view earned badges" ON public.garbage_user_badges FOR SELECT TO authenticated USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff insert earned badges" ON public.garbage_user_badges';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff insert earned badges" ON public.garbage_user_badges';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff insert earned badges" ON public.garbage_user_badges FOR INSERT TO authenticated
+WITH CHECK (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.check_and_grant_badges()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -125,11 +499,21 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_check_badges_after_deposit ON public.garbage_deposits;
-CREATE TRIGGER trg_check_badges_after_deposit AFTER INSERT ON public.garbage_deposits
-FOR EACH ROW EXECUTE FUNCTION public.check_and_grant_badges();
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_check_badges_after_deposit ON public.garbage_deposits';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_check_badges_after_deposit AFTER INSERT ON public.garbage_deposits
+FOR EACH ROW EXECUTE FUNCTION public.check_and_grant_badges()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 INSERT INTO public.garbage_badges (code, name, description, icon, tier, criteria_type, criteria_value) VALUES
   ('first_deposit', 'นักรีไซเคิลมือใหม่', 'ฝากขยะครั้งแรก', '🌱', 'bronze', 'total_deposits', 1),
   ('deposit_10', 'นักสะสมขยะ', 'ฝากขยะครบ 10 ครั้ง', '♻️', 'bronze', 'total_deposits', 10),
@@ -142,13 +526,66 @@ INSERT INTO public.garbage_badges (code, name, description, icon, tier, criteria
   ('weight_10', 'รวม 10 หน่วย', 'รวมน้ำหนัก/ปริมาณ 10', '🎯', 'silver', 'total_weight', 10),
   ('weight_50', 'รวม 50 หน่วย', 'รวมน้ำหนัก/ปริมาณ 50', '💎', 'gold', 'total_weight', 50)
 ON CONFLICT (code) DO NOTHING;
-
-CREATE INDEX IF NOT EXISTS idx_garbage_deposits_created ON public.garbage_deposits(created_at);
-CREATE INDEX IF NOT EXISTS idx_garbage_deposits_student ON public.garbage_deposits(student_id);
-CREATE INDEX IF NOT EXISTS idx_garbage_deposits_personnel ON public.garbage_deposits(personnel_id);
-CREATE INDEX IF NOT EXISTS idx_garbage_redemptions_created ON public.garbage_redemptions(created_at);
-CREATE INDEX IF NOT EXISTS idx_attendance_date ON public.attendance(attendance_date);
-CREATE INDEX IF NOT EXISTS idx_attendance_student ON public.attendance(student_id);
-CREATE INDEX IF NOT EXISTS idx_behavior_date ON public.behavior_records(record_date);
-CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON public.notifications(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_inbox_user_created ON public.inbox_items(user_id, created_at DESC);
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_garbage_deposits_created ON public.garbage_deposits(created_at)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_garbage_deposits_student ON public.garbage_deposits(student_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_garbage_deposits_personnel ON public.garbage_deposits(personnel_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_garbage_redemptions_created ON public.garbage_redemptions(created_at)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_attendance_date ON public.attendance(attendance_date)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_attendance_student ON public.attendance(student_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_behavior_date ON public.behavior_records(record_date)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON public.notifications(user_id, created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_inbox_user_created ON public.inbox_items(user_id, created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;

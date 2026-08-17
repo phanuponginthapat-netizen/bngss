@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS public.garbage_items (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 -- สินค้ารางวัล
 CREATE TABLE IF NOT EXISTS public.garbage_rewards (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -24,14 +23,12 @@ CREATE TABLE IF NOT EXISTS public.garbage_rewards (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 -- ยอดแต้มรวมต่อนักเรียน (denormalized cache)
 CREATE TABLE IF NOT EXISTS public.garbage_student_points (
   student_id UUID PRIMARY KEY REFERENCES public.students(id) ON DELETE CASCADE,
   total_points INT NOT NULL DEFAULT 0,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 -- บันทึกการฝากขยะ
 CREATE TABLE IF NOT EXISTS public.garbage_deposits (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -44,7 +41,6 @@ CREATE TABLE IF NOT EXISTS public.garbage_deposits (
   notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 -- บันทึกการแลกรางวัล
 CREATE TABLE IF NOT EXISTS public.garbage_redemptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -57,23 +53,74 @@ CREATE TABLE IF NOT EXISTS public.garbage_redemptions (
   notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
-CREATE INDEX IF NOT EXISTS idx_garbage_deposits_student ON public.garbage_deposits(student_id);
-CREATE INDEX IF NOT EXISTS idx_garbage_deposits_created ON public.garbage_deposits(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_garbage_deposits_item ON public.garbage_deposits(item_id);
-CREATE INDEX IF NOT EXISTS idx_garbage_redemptions_student ON public.garbage_redemptions(student_id);
-CREATE INDEX IF NOT EXISTS idx_garbage_redemptions_created ON public.garbage_redemptions(created_at DESC);
-
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_garbage_deposits_student ON public.garbage_deposits(student_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_garbage_deposits_created ON public.garbage_deposits(created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_garbage_deposits_item ON public.garbage_deposits(item_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_garbage_redemptions_student ON public.garbage_redemptions(student_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_garbage_redemptions_created ON public.garbage_redemptions(created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 -- ============ TRIGGERS ============
 
 -- updated_at
-DROP TRIGGER IF EXISTS trg_garbage_items_updated ON public.garbage_items;
-CREATE TRIGGER trg_garbage_items_updated BEFORE UPDATE ON public.garbage_items
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-DROP TRIGGER IF EXISTS trg_garbage_rewards_updated ON public.garbage_rewards;
-CREATE TRIGGER trg_garbage_rewards_updated BEFORE UPDATE ON public.garbage_rewards
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_garbage_items_updated ON public.garbage_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_garbage_items_updated BEFORE UPDATE ON public.garbage_items
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_garbage_rewards_updated ON public.garbage_rewards';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_garbage_rewards_updated BEFORE UPDATE ON public.garbage_rewards
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- บวกแต้มเมื่อฝากขยะ
 CREATE OR REPLACE FUNCTION public.add_points_on_deposit()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -85,12 +132,22 @@ BEGIN
         updated_at = now();
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_garbage_deposit_add_points ON public.garbage_deposits;
-CREATE TRIGGER trg_garbage_deposit_add_points
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_garbage_deposit_add_points ON public.garbage_deposits';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_garbage_deposit_add_points
   AFTER INSERT ON public.garbage_deposits
-  FOR EACH ROW EXECUTE FUNCTION public.add_points_on_deposit();
-
+  FOR EACH ROW EXECUTE FUNCTION public.add_points_on_deposit()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- หักแต้ม + ตัดสต๊อก เมื่อแลกของ (ตรวจ balance ใน trigger BEFORE INSERT)
 CREATE OR REPLACE FUNCTION public.process_redemption()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -116,86 +173,372 @@ BEGIN
 
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_garbage_redemption_process ON public.garbage_redemptions;
-CREATE TRIGGER trg_garbage_redemption_process
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_garbage_redemption_process ON public.garbage_redemptions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_garbage_redemption_process
   BEFORE INSERT ON public.garbage_redemptions
-  FOR EACH ROW EXECUTE FUNCTION public.process_redemption();
-
+  FOR EACH ROW EXECUTE FUNCTION public.process_redemption()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============ RLS ============
 
-ALTER TABLE public.garbage_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.garbage_rewards ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.garbage_deposits ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.garbage_redemptions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.garbage_student_points ENABLE ROW LEVEL SECURITY;
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.garbage_items ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.garbage_rewards ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.garbage_deposits ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.garbage_redemptions ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.garbage_student_points ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- items: ทุกคนที่ login เห็น, จัดการเฉพาะ admin/director/teacher
-DROP POLICY IF EXISTS "garbage_items_select" ON public.garbage_items;
-DROP POLICY IF EXISTS "garbage_items_select" ON public.garbage_items;
-CREATE POLICY "garbage_items_select" ON public.garbage_items FOR SELECT TO authenticated USING (true);
-DROP POLICY IF EXISTS "garbage_items_manage" ON public.garbage_items;
-DROP POLICY IF EXISTS "garbage_items_manage" ON public.garbage_items;
-CREATE POLICY "garbage_items_manage" ON public.garbage_items FOR ALL TO authenticated
-  USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'))
-  WITH CHECK (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_items_select" ON public.garbage_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_items_select" ON public.garbage_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "garbage_items_select" ON public.garbage_items FOR SELECT TO authenticated USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_items_manage" ON public.garbage_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_items_manage" ON public.garbage_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "garbage_items_manage" ON public.garbage_items FOR ALL TO authenticated
+  USING (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))
+  WITH CHECK (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- rewards: เหมือน items
-DROP POLICY IF EXISTS "garbage_rewards_select" ON public.garbage_rewards;
-DROP POLICY IF EXISTS "garbage_rewards_select" ON public.garbage_rewards;
-CREATE POLICY "garbage_rewards_select" ON public.garbage_rewards FOR SELECT TO authenticated USING (true);
-DROP POLICY IF EXISTS "garbage_rewards_manage" ON public.garbage_rewards;
-DROP POLICY IF EXISTS "garbage_rewards_manage" ON public.garbage_rewards;
-CREATE POLICY "garbage_rewards_manage" ON public.garbage_rewards FOR ALL TO authenticated
-  USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'))
-  WITH CHECK (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_rewards_select" ON public.garbage_rewards';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_rewards_select" ON public.garbage_rewards';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "garbage_rewards_select" ON public.garbage_rewards FOR SELECT TO authenticated USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_rewards_manage" ON public.garbage_rewards';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_rewards_manage" ON public.garbage_rewards';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "garbage_rewards_manage" ON public.garbage_rewards FOR ALL TO authenticated
+  USING (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))
+  WITH CHECK (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- deposits: staff จัดการได้, นักเรียนเห็นของตัวเอง
-DROP POLICY IF EXISTS "garbage_deposits_select_staff" ON public.garbage_deposits;
-DROP POLICY IF EXISTS "garbage_deposits_select_staff" ON public.garbage_deposits;
-CREATE POLICY "garbage_deposits_select_staff" ON public.garbage_deposits FOR SELECT TO authenticated
-  USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
-DROP POLICY IF EXISTS "garbage_deposits_select_student_self" ON public.garbage_deposits;
-DROP POLICY IF EXISTS "garbage_deposits_select_student_self" ON public.garbage_deposits;
-CREATE POLICY "garbage_deposits_select_student_self" ON public.garbage_deposits FOR SELECT TO authenticated
-  USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()));
-DROP POLICY IF EXISTS "garbage_deposits_insert_staff" ON public.garbage_deposits;
-DROP POLICY IF EXISTS "garbage_deposits_insert_staff" ON public.garbage_deposits;
-CREATE POLICY "garbage_deposits_insert_staff" ON public.garbage_deposits FOR INSERT TO authenticated
-  WITH CHECK (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
-DROP POLICY IF EXISTS "garbage_deposits_delete_admin" ON public.garbage_deposits;
-DROP POLICY IF EXISTS "garbage_deposits_delete_admin" ON public.garbage_deposits;
-CREATE POLICY "garbage_deposits_delete_admin" ON public.garbage_deposits FOR DELETE TO authenticated
-  USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director'));
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_deposits_select_staff" ON public.garbage_deposits';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_deposits_select_staff" ON public.garbage_deposits';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "garbage_deposits_select_staff" ON public.garbage_deposits FOR SELECT TO authenticated
+  USING (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_deposits_select_student_self" ON public.garbage_deposits';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_deposits_select_student_self" ON public.garbage_deposits';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "garbage_deposits_select_student_self" ON public.garbage_deposits FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_deposits_insert_staff" ON public.garbage_deposits';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_deposits_insert_staff" ON public.garbage_deposits';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "garbage_deposits_insert_staff" ON public.garbage_deposits FOR INSERT TO authenticated
+  WITH CHECK (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_deposits_delete_admin" ON public.garbage_deposits';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_deposits_delete_admin" ON public.garbage_deposits';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "garbage_deposits_delete_admin" ON public.garbage_deposits FOR DELETE TO authenticated
+  USING (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- redemptions: เหมือน deposits
-DROP POLICY IF EXISTS "garbage_redemptions_select_staff" ON public.garbage_redemptions;
-DROP POLICY IF EXISTS "garbage_redemptions_select_staff" ON public.garbage_redemptions;
-CREATE POLICY "garbage_redemptions_select_staff" ON public.garbage_redemptions FOR SELECT TO authenticated
-  USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
-DROP POLICY IF EXISTS "garbage_redemptions_select_student_self" ON public.garbage_redemptions;
-DROP POLICY IF EXISTS "garbage_redemptions_select_student_self" ON public.garbage_redemptions;
-CREATE POLICY "garbage_redemptions_select_student_self" ON public.garbage_redemptions FOR SELECT TO authenticated
-  USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()));
-DROP POLICY IF EXISTS "garbage_redemptions_insert_staff" ON public.garbage_redemptions;
-DROP POLICY IF EXISTS "garbage_redemptions_insert_staff" ON public.garbage_redemptions;
-CREATE POLICY "garbage_redemptions_insert_staff" ON public.garbage_redemptions FOR INSERT TO authenticated
-  WITH CHECK (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
-DROP POLICY IF EXISTS "garbage_redemptions_delete_admin" ON public.garbage_redemptions;
-DROP POLICY IF EXISTS "garbage_redemptions_delete_admin" ON public.garbage_redemptions;
-CREATE POLICY "garbage_redemptions_delete_admin" ON public.garbage_redemptions FOR DELETE TO authenticated
-  USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director'));
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_redemptions_select_staff" ON public.garbage_redemptions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_redemptions_select_staff" ON public.garbage_redemptions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "garbage_redemptions_select_staff" ON public.garbage_redemptions FOR SELECT TO authenticated
+  USING (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_redemptions_select_student_self" ON public.garbage_redemptions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_redemptions_select_student_self" ON public.garbage_redemptions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "garbage_redemptions_select_student_self" ON public.garbage_redemptions FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_redemptions_insert_staff" ON public.garbage_redemptions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_redemptions_insert_staff" ON public.garbage_redemptions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "garbage_redemptions_insert_staff" ON public.garbage_redemptions FOR INSERT TO authenticated
+  WITH CHECK (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_redemptions_delete_admin" ON public.garbage_redemptions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_redemptions_delete_admin" ON public.garbage_redemptions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "garbage_redemptions_delete_admin" ON public.garbage_redemptions FOR DELETE TO authenticated
+  USING (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- student_points: staff อ่านทั้งหมด, นักเรียนอ่านของตัวเอง
-DROP POLICY IF EXISTS "garbage_points_select_staff" ON public.garbage_student_points;
-DROP POLICY IF EXISTS "garbage_points_select_staff" ON public.garbage_student_points;
-CREATE POLICY "garbage_points_select_staff" ON public.garbage_student_points FOR SELECT TO authenticated
-  USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
-DROP POLICY IF EXISTS "garbage_points_select_self" ON public.garbage_student_points;
-DROP POLICY IF EXISTS "garbage_points_select_self" ON public.garbage_student_points;
-CREATE POLICY "garbage_points_select_self" ON public.garbage_student_points FOR SELECT TO authenticated
-  USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()));
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_points_select_staff" ON public.garbage_student_points';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_points_select_staff" ON public.garbage_student_points';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "garbage_points_select_staff" ON public.garbage_student_points FOR SELECT TO authenticated
+  USING (has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_points_select_self" ON public.garbage_student_points';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "garbage_points_select_self" ON public.garbage_student_points';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "garbage_points_select_self" ON public.garbage_student_points FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- enable realtime
 DO $$
 BEGIN

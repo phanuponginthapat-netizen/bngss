@@ -1,16 +1,29 @@
-DROP POLICY IF EXISTS "Homework files: owner or same-school members" ON storage.objects;
-
-DROP POLICY IF EXISTS "Homework files: owner or same-school members" ON storage.objects;
-CREATE POLICY "Homework files: owner or same-school members"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Homework files: owner or same-school members" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Homework files: owner or same-school members" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Homework files: owner or same-school members"
 ON storage.objects
 FOR SELECT
 TO authenticated
 USING (
-  bucket_id = 'homework-files'
+  bucket_id = ''homework-files''
   AND (
     owner = auth.uid()
-    OR public.has_role(auth.uid(), 'admin'::public.app_role)
-    OR public.has_role(auth.uid(), 'director'::public.app_role)
+    OR public.has_role(auth.uid(), ''admin''::public.app_role)
+    OR public.has_role(auth.uid(), ''director''::public.app_role)
     OR EXISTS (
       SELECT 1
       FROM public.task_assignments t
@@ -33,4 +46,8 @@ USING (
       )
     )
   )
-);
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

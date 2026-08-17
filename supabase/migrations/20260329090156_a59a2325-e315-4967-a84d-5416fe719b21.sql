@@ -1,4 +1,3 @@
-
 -- Teacher assignments (admin assigns subjects to teachers with classrooms)
 CREATE TABLE IF NOT EXISTS public.teacher_assignments (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -10,14 +9,35 @@ CREATE TABLE IF NOT EXISTS public.teacher_assignments (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   UNIQUE(personnel_id, subject_id, classroom_id, academic_year, semester)
 );
-
-ALTER TABLE public.teacher_assignments ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Auth users manage teacher_assignments" ON public.teacher_assignments;
-DROP POLICY IF EXISTS "Auth users manage teacher_assignments" ON public.teacher_assignments;
-CREATE POLICY "Auth users manage teacher_assignments" ON public.teacher_assignments
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.teacher_assignments ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage teacher_assignments" ON public.teacher_assignments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage teacher_assignments" ON public.teacher_assignments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage teacher_assignments" ON public.teacher_assignments
+  FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Assessment criteria (admin-defined topics for competency, desirable characteristics, reading/thinking/writing)
 CREATE TABLE IF NOT EXISTS public.assessment_criteria (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -29,14 +49,35 @@ CREATE TABLE IF NOT EXISTS public.assessment_criteria (
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-
-ALTER TABLE public.assessment_criteria ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Auth users manage assessment_criteria" ON public.assessment_criteria;
-DROP POLICY IF EXISTS "Auth users manage assessment_criteria" ON public.assessment_criteria;
-CREATE POLICY "Auth users manage assessment_criteria" ON public.assessment_criteria
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.assessment_criteria ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage assessment_criteria" ON public.assessment_criteria';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage assessment_criteria" ON public.assessment_criteria';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage assessment_criteria" ON public.assessment_criteria
+  FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Student assessment scores
 CREATE TABLE IF NOT EXISTS public.student_assessment_scores (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -51,14 +92,35 @@ CREATE TABLE IF NOT EXISTS public.student_assessment_scores (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   UNIQUE(student_id, criteria_id, semester, academic_year)
 );
-
-ALTER TABLE public.student_assessment_scores ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Auth users manage student_assessment_scores" ON public.student_assessment_scores;
-DROP POLICY IF EXISTS "Auth users manage student_assessment_scores" ON public.student_assessment_scores;
-CREATE POLICY "Auth users manage student_assessment_scores" ON public.student_assessment_scores
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.student_assessment_scores ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage student_assessment_scores" ON public.student_assessment_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage student_assessment_scores" ON public.student_assessment_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage student_assessment_scores" ON public.student_assessment_scores
+  FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Subject indicators (teacher-defined per subject)
 CREATE TABLE IF NOT EXISTS public.subject_indicators (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -69,14 +131,35 @@ CREATE TABLE IF NOT EXISTS public.subject_indicators (
   sort_order INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-
-ALTER TABLE public.subject_indicators ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Auth users manage subject_indicators" ON public.subject_indicators;
-DROP POLICY IF EXISTS "Auth users manage subject_indicators" ON public.subject_indicators;
-CREATE POLICY "Auth users manage subject_indicators" ON public.subject_indicators
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.subject_indicators ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage subject_indicators" ON public.subject_indicators';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage subject_indicators" ON public.subject_indicators';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage subject_indicators" ON public.subject_indicators
+  FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Score columns (teacher-defined score structure per subject)
 CREATE TABLE IF NOT EXISTS public.subject_score_columns (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -88,14 +171,35 @@ CREATE TABLE IF NOT EXISTS public.subject_score_columns (
   sort_order INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-
-ALTER TABLE public.subject_score_columns ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Auth users manage subject_score_columns" ON public.subject_score_columns;
-DROP POLICY IF EXISTS "Auth users manage subject_score_columns" ON public.subject_score_columns;
-CREATE POLICY "Auth users manage subject_score_columns" ON public.subject_score_columns
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.subject_score_columns ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage subject_score_columns" ON public.subject_score_columns';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage subject_score_columns" ON public.subject_score_columns';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage subject_score_columns" ON public.subject_score_columns
+  FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Student column scores (individual scores per column per student)
 CREATE TABLE IF NOT EXISTS public.student_column_scores (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -105,10 +209,32 @@ CREATE TABLE IF NOT EXISTS public.student_column_scores (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   UNIQUE(student_id, column_id)
 );
-
-ALTER TABLE public.student_column_scores ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Auth users manage student_column_scores" ON public.student_column_scores;
-DROP POLICY IF EXISTS "Auth users manage student_column_scores" ON public.student_column_scores;
-CREATE POLICY "Auth users manage student_column_scores" ON public.student_column_scores
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.student_column_scores ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage student_column_scores" ON public.student_column_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage student_column_scores" ON public.student_column_scores';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage student_column_scores" ON public.student_column_scores
+  FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

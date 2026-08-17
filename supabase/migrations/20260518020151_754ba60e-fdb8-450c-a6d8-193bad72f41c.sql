@@ -1,4 +1,3 @@
-
 -- 1. Face descriptors table
 CREATE TABLE IF NOT EXISTS public.student_face_descriptors (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -11,23 +10,67 @@ CREATE TABLE IF NOT EXISTS public.student_face_descriptors (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (student_id, sample_index)
 );
-CREATE INDEX IF NOT EXISTS idx_face_desc_student ON public.student_face_descriptors(student_id);
-
-ALTER TABLE public.student_face_descriptors ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "staff manage face descriptors" ON public.student_face_descriptors;
-DROP POLICY IF EXISTS "staff manage face descriptors" ON public.student_face_descriptors;
-CREATE POLICY "staff manage face descriptors" ON public.student_face_descriptors
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_face_desc_student ON public.student_face_descriptors(student_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.student_face_descriptors ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "staff manage face descriptors" ON public.student_face_descriptors';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "staff manage face descriptors" ON public.student_face_descriptors';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "staff manage face descriptors" ON public.student_face_descriptors
   FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))
-  WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));
-
-DROP POLICY IF EXISTS "students view own face desc" ON public.student_face_descriptors;
-DROP POLICY IF EXISTS "students view own face desc" ON public.student_face_descriptors;
-CREATE POLICY "students view own face desc" ON public.student_face_descriptors
+  USING (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher''))
+  WITH CHECK (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "students view own face desc" ON public.student_face_descriptors';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "students view own face desc" ON public.student_face_descriptors';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "students view own face desc" ON public.student_face_descriptors
   FOR SELECT TO authenticated
-  USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()));
-
+  USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 2. Face scan logs
 CREATE TABLE IF NOT EXISTS public.face_scan_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -41,30 +84,97 @@ CREATE TABLE IF NOT EXISTS public.face_scan_logs (
   school_id UUID,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_face_scan_date_student ON public.face_scan_logs(scan_date, student_id);
-CREATE INDEX IF NOT EXISTS idx_face_scan_student ON public.face_scan_logs(student_id);
-
-ALTER TABLE public.face_scan_logs ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "staff manage scan logs" ON public.face_scan_logs;
-DROP POLICY IF EXISTS "staff manage scan logs" ON public.face_scan_logs;
-CREATE POLICY "staff manage scan logs" ON public.face_scan_logs
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_face_scan_date_student ON public.face_scan_logs(scan_date, student_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_face_scan_student ON public.face_scan_logs(student_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.face_scan_logs ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "staff manage scan logs" ON public.face_scan_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "staff manage scan logs" ON public.face_scan_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "staff manage scan logs" ON public.face_scan_logs
   FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))
-  WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));
-
-DROP POLICY IF EXISTS "students view own scan logs" ON public.face_scan_logs;
-DROP POLICY IF EXISTS "students view own scan logs" ON public.face_scan_logs;
-CREATE POLICY "students view own scan logs" ON public.face_scan_logs
+  USING (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher''))
+  WITH CHECK (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'') OR public.has_role(auth.uid(),''teacher''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "students view own scan logs" ON public.face_scan_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "students view own scan logs" ON public.face_scan_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "students view own scan logs" ON public.face_scan_logs
   FOR SELECT TO authenticated
-  USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()));
-
-DROP POLICY IF EXISTS "parents view child scan logs" ON public.face_scan_logs;
-DROP POLICY IF EXISTS "parents view child scan logs" ON public.face_scan_logs;
-CREATE POLICY "parents view child scan logs" ON public.face_scan_logs
+  USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "parents view child scan logs" ON public.face_scan_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "parents view child scan logs" ON public.face_scan_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "parents view child scan logs" ON public.face_scan_logs
   FOR SELECT TO authenticated
-  USING (EXISTS (SELECT 1 FROM public.parent_student_links l WHERE l.student_id = face_scan_logs.student_id AND l.parent_user_id = auth.uid()));
-
+  USING (EXISTS (SELECT 1 FROM public.parent_student_links l WHERE l.student_id = face_scan_logs.student_id AND l.parent_user_id = auth.uid()))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 3. Auto-mark attendance trigger
 CREATE OR REPLACE FUNCTION public.auto_attendance_on_face_scan()
 RETURNS TRIGGER
@@ -89,14 +199,36 @@ BEGIN
 
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_auto_attendance_face_scan ON public.face_scan_logs;
-CREATE TRIGGER trg_auto_attendance_face_scan
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_auto_attendance_face_scan ON public.face_scan_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_auto_attendance_face_scan
   AFTER INSERT ON public.face_scan_logs
-  FOR EACH ROW EXECUTE FUNCTION public.auto_attendance_on_face_scan();
-
+  FOR EACH ROW EXECUTE FUNCTION public.auto_attendance_on_face_scan()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 4. Auto fill school_id
-DROP TRIGGER IF EXISTS trg_face_scan_school_id ON public.face_scan_logs;
-CREATE TRIGGER trg_face_scan_school_id
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_face_scan_school_id ON public.face_scan_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_face_scan_school_id
   BEFORE INSERT ON public.face_scan_logs
-  FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id();
+  FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

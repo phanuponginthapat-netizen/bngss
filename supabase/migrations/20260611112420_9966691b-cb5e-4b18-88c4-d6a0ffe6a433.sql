@@ -1,4 +1,3 @@
-
 -- Add critical user-facing tables to realtime publication (P0 per memory rule)
 -- These were silently missing → users had to refresh to see updates.
 

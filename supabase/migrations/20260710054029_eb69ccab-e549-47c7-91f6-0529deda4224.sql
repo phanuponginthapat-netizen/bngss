@@ -32,8 +32,25 @@ BEGIN
       END IF;
   END IF;
 END $$;
-
 -- Ensure full row payload on realtime for these tables (needed for UPDATE/DELETE payload.old)
-ALTER TABLE public.students REPLICA IDENTITY FULL;
-ALTER TABLE public.home_visit_summaries REPLICA IDENTITY FULL;
-ALTER TABLE public.vaccine_records REPLICA IDENTITY FULL;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.students REPLICA IDENTITY FULL';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.home_visit_summaries REPLICA IDENTITY FULL';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.vaccine_records REPLICA IDENTITY FULL';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

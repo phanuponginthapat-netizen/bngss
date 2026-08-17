@@ -1,4 +1,3 @@
-
 CREATE TABLE IF NOT EXISTS public.social_posts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   platform text NOT NULL DEFAULT 'facebook',
@@ -16,33 +15,99 @@ CREATE TABLE IF NOT EXISTS public.social_posts (
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (platform, external_id)
 );
-
-CREATE INDEX IF NOT EXISTS idx_social_posts_posted_at ON public.social_posts (posted_at DESC);
-CREATE INDEX IF NOT EXISTS idx_social_posts_platform ON public.social_posts (platform);
-
-ALTER TABLE public.social_posts ENABLE ROW LEVEL SECURITY;
-
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_social_posts_posted_at ON public.social_posts (posted_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_social_posts_platform ON public.social_posts (platform)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.social_posts ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Public can read (for homepage)
-DROP POLICY IF EXISTS "Public can read social posts" ON public.social_posts;
-DROP POLICY IF EXISTS "Public can read social posts" ON public.social_posts;
-CREATE POLICY "Public can read social posts"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Public can read social posts" ON public.social_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Public can read social posts" ON public.social_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Public can read social posts"
   ON public.social_posts FOR SELECT
-  USING (true);
-
+  USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Admin/director can delete
-DROP POLICY IF EXISTS "Admin/director can delete social posts" ON public.social_posts;
-DROP POLICY IF EXISTS "Admin/director can delete social posts" ON public.social_posts;
-CREATE POLICY "Admin/director can delete social posts"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/director can delete social posts" ON public.social_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/director can delete social posts" ON public.social_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/director can delete social posts"
   ON public.social_posts FOR DELETE
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
+  USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Admin/director can update (e.g. hide)
-DROP POLICY IF EXISTS "Admin/director can update social posts" ON public.social_posts;
-DROP POLICY IF EXISTS "Admin/director can update social posts" ON public.social_posts;
-CREATE POLICY "Admin/director can update social posts"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/director can update social posts" ON public.social_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/director can update social posts" ON public.social_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/director can update social posts"
   ON public.social_posts FOR UPDATE
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
+  USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Realtime
 DO $$
 BEGIN

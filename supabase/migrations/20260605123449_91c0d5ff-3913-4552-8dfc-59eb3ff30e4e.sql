@@ -1,4 +1,3 @@
-
 UPDATE public.ai_providers SET model='google/gemini-2.0-flash-exp:free', name='OpenRouter Free - Gemini 2.0 Flash', supports_vision=true, priority=1
   WHERE id='813f079f-eada-4c3f-a555-6041aceb0238';
 UPDATE public.ai_providers SET model='meta-llama/llama-3.2-11b-vision-instruct:free', name='OpenRouter Free - Llama 3.2 Vision', supports_vision=true, priority=2

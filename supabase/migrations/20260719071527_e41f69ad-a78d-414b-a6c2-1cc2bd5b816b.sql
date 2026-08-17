@@ -1,5 +1,4 @@
 DELETE FROM public.app_secrets WHERE key IN ('FB_PAGE_ACCESS_TOKEN','FB_PAGE_ID');
-
 CREATE OR REPLACE FUNCTION public.ensure_default_app_secrets()
 RETURNS void
 LANGUAGE plpgsql
@@ -19,6 +18,17 @@ BEGIN
   ON CONFLICT (key) DO NOTHING;
 END;
 $$;
-
-REVOKE ALL ON FUNCTION public.ensure_default_app_secrets() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.ensure_default_app_secrets() TO authenticated, service_role;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.ensure_default_app_secrets() FROM PUBLIC, anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.ensure_default_app_secrets() TO authenticated, service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

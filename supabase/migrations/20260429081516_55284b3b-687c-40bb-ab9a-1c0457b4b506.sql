@@ -1,9 +1,31 @@
-ALTER TABLE public.news_posts ADD COLUMN IF NOT EXISTS is_pinned boolean NOT NULL DEFAULT false;
-ALTER TABLE public.emergency_broadcasts ADD COLUMN IF NOT EXISTS is_pinned boolean NOT NULL DEFAULT false;
-
-CREATE INDEX IF NOT EXISTS idx_news_posts_pinned ON public.news_posts(is_pinned, published_at DESC);
-CREATE INDEX IF NOT EXISTS idx_emergency_pinned ON public.emergency_broadcasts(is_pinned, sent_at DESC);
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.news_posts ADD COLUMN IF NOT EXISTS is_pinned boolean NOT NULL DEFAULT false';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.emergency_broadcasts ADD COLUMN IF NOT EXISTS is_pinned boolean NOT NULL DEFAULT false';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_news_posts_pinned ON public.news_posts(is_pinned, published_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_emergency_pinned ON public.emergency_broadcasts(is_pinned, sent_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 -- Function: notify all users (inbox + push) when news is published or emergency is sent
 CREATE OR REPLACE FUNCTION public.notify_users_on_news()
 RETURNS TRIGGER
@@ -51,13 +73,35 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_notify_news ON public.news_posts;
-CREATE TRIGGER trg_notify_news
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_notify_news ON public.news_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_notify_news
 AFTER INSERT OR UPDATE ON public.news_posts
-FOR EACH ROW EXECUTE FUNCTION public.notify_users_on_news();
-
-DROP TRIGGER IF EXISTS trg_notify_emergency ON public.emergency_broadcasts;
-CREATE TRIGGER trg_notify_emergency
+FOR EACH ROW EXECUTE FUNCTION public.notify_users_on_news()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_notify_emergency ON public.emergency_broadcasts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_notify_emergency
 AFTER INSERT ON public.emergency_broadcasts
-FOR EACH ROW EXECUTE FUNCTION public.notify_users_on_news();
+FOR EACH ROW EXECUTE FUNCTION public.notify_users_on_news()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

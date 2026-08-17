@@ -22,7 +22,6 @@ DO $$ BEGIN
       USING (student_id IN (SELECT id FROM public.students WHERE auth_user_id = auth.uid()));
   END IF;
 END $$;
-
 -- Students: allow staff to view & manage
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='students' AND policyname='Staff can view all students') THEN
@@ -35,7 +34,6 @@ DO $$ BEGIN
       WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
   END IF;
 END $$;
-
 -- Classrooms: visible to all auth users; staff manages
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='classrooms' AND policyname='Auth users can view classrooms') THEN

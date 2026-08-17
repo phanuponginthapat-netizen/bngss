@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.notify_on_face_scan()
 RETURNS trigger
 LANGUAGE plpgsql

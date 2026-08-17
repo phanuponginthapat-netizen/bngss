@@ -21,7 +21,6 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $function$;
-
 CREATE OR REPLACE FUNCTION public.gchat_on_face_scan()
  RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
 AS $function$
@@ -50,7 +49,6 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $function$;
-
 CREATE OR REPLACE FUNCTION public.gchat_on_student_leave()
  RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
 AS $function$
@@ -89,7 +87,6 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $function$;
-
 CREATE OR REPLACE FUNCTION public.notify_homeroom_on_ai_risk()
  RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
 AS $function$

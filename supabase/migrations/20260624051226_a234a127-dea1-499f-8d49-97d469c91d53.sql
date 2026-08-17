@@ -1,4 +1,3 @@
-
 -- ============================================================
 -- 1) student_leaves (approved) → auto-fill attendance "ลา"
 -- ============================================================
@@ -47,12 +46,22 @@ EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_sync_leave_to_attendance ON public.student_leaves;
-CREATE TRIGGER trg_sync_leave_to_attendance
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_sync_leave_to_attendance ON public.student_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_sync_leave_to_attendance
 AFTER INSERT OR UPDATE OF status ON public.student_leaves
-FOR EACH ROW EXECUTE FUNCTION public.sync_leave_to_attendance();
-
+FOR EACH ROW EXECUTE FUNCTION public.sync_leave_to_attendance()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============================================================
 -- 2) homework_submissions (graded) → notify parents via LINE
 -- ============================================================
@@ -100,13 +109,23 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_notify_homework_graded ON public.homework_submissions;
-CREATE TRIGGER trg_notify_homework_graded
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_notify_homework_graded ON public.homework_submissions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_notify_homework_graded
 AFTER INSERT OR UPDATE OF final_score, status
 ON public.homework_submissions
-FOR EACH ROW EXECUTE FUNCTION public.notify_parents_on_homework_graded();
-
+FOR EACH ROW EXECUTE FUNCTION public.notify_parents_on_homework_graded()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============================================================
 -- 3) sync_homework_to_pp5: handle classroom_id change
 -- ============================================================
@@ -169,7 +188,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 -- ============================================================
 -- 4) Realtime: เพิ่ม profiles + homework_submissions เข้า publication
 -- ============================================================

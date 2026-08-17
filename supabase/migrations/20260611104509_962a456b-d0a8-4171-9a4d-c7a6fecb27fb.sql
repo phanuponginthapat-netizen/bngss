@@ -27,13 +27,35 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_students_auto_school ON public.students;
-CREATE TRIGGER trg_students_auto_school
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_students_auto_school ON public.students';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_students_auto_school
 BEFORE INSERT ON public.students
-FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id();
-
-DROP TRIGGER IF EXISTS trg_personnel_auto_school ON public.personnel;
-CREATE TRIGGER trg_personnel_auto_school
+FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_personnel_auto_school ON public.personnel';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_personnel_auto_school
 BEFORE INSERT ON public.personnel
-FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id();
+FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

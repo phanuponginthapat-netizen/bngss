@@ -1,4 +1,3 @@
-
 -- Helper: ครูคนนี้เป็นครูประจำชั้นของนักเรียนคนนี้หรือไม่ (จับชื่อแบบหลวม ๆ ตามที่ UI ใช้)
 CREATE OR REPLACE FUNCTION public.is_homeroom_teacher_of_student(_user_id uuid, _student_id uuid)
 RETURNS boolean
@@ -39,37 +38,82 @@ AS $$
     WHERE cand <> '' AND (a = cand OR b = cand)
   );
 $$;
-
 -- เปลี่ยน policy ของ student_leaves ให้ครูเห็นเฉพาะนักเรียนในห้องตัวเอง
-DROP POLICY IF EXISTS "Staff manage student_leaves" ON public.student_leaves;
-DROP POLICY IF EXISTS "school_scope_teacher" ON public.student_leaves;
-
-DROP POLICY IF EXISTS "Admin director manage student_leaves" ON public.student_leaves;
-DROP POLICY IF EXISTS "Admin director manage student_leaves" ON public.student_leaves;
-CREATE POLICY "Admin director manage student_leaves"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff manage student_leaves" ON public.student_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "school_scope_teacher" ON public.student_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin director manage student_leaves" ON public.student_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin director manage student_leaves" ON public.student_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin director manage student_leaves"
 ON public.student_leaves
 FOR ALL
 TO authenticated
 USING (
-  public.has_role(auth.uid(), 'admin'::app_role)
-  OR public.has_role(auth.uid(), 'director'::app_role)
+  public.has_role(auth.uid(), ''admin''::app_role)
+  OR public.has_role(auth.uid(), ''director''::app_role)
 )
 WITH CHECK (
-  public.has_role(auth.uid(), 'admin'::app_role)
-  OR public.has_role(auth.uid(), 'director'::app_role)
-);
-
-DROP POLICY IF EXISTS "Homeroom teacher manage student_leaves" ON public.student_leaves;
-DROP POLICY IF EXISTS "Homeroom teacher manage student_leaves" ON public.student_leaves;
-CREATE POLICY "Homeroom teacher manage student_leaves"
+  public.has_role(auth.uid(), ''admin''::app_role)
+  OR public.has_role(auth.uid(), ''director''::app_role)
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Homeroom teacher manage student_leaves" ON public.student_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Homeroom teacher manage student_leaves" ON public.student_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Homeroom teacher manage student_leaves"
 ON public.student_leaves
 FOR ALL
 TO authenticated
 USING (
-  public.has_role(auth.uid(), 'teacher'::app_role)
+  public.has_role(auth.uid(), ''teacher''::app_role)
   AND public.is_homeroom_teacher_of_student(auth.uid(), student_id)
 )
 WITH CHECK (
-  public.has_role(auth.uid(), 'teacher'::app_role)
+  public.has_role(auth.uid(), ''teacher''::app_role)
   AND public.is_homeroom_teacher_of_student(auth.uid(), student_id)
-);
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

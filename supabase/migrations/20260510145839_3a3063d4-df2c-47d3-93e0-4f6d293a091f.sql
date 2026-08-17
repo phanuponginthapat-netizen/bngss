@@ -1,29 +1,78 @@
-
-ALTER TABLE public.ict_loans ADD COLUMN IF NOT EXISTS personnel_id uuid REFERENCES public.personnel(id) ON DELETE CASCADE;
-ALTER TABLE public.ict_loans ALTER COLUMN student_id DROP NOT NULL;
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.ict_loans ADD COLUMN IF NOT EXISTS personnel_id uuid REFERENCES public.personnel(id) ON DELETE CASCADE';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.ict_loans ALTER COLUMN student_id DROP NOT NULL';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- exactly one borrower
-ALTER TABLE public.ict_loans DROP CONSTRAINT IF EXISTS ict_loans_one_borrower;
-ALTER TABLE public.ict_loans ADD CONSTRAINT ict_loans_one_borrower
-  CHECK ((student_id IS NOT NULL)::int + (personnel_id IS NOT NULL)::int = 1);
-
-CREATE INDEX IF NOT EXISTS idx_ict_loans_personnel ON public.ict_loans (personnel_id, borrowed_at DESC);
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.ict_loans DROP CONSTRAINT IF EXISTS ict_loans_one_borrower';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.ict_loans ADD CONSTRAINT ict_loans_one_borrower
+  CHECK ((student_id IS NOT NULL)::int + (personnel_id IS NOT NULL)::int = 1)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_ict_loans_personnel ON public.ict_loans (personnel_id, borrowed_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 -- Update viewable policy to include personnel
-DROP POLICY IF EXISTS "Loans viewable by staff or own student" ON public.ict_loans;
-DROP POLICY IF EXISTS "Loans viewable by staff student or personnel" ON public.ict_loans;
-DROP POLICY IF EXISTS "Loans viewable by staff student or personnel" ON public.ict_loans;
-CREATE POLICY "Loans viewable by staff student or personnel"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Loans viewable by staff or own student" ON public.ict_loans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Loans viewable by staff student or personnel" ON public.ict_loans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Loans viewable by staff student or personnel" ON public.ict_loans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Loans viewable by staff student or personnel"
 ON public.ict_loans FOR SELECT
 USING (
-  has_role(auth.uid(), 'admin'::app_role)
-  OR has_role(auth.uid(), 'director'::app_role)
-  OR has_role(auth.uid(), 'teacher'::app_role)
+  has_role(auth.uid(), ''admin''::app_role)
+  OR has_role(auth.uid(), ''director''::app_role)
+  OR has_role(auth.uid(), ''teacher''::app_role)
   OR EXISTS (SELECT 1 FROM students s WHERE s.id = ict_loans.student_id AND s.auth_user_id = auth.uid())
   OR EXISTS (SELECT 1 FROM parent_student_links psl WHERE psl.student_id = ict_loans.student_id AND psl.parent_user_id = auth.uid())
   OR EXISTS (SELECT 1 FROM personnel p WHERE p.id = ict_loans.personnel_id AND p.user_id = auth.uid())
-);
-
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Update notify trigger to handle personnel borrowers too
 CREATE OR REPLACE FUNCTION public.notify_student_on_ict_loan()
 RETURNS trigger

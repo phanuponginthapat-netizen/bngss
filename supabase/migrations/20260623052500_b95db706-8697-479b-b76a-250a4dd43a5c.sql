@@ -1,4 +1,3 @@
-
 -- Maintain reaction_count and comment_count on wall_posts via triggers
 
 CREATE OR REPLACE FUNCTION public.wall_post_reactions_count_fn()
@@ -18,12 +17,22 @@ BEGIN
   RETURN NULL;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_wall_post_reactions_count ON public.wall_post_reactions;
-CREATE TRIGGER trg_wall_post_reactions_count
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_wall_post_reactions_count ON public.wall_post_reactions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_wall_post_reactions_count
 AFTER INSERT OR DELETE ON public.wall_post_reactions
-FOR EACH ROW EXECUTE FUNCTION public.wall_post_reactions_count_fn();
-
+FOR EACH ROW EXECUTE FUNCTION public.wall_post_reactions_count_fn()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.wall_post_comments_count_fn()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -41,12 +50,22 @@ BEGIN
   RETURN NULL;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_wall_post_comments_count ON public.wall_post_comments;
-CREATE TRIGGER trg_wall_post_comments_count
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_wall_post_comments_count ON public.wall_post_comments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_wall_post_comments_count
 AFTER INSERT OR DELETE ON public.wall_post_comments
-FOR EACH ROW EXECUTE FUNCTION public.wall_post_comments_count_fn();
-
+FOR EACH ROW EXECUTE FUNCTION public.wall_post_comments_count_fn()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Backfill counts
 UPDATE public.wall_posts wp SET
   reaction_count = (SELECT COUNT(*) FROM public.wall_post_reactions WHERE post_id = wp.id),

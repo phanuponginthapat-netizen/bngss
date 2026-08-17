@@ -8,7 +8,6 @@ BEGIN
     EXECUTE 'ALTER PUBLICATION supabase_realtime DROP TABLE public.ai_provider_keys';
   END IF;
 END $$;
-
 -- 2) Defensive: drop any blanket "true" SELECT policy on iot_devices if it exists
 DO $$
 DECLARE r record;
@@ -20,17 +19,33 @@ BEGIN
     EXECUTE format('DROP POLICY %I ON public.iot_devices', r.policyname);
   END LOOP;
 END $$;
-
 -- Make sure iot_devices SELECT is restricted to staff (admin/director/teacher) only
-DROP POLICY IF EXISTS "Staff can view iot devices" ON public.iot_devices;
-DROP POLICY IF EXISTS "Staff can view iot devices" ON public.iot_devices;
-CREATE POLICY "Staff can view iot devices"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can view iot devices" ON public.iot_devices';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can view iot devices" ON public.iot_devices';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff can view iot devices"
 ON public.iot_devices FOR SELECT
 TO authenticated
 USING (
-  has_role(auth.uid(), 'admin'::app_role)
-  OR has_role(auth.uid(), 'director'::app_role)
-  OR has_role(auth.uid(), 'teacher'::app_role)
-);
-
+  has_role(auth.uid(), ''admin''::app_role)
+  OR has_role(auth.uid(), ''director''::app_role)
+  OR has_role(auth.uid(), ''teacher''::app_role)
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- The existing "Admin/Director view iot devices" policy stays as well (OR semantics across policies)

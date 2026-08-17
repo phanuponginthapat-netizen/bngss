@@ -11,7 +11,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 -- ติด trigger ทุกตารางที่มีคอลัมน์ academic_year
 DO $$
 DECLARE

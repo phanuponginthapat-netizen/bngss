@@ -1,4 +1,3 @@
-
 DO $$
 DECLARE
   tbls text[] := ARRAY[

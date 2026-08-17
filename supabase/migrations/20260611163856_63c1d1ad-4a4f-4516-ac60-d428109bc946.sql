@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.notify_on_garbage_redemption()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -36,8 +35,19 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_notify_garbage_redemption ON public.garbage_redemptions;
-CREATE TRIGGER trg_notify_garbage_redemption
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_notify_garbage_redemption ON public.garbage_redemptions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_notify_garbage_redemption
   AFTER INSERT ON public.garbage_redemptions
-  FOR EACH ROW EXECUTE FUNCTION public.notify_on_garbage_redemption();
+  FOR EACH ROW EXECUTE FUNCTION public.notify_on_garbage_redemption()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

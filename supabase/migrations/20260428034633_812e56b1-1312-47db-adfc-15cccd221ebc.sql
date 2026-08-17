@@ -2,7 +2,6 @@
 UPDATE public.user_roles
 SET role = 'super_admin'::app_role
 WHERE user_id = (SELECT id FROM auth.users WHERE email = 'admin@school.com');
-
 -- 2) E-Forms tables
 CREATE TABLE IF NOT EXISTS public.eforms (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -19,7 +18,6 @@ CREATE TABLE IF NOT EXISTS public.eforms (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS public.eform_recipients (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   eform_id UUID NOT NULL REFERENCES public.eforms(id) ON DELETE CASCADE,
@@ -35,89 +33,280 @@ CREATE TABLE IF NOT EXISTS public.eform_recipients (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (eform_id, recipient_id)
 );
-
-CREATE INDEX IF NOT EXISTS idx_eforms_school ON public.eforms(school_id);
-CREATE INDEX IF NOT EXISTS idx_eforms_sender ON public.eforms(sender_id);
-CREATE INDEX IF NOT EXISTS idx_eform_recipients_user ON public.eform_recipients(recipient_id);
-CREATE INDEX IF NOT EXISTS idx_eform_recipients_form ON public.eform_recipients(eform_id);
-
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_eforms_school ON public.eforms(school_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_eforms_sender ON public.eforms(sender_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_eform_recipients_user ON public.eform_recipients(recipient_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_eform_recipients_form ON public.eform_recipients(eform_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 -- Auto-fill school_id + updated_at
-DROP TRIGGER IF EXISTS eforms_auto_school_id ON public.eforms;
-CREATE TRIGGER eforms_auto_school_id
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS eforms_auto_school_id ON public.eforms';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER eforms_auto_school_id
 BEFORE INSERT ON public.eforms
-FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id();
-
-DROP TRIGGER IF EXISTS eforms_set_updated_at ON public.eforms;
-CREATE TRIGGER eforms_set_updated_at
+FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS eforms_set_updated_at ON public.eforms';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER eforms_set_updated_at
 BEFORE UPDATE ON public.eforms
-FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- RLS
-ALTER TABLE public.eforms ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.eform_recipients ENABLE ROW LEVEL SECURITY;
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.eforms ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.eform_recipients ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- eforms: sender, recipients, school admins/director, super/area admin can read
-DROP POLICY IF EXISTS "Sender can manage own eforms" ON public.eforms;
-DROP POLICY IF EXISTS "Sender can manage own eforms" ON public.eforms;
-CREATE POLICY "Sender can manage own eforms"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Sender can manage own eforms" ON public.eforms';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Sender can manage own eforms" ON public.eforms';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Sender can manage own eforms"
 ON public.eforms FOR ALL TO authenticated
 USING (sender_id = auth.uid())
-WITH CHECK (sender_id = auth.uid());
-
-DROP POLICY IF EXISTS "Recipients can view eforms sent to them" ON public.eforms;
-DROP POLICY IF EXISTS "Recipients can view eforms sent to them" ON public.eforms;
-CREATE POLICY "Recipients can view eforms sent to them"
+WITH CHECK (sender_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Recipients can view eforms sent to them" ON public.eforms';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Recipients can view eforms sent to them" ON public.eforms';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Recipients can view eforms sent to them"
 ON public.eforms FOR SELECT TO authenticated
 USING (EXISTS (
   SELECT 1 FROM public.eform_recipients r
   WHERE r.eform_id = eforms.id AND r.recipient_id = auth.uid()
-));
-
-DROP POLICY IF EXISTS "School admin/director can view school eforms" ON public.eforms;
-DROP POLICY IF EXISTS "School admin/director can view school eforms" ON public.eforms;
-CREATE POLICY "School admin/director can view school eforms"
+))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "School admin/director can view school eforms" ON public.eforms';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "School admin/director can view school eforms" ON public.eforms';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "School admin/director can view school eforms"
 ON public.eforms FOR SELECT TO authenticated
 USING (
-  (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role))
+  (has_role(auth.uid(), ''admin''::app_role) OR has_role(auth.uid(), ''director''::app_role))
   AND (school_id IS NULL OR school_id = get_user_school_id(auth.uid()))
-);
-
-DROP POLICY IF EXISTS "Super/area admin can view all eforms" ON public.eforms;
-DROP POLICY IF EXISTS "Super/area admin can view all eforms" ON public.eforms;
-CREATE POLICY "Super/area admin can view all eforms"
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Super/area admin can view all eforms" ON public.eforms';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Super/area admin can view all eforms" ON public.eforms';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Super/area admin can view all eforms"
 ON public.eforms FOR SELECT TO authenticated
-USING (is_super_admin(auth.uid()) OR is_area_admin(auth.uid()));
-
+USING (is_super_admin(auth.uid()) OR is_area_admin(auth.uid()))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- eform_recipients: recipient sees/updates own row; sender + school admin can view
-DROP POLICY IF EXISTS "Recipient can view own row" ON public.eform_recipients;
-DROP POLICY IF EXISTS "Recipient can view own row" ON public.eform_recipients;
-CREATE POLICY "Recipient can view own row"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Recipient can view own row" ON public.eform_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Recipient can view own row" ON public.eform_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Recipient can view own row"
 ON public.eform_recipients FOR SELECT TO authenticated
-USING (recipient_id = auth.uid());
-
-DROP POLICY IF EXISTS "Recipient can update own row" ON public.eform_recipients;
-DROP POLICY IF EXISTS "Recipient can update own row" ON public.eform_recipients;
-CREATE POLICY "Recipient can update own row"
+USING (recipient_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Recipient can update own row" ON public.eform_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Recipient can update own row" ON public.eform_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Recipient can update own row"
 ON public.eform_recipients FOR UPDATE TO authenticated
 USING (recipient_id = auth.uid())
-WITH CHECK (recipient_id = auth.uid());
-
-DROP POLICY IF EXISTS "Sender can manage recipients" ON public.eform_recipients;
-DROP POLICY IF EXISTS "Sender can manage recipients" ON public.eform_recipients;
-CREATE POLICY "Sender can manage recipients"
+WITH CHECK (recipient_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Sender can manage recipients" ON public.eform_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Sender can manage recipients" ON public.eform_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Sender can manage recipients"
 ON public.eform_recipients FOR ALL TO authenticated
 USING (EXISTS (SELECT 1 FROM public.eforms e WHERE e.id = eform_recipients.eform_id AND e.sender_id = auth.uid()))
-WITH CHECK (EXISTS (SELECT 1 FROM public.eforms e WHERE e.id = eform_recipients.eform_id AND e.sender_id = auth.uid()));
-
-DROP POLICY IF EXISTS "School admin/director can view recipients" ON public.eform_recipients;
-DROP POLICY IF EXISTS "School admin/director can view recipients" ON public.eform_recipients;
-CREATE POLICY "School admin/director can view recipients"
+WITH CHECK (EXISTS (SELECT 1 FROM public.eforms e WHERE e.id = eform_recipients.eform_id AND e.sender_id = auth.uid()))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "School admin/director can view recipients" ON public.eform_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "School admin/director can view recipients" ON public.eform_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "School admin/director can view recipients"
 ON public.eform_recipients FOR SELECT TO authenticated
 USING (
-  has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role)
+  has_role(auth.uid(), ''admin''::app_role) OR has_role(auth.uid(), ''director''::app_role)
   OR is_super_admin(auth.uid()) OR is_area_admin(auth.uid())
-);
-
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Notify recipients when an eform is sent to them
 CREATE OR REPLACE FUNCTION public.notify_on_eform_recipient()
 RETURNS trigger
@@ -141,8 +330,19 @@ BEGIN
   );
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS eform_recipients_notify ON public.eform_recipients;
-CREATE TRIGGER eform_recipients_notify
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS eform_recipients_notify ON public.eform_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER eform_recipients_notify
 AFTER INSERT ON public.eform_recipients
-FOR EACH ROW EXECUTE FUNCTION public.notify_on_eform_recipient();
+FOR EACH ROW EXECUTE FUNCTION public.notify_on_eform_recipient()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

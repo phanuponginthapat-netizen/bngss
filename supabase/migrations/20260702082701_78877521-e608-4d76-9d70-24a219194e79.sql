@@ -1,4 +1,3 @@
-
 CREATE TABLE IF NOT EXISTS public.dashboard_shortcuts (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   label_th TEXT NOT NULL,
@@ -14,42 +13,142 @@ CREATE TABLE IF NOT EXISTS public.dashboard_shortcuts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
-GRANT SELECT ON public.dashboard_shortcuts TO anon, authenticated;
-GRANT INSERT, UPDATE, DELETE ON public.dashboard_shortcuts TO authenticated;
-GRANT ALL ON public.dashboard_shortcuts TO service_role;
-
-ALTER TABLE public.dashboard_shortcuts ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Anyone can view active shortcuts" ON public.dashboard_shortcuts;
-DROP POLICY IF EXISTS "Anyone can view active shortcuts" ON public.dashboard_shortcuts;
-CREATE POLICY "Anyone can view active shortcuts"
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT ON public.dashboard_shortcuts TO anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT INSERT, UPDATE, DELETE ON public.dashboard_shortcuts TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.dashboard_shortcuts TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.dashboard_shortcuts ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Anyone can view active shortcuts" ON public.dashboard_shortcuts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Anyone can view active shortcuts" ON public.dashboard_shortcuts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Anyone can view active shortcuts"
   ON public.dashboard_shortcuts FOR SELECT
-  USING (is_active = true OR public.has_role(auth.uid(), 'admin'));
-
-DROP POLICY IF EXISTS "Admins can insert shortcuts" ON public.dashboard_shortcuts;
-DROP POLICY IF EXISTS "Admins can insert shortcuts" ON public.dashboard_shortcuts;
-CREATE POLICY "Admins can insert shortcuts"
+  USING (is_active = true OR public.has_role(auth.uid(), ''admin''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins can insert shortcuts" ON public.dashboard_shortcuts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins can insert shortcuts" ON public.dashboard_shortcuts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins can insert shortcuts"
   ON public.dashboard_shortcuts FOR INSERT TO authenticated
-  WITH CHECK (public.has_role(auth.uid(), 'admin'));
-
-DROP POLICY IF EXISTS "Admins can update shortcuts" ON public.dashboard_shortcuts;
-DROP POLICY IF EXISTS "Admins can update shortcuts" ON public.dashboard_shortcuts;
-CREATE POLICY "Admins can update shortcuts"
+  WITH CHECK (public.has_role(auth.uid(), ''admin''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins can update shortcuts" ON public.dashboard_shortcuts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins can update shortcuts" ON public.dashboard_shortcuts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins can update shortcuts"
   ON public.dashboard_shortcuts FOR UPDATE TO authenticated
-  USING (public.has_role(auth.uid(), 'admin'));
-
-DROP POLICY IF EXISTS "Admins can delete shortcuts" ON public.dashboard_shortcuts;
-DROP POLICY IF EXISTS "Admins can delete shortcuts" ON public.dashboard_shortcuts;
-CREATE POLICY "Admins can delete shortcuts"
+  USING (public.has_role(auth.uid(), ''admin''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins can delete shortcuts" ON public.dashboard_shortcuts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins can delete shortcuts" ON public.dashboard_shortcuts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins can delete shortcuts"
   ON public.dashboard_shortcuts FOR DELETE TO authenticated
-  USING (public.has_role(auth.uid(), 'admin'));
-
-DROP TRIGGER IF EXISTS trg_dashboard_shortcuts_updated_at ON public.dashboard_shortcuts;
-CREATE TRIGGER trg_dashboard_shortcuts_updated_at
+  USING (public.has_role(auth.uid(), ''admin''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_dashboard_shortcuts_updated_at ON public.dashboard_shortcuts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_dashboard_shortcuts_updated_at
   BEFORE UPDATE ON public.dashboard_shortcuts
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 DO $$
 
 BEGIN

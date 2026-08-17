@@ -1,4 +1,3 @@
-
 -- 1) homework_submissions: prevent students from self-grading
 CREATE OR REPLACE FUNCTION public.prevent_student_grade_tamper_homework()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -25,12 +24,22 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_prevent_student_grade_tamper_homework ON public.homework_submissions;
-CREATE TRIGGER trg_prevent_student_grade_tamper_homework
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_prevent_student_grade_tamper_homework ON public.homework_submissions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_prevent_student_grade_tamper_homework
   BEFORE UPDATE ON public.homework_submissions
-  FOR EACH ROW EXECUTE FUNCTION public.prevent_student_grade_tamper_homework();
-
+  FOR EACH ROW EXECUTE FUNCTION public.prevent_student_grade_tamper_homework()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 2) task_assignments: prevent students from self-grading
 CREATE OR REPLACE FUNCTION public.prevent_student_grade_tamper_task()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -50,12 +59,22 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_prevent_student_grade_tamper_task ON public.task_assignments;
-CREATE TRIGGER trg_prevent_student_grade_tamper_task
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_prevent_student_grade_tamper_task ON public.task_assignments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_prevent_student_grade_tamper_task
   BEFORE UPDATE ON public.task_assignments
-  FOR EACH ROW EXECUTE FUNCTION public.prevent_student_grade_tamper_task();
-
+  FOR EACH ROW EXECUTE FUNCTION public.prevent_student_grade_tamper_task()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 3) profiles: prevent users from self-escalating school/approval/password fields
 CREATE OR REPLACE FUNCTION public.prevent_profile_self_escalation()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -79,8 +98,19 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_prevent_profile_self_escalation ON public.profiles;
-CREATE TRIGGER trg_prevent_profile_self_escalation
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_prevent_profile_self_escalation ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_prevent_profile_self_escalation
   BEFORE UPDATE ON public.profiles
-  FOR EACH ROW EXECUTE FUNCTION public.prevent_profile_self_escalation();
+  FOR EACH ROW EXECUTE FUNCTION public.prevent_profile_self_escalation()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

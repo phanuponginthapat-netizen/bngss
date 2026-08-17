@@ -1,4 +1,3 @@
-
 -- ============================================
 -- 1. INBOX TABLE (Unified Inbox)
 -- ============================================
@@ -17,39 +16,139 @@ CREATE TABLE IF NOT EXISTS public.inbox_items (
   priority text NOT NULL DEFAULT 'normal', -- low | normal | high | urgent
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
-CREATE INDEX IF NOT EXISTS idx_inbox_user ON public.inbox_items(user_id, is_read, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_inbox_ref ON public.inbox_items(reference_table, reference_id);
-
-ALTER TABLE public.inbox_items ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Users view own inbox" ON public.inbox_items;
-DROP POLICY IF EXISTS "Users view own inbox" ON public.inbox_items;
-CREATE POLICY "Users view own inbox" ON public.inbox_items
-  FOR SELECT TO authenticated USING (user_id = auth.uid());
-
-DROP POLICY IF EXISTS "Users update own inbox" ON public.inbox_items;
-DROP POLICY IF EXISTS "Users update own inbox" ON public.inbox_items;
-CREATE POLICY "Users update own inbox" ON public.inbox_items
-  FOR UPDATE TO authenticated USING (user_id = auth.uid());
-
-DROP POLICY IF EXISTS "Users delete own inbox" ON public.inbox_items;
-DROP POLICY IF EXISTS "Users delete own inbox" ON public.inbox_items;
-CREATE POLICY "Users delete own inbox" ON public.inbox_items
-  FOR DELETE TO authenticated USING (user_id = auth.uid());
-
-DROP POLICY IF EXISTS "System can insert inbox" ON public.inbox_items;
-DROP POLICY IF EXISTS "System can insert inbox" ON public.inbox_items;
-CREATE POLICY "System can insert inbox" ON public.inbox_items
-  FOR INSERT TO authenticated WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Admin manage all inbox" ON public.inbox_items;
-DROP POLICY IF EXISTS "Admin manage all inbox" ON public.inbox_items;
-CREATE POLICY "Admin manage all inbox" ON public.inbox_items
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_inbox_user ON public.inbox_items(user_id, is_read, created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_inbox_ref ON public.inbox_items(reference_table, reference_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.inbox_items ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users view own inbox" ON public.inbox_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users view own inbox" ON public.inbox_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Users view own inbox" ON public.inbox_items
+  FOR SELECT TO authenticated USING (user_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users update own inbox" ON public.inbox_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users update own inbox" ON public.inbox_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Users update own inbox" ON public.inbox_items
+  FOR UPDATE TO authenticated USING (user_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users delete own inbox" ON public.inbox_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users delete own inbox" ON public.inbox_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Users delete own inbox" ON public.inbox_items
+  FOR DELETE TO authenticated USING (user_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "System can insert inbox" ON public.inbox_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "System can insert inbox" ON public.inbox_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "System can insert inbox" ON public.inbox_items
+  FOR INSERT TO authenticated WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin manage all inbox" ON public.inbox_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin manage all inbox" ON public.inbox_items';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin manage all inbox" ON public.inbox_items
   FOR ALL TO authenticated
-  USING (has_role(auth.uid(), 'admin'::app_role))
-  WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
-
+  USING (has_role(auth.uid(), ''admin''::app_role))
+  WITH CHECK (has_role(auth.uid(), ''admin''::app_role))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 DO $$
 
 BEGIN
@@ -92,12 +191,22 @@ BEGIN
   );
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_sync_notification_inbox ON public.notifications;
-CREATE TRIGGER trg_sync_notification_inbox
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_sync_notification_inbox ON public.notifications';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_sync_notification_inbox
   AFTER INSERT ON public.notifications
-  FOR EACH ROW EXECUTE FUNCTION public.sync_notification_to_inbox();
-
+  FOR EACH ROW EXECUTE FUNCTION public.sync_notification_to_inbox()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============================================
 -- 3. AUTO: ลาครูอนุมัติ → สร้างสอนแทนจาก schedules
 -- ============================================
@@ -134,12 +243,22 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_auto_substitute ON public.staff_leaves;
-CREATE TRIGGER trg_auto_substitute
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_auto_substitute ON public.staff_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_auto_substitute
   AFTER UPDATE ON public.staff_leaves
-  FOR EACH ROW EXECUTE FUNCTION public.auto_create_substitute_on_leave_approval();
-
+  FOR EACH ROW EXECUTE FUNCTION public.auto_create_substitute_on_leave_approval()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============================================
 -- 4. AUTO: แจ้งซ่อม → แจ้งเตือนแอดมิน
 -- ============================================
@@ -164,12 +283,22 @@ BEGIN
   END LOOP;
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_notify_damage ON public.asset_damage_reports;
-CREATE TRIGGER trg_notify_damage
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_notify_damage ON public.asset_damage_reports';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_notify_damage
   AFTER INSERT ON public.asset_damage_reports
-  FOR EACH ROW EXECUTE FUNCTION public.notify_on_damage_report();
-
+  FOR EACH ROW EXECUTE FUNCTION public.notify_on_damage_report()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============================================
 -- 5. AUTO: นักเรียนขาดเรียน → แจ้งผู้ปกครอง
 -- ============================================
@@ -198,8 +327,19 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_notify_parents_absence ON public.attendance;
-CREATE TRIGGER trg_notify_parents_absence
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_notify_parents_absence ON public.attendance';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_notify_parents_absence
   AFTER INSERT ON public.attendance
-  FOR EACH ROW EXECUTE FUNCTION public.notify_parents_on_absence();
+  FOR EACH ROW EXECUTE FUNCTION public.notify_parents_on_absence()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

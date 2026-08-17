@@ -1,7 +1,11 @@
-
 -- Enable pg_net extension for HTTP calls from database
-CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
-
+DO $extguard$
+BEGIN
+  EXECUTE 'CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions';
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'skip extension: %', SQLERRM;
+END
+$extguard$;
 -- Create function to trigger push notification
 CREATE OR REPLACE FUNCTION public.trigger_push_notification()
 RETURNS trigger
@@ -41,10 +45,21 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 -- Create trigger on notifications table
-DROP TRIGGER IF EXISTS on_notification_send_push ON public.notifications;
-CREATE TRIGGER on_notification_send_push
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS on_notification_send_push ON public.notifications';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER on_notification_send_push
 AFTER INSERT ON public.notifications
 FOR EACH ROW
-EXECUTE FUNCTION public.trigger_push_notification();
+EXECUTE FUNCTION public.trigger_push_notification()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

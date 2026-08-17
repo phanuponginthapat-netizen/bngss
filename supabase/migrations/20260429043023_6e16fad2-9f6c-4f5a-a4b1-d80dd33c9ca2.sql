@@ -1,7 +1,18 @@
 -- Enable pg_cron and pg_net for scheduled cleanup
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-CREATE EXTENSION IF NOT EXISTS pg_net;
-
+DO $extguard$
+BEGIN
+  EXECUTE 'CREATE EXTENSION IF NOT EXISTS pg_cron';
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'skip extension: %', SQLERRM;
+END
+$extguard$;
+DO $extguard$
+BEGIN
+  EXECUTE 'CREATE EXTENSION IF NOT EXISTS pg_net';
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'skip extension: %', SQLERRM;
+END
+$extguard$;
 -- Auto archive function: delete read notifications & inbox_items older than 6 months
 CREATE OR REPLACE FUNCTION public.archive_old_data()
 RETURNS jsonb
@@ -45,10 +56,14 @@ BEGIN
   );
 END;
 $$;
-
 -- Allow admins to call manually
-GRANT EXECUTE ON FUNCTION public.archive_old_data() TO authenticated;
-
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.archive_old_data() TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Schedule monthly run on 1st day of each month at 02:00 UTC
 DO $$
 BEGIN
@@ -57,13 +72,11 @@ BEGIN
   FROM cron.job WHERE jobname = 'monthly-archive-old-data';
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
-
 SELECT cron.schedule(
   'monthly-archive-old-data',
   '0 2 1 * *',
   $$ SELECT public.archive_old_data(); $$
 );
-
 -- Cloud usage estimation function (admin only)
 CREATE OR REPLACE FUNCTION public.get_cloud_usage_summary()
 RETURNS jsonb
@@ -107,5 +120,10 @@ BEGIN
   RETURN result;
 END;
 $$;
-
-GRANT EXECUTE ON FUNCTION public.get_cloud_usage_summary() TO authenticated;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_cloud_usage_summary() TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

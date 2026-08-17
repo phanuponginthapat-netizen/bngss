@@ -1,4 +1,3 @@
-
 DO $$
 DECLARE
   fn_name text;
@@ -39,18 +38,94 @@ BEGIN
     END LOOP;
   END LOOP;
 END $$;
-
-REVOKE ALL ON FUNCTION public.archive_and_purge_old_data(integer) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.archive_old_data() FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.cleanup_expired_line_sessions() FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.ensure_default_app_secrets() FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.finalize_past_substitute_teaching() FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.get_app_secret(text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.get_purge_preview(integer) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.log_audit_event(text, jsonb, text, text) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.link_line_to_student_slot(uuid, text) FROM PUBLIC, anon;
-
-REVOKE EXECUTE ON FUNCTION public.can_access_eform(uuid, uuid) FROM anon;
-REVOKE EXECUTE ON FUNCTION public.is_eform_sender(uuid, uuid) FROM anon;
-REVOKE EXECUTE ON FUNCTION public.mark_overdue_homework_columns() FROM anon;
-REVOKE EXECUTE ON FUNCTION public.has_district_access(uuid) FROM anon;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.archive_and_purge_old_data(integer) FROM PUBLIC, anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.archive_old_data() FROM PUBLIC, anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.cleanup_expired_line_sessions() FROM PUBLIC, anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.ensure_default_app_secrets() FROM PUBLIC, anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.finalize_past_substitute_teaching() FROM PUBLIC, anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.get_app_secret(text) FROM PUBLIC, anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.get_purge_preview(integer) FROM PUBLIC, anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.log_audit_event(text, jsonb, text, text) FROM PUBLIC, anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.link_line_to_student_slot(uuid, text) FROM PUBLIC, anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.can_access_eform(uuid, uuid) FROM anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.is_eform_sender(uuid, uuid) FROM anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.mark_overdue_homework_columns() FROM anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.has_district_access(uuid) FROM anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

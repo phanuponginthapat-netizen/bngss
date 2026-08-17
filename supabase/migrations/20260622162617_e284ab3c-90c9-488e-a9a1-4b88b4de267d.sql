@@ -1,4 +1,3 @@
-
 -- Print templates: admin-managed HTML templates for printing
 CREATE TABLE IF NOT EXISTS public.print_templates (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -24,30 +23,96 @@ CREATE TABLE IF NOT EXISTS public.print_templates (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-
-CREATE INDEX IF NOT EXISTS idx_print_templates_code ON public.print_templates(code);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_print_templates_one_default
-  ON public.print_templates(code) WHERE is_default = true;
-
-GRANT SELECT ON public.print_templates TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.print_templates TO authenticated;
-GRANT ALL ON public.print_templates TO service_role;
-
-ALTER TABLE public.print_templates ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates;
-DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates;
-CREATE POLICY "Anyone authenticated can read active templates"
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_print_templates_code ON public.print_templates(code)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS idx_print_templates_one_default
+  ON public.print_templates(code) WHERE is_default = true';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT ON public.print_templates TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.print_templates TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.print_templates TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.print_templates ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Anyone authenticated can read active templates"
   ON public.print_templates FOR SELECT TO authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS "Admins and directors manage templates" ON public.print_templates;
-DROP POLICY IF EXISTS "Admins and directors manage templates" ON public.print_templates;
-CREATE POLICY "Admins and directors manage templates"
+  USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins and directors manage templates" ON public.print_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins and directors manage templates" ON public.print_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins and directors manage templates"
   ON public.print_templates FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
+  USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))
+  WITH CHECK (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Versions / history
 CREATE TABLE IF NOT EXISTS public.print_template_versions (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -57,25 +122,79 @@ CREATE TABLE IF NOT EXISTS public.print_template_versions (
   changed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   changed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-
-CREATE INDEX IF NOT EXISTS idx_pt_versions_template ON public.print_template_versions(template_id);
-
-GRANT SELECT, INSERT ON public.print_template_versions TO authenticated;
-GRANT ALL ON public.print_template_versions TO service_role;
-
-ALTER TABLE public.print_template_versions ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Auth read versions" ON public.print_template_versions;
-DROP POLICY IF EXISTS "Auth read versions" ON public.print_template_versions;
-CREATE POLICY "Auth read versions"
-  ON public.print_template_versions FOR SELECT TO authenticated USING (true);
-
-DROP POLICY IF EXISTS "Admins write versions" ON public.print_template_versions;
-DROP POLICY IF EXISTS "Admins write versions" ON public.print_template_versions;
-CREATE POLICY "Admins write versions"
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_pt_versions_template ON public.print_template_versions(template_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT ON public.print_template_versions TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.print_template_versions TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.print_template_versions ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth read versions" ON public.print_template_versions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth read versions" ON public.print_template_versions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth read versions"
+  ON public.print_template_versions FOR SELECT TO authenticated USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins write versions" ON public.print_template_versions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins write versions" ON public.print_template_versions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins write versions"
   ON public.print_template_versions FOR INSERT TO authenticated
-  WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
+  WITH CHECK (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Auto-bump version + snapshot history on update
 CREATE OR REPLACE FUNCTION public.bump_print_template_version()
 RETURNS TRIGGER
@@ -100,12 +219,22 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_bump_print_template_version ON public.print_templates;
-CREATE TRIGGER trg_bump_print_template_version
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_bump_print_template_version ON public.print_templates';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_bump_print_template_version
 BEFORE UPDATE ON public.print_templates
-FOR EACH ROW EXECUTE FUNCTION public.bump_print_template_version();
-
+FOR EACH ROW EXECUTE FUNCTION public.bump_print_template_version()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Realtime
 DO $$
 BEGIN
@@ -128,4 +257,5 @@ VALUES
   ('id_card', 'บัตรประจำตัวนักเรียน/บุคลากร', 'บัตรประจำตัว', 'A4', 'portrait', '<div>{{person.full_name}}</div>', true, '{}'::jsonb),
   ('certificate', 'เกียรติบัตร', 'เกียรติบัตรทั่วไป', 'A4', 'landscape', '<h1 style="text-align:center;">{{title}}</h1><p style="text-align:center;">{{recipient.name}}</p>', true, '{}'::jsonb),
   ('transcript', 'ระเบียนแสดงผลการเรียน (ปพ.1)', 'Transcript', 'A4', 'portrait', '<h2>{{school.name}}</h2>', true, '{}'::jsonb),
-  ('report_card', 'สมุดรายงานประจำตัว', 'สมุดพก', 'A4', 'portrait', '<h2>{{student.full_name}}</h2>', true, '{}'::jsonb);
+  ('report_card', 'สมุดรายงานประจำตัว', 'สมุดพก', 'A4', 'portrait', '<h2>{{student.full_name}}</h2>', true, '{}'::jsonb)
+ON CONFLICT DO NOTHING;

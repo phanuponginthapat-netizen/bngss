@@ -1,7 +1,18 @@
 -- Remove public read policies on profile-images bucket
-DROP POLICY IF EXISTS "profile_images_public_read" ON storage.objects;
-DROP POLICY IF EXISTS "Owner or admin can list public buckets" ON storage.objects;
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "profile_images_public_read" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Owner or admin can list public buckets" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Ensure owner/staff-only read exists
 DO $$
 BEGIN

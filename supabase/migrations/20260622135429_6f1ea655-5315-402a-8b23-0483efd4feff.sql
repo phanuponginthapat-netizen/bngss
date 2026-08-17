@@ -9,7 +9,6 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-
 DO $$
 DECLARE
   t text;

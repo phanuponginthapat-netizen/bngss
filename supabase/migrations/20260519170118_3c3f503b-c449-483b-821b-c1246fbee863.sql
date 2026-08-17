@@ -44,10 +44,21 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_auto_map_schedule_teacher ON public.personnel;
-CREATE TRIGGER trg_auto_map_schedule_teacher
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_auto_map_schedule_teacher ON public.personnel';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_auto_map_schedule_teacher
 AFTER INSERT OR UPDATE OF first_name, last_name, prefix
 ON public.personnel
 FOR EACH ROW
-EXECUTE FUNCTION public.auto_map_schedule_teacher_on_personnel();
+EXECUTE FUNCTION public.auto_map_schedule_teacher_on_personnel()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

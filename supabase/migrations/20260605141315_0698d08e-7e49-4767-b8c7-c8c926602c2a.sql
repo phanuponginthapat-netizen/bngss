@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.notify_homeroom_on_ai_risk()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -66,9 +65,20 @@ EXCEPTION WHEN OTHERS THEN
   RAISE LOG 'notify_homeroom_on_ai_risk failed: %', SQLERRM;
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_notify_homeroom_on_ai_risk ON public.ai_chat_logs;
-CREATE TRIGGER trg_notify_homeroom_on_ai_risk
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_notify_homeroom_on_ai_risk ON public.ai_chat_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_notify_homeroom_on_ai_risk
 AFTER INSERT ON public.ai_chat_logs
 FOR EACH ROW
-EXECUTE FUNCTION public.notify_homeroom_on_ai_risk();
+EXECUTE FUNCTION public.notify_homeroom_on_ai_risk()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

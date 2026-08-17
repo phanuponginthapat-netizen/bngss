@@ -43,9 +43,14 @@ BEGIN
   END LOOP;
 END
 $mig$;
-
 -- Safety net: anon can call permission helpers (they self-evaluate to false/null for anon)
-GRANT EXECUTE ON FUNCTION public.has_role(uuid, app_role) TO anon;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.has_role(uuid, app_role) TO anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 DO $g$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
