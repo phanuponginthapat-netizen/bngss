@@ -1194,6 +1194,29 @@ const FaceKioskPage = () => {
             </p>
           </div>
 
+          <div className="space-y-2 border-t pt-2">
+            <label className="text-xs font-semibold flex items-center gap-2">
+              <input type="checkbox" checked={wizmindOn} onChange={(e) => setWizmindOn(e.target.checked)} />
+              โหมด WizMind Bridge (realtime จาก CCTV)
+            </label>
+            <Input
+              value={wizmindCam}
+              onChange={(e) => setWizmindCam(e.target.value)}
+              placeholder="camera_id (เว้นว่าง = ทุกกล้อง)"
+              className="text-xs h-8"
+            />
+            <p className="text-[10px] text-muted-foreground leading-snug">
+              กล้อง Dahua WizMind ตรวจจับใบหน้าเองแล้วส่งภาพ best-shot เข้าระบบผ่าน bridge
+              เครื่องนี้จะ <b>จดจำและบันทึกทันที</b> โดยไม่ต้องรัน detection ทั้งเฟรม (ลด CPU • หน่วง ~0.5–1.5 วิ)
+            </p>
+            {wizmindOn && (
+              <p className="text-[10px] text-muted-foreground">
+                สถานะ: <b>{wizmindStatus || "กำลังเชื่อมต่อ…"}</b> • ประมวลผลแล้ว {wizmindCount} เหตุการณ์
+              </p>
+            )}
+          </div>
+
+
           <div className="text-xs text-muted-foreground border-t pt-2">
             threshold: <b>{threshold}</b> • ใบหน้านักเรียน {known.length}
             {staffFaceEnabled && <> • บุคลากร {staffKnown.length}</>}
