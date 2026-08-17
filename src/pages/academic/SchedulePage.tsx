@@ -361,34 +361,68 @@ const SchedulePage = () => {
   }, [isTeacher, isAdmin]);
 
   const filtered = useMemo(() => {
+    let rows: any[] = [];
     if (viewMode === "mySchedule") {
       if (!effectiveTeacherId && !effectiveTeacherName) return [];
       const normalizedFullName = normalizeTeacherName(effectiveTeacherName);
       const normalizedFirstName = normalizeTeacherName(effectiveTeacherFirstName);
-      return schedules.filter((s: any) => {
+      rows = schedules.filter((s: any) => {
         if (effectiveTeacherId && s.teacher_id === effectiveTeacherId) return true;
+        // ถ้า record มี teacher_id แต่ไม่ตรงกับเรา → ไม่ใช่ของเรา (กันชื่อซ้ำดึงคาบคนอื่นมา)
+        if (s.teacher_id) return false;
         if (s.teacher_name) {
-          const normalizedScheduleName = normalizeTeacherName(s.teacher_name);
-          if (normalizedFullName && normalizedScheduleName === normalizedFullName) return true;
-          if (normalizedFirstName && (
-            normalizedScheduleName === normalizedFirstName ||
-            normalizedScheduleName.startsWith(normalizedFirstName) ||
-            normalizedFirstName.startsWith(normalizedScheduleName)
-          )) return true;
+          const n = normalizeTeacherName(s.teacher_name);
+          if (!n) return false;
+          if (normalizedFullName && n === normalizedFullName) return true;
+          // ชื่อต้นต้องตรงเป๊ะเท่านั้น (เดิมใช้ startsWith ทำให้ดึงคาบครูชื่อคล้ายกันมาปน)
+          if (normalizedFirstName && n === normalizedFirstName) return true;
         }
         return false;
       });
+    } else if (filterClass && filterClass !== "all") {
+      rows = schedules.filter((s: any) => s.classroom_id === filterClass);
+    } else if (isStudent || isParent) {
+      // Students/parents: never show all classes mixed together
+      return [];
+    } else {
+      rows = schedules;
     }
-    if (filterClass && filterClass !== "all") {
-      return schedules.filter((s: any) => s.classroom_id === filterClass);
-    }
-    // Students/parents: never show all classes mixed together
-    if (isStudent || isParent) return [];
-    return schedules;
+
+    // ตัดรายการซ้ำ (ข้อมูลนำเข้าซ้ำ) — คีย์เดียวกัน วัน/คาบ/ห้อง/วิชา/ครู
+    const seen = new Set<string>();
+    return rows.filter((s: any) => {
+      const k = [
+        s.day_of_week, s.period, s.classroom_id || "",
+        s.subject_id || s.subject_name_raw || "",
+        s.teacher_id || normalizeTeacherName(s.teacher_name) || "",
+      ].join("|");
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
   }, [viewMode, effectiveTeacherId, effectiveTeacherName, effectiveTeacherFirstName, filterClass, schedules, isStudent, isParent]);
 
   // ===== Double-period (คาบคู่) helpers =====
   const rawSpanOf = (s: any) => Math.max(1, Math.min(4, Number(s?.duration_periods) || 1));
+
+  /** เวลาเริ่ม-สิ้นสุดของแต่ละคาบ ตามการตั้งค่าโรงเรียน */
+  const periodTimes = useMemo(() => {
+    const slots = buildPeriodSlots({
+      periodsPerDay,
+      lunchAfterPeriod,
+      startTime: scheduleTimes.start,
+      periodMinutes: scheduleTimes.periodMin,
+      lunchMinutes: scheduleTimes.lunchMin,
+    });
+    const map = new Map<number, { start: string; end: string }>();
+    let lunch: { start: string; end: string } | null = null;
+    slots.forEach((s) => {
+      if (s.kind === "period") map.set(s.period, { start: s.start, end: s.end });
+      else lunch = { start: s.start, end: s.end };
+    });
+    return { map, lunch: lunch as { start: string; end: string } | null };
+  }, [periodsPerDay, lunchAfterPeriod, scheduleTimes]);
+
 
   /**
    * สร้างตารางกริดจริง: แต่ละช่อง (วัน,คาบ) เก็บรายการที่ "เริ่ม" ที่ช่องนั้น
