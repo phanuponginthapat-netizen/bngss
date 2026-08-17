@@ -209,44 +209,50 @@ export async function callWithPool(provider: PoolProvider, opts: PoolCallOpts): 
   const keys = await loadKeys(provider);
   if (keys.length === 0) throw new Error(`No active ${provider} keys in pool`);
 
-  const model = opts.model || (opts.vision ? cfg.visionModel : cfg.defaultModel);
+  const primary = opts.model || (opts.vision ? cfg.visionModel : cfg.defaultModel);
+  // โมเดลหลัก + โมเดลสำรอง (กันกรณีผู้ให้บริการยกเลิกโมเดลเดิม -> 404)
+  const candidates = modelCandidates(provider, primary);
   const errors: string[] = [];
 
-  for (const k of keys) {
-    try {
-      const r = await fetch(cfg.url, {
-        method: "POST",
-        headers: cfg.buildHeaders(k.api_key),
-        body: JSON.stringify(cfg.buildBody(model, opts.messages, opts)),
-      });
-      if (r.status === 429 || r.status === 402 || r.status === 403) {
-        const t = await r.text();
-        await markCooldown(k.id, `${r.status}: ${t.slice(0, 200)}`);
-        errors.push(`${k.label || k.id.slice(0, 8)}: ${r.status}`);
+  for (const model of candidates) {
+    for (const k of keys) {
+      try {
+        const r = await fetch(cfg.url, {
+          method: "POST",
+          headers: cfg.buildHeaders(k.api_key),
+          body: JSON.stringify(cfg.buildBody(model, opts.messages, opts)),
+        });
+        if (r.status === 429 || r.status === 402 || r.status === 403) {
+          const t = await r.text();
+          await markCooldown(k.id, `${r.status}: ${t.slice(0, 200)}`);
+          errors.push(`${k.label || k.id.slice(0, 8)}/${model}: ${r.status}`);
+          continue;
+        }
+        if (!r.ok) {
+          const t = await r.text();
+          errors.push(`${k.label || k.id.slice(0, 8)}/${model}: ${r.status} ${t.slice(0, 100)}`);
+          if (isModelNotFound(r.status, t)) break; // โมเดลนี้ใช้ไม่ได้ทุก key -> ข้ามไปโมเดลถัดไป
+          continue;
+        }
+        const data = await r.json();
+        const content = provider === "anthropic"
+          ? (Array.isArray(data?.content) ? data.content.map((c: any) => c?.text || "").join("") : "")
+          : data?.choices?.[0]?.message?.content;
+        if (!content) {
+          errors.push(`${k.label || k.id.slice(0, 8)}/${model}: empty`);
+          continue;
+        }
+        await markUsed(k.id);
+        return { content, provider, model, keyLabel: k.label || "key" };
+      } catch (e: any) {
+        errors.push(`${k.label || k.id.slice(0, 8)}/${model}: ${e?.message || e}`);
         continue;
       }
-      if (!r.ok) {
-        const t = await r.text();
-        errors.push(`${k.label || k.id.slice(0, 8)}: ${r.status} ${t.slice(0, 100)}`);
-        continue;
-      }
-      const data = await r.json();
-      const content = provider === "anthropic"
-        ? (Array.isArray(data?.content) ? data.content.map((c: any) => c?.text || "").join("") : "")
-        : data?.choices?.[0]?.message?.content;
-      if (!content) {
-        errors.push(`${k.label || k.id.slice(0, 8)}: empty`);
-        continue;
-      }
-      await markUsed(k.id);
-      return { content, provider, model, keyLabel: k.label || "key" };
-    } catch (e: any) {
-      errors.push(`${k.label || k.id.slice(0, 8)}: ${e?.message || e}`);
-      continue;
     }
   }
   throw new Error(`All ${provider} pool keys failed: ${errors.join(" | ")}`);
 }
+
 
 /**
  * Try multiple providers in order, each with its own key pool.
