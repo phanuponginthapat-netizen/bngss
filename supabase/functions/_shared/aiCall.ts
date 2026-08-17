@@ -7,6 +7,8 @@ import { callWithPool, type PoolProvider } from "./keyPool.ts";
 import { getSecret } from "./getSecret.ts";
 import { secretKeys } from "./secretKeys.ts";
 import { NO_LOVABLE_AI_MSG } from "./standalone.ts";
+import { modelCandidates, isModelNotFound } from "./modelAliases.ts";
+
 
 export interface AIMessage {
   role: "system" | "user" | "assistant";
@@ -166,92 +168,98 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
       errors.push(`${p.name}: missing API key`);
       continue;
     }
-    const started = Date.now();
-    try {
-      const body: any = {
-        model: p.model,
-        messages: opts.messages,
-        temperature: opts.temperature ?? 0.7,
-      };
-      if (opts.max_tokens) body.max_tokens = opts.max_tokens;
-      // Only request JSON mode if provider supports it (default true for unknown/legacy rows)
-      if (opts.json && p.supports_json !== false) body.response_format = { type: "json_object" };
+    // โมเดลหลัก + โมเดลสำรอง (กันโมเดลถูกยกเลิก -> 404 model_not_found)
+    const candidates = modelCandidates(p.provider_type, p.model);
+    for (const useModel of candidates) {
+      const started = Date.now();
+      try {
+        const body: any = {
+          model: useModel,
+          messages: opts.messages,
+          temperature: opts.temperature ?? 0.7,
+        };
+        if (opts.max_tokens) body.max_tokens = opts.max_tokens;
+        // Only request JSON mode if provider supports it (default true for unknown/legacy rows)
+        if (opts.json && p.supports_json !== false) body.response_format = { type: "json_object" };
 
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${key}`,
-        ...(p.extra_headers || {}),
-      };
-      // OpenRouter recommends these
-      if (p.provider_type === "openrouter") {
-        headers["HTTP-Referer"] = headers["HTTP-Referer"] || (Deno.env.get("APP_URL") || "https://school.local");
-        headers["X-Title"] = headers["X-Title"] || "School System";
-      }
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${key}`,
+          ...(p.extra_headers || {}),
+        };
+        // OpenRouter recommends these
+        if (p.provider_type === "openrouter") {
+          headers["HTTP-Referer"] = headers["HTTP-Referer"] || (Deno.env.get("APP_URL") || "https://school.local");
+          headers["X-Title"] = headers["X-Title"] || "School System";
+        }
 
-      const r = await fetch(p.base_url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body),
-      });
-      const latency = Date.now() - started;
+        const r = await fetch(p.base_url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(body),
+        });
+        const latency = Date.now() - started;
 
-      if (!r.ok) {
-        const t = await r.text();
-        const msg = `${p.name}:${r.status}:${t.slice(0, 200)}`;
+        if (!r.ok) {
+          const t = await r.text();
+          const msg = `${p.name}(${useModel}):${r.status}:${t.slice(0, 200)}`;
+          errors.push(msg);
+          await logUsage({
+            provider_id: p.id === "default" ? null : p.id,
+            provider_name: p.name,
+            model: useModel,
+            function_name: opts.functionName,
+            tokens_input: 0,
+            tokens_output: 0,
+            success: false,
+            error_message: msg,
+            latency_ms: latency,
+            called_by: opts.userId,
+          });
+          if (isModelNotFound(r.status, t)) continue; // ลองโมเดลสำรองถัดไป
+          break; // ปัญหา key/quota — ข้ามไป provider ถัดไป
+        }
+        const data = await r.json();
+        const content = data?.choices?.[0]?.message?.content;
+        const usage = data?.usage || {};
+        if (!content) {
+          errors.push(`${p.name}(${useModel}): empty content`);
+          continue;
+        }
+
+        await logUsage({
+          provider_id: p.id === "default" ? null : p.id,
+          provider_name: p.name,
+          model: useModel,
+          function_name: opts.functionName,
+          tokens_input: usage.prompt_tokens || 0,
+          tokens_output: usage.completion_tokens || 0,
+          success: true,
+          latency_ms: latency,
+          called_by: opts.userId,
+        });
+
+        return { content, provider: p.name, model: useModel };
+      } catch (e: any) {
+        const msg = `${p.name}(${useModel}): exception ${e?.message || e}`;
         errors.push(msg);
         await logUsage({
           provider_id: p.id === "default" ? null : p.id,
           provider_name: p.name,
-          model: p.model,
+          model: useModel,
           function_name: opts.functionName,
           tokens_input: 0,
           tokens_output: 0,
           success: false,
           error_message: msg,
-          latency_ms: latency,
+          latency_ms: Date.now() - started,
           called_by: opts.userId,
         });
         continue;
       }
-      const data = await r.json();
-      const content = data?.choices?.[0]?.message?.content;
-      const usage = data?.usage || {};
-      if (!content) {
-        errors.push(`${p.name}: empty content`);
-        continue;
-      }
-
-      await logUsage({
-        provider_id: p.id === "default" ? null : p.id,
-        provider_name: p.name,
-        model: p.model,
-        function_name: opts.functionName,
-        tokens_input: usage.prompt_tokens || 0,
-        tokens_output: usage.completion_tokens || 0,
-        success: true,
-        latency_ms: latency,
-        called_by: opts.userId,
-      });
-
-      return { content, provider: p.name, model: p.model };
-    } catch (e: any) {
-      const msg = `${p.name}: exception ${e?.message || e}`;
-      errors.push(msg);
-      await logUsage({
-        provider_id: p.id === "default" ? null : p.id,
-        provider_name: p.name,
-        model: p.model,
-        function_name: opts.functionName,
-        tokens_input: 0,
-        tokens_output: 0,
-        success: false,
-        error_message: msg,
-        latency_ms: Date.now() - started,
-        called_by: opts.userId,
-      });
-      continue;
     }
   }
+
 
   // === Final fallback: Key Pool (openai → gemini → groq → openrouter) ===
   const poolOrder: PoolProvider[] = ["openai", "gemini", "groq", "openrouter"];
@@ -283,13 +291,28 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
     }
   }
 
-  const hint = errors.length === 0
-    ? (opts.vision
-        ? "ไม่มี AI provider ที่รองรับ Vision/OCR — admin ต้องเปิดใช้งาน provider ที่ supports_vision=true หรือเพิ่ม key ที่ /dashboard/admin/ai-key-pool"
-        : "ไม่มี AI provider ที่เปิดใช้งานและมี API key — admin โปรดตั้งค่าที่ /dashboard/admin/ai-providers หรือ /dashboard/admin/ai-key-pool")
-    : "All AI providers failed: " + errors.join(" | ");
+  // สรุป error ให้ผู้ใช้อ่านเข้าใจ (ภาษาไทย) พร้อมรายละเอียดสำหรับ admin
+  const joined = errors.join(" | ");
+  const lower = joined.toLowerCase();
+  let reason = "";
+  if (errors.length === 0) {
+    reason = opts.vision
+      ? "ไม่มี AI provider ที่รองรับ Vision/OCR — admin ต้องเปิดใช้งาน provider ที่ supports_vision=true หรือเพิ่ม key ที่ /dashboard/admin/ai-key-pool"
+      : "ไม่มี AI provider ที่เปิดใช้งานและมี API key — admin โปรดตั้งค่าที่ /dashboard/admin/ai-providers หรือ /dashboard/admin/ai-key-pool";
+  } else if (lower.includes("insufficient balance") || lower.includes("quota") || lower.includes("402") || lower.includes("429")) {
+    reason = "AI ใช้งานไม่ได้ชั่วคราว: เครดิต/โควตาของ API key หมด — admin โปรดเติมเครดิตหรือเพิ่ม key สำรองที่ /dashboard/admin/ai-key-pool";
+  } else if (lower.includes("missing api key") || lower.includes("no active")) {
+    reason = "AI ใช้งานไม่ได้: ยังไม่มี API key ที่ใช้งานได้ — admin โปรดเพิ่ม key ที่ /dashboard/admin/ai-key-pool";
+  } else if (lower.includes("no longer available") || lower.includes("does not exist") || lower.includes("model_not_found")) {
+    reason = "AI ใช้งานไม่ได้: โมเดลที่ตั้งค่าไว้ถูกยกเลิกโดยผู้ให้บริการ — admin โปรดแก้ชื่อโมเดลที่ /dashboard/admin/ai-providers";
+  } else {
+    reason = "AI ใช้งานไม่ได้ชั่วคราว โปรดลองใหม่อีกครั้ง";
+  }
+  const hint = errors.length === 0 ? reason : `${reason} [detail: ${joined.slice(0, 800)}]`;
   if (errors.length === 0) console.warn(NO_LOVABLE_AI_MSG);
+  console.error("aiCall failed:", joined);
   throw new Error(hint);
+
 }
 
 // ============================================================

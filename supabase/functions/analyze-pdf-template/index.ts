@@ -313,12 +313,12 @@ async function loadGeminiCandidates(supa: any): Promise<AiCandidate[]> {
     .order("used_today", { ascending: true })
     .limit(20);
   for (const k of (poolKeys || []) as any[]) {
-    if (k.api_key) candidates.push({ poolKeyId: k.id, key: k.api_key, label: k.label ? `gemini-pool:${k.label}` : `gemini-pool:${k.id.slice(0, 6)}`, model: "gemini-2.5-flash" });
+    if (k.api_key) candidates.push({ poolKeyId: k.id, key: k.api_key, label: k.label ? `gemini-pool:${k.label}` : `gemini-pool:${k.id.slice(0, 6)}`, model: "gemini-3.6-flash" });
   }
   for (let i = 1; i <= 10; i++) {
     const name = i === 1 ? "GEMINI_API_KEY" : `GEMINI_API_KEY_${i}`;
     const key = Deno.env.get(name);
-    if (key) candidates.push({ poolKeyId: null, key, label: `env:${name}`, model: "gemini-2.5-flash" });
+    if (key) candidates.push({ poolKeyId: null, key, label: `env:${name}`, model: "gemini-3.6-flash" });
   }
   return dedupeCandidates(candidates);
 }
@@ -439,7 +439,7 @@ function callOpenAICompatiblePdf(c: OpenAICompatibleCandidate, b64: string) {
 }
 
 function callGemini(key: string, b64: string) {
-  return fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+  return fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
