@@ -108,3 +108,49 @@ hls:
 การจดจำใบหน้าใช้ pipeline เดียวกับกล้อง USB (threshold ตั้งค่าได้จาก `face_scan_threshold`)
 สตรีม HLS มี latency ~1.5–3 วินาที จึงเหมาะกับจุดเช็คอินที่ไม่ต้องการตอบสนองทันที
 ถ้าต้องการเรียลไทม์ให้ใช้กล้อง USB ต่อกับเครื่องคีออสโดยตรง
+
+---
+
+## ตัวอย่างจริง: Dahua IPC-HFW5442E-ZE (4MP WizMind, motorized 2.7–12mm)
+
+ใช้ได้ ✅ — แต่ต้องผ่าน gateway เหมือนกล้อง RTSP ทั่วไป
+
+### URL ของกล้อง (Dahua)
+```
+# สตรีมหลัก 4MP (2688x1520)
+rtsp://admin:<password>@<ip>:554/cam/realmonitor?channel=1&subtype=0
+# สตรีมรอง (แนะนำสำหรับตรวจใบหน้า — เบา CPU)
+rtsp://admin:<password>@<ip>:554/cam/realmonitor?channel=1&subtype=1
+# ภาพนิ่ง JPEG (ใช้ทดสอบว่ากล้องออนไลน์)
+http://<ip>/cgi-bin/snapshot.cgi?channel=1
+```
+
+### mediamtx.yml
+```yaml
+paths:
+  gate1:
+    source: rtsp://admin:PASSWORD@192.168.1.108:554/cam/realmonitor?channel=1&subtype=0
+    sourceProtocol: tcp      # กล้อง Dahua เสถียรกว่าเมื่อใช้ TCP
+    sourceOnDemand: no       # ให้ต่อค้างไว้ ลด latency ตอนเปิดหน้า kiosk
+hls:
+  enabled: yes
+  address: :8888
+  variant: lowLatency
+  segmentDuration: 1s
+  segmentCount: 3
+```
+ใส่ในระบบ: `http://<server-ip>:8888/gate1/index.m3u8`
+
+### ตั้งค่าบนกล้องให้ตรวจใบหน้าแม่นที่สุด
+- **สตรีมหลัก**: H.264 (ไม่ใช่ H.265 — hls.js เล่น H.265 ไม่ได้บนเบราว์เซอร์ส่วนใหญ่)
+- **Resolution**: 2688x1520 หรือลดเป็น 1080p, **FPS 15**, **I-frame interval = FPS** (1 วินาที) เพื่อให้ HLS แบ่ง segment สั้น
+- **Bitrate**: CBR 4096 kbps
+- **Smart Codec / Smart H.264+**: ปิด (ทำให้ภาพใบหน้าเบลอเป็นช่วง)
+- **WDR**: เปิดเมื่อมีแสงย้อนที่ประตู, **BLC** ปิด
+- **Zoom**: ปรับ motorized lens ให้ใบหน้ากว้าง ≥ 100 px ในเฟรม (ระยะ 3–4 ม. ประมาณ 5–7 mm)
+- ปิด **OSD / timestamp** ทับบริเวณที่คนเดินผ่าน
+
+### ข้อควรทราบ
+- ฟีเจอร์ face detection ในตัวกล้อง (WizMind) **ไม่ถูกใช้** — ระบบตรวจใบหน้าเองจากเฟรมวิดีโอ
+- latency รวม (กล้อง → MediaMTX → HLS → เบราว์เซอร์) ประมาณ 1.5–3 วินาที
+- ถ้าเครื่องคีออสสเปกต่ำ ให้ใช้ subtype=1 (704x576) ที่ระยะใกล้ประตู จะลด CPU ได้มาก
