@@ -127,40 +127,54 @@ ALTER TABLE public.garbage_redemptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.garbage_student_points ENABLE ROW LEVEL SECURITY;
 
 -- items: ทุกคนที่ login เห็น, จัดการเฉพาะ admin/director/teacher
+DROP POLICY IF EXISTS "garbage_items_select" ON public.garbage_items;
 CREATE POLICY "garbage_items_select" ON public.garbage_items FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "garbage_items_manage" ON public.garbage_items;
 CREATE POLICY "garbage_items_manage" ON public.garbage_items FOR ALL TO authenticated
   USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'))
   WITH CHECK (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
 
 -- rewards: เหมือน items
+DROP POLICY IF EXISTS "garbage_rewards_select" ON public.garbage_rewards;
 CREATE POLICY "garbage_rewards_select" ON public.garbage_rewards FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "garbage_rewards_manage" ON public.garbage_rewards;
 CREATE POLICY "garbage_rewards_manage" ON public.garbage_rewards FOR ALL TO authenticated
   USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'))
   WITH CHECK (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
 
 -- deposits: staff จัดการได้, นักเรียนเห็นของตัวเอง
+DROP POLICY IF EXISTS "garbage_deposits_select_staff" ON public.garbage_deposits;
 CREATE POLICY "garbage_deposits_select_staff" ON public.garbage_deposits FOR SELECT TO authenticated
   USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
+DROP POLICY IF EXISTS "garbage_deposits_select_student_self" ON public.garbage_deposits;
 CREATE POLICY "garbage_deposits_select_student_self" ON public.garbage_deposits FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()));
+DROP POLICY IF EXISTS "garbage_deposits_insert_staff" ON public.garbage_deposits;
 CREATE POLICY "garbage_deposits_insert_staff" ON public.garbage_deposits FOR INSERT TO authenticated
   WITH CHECK (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
+DROP POLICY IF EXISTS "garbage_deposits_delete_admin" ON public.garbage_deposits;
 CREATE POLICY "garbage_deposits_delete_admin" ON public.garbage_deposits FOR DELETE TO authenticated
   USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director'));
 
 -- redemptions: เหมือน deposits
+DROP POLICY IF EXISTS "garbage_redemptions_select_staff" ON public.garbage_redemptions;
 CREATE POLICY "garbage_redemptions_select_staff" ON public.garbage_redemptions FOR SELECT TO authenticated
   USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
+DROP POLICY IF EXISTS "garbage_redemptions_select_student_self" ON public.garbage_redemptions;
 CREATE POLICY "garbage_redemptions_select_student_self" ON public.garbage_redemptions FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()));
+DROP POLICY IF EXISTS "garbage_redemptions_insert_staff" ON public.garbage_redemptions;
 CREATE POLICY "garbage_redemptions_insert_staff" ON public.garbage_redemptions FOR INSERT TO authenticated
   WITH CHECK (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
+DROP POLICY IF EXISTS "garbage_redemptions_delete_admin" ON public.garbage_redemptions;
 CREATE POLICY "garbage_redemptions_delete_admin" ON public.garbage_redemptions FOR DELETE TO authenticated
   USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director'));
 
 -- student_points: staff อ่านทั้งหมด, นักเรียนอ่านของตัวเอง
+DROP POLICY IF EXISTS "garbage_points_select_staff" ON public.garbage_student_points;
 CREATE POLICY "garbage_points_select_staff" ON public.garbage_student_points FOR SELECT TO authenticated
   USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
+DROP POLICY IF EXISTS "garbage_points_select_self" ON public.garbage_student_points;
 CREATE POLICY "garbage_points_select_self" ON public.garbage_student_points FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()));
 

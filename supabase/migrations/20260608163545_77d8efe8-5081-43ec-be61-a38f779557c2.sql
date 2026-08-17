@@ -6,6 +6,7 @@ ALTER PUBLICATION supabase_realtime DROP TABLE public.ai_chat_logs;
 ALTER PUBLICATION supabase_realtime DROP TABLE public.face_scan_logs;
 
 DROP POLICY IF EXISTS "portfolio read auth" ON storage.objects;
+DROP POLICY IF EXISTS "portfolio read own or public" ON storage.objects;
 CREATE POLICY "portfolio read own or public"
 ON storage.objects FOR SELECT TO authenticated
 USING (
@@ -25,6 +26,7 @@ USING (
 );
 
 DROP POLICY IF EXISTS "wall read auth" ON storage.objects;
+DROP POLICY IF EXISTS "wall read scoped" ON storage.objects;
 CREATE POLICY "wall read scoped"
 ON storage.objects FOR SELECT TO authenticated
 USING (

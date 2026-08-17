@@ -12,10 +12,12 @@ CREATE POLICY "admin updates reports" ON public.chat_reports
 -- 2) game_hub_scores: replace open SELECT with scoped policy
 DROP POLICY IF EXISTS "scores_read_all_auth" ON public.game_hub_scores;
 
+DROP POLICY IF EXISTS "scores_read_own" ON public.game_hub_scores;
 CREATE POLICY "scores_read_own" ON public.game_hub_scores
   FOR SELECT TO authenticated
   USING (auth_user_id = auth.uid());
 
+DROP POLICY IF EXISTS "scores_read_staff_same_school" ON public.game_hub_scores;
 CREATE POLICY "scores_read_staff_same_school" ON public.game_hub_scores
   FOR SELECT TO authenticated
   USING (

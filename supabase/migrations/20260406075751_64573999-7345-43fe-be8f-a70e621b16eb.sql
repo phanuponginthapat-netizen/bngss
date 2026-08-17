@@ -11,21 +11,25 @@ CREATE TABLE IF NOT EXISTS public.push_subscriptions (
 
 ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own subscriptions" ON public.push_subscriptions;
 CREATE POLICY "Users can view own subscriptions"
 ON public.push_subscriptions FOR SELECT
 TO authenticated
 USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can insert own subscriptions" ON public.push_subscriptions;
 CREATE POLICY "Users can insert own subscriptions"
 ON public.push_subscriptions FOR INSERT
 TO authenticated
 WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can delete own subscriptions" ON public.push_subscriptions;
 CREATE POLICY "Users can delete own subscriptions"
 ON public.push_subscriptions FOR DELETE
 TO authenticated
 USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Service role can manage all subscriptions" ON public.push_subscriptions;
 CREATE POLICY "Service role can manage all subscriptions"
 ON public.push_subscriptions FOR ALL
 TO service_role

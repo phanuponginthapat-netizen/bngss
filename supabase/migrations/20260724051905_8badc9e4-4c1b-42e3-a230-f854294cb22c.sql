@@ -1,4 +1,5 @@
 
+DROP POLICY IF EXISTS "teacher_or_admin_manage_ssc" ON public.subject_score_columns;
 CREATE POLICY "teacher_or_admin_manage_ssc"
 ON public.subject_score_columns FOR ALL TO authenticated
 USING (
@@ -12,6 +13,7 @@ WITH CHECK (
           WHERE ta.subject_id = subject_score_columns.subject_id AND p.user_id = auth.uid())
 );
 
+DROP POLICY IF EXISTS "teacher_or_admin_manage_sgc" ON public.subject_grading_config;
 CREATE POLICY "teacher_or_admin_manage_sgc"
 ON public.subject_grading_config FOR ALL TO authenticated
 USING (
@@ -25,6 +27,7 @@ WITH CHECK (
           WHERE ta.subject_id = subject_grading_config.subject_id AND p.user_id = auth.uid())
 );
 
+DROP POLICY IF EXISTS "teacher_or_admin_manage_si" ON public.subject_indicators;
 CREATE POLICY "teacher_or_admin_manage_si"
 ON public.subject_indicators FOR ALL TO authenticated
 USING (

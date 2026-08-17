@@ -56,11 +56,13 @@ AS $$
 $$;
 
 -- 6. RLS policies for user_roles
+DROP POLICY IF EXISTS "Users can view own roles" ON public.user_roles;
 CREATE POLICY "Users can view own roles"
   ON public.user_roles FOR SELECT
   TO authenticated
   USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Admins can manage all roles" ON public.user_roles;
 CREATE POLICY "Admins can manage all roles"
   ON public.user_roles FOR ALL
   TO authenticated
@@ -68,21 +70,25 @@ CREATE POLICY "Admins can manage all roles"
   WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
 -- 7. RLS policies for profiles
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile"
   ON public.profiles FOR SELECT
   TO authenticated
   USING (id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile"
   ON public.profiles FOR UPDATE
   TO authenticated
   USING (id = auth.uid());
 
+DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
 CREATE POLICY "Admins can view all profiles"
   ON public.profiles FOR SELECT
   TO authenticated
   USING (public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Admins can manage all profiles" ON public.profiles;
 CREATE POLICY "Admins can manage all profiles"
   ON public.profiles FOR ALL
   TO authenticated

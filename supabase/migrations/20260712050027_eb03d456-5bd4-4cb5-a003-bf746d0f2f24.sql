@@ -70,6 +70,7 @@ GRANT EXECUTE ON FUNCTION public.padlet_can_view_board(uuid) TO authenticated;
 
 -- Replace board SELECT policy with scope-aware one
 DROP POLICY IF EXISTS "boards viewable by authenticated" ON public.padlet_boards;
+DROP POLICY IF EXISTS "boards viewable by scope" ON public.padlet_boards;
 CREATE POLICY "boards viewable by scope"
 ON public.padlet_boards FOR SELECT
 TO authenticated
@@ -77,6 +78,7 @@ USING (public.padlet_can_view_board(id));
 
 -- Notes: viewable only if user can view parent board
 DROP POLICY IF EXISTS "notes viewable by authenticated" ON public.padlet_notes;
+DROP POLICY IF EXISTS "notes viewable by board scope" ON public.padlet_notes;
 CREATE POLICY "notes viewable by board scope"
 ON public.padlet_notes FOR SELECT
 TO authenticated
@@ -84,6 +86,7 @@ USING (public.padlet_can_view_board(board_id));
 
 -- Notes: authenticated can post only if they can view board AND board allows guest post (or they own board)
 DROP POLICY IF EXISTS "authenticated can post notes" ON public.padlet_notes;
+DROP POLICY IF EXISTS "scoped users can post notes" ON public.padlet_notes;
 CREATE POLICY "scoped users can post notes"
 ON public.padlet_notes FOR INSERT
 TO authenticated

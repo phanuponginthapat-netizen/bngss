@@ -51,28 +51,34 @@ GRANT ALL ON public.lesson_plans TO service_role;
 ALTER TABLE public.lesson_plans ENABLE ROW LEVEL SECURITY;
 
 -- Teachers manage their own plans
+DROP POLICY IF EXISTS "lesson_plans_own_select" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_own_select" ON public.lesson_plans
   FOR SELECT TO authenticated USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "lesson_plans_own_insert" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_own_insert" ON public.lesson_plans
   FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "lesson_plans_own_update" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_own_update" ON public.lesson_plans
   FOR UPDATE TO authenticated
   USING (user_id = auth.uid() AND status <> 'approved')
   WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "lesson_plans_own_delete" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_own_delete" ON public.lesson_plans
   FOR DELETE TO authenticated
   USING (user_id = auth.uid() AND status IN ('draft','revise_needed'));
 
 -- Admin/director: full access (view all + supervise)
+DROP POLICY IF EXISTS "lesson_plans_admin_all" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_admin_all" ON public.lesson_plans
   FOR ALL TO authenticated
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
 -- Peers: view approved plans of colleagues (PLC sharing)
+DROP POLICY IF EXISTS "lesson_plans_peer_view_approved" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_peer_view_approved" ON public.lesson_plans
   FOR SELECT TO authenticated
   USING (status = 'approved');
@@ -117,11 +123,13 @@ GRANT ALL ON public.teaching_logbook TO service_role;
 
 ALTER TABLE public.teaching_logbook ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "logbook_own_all" ON public.teaching_logbook;
 CREATE POLICY "logbook_own_all" ON public.teaching_logbook
   FOR ALL TO authenticated
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "logbook_admin_view" ON public.teaching_logbook;
 CREATE POLICY "logbook_admin_view" ON public.teaching_logbook
   FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));

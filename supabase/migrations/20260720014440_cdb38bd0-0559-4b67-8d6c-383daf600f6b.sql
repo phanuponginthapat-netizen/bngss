@@ -15,6 +15,7 @@ GRANT ALL ON public.line_vault_drive_trash TO service_role;
 
 ALTER TABLE public.line_vault_drive_trash ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "trash_admin_read" ON public.line_vault_drive_trash;
 CREATE POLICY "trash_admin_read" ON public.line_vault_drive_trash
   FOR SELECT TO authenticated
   USING (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'super_admin'::app_role));

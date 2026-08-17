@@ -14,10 +14,12 @@ CREATE TABLE IF NOT EXISTS public.account_balances (
 
 ALTER TABLE public.account_balances ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Auth users can view account_balances" ON public.account_balances;
 CREATE POLICY "Auth users can view account_balances"
   ON public.account_balances FOR SELECT
   TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Admin/Director can manage account_balances" ON public.account_balances;
 CREATE POLICY "Admin/Director can manage account_balances"
   ON public.account_balances FOR ALL
   TO authenticated
@@ -40,14 +42,17 @@ CREATE TABLE IF NOT EXISTS public.asset_damage_reports (
 
 ALTER TABLE public.asset_damage_reports ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Auth users can view damage reports" ON public.asset_damage_reports;
 CREATE POLICY "Auth users can view damage reports"
   ON public.asset_damage_reports FOR SELECT
   TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Auth users can create damage reports" ON public.asset_damage_reports;
 CREATE POLICY "Auth users can create damage reports"
   ON public.asset_damage_reports FOR INSERT
   TO authenticated WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Admin/Director can manage damage reports" ON public.asset_damage_reports;
 CREATE POLICY "Admin/Director can manage damage reports"
   ON public.asset_damage_reports FOR ALL
   TO authenticated
@@ -62,20 +67,24 @@ ALTER TABLE public.assets ADD COLUMN IF NOT EXISTS useful_life_years INTEGER DEF
 INSERT INTO storage.buckets (id, name, public) VALUES ('asset-photos', 'asset-photos', true)
 ON CONFLICT (id) DO NOTHING;
 
+DROP POLICY IF EXISTS "Anyone can view asset photos" ON storage.objects;
 CREATE POLICY "Anyone can view asset photos"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'asset-photos');
 
+DROP POLICY IF EXISTS "Auth users can upload asset photos" ON storage.objects;
 CREATE POLICY "Auth users can upload asset photos"
   ON storage.objects FOR INSERT
   TO authenticated
   WITH CHECK (bucket_id = 'asset-photos');
 
+DROP POLICY IF EXISTS "Auth users can update asset photos" ON storage.objects;
 CREATE POLICY "Auth users can update asset photos"
   ON storage.objects FOR UPDATE
   TO authenticated
   USING (bucket_id = 'asset-photos');
 
+DROP POLICY IF EXISTS "Auth users can delete asset photos" ON storage.objects;
 CREATE POLICY "Auth users can delete asset photos"
   ON storage.objects FOR DELETE
   TO authenticated

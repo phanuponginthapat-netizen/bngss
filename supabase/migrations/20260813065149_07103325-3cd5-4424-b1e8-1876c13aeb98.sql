@@ -20,11 +20,13 @@ GRANT ALL ON public.personnel_face_descriptors TO service_role;
 
 ALTER TABLE public.personnel_face_descriptors ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "staff manage personnel face descriptors" ON public.personnel_face_descriptors;
 CREATE POLICY "staff manage personnel face descriptors"
 ON public.personnel_face_descriptors FOR ALL TO authenticated
 USING (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'director'::app_role) OR public.has_role(auth.uid(), 'teacher'::app_role))
 WITH CHECK (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'director'::app_role) OR public.has_role(auth.uid(), 'teacher'::app_role));
 
+DROP POLICY IF EXISTS "personnel manage own face descriptors" ON public.personnel_face_descriptors;
 CREATE POLICY "personnel manage own face descriptors"
 ON public.personnel_face_descriptors FOR ALL TO authenticated
 USING (EXISTS (SELECT 1 FROM public.personnel p WHERE p.id = personnel_face_descriptors.personnel_id AND p.user_id = auth.uid()))

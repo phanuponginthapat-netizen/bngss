@@ -4,6 +4,7 @@ ALTER TABLE public.cms_settings
   ADD COLUMN IF NOT EXISTS is_public boolean NOT NULL DEFAULT false;
 
 DROP POLICY IF EXISTS "Anon view public cms keys" ON public.cms_settings;
+DROP POLICY IF EXISTS "Anon view explicitly public cms keys" ON public.cms_settings;
 CREATE POLICY "Anon view explicitly public cms keys"
 ON public.cms_settings FOR SELECT
 TO anon

@@ -16,6 +16,7 @@ GRANT ALL ON public.district_snapshots TO service_role;
 
 ALTER TABLE public.district_snapshots ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins read snapshots of their school" ON public.district_snapshots;
 CREATE POLICY "Admins read snapshots of their school"
 ON public.district_snapshots FOR SELECT
 TO authenticated

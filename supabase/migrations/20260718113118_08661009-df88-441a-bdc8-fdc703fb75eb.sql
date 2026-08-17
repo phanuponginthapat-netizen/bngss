@@ -8,6 +8,7 @@ DROP POLICY IF EXISTS "Admin and Director can view all profiles" ON public.profi
 DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Admins can manage all profiles" ON public.profiles;
 
+DROP POLICY IF EXISTS "Admin/Director view profiles in their school" ON public.profiles;
 CREATE POLICY "Admin/Director view profiles in their school"
 ON public.profiles FOR SELECT TO authenticated
 USING (
@@ -15,6 +16,7 @@ USING (
   AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()))
 );
 
+DROP POLICY IF EXISTS "Admins manage profiles in their school" ON public.profiles;
 CREATE POLICY "Admins manage profiles in their school"
 ON public.profiles FOR ALL TO authenticated
 USING (

@@ -3,6 +3,7 @@
 
 -- learning_center_bookings: restrict SELECT to same-school + authenticated
 DROP POLICY IF EXISTS "LCB viewable by authenticated" ON public.learning_center_bookings;
+DROP POLICY IF EXISTS "LCB viewable by same school" ON public.learning_center_bookings;
 CREATE POLICY "LCB viewable by same school"
 ON public.learning_center_bookings
 FOR SELECT
@@ -11,6 +12,7 @@ USING (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()));
 
 -- schedules: tighten permissive SELECT
 DROP POLICY IF EXISTS "Auth users can view schedules" ON public.schedules;
+DROP POLICY IF EXISTS "Auth users can view schedules in own school" ON public.schedules;
 CREATE POLICY "Auth users can view schedules in own school"
 ON public.schedules
 FOR SELECT
@@ -19,6 +21,7 @@ USING (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()));
 
 -- subjects: tighten permissive SELECT
 DROP POLICY IF EXISTS "Authenticated users can view subjects" ON public.subjects;
+DROP POLICY IF EXISTS "Users can view subjects in own school" ON public.subjects;
 CREATE POLICY "Users can view subjects in own school"
 ON public.subjects
 FOR SELECT
@@ -27,6 +30,7 @@ USING (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid()));
 
 -- Storage: game-covers -- restrict direct SELECT to owner or staff (signed URLs still work)
 DROP POLICY IF EXISTS "game_covers_auth_read" ON storage.objects;
+DROP POLICY IF EXISTS "game_covers_owner_or_staff_read" ON storage.objects;
 CREATE POLICY "game_covers_owner_or_staff_read"
 ON storage.objects
 FOR SELECT
@@ -43,6 +47,7 @@ USING (
 
 -- Storage: hub-projects -- restrict SELECT to same-school members of project
 DROP POLICY IF EXISTS "hub-projects read auth" ON storage.objects;
+DROP POLICY IF EXISTS "hub_projects_read_same_school" ON storage.objects;
 CREATE POLICY "hub_projects_read_same_school"
 ON storage.objects
 FOR SELECT
@@ -58,6 +63,7 @@ USING (
 
 -- Storage: padlet -- scope reads/uploads to board viewers (path = {board_id}/{user_id}/file)
 DROP POLICY IF EXISTS "padlet read authenticated" ON storage.objects;
+DROP POLICY IF EXISTS "padlet_read_board_viewers" ON storage.objects;
 CREATE POLICY "padlet_read_board_viewers"
 ON storage.objects
 FOR SELECT
@@ -68,6 +74,7 @@ USING (
 );
 
 DROP POLICY IF EXISTS "padlet upload authenticated" ON storage.objects;
+DROP POLICY IF EXISTS "padlet_upload_own_folder_board_viewers" ON storage.objects;
 CREATE POLICY "padlet_upload_own_folder_board_viewers"
 ON storage.objects
 FOR INSERT

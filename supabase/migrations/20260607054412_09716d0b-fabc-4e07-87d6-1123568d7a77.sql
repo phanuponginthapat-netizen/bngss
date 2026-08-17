@@ -6,6 +6,7 @@ DROP POLICY IF EXISTS "Staff can view iot devices" ON public.iot_devices;
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 
 -- 3) student_face_descriptors: add restrictive school-scope policy for teachers
+DROP POLICY IF EXISTS "school_scope_teacher_face_desc" ON public.student_face_descriptors;
 CREATE POLICY "school_scope_teacher_face_desc"
 ON public.student_face_descriptors
 AS RESTRICTIVE

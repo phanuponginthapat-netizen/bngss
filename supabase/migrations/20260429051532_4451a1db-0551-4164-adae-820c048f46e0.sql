@@ -4,21 +4,25 @@ VALUES ('document-files', 'document-files', false)
 ON CONFLICT (id) DO NOTHING;
 
 -- RLS policies สำหรับ document-files bucket
+DROP POLICY IF EXISTS "Authenticated users can read document files" ON storage.objects;
 CREATE POLICY "Authenticated users can read document files"
 ON storage.objects FOR SELECT
 TO authenticated
 USING (bucket_id = 'document-files');
 
+DROP POLICY IF EXISTS "Authenticated users can upload document files" ON storage.objects;
 CREATE POLICY "Authenticated users can upload document files"
 ON storage.objects FOR INSERT
 TO authenticated
 WITH CHECK (bucket_id = 'document-files');
 
+DROP POLICY IF EXISTS "Authenticated users can update own document files" ON storage.objects;
 CREATE POLICY "Authenticated users can update own document files"
 ON storage.objects FOR UPDATE
 TO authenticated
 USING (bucket_id = 'document-files');
 
+DROP POLICY IF EXISTS "Admin/Director can delete document files" ON storage.objects;
 CREATE POLICY "Admin/Director can delete document files"
 ON storage.objects FOR DELETE
 TO authenticated

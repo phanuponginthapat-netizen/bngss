@@ -2,6 +2,7 @@
 DROP POLICY IF EXISTS "users can upsert own device row" ON public.kiosk_devices;
 DROP POLICY IF EXISTS "users can update own device row" ON public.kiosk_devices;
 
+DROP POLICY IF EXISTS "staff or owner can insert device row" ON public.kiosk_devices;
 CREATE POLICY "staff or owner can insert device row"
 ON public.kiosk_devices
 FOR INSERT
@@ -17,6 +18,7 @@ WITH CHECK (
   )
 );
 
+DROP POLICY IF EXISTS "staff or owner can update device row" ON public.kiosk_devices;
 CREATE POLICY "staff or owner can update device row"
 ON public.kiosk_devices
 FOR UPDATE

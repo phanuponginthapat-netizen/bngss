@@ -21,6 +21,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.ai_providers TO authenticated;
 GRANT ALL ON public.ai_providers TO service_role;
 ALTER TABLE public.ai_providers ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admin/director manage ai_providers" ON public.ai_providers;
 CREATE POLICY "Admin/director manage ai_providers"
   ON public.ai_providers FOR ALL
   TO authenticated
@@ -52,11 +53,13 @@ GRANT SELECT, INSERT ON public.ai_usage_logs TO authenticated;
 GRANT ALL ON public.ai_usage_logs TO service_role;
 ALTER TABLE public.ai_usage_logs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admin/director read ai_usage_logs" ON public.ai_usage_logs;
 CREATE POLICY "Admin/director read ai_usage_logs"
   ON public.ai_usage_logs FOR SELECT
   TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
 
+DROP POLICY IF EXISTS "Service role inserts logs" ON public.ai_usage_logs;
 CREATE POLICY "Service role inserts logs"
   ON public.ai_usage_logs FOR INSERT
   TO authenticated

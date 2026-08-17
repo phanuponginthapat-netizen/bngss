@@ -14,11 +14,13 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.line_vault_groups TO authenticate
 GRANT ALL ON public.line_vault_groups TO service_role;
 ALTER TABLE public.line_vault_groups ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "vault_groups_admin_all" ON public.line_vault_groups;
 CREATE POLICY "vault_groups_admin_all" ON public.line_vault_groups
   FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'super_admin') OR public.has_role(auth.uid(),'school_admin'))
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'super_admin') OR public.has_role(auth.uid(),'school_admin'));
 
+DROP POLICY IF EXISTS "vault_groups_read_authenticated" ON public.line_vault_groups;
 CREATE POLICY "vault_groups_read_authenticated" ON public.line_vault_groups
   FOR SELECT TO authenticated USING (true);
 
@@ -64,15 +66,18 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
   );
 $$;
 
+DROP POLICY IF EXISTS "vault_items_admin_all" ON public.line_vault_items;
 CREATE POLICY "vault_items_admin_all" ON public.line_vault_items
   FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'super_admin') OR public.has_role(auth.uid(),'school_admin'))
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'super_admin') OR public.has_role(auth.uid(),'school_admin'));
 
+DROP POLICY IF EXISTS "vault_items_read_everyone" ON public.line_vault_items;
 CREATE POLICY "vault_items_read_everyone" ON public.line_vault_items
   FOR SELECT TO authenticated
   USING (visibility = 'everyone');
 
+DROP POLICY IF EXISTS "vault_items_read_department" ON public.line_vault_items;
 CREATE POLICY "vault_items_read_department" ON public.line_vault_items
   FOR SELECT TO authenticated
   USING (visibility = 'department' AND department IS NOT NULL AND public.user_in_school_department(department));
@@ -85,6 +90,7 @@ CREATE TRIGGER trg_line_vault_groups_updated
   BEFORE UPDATE ON public.line_vault_groups
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+DROP POLICY IF EXISTS "line-vault admin manage" ON storage.objects;
 CREATE POLICY "line-vault admin manage"
 ON storage.objects FOR ALL TO authenticated
 USING (
@@ -102,6 +108,7 @@ WITH CHECK (
   )
 );
 
+DROP POLICY IF EXISTS "line-vault authenticated read via row" ON storage.objects;
 CREATE POLICY "line-vault authenticated read via row"
 ON storage.objects FOR SELECT TO authenticated
 USING (

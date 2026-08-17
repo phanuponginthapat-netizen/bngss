@@ -6,11 +6,17 @@ DROP POLICY IF EXISTS "Attendance photos public read" ON storage.objects;
 DROP POLICY IF EXISTS "garbage_images_public_read" ON storage.objects;
 DROP POLICY IF EXISTS "Auth users can view pp5 files" ON storage.objects;
 
+DROP POLICY IF EXISTS "Authenticated can view cms images" ON storage.objects;
 CREATE POLICY "Authenticated can view cms images" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'cms-images');
+DROP POLICY IF EXISTS "Authenticated can view profile images" ON storage.objects;
 CREATE POLICY "Authenticated can view profile images" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'profile-images');
+DROP POLICY IF EXISTS "Authenticated can view asset photos" ON storage.objects;
 CREATE POLICY "Authenticated can view asset photos" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'asset-photos');
+DROP POLICY IF EXISTS "Authenticated can view attendance photos" ON storage.objects;
 CREATE POLICY "Authenticated can view attendance photos" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'attendance-photos');
+DROP POLICY IF EXISTS "Authenticated can view garbage images" ON storage.objects;
 CREATE POLICY "Authenticated can view garbage images" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'garbage-images');
+DROP POLICY IF EXISTS "Authenticated can view pp5 files" ON storage.objects;
 CREATE POLICY "Authenticated can view pp5 files" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'pp5-files');
 
 REVOKE EXECUTE ON FUNCTION public.archive_and_purge_old_data(integer) FROM anon, public;
@@ -53,7 +59,9 @@ CREATE TABLE IF NOT EXISTS public.garbage_badges (
 );
 
 ALTER TABLE public.garbage_badges ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "All auth view badges" ON public.garbage_badges;
 CREATE POLICY "All auth view badges" ON public.garbage_badges FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Admin manage badges" ON public.garbage_badges;
 CREATE POLICY "Admin manage badges" ON public.garbage_badges FOR ALL TO authenticated
 USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director'))
 WITH CHECK (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director'));
@@ -73,7 +81,9 @@ CREATE INDEX IF NOT EXISTS idx_gub_student ON public.garbage_user_badges(student
 CREATE INDEX IF NOT EXISTS idx_gub_personnel ON public.garbage_user_badges(personnel_id);
 
 ALTER TABLE public.garbage_user_badges ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Auth view earned badges" ON public.garbage_user_badges;
 CREATE POLICY "Auth view earned badges" ON public.garbage_user_badges FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Staff insert earned badges" ON public.garbage_user_badges;
 CREATE POLICY "Staff insert earned badges" ON public.garbage_user_badges FOR INSERT TO authenticated
 WITH CHECK (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
 

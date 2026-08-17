@@ -14,12 +14,16 @@ CREATE TABLE IF NOT EXISTS public.user_dashboard_widgets (
 
 ALTER TABLE public.user_dashboard_widgets ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users view own widgets" ON public.user_dashboard_widgets;
 CREATE POLICY "Users view own widgets" ON public.user_dashboard_widgets
   FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users insert own widgets" ON public.user_dashboard_widgets;
 CREATE POLICY "Users insert own widgets" ON public.user_dashboard_widgets
   FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users update own widgets" ON public.user_dashboard_widgets;
 CREATE POLICY "Users update own widgets" ON public.user_dashboard_widgets
   FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users delete own widgets" ON public.user_dashboard_widgets;
 CREATE POLICY "Users delete own widgets" ON public.user_dashboard_widgets
   FOR DELETE USING (auth.uid() = user_id);
 

@@ -15,6 +15,7 @@ USING (
 );
 
 -- Allow eform recipients to read PDFs addressed to them
+DROP POLICY IF EXISTS "eform-pdfs recipient can read" ON storage.objects;
 CREATE POLICY "eform-pdfs recipient can read"
 ON storage.objects FOR SELECT
 USING (

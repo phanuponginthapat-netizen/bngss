@@ -21,6 +21,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.notification_preferences TO authe
 GRANT ALL ON public.notification_preferences TO service_role;
 ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "users manage own prefs" ON public.notification_preferences;
 CREATE POLICY "users manage own prefs" ON public.notification_preferences
   FOR ALL TO authenticated
   USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
@@ -47,6 +48,7 @@ GRANT SELECT ON public.notification_delivery_log TO authenticated;
 GRANT ALL ON public.notification_delivery_log TO service_role;
 ALTER TABLE public.notification_delivery_log ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "admin/director can read logs" ON public.notification_delivery_log;
 CREATE POLICY "admin/director can read logs" ON public.notification_delivery_log
   FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));

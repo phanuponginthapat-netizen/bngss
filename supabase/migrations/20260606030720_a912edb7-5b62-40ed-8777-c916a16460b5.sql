@@ -22,6 +22,7 @@ GRANT ALL ON public.ai_provider_keys TO service_role;
 
 ALTER TABLE public.ai_provider_keys ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins manage ai provider keys" ON public.ai_provider_keys;
 CREATE POLICY "Admins manage ai provider keys"
   ON public.ai_provider_keys
   FOR ALL

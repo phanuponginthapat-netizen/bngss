@@ -8,6 +8,7 @@ DROP POLICY IF EXISTS "Auth users manage student_assessment_scores" ON public.st
 DROP POLICY IF EXISTS "Auth users can view student_assessment_scores" ON public.student_assessment_scores;
 DROP POLICY IF EXISTS "Auth users can manage student_assessment_scores" ON public.student_assessment_scores;
 
+DROP POLICY IF EXISTS "Staff manage student_assessment_scores" ON public.student_assessment_scores;
 CREATE POLICY "Staff manage student_assessment_scores"
   ON public.student_assessment_scores FOR ALL TO authenticated
   USING (
@@ -21,12 +22,14 @@ CREATE POLICY "Staff manage student_assessment_scores"
     OR has_role(auth.uid(), 'teacher'::app_role)
   );
 
+DROP POLICY IF EXISTS "Students view own assessment scores" ON public.student_assessment_scores;
 CREATE POLICY "Students view own assessment scores"
   ON public.student_assessment_scores FOR SELECT TO authenticated
   USING (
     student_id IN (SELECT id FROM public.students WHERE auth_user_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "Parents view linked student assessment scores" ON public.student_assessment_scores;
 CREATE POLICY "Parents view linked student assessment scores"
   ON public.student_assessment_scores FOR SELECT TO authenticated
   USING (

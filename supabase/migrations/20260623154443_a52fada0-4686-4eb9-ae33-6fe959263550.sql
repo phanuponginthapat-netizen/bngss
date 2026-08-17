@@ -1,6 +1,7 @@
 
 -- Fix 1: Restrict eform-pdfs INSERT to staff roles (admin/director/teacher)
 DROP POLICY IF EXISTS "Authenticated upload eform pdfs" ON storage.objects;
+DROP POLICY IF EXISTS "Staff upload eform pdfs" ON storage.objects;
 CREATE POLICY "Staff upload eform pdfs"
 ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (

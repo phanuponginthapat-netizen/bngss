@@ -32,11 +32,13 @@ GRANT ALL ON public.learning_center_bookings TO service_role;
 ALTER TABLE public.learning_center_bookings ENABLE ROW LEVEL SECURITY;
 
 -- All authenticated can view (everyone can see room schedule)
+DROP POLICY IF EXISTS "LCB viewable by authenticated" ON public.learning_center_bookings;
 CREATE POLICY "LCB viewable by authenticated"
   ON public.learning_center_bookings FOR SELECT
   TO authenticated USING (true);
 
 -- Teachers/staff can create bookings
+DROP POLICY IF EXISTS "Staff can create bookings" ON public.learning_center_bookings;
 CREATE POLICY "Staff can create bookings"
   ON public.learning_center_bookings FOR INSERT
   TO authenticated
@@ -45,6 +47,7 @@ CREATE POLICY "Staff can create bookings"
   );
 
 -- Owner or admin/director can update
+DROP POLICY IF EXISTS "Owner or admin update bookings" ON public.learning_center_bookings;
 CREATE POLICY "Owner or admin update bookings"
   ON public.learning_center_bookings FOR UPDATE
   TO authenticated
@@ -60,6 +63,7 @@ CREATE POLICY "Owner or admin update bookings"
   );
 
 -- Owner or admin/director can delete
+DROP POLICY IF EXISTS "Owner or admin delete bookings" ON public.learning_center_bookings;
 CREATE POLICY "Owner or admin delete bookings"
   ON public.learning_center_bookings FOR DELETE
   TO authenticated

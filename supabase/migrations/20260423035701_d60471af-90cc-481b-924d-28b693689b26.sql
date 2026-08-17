@@ -2,10 +2,12 @@
 -- ===== subject_score_columns =====
 DROP POLICY IF EXISTS "Auth users manage subject_score_columns" ON public.subject_score_columns;
 
+DROP POLICY IF EXISTS "Anyone authenticated can view subject_score_columns" ON public.subject_score_columns;
 CREATE POLICY "Anyone authenticated can view subject_score_columns"
   ON public.subject_score_columns FOR SELECT TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Staff can insert subject_score_columns" ON public.subject_score_columns;
 CREATE POLICY "Staff can insert subject_score_columns"
   ON public.subject_score_columns FOR INSERT TO authenticated
   WITH CHECK (
@@ -14,6 +16,7 @@ CREATE POLICY "Staff can insert subject_score_columns"
     OR has_role(auth.uid(), 'teacher'::app_role)
   );
 
+DROP POLICY IF EXISTS "Staff can update subject_score_columns" ON public.subject_score_columns;
 CREATE POLICY "Staff can update subject_score_columns"
   ON public.subject_score_columns FOR UPDATE TO authenticated
   USING (
@@ -27,6 +30,7 @@ CREATE POLICY "Staff can update subject_score_columns"
     OR has_role(auth.uid(), 'teacher'::app_role)
   );
 
+DROP POLICY IF EXISTS "Staff can delete subject_score_columns" ON public.subject_score_columns;
 CREATE POLICY "Staff can delete subject_score_columns"
   ON public.subject_score_columns FOR DELETE TO authenticated
   USING (
@@ -38,6 +42,7 @@ CREATE POLICY "Staff can delete subject_score_columns"
 -- ===== student_column_scores =====
 DROP POLICY IF EXISTS "Auth users manage student_column_scores" ON public.student_column_scores;
 
+DROP POLICY IF EXISTS "Staff manage student_column_scores" ON public.student_column_scores;
 CREATE POLICY "Staff manage student_column_scores"
   ON public.student_column_scores FOR ALL TO authenticated
   USING (
@@ -51,10 +56,12 @@ CREATE POLICY "Staff manage student_column_scores"
     OR has_role(auth.uid(), 'teacher'::app_role)
   );
 
+DROP POLICY IF EXISTS "Students view their own column scores" ON public.student_column_scores;
 CREATE POLICY "Students view their own column scores"
   ON public.student_column_scores FOR SELECT TO authenticated
   USING (student_id IN (SELECT id FROM public.students WHERE auth_user_id = auth.uid()));
 
+DROP POLICY IF EXISTS "Parents view linked student column scores" ON public.student_column_scores;
 CREATE POLICY "Parents view linked student column scores"
   ON public.student_column_scores FOR SELECT TO authenticated
   USING (

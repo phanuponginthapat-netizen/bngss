@@ -66,6 +66,7 @@ TO authenticated
 USING (sender_id = auth.uid())
 WITH CHECK (sender_id = auth.uid());
 
+DROP POLICY IF EXISTS "Recipients and school leaders can view eforms" ON public.eforms;
 CREATE POLICY "Recipients and school leaders can view eforms"
 ON public.eforms
 FOR SELECT
@@ -97,6 +98,7 @@ TO authenticated
 USING (public.is_eform_sender(eform_id, auth.uid()))
 WITH CHECK (public.is_eform_sender(eform_id, auth.uid()));
 
+DROP POLICY IF EXISTS "School leaders can view recipients" ON public.eform_recipients;
 CREATE POLICY "School leaders can view recipients"
 ON public.eform_recipients
 FOR SELECT
@@ -110,6 +112,7 @@ DROP POLICY IF EXISTS "View attachments of accessible eforms" ON public.eform_at
 DROP POLICY IF EXISTS "Recipients view eform attachments" ON public.eform_attachments;
 DROP POLICY IF EXISTS "Sender can manage attachments" ON public.eform_attachments;
 
+DROP POLICY IF EXISTS "Users can view attachments of accessible eforms" ON public.eform_attachments;
 CREATE POLICY "Users can view attachments of accessible eforms"
 ON public.eform_attachments
 FOR SELECT

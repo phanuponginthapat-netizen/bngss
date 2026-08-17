@@ -28,6 +28,7 @@ GRANT ALL ON public.homework_submissions TO service_role;
 ALTER TABLE public.homework_submissions ENABLE ROW LEVEL SECURITY;
 
 -- Student: own submissions
+DROP POLICY IF EXISTS "students manage own submissions" ON public.homework_submissions;
 CREATE POLICY "students manage own submissions"
 ON public.homework_submissions
 FOR ALL
@@ -36,6 +37,7 @@ USING (student_id = auth.uid())
 WITH CHECK (student_id = auth.uid());
 
 -- Teacher who created the assignment can view + grade
+DROP POLICY IF EXISTS "assignment owner can view submissions" ON public.homework_submissions;
 CREATE POLICY "assignment owner can view submissions"
 ON public.homework_submissions
 FOR SELECT
@@ -47,6 +49,7 @@ USING (EXISTS (
          OR a.school_id = public.get_user_school_id(auth.uid()))
 ));
 
+DROP POLICY IF EXISTS "assignment owner can grade submissions" ON public.homework_submissions;
 CREATE POLICY "assignment owner can grade submissions"
 ON public.homework_submissions
 FOR UPDATE
@@ -59,6 +62,7 @@ USING (EXISTS (
          OR public.has_role(auth.uid(), 'director'::app_role))
 ));
 
+DROP POLICY IF EXISTS "admins manage all submissions" ON public.homework_submissions;
 CREATE POLICY "admins manage all submissions"
 ON public.homework_submissions
 FOR ALL

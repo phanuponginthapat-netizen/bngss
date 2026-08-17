@@ -20,6 +20,7 @@ CREATE INDEX IF NOT EXISTS idx_face_req_status ON public.face_registration_reque
 
 ALTER TABLE public.face_registration_requests ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Staff view own requests, admins view all" ON public.face_registration_requests;
 CREATE POLICY "Staff view own requests, admins view all"
 ON public.face_registration_requests FOR SELECT TO authenticated
 USING (
@@ -28,6 +29,7 @@ USING (
   OR public.has_role(auth.uid(),'director')
 );
 
+DROP POLICY IF EXISTS "Staff create face requests" ON public.face_registration_requests;
 CREATE POLICY "Staff create face requests"
 ON public.face_registration_requests FOR INSERT TO authenticated
 WITH CHECK (
@@ -39,16 +41,19 @@ WITH CHECK (
   )
 );
 
+DROP POLICY IF EXISTS "Admins approve/reject requests" ON public.face_registration_requests;
 CREATE POLICY "Admins approve/reject requests"
 ON public.face_registration_requests FOR UPDATE TO authenticated
 USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'))
 WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
 
+DROP POLICY IF EXISTS "Owner can cancel own pending" ON public.face_registration_requests;
 CREATE POLICY "Owner can cancel own pending"
 ON public.face_registration_requests FOR UPDATE TO authenticated
 USING (requested_by = auth.uid() AND status = 'pending')
 WITH CHECK (requested_by = auth.uid());
 
+DROP POLICY IF EXISTS "Admins delete requests" ON public.face_registration_requests;
 CREATE POLICY "Admins delete requests"
 ON public.face_registration_requests FOR DELETE TO authenticated
 USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
@@ -76,6 +81,7 @@ CREATE INDEX IF NOT EXISTS idx_face_hist_request ON public.face_registration_his
 
 ALTER TABLE public.face_registration_history ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "View own + admins view all face history" ON public.face_registration_history;
 CREATE POLICY "View own + admins view all face history"
 ON public.face_registration_history FOR SELECT TO authenticated
 USING (
@@ -85,6 +91,7 @@ USING (
   OR EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid())
 );
 
+DROP POLICY IF EXISTS "Staff insert face history" ON public.face_registration_history;
 CREATE POLICY "Staff insert face history"
 ON public.face_registration_history FOR INSERT TO authenticated
 WITH CHECK (

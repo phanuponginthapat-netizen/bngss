@@ -17,6 +17,7 @@ GRANT ALL ON public.upstream_subscription TO service_role;
 
 ALTER TABLE public.upstream_subscription ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins manage upstream subscription" ON public.upstream_subscription;
 CREATE POLICY "Admins manage upstream subscription"
   ON public.upstream_subscription
   FOR ALL

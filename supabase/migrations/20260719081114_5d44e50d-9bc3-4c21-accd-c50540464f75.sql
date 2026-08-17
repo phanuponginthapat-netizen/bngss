@@ -37,6 +37,7 @@ CREATE POLICY "Personnel dept head can delete salary_records" ON public.salary_r
 
 -- 4. social_posts: hide raw/page_id from anon; expose safe fields via view
 DROP POLICY IF EXISTS "Public can read published social posts" ON public.social_posts;
+DROP POLICY IF EXISTS "Authenticated can read published social posts" ON public.social_posts;
 CREATE POLICY "Authenticated can read published social posts" ON public.social_posts
   FOR SELECT TO authenticated
   USING (posted_at IS NOT NULL);

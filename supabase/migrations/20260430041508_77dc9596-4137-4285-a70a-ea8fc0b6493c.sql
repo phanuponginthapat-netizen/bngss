@@ -20,8 +20,10 @@ CREATE TABLE IF NOT EXISTS public.garbage_personnel_points (
 );
 ALTER TABLE public.garbage_personnel_points ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "gpp_select_staff" ON public.garbage_personnel_points;
 CREATE POLICY "gpp_select_staff" ON public.garbage_personnel_points FOR SELECT TO authenticated
   USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
+DROP POLICY IF EXISTS "gpp_select_self" ON public.garbage_personnel_points;
 CREATE POLICY "gpp_select_self" ON public.garbage_personnel_points FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.personnel p WHERE p.id = garbage_personnel_points.personnel_id AND p.user_id = auth.uid()));
 
@@ -85,8 +87,10 @@ BEGIN
 END $function$;
 
 -- 5. RLS เพิ่มเติม: ให้บุคลากรเห็นรายการของตัวเอง
+DROP POLICY IF EXISTS "garbage_deposits_select_personnel_self" ON public.garbage_deposits;
 CREATE POLICY "garbage_deposits_select_personnel_self" ON public.garbage_deposits FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.personnel p WHERE p.id = garbage_deposits.personnel_id AND p.user_id = auth.uid()));
 
+DROP POLICY IF EXISTS "garbage_redemptions_select_personnel_self" ON public.garbage_redemptions;
 CREATE POLICY "garbage_redemptions_select_personnel_self" ON public.garbage_redemptions FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.personnel p WHERE p.id = garbage_redemptions.personnel_id AND p.user_id = auth.uid()));

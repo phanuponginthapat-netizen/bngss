@@ -23,12 +23,14 @@ GRANT ALL ON public.kiosk_devices TO service_role;
 ALTER TABLE public.kiosk_devices ENABLE ROW LEVEL SECURITY;
 
 -- ทุกคนที่ล็อกอินอยู่ อัปเดต/สร้างแถวของตัวเองได้ (ส่ง heartbeat)
+DROP POLICY IF EXISTS "users can upsert own device row" ON public.kiosk_devices;
 CREATE POLICY "users can upsert own device row"
   ON public.kiosk_devices
   FOR INSERT
   TO authenticated
   WITH CHECK (user_id = auth.uid() OR user_id IS NULL);
 
+DROP POLICY IF EXISTS "users can update own device row" ON public.kiosk_devices;
 CREATE POLICY "users can update own device row"
   ON public.kiosk_devices
   FOR UPDATE
@@ -37,6 +39,7 @@ CREATE POLICY "users can update own device row"
   WITH CHECK (user_id = auth.uid() OR user_id IS NULL OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director') OR public.has_role(auth.uid(), 'teacher'));
 
 -- admin / director / teacher: ดูเครื่องทั้งหมด
+DROP POLICY IF EXISTS "staff can view all devices" ON public.kiosk_devices;
 CREATE POLICY "staff can view all devices"
   ON public.kiosk_devices
   FOR SELECT
@@ -49,6 +52,7 @@ CREATE POLICY "staff can view all devices"
   );
 
 -- admin / director: ลบเครื่องได้
+DROP POLICY IF EXISTS "admins can delete devices" ON public.kiosk_devices;
 CREATE POLICY "admins can delete devices"
   ON public.kiosk_devices
   FOR DELETE

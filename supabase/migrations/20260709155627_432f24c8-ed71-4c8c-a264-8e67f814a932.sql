@@ -63,6 +63,7 @@ CREATE POLICY "exam_submissions teacher" ON public.exam_submissions
 
 -- print_templates: restrict blanket read
 DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates;
+DROP POLICY IF EXISTS "Authenticated can read active templates" ON public.print_templates;
 CREATE POLICY "Authenticated can read active templates" ON public.print_templates
   FOR SELECT TO authenticated
   USING (

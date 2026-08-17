@@ -22,11 +22,13 @@ GRANT ALL ON public.health_measurements TO service_role;
 
 ALTER TABLE public.health_measurements ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Staff manage health_measurements" ON public.health_measurements;
 CREATE POLICY "Staff manage health_measurements" ON public.health_measurements
   FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));
 
+DROP POLICY IF EXISTS "Students view own measurements" ON public.health_measurements;
 CREATE POLICY "Students view own measurements" ON public.health_measurements
   FOR SELECT TO authenticated
   USING (student_id IN (SELECT id FROM public.students WHERE auth_user_id = auth.uid()));

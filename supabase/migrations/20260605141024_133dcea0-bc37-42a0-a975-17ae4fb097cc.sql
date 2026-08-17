@@ -33,6 +33,7 @@ USING (public.has_role(auth.uid(),'teacher'));
 
 -- 5) Storage: pp5-files — restrict SELECT to staff only
 DROP POLICY IF EXISTS "Authenticated can view pp5 files" ON storage.objects;
+DROP POLICY IF EXISTS "Staff can view pp5 files" ON storage.objects;
 CREATE POLICY "Staff can view pp5 files"
 ON storage.objects FOR SELECT
 TO authenticated
@@ -47,6 +48,7 @@ USING (
 
 -- 6) Storage: ict-loan-photos — restrict SELECT to staff only
 DROP POLICY IF EXISTS "Authenticated can view ict loan photos" ON storage.objects;
+DROP POLICY IF EXISTS "Staff can view ict loan photos" ON storage.objects;
 CREATE POLICY "Staff can view ict loan photos"
 ON storage.objects FOR SELECT
 TO authenticated
