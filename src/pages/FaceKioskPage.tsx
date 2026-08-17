@@ -208,11 +208,33 @@ const FaceKioskPage = () => {
   const gate = useSmartGate();
   const gateRef = useRef(gate);
   useEffect(() => { gateRef.current = gate; }, [gate]);
-  /** เรียกหลังสแกนผ่าน — ตรวจไข้/โลหะแล้วเปิดประตู พร้อมเสียงแจ้งเตือน */
-  const runGate = useCallback(async (name: string) => {
+  /** เรียกหลังสแกนผ่าน — ตรวจไข้/โลหะแล้วเปิดประตู พร้อมเสียงแจ้งเตือน + บันทึกเหตุการณ์ลงระบบ */
+  const runGate = useCallback(async (
+    name: string,
+    subject?: { id?: string; kind?: "student" | "personnel" },
+  ) => {
     try {
       const res = await gateRef.current.requestPassage();
       if (res.skipped) return;
+      const r = gateRef.current.reading;
+      const logEvent = async (eventType: "pass" | "fever" | "weapon", allowed: boolean, opened: boolean) => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          await (supabase as any).from("smart_gate_events").insert({
+            device_label: `tablet-kiosk-${scanModeRef.current === "exit" ? "exit" : "entry"}`,
+            subject_kind: subject?.kind || "student",
+            subject_id: subject?.id ?? null,
+            subject_name: name,
+            event_type: eventType,
+            temperature_c: r.tempC,
+            metal_level: r.metalLevel,
+            detail: res.detail,
+            allowed,
+            gate_opened: opened,
+            created_by: user?.id ?? null,
+          });
+        } catch { /* ไม่ให้การบันทึก log ขัดจังหวะการทำงานประตู */ }
+      };
       if (!res.allow) {
         if (res.reason === "fever") {
           playFeverAlert();
@@ -223,16 +245,19 @@ const FaceKioskPage = () => {
           if (voiceEnabled) speakText("ตรวจพบวัตถุโลหะ กรุณาพบเจ้าหน้าที่");
           toast.error("ตรวจพบวัตถุโลหะ — ไม่อนุญาตให้ผ่าน", { description: `${name} • ${res.detail}`, duration: 8000 });
         }
+        void logEvent(res.reason === "fever" ? "fever" : "weapon", false, false);
         return;
       }
       if (res.opened) {
         playGateOpenSound();
         toast.success("เปิดประตู", { description: `${name} • ${res.detail}`, duration: 1800 });
+        void logEvent("pass", true, true);
       }
     } catch {
       playGateDeniedSound();
     }
-  }, [voiceEnabled]);
+  }, [voiceEnabled, scanModeRef]);
+
 
   // ===== WizMind / CCTV bridge (realtime) =====
   const [wizmindOn, setWizmindOn] = useState<boolean>(() => localStorage.getItem(WIZMIND_ENABLED_KEY) === "1");
@@ -525,7 +550,7 @@ const FaceKioskPage = () => {
     justScannedRef.current.set(cdKey, now);
     playSuccessSound();
     if (voiceEnabled) speakText(`สแกน${modeLabel}สำเร็จ ${name}`);
-    void runGate(name);
+    void runGate(name, { id: studentId, kind: "student" });
     if (!seenSet.has(studentId)) {
       seenSet.add(studentId);
       setTodayCounts((c) => ({ ...c, [mode]: c[mode] + 1 }));
@@ -712,7 +737,7 @@ const FaceKioskPage = () => {
                       justScannedRef.current.set(found.studentId, tNow);
                       playSuccessSound();
                       const mode = scanModeRef.current === "exit" ? "exit" : "entry";
-                      void runGate(found.name);
+                      void runGate(found.name, { id: found.studentId, kind: "personnel" });
                       let clockNote = "บุคลากร (ทดสอบ)";
                       if (staffClockRef.current) {
                         clockNote = await clockStaff(found.studentId, mode, captured, m.confidence, found.name);

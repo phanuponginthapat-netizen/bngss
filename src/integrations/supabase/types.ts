@@ -12046,6 +12046,57 @@ export type Database = {
           },
         ]
       }
+      smart_gate_events: {
+        Row: {
+          allowed: boolean
+          created_at: string
+          created_by: string | null
+          detail: string | null
+          device_label: string | null
+          event_type: string
+          gate_opened: boolean
+          id: string
+          metal_level: number | null
+          occurred_at: string
+          subject_id: string | null
+          subject_kind: string
+          subject_name: string | null
+          temperature_c: number | null
+        }
+        Insert: {
+          allowed?: boolean
+          created_at?: string
+          created_by?: string | null
+          detail?: string | null
+          device_label?: string | null
+          event_type: string
+          gate_opened?: boolean
+          id?: string
+          metal_level?: number | null
+          occurred_at?: string
+          subject_id?: string | null
+          subject_kind?: string
+          subject_name?: string | null
+          temperature_c?: number | null
+        }
+        Update: {
+          allowed?: boolean
+          created_at?: string
+          created_by?: string | null
+          detail?: string | null
+          device_label?: string | null
+          event_type?: string
+          gate_opened?: boolean
+          id?: string
+          metal_level?: number | null
+          occurred_at?: string
+          subject_id?: string | null
+          subject_kind?: string
+          subject_name?: string | null
+          temperature_c?: number | null
+        }
+        Relationships: []
+      }
       social_posts: {
         Row: {
           broadcast_error: string | null
