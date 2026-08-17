@@ -324,16 +324,20 @@ function extractMeta(wb: XLSX.WorkBook): PP5ParsedWorkbook["meta"] {
 
 
 // ─── Consolidation ────────────────────────────────────────────────────────────
-function sumNonAggregated(st: PP5ParsedStudentRow): { sum: number; count: number } {
-  let sum = 0, count = 0;
+function sumNonAggregated(st: PP5ParsedStudentRow): { sum: number; count: number; max: number } {
+  let sum = 0, count = 0, max = 0;
   for (const subj of Object.keys(st.subjects)) {
     if (isAggregated(subj)) continue;
     for (const col of st.subjects[subj].columns) {
       if (isAggregated(col.header)) continue;
-      if (typeof col.value === "number" && !isNaN(col.value)) { sum += col.value; count++; }
+      if (typeof col.value === "number" && !isNaN(col.value)) {
+        sum += col.value; count++;
+        // the sub-header row of OBEC sheets holds "คะแนนเต็ม" of each column
+        max += isNum(col.header) ? Number(col.header) : 0;
+      }
     }
   }
-  return { sum, count };
+  return { sum, count, max };
 }
 
 const isMainScoreSheet = (name: string) =>
@@ -349,10 +353,19 @@ function applyToBucket(
   sh: PP5ParsedSheet,
   st: PP5ParsedStudentRow,
   sum: number,
-  count: number
+  count: number,
+  max = 0,
 ) {
   const avg = count > 0 ? sum / count : 0;
-  const value = st.directTotal !== undefined ? st.directTotal : (sh.kind === "exam_scores" ? sum : Math.round(avg * 100) / 100);
+  const pct = max > 0 ? Math.round((sum / max) * 10000) / 100 : undefined;
+  const value =
+    sh.kind === "exam_scores"
+      ? (pct !== undefined ? pct : st.directTotal !== undefined ? st.directTotal : sum)
+      : st.directTotal !== undefined
+        ? st.directTotal
+        : pct !== undefined
+          ? pct
+          : Math.round(avg * 100) / 100;
 
   if (sh.kind === "exam_scores") {
     if (isMainScoreSheet(sh.sheetName)) {
@@ -463,9 +476,9 @@ function consolidate(sheets: PP5ParsedSheet[], meta: PP5ParsedWorkbook["meta"]):
       const rec = byStudent.get(key)!;
       if (!rec.perSubject[canonicalSubject]) rec.perSubject[canonicalSubject] = {};
       const bucket = rec.perSubject[canonicalSubject];
-      const { sum, count } = sumNonAggregated(st);
+      const { sum, count, max } = sumNonAggregated(st);
       if (count === 0 && st.directTotal === undefined && !st.directGrade) continue;
-      applyToBucket(bucket, sh, st, sum, count);
+      applyToBucket(bucket, sh, st, sum, count, max);
     }
   }
   for (const rec of byStudent.values()) for (const s of Object.values(rec.perSubject)) finalizeBucket(s);
