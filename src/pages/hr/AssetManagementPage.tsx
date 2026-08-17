@@ -291,20 +291,20 @@ const AssetManagementPage = () => {
     }
 
     const { error } = await supabase.from("assets").insert({
-      asset_code: form.asset_code, asset_name: form.asset_name, category: form.category,
-      acquisition_cost: cost, depreciation_rate: parseFloat(form.depreciation_rate),
-      current_value: cost * (1 - depRate), location: form.location,
+      asset_code: form.asset_code.trim(), asset_name: form.asset_name.trim(), category: form.category,
+      acquisition_cost: cost, depreciation_rate: num(form.depreciation_rate),
+      current_value: Math.max(0, cost * (1 - depRate)), location: form.location,
       responsible_person: responsibleName,
       responsible_user_id: form.responsible_user_id || null,
       condition: form.condition,
-      notes: form.notes, useful_life_years: parseInt(form.useful_life_years),
-      acquisition_date: form.acquisition_date,
-      serial_number: form.serial_number || null,
+      notes: form.notes, useful_life_years: Math.max(1, num(form.useful_life_years, 5)),
+      acquisition_date: form.acquisition_date || null,
+      serial_number: form.serial_number?.trim() || null,
       barcode: form.barcode || null,
-      quantity: Math.max(1, parseInt(form.quantity) || 1),
+      quantity: Math.max(1, num(form.quantity, 1)),
       building: form.building || null, room: form.room || null, floor: form.floor || null,
-      latitude: form.latitude ? parseFloat(form.latitude) : null,
-      longitude: form.longitude ? parseFloat(form.longitude) : null,
+      latitude: form.latitude ? num(form.latitude) : null,
+      longitude: form.longitude ? num(form.longitude) : null,
       gfmis_code: form.gfmis_code || null,
       budget_source: form.budget_source || null,
       supplier: form.supplier || null,
@@ -313,9 +313,10 @@ const AssetManagementPage = () => {
       ...(allPhotos[0] ? { photo_url: allPhotos[0] } : {}),
     } as any);
     setUploading(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error.message)); return; }
     toast.success("ลงทะเบียนสินทรัพย์สำเร็จ");
     qc.invalidateQueries({ queryKey: ["assets"] });
+
     setOpen(false); setPhotoFiles([]);
     setForm(emptyForm());
   };
