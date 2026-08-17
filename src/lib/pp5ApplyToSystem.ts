@@ -80,6 +80,17 @@ export async function applyPpFileToSystem(
   if (studErr) throw new Error(`ค้นหานักเรียนไม่สำเร็จ: ${studErr.message}`);
   const codeToId = new Map((students || []).map((s: any) => [String(s.student_code), s.id]));
 
+  // ศิษย์เก่า/นักเรียนย้ายห้อง จะไม่อยู่ในห้องที่ระบุ → ค้นซ้ำแบบไม่ผูกห้อง
+  const stillMissing = codes.filter((c) => !codeToId.has(c));
+  if (classroomId && stillMissing.length > 0) {
+    const { data: extra } = await supabase
+      .from("students")
+      .select("id, student_code")
+      .in("student_code", stillMissing);
+    for (const s of extra || []) codeToId.set(String((s as any).student_code), (s as any).id);
+  }
+
+
   const unmatched: string[] = [];
   const unmatchedSubjects = new Set<string>();
 
