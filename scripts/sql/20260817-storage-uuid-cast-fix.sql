@@ -29,3 +29,9 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
     WHERE e.id = ((storage.foldername(_object_name))[1])::uuid AND e.sender_id = _user_id
   );
 $function$;
+
+-- แก้ 42703: mark_overdue_homework_columns() อ้างคอลัมน์ที่ไม่มีจริง
+ALTER TABLE public.subject_score_columns
+  ADD COLUMN IF NOT EXISTS homework_assignment_id uuid REFERENCES public.homework_assignments(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_subject_score_columns_homework
+  ON public.subject_score_columns(homework_assignment_id);
