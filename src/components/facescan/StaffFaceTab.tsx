@@ -329,7 +329,105 @@ const StaffFaceTab = () => {
           )}
         </TabsContent>
 
+        {/* ---------- เรียนรู้จากหลายรูป ---------- */}
+        <TabsContent value="photos" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2"><Images className="w-4 h-4 text-primary" />เรียนรู้ใบหน้าจากหลายรูป</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                อัปโหลดรูปใบหน้าหลายรูป (ต่างมุม/ต่างแสง/ใส่แว่น) ระบบจะแปลงเป็นข้อมูลใบหน้าและเก็บเข้าคลังของบุคลากรคนนั้น
+                — เก็บได้สูงสุด {PERSONNEL_LEARN.MAX_PER_PERSON} ภาพต่อคน รูปที่ซ้ำซ้อนหรือคล้ายคนละคนจะถูกข้ามอัตโนมัติ
+              </p>
+
+              <Input placeholder="ค้นหาชื่อ/รหัสบุคลากร..." value={uploadSearch} onChange={(e) => setUploadSearch(e.target.value)} />
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[260px] overflow-y-auto">
+                {personnel
+                  .filter((p: any) => {
+                    const q = uploadSearch.toLowerCase().trim();
+                    if (!q) return true;
+                    return [p.first_name, p.last_name, p.employee_code].some((v) => String(v || "").toLowerCase().includes(q));
+                  })
+                  .filter((p: any) => canManageOthers || p.id === me?.id)
+                  .map((p: any) => {
+                    const n = grouped.find((g) => g.personnel_id === p.id)?.sample_count || 0;
+                    const active = learnTarget === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setLearnTarget(p.id)}
+                        className={`p-3 rounded-lg border text-left transition ${active ? "border-primary bg-primary/10" : "bg-card hover:bg-accent/40"}`}
+                      >
+                        <p className="font-medium text-sm truncate">{fullName(p)}</p>
+                        <p className="text-xs text-muted-foreground truncate">{p.employee_code} · {p.position}</p>
+                        <Badge variant={n ? "secondary" : "outline"} className="mt-1 text-xs">{n} ภาพ</Badge>
+                      </button>
+                    );
+                  })}
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => void runPhotoLearning(Array.from(e.target.files || []))}
+              />
+              <div className="flex flex-wrap gap-2 items-center">
+                <Button
+                  className="gradient-primary gap-2"
+                  disabled={!learnTarget || uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Images className="w-4 h-4" />}
+                  เลือกรูป (หลายรูปได้)
+                </Button>
+                {modelMsg && <span className="text-xs text-muted-foreground">{modelMsg}</span>}
+              </div>
+
+              {uploading && uploadProgress.total > 0 && (
+                <div className="space-y-1">
+                  <Progress value={(uploadProgress.done / uploadProgress.total) * 100} />
+                  <p className="text-xs text-muted-foreground">ประมวลผล {uploadProgress.done}/{uploadProgress.total} ไฟล์</p>
+                </div>
+              )}
+
+              {uploadResults.length > 0 && (
+                <div className="space-y-1 max-h-[280px] overflow-y-auto">
+                  {uploadResults.map((r, i) => (
+                    <div key={`${r.fileName}-${i}`} className="flex items-center gap-2 rounded-lg border p-2 text-sm">
+                      {r.thumbnail ? (
+                        <img src={r.thumbnail} alt="" className="w-8 h-8 rounded object-cover border" />
+                      ) : (
+                        <div className="w-8 h-8 rounded bg-muted" />
+                      )}
+                      <span className="flex-1 truncate">{r.fileName}</span>
+                      {r.status === "added" ? (
+                        <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 gap-1">
+                          <CheckCircle2 className="w-3 h-3" />เพิ่มแล้ว
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="gap-1 text-muted-foreground">
+                          <AlertTriangle className="w-3 h-3" />
+                          {r.status === "no-face" ? "ไม่พบใบหน้า"
+                            : r.status === "redundant" ? "ซ้ำกับที่มีอยู่"
+                            : r.status === "too-different" ? "ต่างมากเกินไป"
+                            : r.message || "ผิดพลาด"}
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* ---------- จำลองสแกน ---------- */}
+
         <TabsContent value="simulate" className="mt-4 space-y-4">
           <Card>
             <CardContent className="p-4 space-y-3">
