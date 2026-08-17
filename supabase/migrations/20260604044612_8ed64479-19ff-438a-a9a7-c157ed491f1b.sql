@@ -1,4 +1,3 @@
-
 CREATE TABLE IF NOT EXISTS public.app_secrets (
   key TEXT PRIMARY KEY,
   value TEXT,
@@ -7,15 +6,50 @@ CREATE TABLE IF NOT EXISTS public.app_secrets (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_by UUID
 );
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.app_secrets TO authenticated;
-GRANT ALL ON public.app_secrets TO service_role;
-ALTER TABLE public.app_secrets ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "admins manage app secrets" ON public.app_secrets;
-DROP POLICY IF EXISTS "admins manage app secrets" ON public.app_secrets;
-CREATE POLICY "admins manage app secrets" ON public.app_secrets FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'))
-  WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
-
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.app_secrets TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.app_secrets TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.app_secrets ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "admins manage app secrets" ON public.app_secrets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "admins manage app secrets" ON public.app_secrets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "admins manage app secrets" ON public.app_secrets FOR ALL TO authenticated
+  USING (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director''))
+  WITH CHECK (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.get_app_secret(_key TEXT)
 RETURNS TEXT
 LANGUAGE sql
@@ -25,9 +59,20 @@ SET search_path = public
 AS $$
   SELECT value FROM public.app_secrets WHERE key = _key;
 $$;
-REVOKE EXECUTE ON FUNCTION public.get_app_secret(TEXT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_app_secret(TEXT) TO service_role;
-
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.get_app_secret(TEXT) FROM PUBLIC, anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_app_secret(TEXT) TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 INSERT INTO public.app_secrets (key, description, category) VALUES
   ('GEMINI_API_KEY', 'Google Gemini API Key (AI Studio)', 'ai'),
   ('ELEVENLABS_API_KEY', 'ElevenLabs Conversational AI', 'ai'),

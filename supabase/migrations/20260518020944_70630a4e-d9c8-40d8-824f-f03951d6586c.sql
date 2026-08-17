@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.notify_on_face_scan()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -54,8 +53,19 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_notify_face_scan ON public.face_scan_logs;
-CREATE TRIGGER trg_notify_face_scan
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_notify_face_scan ON public.face_scan_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_notify_face_scan
 AFTER INSERT ON public.face_scan_logs
-FOR EACH ROW EXECUTE FUNCTION public.notify_on_face_scan();
+FOR EACH ROW EXECUTE FUNCTION public.notify_on_face_scan()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

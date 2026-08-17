@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.notify_google_chat(
   _notification_type text,
   _title text,
@@ -77,7 +76,6 @@ BEGIN
   END LOOP;
 END;
 $$;
-
 -- ทดสอบยิงทันที
 SELECT public.notify_google_chat(
   'system',

@@ -1,8 +1,18 @@
-
 -- 1) Revoke direct SELECT on the api_key column from regular roles
-REVOKE SELECT (api_key) ON public.ai_providers FROM authenticated;
-REVOKE SELECT (api_key) ON public.ai_providers FROM anon;
-
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE SELECT (api_key) ON public.ai_providers FROM authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE SELECT (api_key) ON public.ai_providers FROM anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 2) Prevent users from changing student_code on their own profile (admins can still change it)
 CREATE OR REPLACE FUNCTION public.prevent_self_student_code_change()
 RETURNS trigger
@@ -19,9 +29,20 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_prevent_self_student_code_change ON public.profiles;
-CREATE TRIGGER trg_prevent_self_student_code_change
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_prevent_self_student_code_change ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_prevent_self_student_code_change
 BEFORE UPDATE OF student_code ON public.profiles
 FOR EACH ROW
-EXECUTE FUNCTION public.prevent_self_student_code_change();
+EXECUTE FUNCTION public.prevent_self_student_code_change()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

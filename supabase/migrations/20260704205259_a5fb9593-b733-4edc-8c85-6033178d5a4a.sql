@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.archive_and_purge_old_data(_retention_years integer DEFAULT 3)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -53,5 +52,10 @@ BEGIN
   RETURN res;
 END;
 $function$;
-
-REVOKE ALL ON FUNCTION public.archive_and_purge_old_data(integer) FROM PUBLIC, anon, authenticated;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.archive_and_purge_old_data(integer) FROM PUBLIC, anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

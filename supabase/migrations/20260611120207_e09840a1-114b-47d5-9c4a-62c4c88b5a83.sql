@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.prevent_sensitive_profile_self_update()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -26,19 +25,46 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_prevent_sensitive_profile_self_update ON public.profiles;
-CREATE TRIGGER trg_prevent_sensitive_profile_self_update
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_prevent_sensitive_profile_self_update ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_prevent_sensitive_profile_self_update
 BEFORE UPDATE ON public.profiles
-FOR EACH ROW EXECUTE FUNCTION public.prevent_sensitive_profile_self_update();
-
-DROP POLICY IF EXISTS "Authenticated can read asset photos" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated can read asset photos" ON storage.objects;
-CREATE POLICY "Authenticated can read asset photos"
+FOR EACH ROW EXECUTE FUNCTION public.prevent_sensitive_profile_self_update()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can read asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated can read asset photos" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Authenticated can read asset photos"
 ON storage.objects FOR SELECT
 TO authenticated
-USING (bucket_id = 'asset-photos');
-
+USING (bucket_id = ''asset-photos'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 DO $$
 DECLARE
   t text;

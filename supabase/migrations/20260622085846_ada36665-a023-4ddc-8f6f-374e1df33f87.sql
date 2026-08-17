@@ -1,4 +1,3 @@
-
 INSERT INTO public.ai_providers (name, provider_type, base_url, model, priority, enabled, supports_vision, supports_json, notes)
 VALUES
   ('Lovable AI Gateway', 'lovable', 'https://ai.gateway.lovable.dev/v1/chat/completions', 'google/gemini-2.5-flash', 1, true, true, true, 'ใช้ LOVABLE_API_KEY'),

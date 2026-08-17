@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.sync_student_to_profile()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -44,9 +43,20 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_sync_student_to_profile ON public.students;
-CREATE TRIGGER trg_sync_student_to_profile
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_sync_student_to_profile ON public.students';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_sync_student_to_profile
 AFTER INSERT OR UPDATE ON public.students
 FOR EACH ROW
-EXECUTE FUNCTION public.sync_student_to_profile();
+EXECUTE FUNCTION public.sync_student_to_profile()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

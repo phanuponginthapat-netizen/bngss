@@ -8,7 +8,6 @@ DO $$ BEGIN
       FOREIGN KEY (auth_user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
   END IF;
 END $$;
-
 -- === FK 2 & 3: homework_submissions.student_id / school_id ===
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'homework_submissions_student_id_fkey') THEN
@@ -22,21 +21,46 @@ DO $$ BEGIN
       FOREIGN KEY (school_id) REFERENCES public.schools(id) ON DELETE CASCADE;
   END IF;
 END $$;
-
 -- === UNIQUE: LINE user id must be unique across profiles/students ===
-CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_line_user_id_uniq
-  ON public.profiles(line_user_id) WHERE line_user_id IS NOT NULL;
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_students_line_user_id_uniq
-  ON public.students(line_user_id) WHERE line_user_id IS NOT NULL;
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_students_line_user_id_2_uniq
-  ON public.students(line_user_id_2) WHERE line_user_id_2 IS NOT NULL;
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_students_line_user_id_3_uniq
-  ON public.students(line_user_id_3) WHERE line_user_id_3 IS NOT NULL;
-
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_line_user_id_uniq
+  ON public.profiles(line_user_id) WHERE line_user_id IS NOT NULL';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS idx_students_line_user_id_uniq
+  ON public.students(line_user_id) WHERE line_user_id IS NOT NULL';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS idx_students_line_user_id_2_uniq
+  ON public.students(line_user_id_2) WHERE line_user_id_2 IS NOT NULL';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS idx_students_line_user_id_3_uniq
+  ON public.students(line_user_id_3) WHERE line_user_id_3 IS NOT NULL';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 -- === UNIQUE: active enrollment per student+subject+academic_year ===
-CREATE UNIQUE INDEX IF NOT EXISTS idx_enrollments_active_uniq
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS idx_enrollments_active_uniq
   ON public.enrollments(student_id, subject_id, academic_year)
-  WHERE status = 'active';
+  WHERE status = ''active''';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;

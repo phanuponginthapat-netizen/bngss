@@ -50,8 +50,19 @@ EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_sync_face_scan_to_attendance ON public.face_scan_logs;
-CREATE TRIGGER trg_sync_face_scan_to_attendance
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_sync_face_scan_to_attendance ON public.face_scan_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_sync_face_scan_to_attendance
 AFTER INSERT ON public.face_scan_logs
-FOR EACH ROW EXECUTE FUNCTION public.sync_face_scan_to_attendance();
+FOR EACH ROW EXECUTE FUNCTION public.sync_face_scan_to_attendance()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

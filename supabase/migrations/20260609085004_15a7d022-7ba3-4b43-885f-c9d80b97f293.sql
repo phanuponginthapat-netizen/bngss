@@ -16,34 +16,119 @@ AS $$
       AND public.has_role(_user_id, 'parent'::app_role)
   );
 $$;
-
 -- Parent SELECT policies
-DROP POLICY IF EXISTS "Parents view child attendance" ON public.attendance;
-DROP POLICY IF EXISTS "Parents view child attendance" ON public.attendance;
-CREATE POLICY "Parents view child attendance"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents view child attendance" ON public.attendance';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents view child attendance" ON public.attendance';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Parents view child attendance"
   ON public.attendance FOR SELECT
-  USING (public.is_parent_of(auth.uid(), student_id));
-
-DROP POLICY IF EXISTS "Parents view child behavior" ON public.behavior_records;
-DROP POLICY IF EXISTS "Parents view child behavior" ON public.behavior_records;
-CREATE POLICY "Parents view child behavior"
+  USING (public.is_parent_of(auth.uid(), student_id))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents view child behavior" ON public.behavior_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents view child behavior" ON public.behavior_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Parents view child behavior"
   ON public.behavior_records FOR SELECT
-  USING (public.is_parent_of(auth.uid(), student_id));
-
-DROP POLICY IF EXISTS "Parents view child leaves" ON public.student_leaves;
-DROP POLICY IF EXISTS "Parents view child leaves" ON public.student_leaves;
-CREATE POLICY "Parents view child leaves"
+  USING (public.is_parent_of(auth.uid(), student_id))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents view child leaves" ON public.student_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents view child leaves" ON public.student_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Parents view child leaves"
   ON public.student_leaves FOR SELECT
-  USING (public.is_parent_of(auth.uid(), student_id));
-
-DROP POLICY IF EXISTS "Parents request child leaves" ON public.student_leaves;
-DROP POLICY IF EXISTS "Parents request child leaves" ON public.student_leaves;
-CREATE POLICY "Parents request child leaves"
+  USING (public.is_parent_of(auth.uid(), student_id))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents request child leaves" ON public.student_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents request child leaves" ON public.student_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Parents request child leaves"
   ON public.student_leaves FOR INSERT
-  WITH CHECK (public.is_parent_of(auth.uid(), student_id));
-
-DROP POLICY IF EXISTS "Parents view child health" ON public.health_measurements;
-DROP POLICY IF EXISTS "Parents view child health" ON public.health_measurements;
-CREATE POLICY "Parents view child health"
+  WITH CHECK (public.is_parent_of(auth.uid(), student_id))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents view child health" ON public.health_measurements';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Parents view child health" ON public.health_measurements';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Parents view child health"
   ON public.health_measurements FOR SELECT
-  USING (public.is_parent_of(auth.uid(), student_id));
+  USING (public.is_parent_of(auth.uid(), student_id))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

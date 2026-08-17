@@ -1,4 +1,3 @@
-
 -- Table to track uploaded PP5 files
 CREATE TABLE IF NOT EXISTS public.pp5_files (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -14,51 +13,157 @@ CREATE TABLE IF NOT EXISTS public.pp5_files (
   uploaded_by UUID,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-
-ALTER TABLE public.pp5_files ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Auth users can view pp5_files" ON public.pp5_files;
-DROP POLICY IF EXISTS "Auth users can view pp5_files" ON public.pp5_files;
-CREATE POLICY "Auth users can view pp5_files"
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.pp5_files ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view pp5_files" ON public.pp5_files';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view pp5_files" ON public.pp5_files';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users can view pp5_files"
 ON public.pp5_files FOR SELECT
 TO authenticated
-USING (true);
-
-DROP POLICY IF EXISTS "Auth users can upload pp5_files" ON public.pp5_files;
-DROP POLICY IF EXISTS "Auth users can upload pp5_files" ON public.pp5_files;
-CREATE POLICY "Auth users can upload pp5_files"
+USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can upload pp5_files" ON public.pp5_files';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can upload pp5_files" ON public.pp5_files';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users can upload pp5_files"
 ON public.pp5_files FOR INSERT
 TO authenticated
-WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Admin/Director can delete pp5_files" ON public.pp5_files;
-DROP POLICY IF EXISTS "Admin/Director can delete pp5_files" ON public.pp5_files;
-CREATE POLICY "Admin/Director can delete pp5_files"
+WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can delete pp5_files" ON public.pp5_files';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can delete pp5_files" ON public.pp5_files';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/Director can delete pp5_files"
 ON public.pp5_files FOR DELETE
 TO authenticated
-USING (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role));
-
+USING (has_role(auth.uid(), ''admin''::app_role) OR has_role(auth.uid(), ''director''::app_role))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Storage bucket for PP5 files
 INSERT INTO storage.buckets (id, name, public) VALUES ('pp5-files', 'pp5-files', true)
 ON CONFLICT (id) DO NOTHING;
-
-DROP POLICY IF EXISTS "Auth users can view pp5 files" ON storage.objects;
-DROP POLICY IF EXISTS "Auth users can view pp5 files" ON storage.objects;
-CREATE POLICY "Auth users can view pp5 files"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view pp5 files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view pp5 files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users can view pp5 files"
 ON storage.objects FOR SELECT
 TO authenticated
-USING (bucket_id = 'pp5-files');
-
-DROP POLICY IF EXISTS "Auth users can upload pp5 files" ON storage.objects;
-DROP POLICY IF EXISTS "Auth users can upload pp5 files" ON storage.objects;
-CREATE POLICY "Auth users can upload pp5 files"
+USING (bucket_id = ''pp5-files'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can upload pp5 files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can upload pp5 files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users can upload pp5 files"
 ON storage.objects FOR INSERT
 TO authenticated
-WITH CHECK (bucket_id = 'pp5-files');
-
-DROP POLICY IF EXISTS "Admin can delete pp5 files" ON storage.objects;
-DROP POLICY IF EXISTS "Admin can delete pp5 files" ON storage.objects;
-CREATE POLICY "Admin can delete pp5 files"
+WITH CHECK (bucket_id = ''pp5-files'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin can delete pp5 files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin can delete pp5 files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin can delete pp5 files"
 ON storage.objects FOR DELETE
 TO authenticated
-USING (bucket_id = 'pp5-files' AND (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'director'::app_role)));
+USING (bucket_id = ''pp5-files'' AND (has_role(auth.uid(), ''admin''::app_role) OR has_role(auth.uid(), ''director''::app_role)))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

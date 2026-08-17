@@ -1,11 +1,26 @@
-
 -- 1) Add teacher_id column
-ALTER TABLE public.schedules
-  ADD COLUMN IF NOT EXISTS teacher_id uuid REFERENCES public.personnel(id) ON DELETE SET NULL;
-
-CREATE INDEX IF NOT EXISTS idx_schedules_teacher_id ON public.schedules(teacher_id);
-CREATE INDEX IF NOT EXISTS idx_schedules_teacher_year_sem ON public.schedules(teacher_id, academic_year, semester);
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.schedules
+  ADD COLUMN IF NOT EXISTS teacher_id uuid REFERENCES public.personnel(id) ON DELETE SET NULL';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_schedules_teacher_id ON public.schedules(teacher_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_schedules_teacher_year_sem ON public.schedules(teacher_id, academic_year, semester)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 -- 2) Trigger function to auto-fill teacher_id from teacher_name
 CREATE OR REPLACE FUNCTION public.fill_schedule_teacher_id()
 RETURNS TRIGGER
@@ -45,12 +60,22 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_fill_schedule_teacher_id ON public.schedules;
-CREATE TRIGGER trg_fill_schedule_teacher_id
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_fill_schedule_teacher_id ON public.schedules';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_fill_schedule_teacher_id
 BEFORE INSERT OR UPDATE OF teacher_name, teacher_id ON public.schedules
-FOR EACH ROW EXECUTE FUNCTION public.fill_schedule_teacher_id();
-
+FOR EACH ROW EXECUTE FUNCTION public.fill_schedule_teacher_id()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 3) Backfill existing rows
 UPDATE public.schedules s
 SET teacher_id = p.id

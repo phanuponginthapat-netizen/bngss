@@ -1,4 +1,3 @@
-
 -- ========== cms_school_info ==========
 CREATE TABLE IF NOT EXISTS public.cms_school_info (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -12,26 +11,81 @@ CREATE TABLE IF NOT EXISTS public.cms_school_info (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
-GRANT SELECT ON public.cms_school_info TO anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.cms_school_info TO authenticated;
-GRANT ALL ON public.cms_school_info TO service_role;
-
-ALTER TABLE public.cms_school_info ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Public reads published info" ON public.cms_school_info;
-DROP POLICY IF EXISTS "Public reads published info" ON public.cms_school_info;
-CREATE POLICY "Public reads published info"
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT ON public.cms_school_info TO anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.cms_school_info TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.cms_school_info TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.cms_school_info ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Public reads published info" ON public.cms_school_info';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Public reads published info" ON public.cms_school_info';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Public reads published info"
   ON public.cms_school_info FOR SELECT
-  USING (is_published = true OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
-DROP POLICY IF EXISTS "Admins manage school info" ON public.cms_school_info;
-DROP POLICY IF EXISTS "Admins manage school info" ON public.cms_school_info;
-CREATE POLICY "Admins manage school info"
+  USING (is_published = true OR public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage school info" ON public.cms_school_info';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage school info" ON public.cms_school_info';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins manage school info"
   ON public.cms_school_info FOR ALL
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
+  USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))
+  WITH CHECK (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ========== cms_downloads ==========
 CREATE TABLE IF NOT EXISTS public.cms_downloads (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -48,26 +102,81 @@ CREATE TABLE IF NOT EXISTS public.cms_downloads (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
-GRANT SELECT ON public.cms_downloads TO anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.cms_downloads TO authenticated;
-GRANT ALL ON public.cms_downloads TO service_role;
-
-ALTER TABLE public.cms_downloads ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Public reads published downloads" ON public.cms_downloads;
-DROP POLICY IF EXISTS "Public reads published downloads" ON public.cms_downloads;
-CREATE POLICY "Public reads published downloads"
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT ON public.cms_downloads TO anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.cms_downloads TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.cms_downloads TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.cms_downloads ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Public reads published downloads" ON public.cms_downloads';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Public reads published downloads" ON public.cms_downloads';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Public reads published downloads"
   ON public.cms_downloads FOR SELECT
-  USING (is_published = true OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
-DROP POLICY IF EXISTS "Admins manage downloads" ON public.cms_downloads;
-DROP POLICY IF EXISTS "Admins manage downloads" ON public.cms_downloads;
-CREATE POLICY "Admins manage downloads"
+  USING (is_published = true OR public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage downloads" ON public.cms_downloads';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage downloads" ON public.cms_downloads';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins manage downloads"
   ON public.cms_downloads FOR ALL
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
+  USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))
+  WITH CHECK (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ========== cms_faqs ==========
 CREATE TABLE IF NOT EXISTS public.cms_faqs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -79,26 +188,81 @@ CREATE TABLE IF NOT EXISTS public.cms_faqs (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
-GRANT SELECT ON public.cms_faqs TO anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.cms_faqs TO authenticated;
-GRANT ALL ON public.cms_faqs TO service_role;
-
-ALTER TABLE public.cms_faqs ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Public reads published faqs" ON public.cms_faqs;
-DROP POLICY IF EXISTS "Public reads published faqs" ON public.cms_faqs;
-CREATE POLICY "Public reads published faqs"
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT ON public.cms_faqs TO anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.cms_faqs TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.cms_faqs TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.cms_faqs ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Public reads published faqs" ON public.cms_faqs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Public reads published faqs" ON public.cms_faqs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Public reads published faqs"
   ON public.cms_faqs FOR SELECT
-  USING (is_published = true OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
-DROP POLICY IF EXISTS "Admins manage faqs" ON public.cms_faqs;
-DROP POLICY IF EXISTS "Admins manage faqs" ON public.cms_faqs;
-CREATE POLICY "Admins manage faqs"
+  USING (is_published = true OR public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage faqs" ON public.cms_faqs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage faqs" ON public.cms_faqs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins manage faqs"
   ON public.cms_faqs FOR ALL
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
+  USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))
+  WITH CHECK (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ========== cms_nav_menu ==========
 CREATE TABLE IF NOT EXISTS public.cms_nav_menu (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -113,40 +277,142 @@ CREATE TABLE IF NOT EXISTS public.cms_nav_menu (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
-GRANT SELECT ON public.cms_nav_menu TO anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.cms_nav_menu TO authenticated;
-GRANT ALL ON public.cms_nav_menu TO service_role;
-
-ALTER TABLE public.cms_nav_menu ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Public reads published menu" ON public.cms_nav_menu;
-DROP POLICY IF EXISTS "Public reads published menu" ON public.cms_nav_menu;
-CREATE POLICY "Public reads published menu"
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT ON public.cms_nav_menu TO anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.cms_nav_menu TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.cms_nav_menu TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.cms_nav_menu ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Public reads published menu" ON public.cms_nav_menu';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Public reads published menu" ON public.cms_nav_menu';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Public reads published menu"
   ON public.cms_nav_menu FOR SELECT
-  USING (is_published = true OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
-DROP POLICY IF EXISTS "Admins manage menu" ON public.cms_nav_menu;
-DROP POLICY IF EXISTS "Admins manage menu" ON public.cms_nav_menu;
-CREATE POLICY "Admins manage menu"
+  USING (is_published = true OR public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage menu" ON public.cms_nav_menu';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage menu" ON public.cms_nav_menu';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins manage menu"
   ON public.cms_nav_menu FOR ALL
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
+  USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))
+  WITH CHECK (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ========== Update triggers ==========
-DROP TRIGGER IF EXISTS trg_cms_school_info_updated ON public.cms_school_info;
-CREATE TRIGGER trg_cms_school_info_updated BEFORE UPDATE ON public.cms_school_info
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-DROP TRIGGER IF EXISTS trg_cms_downloads_updated ON public.cms_downloads;
-CREATE TRIGGER trg_cms_downloads_updated BEFORE UPDATE ON public.cms_downloads
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-DROP TRIGGER IF EXISTS trg_cms_faqs_updated ON public.cms_faqs;
-CREATE TRIGGER trg_cms_faqs_updated BEFORE UPDATE ON public.cms_faqs
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-DROP TRIGGER IF EXISTS trg_cms_nav_menu_updated ON public.cms_nav_menu;
-CREATE TRIGGER trg_cms_nav_menu_updated BEFORE UPDATE ON public.cms_nav_menu
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_cms_school_info_updated ON public.cms_school_info';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_cms_school_info_updated BEFORE UPDATE ON public.cms_school_info
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_cms_downloads_updated ON public.cms_downloads';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_cms_downloads_updated BEFORE UPDATE ON public.cms_downloads
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_cms_faqs_updated ON public.cms_faqs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_cms_faqs_updated BEFORE UPDATE ON public.cms_faqs
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_cms_nav_menu_updated ON public.cms_nav_menu';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_cms_nav_menu_updated BEFORE UPDATE ON public.cms_nav_menu
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ========== Seed default content ==========
 INSERT INTO public.cms_school_info (section_key, title, subtitle, content, sort_order) VALUES
   ('history', 'ประวัติสถานศึกษา', 'ความเป็นมาของโรงเรียน', '{"body":"<p>โรงเรียนก่อตั้งขึ้นเมื่อปี พ.ศ. ... เพื่อให้บริการทางการศึกษาแก่เยาวชนในพื้นที่</p><h3>ปี พ.ศ. 2500</h3><p>เริ่มก่อตั้ง</p>","timeline":[]}', 1),
@@ -157,7 +423,6 @@ INSERT INTO public.cms_school_info (section_key, title, subtitle, content, sort_
   ('philosophy', 'ปรัชญา / คำขวัญ', 'Philosophy', '{"philosophy":"ปญฺญา นรานํ รตนํ (ปัญญาเป็นรัตนะของนรชน)","motto":"เรียนดี มีวินัย ใฝ่คุณธรรม","colors":"ฟ้า-ขาว","tree":"ต้นราชพฤกษ์"}', 6),
   ('contact', 'ติดต่อโรงเรียน', 'Contact', '{"address":"","phone":"","email":"","fax":"","map_embed":"","hours":"จันทร์-ศุกร์ 08:00-16:00 น."}', 7)
 ON CONFLICT (section_key) DO NOTHING;
-
 -- Seed FAQs
 INSERT INTO public.cms_faqs (question, answer, category, sort_order) VALUES
   ('รับสมัครนักเรียนใหม่เมื่อไหร่?', 'เปิดรับสมัครในช่วงเดือนกุมภาพันธ์-มีนาคมของทุกปี ติดตามประกาศได้ที่เว็บไซต์และเพจ Facebook ของโรงเรียน', 'admission', 1),
@@ -165,7 +430,6 @@ INSERT INTO public.cms_faqs (question, answer, category, sort_order) VALUES
   ('มีรถรับส่งนักเรียนหรือไม่?', 'มีบริการรถรับส่งครอบคลุมพื้นที่ในเขตบริการ ตรวจสอบเส้นทางได้ที่หน้ารถรับส่งนักเรียน', 'general', 3),
   ('ค่าเทอมประมาณเท่าไหร่?', 'ค่าใช้จ่ายเป็นไปตามระเบียบของโรงเรียน สอบถามเพิ่มเติมได้ที่ฝ่ายทะเบียน', 'admission', 4)
 ON CONFLICT DO NOTHING;
-
 -- Seed default navigation
 INSERT INTO public.cms_nav_menu (label, url, icon, sort_order) VALUES
   ('หน้าแรก', '/', 'Home', 1),
@@ -175,7 +439,6 @@ INSERT INTO public.cms_nav_menu (label, url, icon, sort_order) VALUES
   ('ข่าวสาร', '/news', 'Newspaper', 5),
   ('ติดต่อเรา', '/contact', 'Phone', 6)
 ON CONFLICT DO NOTHING;
-
 -- Children under "เกี่ยวกับโรงเรียน"
 DO $$
 DECLARE

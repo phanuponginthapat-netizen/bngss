@@ -1,9 +1,7 @@
-
 -- เพิ่ม setting ควบคุม LINE auto-push (default = false, ปิดเพื่อประหยัดโควต้า)
 INSERT INTO public.school_settings (setting_key, setting_value)
 VALUES ('line_auto_push_enabled', 'false')
 ON CONFLICT (setting_key) DO NOTHING;
-
 -- แก้ send_line_to_student_parents ให้เคารพ setting นี้
 CREATE OR REPLACE FUNCTION public.send_line_to_student_parents(_student_id uuid, _title text, _message text)
  RETURNS void
@@ -44,14 +42,12 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN NULL;
   END;
 END $function$;
-
 -- ปลด cron daily-line-digest (ถ้าเคย schedule ไว้)
 DO $$
 BEGIN
   PERFORM cron.unschedule('daily-line-digest');
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
-
 DO $$
 BEGIN
   PERFORM cron.unschedule('daily_line_digest');

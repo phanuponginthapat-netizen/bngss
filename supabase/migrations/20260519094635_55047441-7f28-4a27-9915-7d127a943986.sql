@@ -11,7 +11,6 @@ AS $$
     'https://id-preview--7eb2421f-d698-449d-a764-ab9f76e2bc13.lovable.app'
   );
 $$;
-
 -- 1) Face scan
 CREATE OR REPLACE FUNCTION public.gchat_on_face_scan()
 RETURNS trigger
@@ -53,7 +52,6 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
-
 -- 2) Attendance (absent)
 CREATE OR REPLACE FUNCTION public.gchat_on_absence()
 RETURNS trigger
@@ -89,7 +87,6 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
-
 -- 3) Behavior records (any)
 CREATE OR REPLACE FUNCTION public.gchat_on_behavior_any()
 RETURNS trigger
@@ -135,7 +132,6 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
-
 -- 4) Score → ปพ.5
 CREATE OR REPLACE FUNCTION public.gchat_on_score()
 RETURNS trigger

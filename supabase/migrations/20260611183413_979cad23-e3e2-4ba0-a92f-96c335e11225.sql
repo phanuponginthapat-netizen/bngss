@@ -9,5 +9,10 @@ AS $$
   FROM public.profiles pr
   WHERE pr.id = ANY(_user_ids);
 $$;
-
-GRANT EXECUTE ON FUNCTION public.get_personnel_avatars(uuid[]) TO anon, authenticated;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_personnel_avatars(uuid[]) TO anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

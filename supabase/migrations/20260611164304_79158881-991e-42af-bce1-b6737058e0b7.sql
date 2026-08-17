@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.ensure_default_app_secrets()
 RETURNS void
 LANGUAGE plpgsql
@@ -27,8 +26,12 @@ BEGIN
   ON CONFLICT (key) DO NOTHING;
 END;
 $$;
-
-GRANT EXECUTE ON FUNCTION public.ensure_default_app_secrets() TO authenticated, service_role;
-
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.ensure_default_app_secrets() TO authenticated, service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Run once now so existing project gets all defaults immediately
 SELECT public.ensure_default_app_secrets();

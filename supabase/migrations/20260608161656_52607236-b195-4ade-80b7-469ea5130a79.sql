@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.search_public_profiles(_q text)
 RETURNS TABLE (
   id uuid,
@@ -49,5 +48,10 @@ AS $$
     p.last_name NULLS LAST
   LIMIT 20
 $$;
-
-GRANT EXECUTE ON FUNCTION public.search_public_profiles(text) TO anon, authenticated, service_role;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.search_public_profiles(text) TO anon, authenticated, service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

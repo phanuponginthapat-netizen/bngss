@@ -1,4 +1,3 @@
-
 -- 1) profiles → personnel
 CREATE OR REPLACE FUNCTION public.sync_profile_to_personnel()
 RETURNS trigger
@@ -23,14 +22,24 @@ BEGIN
 
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_sync_profile_to_personnel ON public.profiles;
-CREATE TRIGGER trg_sync_profile_to_personnel
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_sync_profile_to_personnel ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_sync_profile_to_personnel
 AFTER UPDATE OF first_name, last_name, phone, employee_code, position_title, department, hire_date, school_id
 ON public.profiles
 FOR EACH ROW
-EXECUTE FUNCTION public.sync_profile_to_personnel();
-
+EXECUTE FUNCTION public.sync_profile_to_personnel()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 2) personnel → profiles
 CREATE OR REPLACE FUNCTION public.sync_personnel_to_profile()
 RETURNS trigger
@@ -56,14 +65,24 @@ BEGIN
 
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_sync_personnel_to_profile ON public.personnel;
-CREATE TRIGGER trg_sync_personnel_to_profile
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_sync_personnel_to_profile ON public.personnel';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_sync_personnel_to_profile
 AFTER UPDATE OF first_name, last_name, phone, employee_code, position, department, hire_date, school_id, user_id
 ON public.personnel
 FOR EACH ROW
-EXECUTE FUNCTION public.sync_personnel_to_profile();
-
+EXECUTE FUNCTION public.sync_personnel_to_profile()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 3) Backfill personnel from profiles for linked rows
 UPDATE public.personnel p SET
   first_name    = COALESCE(pr.first_name, p.first_name),

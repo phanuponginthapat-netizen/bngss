@@ -2,31 +2,98 @@
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('cold-archive', 'cold-archive', false)
 ON CONFLICT (id) DO NOTHING;
-
-DROP POLICY IF EXISTS "Admin/Director read cold-archive" ON storage.objects;
-DROP POLICY IF EXISTS "Admin/Director read cold-archive" ON storage.objects;
-CREATE POLICY "Admin/Director read cold-archive"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director read cold-archive" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director read cold-archive" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/Director read cold-archive"
 ON storage.objects FOR SELECT TO authenticated
-USING (bucket_id = 'cold-archive' AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director')));
-
-DROP POLICY IF EXISTS "Admin/Director write cold-archive" ON storage.objects;
-DROP POLICY IF EXISTS "Admin/Director write cold-archive" ON storage.objects;
-CREATE POLICY "Admin/Director write cold-archive"
+USING (bucket_id = ''cold-archive'' AND (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'')))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director write cold-archive" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director write cold-archive" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/Director write cold-archive"
 ON storage.objects FOR INSERT TO authenticated
-WITH CHECK (bucket_id = 'cold-archive' AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director')));
-
-DROP POLICY IF EXISTS "Admin/Director update cold-archive" ON storage.objects;
-DROP POLICY IF EXISTS "Admin/Director update cold-archive" ON storage.objects;
-CREATE POLICY "Admin/Director update cold-archive"
+WITH CHECK (bucket_id = ''cold-archive'' AND (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'')))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director update cold-archive" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director update cold-archive" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/Director update cold-archive"
 ON storage.objects FOR UPDATE TO authenticated
-USING (bucket_id = 'cold-archive' AND (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director')));
-
-DROP POLICY IF EXISTS "Admin can delete cold-archive" ON storage.objects;
-DROP POLICY IF EXISTS "Admin can delete cold-archive" ON storage.objects;
-CREATE POLICY "Admin can delete cold-archive"
+USING (bucket_id = ''cold-archive'' AND (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director'')))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin can delete cold-archive" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin can delete cold-archive" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin can delete cold-archive"
 ON storage.objects FOR DELETE TO authenticated
-USING (bucket_id = 'cold-archive' AND public.has_role(auth.uid(),'admin'));
-
+USING (bucket_id = ''cold-archive'' AND public.has_role(auth.uid(),''admin''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 2) ตาราง archive_logs — ประวัติการ archive
 CREATE TABLE IF NOT EXISTS public.archive_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -37,21 +104,59 @@ CREATE TABLE IF NOT EXISTS public.archive_logs (
   summary jsonb NOT NULL DEFAULT '{}'::jsonb,
   archive_path text
 );
-
-ALTER TABLE public.archive_logs ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Admin/Director view archive_logs" ON public.archive_logs;
-DROP POLICY IF EXISTS "Admin/Director view archive_logs" ON public.archive_logs;
-CREATE POLICY "Admin/Director view archive_logs"
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.archive_logs ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director view archive_logs" ON public.archive_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director view archive_logs" ON public.archive_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/Director view archive_logs"
 ON public.archive_logs FOR SELECT TO authenticated
-USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
-
-DROP POLICY IF EXISTS "Admin/Director insert archive_logs" ON public.archive_logs;
-DROP POLICY IF EXISTS "Admin/Director insert archive_logs" ON public.archive_logs;
-CREATE POLICY "Admin/Director insert archive_logs"
+USING (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director insert archive_logs" ON public.archive_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director insert archive_logs" ON public.archive_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/Director insert archive_logs"
 ON public.archive_logs FOR INSERT TO authenticated
-WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
-
+WITH CHECK (public.has_role(auth.uid(),''admin'') OR public.has_role(auth.uid(),''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 3) ฟังก์ชันลบข้อมูลเก่ากว่า 3 ปีการศึกษา
 CREATE OR REPLACE FUNCTION public.archive_and_purge_old_data(_retention_years int DEFAULT 3)
 RETURNS jsonb
@@ -141,7 +246,6 @@ BEGIN
   );
 END;
 $$;
-
 -- 4) RPC สำหรับ admin ดูจำนวนข้อมูลที่จะถูกลบ (preview)
 CREATE OR REPLACE FUNCTION public.get_purge_preview(_retention_years int DEFAULT 3)
 RETURNS jsonb
@@ -178,7 +282,6 @@ BEGIN
   RETURN res;
 END;
 $$;
-
 -- 5) RPC ดูปีการศึกษาทั้งหมดที่มีข้อมูลในระบบ
 CREATE OR REPLACE FUNCTION public.get_available_academic_years()
 RETURNS int[]

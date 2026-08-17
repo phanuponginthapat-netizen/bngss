@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.get_public_profile(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_public_profile(_id uuid)
 RETURNS TABLE(id uuid, first_name text, last_name text, nickname text, position_title text, department text, avatar_url text, email text, phone text, school_name text)
 LANGUAGE sql

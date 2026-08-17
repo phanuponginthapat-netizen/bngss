@@ -1,4 +1,3 @@
-
 -- Enhanced auto-link: match personnel by employee_code, email, OR first_name+last_name.
 -- Also fill in personnel.prefix/last_name from profile when placeholder values exist,
 -- then the existing schedule-name trigger will normalize schedules automatically.
@@ -72,17 +71,39 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
-
 -- Make the trigger fire on more relevant column changes, not only employee_code
-DROP TRIGGER IF EXISTS trg_auto_link_personnel ON public.profiles;
-CREATE TRIGGER trg_auto_link_personnel
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_auto_link_personnel ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_auto_link_personnel
 AFTER INSERT OR UPDATE OF employee_code, first_name, last_name, gender
 ON public.profiles
-FOR EACH ROW EXECUTE FUNCTION public.auto_link_personnel_on_profile();
-
+FOR EACH ROW EXECUTE FUNCTION public.auto_link_personnel_on_profile()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Ensure schedule-name normalizer trigger exists on personnel
-DROP TRIGGER IF EXISTS trg_auto_map_schedule_teacher ON public.personnel;
-CREATE TRIGGER trg_auto_map_schedule_teacher
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_auto_map_schedule_teacher ON public.personnel';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_auto_map_schedule_teacher
 AFTER INSERT OR UPDATE OF prefix, first_name, last_name
 ON public.personnel
-FOR EACH ROW EXECUTE FUNCTION public.auto_map_schedule_teacher_on_personnel();
+FOR EACH ROW EXECUTE FUNCTION public.auto_map_schedule_teacher_on_personnel()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

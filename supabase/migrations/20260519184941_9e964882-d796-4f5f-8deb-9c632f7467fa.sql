@@ -1,11 +1,8 @@
-
 -- 1) Reassign schedules from "ครูจิราภร" proxy to real personnel จิราภรณ์ จันทร์ดี
 UPDATE schedules SET teacher_name = 'นางจิราภรณ์ จันทร์ดี'
 WHERE teacher_name IN ('ครูจิราภร', 'จิราภร', 'ครูจิราภรณ์', 'จิราภรณ์');
-
 -- 2) Delete duplicate proxy personnel row (จิราภร is same as จิราภรณ์ จันทร์ดี)
 DELETE FROM personnel WHERE employee_code = 'T-จิราภรณ์' AND first_name = 'จิราภร';
-
 -- 3) Seed permanent mapping memory: AI Import จะจำเมื่อเจอชื่อย่อ/สะกดต่าง
 WITH p AS (
   SELECT id, employee_code, first_name FROM personnel WHERE status='active'

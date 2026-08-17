@@ -46,7 +46,6 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN NULL;
   END;
 END $function$;
-
 -- Update face scan trigger to forward captured face URL
 CREATE OR REPLACE FUNCTION public.notify_on_face_scan()
 RETURNS trigger

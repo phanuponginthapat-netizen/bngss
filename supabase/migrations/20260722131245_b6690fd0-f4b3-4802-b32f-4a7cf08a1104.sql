@@ -1,4 +1,3 @@
-
 -- 1) Enforce school_id via trigger on all school-scoped tables
 CREATE OR REPLACE FUNCTION public.enforce_school_id()
 RETURNS TRIGGER
@@ -34,7 +33,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 -- Attach trigger to every public table with a school_id column (except schools & profiles)
 DO $$
 DECLARE
@@ -59,7 +57,6 @@ BEGIN
     );
   END LOOP;
 END $$;
-
 -- 2) Snapshot run history
 CREATE TABLE IF NOT EXISTS public.district_snapshot_runs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -76,18 +73,57 @@ CREATE TABLE IF NOT EXISTS public.district_snapshot_runs (
   triggered_by text DEFAULT 'cron',
   created_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_snapshot_runs_started ON public.district_snapshot_runs(started_at DESC);
-
-GRANT SELECT ON public.district_snapshot_runs TO authenticated;
-GRANT ALL ON public.district_snapshot_runs TO service_role;
-ALTER TABLE public.district_snapshot_runs ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Admins view snapshot runs" ON public.district_snapshot_runs;
-DROP POLICY IF EXISTS "Admins view snapshot runs" ON public.district_snapshot_runs;
-CREATE POLICY "Admins view snapshot runs" ON public.district_snapshot_runs
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_snapshot_runs_started ON public.district_snapshot_runs(started_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT ON public.district_snapshot_runs TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.district_snapshot_runs TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.district_snapshot_runs ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins view snapshot runs" ON public.district_snapshot_runs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins view snapshot runs" ON public.district_snapshot_runs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins view snapshot runs" ON public.district_snapshot_runs
   FOR SELECT TO authenticated
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
+  USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 3) District feed outbox (retry + DLQ)
 CREATE TABLE IF NOT EXISTS public.district_feed_outbox (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -107,30 +143,103 @@ CREATE TABLE IF NOT EXISTS public.district_feed_outbox (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_outbox_pending ON public.district_feed_outbox(status, next_attempt_at) WHERE status IN ('pending','failed');
-CREATE INDEX IF NOT EXISTS idx_outbox_created ON public.district_feed_outbox(created_at DESC);
-
-GRANT SELECT ON public.district_feed_outbox TO authenticated;
-GRANT ALL ON public.district_feed_outbox TO service_role;
-ALTER TABLE public.district_feed_outbox ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Admins view outbox" ON public.district_feed_outbox;
-DROP POLICY IF EXISTS "Admins view outbox" ON public.district_feed_outbox;
-CREATE POLICY "Admins view outbox" ON public.district_feed_outbox
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_outbox_pending ON public.district_feed_outbox(status, next_attempt_at) WHERE status IN (''pending'',''failed'')';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_outbox_created ON public.district_feed_outbox(created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT ON public.district_feed_outbox TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.district_feed_outbox TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.district_feed_outbox ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins view outbox" ON public.district_feed_outbox';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins view outbox" ON public.district_feed_outbox';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins view outbox" ON public.district_feed_outbox
   FOR SELECT TO authenticated
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
-DROP POLICY IF EXISTS "Admins manage outbox" ON public.district_feed_outbox;
-DROP POLICY IF EXISTS "Admins manage outbox" ON public.district_feed_outbox;
-CREATE POLICY "Admins manage outbox" ON public.district_feed_outbox
+  USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage outbox" ON public.district_feed_outbox';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins manage outbox" ON public.district_feed_outbox';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins manage outbox" ON public.district_feed_outbox
   FOR UPDATE TO authenticated
-  USING (public.has_role(auth.uid(), 'admin'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin'));
-
-DROP TRIGGER IF EXISTS trg_outbox_updated ON public.district_feed_outbox;
-CREATE TRIGGER trg_outbox_updated BEFORE UPDATE ON public.district_feed_outbox
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
+  USING (public.has_role(auth.uid(), ''admin''))
+  WITH CHECK (public.has_role(auth.uid(), ''admin''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_outbox_updated ON public.district_feed_outbox';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_outbox_updated BEFORE UPDATE ON public.district_feed_outbox
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Helper: enqueue outbox item (usable by edge functions)
 CREATE OR REPLACE FUNCTION public.district_outbox_enqueue(
   p_endpoint text,
@@ -147,6 +256,17 @@ BEGIN
   RETURNING id INTO nid;
   RETURN nid;
 END $$;
-
-REVOKE ALL ON FUNCTION public.district_outbox_enqueue(text,jsonb,uuid,integer) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.district_outbox_enqueue(text,jsonb,uuid,integer) TO service_role;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.district_outbox_enqueue(text,jsonb,uuid,integer) FROM PUBLIC';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.district_outbox_enqueue(text,jsonb,uuid,integer) TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

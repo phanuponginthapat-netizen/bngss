@@ -1,9 +1,13 @@
-
-ALTER TABLE public.substitute_teaching
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.substitute_teaching
   ADD COLUMN IF NOT EXISTS proof_photo_url TEXT,
   ADD COLUMN IF NOT EXISTS proof_uploaded_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS proof_uploaded_by UUID;
-
+  ADD COLUMN IF NOT EXISTS proof_uploaded_by UUID';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.finalize_past_substitute_teaching()
 RETURNS INTEGER
 LANGUAGE plpgsql
@@ -24,5 +28,10 @@ BEGIN
   RETURN updated_count;
 END;
 $$;
-
-GRANT EXECUTE ON FUNCTION public.finalize_past_substitute_teaching() TO authenticated;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.finalize_past_substitute_teaching() TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

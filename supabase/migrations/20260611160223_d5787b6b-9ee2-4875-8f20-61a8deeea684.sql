@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.archive_old_data()
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -58,8 +57,6 @@ BEGIN
   );
 END;
 $function$;
-
-
 CREATE OR REPLACE FUNCTION public.archive_and_purge_old_data(_retention_years integer DEFAULT 3)
 RETURNS jsonb
 LANGUAGE plpgsql

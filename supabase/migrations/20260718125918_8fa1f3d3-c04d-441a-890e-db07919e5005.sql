@@ -1,4 +1,3 @@
-
 -- 1) profiles: prevent self-escalation
 CREATE OR REPLACE FUNCTION public.prevent_profile_self_escalation()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -9,12 +8,22 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_prevent_profile_self_escalation ON public.profiles;
-CREATE TRIGGER trg_prevent_profile_self_escalation
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_prevent_profile_self_escalation ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_prevent_profile_self_escalation
 BEFORE UPDATE ON public.profiles
-FOR EACH ROW EXECUTE FUNCTION public.prevent_profile_self_escalation();
-
+FOR EACH ROW EXECUTE FUNCTION public.prevent_profile_self_escalation()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 2) personnel: prevent self-editing sensitive fields
 CREATE OR REPLACE FUNCTION public.prevent_personnel_self_escalation()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -28,20 +37,42 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_prevent_personnel_self_escalation ON public.personnel;
-CREATE TRIGGER trg_prevent_personnel_self_escalation
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_prevent_personnel_self_escalation ON public.personnel';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_prevent_personnel_self_escalation
 BEFORE UPDATE ON public.personnel
-FOR EACH ROW EXECUTE FUNCTION public.prevent_personnel_self_escalation();
-
+FOR EACH ROW EXECUTE FUNCTION public.prevent_personnel_self_escalation()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 3) lesson_plans: scope peer view to same school
-DROP POLICY IF EXISTS lesson_plans_peer_view_approved ON public.lesson_plans;
-CREATE POLICY lesson_plans_peer_view_approved ON public.lesson_plans
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS lesson_plans_peer_view_approved ON public.lesson_plans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY lesson_plans_peer_view_approved ON public.lesson_plans
 FOR SELECT TO authenticated
 USING (
-  status = 'approved'
+  status = ''approved''
   AND (
     school_id IS NULL
     OR school_id = public.get_user_school_id(auth.uid())
   )
-);
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

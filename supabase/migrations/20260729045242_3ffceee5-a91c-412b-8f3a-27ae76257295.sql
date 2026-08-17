@@ -181,10 +181,20 @@ BEGIN
   RETURN out_sql;
 END;
 $fn$;
-
-REVOKE ALL ON FUNCTION public.export_schema_sql() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.export_schema_sql() TO service_role;
-
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.export_schema_sql() FROM PUBLIC, anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.export_schema_sql() TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============ 2) Auth users export / import (keep same passwords) ============
 CREATE OR REPLACE FUNCTION public.export_auth_users()
 RETURNS jsonb
@@ -227,10 +237,20 @@ AS $fn$
     ), '[]'::jsonb)
   );
 $fn$;
-
-REVOKE ALL ON FUNCTION public.export_auth_users() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.export_auth_users() TO service_role;
-
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.export_auth_users() FROM PUBLIC, anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.export_auth_users() TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.import_auth_users(_payload jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -305,10 +325,20 @@ BEGIN
   RETURN jsonb_build_object('users', n_users, 'identities', n_ident);
 END;
 $fn$;
-
-REVOKE ALL ON FUNCTION public.import_auth_users(jsonb) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.import_auth_users(jsonb) TO service_role;
-
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.import_auth_users(jsonb) FROM PUBLIC, anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.import_auth_users(jsonb) TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============ 3) Storage bucket config export ============
 CREATE OR REPLACE FUNCTION public.export_storage_buckets()
 RETURNS jsonb
@@ -324,10 +354,20 @@ AS $fn$
     'allowed_mime_types', b.allowed_mime_types
   )), '[]'::jsonb) FROM storage.buckets b;
 $fn$;
-
-REVOKE ALL ON FUNCTION public.export_storage_buckets() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.export_storage_buckets() TO service_role;
-
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.export_storage_buckets() FROM PUBLIC, anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.export_storage_buckets() TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============ 4) Storage RLS policies export ============
 CREATE OR REPLACE FUNCTION public.export_storage_policies_sql()
 RETURNS text
@@ -358,10 +398,20 @@ BEGIN
   RETURN out_sql;
 END;
 $fn$;
-
-REVOKE ALL ON FUNCTION public.export_storage_policies_sql() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.export_storage_policies_sql() TO service_role;
-
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.export_storage_policies_sql() FROM PUBLIC, anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.export_storage_policies_sql() TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============ 5) Restore-time SQL executor (service_role only) ============
 CREATE OR REPLACE FUNCTION public.exec_restore_sql(_sql text)
 RETURNS void
@@ -373,6 +423,17 @@ BEGIN
   EXECUTE _sql;
 END;
 $fn$;
-
-REVOKE ALL ON FUNCTION public.exec_restore_sql(text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.exec_restore_sql(text) TO service_role;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.exec_restore_sql(text) FROM PUBLIC, anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.exec_restore_sql(text) TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

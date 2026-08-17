@@ -1,6 +1,11 @@
 -- Create extension pg_net if not exists (for HTTP calls from triggers)
-CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
-
+DO $extguard$
+BEGIN
+  EXECUTE 'CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions';
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'skip extension: %', SQLERRM;
+END
+$extguard$;
 -- Create trigger function to send LINE notification
 CREATE OR REPLACE FUNCTION public.notify_line_on_notification()
 RETURNS trigger
@@ -51,10 +56,21 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 -- Create the trigger
-DROP TRIGGER IF EXISTS on_notification_send_line ON public.notifications;
-CREATE TRIGGER on_notification_send_line
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS on_notification_send_line ON public.notifications';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER on_notification_send_line
   AFTER INSERT ON public.notifications
   FOR EACH ROW
-  EXECUTE FUNCTION public.notify_line_on_notification();
+  EXECUTE FUNCTION public.notify_line_on_notification()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

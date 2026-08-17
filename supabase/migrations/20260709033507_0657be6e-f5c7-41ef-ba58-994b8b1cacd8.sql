@@ -1,4 +1,3 @@
-
 -- Part 1.1: เติม school_id ลงตารางหลักที่ยังไม่มี + backfill + trigger auto-fill
 -- Single-school: default = โรงเรียนบ้านหนองเงือก
 
@@ -7,55 +6,55 @@ DECLARE
   default_school uuid;
 BEGIN
   SELECT id INTO default_school FROM public.schools WHERE is_active = true ORDER BY created_at LIMIT 1;
+  -- ติดตั้งใหม่ที่ยังไม่มีข้อมูลโรงเรียน: เพิ่มคอลัมน์ตามปกติ แต่ข้ามการ backfill
   IF default_school IS NULL THEN
-    RAISE EXCEPTION 'No active school found';
+    RAISE NOTICE 'No active school found — columns will be added without backfill';
   END IF;
 
   -- hub_project_budgets
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='hub_project_budgets' AND column_name='school_id') THEN
     ALTER TABLE public.hub_project_budgets ADD COLUMN IF NOT EXISTS school_id uuid REFERENCES public.schools(id);
-    EXECUTE format('UPDATE public.hub_project_budgets SET school_id = %L WHERE school_id IS NULL', default_school);
-    CREATE INDEX IF NOT EXISTS idx_hub_project_budgets_school ON public.hub_project_budgets(school_id);
+    IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.hub_project_budgets SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_hub_project_budgets_school ON public.hub_project_budgets(school_id)';
   END IF;
 
   -- hub_project_expenses
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='hub_project_expenses' AND column_name='school_id') THEN
     ALTER TABLE public.hub_project_expenses ADD COLUMN IF NOT EXISTS school_id uuid REFERENCES public.schools(id);
-    EXECUTE format('UPDATE public.hub_project_expenses SET school_id = %L WHERE school_id IS NULL', default_school);
-    CREATE INDEX IF NOT EXISTS idx_hub_project_expenses_school ON public.hub_project_expenses(school_id);
+    IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.hub_project_expenses SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_hub_project_expenses_school ON public.hub_project_expenses(school_id)';
   END IF;
 
   -- hub_project_updates
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='hub_project_updates' AND column_name='school_id') THEN
     ALTER TABLE public.hub_project_updates ADD COLUMN IF NOT EXISTS school_id uuid REFERENCES public.schools(id);
-    EXECUTE format('UPDATE public.hub_project_updates SET school_id = %L WHERE school_id IS NULL', default_school);
-    CREATE INDEX IF NOT EXISTS idx_hub_project_updates_school ON public.hub_project_updates(school_id);
+    IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.hub_project_updates SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_hub_project_updates_school ON public.hub_project_updates(school_id)';
   END IF;
 
   -- student_leaves
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='student_leaves' AND column_name='school_id') THEN
     ALTER TABLE public.student_leaves ADD COLUMN IF NOT EXISTS school_id uuid REFERENCES public.schools(id);
-    EXECUTE format('UPDATE public.student_leaves SET school_id = %L WHERE school_id IS NULL', default_school);
-    CREATE INDEX IF NOT EXISTS idx_student_leaves_school ON public.student_leaves(school_id);
+    IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.student_leaves SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_student_leaves_school ON public.student_leaves(school_id)';
   END IF;
 
   -- Backfill NULL rows in tables that already have school_id
-  EXECUTE format('UPDATE public.students SET school_id = %L WHERE school_id IS NULL', default_school);
-  EXECUTE format('UPDATE public.personnel SET school_id = %L WHERE school_id IS NULL', default_school);
-  EXECUTE format('UPDATE public.classrooms SET school_id = %L WHERE school_id IS NULL', default_school);
-  EXECUTE format('UPDATE public.enrollments SET school_id = %L WHERE school_id IS NULL', default_school);
-  EXECUTE format('UPDATE public.attendance SET school_id = %L WHERE school_id IS NULL', default_school);
-  EXECUTE format('UPDATE public.behavior_records SET school_id = %L WHERE school_id IS NULL', default_school);
-  EXECUTE format('UPDATE public.news_posts SET school_id = %L WHERE school_id IS NULL', default_school);
-  EXECUTE format('UPDATE public.academic_events SET school_id = %L WHERE school_id IS NULL', default_school);
-  EXECUTE format('UPDATE public.documents SET school_id = %L WHERE school_id IS NULL', default_school);
-  EXECUTE format('UPDATE public.hub_projects SET school_id = %L WHERE school_id IS NULL', default_school);
-  EXECUTE format('UPDATE public.school_test_scores SET school_id = %L WHERE school_id IS NULL', default_school);
-  EXECUTE format('UPDATE public.action_plans SET school_id = %L WHERE school_id IS NULL', default_school);
-  EXECUTE format('UPDATE public.assets SET school_id = %L WHERE school_id IS NULL', default_school);
-  EXECUTE format('UPDATE public.budget_transactions SET school_id = %L WHERE school_id IS NULL', default_school);
+  IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.students SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
+  IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.personnel SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
+  IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.classrooms SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
+  IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.enrollments SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
+  IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.attendance SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
+  IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.behavior_records SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
+  IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.news_posts SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
+  IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.academic_events SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
+  IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.documents SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
+  IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.hub_projects SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
+  IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.school_test_scores SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
+  IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.action_plans SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
+  IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.assets SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
+  IF default_school IS NOT NULL THEN EXECUTE format('UPDATE public.budget_transactions SET school_id = %L WHERE school_id IS NULL', default_school); END IF;
 END $$;
-
 -- Auto-fill trigger: set school_id from profile if missing on insert
 CREATE OR REPLACE FUNCTION public.auto_set_school_id()
 RETURNS trigger
@@ -76,7 +75,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 DO $$
 DECLARE
   t text;
@@ -92,7 +90,6 @@ BEGIN
     EXECUTE format('CREATE TRIGGER trg_auto_school_id BEFORE INSERT ON public.%I FOR EACH ROW EXECUTE FUNCTION public.auto_set_school_id()', t);
   END LOOP;
 END $$;
-
 -- Table: hub_push_log — record of pushes to central Hub
 CREATE TABLE IF NOT EXISTS public.hub_push_log (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -106,16 +103,54 @@ CREATE TABLE IF NOT EXISTS public.hub_push_log (
   duration_ms int,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
-GRANT SELECT ON public.hub_push_log TO authenticated;
-GRANT ALL ON public.hub_push_log TO service_role;
-
-ALTER TABLE public.hub_push_log ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Admins view hub push log" ON public.hub_push_log;
-DROP POLICY IF EXISTS "Admins view hub push log" ON public.hub_push_log;
-CREATE POLICY "Admins view hub push log" ON public.hub_push_log
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT ON public.hub_push_log TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.hub_push_log TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.hub_push_log ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins view hub push log" ON public.hub_push_log';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admins view hub push log" ON public.hub_push_log';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admins view hub push log" ON public.hub_push_log
   FOR SELECT TO authenticated
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
-CREATE INDEX IF NOT EXISTS idx_hub_push_log_created ON public.hub_push_log(created_at DESC);
+  USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_hub_push_log_created ON public.hub_push_log(created_at DESC)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

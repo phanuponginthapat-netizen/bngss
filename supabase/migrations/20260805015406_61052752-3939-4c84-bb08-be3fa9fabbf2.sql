@@ -27,10 +27,20 @@ BEGIN
   RETURN jsonb_build_object('available', true, 'jobs', _out);
 END;
 $$;
-
-REVOKE ALL ON FUNCTION public.export_cron_jobs() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.export_cron_jobs() TO service_role;
-
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.export_cron_jobs() FROM PUBLIC';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.export_cron_jobs() TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.import_cron_jobs(_payload jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -61,6 +71,17 @@ BEGIN
   RETURN jsonb_build_object('applied', _n, 'errors', _errors);
 END;
 $$;
-
-REVOKE ALL ON FUNCTION public.import_cron_jobs(jsonb) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.import_cron_jobs(jsonb) TO service_role;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.import_cron_jobs(jsonb) FROM PUBLIC';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.import_cron_jobs(jsonb) TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

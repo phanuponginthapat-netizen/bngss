@@ -7,17 +7,43 @@ CREATE TABLE IF NOT EXISTS public.line_sessions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '15 minutes')
 );
-
-ALTER TABLE public.line_sessions ENABLE ROW LEVEL SECURITY;
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.line_sessions ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Only service role (edge functions) touches this — no client access policies
-DROP POLICY IF EXISTS "Service role only - line_sessions select" ON public.line_sessions;
-DROP POLICY IF EXISTS "Service role only - line_sessions select" ON public.line_sessions;
-CREATE POLICY "Service role only - line_sessions select"
-  ON public.line_sessions FOR SELECT TO authenticated USING (false);
-
-CREATE INDEX IF NOT EXISTS idx_line_sessions_expires ON public.line_sessions(expires_at);
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Service role only - line_sessions select" ON public.line_sessions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Service role only - line_sessions select" ON public.line_sessions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Service role only - line_sessions select"
+  ON public.line_sessions FOR SELECT TO authenticated USING (false)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_line_sessions_expires ON public.line_sessions(expires_at)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 -- Per-LINE-user notification preferences (opt-in for digest, face-scan alerts, etc)
 CREATE TABLE IF NOT EXISTS public.line_user_preferences (
   line_user_id TEXT PRIMARY KEY,
@@ -31,19 +57,51 @@ CREATE TABLE IF NOT EXISTS public.line_user_preferences (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
-ALTER TABLE public.line_user_preferences ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Service role only - line_user_preferences select" ON public.line_user_preferences;
-DROP POLICY IF EXISTS "Service role only - line_user_preferences select" ON public.line_user_preferences;
-CREATE POLICY "Service role only - line_user_preferences select"
-  ON public.line_user_preferences FOR SELECT TO authenticated USING (false);
-
-DROP TRIGGER IF EXISTS update_line_user_preferences_updated_at ON public.line_user_preferences;
-CREATE TRIGGER update_line_user_preferences_updated_at
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.line_user_preferences ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Service role only - line_user_preferences select" ON public.line_user_preferences';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Service role only - line_user_preferences select" ON public.line_user_preferences';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Service role only - line_user_preferences select"
+  ON public.line_user_preferences FOR SELECT TO authenticated USING (false)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS update_line_user_preferences_updated_at ON public.line_user_preferences';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER update_line_user_preferences_updated_at
   BEFORE UPDATE ON public.line_user_preferences
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Helper: clean expired sessions (called by edge function as needed)
 CREATE OR REPLACE FUNCTION public.cleanup_expired_line_sessions()
 RETURNS void

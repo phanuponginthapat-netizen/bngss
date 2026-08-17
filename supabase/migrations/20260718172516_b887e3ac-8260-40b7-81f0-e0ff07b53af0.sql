@@ -1,4 +1,3 @@
-
 CREATE TABLE IF NOT EXISTS public.role_notification_defaults (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   role text NOT NULL,
@@ -12,24 +11,73 @@ CREATE TABLE IF NOT EXISTS public.role_notification_defaults (
   updated_by uuid,
   UNIQUE (role, category)
 );
-
-GRANT SELECT ON public.role_notification_defaults TO authenticated, anon;
-GRANT ALL ON public.role_notification_defaults TO service_role;
-
-ALTER TABLE public.role_notification_defaults ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "anyone can read matrix" ON public.role_notification_defaults;
-DROP POLICY IF EXISTS "anyone can read matrix" ON public.role_notification_defaults;
-CREATE POLICY "anyone can read matrix"
-  ON public.role_notification_defaults FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "admin/director can manage matrix" ON public.role_notification_defaults;
-DROP POLICY IF EXISTS "admin/director can manage matrix" ON public.role_notification_defaults;
-CREATE POLICY "admin/director can manage matrix"
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT ON public.role_notification_defaults TO authenticated, anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.role_notification_defaults TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.role_notification_defaults ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "anyone can read matrix" ON public.role_notification_defaults';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "anyone can read matrix" ON public.role_notification_defaults';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "anyone can read matrix"
+  ON public.role_notification_defaults FOR SELECT USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "admin/director can manage matrix" ON public.role_notification_defaults';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "admin/director can manage matrix" ON public.role_notification_defaults';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "admin/director can manage matrix"
   ON public.role_notification_defaults FOR ALL
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
+  USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))
+  WITH CHECK (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 INSERT INTO public.role_notification_defaults (role, category, in_app, push, line, gchat, min_severity) VALUES
   ('admin','critical',   true, true, true, true, 'info'),
   ('admin','score',      true, true, false, true, 'info'),
@@ -90,25 +138,90 @@ INSERT INTO public.role_notification_defaults (role, category, in_app, push, lin
   ('alumni','news',       true, true, false,false,'info'),
   ('alumni','other',      false,false,false,false,'critical')
 ON CONFLICT (role, category) DO NOTHING;
-
-CREATE INDEX IF NOT EXISTS idx_notifications_user_unread
-  ON public.notifications(user_id, created_at DESC) WHERE is_read = false;
-CREATE INDEX IF NOT EXISTS idx_notifications_user_created
-  ON public.notifications(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_ndl_dedup_lookup
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_notifications_user_unread
+  ON public.notifications(user_id, created_at DESC) WHERE is_read = false';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_notifications_user_created
+  ON public.notifications(user_id, created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_ndl_dedup_lookup
   ON public.notification_delivery_log(notification_type, reason, created_at DESC)
-  WHERE reason LIKE 'dedup:%';
-CREATE INDEX IF NOT EXISTS idx_push_subs_user ON public.push_subscriptions(user_id);
-CREATE INDEX IF NOT EXISTS idx_attendance_student_date
-  ON public.attendance(student_id, attendance_date DESC);
-CREATE INDEX IF NOT EXISTS idx_face_scan_logs_created
-  ON public.face_scan_logs(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_behavior_records_student_created
-  ON public.behavior_records(student_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_chat_messages_conv_created
-  ON public.chat_messages(conversation_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_user_roles_user ON public.user_roles(user_id, role);
-CREATE INDEX IF NOT EXISTS idx_eform_recipients_status
-  ON public.eform_recipients(recipient_id, status);
-CREATE INDEX IF NOT EXISTS idx_task_assignments_user
-  ON public.task_assignments(assigned_to_user_id, status);
+  WHERE reason LIKE ''dedup:%''';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_push_subs_user ON public.push_subscriptions(user_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_attendance_student_date
+  ON public.attendance(student_id, attendance_date DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_face_scan_logs_created
+  ON public.face_scan_logs(created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_behavior_records_student_created
+  ON public.behavior_records(student_id, created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_chat_messages_conv_created
+  ON public.chat_messages(conversation_id, created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_user_roles_user ON public.user_roles(user_id, role)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_eform_recipients_status
+  ON public.eform_recipients(recipient_id, status)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_task_assignments_user
+  ON public.task_assignments(assigned_to_user_id, status)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;

@@ -10,7 +10,6 @@ BEGIN
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM anon, authenticated', r.sig);
   END LOOP;
 END $$;
-
 -- 2) ฟังก์ชันสำรอง/กู้คืน/โครงสร้างฐานข้อมูล: เฉพาะ service_role
 DO $$
 DECLARE r record;
@@ -27,20 +26,96 @@ BEGIN
     EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role', r.sig);
   END LOOP;
 END $$;
-
 -- 3) ฟังก์ชันภายในที่ต้องล็อกอินก่อน (ตัดสิทธิ์ anon)
-REVOKE ALL ON FUNCTION public.get_user_role(uuid) FROM anon;
-REVOKE ALL ON FUNCTION public.has_role(uuid, app_role) FROM anon;
-REVOKE ALL ON FUNCTION public.current_school_id() FROM anon;
-REVOKE ALL ON FUNCTION public.get_personnel_directory() FROM anon;
-REVOKE ALL ON FUNCTION public.get_staff_profiles() FROM anon;
-REVOKE ALL ON FUNCTION public.parent_child_ids(uuid) FROM anon;
-REVOKE ALL ON FUNCTION public.parent_child_codes(uuid) FROM anon;
-REVOKE ALL ON FUNCTION public.parent_child_classroom_ids(uuid) FROM anon;
-REVOKE ALL ON FUNCTION public.pick_auto_substitute(integer, integer, uuid, uuid) FROM anon;
-REVOKE ALL ON FUNCTION public.self_enroll_face(jsonb, text[], text) FROM anon;
-
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.get_user_role(uuid) FROM anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.has_role(uuid, app_role) FROM anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.current_school_id() FROM anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.get_personnel_directory() FROM anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.get_staff_profiles() FROM anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.parent_child_ids(uuid) FROM anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.parent_child_codes(uuid) FROM anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.parent_child_classroom_ids(uuid) FROM anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.pick_auto_substitute(integer, integer, uuid, uuid) FROM anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.self_enroll_face(jsonb, text[], text) FROM anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 4) ยืนยันว่าฟังก์ชันสาธารณะที่หน้าเว็บใช้จริงยังเรียกได้
-GRANT EXECUTE ON FUNCTION public.get_public_org_chart() TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_public_profile(uuid) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_profiles_public(uuid[]) TO anon, authenticated;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_public_org_chart() TO anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_public_profile(uuid) TO anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_profiles_public(uuid[]) TO anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

@@ -2,15 +2,18 @@
 DO $$ BEGIN
 CREATE TYPE public.dept_role AS ENUM ('member','head','deputy_head','section_head');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
 -- 2) ขยาย user_departments ให้มี dept_role + sync is_head
-ALTER TABLE public.user_departments
-  ADD COLUMN IF NOT EXISTS dept_role public.dept_role NOT NULL DEFAULT 'member';
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.user_departments
+  ADD COLUMN IF NOT EXISTS dept_role public.dept_role NOT NULL DEFAULT ''member''';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 UPDATE public.user_departments
    SET dept_role = 'head'
  WHERE is_head = true AND dept_role = 'member';
-
 CREATE OR REPLACE FUNCTION public.sync_user_dept_is_head()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -21,12 +24,22 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS user_departments_sync_is_head ON public.user_departments;
-CREATE TRIGGER user_departments_sync_is_head
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS user_departments_sync_is_head ON public.user_departments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER user_departments_sync_is_head
 BEFORE INSERT OR UPDATE OF dept_role ON public.user_departments
-FOR EACH ROW EXECUTE FUNCTION public.sync_user_dept_is_head();
-
+FOR EACH ROW EXECUTE FUNCTION public.sync_user_dept_is_head()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 3) ตารางกลุ่มสาระการเรียนรู้
 CREATE TABLE IF NOT EXISTS public.user_subject_groups (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -39,39 +52,110 @@ CREATE TABLE IF NOT EXISTS public.user_subject_groups (
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (user_id, subject_group)
 );
-
-CREATE INDEX IF NOT EXISTS idx_user_subject_groups_user ON public.user_subject_groups(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_subject_groups_group ON public.user_subject_groups(subject_group);
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_subject_groups TO authenticated;
-GRANT ALL ON public.user_subject_groups TO service_role;
-
-ALTER TABLE public.user_subject_groups ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Users view own subject groups" ON public.user_subject_groups;
-DROP POLICY IF EXISTS "Users view own subject groups" ON public.user_subject_groups;
-CREATE POLICY "Users view own subject groups"
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_user_subject_groups_user ON public.user_subject_groups(user_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_user_subject_groups_group ON public.user_subject_groups(subject_group)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_subject_groups TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.user_subject_groups TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.user_subject_groups ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users view own subject groups" ON public.user_subject_groups';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Users view own subject groups" ON public.user_subject_groups';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Users view own subject groups"
 ON public.user_subject_groups FOR SELECT
 TO authenticated
 USING (
   user_id = auth.uid()
-  OR public.has_role(auth.uid(), 'admin')
-  OR public.has_role(auth.uid(), 'director')
-);
-
-DROP POLICY IF EXISTS "Admin manage subject groups" ON public.user_subject_groups;
-DROP POLICY IF EXISTS "Admin manage subject groups" ON public.user_subject_groups;
-CREATE POLICY "Admin manage subject groups"
+  OR public.has_role(auth.uid(), ''admin'')
+  OR public.has_role(auth.uid(), ''director'')
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin manage subject groups" ON public.user_subject_groups';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin manage subject groups" ON public.user_subject_groups';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin manage subject groups"
 ON public.user_subject_groups FOR ALL
 TO authenticated
-USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
-WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
-DROP TRIGGER IF EXISTS update_user_subject_groups_updated_at ON public.user_subject_groups;
-CREATE TRIGGER update_user_subject_groups_updated_at
+USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))
+WITH CHECK (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS update_user_subject_groups_updated_at ON public.user_subject_groups';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER update_user_subject_groups_updated_at
 BEFORE UPDATE ON public.user_subject_groups
-FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 4) helper: role ในฝ่าย
 CREATE OR REPLACE FUNCTION public.get_user_dept_role(_user_id uuid, _dept public.school_department)
 RETURNS public.dept_role
@@ -84,6 +168,17 @@ AS $$
    WHERE user_id = _user_id AND department = _dept
    LIMIT 1
 $$;
-
-REVOKE EXECUTE ON FUNCTION public.get_user_dept_role(uuid, public.school_department) FROM anon, public;
-GRANT EXECUTE ON FUNCTION public.get_user_dept_role(uuid, public.school_department) TO authenticated;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.get_user_dept_role(uuid, public.school_department) FROM anon, public';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_user_dept_role(uuid, public.school_department) TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

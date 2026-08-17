@@ -22,7 +22,6 @@ AS $$
       )
   );
 $$;
-
 CREATE OR REPLACE FUNCTION public.can_upload_eform_attachment(_object_name text, _user_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -41,34 +40,91 @@ AS $$
       AND e.sender_id = _user_id
   );
 $$;
-
-DROP POLICY IF EXISTS "eform attach: sender can upload" ON storage.objects;
-DROP POLICY IF EXISTS "eform attach: sender can upload" ON storage.objects;
-CREATE POLICY "eform attach: sender can upload"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "eform attach: sender can upload" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "eform attach: sender can upload" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "eform attach: sender can upload"
 ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (
-  bucket_id = 'eform-attachments'
+  bucket_id = ''eform-attachments''
   AND public.can_upload_eform_attachment(storage.objects.name, auth.uid())
-);
-
-DROP POLICY IF EXISTS "eform attach: sender can delete" ON storage.objects;
-DROP POLICY IF EXISTS "eform attach: sender can delete" ON storage.objects;
-CREATE POLICY "eform attach: sender can delete"
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "eform attach: sender can delete" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "eform attach: sender can delete" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "eform attach: sender can delete"
 ON storage.objects FOR DELETE TO authenticated
 USING (
-  bucket_id = 'eform-attachments'
+  bucket_id = ''eform-attachments''
   AND public.can_upload_eform_attachment(storage.objects.name, auth.uid())
-);
-
-DROP POLICY IF EXISTS "eform attach: sender/recipients can read" ON storage.objects;
-DROP POLICY IF EXISTS "eform attach: sender or recipient can view" ON storage.objects;
-DROP POLICY IF EXISTS "eform attach: sender or recipient can view" ON storage.objects;
-CREATE POLICY "eform attach: sender or recipient can view"
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "eform attach: sender/recipients can read" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "eform attach: sender or recipient can view" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "eform attach: sender or recipient can view" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "eform attach: sender or recipient can view"
 ON storage.objects FOR SELECT TO authenticated
 USING (
-  bucket_id = 'eform-attachments'
+  bucket_id = ''eform-attachments''
   AND public.can_access_eform_attachment(
-    NULLIF((storage.foldername(storage.objects.name))[1], '')::uuid,
+    NULLIF((storage.foldername(storage.objects.name))[1], '''')::uuid,
     auth.uid()
   )
-);
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

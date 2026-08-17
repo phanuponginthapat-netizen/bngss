@@ -25,7 +25,6 @@ AS $$
       )
   );
 $$;
-
 CREATE OR REPLACE FUNCTION public.can_access_document_recipient(_recipient_row uuid, _doc uuid, _user uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -57,27 +56,96 @@ AS $$
       )
   );
 $$;
-
-REVOKE ALL ON FUNCTION public.is_document_recipient(uuid, uuid) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.can_access_document_recipient(uuid, uuid, uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.is_document_recipient(uuid, uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.can_access_document_recipient(uuid, uuid, uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.is_document_recipient(uuid, uuid) TO service_role;
-GRANT EXECUTE ON FUNCTION public.can_access_document_recipient(uuid, uuid, uuid) TO service_role;
-
-DROP POLICY IF EXISTS "Recipients and staff can view document_recipients" ON public.document_recipients;
-DROP POLICY IF EXISTS "Recipients and staff can view document_recipients" ON public.document_recipients;
-CREATE POLICY "Recipients and staff can view document_recipients"
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.is_document_recipient(uuid, uuid) FROM PUBLIC';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.can_access_document_recipient(uuid, uuid, uuid) FROM PUBLIC';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.is_document_recipient(uuid, uuid) TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.can_access_document_recipient(uuid, uuid, uuid) TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.is_document_recipient(uuid, uuid) TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.can_access_document_recipient(uuid, uuid, uuid) TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Recipients and staff can view document_recipients" ON public.document_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Recipients and staff can view document_recipients" ON public.document_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Recipients and staff can view document_recipients"
 ON public.document_recipients
 FOR SELECT
 TO authenticated
-USING (public.can_access_document_recipient(id, document_id, auth.uid()));
-
-DROP POLICY IF EXISTS "Recipients can update own row" ON public.document_recipients;
-DROP POLICY IF EXISTS "Recipients can update own row" ON public.document_recipients;
-CREATE POLICY "Recipients can update own row"
+USING (public.can_access_document_recipient(id, document_id, auth.uid()))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Recipients can update own row" ON public.document_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Recipients can update own row" ON public.document_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Recipients can update own row"
 ON public.document_recipients
 FOR UPDATE
 TO authenticated
 USING (public.can_access_document_recipient(id, document_id, auth.uid()))
-WITH CHECK (public.can_access_document_recipient(id, document_id, auth.uid()));
+WITH CHECK (public.can_access_document_recipient(id, document_id, auth.uid()))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

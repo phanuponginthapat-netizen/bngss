@@ -1,4 +1,3 @@
-
 UPDATE public.ai_providers SET enabled = true, priority = 1 WHERE model = 'deepseek/deepseek-chat-v3.1:free';
 UPDATE public.ai_providers SET enabled = true, priority = 2 WHERE model = 'qwen/qwen-2.5-72b-instruct:free';
 UPDATE public.ai_providers SET enabled = true, priority = 3 WHERE model = 'qwen/qwen2.5-vl-72b-instruct:free';

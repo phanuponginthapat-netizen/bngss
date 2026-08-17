@@ -4,8 +4,26 @@
 -- Authenticated clients no longer need to read it back — the admin UI never displays
 -- the existing token (password field with placeholder only).
 
-REVOKE SELECT (api_token) ON public.iot_devices FROM authenticated, anon;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE SELECT (api_token) ON public.iot_devices FROM authenticated, anon';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- INSERT/UPDATE column privileges remain so admins can set/rotate the token.
-GRANT INSERT (api_token), UPDATE (api_token) ON public.iot_devices TO authenticated;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT INSERT (api_token), UPDATE (api_token) ON public.iot_devices TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- service_role keeps full access for edge functions.
-GRANT ALL ON public.iot_devices TO service_role;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.iot_devices TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

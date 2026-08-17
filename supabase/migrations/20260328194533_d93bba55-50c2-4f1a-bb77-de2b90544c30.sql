@@ -1,4 +1,3 @@
-
 -- Attendance
 CREATE TABLE IF NOT EXISTS public.attendance (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -12,7 +11,6 @@ CREATE TABLE IF NOT EXISTS public.attendance (
   semester integer,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Behavior records
 CREATE TABLE IF NOT EXISTS public.behavior_records (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -24,7 +22,6 @@ CREATE TABLE IF NOT EXISTS public.behavior_records (
   recorded_by text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Student leaves
 CREATE TABLE IF NOT EXISTS public.student_leaves (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -37,7 +34,6 @@ CREATE TABLE IF NOT EXISTS public.student_leaves (
   approved_by text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Student screenings
 CREATE TABLE IF NOT EXISTS public.student_screenings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -51,7 +47,6 @@ CREATE TABLE IF NOT EXISTS public.student_screenings (
   screened_by text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Homeroom records
 CREATE TABLE IF NOT EXISTS public.homeroom_records (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -64,7 +59,6 @@ CREATE TABLE IF NOT EXISTS public.homeroom_records (
   visit_date date,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- SDQ records
 CREATE TABLE IF NOT EXISTS public.sdq_records (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -80,7 +74,6 @@ CREATE TABLE IF NOT EXISTS public.sdq_records (
   assessment_type text DEFAULT 'teacher',
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Home visits
 CREATE TABLE IF NOT EXISTS public.home_visits (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -93,7 +86,6 @@ CREATE TABLE IF NOT EXISTS public.home_visits (
   recommendations text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Health records
 CREATE TABLE IF NOT EXISTS public.health_records (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -105,7 +97,6 @@ CREATE TABLE IF NOT EXISTS public.health_records (
   follow_up_needed boolean DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- News posts
 CREATE TABLE IF NOT EXISTS public.news_posts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -118,7 +109,6 @@ CREATE TABLE IF NOT EXISTS public.news_posts (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Documents (e-saraban)
 CREATE TABLE IF NOT EXISTS public.documents (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -132,7 +122,6 @@ CREATE TABLE IF NOT EXISTS public.documents (
   notes text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Emergency broadcasts
 CREATE TABLE IF NOT EXISTS public.emergency_broadcasts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -144,7 +133,6 @@ CREATE TABLE IF NOT EXISTS public.emergency_broadcasts (
   sent_by text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Vaccine records
 CREATE TABLE IF NOT EXISTS public.vaccine_records (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -157,7 +145,6 @@ CREATE TABLE IF NOT EXISTS public.vaccine_records (
   notes text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Personnel
 CREATE TABLE IF NOT EXISTS public.personnel (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -174,7 +161,6 @@ CREATE TABLE IF NOT EXISTS public.personnel (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Time clock
 CREATE TABLE IF NOT EXISTS public.time_clock (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -186,7 +172,6 @@ CREATE TABLE IF NOT EXISTS public.time_clock (
   notes text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Staff leaves
 CREATE TABLE IF NOT EXISTS public.staff_leaves (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -199,7 +184,6 @@ CREATE TABLE IF NOT EXISTS public.staff_leaves (
   approved_by text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Staff evaluations
 CREATE TABLE IF NOT EXISTS public.staff_evaluations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -212,7 +196,6 @@ CREATE TABLE IF NOT EXISTS public.staff_evaluations (
   comments text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Substitute teaching
 CREATE TABLE IF NOT EXISTS public.substitute_teaching (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -226,7 +209,6 @@ CREATE TABLE IF NOT EXISTS public.substitute_teaching (
   notes text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Admissions
 CREATE TABLE IF NOT EXISTS public.admissions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -245,7 +227,6 @@ CREATE TABLE IF NOT EXISTS public.admissions (
   applied_at timestamptz NOT NULL DEFAULT now(),
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Homework assignments
 CREATE TABLE IF NOT EXISTS public.homework_assignments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -258,7 +239,6 @@ CREATE TABLE IF NOT EXISTS public.homework_assignments (
   status text NOT NULL DEFAULT 'active',
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Schedules
 CREATE TABLE IF NOT EXISTS public.schedules (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -273,7 +253,6 @@ CREATE TABLE IF NOT EXISTS public.schedules (
   semester integer,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Early childhood development
 CREATE TABLE IF NOT EXISTS public.early_childhood_dev (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -290,91 +269,593 @@ CREATE TABLE IF NOT EXISTS public.early_childhood_dev (
   assessed_at date DEFAULT CURRENT_DATE,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 -- Enable RLS
-ALTER TABLE public.attendance ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.behavior_records ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.student_leaves ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.student_screenings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.homeroom_records ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sdq_records ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.home_visits ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.health_records ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.news_posts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.emergency_broadcasts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.vaccine_records ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.personnel ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.time_clock ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.staff_leaves ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.staff_evaluations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.substitute_teaching ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.admissions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.homework_assignments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.schedules ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.early_childhood_dev ENABLE ROW LEVEL SECURITY;
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.attendance ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.behavior_records ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.student_leaves ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.student_screenings ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.homeroom_records ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.sdq_records ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.home_visits ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.health_records ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.news_posts ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.emergency_broadcasts ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.vaccine_records ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.personnel ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.time_clock ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.staff_leaves ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.staff_evaluations ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.substitute_teaching ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.admissions ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.homework_assignments ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.schedules ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.early_childhood_dev ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- RLS policies
-DROP POLICY IF EXISTS "Auth users manage attendance" ON public.attendance;
-DROP POLICY IF EXISTS "Auth users manage attendance" ON public.attendance;
-CREATE POLICY "Auth users manage attendance" ON public.attendance FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage behavior_records" ON public.behavior_records;
-DROP POLICY IF EXISTS "Auth users manage behavior_records" ON public.behavior_records;
-CREATE POLICY "Auth users manage behavior_records" ON public.behavior_records FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage student_leaves" ON public.student_leaves;
-DROP POLICY IF EXISTS "Auth users manage student_leaves" ON public.student_leaves;
-CREATE POLICY "Auth users manage student_leaves" ON public.student_leaves FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage student_screenings" ON public.student_screenings;
-DROP POLICY IF EXISTS "Auth users manage student_screenings" ON public.student_screenings;
-CREATE POLICY "Auth users manage student_screenings" ON public.student_screenings FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage homeroom_records" ON public.homeroom_records;
-DROP POLICY IF EXISTS "Auth users manage homeroom_records" ON public.homeroom_records;
-CREATE POLICY "Auth users manage homeroom_records" ON public.homeroom_records FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage sdq_records" ON public.sdq_records;
-DROP POLICY IF EXISTS "Auth users manage sdq_records" ON public.sdq_records;
-CREATE POLICY "Auth users manage sdq_records" ON public.sdq_records FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage home_visits" ON public.home_visits;
-DROP POLICY IF EXISTS "Auth users manage home_visits" ON public.home_visits;
-CREATE POLICY "Auth users manage home_visits" ON public.home_visits FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage health_records" ON public.health_records;
-DROP POLICY IF EXISTS "Auth users manage health_records" ON public.health_records;
-CREATE POLICY "Auth users manage health_records" ON public.health_records FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage news_posts" ON public.news_posts;
-DROP POLICY IF EXISTS "Auth users manage news_posts" ON public.news_posts;
-CREATE POLICY "Auth users manage news_posts" ON public.news_posts FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage documents" ON public.documents;
-DROP POLICY IF EXISTS "Auth users manage documents" ON public.documents;
-CREATE POLICY "Auth users manage documents" ON public.documents FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage emergency_broadcasts" ON public.emergency_broadcasts;
-DROP POLICY IF EXISTS "Auth users manage emergency_broadcasts" ON public.emergency_broadcasts;
-CREATE POLICY "Auth users manage emergency_broadcasts" ON public.emergency_broadcasts FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage vaccine_records" ON public.vaccine_records;
-DROP POLICY IF EXISTS "Auth users manage vaccine_records" ON public.vaccine_records;
-CREATE POLICY "Auth users manage vaccine_records" ON public.vaccine_records FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage personnel" ON public.personnel;
-DROP POLICY IF EXISTS "Auth users manage personnel" ON public.personnel;
-CREATE POLICY "Auth users manage personnel" ON public.personnel FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage time_clock" ON public.time_clock;
-DROP POLICY IF EXISTS "Auth users manage time_clock" ON public.time_clock;
-CREATE POLICY "Auth users manage time_clock" ON public.time_clock FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage staff_leaves" ON public.staff_leaves;
-DROP POLICY IF EXISTS "Auth users manage staff_leaves" ON public.staff_leaves;
-CREATE POLICY "Auth users manage staff_leaves" ON public.staff_leaves FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage staff_evaluations" ON public.staff_evaluations;
-DROP POLICY IF EXISTS "Auth users manage staff_evaluations" ON public.staff_evaluations;
-CREATE POLICY "Auth users manage staff_evaluations" ON public.staff_evaluations FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage substitute_teaching" ON public.substitute_teaching;
-DROP POLICY IF EXISTS "Auth users manage substitute_teaching" ON public.substitute_teaching;
-CREATE POLICY "Auth users manage substitute_teaching" ON public.substitute_teaching FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage admissions" ON public.admissions;
-DROP POLICY IF EXISTS "Auth users manage admissions" ON public.admissions;
-CREATE POLICY "Auth users manage admissions" ON public.admissions FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage homework_assignments" ON public.homework_assignments;
-DROP POLICY IF EXISTS "Auth users manage homework_assignments" ON public.homework_assignments;
-CREATE POLICY "Auth users manage homework_assignments" ON public.homework_assignments FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage schedules" ON public.schedules;
-DROP POLICY IF EXISTS "Auth users manage schedules" ON public.schedules;
-CREATE POLICY "Auth users manage schedules" ON public.schedules FOR ALL TO authenticated USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Auth users manage early_childhood_dev" ON public.early_childhood_dev;
-DROP POLICY IF EXISTS "Auth users manage early_childhood_dev" ON public.early_childhood_dev;
-CREATE POLICY "Auth users manage early_childhood_dev" ON public.early_childhood_dev FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage attendance" ON public.attendance';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage attendance" ON public.attendance';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage attendance" ON public.attendance FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage behavior_records" ON public.behavior_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage behavior_records" ON public.behavior_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage behavior_records" ON public.behavior_records FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage student_leaves" ON public.student_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage student_leaves" ON public.student_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage student_leaves" ON public.student_leaves FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage student_screenings" ON public.student_screenings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage student_screenings" ON public.student_screenings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage student_screenings" ON public.student_screenings FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage homeroom_records" ON public.homeroom_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage homeroom_records" ON public.homeroom_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage homeroom_records" ON public.homeroom_records FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage sdq_records" ON public.sdq_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage sdq_records" ON public.sdq_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage sdq_records" ON public.sdq_records FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage home_visits" ON public.home_visits';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage home_visits" ON public.home_visits';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage home_visits" ON public.home_visits FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage health_records" ON public.health_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage health_records" ON public.health_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage health_records" ON public.health_records FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage news_posts" ON public.news_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage news_posts" ON public.news_posts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage news_posts" ON public.news_posts FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage documents" ON public.documents';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage documents" ON public.documents';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage documents" ON public.documents FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage emergency_broadcasts" ON public.emergency_broadcasts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage emergency_broadcasts" ON public.emergency_broadcasts';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage emergency_broadcasts" ON public.emergency_broadcasts FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage vaccine_records" ON public.vaccine_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage vaccine_records" ON public.vaccine_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage vaccine_records" ON public.vaccine_records FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage personnel" ON public.personnel';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage personnel" ON public.personnel';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage personnel" ON public.personnel FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage time_clock" ON public.time_clock';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage time_clock" ON public.time_clock';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage time_clock" ON public.time_clock FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage staff_leaves" ON public.staff_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage staff_leaves" ON public.staff_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage staff_leaves" ON public.staff_leaves FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage staff_evaluations" ON public.staff_evaluations';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage staff_evaluations" ON public.staff_evaluations';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage staff_evaluations" ON public.staff_evaluations FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage substitute_teaching" ON public.substitute_teaching';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage substitute_teaching" ON public.substitute_teaching';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage substitute_teaching" ON public.substitute_teaching FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage admissions" ON public.admissions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage admissions" ON public.admissions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage admissions" ON public.admissions FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage homework_assignments" ON public.homework_assignments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage homework_assignments" ON public.homework_assignments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage homework_assignments" ON public.homework_assignments FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage schedules" ON public.schedules';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage schedules" ON public.schedules';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage schedules" ON public.schedules FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage early_childhood_dev" ON public.early_childhood_dev';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage early_childhood_dev" ON public.early_childhood_dev';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage early_childhood_dev" ON public.early_childhood_dev FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

@@ -2,57 +2,146 @@
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('document-files', 'document-files', false)
 ON CONFLICT (id) DO NOTHING;
-
 -- RLS policies สำหรับ document-files bucket
-DROP POLICY IF EXISTS "Authenticated users can read document files" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated users can read document files" ON storage.objects;
-CREATE POLICY "Authenticated users can read document files"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can read document files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can read document files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Authenticated users can read document files"
 ON storage.objects FOR SELECT
 TO authenticated
-USING (bucket_id = 'document-files');
-
-DROP POLICY IF EXISTS "Authenticated users can upload document files" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated users can upload document files" ON storage.objects;
-CREATE POLICY "Authenticated users can upload document files"
+USING (bucket_id = ''document-files'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can upload document files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can upload document files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Authenticated users can upload document files"
 ON storage.objects FOR INSERT
 TO authenticated
-WITH CHECK (bucket_id = 'document-files');
-
-DROP POLICY IF EXISTS "Authenticated users can update own document files" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated users can update own document files" ON storage.objects;
-CREATE POLICY "Authenticated users can update own document files"
+WITH CHECK (bucket_id = ''document-files'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can update own document files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can update own document files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Authenticated users can update own document files"
 ON storage.objects FOR UPDATE
 TO authenticated
-USING (bucket_id = 'document-files');
-
-DROP POLICY IF EXISTS "Admin/Director can delete document files" ON storage.objects;
-DROP POLICY IF EXISTS "Admin/Director can delete document files" ON storage.objects;
-CREATE POLICY "Admin/Director can delete document files"
+USING (bucket_id = ''document-files'')';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can delete document files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can delete document files" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/Director can delete document files"
 ON storage.objects FOR DELETE
 TO authenticated
 USING (
-  bucket_id = 'document-files' AND (
-    public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director')
+  bucket_id = ''document-files'' AND (
+    public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director'')
   )
-);
-
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- เพิ่มคอลัมน์ตอบกลับ + แนบไฟล์ตอบกลับใน document_recipients
-ALTER TABLE public.document_recipients
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.document_recipients
   ADD COLUMN IF NOT EXISTS reply_message text,
   ADD COLUMN IF NOT EXISTS reply_file_url text,
   ADD COLUMN IF NOT EXISTS reply_file_name text,
-  ADD COLUMN IF NOT EXISTS replied_at timestamp with time zone;
-
+  ADD COLUMN IF NOT EXISTS replied_at timestamp with time zone';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- อนุญาตให้ผู้รับอัปเดตเฉพาะแถวของตัวเอง (ตอบกลับ/อ่าน)
-DROP POLICY IF EXISTS "Recipients can update own row" ON public.document_recipients;
-DROP POLICY IF EXISTS "Recipients can update own row" ON public.document_recipients;
-CREATE POLICY "Recipients can update own row"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Recipients can update own row" ON public.document_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Recipients can update own row" ON public.document_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Recipients can update own row"
 ON public.document_recipients
 FOR UPDATE
 TO authenticated
 USING (recipient_user_id = auth.uid())
-WITH CHECK (recipient_user_id = auth.uid());
-
+WITH CHECK (recipient_user_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- แจ้งเตือนผู้ส่งเมื่อผู้รับตอบกลับ
 CREATE OR REPLACE FUNCTION public.notify_sender_on_document_reply()
 RETURNS trigger
@@ -81,8 +170,19 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_notify_sender_on_document_reply ON public.document_recipients;
-CREATE TRIGGER trg_notify_sender_on_document_reply
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_notify_sender_on_document_reply ON public.document_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_notify_sender_on_document_reply
 AFTER UPDATE ON public.document_recipients
-FOR EACH ROW EXECUTE FUNCTION public.notify_sender_on_document_reply();
+FOR EACH ROW EXECUTE FUNCTION public.notify_sender_on_document_reply()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

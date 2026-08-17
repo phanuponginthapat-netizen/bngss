@@ -12,4 +12,10 @@ SELECT
   mode() WITHIN GROUP (ORDER BY l.topic) FILTER (WHERE l.role='user') AS top_topic
 FROM public.ai_chat_logs l
 GROUP BY l.user_id;
-GRANT SELECT ON public.ai_usage_summary TO authenticated;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT ON public.ai_usage_summary TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

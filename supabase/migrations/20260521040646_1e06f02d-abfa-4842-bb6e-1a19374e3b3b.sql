@@ -1,4 +1,3 @@
-
 -- 1) student_leaves
 CREATE OR REPLACE FUNCTION public.gchat_on_student_leave()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -38,10 +37,21 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
-DROP TRIGGER IF EXISTS trg_gchat_student_leave ON public.student_leaves;
-CREATE TRIGGER trg_gchat_student_leave AFTER INSERT OR UPDATE ON public.student_leaves
-FOR EACH ROW EXECUTE FUNCTION public.gchat_on_student_leave();
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_gchat_student_leave ON public.student_leaves';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_gchat_student_leave AFTER INSERT OR UPDATE ON public.student_leaves
+FOR EACH ROW EXECUTE FUNCTION public.gchat_on_student_leave()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 2) eforms (new send)
 CREATE OR REPLACE FUNCTION public.gchat_on_eform()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -66,10 +76,21 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
-DROP TRIGGER IF EXISTS trg_gchat_eform ON public.eforms;
-CREATE TRIGGER trg_gchat_eform AFTER INSERT OR UPDATE ON public.eforms
-FOR EACH ROW EXECUTE FUNCTION public.gchat_on_eform();
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_gchat_eform ON public.eforms';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_gchat_eform AFTER INSERT OR UPDATE ON public.eforms
+FOR EACH ROW EXECUTE FUNCTION public.gchat_on_eform()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 2b) eform_recipients (signed / rejected) — fire once when status flips
 CREATE OR REPLACE FUNCTION public.gchat_on_eform_recipient()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -102,10 +123,21 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
-DROP TRIGGER IF EXISTS trg_gchat_eform_recipient ON public.eform_recipients;
-CREATE TRIGGER trg_gchat_eform_recipient AFTER UPDATE ON public.eform_recipients
-FOR EACH ROW EXECUTE FUNCTION public.gchat_on_eform_recipient();
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_gchat_eform_recipient ON public.eform_recipients';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_gchat_eform_recipient AFTER UPDATE ON public.eform_recipients
+FOR EACH ROW EXECUTE FUNCTION public.gchat_on_eform_recipient()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 3) ict_loans
 CREATE OR REPLACE FUNCTION public.gchat_on_ict_loan()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -140,10 +172,21 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
-DROP TRIGGER IF EXISTS trg_gchat_ict_loan ON public.ict_loans;
-CREATE TRIGGER trg_gchat_ict_loan AFTER INSERT OR UPDATE ON public.ict_loans
-FOR EACH ROW EXECUTE FUNCTION public.gchat_on_ict_loan();
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_gchat_ict_loan ON public.ict_loans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_gchat_ict_loan AFTER INSERT OR UPDATE ON public.ict_loans
+FOR EACH ROW EXECUTE FUNCTION public.gchat_on_ict_loan()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 4) asset_damage_reports
 CREATE OR REPLACE FUNCTION public.gchat_on_damage_report()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -171,10 +214,21 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
-DROP TRIGGER IF EXISTS trg_gchat_damage_report ON public.asset_damage_reports;
-CREATE TRIGGER trg_gchat_damage_report AFTER INSERT OR UPDATE ON public.asset_damage_reports
-FOR EACH ROW EXECUTE FUNCTION public.gchat_on_damage_report();
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_gchat_damage_report ON public.asset_damage_reports';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_gchat_damage_report AFTER INSERT OR UPDATE ON public.asset_damage_reports
+FOR EACH ROW EXECUTE FUNCTION public.gchat_on_damage_report()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 5) garbage_deposits — notify on high-value deposits (>=20 points) to avoid spam
 CREATE OR REPLACE FUNCTION public.gchat_on_garbage_deposit()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -198,10 +252,21 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
-DROP TRIGGER IF EXISTS trg_gchat_garbage_deposit ON public.garbage_deposits;
-CREATE TRIGGER trg_gchat_garbage_deposit AFTER INSERT ON public.garbage_deposits
-FOR EACH ROW EXECUTE FUNCTION public.gchat_on_garbage_deposit();
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_gchat_garbage_deposit ON public.garbage_deposits';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_gchat_garbage_deposit AFTER INSERT ON public.garbage_deposits
+FOR EACH ROW EXECUTE FUNCTION public.gchat_on_garbage_deposit()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 6) garbage_user_badges
 CREATE OR REPLACE FUNCTION public.gchat_on_garbage_badge()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -223,10 +288,21 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
-DROP TRIGGER IF EXISTS trg_gchat_garbage_badge ON public.garbage_user_badges;
-CREATE TRIGGER trg_gchat_garbage_badge AFTER INSERT ON public.garbage_user_badges
-FOR EACH ROW EXECUTE FUNCTION public.gchat_on_garbage_badge();
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_gchat_garbage_badge ON public.garbage_user_badges';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_gchat_garbage_badge AFTER INSERT ON public.garbage_user_badges
+FOR EACH ROW EXECUTE FUNCTION public.gchat_on_garbage_badge()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 7) Extend notification_types on existing webhooks (additive)
 UPDATE public.google_chat_webhooks
 SET notification_types = (

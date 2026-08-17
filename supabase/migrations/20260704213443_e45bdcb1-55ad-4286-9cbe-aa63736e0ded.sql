@@ -1,4 +1,3 @@
-
 -- Helper: notify admins + directors
 CREATE OR REPLACE FUNCTION public.notify_admins_directors(_title text, _message text, _type text, _ref_type text, _ref_id uuid)
 RETURNS void
@@ -13,7 +12,6 @@ BEGIN
   WHERE ur.role IN ('admin','director');
 END;
 $$;
-
 -- 1) ICT loan: notify borrower on approval / return
 CREATE OR REPLACE FUNCTION public.notify_ict_loan_status_change()
 RETURNS trigger
@@ -52,12 +50,22 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_ict_loan_notify ON public.ict_loans;
-CREATE TRIGGER trg_ict_loan_notify
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_ict_loan_notify ON public.ict_loans';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_ict_loan_notify
 AFTER UPDATE OF status ON public.ict_loans
-FOR EACH ROW EXECUTE FUNCTION public.notify_ict_loan_status_change();
-
+FOR EACH ROW EXECUTE FUNCTION public.notify_ict_loan_status_change()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 2) Health measurement: notify the student
 CREATE OR REPLACE FUNCTION public.notify_health_measurement()
 RETURNS trigger
@@ -78,12 +86,22 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_health_measurement_notify ON public.health_measurements;
-CREATE TRIGGER trg_health_measurement_notify
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_health_measurement_notify ON public.health_measurements';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_health_measurement_notify
 AFTER INSERT ON public.health_measurements
-FOR EACH ROW EXECUTE FUNCTION public.notify_health_measurement();
-
+FOR EACH ROW EXECUTE FUNCTION public.notify_health_measurement()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 3) Asset damage report: notify admins + directors
 CREATE OR REPLACE FUNCTION public.notify_asset_damage_report()
 RETURNS trigger
@@ -103,12 +121,22 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_asset_damage_notify ON public.asset_damage_reports;
-CREATE TRIGGER trg_asset_damage_notify
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_asset_damage_notify ON public.asset_damage_reports';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_asset_damage_notify
 AFTER INSERT ON public.asset_damage_reports
-FOR EACH ROW EXECUTE FUNCTION public.notify_asset_damage_report();
-
+FOR EACH ROW EXECUTE FUNCTION public.notify_asset_damage_report()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 4) Vaccine record: notify the student
 CREATE OR REPLACE FUNCTION public.notify_vaccine_record()
 RETURNS trigger
@@ -129,8 +157,19 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_vaccine_notify ON public.vaccine_records;
-CREATE TRIGGER trg_vaccine_notify
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_vaccine_notify ON public.vaccine_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_vaccine_notify
 AFTER INSERT ON public.vaccine_records
-FOR EACH ROW EXECUTE FUNCTION public.notify_vaccine_record();
+FOR EACH ROW EXECUTE FUNCTION public.notify_vaccine_record()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

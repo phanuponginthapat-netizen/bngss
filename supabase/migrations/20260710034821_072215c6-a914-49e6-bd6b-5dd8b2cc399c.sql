@@ -1,4 +1,3 @@
-
 -- ============================================================
 -- Prevent students from self-grading homework_submissions
 -- ============================================================
@@ -28,13 +27,23 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS prevent_homework_submission_self_grading ON public.homework_submissions;
-CREATE TRIGGER prevent_homework_submission_self_grading
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS prevent_homework_submission_self_grading ON public.homework_submissions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER prevent_homework_submission_self_grading
 BEFORE UPDATE ON public.homework_submissions
 FOR EACH ROW
-EXECUTE FUNCTION public.prevent_homework_submission_self_grading();
-
+EXECUTE FUNCTION public.prevent_homework_submission_self_grading()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============================================================
 -- Prevent students from self-grading task_assignments
 -- ============================================================
@@ -57,13 +66,23 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS prevent_task_assignment_self_grading ON public.task_assignments;
-CREATE TRIGGER prevent_task_assignment_self_grading
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS prevent_task_assignment_self_grading ON public.task_assignments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER prevent_task_assignment_self_grading
 BEFORE UPDATE ON public.task_assignments
 FOR EACH ROW
-EXECUTE FUNCTION public.prevent_task_assignment_self_grading();
-
+EXECUTE FUNCTION public.prevent_task_assignment_self_grading()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ============================================================
 -- Extend personnel self-escalation trigger to cover
 -- employee_code and status (in addition to school_id/department/position)
@@ -89,9 +108,20 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS prevent_personnel_self_escalation ON public.personnel;
-CREATE TRIGGER prevent_personnel_self_escalation
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS prevent_personnel_self_escalation ON public.personnel';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER prevent_personnel_self_escalation
 BEFORE UPDATE ON public.personnel
 FOR EACH ROW
-EXECUTE FUNCTION public.prevent_personnel_self_escalation();
+EXECUTE FUNCTION public.prevent_personnel_self_escalation()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

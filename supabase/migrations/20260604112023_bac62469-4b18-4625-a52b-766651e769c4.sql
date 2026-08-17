@@ -1,4 +1,3 @@
-
 -- Harden notification triggers: never block inserts, skip when no subscription/recipient exists.
 
 CREATE OR REPLACE FUNCTION public.notify_line_on_notification()
@@ -59,7 +58,6 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
-
 CREATE OR REPLACE FUNCTION public.trigger_push_notification()
 RETURNS trigger
 LANGUAGE plpgsql

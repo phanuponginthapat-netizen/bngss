@@ -1,4 +1,3 @@
-
 -- Fix 1: submission trigger should only fire when status = 'graded'
 CREATE OR REPLACE FUNCTION public.sync_homework_submission_to_pp5()
 RETURNS TRIGGER
@@ -31,14 +30,24 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 -- ตั้ง trigger ใหม่ให้ฟังการเปลี่ยน status ด้วย (เผื่อครูกดอนุมัติทีหลัง)
-DROP TRIGGER IF EXISTS trg_homework_submission_to_pp5 ON public.homework_submissions;
-CREATE TRIGGER trg_homework_submission_to_pp5
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_homework_submission_to_pp5 ON public.homework_submissions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_homework_submission_to_pp5
 AFTER INSERT OR UPDATE OF final_score, status
 ON public.homework_submissions
-FOR EACH ROW EXECUTE FUNCTION public.sync_homework_submission_to_pp5();
-
+FOR EACH ROW EXECUTE FUNCTION public.sync_homework_submission_to_pp5()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Fix 2: due_date = today ยังไม่ใช่ overdue
 CREATE OR REPLACE FUNCTION public.mark_overdue_homework_columns()
 RETURNS integer
@@ -64,7 +73,6 @@ BEGIN
   RETURN v_count;
 END;
 $$;
-
 -- Fix 3: backfill ที่ใช้งานได้จริง (migration เดิมเรียก helper ที่ไม่มี → เงียบ)
 DO $$
 DECLARE
@@ -99,7 +107,6 @@ BEGIN
     ON CONFLICT (student_id, column_id) DO NOTHING;
   END LOOP;
 END $$;
-
 -- Fix 4: ถ้ามี submission ที่ graded อยู่แล้ว → sync เข้า ปพ.5
 UPDATE public.student_column_scores scs
    SET score = sub.final_score, status = 'graded'

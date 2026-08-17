@@ -1,4 +1,6 @@
-ALTER TABLE public.profiles
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS nickname text,
   ADD COLUMN IF NOT EXISTS bio text,
   ADD COLUMN IF NOT EXISTS cover_photo_url text,
@@ -13,4 +15,8 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS student_code text,
   ADD COLUMN IF NOT EXISTS employee_code text,
   ADD COLUMN IF NOT EXISTS position_title text,
-  ADD COLUMN IF NOT EXISTS department text;
+  ADD COLUMN IF NOT EXISTS department text';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

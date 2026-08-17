@@ -64,7 +64,6 @@ BEGIN
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $function$;
-
 -- Cleanup existing duplicates from today
 DELETE FROM public.notifications a
 USING public.notifications b

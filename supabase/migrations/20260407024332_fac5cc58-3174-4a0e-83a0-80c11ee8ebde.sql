@@ -1,11 +1,14 @@
-
 -- Add is_approved column
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_approved boolean NOT NULL DEFAULT false;
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_approved boolean NOT NULL DEFAULT false';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Auto-approve existing admin
 UPDATE public.profiles SET is_approved = true 
 WHERE id IN (SELECT user_id FROM public.user_roles WHERE role = 'admin');
-
 -- Update handle_new_user to set is_approved = false for new signups
 CREATE OR REPLACE FUNCTION public.handle_new_user()
  RETURNS trigger

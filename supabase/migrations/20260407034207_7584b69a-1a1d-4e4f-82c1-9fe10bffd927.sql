@@ -1,10 +1,13 @@
-
 -- Change default value of is_approved to true
-ALTER TABLE public.profiles ALTER COLUMN is_approved SET DEFAULT true;
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.profiles ALTER COLUMN is_approved SET DEFAULT true';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Update all existing unapproved profiles
 UPDATE public.profiles SET is_approved = true WHERE is_approved = false;
-
 -- Update the trigger function to set is_approved = true
 CREATE OR REPLACE FUNCTION public.handle_new_user()
  RETURNS trigger

@@ -27,7 +27,6 @@ AS $$
     'g'
   )
 $$;
-
 CREATE OR REPLACE FUNCTION public.fill_schedule_teacher_id()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -71,7 +70,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 UPDATE public.schedules s
 SET teacher_id = p.id
 FROM public.personnel p

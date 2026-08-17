@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.resolve_scanned_student(_input text)
 RETURNS TABLE (
   id uuid,
@@ -73,6 +72,17 @@ BEGIN
   LIMIT 1;
 END;
 $$;
-
-REVOKE ALL ON FUNCTION public.resolve_scanned_student(text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.resolve_scanned_student(text) TO authenticated;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.resolve_scanned_student(text) FROM PUBLIC';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.resolve_scanned_student(text) TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

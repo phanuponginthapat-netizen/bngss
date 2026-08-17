@@ -9,13 +9,17 @@ SELECT 'SINGLE_SCHOOL',
   (SELECT value FROM public.cms_settings WHERE key='school_logo'),
   true
 WHERE NOT EXISTS (SELECT 1 FROM public.schools);
-
 CREATE OR REPLACE FUNCTION public.current_school_id()
 RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public' AS $$
   SELECT id FROM public.schools ORDER BY created_at ASC LIMIT 1
 $$;
-GRANT EXECUTE ON FUNCTION public.current_school_id() TO authenticated, anon, service_role;
-
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.current_school_id() TO authenticated, anon, service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Backfill NULL school_id + set DEFAULT, disabling triggers per table to bypass admin-only guards during backfill
 DO $$
 DECLARE
@@ -36,7 +40,6 @@ BEGIN
     EXECUTE format('ALTER TABLE public.%I ALTER COLUMN school_id SET DEFAULT public.current_school_id()', r.table_name);
   END LOOP;
 END $$;
-
 -- Enforce single school going forward
 CREATE OR REPLACE FUNCTION public.enforce_single_school()
 RETURNS trigger LANGUAGE plpgsql AS $$
@@ -46,8 +49,19 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_enforce_single_school ON public.schools;
-CREATE TRIGGER trg_enforce_single_school
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_enforce_single_school ON public.schools';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_enforce_single_school
   BEFORE INSERT ON public.schools
-  FOR EACH ROW EXECUTE FUNCTION public.enforce_single_school();
+  FOR EACH ROW EXECUTE FUNCTION public.enforce_single_school()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

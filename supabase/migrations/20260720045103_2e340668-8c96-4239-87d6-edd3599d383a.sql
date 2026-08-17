@@ -34,7 +34,6 @@ BEGIN
   END LOOP;
   RETURN NEW;
 END; $function$;
-
 -- Clean up existing duplicates from today (keep earliest per user + message)
 DELETE FROM public.notifications a
 USING public.notifications b

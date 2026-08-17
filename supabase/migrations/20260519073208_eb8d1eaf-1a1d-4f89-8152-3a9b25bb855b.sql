@@ -1,4 +1,3 @@
-
 -- Seed default admin user (idempotent — runs safely on every remix)
 DO $$
 DECLARE

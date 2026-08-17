@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.get_public_org_chart()
 RETURNS TABLE (
   id uuid,
@@ -46,9 +45,13 @@ AS $$
   WHERE COALESCE(p.status, 'active') = 'active'
   ORDER BY sort_rank, p.first_name;
 $$;
-
-GRANT EXECUTE ON FUNCTION public.get_public_org_chart() TO anon, authenticated;
-
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_public_org_chart() TO anon, authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 INSERT INTO public.cms_menu_items (label, url, sort_order, is_visible)
 SELECT 'ผังบุคลากร', '/org-chart', 90, true
 WHERE NOT EXISTS (SELECT 1 FROM public.cms_menu_items WHERE url = '/org-chart');

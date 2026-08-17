@@ -1,4 +1,3 @@
-
 -- Function: auto-enroll students when teacher_assignment is created
 CREATE OR REPLACE FUNCTION public.auto_enroll_students_on_assignment()
 RETURNS trigger
@@ -25,14 +24,24 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 -- Trigger on teacher_assignments insert
-DROP TRIGGER IF EXISTS trigger_auto_enroll_students ON public.teacher_assignments;
-CREATE TRIGGER trigger_auto_enroll_students
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trigger_auto_enroll_students ON public.teacher_assignments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trigger_auto_enroll_students
   AFTER INSERT ON public.teacher_assignments
   FOR EACH ROW
-  EXECUTE FUNCTION public.auto_enroll_students_on_assignment();
-
+  EXECUTE FUNCTION public.auto_enroll_students_on_assignment()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Also add unique constraint on enrollments to support ON CONFLICT
 DO $$
 BEGIN

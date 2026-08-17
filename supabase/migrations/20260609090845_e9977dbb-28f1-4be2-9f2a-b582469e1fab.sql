@@ -1,4 +1,3 @@
-
 -- Notify post author when someone reacts or comments on their wall post
 CREATE OR REPLACE FUNCTION public.notify_wall_post_reaction()
 RETURNS TRIGGER
@@ -37,12 +36,22 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_notify_wall_reaction ON public.wall_post_reactions;
-CREATE TRIGGER trg_notify_wall_reaction
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_notify_wall_reaction ON public.wall_post_reactions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_notify_wall_reaction
 AFTER INSERT ON public.wall_post_reactions
-FOR EACH ROW EXECUTE FUNCTION public.notify_wall_post_reaction();
-
+FOR EACH ROW EXECUTE FUNCTION public.notify_wall_post_reaction()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.notify_wall_post_comment()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -91,8 +100,19 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_notify_wall_comment ON public.wall_post_comments;
-CREATE TRIGGER trg_notify_wall_comment
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_notify_wall_comment ON public.wall_post_comments';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_notify_wall_comment
 AFTER INSERT ON public.wall_post_comments
-FOR EACH ROW EXECUTE FUNCTION public.notify_wall_post_comment();
+FOR EACH ROW EXECUTE FUNCTION public.notify_wall_post_comment()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

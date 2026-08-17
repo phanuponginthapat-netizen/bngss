@@ -1,5 +1,10 @@
-DROP TRIGGER IF EXISTS on_notification_send_line ON public.notifications;
-
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS on_notification_send_line ON public.notifications';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.notify_on_student_leave()
 RETURNS trigger
 LANGUAGE plpgsql

@@ -72,6 +72,17 @@ BEGIN
   RETURN jsonb_build_object('ok', true, 'summary', _summary);
 END;
 $$;
-
-REVOKE ALL ON FUNCTION public.reset_content_data() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.reset_content_data() TO authenticated;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.reset_content_data() FROM PUBLIC';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.reset_content_data() TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

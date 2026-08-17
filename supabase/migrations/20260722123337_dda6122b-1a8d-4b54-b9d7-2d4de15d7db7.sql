@@ -1,4 +1,3 @@
-
 -- Generic auto-audit trigger function
 CREATE OR REPLACE FUNCTION public.tg_auto_audit()
 RETURNS TRIGGER
@@ -68,7 +67,6 @@ EXCEPTION WHEN OTHERS THEN
   RETURN COALESCE(NEW, OLD);
 END;
 $$;
-
 -- Attach to critical tables (drop & re-create to be idempotent)
 DO $$
 DECLARE
@@ -94,8 +92,25 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
-
 -- Ensure the audit_logs table has helpful indexes for the viewer
-CREATE INDEX IF NOT EXISTS idx_audit_logs_target ON public.audit_logs(target_table, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON public.audit_logs(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON public.audit_logs(action, created_at DESC);
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_audit_logs_target ON public.audit_logs(target_table, created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON public.audit_logs(user_id, created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON public.audit_logs(action, created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;

@@ -1,4 +1,3 @@
-
 -- Budget/Financial tables
 CREATE TABLE IF NOT EXISTS public.budget_transactions (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -16,11 +15,34 @@ CREATE TABLE IF NOT EXISTS public.budget_transactions (
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-ALTER TABLE public.budget_transactions ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Auth users manage budget_transactions" ON public.budget_transactions;
-DROP POLICY IF EXISTS "Auth users manage budget_transactions" ON public.budget_transactions;
-CREATE POLICY "Auth users manage budget_transactions" ON public.budget_transactions FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.budget_transactions ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage budget_transactions" ON public.budget_transactions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage budget_transactions" ON public.budget_transactions';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage budget_transactions" ON public.budget_transactions FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Procurement (e-GP)
 CREATE TABLE IF NOT EXISTS public.procurement_records (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -38,11 +60,34 @@ CREATE TABLE IF NOT EXISTS public.procurement_records (
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-ALTER TABLE public.procurement_records ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Auth users manage procurement_records" ON public.procurement_records;
-DROP POLICY IF EXISTS "Auth users manage procurement_records" ON public.procurement_records;
-CREATE POLICY "Auth users manage procurement_records" ON public.procurement_records FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.procurement_records ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage procurement_records" ON public.procurement_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage procurement_records" ON public.procurement_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage procurement_records" ON public.procurement_records FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Asset Management
 CREATE TABLE IF NOT EXISTS public.assets (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -61,11 +106,34 @@ CREATE TABLE IF NOT EXISTS public.assets (
   fiscal_year INTEGER DEFAULT EXTRACT(year FROM now()),
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-ALTER TABLE public.assets ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Auth users manage assets" ON public.assets;
-DROP POLICY IF EXISTS "Auth users manage assets" ON public.assets;
-CREATE POLICY "Auth users manage assets" ON public.assets FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.assets ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage assets" ON public.assets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage assets" ON public.assets';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage assets" ON public.assets FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Student Subsidies (กสศ.)
 CREATE TABLE IF NOT EXISTS public.student_subsidies (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -83,11 +151,34 @@ CREATE TABLE IF NOT EXISTS public.student_subsidies (
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-ALTER TABLE public.student_subsidies ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Auth users manage student_subsidies" ON public.student_subsidies;
-DROP POLICY IF EXISTS "Auth users manage student_subsidies" ON public.student_subsidies;
-CREATE POLICY "Auth users manage student_subsidies" ON public.student_subsidies FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.student_subsidies ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage student_subsidies" ON public.student_subsidies';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage student_subsidies" ON public.student_subsidies';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage student_subsidies" ON public.student_subsidies FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Salary records
 CREATE TABLE IF NOT EXISTS public.salary_records (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -105,11 +196,34 @@ CREATE TABLE IF NOT EXISTS public.salary_records (
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-ALTER TABLE public.salary_records ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Auth users manage salary_records" ON public.salary_records;
-DROP POLICY IF EXISTS "Auth users manage salary_records" ON public.salary_records;
-CREATE POLICY "Auth users manage salary_records" ON public.salary_records FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.salary_records ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage salary_records" ON public.salary_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage salary_records" ON public.salary_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage salary_records" ON public.salary_records FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- ID Plan (Individual Development Plan)
 CREATE TABLE IF NOT EXISTS public.id_plan_records (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -126,7 +240,31 @@ CREATE TABLE IF NOT EXISTS public.id_plan_records (
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-ALTER TABLE public.id_plan_records ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Auth users manage id_plan_records" ON public.id_plan_records;
-DROP POLICY IF EXISTS "Auth users manage id_plan_records" ON public.id_plan_records;
-CREATE POLICY "Auth users manage id_plan_records" ON public.id_plan_records FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.id_plan_records ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage id_plan_records" ON public.id_plan_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users manage id_plan_records" ON public.id_plan_records';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users manage id_plan_records" ON public.id_plan_records FOR ALL TO authenticated USING (true) WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

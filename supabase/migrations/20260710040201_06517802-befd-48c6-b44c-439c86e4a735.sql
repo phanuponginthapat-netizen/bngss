@@ -1,4 +1,3 @@
-
 -- 1) Profiles: prevent self-escalation via UPDATE (school_id, department, is_approved, employee_code, student_code, account_linked, role-ish fields)
 CREATE OR REPLACE FUNCTION public.prevent_profile_self_escalation()
 RETURNS TRIGGER
@@ -22,23 +21,57 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_prevent_profile_self_escalation ON public.profiles;
-CREATE TRIGGER trg_prevent_profile_self_escalation
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_prevent_profile_self_escalation ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_prevent_profile_self_escalation
 BEFORE UPDATE ON public.profiles
-FOR EACH ROW EXECUTE FUNCTION public.prevent_profile_self_escalation();
-
+FOR EACH ROW EXECUTE FUNCTION public.prevent_profile_self_escalation()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 2) Storage: restrict game-covers INSERT to staff roles
-DROP POLICY IF EXISTS "game_covers_auth_write" ON storage.objects;
-DROP POLICY IF EXISTS "game_covers_staff_write" ON storage.objects;
-DROP POLICY IF EXISTS "game_covers_staff_write" ON storage.objects;
-CREATE POLICY "game_covers_staff_write" ON storage.objects
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "game_covers_auth_write" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "game_covers_staff_write" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "game_covers_staff_write" ON storage.objects';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "game_covers_staff_write" ON storage.objects
 FOR INSERT TO authenticated
 WITH CHECK (
-  bucket_id = 'game-covers'
+  bucket_id = ''game-covers''
   AND (
-    public.has_role(auth.uid(), 'admin')
-    OR public.has_role(auth.uid(), 'director')
-    OR public.has_role(auth.uid(), 'teacher')
+    public.has_role(auth.uid(), ''admin'')
+    OR public.has_role(auth.uid(), ''director'')
+    OR public.has_role(auth.uid(), ''teacher'')
   )
-);
+)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

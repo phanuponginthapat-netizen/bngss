@@ -1,4 +1,3 @@
-
 -- 1) Notification preferences per user
 CREATE TABLE IF NOT EXISTS public.notification_preferences (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -16,22 +15,66 @@ CREATE TABLE IF NOT EXISTS public.notification_preferences (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.notification_preferences TO authenticated;
-GRANT ALL ON public.notification_preferences TO service_role;
-ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "users manage own prefs" ON public.notification_preferences;
-DROP POLICY IF EXISTS "users manage own prefs" ON public.notification_preferences;
-CREATE POLICY "users manage own prefs" ON public.notification_preferences
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.notification_preferences TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.notification_preferences TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "users manage own prefs" ON public.notification_preferences';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "users manage own prefs" ON public.notification_preferences';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "users manage own prefs" ON public.notification_preferences
   FOR ALL TO authenticated
-  USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
-
-DROP TRIGGER IF EXISTS trg_notif_prefs_updated ON public.notification_preferences;
-CREATE TRIGGER trg_notif_prefs_updated
+  USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid())';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_notif_prefs_updated ON public.notification_preferences';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_notif_prefs_updated
   BEFORE UPDATE ON public.notification_preferences
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 2) Delivery log
 CREATE TABLE IF NOT EXISTS public.notification_delivery_log (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -45,20 +88,64 @@ CREATE TABLE IF NOT EXISTS public.notification_delivery_log (
   reference_type text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
-GRANT SELECT ON public.notification_delivery_log TO authenticated;
-GRANT ALL ON public.notification_delivery_log TO service_role;
-ALTER TABLE public.notification_delivery_log ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "admin/director can read logs" ON public.notification_delivery_log;
-DROP POLICY IF EXISTS "admin/director can read logs" ON public.notification_delivery_log;
-CREATE POLICY "admin/director can read logs" ON public.notification_delivery_log
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT ON public.notification_delivery_log TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.notification_delivery_log TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.notification_delivery_log ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "admin/director can read logs" ON public.notification_delivery_log';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "admin/director can read logs" ON public.notification_delivery_log';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "admin/director can read logs" ON public.notification_delivery_log
   FOR SELECT TO authenticated
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
-
-CREATE INDEX IF NOT EXISTS idx_notif_log_created ON public.notification_delivery_log(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_notif_log_user ON public.notification_delivery_log(user_id, created_at DESC);
-
+  USING (public.has_role(auth.uid(), ''admin'') OR public.has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_notif_log_created ON public.notification_delivery_log(created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_notif_log_user ON public.notification_delivery_log(user_id, created_at DESC)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 -- 3) Add to realtime publication
 DO $$
 BEGIN

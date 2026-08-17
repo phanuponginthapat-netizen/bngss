@@ -1,24 +1,20 @@
 ALTER ROLE anon SET timezone = 'Asia/Bangkok';
 ALTER ROLE authenticated SET timezone = 'Asia/Bangkok';
 ALTER ROLE service_role SET timezone = 'Asia/Bangkok';
-
 CREATE OR REPLACE FUNCTION public.now_bkk()
 RETURNS timestamptz LANGUAGE sql STABLE SET search_path = public AS $$
   SELECT now() AT TIME ZONE 'UTC' AT TIME ZONE 'UTC'
 $$;
-
 CREATE OR REPLACE FUNCTION public.fmt_time24(_ts timestamptz)
 RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public AS $$
   SELECT CASE WHEN _ts IS NULL THEN NULL
     ELSE to_char(_ts AT TIME ZONE 'Asia/Bangkok', 'HH24:MI') END
 $$;
-
 CREATE OR REPLACE FUNCTION public.fmt_datetime24(_ts timestamptz)
 RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public AS $$
   SELECT CASE WHEN _ts IS NULL THEN NULL
     ELSE to_char(_ts AT TIME ZONE 'Asia/Bangkok', 'DD/MM/YYYY HH24:MI') END
 $$;
-
 CREATE OR REPLACE FUNCTION public.fmt_datetime24_be(_ts timestamptz)
 RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public AS $$
   SELECT CASE WHEN _ts IS NULL THEN NULL ELSE
@@ -27,7 +23,6 @@ RETURNS text LANGUAGE sql IMMUTABLE SET search_path = public AS $$
     || ' ' || to_char(_ts AT TIME ZONE 'Asia/Bangkok', 'HH24:MI') || ' น.'
   END
 $$;
-
 CREATE OR REPLACE FUNCTION public.to_time24(_txt text)
 RETURNS time LANGUAGE plpgsql IMMUTABLE SET search_path = public AS $$
 DECLARE
@@ -44,15 +39,73 @@ BEGIN
   RETURN make_time(h, mi, se);
 END;
 $$;
-
-REVOKE ALL ON FUNCTION public.now_bkk() FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.fmt_time24(timestamptz) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.fmt_datetime24(timestamptz) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.fmt_datetime24_be(timestamptz) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.to_time24(text) FROM PUBLIC;
-
-GRANT EXECUTE ON FUNCTION public.now_bkk() TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.fmt_time24(timestamptz) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.fmt_datetime24(timestamptz) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.fmt_datetime24_be(timestamptz) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.to_time24(text) TO authenticated, service_role;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.now_bkk() FROM PUBLIC';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.fmt_time24(timestamptz) FROM PUBLIC';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.fmt_datetime24(timestamptz) FROM PUBLIC';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.fmt_datetime24_be(timestamptz) FROM PUBLIC';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'REVOKE ALL ON FUNCTION public.to_time24(text) FROM PUBLIC';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.now_bkk() TO authenticated, service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.fmt_time24(timestamptz) TO authenticated, service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.fmt_datetime24(timestamptz) TO authenticated, service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.fmt_datetime24_be(timestamptz) TO authenticated, service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.to_time24(text) TO authenticated, service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

@@ -1,7 +1,12 @@
 -- 1) Add room column to schedules (where this period happens — e.g. "Learning Center", "ห้องคอมฯ 1")
-ALTER TABLE public.schedules
-  ADD COLUMN IF NOT EXISTS room text;
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.schedules
+  ADD COLUMN IF NOT EXISTS room text';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 2) Learning Center bookings table
 CREATE TABLE IF NOT EXISTS public.learning_center_bookings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -24,76 +29,198 @@ CREATE TABLE IF NOT EXISTS public.learning_center_bookings (
   CONSTRAINT lcb_time_valid CHECK (end_time > start_time),
   CONSTRAINT lcb_status_valid CHECK (status IN ('confirmed','cancelled'))
 );
-
-GRANT SELECT ON public.learning_center_bookings TO authenticated;
-GRANT INSERT, UPDATE, DELETE ON public.learning_center_bookings TO authenticated;
-GRANT ALL ON public.learning_center_bookings TO service_role;
-
-ALTER TABLE public.learning_center_bookings ENABLE ROW LEVEL SECURITY;
-
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT SELECT ON public.learning_center_bookings TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT INSERT, UPDATE, DELETE ON public.learning_center_bookings TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT ALL ON public.learning_center_bookings TO service_role';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.learning_center_bookings ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- All authenticated can view (everyone can see room schedule)
-DROP POLICY IF EXISTS "LCB viewable by authenticated" ON public.learning_center_bookings;
-DROP POLICY IF EXISTS "LCB viewable by authenticated" ON public.learning_center_bookings;
-CREATE POLICY "LCB viewable by authenticated"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "LCB viewable by authenticated" ON public.learning_center_bookings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "LCB viewable by authenticated" ON public.learning_center_bookings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "LCB viewable by authenticated"
   ON public.learning_center_bookings FOR SELECT
-  TO authenticated USING (true);
-
+  TO authenticated USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Teachers/staff can create bookings
-DROP POLICY IF EXISTS "Staff can create bookings" ON public.learning_center_bookings;
-DROP POLICY IF EXISTS "Staff can create bookings" ON public.learning_center_bookings;
-CREATE POLICY "Staff can create bookings"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can create bookings" ON public.learning_center_bookings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Staff can create bookings" ON public.learning_center_bookings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Staff can create bookings"
   ON public.learning_center_bookings FOR INSERT
   TO authenticated
   WITH CHECK (
-    has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher')
-  );
-
+    has_role(auth.uid(),''admin'') OR has_role(auth.uid(),''director'') OR has_role(auth.uid(),''teacher'')
+  )';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Owner or admin/director can update
-DROP POLICY IF EXISTS "Owner or admin update bookings" ON public.learning_center_bookings;
-DROP POLICY IF EXISTS "Owner or admin update bookings" ON public.learning_center_bookings;
-CREATE POLICY "Owner or admin update bookings"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Owner or admin update bookings" ON public.learning_center_bookings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Owner or admin update bookings" ON public.learning_center_bookings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Owner or admin update bookings"
   ON public.learning_center_bookings FOR UPDATE
   TO authenticated
   USING (
     created_by = auth.uid()
-    OR has_role(auth.uid(),'admin')
-    OR has_role(auth.uid(),'director')
+    OR has_role(auth.uid(),''admin'')
+    OR has_role(auth.uid(),''director'')
   )
   WITH CHECK (
     created_by = auth.uid()
-    OR has_role(auth.uid(),'admin')
-    OR has_role(auth.uid(),'director')
-  );
-
+    OR has_role(auth.uid(),''admin'')
+    OR has_role(auth.uid(),''director'')
+  )';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Owner or admin/director can delete
-DROP POLICY IF EXISTS "Owner or admin delete bookings" ON public.learning_center_bookings;
-DROP POLICY IF EXISTS "Owner or admin delete bookings" ON public.learning_center_bookings;
-CREATE POLICY "Owner or admin delete bookings"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Owner or admin delete bookings" ON public.learning_center_bookings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Owner or admin delete bookings" ON public.learning_center_bookings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Owner or admin delete bookings"
   ON public.learning_center_bookings FOR DELETE
   TO authenticated
   USING (
     created_by = auth.uid()
-    OR has_role(auth.uid(),'admin')
-    OR has_role(auth.uid(),'director')
-  );
-
+    OR has_role(auth.uid(),''admin'')
+    OR has_role(auth.uid(),''director'')
+  )';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Indexes
-CREATE INDEX IF NOT EXISTS idx_lcb_date_time ON public.learning_center_bookings (booking_date, start_time);
-CREATE INDEX IF NOT EXISTS idx_lcb_teacher ON public.learning_center_bookings (teacher_id);
-CREATE INDEX IF NOT EXISTS idx_lcb_school ON public.learning_center_bookings (school_id);
-
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_lcb_date_time ON public.learning_center_bookings (booking_date, start_time)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_lcb_teacher ON public.learning_center_bookings (teacher_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_lcb_school ON public.learning_center_bookings (school_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 -- Prevent double-booking the same slot (same date + overlapping time would need exclusion;
 -- enforce simple unique on (booking_date, start_time) which covers period-based booking).
-CREATE UNIQUE INDEX IF NOT EXISTS uq_lcb_slot
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS uq_lcb_slot
   ON public.learning_center_bookings (booking_date, start_time)
-  WHERE status = 'confirmed';
-
+  WHERE status = ''confirmed''';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 -- updated_at trigger
-DROP TRIGGER IF EXISTS trg_lcb_updated_at ON public.learning_center_bookings;
-CREATE TRIGGER trg_lcb_updated_at
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_lcb_updated_at ON public.learning_center_bookings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_lcb_updated_at
   BEFORE UPDATE ON public.learning_center_bookings
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Auto-fill school_id from creator if not provided
 CREATE OR REPLACE FUNCTION public.lcb_fill_school()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -103,12 +230,22 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-
-DROP TRIGGER IF EXISTS trg_lcb_fill_school ON public.learning_center_bookings;
-CREATE TRIGGER trg_lcb_fill_school
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_lcb_fill_school ON public.learning_center_bookings';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_lcb_fill_school
   BEFORE INSERT ON public.learning_center_bookings
-  FOR EACH ROW EXECUTE FUNCTION public.lcb_fill_school();
-
+  FOR EACH ROW EXECUTE FUNCTION public.lcb_fill_school()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Realtime
 DO $$
 BEGIN
@@ -121,4 +258,10 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.learning_center_bookings;
   END IF;
 END $$;
-ALTER TABLE public.learning_center_bookings REPLICA IDENTITY FULL;
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.learning_center_bookings REPLICA IDENTITY FULL';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

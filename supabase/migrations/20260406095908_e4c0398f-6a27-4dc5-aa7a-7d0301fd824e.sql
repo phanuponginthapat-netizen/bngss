@@ -1,6 +1,11 @@
 -- Add user_id to personnel table
-ALTER TABLE public.personnel ADD COLUMN IF NOT EXISTS user_id UUID UNIQUE;
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.personnel ADD COLUMN IF NOT EXISTS user_id UUID UNIQUE';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Create function to auto-link personnel when profile is created
 CREATE OR REPLACE FUNCTION public.auto_link_personnel_on_profile()
 RETURNS TRIGGER
@@ -34,14 +39,24 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 -- Trigger to auto-link on profile insert/update
-DROP TRIGGER IF EXISTS trigger_auto_link_personnel ON public.profiles;
-CREATE TRIGGER trigger_auto_link_personnel
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trigger_auto_link_personnel ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trigger_auto_link_personnel
 AFTER INSERT OR UPDATE ON public.profiles
 FOR EACH ROW
-EXECUTE FUNCTION public.auto_link_personnel_on_profile();
-
+EXECUTE FUNCTION public.auto_link_personnel_on_profile()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Function to get current user's linked personnel record
 CREATE OR REPLACE FUNCTION public.get_my_personnel()
 RETURNS SETOF public.personnel
@@ -52,7 +67,6 @@ SET search_path = public
 AS $$
   SELECT * FROM public.personnel WHERE user_id = auth.uid();
 $$;
-
 -- Function to get current user's linked student record
 CREATE OR REPLACE FUNCTION public.get_my_student()
 RETURNS SETOF public.students

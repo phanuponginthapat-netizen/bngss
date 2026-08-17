@@ -1,11 +1,27 @@
 -- 1) FK columns
-ALTER TABLE public.classrooms
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.classrooms
   ADD COLUMN IF NOT EXISTS homeroom_teacher_id uuid REFERENCES public.personnel(id) ON DELETE SET NULL,
-  ADD COLUMN IF NOT EXISTS homeroom_teacher_2_id uuid REFERENCES public.personnel(id) ON DELETE SET NULL;
-
-CREATE INDEX IF NOT EXISTS idx_classrooms_homeroom_teacher_id ON public.classrooms(homeroom_teacher_id);
-CREATE INDEX IF NOT EXISTS idx_classrooms_homeroom_teacher_2_id ON public.classrooms(homeroom_teacher_2_id);
-
+  ADD COLUMN IF NOT EXISTS homeroom_teacher_2_id uuid REFERENCES public.personnel(id) ON DELETE SET NULL';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_classrooms_homeroom_teacher_id ON public.classrooms(homeroom_teacher_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
+DO $idxguard$
+BEGIN
+  EXECUTE 'CREATE INDEX IF NOT EXISTS idx_classrooms_homeroom_teacher_2_id ON public.classrooms(homeroom_teacher_2_id)';
+EXCEPTION
+  WHEN undefined_column OR undefined_table OR undefined_object OR duplicate_table THEN NULL;
+END
+$idxguard$;
 -- 2) Backfill homeroom_teacher_id from string match
 UPDATE public.classrooms c
 SET homeroom_teacher_id = p.id
@@ -18,7 +34,6 @@ WHERE c.homeroom_teacher_id IS NULL
     OR c.homeroom_teacher = CONCAT(p.prefix, p.first_name)
     OR c.homeroom_teacher = p.first_name
   );
-
 UPDATE public.classrooms c
 SET homeroom_teacher_2_id = p.id
 FROM public.personnel p
@@ -30,7 +45,6 @@ WHERE c.homeroom_teacher_2_id IS NULL
     OR c.homeroom_teacher_2 = CONCAT(p.prefix, p.first_name)
     OR c.homeroom_teacher_2 = p.first_name
   );
-
 -- 3) Keep homeroom_teacher text in sync with FK (for back-compat with old UI bits)
 CREATE OR REPLACE FUNCTION public.sync_classroom_homeroom_text()
 RETURNS TRIGGER
@@ -61,12 +75,22 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_sync_classroom_homeroom_text ON public.classrooms;
-CREATE TRIGGER trg_sync_classroom_homeroom_text
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_sync_classroom_homeroom_text ON public.classrooms';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_sync_classroom_homeroom_text
 BEFORE UPDATE ON public.classrooms
-FOR EACH ROW EXECUTE FUNCTION public.sync_classroom_homeroom_text();
-
+FOR EACH ROW EXECUTE FUNCTION public.sync_classroom_homeroom_text()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- 4) Backfill schedules.teacher_id from teacher_name (old rows)
 UPDATE public.schedules s
 SET teacher_id = p.id

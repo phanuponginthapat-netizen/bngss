@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.get_db_schema()
 RETURNS TABLE(table_name text, columns jsonb, col_count int)
 LANGUAGE sql
@@ -27,5 +26,10 @@ AS $$
   GROUP BY c.table_name
   ORDER BY c.table_name;
 $$;
-
-GRANT EXECUTE ON FUNCTION public.get_db_schema() TO authenticated;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.get_db_schema() TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

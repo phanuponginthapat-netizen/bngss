@@ -4,7 +4,6 @@ SET account_linked = true
 WHERE id IN (
   SELECT id FROM auth.users WHERE email LIKE '%@test.school'
 );
-
 -- Assign teacher@test.school to ALL departments so they can access every teaching menu during tests
 INSERT INTO public.user_departments (user_id, department, is_head)
 SELECT u.id, d.dept, false

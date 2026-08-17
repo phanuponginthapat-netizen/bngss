@@ -8,7 +8,6 @@ AS $$
   FROM unnest(a) WITH ORDINALITY AS x(v, i)
   JOIN unnest(b) WITH ORDINALITY AS y(v, i) USING (i);
 $$;
-
 CREATE OR REPLACE FUNCTION public.check_face_duplicate(
   _student_id uuid,
   _descriptors jsonb,
@@ -64,6 +63,17 @@ BEGIN
   RETURN;
 END;
 $$;
-
-GRANT EXECUTE ON FUNCTION public.face_distance(real[], real[]) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.check_face_duplicate(uuid, jsonb, real) TO authenticated;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.face_distance(real[], real[]) TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.check_face_duplicate(uuid, jsonb, real) TO authenticated';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

@@ -1,4 +1,3 @@
-
 -- Academic Calendar Events table
 CREATE TABLE IF NOT EXISTS public.academic_events (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -15,25 +14,63 @@ CREATE TABLE IF NOT EXISTS public.academic_events (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-
 -- Enable RLS
-ALTER TABLE public.academic_events ENABLE ROW LEVEL SECURITY;
-
+DO $guard$
+BEGIN
+  EXECUTE 'ALTER TABLE public.academic_events ENABLE ROW LEVEL SECURITY';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- RLS: Authenticated users can view all events
-DROP POLICY IF EXISTS "Auth users can view academic_events" ON public.academic_events;
-DROP POLICY IF EXISTS "Auth users can view academic_events" ON public.academic_events;
-CREATE POLICY "Auth users can view academic_events"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view academic_events" ON public.academic_events';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Auth users can view academic_events" ON public.academic_events';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Auth users can view academic_events"
   ON public.academic_events FOR SELECT TO authenticated
-  USING (true);
-
+  USING (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- RLS: Admin/Director can manage events
-DROP POLICY IF EXISTS "Admin/Director can manage academic_events" ON public.academic_events;
-DROP POLICY IF EXISTS "Admin/Director can manage academic_events" ON public.academic_events;
-CREATE POLICY "Admin/Director can manage academic_events"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage academic_events" ON public.academic_events';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Admin/Director can manage academic_events" ON public.academic_events';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Admin/Director can manage academic_events"
   ON public.academic_events FOR ALL TO authenticated
-  USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director'))
-  WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director'));
-
+  USING (has_role(auth.uid(), ''admin'') OR has_role(auth.uid(), ''director''))
+  WITH CHECK (has_role(auth.uid(), ''admin'') OR has_role(auth.uid(), ''director''))';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 -- Enable realtime
 DO $$
 BEGIN

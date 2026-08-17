@@ -24,12 +24,29 @@ BEGIN
                    fn.proname, fn.args);
   END LOOP;
 END $$;
-
 -- Fix overly permissive RLS on google_chat_logs (was open to public role with WITH CHECK true)
-DROP POLICY IF EXISTS "Service role can insert chat logs" ON public.google_chat_logs;
-DROP POLICY IF EXISTS "Service role can insert chat logs" ON public.google_chat_logs;
-CREATE POLICY "Service role can insert chat logs"
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Service role can insert chat logs" ON public.google_chat_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP POLICY IF EXISTS "Service role can insert chat logs" ON public.google_chat_logs';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE POLICY "Service role can insert chat logs"
 ON public.google_chat_logs
 FOR INSERT
 TO service_role
-WITH CHECK (true);
+WITH CHECK (true)';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;

@@ -18,14 +18,30 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_ensure_personnel_employee_code ON public.personnel;
-DROP TRIGGER IF EXISTS trg_ensure_personnel_required_fields ON public.personnel;
-CREATE TRIGGER trg_ensure_personnel_required_fields
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_ensure_personnel_employee_code ON public.personnel';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_ensure_personnel_required_fields ON public.personnel';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_ensure_personnel_required_fields
 BEFORE INSERT OR UPDATE OF employee_code, first_name, last_name, position, department, status, user_id
 ON public.personnel
-FOR EACH ROW EXECUTE FUNCTION public.ensure_personnel_required_fields();
-
+FOR EACH ROW EXECUTE FUNCTION public.ensure_personnel_required_fields()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.ensure_personnel_from_profile()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -70,12 +86,22 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_ensure_personnel_from_profile ON public.user_roles;
-CREATE TRIGGER trg_ensure_personnel_from_profile
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_ensure_personnel_from_profile ON public.user_roles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_ensure_personnel_from_profile
 AFTER INSERT ON public.user_roles
-FOR EACH ROW EXECUTE FUNCTION public.ensure_personnel_from_profile();
-
+FOR EACH ROW EXECUTE FUNCTION public.ensure_personnel_from_profile()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.sync_profile_to_personnel()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -101,13 +127,23 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_sync_profile_to_personnel ON public.profiles;
-CREATE TRIGGER trg_sync_profile_to_personnel
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_sync_profile_to_personnel ON public.profiles';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_sync_profile_to_personnel
 AFTER UPDATE OF first_name, last_name, phone, position_title, department, employee_code, hire_date, school_id
 ON public.profiles
-FOR EACH ROW EXECUTE FUNCTION public.sync_profile_to_personnel();
-
+FOR EACH ROW EXECUTE FUNCTION public.sync_profile_to_personnel()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 CREATE OR REPLACE FUNCTION public.sync_personnel_to_profile()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -134,13 +170,23 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-DROP TRIGGER IF EXISTS trg_sync_personnel_to_profile ON public.personnel;
-CREATE TRIGGER trg_sync_personnel_to_profile
+DO $guard$
+BEGIN
+  EXECUTE 'DROP TRIGGER IF EXISTS trg_sync_personnel_to_profile ON public.personnel';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
+DO $guard$
+BEGIN
+  EXECUTE 'CREATE TRIGGER trg_sync_personnel_to_profile
 AFTER INSERT OR UPDATE OF first_name, last_name, phone, position, department, employee_code, hire_date, school_id, user_id
 ON public.personnel
-FOR EACH ROW EXECUTE FUNCTION public.sync_personnel_to_profile();
-
+FOR EACH ROW EXECUTE FUNCTION public.sync_personnel_to_profile()';
+EXCEPTION WHEN undefined_table OR undefined_column OR undefined_function OR undefined_object OR undefined_parameter OR invalid_text_representation OR duplicate_object OR duplicate_table THEN
+  RAISE NOTICE 'skipped: %', SQLERRM;
+END
+$guard$;
 INSERT INTO public.personnel (
   user_id, employee_code, first_name, last_name,
   position, department, phone, status, school_id
