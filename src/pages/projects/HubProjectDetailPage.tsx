@@ -326,7 +326,7 @@ export default function HubProjectDetailPage() {
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setUpdateOpen(false)}>ยกเลิก</Button>
-                  <Button onClick={addUpdate}>เผยแพร่</Button>
+                  <Button onClick={addUpdate} disabled={savingUpdate}>เผยแพร่</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -386,7 +386,7 @@ export default function HubProjectDetailPage() {
                   <div className="col-span-2"><Label>หมายเหตุ</Label>
                     <Textarea value={budgetForm.notes} onChange={(e) => setBudgetForm({ ...budgetForm, notes: e.target.value })} /></div>
                 </div>
-                <DialogFooter><Button onClick={addBudget}>บันทึก</Button></DialogFooter>
+                <DialogFooter><Button onClick={addBudget} disabled={savingBudget}>บันทึก</Button></DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
@@ -446,7 +446,7 @@ export default function HubProjectDetailPage() {
                   <div className="col-span-2"><Label>หมายเหตุ</Label>
                     <Textarea value={expenseForm.notes} onChange={(e) => setExpenseForm({ ...expenseForm, notes: e.target.value })} /></div>
                 </div>
-                <DialogFooter><Button onClick={addExpense}>บันทึก</Button></DialogFooter>
+                <DialogFooter><Button onClick={addExpense} disabled={savingExpense}>บันทึก</Button></DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
