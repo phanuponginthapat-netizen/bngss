@@ -912,8 +912,9 @@ export function AppSidebar() {
                 </SidebarGroup>
               );
             }
+            const open = q ? true : (openSections[sec.key] ?? (sec.key === "me" || isActive));
             return (
-              <Collapsible key={sec.key} defaultOpen>
+              <Collapsible key={sec.key} open={open} onOpenChange={(v) => setSectionOpen(sec.key, v)}>
                 <SidebarGroup className="!p-0">
                   <CollapsibleTrigger className="w-full group/sec">
                     <div className="px-2 mt-0.5 mb-0.5">
