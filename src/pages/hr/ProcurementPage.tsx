@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { swal } from "@/lib/swal";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { Plus, Trash2, ShoppingCart } from "lucide-react";
 
 const METHODS = [
@@ -30,30 +32,57 @@ const ProcurementPage = () => {
   const { lang } = useLanguage();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ procurement_type: "purchase", method: "เฉพาะเจาะจง", description: "", vendor_name: "", amount: "", egp_number: "", contract_number: "", notes: "" });
+  const todayISO = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+  const emptyForm = () => ({ procurement_date: todayISO(), procurement_type: "purchase", method: "เฉพาะเจาะจง", description: "", vendor_name: "", amount: "", egp_number: "", contract_number: "", notes: "" });
+  const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
 
   const { data: records = [] } = useQuery({
     queryKey: ["procurement_records"],
-    queryFn: async () => {
-      const { data } = await supabase.from("procurement_records").select("*").order("procurement_date", { ascending: false });
-      return data || [];
-    },
+    queryFn: async () =>
+      fetchAllRows((from, to) =>
+        supabase
+          .from("procurement_records")
+          .select("*")
+          .order("procurement_date", { ascending: false })
+          .order("id")
+          .range(from, to),
+      ),
   });
 
   const handleAdd = async () => {
-    if (!form.description || !form.amount) { toast.error("กรุณากรอกข้อมูลให้ครบ"); return; }
-    const { error } = await supabase.from("procurement_records").insert({
-      ...form, amount: parseFloat(form.amount),
-    } as any);
-    if (error) { toast.error(error.message); return; }
-    toast.success("บันทึกสำเร็จ");
-    qc.invalidateQueries({ queryKey: ["procurement_records"] });
-    setOpen(false);
-    setForm({ procurement_type: "purchase", method: "เฉพาะเจาะจง", description: "", vendor_name: "", amount: "", egp_number: "", contract_number: "", notes: "" });
+    const amount = parseFloat(form.amount);
+    if (!form.description.trim()) { toast.error("กรุณากรอกรายละเอียด"); return; }
+    if (!Number.isFinite(amount) || amount <= 0) { toast.error("จำนวนเงินต้องมากกว่า 0"); return; }
+    setSaving(true);
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth?.user) { toast.error("กรุณาเข้าสู่ระบบใหม่"); return; }
+      const { error } = await supabase.from("procurement_records").insert({
+        ...form,
+        description: form.description.trim(),
+        vendor_name: form.vendor_name.trim() || null,
+        egp_number: form.egp_number.trim() || null,
+        contract_number: form.contract_number.trim() || null,
+        notes: form.notes.trim() || null,
+        amount,
+        requested_by: auth.user.id,
+      } as any);
+      if (error) { toast.error(error.message); return; }
+      toast.success("บันทึกสำเร็จ");
+      qc.invalidateQueries({ queryKey: ["procurement_records"] });
+      setOpen(false);
+      setForm(emptyForm());
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("procurement_records").delete().eq("id", id);
+    if (!(await swal.confirm({ title: "ต้องการลบรายการนี้หรือไม่?", danger: true }))) return;
+    const { error } = await supabase.from("procurement_records").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("ลบสำเร็จ");
     qc.invalidateQueries({ queryKey: ["procurement_records"] });
   };
 
@@ -74,6 +103,10 @@ const ProcurementPage = () => {
           <DialogContent className="sm:max-w-lg">
             <DialogHeader><DialogTitle>บันทึกการจัดซื้อจัดจ้าง</DialogTitle></DialogHeader>
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+              <div>
+                <Label>วันที่จัดซื้อ/จัดจ้าง *</Label>
+                <Input type="date" value={form.procurement_date} onChange={e => setForm(p => ({ ...p, procurement_date: e.target.value }))} />
+              </div>
               <div>
                 <Label>ประเภท</Label>
                 <Select value={form.procurement_type} onValueChange={v => setForm(p => ({ ...p, procurement_type: v }))}>
@@ -100,7 +133,7 @@ const ProcurementPage = () => {
               </div>
               <div><Label>เลขที่สัญญา</Label><Input value={form.contract_number} onChange={e => setForm(p => ({ ...p, contract_number: e.target.value }))} /></div>
               <div><Label>หมายเหตุ</Label><Textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} rows={2} /></div>
-              <Button onClick={handleAdd} className="w-full">บันทึก</Button>
+              <Button onClick={handleAdd} disabled={saving} className="w-full">{saving ? "กำลังบันทึก..." : "บันทึก"}</Button>
             </div>
           </DialogContent>
         </Dialog>
