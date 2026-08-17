@@ -357,7 +357,8 @@ function applyToBucket(
   max = 0,
 ) {
   const avg = count > 0 ? sum / count : 0;
-  const pct = max > 0 ? Math.round((sum / max) * 10000) / 100 : undefined;
+  // only trust the "คะแนนเต็ม" row when the raw sum actually fits inside it
+  const pct = max > 0 && sum <= max * 1.02 ? Math.round((sum / max) * 10000) / 100 : undefined;
   const value =
     sh.kind === "exam_scores"
       ? (pct !== undefined ? pct : st.directTotal !== undefined ? st.directTotal : sum)
