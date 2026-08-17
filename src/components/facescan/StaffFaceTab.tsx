@@ -458,6 +458,23 @@ const StaffFaceTab = () => {
                 {results.length > 0 && <Button variant="ghost" onClick={() => setResults([])}>ล้างผล</Button>}
               </div>
 
+              <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                <div>
+                  <p className="text-sm font-medium">เรียนรู้ใบหน้าเพิ่มอัตโนมัติระหว่างสแกน</p>
+                  <p className="text-xs text-muted-foreground">เก็บมุม/แสงใหม่เข้าคลังเมื่อจับคู่ได้อย่างมั่นใจ (สูงสุด {PERSONNEL_LEARN.MAX_PER_PERSON} ภาพ/คน)</p>
+                </div>
+                <Switch checked={autoLearn} onCheckedChange={setAutoLearn} />
+              </div>
+
+              {learnLog.length > 0 && (
+                <div className="rounded-lg border bg-muted/30 p-2 space-y-1">
+                  {learnLog.map((l, i) => (
+                    <p key={i} className="text-xs text-muted-foreground">{l}</p>
+                  ))}
+                </div>
+              )}
+
+
               <div className="space-y-2">
                 {results.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">ยังไม่มีผลการจำลอง</p>
