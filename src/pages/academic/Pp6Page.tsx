@@ -16,7 +16,7 @@ import { openPrintWindow, toThaiDigits } from "@/lib/printUtils";
 import { formatFullName, formatFullNameHtml } from "@/lib/nameFormat";
 import { toast } from "sonner";
 import PP6AutoImportDialog from "@/components/academic/PP6AutoImportDialog";
-import { Megaphone, CheckCircle2 } from "lucide-react";
+import { Megaphone, CheckCircle2, Database } from "lucide-react";
 import ReportCardPage from "./ReportCardPage";
 import { swal } from "@/lib/swal";
 import { BE_OFFSET } from "@/lib/dateBE";
@@ -451,6 +451,28 @@ const FileTab = () => {
     qc.invalidateQueries({ queryKey: ["pp6_files"] });
   };
 
+  const handleApplyToSystem = async (file: any) => {
+    if (!(await swal.confirm({
+      title: "บันทึกผลการเรียนเข้าระบบ?",
+      text: "ระบบจะนำคะแนน/เกรดในไฟล์นี้ไปบันทึกลงผลการเรียนของนักเรียน (ใช้ต่อใน ปพ.1 / ปพ.7 / ระเบียนสะสม)",
+    }))) return;
+    const t = toast.loading("กำลังบันทึกเข้าระบบ...");
+    try {
+      const { applyPpFileToSystem } = await import("@/lib/pp5ApplyToSystem");
+      const res = await applyPpFileToSystem(file, "pp6");
+      toast.dismiss(t);
+      toast.success(`บันทึกผลการเรียน ${res.distributed} รายการสำเร็จ`);
+      if (res.unmatched.length) toast.warning(`ไม่พบนักเรียน ${res.unmatched.length} คน: ${res.unmatched.slice(0, 5).join(", ")}`);
+      if (res.unmatchedSubjects.length) toast.warning(`จับคู่วิชาไม่ได้: ${res.unmatchedSubjects.slice(0, 5).join(", ")}`);
+      qc.invalidateQueries({ queryKey: ["pp6_files"] });
+    } catch (e: any) {
+      toast.dismiss(t);
+      toast.error(e?.message || "บันทึกเข้าระบบไม่สำเร็จ");
+    }
+  };
+
+
+
 
   const gradeGroups = [
     { label: "อนุบาล", grades: ["อ.1", "อ.2", "อ.3"] },
@@ -557,6 +579,16 @@ const FileTab = () => {
                                     <Button
                                       size="icon"
                                       variant="ghost"
+                                      title={f.applied_at ? "บันทึกเข้าระบบแล้ว — กดเพื่อบันทึกซ้ำ" : "บันทึกผลการเรียนเข้าระบบ (ปพ.1/ปพ.6/ปพ.7)"}
+                                      onClick={() => handleApplyToSystem(f)}
+                                    >
+                                      <Database className={`w-4 h-4 ${f.applied_at ? "text-green-600" : "text-primary"}`} />
+                                    </Button>
+                                  )}
+                                  {f.parsed_data && (
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
                                       title={f.announced_at ? "ประกาศแล้ว — กดเพื่อประกาศซ้ำ" : "ประกาศให้นักเรียน"}
                                       onClick={async () => {
                                         if (!(await swal.confirm({ title: "ประกาศผลการเรียนให้นักเรียน?", text: "ระบบจะแจ้งเตือนนักเรียนทุกคนในรายงานนี้" }))) return;
@@ -564,13 +596,15 @@ const FileTab = () => {
                                         const { data, error } = await supabase.functions.invoke("announce-pp6-scores", { body: { file_id: f.id } });
                                         toast.dismiss(t);
                                         if (error || (data as any)?.error) { toast.error((data as any)?.error || error?.message || "ประกาศไม่สำเร็จ"); return; }
-                                        toast.success(`ประกาศให้นักเรียน ${(data as any)?.notified || 0} คน จากทั้งหมด ${(data as any)?.total || 0} คน`);
+                                        const d = data as any;
+                                        toast.success(`ประกาศให้นักเรียน ${d?.notified_students ?? d?.notified ?? 0} คน (ผู้ปกครอง ${d?.notified_parents ?? 0}) จากทั้งหมด ${d?.total || 0} คน`);
                                         qc.invalidateQueries({ queryKey: ["pp6_files"] });
                                       }}
                                     >
                                       {f.announced_at ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Megaphone className="w-4 h-4 text-amber-600" />}
                                     </Button>
                                   )}
+
                                   {isAdmin && (
                                     <Button size="icon" variant="ghost" onClick={() => handleDelete(f.id, f.file_path)} title="ลบ (แอดมินเท่านั้น)">
                                       <Trash2 className="w-4 h-4 text-destructive" />
