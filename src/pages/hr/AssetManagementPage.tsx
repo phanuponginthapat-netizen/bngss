@@ -399,20 +399,23 @@ const AssetManagementPage = () => {
   const handleDelete = async (id: string) => {
     if (!(await swal.confirm({ title: "ต้องการลบสินทรัพย์นี้หรือไม่?", danger: true }))) return;
     const { error } = await supabase.from("assets").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error.message)); return; }
     qc.invalidateQueries({ queryKey: ["assets"] });
     qc.invalidateQueries({ queryKey: ["asset_damage_reports"] });
     toast.success("ลบสำเร็จ");
   };
 
   const handleReportDamage = async () => {
-    if (!reportAssetId || !reportDesc || !reporterName) {
+    if (!reportAssetId || !reportDesc.trim() || !reporterName.trim()) {
       toast.error("กรุณากรอกข้อมูลให้ครบ"); return;
     }
+    if (uploading) return;
+    setUploading(true);
     const { error } = await supabase.from("asset_damage_reports").insert({
-      asset_id: reportAssetId, description: reportDesc, reporter_name: reporterName,
+      asset_id: reportAssetId, description: reportDesc.trim(), reporter_name: reporterName.trim(),
     } as any);
-    if (error) { toast.error(error.message); return; }
+    setUploading(false);
+    if (error) { toast.error(saveErrorMessage(error.message)); return; }
     toast.success("แจ้งชำรุดสำเร็จ");
     qc.invalidateQueries({ queryKey: ["asset_damage_reports"] });
     setReportOpen(false); setReportAssetId(""); setReportDesc(""); setReporterName("");
