@@ -57,3 +57,10 @@ export async function generateVapidPair(): Promise<{ publicKey: string; privateK
   await persist("VAPID_PRIVATE_KEY", privateKey, "auto", "Auto-generated Web Push VAPID private key");
   return { publicKey, privateKey };
 }
+
+/** คีย์สำหรับ WizMind / CCTV bridge — สร้างเองอัตโนมัติเมื่อยังไม่มี */
+export async function generateWizmindBridgeKey(): Promise<string> {
+  const v = randomHex(24); // 48 hex chars
+  await persist("WIZMIND_BRIDGE_KEY", v, "auto", "Auto-generated key for WizMind/CCTV face-event bridge");
+  return v;
+}
