@@ -47,18 +47,14 @@ BEGIN
 END $$;
 DO $$
 BEGIN
-  DO $$
-  BEGIN
-    IF NOT EXISTS (
-      SELECT 1 FROM pg_publication_tables
-      WHERE pubname = 'supabase_realtime'
-        AND schemaname = 'public'
-        AND tablename = 'ai_chat_logs'
-    ) THEN
-      ALTER PUBLICATION supabase_realtime ADD TABLE public.ai_chat_logs;
-    END IF;
-  END $$;
-EXCEPTION WHEN duplicate_object THEN NULL;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'ai_chat_logs'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.ai_chat_logs;
+  END IF;
 END $$;
 ALTER TABLE public.ai_chat_logs REPLICA IDENTITY FULL;
 ALTER TABLE public.ai_user_memory REPLICA IDENTITY FULL;
