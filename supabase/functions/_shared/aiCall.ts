@@ -291,13 +291,28 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
     }
   }
 
-  const hint = errors.length === 0
-    ? (opts.vision
-        ? "ไม่มี AI provider ที่รองรับ Vision/OCR — admin ต้องเปิดใช้งาน provider ที่ supports_vision=true หรือเพิ่ม key ที่ /dashboard/admin/ai-key-pool"
-        : "ไม่มี AI provider ที่เปิดใช้งานและมี API key — admin โปรดตั้งค่าที่ /dashboard/admin/ai-providers หรือ /dashboard/admin/ai-key-pool")
-    : "All AI providers failed: " + errors.join(" | ");
+  // สรุป error ให้ผู้ใช้อ่านเข้าใจ (ภาษาไทย) พร้อมรายละเอียดสำหรับ admin
+  const joined = errors.join(" | ");
+  const lower = joined.toLowerCase();
+  let reason = "";
+  if (errors.length === 0) {
+    reason = opts.vision
+      ? "ไม่มี AI provider ที่รองรับ Vision/OCR — admin ต้องเปิดใช้งาน provider ที่ supports_vision=true หรือเพิ่ม key ที่ /dashboard/admin/ai-key-pool"
+      : "ไม่มี AI provider ที่เปิดใช้งานและมี API key — admin โปรดตั้งค่าที่ /dashboard/admin/ai-providers หรือ /dashboard/admin/ai-key-pool";
+  } else if (lower.includes("insufficient balance") || lower.includes("quota") || lower.includes("402") || lower.includes("429")) {
+    reason = "AI ใช้งานไม่ได้ชั่วคราว: เครดิต/โควตาของ API key หมด — admin โปรดเติมเครดิตหรือเพิ่ม key สำรองที่ /dashboard/admin/ai-key-pool";
+  } else if (lower.includes("missing api key") || lower.includes("no active")) {
+    reason = "AI ใช้งานไม่ได้: ยังไม่มี API key ที่ใช้งานได้ — admin โปรดเพิ่ม key ที่ /dashboard/admin/ai-key-pool";
+  } else if (lower.includes("no longer available") || lower.includes("does not exist") || lower.includes("model_not_found")) {
+    reason = "AI ใช้งานไม่ได้: โมเดลที่ตั้งค่าไว้ถูกยกเลิกโดยผู้ให้บริการ — admin โปรดแก้ชื่อโมเดลที่ /dashboard/admin/ai-providers";
+  } else {
+    reason = "AI ใช้งานไม่ได้ชั่วคราว โปรดลองใหม่อีกครั้ง";
+  }
+  const hint = errors.length === 0 ? reason : `${reason} [detail: ${joined.slice(0, 800)}]`;
   if (errors.length === 0) console.warn(NO_LOVABLE_AI_MSG);
+  console.error("aiCall failed:", joined);
   throw new Error(hint);
+
 }
 
 // ============================================================
