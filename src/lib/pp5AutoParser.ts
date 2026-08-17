@@ -378,7 +378,59 @@ function finalizeBucket(s: any) {
   }
 }
 
+/** true when the workbook has no single canonical subject but sheets carry many subject columns (ปพ.6) */
+function looksMultiSubject(sheets: PP5ParsedSheet[], meta: PP5ParsedWorkbook["meta"]): boolean {
+  if (meta.subjectName?.trim()) return false;
+  return sheets.some((s) => s.subjects.filter((x) => !isAggregated(x) && !isSeqHeader(x)).length >= 2);
+}
+
+/** ปพ.6: subject names live in the top header row → one bucket per subject column-group */
+function consolidateMulti(sheets: PP5ParsedSheet[]): PP5ParsedWorkbook["consolidated"] {
+  const byStudent = new Map<string, { studentCode: string; studentName: string; perSubject: Record<string, any> }>();
+  for (const sh of sheets) {
+    for (const st of sh.students) {
+      if (!byStudent.has(st.studentCode)) {
+        byStudent.set(st.studentCode, { studentCode: st.studentCode, studentName: st.studentName, perSubject: {} });
+      }
+      const rec = byStudent.get(st.studentCode)!;
+      for (const [subjName, data] of Object.entries(st.subjects)) {
+        if (!subjName || isAggregated(subjName) || isSeqHeader(subjName) || /^col_\d+$/.test(subjName)) continue;
+        const bucket = (rec.perSubject[subjName] ||= {});
+        let total: number | undefined;
+        const others: number[] = [];
+        for (const col of data.columns) {
+          const h = String(col.header || "");
+          if (isGradeHeader(h)) {
+            const g = nz(col.value);
+            if (g) { bucket.grade = g; bucket.gradeFromFile = true; }
+            continue;
+          }
+          if (typeof col.value === "number" && !isNaN(col.value)) {
+            if (isTotalHeader(h) || /คะแนน/.test(h)) total = Math.max(total ?? 0, col.value);
+            else others.push(col.value);
+          }
+        }
+        if (total === undefined && others.length) total = others.reduce((a, b) => a + b, 0);
+        if (typeof total === "number") {
+          bucket.examScore = Math.round(total * 100) / 100;
+          bucket.totalScore = bucket.examScore;
+          if (!bucket.gradeFromFile) bucket.grade = computeGrade(Math.min(100, total));
+        }
+      }
+      // drop empty buckets so downstream distribution doesn't create blank rows
+      for (const [k, v] of Object.entries(rec.perSubject)) {
+        if (v.totalScore === undefined && !v.grade) delete rec.perSubject[k];
+      }
+    }
+  }
+  return Array.from(byStudent.values()).filter((r) => Object.keys(r.perSubject).length > 0);
+}
+
 function consolidate(sheets: PP5ParsedSheet[], meta: PP5ParsedWorkbook["meta"]): PP5ParsedWorkbook["consolidated"] {
+  if (looksMultiSubject(sheets, meta)) {
+    const multi = consolidateMulti(sheets);
+    if (multi.length > 0) return multi;
+  }
   const canonicalSubject = meta.subjectName?.trim() || "รายวิชา";
   const byStudent = new Map<string, { studentCode: string; studentName: string; perSubject: Record<string, any> }>();
 
@@ -399,6 +451,7 @@ function consolidate(sheets: PP5ParsedSheet[], meta: PP5ParsedWorkbook["meta"]):
   for (const rec of byStudent.values()) for (const s of Object.values(rec.perSubject)) finalizeBucket(s);
   return Array.from(byStudent.values());
 }
+
 
 // ─── Entry point ──────────────────────────────────────────────────────────────
 export async function parsePP5Workbook(file: File | ArrayBuffer): Promise<PP5ParsedWorkbook> {
