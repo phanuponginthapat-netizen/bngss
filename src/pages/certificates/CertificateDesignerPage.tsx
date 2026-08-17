@@ -138,7 +138,7 @@ export default function CertificateDesignerPage() {
     setUploading(true);
     try {
       const compressed = await compressImage(file, { maxWidth: 2000, quality: 0.9 });
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const ext = ((file.name.match(/\.([A-Za-z0-9]{1,8})$/)?.[1] || "jpg").toLowerCase()).toLowerCase();
       const res = await uploadPublicFileWithFallback(
         "certificate-assets",
         `backgrounds/${Date.now()}.${ext}`,

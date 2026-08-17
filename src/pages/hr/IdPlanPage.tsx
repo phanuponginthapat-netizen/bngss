@@ -101,7 +101,7 @@ const IdPlanPage = () => {
 
   const uploadToBucket = async (file: File, kind: "order" | "image") => {
     if (!userId) { toast.error("กรุณาเข้าสู่ระบบ"); return null; }
-    const ext = file.name.split(".").pop() || "bin";
+    const ext = (file.name.match(/\.([A-Za-z0-9]{1,8})$/)?.[1] || "bin").toLowerCase();
     const safeName = file.name.replace(/[^\w.\-]/g, "_");
     const path = `${userId}/id-plan/${Date.now()}-${kind}-${safeName}`;
     const { error } = await supabase.storage.from("pa-files").upload(path, file, { upsert: false, contentType: file.type || undefined });

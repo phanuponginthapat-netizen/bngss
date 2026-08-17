@@ -20,7 +20,7 @@ export function ImageUploadField({ value, onChange, folder }: Props) {
     if (file.size > 5 * 1024 * 1024) return toast.error("ไฟล์ต้องไม่เกิน 5MB");
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "png";
+      const ext = (file.name.match(/\.([A-Za-z0-9]{1,8})$/)?.[1] || "png").toLowerCase();
       const path = `${folder}/${crypto.randomUUID()}.${ext}`;
       const result = await uploadPublicFileWithFallback("garbage-images", path, file, { upsert: false, contentType: file.type });
       onChange(result.publicUrl);

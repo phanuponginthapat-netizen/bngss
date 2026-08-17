@@ -950,7 +950,7 @@ function ManualUploadDialog({ onDone }: { onDone: () => void }) {
 
       if (kind !== "note") {
         if (!file) throw new Error("เลือกไฟล์ก่อน");
-        const ext = file.name.split(".").pop() || "bin";
+        const ext = (file.name.match(/\.([A-Za-z0-9]{1,8})$/)?.[1] || "bin").toLowerCase();
         const now = new Date();
         storage_path = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/manual/${crypto.randomUUID()}.${ext}`;
         const { error: upErr } = await supabase.storage.from("line-vault").upload(storage_path, file, { contentType: file.type });

@@ -109,7 +109,7 @@ export default function StaffTasksPage() {
       // อัปโหลดรูปแนบ (ถ้ามี)
       const uploaded: { path: string; name: string }[] = [];
       for (const file of images) {
-        const ext = file.name.split(".").pop() || "jpg";
+        const ext = (file.name.match(/\.([A-Za-z0-9]{1,8})$/)?.[1] || "jpg").toLowerCase();
         const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
         const { error: upErr } = await supabase.storage
           .from("task-attachments")

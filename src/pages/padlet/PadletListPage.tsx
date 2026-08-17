@@ -124,7 +124,7 @@ export default function PadletListPage() {
     if (!user) return;
     if (file.size > 5 * 1024 * 1024) { toast.error("รูปปกต้องไม่เกิน 5MB"); return; }
     setUploadingCover(true);
-    const ext = file.name.split(".").pop() || "jpg";
+    const ext = (file.name.match(/\.([A-Za-z0-9]{1,8})$/)?.[1] || "jpg").toLowerCase();
     const path = `covers/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
     const { error } = await supabase.storage.from("padlet").upload(path, file, { upsert: false, contentType: file.type });
     setUploadingCover(false);
