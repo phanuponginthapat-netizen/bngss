@@ -684,6 +684,96 @@ const FaceKioskPage = () => {
     };
   }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef]);
 
+  // ===== WizMind bridge: รับ event ใบหน้าจากกล้อง CCTV แบบ realtime แล้วจดจำทันที =====
+  useEffect(() => {
+    if (!wizmindOn || !modelReady || qrOnly) return;
+    let cancelled = false;
+    let busy = false;
+    const queue: CameraFaceEvent[] = [];
+    const opts = detectorOptionsHQ(416, 0.3);
+    const cropCanvas = document.createElement("canvas");
+
+    const toDataUrl = (img: HTMLImageElement, box?: { x: number; y: number; width: number; height: number }) => {
+      try {
+        const target = 160;
+        cropCanvas.width = target; cropCanvas.height = target;
+        const ctx = cropCanvas.getContext("2d");
+        if (!ctx) return undefined;
+        if (box) {
+          const pad = 0.2;
+          const px = Math.max(0, box.x - box.width * pad);
+          const py = Math.max(0, box.y - box.height * pad);
+          const pw = Math.min(img.naturalWidth - px, box.width * (1 + pad * 2));
+          const ph = Math.min(img.naturalHeight - py, box.height * (1 + pad * 2));
+          ctx.drawImage(img, px, py, pw, ph, 0, 0, target, target);
+        } else {
+          ctx.drawImage(img, 0, 0, target, target);
+        }
+        return cropCanvas.toDataURL("image/jpeg", 0.8);
+      } catch { return undefined; }
+    };
+
+    const process = async (ev: CameraFaceEvent) => {
+      let img: HTMLImageElement | null = null;
+      try {
+        img = await loadEventImage(ev.snapshot_path as string);
+        if (!img || cancelled) return;
+        const dets = await getAllDescriptors(img as any, opts);
+        if (!dets.length) { await markEventProcessed(ev.id, { matchedName: null }); return; }
+        // เลือกใบหน้าที่ใหญ่สุดในภาพ (กล้อง crop มาแล้วมักมีหน้าเดียว)
+        const det = dets.reduce((a, b) => (a.detection.box.width >= b.detection.box.width ? a : b));
+        const m = matchDescriptor(det.descriptor, matchKnown, threshold);
+        const found = m.studentId ? (matchKnown.find((k: any) => k.studentId === m.studentId) as any) : null;
+        if (!found || m.confidence < 0.66) {
+          await markEventProcessed(ev.id, { matchedName: null, distance: m.distance ?? null });
+          return;
+        }
+        const captured = toDataUrl(img, det.detection.box as any);
+        if (!found.isStaff) {
+          await recordScan(found.studentId, found.studentCode, found.name, found.classroom, found.avatar, m.confidence, captured, found.registeredFace);
+        }
+        setWizmindCount((c) => c + 1);
+        await markEventProcessed(ev.id, {
+          matchedUserId: found.isStaff ? null : found.studentId,
+          matchedName: found.name,
+          personType: found.isStaff ? "staff" : "student",
+          distance: m.distance ?? null,
+        });
+      } catch (e) {
+        console.error("wizmind event err", e);
+      } finally {
+        releaseEventImage(img);
+      }
+    };
+
+    const pump = async () => {
+      if (busy || cancelled) return;
+      busy = true;
+      try {
+        while (queue.length && !cancelled) {
+          const ev = queue.shift()!;
+          if (!isEventFresh(ev)) continue; // ทิ้ง event ค้างคิว เพื่อคง realtime
+          await process(ev);
+        }
+      } finally { busy = false; }
+    };
+
+    const unsub = subscribeWizmindEvents(
+      wizmindCam.trim(),
+      (ev) => {
+        // เก็บคิวสั้น ๆ (สูงสุด 5) — ถ้ามาถี่เกินให้ทิ้งของเก่า
+        queue.push(ev);
+        while (queue.length > 5) queue.shift();
+        void pump();
+      },
+      (status) => setWizmindStatus(status),
+    );
+
+    return () => { cancelled = true; unsub(); };
+  }, [wizmindOn, wizmindCam, modelReady, qrOnly, matchKnown, threshold, recordScan]);
+
+
+
   // ===== QR Code fallback scan (รองรับกรณีสแกนหน้าไม่ติด) =====
   // อ่าน QR จากเฟรมวิดีโอเดียวกัน ใช้ native BarcodeDetector ถ้ามี
   // กันสแกนซ้ำผ่าน seenTodayRef + cooldownRef เดิม (รวมถึงเคสจับทั้งหน้า+QR พร้อมกัน)
