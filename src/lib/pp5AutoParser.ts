@@ -253,7 +253,7 @@ function normalizeGradeLevel(raw: string): string {
 
 /** value that is really a table header ("รายวิชา (ชื่อเต็ม)", "กรุณาเลือก") rather than data */
 const isHeaderLikeValue = (v: string) =>
-  /^(รายวิชา|รหัสวิชา|ชื่อวิชา|ชื่อ\s*-\s*สกุล|กรุณาเลือก|ชื่อเต็ม|-)/i.test(v.trim());
+  /^(รายวิชา|รหัสวิชา|ชื่อวิชา|ชื่อ\s*-\s*สกุล|กรุณาเลือก|ชื่อเต็ม|น้ำหนัก|หน่วยกิต|จำนวน|ประเภท|-)/i.test(v.trim());
 
 /** "1", "๒", "ปลายปี", "ตลอดปี" → numeric semester */
 
@@ -386,8 +386,11 @@ function finalizeBucket(s: any) {
 
 /** true when the workbook has no single canonical subject but sheets carry many subject columns (ปพ.6) */
 function looksMultiSubject(sheets: PP5ParsedSheet[], meta: PP5ParsedWorkbook["meta"]): boolean {
-  if (meta.subjectName?.trim()) return false;
-  return sheets.some((s) => s.subjects.filter((x) => !isAggregated(x) && !isSeqHeader(x)).length >= 2);
+  const manySubjects = sheets.some(
+    (s) => s.subjects.filter((x) => !isAggregated(x) && !isSeqHeader(x) && /[ก-๙a-z]/i.test(x)).length >= 3,
+  );
+  if (manySubjects) return true; // ปพ.6 layout wins even if a stray "รายวิชา" label was picked up
+  return !meta.subjectName?.trim() && sheets.some((s) => s.subjects.filter((x) => !isAggregated(x) && !isSeqHeader(x)).length >= 2);
 }
 
 /** ปพ.6: subject names live in the top header row → one bucket per subject column-group */
