@@ -10,11 +10,13 @@ Deno.serve(async (req) => {
   try {
     const apiKey = Deno.env.get("ELEVENLABS_API_KEY");
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: "ELEVENLABS_API_KEY not configured", fallback: true }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      // ไม่ได้ตั้งค่า key = ไม่ใช่ error ของระบบ — ให้ client ใช้เสียงในบราวเซอร์แทน (คืน 200)
+      return new Response(
+        JSON.stringify({ error: "ELEVENLABS_API_KEY not configured", fallback: true, quota: true, configured: false }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
+
 
     const { text, voiceId } = await req.json();
     if (!text || typeof text !== "string") {
@@ -54,7 +56,8 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ error: errBody, status: resp.status, fallback: isQuota, quota: isQuota }),
         {
-          status: isQuota ? 429 : resp.status,
+          // คืน 200 เสมอเพื่อให้ client fallback ได้โดยไม่เกิด runtime error
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
@@ -67,7 +70,7 @@ Deno.serve(async (req) => {
     });
   } catch (e) {
     return new Response(JSON.stringify({ error: (e as Error).message, fallback: true }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
