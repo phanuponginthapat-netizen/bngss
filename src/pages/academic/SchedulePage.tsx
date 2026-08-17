@@ -870,9 +870,11 @@ const SchedulePage = () => {
                         {p}
                       </td>
                       {days.map((d) => {
-                        if (coveredBy(d.val, p)) return null; // ถูกคาบคู่ครอบอยู่แล้ว
-                        const item = startingAt(d.val, p);
-                        const span = item ? spanOf(item) : 1;
+                        if (isCovered(d.val, p)) return null; // ถูกคาบคู่ครอบอยู่แล้ว
+                        const cell = cellAt(d.val, p);
+                        const item = cell?.items[0];
+                        const extraItems = cell?.items.slice(1) || [];
+                        const span = cell?.span || 1;
                         const subType = item ? getSubjectType(item.subject_id) : "";
                         const roomBookings = bookingByDayPeriod[`${d.val}-${p}`] || [];
                         return (
