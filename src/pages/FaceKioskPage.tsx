@@ -513,6 +513,54 @@ const FaceKioskPage = () => {
     }, ...r].slice(0, 10));
   }, [voiceEnabled]);
 
+  // ===== ลงเวลาปฏิบัติงานบุคลากรจากการสแกนใบหน้าที่คีออส =====
+  const clockStaff = useCallback(async (
+    personnelId: string,
+    mode: "entry" | "exit",
+    capturedFace: string | undefined,
+    confidence: number,
+    name: string,
+  ): Promise<string> => {
+    try {
+      const photoUrl = capturedFace ? await uploadFaceScanSnapshot(capturedFace, personnelId) : null;
+      const { data, error } = await (supabase as any).rpc("kiosk_clock_personnel", {
+        _personnel_id: personnelId,
+        _mode: mode,
+        _photo_url: photoUrl,
+        _confidence: confidence,
+      });
+      if (error) throw error;
+      const res = (data || {}) as { ok?: boolean; action?: string; reason?: string; status?: string };
+      if (res.ok) {
+        const label = res.action === "clock_out" ? "ลงเวลาออกงาน" : res.status === "late" ? "ลงเวลาเข้างาน (สาย)" : "ลงเวลาเข้างาน";
+        if (voiceEnabled) speakText(`${label} ${name}`);
+        toast.success(label, { description: name, duration: 2000 });
+        return `บุคลากร • ${label}`;
+      }
+      if (res.reason === "duplicate") {
+        playDuplicateSound();
+        toast.info("ลงเวลาแล้ว", { description: `${name} ลงเวลา${mode === "exit" ? "ออก" : "เข้า"}งานวันนี้แล้ว`, duration: 1800 });
+        return "บุคลากร • ลงเวลาแล้ววันนี้";
+      }
+      if (res.reason === "no_clock_in") {
+        playDuplicateSound();
+        toast.warning("ยังไม่ได้ลงเวลาเข้างาน", { description: name, duration: 2000 });
+        return "บุคลากร • ยังไม่ได้ลงเวลาเข้า";
+      }
+      if (res.reason === "too_soon") {
+        playDuplicateSound();
+        toast.warning("เพิ่งลงเวลาเข้างาน", { description: `${name} — ต้องห่างอย่างน้อย 5 นาที`, duration: 2000 });
+        return "บุคลากร • เพิ่งลงเวลาเข้า";
+      }
+      return "บุคลากร";
+    } catch (e: any) {
+      toast.error(saveErrorMessage(e));
+      return "บุคลากร • ลงเวลาไม่สำเร็จ";
+    }
+  }, [voiceEnabled]);
+
+
+
   useEffect(() => {
     if (!streaming || !modelReady || screensaver || qrOnly) return;
     let cancelled = false;
