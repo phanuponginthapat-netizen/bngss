@@ -25,6 +25,7 @@ CREATE POLICY "Admins manage upstream subscription"
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
+DROP TRIGGER IF EXISTS trg_upstream_subscription_updated ON public.upstream_subscription;
 CREATE TRIGGER trg_upstream_subscription_updated
   BEFORE UPDATE ON public.upstream_subscription
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

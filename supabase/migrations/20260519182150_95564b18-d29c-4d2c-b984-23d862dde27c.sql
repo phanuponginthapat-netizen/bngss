@@ -22,6 +22,7 @@ TO authenticated
 USING (public.has_role(auth.uid(), 'admin'))
 WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
+DROP TRIGGER IF EXISTS trg_import_mapping_memory_updated_at ON public.import_mapping_memory;
 CREATE TRIGGER trg_import_mapping_memory_updated_at
 BEFORE UPDATE ON public.import_mapping_memory
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

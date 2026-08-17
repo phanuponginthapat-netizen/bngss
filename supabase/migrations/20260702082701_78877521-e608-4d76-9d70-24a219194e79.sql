@@ -41,6 +41,7 @@ CREATE POLICY "Admins can delete shortcuts"
   ON public.dashboard_shortcuts FOR DELETE TO authenticated
   USING (public.has_role(auth.uid(), 'admin'));
 
+DROP TRIGGER IF EXISTS trg_dashboard_shortcuts_updated_at ON public.dashboard_shortcuts;
 CREATE TRIGGER trg_dashboard_shortcuts_updated_at
   BEFORE UPDATE ON public.dashboard_shortcuts
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

@@ -97,6 +97,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_bump_print_template_version ON public.print_templates;
 CREATE TRIGGER trg_bump_print_template_version
 BEFORE UPDATE ON public.print_templates
 FOR EACH ROW EXECUTE FUNCTION public.bump_print_template_version();

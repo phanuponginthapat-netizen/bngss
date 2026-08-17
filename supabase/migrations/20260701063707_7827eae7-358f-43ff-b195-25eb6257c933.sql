@@ -81,6 +81,7 @@ DROP POLICY IF EXISTS "apikeys_admin_only" ON public.game_hub_api_keys;
 CREATE POLICY "apikeys_admin_only" ON public.game_hub_api_keys FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
 
+DROP TRIGGER IF EXISTS game_hub_games_updated_at ON public.game_hub_games;
 CREATE TRIGGER game_hub_games_updated_at
   BEFORE UPDATE ON public.game_hub_games
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

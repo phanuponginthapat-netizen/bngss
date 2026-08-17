@@ -26,6 +26,7 @@ CREATE POLICY "users manage own prefs" ON public.notification_preferences
   FOR ALL TO authenticated
   USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
+DROP TRIGGER IF EXISTS trg_notif_prefs_updated ON public.notification_preferences;
 CREATE TRIGGER trg_notif_prefs_updated
   BEFORE UPDATE ON public.notification_preferences
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

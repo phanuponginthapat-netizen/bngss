@@ -65,6 +65,7 @@ USING (
   OR has_role(auth.uid(), 'director'::app_role)
 );
 
+DROP TRIGGER IF EXISTS update_task_assignments_updated_at ON public.task_assignments;
 CREATE TRIGGER update_task_assignments_updated_at
 BEFORE UPDATE ON public.task_assignments
 FOR EACH ROW

@@ -27,6 +27,7 @@ DROP POLICY IF EXISTS "Users delete own widgets" ON public.user_dashboard_widget
 CREATE POLICY "Users delete own widgets" ON public.user_dashboard_widgets
   FOR DELETE USING (auth.uid() = user_id);
 
+DROP TRIGGER IF EXISTS update_user_dashboard_widgets_updated_at ON public.user_dashboard_widgets;
 CREATE TRIGGER update_user_dashboard_widgets_updated_at
   BEFORE UPDATE ON public.user_dashboard_widgets
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

@@ -29,6 +29,7 @@ CREATE POLICY "admin manage holidays"
 
 CREATE INDEX IF NOT EXISTS idx_attendance_auto_holidays_date ON public.attendance_auto_holidays(holiday_date);
 
+DROP TRIGGER IF EXISTS trg_attendance_auto_holidays_updated ON public.attendance_auto_holidays;
 CREATE TRIGGER trg_attendance_auto_holidays_updated
   BEFORE UPDATE ON public.attendance_auto_holidays
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

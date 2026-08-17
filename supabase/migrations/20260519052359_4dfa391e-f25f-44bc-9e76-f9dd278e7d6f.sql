@@ -37,6 +37,7 @@ DROP POLICY IF EXISTS "Service role only - line_user_preferences select" ON publ
 CREATE POLICY "Service role only - line_user_preferences select"
   ON public.line_user_preferences FOR SELECT TO authenticated USING (false);
 
+DROP TRIGGER IF EXISTS update_line_user_preferences_updated_at ON public.line_user_preferences;
 CREATE TRIGGER update_line_user_preferences_updated_at
   BEFORE UPDATE ON public.line_user_preferences
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

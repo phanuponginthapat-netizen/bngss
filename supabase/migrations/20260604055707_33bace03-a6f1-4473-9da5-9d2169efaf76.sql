@@ -28,6 +28,7 @@ CREATE POLICY "Admin/director manage ai_providers"
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'))
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
 
+DROP TRIGGER IF EXISTS trg_ai_providers_updated ON public.ai_providers;
 CREATE TRIGGER trg_ai_providers_updated
   BEFORE UPDATE ON public.ai_providers
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

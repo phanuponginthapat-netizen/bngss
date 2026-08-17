@@ -58,6 +58,7 @@ CREATE POLICY "Admins delete requests"
 ON public.face_registration_requests FOR DELETE TO authenticated
 USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
 
+DROP TRIGGER IF EXISTS trg_face_req_updated_at ON public.face_registration_requests;
 CREATE TRIGGER trg_face_req_updated_at
 BEFORE UPDATE ON public.face_registration_requests
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

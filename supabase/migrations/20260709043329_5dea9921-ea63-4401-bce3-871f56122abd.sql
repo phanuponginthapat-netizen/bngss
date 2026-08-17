@@ -147,6 +147,7 @@ BEGIN
   RETURN NEW;
 END $$;
 
+DROP TRIGGER IF EXISTS trg_lesson_plans_defaults ON public.lesson_plans;
 CREATE TRIGGER trg_lesson_plans_defaults
   BEFORE INSERT OR UPDATE ON public.lesson_plans
   FOR EACH ROW EXECUTE FUNCTION public.set_lesson_plan_defaults();
@@ -161,6 +162,7 @@ BEGIN
   RETURN NEW;
 END $$;
 
+DROP TRIGGER IF EXISTS trg_logbook_defaults ON public.teaching_logbook;
 CREATE TRIGGER trg_logbook_defaults
   BEFORE INSERT OR UPDATE ON public.teaching_logbook
   FOR EACH ROW EXECUTE FUNCTION public.set_logbook_defaults();

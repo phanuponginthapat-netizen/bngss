@@ -63,6 +63,7 @@ CREATE INDEX IF NOT EXISTS kiosk_devices_last_seen_idx ON public.kiosk_devices (
 CREATE INDEX IF NOT EXISTS kiosk_devices_user_id_idx ON public.kiosk_devices (user_id);
 CREATE INDEX IF NOT EXISTS kiosk_devices_status_idx ON public.kiosk_devices (status);
 
+DROP TRIGGER IF EXISTS kiosk_devices_updated_at ON public.kiosk_devices;
 CREATE TRIGGER kiosk_devices_updated_at
   BEFORE UPDATE ON public.kiosk_devices
   FOR EACH ROW

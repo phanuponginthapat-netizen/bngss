@@ -32,6 +32,7 @@ CREATE POLICY "admins manage shortcuts"
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
+DROP TRIGGER IF EXISTS trg_browser_shortcuts_updated ON public.browser_shortcuts;
 CREATE TRIGGER trg_browser_shortcuts_updated
   BEFORE UPDATE ON public.browser_shortcuts
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

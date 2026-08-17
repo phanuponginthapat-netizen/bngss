@@ -26,6 +26,7 @@ CREATE POLICY "Admin/director view all AI memory"
   ON public.ai_user_memory FOR SELECT
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
 
+DROP TRIGGER IF EXISTS trg_ai_user_memory_updated_at ON public.ai_user_memory;
 CREATE TRIGGER trg_ai_user_memory_updated_at
   BEFORE UPDATE ON public.ai_user_memory
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

@@ -86,6 +86,7 @@ BEGIN
   RETURN NEW;
 END $$;
 
+DROP TRIGGER IF EXISTS trg_garbage_deposit_add_points ON public.garbage_deposits;
 CREATE TRIGGER trg_garbage_deposit_add_points
   AFTER INSERT ON public.garbage_deposits
   FOR EACH ROW EXECUTE FUNCTION public.add_points_on_deposit();
@@ -116,6 +117,7 @@ BEGIN
   RETURN NEW;
 END $$;
 
+DROP TRIGGER IF EXISTS trg_garbage_redemption_process ON public.garbage_redemptions;
 CREATE TRIGGER trg_garbage_redemption_process
   BEFORE INSERT ON public.garbage_redemptions
   FOR EACH ROW EXECUTE FUNCTION public.process_redemption();

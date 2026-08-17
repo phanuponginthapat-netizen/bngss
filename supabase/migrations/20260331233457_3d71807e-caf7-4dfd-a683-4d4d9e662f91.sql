@@ -27,6 +27,7 @@ END;
 $$;
 
 -- Trigger on teacher_assignments insert
+DROP TRIGGER IF EXISTS trigger_auto_enroll_students ON public.teacher_assignments;
 CREATE TRIGGER trigger_auto_enroll_students
   AFTER INSERT ON public.teacher_assignments
   FOR EACH ROW

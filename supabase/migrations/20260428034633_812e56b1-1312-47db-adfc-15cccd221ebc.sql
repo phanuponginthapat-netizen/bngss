@@ -42,10 +42,12 @@ CREATE INDEX IF NOT EXISTS idx_eform_recipients_user ON public.eform_recipients(
 CREATE INDEX IF NOT EXISTS idx_eform_recipients_form ON public.eform_recipients(eform_id);
 
 -- Auto-fill school_id + updated_at
+DROP TRIGGER IF EXISTS eforms_auto_school_id ON public.eforms;
 CREATE TRIGGER eforms_auto_school_id
 BEFORE INSERT ON public.eforms
 FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id();
 
+DROP TRIGGER IF EXISTS eforms_set_updated_at ON public.eforms;
 CREATE TRIGGER eforms_set_updated_at
 BEFORE UPDATE ON public.eforms
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
@@ -132,6 +134,7 @@ BEGIN
   RETURN NEW;
 END $$;
 
+DROP TRIGGER IF EXISTS eform_recipients_notify ON public.eform_recipients;
 CREATE TRIGGER eform_recipients_notify
 AFTER INSERT ON public.eform_recipients
 FOR EACH ROW EXECUTE FUNCTION public.notify_on_eform_recipient();

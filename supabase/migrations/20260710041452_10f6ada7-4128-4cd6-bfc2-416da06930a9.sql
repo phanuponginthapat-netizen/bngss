@@ -58,6 +58,7 @@ CREATE POLICY "Admin/director can delete home visit summaries"
     OR public.has_role(auth.uid(), 'director'::app_role)
   );
 
+DROP TRIGGER IF EXISTS trg_home_visit_summaries_updated ON public.home_visit_summaries;
 CREATE TRIGGER trg_home_visit_summaries_updated
   BEFORE UPDATE ON public.home_visit_summaries
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

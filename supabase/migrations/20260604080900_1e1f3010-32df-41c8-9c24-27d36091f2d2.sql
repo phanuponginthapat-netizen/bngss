@@ -35,6 +35,7 @@ CREATE POLICY "Students view own measurements" ON public.health_measurements
 
 CREATE INDEX IF NOT EXISTS idx_health_measurements_student ON public.health_measurements(student_id, measured_at DESC);
 
+DROP TRIGGER IF EXISTS trg_health_measurements_updated_at ON public.health_measurements;
 CREATE TRIGGER trg_health_measurements_updated_at
   BEFORE UPDATE ON public.health_measurements
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

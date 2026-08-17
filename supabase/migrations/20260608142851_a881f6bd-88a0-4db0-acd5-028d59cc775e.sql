@@ -22,6 +22,7 @@ ON public.ai_integrations FOR ALL TO authenticated
 USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'))
 WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
 
+DROP TRIGGER IF EXISTS trg_ai_integrations_updated ON public.ai_integrations;
 CREATE TRIGGER trg_ai_integrations_updated
 BEFORE UPDATE ON public.ai_integrations
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

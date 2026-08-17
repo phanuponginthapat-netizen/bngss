@@ -82,10 +82,12 @@ CREATE POLICY "vault_items_read_department" ON public.line_vault_items
   FOR SELECT TO authenticated
   USING (visibility = 'department' AND department IS NOT NULL AND public.user_in_school_department(department));
 
+DROP TRIGGER IF EXISTS trg_line_vault_items_updated ON public.line_vault_items;
 CREATE TRIGGER trg_line_vault_items_updated
   BEFORE UPDATE ON public.line_vault_items
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+DROP TRIGGER IF EXISTS trg_line_vault_groups_updated ON public.line_vault_groups;
 CREATE TRIGGER trg_line_vault_groups_updated
   BEFORE UPDATE ON public.line_vault_groups
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

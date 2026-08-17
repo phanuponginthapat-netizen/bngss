@@ -85,11 +85,13 @@ BEGIN
   RETURN NEW;
 END $$;
 
+DROP TRIGGER IF EXISTS trg_auto_attendance_face_scan ON public.face_scan_logs;
 CREATE TRIGGER trg_auto_attendance_face_scan
   AFTER INSERT ON public.face_scan_logs
   FOR EACH ROW EXECUTE FUNCTION public.auto_attendance_on_face_scan();
 
 -- 4. Auto fill school_id
+DROP TRIGGER IF EXISTS trg_face_scan_school_id ON public.face_scan_logs;
 CREATE TRIGGER trg_face_scan_school_id
   BEFORE INSERT ON public.face_scan_logs
   FOR EACH ROW EXECUTE FUNCTION public.auto_fill_school_id();

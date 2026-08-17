@@ -86,6 +86,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.pa_agreements;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.pa_indicator_scores;
 
 -- Updated_at trigger
+DROP TRIGGER IF EXISTS update_pa_agreements_updated_at ON public.pa_agreements;
 CREATE TRIGGER update_pa_agreements_updated_at
   BEFORE UPDATE ON public.pa_agreements
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

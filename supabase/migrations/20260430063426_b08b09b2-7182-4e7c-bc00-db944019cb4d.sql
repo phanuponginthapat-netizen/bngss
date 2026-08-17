@@ -58,6 +58,7 @@ ON public.iot_devices FOR DELETE
 TO authenticated
 USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
+DROP TRIGGER IF EXISTS trg_iot_devices_updated ON public.iot_devices;
 CREATE TRIGGER trg_iot_devices_updated
 BEFORE UPDATE ON public.iot_devices
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

@@ -94,6 +94,7 @@ BEGIN
   RETURN NEW;
 END $$;
 
+DROP TRIGGER IF EXISTS trg_ict_loans_sync_device ON public.ict_loans;
 CREATE TRIGGER trg_ict_loans_sync_device
   AFTER INSERT OR UPDATE ON public.ict_loans
   FOR EACH ROW EXECUTE FUNCTION public.sync_ict_device_status_on_loan();
@@ -125,6 +126,7 @@ BEGIN
   RETURN NEW;
 END $$;
 
+DROP TRIGGER IF EXISTS trg_ict_loans_notify ON public.ict_loans;
 CREATE TRIGGER trg_ict_loans_notify
   AFTER INSERT OR UPDATE ON public.ict_loans
   FOR EACH ROW EXECUTE FUNCTION public.notify_student_on_ict_loan();
