@@ -247,19 +247,39 @@ class SmartGateBridge {
 
 export const smartGate = new SmartGateBridge();
 
-/** ประเมินว่าอนุญาตให้ผ่านประตูได้ไหม จากค่าที่อ่านล่าสุด */
+/**
+ * ประเมินความปลอดภัยจากค่าที่อ่านล่าสุด
+ * - ไข้สูง: แจ้งเตือน + พูดชื่อและอุณหภูมิ แต่ยัง "เปิดประตูได้"
+ * - พบโลหะ/อาวุธ: ไม่อนุญาตให้ผ่าน (ปิดประตู)
+ */
 export function evaluateGateSafety(
   reading: SmartGateReading,
   cfg: SmartGateConfig,
-): { allow: boolean; reason: "ok" | "fever" | "weapon" | "stale"; detail: string } {
+): { allow: boolean; reason: "ok" | "fever" | "weapon" | "stale"; detail: string; tempC: number | null } {
   const fresh = reading.updatedAt > 0 && Date.now() - reading.updatedAt < 15_000;
-  if (!fresh) return { allow: true, reason: "stale", detail: "ยังไม่มีค่าจากเซนเซอร์" };
-  if (reading.tempC != null && reading.tempC >= cfg.feverThreshold) {
-    return { allow: false, reason: "fever", detail: `อุณหภูมิ ${reading.tempC.toFixed(1)}°C (เกณฑ์ ${cfg.feverThreshold}°C)` };
-  }
+  if (!fresh) return { allow: true, reason: "stale", detail: "ยังไม่มีค่าจากเซนเซอร์", tempC: null };
   const metal = reading.metalFlag || (reading.metalLevel != null && reading.metalLevel >= cfg.metalThreshold);
   if (metal) {
-    return { allow: false, reason: "weapon", detail: reading.metalLevel != null ? `ค่าโลหะ ${reading.metalLevel} (เกณฑ์ ${cfg.metalThreshold})` : "ตรวจพบโลหะ" };
+    return {
+      allow: false,
+      reason: "weapon",
+      detail: reading.metalLevel != null ? `ค่าโลหะ ${reading.metalLevel} (เกณฑ์ ${cfg.metalThreshold})` : "ตรวจพบโลหะ",
+      tempC: reading.tempC,
+    };
   }
-  return { allow: true, reason: "ok", detail: reading.tempC != null ? `อุณหภูมิ ${reading.tempC.toFixed(1)}°C ปกติ` : "ปกติ" };
+  if (reading.tempC != null && reading.tempC >= cfg.feverThreshold) {
+    return {
+      allow: true,
+      reason: "fever",
+      detail: `อุณหภูมิ ${reading.tempC.toFixed(1)}°C (เกณฑ์ ${cfg.feverThreshold}°C)`,
+      tempC: reading.tempC,
+    };
+  }
+  return {
+    allow: true,
+    reason: "ok",
+    detail: reading.tempC != null ? `อุณหภูมิ ${reading.tempC.toFixed(1)}°C ปกติ` : "ปกติ",
+    tempC: reading.tempC,
+  };
 }
+
