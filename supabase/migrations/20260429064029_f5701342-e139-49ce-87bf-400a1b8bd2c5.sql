@@ -1,15 +1,12 @@
 -- ENUM ของฝ่ายงานในโรงเรียน (ตามมาตรฐาน 4 ฝ่าย + ผู้บริหาร)
 DO $$ BEGIN
-DO $do$ BEGIN
-    CREATE TYPE public.school_department AS ENUM (
+CREATE TYPE public.school_department AS ENUM (
     'academic',          -- ฝ่ายวิชาการ
     'student_affairs',   -- ฝ่ายกิจการนักเรียน
     'general_admin',     -- ฝ่ายบริหารงานทั่วไป
     'finance_personnel', -- ฝ่ายงบประมาณและบุคคล
     'director_office'    -- สำนักผู้อำนวยการ
   );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $do$;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ตารางจัดเก็บฝ่ายของผู้ใช้ (1 user มีได้หลายฝ่าย)

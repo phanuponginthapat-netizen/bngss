@@ -64,10 +64,7 @@ INSERT INTO public.dashboard_shortcuts (label_th, label_en, icon, bg_class, targ
 ON CONFLICT DO NOTHING;
 
 DO $$ BEGIN
-DO $do$ BEGIN
-    CREATE TYPE public.dept_role AS ENUM ('member','head','deputy_head','section_head');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $do$;
+CREATE TYPE public.dept_role AS ENUM ('member','head','deputy_head','section_head');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 ALTER TABLE public.user_departments

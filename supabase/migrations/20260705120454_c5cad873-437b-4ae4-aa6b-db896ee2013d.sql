@@ -1,9 +1,6 @@
 -- 1) enum ตำแหน่งในฝ่าย/หมวด
 DO $$ BEGIN
-DO $do$ BEGIN
-    CREATE TYPE public.dept_role AS ENUM ('member','head','deputy_head','section_head');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $do$;
+CREATE TYPE public.dept_role AS ENUM ('member','head','deputy_head','section_head');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- 2) ขยาย user_departments ให้มี dept_role + sync is_head

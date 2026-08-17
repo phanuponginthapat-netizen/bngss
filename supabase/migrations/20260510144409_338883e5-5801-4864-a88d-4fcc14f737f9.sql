@@ -1,24 +1,15 @@
 
 -- Enum for device category
 DO $$ BEGIN
-DO $do$ BEGIN
-    CREATE TYPE public.ict_device_category AS ENUM ('notebook', 'tablet', 'mobile', 'camera', 'projector', 'other');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $do$;
+CREATE TYPE public.ict_device_category AS ENUM ('notebook', 'tablet', 'mobile', 'camera', 'projector', 'other');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
-DO $do$ BEGIN
-    CREATE TYPE public.ict_device_status AS ENUM ('available', 'borrowed', 'maintenance', 'lost', 'retired');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $do$;
+CREATE TYPE public.ict_device_status AS ENUM ('available', 'borrowed', 'maintenance', 'lost', 'retired');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
-DO $do$ BEGIN
-    CREATE TYPE public.ict_loan_status AS ENUM ('active', 'returned', 'overdue', 'lost');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $do$;
+CREATE TYPE public.ict_loan_status AS ENUM ('active', 'returned', 'overdue', 'lost');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Devices

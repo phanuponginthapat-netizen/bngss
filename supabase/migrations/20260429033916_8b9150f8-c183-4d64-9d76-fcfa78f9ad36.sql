@@ -68,10 +68,7 @@ UPDATE public.user_roles SET role = 'admin'
 DO $$
 BEGIN
   -- สร้าง enum ใหม่
-DO $do$ BEGIN
-    CREATE TYPE app_role_new AS ENUM ('admin','teacher','student','director','alumni','parent');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $do$;
+CREATE TYPE app_role_new AS ENUM ('admin','teacher','student','director','alumni','parent');
 
   -- เปลี่ยน column ทั้งหมดให้ใช้ enum ใหม่
   ALTER TABLE public.user_roles
