@@ -19,6 +19,7 @@ import { useStudentData } from "@/hooks/useStudentData";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { AcademicYearFilter } from "@/components/AcademicYearFilter";
 import { saveErrorMessage } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 
 // หัวข้อคัดกรองตามมาตรฐาน สพฐ. (OBEC Screening Categories)
@@ -157,7 +158,10 @@ const ScreeningPage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("student_screenings").delete().eq("id", id);
+    const ok = await swal.confirm({ title: lang === "th" ? "ยืนยันการลบ" : "Confirm delete", danger: true, confirmText: lang === "th" ? "ลบ" : "Delete" });
+    if (!ok) return;
+    const { error } = await supabase.from("student_screenings").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["student_screenings"] });
   };
 

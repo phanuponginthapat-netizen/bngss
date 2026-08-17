@@ -85,10 +85,11 @@ export default function GameDetailPage() {
         source: "in_app",
       });
       if (error) throw error;
-      await supabase
+      const { error: cntErr } = await supabase
         .from("game_hub_games")
         .update({ play_count: (game?.play_count ?? 0) + 1 })
         .eq("id", id!);
+      if (cntErr) console.warn("play_count update failed", cntErr);
     },
     onSuccess: () => {
       toast.success("บันทึกคะแนนแล้ว");
