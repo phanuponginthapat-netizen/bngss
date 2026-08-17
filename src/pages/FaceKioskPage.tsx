@@ -236,12 +236,31 @@ const FaceKioskPage = () => {
           });
         } catch { /* ไม่ให้การบันทึก log ขัดจังหวะการทำงานประตู */ }
       };
+      // แจ้งเตือนผู้เกี่ยวข้อง (ผอ./ผู้ดูแล/ครู) เมื่อพบไข้สูงหรือวัตถุต้องสงสัย
+      const alertStaff = (kind: "fever" | "weapon", detail: string) => {
+        const title = kind === "fever" ? "พบผู้มีอุณหภูมิสูงที่จุดคัดกรอง" : "พบวัตถุต้องสงสัยที่จุดคัดกรอง";
+        const body = `${name} • ${detail}`;
+        const payload = {
+          title,
+          body,
+          type: "smart_gate",
+          severity: (kind === "weapon" ? "critical" : "warning") as "critical" | "warning",
+          url: "/dashboard/admin/smart-gate",
+          channels: ["in_app", "push", "line", "gchat"] as ("in_app" | "push" | "line" | "gchat")[],
+          gchat_categories: ["student_affairs", "all"],
+          dedup_key: `smart_gate:${kind}:${subject?.id || name}:${new Date().toISOString().slice(0, 13)}`,
+        };
+        void notifyRole("admin", payload);
+        void notifyRole("director", payload);
+        void notifyRole("teacher", { ...payload, channels: ["in_app"] });
+      };
       if (!res.allow) {
         // พบโลหะ/วัตถุต้องสงสัย → ปิดประตู + แจ้งชื่อ
         playWeaponAlert();
         if (voiceEnabled) speakText(`${name} มีสิ่งของต้องสงสัย ขอให้คุณครูตรวจสอบ`);
         toast.error("พบวัตถุต้องสงสัย — ประตูปิด", { description: `${name} • ${res.detail}`, duration: 8000 });
         void logEvent("weapon", false, false);
+        alertStaff("weapon", res.detail);
         return;
       }
       if (res.reason === "fever") {
@@ -251,9 +270,11 @@ const FaceKioskPage = () => {
         if (voiceEnabled) speakText(`${name} มีไข้สูง อุณหภูมิ ${t} องศา กรุณาพบเจ้าหน้าที่`);
         toast.warning("อุณหภูมิสูง", { description: `${name} • ${res.detail}`, duration: 6000 });
         void logEvent("fever", true, res.opened);
+        alertStaff("fever", res.detail);
         if (res.opened) playGateOpenSound();
         return;
       }
+
       if (res.opened) {
         playGateOpenSound();
         toast.success("เปิดประตู", { description: `${name} • ${res.detail}`, duration: 1800 });
