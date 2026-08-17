@@ -14,6 +14,7 @@ import { openPrintWindow, currentThaiDate } from "@/lib/printUtils";
 import { useSchoolInfo } from "@/components/documents/DocumentHeader";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { resolveStorageUrl } from "@/lib/storageUrl";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface Props {
   open: boolean;
@@ -148,14 +149,19 @@ export const HomeVisitSummaryDialog = ({ open, onOpenChange, academicYear, semes
   );
 
   const handleSave = async () => {
+    if (saving) return;
+    if (!academicYear || academicYear <= 0) {
+      toast.error("กรุณาเลือกปีการศึกษาก่อนบันทึก");
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
         academic_year: academicYear,
         semester,
         data: data as any,
-        reporter_name: data.reporter_name,
-        reporter_position: data.reporter_position,
+        reporter_name: data.reporter_name || null,
+        reporter_position: data.reporter_position || null,
       };
       const { error } = await supabase
         .from("home_visit_summaries")
@@ -164,7 +170,7 @@ export const HomeVisitSummaryDialog = ({ open, onOpenChange, academicYear, semes
       toast.success("บันทึกสรุปรายงานสำเร็จ");
       qc.invalidateQueries({ queryKey: ["home_visit_summary", academicYear, semester] });
     } catch (e: any) {
-      toast.error(e.message || "บันทึกไม่สำเร็จ");
+      toast.error(saveErrorMessage(e));
     } finally {
       setSaving(false);
     }
