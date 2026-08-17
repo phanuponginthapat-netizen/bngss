@@ -56,7 +56,8 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ error: errBody, status: resp.status, fallback: isQuota, quota: isQuota }),
         {
-          status: isQuota ? 429 : resp.status,
+          // คืน 200 เสมอเพื่อให้ client fallback ได้โดยไม่เกิด runtime error
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
@@ -69,7 +70,7 @@ Deno.serve(async (req) => {
     });
   } catch (e) {
     return new Response(JSON.stringify({ error: (e as Error).message, fallback: true }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
