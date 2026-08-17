@@ -32,6 +32,9 @@ export default function DistrictFeedPage() {
   const [viewMode, setViewMode] = useState(false);
   const [lat, setLat] = useState<string>("");
   const [lng, setLng] = useState<string>("");
+  const [savingCoords, setSavingCoords] = useState(false);
+  const [creatingKey, setCreatingKey] = useState(false);
+  const [rotating, setRotating] = useState(false);
 
   const projectRef = getBackendConfig().projectId;
   const supabaseUrl = getBackendConfig().url;
@@ -63,16 +66,23 @@ export default function DistrictFeedPage() {
 
   const rotateKey = async (k: any) => {
     if (!(await swal.confirm({ title: `ออก API key ใหม่สำหรับ "${k.name}"?`, text: "key เดิมจะถูกยกเลิก ระบบเขตต้องอัปเดต key ใหม่" }))) return;
-    await supabase.from("district_api_keys").update({ is_active: false }).eq("id", k.id);
-    const { data, error } = await supabase.functions.invoke("district-feed-create-key", {
-      body: { name: k.name, description: k.description, scopes: k.scopes },
-    });
-    if (error) return toast({ title: "ออก key ใหม่ไม่สำเร็จ", description: error.message, variant: "destructive" });
-    setViewMode(false);
-    setNewKey(data?.key || null);
-    setHubConfig(data?.hub_config || null);
-    setEndpoint(data?.endpoint || null);
-    qc.invalidateQueries({ queryKey: ["district-api-keys"] });
+    if (rotating) return;
+    setRotating(true);
+    try {
+      const { error: deactivateErr } = await supabase.from("district_api_keys").update({ is_active: false }).eq("id", k.id);
+      if (deactivateErr) return toast({ title: "ออก key ใหม่ไม่สำเร็จ", description: deactivateErr.message, variant: "destructive" });
+      const { data, error } = await supabase.functions.invoke("district-feed-create-key", {
+        body: { name: k.name, description: k.description, scopes: k.scopes },
+      });
+      if (error) return toast({ title: "ออก key ใหม่ไม่สำเร็จ", description: error.message, variant: "destructive" });
+      setViewMode(false);
+      setNewKey(data?.key || null);
+      setHubConfig(data?.hub_config || null);
+      setEndpoint(data?.endpoint || null);
+      qc.invalidateQueries({ queryKey: ["district-api-keys"] });
+    } finally {
+      setRotating(false);
+    }
   };
 
   const { data: keys = [] } = useQuery({
@@ -133,15 +143,21 @@ export default function DistrictFeedPage() {
   };
 
   const saveCoords = async () => {
+    if (savingCoords) return;
     const latNum = parseFloat(lat), lngNum = parseFloat(lng);
     if (!isFinite(latNum) || latNum < -90 || latNum > 90) return toast({ title: "ละติจูดไม่ถูกต้อง (-90 ถึง 90)", variant: "destructive" });
     if (!isFinite(lngNum) || lngNum < -180 || lngNum > 180) return toast({ title: "ลองจิจูดไม่ถูกต้อง (-180 ถึง 180)", variant: "destructive" });
-    const id = await ensureSchoolRow();
-    if (!id) return;
-    const { error } = await supabase.from("schools").update({ latitude: latNum, longitude: lngNum }).eq("id", id);
-    if (error) return toast({ title: "บันทึกไม่สำเร็จ", description: error.message, variant: "destructive" });
-    toast({ title: "บันทึกพิกัดเรียบร้อย" });
-    qc.invalidateQueries({ queryKey: ["school-consent"] });
+    setSavingCoords(true);
+    try {
+      const id = await ensureSchoolRow();
+      if (!id) return;
+      const { error } = await supabase.from("schools").update({ latitude: latNum, longitude: lngNum }).eq("id", id);
+      if (error) return toast({ title: "บันทึกไม่สำเร็จ", description: error.message, variant: "destructive" });
+      toast({ title: "บันทึกพิกัดเรียบร้อย" });
+      qc.invalidateQueries({ queryKey: ["school-consent"] });
+    } finally {
+      setSavingCoords(false);
+    }
   };
 
   const useCurrentLocation = () => {
@@ -155,15 +171,21 @@ export default function DistrictFeedPage() {
 
   const createKey = async () => {
     if (!name.trim()) return toast({ title: "กรุณาระบุชื่อ", variant: "destructive" });
-    const { data, error } = await supabase.functions.invoke("district-feed-create-key", {
-      body: { name, description },
-    });
-    if (error) return toast({ title: "สร้าง API key ไม่สำเร็จ", description: error.message, variant: "destructive" });
-    setNewKey(data?.key || null);
-    setHubConfig(data?.hub_config || null);
-    setEndpoint(data?.endpoint || null);
-    setName(""); setDescription("");
-    qc.invalidateQueries({ queryKey: ["district-api-keys"] });
+    if (creatingKey) return;
+    setCreatingKey(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("district-feed-create-key", {
+        body: { name, description },
+      });
+      if (error) return toast({ title: "สร้าง API key ไม่สำเร็จ", description: error.message, variant: "destructive" });
+      setNewKey(data?.key || null);
+      setHubConfig(data?.hub_config || null);
+      setEndpoint(data?.endpoint || null);
+      setName(""); setDescription("");
+      qc.invalidateQueries({ queryKey: ["district-api-keys"] });
+    } finally {
+      setCreatingKey(false);
+    }
   };
 
   const downloadHubConfig = () => {
@@ -304,7 +326,7 @@ export default function DistrictFeedPage() {
             </div>
             <div className="flex items-end gap-2">
               <Button type="button" variant="outline" onClick={useCurrentLocation}>📡 ใช้ตำแหน่งปัจจุบัน</Button>
-              <Button type="button" onClick={saveCoords}>บันทึก</Button>
+              <Button type="button" onClick={saveCoords} disabled={savingCoords}>{savingCoords ? "กำลังบันทึก..." : "บันทึก"}</Button>
             </div>
           </div>
           {school?.latitude != null && school?.longitude != null && (
@@ -357,7 +379,7 @@ export default function DistrictFeedPage() {
                   <FileJson className="w-4 h-4 mr-1" /> ดู
                 </Button>
                 {k.is_active && (
-                  <Button variant="outline" size="sm" onClick={() => rotateKey(k)} title="ออก key ใหม่ (rotate)">
+                  <Button variant="outline" size="sm" onClick={() => rotateKey(k)} disabled={rotating} title="ออก key ใหม่ (rotate)">
                     <Key className="w-4 h-4 mr-1" /> ออก key ใหม่
                   </Button>
                 )}
@@ -512,7 +534,7 @@ export default function DistrictFeedPage() {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setOpenCreate(false)}>ยกเลิก</Button>
-                <Button onClick={createKey}>สร้าง</Button>
+                <Button onClick={createKey} disabled={creatingKey}>{creatingKey ? "กำลังสร้าง..." : "สร้าง"}</Button>
               </DialogFooter>
             </div>
           )}
