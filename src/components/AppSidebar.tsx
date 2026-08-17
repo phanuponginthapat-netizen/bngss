@@ -943,12 +943,14 @@ export function AppSidebar() {
         {groupedDepts.map((sec, sIdx) => {
           const flatItems = sec.items.flatMap((d) => d.items);
           const isActive = flatItems.some((i) => location.pathname === i.url);
+          // ฝ่ายงานเริ่มต้นเป็นแบบพับไว้ (ยกเว้นฝ่ายที่กำลังใช้งานอยู่) เพื่อลดการเลื่อนหน้าจอ
+          const open = q ? true : (openSections[sec.key] ?? isActive);
           return (
             <div key={sec.key} className="mt-1">
               {collapsed ? (
                 sIdx > 0 && <div className={`mx-auto my-3 h-0.5 w-6 rounded-full ${sec.dot} opacity-70`} />
               ) : (
-                <Collapsible defaultOpen>
+                <Collapsible open={open} onOpenChange={(v) => setSectionOpen(sec.key, v)}>
 
                   <SidebarGroup className="!p-0">
                     <CollapsibleTrigger className="w-full group/sec">
