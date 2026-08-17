@@ -16330,6 +16330,15 @@ export type Database = {
         Returns: boolean
       }
       is_template_public: { Args: { _tid: string }; Returns: boolean }
+      kiosk_clock_personnel: {
+        Args: {
+          _confidence?: number
+          _mode?: string
+          _personnel_id: string
+          _photo_url?: string
+        }
+        Returns: Json
+      }
       line_vault_dispatch: {
         Args: { category: string; payload: Json }
         Returns: undefined

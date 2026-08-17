@@ -196,6 +196,11 @@ const FaceKioskPage = () => {
 
   const [staffFaceEnabled, setStaffFaceEnabled] = useState<boolean>(() => localStorage.getItem("face_kiosk_staff_faces") !== "0");
   useEffect(() => { localStorage.setItem("face_kiosk_staff_faces", staffFaceEnabled ? "1" : "0"); }, [staffFaceEnabled]);
+  // ลงเวลาปฏิบัติงานบุคลากรอัตโนมัติเมื่อสแกนใบหน้าผ่านคีออส
+  const [staffClockEnabled, setStaffClockEnabled] = useState<boolean>(() => localStorage.getItem("face_kiosk_staff_clock") === "1");
+  useEffect(() => { localStorage.setItem("face_kiosk_staff_clock", staffClockEnabled ? "1" : "0"); }, [staffClockEnabled]);
+  const staffClockRef = useRef(staffClockEnabled);
+  useEffect(() => { staffClockRef.current = staffClockEnabled; }, [staffClockEnabled]);
 
   // ===== WizMind / CCTV bridge (realtime) =====
   const [wizmindOn, setWizmindOn] = useState<boolean>(() => localStorage.getItem(WIZMIND_ENABLED_KEY) === "1");
@@ -508,6 +513,54 @@ const FaceKioskPage = () => {
     }, ...r].slice(0, 10));
   }, [voiceEnabled]);
 
+  // ===== ลงเวลาปฏิบัติงานบุคลากรจากการสแกนใบหน้าที่คีออส =====
+  const clockStaff = useCallback(async (
+    personnelId: string,
+    mode: "entry" | "exit",
+    capturedFace: string | undefined,
+    confidence: number,
+    name: string,
+  ): Promise<string> => {
+    try {
+      const photoUrl = capturedFace ? await uploadFaceScanSnapshot(capturedFace, personnelId) : null;
+      const { data, error } = await (supabase as any).rpc("kiosk_clock_personnel", {
+        _personnel_id: personnelId,
+        _mode: mode,
+        _photo_url: photoUrl,
+        _confidence: confidence,
+      });
+      if (error) throw error;
+      const res = (data || {}) as { ok?: boolean; action?: string; reason?: string; status?: string };
+      if (res.ok) {
+        const label = res.action === "clock_out" ? "ลงเวลาออกงาน" : res.status === "late" ? "ลงเวลาเข้างาน (สาย)" : "ลงเวลาเข้างาน";
+        if (voiceEnabled) speakText(`${label} ${name}`);
+        toast.success(label, { description: name, duration: 2000 });
+        return `บุคลากร • ${label}`;
+      }
+      if (res.reason === "duplicate") {
+        playDuplicateSound();
+        toast.info("ลงเวลาแล้ว", { description: `${name} ลงเวลา${mode === "exit" ? "ออก" : "เข้า"}งานวันนี้แล้ว`, duration: 1800 });
+        return "บุคลากร • ลงเวลาแล้ววันนี้";
+      }
+      if (res.reason === "no_clock_in") {
+        playDuplicateSound();
+        toast.warning("ยังไม่ได้ลงเวลาเข้างาน", { description: name, duration: 2000 });
+        return "บุคลากร • ยังไม่ได้ลงเวลาเข้า";
+      }
+      if (res.reason === "too_soon") {
+        playDuplicateSound();
+        toast.warning("เพิ่งลงเวลาเข้างาน", { description: `${name} — ต้องห่างอย่างน้อย 5 นาที`, duration: 2000 });
+        return "บุคลากร • เพิ่งลงเวลาเข้า";
+      }
+      return "บุคลากร";
+    } catch (e: any) {
+      toast.error(saveErrorMessage(e));
+      return "บุคลากร • ลงเวลาไม่สำเร็จ";
+    }
+  }, [voiceEnabled]);
+
+
+
   useEffect(() => {
     if (!streaming || !modelReady || screensaver || qrOnly) return;
     let cancelled = false;
@@ -621,30 +674,35 @@ const FaceKioskPage = () => {
                 if (confirmed) {
                   const captured = captureFaceCrop(video, box);
                   if (isStaffHit) {
-                    // โหมดทดสอบบุคลากร — แสดงผล/ทักทาย แต่ไม่บันทึกเวลามาเรียน
                     const last = justScannedRef.current.get(found.studentId) || 0;
                     if (tNow - last > 15_000) {
                       justScannedRef.current.set(found.studentId, tNow);
                       playSuccessSound();
-                      if (voiceEnabled) speakText(`สวัสดี ${found.name}`);
+                      const mode = scanModeRef.current === "exit" ? "exit" : "entry";
+                      let clockNote = "บุคลากร (ทดสอบ)";
+                      if (staffClockRef.current) {
+                        clockNote = await clockStaff(found.studentId, mode, captured, m.confidence, found.name);
+                      } else if (voiceEnabled) {
+                        speakText(`สวัสดี ${found.name}`);
+                      }
                       setLastMatch({
                         name: found.name,
                         studentCode: found.studentCode || "-",
-                        classroom: `${found.classroom} • บุคลากร (ทดสอบ)`,
+                        classroom: `${found.classroom} • ${clockNote}`,
                         confidence: m.confidence,
-                        scanType: scanModeRef.current === "exit" ? "exit" : "entry",
+                        scanType: mode,
                         capturedFace: captured,
                         registeredFace: (found as any).registeredFace || null,
-                        time: new Date().toLocaleTimeString("th-TH"),
+                        time: new Date().toLocaleTimeString("th-TH", { hour12: false }),
                       });
                       setRecent((prev) => [{
                         studentId: found.studentId,
                         studentCode: found.studentCode || "-",
                         name: `${found.name} (บุคลากร)`,
-                        classroom: found.classroom,
+                        classroom: clockNote,
                         avatar: (found as any).registeredFace || null,
                         capturedFace: captured,
-                        time: new Date().toLocaleTimeString("th-TH"),
+                        time: new Date().toLocaleTimeString("th-TH", { hour12: false }),
                         confidence: m.confidence,
                       }, ...prev].slice(0, 20));
                     }
@@ -1190,9 +1248,25 @@ const FaceKioskPage = () => {
             </label>
             <p className="text-[10px] text-muted-foreground leading-snug">
               เมื่อเปิด ระบบจะจดจำใบหน้าบุคลากรที่ลงทะเบียนไว้และแสดงผลบนกล้อง
-              แต่ <b>ไม่บันทึกเวลามาเรียน/ปฏิบัติงาน</b> — ใช้ทดสอบความแม่นยำของเครื่องคีออส
             </p>
+            {staffFaceEnabled && (
+              <>
+                <label className="text-xs font-semibold flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={staffClockEnabled}
+                    onChange={(e) => setStaffClockEnabled(e.target.checked)}
+                  />
+                  ลงเวลาปฏิบัติงานอัตโนมัติ
+                </label>
+                <p className="text-[10px] text-muted-foreground leading-snug">
+                  เมื่อเปิด บุคลากรที่สแกนใบหน้าจะถูกบันทึก <b>เวลาเข้า/ออกงาน</b> ตามโหมดสแกนของเครื่อง
+                  (เข้าหลัง 08:30 น. = สาย, วันละ 1 รายการ) — ถ้าปิดไว้จะเป็นโหมดทดสอบเท่านั้น
+                </p>
+              </>
+            )}
           </div>
+
 
           <div className="space-y-2 border-t pt-2">
             <label className="text-xs font-semibold flex items-center gap-2">
