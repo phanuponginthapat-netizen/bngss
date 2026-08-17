@@ -251,10 +251,27 @@ function normalizeGradeLevel(raw: string): string {
   return s;
 }
 
+/** "1", "๒", "ปลายปี", "ตลอดปี" → numeric semester */
+function normalizeSemester(raw: string): number | undefined {
+  const s = raw.trim();
+  if (!s) return undefined;
+  if (isNum(s)) {
+    const n = Number(s);
+    return n === 1 || n === 2 ? n : undefined;
+  }
+  if (/๑/.test(s)) return 1;
+  if (/๒/.test(s)) return 2;
+  if (/ต้นปี|ภาคต้น|เทอม\s*1|ที่\s*1/.test(s)) return 1;
+  if (/ปลายปี|ภาคปลาย|เทอม\s*2|ที่\s*2/.test(s)) return 2;
+  if (/ตลอดปี|ทั้งปี|รายปี/.test(s)) return 1;
+  return undefined;
+}
+
 function extractMeta(wb: XLSX.WorkBook): PP5ParsedWorkbook["meta"] {
   const meta: PP5ParsedWorkbook["meta"] = {};
+  let academicYearExplicit = false; // "ปีการศึกษา" beats a bare "พ.ศ." row
   for (const name of wb.SheetNames) {
-    if (!/home|โปรแกรม|ข้อมูลพื้นฐาน/i.test(name)) continue;
+    if (!/home|โปรแกรม|ข้อมูลพื้นฐาน|ปก|ข้อมูล/i.test(name)) continue;
     const grid = sheetToGrid(wb.Sheets[name]);
     for (const row of grid) {
       for (let c = 0; c < row.length; c++) {
@@ -266,10 +283,12 @@ function extractMeta(wb: XLSX.WorkBook): PP5ParsedWorkbook["meta"] {
           if (v) { val = v; break; }
         }
         if (!val) continue;
-        if (/^โรงเรียน/i.test(label) && !meta.schoolName) meta.schoolName = val;
-        else if (/^ระดับชั้น/i.test(label) && !meta.gradeLevel) meta.gradeLevel = normalizeGradeLevel(val);
-        else if (/^ภาคเรียน/i.test(label) && !meta.semester && isNum(val)) meta.semester = Number(val);
-        else if (/^ปีการศึกษา/i.test(label) && !meta.academicYear && isNum(val)) meta.academicYear = Number(val);
+        if (/^(โรงเรียน|ชื่อสถานศึกษา|สถานศึกษา|ชื่อโรงเรียน)/i.test(label) && !meta.schoolName) meta.schoolName = val;
+        else if (/^(ระดับชั้น|ชั้น|ชั้นเรียน)/i.test(label) && !meta.gradeLevel) meta.gradeLevel = normalizeGradeLevel(val);
+        else if (/^(ภาคเรียน|ภาคการศึกษา)/i.test(label) && !meta.semester) meta.semester = normalizeSemester(val);
+        else if (/^ปีการศึกษา/i.test(label) && isNum(val)) {
+          if (!academicYearExplicit) { meta.academicYear = Number(val); academicYearExplicit = true; }
+        }
         else if (/^ปี\s*พ\.?\s*ศ/i.test(label) && !meta.academicYear && isNum(val)) meta.academicYear = Number(val);
         else if (/^(ครูผู้สอน|ผู้สอน)/i.test(label) && !meta.teacherName) meta.teacherName = val;
         else if (/^ครูประจำชั้น|ครูที่ปรึกษา/i.test(label) && !meta.teacherName) meta.teacherName = val;
@@ -279,8 +298,24 @@ function extractMeta(wb: XLSX.WorkBook): PP5ParsedWorkbook["meta"] {
       }
     }
   }
+  // fallback: free-text "ปีการศึกษา 2568" / "ภาคเรียนที่ 2" anywhere on the info sheets
+  if (!meta.academicYear || !meta.semester) {
+    for (const name of wb.SheetNames) {
+      if (!/home|โปรแกรม|ข้อมูลพื้นฐาน|ปก|ข้อมูล/i.test(name)) continue;
+      const text = sheetToGrid(wb.Sheets[name]).flat().map(nz).join(" ");
+      if (!meta.academicYear) {
+        const m = text.match(/ปีการศึกษา\s*(?:ที่\s*)?(\d{4})/);
+        if (m) meta.academicYear = Number(m[1]);
+      }
+      if (!meta.semester) {
+        const m = text.match(/ภาคเรียน(?:ที่)?\s*([^\s,]{1,10})/);
+        if (m) meta.semester = normalizeSemester(m[1]);
+      }
+    }
+  }
   return meta;
 }
+
 
 // ─── Consolidation ────────────────────────────────────────────────────────────
 function sumNonAggregated(st: PP5ParsedStudentRow): { sum: number; count: number } {
