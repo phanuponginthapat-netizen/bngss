@@ -31,11 +31,13 @@ const MONTHS = [
   { value: 12, th: "ธันวาคม", en: "December" },
 ];
 
-const upsert = (key: string, value: string | null) =>
-  supabase.from("school_settings").upsert(
+const upsert = async (key: string, value: string | null) => {
+  const { error } = await supabase.from("school_settings").upsert(
     { setting_key: key, setting_value: value ?? "" },
     { onConflict: "setting_key" }
   );
+  if (error) throw new Error(saveErrorMessage(error));
+};
 
 const SemesterSettingsPage = () => {
   const { lang } = useLanguage();
