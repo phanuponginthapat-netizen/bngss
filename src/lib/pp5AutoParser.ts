@@ -292,8 +292,9 @@ function extractMeta(wb: XLSX.WorkBook): PP5ParsedWorkbook["meta"] {
         else if (/^ปี\s*พ\.?\s*ศ/i.test(label) && !meta.academicYear && isNum(val)) meta.academicYear = Number(val);
         else if (/^(ครูผู้สอน|ผู้สอน)/i.test(label) && !meta.teacherName) meta.teacherName = val;
         else if (/^ครูประจำชั้น|ครูที่ปรึกษา/i.test(label) && !meta.teacherName) meta.teacherName = val;
-        else if (/^รายวิชา/i.test(label) && !meta.subjectName) meta.subjectName = val.replace(/\s+/g, " ").trim();
-        else if (/^รหัสวิชา/i.test(label) && !meta.subjectCode) meta.subjectCode = val;
+        else if (/^รายวิชา/i.test(label) && !meta.subjectName && !isHeaderLikeValue(val)) meta.subjectName = val.replace(/\s+/g, " ").trim();
+        else if (/^รหัสวิชา/i.test(label) && !meta.subjectCode && !isHeaderLikeValue(val)) meta.subjectCode = val;
+
         else if (/^กลุ่มสาระ/i.test(label) && !meta.department) meta.department = val;
       }
     }
