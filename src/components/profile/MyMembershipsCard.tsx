@@ -33,8 +33,6 @@ export default function MyMembershipsCard() {
   const uid = session?.user?.id;
   const qc = useQueryClient();
 
-  const [newDept, setNewDept] = useState<SchoolDepartment | "">("");
-  const [newDeptRole, setNewDeptRole] = useState<DeptRole>("member");
   const [newGroup, setNewGroup] = useState<string>("");
   const [newGroupRole, setNewGroupRole] = useState<DeptRole>("member");
 
@@ -60,55 +58,6 @@ export default function MyMembershipsCard() {
         .eq("user_id", uid!);
       return data || [];
     },
-  });
-
-  const addDept = useMutation({
-    mutationFn: async () => {
-      if (!uid || !newDept) throw new Error("เลือกฝ่ายก่อน");
-      const { error } = await supabase.from("user_departments").insert({
-        user_id: uid,
-        department: newDept,
-        dept_role: newDeptRole,
-        is_head: newDeptRole === "head",
-      } as any);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      showSuccess("เพิ่มฝ่ายงานสำเร็จ");
-      setNewDept(""); setNewDeptRole("member");
-      qc.invalidateQueries({ queryKey: ["profile-my-depts", uid] });
-      qc.invalidateQueries({ queryKey: ["my-departments", uid] });
-    },
-    onError: (e: any) => showError(e?.message || "เพิ่มไม่สำเร็จ"),
-  });
-
-  const updateDeptRole = useMutation({
-    mutationFn: async ({ id, role }: { id: string; role: DeptRole }) => {
-      const { error } = await supabase
-        .from("user_departments")
-        .update({ dept_role: role, is_head: role === "head" } as any)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["profile-my-depts", uid] });
-      qc.invalidateQueries({ queryKey: ["my-departments", uid] });
-    },
-    onError: (e: any) => showError(e?.message || "ปรับระดับไม่สำเร็จ"),
-  });
-
-  const removeDept = useMutation({
-    mutationFn: async (id: string) => {
-      const ok = await confirmAction("ลบฝ่ายงานนี้?");
-      if (!ok) return;
-      const { error } = await supabase.from("user_departments").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["profile-my-depts", uid] });
-      qc.invalidateQueries({ queryKey: ["my-departments", uid] });
-    },
-    onError: (e: any) => showError(e?.message || "ลบไม่สำเร็จ"),
   });
 
   const addGroup = useMutation({
@@ -159,7 +108,6 @@ export default function MyMembershipsCard() {
     onError: (e: any) => showError(e?.message || "ลบไม่สำเร็จ"),
   });
 
-  const usedDepts = new Set((depts.data || []).map((d: any) => d.department));
   const usedGroups = new Set((groups.data || []).map((g: any) => g.subject_group));
 
   return (
