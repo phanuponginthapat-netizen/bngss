@@ -267,14 +267,23 @@ export function AutoImportDialogBase<T>({
                         {it.error && (
                           <div className="space-y-1">
                             <p className="text-xs text-destructive">{it.error}</p>
-                            {it.duplicateOf && !it.confirmedDuplicate && (
-                              <Button size="sm" variant="outline" className="h-7 text-xs"
-                                onClick={() => updateItem(it.file, { status: "ready", error: undefined, confirmedDuplicate: true })}>
-                                อัปโหลดทับ (ไฟล์เก่าจะถูกลบ)
-                              </Button>
-                            )}
+                            <div className="flex flex-wrap gap-2">
+                              {it.duplicateOf && !it.confirmedDuplicate && (
+                                <Button size="sm" variant="outline" className="h-7 text-xs"
+                                  onClick={() => updateItem(it.file, { status: "ready", error: undefined, confirmedDuplicate: true })}>
+                                  อัปโหลดทับ (ไฟล์เก่าจะถูกลบ)
+                                </Button>
+                              )}
+                              {it.parsed && !it.duplicateOf && (
+                                <Button size="sm" variant="outline" className="h-7 text-xs"
+                                  onClick={() => updateItem(it.file, { status: "ready", error: undefined })}>
+                                  ลองนำเข้าใหม่
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         )}
+
                         {it.parsed && (
                           <div className="text-xs space-y-2">
                             <div className="grid gap-3 lg:grid-cols-2 items-start">
