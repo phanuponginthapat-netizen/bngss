@@ -14414,6 +14414,7 @@ export type Database = {
           personnel_id: string | null
           status: string
           student_id: string | null
+          temperature_c: number | null
         }
         Insert: {
           clock_date?: string
@@ -14433,6 +14434,7 @@ export type Database = {
           personnel_id?: string | null
           status?: string
           student_id?: string | null
+          temperature_c?: number | null
         }
         Update: {
           clock_date?: string
@@ -14452,6 +14454,7 @@ export type Database = {
           personnel_id?: string | null
           status?: string
           student_id?: string | null
+          temperature_c?: number | null
         }
         Relationships: [
           {
@@ -16390,6 +16393,7 @@ export type Database = {
           _mode?: string
           _personnel_id: string
           _photo_url?: string
+          _temperature_c?: number
         }
         Returns: Json
       }

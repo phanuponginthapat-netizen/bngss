@@ -131,6 +131,7 @@ const AiAnalyticsPage = lazy(() => import("./pages/admin/AiAnalyticsPage"));
 const SystemUpdatePage = lazy(() => import("./pages/admin/SystemUpdatePage"));
 const KioskSetupPage = lazy(() => import("./pages/admin/KioskSetupPage"));
 const KioskDoorHealthPage = lazy(() => import("./pages/admin/KioskDoorHealthPage"));
+const SmartGateReportPage = lazy(() => import("./pages/admin/SmartGateReportPage"));
 const SetupWizardPage = lazy(() => import("./pages/SetupWizardPage"));
 
 const UpstreamSyncPage = lazy(() => import("./pages/admin/UpstreamSyncPage"));
@@ -439,6 +440,7 @@ const App = () => (
                 <Route path="admin/system-update" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SystemUpdatePage /></ProtectedRoute>} />
                 <Route path="admin/kiosk-setup" element={<ProtectedRoute allowedRoles={["admin", "director"]}><KioskSetupPage /></ProtectedRoute>} />
                 <Route path="admin/kiosk-health" element={<ProtectedRoute allowedRoles={["admin", "director"]}><KioskDoorHealthPage /></ProtectedRoute>} />
+                <Route path="admin/smart-gate" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SmartGateReportPage /></ProtectedRoute>} />
                 
                 <Route path="admin/upstream-sync" element={<ProtectedRoute allowedRoles={["admin", "director"]}><UpstreamSyncPage /></ProtectedRoute>} />
                 <Route path="admin/field-visibility" element={<ProtectedRoute allowedRoles={["admin", "director"]}><FieldVisibilityPage /></ProtectedRoute>} />
