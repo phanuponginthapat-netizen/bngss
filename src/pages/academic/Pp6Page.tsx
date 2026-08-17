@@ -16,7 +16,7 @@ import { openPrintWindow, toThaiDigits } from "@/lib/printUtils";
 import { formatFullName, formatFullNameHtml } from "@/lib/nameFormat";
 import { toast } from "sonner";
 import PP6AutoImportDialog from "@/components/academic/PP6AutoImportDialog";
-import { Megaphone, CheckCircle2 } from "lucide-react";
+import { Megaphone, CheckCircle2, Database } from "lucide-react";
 import ReportCardPage from "./ReportCardPage";
 import { swal } from "@/lib/swal";
 import { BE_OFFSET } from "@/lib/dateBE";
