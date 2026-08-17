@@ -180,24 +180,33 @@ BEGIN
   SELECT id INTO academic_id FROM public.cms_nav_menu WHERE label='วิชาการ' AND parent_id IS NULL LIMIT 1;
 
   IF about_id IS NOT NULL THEN
-    INSERT INTO public.cms_nav_menu (parent_id, label, url, icon, description, sort_order) VALUES
-      (about_id, 'ประวัติสถานศึกษา', '/about/history', 'BookMarked', 'ความเป็นมาของโรงเรียน', 1),
-      (about_id, 'วิสัยทัศน์ / พันธกิจ', '/about/vision', 'Target', 'ทิศทางและเป้าหมาย', 2),
-      (about_id, 'ปรัชญา / คำขวัญ', '/about/philosophy', 'Award', 'ปรัชญาและอัตลักษณ์', 3),
-      (about_id, 'ผังองค์กร', '/about/org-chart', 'Network', 'โครงสร้างการบริหาร', 4);
+    INSERT INTO public.cms_nav_menu (parent_id, label, url, icon, description, sort_order)
+    SELECT about_id, v.* FROM (VALUES
+      ('ประวัติสถานศึกษา', '/about/history', 'BookMarked', 'ความเป็นมาของโรงเรียน', 1),
+      ('วิสัยทัศน์ / พันธกิจ', '/about/vision', 'Target', 'ทิศทางและเป้าหมาย', 2),
+      ('ปรัชญา / คำขวัญ', '/about/philosophy', 'Award', 'ปรัชญาและอัตลักษณ์', 3),
+      ('ผังองค์กร', '/about/org-chart', 'Network', 'โครงสร้างการบริหาร', 4)
+    ) AS v(label, url, icon, description, sort_order)
+    WHERE NOT EXISTS (SELECT 1 FROM public.cms_nav_menu t WHERE t.parent_id = about_id AND t.label = v.label);
   END IF;
 
   IF personnel_id IS NOT NULL THEN
-    INSERT INTO public.cms_nav_menu (parent_id, label, url, icon, description, sort_order) VALUES
-      (personnel_id, 'ผู้บริหาร', '/personnel?group=admin', 'UserCog', 'ทำเนียบผู้บริหาร', 1),
-      (personnel_id, 'ครูและบุคลากร', '/personnel', 'Users', 'ทำเนียบครู', 2),
-      (personnel_id, 'กลุ่มสาระการเรียนรู้', '/subject-groups', 'Layers', '8 กลุ่มสาระ', 3);
+    INSERT INTO public.cms_nav_menu (parent_id, label, url, icon, description, sort_order)
+    SELECT personnel_id, v.* FROM (VALUES
+      ('ผู้บริหาร', '/personnel?group=admin', 'UserCog', 'ทำเนียบผู้บริหาร', 1),
+      ('ครูและบุคลากร', '/personnel', 'Users', 'ทำเนียบครู', 2),
+      ('กลุ่มสาระการเรียนรู้', '/subject-groups', 'Layers', '8 กลุ่มสาระ', 3)
+    ) AS v(label, url, icon, description, sort_order)
+    WHERE NOT EXISTS (SELECT 1 FROM public.cms_nav_menu t WHERE t.parent_id = personnel_id AND t.label = v.label);
   END IF;
 
   IF academic_id IS NOT NULL THEN
-    INSERT INTO public.cms_nav_menu (parent_id, label, url, icon, description, sort_order) VALUES
-      (academic_id, 'ปฏิทินการศึกษา', '/calendar', 'Calendar', 'กิจกรรมและวันสำคัญ', 1),
-      (academic_id, 'ดาวน์โหลดเอกสาร', '/downloads', 'Download', 'เอกสารสำคัญ', 2),
-      (academic_id, 'คำถามที่พบบ่อย', '/faq', 'HelpCircle', 'FAQ', 3);
+    INSERT INTO public.cms_nav_menu (parent_id, label, url, icon, description, sort_order)
+    SELECT academic_id, v.* FROM (VALUES
+      ('ปฏิทินการศึกษา', '/calendar', 'Calendar', 'กิจกรรมและวันสำคัญ', 1),
+      ('ดาวน์โหลดเอกสาร', '/downloads', 'Download', 'เอกสารสำคัญ', 2),
+      ('คำถามที่พบบ่อย', '/faq', 'HelpCircle', 'FAQ', 3)
+    ) AS v(label, url, icon, description, sort_order)
+    WHERE NOT EXISTS (SELECT 1 FROM public.cms_nav_menu t WHERE t.parent_id = academic_id AND t.label = v.label);
   END IF;
 END $$;
