@@ -1,4 +1,4 @@
-CREATE TABLE public.kiosk_devices (
+CREATE TABLE IF NOT EXISTS public.kiosk_devices (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   device_id text NOT NULL UNIQUE,
   user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -23,12 +23,14 @@ GRANT ALL ON public.kiosk_devices TO service_role;
 ALTER TABLE public.kiosk_devices ENABLE ROW LEVEL SECURITY;
 
 -- ทุกคนที่ล็อกอินอยู่ อัปเดต/สร้างแถวของตัวเองได้ (ส่ง heartbeat)
+DROP POLICY IF EXISTS "users can upsert own device row" ON public.kiosk_devices;
 CREATE POLICY "users can upsert own device row"
   ON public.kiosk_devices
   FOR INSERT
   TO authenticated
   WITH CHECK (user_id = auth.uid() OR user_id IS NULL);
 
+DROP POLICY IF EXISTS "users can update own device row" ON public.kiosk_devices;
 CREATE POLICY "users can update own device row"
   ON public.kiosk_devices
   FOR UPDATE
@@ -37,6 +39,7 @@ CREATE POLICY "users can update own device row"
   WITH CHECK (user_id = auth.uid() OR user_id IS NULL OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director') OR public.has_role(auth.uid(), 'teacher'));
 
 -- admin / director / teacher: ดูเครื่องทั้งหมด
+DROP POLICY IF EXISTS "staff can view all devices" ON public.kiosk_devices;
 CREATE POLICY "staff can view all devices"
   ON public.kiosk_devices
   FOR SELECT
@@ -49,15 +52,16 @@ CREATE POLICY "staff can view all devices"
   );
 
 -- admin / director: ลบเครื่องได้
+DROP POLICY IF EXISTS "admins can delete devices" ON public.kiosk_devices;
 CREATE POLICY "admins can delete devices"
   ON public.kiosk_devices
   FOR DELETE
   TO authenticated
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
-CREATE INDEX kiosk_devices_last_seen_idx ON public.kiosk_devices (last_seen_at DESC);
-CREATE INDEX kiosk_devices_user_id_idx ON public.kiosk_devices (user_id);
-CREATE INDEX kiosk_devices_status_idx ON public.kiosk_devices (status);
+CREATE INDEX IF NOT EXISTS kiosk_devices_last_seen_idx ON public.kiosk_devices (last_seen_at DESC);
+CREATE INDEX IF NOT EXISTS kiosk_devices_user_id_idx ON public.kiosk_devices (user_id);
+CREATE INDEX IF NOT EXISTS kiosk_devices_status_idx ON public.kiosk_devices (status);
 
 CREATE TRIGGER kiosk_devices_updated_at
   BEFORE UPDATE ON public.kiosk_devices

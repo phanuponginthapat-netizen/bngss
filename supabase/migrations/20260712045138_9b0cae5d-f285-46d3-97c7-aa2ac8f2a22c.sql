@@ -1,5 +1,5 @@
 
-CREATE TABLE public.padlet_boards (
+CREATE TABLE IF NOT EXISTS public.padlet_boards (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id uuid NOT NULL,
   title text NOT NULL,
@@ -13,7 +13,7 @@ CREATE TABLE public.padlet_boards (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.padlet_notes (
+CREATE TABLE IF NOT EXISTS public.padlet_notes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   board_id uuid NOT NULL REFERENCES public.padlet_boards(id) ON DELETE CASCADE,
   author_id uuid,
@@ -29,8 +29,8 @@ CREATE TABLE public.padlet_notes (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_padlet_notes_board ON public.padlet_notes(board_id, position);
-CREATE INDEX idx_padlet_boards_owner ON public.padlet_boards(owner_id);
+CREATE INDEX IF NOT EXISTS idx_padlet_notes_board ON public.padlet_notes(board_id, position);
+CREATE INDEX IF NOT EXISTS idx_padlet_boards_owner ON public.padlet_boards(owner_id);
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.padlet_boards TO authenticated;
 GRANT ALL ON public.padlet_boards TO service_role;
@@ -40,9 +40,11 @@ GRANT ALL ON public.padlet_notes TO service_role;
 ALTER TABLE public.padlet_boards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.padlet_notes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "boards viewable by authenticated" ON public.padlet_boards;
 CREATE POLICY "boards viewable by authenticated"
 ON public.padlet_boards FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "teachers can create boards" ON public.padlet_boards;
 CREATE POLICY "teachers can create boards"
 ON public.padlet_boards FOR INSERT TO authenticated
 WITH CHECK (
@@ -53,6 +55,7 @@ WITH CHECK (
   )
 );
 
+DROP POLICY IF EXISTS "owners or admins update boards" ON public.padlet_boards;
 CREATE POLICY "owners or admins update boards"
 ON public.padlet_boards FOR UPDATE TO authenticated
 USING (
@@ -61,6 +64,7 @@ USING (
   public.has_role(auth.uid(), 'director')
 );
 
+DROP POLICY IF EXISTS "owners or admins delete boards" ON public.padlet_boards;
 CREATE POLICY "owners or admins delete boards"
 ON public.padlet_boards FOR DELETE TO authenticated
 USING (
@@ -69,9 +73,11 @@ USING (
   public.has_role(auth.uid(), 'director')
 );
 
+DROP POLICY IF EXISTS "notes viewable by authenticated" ON public.padlet_notes;
 CREATE POLICY "notes viewable by authenticated"
 ON public.padlet_notes FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "authenticated can post notes" ON public.padlet_notes;
 CREATE POLICY "authenticated can post notes"
 ON public.padlet_notes FOR INSERT TO authenticated
 WITH CHECK (
@@ -82,6 +88,7 @@ WITH CHECK (
   )
 );
 
+DROP POLICY IF EXISTS "authors or board owners update notes" ON public.padlet_notes;
 CREATE POLICY "authors or board owners update notes"
 ON public.padlet_notes FOR UPDATE TO authenticated
 USING (
@@ -91,6 +98,7 @@ USING (
   public.has_role(auth.uid(), 'director')
 );
 
+DROP POLICY IF EXISTS "authors or board owners delete notes" ON public.padlet_notes;
 CREATE POLICY "authors or board owners delete notes"
 ON public.padlet_notes FOR DELETE TO authenticated
 USING (
@@ -111,14 +119,17 @@ ALTER TABLE public.padlet_notes REPLICA IDENTITY FULL;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.padlet_boards;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.padlet_notes;
 
+DROP POLICY IF EXISTS "padlet read authenticated" ON storage.objects;
 CREATE POLICY "padlet read authenticated"
 ON storage.objects FOR SELECT TO authenticated
 USING (bucket_id = 'padlet');
 
+DROP POLICY IF EXISTS "padlet upload authenticated" ON storage.objects;
 CREATE POLICY "padlet upload authenticated"
 ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (bucket_id = 'padlet');
 
+DROP POLICY IF EXISTS "padlet delete own" ON storage.objects;
 CREATE POLICY "padlet delete own"
 ON storage.objects FOR DELETE TO authenticated
 USING (bucket_id = 'padlet' AND owner = auth.uid());

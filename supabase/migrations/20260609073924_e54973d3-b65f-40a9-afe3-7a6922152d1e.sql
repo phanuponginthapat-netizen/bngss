@@ -1,6 +1,6 @@
 
 -- ============== Hub Projects ==============
-CREATE TABLE public.hub_projects (
+CREATE TABLE IF NOT EXISTS public.hub_projects (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   school_id UUID REFERENCES public.schools(id) ON DELETE CASCADE,
   hub_project_code TEXT,
@@ -28,14 +28,16 @@ GRANT ALL ON public.hub_projects TO service_role;
 GRANT SELECT ON public.hub_projects TO anon;
 ALTER TABLE public.hub_projects ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "view projects in school" ON public.hub_projects;
 CREATE POLICY "view projects in school" ON public.hub_projects FOR SELECT TO authenticated
   USING (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid())
     OR public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
+DROP POLICY IF EXISTS "staff manage projects" ON public.hub_projects;
 CREATE POLICY "staff manage projects" ON public.hub_projects FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));
 
-CREATE INDEX idx_hub_projects_school ON public.hub_projects(school_id, fiscal_year);
+CREATE INDEX IF NOT EXISTS idx_hub_projects_school ON public.hub_projects(school_id, fiscal_year);
 CREATE TRIGGER trg_hub_projects_updated BEFORE UPDATE ON public.hub_projects
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
@@ -52,7 +54,7 @@ CREATE TRIGGER trg_hub_project_fill_school BEFORE INSERT ON public.hub_projects
   FOR EACH ROW EXECUTE FUNCTION public.hub_project_fill_school();
 
 -- ============== Budgets received ==============
-CREATE TABLE public.hub_project_budgets (
+CREATE TABLE IF NOT EXISTS public.hub_project_budgets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES public.hub_projects(id) ON DELETE CASCADE,
   amount NUMERIC(14,2) NOT NULL CHECK (amount >= 0),
@@ -66,14 +68,16 @@ CREATE TABLE public.hub_project_budgets (
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.hub_project_budgets TO authenticated;
 GRANT ALL ON public.hub_project_budgets TO service_role;
 ALTER TABLE public.hub_project_budgets ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "view budgets via project" ON public.hub_project_budgets;
 CREATE POLICY "view budgets via project" ON public.hub_project_budgets FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.hub_projects p WHERE p.id = project_id));
+DROP POLICY IF EXISTS "staff manage budgets" ON public.hub_project_budgets;
 CREATE POLICY "staff manage budgets" ON public.hub_project_budgets FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));
 
 -- ============== Expenses ==============
-CREATE TABLE public.hub_project_expenses (
+CREATE TABLE IF NOT EXISTS public.hub_project_expenses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES public.hub_projects(id) ON DELETE CASCADE,
   expense_date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -90,14 +94,16 @@ CREATE TABLE public.hub_project_expenses (
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.hub_project_expenses TO authenticated;
 GRANT ALL ON public.hub_project_expenses TO service_role;
 ALTER TABLE public.hub_project_expenses ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "view expenses via project" ON public.hub_project_expenses;
 CREATE POLICY "view expenses via project" ON public.hub_project_expenses FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.hub_projects p WHERE p.id = project_id));
+DROP POLICY IF EXISTS "staff manage expenses" ON public.hub_project_expenses;
 CREATE POLICY "staff manage expenses" ON public.hub_project_expenses FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));
 
 -- ============== Progress updates (feed) ==============
-CREATE TABLE public.hub_project_updates (
+CREATE TABLE IF NOT EXISTS public.hub_project_updates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES public.hub_projects(id) ON DELETE CASCADE,
   update_date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -118,10 +124,13 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.hub_project_updates TO authentica
 GRANT ALL ON public.hub_project_updates TO service_role;
 GRANT SELECT ON public.hub_project_updates TO anon;
 ALTER TABLE public.hub_project_updates ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "view updates via project" ON public.hub_project_updates;
 CREATE POLICY "view updates via project" ON public.hub_project_updates FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.hub_projects p WHERE p.id = project_id));
+DROP POLICY IF EXISTS "anon view published updates" ON public.hub_project_updates;
 CREATE POLICY "anon view published updates" ON public.hub_project_updates FOR SELECT TO anon
   USING (is_published = true);
+DROP POLICY IF EXISTS "staff manage updates" ON public.hub_project_updates;
 CREATE POLICY "staff manage updates" ON public.hub_project_updates FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'))
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));

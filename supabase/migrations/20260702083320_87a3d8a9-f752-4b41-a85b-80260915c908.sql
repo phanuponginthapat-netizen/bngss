@@ -1,5 +1,5 @@
 
-CREATE TABLE public.browser_shortcuts (
+CREATE TABLE IF NOT EXISTS public.browser_shortcuts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   label_th TEXT NOT NULL,
   label_en TEXT NOT NULL,
@@ -20,10 +20,12 @@ GRANT ALL ON public.browser_shortcuts TO service_role;
 
 ALTER TABLE public.browser_shortcuts ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "authenticated can read shortcuts" ON public.browser_shortcuts;
 CREATE POLICY "authenticated can read shortcuts"
   ON public.browser_shortcuts FOR SELECT
   TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "admins manage shortcuts" ON public.browser_shortcuts;
 CREATE POLICY "admins manage shortcuts"
   ON public.browser_shortcuts FOR ALL
   TO authenticated

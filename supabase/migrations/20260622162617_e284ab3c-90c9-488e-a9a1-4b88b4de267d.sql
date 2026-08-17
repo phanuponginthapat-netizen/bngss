@@ -1,6 +1,6 @@
 
 -- Print templates: admin-managed HTML templates for printing
-CREATE TABLE public.print_templates (
+CREATE TABLE IF NOT EXISTS public.print_templates (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   code TEXT NOT NULL,
   name TEXT NOT NULL,
@@ -25,8 +25,8 @@ CREATE TABLE public.print_templates (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_print_templates_code ON public.print_templates(code);
-CREATE UNIQUE INDEX idx_print_templates_one_default
+CREATE INDEX IF NOT EXISTS idx_print_templates_code ON public.print_templates(code);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_print_templates_one_default
   ON public.print_templates(code) WHERE is_default = true;
 
 GRANT SELECT ON public.print_templates TO authenticated;
@@ -35,17 +35,19 @@ GRANT ALL ON public.print_templates TO service_role;
 
 ALTER TABLE public.print_templates ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone authenticated can read active templates" ON public.print_templates;
 CREATE POLICY "Anyone authenticated can read active templates"
   ON public.print_templates FOR SELECT TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Admins and directors manage templates" ON public.print_templates;
 CREATE POLICY "Admins and directors manage templates"
   ON public.print_templates FOR ALL TO authenticated
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
 -- Versions / history
-CREATE TABLE public.print_template_versions (
+CREATE TABLE IF NOT EXISTS public.print_template_versions (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   template_id UUID NOT NULL REFERENCES public.print_templates(id) ON DELETE CASCADE,
   version INTEGER NOT NULL,
@@ -54,16 +56,18 @@ CREATE TABLE public.print_template_versions (
   changed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_pt_versions_template ON public.print_template_versions(template_id);
+CREATE INDEX IF NOT EXISTS idx_pt_versions_template ON public.print_template_versions(template_id);
 
 GRANT SELECT, INSERT ON public.print_template_versions TO authenticated;
 GRANT ALL ON public.print_template_versions TO service_role;
 
 ALTER TABLE public.print_template_versions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Auth read versions" ON public.print_template_versions;
 CREATE POLICY "Auth read versions"
   ON public.print_template_versions FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Admins write versions" ON public.print_template_versions;
 CREATE POLICY "Admins write versions"
   ON public.print_template_versions FOR INSERT TO authenticated
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));

@@ -1,6 +1,6 @@
 
 -- Special rooms table
-CREATE TABLE public.special_rooms (
+CREATE TABLE IF NOT EXISTS public.special_rooms (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   description text,
@@ -22,9 +22,13 @@ GRANT ALL ON public.special_rooms TO service_role;
 
 ALTER TABLE public.special_rooms ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Special rooms readable" ON public.special_rooms;
 CREATE POLICY "Special rooms readable" ON public.special_rooms FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Admin manage rooms insert" ON public.special_rooms;
 CREATE POLICY "Admin manage rooms insert" ON public.special_rooms FOR INSERT TO authenticated WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
+DROP POLICY IF EXISTS "Admin manage rooms update" ON public.special_rooms;
 CREATE POLICY "Admin manage rooms update" ON public.special_rooms FOR UPDATE TO authenticated USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
+DROP POLICY IF EXISTS "Admin manage rooms delete" ON public.special_rooms;
 CREATE POLICY "Admin manage rooms delete" ON public.special_rooms FOR DELETE TO authenticated USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
 
 CREATE TRIGGER update_special_rooms_updated_at BEFORE UPDATE ON public.special_rooms
@@ -32,13 +36,13 @@ CREATE TRIGGER update_special_rooms_updated_at BEFORE UPDATE ON public.special_r
 
 -- Add room_id to bookings
 ALTER TABLE public.learning_center_bookings
-  ADD COLUMN room_id uuid REFERENCES public.special_rooms(id) ON DELETE SET NULL;
+  ADD COLUMN IF NOT EXISTS room_id uuid REFERENCES public.special_rooms(id) ON DELETE SET NULL;
 
-CREATE INDEX idx_lcb_room ON public.learning_center_bookings(room_id);
+CREATE INDEX IF NOT EXISTS idx_lcb_room ON public.learning_center_bookings(room_id);
 
 -- Replace unique slot to be per-room
 DROP INDEX IF EXISTS public.uq_lcb_slot;
-CREATE UNIQUE INDEX uq_lcb_slot ON public.learning_center_bookings(room_id, booking_date, start_time) WHERE status = 'confirmed';
+CREATE UNIQUE INDEX IF NOT EXISTS uq_lcb_slot ON public.learning_center_bookings(room_id, booking_date, start_time) WHERE status = 'confirmed';
 
 -- Seed default Learning Center room
 INSERT INTO public.special_rooms (name, description, location, color, sort_order)

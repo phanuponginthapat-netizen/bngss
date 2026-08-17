@@ -129,14 +129,17 @@ CREATE TRIGGER trg_ict_loans_notify
 ALTER TABLE public.ict_devices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ict_loans ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Devices viewable by authenticated" ON public.ict_devices;
 CREATE POLICY "Devices viewable by authenticated"
   ON public.ict_devices FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Devices manage by staff" ON public.ict_devices;
 CREATE POLICY "Devices manage by staff"
   ON public.ict_devices FOR ALL TO authenticated
   USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'))
   WITH CHECK (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
 
+DROP POLICY IF EXISTS "Loans viewable by staff or own student" ON public.ict_loans;
 CREATE POLICY "Loans viewable by staff or own student"
   ON public.ict_loans FOR SELECT TO authenticated
   USING (
@@ -145,6 +148,7 @@ CREATE POLICY "Loans viewable by staff or own student"
     OR EXISTS (SELECT 1 FROM public.parent_student_links psl WHERE psl.student_id = ict_loans.student_id AND psl.parent_user_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "Loans managed by staff" ON public.ict_loans;
 CREATE POLICY "Loans managed by staff"
   ON public.ict_loans FOR ALL TO authenticated
   USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'))
@@ -155,10 +159,12 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('ict-loan-photos', 'ict-loan-photos', true)
 ON CONFLICT (id) DO NOTHING;
 
+DROP POLICY IF EXISTS "ICT photos public read" ON storage.objects;
 CREATE POLICY "ICT photos public read"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'ict-loan-photos');
 
+DROP POLICY IF EXISTS "ICT photos staff upload" ON storage.objects;
 CREATE POLICY "ICT photos staff upload"
   ON storage.objects FOR INSERT TO authenticated
   WITH CHECK (
@@ -166,6 +172,7 @@ CREATE POLICY "ICT photos staff upload"
     (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'))
   );
 
+DROP POLICY IF EXISTS "ICT photos staff update" ON storage.objects;
 CREATE POLICY "ICT photos staff update"
   ON storage.objects FOR UPDATE TO authenticated
   USING (

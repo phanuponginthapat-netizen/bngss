@@ -50,25 +50,31 @@ USING (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.ui
 
 -- ============ PP5 / PP6 FILES: split ALL policy so DELETE is admin-only ============
 DROP POLICY IF EXISTS "pp5 owner and admin" ON public.pp5_files;
+DROP POLICY IF EXISTS "pp5 insert owner or admin" ON public.pp5_files;
 CREATE POLICY "pp5 insert owner or admin" ON public.pp5_files
 FOR INSERT TO authenticated
 WITH CHECK (uploaded_by = auth.uid() OR public.is_admin_or_director());
+DROP POLICY IF EXISTS "pp5 update owner or admin" ON public.pp5_files;
 CREATE POLICY "pp5 update owner or admin" ON public.pp5_files
 FOR UPDATE TO authenticated
 USING (uploaded_by = auth.uid() OR public.is_admin_or_director())
 WITH CHECK (uploaded_by = auth.uid() OR public.is_admin_or_director());
+DROP POLICY IF EXISTS "pp5 delete admin only" ON public.pp5_files;
 CREATE POLICY "pp5 delete admin only" ON public.pp5_files
 FOR DELETE TO authenticated
 USING (public.has_role(auth.uid(), 'admin'::app_role));
 
 DROP POLICY IF EXISTS "pp6 owner and admin" ON public.pp6_files;
+DROP POLICY IF EXISTS "pp6 insert owner or admin" ON public.pp6_files;
 CREATE POLICY "pp6 insert owner or admin" ON public.pp6_files
 FOR INSERT TO authenticated
 WITH CHECK (uploaded_by = auth.uid() OR public.is_admin_or_director());
+DROP POLICY IF EXISTS "pp6 update owner or admin" ON public.pp6_files;
 CREATE POLICY "pp6 update owner or admin" ON public.pp6_files
 FOR UPDATE TO authenticated
 USING (uploaded_by = auth.uid() OR public.is_admin_or_director())
 WITH CHECK (uploaded_by = auth.uid() OR public.is_admin_or_director());
+DROP POLICY IF EXISTS "pp6 delete admin only" ON public.pp6_files;
 CREATE POLICY "pp6 delete admin only" ON public.pp6_files
 FOR DELETE TO authenticated
 USING (public.has_role(auth.uid(), 'admin'::app_role));

@@ -1,5 +1,6 @@
 DROP POLICY IF EXISTS "Users update own profile (preserve must_change_password)" ON public.profiles;
 
+DROP POLICY IF EXISTS "Users update own profile (no escalate must_change_password)" ON public.profiles;
 CREATE POLICY "Users update own profile (no escalate must_change_password)"
 ON public.profiles
 FOR UPDATE

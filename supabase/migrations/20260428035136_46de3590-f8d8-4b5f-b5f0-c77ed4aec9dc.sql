@@ -18,6 +18,7 @@ CREATE INDEX IF NOT EXISTS idx_eform_attachments_form ON public.eform_attachment
 
 ALTER TABLE public.eform_attachments ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "View attachments of accessible eforms" ON public.eform_attachments;
 CREATE POLICY "View attachments of accessible eforms"
 ON public.eform_attachments FOR SELECT TO authenticated
 USING (EXISTS (
@@ -31,6 +32,7 @@ USING (EXISTS (
     )
 ));
 
+DROP POLICY IF EXISTS "Sender can manage attachments" ON public.eform_attachments;
 CREATE POLICY "Sender can manage attachments"
 ON public.eform_attachments FOR ALL TO authenticated
 USING (EXISTS (SELECT 1 FROM public.eforms e WHERE e.id = eform_attachments.eform_id AND e.sender_id = auth.uid()))
@@ -42,6 +44,7 @@ VALUES ('eform-attachments', 'eform-attachments', false)
 ON CONFLICT (id) DO NOTHING;
 
 -- Storage policies: path = <eform_id>/<filename>
+DROP POLICY IF EXISTS "eform attach: sender can upload" ON storage.objects;
 CREATE POLICY "eform attach: sender can upload"
 ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (
@@ -53,6 +56,7 @@ WITH CHECK (
   )
 );
 
+DROP POLICY IF EXISTS "eform attach: sender can delete" ON storage.objects;
 CREATE POLICY "eform attach: sender can delete"
 ON storage.objects FOR DELETE TO authenticated
 USING (
@@ -64,6 +68,7 @@ USING (
   )
 );
 
+DROP POLICY IF EXISTS "eform attach: sender/recipients can read" ON storage.objects;
 CREATE POLICY "eform attach: sender/recipients can read"
 ON storage.objects FOR SELECT TO authenticated
 USING (

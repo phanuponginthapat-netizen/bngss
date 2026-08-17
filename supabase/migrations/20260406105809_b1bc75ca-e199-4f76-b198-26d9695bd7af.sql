@@ -1,6 +1,6 @@
 
 -- PA Agreements main table
-CREATE TABLE public.pa_agreements (
+CREATE TABLE IF NOT EXISTS public.pa_agreements (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   personnel_id UUID REFERENCES public.personnel(id) ON DELETE CASCADE,
   academic_year INTEGER DEFAULT EXTRACT(year FROM now()),
@@ -19,7 +19,7 @@ CREATE TABLE public.pa_agreements (
 );
 
 -- PA Indicator Scores
-CREATE TABLE public.pa_indicator_scores (
+CREATE TABLE IF NOT EXISTS public.pa_indicator_scores (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   pa_agreement_id UUID NOT NULL REFERENCES public.pa_agreements(id) ON DELETE CASCADE,
   domain INTEGER NOT NULL DEFAULT 1, -- ด้านที่ 1 หรือ 2
@@ -36,30 +36,36 @@ ALTER TABLE public.pa_agreements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pa_indicator_scores ENABLE ROW LEVEL SECURITY;
 
 -- RLS for pa_agreements
+DROP POLICY IF EXISTS "Auth users can view pa_agreements" ON public.pa_agreements;
 CREATE POLICY "Auth users can view pa_agreements"
   ON public.pa_agreements FOR SELECT TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Admin/Director can manage pa_agreements" ON public.pa_agreements;
 CREATE POLICY "Admin/Director can manage pa_agreements"
   ON public.pa_agreements FOR ALL TO authenticated
   USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director'))
   WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director'));
 
+DROP POLICY IF EXISTS "Users can manage own pa_agreements" ON public.pa_agreements;
 CREATE POLICY "Users can manage own pa_agreements"
   ON public.pa_agreements FOR ALL TO authenticated
   USING (created_by = auth.uid())
   WITH CHECK (created_by = auth.uid());
 
 -- RLS for pa_indicator_scores
+DROP POLICY IF EXISTS "Auth users can view pa_indicator_scores" ON public.pa_indicator_scores;
 CREATE POLICY "Auth users can view pa_indicator_scores"
   ON public.pa_indicator_scores FOR SELECT TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Admin/Director can manage pa_indicator_scores" ON public.pa_indicator_scores;
 CREATE POLICY "Admin/Director can manage pa_indicator_scores"
   ON public.pa_indicator_scores FOR ALL TO authenticated
   USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director'))
   WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director'));
 
+DROP POLICY IF EXISTS "Users can manage own pa_indicator_scores" ON public.pa_indicator_scores;
 CREATE POLICY "Users can manage own pa_indicator_scores"
   ON public.pa_indicator_scores FOR ALL TO authenticated
   USING (

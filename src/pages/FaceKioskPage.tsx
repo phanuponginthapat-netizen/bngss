@@ -3,7 +3,7 @@ import { todayBangkok } from "@/lib/dateBE";
 import { attachStreamToVideo } from "@/lib/cameraIos";
 import { openCamera, stopStream } from "@/lib/cameraStream";
 
-import Hls from "hls.js";
+import { attachNetworkCamera, validateStreamUrl, describeStreamKind, classifyStreamUrl, testStreamUrl, type NetworkCameraHandle } from "@/lib/networkCamera";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -97,7 +97,10 @@ const FaceKioskPage = () => {
   const [savedPos, setSavedPos] = useState({ x: 50, y: 50 });
   const [faceCount, setFaceCount] = useState(0);
   const [networkUrl, setNetworkUrl] = useState<string>(() => localStorage.getItem(NETWORK_CAM_URL_KEY) || "");
-  const hlsRef = useRef<Hls | null>(null);
+  const [netStatus, setNetStatus] = useState<string>("");
+  const [netTesting, setNetTesting] = useState(false);
+  const netCamRef = useRef<NetworkCameraHandle | null>(null);
+
 
   const { value: thresholdSetting } = useSchoolSetting("face_scan_threshold");
   const { value: voiceSetting } = useSchoolSetting("face_scan_voice");
@@ -304,43 +307,25 @@ const FaceKioskPage = () => {
       const prev = videoRef.current?.srcObject as MediaStream | null;
       prev?.getTracks().forEach((t) => t.stop());
       if (videoRef.current) videoRef.current.srcObject = null;
-      if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+      if (netCamRef.current) { netCamRef.current.destroy(); netCamRef.current = null; }
       if (videoRef.current) videoRef.current.removeAttribute("src");
 
       // === Network camera (RTSP via HLS gateway, MJPEG, MP4) ===
       if (mode === "network") {
         const url = networkUrl.trim();
-        if (!url) {
-          toast.error("กรุณาตั้งค่า URL ของกล้องเครือข่าย (HLS / MP4)");
-          return;
-        }
+        const problem = validateStreamUrl(url);
+        if (problem) { toast.error(problem, { duration: 8000 }); return; }
         if (!videoRef.current) return;
-        videoRef.current.crossOrigin = "anonymous";
-        videoRef.current.muted = true;
-        if (url.endsWith(".m3u8") || url.includes(".m3u8?")) {
-          if (Hls.isSupported()) {
-            const hls = new Hls({ lowLatencyMode: true, liveSyncDuration: 1.5 });
-            hlsRef.current = hls;
-            hls.loadSource(url);
-            hls.attachMedia(videoRef.current);
-            await new Promise<void>((resolve, reject) => {
-              hls.on(Hls.Events.MANIFEST_PARSED, () => resolve());
-              hls.on(Hls.Events.ERROR, (_e, data) => { if (data.fatal) reject(new Error(data.details)); });
-            });
-          } else if (videoRef.current.canPlayType("application/vnd.apple.mpegurl")) {
-            videoRef.current.src = url; // native HLS (Safari)
-          } else {
-            throw new Error("เบราว์เซอร์ไม่รองรับ HLS");
-          }
-        } else {
-          // Direct MP4 / WebM / MJPEG fallback
-          videoRef.current.src = url;
-        }
-        await videoRef.current.play();
+        netCamRef.current = await attachNetworkCamera(videoRef.current, url, {
+          onStatus: (m) => { setNetStatus(m); toast.message(m); },
+          onFatal: (m) => { setNetStatus(m); setStreaming(false); toast.error(`กล้องเครือข่ายหลุด: ${m}`, { duration: 10000 }); },
+        });
+        setNetStatus(`เชื่อมต่อแล้ว (${describeStreamKind(netCamRef.current.kind)})`);
         setStreaming(true);
         toast.success("เชื่อมต่อกล้องเครือข่ายสำเร็จ");
         return;
       }
+
 
       // === Local webcam (รองรับกล้อง USB / กล้องหน้า-หลังหลายรุ่น) ===
       const wide = mode === "wide";
@@ -369,7 +354,8 @@ const FaceKioskPage = () => {
       videoRef.current.srcObject = null;
       videoRef.current.removeAttribute("src");
     }
-    if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+    if (netCamRef.current) { netCamRef.current.destroy(); netCamRef.current = null; }
+    setNetStatus("");
     setStreaming(false);
   }, []);
 
@@ -1065,7 +1051,30 @@ const FaceKioskPage = () => {
               <b> MediaMTX</b> หรือ <b>go2rtc</b> แปลง RTSP → HLS ก่อน
               (ดูคู่มือใน <code>docs/RTSP-CCTV-SETUP.md</code>)
             </p>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px] flex-1"
+                disabled={netTesting || !networkUrl.trim()}
+                onClick={async () => {
+                  setNetTesting(true);
+                  localStorage.setItem(NETWORK_CAM_URL_KEY, networkUrl);
+                  const r = await testStreamUrl(networkUrl);
+                  setNetStatus(r.message);
+                  r.ok ? toast.success(r.message) : toast.error(r.message, { duration: 9000 });
+                  setNetTesting(false);
+                }}
+              >
+                {netTesting ? "กำลังทดสอบ…" : "ทดสอบการเชื่อมต่อ"}
+              </Button>
+              <span className="text-[10px] text-muted-foreground">
+                {networkUrl.trim() ? describeStreamKind(classifyStreamUrl(networkUrl)) : ""}
+              </span>
+            </div>
+            {netStatus && <p className="text-[10px] text-muted-foreground break-words">สถานะ: {netStatus}</p>}
           </div>
+
 
           <div className="space-y-2 border-t pt-2">
             <label className="text-xs font-semibold flex items-center gap-2">

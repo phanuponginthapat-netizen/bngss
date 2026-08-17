@@ -1,6 +1,7 @@
 -- Tighten salary_records SELECT policy
 DROP POLICY IF EXISTS "Auth users can view salary_records" ON public.salary_records;
 
+DROP POLICY IF EXISTS "Owner or admin/director can view salary_records" ON public.salary_records;
 CREATE POLICY "Owner or admin/director can view salary_records"
 ON public.salary_records
 FOR SELECT

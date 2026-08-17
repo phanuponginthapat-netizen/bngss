@@ -83,3 +83,28 @@ hls:
 ```
 
 หรือใช้ reverse proxy (nginx/Caddy) เพิ่ม CORS headers
+
+---
+
+## สรุปการรองรับในระบบ (อัปเดตล่าสุด)
+
+| รูปแบบ | รองรับ | หมายเหตุ |
+|---|---|---|
+| HLS `.m3u8` | ✅ | ผ่าน hls.js (low-latency) + native HLS บน Safari/iOS |
+| MP4 / WebM (progressive) | ✅ | ใส่ URL ตรงได้เลย |
+| MJPEG (`/video.cgi`, `?action=stream`) | ✅ | กล้อง Axis / ESP32-CAM ฯลฯ |
+| RTSP / RTSPS / RTMP | ❌ (บล็อกพร้อมคำแนะนำ) | เบราว์เซอร์เปิดตรงไม่ได้ ต้องผ่าน gateway |
+| WebRTC / WHEP | ❌ (ยังไม่รองรับ) | ใช้ HLS จาก gateway เดียวกันแทน |
+
+ความสามารถเสริมของหน้า Face Kiosk:
+- ปุ่ม **ทดสอบการเชื่อมต่อ** ในหน้าตั้งค่า — ตรวจ HTTP status / playlist / CORS ก่อนเปิดกล้องจริง
+- ตรวจจับ URL แบบ `rtsp://` แล้วแจ้งวิธีแก้ทันที (แทนที่จะค้างเป็นจอดำ)
+- ตรวจ **mixed content** (หน้าเว็บ HTTPS + กล้อง HTTP) แล้วเตือนล่วงหน้า
+- **กู้คืนอัตโนมัติ**: networkError → `startLoad()`, mediaError → `recoverMediaError()`
+- **Watchdog ภาพค้าง**: ถ้าเฟรมไม่เดิน ~10 วินาที จะเชื่อมต่อใหม่ด้วย exponential backoff (สูงสุด 8 ครั้ง)
+- ตั้ง `crossOrigin="anonymous"` เสมอ เพื่อให้ capture เฟรมลง canvas สำหรับตรวจใบหน้าได้ (gateway ต้องส่ง CORS header)
+
+### ความแม่นยำ
+การจดจำใบหน้าใช้ pipeline เดียวกับกล้อง USB (threshold ตั้งค่าได้จาก `face_scan_threshold`)
+สตรีม HLS มี latency ~1.5–3 วินาที จึงเหมาะกับจุดเช็คอินที่ไม่ต้องการตอบสนองทันที
+ถ้าต้องการเรียลไทม์ให้ใช้กล้อง USB ต่อกับเครื่องคีออสโดยตรง

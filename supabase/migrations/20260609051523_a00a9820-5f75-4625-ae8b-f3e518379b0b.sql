@@ -5,6 +5,7 @@ DROP POLICY IF EXISTS "authenticated upload leave-attachments" ON storage.object
 DROP POLICY IF EXISTS "authenticated update leave-attachments" ON storage.objects;
 DROP POLICY IF EXISTS "authenticated delete leave-attachments" ON storage.objects;
 
+DROP POLICY IF EXISTS "leave-attachments owner or staff read" ON storage.objects;
 CREATE POLICY "leave-attachments owner or staff read" ON storage.objects
 FOR SELECT TO authenticated
 USING (
@@ -16,6 +17,7 @@ USING (
   )
 );
 
+DROP POLICY IF EXISTS "leave-attachments owner upload" ON storage.objects;
 CREATE POLICY "leave-attachments owner upload" ON storage.objects
 FOR INSERT TO authenticated
 WITH CHECK (
@@ -23,6 +25,7 @@ WITH CHECK (
   AND (storage.foldername(name))[1] = auth.uid()::text
 );
 
+DROP POLICY IF EXISTS "leave-attachments owner or admin update" ON storage.objects;
 CREATE POLICY "leave-attachments owner or admin update" ON storage.objects
 FOR UPDATE TO authenticated
 USING (
@@ -34,6 +37,7 @@ USING (
   )
 );
 
+DROP POLICY IF EXISTS "leave-attachments owner or admin delete" ON storage.objects;
 CREATE POLICY "leave-attachments owner or admin delete" ON storage.objects
 FOR DELETE TO authenticated
 USING (
@@ -51,6 +55,7 @@ DROP POLICY IF EXISTS "substitute-proof insert auth" ON storage.objects;
 DROP POLICY IF EXISTS "substitute-proof update auth" ON storage.objects;
 DROP POLICY IF EXISTS "substitute-proof delete auth" ON storage.objects;
 
+DROP POLICY IF EXISTS "substitute-proof staff read" ON storage.objects;
 CREATE POLICY "substitute-proof staff read" ON storage.objects
 FOR SELECT TO authenticated
 USING (
@@ -63,6 +68,7 @@ USING (
   )
 );
 
+DROP POLICY IF EXISTS "substitute-proof staff insert" ON storage.objects;
 CREATE POLICY "substitute-proof staff insert" ON storage.objects
 FOR INSERT TO authenticated
 WITH CHECK (
@@ -74,6 +80,7 @@ WITH CHECK (
   )
 );
 
+DROP POLICY IF EXISTS "substitute-proof owner or admin update" ON storage.objects;
 CREATE POLICY "substitute-proof owner or admin update" ON storage.objects
 FOR UPDATE TO authenticated
 USING (
@@ -85,6 +92,7 @@ USING (
   )
 );
 
+DROP POLICY IF EXISTS "substitute-proof owner or admin delete" ON storage.objects;
 CREATE POLICY "substitute-proof owner or admin delete" ON storage.objects
 FOR DELETE TO authenticated
 USING (
@@ -99,6 +107,7 @@ USING (
 -- Fix wall_post_comments read: scope by parent post visibility
 DROP POLICY IF EXISTS "comments read" ON public.wall_post_comments;
 
+DROP POLICY IF EXISTS "comments read scoped by post" ON public.wall_post_comments;
 CREATE POLICY "comments read scoped by post" ON public.wall_post_comments
 FOR SELECT TO authenticated
 USING (

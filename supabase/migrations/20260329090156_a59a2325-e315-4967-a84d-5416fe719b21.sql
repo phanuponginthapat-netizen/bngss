@@ -1,6 +1,6 @@
 
 -- Teacher assignments (admin assigns subjects to teachers with classrooms)
-CREATE TABLE public.teacher_assignments (
+CREATE TABLE IF NOT EXISTS public.teacher_assignments (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   personnel_id UUID REFERENCES public.personnel(id) ON DELETE CASCADE NOT NULL,
   subject_id UUID REFERENCES public.subjects(id) ON DELETE CASCADE NOT NULL,
@@ -13,11 +13,12 @@ CREATE TABLE public.teacher_assignments (
 
 ALTER TABLE public.teacher_assignments ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Auth users manage teacher_assignments" ON public.teacher_assignments;
 CREATE POLICY "Auth users manage teacher_assignments" ON public.teacher_assignments
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Assessment criteria (admin-defined topics for competency, desirable characteristics, reading/thinking/writing)
-CREATE TABLE public.assessment_criteria (
+CREATE TABLE IF NOT EXISTS public.assessment_criteria (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   category TEXT NOT NULL DEFAULT 'competency',
   title TEXT NOT NULL,
@@ -30,11 +31,12 @@ CREATE TABLE public.assessment_criteria (
 
 ALTER TABLE public.assessment_criteria ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Auth users manage assessment_criteria" ON public.assessment_criteria;
 CREATE POLICY "Auth users manage assessment_criteria" ON public.assessment_criteria
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Student assessment scores
-CREATE TABLE public.student_assessment_scores (
+CREATE TABLE IF NOT EXISTS public.student_assessment_scores (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   student_id UUID REFERENCES public.students(id) ON DELETE CASCADE NOT NULL,
   criteria_id UUID REFERENCES public.assessment_criteria(id) ON DELETE CASCADE NOT NULL,
@@ -50,11 +52,12 @@ CREATE TABLE public.student_assessment_scores (
 
 ALTER TABLE public.student_assessment_scores ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Auth users manage student_assessment_scores" ON public.student_assessment_scores;
 CREATE POLICY "Auth users manage student_assessment_scores" ON public.student_assessment_scores
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Subject indicators (teacher-defined per subject)
-CREATE TABLE public.subject_indicators (
+CREATE TABLE IF NOT EXISTS public.subject_indicators (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   subject_id UUID REFERENCES public.subjects(id) ON DELETE CASCADE NOT NULL,
   personnel_id UUID REFERENCES public.personnel(id) ON DELETE SET NULL,
@@ -66,11 +69,12 @@ CREATE TABLE public.subject_indicators (
 
 ALTER TABLE public.subject_indicators ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Auth users manage subject_indicators" ON public.subject_indicators;
 CREATE POLICY "Auth users manage subject_indicators" ON public.subject_indicators
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Score columns (teacher-defined score structure per subject)
-CREATE TABLE public.subject_score_columns (
+CREATE TABLE IF NOT EXISTS public.subject_score_columns (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   subject_id UUID REFERENCES public.subjects(id) ON DELETE CASCADE NOT NULL,
   personnel_id UUID REFERENCES public.personnel(id) ON DELETE SET NULL,
@@ -83,11 +87,12 @@ CREATE TABLE public.subject_score_columns (
 
 ALTER TABLE public.subject_score_columns ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Auth users manage subject_score_columns" ON public.subject_score_columns;
 CREATE POLICY "Auth users manage subject_score_columns" ON public.subject_score_columns
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Student column scores (individual scores per column per student)
-CREATE TABLE public.student_column_scores (
+CREATE TABLE IF NOT EXISTS public.student_column_scores (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   student_id UUID REFERENCES public.students(id) ON DELETE CASCADE NOT NULL,
   column_id UUID REFERENCES public.subject_score_columns(id) ON DELETE CASCADE NOT NULL,
@@ -98,5 +103,6 @@ CREATE TABLE public.student_column_scores (
 
 ALTER TABLE public.student_column_scores ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Auth users manage student_column_scores" ON public.student_column_scores;
 CREATE POLICY "Auth users manage student_column_scores" ON public.student_column_scores
   FOR ALL TO authenticated USING (true) WITH CHECK (true);

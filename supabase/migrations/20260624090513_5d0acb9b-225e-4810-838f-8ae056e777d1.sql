@@ -1,5 +1,5 @@
 
-CREATE TABLE public.upstream_subscription (
+CREATE TABLE IF NOT EXISTS public.upstream_subscription (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL DEFAULT 'default',
   bundle_url text NOT NULL,
@@ -17,6 +17,7 @@ GRANT ALL ON public.upstream_subscription TO service_role;
 
 ALTER TABLE public.upstream_subscription ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins manage upstream subscription" ON public.upstream_subscription;
 CREATE POLICY "Admins manage upstream subscription"
   ON public.upstream_subscription
   FOR ALL

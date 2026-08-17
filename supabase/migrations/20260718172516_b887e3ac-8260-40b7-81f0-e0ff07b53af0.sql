@@ -18,9 +18,11 @@ GRANT ALL ON public.role_notification_defaults TO service_role;
 
 ALTER TABLE public.role_notification_defaults ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "anyone can read matrix" ON public.role_notification_defaults;
 CREATE POLICY "anyone can read matrix"
   ON public.role_notification_defaults FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "admin/director can manage matrix" ON public.role_notification_defaults;
 CREATE POLICY "admin/director can manage matrix"
   ON public.role_notification_defaults FOR ALL
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))

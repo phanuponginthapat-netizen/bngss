@@ -1,5 +1,6 @@
 DROP POLICY IF EXISTS "Auth view all cms settings" ON public.cms_settings;
 
+DROP POLICY IF EXISTS "Auth view non-sensitive cms settings" ON public.cms_settings;
 CREATE POLICY "Auth view non-sensitive cms settings"
 ON public.cms_settings
 FOR SELECT

@@ -19,10 +19,12 @@ GRANT ALL ON public.app_user_connections TO service_role;
 
 ALTER TABLE public.app_user_connections ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users view their own connections" ON public.app_user_connections;
 CREATE POLICY "Users view their own connections"
   ON public.app_user_connections FOR SELECT TO authenticated
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users delete their own connections" ON public.app_user_connections;
 CREATE POLICY "Users delete their own connections"
   ON public.app_user_connections FOR DELETE TO authenticated
   USING (auth.uid() = user_id);

@@ -1,6 +1,6 @@
 
 -- ========== cms_school_info ==========
-CREATE TABLE public.cms_school_info (
+CREATE TABLE IF NOT EXISTS public.cms_school_info (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   section_key text NOT NULL UNIQUE,
   title text NOT NULL,
@@ -19,17 +19,19 @@ GRANT ALL ON public.cms_school_info TO service_role;
 
 ALTER TABLE public.cms_school_info ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Public reads published info" ON public.cms_school_info;
 CREATE POLICY "Public reads published info"
   ON public.cms_school_info FOR SELECT
   USING (is_published = true OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
+DROP POLICY IF EXISTS "Admins manage school info" ON public.cms_school_info;
 CREATE POLICY "Admins manage school info"
   ON public.cms_school_info FOR ALL
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
 -- ========== cms_downloads ==========
-CREATE TABLE public.cms_downloads (
+CREATE TABLE IF NOT EXISTS public.cms_downloads (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL,
   description text,
@@ -51,17 +53,19 @@ GRANT ALL ON public.cms_downloads TO service_role;
 
 ALTER TABLE public.cms_downloads ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Public reads published downloads" ON public.cms_downloads;
 CREATE POLICY "Public reads published downloads"
   ON public.cms_downloads FOR SELECT
   USING (is_published = true OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
+DROP POLICY IF EXISTS "Admins manage downloads" ON public.cms_downloads;
 CREATE POLICY "Admins manage downloads"
   ON public.cms_downloads FOR ALL
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
 -- ========== cms_faqs ==========
-CREATE TABLE public.cms_faqs (
+CREATE TABLE IF NOT EXISTS public.cms_faqs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   question text NOT NULL,
   answer text NOT NULL,
@@ -78,17 +82,19 @@ GRANT ALL ON public.cms_faqs TO service_role;
 
 ALTER TABLE public.cms_faqs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Public reads published faqs" ON public.cms_faqs;
 CREATE POLICY "Public reads published faqs"
   ON public.cms_faqs FOR SELECT
   USING (is_published = true OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
+DROP POLICY IF EXISTS "Admins manage faqs" ON public.cms_faqs;
 CREATE POLICY "Admins manage faqs"
   ON public.cms_faqs FOR ALL
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
 -- ========== cms_nav_menu ==========
-CREATE TABLE public.cms_nav_menu (
+CREATE TABLE IF NOT EXISTS public.cms_nav_menu (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   parent_id uuid REFERENCES public.cms_nav_menu(id) ON DELETE CASCADE,
   label text NOT NULL,
@@ -108,10 +114,12 @@ GRANT ALL ON public.cms_nav_menu TO service_role;
 
 ALTER TABLE public.cms_nav_menu ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Public reads published menu" ON public.cms_nav_menu;
 CREATE POLICY "Public reads published menu"
   ON public.cms_nav_menu FOR SELECT
   USING (is_published = true OR public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
+DROP POLICY IF EXISTS "Admins manage menu" ON public.cms_nav_menu;
 CREATE POLICY "Admins manage menu"
   ON public.cms_nav_menu FOR ALL
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))

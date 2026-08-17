@@ -1,6 +1,6 @@
 
 -- Portfolio items
-CREATE TABLE public.portfolio_items (
+CREATE TABLE IF NOT EXISTS public.portfolio_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   school_id UUID REFERENCES public.schools(id) ON DELETE SET NULL,
@@ -24,18 +24,24 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.portfolio_items TO authenticated;
 GRANT SELECT ON public.portfolio_items TO anon;
 GRANT ALL ON public.portfolio_items TO service_role;
 ALTER TABLE public.portfolio_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "portfolio public read" ON public.portfolio_items;
 CREATE POLICY "portfolio public read"   ON public.portfolio_items FOR SELECT USING (visibility='public');
+DROP POLICY IF EXISTS "portfolio school read" ON public.portfolio_items;
 CREATE POLICY "portfolio school read"   ON public.portfolio_items FOR SELECT TO authenticated USING (visibility IN ('school','public') AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid())));
+DROP POLICY IF EXISTS "portfolio owner read" ON public.portfolio_items;
 CREATE POLICY "portfolio owner read"    ON public.portfolio_items FOR SELECT TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "portfolio owner write" ON public.portfolio_items;
 CREATE POLICY "portfolio owner write"   ON public.portfolio_items FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "portfolio owner update" ON public.portfolio_items;
 CREATE POLICY "portfolio owner update"  ON public.portfolio_items FOR UPDATE TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "portfolio owner delete" ON public.portfolio_items;
 CREATE POLICY "portfolio owner delete"  ON public.portfolio_items FOR DELETE TO authenticated USING (user_id = auth.uid() OR public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER trg_portfolio_updated BEFORE UPDATE ON public.portfolio_items FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-CREATE INDEX idx_portfolio_user ON public.portfolio_items(user_id, is_pinned DESC, sort_order, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_portfolio_user ON public.portfolio_items(user_id, is_pinned DESC, sort_order, created_at DESC);
 ALTER PUBLICATION supabase_realtime ADD TABLE public.portfolio_items;
 
 -- Wall posts (user-generated feed, distinct from FB Page mirror social_posts)
-CREATE TABLE public.wall_posts (
+CREATE TABLE IF NOT EXISTS public.wall_posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   author_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   school_id UUID REFERENCES public.schools(id) ON DELETE SET NULL,
@@ -54,19 +60,23 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.wall_posts TO authenticated;
 GRANT SELECT ON public.wall_posts TO anon;
 GRANT ALL ON public.wall_posts TO service_role;
 ALTER TABLE public.wall_posts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "wall public read" ON public.wall_posts;
 CREATE POLICY "wall public read"  ON public.wall_posts FOR SELECT USING (visibility='public');
+DROP POLICY IF EXISTS "wall school read" ON public.wall_posts;
 CREATE POLICY "wall school read"  ON public.wall_posts FOR SELECT TO authenticated USING (visibility IN ('school','public') AND (school_id IS NULL OR school_id = public.get_user_school_id(auth.uid())));
+DROP POLICY IF EXISTS "wall author read" ON public.wall_posts;
 CREATE POLICY "wall author read"  ON public.wall_posts FOR SELECT TO authenticated USING (author_id = auth.uid());
+DROP POLICY IF EXISTS "wall author write" ON public.wall_posts;
 CREATE POLICY "wall author write" ON public.wall_posts FOR INSERT TO authenticated WITH CHECK (author_id = auth.uid());
 CREATE POLICY "wall author update"ON public.wall_posts FOR UPDATE TO authenticated USING (author_id = auth.uid());
 CREATE POLICY "wall author delete"ON public.wall_posts FOR DELETE TO authenticated USING (author_id = auth.uid() OR public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER trg_wall_posts_updated BEFORE UPDATE ON public.wall_posts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-CREATE INDEX idx_wall_posts_feed ON public.wall_posts(school_id, created_at DESC);
-CREATE INDEX idx_wall_posts_author ON public.wall_posts(author_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_wall_posts_feed ON public.wall_posts(school_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_wall_posts_author ON public.wall_posts(author_id, created_at DESC);
 ALTER PUBLICATION supabase_realtime ADD TABLE public.wall_posts;
 
 -- Reactions
-CREATE TABLE public.wall_post_reactions (
+CREATE TABLE IF NOT EXISTS public.wall_post_reactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   post_id UUID NOT NULL REFERENCES public.wall_posts(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -77,14 +87,18 @@ CREATE TABLE public.wall_post_reactions (
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.wall_post_reactions TO authenticated;
 GRANT ALL ON public.wall_post_reactions TO service_role;
 ALTER TABLE public.wall_post_reactions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "reactions read" ON public.wall_post_reactions;
 CREATE POLICY "reactions read"   ON public.wall_post_reactions FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "reactions write" ON public.wall_post_reactions;
 CREATE POLICY "reactions write"  ON public.wall_post_reactions FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "reactions update" ON public.wall_post_reactions;
 CREATE POLICY "reactions update" ON public.wall_post_reactions FOR UPDATE TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "reactions delete" ON public.wall_post_reactions;
 CREATE POLICY "reactions delete" ON public.wall_post_reactions FOR DELETE TO authenticated USING (user_id = auth.uid());
 ALTER PUBLICATION supabase_realtime ADD TABLE public.wall_post_reactions;
 
 -- Comments
-CREATE TABLE public.wall_post_comments (
+CREATE TABLE IF NOT EXISTS public.wall_post_comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   post_id UUID NOT NULL REFERENCES public.wall_posts(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -96,12 +110,16 @@ CREATE TABLE public.wall_post_comments (
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.wall_post_comments TO authenticated;
 GRANT ALL ON public.wall_post_comments TO service_role;
 ALTER TABLE public.wall_post_comments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "comments read" ON public.wall_post_comments;
 CREATE POLICY "comments read"   ON public.wall_post_comments FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "comments write" ON public.wall_post_comments;
 CREATE POLICY "comments write"  ON public.wall_post_comments FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "comments update" ON public.wall_post_comments;
 CREATE POLICY "comments update" ON public.wall_post_comments FOR UPDATE TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "comments delete" ON public.wall_post_comments;
 CREATE POLICY "comments delete" ON public.wall_post_comments FOR DELETE TO authenticated USING (user_id = auth.uid() OR public.has_role(auth.uid(),'admin'));
 CREATE TRIGGER trg_wall_comments_updated BEFORE UPDATE ON public.wall_post_comments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-CREATE INDEX idx_wall_comments_post ON public.wall_post_comments(post_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_wall_comments_post ON public.wall_post_comments(post_id, created_at);
 ALTER PUBLICATION supabase_realtime ADD TABLE public.wall_post_comments;
 
 -- Counters

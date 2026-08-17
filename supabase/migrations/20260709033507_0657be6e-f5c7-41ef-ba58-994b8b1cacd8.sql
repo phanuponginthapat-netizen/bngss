@@ -13,28 +13,28 @@ BEGIN
 
   -- hub_project_budgets
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='hub_project_budgets' AND column_name='school_id') THEN
-    ALTER TABLE public.hub_project_budgets ADD COLUMN school_id uuid REFERENCES public.schools(id);
+    ALTER TABLE public.hub_project_budgets ADD COLUMN IF NOT EXISTS school_id uuid REFERENCES public.schools(id);
     EXECUTE format('UPDATE public.hub_project_budgets SET school_id = %L WHERE school_id IS NULL', default_school);
     CREATE INDEX IF NOT EXISTS idx_hub_project_budgets_school ON public.hub_project_budgets(school_id);
   END IF;
 
   -- hub_project_expenses
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='hub_project_expenses' AND column_name='school_id') THEN
-    ALTER TABLE public.hub_project_expenses ADD COLUMN school_id uuid REFERENCES public.schools(id);
+    ALTER TABLE public.hub_project_expenses ADD COLUMN IF NOT EXISTS school_id uuid REFERENCES public.schools(id);
     EXECUTE format('UPDATE public.hub_project_expenses SET school_id = %L WHERE school_id IS NULL', default_school);
     CREATE INDEX IF NOT EXISTS idx_hub_project_expenses_school ON public.hub_project_expenses(school_id);
   END IF;
 
   -- hub_project_updates
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='hub_project_updates' AND column_name='school_id') THEN
-    ALTER TABLE public.hub_project_updates ADD COLUMN school_id uuid REFERENCES public.schools(id);
+    ALTER TABLE public.hub_project_updates ADD COLUMN IF NOT EXISTS school_id uuid REFERENCES public.schools(id);
     EXECUTE format('UPDATE public.hub_project_updates SET school_id = %L WHERE school_id IS NULL', default_school);
     CREATE INDEX IF NOT EXISTS idx_hub_project_updates_school ON public.hub_project_updates(school_id);
   END IF;
 
   -- student_leaves
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='student_leaves' AND column_name='school_id') THEN
-    ALTER TABLE public.student_leaves ADD COLUMN school_id uuid REFERENCES public.schools(id);
+    ALTER TABLE public.student_leaves ADD COLUMN IF NOT EXISTS school_id uuid REFERENCES public.schools(id);
     EXECUTE format('UPDATE public.student_leaves SET school_id = %L WHERE school_id IS NULL', default_school);
     CREATE INDEX IF NOT EXISTS idx_student_leaves_school ON public.student_leaves(school_id);
   END IF;

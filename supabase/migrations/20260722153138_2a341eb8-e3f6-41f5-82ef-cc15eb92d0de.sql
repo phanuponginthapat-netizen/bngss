@@ -27,13 +27,17 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.student_offsite_trips TO authenti
 GRANT ALL ON public.student_offsite_trips TO service_role;
 ALTER TABLE public.student_offsite_trips ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "trips_admin_all" ON public.student_offsite_trips;
 CREATE POLICY "trips_admin_all" ON public.student_offsite_trips FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'))
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
+DROP POLICY IF EXISTS "trips_staff_read" ON public.student_offsite_trips;
 CREATE POLICY "trips_staff_read" ON public.student_offsite_trips FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(),'teacher') OR created_by = auth.uid());
+DROP POLICY IF EXISTS "trips_teacher_insert" ON public.student_offsite_trips;
 CREATE POLICY "trips_teacher_insert" ON public.student_offsite_trips FOR INSERT TO authenticated
   WITH CHECK (public.has_role(auth.uid(),'teacher'));
+DROP POLICY IF EXISTS "trips_creator_update" ON public.student_offsite_trips;
 CREATE POLICY "trips_creator_update" ON public.student_offsite_trips FOR UPDATE TO authenticated
   USING (created_by = auth.uid() AND status IN ('draft','submitted','rejected'))
   WITH CHECK (created_by = auth.uid());
@@ -73,12 +77,15 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.student_offsite_participants TO a
 GRANT ALL ON public.student_offsite_participants TO service_role;
 ALTER TABLE public.student_offsite_participants ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "participants_admin_all" ON public.student_offsite_participants;
 CREATE POLICY "participants_admin_all" ON public.student_offsite_participants FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'))
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
+DROP POLICY IF EXISTS "participants_teacher_manage" ON public.student_offsite_participants;
 CREATE POLICY "participants_teacher_manage" ON public.student_offsite_participants FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'teacher'))
   WITH CHECK (public.has_role(auth.uid(),'teacher'));
+DROP POLICY IF EXISTS "participants_student_read" ON public.student_offsite_participants;
 CREATE POLICY "participants_student_read" ON public.student_offsite_participants FOR SELECT TO authenticated
   USING (student_id IN (SELECT id FROM public.students WHERE auth_user_id = auth.uid()));
 

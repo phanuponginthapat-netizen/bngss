@@ -15,18 +15,21 @@ CREATE INDEX IF NOT EXISTS idx_pdpa_consents_user ON public.pdpa_consents(user_i
 ALTER TABLE public.pdpa_consents ENABLE ROW LEVEL SECURITY;
 
 -- Users can view their own consents
+DROP POLICY IF EXISTS "Users can view own pdpa consents" ON public.pdpa_consents;
 CREATE POLICY "Users can view own pdpa consents"
 ON public.pdpa_consents FOR SELECT
 TO authenticated
 USING (auth.uid() = user_id);
 
 -- Users can insert their own consents
+DROP POLICY IF EXISTS "Users can insert own pdpa consents" ON public.pdpa_consents;
 CREATE POLICY "Users can insert own pdpa consents"
 ON public.pdpa_consents FOR INSERT
 TO authenticated
 WITH CHECK (auth.uid() = user_id);
 
 -- Admins/Directors can view all consents (audit)
+DROP POLICY IF EXISTS "Admins can view all pdpa consents" ON public.pdpa_consents;
 CREATE POLICY "Admins can view all pdpa consents"
 ON public.pdpa_consents FOR SELECT
 TO authenticated

@@ -1,5 +1,5 @@
 
-CREATE TABLE public.ai_integrations (
+CREATE TABLE IF NOT EXISTS public.ai_integrations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   provider TEXT NOT NULL CHECK (provider IN ('elevenlabs','xiaozhi')),
   name TEXT NOT NULL,
@@ -14,6 +14,7 @@ CREATE TABLE public.ai_integrations (
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.ai_integrations TO authenticated;
 GRANT ALL ON public.ai_integrations TO service_role;
 ALTER TABLE public.ai_integrations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "admins manage ai integrations" ON public.ai_integrations;
 CREATE POLICY "admins manage ai integrations" ON public.ai_integrations FOR ALL TO authenticated
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'))
   WITH CHECK (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));

@@ -30,6 +30,7 @@ FOR EACH ROW EXECUTE FUNCTION public.prevent_profile_self_escalation();
 
 -- 2) Storage: restrict game-covers INSERT to staff roles
 DROP POLICY IF EXISTS "game_covers_auth_write" ON storage.objects;
+DROP POLICY IF EXISTS "game_covers_staff_write" ON storage.objects;
 CREATE POLICY "game_covers_staff_write" ON storage.objects
 FOR INSERT TO authenticated
 WITH CHECK (

@@ -125,34 +125,41 @@ $$;
 -- 5) Policies for areas/schools/user_schools
 -- ============================================
 
+DROP POLICY IF EXISTS "Super admin manage areas" ON public.areas;
 CREATE POLICY "Super admin manage areas"
   ON public.areas FOR ALL TO authenticated
   USING (public.is_super_admin(auth.uid()))
   WITH CHECK (public.is_super_admin(auth.uid()));
 
+DROP POLICY IF EXISTS "Auth users view areas" ON public.areas;
 CREATE POLICY "Auth users view areas"
   ON public.areas FOR SELECT TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Super admin manage schools" ON public.schools;
 CREATE POLICY "Super admin manage schools"
   ON public.schools FOR ALL TO authenticated
   USING (public.is_super_admin(auth.uid()))
   WITH CHECK (public.is_super_admin(auth.uid()));
 
+DROP POLICY IF EXISTS "Area admin manage own area schools" ON public.schools;
 CREATE POLICY "Area admin manage own area schools"
   ON public.schools FOR ALL TO authenticated
   USING (public.is_area_admin(auth.uid()) AND area_id = public.get_user_area_id(auth.uid()))
   WITH CHECK (public.is_area_admin(auth.uid()) AND area_id = public.get_user_area_id(auth.uid()));
 
+DROP POLICY IF EXISTS "Auth users view schools" ON public.schools;
 CREATE POLICY "Auth users view schools"
   ON public.schools FOR SELECT TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Super admin manage user_schools" ON public.user_schools;
 CREATE POLICY "Super admin manage user_schools"
   ON public.user_schools FOR ALL TO authenticated
   USING (public.is_super_admin(auth.uid()) OR has_role(auth.uid(), 'admin'::app_role))
   WITH CHECK (public.is_super_admin(auth.uid()) OR has_role(auth.uid(), 'admin'::app_role));
 
+DROP POLICY IF EXISTS "Users view own school links" ON public.user_schools;
 CREATE POLICY "Users view own school links"
   ON public.user_schools FOR SELECT TO authenticated
   USING (user_id = auth.uid() OR public.is_super_admin(auth.uid()) OR public.is_area_admin(auth.uid()));
@@ -234,16 +241,19 @@ CREATE INDEX IF NOT EXISTS idx_broadcast_recipients_school ON public.broadcast_r
 ALTER TABLE public.area_broadcasts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.broadcast_recipients ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Super admin manage all broadcasts" ON public.area_broadcasts;
 CREATE POLICY "Super admin manage all broadcasts"
   ON public.area_broadcasts FOR ALL TO authenticated
   USING (public.is_super_admin(auth.uid()))
   WITH CHECK (public.is_super_admin(auth.uid()));
 
+DROP POLICY IF EXISTS "Area admin manage own area broadcasts" ON public.area_broadcasts;
 CREATE POLICY "Area admin manage own area broadcasts"
   ON public.area_broadcasts FOR ALL TO authenticated
   USING (public.is_area_admin(auth.uid()) AND area_id = public.get_user_area_id(auth.uid()))
   WITH CHECK (public.is_area_admin(auth.uid()) AND area_id = public.get_user_area_id(auth.uid()));
 
+DROP POLICY IF EXISTS "Schools view broadcasts targeted to them" ON public.area_broadcasts;
 CREATE POLICY "Schools view broadcasts targeted to them"
   ON public.area_broadcasts FOR SELECT TO authenticated
   USING (
@@ -255,15 +265,18 @@ CREATE POLICY "Schools view broadcasts targeted to them"
     )
   );
 
+DROP POLICY IF EXISTS "Super/Area admin manage recipients" ON public.broadcast_recipients;
 CREATE POLICY "Super/Area admin manage recipients"
   ON public.broadcast_recipients FOR ALL TO authenticated
   USING (public.is_super_admin(auth.uid()) OR public.is_area_admin(auth.uid()))
   WITH CHECK (public.is_super_admin(auth.uid()) OR public.is_area_admin(auth.uid()));
 
+DROP POLICY IF EXISTS "School users view/ack own recipients" ON public.broadcast_recipients;
 CREATE POLICY "School users view/ack own recipients"
   ON public.broadcast_recipients FOR SELECT TO authenticated
   USING (school_id = public.get_user_school_id(auth.uid()));
 
+DROP POLICY IF EXISTS "School admin acknowledge own recipients" ON public.broadcast_recipients;
 CREATE POLICY "School admin acknowledge own recipients"
   ON public.broadcast_recipients FOR UPDATE TO authenticated
   USING (
@@ -294,6 +307,7 @@ CREATE TABLE IF NOT EXISTS public.school_test_scores (
 
 ALTER TABLE public.school_test_scores ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Super/Area admin manage test scores" ON public.school_test_scores;
 CREATE POLICY "Super/Area admin manage test scores"
   ON public.school_test_scores FOR ALL TO authenticated
   USING (
@@ -305,6 +319,7 @@ CREATE POLICY "Super/Area admin manage test scores"
     OR (public.is_area_admin(auth.uid()) AND school_id IN (SELECT id FROM public.schools WHERE area_id = public.get_user_area_id(auth.uid())))
   );
 
+DROP POLICY IF EXISTS "School staff manage own test scores" ON public.school_test_scores;
 CREATE POLICY "School staff manage own test scores"
   ON public.school_test_scores FOR ALL TO authenticated
   USING (
@@ -316,6 +331,7 @@ CREATE POLICY "School staff manage own test scores"
     AND (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'school_admin'::app_role) OR has_role(auth.uid(), 'director'::app_role) OR has_role(auth.uid(), 'teacher'::app_role))
   );
 
+DROP POLICY IF EXISTS "Auth users view test scores" ON public.school_test_scores;
 CREATE POLICY "Auth users view test scores"
   ON public.school_test_scores FOR SELECT TO authenticated
   USING (true);

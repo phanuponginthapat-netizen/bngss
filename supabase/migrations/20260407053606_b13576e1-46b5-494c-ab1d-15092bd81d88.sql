@@ -1,5 +1,5 @@
 
-CREATE TABLE public.task_assignments (
+CREATE TABLE IF NOT EXISTS public.task_assignments (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   task_type TEXT NOT NULL DEFAULT 'homework',
   title TEXT NOT NULL,
@@ -20,6 +20,7 @@ CREATE TABLE public.task_assignments (
 ALTER TABLE public.task_assignments ENABLE ROW LEVEL SECURITY;
 
 -- Everyone can view their own tasks
+DROP POLICY IF EXISTS "Users can view own tasks" ON public.task_assignments;
 CREATE POLICY "Users can view own tasks"
 ON public.task_assignments FOR SELECT
 TO authenticated
@@ -31,6 +32,7 @@ USING (
 );
 
 -- Teachers can create tasks
+DROP POLICY IF EXISTS "Staff can create tasks" ON public.task_assignments;
 CREATE POLICY "Staff can create tasks"
 ON public.task_assignments FOR INSERT
 TO authenticated
@@ -41,6 +43,7 @@ WITH CHECK (
 );
 
 -- Creators and admins can update
+DROP POLICY IF EXISTS "Creators and admins can update tasks" ON public.task_assignments;
 CREATE POLICY "Creators and admins can update tasks"
 ON public.task_assignments FOR UPDATE
 TO authenticated
@@ -52,6 +55,7 @@ USING (
 );
 
 -- Creators and admins can delete
+DROP POLICY IF EXISTS "Creators and admins can delete tasks" ON public.task_assignments;
 CREATE POLICY "Creators and admins can delete tasks"
 ON public.task_assignments FOR DELETE
 TO authenticated

@@ -1,5 +1,5 @@
 -- Create subjects table
-CREATE TABLE public.subjects (
+CREATE TABLE IF NOT EXISTS public.subjects (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
   name_th TEXT NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE public.subjects (
 );
 
 -- Create student_scores table
-CREATE TABLE public.student_scores (
+CREATE TABLE IF NOT EXISTS public.student_scores (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   student_name TEXT NOT NULL,
   student_code TEXT,
@@ -39,14 +39,22 @@ ALTER TABLE public.subjects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.student_scores ENABLE ROW LEVEL SECURITY;
 
 -- RLS policies
+DROP POLICY IF EXISTS "Authenticated users can view subjects" ON public.subjects;
 CREATE POLICY "Authenticated users can view subjects" ON public.subjects FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated users can insert subjects" ON public.subjects;
 CREATE POLICY "Authenticated users can insert subjects" ON public.subjects FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "Authenticated users can update subjects" ON public.subjects;
 CREATE POLICY "Authenticated users can update subjects" ON public.subjects FOR UPDATE TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated users can delete subjects" ON public.subjects;
 CREATE POLICY "Authenticated users can delete subjects" ON public.subjects FOR DELETE TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Authenticated users can view scores" ON public.student_scores;
 CREATE POLICY "Authenticated users can view scores" ON public.student_scores FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated users can insert scores" ON public.student_scores;
 CREATE POLICY "Authenticated users can insert scores" ON public.student_scores FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "Authenticated users can update scores" ON public.student_scores;
 CREATE POLICY "Authenticated users can update scores" ON public.student_scores FOR UPDATE TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated users can delete scores" ON public.student_scores;
 CREATE POLICY "Authenticated users can delete scores" ON public.student_scores FOR DELETE TO authenticated USING (true);
 
 -- Timestamp trigger

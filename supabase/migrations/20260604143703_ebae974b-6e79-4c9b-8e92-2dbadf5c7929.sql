@@ -1,5 +1,5 @@
 -- AI Chat Logs: เก็บประวัติการสนทนา AI ต่อ user เพื่อวิเคราะห์ความเสี่ยง
-CREATE TABLE public.ai_chat_logs (
+CREATE TABLE IF NOT EXISTS public.ai_chat_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   session_id UUID,
@@ -17,10 +17,10 @@ CREATE TABLE public.ai_chat_logs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_ai_chat_logs_user ON public.ai_chat_logs(user_id, created_at DESC);
-CREATE INDEX idx_ai_chat_logs_risk ON public.ai_chat_logs(risk_level, created_at DESC)
+CREATE INDEX IF NOT EXISTS idx_ai_chat_logs_user ON public.ai_chat_logs(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_chat_logs_risk ON public.ai_chat_logs(risk_level, created_at DESC)
   WHERE risk_level IN ('medium','high');
-CREATE INDEX idx_ai_chat_logs_topic ON public.ai_chat_logs(topic, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_chat_logs_topic ON public.ai_chat_logs(topic, created_at DESC);
 
 GRANT SELECT, INSERT ON public.ai_chat_logs TO authenticated;
 GRANT ALL ON public.ai_chat_logs TO service_role;
@@ -28,16 +28,19 @@ GRANT ALL ON public.ai_chat_logs TO service_role;
 ALTER TABLE public.ai_chat_logs ENABLE ROW LEVEL SECURITY;
 
 -- ผู้ใช้ดูประวัติของตัวเองได้
+DROP POLICY IF EXISTS "Users can view their own chat logs" ON public.ai_chat_logs;
 CREATE POLICY "Users can view their own chat logs"
 ON public.ai_chat_logs FOR SELECT TO authenticated
 USING (user_id = auth.uid());
 
 -- admin / director ดูได้ทั้งหมด เพื่อวิเคราะห์ความเสี่ยง
+DROP POLICY IF EXISTS "Admins and directors can view all chat logs" ON public.ai_chat_logs;
 CREATE POLICY "Admins and directors can view all chat logs"
 ON public.ai_chat_logs FOR SELECT TO authenticated
 USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
 
 -- ครูที่เป็น homeroom ดู log ของนักเรียนในห้องตัวเองได้
+DROP POLICY IF EXISTS "Homeroom teachers can view their students' chat logs" ON public.ai_chat_logs;
 CREATE POLICY "Homeroom teachers can view their students' chat logs"
 ON public.ai_chat_logs FOR SELECT TO authenticated
 USING (

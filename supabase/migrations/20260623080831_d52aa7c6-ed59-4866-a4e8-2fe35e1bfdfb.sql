@@ -1,5 +1,6 @@
 
 -- 1) ai_provider_keys: explicit restrictive SELECT requiring admin/director
+DROP POLICY IF EXISTS "Restrict ai_provider_keys SELECT to admin/director" ON public.ai_provider_keys;
 CREATE POLICY "Restrict ai_provider_keys SELECT to admin/director"
 ON public.ai_provider_keys
 AS RESTRICTIVE
@@ -22,6 +23,7 @@ DROP POLICY IF EXISTS "Authenticated read eform pdfs" ON storage.objects;
 DROP POLICY IF EXISTS "Authenticated update eform pdfs" ON storage.objects;
 DROP POLICY IF EXISTS "Authenticated delete eform pdfs" ON storage.objects;
 
+DROP POLICY IF EXISTS "eform-pdfs owner or admin read" ON storage.objects;
 CREATE POLICY "eform-pdfs owner or admin read"
 ON storage.objects
 FOR SELECT
@@ -35,6 +37,7 @@ USING (
   )
 );
 
+DROP POLICY IF EXISTS "eform-pdfs owner or admin update" ON storage.objects;
 CREATE POLICY "eform-pdfs owner or admin update"
 ON storage.objects
 FOR UPDATE
@@ -56,6 +59,7 @@ WITH CHECK (
   )
 );
 
+DROP POLICY IF EXISTS "eform-pdfs owner or admin delete" ON storage.objects;
 CREATE POLICY "eform-pdfs owner or admin delete"
 ON storage.objects
 FOR DELETE

@@ -1,5 +1,5 @@
 
-CREATE TABLE public.google_chat_webhooks (
+CREATE TABLE IF NOT EXISTS public.google_chat_webhooks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   department text NOT NULL,
   webhook_url text NOT NULL,
@@ -11,6 +11,7 @@ CREATE TABLE public.google_chat_webhooks (
 
 ALTER TABLE public.google_chat_webhooks ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins can manage webhooks" ON public.google_chat_webhooks;
 CREATE POLICY "Admins can manage webhooks" ON public.google_chat_webhooks
   FOR ALL TO authenticated
   USING (public.has_role(auth.uid(), 'admin'))

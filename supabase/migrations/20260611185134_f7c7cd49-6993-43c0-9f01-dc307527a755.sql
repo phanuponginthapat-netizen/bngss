@@ -1,4 +1,5 @@
 -- Allow students to self-borrow and self-return ICT items
+DROP POLICY IF EXISTS "Students can create their own loans" ON public.ict_loans;
 CREATE POLICY "Students can create their own loans"
   ON public.ict_loans FOR INSERT TO authenticated
   WITH CHECK (
@@ -8,6 +9,7 @@ CREATE POLICY "Students can create their own loans"
     )
   );
 
+DROP POLICY IF EXISTS "Students can update their own loans" ON public.ict_loans;
 CREATE POLICY "Students can update their own loans"
   ON public.ict_loans FOR UPDATE TO authenticated
   USING (

@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS public.district_api_keys (
 
 ALTER TABLE public.district_api_keys ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins manage api keys" ON public.district_api_keys;
 CREATE POLICY "Admins manage api keys"
   ON public.district_api_keys
   FOR ALL
@@ -119,17 +120,20 @@ CREATE TABLE IF NOT EXISTS public.district_feed_logs (
 
 ALTER TABLE public.district_feed_logs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins view logs" ON public.district_feed_logs;
 CREATE POLICY "Admins view logs"
   ON public.district_feed_logs
   FOR SELECT
   USING (public.has_role(auth.uid(), 'admin'));
 
 -- 10) สร้าง basic policies ใหม่สำหรับ schools (admin ระดับโรงเรียน)
+DROP POLICY IF EXISTS "Admins manage schools" ON public.schools;
 CREATE POLICY "Admins manage schools"
   ON public.schools FOR ALL
   USING (public.has_role(auth.uid(), 'admin'))
   WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Authenticated view schools" ON public.schools;
 CREATE POLICY "Authenticated view schools"
   ON public.schools FOR SELECT
   USING (auth.uid() IS NOT NULL);

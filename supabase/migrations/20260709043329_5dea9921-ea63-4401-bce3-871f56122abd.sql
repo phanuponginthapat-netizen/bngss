@@ -2,7 +2,7 @@
 -- ============================================
 -- 1) lesson_plans — แผนการจัดการเรียนรู้
 -- ============================================
-CREATE TABLE public.lesson_plans (
+CREATE TABLE IF NOT EXISTS public.lesson_plans (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   teacher_id uuid REFERENCES public.personnel(id) ON DELETE SET NULL,
@@ -39,11 +39,11 @@ CREATE TABLE public.lesson_plans (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_lesson_plans_user ON public.lesson_plans(user_id);
-CREATE INDEX idx_lesson_plans_teacher ON public.lesson_plans(teacher_id);
-CREATE INDEX idx_lesson_plans_year_sem ON public.lesson_plans(academic_year, semester);
-CREATE INDEX idx_lesson_plans_subject ON public.lesson_plans(subject_id);
-CREATE INDEX idx_lesson_plans_status ON public.lesson_plans(status);
+CREATE INDEX IF NOT EXISTS idx_lesson_plans_user ON public.lesson_plans(user_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_plans_teacher ON public.lesson_plans(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_plans_year_sem ON public.lesson_plans(academic_year, semester);
+CREATE INDEX IF NOT EXISTS idx_lesson_plans_subject ON public.lesson_plans(subject_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_plans_status ON public.lesson_plans(status);
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.lesson_plans TO authenticated;
 GRANT ALL ON public.lesson_plans TO service_role;
@@ -51,28 +51,34 @@ GRANT ALL ON public.lesson_plans TO service_role;
 ALTER TABLE public.lesson_plans ENABLE ROW LEVEL SECURITY;
 
 -- Teachers manage their own plans
+DROP POLICY IF EXISTS "lesson_plans_own_select" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_own_select" ON public.lesson_plans
   FOR SELECT TO authenticated USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "lesson_plans_own_insert" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_own_insert" ON public.lesson_plans
   FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "lesson_plans_own_update" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_own_update" ON public.lesson_plans
   FOR UPDATE TO authenticated
   USING (user_id = auth.uid() AND status <> 'approved')
   WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "lesson_plans_own_delete" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_own_delete" ON public.lesson_plans
   FOR DELETE TO authenticated
   USING (user_id = auth.uid() AND status IN ('draft','revise_needed'));
 
 -- Admin/director: full access (view all + supervise)
+DROP POLICY IF EXISTS "lesson_plans_admin_all" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_admin_all" ON public.lesson_plans
   FOR ALL TO authenticated
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'))
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
 -- Peers: view approved plans of colleagues (PLC sharing)
+DROP POLICY IF EXISTS "lesson_plans_peer_view_approved" ON public.lesson_plans;
 CREATE POLICY "lesson_plans_peer_view_approved" ON public.lesson_plans
   FOR SELECT TO authenticated
   USING (status = 'approved');
@@ -80,7 +86,7 @@ CREATE POLICY "lesson_plans_peer_view_approved" ON public.lesson_plans
 -- ============================================
 -- 2) teaching_logbook — บันทึกการสอนรายวัน
 -- ============================================
-CREATE TABLE public.teaching_logbook (
+CREATE TABLE IF NOT EXISTS public.teaching_logbook (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   teacher_id uuid REFERENCES public.personnel(id) ON DELETE SET NULL,
@@ -107,21 +113,23 @@ CREATE TABLE public.teaching_logbook (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_logbook_user ON public.teaching_logbook(user_id);
-CREATE INDEX idx_logbook_teacher ON public.teaching_logbook(teacher_id);
-CREATE INDEX idx_logbook_date ON public.teaching_logbook(teaching_date DESC);
-CREATE INDEX idx_logbook_year_sem ON public.teaching_logbook(academic_year, semester);
+CREATE INDEX IF NOT EXISTS idx_logbook_user ON public.teaching_logbook(user_id);
+CREATE INDEX IF NOT EXISTS idx_logbook_teacher ON public.teaching_logbook(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_logbook_date ON public.teaching_logbook(teaching_date DESC);
+CREATE INDEX IF NOT EXISTS idx_logbook_year_sem ON public.teaching_logbook(academic_year, semester);
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.teaching_logbook TO authenticated;
 GRANT ALL ON public.teaching_logbook TO service_role;
 
 ALTER TABLE public.teaching_logbook ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "logbook_own_all" ON public.teaching_logbook;
 CREATE POLICY "logbook_own_all" ON public.teaching_logbook
   FOR ALL TO authenticated
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "logbook_admin_view" ON public.teaching_logbook;
 CREATE POLICY "logbook_admin_view" ON public.teaching_logbook
   FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));

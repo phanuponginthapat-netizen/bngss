@@ -15,6 +15,7 @@ CREATE INDEX IF NOT EXISTS idx_import_mapping_memory_lookup ON public.import_map
 
 ALTER TABLE public.import_mapping_memory ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admin manage import mapping memory" ON public.import_mapping_memory;
 CREATE POLICY "Admin manage import mapping memory"
 ON public.import_mapping_memory FOR ALL
 TO authenticated

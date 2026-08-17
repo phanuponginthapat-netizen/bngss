@@ -1,7 +1,7 @@
 -- ============ TABLES ============
 
 -- ประเภทขยะที่รับฝาก
-CREATE TABLE public.garbage_items (
+CREATE TABLE IF NOT EXISTS public.garbage_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   unit TEXT NOT NULL DEFAULT 'kg',
@@ -13,7 +13,7 @@ CREATE TABLE public.garbage_items (
 );
 
 -- สินค้ารางวัล
-CREATE TABLE public.garbage_rewards (
+CREATE TABLE IF NOT EXISTS public.garbage_rewards (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   image_url TEXT,
@@ -26,14 +26,14 @@ CREATE TABLE public.garbage_rewards (
 );
 
 -- ยอดแต้มรวมต่อนักเรียน (denormalized cache)
-CREATE TABLE public.garbage_student_points (
+CREATE TABLE IF NOT EXISTS public.garbage_student_points (
   student_id UUID PRIMARY KEY REFERENCES public.students(id) ON DELETE CASCADE,
   total_points INT NOT NULL DEFAULT 0,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- บันทึกการฝากขยะ
-CREATE TABLE public.garbage_deposits (
+CREATE TABLE IF NOT EXISTS public.garbage_deposits (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   item_id UUID NOT NULL REFERENCES public.garbage_items(id),
@@ -46,7 +46,7 @@ CREATE TABLE public.garbage_deposits (
 );
 
 -- บันทึกการแลกรางวัล
-CREATE TABLE public.garbage_redemptions (
+CREATE TABLE IF NOT EXISTS public.garbage_redemptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   reward_id UUID NOT NULL REFERENCES public.garbage_rewards(id),
@@ -58,11 +58,11 @@ CREATE TABLE public.garbage_redemptions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_garbage_deposits_student ON public.garbage_deposits(student_id);
-CREATE INDEX idx_garbage_deposits_created ON public.garbage_deposits(created_at DESC);
-CREATE INDEX idx_garbage_deposits_item ON public.garbage_deposits(item_id);
-CREATE INDEX idx_garbage_redemptions_student ON public.garbage_redemptions(student_id);
-CREATE INDEX idx_garbage_redemptions_created ON public.garbage_redemptions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_garbage_deposits_student ON public.garbage_deposits(student_id);
+CREATE INDEX IF NOT EXISTS idx_garbage_deposits_created ON public.garbage_deposits(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_garbage_deposits_item ON public.garbage_deposits(item_id);
+CREATE INDEX IF NOT EXISTS idx_garbage_redemptions_student ON public.garbage_redemptions(student_id);
+CREATE INDEX IF NOT EXISTS idx_garbage_redemptions_created ON public.garbage_redemptions(created_at DESC);
 
 -- ============ TRIGGERS ============
 
@@ -127,40 +127,54 @@ ALTER TABLE public.garbage_redemptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.garbage_student_points ENABLE ROW LEVEL SECURITY;
 
 -- items: ทุกคนที่ login เห็น, จัดการเฉพาะ admin/director/teacher
+DROP POLICY IF EXISTS "garbage_items_select" ON public.garbage_items;
 CREATE POLICY "garbage_items_select" ON public.garbage_items FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "garbage_items_manage" ON public.garbage_items;
 CREATE POLICY "garbage_items_manage" ON public.garbage_items FOR ALL TO authenticated
   USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'))
   WITH CHECK (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
 
 -- rewards: เหมือน items
+DROP POLICY IF EXISTS "garbage_rewards_select" ON public.garbage_rewards;
 CREATE POLICY "garbage_rewards_select" ON public.garbage_rewards FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "garbage_rewards_manage" ON public.garbage_rewards;
 CREATE POLICY "garbage_rewards_manage" ON public.garbage_rewards FOR ALL TO authenticated
   USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'))
   WITH CHECK (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
 
 -- deposits: staff จัดการได้, นักเรียนเห็นของตัวเอง
+DROP POLICY IF EXISTS "garbage_deposits_select_staff" ON public.garbage_deposits;
 CREATE POLICY "garbage_deposits_select_staff" ON public.garbage_deposits FOR SELECT TO authenticated
   USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
+DROP POLICY IF EXISTS "garbage_deposits_select_student_self" ON public.garbage_deposits;
 CREATE POLICY "garbage_deposits_select_student_self" ON public.garbage_deposits FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()));
+DROP POLICY IF EXISTS "garbage_deposits_insert_staff" ON public.garbage_deposits;
 CREATE POLICY "garbage_deposits_insert_staff" ON public.garbage_deposits FOR INSERT TO authenticated
   WITH CHECK (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
+DROP POLICY IF EXISTS "garbage_deposits_delete_admin" ON public.garbage_deposits;
 CREATE POLICY "garbage_deposits_delete_admin" ON public.garbage_deposits FOR DELETE TO authenticated
   USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director'));
 
 -- redemptions: เหมือน deposits
+DROP POLICY IF EXISTS "garbage_redemptions_select_staff" ON public.garbage_redemptions;
 CREATE POLICY "garbage_redemptions_select_staff" ON public.garbage_redemptions FOR SELECT TO authenticated
   USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
+DROP POLICY IF EXISTS "garbage_redemptions_select_student_self" ON public.garbage_redemptions;
 CREATE POLICY "garbage_redemptions_select_student_self" ON public.garbage_redemptions FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()));
+DROP POLICY IF EXISTS "garbage_redemptions_insert_staff" ON public.garbage_redemptions;
 CREATE POLICY "garbage_redemptions_insert_staff" ON public.garbage_redemptions FOR INSERT TO authenticated
   WITH CHECK (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
+DROP POLICY IF EXISTS "garbage_redemptions_delete_admin" ON public.garbage_redemptions;
 CREATE POLICY "garbage_redemptions_delete_admin" ON public.garbage_redemptions FOR DELETE TO authenticated
   USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director'));
 
 -- student_points: staff อ่านทั้งหมด, นักเรียนอ่านของตัวเอง
+DROP POLICY IF EXISTS "garbage_points_select_staff" ON public.garbage_student_points;
 CREATE POLICY "garbage_points_select_staff" ON public.garbage_student_points FOR SELECT TO authenticated
   USING (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'director') OR has_role(auth.uid(),'teacher'));
+DROP POLICY IF EXISTS "garbage_points_select_self" ON public.garbage_student_points;
 CREATE POLICY "garbage_points_select_self" ON public.garbage_student_points FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.students s WHERE s.id = student_id AND s.auth_user_id = auth.uid()));
 

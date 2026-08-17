@@ -1,6 +1,6 @@
 
 -- ===== 1. School Lunch Records =====
-CREATE TABLE public.school_lunch_records (
+CREATE TABLE IF NOT EXISTS public.school_lunch_records (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   lunch_date DATE NOT NULL DEFAULT CURRENT_DATE,
   academic_year INTEGER DEFAULT EXTRACT(year FROM now()),
@@ -23,13 +23,15 @@ CREATE TABLE public.school_lunch_records (
 
 ALTER TABLE public.school_lunch_records ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Auth users can view school_lunch_records" ON public.school_lunch_records;
 CREATE POLICY "Auth users can view school_lunch_records" ON public.school_lunch_records FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Staff can manage school_lunch_records" ON public.school_lunch_records;
 CREATE POLICY "Staff can manage school_lunch_records" ON public.school_lunch_records FOR ALL TO authenticated
   USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director') OR has_role(auth.uid(), 'teacher'))
   WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director') OR has_role(auth.uid(), 'teacher'));
 
 -- ===== 2. School Milk Records =====
-CREATE TABLE public.school_milk_records (
+CREATE TABLE IF NOT EXISTS public.school_milk_records (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   distribution_date DATE NOT NULL DEFAULT CURRENT_DATE,
   academic_year INTEGER DEFAULT EXTRACT(year FROM now()),
@@ -56,13 +58,15 @@ CREATE TABLE public.school_milk_records (
 
 ALTER TABLE public.school_milk_records ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Auth users can view school_milk_records" ON public.school_milk_records;
 CREATE POLICY "Auth users can view school_milk_records" ON public.school_milk_records FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Staff can manage school_milk_records" ON public.school_milk_records;
 CREATE POLICY "Staff can manage school_milk_records" ON public.school_milk_records FOR ALL TO authenticated
   USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director') OR has_role(auth.uid(), 'teacher'))
   WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director') OR has_role(auth.uid(), 'teacher'));
 
 -- ===== 3. Action Plans (PDCA) =====
-CREATE TABLE public.action_plans (
+CREATE TABLE IF NOT EXISTS public.action_plans (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   plan_code TEXT,
   title TEXT NOT NULL,
@@ -97,7 +101,9 @@ CREATE TABLE public.action_plans (
 
 ALTER TABLE public.action_plans ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Auth users can view action_plans" ON public.action_plans;
 CREATE POLICY "Auth users can view action_plans" ON public.action_plans FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Staff can manage action_plans" ON public.action_plans;
 CREATE POLICY "Staff can manage action_plans" ON public.action_plans FOR ALL TO authenticated
   USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director') OR has_role(auth.uid(), 'teacher'))
   WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'director') OR has_role(auth.uid(), 'teacher'));
