@@ -80,21 +80,35 @@ function readGlobal(): Partial<BackendConfig> {
   };
 }
 
-// ไม่ใช้ค่าจาก build env (VITE_SUPABASE_*) อีกต่อไป — ค่าเหล่านั้นชี้ไป Lovable Cloud
-// ระบบอ่าน backend จาก localStorage (Setup Wizard) หรือ /app-config.js เท่านั้น
+/**
+ * ค่าจาก build env (VITE_SUPABASE_*) — รองรับผู้ที่นำระบบไปใช้กับ Supabase ของตัวเอง
+ * ค่าที่ชี้ไป Lovable Cloud จะถูกกรองทิ้งเสมอ
+ */
 function readEnv(): Partial<BackendConfig> {
-  return {};
+  try {
+    const env: any = (import.meta as any)?.env ?? {};
+    const url = env.VITE_SUPABASE_URL as string | undefined;
+    const anonKey = (env.VITE_SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_ANON_KEY) as
+      | string
+      | undefined;
+    if (!url || !anonKey || isBlockedBackendUrl(url)) return {};
+    return { url, anonKey, projectId: env.VITE_SUPABASE_PROJECT_ID || undefined };
+  } catch {
+    return {};
+  }
 }
 
 export function getBackendConfig(): BackendConfig {
   const local = readLocal();
   const global = readGlobal();
-  const pick = (k: keyof BackendConfig) => (local as any)[k] || (global as any)[k] || "";
+  const env = readEnv();
+  const pick = (k: keyof BackendConfig) =>
+    (local as any)[k] || (global as any)[k] || (env as any)[k] || "";
   let url = String(pick("url") || "").replace(/\/+$/, "");
   let anonKey = String(pick("anonKey") || "");
   let projectId = String(pick("projectId") || "");
 
-  // Fallback สุดท้าย: backend หลักของโรงเรียน (กันกรณี remix / ลืมตั้ง app-config.js)
+  // Fallback สุดท้าย: backend เริ่มต้น (โรงเรียนต้นทาง) — กันกรณียังไม่ได้ตั้งค่า
   if (!url || !anonKey || isBlockedBackendUrl(url)) {
     url = CANONICAL_BACKEND.url;
     anonKey = CANONICAL_BACKEND.anonKey;
@@ -107,6 +121,11 @@ export function getBackendConfig(): BackendConfig {
     projectId,
     storageProvider: (pick("storageProvider") as BackendConfig["storageProvider"]) || "supabase",
   };
+}
+
+/** true ถ้ายังใช้ backend เริ่มต้น (ยังไม่ได้ตั้ง backend ของตัวเอง) */
+export function isUsingDefaultBackend(): boolean {
+  return getBackendConfig().url === CANONICAL_BACKEND.url;
 }
 
 /** แหล่งที่มาของค่า ใช้แสดงใน Setup Wizard */
