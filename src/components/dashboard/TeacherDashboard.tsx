@@ -39,6 +39,10 @@ import { useWeatherData } from "@/hooks/useWeatherData";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import GpsTrackingCard from "@/components/GpsTrackingCard";
 import { saveErrorMessage } from "@/lib/saveError";
+import AttachmentUploader from "@/components/homework/AttachmentUploader";
+import { type Attachment } from "@/lib/homeworkStorage";
+import { notify } from "@/lib/notify";
+import { Loader2 } from "lucide-react";
 
 interface SubjectItem {
   id: string;
