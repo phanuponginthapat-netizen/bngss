@@ -3,7 +3,7 @@ import { todayBangkok } from "@/lib/dateBE";
 import { attachStreamToVideo } from "@/lib/cameraIos";
 import { openCamera, stopStream } from "@/lib/cameraStream";
 
-import Hls from "hls.js";
+import { attachNetworkCamera, validateStreamUrl, describeStreamKind, testStreamUrl, type NetworkCameraHandle } from "@/lib/networkCamera";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -354,7 +354,8 @@ const FaceKioskPage = () => {
       videoRef.current.srcObject = null;
       videoRef.current.removeAttribute("src");
     }
-    if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+    if (netCamRef.current) { netCamRef.current.destroy(); netCamRef.current = null; }
+    setNetStatus("");
     setStreaming(false);
   }, []);
 
