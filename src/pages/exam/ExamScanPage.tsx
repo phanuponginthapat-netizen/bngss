@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { saveErrorMessage } from "@/lib/saveError";
 import { Camera, Upload, Loader2, CheckCircle2, X } from "lucide-react";
 import { useAuthSession } from "@/hooks/useAuthSession";
 
@@ -70,7 +71,8 @@ export default function ExamScanPage() {
       const graded = await renderGradedOverlay(dataUrl, answers, correctMap, questions as any[]);
       const gradedBlob = await (await fetch(graded)).blob();
       const gradedPath = `${exam.id}/${Date.now()}-graded.png`;
-      await supabase.storage.from("exam-scans").upload(gradedPath, gradedBlob, { upsert: false, contentType: "image/png" });
+      const gradedUp = await supabase.storage.from("exam-scans").upload(gradedPath, gradedBlob, { upsert: false, contentType: "image/png" });
+      if (gradedUp.error) throw gradedUp.error;
       const gradedUrl = supabase.storage.from("exam-scans").getPublicUrl(gradedPath).data.publicUrl;
 
       // Lookup student by code
@@ -86,7 +88,7 @@ export default function ExamScanPage() {
       }
 
       const pct = total > 0 ? (score / total) * 100 : 0;
-      await supabase.from("exam_submissions").insert({
+      const { error: subErr } = await supabase.from("exam_submissions").insert({
         exam_id: exam.id,
         student_id: studentId,
         student_code_detected: data.student_code || null,
@@ -98,11 +100,15 @@ export default function ExamScanPage() {
         score, total, percentage: pct,
         graded_by: user.id,
       });
+      if (subErr) {
+        toast.error(saveErrorMessage(subErr));
+        return;
+      }
 
       setResult({ score, total, pct, studentCode: data.student_code, studentName, gradedUrl });
       toast.success(`ตรวจเสร็จ: ${score}/${total} (${pct.toFixed(1)}%)`);
     } catch (e: any) {
-      toast.error(e?.message || "ตรวจไม่สำเร็จ");
+      toast.error(saveErrorMessage(e));
     } finally { setBusy(false); }
   }
 

@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { useState } from "react";
 import { toast } from "sonner";
+import { saveErrorMessage } from "@/lib/saveError";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,16 +46,19 @@ export default function ExamListPage() {
     setDeleting(true);
     try {
       // ลบลูก ๆ ก่อน เผื่อ FK ไม่ได้ตั้ง cascade
-      await supabase.from("exam_questions").delete().eq("exam_id", deleteId);
-      await supabase.from("exam_submissions").delete().eq("exam_id", deleteId);
-      await supabase.from("exam_sheets").delete().eq("exam_id", deleteId);
+      const { error: qErr } = await supabase.from("exam_questions").delete().eq("exam_id", deleteId);
+      if (qErr) throw qErr;
+      const { error: subErr } = await supabase.from("exam_submissions").delete().eq("exam_id", deleteId);
+      if (subErr) throw subErr;
+      const { error: shErr } = await supabase.from("exam_sheets").delete().eq("exam_id", deleteId);
+      if (shErr) throw shErr;
       const { error } = await supabase.from("exams").delete().eq("id", deleteId);
       if (error) throw error;
       toast.success("ลบข้อสอบเรียบร้อย");
       setDeleteId(null);
       qc.invalidateQueries({ queryKey: ["exams", "mine", user?.id] });
     } catch (e: any) {
-      toast.error("ลบไม่สำเร็จ: " + (e?.message || ""));
+      toast.error(saveErrorMessage(e));
     } finally {
       setDeleting(false);
     }

@@ -20,6 +20,7 @@ import { formatDateBE } from "@/lib/dateBE";
 import { categoryLabel } from "@/lib/competitionRules";
 import { singleElimination, roundRobin, groupStage, roundsFor, roundLabel, BRACKET_TYPES } from "@/lib/bracket";
 import { saveErrorMessage } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 const db = supabase as any;
 
@@ -141,15 +142,21 @@ export default function ActivityDetailPage() {
     qc.invalidateQueries({ queryKey: ["activity_scores", id] });
   };
 
+  const [addingTeam, setAddingTeam] = useState(false);
   const addTeam = async () => {
     if (!newTeam.trim()) return;
+    if (addingTeam) return;
+    setAddingTeam(true);
     const { error } = await db.from("activity_participants").insert({ activity_id: id, team_name: newTeam.trim() });
+    setAddingTeam(false);
     if (error) return toast.error(saveErrorMessage(error));
     setNewTeam("");
     qc.invalidateQueries({ queryKey: ["activity_participants", id] });
   };
 
   const removeParticipant = async (pid: string) => {
+    const ok = await swal.confirm({ title: "ยืนยันการลบ?", text: "ต้องการลบผู้เข้าร่วมนี้หรือไม่", danger: true });
+    if (!ok) return;
     const { error } = await db.from("activity_participants").delete().eq("id", pid);
     if (error) return toast.error(saveErrorMessage(error));
     qc.invalidateQueries({ queryKey: ["activity_participants", id] });
@@ -192,7 +199,7 @@ export default function ActivityDetailPage() {
             {canManage && (
               <div className="flex gap-2">
                 <Input placeholder="เพิ่มทีม/สี/หน่วยแข่งขัน" value={newTeam} onChange={(e) => setNewTeam(e.target.value)} />
-                <Button onClick={addTeam}><Plus className="w-4 h-4 mr-1" /> เพิ่ม</Button>
+                <Button onClick={addTeam} disabled={addingTeam}><Plus className="w-4 h-4 mr-1" /> {addingTeam ? "กำลังเพิ่ม..." : "เพิ่ม"}</Button>
               </div>
             )}
             <div className="divide-y border rounded-md">

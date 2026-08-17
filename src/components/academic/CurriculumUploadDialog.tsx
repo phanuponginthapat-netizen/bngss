@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Upload, FileSpreadsheet, Check, FileText, Loader2 } from "lucide-react";
 import * as XLSX from "xlsx";
-import { saveErrorMessage } from "@/lib/saveError";
+import { saveErrorMessage, safeNum, safeInt } from "@/lib/saveError";
 
 interface Props {
   open: boolean;
@@ -74,11 +74,11 @@ export const CurriculumUploadDialog = ({ open, onOpenChange }: Props) => {
       const code = String(row["รหัสวิชา"] || row["code"] || row["รหัส"] || "").trim();
       const name_th = String(row["ชื่อวิชา"] || row["name_th"] || row["ชื่อ"] || row["วิชา"] || "").trim();
       const name_en = String(row["ชื่อวิชา(อังกฤษ)"] || row["name_en"] || row["English"] || "").trim();
-      const credits = parseFloat(row["หน่วยกิต"] || row["credits"] || "1") || 1;
-      const hours = parseInt(row["ชั่วโมง/สัปดาห์"] || row["hours_per_week"] || row["ชม./สัปดาห์"] || row["ชั่วโมง"] || "1") || 1;
+      const credits = safeNum(row["หน่วยกิต"] || row["credits"], 1);
+      const hours = safeInt(row["ชั่วโมง/สัปดาห์"] || row["hours_per_week"] || row["ชม./สัปดาห์"] || row["ชั่วโมง"], 1);
       const grade = String(row["ระดับชั้น"] || row["grade_level"] || row["ชั้น"] || "").trim();
       const typeRaw = String(row["ประเภท"] || row["subject_type"] || row["type"] || "required").trim();
-      const semRaw = parseInt(row["ภาคเรียน"] || row["semester"] || "0");
+      const semRaw = safeInt(row["ภาคเรียน"] || row["semester"], 0);
       // Auto-detect: if elementary and no semester specified, default to 0 (yearly)
       const semester = isElementary(grade) && semRaw === 0 ? 0 : (semRaw || 1);
 
@@ -115,13 +115,13 @@ export const CurriculumUploadDialog = ({ open, onOpenChange }: Props) => {
       }
 
       const subjects: ParsedSubject[] = data.subjects.map((s: any) => {
-        const semester = parseInt(s.semester) || 0;
-        const hoursRaw = parseInt(s.hours_per_year) || 40;
+        const semester = safeInt(s.semester, 0);
+        const hoursRaw = safeInt(s.hours_per_year, 40);
         // For elementary (semester=0), hours_per_week = yearly hours / 40 weeks
         // For secondary (semester=1|2), hours_per_week = semester hours / 20 weeks
         const weeksPerPeriod = semester === 0 ? 40 : 20;
         const hoursPerWeek = Math.max(1, Math.round(hoursRaw / weeksPerPeriod));
-        const credits = s.credits ? parseFloat(s.credits) : Math.max(0.5, Math.round((hoursRaw / 40) * 2) / 2);
+        const credits = s.credits ? safeNum(s.credits, 1) : Math.max(0.5, Math.round((hoursRaw / 40) * 2) / 2);
 
         return {
           code: String(s.code || "").trim(),

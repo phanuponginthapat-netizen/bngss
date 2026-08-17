@@ -17,7 +17,8 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { formatDateBE } from "@/lib/dateBE";
 import { ACTIVITY_CATEGORIES, RULE_PRESETS, getRulePreset, categoryLabel } from "@/lib/competitionRules";
 import { BRACKET_TYPES } from "@/lib/bracket";
-import { saveErrorMessage } from "@/lib/saveError";
+import { saveErrorMessage, safeNum } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 const db = supabase as any;
 
@@ -94,8 +95,11 @@ export default function ActivitiesPage() {
     }));
   };
 
+  const [saving, setSaving] = useState(false);
   const save = async () => {
     if (!form.title?.trim()) return toast.error("กรุณาระบุชื่อกิจกรรม");
+    if (saving) return;
+    setSaving(true);
     const { data: u } = await supabase.auth.getUser();
     const payload: any = {
       title: form.title,
@@ -111,15 +115,16 @@ export default function ActivitiesPage() {
       rules: form.rules || null,
       registration_open: !!form.registration_open,
       registration_deadline: form.registration_deadline ? new Date(form.registration_deadline).toISOString() : null,
-      max_participants: form.max_participants ? Number(form.max_participants) : null,
-      group_count: form.group_count ? Number(form.group_count) : null,
+      max_participants: form.max_participants ? safeNum(form.max_participants, null as any) : null,
+      group_count: form.group_count ? safeNum(form.group_count, null as any) : null,
       scoring_mode: form.scoring_mode,
-      max_score: form.max_score ? Number(form.max_score) : null,
+      max_score: form.max_score ? safeNum(form.max_score, null as any) : null,
       supervisor_teachers: form.supervisor_teachers || null,
       criteria: form.criteria || null,
       created_by: u?.user?.id,
     };
     const { error } = await db.from("activities").insert(payload);
+    setSaving(false);
     if (error) return toast.error(saveErrorMessage(error));
     setOpen(false);
     qc.invalidateQueries({ queryKey: ["activities"] });
@@ -138,6 +143,8 @@ export default function ActivitiesPage() {
   const withdraw = async (a: any) => {
     const reg = myRegs.find((r: any) => r.activity_id === a.id);
     if (!reg) return;
+    const ok = await swal.confirm({ title: "ยืนยันการยกเลิก?", text: "ต้องการยกเลิกการสมัครกิจกรรมนี้หรือไม่", danger: true });
+    if (!ok) return;
     const { error } = await db.from("activity_participants").delete().eq("id", reg.id);
     if (error) return toast.error(saveErrorMessage(error));
     qc.invalidateQueries({ queryKey: ["my_activity_regs"] });
@@ -307,7 +314,7 @@ export default function ActivitiesPage() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button>
-            <Button onClick={save}>บันทึก</Button>
+            <Button onClick={save} disabled={saving}>{saving ? "กำลังบันทึก..." : "บันทึก"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -19,6 +19,7 @@ import DOMPurify from "dompurify";
 import PadletNoteEditor, { padletNoteEditorEmpty } from "./PadletNoteEditor";
 import { shortenUrl } from "@/lib/shortlink";
 import { saveErrorMessage } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 const BG_MAP: Record<string, string> = {
   paper: "bg-[radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.08)_1px,transparent_0)] [background-size:16px_16px] bg-amber-50",
@@ -118,7 +119,8 @@ export default function PadletBoardPage() {
 
   const deleteBoard = async () => {
     if (!board) return;
-    if (!confirm(`ลบกระดาน "${board.title}" ทั้งหมด? การลบไม่สามารถกู้คืนได้`)) return;
+    const ok = await swal.confirm({ title: `ลบกระดาน "${board.title}"?`, text: "การลบไม่สามารถกู้คืนได้", danger: true });
+    if (!ok) return;
     const { error } = await supabase.from("padlet_boards").delete().eq("id", board.id);
     if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบกระดานแล้ว");
@@ -162,9 +164,12 @@ export default function PadletBoardPage() {
 
   const removeCover = async () => {
     if (!board?.cover_image_url) return;
-    if (!confirm("ลบภาพปก?")) return;
-    await supabase.storage.from("padlet").remove([board.cover_image_url]);
-    await supabase.from("padlet_boards").update({ cover_image_url: null }).eq("id", board.id);
+    const ok = await swal.confirm({ title: "ลบภาพปก?", danger: true });
+    if (!ok) return;
+    const { error: rmErr } = await supabase.storage.from("padlet").remove([board.cover_image_url]);
+    if (rmErr) { toast.error(saveErrorMessage(rmErr)); return; }
+    const { error } = await supabase.from("padlet_boards").update({ cover_image_url: null }).eq("id", board.id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบภาพปกแล้ว");
   };
 
@@ -285,14 +290,16 @@ export default function PadletBoardPage() {
   };
 
   const deleteNote = async (n: any) => {
-    if (!confirm("ลบโน้ตนี้?")) return;
+    const ok = await swal.confirm({ title: "ยืนยันการลบ?", text: "ต้องการลบโน้ตนี้หรือไม่", danger: true });
+    if (!ok) return;
     const paths = [
       ...(n.image_url ? [n.image_url] : []),
       ...((n.attachments || []) as Attachment[]).map(a => a.path),
     ];
     if (paths.length) await supabase.storage.from("padlet").remove(paths);
     const { error } = await supabase.from("padlet_notes").delete().eq("id", n.id);
-    if (error) toast.error(saveErrorMessage(error));
+    if (error) { toast.error(saveErrorMessage(error)); return; }
+    toast.success("ลบแล้ว");
   };
 
   const likeNote = async (n: any) => {

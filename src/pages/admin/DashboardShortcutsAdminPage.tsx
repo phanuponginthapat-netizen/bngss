@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
+import { swal } from "@/lib/swal";
 import { saveErrorMessage } from "@/lib/saveError";
 
 type Shortcut = {
@@ -81,6 +82,7 @@ export default function DashboardShortcutsAdminPage() {
   const L = (th: string, en: string) => (lang === "th" ? th : en);
   const [editing, setEditing] = useState<Shortcut | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["dashboard_shortcuts", "admin"],
@@ -100,28 +102,35 @@ export default function DashboardShortcutsAdminPage() {
 
   const save = async () => {
     if (!editing) return;
-    if (!editing.label_th || !editing.label_en || !editing.target_url) {
+    if (saving) return;
+    if (!editing.label_th.trim() || !editing.label_en.trim() || !editing.target_url.trim()) {
       toast.error(L("กรุณากรอกชื่อและ URL", "Please fill name and URL"));
       return;
     }
-    const payload = { ...editing };
-    if (!payload.id) {
-      const { id, ...insert } = payload;
-      const { error } = await supabase.from("dashboard_shortcuts").insert(insert as any);
-      if (error) return toast.error(saveErrorMessage(error));
-      toast.success(L("เพิ่มปุ่มแล้ว", "Added"));
-    } else {
-      const { id, ...update } = payload;
-      const { error } = await supabase.from("dashboard_shortcuts").update(update).eq("id", id);
-      if (error) return toast.error(saveErrorMessage(error));
-      toast.success(L("บันทึกแล้ว", "Saved"));
+    setSaving(true);
+    try {
+      const payload = { ...editing };
+      if (!payload.id) {
+        const { id, ...insert } = payload;
+        const { error } = await supabase.from("dashboard_shortcuts").insert(insert as any);
+        if (error) return toast.error(saveErrorMessage(error));
+        toast.success(L("เพิ่มปุ่มแล้ว", "Added"));
+      } else {
+        const { id, ...update } = payload;
+        const { error } = await supabase.from("dashboard_shortcuts").update(update).eq("id", id);
+        if (error) return toast.error(saveErrorMessage(error));
+        toast.success(L("บันทึกแล้ว", "Saved"));
+      }
+      setEditing(null);
+      invalidate();
+    } finally {
+      setSaving(false);
     }
-    setEditing(null);
-    invalidate();
   };
 
   const del = async (id: string) => {
-    if (!confirm(L("ลบปุ่มนี้?", "Delete this shortcut?"))) return;
+    const ok = await swal.confirm({ title: L("ลบปุ่มลัดนี้?", "Delete this shortcut?"), danger: true });
+    if (!ok) return;
     const { error } = await supabase.from("dashboard_shortcuts").delete().eq("id", id);
     if (error) return toast.error(saveErrorMessage(error));
     toast.success(L("ลบแล้ว", "Deleted"));
@@ -423,7 +432,7 @@ export default function DashboardShortcutsAdminPage() {
             <Button variant="outline" onClick={() => setEditing(null)}>
               {L("ยกเลิก", "Cancel")}
             </Button>
-            <Button onClick={save} disabled={uploading}>
+            <Button onClick={save} disabled={uploading || saving}>
               <Save className="w-4 h-4 mr-1" /> {L("บันทึก", "Save")}
             </Button>
           </DialogFooter>

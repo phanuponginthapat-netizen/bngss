@@ -22,6 +22,7 @@ import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { uploadLeaveAttachment, openLeaveAttachment } from "@/lib/leaveAttachment";
 import { notify } from "@/lib/notify";
 import { saveErrorMessage } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 
 const typeLabels: Record<string, any> = {
@@ -119,7 +120,7 @@ const StudentLeaveForm = () => {
       qc.invalidateQueries({ queryKey: ["my_student_leaves"] });
       setStartDate(""); setEndDate(""); setReason(""); setLeaveType("sick"); setAttachment(null);
     } catch (e: any) {
-      toast.error(e.message || "Error");
+      toast.error(saveErrorMessage(e));
     } finally {
       setSubmitting(false);
     }
@@ -307,9 +308,16 @@ const AdminLeaveView = () => {
     return records;
   }, [records, studentData.filteredStudents, studentData.search, studentData.gradeFilter, studentData.classroomFilter]);
 
+  const [savingLeave, setSavingLeave] = useState(false);
   const handleAdd = async () => {
-    if (!studentId || !startDate || !endDate) return;
-    const { error } = await supabase.from("student_leaves").insert({ student_id: studentId, leave_type: leaveType, start_date: startDate, end_date: endDate, reason } as any);
+    if (!studentId || !startDate || !endDate) {
+      toast.error(lang === "th" ? "กรุณากรอกข้อมูลให้ครบ" : "Please fill all required fields");
+      return;
+    }
+    if (savingLeave) return;
+    setSavingLeave(true);
+    const { error } = await supabase.from("student_leaves").insert({ student_id: studentId, leave_type: leaveType, start_date: startDate, end_date: endDate, reason: reason || null } as any);
+    setSavingLeave(false);
     if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "บันทึกสำเร็จ" : "Saved");
     qc.invalidateQueries({ queryKey: ["student_leaves"] });
@@ -365,9 +373,12 @@ const AdminLeaveView = () => {
   };
 
   const handleDelete = async (id: string) => {
+    const ok = await swal.confirm({ title: "ยืนยันการลบ?", text: "ต้องการลบใบลานี้หรือไม่", danger: true });
+    if (!ok) return;
     const { error: delErr } = await supabase.from("student_leaves").delete().eq("id", id);
-    if (delErr) { toast.error(delErr.message); return; }
+    if (delErr) { toast.error(saveErrorMessage(delErr)); return; }
     qc.invalidateQueries({ queryKey: ["student_leaves"] });
+    toast.success(lang === "th" ? "ลบสำเร็จ" : "Deleted");
   };
 
   return (
@@ -410,7 +421,7 @@ const AdminLeaveView = () => {
                 <div><Label>{lang === "th" ? "ถึง" : "To"}</Label><BEDatePicker value={endDate} onChange={(v) => setEndDate(v)} /></div>
               </div>
               <div><Label>{lang === "th" ? "เหตุผล" : "Reason"}</Label><Input value={reason} onChange={e => setReason(e.target.value)} /></div>
-              <Button onClick={handleAdd} className="w-full">{lang === "th" ? "บันทึก" : "Save"}</Button>
+              <Button onClick={handleAdd} className="w-full" disabled={savingLeave}>{savingLeave ? (lang === "th" ? "กำลังบันทึก..." : "Saving...") : (lang === "th" ? "บันทึก" : "Save")}</Button>
             </div>
           </DialogContent>
         </Dialog>

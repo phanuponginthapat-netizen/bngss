@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUserRole } from "@/hooks/useUserRole";
 import { BE_OFFSET } from "@/lib/dateBE";
-import { saveErrorMessage } from "@/lib/saveError";
+import { saveErrorMessage, safeInt } from "@/lib/saveError";
 
 interface AssignmentsTabProps {
   assignments: any[];
@@ -36,6 +36,8 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
   const [academicYear, setAcademicYear] = useState(String(new Date().getFullYear() + BE_OFFSET));
   const [filterGrade, setFilterGrade] = useState("all");
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
+  const [savingAssign, setSavingAssign] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const gradeLevels = useMemo(() => {
     const levels = new Set(subjects.map((s: any) => s.grade_level).filter(Boolean));
@@ -68,32 +70,44 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
   };
 
   const handleAssign = async () => {
+    if (savingAssign) return;
     if (!personnelId || selectedSubjectIds.length === 0 || !classroomId) {
       toast.error("กรุณาเลือกครู, รายวิชา และห้องเรียน"); return;
     }
-    const rows = selectedSubjectIds.map(subjectId => ({
-      personnel_id: personnelId, subject_id: subjectId, classroom_id: classroomId,
-      semester: parseInt(semester), academic_year: parseInt(academicYear),
-    }));
-    const { error } = await supabase.from("teacher_assignments").insert(rows);
-    if (error) { toast.error(saveErrorMessage(error)); return; }
-    toast.success(`มอบหมาย ${rows.length} วิชาสำเร็จ`);
-    qc.invalidateQueries({ queryKey: ["teacher_assignments"] });
-    setAssignOpen(false); resetForm();
+    setSavingAssign(true);
+    try {
+      const rows = selectedSubjectIds.map(subjectId => ({
+        personnel_id: personnelId, subject_id: subjectId, classroom_id: classroomId,
+        semester: safeInt(semester, 1), academic_year: safeInt(academicYear, new Date().getFullYear()),
+      }));
+      const { error } = await supabase.from("teacher_assignments").insert(rows);
+      if (error) { toast.error(saveErrorMessage(error)); return; }
+      toast.success(`มอบหมาย ${rows.length} วิชาสำเร็จ`);
+      qc.invalidateQueries({ queryKey: ["teacher_assignments"] });
+      setAssignOpen(false); resetForm();
+    } finally {
+      setSavingAssign(false);
+    }
   };
 
   const handleEditAssignment = async () => {
-    if (!editAssignment || !personnelId) return;
-    const { error } = await supabase.from("teacher_assignments").update({
-      personnel_id: personnelId,
-      classroom_id: classroomId || editAssignment.classroom_id,
-      semester: parseInt(semester),
-      academic_year: parseInt(academicYear),
-    }).eq("id", editAssignment.id);
-    if (error) { toast.error(saveErrorMessage(error)); return; }
-    toast.success("แก้ไขการมอบหมายสำเร็จ");
-    qc.invalidateQueries({ queryKey: ["teacher_assignments"] });
-    setEditAssignment(null); resetForm();
+    if (savingEdit) return;
+    if (!editAssignment || !personnelId) { toast.error("กรุณาเลือกครูผู้สอน"); return; }
+    setSavingEdit(true);
+    try {
+      const { error } = await supabase.from("teacher_assignments").update({
+        personnel_id: personnelId,
+        classroom_id: classroomId || editAssignment.classroom_id,
+        semester: safeInt(semester, 1),
+        academic_year: safeInt(academicYear, new Date().getFullYear()),
+      }).eq("id", editAssignment.id);
+      if (error) { toast.error(saveErrorMessage(error)); return; }
+      toast.success("แก้ไขการมอบหมายสำเร็จ");
+      qc.invalidateQueries({ queryKey: ["teacher_assignments"] });
+      setEditAssignment(null); resetForm();
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   const handleDeleteAssignment = async (id: string) => {
@@ -172,7 +186,7 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
                 </div>
                 <div><Label>ปีการศึกษา</Label><Input value={academicYear} onChange={e => setAcademicYear(e.target.value)} /></div>
               </div>
-              <Button onClick={handleAssign} className="w-full">มอบหมาย {selectedSubjectIds.length} วิชา</Button>
+              <Button onClick={handleAssign} className="w-full" disabled={savingAssign}>{savingAssign ? "กำลังบันทึก..." : `มอบหมาย ${selectedSubjectIds.length} วิชา`}</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -212,7 +226,7 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
               </div>
               <div><Label>ปีการศึกษา</Label><Input value={academicYear} onChange={e => setAcademicYear(e.target.value)} /></div>
             </div>
-            <Button onClick={handleEditAssignment} className="w-full">บันทึกการแก้ไข</Button>
+            <Button onClick={handleEditAssignment} className="w-full" disabled={savingEdit}>{savingEdit ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}</Button>
           </div>
         </DialogContent>
       </Dialog>

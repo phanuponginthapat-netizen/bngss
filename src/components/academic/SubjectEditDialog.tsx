@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { saveErrorMessage } from "@/lib/saveError";
+import { saveErrorMessage, safeNum, safeInt } from "@/lib/saveError";
 
 interface SubjectEditDialogProps {
   open: boolean;
@@ -17,6 +17,7 @@ interface SubjectEditDialogProps {
 
 export const SubjectEditDialog = ({ open, onOpenChange, subject }: SubjectEditDialogProps) => {
   const qc = useQueryClient();
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     code: "", name_th: "", name_en: "", credits: "1.0", hours_per_week: "1",
     grade_level: "", semester: "1", subject_type: "required"
@@ -38,23 +39,29 @@ export const SubjectEditDialog = ({ open, onOpenChange, subject }: SubjectEditDi
   }, [subject]);
 
   const handleSave = async () => {
-    if (!form.code || !form.name_th) {
+    if (saving) return;
+    if (!form.code || !form.name_th || !subject?.id) {
       toast.error("กรุณากรอกรหัสวิชาและชื่อวิชา"); return;
     }
-    const { error } = await supabase.from("subjects").update({
-      code: form.code,
-      name_th: form.name_th,
-      name_en: form.name_en || null,
-      credits: parseFloat(form.credits),
-      hours_per_week: parseInt(form.hours_per_week) || 1,
-      grade_level: form.grade_level || null,
-      semester: parseInt(form.semester),
-      subject_type: form.subject_type,
-    }).eq("id", subject?.id);
-    if (error) { toast.error(saveErrorMessage(error)); return; }
-    toast.success("แก้ไขรายวิชาสำเร็จ");
-    onOpenChange(false);
-    qc.invalidateQueries({ queryKey: ["subjects"] });
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("subjects").update({
+        code: form.code,
+        name_th: form.name_th,
+        name_en: form.name_en || null,
+        credits: safeNum(form.credits, 1),
+        hours_per_week: safeInt(form.hours_per_week, 1),
+        grade_level: form.grade_level || null,
+        semester: safeInt(form.semester, 1),
+        subject_type: form.subject_type,
+      }).eq("id", subject.id);
+      if (error) { toast.error(saveErrorMessage(error)); return; }
+      toast.success("แก้ไขรายวิชาสำเร็จ");
+      onOpenChange(false);
+      qc.invalidateQueries({ queryKey: ["subjects"] });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -90,7 +97,7 @@ export const SubjectEditDialog = ({ open, onOpenChange, subject }: SubjectEditDi
               </Select>
             </div>
           </div>
-          <Button onClick={handleSave} className="w-full">บันทึกการแก้ไข</Button>
+          <Button onClick={handleSave} className="w-full" disabled={saving}>{saving ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}</Button>
         </div>
       </DialogContent>
     </Dialog>

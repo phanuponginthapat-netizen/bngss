@@ -17,6 +17,7 @@ import { th } from "date-fns/locale";
 import { useMyTeacherAssignments } from "@/hooks/useMyTeacherAssignments";
 import { shortenUrl } from "@/lib/shortlink";
 import { saveErrorMessage } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 const BG_OPTIONS = [
   { key: "paper", label: "กระดาษโน้ต", className: "bg-[radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.08)_1px,transparent_0)] [background-size:16px_16px] bg-amber-50" },
@@ -99,9 +100,14 @@ export default function PadletListPage() {
     navigate(`/dashboard/padlet/${boardId}`);
   };
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const del = async (id: string) => {
-    if (!confirm("ลบกระดานนี้? โน้ตทั้งหมดจะหายไปด้วย")) return;
+    const ok = await swal.confirm({ title: "ยืนยันการลบ?", text: "ลบกระดานนี้? โน้ตทั้งหมดจะหายไปด้วย", danger: true });
+    if (!ok) return;
+    if (deletingId) return;
+    setDeletingId(id);
     const { error } = await supabase.from("padlet_boards").delete().eq("id", id);
+    setDeletingId(null);
     if (error) toast.error(saveErrorMessage(error)); else toast.success("ลบแล้ว");
   };
 
@@ -195,7 +201,7 @@ export default function PadletListPage() {
                         <Link2 className="w-3.5 h-3.5" />
                       </Button>
                       {(mine || isAdmin || isDirector) && (
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => del(b.id)} title="ลบ">
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" disabled={deletingId === b.id} onClick={() => del(b.id)} title="ลบ">
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       )}

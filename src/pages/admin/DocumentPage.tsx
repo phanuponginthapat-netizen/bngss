@@ -18,6 +18,8 @@ import { Plus, Trash2, Send, Eye, CheckCircle2, FileText, Paperclip, Download, F
 import { useAcademicYearFilter } from "@/hooks/useAcademicYearFilter";
 import { isDataUrl, openDataUrl, uploadPrivateFileWithFallback } from "@/lib/uploadFallback";
 import { notify } from "@/lib/notify";
+import { saveErrorMessage } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 const DocumentPage = () => {
   const { lang } = useLanguage();
@@ -181,7 +183,10 @@ const DocumentPage = () => {
       }
       return row;
     });
-    await supabase.from("document_recipients" as any).insert(recipientRows as any);
+    const { error: recErr } = await supabase.from("document_recipients" as any).insert(recipientRows as any);
+    if (recErr) {
+      toast.error("บันทึกเอกสารสำเร็จ แต่บันทึกผู้รับไม่สำเร็จ: " + saveErrorMessage(recErr));
+    }
 
     // Fan-out notification to recipients (in-app + push + LINE) via unified notify()
     // Works for personnel / all / department modes — department mode now resolves to member personnel above
@@ -286,13 +291,17 @@ const DocumentPage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("documents").delete().eq("id", id);
+    const ok = await swal.confirm({ title: "ยืนยันการลบเอกสาร", text: "ไม่สามารถย้อนกลับได้", danger: true, confirmText: "ลบ" });
+    if (!ok) return;
+    const { error } = await supabase.from("documents").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["documents"] });
     qc.invalidateQueries({ queryKey: ["document_recipients_all"] });
   };
 
   const handleStatusChange = async (id: string, status: string) => {
-    await supabase.from("documents").update({ status } as any).eq("id", id);
+    const { error } = await supabase.from("documents").update({ status } as any).eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["documents"] });
   };
 

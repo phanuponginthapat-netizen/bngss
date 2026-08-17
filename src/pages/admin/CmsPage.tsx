@@ -20,6 +20,8 @@ import FullHtmlEditor from "@/components/cms/FullHtmlEditor";
 import HomepageEditor from "@/components/cms/HomepageEditor";
 import ConfigBackupCard from "@/components/admin/ConfigBackupCard";
 import { cn } from "@/lib/utils";
+import { swal } from "@/lib/swal";
+import { saveErrorMessage } from "@/lib/saveError";
 
 // ---- Pages Tab with Rich Editor ----
 const PagesTab = () => {
@@ -27,6 +29,7 @@ const PagesTab = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editPage, setEditPage] = useState<any>(null);
   const [form, setForm] = useState({ slug: "", title: "", content: "", is_published: false, sort_order: 0, is_full_html: false });
+  const [saving, setSaving] = useState(false);
 
   const fetchPages = async () => {
     const { data } = await supabase.from("cms_pages").select("*").order("sort_order");
@@ -38,21 +41,32 @@ const PagesTab = () => {
   const openEdit = (p: any) => { setEditPage(p); setForm({ slug: p.slug, title: p.title, content: p.content || "", is_published: p.is_published, sort_order: p.sort_order, is_full_html: p.content?.startsWith("<!") || p.content?.startsWith("<html") || false }); setDialogOpen(true); };
 
   const handleSave = async () => {
-    if (!form.slug || !form.title) { toast.error("กรุณากรอกข้อมูลให้ครบ"); return; }
+    if (!form.slug?.trim() || !form.title?.trim()) { toast.error("กรุณากรอกข้อมูลให้ครบ"); return; }
+    if (saving) return;
+    setSaving(true);
     const { is_full_html, ...dbForm } = form;
-    if (editPage) {
-      await supabase.from("cms_pages").update(dbForm).eq("id", editPage.id);
-      toast.success("แก้ไขหน้าสำเร็จ");
-    } else {
-      await supabase.from("cms_pages").insert(dbForm);
-      toast.success("เพิ่มหน้าสำเร็จ");
+    try {
+      if (editPage) {
+        const { error } = await supabase.from("cms_pages").update(dbForm).eq("id", editPage.id);
+        if (error) { toast.error(saveErrorMessage(error)); return; }
+        toast.success("แก้ไขหน้าสำเร็จ");
+      } else {
+        const { error } = await supabase.from("cms_pages").insert(dbForm);
+        if (error) { toast.error(saveErrorMessage(error)); return; }
+        toast.success("เพิ่มหน้าสำเร็จ");
+      }
+      setDialogOpen(false);
+      fetchPages();
+    } finally {
+      setSaving(false);
     }
-    setDialogOpen(false);
-    fetchPages();
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("cms_pages").delete().eq("id", id);
+    const ok = await swal.confirm({ title: "ยืนยันการลบหน้านี้?", danger: true });
+    if (!ok) return;
+    const { error } = await supabase.from("cms_pages").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบสำเร็จ");
     fetchPages();
   };
@@ -94,7 +108,7 @@ const PagesTab = () => {
               </div>
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>ยกเลิก</Button>
-                <Button onClick={handleSave}>บันทึก</Button>
+                <Button onClick={handleSave} disabled={saving}>{saving ? "กำลังบันทึก..." : "บันทึก"}</Button>
               </div>
             </div>
           </DialogContent>
@@ -131,6 +145,7 @@ const MenuTab = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
   const [form, setForm] = useState({ label: "", url: "", sort_order: 0, is_visible: true });
+  const [saving, setSaving] = useState(false);
 
   const fetchItems = async () => {
     const { data } = await supabase.from("cms_menu_items").select("*").order("sort_order");
@@ -142,19 +157,30 @@ const MenuTab = () => {
   const openEdit = (m: any) => { setEditItem(m); setForm({ label: m.label, url: m.url || "", sort_order: m.sort_order, is_visible: m.is_visible }); setDialogOpen(true); };
 
   const handleSave = async () => {
-    if (!form.label) { toast.error("กรุณากรอกชื่อเมนู"); return; }
-    if (editItem) {
-      await supabase.from("cms_menu_items").update(form).eq("id", editItem.id);
-    } else {
-      await supabase.from("cms_menu_items").insert(form);
+    if (!form.label?.trim()) { toast.error("กรุณากรอกชื่อเมนู"); return; }
+    if (saving) return;
+    setSaving(true);
+    try {
+      if (editItem) {
+        const { error } = await supabase.from("cms_menu_items").update(form).eq("id", editItem.id);
+        if (error) { toast.error(saveErrorMessage(error)); return; }
+      } else {
+        const { error } = await supabase.from("cms_menu_items").insert(form);
+        if (error) { toast.error(saveErrorMessage(error)); return; }
+      }
+      toast.success("บันทึกสำเร็จ");
+      setDialogOpen(false);
+      fetchItems();
+    } finally {
+      setSaving(false);
     }
-    toast.success("บันทึกสำเร็จ");
-    setDialogOpen(false);
-    fetchItems();
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("cms_menu_items").delete().eq("id", id);
+    const ok = await swal.confirm({ title: "ยืนยันการลบเมนูนี้?", danger: true });
+    if (!ok) return;
+    const { error } = await supabase.from("cms_menu_items").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบสำเร็จ");
     fetchItems();
   };
@@ -176,7 +202,7 @@ const MenuTab = () => {
               <div className="flex items-center gap-2"><Switch checked={form.is_visible} onCheckedChange={(v) => setForm({ ...form, is_visible: v })} /><Label>แสดงผล</Label></div>
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>ยกเลิก</Button>
-                <Button onClick={handleSave}>บันทึก</Button>
+                <Button onClick={handleSave} disabled={saving}>{saving ? "กำลังบันทึก..." : "บันทึก"}</Button>
               </div>
             </div>
           </DialogContent>

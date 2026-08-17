@@ -17,7 +17,7 @@ import { TeacherScheduleImportDialog } from "./TeacherScheduleImportDialog";
 import { CopySubjectsDialog } from "./CopySubjectsDialog";
 import { useUserRole } from "@/hooks/useUserRole";
 import { BE_OFFSET } from "@/lib/dateBE";
-import { saveErrorMessage } from "@/lib/saveError";
+import { saveErrorMessage, safeNum, safeInt } from "@/lib/saveError";
 
 interface SubjectsTabProps {
   subjects: any[];
@@ -29,6 +29,7 @@ export const SubjectsTab = ({ subjects, onUploadOpen }: SubjectsTabProps) => {
   const { isAdmin, isDirector } = useUserRole();
   const canEdit = isAdmin || isDirector;
   const [subjectOpen, setSubjectOpen] = useState(false);
+  const [savingSubject, setSavingSubject] = useState(false);
   const [editSubject, setEditSubject] = useState<any | null>(null);
   const [filterGrade, setFilterGrade] = useState("all");
   const [filterSemester, setFilterSemester] = useState("all");
@@ -66,20 +67,26 @@ export const SubjectsTab = ({ subjects, onUploadOpen }: SubjectsTabProps) => {
   }, [subjects, filterGrade, filterSemester, searchText]);
 
   const handleAddSubject = async () => {
+    if (savingSubject) return;
     if (!subjectForm.code || !subjectForm.name_th) {
       toast.error("กรุณากรอกรหัสวิชาและชื่อวิชา"); return;
     }
-    const { error } = await supabase.from("subjects").insert({
-      code: subjectForm.code, name_th: subjectForm.name_th, name_en: subjectForm.name_en || null,
-      credits: parseFloat(subjectForm.credits), hours_per_week: parseInt(subjectForm.hours_per_week) || 1,
-      grade_level: subjectForm.grade_level || null, semester: parseInt(subjectForm.semester),
-      academic_year: parseInt(subjectForm.academic_year) - BE_OFFSET, subject_type: subjectForm.subject_type,
-    });
-    if (error) { toast.error(saveErrorMessage(error)); return; }
-    toast.success("เพิ่มรายวิชาสำเร็จ");
-    setSubjectOpen(false);
-    setSubjectForm({ code: "", name_th: "", name_en: "", credits: "1.0", hours_per_week: "1", grade_level: "", semester: "0", academic_year: String(new Date().getFullYear() + BE_OFFSET), subject_type: "required" });
-    qc.invalidateQueries({ queryKey: ["subjects"] });
+    setSavingSubject(true);
+    try {
+      const { error } = await supabase.from("subjects").insert({
+        code: subjectForm.code, name_th: subjectForm.name_th, name_en: subjectForm.name_en || null,
+        credits: safeNum(subjectForm.credits, 1), hours_per_week: safeInt(subjectForm.hours_per_week, 1),
+        grade_level: subjectForm.grade_level || null, semester: safeInt(subjectForm.semester, 0),
+        academic_year: safeInt(subjectForm.academic_year, new Date().getFullYear() + BE_OFFSET) - BE_OFFSET, subject_type: subjectForm.subject_type,
+      });
+      if (error) { toast.error(saveErrorMessage(error)); return; }
+      toast.success("เพิ่มรายวิชาสำเร็จ");
+      setSubjectOpen(false);
+      setSubjectForm({ code: "", name_th: "", name_en: "", credits: "1.0", hours_per_week: "1", grade_level: "", semester: "0", academic_year: String(new Date().getFullYear() + BE_OFFSET), subject_type: "required" });
+      qc.invalidateQueries({ queryKey: ["subjects"] });
+    } finally {
+      setSavingSubject(false);
+    }
   };
 
   const handleDeleteSubject = async (id: string) => {
@@ -170,7 +177,7 @@ export const SubjectsTab = ({ subjects, onUploadOpen }: SubjectsTabProps) => {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={handleAddSubject} className="w-full">บันทึก</Button>
+              <Button onClick={handleAddSubject} className="w-full" disabled={savingSubject}>{savingSubject ? "กำลังบันทึก..." : "บันทึก"}</Button>
             </div>
           </DialogContent>
         </Dialog>

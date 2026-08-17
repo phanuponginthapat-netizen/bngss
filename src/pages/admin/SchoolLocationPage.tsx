@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { saveWithToast } from "@/lib/saveWithToast";
+import { saveErrorMessage } from "@/lib/saveError";
 import { MapPin, Save, Locate, Info, ScanFace, Clock, Satellite } from "lucide-react";
 import MapPicker from "@/components/MapPicker";
 import { useQueryClient } from "@tanstack/react-query";
@@ -63,9 +64,11 @@ const SchoolLocationPage = () => {
             .eq("setting_key", key)
             .maybeSingle();
           if (existing) {
-            await supabase.from("school_settings").update({ setting_value: val }).eq("id", existing.id);
+            const { error } = await supabase.from("school_settings").update({ setting_value: val }).eq("id", existing.id);
+            if (error) throw new Error(saveErrorMessage(error));
           } else {
-            await supabase.from("school_settings").insert({ setting_key: key, setting_value: val });
+            const { error } = await supabase.from("school_settings").insert({ setting_key: key, setting_value: val });
+            if (error) throw new Error(saveErrorMessage(error));
           }
         }
         qc.invalidateQueries({ queryKey: ["school_settings_bulk"] });

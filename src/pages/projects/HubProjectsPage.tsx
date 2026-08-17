@@ -14,7 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Plus, FolderKanban, Wallet, TrendingUp, Calendar, Search, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { BE_OFFSET } from "@/lib/dateBE";
-import { saveErrorMessage } from "@/lib/saveError";
+import { saveErrorMessage, safeInt, nullIfEmpty } from "@/lib/saveError";
 
 const STATUSES = [
   { value: "planning", label: "วางแผน", color: "bg-slate-100 text-slate-700" },
@@ -33,6 +33,7 @@ export default function HubProjectsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [yearFilter, setYearFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     name: "", description: "", category: "", hub_project_code: "",
     fiscal_year: new Date().getFullYear() + BE_OFFSET,
@@ -106,27 +107,33 @@ export default function HubProjectsPage() {
   );
 
   const create = async () => {
+    if (saving) return;
     if (!form.name.trim()) return toast.error("กรอกชื่อโครงการ");
-    const { data: user } = await supabase.auth.getUser();
-    const payload = {
-      name: form.name.trim(),
-      description: form.description || null,
-      category: form.category || null,
-      hub_project_code: form.hub_project_code || null,
-      fiscal_year: Number(form.fiscal_year),
-      start_date: form.start_date || null,
-      end_date: form.end_date || null,
-      responsible_person: form.responsible_person || null,
-      target_beneficiaries: form.target_beneficiaries ? Number(form.target_beneficiaries) : null,
-      goals: form.goals || null,
-      created_by: user.user?.id,
-    };
-    const { error } = await supabase.from("hub_projects").insert(payload as any);
-    if (error) return toast.error(saveErrorMessage(error));
-    toast.success("สร้างโครงการแล้ว");
-    setOpen(false);
-    setForm({ ...form, name: "", description: "", category: "", hub_project_code: "", start_date: "", end_date: "", responsible_person: "", target_beneficiaries: "", goals: "" });
-    qc.invalidateQueries({ queryKey: ["hub_projects"] });
+    setSaving(true);
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      const payload = {
+        name: form.name.trim(),
+        description: nullIfEmpty(form.description),
+        category: nullIfEmpty(form.category),
+        hub_project_code: nullIfEmpty(form.hub_project_code),
+        fiscal_year: safeInt(form.fiscal_year, new Date().getFullYear()),
+        start_date: nullIfEmpty(form.start_date),
+        end_date: nullIfEmpty(form.end_date),
+        responsible_person: nullIfEmpty(form.responsible_person),
+        target_beneficiaries: form.target_beneficiaries ? safeInt(form.target_beneficiaries, 0) : null,
+        goals: nullIfEmpty(form.goals),
+        created_by: user.user?.id,
+      };
+      const { error } = await supabase.from("hub_projects").insert(payload as any);
+      if (error) return toast.error(saveErrorMessage(error));
+      toast.success("สร้างโครงการแล้ว");
+      setOpen(false);
+      setForm({ ...form, name: "", description: "", category: "", hub_project_code: "", start_date: "", end_date: "", responsible_person: "", target_beneficiaries: "", goals: "" });
+      qc.invalidateQueries({ queryKey: ["hub_projects"] });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -171,7 +178,7 @@ export default function HubProjectsPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button>
-              <Button onClick={create}>บันทึก</Button>
+              <Button onClick={create} disabled={saving}>{saving ? "กำลังบันทึก..." : "บันทึก"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
