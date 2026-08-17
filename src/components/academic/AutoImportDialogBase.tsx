@@ -201,14 +201,13 @@ export function AutoImportDialogBase<T>({
         });
         if (insErr) throw insErr;
 
+        okCount += 1;
         updateItem(it.file, { status: "done", alumniCreated, error: undefined });
       } catch (e: any) {
         updateItem(it.file, { status: "error", error: e?.message || "นำเข้าไม่สำเร็จ" });
       }
     }
     setBusy(false);
-    const failed = ready.length - items.filter((x) => x.status === "done").length;
-    const okCount = ready.length - Math.max(failed, 0);
     if (okCount > 0) {
       toast.success(`นำเข้าสำเร็จ ${okCount} ไฟล์ — กดปุ่ม 'ประกาศ' ในหน้าไฟล์เพื่อแจ้งนักเรียน`);
       onImportSuccess?.();
