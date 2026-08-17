@@ -5335,6 +5335,7 @@ export type Database = {
           scanned_by: string | null
           school_id: string | null
           student_id: string
+          temperature_c: number | null
         }
         Insert: {
           captured_face_url?: string | null
@@ -5349,6 +5350,7 @@ export type Database = {
           scanned_by?: string | null
           school_id?: string | null
           student_id: string
+          temperature_c?: number | null
         }
         Update: {
           captured_face_url?: string | null
@@ -5363,6 +5365,7 @@ export type Database = {
           scanned_by?: string | null
           school_id?: string | null
           student_id?: string
+          temperature_c?: number | null
         }
         Relationships: [
           {
