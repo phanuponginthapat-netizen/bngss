@@ -23,7 +23,8 @@ import { toast } from "sonner";
 import { Plus, Trash2, Power, BarChart3, Users, User, Eye } from "lucide-react";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { notifyStudentEvent } from "@/lib/notifyStudentEvent";
-import { saveErrorMessage } from "@/lib/saveError";
+import { saveErrorMessage, safeInt } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 const SDQPage = () => {
   const { lang } = useLanguage();
@@ -61,16 +62,22 @@ const SDQPage = () => {
   const sdqEnabledRaw = useCmsValue("sdq_enabled");
   const sdqEnabled = sdqEnabledRaw === "true";
 
+  const [togglingSDQ, setTogglingSDQ] = useState(false);
   const toggleSDQ = async () => {
-    const newVal = sdqEnabled ? "false" : "true";
-    const { data: existing } = await supabase.from("cms_settings").select("id").eq("key", "sdq_enabled").maybeSingle();
-    if (existing) {
-      await supabase.from("cms_settings").update({ value: newVal } as any).eq("key", "sdq_enabled");
-    } else {
-      await supabase.from("cms_settings").insert({ key: "sdq_enabled", value: newVal } as any);
+    if (togglingSDQ) return;
+    setTogglingSDQ(true);
+    try {
+      const newVal = sdqEnabled ? "false" : "true";
+      const { data: existing } = await supabase.from("cms_settings").select("id").eq("key", "sdq_enabled").maybeSingle();
+      const { error } = existing
+        ? await supabase.from("cms_settings").update({ value: newVal } as any).eq("key", "sdq_enabled")
+        : await supabase.from("cms_settings").insert({ key: "sdq_enabled", value: newVal } as any);
+      if (error) { toast.error(saveErrorMessage(error)); return; }
+      qc.invalidateQueries({ queryKey: ["cms_settings_bulk"] });
+      toast.success(newVal === "true" ? "เปิดระบบประเมิน SDQ สำหรับผู้ปกครอง" : "ปิดระบบประเมิน SDQ สำหรับผู้ปกครอง");
+    } finally {
+      setTogglingSDQ(false);
     }
-    qc.invalidateQueries({ queryKey: ["cms_settings_bulk"] });
-    toast.success(newVal === "true" ? "เปิดระบบประเมิน SDQ สำหรับผู้ปกครอง" : "ปิดระบบประเมิน SDQ สำหรับผู้ปกครอง");
   };
 
   const { data: profile } = useQuery({
@@ -198,22 +205,27 @@ const SDQPage = () => {
     setHyper("0"); setPeer("0"); setProsocial("0"); setAssessmentType("teacher");
   };
 
+  const [savingAdd, setSavingAdd] = useState(false);
   const handleAdd = async () => {
     if (!studentId) { toast.error("กรุณาเลือกนักเรียน"); return; }
-    const total = [emotional, conduct, hyper, peer].reduce((a, b) => a + parseInt(b || "0"), 0);
+    if (!assessor.trim()) { toast.error("กรุณาระบุผู้ประเมิน"); return; }
+    if (savingAdd) return;
+    setSavingAdd(true);
+    const total = [emotional, conduct, hyper, peer].reduce((a, b) => a + safeInt(b, 0), 0);
     const { data: inserted, error } = await supabase.from("sdq_records").insert({
       student_id: studentId,
-      emotional_score: parseInt(emotional || "0"),
-      conduct_score: parseInt(conduct || "0"),
-      hyperactivity_score: parseInt(hyper || "0"),
-      peer_score: parseInt(peer || "0"),
-      prosocial_score: parseInt(prosocial || "0"),
+      emotional_score: safeInt(emotional, 0),
+      conduct_score: safeInt(conduct, 0),
+      hyperactivity_score: safeInt(hyper, 0),
+      peer_score: safeInt(peer, 0),
+      prosocial_score: safeInt(prosocial, 0),
       total_difficulty: total,
       assessment_by: assessor,
       assessment_type: assessmentType,
       academic_year: academicYear > 0 ? academicYear - BE_OFFSET : undefined,
     } as any).select("id").single();
-    if (error) { toast.error(saveErrorMessage(error)); return; }
+    if (error) { toast.error(saveErrorMessage(error)); setSavingAdd(false); return; }
+    setSavingAdd(false);
     toast.success("บันทึกสำเร็จ");
     qc.invalidateQueries({ queryKey: ["sdq_records"] });
 
@@ -236,8 +248,12 @@ const SDQPage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("sdq_records").delete().eq("id", id);
+    const ok = await swal.confirm({ title: "ยืนยันการลบ?", text: "ต้องการลบผลประเมิน SDQ นี้หรือไม่", danger: true });
+    if (!ok) return;
+    const { error } = await supabase.from("sdq_records").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["sdq_records"] });
+    toast.success("ลบข้อมูลแล้ว");
   };
 
   // เกณฑ์ SDQ ตามกรมสุขภาพจิต (Parent/Teacher: ปกติ 0-13, เสี่ยง 14-16, มีปัญหา 17+)
@@ -313,7 +329,7 @@ const SDQPage = () => {
                     รวม: {[emotional, conduct, hyper, peer].reduce((a, b) => a + parseInt(b || "0"), 0)}
                   </Badge></div>
                 </div>
-                <Button onClick={handleAdd} className="w-full">บันทึก</Button>
+                <Button onClick={handleAdd} className="w-full" disabled={savingAdd}>{savingAdd ? "กำลังบันทึก..." : "บันทึก"}</Button>
               </div>
             </DialogContent>
           </Dialog>
