@@ -92,6 +92,22 @@ export function AppSidebar() {
   const location = useLocation();
   const { role } = useUserRole(); // effective role (respects view-mode override)
   const [search, setSearch] = useState("");
+
+  // Remember which sections the user left open (per browser).
+  const SECTION_STATE_KEY = "sidebar_open_sections_v2";
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(window.localStorage.getItem(SECTION_STATE_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  });
+  const setSectionOpen = (key: string, open: boolean) =>
+    setOpenSections((prev) => {
+      const next = { ...prev, [key]: open };
+      try { window.localStorage.setItem(SECTION_STATE_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
   const { appName, schoolName, schoolLogo } = useSystemSettings();
   const { isModuleEnabled } = useModuleToggles();
   const headerTitle = appName;
