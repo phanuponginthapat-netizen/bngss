@@ -3,7 +3,7 @@ import { todayBangkok } from "@/lib/dateBE";
 import { attachStreamToVideo } from "@/lib/cameraIos";
 import { openCamera, stopStream } from "@/lib/cameraStream";
 
-import { attachNetworkCamera, validateStreamUrl, describeStreamKind, testStreamUrl, type NetworkCameraHandle } from "@/lib/networkCamera";
+import { attachNetworkCamera, validateStreamUrl, describeStreamKind, classifyStreamUrl, testStreamUrl, type NetworkCameraHandle } from "@/lib/networkCamera";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -1069,7 +1069,7 @@ const FaceKioskPage = () => {
                 {netTesting ? "กำลังทดสอบ…" : "ทดสอบการเชื่อมต่อ"}
               </Button>
               <span className="text-[10px] text-muted-foreground">
-                {networkUrl.trim() ? describeStreamKind(classifyKind(networkUrl)) : ""}
+                {networkUrl.trim() ? describeStreamKind(classifyStreamUrl(networkUrl)) : ""}
               </span>
             </div>
             {netStatus && <p className="text-[10px] text-muted-foreground break-words">สถานะ: {netStatus}</p>}
