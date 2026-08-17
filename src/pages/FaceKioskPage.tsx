@@ -304,43 +304,25 @@ const FaceKioskPage = () => {
       const prev = videoRef.current?.srcObject as MediaStream | null;
       prev?.getTracks().forEach((t) => t.stop());
       if (videoRef.current) videoRef.current.srcObject = null;
-      if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+      if (netCamRef.current) { netCamRef.current.destroy(); netCamRef.current = null; }
       if (videoRef.current) videoRef.current.removeAttribute("src");
 
       // === Network camera (RTSP via HLS gateway, MJPEG, MP4) ===
       if (mode === "network") {
         const url = networkUrl.trim();
-        if (!url) {
-          toast.error("กรุณาตั้งค่า URL ของกล้องเครือข่าย (HLS / MP4)");
-          return;
-        }
+        const problem = validateStreamUrl(url);
+        if (problem) { toast.error(problem, { duration: 8000 }); return; }
         if (!videoRef.current) return;
-        videoRef.current.crossOrigin = "anonymous";
-        videoRef.current.muted = true;
-        if (url.endsWith(".m3u8") || url.includes(".m3u8?")) {
-          if (Hls.isSupported()) {
-            const hls = new Hls({ lowLatencyMode: true, liveSyncDuration: 1.5 });
-            hlsRef.current = hls;
-            hls.loadSource(url);
-            hls.attachMedia(videoRef.current);
-            await new Promise<void>((resolve, reject) => {
-              hls.on(Hls.Events.MANIFEST_PARSED, () => resolve());
-              hls.on(Hls.Events.ERROR, (_e, data) => { if (data.fatal) reject(new Error(data.details)); });
-            });
-          } else if (videoRef.current.canPlayType("application/vnd.apple.mpegurl")) {
-            videoRef.current.src = url; // native HLS (Safari)
-          } else {
-            throw new Error("เบราว์เซอร์ไม่รองรับ HLS");
-          }
-        } else {
-          // Direct MP4 / WebM / MJPEG fallback
-          videoRef.current.src = url;
-        }
-        await videoRef.current.play();
+        netCamRef.current = await attachNetworkCamera(videoRef.current, url, {
+          onStatus: (m) => { setNetStatus(m); toast.message(m); },
+          onFatal: (m) => { setNetStatus(m); setStreaming(false); toast.error(`กล้องเครือข่ายหลุด: ${m}`, { duration: 10000 }); },
+        });
+        setNetStatus(`เชื่อมต่อแล้ว (${describeStreamKind(netCamRef.current.kind)})`);
         setStreaming(true);
         toast.success("เชื่อมต่อกล้องเครือข่ายสำเร็จ");
         return;
       }
+
 
       // === Local webcam (รองรับกล้อง USB / กล้องหน้า-หลังหลายรุ่น) ===
       const wide = mode === "wide";
