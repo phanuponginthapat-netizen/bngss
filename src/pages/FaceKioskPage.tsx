@@ -611,11 +611,14 @@ const FaceKioskPage = () => {
   ): Promise<string> => {
     try {
       const photoUrl = capturedFace ? await uploadFaceScanSnapshot(capturedFace, personnelId) : null;
+      // อุณหภูมิจาก micro:bit (null เมื่อไม่ได้เชื่อมต่อ)
+      const temp = gateRef.current.getLiveTemp();
       const { data, error } = await (supabase as any).rpc("kiosk_clock_personnel", {
         _personnel_id: personnelId,
         _mode: mode,
         _photo_url: photoUrl,
         _confidence: confidence,
+        _temperature_c: temp,
       });
       if (error) throw error;
       const res = (data || {}) as { ok?: boolean; action?: string; reason?: string; status?: string };
