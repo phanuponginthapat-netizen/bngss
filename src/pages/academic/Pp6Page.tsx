@@ -451,6 +451,28 @@ const FileTab = () => {
     qc.invalidateQueries({ queryKey: ["pp6_files"] });
   };
 
+  const handleApplyToSystem = async (file: any) => {
+    if (!(await swal.confirm({
+      title: "บันทึกผลการเรียนเข้าระบบ?",
+      text: "ระบบจะนำคะแนน/เกรดในไฟล์นี้ไปบันทึกลงผลการเรียนของนักเรียน (ใช้ต่อใน ปพ.1 / ปพ.7 / ระเบียนสะสม)",
+    }))) return;
+    const t = toast.loading("กำลังบันทึกเข้าระบบ...");
+    try {
+      const { applyPpFileToSystem } = await import("@/lib/pp5ApplyToSystem");
+      const res = await applyPpFileToSystem(file, "pp6");
+      toast.dismiss(t);
+      toast.success(`บันทึกผลการเรียน ${res.distributed} รายการสำเร็จ`);
+      if (res.unmatched.length) toast.warning(`ไม่พบนักเรียน ${res.unmatched.length} คน: ${res.unmatched.slice(0, 5).join(", ")}`);
+      if (res.unmatchedSubjects.length) toast.warning(`จับคู่วิชาไม่ได้: ${res.unmatchedSubjects.slice(0, 5).join(", ")}`);
+      qc.invalidateQueries({ queryKey: ["pp6_files"] });
+    } catch (e: any) {
+      toast.dismiss(t);
+      toast.error(e?.message || "บันทึกเข้าระบบไม่สำเร็จ");
+    }
+  };
+
+
+
 
   const gradeGroups = [
     { label: "อนุบาล", grades: ["อ.1", "อ.2", "อ.3"] },
