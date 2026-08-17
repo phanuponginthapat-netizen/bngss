@@ -26,27 +26,26 @@ const PublicAssetPage = () => {
   useEffect(() => {
     const load = async () => {
       if (!id) return;
-      const { data } = await supabase.from("assets").select("*").eq("id", id).maybeSingle();
-      setAsset(data);
-      if (data?.school_id) {
-        const { data: s } = await supabase.from("schools").select("school_name, phone, address, email").eq("id", data.school_id).maybeSingle();
-        setSchool(s);
-      }
-      if ((data as any)?.responsible_user_id) {
-        const rid = (data as any).responsible_user_id;
-        // Personnel table is readable by staff; fall back to public RPC for non-staff viewers
-        const { data: pers } = await supabase
-          .from("personnel")
-          .select("prefix, first_name, last_name, position, phone")
-          .eq("user_id", rid)
-          .maybeSingle();
-        if (pers) {
-          setResponsible({ first_name: pers.first_name, last_name: pers.last_name, phone: pers.phone, position: pers.position });
-        } else {
-          const { data: rows } = await (supabase.rpc as any)("get_profiles_public", { _ids: [rid] });
-          const p = (rows as any[])?.[0];
-          if (p) setResponsible({ first_name: p.first_name, last_name: p.last_name, position: p.position_title, phone: null });
+      setLoading(true);
+      // ใช้ RPC สาธารณะ (security definer) เพื่อให้คนนอก/ผู้ปกครองสแกน QR แล้วดูข้อมูลได้
+      const { data: rows, error } = await (supabase.rpc as any)("get_public_asset", { _id: id });
+      const a = Array.isArray(rows) ? rows[0] : rows;
+      if (error) console.error("get_public_asset failed", error);
+      if (a) {
+        setAsset(a);
+        setSchool({
+          school_name: a.school_name,
+          phone: a.school_phone,
+          email: a.school_email,
+          address: a.school_address,
+        });
+        if (a.responsible_user_id) {
+          const { data: c } = await (supabase.rpc as any)("get_public_asset_contact", { _asset_id: id });
+          const p = Array.isArray(c) ? c[0] : c;
+          if (p) setResponsible({ first_name: p.full_name, last_name: "", position: p.position_title, phone: p.phone });
         }
+      } else {
+        setAsset(null);
       }
       setLoading(false);
     };
@@ -60,9 +59,11 @@ const PublicAssetPage = () => {
     }
     setSubmitting(true);
     const desc = `[พบทรัพย์สิน] พบที่: ${foundLocation}${reporterContact ? ` | ติดต่อกลับ: ${reporterContact}` : ""}`;
-    const { error } = await supabase.from("asset_damage_reports").insert({
-      asset_id: id, description: desc, reporter_name: reporterName,
-    } as any);
+    const { error } = await (supabase.rpc as any)("report_found_asset", {
+      _asset_id: id,
+      _reporter_name: reporterName.trim(),
+      _description: desc,
+    });
     setSubmitting(false);
     if (error) { toast.error(error.message); return; }
     setSubmitted(true);
