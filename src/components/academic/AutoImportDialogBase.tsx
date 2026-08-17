@@ -152,19 +152,12 @@ export function AutoImportDialogBase<T>({
         }
 
         // Supabase Storage รับเฉพาะ key แบบ ASCII — ชื่อไฟล์/ระดับชั้นภาษาไทยทำให้ "Invalid key"
-        // (ชื่อจริงยังเก็บไว้ในคอลัมน์ file_name)
-        const asciiSeg = (s: string, fallback: string) => {
-          const out = String(s ?? "")
-            .normalize("NFKD")
-            .replace(/[^A-Za-z0-9._-]+/g, "-")
-            .replace(/^-+|-+$/g, "")
-            .slice(0, 60);
-          return out || fallback;
-        };
+        // (ชื่อไฟล์จริงยังถูกเก็บในคอลัมน์ file_name)
         const ext = (it.file.name.match(/\.([A-Za-z0-9]{1,8})$/)?.[1] || "xlsx").toLowerCase();
-        const baseName = asciiSeg(it.file.name.replace(/\.[A-Za-z0-9]{1,8}$/, ""), "file");
-        const folderSeg = asciiSeg(String(storageFolder || gradeLevel), "grade");
-        const path = `${asciiSeg(String(year), "year")}/${folderSeg}/${Date.now()}_${baseName}.${ext}`;
+        const uniq = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const rawKey = `${year}/${storageFolder || gradeLevel}/${uniq}_${it.file.name.replace(/\.[A-Za-z0-9]{1,8}$/, "")}`;
+        const path = `${sanitizeStorageKey(rawKey)}.${ext}`;
+
 
         const { error: upErr } = await supabase.storage.from(bucket).upload(path, it.file, {
           contentType: it.file.type || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
