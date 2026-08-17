@@ -272,7 +272,7 @@ const AssetManagementPage = () => {
       toast.error(`S/N นี้ถูกใช้แล้วกับ "${dup.asset_name}" (${dup.asset_code})`);
       return;
     }
-    const dupCode = (assets || []).find(
+    const dupCode = (records || []).find(
       (a: any) => String(a.asset_code || "").trim().toLowerCase() === form.asset_code.trim().toLowerCase()
     );
     if (dupCode) { toast.error(`รหัสครุภัณฑ์ "${form.asset_code}" ถูกใช้แล้ว`); return; }
