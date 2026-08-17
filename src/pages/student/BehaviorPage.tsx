@@ -22,7 +22,8 @@ import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { AcademicYearFilter } from "@/components/AcademicYearFilter";
 import { notify } from "@/lib/notify";
 import { notifyStudentEvent } from "@/lib/notifyStudentEvent";
-import { saveErrorMessage } from "@/lib/saveError";
+import { saveErrorMessage, safeInt } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 // หัวข้อพฤติกรรมตามมาตรฐาน สพฐ.
 const OBEC_BEHAVIOR_TOPICS = [
@@ -110,13 +111,18 @@ const BehaviorPage = () => {
 
   const selectedTopicInfo = OBEC_BEHAVIOR_TOPICS.find(t => t.value === topic);
 
+  const [savingBehavior, setSavingBehavior] = useState(false);
   const handleAdd = async () => {
-    if (!studentId || !desc) return;
+    if (!studentId) { toast.error(lang === "th" ? "กรุณาเลือกนักเรียน" : "Please select a student"); return; }
+    if (!desc) { toast.error(lang === "th" ? "กรุณากรอกรายละเอียด" : "Please fill in description"); return; }
+    if (savingBehavior) return;
+    setSavingBehavior(true);
     const topicLabel = topicLabelMap[topic] || topic;
     const fullDesc = `[${topicLabel}] ${desc}`;
     const { data: inserted, error } = await supabase.from("behavior_records").insert({
-      student_id: studentId, behavior_type: type, description: fullDesc, points: parseInt(points),
+      student_id: studentId, behavior_type: type, description: fullDesc, points: safeInt(points, 0),
     } as any).select("id").single();
+    setSavingBehavior(false);
     if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "บันทึกสำเร็จ" : "Saved");
     qc.invalidateQueries({ queryKey: ["behavior_records"] });
@@ -139,8 +145,12 @@ const BehaviorPage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("behavior_records").delete().eq("id", id);
+    const ok = await swal.confirm({ title: "ยืนยันการลบ?", text: "ต้องการลบบันทึกพฤติกรรมนี้หรือไม่", danger: true });
+    if (!ok) return;
+    const { error } = await supabase.from("behavior_records").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["behavior_records"] });
+    toast.success(lang === "th" ? "ลบสำเร็จ" : "Deleted");
   };
 
   const handleScan = async (code: string) => {
@@ -265,7 +275,7 @@ const BehaviorPage = () => {
                 <Label>{lang === "th" ? "คะแนน" : "Points"}</Label>
                 <Input type="number" value={points} onChange={e => setPoints(e.target.value)} />
               </div>
-              <Button onClick={handleAdd} className="w-full">{lang === "th" ? "บันทึก" : "Save"}</Button>
+              <Button onClick={handleAdd} className="w-full" disabled={savingBehavior}>{savingBehavior ? (lang === "th" ? "กำลังบันทึก..." : "Saving...") : (lang === "th" ? "บันทึก" : "Save")}</Button>
             </div>
           </DialogContent>
         </Dialog>
