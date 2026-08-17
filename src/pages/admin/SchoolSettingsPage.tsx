@@ -63,7 +63,8 @@ function GeneralSchoolSettings() {
         { setting_key: "email_domain", setting_value: emailDomain },
       ];
       for (const u of updates) {
-        await supabase.from("school_settings").upsert(u, { onConflict: "setting_key" });
+        const { error } = await supabase.from("school_settings").upsert(u, { onConflict: "setting_key" });
+        if (error) throw error;
       }
       swal.toast.success("บันทึกการตั้งค่าเรียบร้อย");
       qc.invalidateQueries({ queryKey: ["school_settings"] });

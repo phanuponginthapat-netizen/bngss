@@ -9,7 +9,7 @@ import { Settings, Save, Clock, Monitor, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { clearAdaptiveFlagCache } from "@/lib/faceLearning";
-import { saveErrorMessage } from "@/lib/saveError";
+import { saveErrorMessage, safeNum, safeInt } from "@/lib/saveError";
 
 type Win = { start: string; end: string };
 const DEFAULT_ENTRY: Win = { start: "06:00", end: "10:00" };
@@ -74,8 +74,8 @@ const FaceSettingsTab = () => {
   const save = async () => {
     setBusy(true);
     try {
-      const t = parseFloat(threshold);
-      if (isNaN(t) || t < 0.3 || t > 0.8) {
+      const t = safeNum(threshold, NaN);
+      if (!Number.isFinite(t) || t < 0.3 || t > 0.8) {
         toast.error("Threshold ต้องอยู่ระหว่าง 0.3 - 0.8");
         return;
       }
@@ -94,7 +94,7 @@ const FaceSettingsTab = () => {
         toast.error("ช่วงเวลาสแกนออก: เวลาสิ้นสุดต้องหลังเวลาเริ่ม"); return;
       }
 
-      const idleSec = Math.max(15, Math.min(600, parseInt(idleTimeout, 10) || 60));
+      const idleSec = Math.max(15, Math.min(600, safeInt(idleTimeout, 60)));
       const { error } = await supabase.from("school_settings").upsert([
         { setting_key: "face_scan_threshold", setting_value: String(t) },
         { setting_key: "face_scan_cutoff_time", setting_value: cutoffTimeHm },
