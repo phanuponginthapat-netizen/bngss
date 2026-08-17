@@ -200,9 +200,7 @@ ALTER TABLE public.lesson_plans REPLICA IDENTITY FULL;
 ALTER TABLE public.teaching_logbook REPLICA IDENTITY FULL;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='lesson_plans') THEN
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
+    IF NOT EXISTS (
         SELECT 1 FROM pg_publication_tables
         WHERE pubname = 'supabase_realtime'
           AND schemaname = 'public'
@@ -210,12 +208,9 @@ DO $$ BEGIN
       ) THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.lesson_plans;
       END IF;
-    END $$;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='teaching_logbook') THEN
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
+    IF NOT EXISTS (
         SELECT 1 FROM pg_publication_tables
         WHERE pubname = 'supabase_realtime'
           AND schemaname = 'public'
@@ -223,7 +218,6 @@ DO $$ BEGIN
       ) THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.teaching_logbook;
       END IF;
-    END $$;
   END IF;
 END $$;
 

@@ -126,9 +126,7 @@ USING (created_by = auth.uid()) WITH CHECK (created_by = auth.uid());
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='eform_templates') THEN
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
+    IF NOT EXISTS (
         SELECT 1 FROM pg_publication_tables
         WHERE pubname = 'supabase_realtime'
           AND schemaname = 'public'
@@ -136,7 +134,6 @@ DO $$ BEGIN
       ) THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.eform_templates;
       END IF;
-    END $$;
   END IF;
 END $$;
 
@@ -435,9 +432,7 @@ FOR EACH ROW EXECUTE FUNCTION public.bump_print_template_version();
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='print_templates') THEN
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
+    IF NOT EXISTS (
         SELECT 1 FROM pg_publication_tables
         WHERE pubname = 'supabase_realtime'
           AND schemaname = 'public'
@@ -445,7 +440,6 @@ DO $$ BEGIN
       ) THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.print_templates;
       END IF;
-    END $$;
   END IF;
 END $$;
 
@@ -590,9 +584,7 @@ CREATE TRIGGER game_hub_games_updated_at BEFORE UPDATE ON public.game_hub_games
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='game_hub_games') THEN
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
+    IF NOT EXISTS (
         SELECT 1 FROM pg_publication_tables
         WHERE pubname = 'supabase_realtime'
           AND schemaname = 'public'
@@ -600,12 +592,9 @@ DO $$ BEGIN
       ) THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.game_hub_games;
       END IF;
-    END $$;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='game_hub_scores') THEN
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
+    IF NOT EXISTS (
         SELECT 1 FROM pg_publication_tables
         WHERE pubname = 'supabase_realtime'
           AND schemaname = 'public'
@@ -613,7 +602,6 @@ DO $$ BEGIN
       ) THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.game_hub_scores;
       END IF;
-    END $$;
   END IF;
 END $$;
 
@@ -715,9 +703,7 @@ FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='browser_shortcuts') THEN
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
+    IF NOT EXISTS (
         SELECT 1 FROM pg_publication_tables
         WHERE pubname = 'supabase_realtime'
           AND schemaname = 'public'
@@ -725,7 +711,6 @@ DO $$ BEGIN
       ) THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.browser_shortcuts;
       END IF;
-    END $$;
   END IF;
 END $$;
 
@@ -884,9 +869,7 @@ ALTER TABLE public.lesson_plans REPLICA IDENTITY FULL;
 ALTER TABLE public.teaching_logbook REPLICA IDENTITY FULL;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='lesson_plans') THEN
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
+    IF NOT EXISTS (
         SELECT 1 FROM pg_publication_tables
         WHERE pubname = 'supabase_realtime'
           AND schemaname = 'public'
@@ -894,12 +877,9 @@ DO $$ BEGIN
       ) THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.lesson_plans;
       END IF;
-    END $$;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='teaching_logbook') THEN
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
+    IF NOT EXISTS (
         SELECT 1 FROM pg_publication_tables
         WHERE pubname = 'supabase_realtime'
           AND schemaname = 'public'
@@ -907,7 +887,6 @@ DO $$ BEGIN
       ) THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.teaching_logbook;
       END IF;
-    END $$;
   END IF;
 END $$;
 
