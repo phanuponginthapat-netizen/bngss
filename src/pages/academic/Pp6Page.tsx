@@ -557,6 +557,16 @@ const FileTab = () => {
                                     <Button
                                       size="icon"
                                       variant="ghost"
+                                      title={f.applied_at ? "บันทึกเข้าระบบแล้ว — กดเพื่อบันทึกซ้ำ" : "บันทึกผลการเรียนเข้าระบบ (ปพ.1/ปพ.6/ปพ.7)"}
+                                      onClick={() => handleApplyToSystem(f)}
+                                    >
+                                      <Database className={`w-4 h-4 ${f.applied_at ? "text-green-600" : "text-primary"}`} />
+                                    </Button>
+                                  )}
+                                  {f.parsed_data && (
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
                                       title={f.announced_at ? "ประกาศแล้ว — กดเพื่อประกาศซ้ำ" : "ประกาศให้นักเรียน"}
                                       onClick={async () => {
                                         if (!(await swal.confirm({ title: "ประกาศผลการเรียนให้นักเรียน?", text: "ระบบจะแจ้งเตือนนักเรียนทุกคนในรายงานนี้" }))) return;
@@ -564,13 +574,15 @@ const FileTab = () => {
                                         const { data, error } = await supabase.functions.invoke("announce-pp6-scores", { body: { file_id: f.id } });
                                         toast.dismiss(t);
                                         if (error || (data as any)?.error) { toast.error((data as any)?.error || error?.message || "ประกาศไม่สำเร็จ"); return; }
-                                        toast.success(`ประกาศให้นักเรียน ${(data as any)?.notified || 0} คน จากทั้งหมด ${(data as any)?.total || 0} คน`);
+                                        const d = data as any;
+                                        toast.success(`ประกาศให้นักเรียน ${d?.notified_students ?? d?.notified ?? 0} คน (ผู้ปกครอง ${d?.notified_parents ?? 0}) จากทั้งหมด ${d?.total || 0} คน`);
                                         qc.invalidateQueries({ queryKey: ["pp6_files"] });
                                       }}
                                     >
                                       {f.announced_at ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Megaphone className="w-4 h-4 text-amber-600" />}
                                     </Button>
                                   )}
+
                                   {isAdmin && (
                                     <Button size="icon" variant="ghost" onClick={() => handleDelete(f.id, f.file_path)} title="ลบ (แอดมินเท่านั้น)">
                                       <Trash2 className="w-4 h-4 text-destructive" />
