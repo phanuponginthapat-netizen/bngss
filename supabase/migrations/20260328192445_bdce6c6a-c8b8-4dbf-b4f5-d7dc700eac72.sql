@@ -51,9 +51,9 @@ DROP POLICY IF EXISTS "Auth users can manage enrollments" ON public.enrollments;
 CREATE POLICY "Auth users can manage enrollments" ON public.enrollments FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Triggers
-DROP TRIGGER IF EXISTS update_classrooms_updated_at ON public.update_updated_at_column;
+DROP TRIGGER IF EXISTS update_classrooms_updated_at ON public.classrooms;
 CREATE TRIGGER update_classrooms_updated_at BEFORE UPDATE ON public.classrooms FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-DROP TRIGGER IF EXISTS update_students_updated_at ON public.update_updated_at_column;
+DROP TRIGGER IF EXISTS update_students_updated_at ON public.students;
 CREATE TRIGGER update_students_updated_at BEFORE UPDATE ON public.students FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- Create indexes
