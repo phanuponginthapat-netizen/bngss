@@ -112,7 +112,8 @@ const NewsPage = () => {
 
   const handlePublish = async (id: string, pub: boolean) => {
     const willPublish = !pub;
-    await supabase.from("news_posts").update({ is_published: willPublish, published_at: willPublish ? new Date().toISOString() : null } as any).eq("id", id);
+    const { error } = await supabase.from("news_posts").update({ is_published: willPublish, published_at: willPublish ? new Date().toISOString() : null } as any).eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["news_posts"] });
     // Notify everyone on publish
     if (willPublish) {
@@ -153,12 +154,19 @@ const NewsPage = () => {
   };
 
   const handleDeleteNews = async (id: string) => {
-    await supabase.from("news_posts").delete().eq("id", id);
+    const ok = await swal.confirm({ title: lang === "th" ? "ยืนยันการลบข่าวนี้?" : "Delete this news post?", danger: true });
+    if (!ok) return;
+    const { error } = await supabase.from("news_posts").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
+    toast.success(lang === "th" ? "ลบแล้ว" : "Deleted");
     qc.invalidateQueries({ queryKey: ["news_posts"] });
   };
 
   const handleAddEmergency = async () => {
-    if (!emerTitle || !emerMessage) return;
+    if (!emerTitle.trim() || !emerMessage.trim()) { toast.error(lang === "th" ? "กรุณากรอกหัวข้อและข้อความ" : "Please enter title and message"); return; }
+    if (emerSaving) return;
+    setEmerSaving(true);
+    try {
     const { data: inserted, error } = await supabase.from("emergency_broadcasts").insert({
       title: emerTitle,
       message: emerMessage,
@@ -191,10 +199,17 @@ const NewsPage = () => {
         });
       }
     } catch {/* non-blocking */}
+    } finally {
+      setEmerSaving(false);
+    }
   };
 
   const handleDeleteEmergency = async (id: string) => {
-    await supabase.from("emergency_broadcasts").delete().eq("id", id);
+    const ok = await swal.confirm({ title: lang === "th" ? "ยืนยันการลบประกาศนี้?" : "Delete this alert?", danger: true });
+    if (!ok) return;
+    const { error } = await supabase.from("emergency_broadcasts").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
+    toast.success(lang === "th" ? "ลบแล้ว" : "Deleted");
     qc.invalidateQueries({ queryKey: ["emergency_broadcasts"] });
   };
 
@@ -282,7 +297,7 @@ const NewsPage = () => {
                     </Select>
                   </div>
                   <div><Label>{lang === "th" ? "เนื้อหา" : "Content"}</Label><Textarea value={newsContent} onChange={e => setNewsContent(e.target.value)} rows={4} /></div>
-                  <Button onClick={handleAddNews} className="w-full">{lang === "th" ? "บันทึก" : "Save"}</Button>
+                  <Button onClick={handleAddNews} className="w-full" disabled={newsSaving}>{newsSaving ? (lang === "th" ? "กำลังบันทึก..." : "Saving...") : (lang === "th" ? "บันทึก" : "Save")}</Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -363,7 +378,7 @@ const NewsPage = () => {
                     </Select>
                   </div>
                   <div><Label>{lang === "th" ? "ข้อความ" : "Message"}</Label><Textarea value={emerMessage} onChange={e => setEmerMessage(e.target.value)} rows={4} /></div>
-                  <Button variant="destructive" onClick={handleAddEmergency} className="w-full">{lang === "th" ? "ส่งประกาศ" : "Send"}</Button>
+                  <Button variant="destructive" onClick={handleAddEmergency} className="w-full" disabled={emerSaving}>{emerSaving ? (lang === "th" ? "กำลังส่ง..." : "Sending...") : (lang === "th" ? "ส่งประกาศ" : "Send")}</Button>
                 </div>
               </DialogContent>
             </Dialog>

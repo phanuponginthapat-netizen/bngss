@@ -16,6 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { swal } from "@/lib/swal";
+import { saveErrorMessage } from "@/lib/saveError";
 import { Plus, Trash2, Check, X, Clock, FileText, Send, CalendarDays, Paperclip } from "lucide-react";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { uploadLeaveAttachment, openLeaveAttachment } from "@/lib/leaveAttachment";
@@ -363,7 +365,10 @@ const StaffLeavePage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("staff_leaves").delete().eq("id", id);
+    const ok = await swal.confirm({ title: lang === "th" ? "ยืนยันการลบใบลา" : "Confirm delete leave", danger: true, confirmText: lang === "th" ? "ลบ" : "Delete" });
+    if (!ok) return;
+    const { error } = await supabase.from("staff_leaves").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["staff_leaves"] });
   };
 
