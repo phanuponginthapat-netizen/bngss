@@ -140,6 +140,12 @@ export function AutoImportDialogBase<T>({
           parsedAt: new Date().toISOString(),
         };
 
+        // เก็บ FK ลงคอลัมน์จริงด้วย (ไม่ใช่แค่ใน parsed_data) เพื่อให้โมดูลอื่นดึงต่อได้
+        const fkCols: Record<string, any> = {};
+        if ((parsedExtra as any).subject_id) fkCols.subject_id = (parsedExtra as any).subject_id;
+        if ((parsedExtra as any).classroom_id) fkCols.classroom_id = (parsedExtra as any).classroom_id;
+        if ((parsedExtra as any).personnel_id) fkCols.personnel_id = (parsedExtra as any).personnel_id;
+
         const { error: insErr } = await (supabase.from(tableName) as any).insert({
           file_name: it.file.name,
           file_url: pub.publicUrl,
@@ -151,9 +157,11 @@ export function AutoImportDialogBase<T>({
           uploaded_by: uid || null,
           parsed_data: parsedForDb as any,
           parse_status: "parsed",
+          ...fkCols,
           ...insertExtra,
         });
         if (insErr) throw insErr;
+
         updateItem(it.file, { status: "done" });
       } catch (e: any) {
         updateItem(it.file, { status: "error", error: e?.message });
