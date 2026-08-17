@@ -193,6 +193,15 @@ const FaceKioskPage = () => {
   const [staffFaceEnabled, setStaffFaceEnabled] = useState<boolean>(() => localStorage.getItem("face_kiosk_staff_faces") !== "0");
   useEffect(() => { localStorage.setItem("face_kiosk_staff_faces", staffFaceEnabled ? "1" : "0"); }, [staffFaceEnabled]);
 
+  // ===== WizMind / CCTV bridge (realtime) =====
+  const [wizmindOn, setWizmindOn] = useState<boolean>(() => localStorage.getItem(WIZMIND_ENABLED_KEY) === "1");
+  const [wizmindCam, setWizmindCam] = useState<string>(() => localStorage.getItem(WIZMIND_CAMERA_KEY) || "");
+  const [wizmindStatus, setWizmindStatus] = useState<string>("");
+  const [wizmindCount, setWizmindCount] = useState(0);
+  useEffect(() => { localStorage.setItem(WIZMIND_ENABLED_KEY, wizmindOn ? "1" : "0"); }, [wizmindOn]);
+  useEffect(() => { localStorage.setItem(WIZMIND_CAMERA_KEY, wizmindCam); }, [wizmindCam]);
+
+
   const { data: known = [] } = useQuery({
     queryKey: ["face-known-kiosk"],
     queryFn: async () => {
