@@ -323,6 +323,9 @@ const AssetManagementPage = () => {
 
   const handleEdit = async () => {
     if (!editAsset) return;
+    if (!String(editAsset.asset_code || "").trim() || !String(editAsset.asset_name || "").trim()) {
+      toast.error("กรุณากรอกรหัสและชื่อครุภัณฑ์"); return;
+    }
     const snErr = validateSN(editAsset.serial_number || "");
     if (snErr) { toast.error(snErr); return; }
     const dup = findDuplicateSN(editAsset.serial_number || "", editAsset.id);
@@ -330,17 +333,22 @@ const AssetManagementPage = () => {
       toast.error(`S/N นี้ถูกใช้แล้วกับ "${dup.asset_name}" (${dup.asset_code})`);
       return;
     }
+    const dupCode = (records || []).find(
+      (a: any) => a.id !== editAsset.id &&
+        String(a.asset_code || "").trim().toLowerCase() === String(editAsset.asset_code).trim().toLowerCase()
+    );
+    if (dupCode) { toast.error(`รหัสครุภัณฑ์ "${editAsset.asset_code}" ถูกใช้แล้ว`); return; }
     setUploading(true);
     const newUrls = await uploadPhotos(photoFiles);
     const existing = Array.isArray(editAsset.photos) ? editAsset.photos : [];
     const allPhotos = [...existing, ...newUrls];
 
-    const cost = parseFloat(editAsset.acquisition_cost);
-    const depRate = parseFloat(editAsset.depreciation_rate) / 100;
+    const cost = num(editAsset.acquisition_cost);
+    const depRate = num(editAsset.depreciation_rate) / 100;
     const ageYears = editAsset.acquisition_date
       ? (Date.now() - new Date(editAsset.acquisition_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
       : 0;
-    const currentValue = Math.max(0, cost * Math.pow(1 - depRate, Math.floor(ageYears)));
+    const currentValue = Math.max(0, cost * Math.pow(1 - depRate, Math.max(0, Math.floor(ageYears))));
 
     let responsibleName = editAsset.responsible_person;
     if (editAsset.responsible_user_id) {
@@ -349,31 +357,32 @@ const AssetManagementPage = () => {
     }
 
     const { error } = await supabase.from("assets").update({
-      asset_code: editAsset.asset_code, asset_name: editAsset.asset_name,
+      asset_code: String(editAsset.asset_code).trim(), asset_name: String(editAsset.asset_name).trim(),
       category: editAsset.category, acquisition_cost: cost,
-      depreciation_rate: parseFloat(editAsset.depreciation_rate),
+      depreciation_rate: num(editAsset.depreciation_rate),
       current_value: currentValue, location: editAsset.location,
       responsible_person: responsibleName,
       responsible_user_id: editAsset.responsible_user_id || null,
       condition: editAsset.condition,
-      notes: editAsset.notes, useful_life_years: parseInt(editAsset.useful_life_years),
-      acquisition_date: editAsset.acquisition_date,
+      notes: editAsset.notes, useful_life_years: Math.max(1, num(editAsset.useful_life_years, 5)),
+      acquisition_date: editAsset.acquisition_date || null,
       photos: allPhotos,
       photo_url: allPhotos[0] || editAsset.photo_url || null,
-      serial_number: editAsset.serial_number || null,
+      serial_number: String(editAsset.serial_number || "").trim() || null,
       barcode: editAsset.barcode || null,
-      quantity: Math.max(1, parseInt(editAsset.quantity) || 1),
+      quantity: Math.max(1, num(editAsset.quantity, 1)),
       building: editAsset.building || null, room: editAsset.room || null, floor: editAsset.floor || null,
-      latitude: editAsset.latitude ? parseFloat(editAsset.latitude) : null,
-      longitude: editAsset.longitude ? parseFloat(editAsset.longitude) : null,
+      latitude: editAsset.latitude ? num(editAsset.latitude) : null,
+      longitude: editAsset.longitude ? num(editAsset.longitude) : null,
       gfmis_code: editAsset.gfmis_code || null,
       budget_source: editAsset.budget_source || null,
       supplier: editAsset.supplier || null,
       warranty_until: editAsset.warranty_until || null,
     } as any).eq("id", editAsset.id);
     setUploading(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error.message)); return; }
     toast.success("แก้ไขสำเร็จ");
+
     qc.invalidateQueries({ queryKey: ["assets"] });
     setEditAsset(null); setPhotoFiles([]);
   };
