@@ -22,6 +22,7 @@ import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { AcademicYearFilter } from "@/components/AcademicYearFilter";
 import { notify } from "@/lib/notify";
 import { notifyStudentEvent } from "@/lib/notifyStudentEvent";
+import { saveErrorMessage } from "@/lib/saveError";
 
 // หัวข้อพฤติกรรมตามมาตรฐาน สพฐ.
 const OBEC_BEHAVIOR_TOPICS = [
@@ -116,7 +117,7 @@ const BehaviorPage = () => {
     const { data: inserted, error } = await supabase.from("behavior_records").insert({
       student_id: studentId, behavior_type: type, description: fullDesc, points: parseInt(points),
     } as any).select("id").single();
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "บันทึกสำเร็จ" : "Saved");
     qc.invalidateQueries({ queryKey: ["behavior_records"] });
 

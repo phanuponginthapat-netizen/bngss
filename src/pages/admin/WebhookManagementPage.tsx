@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Webhook, Send, MessageSquare, Settings, Edit, BarChart3 } from "lucide-react";
 import ChannelCategoryRoutingCard from "@/components/admin/ChannelCategoryRoutingCard";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const DEPARTMENTS = [
   { value: "academic", th: "ฝ่ายวิชาการ", en: "Academic" },
@@ -94,7 +95,7 @@ const WebhookManagementPage = () => {
       webhook_name: webhookName || department,
       notification_types: selectedTypes,
     } as any);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "เพิ่ม Webhook สำเร็จ" : "Webhook added");
     qc.invalidateQueries({ queryKey: ["google_chat_webhooks"] });
     setOpen(false);
@@ -138,7 +139,7 @@ const WebhookManagementPage = () => {
     const { error } = await supabase.from("google_chat_webhooks" as any)
       .update({ notification_types: editTypes, custom_messages: editMessages } as any)
       .eq("id", editWebhook.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "บันทึกสำเร็จ" : "Saved");
     qc.invalidateQueries({ queryKey: ["google_chat_webhooks"] });
     setEditWebhook(null);

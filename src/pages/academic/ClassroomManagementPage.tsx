@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Users, UserCheck, RefreshCw, Pencil, UserPlus, X, Star } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input as SearchInput } from "@/components/ui/input";
+import { saveErrorMessage } from "@/lib/saveError";
 
 
 const gradeLevels = ["อ.1", "อ.2", "อ.3", "ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6", "การศึกษาพิเศษ"];
@@ -82,7 +83,7 @@ const ClassroomManagementPage = () => {
     if (error) {
       if ((error as any).code === "23505") {
         toast.error(lang === "th" ? "มีห้องนี้อยู่แล้ว" : "Classroom already exists");
-      } else toast.error(error.message);
+      } else toast.error(saveErrorMessage(error));
       return;
     }
     toast.success(lang === "th" ? "เพิ่มห้องเรียนสำเร็จ" : "Classroom added");
@@ -154,7 +155,7 @@ const ClassroomManagementPage = () => {
       homeroom_teacher_2: isSecondary(editingClassroom.grade_level) ? teacher2Value : null,
       reference_grade_level: refGrade,
     } as any).eq("id", editingClassroom.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "บันทึกครูประจำชั้นสำเร็จ" : "Homeroom teacher updated");
     qc.invalidateQueries({ queryKey: ["classrooms"] });
     setEditingClassroom(null);
@@ -212,7 +213,7 @@ const ClassroomManagementPage = () => {
       update.inclusion_classroom_id = null;
     }
     const { error } = await supabase.from("students").update(update).eq("id", sid);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["students"] });
     qc.invalidateQueries({ queryKey: ["all_students_dmc"] });
   };

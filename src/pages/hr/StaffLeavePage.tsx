@@ -21,6 +21,7 @@ import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { uploadLeaveAttachment, openLeaveAttachment } from "@/lib/leaveAttachment";
 import NotificationHighlightScroller from "@/components/NotificationHighlightScroller";
 import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const LEAVE_TYPES = [
   { value: "sick", th: "ลาป่วย", en: "Sick Leave" },
@@ -649,7 +650,7 @@ const StaffLeavePage = () => {
                 <div className="text-xs text-muted-foreground mb-1">📅 {r.start_date} → {r.end_date}</div>
                 {r.reason && <div className="text-xs mb-2 line-clamp-2">💬 {r.reason}</div>}
                 {r.attachment_url && (
-                  <Button variant="link" size="sm" className="h-auto p-0 text-xs gap-1 mb-2" onClick={() => openLeaveAttachment(r.attachment_url).catch(e => toast.error(e.message))}>
+                  <Button variant="link" size="sm" className="h-auto p-0 text-xs gap-1 mb-2" onClick={() => openLeaveAttachment(r.attachment_url).catch(e => toast.error(saveErrorMessage(e)))}>
                     <Paperclip className="w-3 h-3" />{lang === "th" ? "ดูไฟล์แนบ" : "View attachment"}
                   </Button>
                 )}
@@ -704,7 +705,7 @@ const StaffLeavePage = () => {
                       <TableCell className="max-w-[200px]">
                         <div className="truncate">{r.reason || "-"}</div>
                         {r.attachment_url && (
-                          <Button variant="link" size="sm" className="h-auto p-0 text-xs gap-1" onClick={() => openLeaveAttachment(r.attachment_url).catch(e => toast.error(e.message))}>
+                          <Button variant="link" size="sm" className="h-auto p-0 text-xs gap-1" onClick={() => openLeaveAttachment(r.attachment_url).catch(e => toast.error(saveErrorMessage(e)))}>
                             <Paperclip className="w-3 h-3" />{lang === "th" ? "ดูไฟล์แนบ" : "View"}
                           </Button>
                         )}
@@ -837,7 +838,7 @@ const StaffLeavePage = () => {
                       <TableCell className="max-w-[200px]">
                         <div className="truncate">{r.reason || "-"}</div>
                         {r.attachment_url && (
-                          <Button variant="link" size="sm" className="h-auto p-0 text-xs gap-1" onClick={() => openLeaveAttachment(r.attachment_url).catch(e => toast.error(e.message))}>
+                          <Button variant="link" size="sm" className="h-auto p-0 text-xs gap-1" onClick={() => openLeaveAttachment(r.attachment_url).catch(e => toast.error(saveErrorMessage(e)))}>
                             <Paperclip className="w-3 h-3" />{lang === "th" ? "ดูไฟล์แนบ" : "View"}
                           </Button>
                         )}

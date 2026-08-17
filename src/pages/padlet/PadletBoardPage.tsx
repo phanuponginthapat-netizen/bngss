@@ -18,6 +18,7 @@ import { th } from "date-fns/locale";
 import DOMPurify from "dompurify";
 import PadletNoteEditor, { padletNoteEditorEmpty } from "./PadletNoteEditor";
 import { shortenUrl } from "@/lib/shortlink";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const BG_MAP: Record<string, string> = {
   paper: "bg-[radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.08)_1px,transparent_0)] [background-size:16px_16px] bg-amber-50",
@@ -110,7 +111,7 @@ export default function PadletBoardPage() {
       allow_guest_post: editAllow,
     }).eq("id", board.id);
     setSavingEdit(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกการแก้ไขแล้ว");
     setEditOpen(false);
   };
@@ -119,7 +120,7 @@ export default function PadletBoardPage() {
     if (!board) return;
     if (!confirm(`ลบกระดาน "${board.title}" ทั้งหมด? การลบไม่สามารถกู้คืนได้`)) return;
     const { error } = await supabase.from("padlet_boards").delete().eq("id", board.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบกระดานแล้ว");
     navigate("/dashboard/padlet");
   };
@@ -133,7 +134,7 @@ export default function PadletBoardPage() {
   const loadBoard = async () => {
     if (!id) return;
     const { data, error } = await supabase.from("padlet_boards").select("*, subjects:subject_id(name_th, code), classrooms:classroom_id(name, grade_level)").eq("id", id).maybeSingle();
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     setBoard(data);
     if (data?.cover_image_url) {
       const { data: signed } = await supabase.storage.from("padlet").createSignedUrl(data.cover_image_url, 3600);
@@ -155,7 +156,7 @@ export default function PadletBoardPage() {
     const { error } = await supabase.from("padlet_boards").update({ cover_image_url: path }).eq("id", board.id);
     setUploadingCover(false);
     if (coverInputRef.current) coverInputRef.current.value = "";
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("อัปเดตรูปปกแล้ว");
   };
 
@@ -218,7 +219,7 @@ export default function PadletBoardPage() {
       const ext = f.name.split(".").pop() || "bin";
       const path = `${id}/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
       const { error } = await supabase.storage.from("padlet").upload(path, f, { upsert: false, contentType: f.type });
-      if (error) { toast.error(error.message); continue; }
+      if (error) { toast.error(saveErrorMessage(error)); continue; }
       added.push({ path, name: f.name, type: f.type || "application/octet-stream", size: f.size });
     }
     if (added.length) {
@@ -258,7 +259,7 @@ export default function PadletBoardPage() {
         content: clean || null, color, link_url: linkUrl.trim() || null, attachments: attachments as any,
       }).eq("id", editingId);
       setSaving(false);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(saveErrorMessage(error)); return; }
       toast.success("บันทึกแล้ว");
     } else {
       const { error } = await supabase.from("padlet_notes").insert({
@@ -267,7 +268,7 @@ export default function PadletBoardPage() {
         attachments: attachments as any,
       });
       setSaving(false);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(saveErrorMessage(error)); return; }
       toast.success("แปะโน้ตแล้ว");
     }
     setOpen(false);
@@ -291,7 +292,7 @@ export default function PadletBoardPage() {
     ];
     if (paths.length) await supabase.storage.from("padlet").remove(paths);
     const { error } = await supabase.from("padlet_notes").delete().eq("id", n.id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(saveErrorMessage(error));
   };
 
   const likeNote = async (n: any) => {
@@ -357,7 +358,7 @@ export default function PadletBoardPage() {
             <Button variant="outline" size="sm"
               onClick={async () => {
                 const { error } = await supabase.from("padlet_boards").update({ allow_guest_post: !board.allow_guest_post }).eq("id", board.id);
-                if (error) toast.error(error.message);
+                if (error) toast.error(saveErrorMessage(error));
               }}
             >{board.allow_guest_post ? "ปิดการแปะ" : "เปิดการแปะ"}</Button>
           )}

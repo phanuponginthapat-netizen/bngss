@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import BackendConnectionCard from "@/components/setup/BackendConnectionCard";
 import { getBackendConfig, getConfigSource } from "@/lib/runtimeConfig";
 import {
+import { saveErrorMessage } from "@/lib/saveError";
   CheckCircle2, XCircle, Loader2, ArrowRight, ArrowLeft, Rocket,
   Database, User, Palette, Cloud, Copy, ExternalLink, Sparkles, ShieldCheck, Wrench,
   Wand2, Upload, HardDriveDownload, KeyRound,
@@ -239,7 +240,7 @@ export default function SetupWizardPage() {
       return true;
     } catch (e: any) {
       setR("restore", { status: "fail", message: "กู้คืนล้มเหลว", detail: e.message });
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
       return false;
     } finally {
       setRestoring(false);

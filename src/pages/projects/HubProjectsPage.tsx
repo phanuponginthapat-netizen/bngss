@@ -14,6 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Plus, FolderKanban, Wallet, TrendingUp, Calendar, Search, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const STATUSES = [
   { value: "planning", label: "วางแผน", color: "bg-slate-100 text-slate-700" },
@@ -121,7 +122,7 @@ export default function HubProjectsPage() {
       created_by: user.user?.id,
     };
     const { error } = await supabase.from("hub_projects").insert(payload as any);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("สร้างโครงการแล้ว");
     setOpen(false);
     setForm({ ...form, name: "", description: "", category: "", hub_project_code: "", start_date: "", end_date: "", responsible_person: "", target_beneficiaries: "", goals: "" });

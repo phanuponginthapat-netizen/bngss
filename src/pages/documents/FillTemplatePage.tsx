@@ -12,6 +12,7 @@ import { loadPrintTemplatePdf } from "@/lib/printTemplatePdf";
 import { resolveAutofill } from "@/lib/templateAutofill";
 import { toast } from "sonner";
 import { ArrowLeft, Download, Loader2, Wand2 } from "lucide-react";
+import { saveErrorMessage } from "@/lib/saveError";
 
 
 export default function FillTemplatePage() {
@@ -136,7 +137,7 @@ export default function FillTemplatePage() {
       setResultUrl((data as any).url);
       toast.success("สร้าง PDF สำเร็จ");
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     } finally {
       setGenerating(false);
     }

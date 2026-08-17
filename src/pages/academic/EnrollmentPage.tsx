@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Plus, Users, UserPlus, BookOpen, Trash2, School, Search } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface Classroom { id: string; name: string; grade_level: string; academic_year: number; homeroom_teacher: string | null; capacity: number | null; }
 interface Student { id: string; student_code: string; prefix: string | null; first_name: string; last_name: string; classroom_id: string | null; status: string; }
@@ -120,7 +121,7 @@ const EnrollmentPage = () => {
       homeroom_teacher: classroomForm.homeroom_teacher || null,
       capacity: parseInt(classroomForm.capacity) || 40,
     });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("เพิ่มห้องเรียนสำเร็จ");
     setClassroomDialog(false);
     setClassroomForm({ name: "", grade_level: "", homeroom_teacher: "", capacity: "40" });
@@ -139,7 +140,7 @@ const EnrollmentPage = () => {
       last_name: studentForm.last_name,
       classroom_id: studentForm.classroom_id || null,
     });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("เพิ่มนักเรียนสำเร็จ");
     setStudentDialog(false);
     setStudentForm({ student_code: "", prefix: "ด.ช.", first_name: "", last_name: "", classroom_id: "" });
@@ -162,7 +163,7 @@ const EnrollmentPage = () => {
     }));
 
     const { error } = await supabase.from("enrollments").upsert(enrollData, { onConflict: "student_id,subject_id,semester,academic_year" });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(`ลงทะเบียนรายห้อง ${classStudents.length} คนสำเร็จ`);
     fetchEnrollmentsBySubject(selectedSubject);
   };
@@ -181,7 +182,7 @@ const EnrollmentPage = () => {
     }));
 
     const { error } = await supabase.from("enrollments").upsert(enrollData, { onConflict: "student_id,subject_id,semester,academic_year" });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(`ลงทะเบียนรายบุคคล ${selectedStudentIds.length} คนสำเร็จ`);
     setSelectedStudentIds([]);
     fetchEnrollmentsBySubject(selectedSubject);
@@ -190,7 +191,7 @@ const EnrollmentPage = () => {
   // Remove enrollment
   const handleRemoveEnrollment = async (id: string) => {
     const { error } = await supabase.from("enrollments").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ถอนการลงทะเบียนสำเร็จ");
     fetchEnrollmentsBySubject(selectedSubject);
   };

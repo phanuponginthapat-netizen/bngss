@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import HomeworkReplies from "@/components/homework/HomeworkReplies";
 import {
+import { saveErrorMessage } from "@/lib/saveError";
   GraduationCap, Sparkles, Calendar, Bell, BookOpen,
   ClipboardList, FileText, Heart, ArrowRight, CheckCircle2, XCircle, Clock,
   User as UserIcon, Upload, Thermometer, Wind,
@@ -449,7 +450,7 @@ const HomeworkRow = ({ h, lang, L, userId, studentName }: {
       qc.invalidateQueries({ queryKey: ["student_dashboard"] });
       setOpen(false);
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     } finally { setBusy(false); }
   };
 

@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Plus, Trash2, AlertTriangle } from "lucide-react";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const EmergencyPage = () => {
   const { lang } = useLanguage();
@@ -27,7 +28,7 @@ const EmergencyPage = () => {
   const handleAdd = async () => {
     if (!title || !message) return;
     const { error } = await supabase.from("emergency_broadcasts").insert({ title, message, severity } as any);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "ส่งประกาศสำเร็จ" : "Broadcast sent");
     qc.invalidateQueries({ queryKey: ["emergency_broadcasts"] });
     setOpen(false); setTitle(""); setMessage("");

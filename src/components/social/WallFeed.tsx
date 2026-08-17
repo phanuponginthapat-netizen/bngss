@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { swal } from "@/lib/swal";
 import { detectMediaTypeFromUrl } from "@/lib/media";
 import MediaRenderer from "./MediaRenderer";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface WallPost {
   id: string;
@@ -163,7 +164,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
       media_urls: staged.map((s) => s.path),
     });
     setPosting(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     staged.forEach((s) => URL.revokeObjectURL(s.previewUrl));
     setStaged([]);
     setContent("");
@@ -192,12 +193,12 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
         .delete()
         .eq("post_id", post.id)
         .eq("user_id", userId);
-      if (error) { toast.error(error.message); load(); }
+      if (error) { toast.error(saveErrorMessage(error)); load(); }
     } else {
       const { error } = await supabase
         .from("wall_post_reactions")
         .upsert({ post_id: post.id, user_id: userId, reaction_type: type }, { onConflict: "post_id,user_id" });
-      if (error) { toast.error(error.message); load(); }
+      if (error) { toast.error(saveErrorMessage(error)); load(); }
     }
   };
 
@@ -406,7 +407,7 @@ function CommentSection({ postId, userId, commentCount }: { postId: string; user
     const { error } = await supabase
       .from("wall_post_comments")
       .insert({ post_id: postId, user_id: userId, content: text.trim() });
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     setText("");
   };
 

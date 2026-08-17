@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUserRole } from "@/hooks/useUserRole";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface AssignmentsTabProps {
   assignments: any[];
@@ -75,7 +76,7 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
       semester: parseInt(semester), academic_year: parseInt(academicYear),
     }));
     const { error } = await supabase.from("teacher_assignments").insert(rows);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(`มอบหมาย ${rows.length} วิชาสำเร็จ`);
     qc.invalidateQueries({ queryKey: ["teacher_assignments"] });
     setAssignOpen(false); resetForm();
@@ -89,7 +90,7 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
       semester: parseInt(semester),
       academic_year: parseInt(academicYear),
     }).eq("id", editAssignment.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("แก้ไขการมอบหมายสำเร็จ");
     qc.invalidateQueries({ queryKey: ["teacher_assignments"] });
     setEditAssignment(null); resetForm();
@@ -97,7 +98,7 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
 
   const handleDeleteAssignment = async (id: string) => {
     const { error } = await supabase.from("teacher_assignments").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบการมอบหมายสำเร็จ");
     qc.invalidateQueries({ queryKey: ["teacher_assignments"] });
   };

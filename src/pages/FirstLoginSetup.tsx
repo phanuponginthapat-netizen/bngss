@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Lock, CheckCircle, ArrowRight, Briefcase, User, ShieldCheck, XCircle } from "lucide-react";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { checkPassword } from "@/lib/passwordPolicy";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface FirstLoginSetupProps {
   userId: string;
@@ -208,7 +209,7 @@ const FirstLoginSetup = ({ userId, onComplete }: FirstLoginSetupProps) => {
       .eq("id", userId);
 
     if (error) {
-      toast.error(error.message);
+      toast.error(saveErrorMessage(error));
       setLoading(false);
       return;
     }
@@ -319,7 +320,7 @@ const FirstLoginSetup = ({ userId, onComplete }: FirstLoginSetupProps) => {
     }).eq("id", userId);
 
     if (error) {
-      toast.error(error.message);
+      toast.error(saveErrorMessage(error));
     } else {
       setStep(4);
     }
@@ -341,7 +342,7 @@ const FirstLoginSetup = ({ userId, onComplete }: FirstLoginSetupProps) => {
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) {
-      toast.error(error.message);
+      toast.error(saveErrorMessage(error));
       setLoading(false);
       return;
     }

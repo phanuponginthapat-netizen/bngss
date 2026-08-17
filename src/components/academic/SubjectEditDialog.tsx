@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface SubjectEditDialogProps {
   open: boolean;
@@ -50,7 +51,7 @@ export const SubjectEditDialog = ({ open, onOpenChange, subject }: SubjectEditDi
       semester: parseInt(form.semester),
       subject_type: form.subject_type,
     }).eq("id", subject?.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("แก้ไขรายวิชาสำเร็จ");
     onOpenChange(false);
     qc.invalidateQueries({ queryKey: ["subjects"] });

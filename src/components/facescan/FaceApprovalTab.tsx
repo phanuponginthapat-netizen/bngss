@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { urlToFaceThumb } from "@/lib/faceThumb";
 import { clearRegisteredFaceCache } from "@/lib/registeredFace";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface RequestRow {
   id: string;
@@ -195,7 +196,7 @@ const FaceApprovalTab = () => {
       qc.invalidateQueries({ queryKey: ["face-known"] });
       qc.invalidateQueries({ queryKey: ["face-db"] });
       qc.invalidateQueries({ queryKey: ["face-registered-ids"] });
-    } catch (e: any) { toast.error(e.message); } finally { setBusy(false); }
+    } catch (e: any) { toast.error(saveErrorMessage(e)); } finally { setBusy(false); }
   };
 
   const reject = async (req: RequestRow) => {
@@ -228,7 +229,7 @@ const FaceApprovalTab = () => {
       qc.invalidateQueries({ queryKey: ["face-pending-requests"] });
       qc.invalidateQueries({ queryKey: ["face-reviewed-requests"] });
       qc.invalidateQueries({ queryKey: ["face-history"] });
-    } catch (e: any) { toast.error(e.message); } finally { setBusy(false); }
+    } catch (e: any) { toast.error(saveErrorMessage(e)); } finally { setBusy(false); }
   };
 
   const studentLabel = (s?: RequestRow["students"]) =>

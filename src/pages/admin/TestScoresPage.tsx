@@ -15,6 +15,7 @@ import { Plus, Trash2, BarChart3, Pencil, Sparkles, Upload, Loader2, FileText } 
 import { swal } from "@/lib/swal";
 import { Textarea } from "@/components/ui/textarea";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const TEST_TYPES = [
   { value: "onet", label: "O-NET" },
@@ -129,7 +130,7 @@ export default function TestScoresPage() {
   const remove = async (id: string) => {
     if (!(await swal.confirm({ title: "ลบรายการคะแนนนี้?", danger: true }))) return;
     const { error } = await supabase.from("school_test_scores").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("ลบแล้ว");
     qc.invalidateQueries({ queryKey: ["school-test-scores", schoolId] });
   };

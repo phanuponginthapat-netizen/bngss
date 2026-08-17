@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { swal } from "@/lib/swal";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface Props {
   open: boolean;
@@ -119,7 +120,7 @@ export const CopySubjectsDialog = ({ open, onOpenChange, subjects }: Props) => {
         .from("subjects")
         .upsert(rows, { onConflict: "code,semester", ignoreDuplicates: true });
       if (error) {
-        toast.error(error.message);
+        toast.error(saveErrorMessage(error));
       } else {
         toast.success(`คัดลอกสำเร็จ ${toCopy.length} วิชา`);
         qc.invalidateQueries({ queryKey: ["subjects"] });

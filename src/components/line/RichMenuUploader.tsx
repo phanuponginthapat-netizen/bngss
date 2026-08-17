@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Upload, Image as ImageIcon, RotateCcw, CheckCircle2, Sparkles, Loader2 } from "lucide-react";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const ROLES = ["default", "parent", "teacher", "director", "admin"] as const;
 type Role = typeof ROLES[number];
@@ -144,7 +145,7 @@ export default function RichMenuUploader() {
       toast.success(`คืนค่า ${r} เป็นแบบอัตโนมัติแล้ว — กดปุ่ม 'สร้าง/อัปเดต Rich Menu' เพื่อ generate ใหม่`);
       await loadStates();
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     }
     setBusy(false);
   };

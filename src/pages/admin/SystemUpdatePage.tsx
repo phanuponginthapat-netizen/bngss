@@ -11,6 +11,7 @@ import { Download, Upload, Link as LinkIcon, RefreshCw, History, Package, Databa
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getBackendConfig } from "@/lib/runtimeConfig";
+import { saveErrorMessage } from "@/lib/saveError";
 
 export default function SystemUpdatePage() {
   const qc = useQueryClient();
@@ -42,7 +43,7 @@ export default function SystemUpdatePage() {
       a.click();
       toast.success(lang === "th" ? "ดาวน์โหลด bundle แล้ว" : "Bundle downloaded");
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     } finally { setLoading(null); }
   };
 
@@ -69,7 +70,7 @@ export default function SystemUpdatePage() {
       a.click();
       toast.success(lang === "th" ? "ดาวน์โหลดสำเร็จ" : "Downloaded");
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     } finally { setLoading(null); }
   };
 
@@ -93,7 +94,7 @@ export default function SystemUpdatePage() {
       setUrl("");
       qc.invalidateQueries({ queryKey: ["config_bundles"] });
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     } finally { setLoading(null); }
   };
 
@@ -108,7 +109,7 @@ export default function SystemUpdatePage() {
       qc.invalidateQueries({ queryKey: ["config_bundles"] });
       
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     } finally { setLoading(null); }
   };
 

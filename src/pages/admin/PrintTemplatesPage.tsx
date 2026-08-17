@@ -33,6 +33,7 @@ import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { tokenThaiLabel } from "@/lib/print-template-tokens";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const TEMPLATE_CODES = [
   { code: "transcript", label: "ปพ.1 ระเบียนแสดงผลการเรียน" },
@@ -138,7 +139,7 @@ const PrintTemplatesPage = () => {
       .from("print_templates" as any)
       .update(patch)
       .eq("id", draft.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("บันทึกแล้ว");
     qc.invalidateQueries({ queryKey: ["print_templates"] });
   };
@@ -162,7 +163,7 @@ const PrintTemplatesPage = () => {
       } as any)
       .select()
       .single();
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("สร้างแล้ว");
     qc.invalidateQueries({ queryKey: ["print_templates"] });
     setSelectedId((data as any).id);
@@ -177,7 +178,7 @@ const PrintTemplatesPage = () => {
       .from("print_templates" as any)
       .delete()
       .eq("id", draft.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("ลบแล้ว");
     setSelectedId(null);
     qc.invalidateQueries({ queryKey: ["print_templates"] });
@@ -196,7 +197,7 @@ const PrintTemplatesPage = () => {
       .from("print_templates" as any)
       .update({ is_default: true } as any)
       .eq("id", draft.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("ตั้งเป็นฟอร์มหลักแล้ว");
     qc.invalidateQueries({ queryKey: ["print_templates"] });
   };
@@ -255,7 +256,7 @@ const PrintTemplatesPage = () => {
       .insert({ ...rest, name: `${draft.name} (สำเนา)`, is_default: false } as any)
       .select()
       .single();
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("คัดลอกแล้ว");
     qc.invalidateQueries({ queryKey: ["print_templates"] });
     setSelectedId((data as any).id);

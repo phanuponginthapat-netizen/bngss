@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
+import { saveErrorMessage } from "@/lib/saveError";
 
 type Shortcut = {
   id: string;
@@ -107,12 +108,12 @@ export default function DashboardShortcutsAdminPage() {
     if (!payload.id) {
       const { id, ...insert } = payload;
       const { error } = await supabase.from("dashboard_shortcuts").insert(insert as any);
-      if (error) return toast.error(error.message);
+      if (error) return toast.error(saveErrorMessage(error));
       toast.success(L("เพิ่มปุ่มแล้ว", "Added"));
     } else {
       const { id, ...update } = payload;
       const { error } = await supabase.from("dashboard_shortcuts").update(update).eq("id", id);
-      if (error) return toast.error(error.message);
+      if (error) return toast.error(saveErrorMessage(error));
       toast.success(L("บันทึกแล้ว", "Saved"));
     }
     setEditing(null);
@@ -122,7 +123,7 @@ export default function DashboardShortcutsAdminPage() {
   const del = async (id: string) => {
     if (!confirm(L("ลบปุ่มนี้?", "Delete this shortcut?"))) return;
     const { error } = await supabase.from("dashboard_shortcuts").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success(L("ลบแล้ว", "Deleted"));
     invalidate();
   };
@@ -132,7 +133,7 @@ export default function DashboardShortcutsAdminPage() {
       .from("dashboard_shortcuts")
       .update({ is_active: !s.is_active })
       .eq("id", s.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     invalidate();
   };
 

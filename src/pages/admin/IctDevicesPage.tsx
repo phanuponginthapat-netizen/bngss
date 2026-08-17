@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Laptop, Smartphone, Camera, Tablet, Projector, Package, Upload, ImageIcon, X, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { swal } from "@/lib/swal";
+import { saveErrorMessage } from "@/lib/saveError";
 
 type Device = {
   id: string;
@@ -58,7 +59,7 @@ export default function IctDevicesPage() {
   const load = async () => {
     setLoading(true);
     const { data, error } = await supabase.from("ict_devices").select("*").order("created_at", { ascending: false });
-    if (error) toast.error(error.message);
+    if (error) toast.error(saveErrorMessage(error));
     setDevices(data || []);
     setLoading(false);
   };
@@ -167,12 +168,12 @@ export default function IctDevicesPage() {
         asset_code: items[0].asset_code,
         serial_number: items[0].serial_number || null,
       }).eq("id", editing.id);
-      if (error) { setUploading(false); return toast.error(error.message); }
+      if (error) { setUploading(false); return toast.error(saveErrorMessage(error)); }
       toast.success("อัปเดตอุปกรณ์เรียบร้อย");
     } else {
       const rows = items.map((it) => ({ ...base, asset_code: it.asset_code, serial_number: it.serial_number || null }));
       const { error } = await supabase.from("ict_devices").insert(rows);
-      if (error) { setUploading(false); return toast.error(error.message); }
+      if (error) { setUploading(false); return toast.error(saveErrorMessage(error)); }
       toast.success(`เพิ่มอุปกรณ์เรียบร้อย ${rows.length} เครื่อง`);
     }
     setUploading(false);
@@ -183,7 +184,7 @@ export default function IctDevicesPage() {
   const remove = async (d: Device) => {
     if (!(await swal.confirm({ title: `ลบอุปกรณ์ "${d.name}"?`, danger: true }))) return;
     const { error } = await supabase.from("ict_devices").delete().eq("id", d.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("ลบเรียบร้อย");
     load();
   };

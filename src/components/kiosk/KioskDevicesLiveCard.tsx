@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Trash2, Monitor, RefreshCw, Check, Pencil, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { saveErrorMessage } from "@/lib/saveError";
 
 type Device = {
   id: string;
@@ -124,7 +125,7 @@ export function KioskDevicesLiveCard({ configUpdatedAt, onViewDevice }: { config
   const removeDevice = async (id: string) => {
     if (!confirm("ลบเครื่องนี้ออกจากรายการ?")) return;
     const { error } = await supabase.from("kiosk_devices").delete().eq("id", id);
-    if (error) toast.error(error.message); else { toast.success("ลบแล้ว"); load(); }
+    if (error) toast.error(saveErrorMessage(error)); else { toast.success("ลบแล้ว"); load(); }
   };
 
   const startEditRoom = (d: Device) => {
@@ -136,7 +137,7 @@ export function KioskDevicesLiveCard({ configUpdatedAt, onViewDevice }: { config
     const room = roomInput.trim();
     const newMeta = { ...(d.meta || {}), room: room || null };
     const { error } = await supabase.from("kiosk_devices").update({ meta: newMeta }).eq("id", d.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(room ? `ตั้งห้อง: ${room}` : "ล้างห้องแล้ว");
     setEditingId(null);
     setRoomInput("");

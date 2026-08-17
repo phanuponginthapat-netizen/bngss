@@ -23,6 +23,7 @@ import { Sparkles, FileEdit, ClipboardList } from "lucide-react";
 
 import { StudentSubmissionPanel, TeacherGradingPanel, type SubmissionsMap } from "@/components/homework/HomeworkSubmission";
 import { type Attachment } from "@/lib/homeworkStorage";
+import { saveErrorMessage } from "@/lib/saveError";
 
 function TeacherAttachmentsList({ items }: { items: Attachment[] }) {
   if (!items || items.length === 0) return null;
@@ -270,7 +271,7 @@ const HomeworkPage = () => {
     }).select("id").maybeSingle();
     toast.dismiss(__tid_save_1);
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("สร้างการบ้านแล้ว");
 
     // Notify all students in the classroom (in-app + push + LINE)
@@ -312,7 +313,7 @@ const HomeworkPage = () => {
     const tid = toast.loading("กำลังลบ...");
     const { error } = await supabase.from("task_assignments").delete().eq("id", hw.id);
     toast.dismiss(tid);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบแล้ว");
     await qc.invalidateQueries({ queryKey: ["homework-list"] });
     await qc.refetchQueries({ queryKey: ["homework-list"] });
@@ -974,7 +975,7 @@ function EditHomeworkButton({ hw }: { hw: any }) {
       .eq("id", hw.id);
     toast.dismiss(tid);
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกแล้ว");
     setOpen(false);
     await qc.invalidateQueries({ queryKey: ["homework-list"] });

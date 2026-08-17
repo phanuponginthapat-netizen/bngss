@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Search, Calendar, Users, BookOpen, ClipboardList, Eye } from "lucide-react";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 // หัวข้อกิจกรรมโฮมรูมตาม สพฐ (OBEC)
 const OBEC_TOPICS = [
@@ -142,7 +143,7 @@ const HomeroomPage = () => {
       academic_year: academicYear > 0 ? academicYear - BE_OFFSET : undefined,
       semester: semester > 0 ? semester : undefined,
     } as any);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกกิจกรรมโฮมรูมสำเร็จ");
     qc.invalidateQueries({ queryKey: ["homeroom_records"] });
     setOpen(false);

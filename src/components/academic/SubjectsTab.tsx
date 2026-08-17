@@ -17,6 +17,7 @@ import { TeacherScheduleImportDialog } from "./TeacherScheduleImportDialog";
 import { CopySubjectsDialog } from "./CopySubjectsDialog";
 import { useUserRole } from "@/hooks/useUserRole";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface SubjectsTabProps {
   subjects: any[];
@@ -74,7 +75,7 @@ export const SubjectsTab = ({ subjects, onUploadOpen }: SubjectsTabProps) => {
       grade_level: subjectForm.grade_level || null, semester: parseInt(subjectForm.semester),
       academic_year: parseInt(subjectForm.academic_year) - BE_OFFSET, subject_type: subjectForm.subject_type,
     });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("เพิ่มรายวิชาสำเร็จ");
     setSubjectOpen(false);
     setSubjectForm({ code: "", name_th: "", name_en: "", credits: "1.0", hours_per_week: "1", grade_level: "", semester: "0", academic_year: String(new Date().getFullYear() + BE_OFFSET), subject_type: "required" });
@@ -83,7 +84,7 @@ export const SubjectsTab = ({ subjects, onUploadOpen }: SubjectsTabProps) => {
 
   const handleDeleteSubject = async (id: string) => {
     const { error } = await supabase.from("subjects").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบรายวิชาสำเร็จ");
     qc.invalidateQueries({ queryKey: ["subjects"] });
   };

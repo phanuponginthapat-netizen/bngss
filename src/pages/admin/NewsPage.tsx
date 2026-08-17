@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Plus, Trash2, AlertTriangle, Megaphone, Pin, PinOff, Search } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const CATEGORIES = [
   { value: "general", label: "ทั่วไป", labelEn: "General" },
@@ -72,7 +73,7 @@ const NewsPage = () => {
       category: newsCategory,
       author_id: userId,
     } as any).select("id").single();
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "เพิ่มข่าวสำเร็จ" : "News added");
     qc.invalidateQueries({ queryKey: ["news_posts"] });
     setNewsOpen(false); setNewsTitle(""); setNewsContent(""); setNewsCategory("general");
@@ -131,14 +132,14 @@ const NewsPage = () => {
 
   const togglePinNews = async (id: string, pinned: boolean) => {
     const { error } = await supabase.from("news_posts").update({ is_pinned: !pinned } as any).eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(!pinned ? (lang === "th" ? "ปักหมุดแล้ว" : "Pinned") : (lang === "th" ? "ยกเลิกปักหมุด" : "Unpinned"));
     qc.invalidateQueries({ queryKey: ["news_posts"] });
   };
 
   const togglePinEmer = async (id: string, pinned: boolean) => {
     const { error } = await supabase.from("emergency_broadcasts").update({ is_pinned: !pinned } as any).eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["emergency_broadcasts"] });
   };
 
@@ -155,7 +156,7 @@ const NewsPage = () => {
       severity: emerSeverity,
       author_id: userId,
     } as any).select("id").single();
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "ส่งประกาศสำเร็จ" : "Broadcast sent");
     qc.invalidateQueries({ queryKey: ["emergency_broadcasts"] });
     setEmerOpen(false); setEmerTitle(""); setEmerMessage(""); setEmerSeverity("info");

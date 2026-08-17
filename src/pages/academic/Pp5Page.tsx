@@ -27,6 +27,7 @@ import { CalendarClock, Sparkles } from "lucide-react";
 import { KEY_COMPETENCIES, DESIRABLE_CHARACTERISTICS, READ_THINK_WRITE_STANDARDS } from "@/lib/obecStandards";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { applyPp5FileToSystem } from "@/lib/pp5ApplyToSystem";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const OBEC_PRESETS: Record<string, { title: string; description?: string }[]> = {
   competency: KEY_COMPETENCIES.map(c => ({ title: `${c.no}. ${c.name}`, description: "สมรรถนะสำคัญ สพฐ." })),
@@ -303,7 +304,7 @@ const ScoreEntryTab = () => {
       weight_final: w.final,
       weight_attendance: w.attendance,
     }).eq("id", currentAssignment.subject_id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(saveErrorMessage(error));
     else {
       toast.success("บันทึกค่าถ่วงน้ำหนักแล้ว");
       qc.invalidateQueries({ queryKey: ["subject_weights"] });
@@ -341,7 +342,7 @@ const ScoreEntryTab = () => {
       description: indicatorForm.description || null,
       sort_order: indicators.length,
     });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("เพิ่มตัวชี้วัดสำเร็จ");
     setIndicatorOpen(false);
     setIndicatorForm({ title: "", description: "" });
@@ -364,7 +365,7 @@ const ScoreEntryTab = () => {
       max_score: parseFloat(columnForm.max_score),
       sort_order: scoreColumns.length,
     } as any);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("เพิ่มช่องคะแนนสำเร็จ");
     setColumnOpen(false);
     setColumnForm({ column_name: "", column_type: "assignment", max_score: "10", half: "pre" });
@@ -397,7 +398,7 @@ const ScoreEntryTab = () => {
       const { error } = await supabase.from("student_column_scores").upsert({
         student_id: studentId, column_id: columnId, score: 0, status: "pending",
       } as any, { onConflict: "student_id,column_id" });
-      if (error) toast.error(error.message);
+      if (error) toast.error(saveErrorMessage(error));
       else qc.invalidateQueries({ queryKey: ["student_column_scores"] });
       return;
     }
@@ -409,7 +410,7 @@ const ScoreEntryTab = () => {
       score: parsed,
       status: "graded",
     } as any, { onConflict: "student_id,column_id" });
-    if (error) toast.error(error.message);
+    if (error) toast.error(saveErrorMessage(error));
     else qc.invalidateQueries({ queryKey: ["student_column_scores"] });
   };
 
@@ -491,7 +492,7 @@ const ScoreEntryTab = () => {
       column_name: "ปลายภาค", column_type: "final", half: "pre", max_score: cfg.finMax, sort_order: order++ });
     if (rows.length > 0) {
       const { error } = await supabase.from("subject_score_columns").insert(rows);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(saveErrorMessage(error)); return; }
     }
     toast.success("สร้างตารางคะแนนสำเร็จ");
     qc.invalidateQueries({ queryKey: ["subject_score_columns"] });
@@ -501,7 +502,7 @@ const ScoreEntryTab = () => {
     const { error } = await supabase.from("subject_score_columns")
       .update({ indicator_id: indicatorId })
       .eq("id", columnId);
-    if (error) toast.error(error.message);
+    if (error) toast.error(saveErrorMessage(error));
     else qc.invalidateQueries({ queryKey: ["subject_score_columns"] });
   };
 
@@ -1381,7 +1382,7 @@ const FileTab = () => {
     if (!(await swal.confirm({ title: "ต้องการลบไฟล์นี้หรือไม่?", danger: true }))) return;
     await supabase.storage.from("pp5-files").remove([filePath]);
     const { error } = await supabase.from("pp5_files").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบไฟล์สำเร็จ");
     qc.invalidateQueries({ queryKey: ["pp5_files"] });
   };
@@ -1393,7 +1394,7 @@ const FileTab = () => {
     }
     if (file.announced_at && !(await swal.confirm({ title: "ประกาศซ้ำอีกครั้ง?", text: "ระบบจะส่งการแจ้งเตือนใหม่ให้นักเรียนทุกคน" }))) return;
     const { data, error } = await supabase.functions.invoke("announce-pp5-scores", { body: { file_id: file.id } });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(`ประกาศสำเร็จ — แจ้งเตือน ${data?.notified || 0}/${data?.total || 0} คน`);
     qc.invalidateQueries({ queryKey: ["pp5_files"] });
   };
@@ -1675,7 +1676,7 @@ const AssessmentTab = () => {
       category: criteriaForm.category,
       sort_order: filteredCriteria.length,
     });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("เพิ่มหัวข้อประเมินสำเร็จ");
     setCriteriaOpen(false);
     setCriteriaForm({ title: "", description: "", category: selectedCategory });
@@ -1691,7 +1692,7 @@ const AssessmentTab = () => {
       .map((p, i) => ({ title: p.title, description: p.description ?? null, category: selectedCategory, sort_order: filteredCriteria.length + i }));
     if (rows.length === 0) { toast.error("หัวข้อที่เลือกถูกเพิ่มไปแล้วทั้งหมด"); return; }
     const { error } = await supabase.from("assessment_criteria").insert(rows);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(`เพิ่ม ${rows.length} หัวข้อสำเร็จ`);
     setPresetOpen(false);
     setPresetSelections({});
@@ -1700,7 +1701,7 @@ const AssessmentTab = () => {
 
   const handleDeleteCriteria = async (id: string) => {
     const { error } = await supabase.from("assessment_criteria").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบหัวข้อสำเร็จ");
     qc.invalidateQueries({ queryKey: ["assessment_criteria"] });
   };
@@ -1713,7 +1714,7 @@ const AssessmentTab = () => {
       score,
       level,
     }, { onConflict: "student_id,criteria_id,semester,academic_year" });
-    if (error) toast.error(error.message);
+    if (error) toast.error(saveErrorMessage(error));
     else qc.invalidateQueries({ queryKey: ["assessment_scores"] });
   };
 
@@ -1731,7 +1732,7 @@ const AssessmentTab = () => {
       level,
     }));
     const { error } = await supabase.from("student_assessment_scores").upsert(records, { onConflict: "student_id,criteria_id,semester,academic_year" });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(`บันทึก ${selectedStudents.length} คน สำเร็จ`);
     qc.invalidateQueries({ queryKey: ["assessment_scores"] });
   };

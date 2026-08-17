@@ -19,6 +19,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { generateAutoSchedule, buildSubjectEntries } from "@/lib/autoScheduler";
 import type { ActivityLock } from "@/lib/autoScheduler";
 import { buildPeriodSlots } from "@/lib/periodSchedule";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const days = [
   { th: "จันทร์", en: "Mon", val: 1 },
@@ -477,7 +478,7 @@ const SchedulePage = () => {
 
     } as any);
 
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "เพิ่มคาบเรียนสำเร็จ" : "Period added");
     qc.invalidateQueries({ queryKey: ["schedules"] });
     setCellDialog(null);
@@ -557,7 +558,7 @@ const SchedulePage = () => {
       toast.success(`จัดตารางอัตโนมัติสำเร็จ ${newSlots.length} คาบ สำหรับ ${targetClassroomIds.length} ห้อง`);
       qc.invalidateQueries({ queryKey: ["schedules"] });
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(saveErrorMessage(err));
     } finally {
       setAutoScheduling(false);
     }
@@ -587,7 +588,7 @@ const SchedulePage = () => {
       { setting_key: "lunch_duration_min", setting_value: String(lunchMin) },
     ];
     const { error } = await supabase.from("school_settings").upsert(upserts, { onConflict: "setting_key" });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกการตั้งค่าสำเร็จ");
     qc.invalidateQueries({ queryKey: ["school_settings"] });
     qc.invalidateQueries({ queryKey: ["period_schedule_config"] });
@@ -624,7 +625,7 @@ const SchedulePage = () => {
         { onConflict: "setting_key" }
       );
 
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกการล็อควันกิจกรรมสำเร็จ");
     qc.invalidateQueries({ queryKey: ["school_settings", "activity_locks"] });
     setActivityLockOpen(false);

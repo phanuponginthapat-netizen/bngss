@@ -9,6 +9,7 @@ import { Settings, Save, Clock, Monitor, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { clearAdaptiveFlagCache } from "@/lib/faceLearning";
+import { saveErrorMessage } from "@/lib/saveError";
 
 type Win = { start: string; end: string };
 const DEFAULT_ENTRY: Win = { start: "06:00", end: "10:00" };
@@ -110,7 +111,7 @@ const FaceSettingsTab = () => {
       clearAdaptiveFlagCache();
       toast.success("บันทึกแล้ว");
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     } finally { setBusy(false); }
   };
 

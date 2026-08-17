@@ -16,6 +16,7 @@ import { Plus, Trash2, BookOpen, GraduationCap, Sparkles, Lightbulb, Paperclip, 
 import { useUserRole } from "@/hooks/useUserRole";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { StatCard } from "@/components/shared";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const PLAN_TYPES = [
   { value: "training", th: "อบรม/สัมมนา" },
@@ -198,7 +199,7 @@ const IdPlanPage = () => {
       order_doc_path: orderDocPath || null,
       image_paths: imagePaths,
     } as any);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกสำเร็จ");
     qc.invalidateQueries({ queryKey: ["id_plan_records"] });
     qc.invalidateQueries({ queryKey: ["my_id_plan_records"] });

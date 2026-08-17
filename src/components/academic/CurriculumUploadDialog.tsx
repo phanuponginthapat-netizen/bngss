@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Upload, FileSpreadsheet, Check, FileText, Loader2 } from "lucide-react";
 import * as XLSX from "xlsx";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface Props {
   open: boolean;
@@ -237,7 +238,7 @@ export const CurriculumUploadDialog = ({ open, onOpenChange }: Props) => {
       setDiff(null);
       onOpenChange(false);
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(saveErrorMessage(err));
     } finally {
       toast.dismiss(__tid_save_1);
       setSaving(false);

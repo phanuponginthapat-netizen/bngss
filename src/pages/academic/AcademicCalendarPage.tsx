@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { getBackendConfig } from "@/lib/runtimeConfig";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const ICS_FEED_URL = `${getBackendConfig().url}/functions/v1/calendar-ics`;
 
@@ -83,11 +84,11 @@ const AcademicCalendarPage = () => {
 
     if (editingEvent) {
       const { error } = await supabase.from("academic_events").update(payload).eq("id", editingEvent.id);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(saveErrorMessage(error)); return; }
       toast.success("แก้ไขกิจกรรมสำเร็จ");
     } else {
       const { error } = await supabase.from("academic_events").insert(payload);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(saveErrorMessage(error)); return; }
       toast.success("เพิ่มกิจกรรมสำเร็จ");
     }
 
@@ -98,7 +99,7 @@ const AcademicCalendarPage = () => {
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("academic_events").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบกิจกรรมสำเร็จ");
     qc.invalidateQueries({ queryKey: ["academic_events"] });
   };

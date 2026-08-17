@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { ClipboardList, Send, Loader2, Trash2, Users, CheckCircle2, Clock, AlertTriangle, ImagePlus, X } from "lucide-react";
 import { TaskAttachmentViewer } from "@/components/tasks/TaskAttachmentViewer";
+import { saveErrorMessage } from "@/lib/saveError";
 
 type Priority = "high" | "normal" | "low";
 
@@ -164,7 +165,7 @@ export default function StaffTasksPage() {
 
   const removeTask = async (id: string) => {
     const { error } = await supabase.from("task_assignments").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("ลบงานแล้ว");
     qc.invalidateQueries({ queryKey: ["staff-tasks-sent"] });
   };

@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Users, GraduationCap, Trash2, Send, Move, Loader2 } from "lucide-react";
 import { logAudit } from "@/lib/auditLog";
+import { saveErrorMessage } from "@/lib/saveError";
 
 type Student = { id: string; first_name: string; last_name: string; classroom_id: string | null; status: string; classrooms?: { grade_level: string; name: string } | null };
 type Personnel = { id: string; first_name: string; last_name: string; position: string | null };
@@ -284,7 +285,7 @@ function BulkPersonnel() {
     }
     const { error } = await supabase.from("inbox_items").insert(rows as any);
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success(`ส่งแจ้งเตือน ${rows.length} ราย`);
     logAudit({ action: "bulk_notify_personnel", target_table: "inbox_items", details: { count: rows.length } });
     setSelected(new Set());

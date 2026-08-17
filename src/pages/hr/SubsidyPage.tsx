@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 
 import { toast } from "sonner";
 import { Plus, Trash2, Heart } from "lucide-react";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const SUBSIDY_TYPES = ["ปัจจัยพื้นฐาน", "ทุนเสมอภาค (กสศ.)", "ค่าอุปกรณ์การเรียน", "ค่าเครื่องแบบ", "ค่าอาหารกลางวัน", "ค่านมโรงเรียน", "ทุนการศึกษาอื่นๆ"];
 
@@ -69,7 +70,7 @@ const SubsidyPage = () => {
       amount: parseFloat(amount), income_per_month: incomePerMonth ? parseFloat(incomePerMonth) : null,
       screening_result: screeningResult, notes, is_eligible: true,
     } as any);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกสำเร็จ");
     qc.invalidateQueries({ queryKey: ["student_subsidies"] });
     setOpen(false); setSelectedStudentId(""); setAmount(""); setIncomePerMonth(""); setScreeningResult(""); setNotes("");

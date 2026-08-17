@@ -17,6 +17,7 @@ import { Plus, Trash2, TrendingUp, TrendingDown, DollarSign, BarChart3, Wallet, 
 import { toBE, currentBEYear } from "@/lib/utils";
 import { useUserRole } from "@/hooks/useUserRole";
 import { StatCard } from "@/components/shared";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const CATEGORIES = [
   { value: "operational", th: "ค่าดำเนินการ" },
@@ -111,7 +112,7 @@ const BudgetAccountingPage = () => {
       amount: parseFloat(amount), budget_source: budgetSource, quarter: parseInt(quarter),
       receipt_number: receiptNumber, notes,
     } as any);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกสำเร็จ");
     qc.invalidateQueries({ queryKey: ["budget_transactions"] });
     setOpen(false); resetForm();
@@ -135,7 +136,7 @@ const BudgetAccountingPage = () => {
       balance: parseFloat(balAmount),
       notes: balNotes,
     } as any);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกยอมคงเหลือสำเร็จ");
     qc.invalidateQueries({ queryKey: ["account_balances"] });
     setBalanceOpen(false);

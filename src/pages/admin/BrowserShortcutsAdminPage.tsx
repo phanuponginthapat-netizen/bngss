@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
+import { saveErrorMessage } from "@/lib/saveError";
 
 type Shortcut = {
   id: string;
@@ -97,12 +98,12 @@ export default function BrowserShortcutsAdminPage() {
     if (!payload.id) {
       const { id, ...insert } = payload;
       const { error } = await supabase.from("browser_shortcuts" as any).insert(insert);
-      if (error) return toast.error(error.message);
+      if (error) return toast.error(saveErrorMessage(error));
       toast.success(L("เพิ่มแล้ว", "Added"));
     } else {
       const { id, ...update } = payload;
       const { error } = await supabase.from("browser_shortcuts" as any).update(update).eq("id", id);
-      if (error) return toast.error(error.message);
+      if (error) return toast.error(saveErrorMessage(error));
       toast.success(L("บันทึกแล้ว", "Saved"));
     }
     setEditing(null);
@@ -112,14 +113,14 @@ export default function BrowserShortcutsAdminPage() {
   const del = async (id: string) => {
     if (!confirm(L("ลบปุ่มนี้?", "Delete?"))) return;
     const { error } = await supabase.from("browser_shortcuts" as any).delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success(L("ลบแล้ว", "Deleted"));
     invalidate();
   };
 
   const toggleActive = async (s: Shortcut) => {
     const { error } = await supabase.from("browser_shortcuts" as any).update({ is_active: !s.is_active }).eq("id", s.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     invalidate();
   };
 

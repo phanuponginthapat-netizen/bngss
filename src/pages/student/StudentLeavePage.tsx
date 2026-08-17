@@ -21,6 +21,7 @@ import { AcademicYearFilter } from "@/components/AcademicYearFilter";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { uploadLeaveAttachment, openLeaveAttachment } from "@/lib/leaveAttachment";
 import { notify } from "@/lib/notify";
+import { saveErrorMessage } from "@/lib/saveError";
 
 
 const typeLabels: Record<string, any> = {
@@ -226,7 +227,7 @@ const StudentLeaveForm = () => {
                       <TableCell className="max-w-[200px]">
                         <div className="truncate">{r.reason || "—"}</div>
                         {r.attachment_url && (
-                          <Button variant="link" size="sm" className="h-auto p-0 text-xs gap-1" onClick={() => openLeaveAttachment(r.attachment_url).catch(e => toast.error(e.message))}>
+                          <Button variant="link" size="sm" className="h-auto p-0 text-xs gap-1" onClick={() => openLeaveAttachment(r.attachment_url).catch(e => toast.error(saveErrorMessage(e)))}>
                             <Paperclip className="w-3 h-3" />{lang === "th" ? "ดูไฟล์แนบ" : "View attachment"}
                           </Button>
                         )}
@@ -309,7 +310,7 @@ const AdminLeaveView = () => {
   const handleAdd = async () => {
     if (!studentId || !startDate || !endDate) return;
     const { error } = await supabase.from("student_leaves").insert({ student_id: studentId, leave_type: leaveType, start_date: startDate, end_date: endDate, reason } as any);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "บันทึกสำเร็จ" : "Saved");
     qc.invalidateQueries({ queryKey: ["student_leaves"] });
     setOpen(false); setReason(""); setStudentId("");
@@ -341,7 +342,7 @@ const AdminLeaveView = () => {
       .update({ status: "approved", approved_by: role || "staff" } as any)
       .eq("id", id)
       .select("id");
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     if (!upd || upd.length === 0) { toast.error(lang === "th" ? "ไม่มีสิทธิ์อนุมัติใบลานี้" : "Not allowed to approve"); return; }
     qc.invalidateQueries({ queryKey: ["student_leaves"] });
     toast.success(lang === "th" ? "อนุมัติแล้ว" : "Approved");
@@ -355,7 +356,7 @@ const AdminLeaveView = () => {
       .update({ status: "rejected", approved_by: role || "staff" } as any)
       .eq("id", id)
       .select("id");
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     if (!upd || upd.length === 0) { toast.error(lang === "th" ? "ไม่มีสิทธิ์ดำเนินการใบลานี้" : "Not allowed"); return; }
     qc.invalidateQueries({ queryKey: ["student_leaves"] });
     toast.success(lang === "th" ? "ไม่อนุมัติ" : "Rejected");
@@ -469,7 +470,7 @@ const AdminLeaveView = () => {
                   <TableCell className="max-w-[180px]">
                     <div className="truncate">{r.reason}</div>
                     {r.attachment_url && (
-                      <Button variant="link" size="sm" className="h-auto p-0 text-xs gap-1" onClick={() => openLeaveAttachment(r.attachment_url).catch(e => toast.error(e.message))}>
+                      <Button variant="link" size="sm" className="h-auto p-0 text-xs gap-1" onClick={() => openLeaveAttachment(r.attachment_url).catch(e => toast.error(saveErrorMessage(e)))}>
                         <Paperclip className="w-3 h-3" />{lang === "th" ? "ดูไฟล์แนบ" : "View"}
                       </Button>
                     )}
@@ -527,7 +528,7 @@ const AdminLeaveView = () => {
               {viewLeave.attachment_url && (
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">{lang === "th" ? "ไฟล์แนบ" : "Attachment"}</div>
-                  <Button variant="outline" size="sm" onClick={() => openLeaveAttachment(viewLeave.attachment_url).catch(e => toast.error(e.message))}>
+                  <Button variant="outline" size="sm" onClick={() => openLeaveAttachment(viewLeave.attachment_url).catch(e => toast.error(saveErrorMessage(e)))}>
                     <Paperclip className="w-4 h-4 mr-1" />{lang === "th" ? "เปิดไฟล์แนบ" : "Open attachment"}
                   </Button>
                 </div>

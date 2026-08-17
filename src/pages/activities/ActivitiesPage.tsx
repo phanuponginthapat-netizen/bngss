@@ -17,6 +17,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { formatDateBE } from "@/lib/dateBE";
 import { ACTIVITY_CATEGORIES, RULE_PRESETS, getRulePreset, categoryLabel } from "@/lib/competitionRules";
 import { BRACKET_TYPES } from "@/lib/bracket";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const db = supabase as any;
 
@@ -119,7 +120,7 @@ export default function ActivitiesPage() {
       created_by: u?.user?.id,
     };
     const { error } = await db.from("activities").insert(payload);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     setOpen(false);
     qc.invalidateQueries({ queryKey: ["activities"] });
     toast.success("สร้างกิจกรรมแล้ว");
@@ -128,7 +129,7 @@ export default function ActivitiesPage() {
   const register = async (a: any) => {
     if (!myStudent?.id) return toast.error("บัญชีนี้ไม่ได้ผูกกับข้อมูลนักเรียน");
     const { error } = await db.from("activity_participants").insert({ activity_id: a.id, student_id: myStudent.id });
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     qc.invalidateQueries({ queryKey: ["my_activity_regs"] });
     qc.invalidateQueries({ queryKey: ["activity_counts"] });
     toast.success("สมัครเข้าร่วมเรียบร้อย");
@@ -138,7 +139,7 @@ export default function ActivitiesPage() {
     const reg = myRegs.find((r: any) => r.activity_id === a.id);
     if (!reg) return;
     const { error } = await db.from("activity_participants").delete().eq("id", reg.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     qc.invalidateQueries({ queryKey: ["my_activity_regs"] });
     qc.invalidateQueries({ queryKey: ["activity_counts"] });
     toast.success("ยกเลิกการสมัครแล้ว");

@@ -18,6 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
 import { compressImage } from "@/lib/imageCompress";
 import {
+import { saveErrorMessage } from "@/lib/saveError";
   CertificateRenderer, CERT_FONTS, CERT_TOKENS, defaultFields,
   type CertField, type CertTemplate,
 } from "@/components/certificates/CertificateRenderer";
@@ -170,7 +171,7 @@ export default function CertificateDesignerPage() {
       ? db.from("certificate_templates").update(payload).eq("id", editing.id).select().single()
       : db.from("certificate_templates").insert({ ...payload, created_by: u?.user?.id }).select().single();
     const { data, error } = await q;
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     setEditing(data);
     qc.invalidateQueries({ queryKey: ["certificate_templates"] });
     toast.success("บันทึกเทมเพลตแล้ว");
@@ -178,7 +179,7 @@ export default function CertificateDesignerPage() {
 
   const remove = async (id: string) => {
     const { error } = await db.from("certificate_templates").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     if (editing.id === id) setEditing(emptyTemplate());
     qc.invalidateQueries({ queryKey: ["certificate_templates"] });
     toast.success("ลบแล้ว");

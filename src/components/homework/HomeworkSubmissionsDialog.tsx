@@ -13,6 +13,7 @@ import PdfWorksheetPlayer from "./PdfWorksheetPlayer";
 import { type WorksheetField } from "@/lib/pdfWorksheet";
 import { EFORM_PAGE_STYLE } from "@/lib/eformLayout";
 import DOMPurify from "dompurify";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface Props {
   open: boolean;
@@ -80,7 +81,7 @@ export function HomeworkSubmissionsDialog({ open, onOpenChange, assignmentId }: 
     const { error } = await supabase.from("homework_submissions" as any).update({
       score, feedback: d.feedback, status: "graded", graded_at: new Date().toISOString(),
     }).eq("id", s.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกคะแนนแล้ว");
     notify({
       user_ids: s._authUserId ? [s._authUserId] : [],

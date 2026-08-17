@@ -14,6 +14,7 @@ import { Brain, ClipboardCheck, Eye, AlertTriangle, Heart, Shield, Flame } from 
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 // ==========================================
 // Section 1: DISC (16 ข้อ) — cross-validated
@@ -337,7 +338,7 @@ const PersonnelAssessmentPage = () => {
       queryClient.invalidateQueries({ queryKey: ["my-assessments"] });
       queryClient.invalidateQueries({ queryKey: ["all-assessments"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(saveErrorMessage(e)),
   });
 
   const discComplete = Object.keys(discAnswers).length === DISC_QUESTIONS.length;

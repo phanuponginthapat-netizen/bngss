@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Loader2, MessageCircle, MessageSquare, Route } from "lucide-react";
 import { toast } from "sonner";
+import { saveErrorMessage } from "@/lib/saveError";
 
 type Channel = "gchat" | "line";
 type Category =
@@ -68,7 +69,7 @@ export default function ChannelCategoryRoutingCard() {
         { onConflict: "setting_key" },
       );
     setSaving(false);
-    if (error) toast.error(error.message);
+    if (error) toast.error(saveErrorMessage(error));
     else toast.success("บันทึกการจัดเส้นทางแจ้งเตือนแล้ว");
   };
 

@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { CloudDownload, Plus, RefreshCw, Trash2, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { saveErrorMessage } from "@/lib/saveError";
 
 export default function UpstreamSyncPage() {
   const qc = useQueryClient();
@@ -33,7 +34,7 @@ export default function UpstreamSyncPage() {
       else if (applied > 0) toast.success(lang === "th" ? `อัพเดทสำเร็จ ${applied} ต้นทาง` : `Updated ${applied} upstream(s)`);
       else toast.success(lang === "th" ? "ทุกอย่างเป็นเวอร์ชันล่าสุดแล้ว" : "Everything up-to-date");
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     } finally { setCheckingAll(false); }
   };
 
@@ -51,7 +52,7 @@ export default function UpstreamSyncPage() {
   const add = async () => {
     if (!name || !url) return toast.error(lang === "th" ? "กรอกชื่อและลิงก์ก่อน" : "Name and URL required");
     const { error } = await supabase.from("upstream_subscription" as any).insert({ name, bundle_url: url, auto_pull: true });
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     setName(""); setUrl("");
     qc.invalidateQueries({ queryKey: ["upstream_subscription"] });
     toast.success(lang === "th" ? "เพิ่มแล้ว — ระบบจะดึงทุก 6 ชม." : "Added — auto-pull every 6h");
@@ -75,7 +76,7 @@ export default function UpstreamSyncPage() {
       toast.success(lang === "th" ? "ดึงสำเร็จ" : "Pulled");
       qc.invalidateQueries({ queryKey: ["upstream_subscription"] });
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     } finally { setPulling(null); }
   };
 

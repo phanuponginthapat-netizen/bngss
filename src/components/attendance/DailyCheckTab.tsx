@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { ScanAttendanceFlow, AttendanceStatus } from "./ScanAttendanceFlow";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const toDbAcademicYear = (year?: number) => {
   if (!year || year <= 0) return undefined;
@@ -112,7 +113,7 @@ export function DailyCheckTab({
         }
       } catch {/* non-blocking */}
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(saveErrorMessage(err));
     }
   };
 

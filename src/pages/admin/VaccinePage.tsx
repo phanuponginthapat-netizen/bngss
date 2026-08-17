@@ -17,6 +17,7 @@ import { ScanSearchButton } from "@/components/student/ScanSearchButton";
 import { useStudentFilter } from "@/components/student/StudentSearchFilter";
 import { useStudentsWithClass } from "@/hooks/useStudentsWithClass";
 import { notifyStudentEvent } from "@/lib/notifyStudentEvent";
+import { saveErrorMessage } from "@/lib/saveError";
 
 // วัคซีนตามโปรแกรม สพฐ./กระทรวงสาธารณสุข
 const OBEC_VACCINES = [
@@ -94,7 +95,7 @@ const VaccinePage = () => {
       lot_number: lot || null,
       notes: notes || null,
     } as any).select("id").single();
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "บันทึกสำเร็จ" : "Saved");
     qc.invalidateQueries({ queryKey: ["vaccine_records"] });
 

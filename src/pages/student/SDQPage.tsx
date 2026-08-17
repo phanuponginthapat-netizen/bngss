@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Power, BarChart3, Users, User, Eye } from "lucide-react";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { notifyStudentEvent } from "@/lib/notifyStudentEvent";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const SDQPage = () => {
   const { lang } = useLanguage();
@@ -212,7 +213,7 @@ const SDQPage = () => {
       assessment_type: assessmentType,
       academic_year: academicYear > 0 ? academicYear - BE_OFFSET : undefined,
     } as any).select("id").single();
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกสำเร็จ");
     qc.invalidateQueries({ queryKey: ["sdq_records"] });
 

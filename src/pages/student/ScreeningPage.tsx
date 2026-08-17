@@ -18,6 +18,7 @@ import { ScanSearchButton } from "@/components/student/ScanSearchButton";
 import { useStudentData } from "@/hooks/useStudentData";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { AcademicYearFilter } from "@/components/AcademicYearFilter";
+import { saveErrorMessage } from "@/lib/saveError";
 
 
 // หัวข้อคัดกรองตามมาตรฐาน สพฐ. (OBEC Screening Categories)
@@ -149,7 +150,7 @@ const ScreeningPage = () => {
       economic_status: economicStatus || null,
       protection_status: protectionStatus || null,
     } as any);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "บันทึกสำเร็จ" : "Saved");
     qc.invalidateQueries({ queryKey: ["student_screenings"] });
     setOpen(false); setNotes(""); setStudentId(""); setEconomicStatus(""); setProtectionStatus(""); setScreeningType("general");

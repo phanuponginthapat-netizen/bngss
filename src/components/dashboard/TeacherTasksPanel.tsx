@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CheckCircle2, Clock, AlertTriangle, ListTodo } from "lucide-react";
 import { TaskAttachmentViewer } from "@/components/tasks/TaskAttachmentViewer";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface TeacherTasksPanelProps {
   userId?: string | null;
@@ -32,7 +33,7 @@ export const TeacherTasksPanel = ({ userId, personnelId }: TeacherTasksPanelProp
 
   const updateStatus = async (id: string, status: string) => {
     const { error } = await supabase.from("task_assignments").update({ status }).eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("อัพเดทสถานะสำเร็จ");
     qc.invalidateQueries({ queryKey: ["my_tasks"] });
   };

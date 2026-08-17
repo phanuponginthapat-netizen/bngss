@@ -24,6 +24,7 @@ import {
   LineChart as LineChartIcon,
 } from "lucide-react";
 import {
+import { saveErrorMessage } from "@/lib/saveError";
   ResponsiveContainer,
   LineChart,
   Line,
@@ -232,7 +233,7 @@ export default function KioskDoorHealthPage() {
   const removeDevice = async (id: string, name: string) => {
     if (!confirm(`ลบเครื่อง "${name}" ออกจากรายการ?`)) return;
     const { error } = await supabase.from("kiosk_devices").delete().eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(saveErrorMessage(error));
     else { toast.success("ลบแล้ว"); load(); }
   };
 

@@ -28,6 +28,7 @@ import { Kosor01FormSection } from "@/components/student/Kosor01FormSection";
 import { renderKosor01Html } from "@/lib/kosor01";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { notifyStudentEvent } from "@/lib/notifyStudentEvent";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const HomeVisitPage = () => {
   const { lang } = useLanguage();
@@ -230,7 +231,7 @@ const HomeVisitPage = () => {
       } as any).select("id").single();
 
       if (error) {
-        toast.error(error.message);
+        toast.error(saveErrorMessage(error));
         return;
       }
       toast.success("บันทึกการเยี่ยมบ้านสำเร็จ");

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Activity, Plus, TrendingUp, Sparkles, Loader2 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, ReferenceLine } from "recharts";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface Measurement {
   id: string;
@@ -64,7 +65,7 @@ export default function HealthTrendChart({ studentId, student }: { studentId: st
       .eq("student_id", studentId)
       .order("measured_at", { ascending: true });
     if (error) {
-      toast.error(error.message);
+      toast.error(saveErrorMessage(error));
       return;
     }
     setData((data as Measurement[]) ?? []);
@@ -97,7 +98,7 @@ export default function HealthTrendChart({ studentId, student }: { studentId: st
     });
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(saveErrorMessage(error));
       return;
     }
     toast.success("บันทึกแล้ว");

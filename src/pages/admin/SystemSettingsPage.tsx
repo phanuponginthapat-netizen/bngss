@@ -12,6 +12,7 @@ import ConfigBackupCard from "@/components/admin/ConfigBackupCard";
 import CreditFooter from "@/components/CreditFooter";
 import { swal } from "@/lib/swal";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 /**
  * Unified system settings: feature flags + cloud usage + data maintenance.
@@ -80,7 +81,7 @@ const SystemSettingsPage = () => {
     setArchiving(true);
     const { data, error } = await supabase.rpc("archive_old_data" as any);
     setArchiving(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     const r = data as any;
     toast.success(`ลบสำเร็จ: แจ้งเตือน ${r?.notifications_deleted || 0}, Inbox ${r?.inbox_deleted || 0}`);
     refetchUsage();
@@ -91,7 +92,7 @@ const SystemSettingsPage = () => {
     setPreviewing(true);
     const { data, error } = await supabase.rpc("get_purge_preview" as any, { _retention_years: 3 });
     setPreviewing(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     setPurgePreview(data);
   };
 
@@ -107,7 +108,7 @@ const SystemSettingsPage = () => {
     setPurging(true);
     const { data, error } = await supabase.rpc("archive_and_purge_old_data" as any, { _retention_years: 3 });
     setPurging(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     const r = data as any;
     toast.success(`ลบข้อมูลก่อน ค.ศ. ${r?.cutoff_year} สำเร็จ`);
     setPurgePreview(null);
@@ -131,7 +132,7 @@ const SystemSettingsPage = () => {
     setResetting(true);
     const { data, error } = await supabase.rpc("reset_content_data" as any);
     setResetting(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     const r = data as any;
     const total = Object.values(r?.summary || {}).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
     toast.success(`ล้างข้อมูลสำเร็จ — ลบรวม ${total.toLocaleString()} เรคคอร์ด`);

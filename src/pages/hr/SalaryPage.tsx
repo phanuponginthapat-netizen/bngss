@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Banknote, Award } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
@@ -96,7 +97,7 @@ const SalaryPage = () => {
       net_salary: net, salary_step: salaryStep, promotion_round: promotionRound,
       decoration_request: decorationRequest, notes,
     } as any);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกสำเร็จ");
     qc.invalidateQueries({ queryKey: ["salary_records"] });
     qc.invalidateQueries({ queryKey: ["my_salary_records"] });

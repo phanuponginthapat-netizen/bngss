@@ -14,6 +14,7 @@ import { Plus, Pencil, Trash2, RefreshCw, Cpu } from "lucide-react";
 import { toast } from "sonner";
 import { IOT_CATEGORIES, getCategory } from "@/lib/iotCategories";
 import { swal } from "@/lib/swal";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface DeviceForm {
   id?: string;
@@ -108,7 +109,7 @@ export default function IoTDevicesPage() {
   const remove = async (id: string) => {
     if (!(await swal.confirm({ title: "ลบอุปกรณ์นี้?", danger: true }))) return;
     const { error } = await supabase.from("iot_devices").delete().eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(saveErrorMessage(error));
     else {
       toast.success("ลบแล้ว");
       qc.invalidateQueries({ queryKey: ["iot-devices-admin"] });
@@ -126,7 +127,7 @@ export default function IoTDevicesPage() {
       else toast.error(r?.error || "ทดสอบไม่สำเร็จ");
       qc.invalidateQueries({ queryKey: ["iot-devices-admin"] });
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     }
   };
 

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Upload, FileText, Sparkles, Trash2, Loader2, Pencil, FileSearch, Star, BookOpen } from "lucide-react";
+import { saveErrorMessage } from "@/lib/saveError";
 
 export default function DocumentTemplatesPage() {
   const qc = useQueryClient();
@@ -70,7 +71,7 @@ export default function DocumentTemplatesPage() {
 
       await analyze(row.id);
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     } finally {
       setUploading(false);
     }

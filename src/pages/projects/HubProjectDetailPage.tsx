@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Plus, Wallet, Receipt, Image as ImageIcon, FileText, Trash2, Upload, Printer, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const fmtBaht = (n: any) =>
   new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 0 }).format(Number(n || 0));
@@ -88,7 +89,7 @@ export default function HubProjectDetailPage() {
       reference_no: budgetForm.reference_no || null, notes: budgetForm.notes || null,
       created_by: user.user?.id,
     } as any);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("บันทึกงบที่ได้รับแล้ว");
     setBudgetOpen(false);
     setBudgetForm({ ...budgetForm, amount: "", reference_no: "", notes: "" });
@@ -107,7 +108,7 @@ export default function HubProjectDetailPage() {
       receipt_no: expenseForm.receipt_no || null, notes: expenseForm.notes || null,
       created_by: user.user?.id,
     } as any);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("บันทึกค่าใช้จ่ายแล้ว");
     setExpenseOpen(false);
     setExpenseForm({ ...expenseForm, amount: "", description: "", vendor: "", receipt_no: "", notes: "" });
@@ -122,7 +123,7 @@ export default function HubProjectDetailPage() {
     for (const file of files) {
       const path = `${id}/${Date.now()}-${file.name.replace(/[^\w.-]/g, "_")}`;
       const { error } = await supabase.storage.from("hub-projects").upload(path, file);
-      if (error) { toast.error(error.message); continue; }
+      if (error) { toast.error(saveErrorMessage(error)); continue; }
       const { data: signed } = await supabase.storage.from("hub-projects").createSignedUrl(path, 60 * 60 * 24 * 365);
       if (signed?.signedUrl) urls.push(signed.signedUrl);
     }
@@ -143,7 +144,7 @@ export default function HubProjectDetailPage() {
       photos: uploadedPhotos as any,
       created_by: user.user?.id,
     } as any);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("เผยแพร่รายงานความคืบหน้าแล้ว");
     setUpdateOpen(false);
     setUpdateForm({ ...updateForm, title: "", summary: "", details: "", period_label: "", participants_count: "", progress_percent: "" });

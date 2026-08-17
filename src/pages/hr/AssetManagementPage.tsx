@@ -425,7 +425,7 @@ const AssetManagementPage = () => {
     const { error } = await supabase.from("asset_damage_reports").update({
       status, ...(status === "resolved" ? { resolved_at: new Date().toISOString(), resolution_notes } : {}),
     } as any).eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["asset_damage_reports"] });
     toast.success("อัปเดตสถานะสำเร็จ");
   };

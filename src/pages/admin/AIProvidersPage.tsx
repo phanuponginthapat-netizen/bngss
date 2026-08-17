@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trash2, Plus, Activity, Coins, Zap, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { swal } from "@/lib/swal";
+import { saveErrorMessage } from "@/lib/saveError";
 
 type Provider = {
   id: string;
@@ -146,7 +147,7 @@ export default function AIProvidersPage() {
       supports_vision: form.supports_vision,
       enabled: true,
     });
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("เพิ่ม Provider แล้ว");
     setShowAdd(false);
     setShowAdvanced(false);

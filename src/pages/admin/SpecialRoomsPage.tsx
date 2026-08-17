@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, DoorOpen, Image as ImageIcon, X, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { swal } from "@/lib/swal";
+import { saveErrorMessage } from "@/lib/saveError";
 
 type Room = {
   id: string;
@@ -56,7 +57,7 @@ export default function SpecialRoomsPage() {
       .select("*")
       .order("sort_order")
       .order("name");
-    if (error) toast.error(error.message);
+    if (error) toast.error(saveErrorMessage(error));
     setRooms((data as Room[]) || []);
     setLoading(false);
   };
@@ -131,11 +132,11 @@ export default function SpecialRoomsPage() {
     };
     if (editing) {
       const { error } = await supabase.from("special_rooms").update(payload).eq("id", editing.id);
-      if (error) { setSaving(false); return toast.error(error.message); }
+      if (error) { setSaving(false); return toast.error(saveErrorMessage(error)); }
       toast.success("อัปเดตห้องเรียบร้อย");
     } else {
       const { error } = await supabase.from("special_rooms").insert(payload);
-      if (error) { setSaving(false); return toast.error(error.message); }
+      if (error) { setSaving(false); return toast.error(saveErrorMessage(error)); }
       toast.success("เพิ่มห้องเรียบร้อย");
     }
     setSaving(false);
@@ -146,14 +147,14 @@ export default function SpecialRoomsPage() {
   const remove = async (r: Room) => {
     if (!(await swal.confirm({ title: `ลบห้อง "${r.name}"?`, text: "การจองห้องนี้จะไม่ถูกลบ แต่จะไม่ผูกกับห้อง", danger: true }))) return;
     const { error } = await supabase.from("special_rooms").delete().eq("id", r.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("ลบเรียบร้อย");
     load();
   };
 
   const toggleActive = async (r: Room) => {
     const { error } = await supabase.from("special_rooms").update({ is_active: !r.is_active }).eq("id", r.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     load();
   };
 
