@@ -106,10 +106,13 @@ CREATE POLICY "duty_logs_delete_admin" ON public.duty_logs
   USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'super_admin') OR public.has_role(auth.uid(),'director'));
 
 -- 4. updated_at triggers
+DROP TRIGGER IF EXISTS trg_duty_locations_updated ON public.duty_locations;
 CREATE TRIGGER trg_duty_locations_updated BEFORE UPDATE ON public.duty_locations
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DROP TRIGGER IF EXISTS trg_duty_assignments_updated ON public.duty_assignments;
 CREATE TRIGGER trg_duty_assignments_updated BEFORE UPDATE ON public.duty_assignments
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DROP TRIGGER IF EXISTS trg_duty_logs_updated ON public.duty_logs;
 CREATE TRIGGER trg_duty_logs_updated BEFORE UPDATE ON public.duty_logs
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 

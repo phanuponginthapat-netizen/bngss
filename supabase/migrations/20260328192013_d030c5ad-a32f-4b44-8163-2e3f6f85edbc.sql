@@ -66,5 +66,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SET search_path = public;
 
+DROP TRIGGER IF EXISTS update_subjects_updated_at ON public.subjects;
 CREATE TRIGGER update_subjects_updated_at BEFORE UPDATE ON public.subjects FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DROP TRIGGER IF EXISTS update_student_scores_updated_at ON public.student_scores;
 CREATE TRIGGER update_student_scores_updated_at BEFORE UPDATE ON public.student_scores FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

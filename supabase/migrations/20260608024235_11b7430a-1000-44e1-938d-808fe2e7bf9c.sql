@@ -31,6 +31,7 @@ CREATE POLICY "Admin manage rooms update" ON public.special_rooms FOR UPDATE TO 
 DROP POLICY IF EXISTS "Admin manage rooms delete" ON public.special_rooms;
 CREATE POLICY "Admin manage rooms delete" ON public.special_rooms FOR DELETE TO authenticated USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director'));
 
+DROP TRIGGER IF EXISTS update_special_rooms_updated_at ON public.special_rooms;
 CREATE TRIGGER update_special_rooms_updated_at BEFORE UPDATE ON public.special_rooms
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 

@@ -126,12 +126,16 @@ CREATE POLICY "Admins manage menu"
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'director'));
 
 -- ========== Update triggers ==========
+DROP TRIGGER IF EXISTS trg_cms_school_info_updated ON public.cms_school_info;
 CREATE TRIGGER trg_cms_school_info_updated BEFORE UPDATE ON public.cms_school_info
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DROP TRIGGER IF EXISTS trg_cms_downloads_updated ON public.cms_downloads;
 CREATE TRIGGER trg_cms_downloads_updated BEFORE UPDATE ON public.cms_downloads
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DROP TRIGGER IF EXISTS trg_cms_faqs_updated ON public.cms_faqs;
 CREATE TRIGGER trg_cms_faqs_updated BEFORE UPDATE ON public.cms_faqs
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DROP TRIGGER IF EXISTS trg_cms_nav_menu_updated ON public.cms_nav_menu;
 CREATE TRIGGER trg_cms_nav_menu_updated BEFORE UPDATE ON public.cms_nav_menu
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 

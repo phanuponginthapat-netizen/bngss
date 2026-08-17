@@ -36,6 +36,7 @@ DROP POLICY IF EXISTS "portfolio owner update" ON public.portfolio_items;
 CREATE POLICY "portfolio owner update"  ON public.portfolio_items FOR UPDATE TO authenticated USING (user_id = auth.uid());
 DROP POLICY IF EXISTS "portfolio owner delete" ON public.portfolio_items;
 CREATE POLICY "portfolio owner delete"  ON public.portfolio_items FOR DELETE TO authenticated USING (user_id = auth.uid() OR public.has_role(auth.uid(),'admin'));
+DROP TRIGGER IF EXISTS trg_portfolio_updated ON public.portfolio_items;
 CREATE TRIGGER trg_portfolio_updated BEFORE UPDATE ON public.portfolio_items FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE INDEX IF NOT EXISTS idx_portfolio_user ON public.portfolio_items(user_id, is_pinned DESC, sort_order, created_at DESC);
 ALTER PUBLICATION supabase_realtime ADD TABLE public.portfolio_items;
@@ -70,6 +71,7 @@ DROP POLICY IF EXISTS "wall author write" ON public.wall_posts;
 CREATE POLICY "wall author write" ON public.wall_posts FOR INSERT TO authenticated WITH CHECK (author_id = auth.uid());
 CREATE POLICY "wall author update"ON public.wall_posts FOR UPDATE TO authenticated USING (author_id = auth.uid());
 CREATE POLICY "wall author delete"ON public.wall_posts FOR DELETE TO authenticated USING (author_id = auth.uid() OR public.has_role(auth.uid(),'admin'));
+DROP TRIGGER IF EXISTS trg_wall_posts_updated ON public.wall_posts;
 CREATE TRIGGER trg_wall_posts_updated BEFORE UPDATE ON public.wall_posts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE INDEX IF NOT EXISTS idx_wall_posts_feed ON public.wall_posts(school_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_wall_posts_author ON public.wall_posts(author_id, created_at DESC);
@@ -118,6 +120,7 @@ DROP POLICY IF EXISTS "comments update" ON public.wall_post_comments;
 CREATE POLICY "comments update" ON public.wall_post_comments FOR UPDATE TO authenticated USING (user_id = auth.uid());
 DROP POLICY IF EXISTS "comments delete" ON public.wall_post_comments;
 CREATE POLICY "comments delete" ON public.wall_post_comments FOR DELETE TO authenticated USING (user_id = auth.uid() OR public.has_role(auth.uid(),'admin'));
+DROP TRIGGER IF EXISTS trg_wall_comments_updated ON public.wall_post_comments;
 CREATE TRIGGER trg_wall_comments_updated BEFORE UPDATE ON public.wall_post_comments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE INDEX IF NOT EXISTS idx_wall_comments_post ON public.wall_post_comments(post_id, created_at);
 ALTER PUBLICATION supabase_realtime ADD TABLE public.wall_post_comments;
@@ -135,7 +138,9 @@ BEGIN
   END IF;
   RETURN NULL;
 END $$;
+DROP TRIGGER IF EXISTS trg_react_count ON public.wall_post_reactions;
 CREATE TRIGGER trg_react_count AFTER INSERT OR DELETE OR UPDATE ON public.wall_post_reactions FOR EACH ROW EXECUTE FUNCTION public.wall_post_counters();
+DROP TRIGGER IF EXISTS trg_comm_count ON public.wall_post_comments;
 CREATE TRIGGER trg_comm_count  AFTER INSERT OR DELETE ON public.wall_post_comments FOR EACH ROW EXECUTE FUNCTION public.wall_post_counters();
 
 -- Auto-fill school_id from author profile
@@ -146,6 +151,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
+DROP TRIGGER IF EXISTS trg_fill_wall_school ON public.wall_posts;
 CREATE TRIGGER trg_fill_wall_school BEFORE INSERT ON public.wall_posts FOR EACH ROW EXECUTE FUNCTION public.fill_wall_school();
 
 CREATE OR REPLACE FUNCTION public.fill_portfolio_school() RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
@@ -155,4 +161,5 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
+DROP TRIGGER IF EXISTS trg_fill_portfolio_school ON public.portfolio_items;
 CREATE TRIGGER trg_fill_portfolio_school BEFORE INSERT ON public.portfolio_items FOR EACH ROW EXECUTE FUNCTION public.fill_portfolio_school();
