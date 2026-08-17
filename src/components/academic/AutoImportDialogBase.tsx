@@ -199,14 +199,21 @@ export function AutoImportDialogBase<T>({
         });
         if (insErr) throw insErr;
 
-        updateItem(it.file, { status: "done", alumniCreated });
+        updateItem(it.file, { status: "done", alumniCreated, error: undefined });
       } catch (e: any) {
-        updateItem(it.file, { status: "error", error: e?.message });
+        updateItem(it.file, { status: "error", error: e?.message || "นำเข้าไม่สำเร็จ" });
       }
     }
     setBusy(false);
-    toast.success("นำเข้าไฟล์สำเร็จ — กดปุ่ม 'ประกาศ' ในหน้าไฟล์เพื่อแจ้งนักเรียน");
-    onImportSuccess?.();
+    const failed = ready.length - items.filter((x) => x.status === "done").length;
+    const okCount = ready.length - Math.max(failed, 0);
+    if (okCount > 0) {
+      toast.success(`นำเข้าสำเร็จ ${okCount} ไฟล์ — กดปุ่ม 'ประกาศ' ในหน้าไฟล์เพื่อแจ้งนักเรียน`);
+      onImportSuccess?.();
+    } else {
+      toast.error("นำเข้าไม่สำเร็จ — ตรวจข้อความผิดพลาดในแต่ละไฟล์");
+    }
+
   };
 
   return (
