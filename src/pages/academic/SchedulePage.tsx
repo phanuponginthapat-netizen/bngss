@@ -895,14 +895,27 @@ const SchedulePage = () => {
                           <div className="flex items-center justify-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-400">
                             <UtensilsCrossed className="w-4 h-4" />
                             {lang === "th" ? "พักรับประทานอาหารกลางวัน" : "Lunch Break"}
+                            {periodTimes.lunch && (
+                              <span className="text-xs font-normal">
+                                ({periodTimes.lunch.start}-{periodTimes.lunch.end})
+                              </span>
+                            )}
                           </div>
                         </td>
                       </tr>
                     )}
                     <tr key={p}>
-                      <td className="border border-border p-2 text-center font-semibold text-sm bg-muted/30">
-                        {p}
+                      <td className="border border-border p-1 text-center font-semibold text-sm bg-muted/30 whitespace-nowrap">
+                        <div>{p}</div>
+                        {periodTimes.map.get(p) && (
+                          <div className="text-[10px] font-normal text-muted-foreground leading-tight">
+                            {periodTimes.map.get(p)!.start}
+                            <br />
+                            {periodTimes.map.get(p)!.end}
+                          </div>
+                        )}
                       </td>
+
                       {days.map((d) => {
                         if (isCovered(d.val, p)) return null; // ถูกคาบคู่ครอบอยู่แล้ว
                         const cell = cellAt(d.val, p);
