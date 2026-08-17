@@ -251,7 +251,12 @@ function normalizeGradeLevel(raw: string): string {
   return s;
 }
 
+/** value that is really a table header ("รายวิชา (ชื่อเต็ม)", "กรุณาเลือก") rather than data */
+const isHeaderLikeValue = (v: string) =>
+  /^(รายวิชา|รหัสวิชา|ชื่อวิชา|ชื่อ\s*-\s*สกุล|กรุณาเลือก|ชื่อเต็ม|-)/i.test(v.trim());
+
 /** "1", "๒", "ปลายปี", "ตลอดปี" → numeric semester */
+
 function normalizeSemester(raw: string): number | undefined {
   const s = raw.trim();
   if (!s) return undefined;
