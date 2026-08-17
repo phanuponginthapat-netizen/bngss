@@ -112,8 +112,10 @@ export function AutoImportDialogBase<T>({
     const ready = items.filter((it) => it.status === "ready" && it.parsed);
     if (ready.length === 0) return toast.error("ไม่มีไฟล์พร้อมนำเข้า");
     setBusy(true);
+    let okCount = 0;
     const { data: userData } = await supabase.auth.getUser();
     const uid = userData?.user?.id;
+
 
     for (const it of ready) {
       updateItem(it.file, { status: "uploading" });
