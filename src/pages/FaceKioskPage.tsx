@@ -12,7 +12,9 @@ import {
   type KnownFace,
 } from "@/lib/faceApi";
 import { learnFromScan } from "@/lib/faceLearning";
-import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText } from "@/lib/faceScanAudio";
+import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, playFeverAlert, playWeaponAlert, playGateOpenSound, playGateDeniedSound } from "@/lib/faceScanAudio";
+import { useSmartGate } from "@/hooks/useSmartGate";
+import SmartGatePanel from "@/components/facescan/SmartGatePanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -201,6 +203,36 @@ const FaceKioskPage = () => {
   useEffect(() => { localStorage.setItem("face_kiosk_staff_clock", staffClockEnabled ? "1" : "0"); }, [staffClockEnabled]);
   const staffClockRef = useRef(staffClockEnabled);
   useEffect(() => { staffClockRef.current = staffClockEnabled; }, [staffClockEnabled]);
+
+  // ===== Smart Gate: ประตูอัตโนมัติ + วัดไข้ + ตรวจโลหะ (micro:bit) =====
+  const gate = useSmartGate();
+  const gateRef = useRef(gate);
+  useEffect(() => { gateRef.current = gate; }, [gate]);
+  /** เรียกหลังสแกนผ่าน — ตรวจไข้/โลหะแล้วเปิดประตู พร้อมเสียงแจ้งเตือน */
+  const runGate = useCallback(async (name: string) => {
+    try {
+      const res = await gateRef.current.requestPassage();
+      if (res.skipped) return;
+      if (!res.allow) {
+        if (res.reason === "fever") {
+          playFeverAlert();
+          if (voiceEnabled) speakText(`ตรวจพบอุณหภูมิสูง ${name} กรุณาพบเจ้าหน้าที่`);
+          toast.error("อุณหภูมิสูง — ไม่อนุญาตให้ผ่าน", { description: `${name} • ${res.detail}`, duration: 6000 });
+        } else {
+          playWeaponAlert();
+          if (voiceEnabled) speakText("ตรวจพบวัตถุโลหะ กรุณาพบเจ้าหน้าที่");
+          toast.error("ตรวจพบวัตถุโลหะ — ไม่อนุญาตให้ผ่าน", { description: `${name} • ${res.detail}`, duration: 8000 });
+        }
+        return;
+      }
+      if (res.opened) {
+        playGateOpenSound();
+        toast.success("เปิดประตู", { description: `${name} • ${res.detail}`, duration: 1800 });
+      }
+    } catch {
+      playGateDeniedSound();
+    }
+  }, [voiceEnabled]);
 
   // ===== WizMind / CCTV bridge (realtime) =====
   const [wizmindOn, setWizmindOn] = useState<boolean>(() => localStorage.getItem(WIZMIND_ENABLED_KEY) === "1");
@@ -493,6 +525,7 @@ const FaceKioskPage = () => {
     justScannedRef.current.set(cdKey, now);
     playSuccessSound();
     if (voiceEnabled) speakText(`สแกน${modeLabel}สำเร็จ ${name}`);
+    void runGate(name);
     if (!seenSet.has(studentId)) {
       seenSet.add(studentId);
       setTodayCounts((c) => ({ ...c, [mode]: c[mode] + 1 }));
@@ -511,7 +544,7 @@ const FaceKioskPage = () => {
       time: new Date().toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
       scanType: mode,
     }, ...r].slice(0, 10));
-  }, [voiceEnabled]);
+  }, [voiceEnabled, runGate]);
 
   // ===== ลงเวลาปฏิบัติงานบุคลากรจากการสแกนใบหน้าที่คีออส =====
   const clockStaff = useCallback(async (
@@ -679,6 +712,7 @@ const FaceKioskPage = () => {
                       justScannedRef.current.set(found.studentId, tNow);
                       playSuccessSound();
                       const mode = scanModeRef.current === "exit" ? "exit" : "entry";
+                      void runGate(found.name);
                       let clockNote = "บุคลากร (ทดสอบ)";
                       if (staffClockRef.current) {
                         clockNote = await clockStaff(found.studentId, mode, captured, m.confidence, found.name);
@@ -724,6 +758,9 @@ const FaceKioskPage = () => {
                 if (!tooSmall && !ambiguous && tNow - unknownBeepRef.current > 5000) {
                   unknownBeepRef.current = tNow;
                   playUnknownSound();
+                  if (voiceEnabled && !tooBlurry && !lowConfidence) {
+                    speakText("ไม่พบข้อมูลใบหน้าในระบบ กรุณาลงทะเบียน");
+                  }
                 }
               }
             }));
@@ -740,7 +777,7 @@ const FaceKioskPage = () => {
       cancelled = true;
       if (detectionLoopRef.current) clearTimeout(detectionLoopRef.current);
     };
-  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef]);
+  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef, runGate]);
 
   // ===== WizMind bridge: รับ event ใบหน้าจากกล้อง CCTV แบบ realtime แล้วจดจำทันที =====
   useEffect(() => {
@@ -1290,6 +1327,8 @@ const FaceKioskPage = () => {
             )}
           </div>
 
+
+          <SmartGatePanel gate={gate} />
 
           <div className="text-xs text-muted-foreground border-t pt-2">
             threshold: <b>{threshold}</b> • ใบหน้านักเรียน {known.length}
