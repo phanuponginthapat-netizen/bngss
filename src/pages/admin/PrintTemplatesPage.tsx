@@ -86,6 +86,7 @@ const PrintTemplatesPage = () => {
   const [fullscreen, setFullscreen] = useState(false);
   useBodyScrollLock(fullscreen);
   const [showPreviewPane, setShowPreviewPane] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!selectedId && templates.length) setSelectedId(templates[0].id);
@@ -134,14 +135,20 @@ const PrintTemplatesPage = () => {
   const save = async () => {
     if (!draft) return;
     if (!canEdit) return toast.error("เฉพาะ admin/director เท่านั้น");
-    const { id, version, created_at, updated_at, ...patch } = draft as any;
-    const { error } = await supabase
-      .from("print_templates" as any)
-      .update(patch)
-      .eq("id", draft.id);
-    if (error) return toast.error(saveErrorMessage(error));
-    toast.success("บันทึกแล้ว");
-    qc.invalidateQueries({ queryKey: ["print_templates"] });
+    if (saving) return;
+    setSaving(true);
+    try {
+      const { id, version, created_at, updated_at, ...patch } = draft as any;
+      const { error } = await supabase
+        .from("print_templates" as any)
+        .update(patch)
+        .eq("id", draft.id);
+      if (error) return toast.error(saveErrorMessage(error));
+      toast.success("บันทึกแล้ว");
+      qc.invalidateQueries({ queryKey: ["print_templates"] });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const createTemplate = async () => {
@@ -421,7 +428,7 @@ const PrintTemplatesPage = () => {
                   </Button>
                 )}
                 {canEdit && (
-                  <Button size="sm" onClick={save} disabled={errorCount > 0} title={errorCount > 0 ? "แก้ error ก่อนบันทึก" : ""}>
+                  <Button size="sm" onClick={save} disabled={errorCount > 0 || saving} title={errorCount > 0 ? "แก้ error ก่อนบันทึก" : ""}>
                     <Save className="w-4 h-4 mr-1" /> บันทึก
                   </Button>
                 )}
@@ -701,7 +708,7 @@ const PrintTemplatesPage = () => {
               </Button>
               <Button size="sm" variant="outline" onClick={testPrint}><Printer className="w-4 h-4 mr-1" />ทดสอบพิมพ์</Button>
               {canEdit && (
-                <Button size="sm" onClick={save} disabled={errorCount > 0}><Save className="w-4 h-4 mr-1" />บันทึก</Button>
+                <Button size="sm" onClick={save} disabled={errorCount > 0 || saving}><Save className="w-4 h-4 mr-1" />บันทึก</Button>
               )}
               <Button size="sm" variant="ghost" onClick={() => setFullscreen(false)}>
                 <Minimize2 className="w-4 h-4 mr-1" /> ปิด
