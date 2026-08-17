@@ -6,17 +6,24 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScanFace, UserPlus, Camera, CameraOff, Trash2, Database, CheckCircle2, AlertTriangle, FlaskConical } from "lucide-react";
+import { ScanFace, UserPlus, Camera, CameraOff, Trash2, Database, CheckCircle2, AlertTriangle, FlaskConical, Images, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { swal } from "@/lib/swal";
 import LivenessFaceRegisterDialog from "@/components/users/LivenessFaceRegisterDialog";
 import { useMyPersonnel } from "@/hooks/useMyPersonnel";
 import { useUserRole } from "@/hooks/useUserRole";
+import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
 import {
   loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame,
   detectorOptionsHQ, estimateFaceSharpness, type KnownFace,
 } from "@/lib/faceApi";
+import {
+  addPersonnelSamplesFromFiles, learnPersonnelFromScan, PERSONNEL_LEARN,
+  type FileLearnResult,
+} from "@/lib/personnelFaceLearning";
 import { saveErrorMessage } from "@/lib/saveError";
+
 
 interface SimResult {
   id: string;
