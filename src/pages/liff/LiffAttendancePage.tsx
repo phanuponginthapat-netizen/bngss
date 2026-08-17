@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import LiffShell from "./LiffShell";
+import { saveErrorMessage } from "@/lib/saveError";
 
 type Student = { id: string; prefix: string | null; first_name: string; last_name: string; student_code: string | null };
 type Status = "present" | "absent" | "late" | "leave";
@@ -79,7 +80,7 @@ function CheckIn({ lineUserId }: { lineUserId: string }) {
       if (error) throw error;
       toast.success("บันทึกเช็คชื่อแล้ว");
       setTimeout(() => (window as any).liff?.closeWindow?.(), 800);
-    } catch (e: any) { toast.error(e.message); } finally { setBusy(false); }
+    } catch (e: any) { toast.error(saveErrorMessage(e)); } finally { setBusy(false); }
   };
 
   if (loading) return <p>กำลังโหลด...</p>;

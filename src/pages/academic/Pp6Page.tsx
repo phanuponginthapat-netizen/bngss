@@ -20,6 +20,7 @@ import { Megaphone, CheckCircle2, Database } from "lucide-react";
 import ReportCardPage from "./ReportCardPage";
 import { swal } from "@/lib/swal";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const GRADE_LEVELS = [
   "อ.1", "อ.2", "อ.3",
@@ -446,7 +447,7 @@ const FileTab = () => {
     if (!(await swal.confirm({ title: "ต้องการลบไฟล์นี้หรือไม่?", danger: true }))) return;
     if (filePath) await supabase.storage.from("pp6-files").remove([filePath]);
     const { error } = await supabase.from("pp6_files").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบไฟล์สำเร็จ");
     qc.invalidateQueries({ queryKey: ["pp6_files"] });
   };

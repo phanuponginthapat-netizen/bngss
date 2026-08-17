@@ -16,6 +16,7 @@ import {
   loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame,
   detectorOptionsHQ, estimateFaceSharpness, type KnownFace,
 } from "@/lib/faceApi";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface SimResult {
   id: string;
@@ -82,7 +83,7 @@ const StaffFaceTab = () => {
   const deleteFor = async (personnelId: string, name: string) => {
     if (!(await swal.confirm({ title: `ลบใบหน้าของ ${name} ทั้งหมด?`, danger: true }))) return;
     const { error } = await (supabase as any).from("personnel_face_descriptors").delete().eq("personnel_id", personnelId);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("ลบแล้ว");
     qc.invalidateQueries({ queryKey: ["staff-face-db"] });
   };

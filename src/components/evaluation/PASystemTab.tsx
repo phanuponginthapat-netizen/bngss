@@ -15,6 +15,7 @@ import { Plus, Eye, Trash2, Send, CheckCircle } from "lucide-react";
 import { getIndicators, getResultLevel, SCORE_LEVELS, type PAIndicator } from "@/lib/paIndicators";
 import PAFormDialog from "./PAFormDialog";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   draft: { label: "ร่าง", variant: "secondary" },
@@ -93,7 +94,7 @@ export default function PASystemTab() {
         position_type: positionType,
         created_by: userId,
       } as any).select().single();
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(saveErrorMessage(error)); return; }
       const indicatorRows = indicators.map((ind) => ({
         pa_agreement_id: pa.id,
         domain: ind.domain,

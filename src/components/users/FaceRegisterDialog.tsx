@@ -12,6 +12,7 @@ import { attachStreamToVideo } from "@/lib/cameraIos";
 import { openCamera, stopStream } from "@/lib/cameraStream";
 import CameraSourcePicker from "@/components/mobile/CameraSourcePicker";
 import CameraFocusLockToggle from "@/components/mobile/CameraFocusLockToggle";
+import { saveErrorMessage } from "@/lib/saveError";
 
 
 
@@ -141,7 +142,7 @@ const FaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName }: Pr
       if (error) throw error;
       toast.success("ซิงค์ใบหน้าจากรูปโปรไฟล์สำเร็จ");
       await refreshSamples(studentId);
-    } catch (e: any) { toast.error(e.message); } finally { setSyncing(false); }
+    } catch (e: any) { toast.error(saveErrorMessage(e)); } finally { setSyncing(false); }
   };
 
   const saveAll = async () => {
@@ -161,14 +162,14 @@ const FaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName }: Pr
       toast.success(`บันทึก ${shots.length} ภาพสำเร็จ`);
       setShots([]);
       await refreshSamples(studentId);
-    } catch (e: any) { toast.error(e.message); } finally { setBusy(false); }
+    } catch (e: any) { toast.error(saveErrorMessage(e)); } finally { setBusy(false); }
   };
 
   const clearAllDescriptors = async () => {
     if (!studentId) return;
     if (!(await swal.confirm({ title: "ลบข้อมูลใบหน้าทั้งหมดของนักเรียนคนนี้?", danger: true }))) return;
     const { error } = await supabase.from("student_face_descriptors").delete().eq("student_id", studentId);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบเรียบร้อย");
     setExistingSamples([]);
     setExistingCount(0);
@@ -178,7 +179,7 @@ const FaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName }: Pr
     if (!studentId) return;
     if (!(await swal.confirm({ title: "ลบตัวอย่างใบหน้านี้?", danger: true }))) return;
     const { error } = await supabase.from("student_face_descriptors").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบตัวอย่างแล้ว");
     await refreshSamples(studentId);
   };

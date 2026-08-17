@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Bell, Smartphone, MessageCircle, MoonStar, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { subscribeToPush, getCurrentPushStatus } from "@/lib/pushSubscribe";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const TYPES: Array<{ key: string; label: string }> = [
   { key: "homework", label: "การบ้าน" },
@@ -83,7 +84,7 @@ export default function NotificationSettingsPage() {
       .from("notification_preferences")
       .upsert({ user_id: userId, ...prefs }, { onConflict: "user_id" });
     setSaving(false);
-    if (error) toast.error(error.message);
+    if (error) toast.error(saveErrorMessage(error));
     else toast.success("บันทึกค่าแล้ว");
   };
 
@@ -123,7 +124,7 @@ export default function NotificationSettingsPage() {
       },
     });
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     const sent = (data as any)?.sent ?? 0;
     const total = (data as any)?.total ?? 0;
     if (sent === 0 && total === 0) {

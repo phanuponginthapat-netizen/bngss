@@ -13,6 +13,7 @@ import { CalendarIcon, Wand2, Save, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { BE_OFFSET, bkkDateISO, formatDateBE, parseDateBE, toISODate } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface Props {
   subjectId: string;
@@ -230,7 +231,7 @@ const PP5AttendanceMatrix = ({
       weeks_per_semester: weeks,
       pp5_period_dates: dates.filter(Boolean),
     } as any).eq("id", subjectId);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกการตั้งค่าเวลาเรียนแล้ว");
     qc.invalidateQueries({ queryKey: ["my_teacher_assignments"] });
     qc.invalidateQueries({ queryKey: ["subjects"] });

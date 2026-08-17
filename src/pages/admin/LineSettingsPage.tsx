@@ -87,9 +87,11 @@ const LineSettingsPage = () => {
       .maybeSingle();
 
     if (existing) {
-      await supabase.from("school_settings").update({ setting_value: value }).eq("setting_key", key);
+      const { error } = await supabase.from("school_settings").update({ setting_value: value }).eq("setting_key", key);
+      if (error) throw error;
     } else {
-      await supabase.from("school_settings").insert({ setting_key: key, setting_value: value });
+      const { error } = await supabase.from("school_settings").insert({ setting_key: key, setting_value: value });
+      if (error) throw error;
     }
   };
 

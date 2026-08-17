@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge";
 
 import { toast } from "sonner";
 import { Plus, Trash2, Heart } from "lucide-react";
+import { saveErrorMessage, safeNum, nullIfEmpty } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 const SUBSIDY_TYPES = ["ปัจจัยพื้นฐาน", "ทุนเสมอภาค (กสศ.)", "ค่าอุปกรณ์การเรียน", "ค่าเครื่องแบบ", "ค่าอาหารกลางวัน", "ค่านมโรงเรียน", "ทุนการศึกษาอื่นๆ"];
 
@@ -21,6 +23,7 @@ const SubsidyPage = () => {
   const { lang } = useLanguage();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [subsidyType, setSubsidyType] = useState("ปัจจัยพื้นฐาน");
   const [amount, setAmount] = useState("");
@@ -63,20 +66,32 @@ const SubsidyPage = () => {
   });
 
   const handleAdd = async () => {
+    if (saving) return;
     if (!selectedStudentId || !amount) { toast.error("กรุณาเลือกนักเรียนและกรอกจำนวนเงิน"); return; }
-    const { error } = await supabase.from("student_subsidies").insert({
-      student_id: selectedStudentId, subsidy_type: subsidyType,
-      amount: parseFloat(amount), income_per_month: incomePerMonth ? parseFloat(incomePerMonth) : null,
-      screening_result: screeningResult, notes, is_eligible: true,
-    } as any);
-    if (error) { toast.error(error.message); return; }
-    toast.success("บันทึกสำเร็จ");
-    qc.invalidateQueries({ queryKey: ["student_subsidies"] });
-    setOpen(false); setSelectedStudentId(""); setAmount(""); setIncomePerMonth(""); setScreeningResult(""); setNotes("");
+    const amt = safeNum(amount, 0);
+    if (amt <= 0) { toast.error("จำนวนเงินต้องมากกว่า 0"); return; }
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("student_subsidies").insert({
+        student_id: selectedStudentId, subsidy_type: subsidyType,
+        amount: amt, income_per_month: incomePerMonth ? safeNum(incomePerMonth, 0) : null,
+        screening_result: nullIfEmpty(screeningResult), notes: nullIfEmpty(notes), is_eligible: true,
+      } as any);
+      if (error) { toast.error(saveErrorMessage(error)); return; }
+      toast.success("บันทึกสำเร็จ");
+      qc.invalidateQueries({ queryKey: ["student_subsidies"] });
+      setOpen(false); setSelectedStudentId(""); setAmount(""); setIncomePerMonth(""); setScreeningResult(""); setNotes("");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("student_subsidies").delete().eq("id", id);
+    const ok = await swal.confirm({ title: "ต้องการลบรายการเงินอุดหนุนนี้หรือไม่?", danger: true });
+    if (!ok) return;
+    const { error } = await supabase.from("student_subsidies").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
+    toast.success("ลบสำเร็จ");
     qc.invalidateQueries({ queryKey: ["student_subsidies"] });
   };
 
@@ -141,7 +156,7 @@ const SubsidyPage = () => {
                 </Select>
               </div>
               <div><Label>หมายเหตุ</Label><Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} /></div>
-              <Button onClick={handleAdd} className="w-full">บันทึก</Button>
+              <Button onClick={handleAdd} className="w-full" disabled={saving}>{saving ? "กำลังบันทึก..." : "บันทึก"}</Button>
             </div>
           </DialogContent>
         </Dialog>

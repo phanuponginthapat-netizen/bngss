@@ -101,7 +101,8 @@ export default function DutyTeachersPage() {
   // ---------- Locations ----------
   async function saveLocation(form: Partial<Location>) {
     try {
-      const payload = { name: form.name!, description: form.description || null, order_index: form.order_index ?? 0, active: form.active ?? true };
+      if (!form.name?.trim()) throw new Error("กรุณากรอกชื่อจุดเวร");
+      const payload = { name: form.name.trim(), description: form.description?.trim() || null, order_index: form.order_index ?? 0, active: form.active ?? true };
       const res = form.id
         ? await supabase.from("duty_locations").update(payload).eq("id", form.id)
         : await supabase.from("duty_locations").insert(payload);
@@ -352,7 +353,8 @@ export default function DutyTeachersPage() {
 
 function LocationDialog({ state, onClose, onSave }: any) {
   const [f, setF] = useState<Partial<Location>>({});
-  useEffect(() => { setF(state.row || { active: true, order_index: 0 }); }, [state]);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { setF(state.row || { active: true, order_index: 0 }); setSaving(false); }, [state]);
   return (
     <Dialog open={state.open} onOpenChange={o => !o && onClose()}>
       <DialogContent>
@@ -364,7 +366,7 @@ function LocationDialog({ state, onClose, onSave }: any) {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>ยกเลิก</Button>
-          <Button onClick={() => onSave(f)}>บันทึก</Button>
+          <Button disabled={saving} onClick={async () => { setSaving(true); try { await onSave(f); } finally { setSaving(false); } }}>{saving ? "กำลังบันทึก..." : "บันทึก"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -374,10 +376,12 @@ function LocationDialog({ state, onClose, onSave }: any) {
 function AssignmentDialog({ state, locations, personnel, onClose, onSave }: any) {
   const [f, setF] = useState<Partial<Assignment>>({});
   const [mode, setMode] = useState<"date" | "weekly">("weekly");
+  const [saving, setSaving] = useState(false);
   useEffect(() => {
     const r = state.row;
     setF(r || {});
     setMode(r?.duty_date ? "date" : "weekly");
+    setSaving(false);
   }, [state]);
   return (
     <Dialog open={state.open} onOpenChange={o => !o && onClose()}>
@@ -428,7 +432,7 @@ function AssignmentDialog({ state, locations, personnel, onClose, onSave }: any)
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>ยกเลิก</Button>
-          <Button onClick={() => onSave(f)}>บันทึก</Button>
+          <Button disabled={saving} onClick={async () => { setSaving(true); try { await onSave(f); } finally { setSaving(false); } }}>{saving ? "กำลังบันทึก..." : "บันทึก"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -437,7 +441,8 @@ function AssignmentDialog({ state, locations, personnel, onClose, onSave }: any)
 
 function LogDialog({ open, locations, personnel, onClose, onSave }: any) {
   const [f, setF] = useState<{ location_id: string; teacher_id?: string; category?: string; title?: string; content: string }>({ location_id: "", content: "" });
-  useEffect(() => { if (open) setF({ location_id: "", content: "" }); }, [open]);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { if (open) { setF({ location_id: "", content: "" }); setSaving(false); } }, [open]);
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent>
@@ -473,7 +478,7 @@ function LogDialog({ open, locations, personnel, onClose, onSave }: any) {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>ยกเลิก</Button>
-          <Button onClick={() => onSave(f)}>บันทึก</Button>
+          <Button disabled={saving} onClick={async () => { setSaving(true); try { await onSave(f); } finally { setSaving(false); } }}>{saving ? "กำลังบันทึก..." : "บันทึก"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

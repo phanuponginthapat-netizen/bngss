@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Puzzle, ShieldCheck, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { saveErrorMessage } from "@/lib/saveError";
 
 export default function ExtensionPage() {
   const download = () => {
@@ -15,7 +16,7 @@ export default function ExtensionPage() {
         URL.revokeObjectURL(a.href);
         toast.success("ดาวน์โหลดแล้ว — แตกไฟล์และติดตั้งใน Chrome");
       })
-      .catch((e) => toast.error(e.message));
+      .catch((e) => toast.error(saveErrorMessage(e)));
   };
 
   return (

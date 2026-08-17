@@ -9,6 +9,7 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { GraduationCap, Lock, Mail, User } from "lucide-react";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const Signup = () => {
   const [email, setEmail] = useState("");
@@ -35,7 +36,7 @@ const Signup = () => {
       },
     });
     if (error) {
-      toast.error(error.message);
+      toast.error(saveErrorMessage(error));
     } else {
       toast.success(lang === "th" 
         ? "สมัครสมาชิกสำเร็จ!" 

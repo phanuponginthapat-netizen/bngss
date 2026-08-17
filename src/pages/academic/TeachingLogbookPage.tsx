@@ -19,6 +19,7 @@ import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, ClipboardList, Sparkles, CalendarDays, Trash2, FileEdit, Users, ChevronLeft, ChevronRight, Flame, Search } from "lucide-react";
 import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const THAI_DAYS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
@@ -94,7 +95,7 @@ export default function TeachingLogbookPage() {
       }
     },
     onSuccess: () => { toast.success("บันทึกแล้ว"); qc.invalidateQueries({ queryKey: ["logbook-week"] }); qc.invalidateQueries({ queryKey: ["logbook-all"] }); setEditing(null); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(saveErrorMessage(e)),
   });
 
   const del = useMutation({

@@ -14,6 +14,7 @@ import { ScanAttendanceFlow, AttendanceStatus } from "./ScanAttendanceFlow";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { sortGrades } from "@/lib/gradeOrder";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const toDbAcademicYear = (year?: number) => {
   if (!year || year <= 0) return undefined;
@@ -175,7 +176,7 @@ export function SubjectPeriodCheckTab({ students, classrooms, academicYear, seme
       toast.success(lang === "th" ? `บันทึกเช็คชื่อรายวิชา ${inserts.length} คน` : `Saved ${inserts.length}`);
       qc.invalidateQueries({ queryKey: ["attendance"] });
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(saveErrorMessage(err));
     }
   };
 

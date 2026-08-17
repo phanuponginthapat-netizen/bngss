@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { ScanLine, User, Cpu, Camera, CheckCircle2, Undo2, RefreshCw, GraduationCap, Briefcase, Activity, Package, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { swal } from "@/lib/swal";
+import { saveErrorMessage } from "@/lib/saveError";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
@@ -221,7 +223,8 @@ export default function IctLoanStationPage() {
   };
 
   const returnBatch = async (batchId: string) => {
-    if (!confirm("ยืนยันการคืนอุปกรณ์ทั้งกลุ่ม?")) return;
+    const ok = await swal.confirm({ title: "ยืนยันการคืนอุปกรณ์ทั้งกลุ่ม?", danger: false });
+    if (!ok) return;
     setBusy(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -234,14 +237,15 @@ export default function IctLoanStationPage() {
       toast.success("คืนอุปกรณ์ทั้งกลุ่มเรียบร้อย");
       loadLists();
     } catch (e: any) {
-      toast.error(e.message || "คืนไม่สำเร็จ");
+      toast.error(saveErrorMessage(e, "คืนไม่สำเร็จ"));
     } finally {
       setBusy(false);
     }
   };
 
   const returnSingle = async (loanId: string) => {
-    if (!confirm("ยืนยันการคืนอุปกรณ์นี้?")) return;
+    const ok = await swal.confirm({ title: "ยืนยันการคืนอุปกรณ์นี้?", danger: false });
+    if (!ok) return;
     setBusy(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -254,7 +258,7 @@ export default function IctLoanStationPage() {
       toast.success("คืนเรียบร้อย");
       loadLists();
     } catch (e: any) {
-      toast.error(e.message || "คืนไม่สำเร็จ");
+      toast.error(saveErrorMessage(e, "คืนไม่สำเร็จ"));
     } finally {
       setBusy(false);
     }

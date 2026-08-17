@@ -23,6 +23,7 @@ import { SPECIAL_NEEDS_TYPES } from "@/lib/specialNeeds";
 import { z } from "zod";
 import { validateAndConfirm, commonRegex } from "@/lib/formValidation";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const studentSchema = z.object({
   first_name: z.string().trim().min(1, "กรุณากรอก").max(80),
@@ -208,7 +209,7 @@ const AllStudentsPage = () => {
       setGraduateStudentIds({});
       setExpandedClassroom(null);
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     }
     setPromoting(false);
   };
@@ -246,7 +247,7 @@ const AllStudentsPage = () => {
       qc.invalidateQueries({ queryKey: ["students"] });
       setEditStudent(null);
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     }
     toast.dismiss(__tid_save_1);
       setSaving(false);

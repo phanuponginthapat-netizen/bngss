@@ -35,6 +35,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
+import { saveErrorMessage } from "@/lib/saveError";
 
 /**
  * หน้าเช็คสถานะการทำงานของ Kiosk โหมด "door" (ตู้สแกนหน้าประตูโรงเรียน)
@@ -232,7 +233,7 @@ export default function KioskDoorHealthPage() {
   const removeDevice = async (id: string, name: string) => {
     if (!confirm(`ลบเครื่อง "${name}" ออกจากรายการ?`)) return;
     const { error } = await supabase.from("kiosk_devices").delete().eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(saveErrorMessage(error));
     else { toast.success("ลบแล้ว"); load(); }
   };
 

@@ -29,6 +29,7 @@ import KioskHelloAi from "@/components/facescan/KioskHelloAi";
 import { useCmsValues } from "@/hooks/useCmsSettings";
 import { wakeKioskScreen } from "@/lib/kioskWake";
 import { getRegisteredFaceImage } from "@/lib/registeredFace";
+import { saveErrorMessage } from "@/lib/saveError";
 
 // ===== Helper: hex → rgba with alpha (สำหรับใช้ theme สีจาก CMS) =====
 const hexA = (hex: string, a: number): string => {
@@ -477,7 +478,7 @@ const FaceKioskPage = () => {
         toast.info("สแกนซ้ำ", { description: `${name} ถูกบันทึก${modeLabel}โรงเรียนวันนี้แล้ว`, duration: 1800 });
         return;
       }
-      toast.error(error.message); return;
+      toast.error(saveErrorMessage(error)); return;
     }
     if (!data) {
       seenSet.add(studentId);

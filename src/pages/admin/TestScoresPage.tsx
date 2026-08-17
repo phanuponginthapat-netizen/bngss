@@ -15,6 +15,7 @@ import { Plus, Trash2, BarChart3, Pencil, Sparkles, Upload, Loader2, FileText } 
 import { swal } from "@/lib/swal";
 import { Textarea } from "@/components/ui/textarea";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { saveErrorMessage, safeNum, safeInt, nullIfEmpty } from "@/lib/saveError";
 
 const TEST_TYPES = [
   { value: "onet", label: "O-NET" },
@@ -44,6 +45,7 @@ export default function TestScoresPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(empty);
+  const [saving, setSaving] = useState(false);
   const [filterType, setFilterType] = useState<string>("all");
   const [filterYear, setFilterYear] = useState<string>("all");
 
@@ -97,39 +99,45 @@ export default function TestScoresPage() {
   };
 
   const save = async () => {
+    if (saving) return;
     if (!schoolId) return toast.error("ยังไม่มีข้อมูลโรงเรียน");
     if (!form.subject.trim()) return toast.error("กรุณาระบุวิชา");
     if (form.avg_score < 0 || form.avg_score > 100) return toast.error("คะแนนต้องอยู่ระหว่าง 0-100");
 
-    const payload = {
-      school_id: schoolId,
-      academic_year: form.academic_year,
-      test_type: form.test_type,
-      grade_level: form.grade_level,
-      subject: form.subject.trim(),
-      avg_score: form.avg_score,
-      student_count: form.student_count,
-      national_avg: form.national_avg,
-      area_avg: form.area_avg,
-      notes: form.notes || null,
-    };
+    setSaving(true);
+    try {
+      const payload = {
+        school_id: schoolId,
+        academic_year: safeInt(form.academic_year, new Date().getFullYear() + BE_OFFSET),
+        test_type: form.test_type,
+        grade_level: form.grade_level,
+        subject: form.subject.trim(),
+        avg_score: safeNum(form.avg_score, 0),
+        student_count: safeInt(form.student_count, 0),
+        national_avg: form.national_avg == null ? null : safeNum(form.national_avg, 0),
+        area_avg: form.area_avg == null ? null : safeNum(form.area_avg, 0),
+        notes: nullIfEmpty(form.notes),
+      };
 
-    const { error } = form.id
-      ? await supabase.from("school_test_scores").update(payload).eq("id", form.id)
-      : await supabase.from("school_test_scores").upsert(payload, {
-          onConflict: "school_id,academic_year,test_type,grade_level,subject",
-        });
+      const { error } = form.id
+        ? await supabase.from("school_test_scores").update(payload).eq("id", form.id)
+        : await supabase.from("school_test_scores").upsert(payload, {
+            onConflict: "school_id,academic_year,test_type,grade_level,subject",
+          });
 
-    if (error) return toast.error("บันทึกไม่สำเร็จ: " + error.message);
-    toast.success("บันทึกคะแนนเรียบร้อย — Hub กลางจะดึงผ่าน /test-scores");
-    setOpen(false);
-    qc.invalidateQueries({ queryKey: ["school-test-scores", schoolId] });
+      if (error) { toast.error(saveErrorMessage(error)); return; }
+      toast.success("บันทึกคะแนนเรียบร้อย — Hub กลางจะดึงผ่าน /test-scores");
+      setOpen(false);
+      qc.invalidateQueries({ queryKey: ["school-test-scores", schoolId] });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const remove = async (id: string) => {
     if (!(await swal.confirm({ title: "ลบรายการคะแนนนี้?", danger: true }))) return;
     const { error } = await supabase.from("school_test_scores").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("ลบแล้ว");
     qc.invalidateQueries({ queryKey: ["school-test-scores", schoolId] });
   };
@@ -198,7 +206,7 @@ export default function TestScoresPage() {
       .from("school_test_scores")
       .upsert(payload, { onConflict: "school_id,academic_year,test_type,grade_level,subject" });
     setAiSaving(false);
-    if (error) return toast.error("บันทึกไม่สำเร็จ: " + error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success(`บันทึก ${payload.length} รายการเรียบร้อย`);
     setAiOpen(false);
     setAiRows(null); setAiText(""); setAiFileB64(null); setAiFileName("");
@@ -359,7 +367,7 @@ export default function TestScoresPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button>
-            <Button onClick={save}>บันทึก</Button>
+            <Button onClick={save} disabled={saving}>{saving ? "กำลังบันทึก..." : "บันทึก"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

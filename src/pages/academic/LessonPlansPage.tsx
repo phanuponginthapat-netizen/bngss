@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, FileEdit, Send, CheckCircle2, XCircle, Eye, Trash2, Search, BookOpenCheck, Sparkles, Filter, Clock, AlertCircle, MessageSquare, Users, Printer, Download, NotebookPen, Save } from "lucide-react";
 import { printLessonPlan, exportLessonPlanJSON } from "@/lib/lessonPlanExport";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const STATUS_STYLES: Record<string, { label: string; className: string; icon: any }> = {
   draft: { label: "ร่าง", className: "bg-slate-500/15 text-slate-600 border-slate-500/30", icon: FileEdit },
@@ -105,7 +106,7 @@ export default function LessonPlansPage() {
       qc.invalidateQueries({ queryKey: ["lesson_plans"] });
       setEditing(null);
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(saveErrorMessage(e)),
   });
 
   const statusChange = useMutation({
@@ -126,7 +127,7 @@ export default function LessonPlansPage() {
       setViewing(null);
       setReviewNote("");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(saveErrorMessage(e)),
   });
 
   const deletePlan = useMutation({
@@ -135,7 +136,7 @@ export default function LessonPlansPage() {
       if (error) throw error;
     },
     onSuccess: () => { toast.success("ลบแล้ว"); qc.invalidateQueries({ queryKey: ["lesson_plans"] }); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(saveErrorMessage(e)),
   });
 
   const saveReflection = useMutation({
@@ -150,7 +151,7 @@ export default function LessonPlansPage() {
       qc.invalidateQueries({ queryKey: ["lesson_plans"] });
       setViewing((prev: any) => prev ? { ...prev, ...v.patch } : prev);
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(saveErrorMessage(e)),
   });
 
   // sync reflection editor when viewing changes

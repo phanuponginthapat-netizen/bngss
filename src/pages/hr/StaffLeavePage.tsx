@@ -16,6 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { swal } from "@/lib/swal";
+import { saveErrorMessage } from "@/lib/saveError";
 import { Plus, Trash2, Check, X, Clock, FileText, Send, CalendarDays, Paperclip } from "lucide-react";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { uploadLeaveAttachment, openLeaveAttachment } from "@/lib/leaveAttachment";
@@ -362,7 +364,10 @@ const StaffLeavePage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("staff_leaves").delete().eq("id", id);
+    const ok = await swal.confirm({ title: lang === "th" ? "ยืนยันการลบใบลา" : "Confirm delete leave", danger: true, confirmText: lang === "th" ? "ลบ" : "Delete" });
+    if (!ok) return;
+    const { error } = await supabase.from("staff_leaves").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["staff_leaves"] });
   };
 
@@ -649,7 +654,7 @@ const StaffLeavePage = () => {
                 <div className="text-xs text-muted-foreground mb-1">📅 {r.start_date} → {r.end_date}</div>
                 {r.reason && <div className="text-xs mb-2 line-clamp-2">💬 {r.reason}</div>}
                 {r.attachment_url && (
-                  <Button variant="link" size="sm" className="h-auto p-0 text-xs gap-1 mb-2" onClick={() => openLeaveAttachment(r.attachment_url).catch(e => toast.error(e.message))}>
+                  <Button variant="link" size="sm" className="h-auto p-0 text-xs gap-1 mb-2" onClick={() => openLeaveAttachment(r.attachment_url).catch(e => toast.error(saveErrorMessage(e)))}>
                     <Paperclip className="w-3 h-3" />{lang === "th" ? "ดูไฟล์แนบ" : "View attachment"}
                   </Button>
                 )}
@@ -704,7 +709,7 @@ const StaffLeavePage = () => {
                       <TableCell className="max-w-[200px]">
                         <div className="truncate">{r.reason || "-"}</div>
                         {r.attachment_url && (
-                          <Button variant="link" size="sm" className="h-auto p-0 text-xs gap-1" onClick={() => openLeaveAttachment(r.attachment_url).catch(e => toast.error(e.message))}>
+                          <Button variant="link" size="sm" className="h-auto p-0 text-xs gap-1" onClick={() => openLeaveAttachment(r.attachment_url).catch(e => toast.error(saveErrorMessage(e)))}>
                             <Paperclip className="w-3 h-3" />{lang === "th" ? "ดูไฟล์แนบ" : "View"}
                           </Button>
                         )}
@@ -837,7 +842,7 @@ const StaffLeavePage = () => {
                       <TableCell className="max-w-[200px]">
                         <div className="truncate">{r.reason || "-"}</div>
                         {r.attachment_url && (
-                          <Button variant="link" size="sm" className="h-auto p-0 text-xs gap-1" onClick={() => openLeaveAttachment(r.attachment_url).catch(e => toast.error(e.message))}>
+                          <Button variant="link" size="sm" className="h-auto p-0 text-xs gap-1" onClick={() => openLeaveAttachment(r.attachment_url).catch(e => toast.error(saveErrorMessage(e)))}>
                             <Paperclip className="w-3 h-3" />{lang === "th" ? "ดูไฟล์แนบ" : "View"}
                           </Button>
                         )}

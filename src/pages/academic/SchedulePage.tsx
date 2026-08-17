@@ -19,6 +19,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { generateAutoSchedule, buildSubjectEntries } from "@/lib/autoScheduler";
 import type { ActivityLock } from "@/lib/autoScheduler";
 import { buildPeriodSlots } from "@/lib/periodSchedule";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const days = [
   { th: "จันทร์", en: "Mon", val: 1 },
@@ -135,6 +136,9 @@ const SchedulePage = () => {
 
   const [filterSemester, setFilterSemester] = useState<number>(1);
   const [cellDialog, setCellDialog] = useState<{ day: number; period: number } | null>(null);
+  const [savingCell, setSavingCell] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [savingLocks, setSavingLocks] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState("");
   const [selectedRoom, setSelectedRoom] = useState("");
   const [selectedDuration, setSelectedDuration] = useState("1");
@@ -457,30 +461,35 @@ const SchedulePage = () => {
   };
 
   const handleAssignToCell = async () => {
-    if (!cellDialog || !selectedSubject) return;
-    const assignment = assignments.find(
-      (a: any) => a.subject_id === selectedSubject && a.classroom_id === filterClass
-    );
-    const teacherName = assignment?.personnel
-      ? `${assignment.personnel.prefix || ""}${assignment.personnel.first_name} ${assignment.personnel.last_name}`
-      : "";
-    const { error } = await supabase.from("schedules").insert({
-      classroom_id: filterClass,
-      subject_id: selectedSubject,
-      day_of_week: cellDialog.day,
-      period: cellDialog.period,
-      teacher_name: teacherName || null,
-      teacher_id: assignment?.personnel?.id || null,
-      semester: filterSemester,
-      room: selectedRoom.trim() || null,
-      duration_periods: Math.max(1, Math.min(maxSpanFrom(cellDialog.day, cellDialog.period), parseInt(selectedDuration) || 1)),
+    if (!cellDialog || !selectedSubject || savingCell) return;
+    setSavingCell(true);
+    try {
+      const assignment = assignments.find(
+        (a: any) => a.subject_id === selectedSubject && a.classroom_id === filterClass
+      );
+      const teacherName = assignment?.personnel
+        ? `${assignment.personnel.prefix || ""}${assignment.personnel.first_name} ${assignment.personnel.last_name}`
+        : "";
+      const { error } = await supabase.from("schedules").insert({
+        classroom_id: filterClass,
+        subject_id: selectedSubject,
+        day_of_week: cellDialog.day,
+        period: cellDialog.period,
+        teacher_name: teacherName || null,
+        teacher_id: assignment?.personnel?.id || null,
+        semester: filterSemester,
+        room: selectedRoom.trim() || null,
+        duration_periods: Math.max(1, Math.min(maxSpanFrom(cellDialog.day, cellDialog.period), parseInt(selectedDuration) || 1)),
 
-    } as any);
+      } as any);
 
-    if (error) { toast.error(error.message); return; }
-    toast.success(lang === "th" ? "เพิ่มคาบเรียนสำเร็จ" : "Period added");
-    qc.invalidateQueries({ queryKey: ["schedules"] });
-    setCellDialog(null);
+      if (error) { toast.error(saveErrorMessage(error)); return; }
+      toast.success(lang === "th" ? "เพิ่มคาบเรียนสำเร็จ" : "Period added");
+      qc.invalidateQueries({ queryKey: ["schedules"] });
+      setCellDialog(null);
+    } finally {
+      setSavingCell(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -488,7 +497,8 @@ const SchedulePage = () => {
       toast.info(lang === "th" ? "เฉพาะ Admin เท่านั้น" : "Admin only");
       return;
     }
-    await supabase.from("schedules").delete().eq("id", id);
+    const { error } = await supabase.from("schedules").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["schedules"] });
   };
 
@@ -515,7 +525,8 @@ const SchedulePage = () => {
     setAutoScheduling(true);
     try {
       for (const cid of targetClassroomIds) {
-        await supabase.from("schedules").delete().eq("classroom_id", cid).eq("semester", filterSemester);
+        const { error: delErr } = await supabase.from("schedules").delete().eq("classroom_id", cid).eq("semester", filterSemester);
+        if (delErr) throw delErr;
       }
 
       // Build activity locks: expand code-based locks to all matching subject IDs
@@ -557,13 +568,16 @@ const SchedulePage = () => {
       toast.success(`จัดตารางอัตโนมัติสำเร็จ ${newSlots.length} คาบ สำหรับ ${targetClassroomIds.length} ห้อง`);
       qc.invalidateQueries({ queryKey: ["schedules"] });
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(saveErrorMessage(err));
     } finally {
       setAutoScheduling(false);
     }
   };
 
   const handleSaveSettings = async () => {
+    if (savingSettings) return;
+    setSavingSettings(true);
+    try {
     const val = parseInt(periodsInput);
     if (!val || val < 1 || val > 15) {
       toast.error("กรุณากรอกจำนวนคาบ 1-15");
@@ -587,11 +601,14 @@ const SchedulePage = () => {
       { setting_key: "lunch_duration_min", setting_value: String(lunchMin) },
     ];
     const { error } = await supabase.from("school_settings").upsert(upserts, { onConflict: "setting_key" });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกการตั้งค่าสำเร็จ");
     qc.invalidateQueries({ queryKey: ["school_settings"] });
     qc.invalidateQueries({ queryKey: ["period_schedule_config"] });
     setSettingsOpen(false);
+    } finally {
+      setSavingSettings(false);
+    }
   };
 
   // Open activity lock dialog with current saved values
@@ -608,6 +625,8 @@ const SchedulePage = () => {
   };
 
   const handleSaveActivityLocks = async () => {
+    if (savingLocks) return;
+    setSavingLocks(true);
     const locks: ActivityLock[] = [];
     Object.entries(localLocks).forEach(([subjectId, val]) => {
       const day = parseInt(val.day);
@@ -624,10 +643,11 @@ const SchedulePage = () => {
         { onConflict: "setting_key" }
       );
 
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); setSavingLocks(false); return; }
     toast.success("บันทึกการล็อควันกิจกรรมสำเร็จ");
     qc.invalidateQueries({ queryKey: ["school_settings", "activity_locks"] });
     setActivityLockOpen(false);
+    setSavingLocks(false);
   };
 
   const cellBgClass = (subjectType: string) => {
@@ -1013,8 +1033,8 @@ const SchedulePage = () => {
                     </div>
                   )}
 
-                  <Button onClick={handleAssignToCell} className="w-full" disabled={!selectedSubject}>
-                    {lang === "th" ? "บันทึก" : "Save"}
+                  <Button onClick={handleAssignToCell} className="w-full" disabled={!selectedSubject || savingCell}>
+                    {savingCell ? (lang === "th" ? "กำลังบันทึก..." : "Saving...") : (lang === "th" ? "บันทึก" : "Save")}
                   </Button>
                 </>
               );
@@ -1112,7 +1132,7 @@ const SchedulePage = () => {
               );
             })()}
 
-            <Button onClick={handleSaveSettings} className="w-full">บันทึก</Button>
+            <Button onClick={handleSaveSettings} className="w-full" disabled={savingSettings}>{savingSettings ? "กำลังบันทึก..." : "บันทึก"}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1194,8 +1214,8 @@ const SchedulePage = () => {
               })
             )}
           </div>
-          <Button onClick={handleSaveActivityLocks} className="w-full mt-2">
-            {lang === "th" ? "บันทึกการล็อก" : "Save Locks"}
+          <Button onClick={handleSaveActivityLocks} className="w-full mt-2" disabled={savingLocks}>
+            {savingLocks ? (lang === "th" ? "กำลังบันทึก..." : "Saving...") : (lang === "th" ? "บันทึกการล็อก" : "Save Locks")}
           </Button>
         </DialogContent>
       </Dialog>

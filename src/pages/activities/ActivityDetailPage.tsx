@@ -19,6 +19,8 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { formatDateBE } from "@/lib/dateBE";
 import { categoryLabel } from "@/lib/competitionRules";
 import { singleElimination, roundRobin, groupStage, roundsFor, roundLabel, BRACKET_TYPES } from "@/lib/bracket";
+import { saveErrorMessage } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 const db = supabase as any;
 
@@ -95,7 +97,7 @@ export default function ActivityDetailPage() {
     const { error } = await db.from("activity_matches").insert(
       generated.map((m) => ({ ...m, activity_id: id, status: "pending" })),
     );
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     for (const g of groupAssign) {
       await db.from("activity_participants").update({ group_name: `สาย ${g.group}` }).eq("id", g.id);
     }
@@ -106,7 +108,7 @@ export default function ActivityDetailPage() {
 
   const saveMatch = async (m: any, patch: any) => {
     const { error } = await db.from("activity_matches").update(patch).eq("id", m.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     qc.invalidateQueries({ queryKey: ["activity_matches", id] });
   };
 
@@ -136,21 +138,27 @@ export default function ActivityDetailPage() {
       ? db.from("activity_scores").update(patch).eq("id", existing.id)
       : db.from("activity_scores").insert({ activity_id: id, participant_id: pid, judge_id: u?.user?.id, ...patch });
     const { error } = await q;
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     qc.invalidateQueries({ queryKey: ["activity_scores", id] });
   };
 
+  const [addingTeam, setAddingTeam] = useState(false);
   const addTeam = async () => {
     if (!newTeam.trim()) return;
+    if (addingTeam) return;
+    setAddingTeam(true);
     const { error } = await db.from("activity_participants").insert({ activity_id: id, team_name: newTeam.trim() });
-    if (error) return toast.error(error.message);
+    setAddingTeam(false);
+    if (error) return toast.error(saveErrorMessage(error));
     setNewTeam("");
     qc.invalidateQueries({ queryKey: ["activity_participants", id] });
   };
 
   const removeParticipant = async (pid: string) => {
+    const ok = await swal.confirm({ title: "ยืนยันการลบ?", text: "ต้องการลบผู้เข้าร่วมนี้หรือไม่", danger: true });
+    if (!ok) return;
     const { error } = await db.from("activity_participants").delete().eq("id", pid);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     qc.invalidateQueries({ queryKey: ["activity_participants", id] });
   };
 
@@ -191,7 +199,7 @@ export default function ActivityDetailPage() {
             {canManage && (
               <div className="flex gap-2">
                 <Input placeholder="เพิ่มทีม/สี/หน่วยแข่งขัน" value={newTeam} onChange={(e) => setNewTeam(e.target.value)} />
-                <Button onClick={addTeam}><Plus className="w-4 h-4 mr-1" /> เพิ่ม</Button>
+                <Button onClick={addTeam} disabled={addingTeam}><Plus className="w-4 h-4 mr-1" /> {addingTeam ? "กำลังเพิ่ม..." : "เพิ่ม"}</Button>
               </div>
             )}
             <div className="divide-y border rounded-md">
@@ -310,7 +318,7 @@ export default function ActivityDetailPage() {
                 <Textarea rows={14} defaultValue={activity.rules || ""}
                   onBlur={async (e) => {
                     const { error } = await db.from("activities").update({ rules: e.target.value }).eq("id", id);
-                    if (error) toast.error(error.message); else toast.success("บันทึกกติกาแล้ว");
+                    if (error) toast.error(saveErrorMessage(error)); else toast.success("บันทึกกติกาแล้ว");
                   }} />
               </>
             ) : (

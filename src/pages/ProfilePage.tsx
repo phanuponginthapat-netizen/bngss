@@ -33,6 +33,7 @@ import MyPostsTab from "@/components/profile/MyPostsTab";
 import MyMembershipsCard from "@/components/profile/MyMembershipsCard";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { formatDateBE } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface Profile {
   id: string;
@@ -326,7 +327,7 @@ const ProfilePage = () => {
 
   const updateTaskStatus = async (id: string, status: string) => {
     const { error } = await supabase.from("task_assignments").update({ status }).eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("อัพเดทสถานะสำเร็จ");
     queryClient.invalidateQueries({ queryKey: ["student_tasks"] });
   };

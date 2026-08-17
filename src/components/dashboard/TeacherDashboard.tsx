@@ -38,6 +38,7 @@ import { TeacherDailyBriefing } from "./TeacherDailyBriefing";
 import { useWeatherData } from "@/hooks/useWeatherData";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import GpsTrackingCard from "@/components/GpsTrackingCard";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface SubjectItem {
   id: string;
@@ -739,7 +740,7 @@ const SubjectTabContent = ({ subject, enrollmentCount, schedules, navigate, pers
     if (rows.length === 0) { toast.error("ไม่พบนักเรียนในห้องเรียนนี้"); return; }
 
     const { error } = await supabase.from("task_assignments").insert(rows);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(`สั่งการบ้านให้นักเรียน ${rows.length} คนสำเร็จ`);
 
     qc.invalidateQueries({ queryKey: ["subject_homework"] });
@@ -958,7 +959,7 @@ const HomeworkSubmissionsDialog = ({ title, ids }: { title: string; ids: string[
     const g = grade === "" ? null : Number(grade);
     if (grade !== "" && Number.isNaN(g)) { toast.error("คะแนนไม่ถูกต้อง"); return; }
     const { error } = await supabase.from("task_assignments").update({ grade: g, feedback: feedback || null }).eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกคะแนนแล้ว");
     qc.invalidateQueries({ queryKey: ["hw_submissions"] });
     qc.invalidateQueries({ queryKey: ["subject_homework"] });
@@ -966,7 +967,7 @@ const HomeworkSubmissionsDialog = ({ title, ids }: { title: string; ids: string[
 
   const saveAnnotated = async (id: string, url: string) => {
     const { error } = await supabase.from("task_assignments").update({ annotated_file_url: url }).eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["hw_submissions"] });
   };
 

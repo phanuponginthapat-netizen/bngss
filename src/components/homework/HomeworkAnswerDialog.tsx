@@ -19,6 +19,7 @@ import { gradeField, type WorksheetField } from "@/lib/pdfWorksheet";
 import DOMPurify from "dompurify";
 import { uploadHomeworkFile, type Attachment } from "@/lib/homeworkStorage";
 import AttachmentList from "./AttachmentList";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface Props {
   open: boolean;
@@ -130,7 +131,7 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
       await upsert("draft");
       toast.success("บันทึกร่างแล้ว");
       qc.invalidateQueries({ queryKey: ["hw-submissions"] });
-    } catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
+    } catch (e: any) { toast.error(saveErrorMessage(e)); } finally { setSaving(false); }
   };
 
   const submit = async () => {
@@ -155,7 +156,7 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
       toast.success("ส่งงานสำเร็จ");
       qc.invalidateQueries({ queryKey: ["hw-submissions"] });
       onOpenChange(false);
-    } catch (e: any) { toast.error(e.message); } finally { setSubmitting(false); }
+    } catch (e: any) { toast.error(saveErrorMessage(e)); } finally { setSubmitting(false); }
   };
 
   const uploadFile = async (file: File) => {

@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Upload, Trash2, Type, AlignLeft, ListChecks, CheckSquare, Pencil, Mic, MousePointer2 } from "lucide-react";
 import { renderPdfToImages, newField, type WorksheetField, type WorksheetFieldType, type WorksheetPageImage } from "@/lib/pdfWorksheet";
 import { toast } from "sonner";
+import { saveErrorMessage } from "@/lib/saveError";
 
 interface Props {
   initialPdfUrl?: string | null;
@@ -42,7 +43,7 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
   useEffect(() => {
     if (!initialPdfUrl) return;
     setLoading(true);
-    renderPdfToImages(initialPdfUrl).then(setPages).catch(e => toast.error(e.message)).finally(() => setLoading(false));
+    renderPdfToImages(initialPdfUrl).then(setPages).catch(e => toast.error(saveErrorMessage(e))).finally(() => setLoading(false));
   }, [initialPdfUrl]);
 
   const handleUpload = async (file: File) => {
@@ -52,7 +53,7 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
       const imgs = await renderPdfToImages(file);
       setPages(imgs);
       onPdfChange(file);
-    } catch (e: any) { toast.error(e.message); } finally { setLoading(false); }
+    } catch (e: any) { toast.error(saveErrorMessage(e)); } finally { setLoading(false); }
   };
 
   const handlePageClick = (page: number, e: React.MouseEvent<HTMLDivElement>) => {

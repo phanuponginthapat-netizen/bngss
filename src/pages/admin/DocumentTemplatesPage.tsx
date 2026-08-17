@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Upload, FileText, Sparkles, Trash2, Loader2, Pencil, FileSearch, Star, BookOpen } from "lucide-react";
+import { saveErrorMessage } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 export default function DocumentTemplatesPage() {
   const qc = useQueryClient();
@@ -70,7 +72,7 @@ export default function DocumentTemplatesPage() {
 
       await analyze(row.id);
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     } finally {
       setUploading(false);
     }
@@ -101,12 +103,25 @@ export default function DocumentTemplatesPage() {
     }
   };
 
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const remove = async (id: string, path: string | null) => {
-    if (!confirm("ลบเทมเพลตนี้?")) return;
-    if (path) await supabase.storage.from("print-templates").remove([path]);
-    await supabase.from("print_templates").delete().eq("id", id);
-    qc.invalidateQueries({ queryKey: ["pdf-templates"] });
-    toast.success("ลบแล้ว");
+    const ok = await swal.confirm({ title: "ลบเทมเพลตนี้?", danger: true, confirmText: "ลบ" });
+    if (!ok) return;
+    setRemovingId(id);
+    try {
+      if (path) {
+        const { error: rmErr } = await supabase.storage.from("print-templates").remove([path]);
+        if (rmErr) throw rmErr;
+      }
+      const { error } = await supabase.from("print_templates").delete().eq("id", id);
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["pdf-templates"] });
+      toast.success("ลบแล้ว");
+    } catch (e: any) {
+      toast.error(saveErrorMessage(e));
+    } finally {
+      setRemovingId(null);
+    }
   };
 
   return (
@@ -171,7 +186,7 @@ export default function DocumentTemplatesPage() {
                     {analyzingId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1" />}
                     {analyzingId === t.id ? "" : "วิเคราะห์ซ้ำ"}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => remove(t.id, t.source_pdf_path)}>
+                  <Button size="sm" variant="ghost" onClick={() => remove(t.id, t.source_pdf_path)} disabled={removingId === t.id}>
                     <Trash2 className="w-4 h-4 text-destructive" />
                   </Button>
                 </div>

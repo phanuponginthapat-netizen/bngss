@@ -23,6 +23,7 @@ import { FullscreenShell } from "@/components/ui/FullscreenShell";
 import { applyCurrentOfficialPreset, type EFormPreset } from "@/lib/eformPresets";
 import type { PdfOverlayField } from "@/lib/eformPdf";
 import EFormTemplateThumbnail from "@/components/eform/EFormTemplateThumbnail";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const EMPTY_HTML = `<h2 style="text-align:center;">หัวข้อเอกสาร</h2><p>เนื้อหา ...</p>`;
 
@@ -203,7 +204,7 @@ const EFormTemplatesPage = () => {
   const handleDelete = async (id: string) => {
     if (!confirm("ลบต้นแบบนี้?")) return;
     const { error } = await supabase.from("eform_templates" as any).delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบแล้ว");
     qc.invalidateQueries({ queryKey: ["eform_templates"] });
   };

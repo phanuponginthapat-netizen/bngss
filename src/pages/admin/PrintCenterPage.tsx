@@ -21,6 +21,7 @@ import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
 import BackButton from "@/components/BackButton";
 import { compressImage } from "@/lib/imageCompress";
 import { gradeRank } from "@/lib/gradeOrder";
+import { saveErrorMessage } from "@/lib/saveError";
 
 type ClassroomForCard = {
   id: string;
@@ -182,11 +183,13 @@ function CardTab() {
       if (!url) throw new Error("upload failed");
 
       // 1) save to students.photo_url (so card renders)
-      await supabase.from("students").update({ photo_url: url }).eq("id", student.id);
+      const { error: stuErr } = await supabase.from("students").update({ photo_url: url }).eq("id", student.id);
+      if (stuErr) throw stuErr;
 
       // 2) sync to profiles.avatar_url (matched by student_code)
       if (student.student_code) {
-        await supabase.from("profiles").update({ avatar_url: url }).eq("student_code", student.student_code);
+        const { error: profErr } = await supabase.from("profiles").update({ avatar_url: url }).eq("student_code", student.student_code);
+        if (profErr) throw profErr;
       }
 
       toast.success(`อัปโหลดรูปสำเร็จ — ตั้งเป็นรูปโปรไฟล์ของ ${student.first_name} แล้ว`);
@@ -194,7 +197,7 @@ function CardTab() {
       qc.invalidateQueries({ queryKey: ["search_students_for_cards"] });
     } catch (e: any) {
       console.error(e);
-      toast.error(e?.message || "อัปโหลดรูปไม่สำเร็จ");
+      toast.error(saveErrorMessage(e));
     } finally {
       setUploadingId(null);
     }

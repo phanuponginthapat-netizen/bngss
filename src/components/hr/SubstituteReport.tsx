@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { BarChart3, Download, Clock, Users, CalendarRange, Trophy, Trash2 } from "lucide-react";
 import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const HOURS_PER_PERIOD = 1; // 1 คาบ = 1 ชั่วโมงสอนแทน
 
@@ -95,7 +96,7 @@ export default function SubstituteReport() {
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("substitute_teaching").delete().eq("id", id);
     if (error) {
-      toast.error(error.message);
+      toast.error(saveErrorMessage(error));
       return;
     }
     toast.success(lang === "th" ? "ลบประวัติแล้ว" : "Record deleted");

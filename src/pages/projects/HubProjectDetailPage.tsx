@@ -15,6 +15,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Plus, Wallet, Receipt, Image as ImageIcon, FileText, Trash2, Upload, Printer, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { saveErrorMessage } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
+import { safeNum } from "@/lib/saveError";
 
 const fmtBaht = (n: any) =>
   new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 0 }).format(Number(n || 0));
@@ -78,41 +81,58 @@ export default function HubProjectDetailPage() {
   const [updateForm, setUpdateForm] = useState({ title: "", summary: "", details: "", period_label: "", update_date: todayBangkok(), participants_count: "", progress_percent: "" });
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
   const [statusOpen, setStatusOpen] = useState(false);
+  const [savingBudget, setSavingBudget] = useState(false);
+  const [savingExpense, setSavingExpense] = useState(false);
+  const [savingUpdate, setSavingUpdate] = useState(false);
 
   const addBudget = async () => {
-    if (!budgetForm.amount || Number(budgetForm.amount) <= 0) return toast.error("กรอกจำนวนเงิน");
-    const { data: user } = await supabase.auth.getUser();
-    const { error } = await supabase.from("hub_project_budgets").insert({
-      project_id: id, amount: Number(budgetForm.amount),
-      received_date: budgetForm.received_date, source: budgetForm.source || null,
-      reference_no: budgetForm.reference_no || null, notes: budgetForm.notes || null,
-      created_by: user.user?.id,
-    } as any);
-    if (error) return toast.error(error.message);
-    toast.success("บันทึกงบที่ได้รับแล้ว");
-    setBudgetOpen(false);
-    setBudgetForm({ ...budgetForm, amount: "", reference_no: "", notes: "" });
-    qc.invalidateQueries({ queryKey: ["hub_project_budgets", id] });
-    qc.invalidateQueries({ queryKey: ["hub_project", id] });
+    if (savingBudget) return;
+    const amt = safeNum(budgetForm.amount, 0);
+    if (!budgetForm.amount || amt <= 0) return toast.error("กรอกจำนวนเงิน");
+    setSavingBudget(true);
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      const { error } = await supabase.from("hub_project_budgets").insert({
+        project_id: id, amount: amt,
+        received_date: budgetForm.received_date, source: budgetForm.source || null,
+        reference_no: budgetForm.reference_no || null, notes: budgetForm.notes || null,
+        created_by: user.user?.id,
+      } as any);
+      if (error) return toast.error(saveErrorMessage(error));
+      toast.success("บันทึกงบที่ได้รับแล้ว");
+      setBudgetOpen(false);
+      setBudgetForm({ ...budgetForm, amount: "", reference_no: "", notes: "" });
+      qc.invalidateQueries({ queryKey: ["hub_project_budgets", id] });
+      qc.invalidateQueries({ queryKey: ["hub_project", id] });
+    } finally {
+      setSavingBudget(false);
+    }
   };
 
   const addExpense = async () => {
-    if (!expenseForm.amount || Number(expenseForm.amount) <= 0) return toast.error("กรอกจำนวนเงิน");
+    if (savingExpense) return;
+    const amt = safeNum(expenseForm.amount, 0);
+    if (!expenseForm.amount || amt <= 0) return toast.error("กรอกจำนวนเงิน");
     if (!expenseForm.description.trim()) return toast.error("กรอกรายการ");
-    const { data: user } = await supabase.auth.getUser();
-    const { error } = await supabase.from("hub_project_expenses").insert({
-      project_id: id, amount: Number(expenseForm.amount),
-      expense_date: expenseForm.expense_date, category: expenseForm.category,
-      description: expenseForm.description, vendor: expenseForm.vendor || null,
-      receipt_no: expenseForm.receipt_no || null, notes: expenseForm.notes || null,
-      created_by: user.user?.id,
-    } as any);
-    if (error) return toast.error(error.message);
-    toast.success("บันทึกค่าใช้จ่ายแล้ว");
-    setExpenseOpen(false);
-    setExpenseForm({ ...expenseForm, amount: "", description: "", vendor: "", receipt_no: "", notes: "" });
-    qc.invalidateQueries({ queryKey: ["hub_project_expenses", id] });
-    qc.invalidateQueries({ queryKey: ["hub_project", id] });
+    setSavingExpense(true);
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      const { error } = await supabase.from("hub_project_expenses").insert({
+        project_id: id, amount: amt,
+        expense_date: expenseForm.expense_date, category: expenseForm.category,
+        description: expenseForm.description, vendor: expenseForm.vendor || null,
+        receipt_no: expenseForm.receipt_no || null, notes: expenseForm.notes || null,
+        created_by: user.user?.id,
+      } as any);
+      if (error) return toast.error(saveErrorMessage(error));
+      toast.success("บันทึกค่าใช้จ่ายแล้ว");
+      setExpenseOpen(false);
+      setExpenseForm({ ...expenseForm, amount: "", description: "", vendor: "", receipt_no: "", notes: "" });
+      qc.invalidateQueries({ queryKey: ["hub_project_expenses", id] });
+      qc.invalidateQueries({ queryKey: ["hub_project", id] });
+    } finally {
+      setSavingExpense(false);
+    }
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,7 +142,7 @@ export default function HubProjectDetailPage() {
     for (const file of files) {
       const path = `${id}/${Date.now()}-${file.name.replace(/[^\w.-]/g, "_")}`;
       const { error } = await supabase.storage.from("hub-projects").upload(path, file);
-      if (error) { toast.error(error.message); continue; }
+      if (error) { toast.error(saveErrorMessage(error)); continue; }
       const { data: signed } = await supabase.storage.from("hub-projects").createSignedUrl(path, 60 * 60 * 24 * 365);
       if (signed?.signedUrl) urls.push(signed.signedUrl);
     }
@@ -132,40 +152,51 @@ export default function HubProjectDetailPage() {
   };
 
   const addUpdate = async () => {
+    if (savingUpdate) return;
     if (!updateForm.title.trim()) return toast.error("กรอกหัวข้อ");
-    const { data: user } = await supabase.auth.getUser();
-    const { error } = await supabase.from("hub_project_updates").insert({
-      project_id: id, title: updateForm.title, summary: updateForm.summary || null,
-      details: updateForm.details || null, period_label: updateForm.period_label || null,
-      update_date: updateForm.update_date,
-      participants_count: updateForm.participants_count ? Number(updateForm.participants_count) : null,
-      progress_percent: updateForm.progress_percent ? Number(updateForm.progress_percent) : null,
-      photos: uploadedPhotos as any,
-      created_by: user.user?.id,
-    } as any);
-    if (error) return toast.error(error.message);
-    toast.success("เผยแพร่รายงานความคืบหน้าแล้ว");
-    setUpdateOpen(false);
-    setUpdateForm({ ...updateForm, title: "", summary: "", details: "", period_label: "", participants_count: "", progress_percent: "" });
-    setUploadedPhotos([]);
-    qc.invalidateQueries({ queryKey: ["hub_project_updates", id] });
+    setSavingUpdate(true);
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      const { error } = await supabase.from("hub_project_updates").insert({
+        project_id: id, title: updateForm.title, summary: updateForm.summary || null,
+        details: updateForm.details || null, period_label: updateForm.period_label || null,
+        update_date: updateForm.update_date,
+        participants_count: updateForm.participants_count ? safeNum(updateForm.participants_count, 0) : null,
+        progress_percent: updateForm.progress_percent ? safeNum(updateForm.progress_percent, 0) : null,
+        photos: uploadedPhotos as any,
+        created_by: user.user?.id,
+      } as any);
+      if (error) return toast.error(saveErrorMessage(error));
+      toast.success("เผยแพร่รายงานความคืบหน้าแล้ว");
+      setUpdateOpen(false);
+      setUpdateForm({ ...updateForm, title: "", summary: "", details: "", period_label: "", participants_count: "", progress_percent: "" });
+      setUploadedPhotos([]);
+      qc.invalidateQueries({ queryKey: ["hub_project_updates", id] });
+    } finally {
+      setSavingUpdate(false);
+    }
   };
 
   const removeExpense = async (eid: string) => {
-    if (!confirm("ลบรายการนี้?")) return;
-    await supabase.from("hub_project_expenses").delete().eq("id", eid);
+    const ok = await swal.confirm({ title: "ลบรายการนี้?", danger: true, confirmText: "ลบ" });
+    if (!ok) return;
+    const { error } = await supabase.from("hub_project_expenses").delete().eq("id", eid);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["hub_project_expenses", id] });
     qc.invalidateQueries({ queryKey: ["hub_project", id] });
   };
   const removeBudget = async (bid: string) => {
-    if (!confirm("ลบงบที่ได้รับนี้?")) return;
-    await supabase.from("hub_project_budgets").delete().eq("id", bid);
+    const ok = await swal.confirm({ title: "ลบงบที่ได้รับนี้?", danger: true, confirmText: "ลบ" });
+    if (!ok) return;
+    const { error } = await supabase.from("hub_project_budgets").delete().eq("id", bid);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["hub_project_budgets", id] });
     qc.invalidateQueries({ queryKey: ["hub_project", id] });
   };
 
   const changeStatus = async (status: string) => {
-    await supabase.from("hub_projects").update({ status } as any).eq("id", id);
+    const { error } = await supabase.from("hub_projects").update({ status } as any).eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("อัปเดตสถานะแล้ว");
     qc.invalidateQueries({ queryKey: ["hub_project", id] });
     setStatusOpen(false);
@@ -295,7 +326,7 @@ export default function HubProjectDetailPage() {
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setUpdateOpen(false)}>ยกเลิก</Button>
-                  <Button onClick={addUpdate}>เผยแพร่</Button>
+                  <Button onClick={addUpdate} disabled={savingUpdate}>เผยแพร่</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -355,7 +386,7 @@ export default function HubProjectDetailPage() {
                   <div className="col-span-2"><Label>หมายเหตุ</Label>
                     <Textarea value={budgetForm.notes} onChange={(e) => setBudgetForm({ ...budgetForm, notes: e.target.value })} /></div>
                 </div>
-                <DialogFooter><Button onClick={addBudget}>บันทึก</Button></DialogFooter>
+                <DialogFooter><Button onClick={addBudget} disabled={savingBudget}>บันทึก</Button></DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
@@ -415,7 +446,7 @@ export default function HubProjectDetailPage() {
                   <div className="col-span-2"><Label>หมายเหตุ</Label>
                     <Textarea value={expenseForm.notes} onChange={(e) => setExpenseForm({ ...expenseForm, notes: e.target.value })} /></div>
                 </div>
-                <DialogFooter><Button onClick={addExpense}>บันทึก</Button></DialogFooter>
+                <DialogFooter><Button onClick={addExpense} disabled={savingExpense}>บันทึก</Button></DialogFooter>
               </DialogContent>
             </Dialog>
           </div>

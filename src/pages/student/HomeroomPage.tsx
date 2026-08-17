@@ -21,6 +21,8 @@ import { toast } from "sonner";
 import { Plus, Trash2, Search, Calendar, Users, BookOpen, ClipboardList, Eye } from "lucide-react";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { saveErrorMessage, safeInt } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 // หัวข้อกิจกรรมโฮมรูมตาม สพฐ (OBEC)
 const OBEC_TOPICS = [
@@ -128,8 +130,12 @@ const HomeroomPage = () => {
     return { total: monthRecords.length, topicCounts };
   }, [records]);
 
+  const [savingHomeroom, setSavingHomeroom] = useState(false);
   const handleAdd = async () => {
     if (!classroomId) { toast.error("กรุณาเลือกห้องเรียน"); return; }
+    if (!homeroomDate) { toast.error("กรุณาเลือกวันที่"); return; }
+    if (savingHomeroom) return;
+    setSavingHomeroom(true);
     const { error } = await supabase.from("homeroom_records").insert({
       classroom_id: classroomId,
       homeroom_date: homeroomDate,
@@ -137,12 +143,13 @@ const HomeroomPage = () => {
       activity_details: activityDetails,
       advisor_notes: notes,
       parent_contact: parentContact,
-      student_count: parseInt(studentCount) || 0,
+      student_count: safeInt(studentCount, 0),
       absent_students: absentStudents,
       academic_year: academicYear > 0 ? academicYear - BE_OFFSET : undefined,
       semester: semester > 0 ? semester : undefined,
     } as any);
-    if (error) { toast.error(error.message); return; }
+    setSavingHomeroom(false);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกกิจกรรมโฮมรูมสำเร็จ");
     qc.invalidateQueries({ queryKey: ["homeroom_records"] });
     setOpen(false);
@@ -150,7 +157,10 @@ const HomeroomPage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("homeroom_records").delete().eq("id", id);
+    const ok = await swal.confirm({ title: "ยืนยันการลบ?", text: "ต้องการลบบันทึกกิจกรรมโฮมรูมนี้หรือไม่", danger: true });
+    if (!ok) return;
+    const { error } = await supabase.from("homeroom_records").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["homeroom_records"] });
     toast.success("ลบสำเร็จ");
   };
@@ -258,7 +268,7 @@ const HomeroomPage = () => {
                 <Input value={parentContact} onChange={e => setParentContact(e.target.value)} placeholder="บันทึกการติดต่อผู้ปกครอง" />
               </div>
 
-              <Button onClick={handleAdd} className="w-full">{lang === "th" ? "บันทึก" : "Save"}</Button>
+              <Button onClick={handleAdd} className="w-full" disabled={savingHomeroom}>{savingHomeroom ? (lang === "th" ? "กำลังบันทึก..." : "Saving...") : (lang === "th" ? "บันทึก" : "Save")}</Button>
             </div>
           </DialogContent>
         </Dialog>

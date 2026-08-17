@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { swal } from "@/lib/swal";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const FaceDatabaseTab = () => {
   const qc = useQueryClient();
@@ -47,7 +48,7 @@ const FaceDatabaseTab = () => {
   const deleteFor = async (studentId: string, name: string) => {
     if (!(await swal.confirm({ title: `ลบใบหน้าของ ${name} ทั้งหมด?`, danger: true }))) return;
     const { error } = await supabase.from("student_face_descriptors").delete().eq("student_id", studentId);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("ลบแล้ว");
     qc.invalidateQueries({ queryKey: ["face-db"] });
     qc.invalidateQueries({ queryKey: ["face-known"] });

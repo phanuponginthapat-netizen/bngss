@@ -20,6 +20,7 @@ import { swal } from "@/lib/swal";
 import { usePeriodSchedule } from "@/lib/periodSchedule";
 import { notifyRole } from "@/lib/notify";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 function fmtDateTh(s: string) {
   try {
@@ -411,7 +412,7 @@ export default function LearningCenterPage() {
         if (error.message.includes("uq_lcb_slot") || error.code === "23505") {
           return toast.error("ช่วงเวลานี้มีคนจองแล้ว กรุณาเลือกเวลาอื่น");
         }
-        return toast.error(error.message);
+        return toast.error(saveErrorMessage(error));
       }
       firstVisibleDate = rows[0].booking_date;
       toast.success(`จองห้อง ${selectedRoom?.name || ""} เรียบร้อย`);
@@ -425,7 +426,7 @@ export default function LearningCenterPage() {
           if (error.message.includes("uq_lcb_slot") || error.code === "23505") {
             conflicts.push(row.booking_date);
           } else {
-            return toast.error(error.message);
+            return toast.error(saveErrorMessage(error));
           }
         } else {
           ok++;
@@ -474,7 +475,7 @@ export default function LearningCenterPage() {
   const cancelBooking = async (b: any) => {
     if (!(await swal.confirm({ title: `ยกเลิกการจอง?`, text: `${b.subject_name || "-"} วันที่ ${fmtDate(b.booking_date)}`, danger: true }))) return;
     const { error } = await supabase.from("learning_center_bookings").delete().eq("id", b.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("ยกเลิกการจองแล้ว");
     qc.invalidateQueries({ queryKey: ["lcb_bookings"] });
   };

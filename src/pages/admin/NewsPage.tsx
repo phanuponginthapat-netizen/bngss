@@ -16,6 +16,8 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Plus, Trash2, AlertTriangle, Megaphone, Pin, PinOff, Search } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { saveErrorMessage } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 const CATEGORIES = [
   { value: "general", label: "ทั่วไป", labelEn: "General" },
@@ -41,12 +43,14 @@ const NewsPage = () => {
   const [newsTitle, setNewsTitle] = useState("");
   const [newsContent, setNewsContent] = useState("");
   const [newsCategory, setNewsCategory] = useState("general");
+  const [newsSaving, setNewsSaving] = useState(false);
 
   // Emergency state
   const [emerOpen, setEmerOpen] = useState(false);
   const [emerTitle, setEmerTitle] = useState("");
   const [emerMessage, setEmerMessage] = useState("");
   const [emerSeverity, setEmerSeverity] = useState("info");
+  const [emerSaving, setEmerSaving] = useState(false);
 
   const { data: newsRecords = [] } = useQuery({
     queryKey: ["news_posts"],
@@ -65,14 +69,17 @@ const NewsPage = () => {
   });
 
   const handleAddNews = async () => {
-    if (!newsTitle) return;
+    if (!newsTitle.trim()) { toast.error(lang === "th" ? "กรุณากรอกหัวข้อข่าว" : "Please enter a title"); return; }
+    if (newsSaving) return;
+    setNewsSaving(true);
+    try {
     const { data: inserted, error } = await supabase.from("news_posts").insert({
       title: newsTitle,
       content: newsContent,
       category: newsCategory,
       author_id: userId,
     } as any).select("id").single();
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "เพิ่มข่าวสำเร็จ" : "News added");
     qc.invalidateQueries({ queryKey: ["news_posts"] });
     setNewsOpen(false); setNewsTitle(""); setNewsContent(""); setNewsCategory("general");
@@ -98,11 +105,15 @@ const NewsPage = () => {
         }
       } catch {/* non-blocking */}
     }
+    } finally {
+      setNewsSaving(false);
+    }
   };
 
   const handlePublish = async (id: string, pub: boolean) => {
     const willPublish = !pub;
-    await supabase.from("news_posts").update({ is_published: willPublish, published_at: willPublish ? new Date().toISOString() : null } as any).eq("id", id);
+    const { error } = await supabase.from("news_posts").update({ is_published: willPublish, published_at: willPublish ? new Date().toISOString() : null } as any).eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["news_posts"] });
     // Notify everyone on publish
     if (willPublish) {
@@ -131,31 +142,38 @@ const NewsPage = () => {
 
   const togglePinNews = async (id: string, pinned: boolean) => {
     const { error } = await supabase.from("news_posts").update({ is_pinned: !pinned } as any).eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(!pinned ? (lang === "th" ? "ปักหมุดแล้ว" : "Pinned") : (lang === "th" ? "ยกเลิกปักหมุด" : "Unpinned"));
     qc.invalidateQueries({ queryKey: ["news_posts"] });
   };
 
   const togglePinEmer = async (id: string, pinned: boolean) => {
     const { error } = await supabase.from("emergency_broadcasts").update({ is_pinned: !pinned } as any).eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["emergency_broadcasts"] });
   };
 
   const handleDeleteNews = async (id: string) => {
-    await supabase.from("news_posts").delete().eq("id", id);
+    const ok = await swal.confirm({ title: lang === "th" ? "ยืนยันการลบข่าวนี้?" : "Delete this news post?", danger: true });
+    if (!ok) return;
+    const { error } = await supabase.from("news_posts").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
+    toast.success(lang === "th" ? "ลบแล้ว" : "Deleted");
     qc.invalidateQueries({ queryKey: ["news_posts"] });
   };
 
   const handleAddEmergency = async () => {
-    if (!emerTitle || !emerMessage) return;
+    if (!emerTitle.trim() || !emerMessage.trim()) { toast.error(lang === "th" ? "กรุณากรอกหัวข้อและข้อความ" : "Please enter title and message"); return; }
+    if (emerSaving) return;
+    setEmerSaving(true);
+    try {
     const { data: inserted, error } = await supabase.from("emergency_broadcasts").insert({
       title: emerTitle,
       message: emerMessage,
       severity: emerSeverity,
       author_id: userId,
     } as any).select("id").single();
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "ส่งประกาศสำเร็จ" : "Broadcast sent");
     qc.invalidateQueries({ queryKey: ["emergency_broadcasts"] });
     setEmerOpen(false); setEmerTitle(""); setEmerMessage(""); setEmerSeverity("info");
@@ -181,10 +199,17 @@ const NewsPage = () => {
         });
       }
     } catch {/* non-blocking */}
+    } finally {
+      setEmerSaving(false);
+    }
   };
 
   const handleDeleteEmergency = async (id: string) => {
-    await supabase.from("emergency_broadcasts").delete().eq("id", id);
+    const ok = await swal.confirm({ title: lang === "th" ? "ยืนยันการลบประกาศนี้?" : "Delete this alert?", danger: true });
+    if (!ok) return;
+    const { error } = await supabase.from("emergency_broadcasts").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
+    toast.success(lang === "th" ? "ลบแล้ว" : "Deleted");
     qc.invalidateQueries({ queryKey: ["emergency_broadcasts"] });
   };
 
@@ -272,7 +297,7 @@ const NewsPage = () => {
                     </Select>
                   </div>
                   <div><Label>{lang === "th" ? "เนื้อหา" : "Content"}</Label><Textarea value={newsContent} onChange={e => setNewsContent(e.target.value)} rows={4} /></div>
-                  <Button onClick={handleAddNews} className="w-full">{lang === "th" ? "บันทึก" : "Save"}</Button>
+                  <Button onClick={handleAddNews} className="w-full" disabled={newsSaving}>{newsSaving ? (lang === "th" ? "กำลังบันทึก..." : "Saving...") : (lang === "th" ? "บันทึก" : "Save")}</Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -353,7 +378,7 @@ const NewsPage = () => {
                     </Select>
                   </div>
                   <div><Label>{lang === "th" ? "ข้อความ" : "Message"}</Label><Textarea value={emerMessage} onChange={e => setEmerMessage(e.target.value)} rows={4} /></div>
-                  <Button variant="destructive" onClick={handleAddEmergency} className="w-full">{lang === "th" ? "ส่งประกาศ" : "Send"}</Button>
+                  <Button variant="destructive" onClick={handleAddEmergency} className="w-full" disabled={emerSaving}>{emerSaving ? (lang === "th" ? "กำลังส่ง..." : "Sending...") : (lang === "th" ? "ส่งประกาศ" : "Send")}</Button>
                 </div>
               </DialogContent>
             </Dialog>

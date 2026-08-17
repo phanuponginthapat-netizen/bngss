@@ -18,6 +18,8 @@ import { toast } from "sonner";
 import { Plus, Trash2, Webhook, Send, MessageSquare, Settings, Edit, BarChart3 } from "lucide-react";
 import ChannelCategoryRoutingCard from "@/components/admin/ChannelCategoryRoutingCard";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { saveErrorMessage } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 const DEPARTMENTS = [
   { value: "academic", th: "ฝ่ายวิชาการ", en: "Academic" },
@@ -94,7 +96,7 @@ const WebhookManagementPage = () => {
       webhook_name: webhookName || department,
       notification_types: selectedTypes,
     } as any);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "เพิ่ม Webhook สำเร็จ" : "Webhook added");
     qc.invalidateQueries({ queryKey: ["google_chat_webhooks"] });
     setOpen(false);
@@ -102,12 +104,16 @@ const WebhookManagementPage = () => {
   };
 
   const handleToggle = async (id: string, isActive: boolean) => {
-    await supabase.from("google_chat_webhooks" as any).update({ is_active: !isActive } as any).eq("id", id);
+    const { error } = await supabase.from("google_chat_webhooks" as any).update({ is_active: !isActive } as any).eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["google_chat_webhooks"] });
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("google_chat_webhooks" as any).delete().eq("id", id);
+    const ok = await swal.confirm({ title: lang === "th" ? "ลบ Webhook นี้?" : "Delete this webhook?", danger: true, confirmText: lang === "th" ? "ลบ" : "Delete" });
+    if (!ok) return;
+    const { error } = await supabase.from("google_chat_webhooks" as any).delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["google_chat_webhooks"] });
     toast.success(lang === "th" ? "ลบสำเร็จ" : "Deleted");
   };
@@ -138,7 +144,7 @@ const WebhookManagementPage = () => {
     const { error } = await supabase.from("google_chat_webhooks" as any)
       .update({ notification_types: editTypes, custom_messages: editMessages } as any)
       .eq("id", editWebhook.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "บันทึกสำเร็จ" : "Saved");
     qc.invalidateQueries({ queryKey: ["google_chat_webhooks"] });
     setEditWebhook(null);

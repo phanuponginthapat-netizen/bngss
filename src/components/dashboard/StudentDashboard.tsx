@@ -24,6 +24,7 @@ import {
   ClipboardList, FileText, Heart, ArrowRight, CheckCircle2, XCircle, Clock,
   User as UserIcon, Upload, Thermometer, Wind,
 } from "lucide-react";
+import { saveErrorMessage } from "@/lib/saveError";
 const MyRadarWidget = lazy(() => import("./MyRadarWidget"));
 
 const StudentDashboard = () => {
@@ -449,7 +450,7 @@ const HomeworkRow = ({ h, lang, L, userId, studentName }: {
       qc.invalidateQueries({ queryKey: ["student_dashboard"] });
       setOpen(false);
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     } finally { setBusy(false); }
   };
 

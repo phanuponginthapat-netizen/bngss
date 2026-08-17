@@ -15,6 +15,7 @@ import { Plus, Pencil, Trash2, Upload, Key, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ALL_GRADE_LEVELS, gradeRank } from "@/lib/gradeOrder";
 import { useAuthSession } from "@/hooks/useAuthSession";
+import { saveErrorMessage } from "@/lib/saveError";
 
 type Game = {
   id?: string;
@@ -92,7 +93,7 @@ export default function GameHubAdminPage() {
       toast.success("ลบแล้ว");
       qc.invalidateQueries({ queryKey: ["game-hub-admin-list"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(saveErrorMessage(e)),
   });
 
   const uploadCover = async (file: File) => {

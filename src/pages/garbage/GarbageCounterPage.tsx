@@ -12,6 +12,7 @@ import BarcodeScanner from "@/components/BarcodeScanner";
 import { toast } from "sonner";
 import { ScanLine, Coins, User, Recycle, Gift, ImageIcon, Plus, Minus, ShoppingCart, Trash2, Search, GraduationCap, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { saveErrorMessage } from "@/lib/saveError";
 
 type Holder = {
   kind: "student" | "personnel";
@@ -245,7 +246,7 @@ export default function GarbageCounterPage() {
       recorded_by: user?.id, recorded_by_name: recorderName,
     }));
     const { error } = await supabase.from("garbage_deposits").insert(rows);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success(`บันทึก ${depositCart.length} รายการ +${depositTotal} แต้ม`);
     setDepositCart([]); refreshPoints();
   };
@@ -288,7 +289,7 @@ export default function GarbageCounterPage() {
     }));
 
     const { error } = await supabase.from("garbage_redemptions").insert(rows);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success(`แลกเรียบร้อย -${redeemTotal} แต้ม`);
     setRedeemCart([]); refreshPoints(); loadCatalog();
   };

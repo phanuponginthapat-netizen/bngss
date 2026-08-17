@@ -15,6 +15,7 @@ import { getSecretGuide } from "@/lib/secretGuides";
 import { SECRET_PRESET_CATEGORIES, type SecretPreset } from "@/lib/secretPresets";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sparkles, ExternalLink as ExtLinkIcon } from "lucide-react";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const CATEGORY_LABEL: Record<string, { th: string; en: string }> = {
   social: { th: "Social", en: "Social" },
@@ -70,7 +71,7 @@ export default function SecretsManagementPage() {
       .from("app_secrets" as any)
       .update({ value, updated_at: new Date().toISOString() } as any)
       .eq("key", key);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success(lang === "th" ? "บันทึก " + key + " แล้ว" : "Saved " + key);
     setDrafts((d) => { const n = { ...d }; delete n[key]; return n; });
     qc.invalidateQueries({ queryKey: ["app_secrets"] });
@@ -84,7 +85,7 @@ export default function SecretsManagementPage() {
     const { error } = await supabase
       .from("app_secrets" as any)
       .insert({ key: newKey, description: newDesc || null, category: newCat } as any);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success(lang === "th" ? "เพิ่มแล้ว" : "Added");
     setNewKey(""); setNewDesc("");
     qc.invalidateQueries({ queryKey: ["app_secrets"] });

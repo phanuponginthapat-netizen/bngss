@@ -14,6 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Plus, Trash2, Star, FileText } from "lucide-react";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const EVAL_TYPES = [
   { value: "performance", th: "ประเมินผลการปฏิบัติงาน" },
@@ -74,7 +75,7 @@ export default function LegacyEvaluationTab() {
       evaluation_type: evalType,
       score: parseFloat(score), max_score: parseFloat(maxScore), comments,
     } as any);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกสำเร็จ");
     qc.invalidateQueries({ queryKey: ["staff_evaluations"] });
     setOpen(false); setEvaluator(""); setScore("0"); setComments("");

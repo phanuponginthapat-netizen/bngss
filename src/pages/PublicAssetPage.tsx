@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Package, MapPin, User, Phone, AlertTriangle, ArrowLeft, CheckCircle2, Mail, Building2, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import MapPicker from "@/components/MapPicker";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const PublicAssetPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -65,7 +66,7 @@ const PublicAssetPage = () => {
       _description: desc,
     });
     setSubmitting(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     setSubmitted(true);
     toast.success("แจ้งพบทรัพย์สินสำเร็จ ขอบคุณค่ะ/ครับ");
   };

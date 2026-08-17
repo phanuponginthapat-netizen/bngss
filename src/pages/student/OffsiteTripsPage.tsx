@@ -15,6 +15,7 @@ import { MapPin, Plus, CalendarClock, Users, CheckCircle2, XCircle, Clock3, LogO
 import { useUserRole } from "@/hooks/useUserRole";
 import TripPhotosTab from "@/components/offsite/TripPhotosTab";
 import { getCurrentCoords, reverseGeocode, mapsLink, formatCoords } from "@/lib/geolocation";
+import { saveErrorMessage } from "@/lib/saveError";
 
 type Trip = {
   id: string;
@@ -315,7 +316,7 @@ function TripDetail({ tripId, isAdmin, onBack }: { tripId: string; isAdmin: bool
 
   const updateStatus = async (status: string, extra: any = {}) => {
     const { error } = await supabase.from("student_offsite_trips").update({ status, ...extra } as any).eq("id", tripId);
-    if (error) { swal.toast.error(error.message); return; }
+    if (error) { swal.toast.error(saveErrorMessage(error)); return; }
     swal.toast.success("อัพเดตสถานะแล้ว");
     qc.invalidateQueries({ queryKey: ["offsite_trip", tripId] });
     qc.invalidateQueries({ queryKey: ["offsite_trips"] });
@@ -410,7 +411,7 @@ function AttendanceList({ tripId, parts, onChanged }: { tripId: string; parts: a
     }
     if (status === "left_early") patch.check_out_at = now;
     const { error } = await supabase.from("student_offsite_participants").update(patch).eq("id", id);
-    if (error) { swal.toast.error(error.message); return; }
+    if (error) { swal.toast.error(saveErrorMessage(error)); return; }
     onChanged();
   };
 
@@ -423,7 +424,7 @@ function AttendanceList({ tripId, parts, onChanged }: { tripId: string; parts: a
     const patch: any = { attendance_status: status };
     if (status === "present") patch.check_in_at = now;
     const { error } = await supabase.from("student_offsite_participants").update(patch).eq("trip_id", tripId);
-    if (error) { swal.toast.error(error.message); return; }
+    if (error) { swal.toast.error(saveErrorMessage(error)); return; }
     onChanged();
     swal.toast.success("อัพเดตแล้ว");
   };
@@ -517,7 +518,7 @@ function AddStudentsPanel({ tripId, existingIds, onAdded }: { tripId: string; ex
       student_id: studentId,
       attendance_status: "expected",
     } as any);
-    if (error) { swal.toast.error(error.message); return; }
+    if (error) { swal.toast.error(saveErrorMessage(error)); return; }
     onAdded();
   };
 
@@ -529,7 +530,7 @@ function AddStudentsPanel({ tripId, existingIds, onAdded }: { tripId: string; ex
 
     const rows = toAdd.map((s: any) => ({ trip_id: tripId, student_id: s.id, attendance_status: "expected" }));
     const { error } = await supabase.from("student_offsite_participants").insert(rows as any);
-    if (error) { swal.toast.error(error.message); return; }
+    if (error) { swal.toast.error(saveErrorMessage(error)); return; }
     swal.toast.success(`เพิ่ม ${toAdd.length} คน`);
     onAdded();
   };

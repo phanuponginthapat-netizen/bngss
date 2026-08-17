@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { CheckCircle, AlertTriangle, XCircle, ClipboardList } from "lucide-react";
 import { useCmsValue } from "@/hooks/useCmsSettings";
+import { safeInt, saveErrorMessage } from "@/lib/saveError";
 
 const PublicSDQPage = () => {
   const { studentId } = useParams<{ studentId: string }>();
@@ -46,7 +47,7 @@ const PublicSDQPage = () => {
     },
   });
 
-  const total = [emotional, conduct, hyper, peer].reduce((a, b) => a + parseInt(b || "0"), 0);
+  const total = [emotional, conduct, hyper, peer].reduce((a, b) => a + safeInt(b, 0), 0);
 
   const getLevel = (t: number) => {
     if (t <= 13) return { label: "ปกติ", icon: CheckCircle, color: "text-green-600", bg: "bg-green-50 border-green-200" };
@@ -62,16 +63,17 @@ const PublicSDQPage = () => {
       toast.error("กรุณาระบุชื่อผู้ประเมิน");
       return;
     }
+    if (saving) return;
     const __tid_save_1 = toast.loading("กำลังบันทึก...");
     setSaving(true);
     try {
       const { error } = await supabase.from("sdq_records").insert({
         student_id: studentId,
-        emotional_score: parseInt(emotional || "0"),
-        conduct_score: parseInt(conduct || "0"),
-        hyperactivity_score: parseInt(hyper || "0"),
-        peer_score: parseInt(peer || "0"),
-        prosocial_score: parseInt(prosocial || "0"),
+        emotional_score: safeInt(emotional, 0),
+        conduct_score: safeInt(conduct, 0),
+        hyperactivity_score: safeInt(hyper, 0),
+        peer_score: safeInt(peer, 0),
+        prosocial_score: safeInt(prosocial, 0),
         total_difficulty: total,
         assessment_by: assessorName,
         assessment_type: assessorType,
@@ -80,7 +82,7 @@ const PublicSDQPage = () => {
       setSubmitted(true);
       toast.success("บันทึกผลประเมินสำเร็จ");
     } catch (err: any) {
-      toast.error(err.message || "เกิดข้อผิดพลาด");
+      toast.error(saveErrorMessage(err));
     } finally {
       toast.dismiss(__tid_save_1);
       setSaving(false);

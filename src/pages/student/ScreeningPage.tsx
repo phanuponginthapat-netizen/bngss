@@ -18,6 +18,8 @@ import { ScanSearchButton } from "@/components/student/ScanSearchButton";
 import { useStudentData } from "@/hooks/useStudentData";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { AcademicYearFilter } from "@/components/AcademicYearFilter";
+import { saveErrorMessage } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 
 // หัวข้อคัดกรองตามมาตรฐาน สพฐ. (OBEC Screening Categories)
@@ -149,14 +151,17 @@ const ScreeningPage = () => {
       economic_status: economicStatus || null,
       protection_status: protectionStatus || null,
     } as any);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "บันทึกสำเร็จ" : "Saved");
     qc.invalidateQueries({ queryKey: ["student_screenings"] });
     setOpen(false); setNotes(""); setStudentId(""); setEconomicStatus(""); setProtectionStatus(""); setScreeningType("general");
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("student_screenings").delete().eq("id", id);
+    const ok = await swal.confirm({ title: lang === "th" ? "ยืนยันการลบ" : "Confirm delete", danger: true, confirmText: lang === "th" ? "ลบ" : "Delete" });
+    if (!ok) return;
+    const { error } = await supabase.from("student_screenings").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["student_screenings"] });
   };
 

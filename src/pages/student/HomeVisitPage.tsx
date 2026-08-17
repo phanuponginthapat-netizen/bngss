@@ -28,6 +28,8 @@ import { Kosor01FormSection } from "@/components/student/Kosor01FormSection";
 import { renderKosor01Html } from "@/lib/kosor01";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { notifyStudentEvent } from "@/lib/notifyStudentEvent";
+import { saveErrorMessage, safeNum, safeInt } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 const HomeVisitPage = () => {
   const { lang } = useLanguage();
@@ -193,6 +195,7 @@ const HomeVisitPage = () => {
   };
 
   const handleAdd = async () => {
+    if (uploading) return;
     if (!studentId || !visitorName) {
       toast.error("กรุณาเลือกนักเรียนและระบุชื่อผู้เยี่ยม");
       return;
@@ -214,23 +217,23 @@ const HomeVisitPage = () => {
         family_status: familyStatus,
         recommendations,
         poverty_status: povertyStatus,
-        income_per_month: incomePerMonth ? parseFloat(incomePerMonth) : null,
+        income_per_month: incomePerMonth ? safeNum(incomePerMonth, null as any) : null,
         house_ownership: houseOwnership || null,
         living_with: livingWith || null,
-        num_family_members: numFamilyMembers ? parseInt(numFamilyMembers) : null,
+        num_family_members: numFamilyMembers ? safeInt(numFamilyMembers, null as any) : null,
         has_internet: hasInternet,
         has_computer: hasComputer,
         travel_method: travelMethod || null,
-        distance_to_school: distanceToSchool ? parseFloat(distanceToSchool) : null,
-        latitude: latitude ? parseFloat(latitude) : null,
-        longitude: longitude ? parseFloat(longitude) : null,
+        distance_to_school: distanceToSchool ? safeNum(distanceToSchool, null as any) : null,
+        latitude: latitude ? safeNum(latitude, null as any) : null,
+        longitude: longitude ? safeNum(longitude, null as any) : null,
         photo_urls: photoUrls,
         classroom_id: selectedClassroom || null,
         kosor01_data: kosor01,
       } as any).select("id").single();
 
       if (error) {
-        toast.error(error.message);
+        toast.error(saveErrorMessage(error));
         return;
       }
       toast.success("บันทึกการเยี่ยมบ้านสำเร็จ");
@@ -257,7 +260,10 @@ const HomeVisitPage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("home_visits").delete().eq("id", id);
+    const ok = await swal.confirm({ title: "ยืนยันการลบ?", text: "ต้องการลบข้อมูลการเยี่ยมบ้านนี้หรือไม่", danger: true });
+    if (!ok) return;
+    const { error } = await supabase.from("home_visits").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["home_visits"] });
     toast.success("ลบข้อมูลแล้ว");
   };

@@ -17,6 +17,8 @@ import { ScanSearchButton } from "@/components/student/ScanSearchButton";
 import { useStudentFilter } from "@/components/student/StudentSearchFilter";
 import { useStudentsWithClass } from "@/hooks/useStudentsWithClass";
 import { notifyStudentEvent } from "@/lib/notifyStudentEvent";
+import { saveErrorMessage, safeInt } from "@/lib/saveError";
+import { swal } from "@/lib/swal";
 
 // วัคซีนตามโปรแกรม สพฐ./กระทรวงสาธารณสุข
 const OBEC_VACCINES = [
@@ -84,17 +86,22 @@ const VaccinePage = () => {
     return { total: records.length, uniqueStudents: new Set(records.map((r: any) => r.student_id)).size, vaccineCount };
   }, [records]);
 
+  const [savingVaccine, setSavingVaccine] = useState(false);
   const handleAdd = async () => {
     const finalName = vaccineName === "other" ? customVaccine : (OBEC_VACCINES.find(v => v.value === vaccineName)?.label || vaccineName);
-    if (!studentId || !finalName) return;
+    if (!studentId) { toast.error(lang === "th" ? "กรุณาเลือกนักเรียน" : "Please select a student"); return; }
+    if (!finalName) { toast.error(lang === "th" ? "กรุณาเลือกวัคซีน" : "Please select a vaccine"); return; }
+    if (savingVaccine) return;
+    setSavingVaccine(true);
     const { data: inserted, error } = await supabase.from("vaccine_records").insert({
       student_id: studentId,
       vaccine_name: finalName,
-      dose_number: parseInt(dose),
+      dose_number: safeInt(dose, 1),
       lot_number: lot || null,
       notes: notes || null,
     } as any).select("id").single();
-    if (error) { toast.error(error.message); return; }
+    setSavingVaccine(false);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "บันทึกสำเร็จ" : "Saved");
     qc.invalidateQueries({ queryKey: ["vaccine_records"] });
 
@@ -115,8 +122,12 @@ const VaccinePage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("vaccine_records").delete().eq("id", id);
+    const ok = await swal.confirm({ title: "ยืนยันการลบ?", text: "ต้องการลบบันทึกวัคซีนนี้หรือไม่", danger: true });
+    if (!ok) return;
+    const { error } = await supabase.from("vaccine_records").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["vaccine_records"] });
+    toast.success(lang === "th" ? "ลบสำเร็จ" : "Deleted");
   };
 
   return (
@@ -211,7 +222,7 @@ const VaccinePage = () => {
                 <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder={lang === "th" ? "อาการข้างเคียง, หมายเหตุ..." : "Side effects, notes..."} />
               </div>
 
-              <Button onClick={handleAdd} className="w-full">{lang === "th" ? "บันทึก" : "Save"}</Button>
+              <Button onClick={handleAdd} className="w-full" disabled={savingVaccine}>{savingVaccine ? (lang === "th" ? "กำลังบันทึก..." : "Saving...") : (lang === "th" ? "บันทึก" : "Save")}</Button>
             </div>
           </DialogContent>
         </Dialog>

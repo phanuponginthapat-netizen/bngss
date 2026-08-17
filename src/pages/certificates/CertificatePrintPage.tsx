@@ -16,6 +16,7 @@ import { formatDateLongBE } from "@/lib/dateBE";
 import { getSchoolInfo } from "@/lib/schoolInfo";
 import { CertificateRenderer, type CertTemplate } from "@/components/certificates/CertificateRenderer";
 import BackButton from "@/components/BackButton";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const db = supabase as any;
 const RENDER_W = 1400; // px ต่อ 1 ใบ (ความละเอียดสูงพอสำหรับ A4)
@@ -183,7 +184,7 @@ export default function CertificatePrintPage() {
       };
     });
     const { error } = await db.from("certificate_issues").insert(payload);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success(`บันทึกประวัติการออกเกียรติบัตร ${payload.length} รายการ`);
   };
 

@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import AttachmentUploader from "./AttachmentUploader";
 import AttachmentList from "./AttachmentList";
 import { uploadHomeworkFile, type Attachment } from "@/lib/homeworkStorage";
+import { saveErrorMessage } from "@/lib/saveError";
 
 export type Reply = {
   id: string;
@@ -69,7 +70,7 @@ export default function HomeworkReplies({
     const next = [...(replies || []), newReply];
     const { error } = await supabase.from("task_assignments").update({ replies: next as any }).eq("id", taskId);
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     setText("");
     setPending([]);
     toast.success("ส่งแล้ว");

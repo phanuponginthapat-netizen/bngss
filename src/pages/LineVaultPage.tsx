@@ -21,6 +21,7 @@ import { th } from "date-fns/locale";
 import JSZip from "jszip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getBackendConfig } from "@/lib/runtimeConfig";
+import { saveErrorMessage } from "@/lib/saveError";
 
 
 type Item = {
@@ -401,7 +402,7 @@ export default function LineVaultPage() {
       .order("is_pinned", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(500);
-    if (error) toast.error(error.message);
+    if (error) toast.error(saveErrorMessage(error));
     setItems((data as any) || []);
     if (isAdmin) {
       const { data: g } = await supabase.from("line_vault_groups").select("*").order("created_at", { ascending: false });

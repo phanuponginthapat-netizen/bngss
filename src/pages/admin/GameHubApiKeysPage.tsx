@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, ArrowLeft, Copy } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuthSession } from "@/hooks/useAuthSession";
+import { saveErrorMessage } from "@/lib/saveError";
 
 async function sha256Hex(text: string) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
@@ -58,7 +59,7 @@ export default function GameHubApiKeysPage() {
       setName("");
       qc.invalidateQueries({ queryKey: ["game-hub-api-keys"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(saveErrorMessage(e)),
   });
 
   const del = useMutation({

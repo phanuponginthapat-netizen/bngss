@@ -12,6 +12,7 @@ import { saveWithToast } from "@/lib/saveWithToast";
 import { Save, CalendarDays, GraduationCap, Zap, RotateCcw, ChevronRight, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { saveErrorMessage } from "@/lib/saveError";
 import { swal } from "@/lib/swal";
 import { logAudit } from "@/lib/auditLog";
 import { BE_OFFSET } from "@/lib/dateBE";
@@ -31,11 +32,13 @@ const MONTHS = [
   { value: 12, th: "ธันวาคม", en: "December" },
 ];
 
-const upsert = (key: string, value: string | null) =>
-  supabase.from("school_settings").upsert(
+const upsert = async (key: string, value: string | null) => {
+  const { error } = await supabase.from("school_settings").upsert(
     { setting_key: key, setting_value: value ?? "" },
     { onConflict: "setting_key" }
   );
+  if (error) throw new Error(saveErrorMessage(error));
+};
 
 const SemesterSettingsPage = () => {
   const { lang } = useLanguage();
@@ -105,8 +108,13 @@ const SemesterSettingsPage = () => {
   // Quick actions --------------------------------------------------
 
   const setOverride = async (year: number, sem: 1 | 2, msg: string) => {
-    await upsert("academic_year_override", String(year));
-    await upsert("semester_override", String(sem));
+    try {
+      await upsert("academic_year_override", String(year));
+      await upsert("semester_override", String(sem));
+    } catch (e: any) {
+      toast.error(saveErrorMessage(e));
+      return;
+    }
     refresh();
     toast.success(msg);
     logAudit({ action: "semester_quick_action", target_table: "school_settings", details: { year, sem } });
@@ -142,8 +150,13 @@ const SemesterSettingsPage = () => {
       title: L("กลับสู่โหมดอัตโนมัติ?", "Switch to auto mode?"),
       text: L("ระบบจะคำนวณปีการศึกษาและภาคเรียนจากเดือนตามค่าที่ตั้งไว้", "System will calculate from months"),
     }))) return;
-    await upsert("academic_year_override", "");
-    await upsert("semester_override", "");
+    try {
+      await upsert("academic_year_override", "");
+      await upsert("semester_override", "");
+    } catch (e: any) {
+      toast.error(saveErrorMessage(e));
+      return;
+    }
     refresh();
     setManual(false);
     toast.success(L("กลับสู่โหมดอัตโนมัติแล้ว", "Switched to auto mode"));

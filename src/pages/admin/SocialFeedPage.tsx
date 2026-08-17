@@ -21,6 +21,7 @@ import {
   type SocialLink, type SocialPlatformKey,
 } from "@/lib/socialPlatforms";
 import { SocialWallWidget } from "@/components/social/SocialWallWidget";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const emptyLink = (): SocialLink => ({
   id: crypto.randomUUID(),
@@ -72,7 +73,7 @@ export default function SocialFeedPage() {
   const handleDelete = async (id: string) => {
     if (!(await swal.confirm({ title: "ลบลิงค์นี้?", danger: true }))) return;
     const { error } = await save(links.filter((l) => l.id !== id));
-    if (error) toast.error(error.message); else toast.success("ลบแล้ว");
+    if (error) toast.error(saveErrorMessage(error)); else toast.success("ลบแล้ว");
   };
 
   const move = async (id: string, dir: -1 | 1) => {

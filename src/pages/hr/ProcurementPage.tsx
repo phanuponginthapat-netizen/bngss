@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { swal } from "@/lib/swal";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import { Plus, Trash2, ShoppingCart } from "lucide-react";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const METHODS = [
   "เฉพาะเจาะจง", "คัดเลือก", "e-bidding", "สอบราคา", "ประกวดราคา",
@@ -68,7 +69,7 @@ const ProcurementPage = () => {
         amount,
         requested_by: auth.user.id,
       } as any);
-      if (error) { toast.error(error.message); return; }
+      if (error) { toast.error(saveErrorMessage(error)); return; }
       toast.success("บันทึกสำเร็จ");
       qc.invalidateQueries({ queryKey: ["procurement_records"] });
       setOpen(false);
@@ -81,7 +82,7 @@ const ProcurementPage = () => {
   const handleDelete = async (id: string) => {
     if (!(await swal.confirm({ title: "ต้องการลบรายการนี้หรือไม่?", danger: true }))) return;
     const { error } = await supabase.from("procurement_records").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบสำเร็จ");
     qc.invalidateQueries({ queryKey: ["procurement_records"] });
   };

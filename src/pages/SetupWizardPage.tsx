@@ -14,6 +14,7 @@ import {
   Database, User, Palette, Cloud, Copy, ExternalLink, Sparkles, ShieldCheck, Wrench,
   Wand2, Upload, HardDriveDownload, KeyRound,
 } from "lucide-react";
+import { saveErrorMessage } from "@/lib/saveError";
 
 type StepStatus = "idle" | "checking" | "ok" | "fail";
 interface StepResult { status: StepStatus; message?: string; detail?: string; }
@@ -239,7 +240,7 @@ export default function SetupWizardPage() {
       return true;
     } catch (e: any) {
       setR("restore", { status: "fail", message: "กู้คืนล้มเหลว", detail: e.message });
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
       return false;
     } finally {
       setRestoring(false);

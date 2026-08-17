@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useUserRole } from "@/hooks/useUserRole";
 import { canvasToFaceThumb } from "@/lib/faceThumb";
 import { clearRegisteredFaceCache } from "@/lib/registeredFace";
+import { saveErrorMessage } from "@/lib/saveError";
 
 
 const FaceRegisterTab = () => {
@@ -320,7 +321,7 @@ const FaceRegisterTab = () => {
       toast.success("ส่งคำขออนุมัติให้แอดมินแล้ว");
       setShots([]); setReason("");
       qc.invalidateQueries({ queryKey: ["face-pending-requests"] });
-    } catch (e: any) { toast.error(e.message); } finally { setBusy(false); }
+    } catch (e: any) { toast.error(saveErrorMessage(e)); } finally { setBusy(false); }
   };
 
   const saveDirectly = async () => {
@@ -371,7 +372,7 @@ const FaceRegisterTab = () => {
       qc.invalidateQueries({ queryKey: ["face-db"] });
       qc.invalidateQueries({ queryKey: ["face-registered-ids"] });
       qc.invalidateQueries({ queryKey: ["face-history"] });
-    } catch (e: any) { toast.error(e.message); } finally { setBusy(false); }
+    } catch (e: any) { toast.error(saveErrorMessage(e)); } finally { setBusy(false); }
   };
 
 

@@ -10,6 +10,7 @@ import { compressImage } from "@/lib/imageCompress";
 import { createStorageSignedUrl } from "@/lib/storageUrl";
 import { getCurrentCoords, mapsLink, formatCoords } from "@/lib/geolocation";
 import { Camera, ImagePlus, MapPin, Trash2, Loader2 } from "lucide-react";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const BUCKET = "offsite-photos";
 
@@ -131,7 +132,7 @@ export default function TripPhotosTab({ tripId, canEdit }: { tripId: string; can
     if (!ok) return;
     await supabase.storage.from(BUCKET).remove([p.photo_url]);
     const { error } = await supabase.from("student_offsite_photos").delete().eq("id", p.id);
-    if (error) { swal.toast.error(error.message); return; }
+    if (error) { swal.toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["offsite_photos", tripId] });
     swal.toast.success("ลบแล้ว");
   };

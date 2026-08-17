@@ -11,6 +11,7 @@ import AttachmentUploader from "./AttachmentUploader";
 import AttachmentList from "./AttachmentList";
 import { uploadHomeworkFile, type Attachment } from "@/lib/homeworkStorage";
 import { notify } from "@/lib/notify";
+import { saveErrorMessage } from "@/lib/saveError";
 
 export type HistoryEntry = {
   at: string;
@@ -140,7 +141,7 @@ export function StudentSubmissionPanel({
     };
     const { error } = await supabase.from("task_assignments").update({ submissions: next as any }).eq("id", taskId);
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     setText(""); setPending([]);
     toast.success("ส่งงานเรียบร้อย");
     invalidateKeys.forEach((k) => qc.invalidateQueries({ queryKey: k }));
@@ -322,7 +323,7 @@ export function TeacherGradingPanel({
     const merged: Submission = { ...cur, ...patch, history: entry ? [...prevHistory, entry] : prevHistory };
     const next: SubmissionsMap = { ...(submissions || {}), [studentId]: merged };
     const { error } = await supabase.from("task_assignments").update({ submissions: next as any }).eq("id", taskId);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     invalidateKeys.forEach((k) => qc.invalidateQueries({ queryKey: k }));
 
     // Notify the student (and parent) — realtime

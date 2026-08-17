@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Save, Trash2, Plus, Loader2, Copy, ArrowDown, ArrowRight, Send, ZoomIn, ZoomOut, Search, List as ListIcon } from "lucide-react";
 import { AUTOFILL_SOURCES } from "@/lib/templateAutofill";
 import { PDF_FONTS, DEFAULT_FONT } from "@/lib/pdfTemplateFonts";
+import { saveErrorMessage } from "@/lib/saveError";
 
 
 const FIELD_TYPES = ["text", "longtext", "number", "date", "checkbox", "radio", "signature", "image", "autofill"];
@@ -198,7 +199,7 @@ export default function TemplateEditorPage() {
       qc.invalidateQueries({ queryKey: ["pdf-templates"] });
       qc.invalidateQueries({ queryKey: ["master-templates"] });
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -232,7 +233,7 @@ export default function TemplateEditorPage() {
       qc.invalidateQueries({ queryKey: ["pdf-templates"] });
       qc.invalidateQueries({ queryKey: ["master-templates"] });
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -248,7 +249,7 @@ export default function TemplateEditorPage() {
       toast.success("ยกเลิกการเผยแพร่แล้ว");
       qc.invalidateQueries({ queryKey: ["master-templates"] });
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(saveErrorMessage(e));
     } finally {
       setSaving(false);
     }

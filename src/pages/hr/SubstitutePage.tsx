@@ -17,6 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useUserRole } from "@/hooks/useUserRole";
 import SubstituteReport from "@/components/hr/SubstituteReport";
 import { BE_OFFSET, bkkDateISO } from "@/lib/dateBE";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const dayNames = {
   th: ["", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"],
@@ -459,7 +460,8 @@ const SubstitutePage = () => {
     );
 
   const handleRemoveSub = async (id: string) => {
-    await supabase.from("substitute_teaching").delete().eq("id", id);
+    const { error } = await supabase.from("substitute_teaching").delete().eq("id", id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["substitute_teaching"] });
     toast.success(lang === "th" ? "ยกเลิกแล้ว" : "Removed");
   };
@@ -491,7 +493,7 @@ const SubstitutePage = () => {
       qc.invalidateQueries({ queryKey: ["substitute_teaching"] });
       toast.success(lang === "th" ? "อัปโหลดภาพหลักฐานแล้ว" : "Proof uploaded");
     } catch (e: any) {
-      toast.error(e?.message || "Upload failed");
+      toast.error(saveErrorMessage(e));
     } finally {
       setUploadingProof(false);
     }

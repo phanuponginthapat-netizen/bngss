@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Plus, Users, UserPlus, BookOpen, Trash2, School, Search } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { saveErrorMessage, safeInt } from "@/lib/saveError";
 
 interface Classroom { id: string; name: string; grade_level: string; academic_year: number; homeroom_teacher: string | null; capacity: number | null; }
 interface Student { id: string; student_code: string; prefix: string | null; first_name: string; last_name: string; classroom_id: string | null; status: string; }
@@ -49,6 +50,9 @@ const EnrollmentPage = () => {
   const [enrollSemester, setEnrollSemester] = useState("1");
   const [enrollYear, setEnrollYear] = useState(String(new Date().getFullYear() + BE_OFFSET));
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [savingClassroom, setSavingClassroom] = useState(false);
+  const [savingStudent, setSavingStudent] = useState(false);
+  const [savingEnroll, setSavingEnroll] = useState(false);
 
   // Filter subjects by selected semester and classroom's grade level
   const selectedClassroomData = useMemo(() => classrooms.find(c => c.id === selectedClassroom), [classrooms, selectedClassroom]);
@@ -113,41 +117,54 @@ const EnrollmentPage = () => {
 
   // Add classroom
   const handleAddClassroom = async () => {
+    if (savingClassroom) return;
     if (!classroomForm.name || !classroomForm.grade_level) { toast.error("กรุณากรอกชื่อห้องและระดับชั้น"); return; }
-    const { error } = await supabase.from("classrooms").insert({
-      name: classroomForm.name,
-      grade_level: classroomForm.grade_level,
-      homeroom_teacher: classroomForm.homeroom_teacher || null,
-      capacity: parseInt(classroomForm.capacity) || 40,
-    });
-    if (error) { toast.error(error.message); return; }
-    toast.success("เพิ่มห้องเรียนสำเร็จ");
-    setClassroomDialog(false);
-    setClassroomForm({ name: "", grade_level: "", homeroom_teacher: "", capacity: "40" });
-    fetchClassrooms();
+    setSavingClassroom(true);
+    try {
+      const { error } = await supabase.from("classrooms").insert({
+        name: classroomForm.name,
+        grade_level: classroomForm.grade_level,
+        homeroom_teacher: classroomForm.homeroom_teacher || null,
+        capacity: safeInt(classroomForm.capacity, 40),
+      });
+      if (error) { toast.error(saveErrorMessage(error)); return; }
+      toast.success("เพิ่มห้องเรียนสำเร็จ");
+      setClassroomDialog(false);
+      setClassroomForm({ name: "", grade_level: "", homeroom_teacher: "", capacity: "40" });
+      fetchClassrooms();
+    } finally {
+      setSavingClassroom(false);
+    }
   };
 
   // Add student
   const handleAddStudent = async () => {
+    if (savingStudent) return;
     if (!studentForm.student_code || !studentForm.first_name || !studentForm.last_name) {
       toast.error("กรุณากรอกข้อมูลให้ครบ"); return;
     }
-    const { error } = await supabase.from("students").insert({
-      student_code: studentForm.student_code,
-      prefix: studentForm.prefix,
-      first_name: studentForm.first_name,
-      last_name: studentForm.last_name,
-      classroom_id: studentForm.classroom_id || null,
-    });
-    if (error) { toast.error(error.message); return; }
-    toast.success("เพิ่มนักเรียนสำเร็จ");
-    setStudentDialog(false);
-    setStudentForm({ student_code: "", prefix: "ด.ช.", first_name: "", last_name: "", classroom_id: "" });
-    if (selectedClassroom) fetchStudentsByClassroom(selectedClassroom);
+    setSavingStudent(true);
+    try {
+      const { error } = await supabase.from("students").insert({
+        student_code: studentForm.student_code,
+        prefix: studentForm.prefix,
+        first_name: studentForm.first_name,
+        last_name: studentForm.last_name,
+        classroom_id: studentForm.classroom_id || null,
+      });
+      if (error) { toast.error(saveErrorMessage(error)); return; }
+      toast.success("เพิ่มนักเรียนสำเร็จ");
+      setStudentDialog(false);
+      setStudentForm({ student_code: "", prefix: "ด.ช.", first_name: "", last_name: "", classroom_id: "" });
+      if (selectedClassroom) fetchStudentsByClassroom(selectedClassroom);
+    } finally {
+      setSavingStudent(false);
+    }
   };
 
   // Enroll entire classroom
   const handleEnrollClassroom = async () => {
+    if (savingEnroll) return;
     if (!selectedClassroom || !selectedSubject) { toast.error("กรุณาเลือกห้องเรียนและรายวิชา"); return; }
     const classStudents = students;
     if (classStudents.length === 0) { toast.error("ไม่มีนักเรียนในห้องเรียนนี้"); return; }
@@ -156,41 +173,52 @@ const EnrollmentPage = () => {
       student_id: s.id,
       subject_id: selectedSubject,
       classroom_id: selectedClassroom,
-      semester: parseInt(enrollSemester),
-      academic_year: parseInt(enrollYear) - BE_OFFSET,
+      semester: safeInt(enrollSemester, 1),
+      academic_year: safeInt(enrollYear, new Date().getFullYear()) - BE_OFFSET,
       enrollment_type: "classroom" as const,
     }));
 
-    const { error } = await supabase.from("enrollments").upsert(enrollData, { onConflict: "student_id,subject_id,semester,academic_year" });
-    if (error) { toast.error(error.message); return; }
-    toast.success(`ลงทะเบียนรายห้อง ${classStudents.length} คนสำเร็จ`);
-    fetchEnrollmentsBySubject(selectedSubject);
+    setSavingEnroll(true);
+    try {
+      const { error } = await supabase.from("enrollments").upsert(enrollData, { onConflict: "student_id,subject_id,semester,academic_year" });
+      if (error) { toast.error(saveErrorMessage(error)); return; }
+      toast.success(`ลงทะเบียนรายห้อง ${classStudents.length} คนสำเร็จ`);
+      fetchEnrollmentsBySubject(selectedSubject);
+    } finally {
+      setSavingEnroll(false);
+    }
   };
 
   // Enroll selected individuals
   const handleEnrollIndividual = async () => {
+    if (savingEnroll) return;
     if (selectedStudentIds.length === 0 || !selectedSubject) { toast.error("กรุณาเลือกนักเรียนและรายวิชา"); return; }
 
     const enrollData = selectedStudentIds.map((sid) => ({
       student_id: sid,
       subject_id: selectedSubject,
       classroom_id: selectedClassroom || null,
-      semester: parseInt(enrollSemester),
-      academic_year: parseInt(enrollYear) - BE_OFFSET,
+      semester: safeInt(enrollSemester, 1),
+      academic_year: safeInt(enrollYear, new Date().getFullYear()) - BE_OFFSET,
       enrollment_type: "individual" as const,
     }));
 
-    const { error } = await supabase.from("enrollments").upsert(enrollData, { onConflict: "student_id,subject_id,semester,academic_year" });
-    if (error) { toast.error(error.message); return; }
-    toast.success(`ลงทะเบียนรายบุคคล ${selectedStudentIds.length} คนสำเร็จ`);
-    setSelectedStudentIds([]);
-    fetchEnrollmentsBySubject(selectedSubject);
+    setSavingEnroll(true);
+    try {
+      const { error } = await supabase.from("enrollments").upsert(enrollData, { onConflict: "student_id,subject_id,semester,academic_year" });
+      if (error) { toast.error(saveErrorMessage(error)); return; }
+      toast.success(`ลงทะเบียนรายบุคคล ${selectedStudentIds.length} คนสำเร็จ`);
+      setSelectedStudentIds([]);
+      fetchEnrollmentsBySubject(selectedSubject);
+    } finally {
+      setSavingEnroll(false);
+    }
   };
 
   // Remove enrollment
   const handleRemoveEnrollment = async (id: string) => {
     const { error } = await supabase.from("enrollments").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ถอนการลงทะเบียนสำเร็จ");
     fetchEnrollmentsBySubject(selectedSubject);
   };
@@ -251,7 +279,7 @@ const EnrollmentPage = () => {
                 </div>
                 <div className="flex gap-2 justify-end pt-2">
                   <Button variant="outline" onClick={() => setClassroomDialog(false)}>{lang === "th" ? "ยกเลิก" : "Cancel"}</Button>
-                  <Button onClick={handleAddClassroom} className="gradient-primary text-primary-foreground">{lang === "th" ? "บันทึก" : "Save"}</Button>
+                  <Button onClick={handleAddClassroom} className="gradient-primary text-primary-foreground" disabled={savingClassroom}>{lang === "th" ? "บันทึก" : "Save"}</Button>
                 </div>
               </div>
             </DialogContent>
@@ -305,7 +333,7 @@ const EnrollmentPage = () => {
                 </div>
                 <div className="flex gap-2 justify-end pt-2">
                   <Button variant="outline" onClick={() => setStudentDialog(false)}>{lang === "th" ? "ยกเลิก" : "Cancel"}</Button>
-                  <Button onClick={handleAddStudent} className="gradient-primary text-primary-foreground">{lang === "th" ? "บันทึก" : "Save"}</Button>
+                  <Button onClick={handleAddStudent} className="gradient-primary text-primary-foreground" disabled={savingStudent}>{lang === "th" ? "บันทึก" : "Save"}</Button>
                 </div>
               </div>
             </DialogContent>
@@ -376,7 +404,7 @@ const EnrollmentPage = () => {
                   <p className="text-sm text-muted-foreground">
                     {lang === "th" ? `นักเรียนในห้อง: ${students.length} คน` : `Students in class: ${students.length}`}
                   </p>
-                  <Button onClick={handleEnrollClassroom} className="gradient-primary text-primary-foreground" disabled={!selectedSubject}>
+                  <Button onClick={handleEnrollClassroom} className="gradient-primary text-primary-foreground" disabled={!selectedSubject || savingEnroll}>
                     <Users className="w-4 h-4 mr-1" /> {lang === "th" ? "ลงทะเบียนทั้งห้อง" : "Enroll Entire Class"}
                   </Button>
                 </div>
@@ -487,7 +515,7 @@ const EnrollmentPage = () => {
                     <Button size="sm" variant="outline" onClick={toggleAll}>
                       {selectedStudentIds.length === students.length ? (lang === "th" ? "ยกเลิกทั้งหมด" : "Deselect All") : (lang === "th" ? "เลือกทั้งหมด" : "Select All")}
                     </Button>
-                    <Button size="sm" onClick={handleEnrollIndividual} className="gradient-primary text-primary-foreground" disabled={selectedStudentIds.length === 0 || !selectedSubject}>
+                    <Button size="sm" onClick={handleEnrollIndividual} className="gradient-primary text-primary-foreground" disabled={selectedStudentIds.length === 0 || !selectedSubject || savingEnroll}>
                       <UserPlus className="w-3.5 h-3.5 mr-1" /> {lang === "th" ? "ลงทะเบียน" : "Enroll"}
                     </Button>
                   </div>

@@ -13,6 +13,7 @@ import { Plus, Pencil, Trash2 } from "lucide-react";
 import { ImageUploadField } from "@/components/garbage/ImageUploadField";
 import { useUserRole } from "@/hooks/useUserRole";
 import { swal } from "@/lib/swal";
+import { saveErrorMessage } from "@/lib/saveError";
 
 type Item = { id: string; name: string; unit: string; points_per_unit: number; is_active: boolean; description?: string; image_url?: string };
 type Reward = { id: string; name: string; points_cost: number; stock: number; is_active: boolean; description?: string; image_url?: string };
@@ -27,7 +28,7 @@ function ItemEditor({ open, onClose, item, onSaved }: { open: boolean; onClose: 
     const { error } = item?.id
       ? await supabase.from("garbage_items").update(payload).eq("id", item.id)
       : await supabase.from("garbage_items").insert(payload);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("บันทึกแล้ว"); onSaved(); onClose();
   };
 
@@ -61,7 +62,7 @@ function RewardEditor({ open, onClose, reward, onSaved }: { open: boolean; onClo
     const { error } = reward?.id
       ? await supabase.from("garbage_rewards").update(payload).eq("id", reward.id)
       : await supabase.from("garbage_rewards").insert(payload);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("บันทึกแล้ว"); onSaved(); onClose();
   };
 
@@ -107,7 +108,7 @@ export default function GarbageItemsPage() {
   const remove = async (table: "garbage_items" | "garbage_rewards", id: string) => {
     if (!(await swal.confirm({ title: "ลบรายการนี้?", danger: true }))) return;
     const { error } = await supabase.from(table).delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(saveErrorMessage(error));
     toast.success("ลบแล้ว"); load();
   };
 
