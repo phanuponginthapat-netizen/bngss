@@ -104,6 +104,10 @@ const FaceKioskPage = () => {
   const [perfMode, setPerfMode] = useState<KioskPerfMode>(() => loadKioskPerfMode());
   const perf = KIOSK_PERF_PROFILES[perfMode];
   useEffect(() => { localStorage.setItem(KIOSK_PERF_KEY, perfMode); }, [perfMode]);
+  // เตรียมเสียงประโยคที่ใช้บ่อยล่วงหน้า — กันเสียงกระตุก/ดีเลย์ตอนสแกนจริง
+  useEffect(() => {
+    prewarmSpeech(["ไม่พบข้อมูลใบหน้าในระบบ กรุณาลงทะเบียน", "สแกนเข้าสำเร็จ", "สแกนออกสำเร็จ"]);
+  }, []);
   const [screensaver, setScreensaver] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
