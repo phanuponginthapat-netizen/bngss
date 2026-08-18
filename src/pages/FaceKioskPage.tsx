@@ -706,7 +706,7 @@ const FaceKioskPage = () => {
     const CONFIRM_FRAMES = 2;
     const CONFIRM_WINDOW_MS = 1500;
 
-    const MIN_SHARPNESS = 70; // ใต้ค่านี้ = เบลอเกินไป ไม่บันทึก
+    const MIN_SHARPNESS = 70; // ใต้ค่านี้ = เบลอเกินไป ไม่บันทึก (โหมดประหยัดข้ามการตรวจ)
 
     const snapCanvas = document.createElement("canvas");
     const captureFaceCrop = (video: HTMLVideoElement, box: { x: number; y: number; width: number; height: number }): string | undefined => {
