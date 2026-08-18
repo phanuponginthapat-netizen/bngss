@@ -1189,6 +1189,7 @@ if [[ "$KIOSK_MODE" == "student" ]]; then
     --disable-save-password-bubble --disable-signin-promo \
     --autoplay-policy=no-user-gesture-required \
     --use-fake-ui-for-media-stream \
+    --alsa-output-device=default --audio-buffer-size=2048 \
     --enable-features=WebRTCPipeWireCapturer --disk-cache-size=0 \
     --password-store=basic $EXT_FLAG"
   cat >/opt/kiosk/start-kiosk.sh <<EOF
