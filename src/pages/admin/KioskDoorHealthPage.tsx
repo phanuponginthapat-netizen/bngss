@@ -183,7 +183,8 @@ export default function KioskDoorHealthPage() {
       .channel("kiosk-door-health")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "kiosk_devices", filter: "kiosk_mode=eq.door" },
+        { event: "*", schema: "public", table: "kiosk_devices" },
+
         () => load(),
       )
       .subscribe();
