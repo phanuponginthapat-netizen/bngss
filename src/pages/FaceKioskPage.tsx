@@ -1335,6 +1335,27 @@ const FaceKioskPage = () => {
             </Button>
           </div>
 
+          <div className="space-y-1.5 border-t pt-2">
+            <label className="text-xs font-semibold">ประสิทธิภาพการสแกน</label>
+            <div className="flex gap-1">
+              {(["low", "balanced", "high"] as KioskPerfMode[]).map((m) => (
+                <Button
+                  key={m}
+                  size="sm"
+                  variant={perfMode === m ? "default" : "outline"}
+                  onClick={() => { setPerfMode(m); if (camMode !== "network") void startCamera(camMode); }}
+                  className="flex-1 text-[11px] px-1"
+                >
+                  {m === "low" ? "ประหยัด" : m === "balanced" ? "สมดุล" : "ละเอียด"}
+                </Button>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-snug">
+              {KIOSK_PERF_PROFILES[perfMode].label} • กล้อง {KIOSK_PERF_PROFILES[perfMode].videoWidth}px •
+              ตรวจทุก {KIOSK_PERF_PROFILES[perfMode].loopDelayMs} มิลลิวินาที — เครื่อง Linux สเปกต่ำแนะนำ "ประหยัด"
+            </p>
+          </div>
+
           <div className="space-y-2 border-t pt-2">
             <label className="text-xs font-semibold flex items-center gap-1">
               <Cctv className="w-3 h-3" />URL กล้องเครือข่าย (HLS / MP4)
