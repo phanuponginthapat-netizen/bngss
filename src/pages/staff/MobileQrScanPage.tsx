@@ -15,6 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   enqueueScan, flushQueue, countPending, installAutoSync,
 } from "@/lib/offlineScanQueue";
+import { checkTodayScan, markScanned, methodLabel } from "@/lib/scanDedup";
+
 
 interface RecentEntry {
   key: string;
