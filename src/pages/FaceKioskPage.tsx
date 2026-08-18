@@ -446,8 +446,8 @@ const FaceKioskPage = () => {
       const wide = mode === "wide";
       const res = await openCamera({
         facing: wide ? "environment" : "user",
-        width: wide ? 1920 : 1280,
-        height: wide ? 1080 : 720,
+        width: Math.min(wide ? 1920 : 1280, perf.videoWidth),
+        height: Math.min(wide ? 1080 : 720, perf.videoHeight),
       });
       await applyCameraAutoTune(res.stream);
       if (videoRef.current) {
