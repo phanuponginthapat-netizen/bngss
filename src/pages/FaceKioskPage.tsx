@@ -1391,6 +1391,26 @@ const FaceKioskPage = () => {
             </p>
           </div>
 
+          <div className="space-y-1.5 border-t pt-2">
+            <label className="text-xs font-semibold">ทดสอบเสียงพูด</label>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full text-[11px]"
+              onClick={() => {
+                unlockAudio();
+                playSuccessSound();
+                speakText("ทดสอบเสียงพูดของตู้สแกนใบหน้า");
+              }}
+            >
+              เล่นเสียงทดสอบ
+            </Button>
+            <p className="text-[10px] text-muted-foreground leading-snug">
+              ถ้าได้ยินเสียง "ตึ๊ง" แต่ไม่ได้ยินเสียงพูด แปลว่าลำโพงใช้ได้แต่ TTS มีปัญหา — ถ้าไม่ได้ยินเลย ให้รัน <code>/opt/kiosk/fix-audio.sh</code> บนตู้
+            </p>
+          </div>
+
+
           <div className="space-y-2 border-t pt-2">
             <label className="text-xs font-semibold flex items-center gap-1">
               <Cctv className="w-3 h-3" />URL กล้องเครือข่าย (HLS / MP4)
