@@ -867,14 +867,20 @@ const FaceKioskPage = () => {
       } catch (e) {
         console.error("kiosk detect err", e);
       }
-      if (!cancelled) detectionLoopRef.current = window.setTimeout(loop, 200);
+      if (!cancelled) {
+        // ปล่อยให้เบราว์เซอร์วาดเฟรมก่อนเริ่มรอบใหม่ → ภาพไม่กระตุก
+        detectionLoopRef.current = window.setTimeout(
+          () => requestAnimationFrame(() => { if (!cancelled) void loop(); }),
+          perf.loopDelayMs,
+        );
+      }
     };
     loop();
     return () => {
       cancelled = true;
       if (detectionLoopRef.current) clearTimeout(detectionLoopRef.current);
     };
-  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef, runGate]);
+  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef, runGate, perf, perfMode]);
 
   // ===== WizMind bridge: รับ event ใบหน้าจากกล้อง CCTV แบบ realtime แล้วจดจำทันที =====
   useEffect(() => {
