@@ -88,14 +88,16 @@ jobs:
               continue
             fi
 
-            # migration ถูกบันทึกไว้แล้วบน remote (23505) -> mark เป็น applied แล้วดันต่อ
-            if grep -qE '23505|schema_migrations_pkey' /tmp/push.log; then
+            # 23505: อาจเป็นประวัติซ้ำ (schema_migrations) หรือ object ซ้ำใน catalog เช่น pg_proc/pg_type
+            # -> ถือว่า migration นั้นถูกใช้ไปแล้ว mark เป็น applied แล้วดันต่อ
+            if grep -qE '23505|schema_migrations_pkey|pg_proc_proname_args_nsp_index|pg_type_typname_nsp_index' /tmp/push.log; then
               grep -oE 'Key \(version\)=\([0-9]+\)' /tmp/push.log \
                 | grep -oE '[0-9]{14}' | sort -u > /tmp/dup_versions.txt || true
               if [ ! -s /tmp/dup_versions.txt ]; then
                 grep -oE 'Applying migration [0-9]{14}' /tmp/push.log \
-                  | grep -oE '[0-9]{14}' | sort -u > /tmp/dup_versions.txt || true
+                  | grep -oE '[0-9]{14}' | tail -n1 > /tmp/dup_versions.txt || true
               fi
+
               if [ -s /tmp/dup_versions.txt ]; then
                 while read -r v; do
                   echo "Marking as applied (duplicate on remote): $v"
