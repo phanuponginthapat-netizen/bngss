@@ -22,6 +22,7 @@ import { canvasToFaceThumb } from "@/lib/faceThumb";
 import { computeFaceTexture } from "@/lib/faceTexture";
 import { clearRegisteredFaceCache } from "@/lib/registeredFace";
 import { saveErrorMessage } from "@/lib/saveError";
+import FaceGuideOverlay from "@/components/facescan/FaceGuideOverlay";
 
 
 const FaceRegisterTab = () => {
@@ -538,6 +539,7 @@ const FaceRegisterTab = () => {
 
           <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
             <video ref={videoRef} className="w-full h-full object-contain" muted playsInline />
+            <FaceGuideOverlay videoRef={videoRef} active={streaming && modelReady} topLabel="วางใบหน้าให้อยู่ในวงรี" />
             {!streaming && <div className="absolute inset-0 flex items-center justify-center text-white/60"><Camera className="w-12 h-12" /></div>}
           </div>
 

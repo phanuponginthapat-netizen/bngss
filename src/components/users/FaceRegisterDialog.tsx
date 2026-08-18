@@ -13,6 +13,7 @@ import { openCamera, stopStream } from "@/lib/cameraStream";
 import CameraSourcePicker from "@/components/mobile/CameraSourcePicker";
 import CameraFocusLockToggle from "@/components/mobile/CameraFocusLockToggle";
 import { saveErrorMessage } from "@/lib/saveError";
+import FaceGuideOverlay from "@/components/facescan/FaceGuideOverlay";
 
 
 
@@ -376,11 +377,9 @@ const FaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName }: Pr
                   playsInline
                   style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
                 />
-                {/* face guide ring */}
+                {/* face guide overlay */}
                 {streaming && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-[75%] aspect-[3/4] max-h-[85%] rounded-[50%] border-4 border-white/60" />
-                  </div>
+                  <FaceGuideOverlay videoRef={videoRef} active={modelReady} topLabel="วางใบหน้าให้อยู่ในวงรี" fit="cover" mirror={facingMode === "user"} />
                 )}
                 {/* switch camera */}
                 {streaming && (

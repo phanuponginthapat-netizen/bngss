@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame, detectorOptionsHQ, applyCameraAutoTune, preprocessFrame, estimateFaceSharpness, estimateBrightness, BANK_GRADE, isStrongMatch, isConfirmGrade, landmarkSanityScore, detectFaceWithLandmarks, assessFaceQuality, type KnownFace } from "@/lib/faceApi";
+import { faceGuideStatus } from "@/lib/faceGuide";
 import { useUserRole } from "@/hooks/useUserRole";
 import { ShieldCheck } from "lucide-react";
 import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, unlockAudio } from "@/lib/faceScanAudio";
@@ -656,6 +657,18 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const tNow = Date.now();
             const mirrored = facing === "user";
+            // วงรีเป้าหมาย — บอกระยะที่ใบหน้าควรอยู่ (กลางจอ) เพื่อให้กะระยะได้แม่น
+            const targetW = video.videoWidth * 0.34;
+            const targetH = targetW * 1.35;
+            const tcx = video.videoWidth / 2, tcy = video.videoHeight * 0.46;
+            ctx.save();
+            ctx.setLineDash([8, 7]);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = "rgba(255,255,255,0.35)";
+            ctx.beginPath();
+            ctx.ellipse(tcx, tcy, targetW / 2, targetH / 2, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
             await Promise.all(detections.map(async (det) => {
               const rb = det.detection.box;
               const rawBox = { x: rb.x * scaleBack, y: rb.y * scaleBack, width: rb.width * scaleBack, height: rb.height * scaleBack };
@@ -673,6 +686,9 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
               const sanity = landmarkSanityScore(det.landmarks);
               const notHuman = sanity < MIN_LANDMARK_SANITY;
               const faceTooSmall = Math.min(box.width, box.height) < BANK_GRADE.MIN_FACE_SIZE_SCAN;
+              // คำแนะนำระยะ — เทียบใบหน้าจริงกับวงรีเป้าหมาย (บอกเข้าใกล้/ถอย/เลื่อน)
+              const guide = faceGuideStatus(box, { cx: tcx, cy: tcy, w: targetW, h: targetH });
+              const distanceHint = guide.ok ? "" : guide.text;
 
               const m = matchDescriptor(det.descriptor, known, threshold);
               const ambiguous = m.studentId != null && m.margin < MIN_MARGIN;
@@ -718,10 +734,9 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
                   : tooBlurry ? "ภาพเบลอ ให้นิ่งสักครู่"
                   : tooDark ? "แสงมืดเกินไป หาที่สว่างขึ้น"
                   : tooBright ? "แสงจ้า/ย้อนแสง หลีกหน้าต่าง"
-                  : faceTooSmall ? "ใบหน้าเล็กเกินไป ขยับเข้าใกล้"
-                  : ambiguous ? "ใบหน้าคล้ายหลายคน"
-                  : lowConfidence ? `มั่นใจ ${Math.round(m.confidence * 100)}% • ต้อง ≥ ${Math.round(MIN_CONFIDENCE * 100)}%`
-                  : "ไม่พบในระบบ",
+                  : faceTooSmall ? `ใบหน้าเล็กเกินไป ${distanceHint}`
+                  : guide.ok ? "ไม่พบในระบบ"
+                  : `ปรับระยะ: ${distanceHint}`,
                 sublabel: found
                   ? `เลขที่ ${found.studentCode || "-"} • ${Math.round(m.confidence * 100)}% (Δ${m.margin.toFixed(2)}, ช ${Math.round(sharpness)})`
                   : notHuman ? `landmark ${sanity.toFixed(2)}`
@@ -729,9 +744,8 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
                   : tooDark ? `ความสว่าง ${Math.round(brightness)}`
                   : tooBright ? `ความสว่าง ${Math.round(brightness)}`
                   : faceTooSmall ? `${Math.round(Math.min(box.width, box.height))}px ต้อง ≥ ${BANK_GRADE.MIN_FACE_SIZE_SCAN}px`
-                  : ambiguous ? `ห่าง ${m.margin.toFixed(2)} • ต้อง ≥ ${MIN_MARGIN}`
-                  : lowConfidence ? "ขยับเข้าใกล้กล้องอีกนิด"
-                  : "กรุณาลงทะเบียน",
+                  : guide.ok ? "กรุณาลงทะเบียน"
+                  : distanceHint,
                 matched: !!found,
                 confidence: m.confidence,
                 color,

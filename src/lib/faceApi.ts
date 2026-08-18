@@ -167,11 +167,7 @@ async function runSingleFaceDetection(
 ) {
   // ใช้แค่ detection + landmarks (ไม่คำนวณ descriptor 128-D ของ face-api)
   // เพราะระบบใช้ ArcFace 512-D อยู่แล้ว → เร็วขึ้นมาก ทำให้ลูปจับใบหน้าลื่นและไวขึ้น
-  const single = await faceapi
-    .detectSingleFace(input as any, opts as any)
-    .withFaceLandmarks();
-  if (single) return single as any;
-
+  // เลือก "ใบหน้าใหญ่ที่สุด" เสมอ — ถ่ายภาพไหนก็ได้คนหลักกลางภาพ ไม่ใช่คนข้างๆ
   const all = await faceapi
     .detectAllFaces(input as any, opts as any)
     .withFaceLandmarks();
@@ -427,6 +423,26 @@ export async function getDescriptorFromImage(
 }
 
 /**
+ * ตรวจจับแค่ "กล่องใบหน้า" ของใบใหญ่สุด — ไม่คำนวณ descriptor/ArcFace เลย
+ * เร็วมาก ใช้สำหรับ overlay นำทางระยะ (face guide) ตอนลงทะเบียน/สแกน
+ * คืนพิกัดในระบบพิกเซลของวิดีโอ/ภาพจริง
+ */
+export async function detectFaceBox(
+  input: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement,
+): Promise<{ box: { x: number; y: number; width: number; height: number }; landmarks: faceapi.FaceLandmarks68 } | null> {
+  const detected = await detectSingleFaceRobust(input);
+  if (!detected) return null;
+  const { res, scaleX, scaleY } = detected;
+  const box = {
+    x: res.detection.box.x * scaleX,
+    y: res.detection.box.y * scaleY,
+    width: res.detection.box.width * scaleX,
+    height: res.detection.box.height * scaleY,
+  };
+  return { box, landmarks: res.landmarks };
+}
+
+/**
  * ตรวจจับใบหน้า + landmarks + descriptor พร้อมกัน
  * ใช้สำหรับ Liveness Wizard: คำนวณ blink (EAR) และ head pose (yaw)
  * descriptor ที่คืน = 512-D ArcFace embedding (L2-normalized)
@@ -504,17 +520,29 @@ export function estimatePitch(landmarks: faceapi.FaceLandmarks68): number {
   return (nose.y - eyeMidY) / total - 0.45;
 }
 
+/**
+ * ตรวจจับใบหน้า + landmarks + descriptor
+ * singleFace = true (ค่าเริ่มต้น): คืนเฉพาะใบหน้าใหญ่ที่สุดใบเดียวเท่านั้น
+ * — ลดโหลด ArcFace (แพงสุด) เหลือ 1 ครั้ง/เฟรม + ไม่สับสนหลายคนในเฟรม → ไวและแม่นขึ้น
+ */
 export async function getAllDescriptors(
   video: HTMLVideoElement | HTMLCanvasElement,
   opts?: faceapi.SsdMobilenetv1Options | faceapi.TinyFaceDetectorOptions,
-  extra?: { minFaceSize?: number; cacheTtlMs?: number },
+  extra?: { minFaceSize?: number; cacheTtlMs?: number; singleFace?: boolean },
 ) {
   const minFaceSize = extra?.minFaceSize ?? 0;
   const cacheTtlMs = extra?.cacheTtlMs ?? 0;
-  const res = await faceapi
+  const singleFace = extra?.singleFace ?? true;
+  let res = await faceapi
     .detectAllFaces(video as any, (opts ?? detectorOptions) as any)
     .withFaceLandmarks()
     .withFaceDescriptors();
+  if (singleFace && res.length > 1) {
+    // เอาเฉพาะใบที่ใหญ่ที่สุด (คนที่อยู่หน้าเครื่อง/กลางภาพ) แล้วทิ้งใบอื่นทันที
+    res = [res.sort((a, b) =>
+      (b.detection.box.width * b.detection.box.height) - (a.detection.box.width * a.detection.box.height),
+    )[0]];
+  }
   // Overwrite the 128-D face-api descriptors with 512-D ArcFace embeddings.
   // Landmarks are in `video` coord space → scaleX = scaleY = 1.
   await Promise.all(
