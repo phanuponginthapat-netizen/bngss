@@ -765,7 +765,8 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             _descriptors: descriptorArrays,
             _threshold: DUPLICATE_THRESHOLD,
           });
-          if (dupErr) throw dupErr;
+          // ตรวจซ้ำไม่สำเร็จ (สิทธิ์/ฟังก์ชันยังไม่พร้อม) ไม่ควรทำให้ลงทะเบียนล้มเหลว
+          if (dupErr) console.warn("check_face_duplicate skipped:", dupErr);
           const hit = Array.isArray(dup) ? (dup as DuplicateFaceMatch[])[0] : null;
           if (hit) {
             setBlockedMsg(
