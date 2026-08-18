@@ -1,6 +1,10 @@
 // Thai TTS via Google Translate (free, no API key, no credits)
 // Hard limit 200 chars/request → chunk ที่ ~180 chars แบบ sentence-aware
-import { corsHeadersPost as corsHeaders } from "../_shared/cors.ts";
+// รองรับทั้ง POST (JSON) และ GET ?text=... (ให้ <audio src> ใช้ตรงๆ บน Chromium/Linux)
+import { buildCorsHeaders } from "../_shared/cors.ts";
+
+const corsHeaders = buildCorsHeaders([], "GET, POST, OPTIONS");
+
 
 const MAX_CHUNK = 180;
 
