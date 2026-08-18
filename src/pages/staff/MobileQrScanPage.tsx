@@ -129,6 +129,20 @@ export default function MobileQrScanPage() {
       return;
     }
 
+    // เช็คร่วมกับการสแกนใบหน้า — ถ้าวันนี้เคยบันทึกโหมดนี้แล้ว (ไม่ว่าจะสแกนด้วยวิธีใด) ไม่ต้องบันทึกซ้ำ
+    if (online) {
+      const st = await checkTodayScan(studentId);
+      if ((mode === "exit" && st.exit) || (mode === "entry" && st.entry)) {
+        const via = methodLabel(mode === "exit" ? st.exitMethod : st.entryMethod);
+        toast.info("สแกนซ้ำ", { description: `${name} บันทึก${mode === "entry" ? "เข้า" : "ออก"}วันนี้แล้ว (${via})` });
+        return;
+      }
+      if (mode === "exit" && !st.entry) {
+        toast.warning("ปฏิเสธการสแกน", { description: `${name} ยังไม่ได้บันทึกเข้าโรงเรียนวันนี้` });
+        return;
+      }
+    }
+
     const scan = {
       student_id: studentId,
       student_code: studentCode,
@@ -153,11 +167,14 @@ export default function MobileQrScanPage() {
       } as any);
       if (error) {
         if (error.code === "23505") {
+          markScanned(studentId, mode, "qr");
           toast.info("สแกนซ้ำ", { description: `${name} • บันทึกวันนี้แล้ว` });
           return;
         }
         throw error;
       }
+      markScanned(studentId, mode, "qr");
+
     } catch (e: any) {
       // เก็บลงคิว
       await enqueueScan(scan);
