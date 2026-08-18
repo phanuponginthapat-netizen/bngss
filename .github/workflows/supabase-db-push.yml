@@ -1,0 +1,42 @@
+name: Deploy Supabase Database Migrations
+
+# ทุกครั้งที่ไฟล์ migration ใน supabase/migrations เปลี่ยน จะ push ขึ้น backend ของโรงเรียนอัตโนมัติ
+# ต้องตั้ง GitHub Secret: SUPABASE_ACCESS_TOKEN (Personal Access Token จาก Supabase Dashboard)
+# ต้องตั้ง GitHub Secret หรือ Variable: SUPABASE_PROJECT_REF (project ref ของ backend ภายนอก)
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/config.toml"
+      - ".github/workflows/supabase-db-push.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: supabase-db-push
+  cancel-in-progress: false
+
+env:
+  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+  PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Verify secrets
+        run: |
+          : "${SUPABASE_ACCESS_TOKEN:?SUPABASE_ACCESS_TOKEN secret is not set}"
+          : "${PROJECT_REF:?SUPABASE_PROJECT_REF secret is not set}"
+
+      - name: Link Supabase project
+        run: supabase link --project-ref "$PROJECT_REF"
+
+      - name: Push migrations
+        run: supabase db push
