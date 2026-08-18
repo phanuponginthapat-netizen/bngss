@@ -30,6 +30,33 @@ const MyFaceEnrollPage = () => {
     },
   });
 
+  const { data: mePersonnel, isLoading: loadingP } = useQuery({
+    queryKey: ["my-personnel-face-record"],
+    enabled: !isLoading && !me,
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await (supabase as any)
+        .from("personnel")
+        .select("id, employee_code, prefix, first_name, last_name, avatar_url")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  const { data: personnelSamples = [] } = useQuery({
+    queryKey: ["my-personnel-face-samples", mePersonnel?.id],
+    enabled: !!mePersonnel?.id,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("personnel_face_descriptors")
+        .select("id, created_at")
+        .eq("personnel_id", mePersonnel!.id);
+      return data || [];
+    },
+  });
+
   const { data: samples = [] } = useQuery({
     queryKey: ["my-face-samples", me?.id],
     enabled: !!me?.id,
@@ -57,31 +84,34 @@ const MyFaceEnrollPage = () => {
   });
 
   const pending = null as any;
-  const registered = samples.length > 0;
-  const fullName = me
-    ? `${me.prefix || ""}${me.first_name || ""} ${me.last_name || ""}`.trim()
+  const registered = (me ? samples.length : personnelSamples.length) > 0;
+  const person: any = me || mePersonnel;
+  const fullName = person
+    ? `${person.prefix || ""}${person.first_name || ""} ${person.last_name || ""}`.trim()
     : "";
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["my-face-samples"] });
     qc.invalidateQueries({ queryKey: ["my-face-requests"] });
+    qc.invalidateQueries({ queryKey: ["my-personnel-face-samples"] });
   };
 
-  if (isLoading) return <Skeleton className="h-64 w-full rounded-xl" />;
+  if (isLoading || loadingP) return <Skeleton className="h-64 w-full rounded-xl" />;
 
-  if (!me) {
+  if (!person) {
     return (
       <Card className="border-dashed">
         <CardContent className="p-8 text-center space-y-2">
           <AlertTriangle className="w-10 h-10 mx-auto text-amber-500" />
-          <p className="font-semibold">ไม่พบข้อมูลนักเรียนของบัญชีนี้</p>
+          <p className="font-semibold">ไม่พบข้อมูลนักเรียน/บุคลากรของบัญชีนี้</p>
           <p className="text-sm text-muted-foreground">
-            กรุณาติดต่อครูที่ปรึกษาเพื่อเชื่อมบัญชีผู้ใช้กับข้อมูลนักเรียนก่อนลงทะเบียนใบหน้า
+            กรุณาติดต่อผู้ดูแลระบบเพื่อเชื่อมบัญชีผู้ใช้กับข้อมูลของท่านก่อนลงทะเบียนใบหน้า
           </p>
         </CardContent>
       </Card>
     );
   }
+
 
   return (
     <div className="space-y-4">
@@ -105,10 +135,10 @@ const MyFaceEnrollPage = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
-            {me.photo_url ? (
+            {(person.photo_url || person.avatar_url) ? (
               <img
-                src={me.photo_url}
-                alt={`รูปนักเรียน ${fullName}`}
+                src={person.photo_url || person.avatar_url}
+                alt={`รูปของ ${fullName}`}
                 className="w-14 h-14 rounded-xl object-cover border"
                 onContextMenu={(e) => e.preventDefault()}
               />
@@ -120,14 +150,15 @@ const MyFaceEnrollPage = () => {
             <div className="flex-1 min-w-[180px]">
               <p className="font-semibold">{fullName}</p>
               <p className="text-xs text-muted-foreground">
-                รหัส {me.student_code}
-                {(me as any).classrooms?.name ? ` · ${(me as any).classrooms.name}` : ""}
+                รหัส {person.student_code || person.employee_code || "-"}
+                {person.classrooms?.name ? ` · ${person.classrooms.name}` : ""}
               </p>
             </div>
             {registered ? (
               <Badge className="gap-1 bg-emerald-500/15 text-emerald-600 border-emerald-500/30">
-                <CheckCircle2 className="w-3 h-3" />ลงทะเบียนแล้ว {samples.length} ภาพ
+                <CheckCircle2 className="w-3 h-3" />ลงทะเบียนแล้ว {me ? samples.length : personnelSamples.length} ภาพ
               </Badge>
+
             ) : (
               <Badge variant="secondary" className="gap-1">
                 <AlertTriangle className="w-3 h-3" />ยังไม่ได้ลงทะเบียน
@@ -221,12 +252,15 @@ const MyFaceEnrollPage = () => {
       <LivenessFaceRegisterDialog
         open={open}
         onOpenChange={setOpen}
-        studentCode={me.student_code}
+        studentCode={me?.student_code}
+        personnelId={!me ? mePersonnel?.id : undefined}
+        selfPersonnel={!me}
         displayName={fullName}
         submitMode="request"
         reason={reason}
         onComplete={() => { setReason(""); refresh(); }}
       />
+
     </div>
   );
 };

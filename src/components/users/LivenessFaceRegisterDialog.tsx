@@ -32,6 +32,8 @@ interface Props {
   reason?: string;
   /** โหมดบุคลากร: ส่ง id ของบุคลากร แล้วระบบจะบันทึกลง personnel_face_descriptors */
   personnelId?: string;
+  /** บุคลากรลงทะเบียนใบหน้าของตนเอง (ใช้ RPC self_enroll_personnel_face) */
+  selfPersonnel?: boolean;
 }
 
 /** ระยะห่าง "ค่ากลาง" สูงสุดที่ยอมรับได้ระหว่างตัวอย่างของคนเดียวกัน
@@ -121,7 +123,7 @@ interface DuplicateFaceMatch {
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : "เกิดข้อผิดพลาด";
 const errorName = (error: unknown) => error instanceof DOMException || error instanceof Error ? error.name : "";
 
-const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName, onComplete, submitMode = "direct", reason, personnelId }: Props) => {
+const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName, onComplete, submitMode = "direct", reason, personnelId, selfPersonnel }: Props) => {
   const isPersonnel = !!personnelId;
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
@@ -775,38 +777,53 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         }
 
         if (isPersonnel) {
-          // ---- โหมดบุคลากร: บันทึกลง personnel_face_descriptors ทันที ----
-          const { data: ex } = await (supabase as any)
-            .from("personnel_face_descriptors")
-            .select("sample_index")
-            .eq("personnel_id", personnelId)
-            .order("sample_index", { ascending: false }).limit(1);
-          let nextP = ex && ex[0] ? ex[0].sample_index + 1 : 0;
-          const rowsP = finalSamples.map((sm) => ({
-            personnel_id: personnelId,
-            sample_index: nextP++,
+          const payload = finalSamples.map((sm) => ({
             descriptor: Array.from(sm.descriptor),
             quality_score: sm.metrics.sharpness,
             face_image: sm.image,
             metrics: sm.metrics,
-            captured_by: user?.id,
-            source: "liveness_wizard",
           }));
-          const { error } = await (supabase as any).from("personnel_face_descriptors").insert(rowsP);
-          if (error) throw error;
-          toast.success(`ลงทะเบียนใบหน้าบุคลากรสำเร็จ ${rowsP.length} ภาพ`);
+          if (selfPersonnel) {
+            // ---- บุคลากรลงทะเบียนใบหน้าของตนเอง (ผ่าน RPC, ไม่ต้องมีสิทธิ์เจ้าหน้าที่) ----
+            const { error } = await (supabase as any).rpc("self_enroll_personnel_face", { _samples: payload });
+            if (error) throw error;
+          } else {
+            // ---- โหมดบุคลากร (เจ้าหน้าที่บันทึกให้): บันทึกลง personnel_face_descriptors ทันที ----
+            const { data: ex } = await (supabase as any)
+              .from("personnel_face_descriptors")
+              .select("sample_index")
+              .eq("personnel_id", personnelId)
+              .order("sample_index", { ascending: false }).limit(1);
+            let nextP = ex && ex[0] ? ex[0].sample_index + 1 : 0;
+            const rowsP = payload.map((p) => ({
+              personnel_id: personnelId,
+              sample_index: nextP++,
+              ...p,
+              captured_by: user?.id,
+              source: "liveness_wizard",
+            }));
+            const { error } = await (supabase as any).from("personnel_face_descriptors").insert(rowsP);
+            if (error) throw error;
+          }
+          toast.success(`ลงทะเบียนใบหน้าบุคลากรสำเร็จ ${finalSamples.length} ภาพ`);
         } else if (submitMode === "request") {
           // ---- โหมดนักเรียนลงทะเบียนเอง: บันทึกและใช้งานได้ทันที ----
           const ts = Date.now();
           const photo_urls: string[] = [];
           for (let i = 0; i < finalSamples.length; i++) {
-            const blob = dataUrlToBlob(finalSamples[i].image);
-            const path = `requests/${studentId}/${ts}_${i}_selfenroll.jpg`;
-            const { error: upErr } = await supabase.storage
-              .from("face-photos").upload(path, blob, { contentType: "image/jpeg", upsert: true });
-            if (upErr) throw upErr;
-            photo_urls.push(path);
+            try {
+              const blob = dataUrlToBlob(finalSamples[i].image);
+              const path = `requests/${studentId}/${ts}_${i}_selfenroll.jpg`;
+              const { error: upErr } = await supabase.storage
+                .from("face-photos").upload(path, blob, { contentType: "image/jpeg", upsert: true });
+              if (upErr) throw upErr;
+              photo_urls.push(path);
+            } catch (upe) {
+              // อัปโหลดรูปไม่สำเร็จไม่ควรทำให้การลงทะเบียนล้มเหลว (ภาพถูกเก็บใน descriptor อยู่แล้ว)
+              console.warn("face photo upload skipped:", upe);
+            }
           }
+
 
           const { error } = await supabase.rpc("self_enroll_face", {
             _samples: finalSamples.map((sm) => ({
