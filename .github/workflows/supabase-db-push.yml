@@ -68,7 +68,7 @@ jobs:
             return $found
           }
 
-          for attempt in 1 2 3; do
+          for attempt in 1 2 3 4 5; do
             echo "=== Attempt $attempt ==="
             repair_remote_only || true
 
@@ -85,11 +85,20 @@ jobs:
                 echo "Repairing (from error): $v"
                 supabase migration repair --status reverted "$v" || true
               done < /tmp/err_versions.txt
-            else
-              echo "Push failed without repairable migration versions"
-              exit 1
+              continue
             fi
+
+            # deadlock / lock timeout เป็นอาการชั่วคราว -> รอแล้วลองใหม่
+            if grep -qiE '40P01|deadlock detected|55P03|lock timeout|canceling statement due to lock' /tmp/push.log; then
+              echo "Transient lock error detected, retrying in 20s..."
+              sleep 20
+              continue
+            fi
+
+            echo "Push failed with a non-retryable error"
+            exit 1
           done
+
 
           echo "Final push"
           supabase db push
