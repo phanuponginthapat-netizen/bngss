@@ -76,6 +76,10 @@ function hasLocalVoice(): boolean {
 let _ttsAudio: HTMLAudioElement | null = null;
 let _speechSequence = 0;
 let _speechChain: Promise<void> = Promise.resolve();
+/** จำนวนประโยคที่ยังพูดไม่จบ + ช่วงเว้นระยะหลังพูดจบก่อนเริ่มตรวจจับใหม่ */
+let _speechPending = 0;
+let _speechQuietUntil = 0;
+const SPEECH_TAIL_MS = 600;
 
 /** แคช URL ของไฟล์เสียงที่เคยสังเคราะห์แล้ว — ลดการรอเรียก TTS ซ้ำ (สาเหตุของเสียงกระตุก) */
 const _ttsCache = new Map<string, string>();
