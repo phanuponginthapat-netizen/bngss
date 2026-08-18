@@ -93,16 +93,23 @@ function rememberTts(text: string, url: string) {
   }
 }
 
-function speakLocal(text: string) {
-  try {
-    if (!("speechSynthesis" in window)) return;
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "th-TH";
-    u.rate = 1.05;
-    u.volume = 1;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
-  } catch { /* noop */ }
+function speakLocal(text: string): Promise<void> {
+  return new Promise<void>((resolve) => {
+    try {
+      if (!("speechSynthesis" in window)) return resolve();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "th-TH";
+      u.rate = 1.05;
+      u.volume = 1;
+      let done = false;
+      const finish = () => { if (!done) { done = true; resolve(); } };
+      u.onend = finish;
+      u.onerror = finish;
+      setTimeout(finish, 8000);
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+    } catch { resolve(); }
+  });
 }
 
 async function fetchTtsUrl(text: string): Promise<string | null> {
