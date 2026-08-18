@@ -32,6 +32,8 @@ interface Props {
   reason?: string;
   /** โหมดบุคลากร: ส่ง id ของบุคลากร แล้วระบบจะบันทึกลง personnel_face_descriptors */
   personnelId?: string;
+  /** บุคลากรลงทะเบียนใบหน้าของตนเอง (ใช้ RPC self_enroll_personnel_face) */
+  selfPersonnel?: boolean;
 }
 
 /** ระยะห่าง "ค่ากลาง" สูงสุดที่ยอมรับได้ระหว่างตัวอย่างของคนเดียวกัน
