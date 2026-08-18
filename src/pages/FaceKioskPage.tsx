@@ -754,8 +754,8 @@ const FaceKioskPage = () => {
               const box = { x: rb.x * scaleBack, y: rb.y * scaleBack, width: rb.width * scaleBack, height: rb.height * scaleBack };
               const faceSize = Math.min(box.width, box.height);
               const tooSmall = faceSize < MIN_FACE_PX;
-              // ประเมินความคมชัดของใบหน้าจริงในวิดีโอ — กล้องเบลอจะถูกปฏิเสธ
-              const sharpness = estimateFaceSharpness(video, box);
+              // ประเมินความคมชัดของใบหน้าจริงในวิดีโอ — กล้องเบลอจะถูกปฏิเสธ (ข้ามในโหมดประหยัด)
+              const sharpness = perf.checkSharpness ? estimateFaceSharpness(video, box) : MIN_SHARPNESS;
               const tooBlurry = sharpness < MIN_SHARPNESS;
 
               const m = matchDescriptor(det.descriptor, matchKnown, threshold);
