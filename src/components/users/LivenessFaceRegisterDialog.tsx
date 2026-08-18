@@ -836,7 +836,16 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             _photo_urls: photo_urls,
             _reason: reason?.trim() || null,
           });
-          if (error) throw error;
+          if (error) {
+            const code = (error as any)?.code;
+            if (code === "PGRST202" || code === "42883") {
+              throw new Error("ระบบลงทะเบียนใบหน้ายังไม่พร้อมบนเซิร์ฟเวอร์ (ฟังก์ชัน self_enroll_face ไม่พบ) กรุณาแจ้งผู้ดูแลระบบ");
+            }
+            if (code === "42501") {
+              throw new Error("บัญชีนี้ยังไม่มีสิทธิ์บันทึกใบหน้า กรุณาแจ้งผู้ดูแลระบบให้เปิดสิทธิ์ลงทะเบียนใบหน้า");
+            }
+            throw error;
+          }
           toast.success(`ลงทะเบียนใบหน้าสำเร็จ ${finalSamples.length} ภาพ — ใช้งานได้ทันที`);
         } else {
           const { data: ex } = await supabase
