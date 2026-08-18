@@ -16588,6 +16588,7 @@ export type Database = {
         Args: { _photo_urls?: string[]; _reason?: string; _samples: Json }
         Returns: string
       }
+      self_enroll_personnel_face: { Args: { _samples: Json }; Returns: number }
       send_line_to_student_parents: {
         Args: {
           _image_url?: string
