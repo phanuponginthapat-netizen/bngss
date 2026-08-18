@@ -104,6 +104,12 @@ const FaceKioskPage = () => {
   const [perfMode, setPerfMode] = useState<KioskPerfMode>(() => loadKioskPerfMode());
   const perf = KIOSK_PERF_PROFILES[perfMode];
   useEffect(() => { localStorage.setItem(KIOSK_PERF_KEY, perfMode); }, [perfMode]);
+  // ช่วงเว้นระยะเพิ่มเติมระหว่างรอบสแกน (มิลลิวินาที) — ปรับได้จากหน้าตั้งค่า
+  const [scanGapMs, setScanGapMs] = useState<number>(() => {
+    const v = Number(localStorage.getItem("face_kiosk_scan_gap") || "");
+    return Number.isFinite(v) && v >= 0 ? v : 0;
+  });
+  useEffect(() => { localStorage.setItem("face_kiosk_scan_gap", String(scanGapMs)); }, [scanGapMs]);
   // เตรียมเสียงประโยคที่ใช้บ่อยล่วงหน้า — กันเสียงกระตุก/ดีเลย์ตอนสแกนจริง
   useEffect(() => {
     prewarmSpeech(["ไม่พบข้อมูลใบหน้าในระบบ กรุณาลงทะเบียน", "สแกนเข้าสำเร็จ", "สแกนออกสำเร็จ"]);
