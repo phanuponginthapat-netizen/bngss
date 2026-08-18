@@ -74,8 +74,8 @@ const StudentDashboard = () => {
         supabase.from("attendance").select("status, attendance_date").eq("student_id", student.id),
         supabase.from("behavior_records").select("id, behavior_type, description, record_date, points")
           .eq("student_id", student.id).order("record_date", { ascending: false }).limit(5),
-        supabase.from("student_leaves").select("id, status, leave_date, reason")
-          .eq("student_id", student.id).order("leave_date", { ascending: false }).limit(5),
+        supabase.from("student_leaves").select("id, status, start_date, end_date, reason")
+          .eq("student_id", student.id).order("start_date", { ascending: false }).limit(5),
         supabase.from("task_assignments")
           .select("id, title, description, due_date, status, submitted_at, grade, feedback, submission_text, submission_file_url, annotated_file_url, replies, subjects(name_th)")
           .eq("assigned_to_student_id", student.id)
