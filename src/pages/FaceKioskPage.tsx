@@ -510,9 +510,29 @@ const FaceKioskPage = () => {
       return;
     }
 
+    // ===== เช็คร่วมกับ "สแกน QR" — ดูจากฐานข้อมูลว่าวันนี้เคยสแกน (ทุกวิธี) แล้วหรือยัง =====
+    const todayState = await checkTodayScan(studentId);
+    if ((mode === "exit" && todayState.exit) || (mode === "entry" && todayState.entry)) {
+      seenSet.add(studentId);
+      const lastNotice = duplicateNoticeRef.current.get(cdKey) || 0;
+      if (now - lastNotice > 5_000) {
+        duplicateNoticeRef.current.set(cdKey, now);
+        playDuplicateSound();
+        toast.info("สแกนซ้ำ", {
+          description: `${name} บันทึก${modeLabel}วันนี้แล้ว (${methodLabel(mode === "exit" ? todayState.exitMethod : todayState.entryMethod)})`,
+          duration: 1800,
+        });
+      }
+      cooldownRef.current.set(cdKey, now);
+      return;
+    }
+    if (todayState.entry) seenTodayRef.current.entry.add(studentId);
+    if (todayState.exit) seenTodayRef.current.exit.add(studentId);
+
     // ===== ป้องกันบันทึก "ออก" ใกล้เวลา "เข้า" เกินไป =====
     if (mode === "exit") {
       if (!seenTodayRef.current.entry.has(studentId)) {
+
         const wkey = `${studentId}:no-entry`;
         const lastNotice = duplicateNoticeRef.current.get(wkey) || 0;
         if (now - lastNotice > 5_000) {
