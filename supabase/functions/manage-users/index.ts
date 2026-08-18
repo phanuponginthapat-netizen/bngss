@@ -1408,8 +1408,9 @@ serve(async (req) => {
           date_of_birth: profile?.date_of_birth || "",
           nickname: profile?.nickname || "",
           classroom_id: stu?.classroom_id || null,
-          classroom_name: stu?.classrooms?.name || "",
-          grade_level: stu?.classrooms?.grade_level || (inferredRole === "student" ? profile?.department || "" : ""),
+          classroom_name: (stu?.classroom_id ? classroomById.get(stu.classroom_id)?.name : "") || "",
+          grade_level: (stu?.classroom_id ? classroomById.get(stu.classroom_id)?.grade_level : "") || (inferredRole === "student" ? profile?.department || "" : ""),
+
           student_status: stu?.status || "",
           is_approved: profile?.is_approved ?? false,
           created_at: u.created_at,
