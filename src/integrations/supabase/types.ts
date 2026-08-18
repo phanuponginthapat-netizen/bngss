@@ -16026,6 +16026,7 @@ export type Database = {
         }
         Returns: string
       }
+      ensure_attendance_digest_cron: { Args: never; Returns: Json }
       ensure_default_app_secrets: { Args: never; Returns: undefined }
       exec_restore_sql: { Args: { _sql: string }; Returns: undefined }
       export_auth_users: { Args: never; Returns: Json }
