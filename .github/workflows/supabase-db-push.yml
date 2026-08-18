@@ -88,12 +88,30 @@ jobs:
               continue
             fi
 
+            # migration ถูกบันทึกไว้แล้วบน remote (23505) -> mark เป็น applied แล้วดันต่อ
+            if grep -qE '23505|schema_migrations_pkey' /tmp/push.log; then
+              grep -oE 'Key \(version\)=\([0-9]+\)' /tmp/push.log \
+                | grep -oE '[0-9]{14}' | sort -u > /tmp/dup_versions.txt || true
+              if [ ! -s /tmp/dup_versions.txt ]; then
+                grep -oE 'Applying migration [0-9]{14}' /tmp/push.log \
+                  | grep -oE '[0-9]{14}' | sort -u > /tmp/dup_versions.txt || true
+              fi
+              if [ -s /tmp/dup_versions.txt ]; then
+                while read -r v; do
+                  echo "Marking as applied (duplicate on remote): $v"
+                  supabase migration repair --status applied "$v" || true
+                done < /tmp/dup_versions.txt
+                continue
+              fi
+            fi
+
             # deadlock / lock timeout เป็นอาการชั่วคราว -> รอแล้วลองใหม่
             if grep -qiE '40P01|deadlock detected|55P03|lock timeout|canceling statement due to lock' /tmp/push.log; then
               echo "Transient lock error detected, retrying in 20s..."
               sleep 20
               continue
             fi
+
 
             echo "Push failed with a non-retryable error"
             exit 1
