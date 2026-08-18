@@ -33,6 +33,7 @@ import { wakeKioskScreen } from "@/lib/kioskWake";
 import { getRegisteredFaceImage } from "@/lib/registeredFace";
 import { checkTodayScan, markScanned, methodLabel } from "@/lib/scanDedup";
 import { useKioskHeartbeat } from "@/hooks/useKioskHeartbeat";
+import { KIOSK_PERF_KEY, KIOSK_PERF_PROFILES, loadKioskPerfMode, type KioskPerfMode } from "@/lib/kioskPerf";
 
 import { saveErrorMessage } from "@/lib/saveError";
 import { notifyRole } from "@/lib/notify";
