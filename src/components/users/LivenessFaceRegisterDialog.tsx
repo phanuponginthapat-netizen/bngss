@@ -139,7 +139,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     closed: boolean;        // ตาปิดอยู่หรือไม่
     closedFrames: number;   // จำนวนเฟรมที่ตาปิดต่อเนื่อง
     blinks: number;         // จำนวนครั้งที่กะพริบสำเร็จ
-  }>({ baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0 });
+  }>({ baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0, startedAt: 0, baseFrac: 0, maxFrac: 0 } as any);
 
   const [challengeColors, setChallengeColors] = useState<string[]>(makeChallengeColors);
 
@@ -428,7 +428,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     setStepIdx(0); setSamples([]); setColorFrameIdx(0); setStatusMsg(""); setBlockedMsg(null);
     setSaveError(null); setSavedOk(false);
     detectMetaRef.current = { misses: 0, stableHits: 0 };
-    blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0 };
+    blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0, startedAt: 0, baseFrac: 0, maxFrac: 0 } as any;
     (async () => {
       if (personnelId) { setStudentId(personnelId); return; }
       const { data: s } = await supabase
@@ -879,7 +879,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     setStepIdx(0); setSamples([]); setColorFrameIdx(0); setBlockedMsg(null);
     setSaveError(null); setSavedOk(false); setStatusMsg("");
     detectMetaRef.current = { misses: 0, stableHits: 0 };
-    blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0 };
+    blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0, startedAt: 0, baseFrac: 0, maxFrac: 0 } as any;
     if (!streaming) void startCamera();
   };
 
