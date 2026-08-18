@@ -38,30 +38,60 @@ jobs:
       - name: Link Supabase project
         run: supabase link --project-ref "$PROJECT_REF"
 
-      - name: Repair migration history (remote-only versions)
+      - name: Repair migration history + push
         run: |
-          set -euo pipefail
-          # เก็บรายการ version ของไฟล์ migration ในเครื่อง
-          ls supabase/migrations/*.sql 2>/dev/null \
-            | xargs -r -n1 basename \
-            | sed -E 's/^([0-9]+).*/\1/' \
-            | sort -u > /tmp/local_versions.txt || true
+          set -uo pipefail
 
-          # ดึงรายการ migration ที่อยู่บน remote
-          supabase migration list --linked > /tmp/mig_list.txt || true
-          cat /tmp/mig_list.txt
+          local_versions() {
+            ls supabase/migrations/*.sql 2>/dev/null \
+              | xargs -r -n1 basename \
+              | sed -E 's/^([0-9]+).*/\1/' \
+              | sort -u
+          }
 
-          awk -F'|' 'NF>=2 {gsub(/ /,"",$1); gsub(/ /,"",$2); if ($2 ~ /^[0-9]+$/) print $1" "$2}' /tmp/mig_list.txt \
-            > /tmp/remote_pairs.txt || true
+          repair_remote_only() {
+            supabase migration list --linked > /tmp/mig_list.txt 2>&1 || true
+            cat /tmp/mig_list.txt
+            local_versions > /tmp/local_versions.txt || true
+            # คอลัมน์ที่ 2 ของตารางคือ version บน remote (คอลัมน์แรกอาจว่างได้)
+            awk -F'|' 'NF>=2 { v=$2; gsub(/[^0-9]/,"",v); if (length(v)>=14) print v }' /tmp/mig_list.txt \
+              | sort -u > /tmp/remote_versions.txt || true
+            local found=0
+            while read -r v; do
+              [ -z "$v" ] && continue
+              if ! grep -qx "$v" /tmp/local_versions.txt; then
+                echo "Repairing remote-only migration: $v"
+                supabase migration repair --status reverted "$v" || true
+                found=1
+              fi
+            done < /tmp/remote_versions.txt
+            return $found
+          }
 
-          while read -r local remote; do
-            if [ -z "$remote" ]; then continue; fi
-            if ! grep -qx "$remote" /tmp/local_versions.txt; then
-              echo "Repairing remote-only migration: $remote"
-              supabase migration repair --status reverted "$remote"
+          for attempt in 1 2 3; do
+            echo "=== Attempt $attempt ==="
+            repair_remote_only || true
+
+            if supabase db push 2>&1 | tee /tmp/push.log; then
+              echo "Push succeeded"
+              exit 0
             fi
-          done < /tmp/remote_pairs.txt
 
-      - name: Push migrations
-        run: supabase db push
+            # ดึงเลข version จากข้อความ error แล้วซ่อมประวัติ migration
+            grep -oE 'migration repair --status reverted [0-9]+' /tmp/push.log \
+              | awk '{print $NF}' | sort -u > /tmp/err_versions.txt || true
+            if [ -s /tmp/err_versions.txt ]; then
+              while read -r v; do
+                echo "Repairing (from error): $v"
+                supabase migration repair --status reverted "$v" || true
+              done < /tmp/err_versions.txt
+            else
+              echo "Push failed without repairable migration versions"
+              exit 1
+            fi
+          done
+
+          echo "Final push"
+          supabase db push
+
 
