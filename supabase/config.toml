@@ -73,3 +73,7 @@ verify_jwt = false
 # แปลภาษา: ตรวจ JWT เองในฟังก์ชัน เพื่อให้ตอบ error พร้อม CORS (กัน "Failed to send a request")
 [functions.translate-text]
 verify_jwt = false
+
+# TTS ภาษาไทย: เรียกได้จากตู้ kiosk ทั้งแบบ GET (<audio src>) และ POST
+[functions.tts-th]
+verify_jwt = false
