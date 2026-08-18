@@ -658,7 +658,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         break;
       }
     }
-    loopRef.current = window.setTimeout(runStep, step.key === "blink" ? 60 : 140) as unknown as number;
+    loopRef.current = window.setTimeout(runStep, step.key === "near" ? 100 : 140) as unknown as number;
   }, [stepIdx, modelReady, streaming, colorFrameIdx, challengeColors.length, captureSample, drawOverlay]);
 
 
