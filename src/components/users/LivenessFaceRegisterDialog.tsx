@@ -132,6 +132,8 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
   const loopRef = useRef<number | null>(null);
   const busyRef = useRef(false);
   const detectMetaRef = useRef({ misses: 0, stableHits: 0 });
+  /** กัน catch เขียนทับ error ที่เป็น "blocked" (ใบหน้าซ้ำ/ไม่ตรง) — ควรโชว์ข้อความเดิม + บังคับเริ่มใหม่ */
+  const blockedRef = useRef(false);
 
   // สถานะการจับ "กะพริบตา" (ตรวจม่านตา/เปลือกตาด้วย EAR)
   const blinkStateRef = useRef<{
@@ -427,7 +429,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     if (!open) return;
     // resolve student
     setStepIdx(0); setSamples([]); setColorFrameIdx(0); setStatusMsg(""); setBlockedMsg(null);
-    setSaveError(null); setSavedOk(false);
+    setSaveError(null); setSavedOk(false); blockedRef.current = false;
     detectMetaRef.current = { misses: 0, stableHits: 0 };
     blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0, startedAt: 0, baseFrac: 0, maxFrac: 0 } as any;
     (async () => {
@@ -723,6 +725,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         );
         const overall = median(usableMedians);
         if (samples.length >= 3 && overall > SELF_CONSISTENCY_MEDIAN_MAX) {
+          blockedRef.current = true;
           setBlockedMsg(
             `ตรวจพบใบหน้าไม่ตรงกันระหว่างขั้นตอน (ค่าต่าง ${overall.toFixed(2)}) — กรุณาลงทะเบียนใหม่โดยให้เป็นคนเดียวกันตลอด`,
           );
@@ -755,6 +758,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           if (dupErr) console.warn("check_face_duplicate skipped:", dupErr);
           const hit = Array.isArray(dup) ? (dup as DuplicateFaceMatch[])[0] : null;
           if (hit) {
+            blockedRef.current = true;
             setBlockedMsg(
               `ใบหน้านี้ตรงกับผู้ที่ลงทะเบียนไว้แล้ว: ${hit.match_name ?? ""} (${hit.match_code ?? "-"}) ` +
               `ระยะห่าง ${Number(hit.min_distance).toFixed(3)} — ระบบไม่อนุญาตให้ลงทะเบียนซ้ำ กรุณาติดต่อเจ้าหน้าที่`,
@@ -865,13 +869,16 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         onComplete?.();
       } catch (e: unknown) {
         const message = errorMessage(e);
-        const friendly = message.includes("row-level security") || message.includes("not authorized")
-          ? "บัญชีนี้ไม่มีสิทธิ์บันทึกคำขอ กรุณาออกจากระบบแล้วเข้าสู่ระบบนักเรียนใหม่"
-          : message.includes("Failed to fetch") || message.includes("NetworkError")
-            ? "เชื่อมต่อระบบไม่ได้ กรุณาตรวจอินเทอร์เน็ตแล้วลองอีกครั้ง"
-            : message;
-        setSaveError(friendly);
-        toast.error("ลงทะเบียนไม่สำเร็จ: " + friendly, { duration: 9000 });
+        // ถ้าถูก block (ใบหน้าซ้ำ/ไม่ตรงกัน) → ไม่ทับข้อความเดิม ให้ผู้ใช้เริ่มใหม่แทน
+        if (!blockedRef.current) {
+          const friendly = message.includes("row-level security") || message.includes("not authorized")
+            ? "บัญชีนี้ไม่มีสิทธิ์บันทึกคำขอ กรุณาออกจากระบบแล้วเข้าสู่ระบบนักเรียนใหม่"
+            : message.includes("Failed to fetch") || message.includes("NetworkError")
+              ? "เชื่อมต่อระบบไม่ได้ กรุณาตรวจอินเทอร์เน็ตแล้วลองอีกครั้ง"
+              : message;
+          setSaveError(friendly);
+          toast.error("ลงทะเบียนไม่สำเร็จ: " + friendly, { duration: 9000 });
+        }
       } finally {
         toast.dismiss(__tid_save_1);
         setSaving(false);
@@ -885,6 +892,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
   const reset = () => {
     setStepIdx(0); setSamples([]); setColorFrameIdx(0); setBlockedMsg(null);
     setSaveError(null); setSavedOk(false); setStatusMsg("");
+    blockedRef.current = false;
     detectMetaRef.current = { misses: 0, stableHits: 0 };
     blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0, startedAt: 0, baseFrac: 0, maxFrac: 0 } as any;
     if (!streaming) void startCamera();
@@ -893,6 +901,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
   /** ลองบันทึกอีกครั้งโดยไม่ต้องถ่ายใหม่ (ใช้กับกรณีเน็ตหลุด/เซิร์ฟเวอร์ตอบช้า) */
   const retrySave = () => {
     setSaveError(null);
+    blockedRef.current = false;
     setStepIdx((i) => i); // trigger effect ผ่าน state ด้านล่าง
     setRetryTick((t) => t + 1);
   };

@@ -517,7 +517,9 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
         setLive({ kind: "duplicate", text: `สแกน${modeLabel}ซ้ำ • ${name}`, sub: `เลขที่ ${studentCode} • บันทึกวันนี้แล้ว` });
       }
       justScannedRef.current.set(cdKey, now);
+      justScannedRef.current.set(studentId, now);
       cooldownRef.current.set(cdKey, now);
+      cooldownRef.current.set(studentId, now);
       return;
     }
 
@@ -535,6 +537,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
         setLive({ kind: "duplicate", text: `สแกน${modeLabel}ซ้ำ • ${name}`, sub: `บันทึกแล้วผ่าน${via}` });
       }
       cooldownRef.current.set(cdKey, now);
+      cooldownRef.current.set(studentId, now);
       return;
     }
 
@@ -548,6 +551,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
       return;
     }
     cooldownRef.current.set(cdKey, now);
+    cooldownRef.current.set(studentId, now);
 
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -558,6 +562,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
       : `tablet-gate-${mode}`;
     const { data, error } = await supabase.from("face_scan_logs").insert({
       student_id: studentId,
+      scan_date: todayBangkok(),
       scan_type: mode,
       confidence,
       scanned_by: user?.id,
@@ -584,6 +589,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
       return;
     }
     justScannedRef.current.set(cdKey, now);
+    justScannedRef.current.set(studentId, now);
     markScanned(studentId, mode, entryMethod);
 
     playSuccessSound();

@@ -530,6 +530,16 @@ const FaceKioskPage = () => {
     const now = Date.now();
     const mode = scanModeRef.current;
     const modeLabel = mode === "exit" ? "ออก" : "เข้า";
+    // cooldown/justScanned ตั้งทั้ง 2 key: `${studentId}:${mode}` (กัน race ภายใน recordScan)
+    // และ `studentId` เปล่า (loop ตรวจจับอ่าน key นี้เพื่อแสดงสถานะ/ไม่โผล่ป๊อปอัปซ้ำ)
+    const setScanCool = (id: string, ts: number) => {
+      justScannedRef.current.set(id, ts);
+      cooldownRef.current.set(id, ts);
+    };
+    const coolNow = () => {
+      setScanCool(cdKey, now);
+      setScanCool(studentId, now);
+    };
     // Kiosk ในตู้ล็อก: ปลุกจอ (DPMS) ผ่าน local daemon เมื่อเจอคนสแกน
     wakeKioskScreen();
     const win = checkWindow(mode);
@@ -552,8 +562,7 @@ const FaceKioskPage = () => {
         playDuplicateSound();
         toast.info("สแกนซ้ำ", { description: `${name} ถูกบันทึก${modeLabel}โรงเรียนวันนี้แล้ว`, duration: 1800 });
       }
-      justScannedRef.current.set(cdKey, now);
-      cooldownRef.current.set(cdKey, now);
+      coolNow();
       return;
     }
 
@@ -571,6 +580,7 @@ const FaceKioskPage = () => {
         });
       }
       cooldownRef.current.set(cdKey, now);
+      cooldownRef.current.set(studentId, now);
       return;
     }
     if (todayState.entry) seenTodayRef.current.entry.add(studentId);
@@ -618,13 +628,14 @@ const FaceKioskPage = () => {
       return;
     }
     cooldownRef.current.set(cdKey, now);
+    cooldownRef.current.set(studentId, now);
 
     const { data: { user } } = await supabase.auth.getUser();
     const uploadedFaceUrl = await uploadFaceScanSnapshot(capturedFace, studentId);
     // อุณหภูมิจาก micro:bit (null เมื่อไม่ได้เชื่อมต่อ → ใช้กฎเดิมของระบบ)
     const scanTemp = gateRef.current.getLiveTemp();
     const { data, error } = await supabase.from("face_scan_logs").insert({
-      student_id: studentId, scan_type: mode, confidence,
+      student_id: studentId, scan_date: todayBangkok(), scan_type: mode, confidence,
       scanned_by: user?.id, device_label: `tablet-kiosk-${mode}`,
       captured_face_url: uploadedFaceUrl,
       ...(scanTemp != null ? { temperature_c: scanTemp } : {}),
@@ -645,6 +656,7 @@ const FaceKioskPage = () => {
       return;
     }
     justScannedRef.current.set(cdKey, now);
+    justScannedRef.current.set(studentId, now);
     markScanned(studentId, mode, "face");
 
     playSuccessSound();
@@ -731,6 +743,7 @@ const FaceKioskPage = () => {
       const last = justScannedRef.current.get(p.studentId) || 0;
       if (tNow - last > 15_000) {
         justScannedRef.current.set(p.studentId, tNow);
+        cooldownRef.current.set(p.studentId, tNow);
         playSuccessSound();
         const mode = scanModeRef.current === "exit" ? "exit" : "entry";
         void runGate(p.name, { id: p.studentId, kind: "personnel" });
@@ -798,8 +811,6 @@ const FaceKioskPage = () => {
     const MIN_FACE_PX = perfMode === "low" ? 56 : 70;
     // ระยะห่างระหว่าง best vs second-best ขั้นต่ำ — ยืนยันว่าระบุตัวตนได้ชัดเจน ไม่ไปทับคนอื่น
     const MIN_MARGIN = 0.04;
-    // ความมั่นใจขั้นต่ำ (1 - distance) — ยืนยันเมื่อมั่นใจ ≥ 66%
-    const MIN_CONFIDENCE = 0.66;
     // จำนวนเฟรมต่อเนื่องที่ต้องจับได้คนเดิม ก่อนบันทึก (กันบันทึกผิดจาก descriptor หลุด 1 เฟรม)
     const CONFIRM_FRAMES = 2;
     const CONFIRM_WINDOW_MS = 1500;
@@ -814,6 +825,11 @@ const FaceKioskPage = () => {
     const MANUAL_DIST = 0.55;
     const MANUAL_MIN_MARGIN = 0.03;
     const MANUAL_TIMEOUT_MS = 15_000; // ไม่ยืนยันภายใน 15 วิ → ปิดป๊อปอัปอัตโนมัติ
+
+    // ความมั่นใจขั้นต่ำสำหรับ tier 1 (ยืนยันอัตโนมัติ) = 1 - AUTO_DIST = 0.58
+    // (เดิม 0.66 → distance ≤ 0.34 ซึ่งเกิด "dead band" ช่วง 0.34–0.42
+    //  match ระดับนี้ถูกตัดทั้ง tier1 และ tier2 ทั้งที่ยังควรยืนยันบนจอได้)
+    const MIN_CONFIDENCE = 1 - AUTO_DIST;
 
     const MIN_SHARPNESS = 70; // ใต้ค่านี้ = เบลอเกินไป ไม่บันทึก (โหมดประหยัดข้ามการตรวจ)
 
@@ -930,8 +946,35 @@ const FaceKioskPage = () => {
 
               if (found) {
                 if (needsManual) {
-                  // tier 2: ต้องให้คนกดยืนยันบนจอก่อน — ตั้งป๊อปอัปครั้งเดียว (ถ้ายังไม่มี)
-                  if (!pendingManualRef.current && tNow - (cooldownRef.current.get(found.studentId) || 0) >= 30_000) {
+                  // tier 2: ต้องผ่าน liveness + texture ก่อนตั้งป๊อปอัปยืนยันบนจอ
+                  // (กันรูปถ่าย/จอภาพ/คนหน้าคล้ายที่ mid-confidence ผ่านแค่การแตะปุ่ม)
+                  if (pendingManualRef.current) return; // กำลังรอคนกดยืนยันอยู่แล้ว
+                  let live = true;
+                  if (livenessEnabled) {
+                    let track = livenessRef.current.get(found.studentId);
+                    if (!track) { track = newLivenessTrack(); livenessRef.current.set(found.studentId, track); }
+                    live = recordLivenessSample(track, makeLivenessSample(tNow, det.landmarks, box)).live;
+                  }
+                  if (!live) return; // ยังไม่มีหลักฐานใบหน้าสด (รูปถ่าย/จอภาพนิ่ง) — รอ
+                  if (textureGate && !isStaffHit) {
+                    const regSrc = await getRegisteredFaceImage(found.studentId, found.avatar || null);
+                    const tv = await verifyScanTexture({
+                      studentId: found.studentId,
+                      video,
+                      landmarks: det.landmarks,
+                      scaleX: scaleBack,
+                      scaleY: scaleBack,
+                      registeredImageSrc: regSrc,
+                    });
+                    if (!tv.pass) {
+                      textureFailRef.current.set(found.studentId, tNow);
+                      livenessRef.current.delete(found.studentId);
+                      if (voiceEnabled) speakText("พื้นผิวใบหน้าไม่ตรง ขอตรวจสอบ");
+                      return;
+                    }
+                  }
+                  // ผ่าน liveness + texture → ตั้งป๊อปอัปครั้งเดียว (กันโผล่ซ้ำ 30 วิ)
+                  if (tNow - (cooldownRef.current.get(found.studentId) || 0) >= 30_000) {
                     const captured = captureFaceCrop(video, box);
                     const regSrc = await getRegisteredFaceImage(found.studentId, found.avatar || null);
                     pendingManualRef.current = {

@@ -117,8 +117,6 @@ const FaceApprovalTab = () => {
     if (!canManage) return;
     setBusy(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
       // กันจำผิดคน: ตรวจว่าใบหน้าในคำขอไม่ซ้ำกับนักเรียนคนอื่นที่ลงทะเบียนไว้แล้ว
       const { data: dup, error: dupErr } = await supabase.rpc("check_face_duplicate", {
         _student_id: req.student_id,
@@ -134,17 +132,6 @@ const FaceApprovalTab = () => {
         setBusy(false);
         return;
       }
-
-      const { data: prev } = await supabase.from("student_face_descriptors")
-        .select("id").eq("student_id", req.student_id);
-      const previous_count = prev?.length ?? 0;
-
-
-      // Reregister → replace all; Initial → append
-      if (req.request_type === "reregister") {
-        await supabase.from("student_face_descriptors").delete().eq("student_id", req.student_id);
-      }
-      const startIdx = req.request_type === "reregister" ? 0 : previous_count;
 
       // เก็บภาพใบหน้าที่อนุมัติไว้กับ descriptor เพื่อใช้แสดงเทียบตอนสแกนที่คีออส
       const thumbs = await Promise.all(
@@ -167,38 +154,22 @@ const FaceApprovalTab = () => {
         }),
       );
 
-      const rows = req.descriptors.map((d, i) => ({
-        student_id: req.student_id,
-        sample_index: startIdx + i,
+      // Atomic: RPC จัดการ delete (reregister) + insert + update + history ใน transaction เดียว
+      // เพื่อไม่ให้ descriptor เก่าหายถ้า insert พัง
+      const samples = req.descriptors.map((d, i) => ({
         descriptor: d,
-        captured_by: req.requested_by,
-        source: "request_approved",
         face_image: thumbs[i],
         texture: textures[i],
       }));
-      const { error: insErr } = await supabase.from("student_face_descriptors").insert(rows);
-      if (insErr) throw insErr;
-      clearRegisteredFaceCache(req.student_id);
-
-
-      const { error: updErr } = await supabase.from("face_registration_requests").update({
-        status: "approved",
-        reviewed_by: user?.id,
-        reviewed_at: new Date().toISOString(),
-      }).eq("id", req.id);
-      if (updErr) throw updErr;
-
-      await supabase.from("face_registration_history").insert({
-        student_id: req.student_id,
-        request_id: req.id,
-        action: req.request_type === "reregister" ? "reregistered" : "registered",
-        previous_count,
-        new_count: rows.length + (req.request_type === "reregister" ? 0 : previous_count),
-        photo_urls: req.photo_urls,
-        reason: req.reason,
-        notes: `อนุมัติคำขอ ${req.request_type === "reregister" ? "ลงทะเบียนใหม่" : "ลงทะเบียนครั้งแรก"}`,
-        performed_by: user?.id,
+      const { data: historyId, error: rpcErr } = await supabase.rpc("approve_face_request", {
+        _request_id: req.id,
+        _samples: samples as any,
+        _photo_urls: req.photo_urls,
+        _reason: req.reason,
       });
+      if (rpcErr) throw rpcErr;
+      void historyId;
+      clearRegisteredFaceCache(req.student_id);
 
       toast.success("อนุมัติคำขอเรียบร้อย");
       qc.invalidateQueries({ queryKey: ["face-pending-requests"] });

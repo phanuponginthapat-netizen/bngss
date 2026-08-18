@@ -41,11 +41,11 @@ export const ADAPTIVE = {
    * เมื่อเก็บ descriptor กล้องคีออสครั้งแรกได้แล้ว รอบถัดไปจะ match แน่นขึ้นเอง
    */
   FIRST_SOURCE: {
-    MIN_CONFIDENCE: 0.66,
-    MIN_MARGIN: 0.06,
-    MAX_DISTANCE: 0.40,
+    MIN_CONFIDENCE: 0.55,
+    MIN_MARGIN: 0.05,
+    MAX_DISTANCE: 0.55,
     NOVELTY_MIN: 0.05,
-    NOVELTY_MAX: 0.45,
+    NOVELTY_MAX: 0.48,
   } as const,
 } as const;
 

@@ -35,7 +35,7 @@ const FaceSettingsTab = () => {
   const [idleTimeout, setIdleTimeout] = useState("60"); // วินาที
   const [helloAiEnabled, setHelloAiEnabled] = useState(true);
   const [powerSave, setPowerSave] = useState(true); // ปิดกล้อง/AI นอกเวลาสแกน (โน๊ตบุ๊คเก่า)
-  const [wakeWordEnabled, setWakeWordEnabled] = useState(false); // ปลุกด้วยเสียง "สวัสดี AI"
+  const [wakeWordEnabled, setWakeWordEnabled] = useState(true); // ปลุกด้วยเสียง "สวัสดี AI" (default ตรงกับ kiosk: ถ้าไม่มีค่า = เปิด)
   const [adaptiveLearning, setAdaptiveLearning] = useState(true); // เรียนรู้ใบหน้าอัตโนมัติทุกครั้งที่สแกน
   const [livenessEnabled, setLivenessEnabled] = useState(true); // ตรวจใบหน้าสด (กะพริบตา/ขยับหัว) กันรูปถ่าย-จอภาพ
   const [textureGate, setTextureGate] = useState(true); // ตรวจพื้นผิวใบหน้า (LBP) กันคนหน้าคล้าย-รูปถ่าย

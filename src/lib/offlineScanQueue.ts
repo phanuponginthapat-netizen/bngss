@@ -3,6 +3,7 @@
  * ลง IndexedDB แล้ว sync กลับขึ้น Supabase อัตโนมัติเมื่อกลับมาออนไลน์
  */
 import { supabase } from "@/integrations/supabase/client";
+import { bkkDateISO } from "@/lib/dateBE";
 
 const DB_NAME = "bng-scan-queue";
 const DB_VERSION = 1;
@@ -88,6 +89,7 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
       try {
         const { error } = await supabase.from("face_scan_logs").insert({
           student_id: item.student_id,
+          scan_date: bkkDateISO(new Date(item.scanned_at)),
           scan_type: item.scan_type,
           confidence: 1,
           scanned_by: item.scanned_by ?? undefined,
