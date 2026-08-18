@@ -694,10 +694,10 @@ const FaceKioskPage = () => {
   useEffect(() => {
     if (!streaming || !modelReady || screensaver || qrOnly) return;
     let cancelled = false;
-    // input ใหญ่ขึ้น = เก็บรายละเอียดใบหน้าได้มาก จับใบหน้าระยะไกล/เล็กได้ดี
-    const opts = detectorOptionsHQ(camMode === "wide" ? 608 : 608, 0.35);
+    // input ใหญ่ขึ้น = เก็บรายละเอียดใบหน้าได้มาก แต่กินซีพียูมาก — ปรับตามโปรไฟล์ประสิทธิภาพ
+    const opts = detectorOptionsHQ(perf.inputSize, 0.35);
     // ขนาดใบหน้าขั้นต่ำ (พิกเซลในเฟรม) ป้องกัน descriptor เพี้ยนจากใบหน้าที่เล็กเกิน
-    const MIN_FACE_PX = 70;
+    const MIN_FACE_PX = perfMode === "low" ? 56 : 70;
     // ระยะห่างระหว่าง best vs second-best ขั้นต่ำ — ยืนยันว่าระบุตัวตนได้ชัดเจน ไม่ไปทับคนอื่น
     const MIN_MARGIN = 0.04;
     // ความมั่นใจขั้นต่ำ (1 - distance) — ยืนยันเมื่อมั่นใจ ≥ 66%
