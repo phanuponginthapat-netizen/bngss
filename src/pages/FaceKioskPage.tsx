@@ -730,7 +730,7 @@ const FaceKioskPage = () => {
       try {
         // ตรวจจับจากเฟรมที่ผ่าน preprocess (contrast/brightness) — ช่วยกล้องคุณภาพต่ำ
         const video = videoRef.current;
-        const pre = preprocessFrame(video, { maxWidth: 960 }) || video;
+        const pre = preprocessFrame(video, { maxWidth: perf.maxWidth }) || video;
         const detections = await getAllDescriptors(pre as any, opts);
         // อัตราส่วนสำหรับสเกล box กลับสู่พิกัดของวิดีโอจริง
         const srcW = pre instanceof HTMLCanvasElement ? pre.width : video.videoWidth;
