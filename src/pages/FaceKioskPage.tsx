@@ -12,7 +12,7 @@ import {
   type KnownFace,
 } from "@/lib/faceApi";
 import { learnFromScan } from "@/lib/faceLearning";
-import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, prewarmSpeech, isSpeaking, waitForSpeechEnd, playFeverAlert, playWeaponAlert, playGateOpenSound, playGateDeniedSound } from "@/lib/faceScanAudio";
+import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, prewarmSpeech, isSpeaking, waitForSpeechEnd, playFeverAlert, playWeaponAlert, playGateOpenSound, playGateDeniedSound, unlockAudio } from "@/lib/faceScanAudio";
 import { useSmartGate } from "@/hooks/useSmartGate";
 import SmartGatePanel from "@/components/facescan/SmartGatePanel";
 import { Button } from "@/components/ui/button";
@@ -1390,6 +1390,26 @@ const FaceKioskPage = () => {
               ระบบจะรอให้พูดจบก่อนเสมอ แล้วเว้นอีก {(scanGapMs / 1000).toFixed(1)} วินาทีก่อนจับใบหน้ารอบถัดไป — ช่วยลดการสแกนถี่เกินและลดโหลดเครื่อง
             </p>
           </div>
+
+          <div className="space-y-1.5 border-t pt-2">
+            <label className="text-xs font-semibold">ทดสอบเสียงพูด</label>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full text-[11px]"
+              onClick={() => {
+                unlockAudio();
+                playSuccessSound();
+                speakText("ทดสอบเสียงพูดของตู้สแกนใบหน้า");
+              }}
+            >
+              เล่นเสียงทดสอบ
+            </Button>
+            <p className="text-[10px] text-muted-foreground leading-snug">
+              ถ้าได้ยินเสียง "ตึ๊ง" แต่ไม่ได้ยินเสียงพูด แปลว่าลำโพงใช้ได้แต่ TTS มีปัญหา — ถ้าไม่ได้ยินเลย ให้รัน <code>/opt/kiosk/fix-audio.sh</code> บนตู้
+            </p>
+          </div>
+
 
           <div className="space-y-2 border-t pt-2">
             <label className="text-xs font-semibold flex items-center gap-1">
