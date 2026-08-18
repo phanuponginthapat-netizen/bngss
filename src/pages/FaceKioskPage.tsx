@@ -12,7 +12,7 @@ import {
   type KnownFace,
 } from "@/lib/faceApi";
 import { learnFromScan } from "@/lib/faceLearning";
-import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, prewarmSpeech, playFeverAlert, playWeaponAlert, playGateOpenSound, playGateDeniedSound } from "@/lib/faceScanAudio";
+import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, prewarmSpeech, isSpeaking, waitForSpeechEnd, playFeverAlert, playWeaponAlert, playGateOpenSound, playGateDeniedSound } from "@/lib/faceScanAudio";
 import { useSmartGate } from "@/hooks/useSmartGate";
 import SmartGatePanel from "@/components/facescan/SmartGatePanel";
 import { Button } from "@/components/ui/button";
