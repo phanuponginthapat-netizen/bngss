@@ -169,10 +169,29 @@ async function speakRemote(text: string): Promise<boolean> {
 export function speakText(text: string) {
   const clean = String(text || "").trim();
   if (!clean) return;
+  _speechPending += 1;
   _speechChain = _speechChain
     .then(() => speakRemote(clean))
-    .then((ok) => { if (!ok && hasLocalVoice()) speakLocal(clean); })
-    .catch(() => { /* noop */ });
+    .then(async (ok) => { if (!ok && hasLocalVoice()) await speakLocal(clean); })
+    .catch(() => { /* noop */ })
+    .finally(() => {
+      _speechPending = Math.max(0, _speechPending - 1);
+      if (_speechPending === 0) _speechQuietUntil = Date.now() + SPEECH_TAIL_MS;
+    });
+}
+
+/** กำลังพูดอยู่หรือยังอยู่ในช่วงเว้นระยะหลังพูดจบ */
+export function isSpeaking(): boolean {
+  if (_speechPending > 0) return true;
+  return Date.now() < _speechQuietUntil;
+}
+
+/** รอจนพูดจบ (พร้อมเว้นระยะสั้นๆ) ก่อนกลับไปตรวจจับใบหน้าต่อ */
+export async function waitForSpeechEnd(maxWaitMs = 12000): Promise<void> {
+  const deadline = Date.now() + maxWaitMs;
+  while (isSpeaking() && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 120));
+  }
 }
 
 /** เตรียมไฟล์เสียงประโยคที่ใช้บ่อยล่วงหน้า — ครั้งแรกจะไม่ดีเลย์ */
