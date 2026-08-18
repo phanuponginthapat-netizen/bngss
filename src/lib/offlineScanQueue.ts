@@ -108,9 +108,12 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
             await updatePending({ ...item, attempts: (item.attempts || 0) + 1, last_error: error.message });
           }
         } else {
+          const { markScanned } = await import("@/lib/scanDedup");
+          markScanned(item.student_id, item.scan_type, item.entry_method);
           if (item.id != null) await removePending(item.id);
           synced++;
         }
+
       } catch (e: any) {
         failed++;
         if (item.id != null) {
