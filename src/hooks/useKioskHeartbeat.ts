@@ -59,12 +59,12 @@ export function useKioskHeartbeat(input: HeartbeatInput) {
 
     const ping = async () => {
       try {
+        if (cancelled) return;
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user || cancelled) return;
         const device_id = getDeviceId();
         const payload = {
           device_id,
-          user_id: user.id,
+          user_id: user?.id ?? null,
           hostname: getDeviceHostnameHint(),
           user_agent: navigator.userAgent,
           status,
@@ -76,10 +76,26 @@ export function useKioskHeartbeat(input: HeartbeatInput) {
           last_seen_at: new Date().toISOString(),
         };
         // NOTE: ไม่แตะ meta — admin เป็นคนตั้ง room ผ่าน KioskDevicesLiveCard
-        await supabase
-          .from("kiosk_devices")
-          .upsert([payload], { onConflict: "device_id" });
+        // ใช้ RPC (security definer) เพื่อให้เครื่องที่เคยลงทะเบียนด้วยบัญชีอื่นอัปเดตได้
+        const { error: rpcErr } = await (supabase as any).rpc("kiosk_heartbeat", {
+          _device_id: device_id,
+          _hostname: payload.hostname,
+          _user_agent: payload.user_agent,
+          _status: status,
+          _kiosk_mode: kioskMode,
+          _config_updated_at: configUpdatedAt,
+          _uptime_sec: Math.round(uptimeSec) || 0,
+          _screen_resolution: payload.screen_resolution,
+          _extension_installed: extensionInstalled,
+        });
+        if (rpcErr && user) {
+          // fallback สำหรับ backend ที่ยังไม่มีฟังก์ชัน
+          await supabase
+            .from("kiosk_devices")
+            .upsert([payload], { onConflict: "device_id" });
+        }
         lastPingRef.current = Date.now();
+
 
         // ---- บันทึกประวัติสถานะเครื่อง (แบต/หน่วยความจำ/uptime) ทุก 3 นาที สำหรับกราฟ ----
         const now = Date.now();
