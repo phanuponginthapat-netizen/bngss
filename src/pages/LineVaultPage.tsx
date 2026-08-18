@@ -1162,6 +1162,18 @@ function GroupsManager({ groups, onChange }: { groups: Group[]; onChange: () => 
                     swal.success("ส่งทดสอบสำเร็จ", `รวม ${data?.totals?.totalAll ?? 0} คน`);
                   }}
                 >ทดสอบรายงานการมาโรงเรียน</Button>
+                <Button
+                  size="sm" variant="outline"
+                  onClick={async () => {
+                    const { data, error } = await (supabase as any).rpc("ensure_attendance_digest_cron");
+                    if (error) return swal.error("ตั้งเวลาไม่สำเร็จ", error.message);
+                    if (!data?.ok) return swal.error("ตั้งเวลาไม่สำเร็จ", String(data?.reason || "ไม่ทราบสาเหตุ"));
+                    swal.success(
+                      "ตั้งเวลาส่งอัตโนมัติแล้ว",
+                      `จ.–ศ. 10:00 น. → ${data.url}${data.has_secret ? "" : " (ยังไม่ได้ตั้ง CRON_SECRET)"}`,
+                    );
+                  }}
+                >ตั้งเวลาส่งอัตโนมัติใหม่</Button>
               </div>
             </div>
             <div className="text-[11px] text-muted-foreground font-mono">Group ID: {g.line_group_id}</div>
