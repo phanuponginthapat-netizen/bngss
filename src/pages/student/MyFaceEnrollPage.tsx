@@ -135,10 +135,10 @@ const MyFaceEnrollPage = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
-            {me.photo_url ? (
+            {(person.photo_url || person.avatar_url) ? (
               <img
-                src={me.photo_url}
-                alt={`รูปนักเรียน ${fullName}`}
+                src={person.photo_url || person.avatar_url}
+                alt={`รูปของ ${fullName}`}
                 className="w-14 h-14 rounded-xl object-cover border"
                 onContextMenu={(e) => e.preventDefault()}
               />
@@ -150,14 +150,15 @@ const MyFaceEnrollPage = () => {
             <div className="flex-1 min-w-[180px]">
               <p className="font-semibold">{fullName}</p>
               <p className="text-xs text-muted-foreground">
-                รหัส {me.student_code}
-                {(me as any).classrooms?.name ? ` · ${(me as any).classrooms.name}` : ""}
+                รหัส {person.student_code || person.employee_code || "-"}
+                {person.classrooms?.name ? ` · ${person.classrooms.name}` : ""}
               </p>
             </div>
             {registered ? (
               <Badge className="gap-1 bg-emerald-500/15 text-emerald-600 border-emerald-500/30">
-                <CheckCircle2 className="w-3 h-3" />ลงทะเบียนแล้ว {samples.length} ภาพ
+                <CheckCircle2 className="w-3 h-3" />ลงทะเบียนแล้ว {me ? samples.length : personnelSamples.length} ภาพ
               </Badge>
+
             ) : (
               <Badge variant="secondary" className="gap-1">
                 <AlertTriangle className="w-3 h-3" />ยังไม่ได้ลงทะเบียน
