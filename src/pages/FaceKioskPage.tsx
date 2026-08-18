@@ -1340,7 +1340,7 @@ const FaceKioskPage = () => {
       </div>
 
       {showSettings && (
-        <div className="absolute top-12 right-2 z-40 bg-card text-foreground rounded-xl p-4 w-80 shadow-2xl space-y-3">
+        <div className="absolute top-12 right-2 z-40 bg-card text-foreground rounded-xl p-4 w-80 shadow-2xl space-y-3 max-h-[calc(100vh-4.5rem)] overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]" onClick={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
           <h3 className="font-semibold text-sm">ตั้งค่ากล้อง</h3>
           <div className="flex gap-1">
             <Button size="sm" variant={camMode === "standard" ? "default" : "outline"} onClick={() => switchCamMode("standard")} className="flex-1">มาตรฐาน</Button>
