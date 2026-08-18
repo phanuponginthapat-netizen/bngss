@@ -18,7 +18,7 @@ import { useSchoolGeofence, calcDistanceMeters, getCurrentCoords } from "@/hooks
 import { MapPin } from "lucide-react";
 import { uploadFaceScanSnapshot } from "@/lib/faceScanUpload";
 import { getRegisteredFaceImage } from "@/lib/registeredFace";
-import { checkTodayScan, markScanned, methodLabel } from "@/lib/scanDedup";
+import { checkTodayScan, markScanned, methodLabel as scanMethodLabel } from "@/lib/scanDedup";
 
 import { learnFromScan } from "@/lib/faceLearning";
 import { useHomeroomClassrooms } from "@/hooks/useHomeroomClassrooms";
@@ -519,7 +519,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
         duplicateNoticeRef.current.set(cdKey, now);
         playDuplicateSound();
         if (voiceEnabled) speakText(`สแกน${modeLabel}ซ้ำ ${spokenName} บันทึกแล้ว`);
-        const via = methodLabel(mode === "exit" ? todayState.exitMethod : todayState.entryMethod);
+        const via = scanMethodLabel(mode === "exit" ? todayState.exitMethod : todayState.entryMethod);
         toast.info("สแกนซ้ำ", { description: `${name} บันทึก${modeLabel}วันนี้แล้ว (${via})`, duration: 1800 });
         setLive({ kind: "duplicate", text: `สแกน${modeLabel}ซ้ำ • ${name}`, sub: `บันทึกแล้วผ่าน${via}` });
       }
