@@ -119,6 +119,24 @@ function speakLocal(text: string): Promise<void> {
 async function fetchTtsUrl(text: string): Promise<string | null> {
   const cached = _ttsCache.get(text);
   if (cached) return cached;
+
+  // 1) ยิงตรงแบบ GET → ได้ audio/mpeg ตรงๆ (เสถียรกว่าบน Chromium/Linux)
+  try {
+    const { getBackendConfig } = await import("@/lib/runtimeConfig");
+    const { url: base, anonKey } = getBackendConfig();
+    const endpoint = `${base}/functions/v1/tts-th?text=${encodeURIComponent(text)}&lang=th`;
+    const r = await fetch(endpoint, { headers: { apikey: anonKey } });
+    if (r.ok && (r.headers.get("content-type") || "").includes("audio")) {
+      const blob = await r.blob();
+      if (blob.size > 200) {
+        const u = URL.createObjectURL(new Blob([blob], { type: "audio/mpeg" }));
+        rememberTts(text, u);
+        return u;
+      }
+    }
+  } catch { /* ลองวิธีสำรองต่อ */ }
+
+  // 2) สำรอง: เรียกผ่าน supabase functions.invoke (POST)
   const { supabase } = await import("@/integrations/supabase/client");
   const { data, error } = await supabase.functions.invoke("tts-th", {
     body: { text },
