@@ -79,7 +79,7 @@ interface Step {
 
 const STEPS: Step[] = [
   { key: "center",  label: "จัดหน้าให้ตรงกรอบ",        hint: "มองตรงมาที่กล้อง จนกรอบล็อกเป็นสีเขียว", icon: ScanFace },
-  { key: "blink",   label: "กะพริบตา 1 ครั้ง",           hint: "มองที่กล้องแล้วกะพริบตาตามปกติ",     icon: Eye },
+  { key: "near",    label: "ขยับหน้าเข้าใกล้กล้อง",       hint: "ค่อยๆ ขยับหน้าเข้าใกล้กล้องอีกนิด",   icon: Eye },
   { key: "left",    label: "หันหน้าไปทางซ้าย",          hint: "หันช้าๆ ประมาณ 30 องศา",            icon: ArrowLeft },
   { key: "right",   label: "หันหน้าไปทางขวา",           hint: "หันช้าๆ ประมาณ 30 องศา",            icon: ArrowRight },
   { key: "color",   label: "Color Challenge (กันรูปปลอม)", hint: "หน้าจอจะสลับสี ให้มองที่กล้อง",   icon: Sparkles },
