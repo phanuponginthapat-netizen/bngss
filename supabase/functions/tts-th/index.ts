@@ -66,8 +66,12 @@ async function fetchChunk(text: string, lang: string): Promise<Uint8Array | null
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const url = new URL(req.url);
+  const isGet = req.method === "GET";
   try {
-    const { text, lang } = await req.json().catch(() => ({}));
+    const body = isGet ? {} : await req.json().catch(() => ({}));
+    const text = isGet ? url.searchParams.get("text") : (body as any).text;
+    const lang = isGet ? url.searchParams.get("lang") : (body as any).lang;
     const input = String(text || "").slice(0, 3000).trim();
     if (!input) {
       return new Response(JSON.stringify({ error: "text required" }), {
@@ -93,13 +97,14 @@ Deno.serve(async (req) => {
     return new Response(out, {
       headers: {
         ...corsHeaders,
-        // supabase.functions.invoke() แปลงเป็น Blob เฉพาะ application/octet-stream/pdf
-        // ถ้าส่ง audio/mpeg จะถูกอ่านเป็น text แล้วไฟล์ MP3 เสีย ทำให้ฝั่ง browser เงียบ
-        "Content-Type": "application/octet-stream",
+        // GET → เล่นตรงผ่าน <audio src>; POST → invoke() ต้องเป็น octet-stream ถึงจะได้ Blob
+        "Content-Type": isGet ? "audio/mpeg" : "application/octet-stream",
         "X-Audio-Content-Type": "audio/mpeg",
+        "Accept-Ranges": "none",
         "Cache-Control": "public, max-age=86400",
       },
     });
+
   } catch (e: any) {
     return new Response(JSON.stringify({ fallback: true, error: e?.message || "tts error" }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
