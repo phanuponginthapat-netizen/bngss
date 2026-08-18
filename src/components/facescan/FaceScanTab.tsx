@@ -18,6 +18,8 @@ import { useSchoolGeofence, calcDistanceMeters, getCurrentCoords } from "@/hooks
 import { MapPin } from "lucide-react";
 import { uploadFaceScanSnapshot } from "@/lib/faceScanUpload";
 import { getRegisteredFaceImage } from "@/lib/registeredFace";
+import { checkTodayScan, markScanned, methodLabel } from "@/lib/scanDedup";
+
 import { learnFromScan } from "@/lib/faceLearning";
 import { useHomeroomClassrooms } from "@/hooks/useHomeroomClassrooms";
 
