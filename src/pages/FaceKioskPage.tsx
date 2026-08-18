@@ -12,7 +12,7 @@ import {
   type KnownFace,
 } from "@/lib/faceApi";
 import { learnFromScan } from "@/lib/faceLearning";
-import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, playFeverAlert, playWeaponAlert, playGateOpenSound, playGateDeniedSound } from "@/lib/faceScanAudio";
+import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, prewarmSpeech, playFeverAlert, playWeaponAlert, playGateOpenSound, playGateDeniedSound } from "@/lib/faceScanAudio";
 import { useSmartGate } from "@/hooks/useSmartGate";
 import SmartGatePanel from "@/components/facescan/SmartGatePanel";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ import { wakeKioskScreen } from "@/lib/kioskWake";
 import { getRegisteredFaceImage } from "@/lib/registeredFace";
 import { checkTodayScan, markScanned, methodLabel } from "@/lib/scanDedup";
 import { useKioskHeartbeat } from "@/hooks/useKioskHeartbeat";
+import { KIOSK_PERF_KEY, KIOSK_PERF_PROFILES, loadKioskPerfMode, type KioskPerfMode } from "@/lib/kioskPerf";
 
 import { saveErrorMessage } from "@/lib/saveError";
 import { notifyRole } from "@/lib/notify";
@@ -100,6 +101,13 @@ const FaceKioskPage = () => {
   useEffect(() => { localStorage.setItem("face_kiosk_qr_only", qrOnly ? "1" : "0"); }, [qrOnly]);
   const { selection: scanModeSelection, setSelection: setScanModeSelection, effective: scanMode, effectiveRef: scanModeRef, cutoff: modeCutoff, checkWindow, entryWindow, exitWindow } = useAutoScanMode();
   const [camMode, setCamMode] = useState<CamMode>("standard");
+  const [perfMode, setPerfMode] = useState<KioskPerfMode>(() => loadKioskPerfMode());
+  const perf = KIOSK_PERF_PROFILES[perfMode];
+  useEffect(() => { localStorage.setItem(KIOSK_PERF_KEY, perfMode); }, [perfMode]);
+  // เตรียมเสียงประโยคที่ใช้บ่อยล่วงหน้า — กันเสียงกระตุก/ดีเลย์ตอนสแกนจริง
+  useEffect(() => {
+    prewarmSpeech(["ไม่พบข้อมูลใบหน้าในระบบ กรุณาลงทะเบียน", "สแกนเข้าสำเร็จ", "สแกนออกสำเร็จ"]);
+  }, []);
   const [screensaver, setScreensaver] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
@@ -446,8 +454,8 @@ const FaceKioskPage = () => {
       const wide = mode === "wide";
       const res = await openCamera({
         facing: wide ? "environment" : "user",
-        width: wide ? 1920 : 1280,
-        height: wide ? 1080 : 720,
+        width: Math.min(wide ? 1920 : 1280, perf.videoWidth),
+        height: Math.min(wide ? 1080 : 720, perf.videoHeight),
       });
       await applyCameraAutoTune(res.stream);
       if (videoRef.current) {
@@ -690,10 +698,10 @@ const FaceKioskPage = () => {
   useEffect(() => {
     if (!streaming || !modelReady || screensaver || qrOnly) return;
     let cancelled = false;
-    // input ใหญ่ขึ้น = เก็บรายละเอียดใบหน้าได้มาก จับใบหน้าระยะไกล/เล็กได้ดี
-    const opts = detectorOptionsHQ(camMode === "wide" ? 608 : 608, 0.35);
+    // input ใหญ่ขึ้น = เก็บรายละเอียดใบหน้าได้มาก แต่กินซีพียูมาก — ปรับตามโปรไฟล์ประสิทธิภาพ
+    const opts = detectorOptionsHQ(perf.inputSize, 0.35);
     // ขนาดใบหน้าขั้นต่ำ (พิกเซลในเฟรม) ป้องกัน descriptor เพี้ยนจากใบหน้าที่เล็กเกิน
-    const MIN_FACE_PX = 70;
+    const MIN_FACE_PX = perfMode === "low" ? 56 : 70;
     // ระยะห่างระหว่าง best vs second-best ขั้นต่ำ — ยืนยันว่าระบุตัวตนได้ชัดเจน ไม่ไปทับคนอื่น
     const MIN_MARGIN = 0.04;
     // ความมั่นใจขั้นต่ำ (1 - distance) — ยืนยันเมื่อมั่นใจ ≥ 66%
@@ -702,7 +710,7 @@ const FaceKioskPage = () => {
     const CONFIRM_FRAMES = 2;
     const CONFIRM_WINDOW_MS = 1500;
 
-    const MIN_SHARPNESS = 70; // ใต้ค่านี้ = เบลอเกินไป ไม่บันทึก
+    const MIN_SHARPNESS = 70; // ใต้ค่านี้ = เบลอเกินไป ไม่บันทึก (โหมดประหยัดข้ามการตรวจ)
 
     const snapCanvas = document.createElement("canvas");
     const captureFaceCrop = (video: HTMLVideoElement, box: { x: number; y: number; width: number; height: number }): string | undefined => {
@@ -726,7 +734,7 @@ const FaceKioskPage = () => {
       try {
         // ตรวจจับจากเฟรมที่ผ่าน preprocess (contrast/brightness) — ช่วยกล้องคุณภาพต่ำ
         const video = videoRef.current;
-        const pre = preprocessFrame(video, { maxWidth: 960 }) || video;
+        const pre = preprocessFrame(video, { maxWidth: perf.maxWidth }) || video;
         const detections = await getAllDescriptors(pre as any, opts);
         // อัตราส่วนสำหรับสเกล box กลับสู่พิกัดของวิดีโอจริง
         const srcW = pre instanceof HTMLCanvasElement ? pre.width : video.videoWidth;
@@ -750,8 +758,8 @@ const FaceKioskPage = () => {
               const box = { x: rb.x * scaleBack, y: rb.y * scaleBack, width: rb.width * scaleBack, height: rb.height * scaleBack };
               const faceSize = Math.min(box.width, box.height);
               const tooSmall = faceSize < MIN_FACE_PX;
-              // ประเมินความคมชัดของใบหน้าจริงในวิดีโอ — กล้องเบลอจะถูกปฏิเสธ
-              const sharpness = estimateFaceSharpness(video, box);
+              // ประเมินความคมชัดของใบหน้าจริงในวิดีโอ — กล้องเบลอจะถูกปฏิเสธ (ข้ามในโหมดประหยัด)
+              const sharpness = perf.checkSharpness ? estimateFaceSharpness(video, box) : MIN_SHARPNESS;
               const tooBlurry = sharpness < MIN_SHARPNESS;
 
               const m = matchDescriptor(det.descriptor, matchKnown, threshold);
@@ -863,14 +871,20 @@ const FaceKioskPage = () => {
       } catch (e) {
         console.error("kiosk detect err", e);
       }
-      if (!cancelled) detectionLoopRef.current = window.setTimeout(loop, 200);
+      if (!cancelled) {
+        // ปล่อยให้เบราว์เซอร์วาดเฟรมก่อนเริ่มรอบใหม่ → ภาพไม่กระตุก
+        detectionLoopRef.current = window.setTimeout(
+          () => requestAnimationFrame(() => { if (!cancelled) void loop(); }),
+          perf.loopDelayMs,
+        );
+      }
     };
     loop();
     return () => {
       cancelled = true;
       if (detectionLoopRef.current) clearTimeout(detectionLoopRef.current);
     };
-  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef, runGate]);
+  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef, runGate, perf, perfMode]);
 
   // ===== WizMind bridge: รับ event ใบหน้าจากกล้อง CCTV แบบ realtime แล้วจดจำทันที =====
   useEffect(() => {
@@ -1323,6 +1337,27 @@ const FaceKioskPage = () => {
             <Button size="sm" variant={camMode === "network" ? "default" : "outline"} onClick={() => switchCamMode("network")} className="flex-1 gap-1">
               <Cctv className="w-3 h-3" />CCTV
             </Button>
+          </div>
+
+          <div className="space-y-1.5 border-t pt-2">
+            <label className="text-xs font-semibold">ประสิทธิภาพการสแกน</label>
+            <div className="flex gap-1">
+              {(["low", "balanced", "high"] as KioskPerfMode[]).map((m) => (
+                <Button
+                  key={m}
+                  size="sm"
+                  variant={perfMode === m ? "default" : "outline"}
+                  onClick={() => { setPerfMode(m); if (camMode !== "network") void startCamera(camMode); }}
+                  className="flex-1 text-[11px] px-1"
+                >
+                  {m === "low" ? "ประหยัด" : m === "balanced" ? "สมดุล" : "ละเอียด"}
+                </Button>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-snug">
+              {KIOSK_PERF_PROFILES[perfMode].label} • กล้อง {KIOSK_PERF_PROFILES[perfMode].videoWidth}px •
+              ตรวจทุก {KIOSK_PERF_PROFILES[perfMode].loopDelayMs} มิลลิวินาที — เครื่อง Linux สเปกต่ำแนะนำ "ประหยัด"
+            </p>
           </div>
 
           <div className="space-y-2 border-t pt-2">

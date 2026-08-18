@@ -75,6 +75,23 @@ function hasLocalVoice(): boolean {
 
 let _ttsAudio: HTMLAudioElement | null = null;
 let _speechSequence = 0;
+let _speechChain: Promise<void> = Promise.resolve();
+
+/** แคช URL ของไฟล์เสียงที่เคยสังเคราะห์แล้ว — ลดการรอเรียก TTS ซ้ำ (สาเหตุของเสียงกระตุก) */
+const _ttsCache = new Map<string, string>();
+const TTS_CACHE_MAX = 60;
+
+function rememberTts(text: string, url: string) {
+  _ttsCache.set(text, url);
+  if (_ttsCache.size > TTS_CACHE_MAX) {
+    const oldest = _ttsCache.keys().next().value as string | undefined;
+    if (oldest) {
+      const old = _ttsCache.get(oldest);
+      _ttsCache.delete(oldest);
+      if (old) { try { URL.revokeObjectURL(old); } catch { /* noop */ } }
+    }
+  }
+}
 
 function speakLocal(text: string) {
   try {
@@ -88,35 +105,55 @@ function speakLocal(text: string) {
   } catch { /* noop */ }
 }
 
+async function fetchTtsUrl(text: string): Promise<string | null> {
+  const cached = _ttsCache.get(text);
+  if (cached) return cached;
+  const { supabase } = await import("@/integrations/supabase/client");
+  const { data, error } = await supabase.functions.invoke("tts-th", {
+    body: { text },
+    headers: { Accept: "application/octet-stream" },
+  });
+  if (error || !data) return null;
+  if (!(data instanceof Blob) && (data as any)?.fallback) return null;
+  const blob = data instanceof Blob
+    ? new Blob([data], { type: "audio/mpeg" })
+    : new Blob([data as ArrayBuffer], { type: "audio/mpeg" });
+  if (blob.size < 100) return null;
+  const url = URL.createObjectURL(blob);
+  rememberTts(text, url);
+  return url;
+}
+
 /** เล่นเสียงพูดผ่าน server TTS (ใช้ได้บน Linux kiosk ที่ไม่มี voice ในเครื่อง) */
 async function speakRemote(text: string): Promise<boolean> {
   try {
     const sequence = ++_speechSequence;
-    const { supabase } = await import("@/integrations/supabase/client");
-    const { data, error } = await supabase.functions.invoke("tts-th", {
-      body: { text },
-      headers: { Accept: "application/octet-stream" },
-    });
-    if (error || !data) return false;
-    if (!(data instanceof Blob) && (data as any)?.fallback) return false;
-    const blob = data instanceof Blob
-      ? new Blob([data], { type: "audio/mpeg" })
-      : new Blob([data as ArrayBuffer], { type: "audio/mpeg" });
-    if (blob.size < 100) return false;
-    const url = URL.createObjectURL(blob);
-    if (sequence !== _speechSequence) {
-      URL.revokeObjectURL(url);
-      return true;
-    }
+    const url = await fetchTtsUrl(text);
+    if (!url) return false;
+    if (sequence !== _speechSequence) return true; // มีข้อความใหม่กว่าแล้ว
     try { _ttsAudio?.pause(); } catch { /* noop */ }
     const audio = new Audio(url);
     audio.preload = "auto";
     audio.volume = 1;
-    audio.playbackRate = 1.3;
+    audio.playbackRate = 1.15;
     (audio as any).preservesPitch = true;
-    audio.onended = () => URL.revokeObjectURL(url);
     _ttsAudio = audio;
+    // รอให้บัฟเฟอร์พร้อมก่อนเล่น — กันเสียงสะดุดบนเครื่องช้า
+    if (audio.readyState < 3) {
+      await new Promise<void>((resolve) => {
+        const done = () => resolve();
+        audio.addEventListener("canplaythrough", done, { once: true });
+        audio.addEventListener("error", done, { once: true });
+        setTimeout(done, 1200);
+      });
+    }
     await audio.play();
+    // ให้ประโยคถัดไปรอจนพูดจบ ไม่ตัดทับกัน
+    await new Promise<void>((resolve) => {
+      audio.addEventListener("ended", () => resolve(), { once: true });
+      audio.addEventListener("error", () => resolve(), { once: true });
+      setTimeout(resolve, 6000);
+    });
     return true;
   } catch { return false; }
 }
@@ -125,9 +162,18 @@ async function speakRemote(text: string): Promise<boolean> {
 export function speakText(text: string) {
   const clean = String(text || "").trim();
   if (!clean) return;
-  void speakRemote(clean).then((ok) => {
-    if (!ok && hasLocalVoice()) speakLocal(clean);
-  });
+  _speechChain = _speechChain
+    .then(() => speakRemote(clean))
+    .then((ok) => { if (!ok && hasLocalVoice()) speakLocal(clean); })
+    .catch(() => { /* noop */ });
+}
+
+/** เตรียมไฟล์เสียงประโยคที่ใช้บ่อยล่วงหน้า — ครั้งแรกจะไม่ดีเลย์ */
+export function prewarmSpeech(phrases: string[]) {
+  for (const p of phrases) {
+    const clean = String(p || "").trim();
+    if (clean && !_ttsCache.has(clean)) void fetchTtsUrl(clean).catch(() => {});
+  }
 }
 
 
