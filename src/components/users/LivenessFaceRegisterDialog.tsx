@@ -67,7 +67,7 @@ const dataUrlToBlob = (dataUrl: string): Blob => {
 };
 
 
-type StepKey = "center" | "blink" | "left" | "right" | "color" | "done";
+type StepKey = "center" | "near" | "left" | "right" | "color" | "done";
 
 interface Step {
   key: StepKey;
@@ -79,7 +79,7 @@ interface Step {
 
 const STEPS: Step[] = [
   { key: "center",  label: "จัดหน้าให้ตรงกรอบ",        hint: "มองตรงมาที่กล้อง จนกรอบล็อกเป็นสีเขียว", icon: ScanFace },
-  { key: "blink",   label: "กะพริบตา 1 ครั้ง",           hint: "มองที่กล้องแล้วกะพริบตาตามปกติ",     icon: Eye },
+  { key: "near",    label: "ขยับหน้าเข้าใกล้กล้อง",       hint: "ค่อยๆ ขยับหน้าเข้าใกล้กล้องอีกนิด",   icon: Eye },
   { key: "left",    label: "หันหน้าไปทางซ้าย",          hint: "หันช้าๆ ประมาณ 30 องศา",            icon: ArrowLeft },
   { key: "right",   label: "หันหน้าไปทางขวา",           hint: "หันช้าๆ ประมาณ 30 องศา",            icon: ArrowRight },
   { key: "color",   label: "Color Challenge (กันรูปปลอม)", hint: "หน้าจอจะสลับสี ให้มองที่กล้อง",   icon: Sparkles },
@@ -139,7 +139,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     closed: boolean;        // ตาปิดอยู่หรือไม่
     closedFrames: number;   // จำนวนเฟรมที่ตาปิดต่อเนื่อง
     blinks: number;         // จำนวนครั้งที่กะพริบสำเร็จ
-  }>({ baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0 });
+  }>({ baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0, startedAt: 0, baseFrac: 0, maxFrac: 0 } as any);
 
   const [challengeColors, setChallengeColors] = useState<string[]>(makeChallengeColors);
 
@@ -428,7 +428,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     setStepIdx(0); setSamples([]); setColorFrameIdx(0); setStatusMsg(""); setBlockedMsg(null);
     setSaveError(null); setSavedOk(false);
     detectMetaRef.current = { misses: 0, stableHits: 0 };
-    blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0 };
+    blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0, startedAt: 0, baseFrac: 0, maxFrac: 0 } as any;
     (async () => {
       if (personnelId) { setStudentId(personnelId); return; }
       const { data: s } = await supabase
@@ -572,58 +572,43 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         setStepIdx((i) => i + 1);
         break;
       }
-      case "blink": {
+      case "near": {
+        // ตรวจ liveness แบบ "ขยับหน้าเข้าใกล้กล้อง" (ทำง่ายกว่าการกะพริบตา)
         const st = blinkStateRef.current as any;
         if (!st.startedAt) st.startedAt = Date.now();
-        if (st.minEar === undefined) st.minEar = 1;
-        // ปรับค่าฐาน EAR ต่อคน (ใช้ค่าตอนลืมตาปกติ) — อัปเดตต่อเนื่องกันค่าเพี้ยน
-        if (st.baseline === 0) {
-          st.samples.push(ear);
-          if (st.samples.length < 3) {
-            setStatusMsg(`กำลังปรับค่าดวงตา... (${st.samples.length}/3) ลืมตาปกติ`);
-            break;
-          }
-          const sorted = [...st.samples].sort((a: number, b: number) => b - a);
-          const high = sorted.slice(0, Math.ceil(sorted.length * 0.6));
-          st.baseline = high.reduce((s: number, v: number) => s + v, 0) / high.length;
-        } else if (!st.closed && ear > st.baseline) {
-          // baseline ตามตัวจริง (เผื่อผู้ใช้ขยับเข้าใกล้/ไกลกล้อง)
-          st.baseline = st.baseline * 0.9 + ear * 0.1;
-        }
-        st.minEar = Math.min(st.minEar, ear);
-
-        // กล้องหน้ามือถือมักทำให้ landmark เปลือกตาขยับน้อย จึงใช้การลดลงเทียบกับ
-        // baseline ของผู้ใช้แทนค่าตายตัว และยอมรับการปิดตาเพียงเฟรมเดียว
-        const closeThr = st.baseline * 0.86;
-        const openThr = st.baseline * 0.91;
         const elapsed = Date.now() - st.startedAt;
 
-        if (ear < closeThr) {
-          st.closedFrames += 1;
-          st.closed = true;
-          setStatusMsg("ตาปิดแล้ว — ลืมตาได้เลย");
-        } else if (ear > openThr && st.closed) {
-          st.closed = false;
-          st.closedFrames = 0;
-          st.blinks += 1;
-          setSamples((s) => [...s, captureSample(data!, "blink")]);
-          setStatusMsg("ตรวจการกะพริบตาผ่าน!");
-          setStepIdx((i) => i + 1);
-        } else {
-          st.closedFrames = 0;
-          // บางเครื่องพลาดเฟรมตอนลืมตากลับ แต่เห็นค่าตาปิดชัดเจนแล้ว ให้ผ่านได้
-          if (elapsed > 8000 && st.minEar < st.baseline * 0.89) {
-            setSamples((s) => [...s, captureSample(data!, "blink")]);
-            setStatusMsg("ตรวจการกะพริบตาผ่าน!");
-            setStepIdx((i) => i + 1);
+        // จับขนาดใบหน้าเริ่มต้น (baseline) จาก 3 เฟรมแรก
+        if (!st.baseFrac) {
+          st.samples.push(faceFrac);
+          if (st.samples.length < 3) {
+            setStatusMsg(`กำลังวัดระยะ... (${st.samples.length}/3) อยู่นิ่งๆ`);
             break;
           }
-          setStatusMsg(
-            elapsed > 5000
-              ? "ลองกะพริบช้าๆ แล้วลืมตาตามปกติ"
-              : "มองที่กล้องแล้วกะพริบตา 1 ครั้ง",
-          );
+          st.baseFrac = st.samples.reduce((a: number, b: number) => a + b, 0) / st.samples.length;
+          st.maxFrac = st.baseFrac;
         }
+        st.maxFrac = Math.max(st.maxFrac || 0, faceFrac);
+
+        const grow = faceFrac / st.baseFrac;
+        if (grow >= 1.15 || faceFrac > 0.5) {
+          setSamples((s) => [...s, captureSample(data!, "near")]);
+          setStatusMsg("ตรวจการเคลื่อนไหวผ่าน!");
+          setStepIdx((i) => i + 1);
+          break;
+        }
+
+        // กันค้าง: ถ้าขยับได้บ้างแล้วและเวลาเกิน 8 วิ ให้ผ่าน
+        if (elapsed > 8000 && (st.maxFrac || 0) / st.baseFrac >= 1.06) {
+          setSamples((s) => [...s, captureSample(data!, "near")]);
+          setStatusMsg("ตรวจการเคลื่อนไหวผ่าน!");
+          setStepIdx((i) => i + 1);
+          break;
+        }
+
+        setStatusMsg(
+          `ขยับหน้าเข้าใกล้กล้องอีกนิด (${Math.round(Math.min(100, ((grow - 1) / 0.15) * 100))}%)`,
+        );
         break;
       }
 
@@ -673,7 +658,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         break;
       }
     }
-    loopRef.current = window.setTimeout(runStep, step.key === "blink" ? 60 : 140) as unknown as number;
+    loopRef.current = window.setTimeout(runStep, step.key === "near" ? 100 : 140) as unknown as number;
   }, [stepIdx, modelReady, streaming, colorFrameIdx, challengeColors.length, captureSample, drawOverlay]);
 
 
@@ -894,7 +879,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     setStepIdx(0); setSamples([]); setColorFrameIdx(0); setBlockedMsg(null);
     setSaveError(null); setSavedOk(false); setStatusMsg("");
     detectMetaRef.current = { misses: 0, stableHits: 0 };
-    blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0 };
+    blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0, startedAt: 0, baseFrac: 0, maxFrac: 0 } as any;
     if (!streaming) void startCamera();
   };
 
