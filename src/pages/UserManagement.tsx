@@ -579,8 +579,10 @@ const UserManagement = () => {
       const { data: cls2 } = await supabase.from("classrooms").select("id, name, grade_level").order("grade_level").order("name");
       setEditClassrooms(cls2 || []);
     } catch (e: any) {
-      swal.error("โหลดข้อมูลเต็มไม่สำเร็จ: " + (e?.message || e));
-    } finally {
+      // ไม่ให้ล้มทั้งหน้า — ยังแก้ไขข้อมูลพื้นฐานได้ แม้ดึงข้อมูลเต็มไม่สำเร็จ
+      console.warn("get_full failed", e);
+      swal.toast.error("โหลดข้อมูลเต็มไม่สำเร็จ (แก้ไขข้อมูลพื้นฐานได้ตามปกติ)");
+
       setEditLoading(false);
     }
   };
