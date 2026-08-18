@@ -970,6 +970,14 @@ amixer -q sset PCM 85% unmute 2>/dev/null || true
 amixer -q sset Capture 90% cap 2>/dev/null || true
 amixer -q sset Mic 90% cap 2>/dev/null || true
 amixer -q sset 'Internal Mic' 90% cap 2>/dev/null || true
+SINK="$(pactl list short sinks 2>/dev/null | awk '!/dummy/ && /analog-stereo|hdmi-stereo|alsa_output/ {print $2; exit}')"
+if [ -n "$SINK" ]; then
+  pactl set-default-sink "$SINK" 2>/dev/null || true
+  pactl set-sink-mute "$SINK" 0 2>/dev/null || true
+  pactl set-sink-volume "$SINK" 100% 2>/dev/null || true
+fi
+pactl set-sink-mute @DEFAULT_SINK@ 0 2>/dev/null || true
+pactl set-sink-volume @DEFAULT_SINK@ 100% 2>/dev/null || true
 SRC="$(pactl list short sources 2>/dev/null | awk '!/\.monitor/ && /input|alsa_input/ {print $2; exit}')"
 if [ -n "$SRC" ]; then
   pactl set-default-source "$SRC" 2>/dev/null || true
@@ -1224,7 +1232,7 @@ while true; do
     --disable-dev-shm-usage --start-maximized \\
     --autoplay-policy=no-user-gesture-required \\
     --use-fake-ui-for-media-stream \\
-    --enable-features=WebRTCPipeWireCapturer --alsa-output-device=default \\
+    --enable-features=WebRTCPipeWireCapturer \
     --password-store=basic --disk-cache-size=104857600 \\
     --auto-select-desktop-capture-source="Entire screen" \\
     --enable-usermedia-screen-capturing \\

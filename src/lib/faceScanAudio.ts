@@ -74,6 +74,7 @@ function hasLocalVoice(): boolean {
 }
 
 let _ttsAudio: HTMLAudioElement | null = null;
+let _speechSequence = 0;
 
 function speakLocal(text: string) {
   try {
@@ -90,8 +91,12 @@ function speakLocal(text: string) {
 /** เล่นเสียงพูดผ่าน server TTS (ใช้ได้บน Linux kiosk ที่ไม่มี voice ในเครื่อง) */
 async function speakRemote(text: string): Promise<boolean> {
   try {
+    const sequence = ++_speechSequence;
     const { supabase } = await import("@/integrations/supabase/client");
-    const { data, error } = await supabase.functions.invoke("tts-th", { body: { text } });
+    const { data, error } = await supabase.functions.invoke("tts-th", {
+      body: { text },
+      headers: { Accept: "application/octet-stream" },
+    });
     if (error || !data) return false;
     if (!(data instanceof Blob) && (data as any)?.fallback) return false;
     const blob = data instanceof Blob
@@ -99,8 +104,14 @@ async function speakRemote(text: string): Promise<boolean> {
       : new Blob([data as ArrayBuffer], { type: "audio/mpeg" });
     if (blob.size < 100) return false;
     const url = URL.createObjectURL(blob);
+    if (sequence !== _speechSequence) {
+      URL.revokeObjectURL(url);
+      return true;
+    }
     try { _ttsAudio?.pause(); } catch { /* noop */ }
     const audio = new Audio(url);
+    audio.preload = "auto";
+    audio.volume = 1;
     audio.playbackRate = 1.3;
     (audio as any).preservesPitch = true;
     audio.onended = () => URL.revokeObjectURL(url);
@@ -110,12 +121,13 @@ async function speakRemote(text: string): Promise<boolean> {
   } catch { return false; }
 }
 
-/** Speak text in Thai — server TTS ก่อน (Linux kiosk) แล้วค่อย fallback browser voice */
+/** Speak text in Thai — ใช้ไฟล์เสียง TTS ก่อนเสมอ เพราะ Chromium/Linux อาจรายงาน voice แต่ไม่มีเสียงออก */
 export function speakText(text: string) {
   const clean = String(text || "").trim();
   if (!clean) return;
-  if (hasLocalVoice()) { speakLocal(clean); return; }
-  void speakRemote(clean).then((ok) => { if (!ok) speakLocal(clean); });
+  void speakRemote(clean).then((ok) => {
+    if (!ok && hasLocalVoice()) speakLocal(clean);
+  });
 }
 
 
