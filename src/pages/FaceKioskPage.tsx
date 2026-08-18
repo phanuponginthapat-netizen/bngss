@@ -198,7 +198,8 @@ const FaceKioskPage = () => {
     enabled: true,
     kioskMode: "door",
     status: screensaver ? "locked" : "online",
-    uptimeSec: Math.floor((Date.now() - kioskStartedAtRef.current) / 1000),
+    // ปัดเป็นนาที เพื่อไม่ให้ effect รีสตาร์ททุกวินาที
+    uptimeSec: Math.floor((now.getTime() - kioskStartedAtRef.current) / 60000) * 60,
   });
 
   useEffect(() => {
