@@ -914,6 +914,17 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* คำแนะนำถ่ายภาพจากมือถือ — ระบบจดจำแม่นขึ้นมากเมื่อภาพมือถือใกล้เคียงกล้องคีออส */}
+          <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
+            <p className="font-bold text-primary mb-1">เคล็ดลับถ่ายให้สแกนผ่านง่ายที่ตู้คีออส</p>
+            <ul className="space-y-0.5">
+              <li>• หันหน้า<b>ตรงกล้อง</b> ไม่ก้ม/เงย ให้กรอบล็อกเป็นสีเขียว</li>
+              <li>• ถ่ายใน<b>ระยะแขน</b> ใบหน้าครบกรอบ — ระยะเดียวกับตอนยืนหน้าตู้สแกน</li>
+              <li>• เลือก<b>แสงสว่างสม่ำเสมอ</b> (หลีกแสงย้อน/ย้อนหน้าต่าง) เหมือนแสงบริเวณตู้</li>
+              <li>• ปิด<b>ฟิลเตอร์ความงาม / beauty mode</b> บนกล้อง เพื่อให้ใบหน้าจริงตรงกับระบบ</li>
+            </ul>
+          </div>
+
           {/* Step indicator */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">

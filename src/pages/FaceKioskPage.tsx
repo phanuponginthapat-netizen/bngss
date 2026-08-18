@@ -10,7 +10,7 @@ import {
   loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame,
   detectorOptionsHQ, applyCameraAutoTune, preprocessFrame, estimateFaceSharpness, estimateBrightness,
   BANK_GRADE,
-  type KnownFace,
+  type KnownFace, type MatchResult,
 } from "@/lib/faceApi";
 import { learnFromScan } from "@/lib/faceLearning";
 import { verifyScanTexture } from "@/lib/faceTexture";
@@ -87,6 +87,15 @@ const FaceKioskPage = () => {
   const livenessRef = useRef<Map<string, LivenessTrack>>(new Map());
   // texture ไม่ผ่าน (สงสัยรูปถ่าย/คนหน้าคล้าย): studentId -> timestamp ครั้งสุดท้ายที่ถูกปฏิเสธ
   const textureFailRef = useRef<Map<string, number>>(new Map());
+  // รอยืนยันบนจอ (เกณฑ์ระดับกลาง — ต้องให้คนกดยืนยันก่อนบันทึก)
+  const [pendingManual, setPendingManual] = useState<{
+    studentId: string; studentCode: string; name: string; classroom: string;
+    avatar?: string | null; isStaff: boolean; confidence: number;
+    capturedFace?: string; registeredFace?: string | null; match: MatchResult;
+    descriptor: Float32Array; sharpness: number; faceSize: number;
+  } | null>(null);
+  const pendingManualRef = useRef<typeof pendingManual>(null);
+  const manualTimerRef = useRef<number | null>(null);
   const unknownBeepRef = useRef<number>(0);
   const lastDetectedAtRef = useRef<number>(Date.now());
   const idleTimerRef = useRef<number | null>(null);
@@ -710,6 +719,74 @@ const FaceKioskPage = () => {
     }
   }, [voiceEnabled]);
 
+  // ===== ระดับ match กลาง (ลงทะเบียนมือถือ → สแกนคีออส): รอผู้ใช้ยืนยันบนจอก่อนบันทึก =====
+  const confirmPendingManual = useCallback(async () => {
+    const p = pendingManualRef.current;
+    if (!p) return;
+    pendingManualRef.current = null;
+    setPendingManual(null);
+    if (manualTimerRef.current) { window.clearTimeout(manualTimerRef.current); manualTimerRef.current = null; }
+    if (p.isStaff) {
+      const tNow = Date.now();
+      const last = justScannedRef.current.get(p.studentId) || 0;
+      if (tNow - last > 15_000) {
+        justScannedRef.current.set(p.studentId, tNow);
+        playSuccessSound();
+        const mode = scanModeRef.current === "exit" ? "exit" : "entry";
+        void runGate(p.name, { id: p.studentId, kind: "personnel" });
+        let clockNote = "บุคลากร (ทดสอบ)";
+        if (staffClockRef.current) {
+          clockNote = await clockStaff(p.studentId, mode, p.capturedFace, p.confidence, p.name);
+        } else if (voiceEnabled) {
+          speakText(`สวัสดี ${p.name}`);
+        }
+        setLastMatch({
+          name: p.name,
+          studentCode: p.studentCode || "-",
+          classroom: `${p.classroom} • ${clockNote}`,
+          confidence: p.confidence,
+          scanType: mode,
+          capturedFace: p.capturedFace,
+          registeredFace: p.registeredFace || null,
+          time: new Date().toLocaleTimeString("th-TH", { hour12: false }),
+        });
+        setRecent((prev) => [{
+          studentId: p.studentId,
+          studentCode: p.studentCode || "-",
+          name: `${p.name} (บุคลากร)`,
+          classroom: clockNote,
+          avatar: p.registeredFace || null,
+          capturedFace: p.capturedFace,
+          time: new Date().toLocaleTimeString("th-TH", { hour12: false }),
+          confidence: p.confidence,
+        }, ...prev].slice(0, 20));
+      }
+    } else {
+      await recordScan(p.studentId, p.studentCode, p.name, p.classroom, p.avatar, p.confidence, p.capturedFace, p.registeredFace);
+      // เรียนรู้ใบหน้าอัตโนมัติจากการสแกนจริงหน้าคีออส
+      learnFromScan({
+        studentId: p.studentId,
+        descriptor: p.descriptor,
+        match: p.match,
+        sharpness: p.sharpness,
+        faceSize: p.faceSize,
+        source: "kiosk",
+      }).catch(() => {});
+    }
+    confirmRef.current.delete(p.studentId);
+    livenessRef.current.delete(p.studentId);
+  }, [voiceEnabled, runGate, recordScan, clockStaff]);
+
+  const cancelPendingManual = useCallback(() => {
+    const p = pendingManualRef.current;
+    if (!p) return;
+    // กันโผล่ซ้ำเร็วเกินไป (คนเดิม) — ตั้ง cooldown 30 วิ
+    cooldownRef.current.set(p.studentId, Date.now());
+    pendingManualRef.current = null;
+    setPendingManual(null);
+    if (manualTimerRef.current) { window.clearTimeout(manualTimerRef.current); manualTimerRef.current = null; }
+  }, []);
+
 
 
   useEffect(() => {
@@ -726,6 +803,17 @@ const FaceKioskPage = () => {
     // จำนวนเฟรมต่อเนื่องที่ต้องจับได้คนเดิม ก่อนบันทึก (กันบันทึกผิดจาก descriptor หลุด 1 เฟรม)
     const CONFIRM_FRAMES = 2;
     const CONFIRM_WINDOW_MS = 1500;
+
+    // ── เกณฑ์แบบขั้นบันได ──────────────────────────────────────────────
+    // tier 1: ระยะ ≤ 0.42 (cos_sim ≥ 0.58) → ยืนยันอัตโนมัติ (บันทึกได้เลย)
+    // tier 2: 0.42 < ระยะ ≤ 0.55 (cos_sim 0.45–0.58) → ต้องให้คนกดยืนยันบนจอก่อน
+    //         เหตุผล: คนที่ลงทะเบียนจากกล้องหน้ามือถือแล้วมาสแกนที่กล้องคีออส
+    //         ระยะห่างอาจกว้างเพราะมุม/แสง/กล้องต่างกัน — ระดับนี้ยังน่าเชื่อถือพอ
+    //         แต่กันคนหน้าคล้ายด้วยการให้เจ้าหน้าที่/ผู้ใช้ยืนยันด้วยตนเอง
+    const AUTO_DIST = 0.42;
+    const MANUAL_DIST = 0.55;
+    const MANUAL_MIN_MARGIN = 0.03;
+    const MANUAL_TIMEOUT_MS = 15_000; // ไม่ยืนยันภายใน 15 วิ → ปิดป๊อปอัปอัตโนมัติ
 
     const MIN_SHARPNESS = 70; // ใต้ค่านี้ = เบลอเกินไป ไม่บันทึก (โหมดประหยัดข้ามการตรวจ)
 
@@ -794,21 +882,28 @@ const FaceKioskPage = () => {
               const m = matchDescriptor(det.descriptor, matchKnown, threshold);
               const ambiguous = m.studentId != null && m.margin < MIN_MARGIN;
               const lowConfidence = m.studentId != null && m.confidence < MIN_CONFIDENCE;
-              const matchedId = !tooSmall && !tooBlurry && !ambiguous && !lowConfidence ? m.studentId : null;
+              // tier 1: แน่นพอ → ยืนยันอัตโนมัติ (เหมือนเดิม)
+              const tier1 = m.studentId != null && m.distance <= AUTO_DIST && !ambiguous && !lowConfidence;
+              // tier 2: กลาง (AUTO_DIST, MANUAL_DIST] → ต้องกดยืนยันบนจอก่อน
+              const tier2 = m.studentId != null && m.distance > AUTO_DIST && m.distance <= MANUAL_DIST
+                && m.margin >= MANUAL_MIN_MARGIN && m.confidence >= 1 - MANUAL_DIST;
+              const matchedId = !tooSmall && !tooBlurry && (tier1 || tier2) ? m.studentId : null;
               const found = matchedId ? matchKnown.find((k: any) => k.studentId === matchedId) as any : null;
               const isStaffHit = !!found?.isStaff;
+              const needsManual = matchedId != null && !tier1 && !!tier2;
 
               const justScanned = found ? (tNow - (justScannedRef.current.get(found.studentId) || 0) < 3000) : false;
               const inCooldown = found ? (tNow - (cooldownRef.current.get(found.studentId) || 0) < 30_000) : false;
               const textureFailed = found ? (tNow - (textureFailRef.current.get(found.studentId) || 0) < 3000) : false;
               const color = !found
                 ? (tooSmall ? "#94a3b8" : tooBlurry ? "#64748b" : tooDark ? "#7c3aed" : tooBright ? "#f59e0b" : (ambiguous || lowConfidence) ? "#eab308" : "#f97316")
+                : needsManual ? "#f59e0b"
                 : isStaffHit ? "#2563eb"
                 : textureFailed ? "#dc2626"
                 : justScanned ? "#16a34a" : inCooldown ? "#10b981" : "#22c55e";
 
               const label = found
-                ? `${isStaffHit ? "👤 " : ""}${found.name}${isStaffHit ? " (บุคลากร)" : textureFailed ? " พื้นผิวไม่ตรง" : justScanned ? " ✓ บันทึกแล้ว" : ""}`
+                ? `${isStaffHit ? "👤 " : ""}${found.name}${isStaffHit ? " (บุคลากร)" : needsManual ? " — แตะยืนยันบนจอ" : textureFailed ? " พื้นผิวไม่ตรง" : justScanned ? " ✓ บันทึกแล้ว" : ""}`
                 : tooSmall ? "ขยับเข้าใกล้กล้อง"
                 : tooBlurry ? "ภาพเบลอ ให้นิ่งสักครู่"
                 : tooDark ? "แสงมืดเกินไป หาที่สว่างขึ้น"
@@ -819,7 +914,9 @@ const FaceKioskPage = () => {
               const sublabel = found
                 ? isStaffHit
                   ? `บุคลากร ${found.studentCode || "-"} • ${found.classroom} • ${Math.round(m.confidence * 100)}% (ทดสอบ — ไม่บันทึก)`
-                  : `เลขที่ ${found.studentCode || "-"} • ชั้น ${found.classroom} • ${Math.round(m.confidence * 100)}% (Δ${m.margin.toFixed(2)}, ช ${Math.round(sharpness)})`
+                  : needsManual
+                    ? `ระดับกลาง ${Math.round(m.confidence * 100)}% (Δ${m.margin.toFixed(2)}) — รอแตะยืนยัน`
+                    : `เลขที่ ${found.studentCode || "-"} • ชั้น ${found.classroom} • ${Math.round(m.confidence * 100)}% (Δ${m.margin.toFixed(2)}, ช ${Math.round(sharpness)})`
                 : tooSmall ? `ใบหน้าเล็ก ${Math.round(faceSize)}px`
                 : tooBlurry ? `ความคมชัด ${Math.round(sharpness)} • ต้อง ≥ ${MIN_SHARPNESS}`
                 : tooDark ? `ความสว่าง ${Math.round(brightness)}`
@@ -832,6 +929,39 @@ const FaceKioskPage = () => {
 
 
               if (found) {
+                if (needsManual) {
+                  // tier 2: ต้องให้คนกดยืนยันบนจอก่อน — ตั้งป๊อปอัปครั้งเดียว (ถ้ายังไม่มี)
+                  if (!pendingManualRef.current && tNow - (cooldownRef.current.get(found.studentId) || 0) >= 30_000) {
+                    const captured = captureFaceCrop(video, box);
+                    const regSrc = await getRegisteredFaceImage(found.studentId, found.avatar || null);
+                    pendingManualRef.current = {
+                      studentId: found.studentId,
+                      studentCode: found.studentCode || "-",
+                      name: found.name,
+                      classroom: found.classroom,
+                      avatar: found.avatar || null,
+                      isStaff: isStaffHit,
+                      confidence: m.confidence,
+                      capturedFace: captured,
+                      registeredFace: regSrc || (found as any).registeredFace || null,
+                      match: m,
+                      descriptor: det.descriptor,
+                      sharpness,
+                      faceSize,
+                    };
+                    setPendingManual(pendingManualRef.current);
+                    if (manualTimerRef.current) window.clearTimeout(manualTimerRef.current);
+                    manualTimerRef.current = window.setTimeout(() => {
+                      if (pendingManualRef.current) {
+                        pendingManualRef.current = null;
+                        setPendingManual(null);
+                      }
+                    }, MANUAL_TIMEOUT_MS);
+                    if (voiceEnabled) speakText("กรุณาแตะยืนยันบนจอ");
+                  }
+                  // รอการยืนยัน — ไม่บันทึกอัตโนมัติ
+                  return;
+                }
                 // นับเฟรมยืนยันก่อนบันทึก
                 const c = confirmRef.current.get(found.studentId);
                 if (c && tNow - c.lastTs <= CONFIRM_WINDOW_MS) {
@@ -1605,6 +1735,54 @@ const FaceKioskPage = () => {
             <div className="absolute top-3 left-3 z-10 bg-black/50 text-pink-200 text-xs font-mono px-2 py-1 rounded tabular-nums">
               {now.toLocaleDateString("en-GB").replace(/\//g, "-")} {now.toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })}
             </div>
+
+            {pendingManual && (
+              <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60">
+                <div className="animate-scale-in rounded-3xl bg-white p-6 shadow-2xl border-4 border-amber-400 max-w-md w-full mx-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="w-3 h-3 rounded-full bg-amber-500 animate-pulse" />
+                    <h3 className="text-xl font-bold text-amber-600">กรุณายืนยันตัวตน</h3>
+                  </div>
+                  <p className="text-sm text-slate-600 mb-4">
+                    ระดับความแน่ใจกลาง (มือถือ vs กล้องคีออส) — ตรวจสอบว่าเป็นคุณ แล้วแตะ <b>ยืนยัน</b>
+                  </p>
+                  <div className="flex items-center justify-center gap-4">
+                    <div className="text-center">
+                      <div className="w-32 h-32 rounded-2xl overflow-hidden bg-slate-100 border-2 border-slate-300 mx-auto">
+                        {pendingManual.registeredFace
+                          ? <img src={pendingManual.registeredFace} alt="ที่ลงทะเบียน" className="w-full h-full object-cover" />
+                          : <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">ไม่มีภาพ</div>}
+                      </div>
+                      <p className="text-[11px] font-semibold text-slate-600 mt-1">ที่ลงทะเบียน</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="w-32 h-32 rounded-2xl overflow-hidden bg-slate-100 border-2 border-slate-300 mx-auto">
+                        {pendingManual.capturedFace
+                          ? <img src={pendingManual.capturedFace} alt="ตอนสแกน" className="w-full h-full object-cover" />
+                          : <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">-</div>}
+                      </div>
+                      <p className="text-[11px] font-semibold text-slate-600 mt-1">ตอนสแกน</p>
+                    </div>
+                  </div>
+                  <div className="text-center mt-3">
+                    <p className="text-lg font-bold text-slate-800 truncate">{pendingManual.name}</p>
+                    <p className="text-xs text-slate-500">{pendingManual.studentCode} · ชั้น {pendingManual.classroom}</p>
+                    <p className="text-xs text-slate-500 mt-1 tabular-nums">ความมั่นใจ {Math.round(pendingManual.confidence * 100)}%</p>
+                  </div>
+                  <div className="flex gap-3 mt-5">
+                    <Button variant="outline" className="flex-1 h-12 text-base" onClick={cancelPendingManual}>
+                      ไม่ใช่
+                    </Button>
+                    <Button className="flex-1 h-12 text-base" style={{ backgroundColor: themePrimary }} onClick={() => void confirmPendingManual()}>
+                      ยืนยัน ใช่ฉันเอง
+                    </Button>
+                  </div>
+                  <p className="text-center text-[11px] text-slate-400 mt-3">
+                    หมดเวลาอัตโนมัติใน 15 วินาที — ระบบจะยกเลิกหากไม่แตะ
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* ผลการจับคู่ล่าสุด: ใบหน้าที่ลงทะเบียน vs ใบหน้าตอนสแกน */}
             {lastMatch && (

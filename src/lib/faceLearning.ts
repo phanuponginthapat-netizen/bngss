@@ -34,6 +34,19 @@ export const ADAPTIVE = {
   PER_STUDENT_PER_DAY: 2,
   /** เพดาน descriptor ต่อคน */
   MAX_PER_STUDENT: BANK_GRADE.MAX_DESCRIPTORS_PER_STUDENT ?? 12,
+  /**
+   * ครั้งแรกที่อุปกรณ์ใหม่ (เช่น kiosk) จับคู่ได้สำเร็จ — ผ่อนเกณฑ์ลงชั่วคราว
+   * เพราะคนที่ลงทะเบียนจากกล้องหน้ามือถือแล้วมาสแกนที่กล้องคีออส ระยะห่าง
+   * มักกว้าง (มุม/แสง/เลนส์ต่างกัน) จนไม่ผ่านเกณฑ์เข้มของครั้งถัดไป
+   * เมื่อเก็บ descriptor กล้องคีออสครั้งแรกได้แล้ว รอบถัดไปจะ match แน่นขึ้นเอง
+   */
+  FIRST_SOURCE: {
+    MIN_CONFIDENCE: 0.66,
+    MIN_MARGIN: 0.06,
+    MAX_DISTANCE: 0.40,
+    NOVELTY_MIN: 0.05,
+    NOVELTY_MAX: 0.45,
+  } as const,
 } as const;
 
 export interface LearnInput {
@@ -107,19 +120,13 @@ export async function learnFromScan(input: LearnInput): Promise<LearnResult> {
   if (!studentId || !descriptor) return { learned: false, reason: "no-input" };
   if (inFlight.has(studentId)) return { learned: false, reason: "in-flight" };
 
-  // 1) เกณฑ์ความมั่นใจ
-  if (match.studentId !== studentId) return { learned: false, reason: "match-mismatch" };
-  if (match.confidence < ADAPTIVE.MIN_CONFIDENCE) return { learned: false, reason: "low-confidence" };
-  if (match.margin < ADAPTIVE.MIN_MARGIN) return { learned: false, reason: "low-margin" };
-  if (match.distance > ADAPTIVE.MAX_DISTANCE) return { learned: false, reason: "far-distance" };
-
-  // 2) คุณภาพภาพ
+  // 1) คุณภาพภาพ
   if (input.sharpness !== undefined && input.sharpness < ADAPTIVE.MIN_SHARPNESS)
     return { learned: false, reason: "blurry" };
   if (input.faceSize !== undefined && input.faceSize < ADAPTIVE.MIN_FACE_PX)
     return { learned: false, reason: "face-too-small" };
 
-  // 3) โควตารายวัน
+  // 2) โควตารายวัน
   if ((readQuota()[studentId] || 0) >= ADAPTIVE.PER_STUDENT_PER_DAY)
     return { learned: false, reason: "daily-quota" };
 
@@ -129,7 +136,7 @@ export async function learnFromScan(input: LearnInput): Promise<LearnResult> {
   try {
     const { data: rows, error } = await supabase
       .from("student_face_descriptors")
-      .select("id, descriptor, quality_score, created_at, sample_index")
+      .select("id, descriptor, quality_score, created_at, sample_index, source")
       .eq("student_id", studentId)
       .order("created_at", { ascending: true });
     if (error) return { learned: false, reason: error.message };
@@ -139,14 +146,29 @@ export async function learnFromScan(input: LearnInput): Promise<LearnResult> {
 
     const probe = Array.from(descriptor as any) as number[];
 
+    // 2.5) เลือกเกณฑ์: ครั้งแรกจากอุปกรณ์ใหม่ (เช่น คีออส) ที่ยังไม่เคยเก็บ descriptor
+    // ของกล้องนั้น → ผ่อนเกณฑ์ให้เก็บ template ไว้ รอบถัดไปจะ match แน่นขึ้นเอง
+    // (คนที่ลงทะเบียนจากมือถือแล้วมาสแกนที่คีออส ระยะห่างมักกว้างเพราะมุม/แสง/เลนส์ต่างกัน)
+    const srcPrefix = input.source ? `auto_learn:${input.source}` : null;
+    const hasLearnedFromSource = srcPrefix
+      ? existing.some((r: any) => typeof r.source === "string" && r.source.startsWith(srcPrefix))
+      : true;
+    const cfg = hasLearnedFromSource || !srcPrefix ? ADAPTIVE : ADAPTIVE.FIRST_SOURCE;
+
+    // 3) เกณฑ์ความมั่นใจ
+    if (match.studentId !== studentId) return { learned: false, reason: "match-mismatch" };
+    if (match.confidence < cfg.MIN_CONFIDENCE) return { learned: false, reason: "low-confidence" };
+    if (match.margin < cfg.MIN_MARGIN) return { learned: false, reason: "low-margin" };
+    if (match.distance > cfg.MAX_DISTANCE) return { learned: false, reason: "far-distance" };
+
     // 4) ความแปลกใหม่ — ต้องต่างพอที่จะเพิ่มมุมมองใหม่ แต่ไม่ต่างจนน่าสงสัย
     let minDist = Infinity;
     for (const r of existing) {
       const d = cosineDistance(probe, (r as any).descriptor as number[]);
       if (d < minDist) minDist = d;
     }
-    if (minDist < ADAPTIVE.NOVELTY_MIN) return { learned: false, reason: "redundant" };
-    if (minDist > ADAPTIVE.NOVELTY_MAX) return { learned: false, reason: "too-different" };
+    if (minDist < cfg.NOVELTY_MIN) return { learned: false, reason: "redundant" };
+    if (minDist > cfg.NOVELTY_MAX) return { learned: false, reason: "too-different" };
 
     // 5) ถ้าเต็มเพดาน → ตัดตัวที่ "ซ้ำซ้อนที่สุด" (ใกล้เพื่อนบ้านที่สุด) ทิ้งก่อน
     if (existing.length >= ADAPTIVE.MAX_PER_STUDENT) {
