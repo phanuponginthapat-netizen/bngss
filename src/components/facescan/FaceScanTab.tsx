@@ -510,6 +510,23 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
       return;
     }
 
+    // เช็คร่วมกันระหว่างสแกนใบหน้า/QR — ยืนยันจากฐานข้อมูลว่ายังไม่เคยสแกนวันนี้
+    const todayState = await checkTodayScan(studentId);
+    if ((mode === "exit" && todayState.exit) || (mode === "entry" && todayState.entry)) {
+      seenSet.add(studentId);
+      const lastNotice = duplicateNoticeRef.current.get(cdKey) || 0;
+      if (now - lastNotice > 5_000) {
+        duplicateNoticeRef.current.set(cdKey, now);
+        playDuplicateSound();
+        if (voiceEnabled) speakText(`สแกน${modeLabel}ซ้ำ ${spokenName} บันทึกแล้ว`);
+        const via = methodLabel(mode === "exit" ? todayState.exitMethod : todayState.entryMethod);
+        toast.info("สแกนซ้ำ", { description: `${name} บันทึก${modeLabel}วันนี้แล้ว (${via})`, duration: 1800 });
+        setLive({ kind: "duplicate", text: `สแกน${modeLabel}ซ้ำ • ${name}`, sub: `บันทึกแล้วผ่าน${via}` });
+      }
+      cooldownRef.current.set(cdKey, now);
+      return;
+    }
+
     const last = cooldownRef.current.get(cdKey) || 0;
     if (now - last < 30_000) {
       if (now - last > 2_000) {
@@ -520,6 +537,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
       return;
     }
     cooldownRef.current.set(cdKey, now);
+
 
     const { data: { user } } = await supabase.auth.getUser();
     const uploadedFaceUrl = entryMethod === "face" ? await uploadFaceScanSnapshot(capturedFace, studentId) : null;
