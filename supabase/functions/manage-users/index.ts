@@ -1358,7 +1358,10 @@ serve(async (req) => {
       const { data: roles } = await adminClient.from("user_roles").select("user_id, role");
       const { data: profiles } = await adminClient.from("profiles").select("id, first_name, last_name, department, student_code, employee_code, position_title, gender, phone, date_of_birth, is_approved, nickname");
       const { data: personnelList } = await adminClient.from("personnel").select("email, prefix, position, academic_standing, subject_group, user_id");
-      const { data: studentRows } = await adminClient.from("students").select("auth_user_id, student_code, prefix, classroom_id, status, classrooms(id, name, grade_level)");
+      const { data: studentRows } = await adminClient.from("students").select("auth_user_id, student_code, prefix, classroom_id, status");
+      const { data: classroomRows } = await adminClient.from("classrooms").select("id, name, grade_level");
+      const classroomById = new Map((classroomRows || []).map((c: any) => [c.id, c]));
+
       const roleMap = new Map((roles || []).map((r: any) => [r.user_id, r.role]));
       const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
       const personnelByEmail = new Map((personnelList || []).filter((p: any) => p.email).map((p: any) => [p.email, p]));
