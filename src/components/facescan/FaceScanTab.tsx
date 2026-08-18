@@ -241,7 +241,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
       }
       seenTodayRef.current = { entry: entrySet, exit: exitSet };
       setTodayCounts({ entry: entrySet.size, exit: exitSet.size });
-      const history: RecentScan[] = rows.slice(0, 8).map((r) => {
+      const history: RecentScan[] = await Promise.all(rows.slice(0, 8).map(async (r) => {
         const s = r.students || {};
         const cls = s.classrooms ? `${s.classrooms.grade_level || ""}/${s.classrooms.name || ""}` : "-";
         return {
@@ -251,12 +251,12 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
           classroom: cls,
           confidence: Number(r.confidence) || 0,
           time: new Date(r.scan_time).toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-          registeredFace: s.photo_url || undefined,
+          registeredFace: (await getRegisteredFaceImage(r.student_id, s.photo_url)) || undefined,
           capturedFace: r.captured_face_url || undefined,
           entryMethod: r.entry_method || undefined,
           scanType: r.scan_type === "exit" ? "exit" : "entry",
         };
-      });
+      }));
       setRecent(history);
     })();
   }, [isFiltered, homeroomClassroomIds]);
