@@ -1371,6 +1371,26 @@ const FaceKioskPage = () => {
             </p>
           </div>
 
+          <div className="space-y-1.5 border-t pt-2">
+            <label className="text-xs font-semibold">ช่วงเว้นระยะระหว่างสแกน</label>
+            <div className="flex gap-1 flex-wrap">
+              {[0, 300, 600, 1000, 1500].map((g) => (
+                <Button
+                  key={g}
+                  size="sm"
+                  variant={scanGapMs === g ? "default" : "outline"}
+                  onClick={() => setScanGapMs(g)}
+                  className="flex-1 text-[11px] px-1 min-w-[52px]"
+                >
+                  {g === 0 ? "ปกติ" : `+${g / 1000}s`}
+                </Button>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-snug">
+              ระบบจะรอให้พูดจบก่อนเสมอ แล้วเว้นอีก {(scanGapMs / 1000).toFixed(1)} วินาทีก่อนจับใบหน้ารอบถัดไป — ช่วยลดการสแกนถี่เกินและลดโหลดเครื่อง
+            </p>
+          </div>
+
           <div className="space-y-2 border-t pt-2">
             <label className="text-xs font-semibold flex items-center gap-1">
               <Cctv className="w-3 h-3" />URL กล้องเครือข่าย (HLS / MP4)
