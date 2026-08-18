@@ -8282,6 +8282,51 @@ export type Database = {
         }
         Relationships: []
       }
+      kiosk_health_samples: {
+        Row: {
+          battery_charging: boolean | null
+          battery_percent: number | null
+          battery_status: string | null
+          device_id: string
+          id: string
+          kiosk_mode: string | null
+          latency_ms: number | null
+          memory_used_mb: number | null
+          meta: Json
+          sampled_at: string
+          status: string | null
+          uptime_sec: number | null
+        }
+        Insert: {
+          battery_charging?: boolean | null
+          battery_percent?: number | null
+          battery_status?: string | null
+          device_id: string
+          id?: string
+          kiosk_mode?: string | null
+          latency_ms?: number | null
+          memory_used_mb?: number | null
+          meta?: Json
+          sampled_at?: string
+          status?: string | null
+          uptime_sec?: number | null
+        }
+        Update: {
+          battery_charging?: boolean | null
+          battery_percent?: number | null
+          battery_status?: string | null
+          device_id?: string
+          id?: string
+          kiosk_mode?: string | null
+          latency_ms?: number | null
+          memory_used_mb?: number | null
+          meta?: Json
+          sampled_at?: string
+          status?: string | null
+          uptime_sec?: number | null
+        }
+        Relationships: []
+      }
       learning_center_bookings: {
         Row: {
           booking_date: string
@@ -16396,6 +16441,20 @@ export type Database = {
           _temperature_c?: number
         }
         Returns: Json
+      }
+      kiosk_heartbeat: {
+        Args: {
+          _config_updated_at?: string
+          _device_id: string
+          _extension_installed?: boolean
+          _hostname?: string
+          _kiosk_mode?: string
+          _screen_resolution?: string
+          _status?: string
+          _uptime_sec?: number
+          _user_agent?: string
+        }
+        Returns: undefined
       }
       line_vault_dispatch: {
         Args: { category: string; payload: Json }
