@@ -76,6 +76,10 @@ function hasLocalVoice(): boolean {
 let _ttsAudio: HTMLAudioElement | null = null;
 let _speechSequence = 0;
 let _speechChain: Promise<void> = Promise.resolve();
+/** จำนวนประโยคที่ยังพูดไม่จบ + ช่วงเว้นระยะหลังพูดจบก่อนเริ่มตรวจจับใหม่ */
+let _speechPending = 0;
+let _speechQuietUntil = 0;
+const SPEECH_TAIL_MS = 600;
 
 /** แคช URL ของไฟล์เสียงที่เคยสังเคราะห์แล้ว — ลดการรอเรียก TTS ซ้ำ (สาเหตุของเสียงกระตุก) */
 const _ttsCache = new Map<string, string>();
@@ -93,16 +97,23 @@ function rememberTts(text: string, url: string) {
   }
 }
 
-function speakLocal(text: string) {
-  try {
-    if (!("speechSynthesis" in window)) return;
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "th-TH";
-    u.rate = 1.05;
-    u.volume = 1;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
-  } catch { /* noop */ }
+function speakLocal(text: string): Promise<void> {
+  return new Promise<void>((resolve) => {
+    try {
+      if (!("speechSynthesis" in window)) return resolve();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "th-TH";
+      u.rate = 1.05;
+      u.volume = 1;
+      let done = false;
+      const finish = () => { if (!done) { done = true; resolve(); } };
+      u.onend = finish;
+      u.onerror = finish;
+      setTimeout(finish, 8000);
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+    } catch { resolve(); }
+  });
 }
 
 async function fetchTtsUrl(text: string): Promise<string | null> {
@@ -162,10 +173,29 @@ async function speakRemote(text: string): Promise<boolean> {
 export function speakText(text: string) {
   const clean = String(text || "").trim();
   if (!clean) return;
+  _speechPending += 1;
   _speechChain = _speechChain
     .then(() => speakRemote(clean))
-    .then((ok) => { if (!ok && hasLocalVoice()) speakLocal(clean); })
-    .catch(() => { /* noop */ });
+    .then(async (ok) => { if (!ok && hasLocalVoice()) await speakLocal(clean); })
+    .catch(() => { /* noop */ })
+    .finally(() => {
+      _speechPending = Math.max(0, _speechPending - 1);
+      if (_speechPending === 0) _speechQuietUntil = Date.now() + SPEECH_TAIL_MS;
+    });
+}
+
+/** กำลังพูดอยู่หรือยังอยู่ในช่วงเว้นระยะหลังพูดจบ */
+export function isSpeaking(): boolean {
+  if (_speechPending > 0) return true;
+  return Date.now() < _speechQuietUntil;
+}
+
+/** รอจนพูดจบ (พร้อมเว้นระยะสั้นๆ) ก่อนกลับไปตรวจจับใบหน้าต่อ */
+export async function waitForSpeechEnd(maxWaitMs = 12000): Promise<void> {
+  const deadline = Date.now() + maxWaitMs;
+  while (isSpeaking() && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 120));
+  }
 }
 
 /** เตรียมไฟล์เสียงประโยคที่ใช้บ่อยล่วงหน้า — ครั้งแรกจะไม่ดีเลย์ */

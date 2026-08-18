@@ -12,7 +12,7 @@ import {
   type KnownFace,
 } from "@/lib/faceApi";
 import { learnFromScan } from "@/lib/faceLearning";
-import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, prewarmSpeech, playFeverAlert, playWeaponAlert, playGateOpenSound, playGateDeniedSound } from "@/lib/faceScanAudio";
+import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, prewarmSpeech, isSpeaking, waitForSpeechEnd, playFeverAlert, playWeaponAlert, playGateOpenSound, playGateDeniedSound } from "@/lib/faceScanAudio";
 import { useSmartGate } from "@/hooks/useSmartGate";
 import SmartGatePanel from "@/components/facescan/SmartGatePanel";
 import { Button } from "@/components/ui/button";
@@ -104,6 +104,12 @@ const FaceKioskPage = () => {
   const [perfMode, setPerfMode] = useState<KioskPerfMode>(() => loadKioskPerfMode());
   const perf = KIOSK_PERF_PROFILES[perfMode];
   useEffect(() => { localStorage.setItem(KIOSK_PERF_KEY, perfMode); }, [perfMode]);
+  // ช่วงเว้นระยะเพิ่มเติมระหว่างรอบสแกน (มิลลิวินาที) — ปรับได้จากหน้าตั้งค่า
+  const [scanGapMs, setScanGapMs] = useState<number>(() => {
+    const v = Number(localStorage.getItem("face_kiosk_scan_gap") || "");
+    return Number.isFinite(v) && v >= 0 ? v : 0;
+  });
+  useEffect(() => { localStorage.setItem("face_kiosk_scan_gap", String(scanGapMs)); }, [scanGapMs]);
   // เตรียมเสียงประโยคที่ใช้บ่อยล่วงหน้า — กันเสียงกระตุก/ดีเลย์ตอนสแกนจริง
   useEffect(() => {
     prewarmSpeech(["ไม่พบข้อมูลใบหน้าในระบบ กรุณาลงทะเบียน", "สแกนเข้าสำเร็จ", "สแกนออกสำเร็จ"]);
@@ -731,6 +737,11 @@ const FaceKioskPage = () => {
 
     const loop = async () => {
       if (cancelled || !videoRef.current) return;
+      // รอให้ระบบพูดจบก่อน แล้วค่อยตรวจจับต่อ — กันสแกนถี่เกินและลดโหลด CPU
+      if (isSpeaking()) {
+        await waitForSpeechEnd();
+        if (cancelled) return;
+      }
       try {
         // ตรวจจับจากเฟรมที่ผ่าน preprocess (contrast/brightness) — ช่วยกล้องคุณภาพต่ำ
         const video = videoRef.current;
@@ -875,7 +886,7 @@ const FaceKioskPage = () => {
         // ปล่อยให้เบราว์เซอร์วาดเฟรมก่อนเริ่มรอบใหม่ → ภาพไม่กระตุก
         detectionLoopRef.current = window.setTimeout(
           () => requestAnimationFrame(() => { if (!cancelled) void loop(); }),
-          perf.loopDelayMs,
+          perf.loopDelayMs + scanGapMs,
         );
       }
     };
@@ -884,7 +895,7 @@ const FaceKioskPage = () => {
       cancelled = true;
       if (detectionLoopRef.current) clearTimeout(detectionLoopRef.current);
     };
-  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef, runGate, perf, perfMode]);
+  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef, runGate, perf, perfMode, scanGapMs]);
 
   // ===== WizMind bridge: รับ event ใบหน้าจากกล้อง CCTV แบบ realtime แล้วจดจำทันที =====
   useEffect(() => {
@@ -1357,6 +1368,26 @@ const FaceKioskPage = () => {
             <p className="text-[10px] text-muted-foreground leading-snug">
               {KIOSK_PERF_PROFILES[perfMode].label} • กล้อง {KIOSK_PERF_PROFILES[perfMode].videoWidth}px •
               ตรวจทุก {KIOSK_PERF_PROFILES[perfMode].loopDelayMs} มิลลิวินาที — เครื่อง Linux สเปกต่ำแนะนำ "ประหยัด"
+            </p>
+          </div>
+
+          <div className="space-y-1.5 border-t pt-2">
+            <label className="text-xs font-semibold">ช่วงเว้นระยะระหว่างสแกน</label>
+            <div className="flex gap-1 flex-wrap">
+              {[0, 300, 600, 1000, 1500].map((g) => (
+                <Button
+                  key={g}
+                  size="sm"
+                  variant={scanGapMs === g ? "default" : "outline"}
+                  onClick={() => setScanGapMs(g)}
+                  className="flex-1 text-[11px] px-1 min-w-[52px]"
+                >
+                  {g === 0 ? "ปกติ" : `+${g / 1000}s`}
+                </Button>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-snug">
+              ระบบจะรอให้พูดจบก่อนเสมอ แล้วเว้นอีก {(scanGapMs / 1000).toFixed(1)} วินาทีก่อนจับใบหน้ารอบถัดไป — ช่วยลดการสแกนถี่เกินและลดโหลดเครื่อง
             </p>
           </div>
 
