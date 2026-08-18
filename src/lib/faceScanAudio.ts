@@ -153,6 +153,27 @@ async function fetchTtsUrl(text: string): Promise<string | null> {
   return url;
 }
 
+/** สำรองสุดท้าย: เล่น mp3 ผ่าน WebAudio (บาง Chromium/Linux บล็อก <audio> แต่ AudioContext ยังออกเสียง) */
+async function playViaAudioContext(url: string): Promise<boolean> {
+  try {
+    const ctx = getCtx();
+    if (!ctx) return false;
+    if (ctx.state === "suspended") await ctx.resume().catch(() => {});
+    const buf = await (await fetch(url)).arrayBuffer();
+    const decoded = await ctx.decodeAudioData(buf.slice(0));
+    const src = ctx.createBufferSource();
+    src.buffer = decoded;
+    src.playbackRate.value = 1.15;
+    src.connect(ctx.destination);
+    await new Promise<void>((resolve) => {
+      src.onended = () => resolve();
+      setTimeout(resolve, (decoded.duration / 1.15) * 1000 + 800);
+      src.start();
+    });
+    return true;
+  } catch { return false; }
+}
+
 /** เล่นเสียงพูดผ่าน server TTS (ใช้ได้บน Linux kiosk ที่ไม่มี voice ในเครื่อง) */
 async function speakRemote(text: string): Promise<boolean> {
   try {
@@ -176,16 +197,25 @@ async function speakRemote(text: string): Promise<boolean> {
         setTimeout(done, 1200);
       });
     }
-    await audio.play();
+    try {
+      await audio.play();
+    } catch {
+      // autoplay ถูกบล็อก หรือ element เล่นไม่ได้ → ใช้ WebAudio แทน
+      return await playViaAudioContext(url);
+    }
     // ให้ประโยคถัดไปรอจนพูดจบ ไม่ตัดทับกัน
+    let ended = false;
     await new Promise<void>((resolve) => {
-      audio.addEventListener("ended", () => resolve(), { once: true });
+      audio.addEventListener("ended", () => { ended = true; resolve(); }, { once: true });
       audio.addEventListener("error", () => resolve(), { once: true });
       setTimeout(resolve, 6000);
     });
+    // ถ้าไม่มีความคืบหน้าเลย (เวลาเล่น = 0) แปลว่าเงียบจริง → ลอง WebAudio
+    if (!ended && audio.currentTime < 0.05) return await playViaAudioContext(url);
     return true;
   } catch { return false; }
 }
+
 
 /** Speak text in Thai — ใช้ไฟล์เสียง TTS ก่อนเสมอ เพราะ Chromium/Linux อาจรายงาน voice แต่ไม่มีเสียงออก */
 export function speakText(text: string) {
