@@ -227,6 +227,7 @@ PKGS=(
   chromium unclutter xdotool x11-xserver-utils python3 python3-pip
   curl ca-certificates fonts-thai-tlwg fonts-noto-color-emoji
   network-manager pulseaudio pulseaudio-utils pavucontrol alsa-utils libasound2-plugins cron
+  speech-dispatcher speech-dispatcher-espeak-ng espeak-ng
   lightdm lightdm-gtk-greeter accountsservice
   plymouth plymouth-themes plymouth-label imagemagick
   xbindkeys zenity
@@ -989,6 +990,20 @@ pactl set-source-volume @DEFAULT_SOURCE@ 90% 2>/dev/null || true
 EOF
 chmod +x /opt/kiosk/fix-audio.sh
 
+# ---- Text-to-Speech (Chromium ต้องใช้ speech-dispatcher บน Linux) ----
+systemctl unmask speech-dispatcher.service 2>/dev/null || true
+systemctl enable speech-dispatcher.service 2>/dev/null || true
+mkdir -p "$USER_HOME/.config/speech-dispatcher"
+cat >"$USER_HOME/.config/speech-dispatcher/speechd.conf" <<'EOF2'
+AudioOutputMethod "pulse"
+DefaultModule espeak-ng
+DefaultLanguage "th"
+DefaultVoiceType "MALE1"
+DefaultRate 20
+EOF2
+chown -R "$KIOSK_USER":"$KIOSK_USER" "$USER_HOME/.config/speech-dispatcher" 2>/dev/null || true
+
+
 cat >"$USER_HOME/.config/autostart/kiosk-pulseaudio.desktop" <<EOF
 [Desktop Entry]
 Type=Application
@@ -1174,6 +1189,7 @@ if [[ "$KIOSK_MODE" == "student" ]]; then
     --disable-save-password-bubble --disable-signin-promo \
     --autoplay-policy=no-user-gesture-required \
     --use-fake-ui-for-media-stream \
+    --alsa-output-device=default --audio-buffer-size=2048 \
     --enable-features=WebRTCPipeWireCapturer --disk-cache-size=0 \
     --password-store=basic $EXT_FLAG"
   cat >/opt/kiosk/start-kiosk.sh <<EOF
@@ -1232,7 +1248,11 @@ while true; do
     --disable-dev-shm-usage --start-maximized \\
     --autoplay-policy=no-user-gesture-required \\
     --use-fake-ui-for-media-stream \\
-    --enable-features=WebRTCPipeWireCapturer \
+    --alsa-output-device=default --audio-buffer-size=2048 \\
+    --force-device-scale-factor=\${KIOSK_SCALE:-0.85} \\
+    --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy \\
+    --enable-accelerated-video-decode \\
+    --enable-features=WebRTCPipeWireCapturer,CanvasOopRasterization \
     --password-store=basic --disk-cache-size=104857600 \\
     --auto-select-desktop-capture-source="Entire screen" \\
     --enable-usermedia-screen-capturing \\
@@ -1449,7 +1469,7 @@ DISABLE_SERVICES=(
   apt-daily.service apt-daily.timer apt-daily-upgrade.service apt-daily-upgrade.timer
   unattended-upgrades.service packagekit.service
   snapd.service snapd.socket saned.service colord.service
-  speech-dispatcher.service motd-news.service motd-news.timer
+  motd-news.service motd-news.timer
   NetworkManager-wait-online.service
 )
 for svc in "${DISABLE_SERVICES[@]}"; do
