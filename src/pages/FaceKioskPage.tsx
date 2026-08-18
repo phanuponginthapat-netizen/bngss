@@ -600,6 +600,8 @@ const FaceKioskPage = () => {
       return;
     }
     justScannedRef.current.set(cdKey, now);
+    markScanned(studentId, mode, "face");
+
     playSuccessSound();
     if (voiceEnabled) speakText(`สแกน${modeLabel}สำเร็จ ${name}`);
     void runGate(name, { id: studentId, kind: "student" });
