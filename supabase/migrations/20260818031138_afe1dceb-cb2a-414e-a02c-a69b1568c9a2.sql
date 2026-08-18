@@ -1,0 +1,1 @@
+DELETE FROM public.kiosk_devices WHERE device_id = 'test-door-kiosk';

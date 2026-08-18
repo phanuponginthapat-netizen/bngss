@@ -32,6 +32,7 @@ import { useCmsValues } from "@/hooks/useCmsSettings";
 import { wakeKioskScreen } from "@/lib/kioskWake";
 import { getRegisteredFaceImage } from "@/lib/registeredFace";
 import { checkTodayScan, markScanned, methodLabel } from "@/lib/scanDedup";
+import { useKioskHeartbeat } from "@/hooks/useKioskHeartbeat";
 
 import { saveErrorMessage } from "@/lib/saveError";
 import { notifyRole } from "@/lib/notify";
@@ -190,6 +191,16 @@ const FaceKioskPage = () => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  // ---- ส่งสถานะเครื่อง (heartbeat) ให้หน้า Kiosk Door Health เห็นว่าเครื่องออนไลน์ ----
+  const kioskStartedAtRef = useRef<number>(Date.now());
+  useKioskHeartbeat({
+    enabled: true,
+    kioskMode: "door",
+    status: screensaver ? "locked" : "online",
+    // ปัดเป็นนาที เพื่อไม่ให้ effect รีสตาร์ททุกวินาที
+    uptimeSec: Math.floor((now.getTime() - kioskStartedAtRef.current) / 60000) * 60,
+  });
 
   useEffect(() => {
     if (!screensaver) return;
