@@ -31,6 +31,8 @@ import KioskHelloAi from "@/components/facescan/KioskHelloAi";
 import { useCmsValues } from "@/hooks/useCmsSettings";
 import { wakeKioskScreen } from "@/lib/kioskWake";
 import { getRegisteredFaceImage } from "@/lib/registeredFace";
+import { checkTodayScan, markScanned, methodLabel } from "@/lib/scanDedup";
+
 import { saveErrorMessage } from "@/lib/saveError";
 import { notifyRole } from "@/lib/notify";
 import {
