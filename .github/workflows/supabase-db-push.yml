@@ -38,5 +38,30 @@ jobs:
       - name: Link Supabase project
         run: supabase link --project-ref "$PROJECT_REF"
 
+      - name: Repair migration history (remote-only versions)
+        run: |
+          set -euo pipefail
+          # เก็บรายการ version ของไฟล์ migration ในเครื่อง
+          ls supabase/migrations/*.sql 2>/dev/null \
+            | xargs -r -n1 basename \
+            | sed -E 's/^([0-9]+).*/\1/' \
+            | sort -u > /tmp/local_versions.txt || true
+
+          # ดึงรายการ migration ที่อยู่บน remote
+          supabase migration list --linked > /tmp/mig_list.txt || true
+          cat /tmp/mig_list.txt
+
+          awk -F'|' 'NF>=2 {gsub(/ /,"",$1); gsub(/ /,"",$2); if ($2 ~ /^[0-9]+$/) print $1" "$2}' /tmp/mig_list.txt \
+            > /tmp/remote_pairs.txt || true
+
+          while read -r local remote; do
+            if [ -z "$remote" ]; then continue; fi
+            if ! grep -qx "$remote" /tmp/local_versions.txt; then
+              echo "Repairing remote-only migration: $remote"
+              supabase migration repair --status reverted "$remote"
+            fi
+          done < /tmp/remote_pairs.txt
+
       - name: Push migrations
         run: supabase db push
+
