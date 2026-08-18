@@ -905,9 +905,16 @@ serve(async (req) => {
         const { data } = await adminClient.from("personnel").select("*").eq("email", targetUser.email).maybeSingle();
         personnel = data;
       }
-      const { data: stu } = await adminClient.from("students").select("*, classrooms(id, name, grade_level)").eq("auth_user_id", user_id).maybeSingle();
+      // NOTE: students มี FK ไป classrooms 2 ตัว (classroom_id, inclusion_classroom_id)
+      // การ embed แบบ classrooms(...) จะกำกวม (PGRST201) → ดึงห้องเรียนแยกแทน
+      const { data: stu } = await adminClient.from("students").select("*").eq("auth_user_id", user_id).maybeSingle();
       student = stu;
-      if (student?.classrooms) classroom = student.classrooms;
+      if (student?.classroom_id) {
+        const { data: cls } = await adminClient
+          .from("classrooms").select("id, name, grade_level").eq("id", student.classroom_id).maybeSingle();
+        classroom = cls;
+      }
+
       return ok({
         success: true,
         user: { id: targetUser?.id, email: targetUser?.email, created_at: targetUser?.created_at },
