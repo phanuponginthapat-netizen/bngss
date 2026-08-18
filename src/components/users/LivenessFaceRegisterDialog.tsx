@@ -67,7 +67,7 @@ const dataUrlToBlob = (dataUrl: string): Blob => {
 };
 
 
-type StepKey = "center" | "blink" | "left" | "right" | "color" | "done";
+type StepKey = "center" | "near" | "left" | "right" | "color" | "done";
 
 interface Step {
   key: StepKey;
