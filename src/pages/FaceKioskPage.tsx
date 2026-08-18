@@ -100,6 +100,9 @@ const FaceKioskPage = () => {
   useEffect(() => { localStorage.setItem("face_kiosk_qr_only", qrOnly ? "1" : "0"); }, [qrOnly]);
   const { selection: scanModeSelection, setSelection: setScanModeSelection, effective: scanMode, effectiveRef: scanModeRef, cutoff: modeCutoff, checkWindow, entryWindow, exitWindow } = useAutoScanMode();
   const [camMode, setCamMode] = useState<CamMode>("standard");
+  const [perfMode, setPerfMode] = useState<KioskPerfMode>(() => loadKioskPerfMode());
+  const perf = KIOSK_PERF_PROFILES[perfMode];
+  useEffect(() => { localStorage.setItem(KIOSK_PERF_KEY, perfMode); }, [perfMode]);
   const [screensaver, setScreensaver] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
