@@ -8,10 +8,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import {
   loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame,
-  detectorOptionsHQ, applyCameraAutoTune, preprocessFrame, estimateFaceSharpness,
+  detectorOptionsHQ, applyCameraAutoTune, preprocessFrame, estimateFaceSharpness, estimateBrightness,
+  BANK_GRADE,
   type KnownFace,
 } from "@/lib/faceApi";
 import { learnFromScan } from "@/lib/faceLearning";
+import { verifyScanTexture } from "@/lib/faceTexture";
+import { newLivenessTrack, recordLivenessSample, makeLivenessSample, type LivenessTrack } from "@/lib/faceLiveness";
 import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, prewarmSpeech, isSpeaking, waitForSpeechEnd, playFeverAlert, playWeaponAlert, playGateOpenSound, playGateDeniedSound, unlockAudio } from "@/lib/faceScanAudio";
 import { useSmartGate } from "@/hooks/useSmartGate";
 import SmartGatePanel from "@/components/facescan/SmartGatePanel";
@@ -80,6 +83,10 @@ const FaceKioskPage = () => {
   const justScannedRef = useRef<Map<string, number>>(new Map());
   // ยืนยันตัวตน: ต้องเจอ student คนเดิมติดกันอย่างน้อย N เฟรม ภายในเวลาที่กำหนด ก่อนบันทึก
   const confirmRef = useRef<Map<string, { count: number; lastTs: number }>>(new Map());
+  // ใบหน้าสด (anti-spoof): สะสมหลักฐาน blink/ขยับศีรษะแยกตาม studentId
+  const livenessRef = useRef<Map<string, LivenessTrack>>(new Map());
+  // texture ไม่ผ่าน (สงสัยรูปถ่าย/คนหน้าคล้าย): studentId -> timestamp ครั้งสุดท้ายที่ถูกปฏิเสธ
+  const textureFailRef = useRef<Map<string, number>>(new Map());
   const unknownBeepRef = useRef<number>(0);
   const lastDetectedAtRef = useRef<number>(Date.now());
   const idleTimerRef = useRef<number | null>(null);
@@ -132,8 +139,12 @@ const FaceKioskPage = () => {
   const { value: helloAiSetting } = useSchoolSetting("kiosk_hello_ai_enabled");
   const { value: powerSaveSetting } = useSchoolSetting("kiosk_power_save");
   const { value: wakeWordSetting } = useSchoolSetting("kiosk_wake_word_enabled");
+  const { value: livenessSetting } = useSchoolSetting("face_liveness_enabled");
+  const { value: textureSetting } = useSchoolSetting("face_texture_gate");
   const threshold = parseFloat(thresholdSetting || "0.48");
   const voiceEnabled = voiceSetting !== "false";
+  const livenessEnabled = livenessSetting !== "false";
+  const textureGate = textureSetting !== "false";
   const idleMs = Math.max(15, parseInt(idleSecSetting || "60", 10) || 60) * 1000;
   const helloAiEnabled = helloAiSetting !== "false";
   const powerSave = powerSaveSetting !== "false";
@@ -746,7 +757,10 @@ const FaceKioskPage = () => {
         // ตรวจจับจากเฟรมที่ผ่าน preprocess (contrast/brightness) — ช่วยกล้องคุณภาพต่ำ
         const video = videoRef.current;
         const pre = preprocessFrame(video, { maxWidth: perf.maxWidth }) || video;
-        const detections = await getAllDescriptors(pre as any, opts);
+        const detections = await getAllDescriptors(pre as any, opts, {
+          minFaceSize: MIN_FACE_PX * 0.6,
+          cacheTtlMs: 220,
+        });
         // อัตราส่วนสำหรับสเกล box กลับสู่พิกัดของวิดีโอจริง
         const srcW = pre instanceof HTMLCanvasElement ? pre.width : video.videoWidth;
         const scaleBack = video.videoWidth / Math.max(1, srcW);
@@ -772,6 +786,10 @@ const FaceKioskPage = () => {
               // ประเมินความคมชัดของใบหน้าจริงในวิดีโอ — กล้องเบลอจะถูกปฏิเสธ (ข้ามในโหมดประหยัด)
               const sharpness = perf.checkSharpness ? estimateFaceSharpness(video, box) : MIN_SHARPNESS;
               const tooBlurry = sharpness < MIN_SHARPNESS;
+              // แสงน้อย — วัดความสว่างบริเวณใบหน้า เพื่อให้คำแนะนำตอนสแกน
+              const brightness = perf.checkSharpness ? estimateBrightness(video, box) : 120;
+              const tooDark = brightness > 0 && brightness < BANK_GRADE.BRIGHTNESS_MIN - 10;
+              const tooBright = brightness > BANK_GRADE.BRIGHTNESS_MAX + 10;
 
               const m = matchDescriptor(det.descriptor, matchKnown, threshold);
               const ambiguous = m.studentId != null && m.margin < MIN_MARGIN;
@@ -782,15 +800,19 @@ const FaceKioskPage = () => {
 
               const justScanned = found ? (tNow - (justScannedRef.current.get(found.studentId) || 0) < 3000) : false;
               const inCooldown = found ? (tNow - (cooldownRef.current.get(found.studentId) || 0) < 30_000) : false;
+              const textureFailed = found ? (tNow - (textureFailRef.current.get(found.studentId) || 0) < 3000) : false;
               const color = !found
-                ? (tooSmall ? "#94a3b8" : tooBlurry ? "#64748b" : (ambiguous || lowConfidence) ? "#eab308" : "#f97316")
+                ? (tooSmall ? "#94a3b8" : tooBlurry ? "#64748b" : tooDark ? "#7c3aed" : tooBright ? "#f59e0b" : (ambiguous || lowConfidence) ? "#eab308" : "#f97316")
                 : isStaffHit ? "#2563eb"
+                : textureFailed ? "#dc2626"
                 : justScanned ? "#16a34a" : inCooldown ? "#10b981" : "#22c55e";
 
               const label = found
-                ? `${isStaffHit ? "👤 " : ""}${found.name}${isStaffHit ? " (บุคลากร)" : justScanned ? " ✓ บันทึกแล้ว" : ""}`
+                ? `${isStaffHit ? "👤 " : ""}${found.name}${isStaffHit ? " (บุคลากร)" : textureFailed ? " พื้นผิวไม่ตรง" : justScanned ? " ✓ บันทึกแล้ว" : ""}`
                 : tooSmall ? "ขยับเข้าใกล้กล้อง"
                 : tooBlurry ? "ภาพเบลอ ให้นิ่งสักครู่"
+                : tooDark ? "แสงมืดเกินไป หาที่สว่างขึ้น"
+                : tooBright ? "แสงจ้า/ย้อนแสง หลีกหน้าต่าง"
                 : ambiguous ? "กำลังยืนยันตัวตน..."
                 : lowConfidence ? `มั่นใจ ${Math.round(m.confidence * 100)}% • ต้อง ≥ ${Math.round(MIN_CONFIDENCE * 100)}%`
                 : "ไม่พบในระบบ";
@@ -800,6 +822,8 @@ const FaceKioskPage = () => {
                   : `เลขที่ ${found.studentCode || "-"} • ชั้น ${found.classroom} • ${Math.round(m.confidence * 100)}% (Δ${m.margin.toFixed(2)}, ช ${Math.round(sharpness)})`
                 : tooSmall ? `ใบหน้าเล็ก ${Math.round(faceSize)}px`
                 : tooBlurry ? `ความคมชัด ${Math.round(sharpness)} • ต้อง ≥ ${MIN_SHARPNESS}`
+                : tooDark ? `ความสว่าง ${Math.round(brightness)}`
+                : tooBright ? `ความสว่าง ${Math.round(brightness)}`
                 : ambiguous ? `ห่าง ${m.margin.toFixed(2)} • ต้อง ≥ ${MIN_MARGIN}`
                 : lowConfidence ? "ขยับเข้าใกล้/หันตรงกล้อง"
                 : "กรุณาลงทะเบียน";
@@ -816,7 +840,34 @@ const FaceKioskPage = () => {
                   confirmRef.current.set(found.studentId, { count: 1, lastTs: tNow });
                 }
                 const confirmed = (confirmRef.current.get(found.studentId)?.count ?? 0) >= CONFIRM_FRAMES;
-                if (confirmed) {
+                // ใบหน้าสด (anti-spoof): สะสมหลักฐาน blink/ขยับศีรษะ — รูปถ่าย/จอภาพที่นิ่งจะไม่มีหลักฐาน
+                let live = true;
+                if (livenessEnabled) {
+                  let track = livenessRef.current.get(found.studentId);
+                  if (!track) { track = newLivenessTrack(); livenessRef.current.set(found.studentId, track); }
+                  live = recordLivenessSample(track, makeLivenessSample(tNow, det.landmarks, box)).live;
+                }
+                if (confirmed && live) {
+                  // Texture verification — เทียบพื้นผิวใบหน้าสดกับภาพลงทะเบียน กันคนหน้าคล้าย/รูปถ่าย
+                  if (textureGate && !isStaffHit) {
+                    const regSrc = await getRegisteredFaceImage(found.studentId, found.avatar || null);
+                    const tv = await verifyScanTexture({
+                      studentId: found.studentId,
+                      video,
+                      landmarks: det.landmarks,
+                      scaleX: scaleBack,
+                      scaleY: scaleBack,
+                      registeredImageSrc: regSrc,
+                    });
+                    if (!tv.pass) {
+                      textureFailRef.current.set(found.studentId, tNow);
+                      confirmRef.current.delete(found.studentId);
+                      livenessRef.current.delete(found.studentId);
+                      if (voiceEnabled) speakText("พื้นผิวใบหน้าไม่ตรง ขอตรวจสอบ");
+                      setLastMatch(null);
+                      return;
+                    }
+                  }
                   const captured = captureFaceCrop(video, box);
                   if (isStaffHit) {
                     const last = justScannedRef.current.get(found.studentId) || 0;
@@ -865,6 +916,7 @@ const FaceKioskPage = () => {
                     }).catch(() => {});
                   }
                   confirmRef.current.delete(found.studentId);
+                  livenessRef.current.delete(found.studentId);
                 }
               } else {
                 if (!tooSmall && !ambiguous && tNow - unknownBeepRef.current > 5000) {
@@ -895,7 +947,7 @@ const FaceKioskPage = () => {
       cancelled = true;
       if (detectionLoopRef.current) clearTimeout(detectionLoopRef.current);
     };
-  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef, runGate, perf, perfMode, scanGapMs]);
+  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef, runGate, perf, perfMode, scanGapMs, livenessEnabled, textureGate]);
 
   // ===== WizMind bridge: รับ event ใบหน้าจากกล้อง CCTV แบบ realtime แล้วจดจำทันที =====
   useEffect(() => {

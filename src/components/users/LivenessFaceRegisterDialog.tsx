@@ -15,6 +15,7 @@ import {
 } from "@/lib/faceApi";
 import { loadOpenCV, isOpenCVReady, detectFacesCV, disposeOpenCV, type CVBox } from "@/lib/opencvFace";
 import { openCamera, stopStream } from "@/lib/cameraStream";
+import { urlToFaceTexture } from "@/lib/faceThumb";
 import CameraSourcePicker from "@/components/mobile/CameraSourcePicker";
 import CameraFocusLockToggle from "@/components/mobile/CameraFocusLockToggle";
 
@@ -762,11 +763,15 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           }
         }
 
+        // texture (LBP) ของแต่ละตัวอย่าง — ใช้ยืนยันพื้นผิวใบหน้าตอนสแกน
+        const textures = await Promise.all(finalSamples.map((sm) => urlToFaceTexture(sm.image)));
+
         if (isPersonnel) {
-          const payload = finalSamples.map((sm) => ({
+          const payload = finalSamples.map((sm, i) => ({
             descriptor: Array.from(sm.descriptor),
             quality_score: sm.metrics.sharpness,
             face_image: sm.image,
+            texture: textures[i],
             metrics: sm.metrics,
           }));
           if (selfPersonnel) {
@@ -812,10 +817,11 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
 
 
           const { error } = await supabase.rpc("self_enroll_face", {
-            _samples: finalSamples.map((sm) => ({
+            _samples: finalSamples.map((sm, i) => ({
               descriptor: Array.from(sm.descriptor),
               quality_score: sm.metrics.sharpness,
               face_image: sm.image,
+              texture: textures[i],
               metrics: sm.metrics,
             })) as any,
             _photo_urls: photo_urls,
@@ -839,12 +845,13 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             .eq("student_id", studentId)
             .order("sample_index", { ascending: false }).limit(1);
           let next = ex && ex[0] ? ex[0].sample_index + 1 : 0;
-          const rows = finalSamples.map((sm) => ({
+          const rows = finalSamples.map((sm, i) => ({
             student_id: studentId,
             sample_index: next++,
             descriptor: Array.from(sm.descriptor),
             quality_score: sm.metrics.sharpness,
             face_image: sm.image,
+            texture: textures[i],
             metrics: sm.metrics,
             captured_by: user?.id,
             source: "liveness_wizard",

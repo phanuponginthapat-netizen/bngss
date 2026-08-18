@@ -7,7 +7,7 @@ import { ScanFace, Camera, CameraOff, CheckCircle2, AlertCircle, Users, Monitor,
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame, detectorOptionsHQ, applyCameraAutoTune, preprocessFrame, estimateFaceSharpness, BANK_GRADE, isStrongMatch, isConfirmGrade, landmarkSanityScore, detectFaceWithLandmarks, assessFaceQuality, type KnownFace } from "@/lib/faceApi";
+import { loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame, detectorOptionsHQ, applyCameraAutoTune, preprocessFrame, estimateFaceSharpness, estimateBrightness, BANK_GRADE, isStrongMatch, isConfirmGrade, landmarkSanityScore, detectFaceWithLandmarks, assessFaceQuality, type KnownFace } from "@/lib/faceApi";
 import { useUserRole } from "@/hooks/useUserRole";
 import { ShieldCheck } from "lucide-react";
 import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, unlockAudio } from "@/lib/faceScanAudio";
@@ -21,6 +21,8 @@ import { getRegisteredFaceImage } from "@/lib/registeredFace";
 import { checkTodayScan, markScanned, methodLabel as scanMethodLabel } from "@/lib/scanDedup";
 
 import { learnFromScan } from "@/lib/faceLearning";
+import { verifyScanTexture } from "@/lib/faceTexture";
+import { newLivenessTrack, recordLivenessSample, makeLivenessSample, type LivenessTrack } from "@/lib/faceLiveness";
 import { useHomeroomClassrooms } from "@/hooks/useHomeroomClassrooms";
 
 interface RecentScan {
@@ -66,7 +68,11 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
   const [scannerName, setScannerName] = useState<string>("");
   const { value: thresholdSetting } = useSchoolSetting("face_scan_threshold");
   const { value: voiceSetting } = useSchoolSetting("face_scan_voice");
+  const { value: livenessSetting } = useSchoolSetting("face_liveness_enabled");
+  const { value: textureSetting } = useSchoolSetting("face_texture_gate");
   const threshold = parseFloat(thresholdSetting || String(BANK_GRADE.MATCH_THRESHOLD));
+  const livenessEnabled = livenessSetting !== "false";
+  const textureGate = textureSetting !== "false";
   const MIN_MARGIN = BANK_GRADE.MIN_MARGIN;
   const MIN_CONFIDENCE = BANK_GRADE.MIN_CONFIDENCE;
   const MIN_LANDMARK_SANITY = 0.55;
@@ -79,6 +85,10 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
   const voteRef = useRef<Map<string, { hits: number; firstAt: number }>>(new Map());
   const VOTE_REQUIRED = 2;
   const VOTE_WINDOW_MS = 2200;
+  // ใบหน้าสด (anti-spoof): สะสมหลักฐาน blink/ขยับศีรษะแยกตาม studentId
+  const livenessRef = useRef<Map<string, LivenessTrack>>(new Map());
+  // texture ไม่ผ่าน (สงสัยรูปถ่าย/คนหน้าคล้าย): studentId -> timestamp ครั้งสุดท้ายที่ถูกปฏิเสธ
+  const textureFailRef = useRef<Map<string, number>>(new Map());
   const geofence = useSchoolGeofence();
   const [geoStatus, setGeoStatus] = useState<{ ok: boolean; distance: number | null; error?: string }>({ ok: !geofence.configured, distance: null });
   const [facing, setFacing] = useState<"user" | "environment">(() => {
@@ -632,7 +642,10 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
         const video = videoRef.current;
         // ตรวจจับจากเฟรมที่ผ่าน preprocess (contrast/brightness) — กล้องคุณภาพต่ำก็ match ได้ดี
         const pre = preprocessFrame(video, { maxWidth: 960 }) || video;
-        const detections = await getAllDescriptors(pre as any, opts);
+        const detections = await getAllDescriptors(pre as any, opts, {
+          minFaceSize: BANK_GRADE.MIN_FACE_SIZE_SCAN * 0.6,
+          cacheTtlMs: isIOS ? 260 : 220,
+        });
         const srcW = pre instanceof HTMLCanvasElement ? pre.width : video.videoWidth;
         const scaleBack = video.videoWidth / Math.max(1, srcW);
         const canvas = overlayRef.current;
@@ -652,6 +665,10 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
                 : rawBox;
               const sharpness = estimateFaceSharpness(video, box);
               const tooBlurry = sharpness < MIN_SHARPNESS;
+              // แสงน้อย — วัดความสว่างบริเวณใบหน้า (ย้อนแสง/มืด) เพื่อให้คำแนะนำตอนสแกนไม่ติด
+              const brightness = estimateBrightness(video, box);
+              const tooDark = brightness > 0 && brightness < BANK_GRADE.BRIGHTNESS_MIN - 10;
+              const tooBright = brightness > BANK_GRADE.BRIGHTNESS_MAX + 10;
               // Anti-false-positive: landmark sanity (กันจับต้นไม้/วัตถุ)
               const sanity = landmarkSanityScore(det.landmarks);
               const notHuman = sanity < MIN_LANDMARK_SANITY;
@@ -677,18 +694,30 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
                 }
               }
 
+              // ใบหน้าสด (anti-spoof): สะสมหลักฐาน blink/ขยับศีรษะ — รูปถ่าย/จอภาพที่นิ่งจะไม่มีหลักฐาน
+              let liveOk = true;
+              if (found && livenessEnabled) {
+                let track = livenessRef.current.get(found.studentId);
+                if (!track) { track = newLivenessTrack(); livenessRef.current.set(found.studentId, track); }
+                liveOk = recordLivenessSample(track, makeLivenessSample(tNow, det.landmarks, box)).live;
+              }
+
               const justScanned = found ? (tNow - (justScannedRef.current.get(found.studentId) || 0) < 3000) : false;
               const inCooldown = found ? (tNow - (cooldownRef.current.get(found.studentId) || 0) < 30_000) : false;
+              const textureFailed = found ? (tNow - (textureFailRef.current.get(found.studentId) || 0) < 3000) : false;
               const color = !found
-                ? (notHuman ? "#94a3b8" : tooBlurry ? "#64748b" : (ambiguous || lowConfidence) ? "#eab308" : "#f97316")
-                : justScanned ? "#16a34a" : inCooldown ? "#10b981" : voteOk ? "#22c55e" : "#3b82f6";
+                ? (notHuman ? "#94a3b8" : tooBlurry ? "#64748b" : tooDark ? "#7c3aed" : tooBright ? "#f59e0b" : (ambiguous || lowConfidence) ? "#eab308" : "#f97316")
+                : textureFailed ? "#dc2626"
+                : justScanned ? "#16a34a" : inCooldown ? "#10b981" : (voteOk && liveOk) ? "#22c55e" : "#3b82f6";
               const voteHits = found ? (voteRef.current.get(found.studentId)?.hits || 0) : 0;
               drawFaceFrame(ctx, {
                 box,
                 label: found
-                  ? `${found.name}${justScanned ? " ✓ บันทึกแล้ว" : !voteOk && !inCooldown ? ` กำลังยืนยัน ${voteHits}/${VOTE_REQUIRED}` : ""}`
+                  ? `${found.name}${justScanned ? " ✓ บันทึกแล้ว" : textureFailed ? " พื้นผิวไม่ตรง" : !voteOk && !inCooldown ? ` กำลังยืนยัน ${voteHits}/${VOTE_REQUIRED}` : (voteOk && !liveOk && !inCooldown) ? " ยืนยันใบหน้าสด" : ""}`
                   : notHuman ? "ไม่ใช่ใบหน้ามนุษย์"
                   : tooBlurry ? "ภาพเบลอ ให้นิ่งสักครู่"
+                  : tooDark ? "แสงมืดเกินไป หาที่สว่างขึ้น"
+                  : tooBright ? "แสงจ้า/ย้อนแสง หลีกหน้าต่าง"
                   : faceTooSmall ? "ใบหน้าเล็กเกินไป ขยับเข้าใกล้"
                   : ambiguous ? "ใบหน้าคล้ายหลายคน"
                   : lowConfidence ? `มั่นใจ ${Math.round(m.confidence * 100)}% • ต้อง ≥ ${Math.round(MIN_CONFIDENCE * 100)}%`
@@ -697,6 +726,8 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
                   ? `เลขที่ ${found.studentCode || "-"} • ${Math.round(m.confidence * 100)}% (Δ${m.margin.toFixed(2)}, ช ${Math.round(sharpness)})`
                   : notHuman ? `landmark ${sanity.toFixed(2)}`
                   : tooBlurry ? `ความคมชัด ${Math.round(sharpness)}`
+                  : tooDark ? `ความสว่าง ${Math.round(brightness)}`
+                  : tooBright ? `ความสว่าง ${Math.round(brightness)}`
                   : faceTooSmall ? `${Math.round(Math.min(box.width, box.height))}px ต้อง ≥ ${BANK_GRADE.MIN_FACE_SIZE_SCAN}px`
                   : ambiguous ? `ห่าง ${m.margin.toFixed(2)} • ต้อง ≥ ${MIN_MARGIN}`
                   : lowConfidence ? "ขยับเข้าใกล้กล้องอีกนิด"
@@ -705,8 +736,28 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
                 confidence: m.confidence,
                 color,
               });
-              if (found && voteOk) {
+              if (found && voteOk && liveOk) {
                 const willRecord = !inCooldown;
+                // Texture verification — เทียบพื้นผิวใบหน้าสดกับภาพลงทะเบียน กันคนหน้าคล้าย/รูปถ่าย
+                if (willRecord && textureGate) {
+                  const regSrc = await getRegisteredFaceImage(found.studentId, found.avatarUrl);
+                  const tv = await verifyScanTexture({
+                    studentId: found.studentId,
+                    video,
+                    landmarks: det.landmarks,
+                    scaleX: scaleBack,
+                    scaleY: scaleBack,
+                    registeredImageSrc: regSrc,
+                  });
+                  if (!tv.pass) {
+                    textureFailRef.current.set(found.studentId, tNow);
+                    // ปัดสถานะโหวต/liveness เพื่อให้ต้องยืนยันใหม่ (คนเดิมอาจลองใหม่ได้)
+                    voteRef.current.delete(found.studentId);
+                    livenessRef.current.delete(found.studentId);
+                    setLive({ kind: "unknown", text: "พื้นผิวใบหน้าไม่ตรง", sub: "อาจเป็นรูปถ่ายหรือคนหน้าคล้ายกัน — ลองหันหน้าตรงๆ" }, 2500);
+                    return;
+                  }
+                }
                 const snap = willRecord ? captureFaceCrop(video, box) : undefined;
                 await recordScan(found.studentId, found.studentCode, found.name, found.classroom, m.confidence, snap, found.avatarUrl, "face");
                 // เรียนรู้ใบหน้าอัตโนมัติ — เก็บมุม/แสงใหม่เข้าคลัง เพื่อให้สแกนครั้งต่อไปแม่นขึ้น
@@ -745,7 +796,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
 
     loop();
     return () => { cancelled = true; };
-  }, [streaming, modelReady, known, threshold, recordScan, setLive, isIOS, refetchKnown]);
+  }, [streaming, modelReady, known, threshold, recordScan, setLive, isIOS, refetchKnown, livenessEnabled, textureGate]);
 
   // QR scanning loop — ใช้ BarcodeDetector ถ้ามี (Chrome/Android) มิฉะนั้น fallback ไป jsQR (Safari/iOS)
   useEffect(() => {

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Time24Input } from "@/components/ui/time24-input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Settings, Save, Clock, Monitor, Sparkles } from "lucide-react";
+import { Settings, Save, Clock, Monitor, Sparkles, ScanFace, Eye, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { clearAdaptiveFlagCache } from "@/lib/faceLearning";
@@ -37,6 +37,8 @@ const FaceSettingsTab = () => {
   const [powerSave, setPowerSave] = useState(true); // ปิดกล้อง/AI นอกเวลาสแกน (โน๊ตบุ๊คเก่า)
   const [wakeWordEnabled, setWakeWordEnabled] = useState(false); // ปลุกด้วยเสียง "สวัสดี AI"
   const [adaptiveLearning, setAdaptiveLearning] = useState(true); // เรียนรู้ใบหน้าอัตโนมัติทุกครั้งที่สแกน
+  const [livenessEnabled, setLivenessEnabled] = useState(true); // ตรวจใบหน้าสด (กะพริบตา/ขยับหัว) กันรูปถ่าย-จอภาพ
+  const [textureGate, setTextureGate] = useState(true); // ตรวจพื้นผิวใบหน้า (LBP) กันคนหน้าคล้าย-รูปถ่าย
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -49,6 +51,7 @@ const FaceSettingsTab = () => {
           "face_scan_entry_window", "face_scan_exit_window",
           "kiosk_idle_timeout_sec", "kiosk_hello_ai_enabled", "kiosk_power_save", "kiosk_wake_word_enabled",
           "face_adaptive_learning",
+          "face_liveness_enabled", "face_texture_gate",
         ]);
       for (const r of data || []) {
         if (r.setting_key === "face_scan_threshold") setThreshold(r.setting_value || "0.5");
@@ -67,6 +70,8 @@ const FaceSettingsTab = () => {
         if (r.setting_key === "kiosk_power_save") setPowerSave(r.setting_value !== "false");
         if (r.setting_key === "kiosk_wake_word_enabled") setWakeWordEnabled(r.setting_value === "true");
         if (r.setting_key === "face_adaptive_learning") setAdaptiveLearning(r.setting_value !== "false");
+        if (r.setting_key === "face_liveness_enabled") setLivenessEnabled(r.setting_value !== "false");
+        if (r.setting_key === "face_texture_gate") setTextureGate(r.setting_value !== "false");
       }
     })();
   }, []);
@@ -106,6 +111,8 @@ const FaceSettingsTab = () => {
         { setting_key: "kiosk_power_save", setting_value: powerSave ? "true" : "false" },
         { setting_key: "kiosk_wake_word_enabled", setting_value: wakeWordEnabled ? "true" : "false" },
         { setting_key: "face_adaptive_learning", setting_value: adaptiveLearning ? "true" : "false" },
+        { setting_key: "face_liveness_enabled", setting_value: livenessEnabled ? "true" : "false" },
+        { setting_key: "face_texture_gate", setting_value: textureGate ? "true" : "false" },
       ], { onConflict: "setting_key" });
       if (error) throw error;
       clearAdaptiveFlagCache();
@@ -135,6 +142,33 @@ const FaceSettingsTab = () => {
             </p>
           </div>
           <Switch checked={adaptiveLearning} onCheckedChange={setAdaptiveLearning} />
+        </div>
+
+        <div className="rounded-lg border border-sky-500/30 bg-sky-500/5 p-3 space-y-3">
+          <Label className="flex items-center gap-2 text-sky-700 dark:text-sky-400 font-semibold">
+            <ShieldAlert className="w-4 h-4" /> กันการปลอมแปลงใบหน้า
+          </Label>
+
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              <Label className="flex items-center gap-2"><Eye className="w-4 h-4 text-primary" />ตรวจใบหน้าสด (Liveness)</Label>
+              <p className="text-xs text-muted-foreground">
+                สแกนต้องพบการกะพริบตา + การขยับศีรษะภายใน ~3.5 วิ ก่อนบันทึกเวลา — กันการใช้รูปถ่ายหรือจอภาพมาหลอกกล้อง
+              </p>
+            </div>
+            <Switch checked={livenessEnabled} onCheckedChange={setLivenessEnabled} />
+          </div>
+
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              <Label className="flex items-center gap-2"><ScanFace className="w-4 h-4 text-primary" />ตรวจพื้นผิวใบหน้า (Texture)</Label>
+              <p className="text-xs text-muted-foreground">
+                เทียบลายพื้นผิวใบหน้าที่สแกนกับภาพที่ลงทะเบียนไว้ — กันคนหน้าคล้ายกันและการพิมพ์ภาพมาสแกน
+                (ถ้าผู้ลงทะเบียนเดิมยังไม่มี texture จะถือว่าผ่านอัตโนมัติ)
+              </p>
+            </div>
+            <Switch checked={textureGate} onCheckedChange={setTextureGate} />
+          </div>
         </div>
 
         <div className="space-y-2">

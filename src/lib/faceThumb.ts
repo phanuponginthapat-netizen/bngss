@@ -38,3 +38,26 @@ export async function urlToFaceThumb(url: string): Promise<string> {
     return "";
   }
 }
+
+/**
+ * โหลดรูปจาก URL แล้วคำนวณ texture (LBP) ของใบหน้าในภาพ — ใช้เก็บ texture ตอนอนุมัติ
+ * คืน null ถ้าโหลด/ตรวจจับใบหน้าไม่สำเร็จ (ยังยอมให้บันทึก descriptor ได้ตามเดิม)
+ */
+export async function urlToFaceTexture(url: string): Promise<number[] | null> {
+  try {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("load failed"));
+      img.src = url;
+    });
+    const { detectLandmarksFromImage } = await import("@/lib/faceApi");
+    const { computeFaceTexture } = await import("@/lib/faceTexture");
+    const det = await detectLandmarksFromImage(img);
+    if (!det?.landmarks) return null;
+    return computeFaceTexture(img, det.landmarks);
+  } catch {
+    return null;
+  }
+}

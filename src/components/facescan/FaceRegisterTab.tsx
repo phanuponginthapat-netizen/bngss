@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useUserRole } from "@/hooks/useUserRole";
 import { canvasToFaceThumb } from "@/lib/faceThumb";
+import { computeFaceTexture } from "@/lib/faceTexture";
 import { clearRegisteredFaceCache } from "@/lib/registeredFace";
 import { saveErrorMessage } from "@/lib/saveError";
 
@@ -44,7 +45,7 @@ const FaceRegisterTab = () => {
   const [studentId, setStudentId] = useState("");
   const [search, setSearch] = useState("");
   const [reason, setReason] = useState("");
-  const [shots, setShots] = useState<Array<{ canvas: HTMLCanvasElement; desc: Float32Array; source: "camera" | "upload"; quality: QualityReport }>>([]);
+  const [shots, setShots] = useState<Array<{ canvas: HTMLCanvasElement; desc: Float32Array; texture?: number[] | null; source: "camera" | "upload"; quality: QualityReport }>>([]);
   const [lastQuality, setLastQuality] = useState<QualityReport | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -206,7 +207,7 @@ const FaceRegisterTab = () => {
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
       canvas.getContext("2d")?.drawImage(videoRef.current, 0, 0);
-      setShots((s) => [...s, { canvas, desc: det.descriptor, source: "camera", quality: q }]);
+      setShots((s) => [...s, { canvas, desc: det.descriptor, texture: computeFaceTexture(videoRef.current!, det.landmarks), source: "camera", quality: q }]);
     } finally { setBusy(false); }
   };
 
@@ -233,7 +234,7 @@ const FaceRegisterTab = () => {
           canvas.width = img.naturalWidth;
           canvas.height = img.naturalHeight;
           canvas.getContext("2d")?.drawImage(img, 0, 0);
-          setShots((s) => [...s, { canvas, desc: det.descriptor, source: "upload", quality: q }]);
+          setShots((s) => [...s, { canvas, desc: det.descriptor, texture: computeFaceTexture(img, det.landmarks), source: "upload", quality: q }]);
           ok++;
         } catch { fail++; }
       }
@@ -348,6 +349,7 @@ const FaceRegisterTab = () => {
         quality_score: s.quality?.score ?? null,
         metrics: (s.quality as any) ?? null,
         face_image: canvasToFaceThumb(s.canvas) || null,
+        texture: s.texture ?? null,
       }));
       const { error } = await supabase.from("student_face_descriptors").insert(rows);
       if (error) throw error;

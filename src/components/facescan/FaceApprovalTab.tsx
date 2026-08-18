@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
-import { urlToFaceThumb } from "@/lib/faceThumb";
+import { urlToFaceThumb, urlToFaceTexture } from "@/lib/faceThumb";
 import { clearRegisteredFaceCache } from "@/lib/registeredFace";
 import { saveErrorMessage } from "@/lib/saveError";
 
@@ -156,6 +156,16 @@ const FaceApprovalTab = () => {
           return (await urlToFaceThumb(url)) || null;
         }),
       );
+      // texture (LBP) ของแต่ละภาพ — ใช้ยืนยันพื้นผิวใบหน้าตอนสแกน
+      const textures = await Promise.all(
+        req.descriptors.map(async (_d, i) => {
+          const path = req.photo_urls?.[i];
+          if (!path) return null;
+          const url = await getSignedUrl(path);
+          if (!url) return null;
+          return (await urlToFaceTexture(url)) || null;
+        }),
+      );
 
       const rows = req.descriptors.map((d, i) => ({
         student_id: req.student_id,
@@ -164,6 +174,7 @@ const FaceApprovalTab = () => {
         captured_by: req.requested_by,
         source: "request_approved",
         face_image: thumbs[i],
+        texture: textures[i],
       }));
       const { error: insErr } = await supabase.from("student_face_descriptors").insert(rows);
       if (insErr) throw insErr;

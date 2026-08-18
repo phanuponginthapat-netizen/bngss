@@ -25,13 +25,16 @@ BEGIN
 
   FOR _s IN SELECT * FROM jsonb_array_elements(_samples) LOOP
     INSERT INTO public.student_face_descriptors
-      (student_id, sample_index, descriptor, quality_score, face_image, metrics, captured_by, source)
+      (student_id, sample_index, descriptor, quality_score, face_image, texture, metrics, captured_by, source)
     VALUES (
       _student_id,
       _next,
       ARRAY(SELECT (jsonb_array_elements_text(_s->'descriptor'))::real),
       NULLIF(_s->>'quality_score','')::real,
       _s->>'face_image',
+      CASE WHEN _s ? 'texture' AND _s->'texture' != 'null'
+        THEN ARRAY(SELECT (jsonb_array_elements_text(_s->'texture'))::real)
+        ELSE NULL END,
       COALESCE(_s->'metrics', '{}'::jsonb),
       auth.uid(),
       'self_enroll_auto'

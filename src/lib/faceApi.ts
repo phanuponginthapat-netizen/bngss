@@ -182,6 +182,23 @@ async function runSingleFaceDetection(
   )[0] as any;
 }
 
+/**
+ * ตรวจหาหน้าเดียวจากรูปภาพ (ใช้สำหรับคำนวณ texture ของภาพที่ลงทะเบียนไว้)
+ * คืน landmarks พิกัดภาพจริง — เหมาะกับ getRegisteredTexture ใน faceTexture.ts
+ */
+export async function detectLandmarksFromImage(
+  image: HTMLImageElement,
+): Promise<{ landmarks: faceapi.FaceLandmarks68 } | null> {
+  const detected = await detectSingleFaceRobust(image);
+  if (!detected) return null;
+  const raw = detected.res.landmarks;
+  const { width: iw, height: ih } = getInputSize(image);
+  const lm = (detected.scaleX !== 1 || detected.scaleY !== 1) && typeof (raw as any).forSize === "function"
+    ? (raw as any).forSize(iw, ih)
+    : raw;
+  return { landmarks: lm };
+}
+
 async function detectSingleFaceRobust(input: DetectableInput) {
   const { width } = getInputSize(input);
   if (!width) return null;
@@ -259,6 +276,16 @@ export function preprocessFrame(
     try {
       const img = ctx.getImageData(0, 0, w, h);
       const data = img.data;
+      // Adaptive gamma — ถ้าเฟรมมืด ให้ยกสว่างขึ้น, ถ้าสว่างอยู่แล้วก็คงเดิม
+      let lumSum = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        lumSum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      }
+      const meanLum = lumSum / (w * h);
+      // target ~110: gamma > 1 = สว่างขึ้น (แสงน้อย), gamma < 1 = หรี่ลง (แสงจ้า/ย้อนแสง)
+      const gamma = Math.min(1.9, Math.max(0.72, (meanLum / 110) ** 0.5));
+      const gammaLut = new Uint8ClampedArray(256);
+      for (let v = 0; v < 256; v++) gammaLut[v] = Math.round(255 * Math.pow(v / 255, 1 / gamma));
       const hist = new Uint32Array(256);
       // build luminance histogram
       for (let i = 0; i < data.length; i += 4) {
@@ -278,9 +305,12 @@ export function preprocessFrame(
       // apply per-pixel: scale RGB by ratio of new-Y / old-Y to preserve color
       for (let i = 0; i < data.length; i += 4) {
         const y = (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) | 0;
+        // รวม gamma กับ histogram equalization (ผสมตามระดับแสง)
+        const gammaY = gammaLut[y];
         const ny = cdf[y];
-        // blend 60% equalized + 40% original to avoid over-amplification
-        const k = (ny / Math.max(1, y)) * 0.6 + 0.4;
+        const blend = meanLum < 85 ? 0.45 : meanLum > 180 ? 0.25 : 0.35;
+        const ny2 = Math.round(gammaY * (1 - blend) + ny * blend);
+        const k = (ny2 / Math.max(1, y)) * 0.7 + 0.3;
         data[i] = Math.min(255, data[i] * k);
         data[i + 1] = Math.min(255, data[i + 1] * k);
         data[i + 2] = Math.min(255, data[i + 2] * k);
@@ -477,7 +507,10 @@ export function estimatePitch(landmarks: faceapi.FaceLandmarks68): number {
 export async function getAllDescriptors(
   video: HTMLVideoElement | HTMLCanvasElement,
   opts?: faceapi.SsdMobilenetv1Options | faceapi.TinyFaceDetectorOptions,
+  extra?: { minFaceSize?: number; cacheTtlMs?: number },
 ) {
+  const minFaceSize = extra?.minFaceSize ?? 0;
+  const cacheTtlMs = extra?.cacheTtlMs ?? 0;
   const res = await faceapi
     .detectAllFaces(video as any, (opts ?? detectorOptions) as any)
     .withFaceLandmarks()
@@ -486,11 +519,48 @@ export async function getAllDescriptors(
   // Landmarks are in `video` coord space → scaleX = scaleY = 1.
   await Promise.all(
     res.map(async (d) => {
-      const arc = await embedWithArcFace(video, d.landmarks, 1, 1);
+      const box = d.detection.box;
+      // ข้าม ArcFace สำหรับใบหน้าที่เล็กเกิน — ประหยัด CPU มาก (ใบหน้าเล็กจะถูกกรองออกจากลูปสแกนอยู่ดี)
+      if (minFaceSize > 0 && Math.min(box.width, box.height) < minFaceSize) return;
+      const arc = await embedWithCache(video, d.landmarks, cacheTtlMs);
       if (arc) (d as any).descriptor = arc;
+      // ถ้า ArcFace ล้มเหลว → ปล่อย descriptor 128-D เดิมไว้เป็น fallback (เหมือนพฤติกรรมเดิม)
     }),
   );
   return res;
+}
+
+// ── แคช embedding ต่อตำแหน่งใบหน้า — คนยืนนิ่งไม่ต้องคำนวณ ArcFace ซ้ำทุกเฟรม ──
+const embedCache = new Map<string, { box: { x: number; y: number; width: number; height: number }; d: Float32Array; at: number }>();
+
+async function embedWithCache(
+  video: HTMLVideoElement | HTMLCanvasElement,
+  landmarks: faceapi.FaceLandmarks68,
+  ttlMs: number,
+): Promise<Float32Array | null> {
+  if (ttlMs <= 0) return computeArcFaceEmbedding(video, fivePointsFromLandmarks68(landmarks).map((p) => p as [number, number]));
+  const now = Date.now();
+  const lm = landmarks.positions;
+  let cx = 0, cy = 0;
+  for (const p of lm) { cx += p.x; cy += p.y; }
+  cx /= lm.length; cy /= lm.length;
+  // ตำแหน่งถูกปัดเป็นสเต็ป 8px — กันแคชยุ่งจาก jitter เฟรมต่อเฟรม
+  const key = `${Math.round(cx / 8)}:${Math.round(cy / 8)}:${Math.round(Math.min(landmarks.getJawOutline().length, 68) * 0)}`;
+  const hit = embedCache.get(key);
+  if (hit && now - hit.at < ttlMs) return hit.d;
+  const d = await computeArcFaceEmbedding(video, fivePointsFromLandmarks68(landmarks).map((p) => p as [number, number]));
+  if (d) {
+    embedCache.set(key, { box: { x: 0, y: 0, width: 0, height: 0 }, d, at: now });
+    if (embedCache.size > 120) {
+      // ตัดตัวเก่าเกิน 4 วินาทีออกเมื่อแคชบาน
+      for (const [k, v] of embedCache) if (now - v.at > 4000) embedCache.delete(k);
+    }
+  }
+  return d;
+}
+
+export function clearEmbedCache() {
+  embedCache.clear();
 }
 
 export function euclidean(a: Float32Array | number[], b: Float32Array | number[]): number {

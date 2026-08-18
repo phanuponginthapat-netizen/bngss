@@ -23,12 +23,15 @@ begin
 
   for _s in select * from jsonb_array_elements(_samples) loop
     insert into public.personnel_face_descriptors
-      (personnel_id, sample_index, descriptor, quality_score, face_image, metrics, captured_by, source)
+      (personnel_id, sample_index, descriptor, quality_score, face_image, texture, metrics, captured_by, source)
     values (
       _pid, _next,
       array(select (jsonb_array_elements_text(_s->'descriptor'))::real),
       nullif(_s->>'quality_score','')::real,
       _s->>'face_image',
+      case when _s ? 'texture' and _s->'texture' != 'null'
+        then array(select (jsonb_array_elements_text(_s->'texture'))::real)
+        else null end,
       coalesce(_s->'metrics', '{}'::jsonb),
       auth.uid(),
       'self_enroll_personnel'

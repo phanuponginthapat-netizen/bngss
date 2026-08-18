@@ -98,6 +98,37 @@ export function computeFaceTexture(
 ): number[] | null {
   try {
     const pts = fivePointsFromLandmarks68(landmarks);
+    return computeFaceTextureFromPoints(source, pts);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * คำนวณเวกเตอร์พื้นผิวจาก landmarks ที่อยู่ในพิกัดของภาพที่ย่อแล้ว (เช่น preprocess canvas)
+ * scaleX/scaleY = อัตราส่วนภาพต้นฉบับต่อภาพที่ย่อ (videoWidth / canvasWidth)
+ */
+export function computeFaceTextureScaled(
+  source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement,
+  landmarks: faceapi.FaceLandmarks68,
+  scaleX = 1,
+  scaleY = 1,
+): number[] | null {
+  try {
+    const pts = fivePointsFromLandmarks68(landmarks).map(
+      ([x, y]) => [x * scaleX, y * scaleY] as [number, number],
+    );
+    return computeFaceTextureFromPoints(source, pts);
+  } catch {
+    return null;
+  }
+}
+
+function computeFaceTextureFromPoints(
+  source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement,
+  pts: Array<[number, number]>,
+): number[] | null {
+  try {
     const aligned = alignFace112(source, pts);
     // สำเนาออกมาก่อน เพราะ alignFace112 ใช้ canvas ร่วมกัน
     if (!_cvs) _cvs = document.createElement("canvas");
@@ -186,4 +217,78 @@ export async function getRegisteredTexture(
 export function clearRegisteredTextureCache(key?: string) {
   if (key) registeredCache.delete(key);
   else registeredCache.clear();
+}
+
+// ── ตรวจ texture ตอนสแกน — กันคนหน้าคล้าย + รูปถ่าย/จอภาพ ──────────
+// texture ของเฟรมสแกนเทียบกับ texture ของภาพที่ลงทะเบียนไว้
+// คำนวณ texture ของภาพลงทะเบียนแค่ครั้งเดียวต่อคนแล้วแคช
+
+const scanResultCache = new Map<string, { sim: number | null; at: number }>();
+const scanResultInflight = new Map<string, Promise<number | null>>();
+
+/**
+ * ตรวจ "พื้นผิวใบหน้า" ระหว่างเฟรมสแกนสดกับภาพที่ลงทะเบียนไว้
+ * @returns similarity 0..1 (null = ไม่มีภาพ/ไม่สามารถเทียบได้ → ถือว่าผ่าน)
+ */
+export async function verifyScanTexture(opts: {
+  studentId: string;
+  video: HTMLVideoElement;
+  landmarks: faceapi.FaceLandmarks68;
+  scaleX: number;
+  scaleY: number;
+  registeredImageSrc: string | null | undefined;
+  minSimilarity?: number;
+}): Promise<{ pass: boolean; similarity: number | null }> {
+  const { studentId, video, landmarks, scaleX, scaleY, registeredImageSrc, minSimilarity = TEXTURE_GATE.MIN_SIMILARITY } = opts;
+
+  const cached = scanResultCache.get(studentId);
+  if (cached) {
+    const ttl = cached.sim !== null && cached.sim >= minSimilarity ? 60_000 : 5_000;
+    if (Date.now() - cached.at < ttl) {
+      return { pass: cached.sim === null || cached.sim >= minSimilarity, similarity: cached.sim };
+    }
+  }
+  const inflight = scanResultInflight.get(studentId);
+  if (inflight) {
+    const sim = await inflight;
+    return { pass: sim === null || sim >= minSimilarity, similarity: sim };
+  }
+
+  const job = (async (): Promise<number | null> => {
+    // 1) texture ของเฟรมสแกน (landmarks อยู่ในพิกัด preprocess canvas → scale กลับเป็นพิกัด video)
+    const scanTex = computeFaceTextureScaled(video, landmarks, scaleX, scaleY);
+    if (!scanTex) return null;
+    // 2) texture ของภาพลงทะเบียน (คำนวณครั้งเดียว + แคช)
+    const regTex = await getRegisteredTexture(
+      studentId,
+      registeredImageSrc,
+      async (img) => {
+        const { detectLandmarksFromImage } = await import("@/lib/faceApi");
+        return detectLandmarksFromImage(img);
+      },
+    );
+    if (!regTex) return null;
+    // 3) เทียบ
+    const sim = textureSimilarity(scanTex, regTex);
+    return sim;
+  })();
+
+  scanResultInflight.set(studentId, job);
+  try {
+    const sim = await job;
+    scanResultCache.set(studentId, { sim, at: Date.now() });
+    return { pass: sim === null || sim >= minSimilarity, similarity: sim };
+  } finally {
+    scanResultInflight.delete(studentId);
+  }
+}
+
+export function clearScanTextureCache(studentId?: string) {
+  if (studentId) {
+    scanResultCache.delete(studentId);
+    registeredCache.delete(studentId);
+  } else {
+    scanResultCache.clear();
+    registeredCache.clear();
+  }
 }
