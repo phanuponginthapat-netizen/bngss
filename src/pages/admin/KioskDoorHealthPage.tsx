@@ -154,8 +154,22 @@ export default function KioskDoorHealthPage() {
     if (error) {
       toast.error(`โหลดรายการ Kiosk ไม่สำเร็จ: ${error.message}`);
     } else {
-      setDevices((rows || []) as Device[]);
+      let list = (rows || []) as Device[];
+      // เครื่องที่ยังไม่ได้ส่ง kiosk_mode (เช่นรันเวอร์ชันเก่า) จะไม่ติดฟิลเตอร์ door
+      // → ถ้าไม่พบเครื่องโหมด door เลย ให้ดึงทุกเครื่องมาแสดงแทน เพื่อไม่ให้หน้าว่าง
+      if (list.length === 0) {
+        const { data: anyRows } = await supabase
+          .from("kiosk_devices")
+          .select(
+            "id,device_id,hostname,status,kiosk_mode,config_updated_at,last_seen_at,extension_installed,screen_resolution,uptime_sec,user_agent,meta",
+          )
+          .order("last_seen_at", { ascending: false })
+          .limit(100);
+        list = ((anyRows || []) as Device[]);
+      }
+      setDevices(list);
     }
+
     setSamples(((hist as Sample[]) || []));
     const raw = (cfg as any)?.setting_value;
     const parsed = typeof raw === "string" ? (() => { try { return JSON.parse(raw); } catch { return {}; } })() : (raw || {});
@@ -169,7 +183,8 @@ export default function KioskDoorHealthPage() {
       .channel("kiosk-door-health")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "kiosk_devices", filter: "kiosk_mode=eq.door" },
+        { event: "*", schema: "public", table: "kiosk_devices" },
+
         () => load(),
       )
       .subscribe();
