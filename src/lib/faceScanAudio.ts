@@ -63,18 +63,61 @@ export function playUnknownSound() {
   tone(180, 0.14, 0.12, "square", 0.04);
 }
 
-/** Speak text in Thai using browser TTS (best-effort) */
-export function speakText(text: string) {
+/** มีเสียงพูดภาษาไทย/เสียงใดๆ ในเครื่องหรือไม่ (Linux kiosk ส่วนใหญ่ไม่มี) */
+function hasLocalVoice(): boolean {
+  try {
+    if (!("speechSynthesis" in window)) return false;
+    const voices = window.speechSynthesis.getVoices() || [];
+    if (voices.length === 0) return false;
+    return voices.some((v) => /^th/i.test(v.lang));
+  } catch { return false; }
+}
+
+let _ttsAudio: HTMLAudioElement | null = null;
+
+function speakLocal(text: string) {
   try {
     if (!("speechSynthesis" in window)) return;
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "th-TH";
     u.rate = 1.05;
-    u.volume = 0.9;
+    u.volume = 1;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
   } catch { /* noop */ }
 }
+
+/** เล่นเสียงพูดผ่าน server TTS (ใช้ได้บน Linux kiosk ที่ไม่มี voice ในเครื่อง) */
+async function speakRemote(text: string): Promise<boolean> {
+  try {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { data, error } = await supabase.functions.invoke("tts-th", { body: { text } });
+    if (error || !data) return false;
+    if (!(data instanceof Blob) && (data as any)?.fallback) return false;
+    const blob = data instanceof Blob
+      ? new Blob([data], { type: "audio/mpeg" })
+      : new Blob([data as ArrayBuffer], { type: "audio/mpeg" });
+    if (blob.size < 100) return false;
+    const url = URL.createObjectURL(blob);
+    try { _ttsAudio?.pause(); } catch { /* noop */ }
+    const audio = new Audio(url);
+    audio.playbackRate = 1.3;
+    (audio as any).preservesPitch = true;
+    audio.onended = () => URL.revokeObjectURL(url);
+    _ttsAudio = audio;
+    await audio.play();
+    return true;
+  } catch { return false; }
+}
+
+/** Speak text in Thai — server TTS ก่อน (Linux kiosk) แล้วค่อย fallback browser voice */
+export function speakText(text: string) {
+  const clean = String(text || "").trim();
+  if (!clean) return;
+  if (hasLocalVoice()) { speakLocal(clean); return; }
+  void speakRemote(clean).then((ok) => { if (!ok) speakLocal(clean); });
+}
+
 
 /** เตือนไข้สูง — เสียงสองจังหวะสูงต่ำซ้ำ */
 export function playFeverAlert() {
