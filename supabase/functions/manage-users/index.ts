@@ -905,9 +905,16 @@ serve(async (req) => {
         const { data } = await adminClient.from("personnel").select("*").eq("email", targetUser.email).maybeSingle();
         personnel = data;
       }
-      const { data: stu } = await adminClient.from("students").select("*, classrooms(id, name, grade_level)").eq("auth_user_id", user_id).maybeSingle();
+      // NOTE: students มี FK ไป classrooms 2 ตัว (classroom_id, inclusion_classroom_id)
+      // การ embed แบบ classrooms(...) จะกำกวม (PGRST201) → ดึงห้องเรียนแยกแทน
+      const { data: stu } = await adminClient.from("students").select("*").eq("auth_user_id", user_id).maybeSingle();
       student = stu;
-      if (student?.classrooms) classroom = student.classrooms;
+      if (student?.classroom_id) {
+        const { data: cls } = await adminClient
+          .from("classrooms").select("id, name, grade_level").eq("id", student.classroom_id).maybeSingle();
+        classroom = cls;
+      }
+
       return ok({
         success: true,
         user: { id: targetUser?.id, email: targetUser?.email, created_at: targetUser?.created_at },
@@ -1351,7 +1358,10 @@ serve(async (req) => {
       const { data: roles } = await adminClient.from("user_roles").select("user_id, role");
       const { data: profiles } = await adminClient.from("profiles").select("id, first_name, last_name, department, student_code, employee_code, position_title, gender, phone, date_of_birth, is_approved, nickname");
       const { data: personnelList } = await adminClient.from("personnel").select("email, prefix, position, academic_standing, subject_group, user_id");
-      const { data: studentRows } = await adminClient.from("students").select("auth_user_id, student_code, prefix, classroom_id, status, classrooms(id, name, grade_level)");
+      const { data: studentRows } = await adminClient.from("students").select("auth_user_id, student_code, prefix, classroom_id, status");
+      const { data: classroomRows } = await adminClient.from("classrooms").select("id, name, grade_level");
+      const classroomById = new Map((classroomRows || []).map((c: any) => [c.id, c]));
+
       const roleMap = new Map((roles || []).map((r: any) => [r.user_id, r.role]));
       const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
       const personnelByEmail = new Map((personnelList || []).filter((p: any) => p.email).map((p: any) => [p.email, p]));
@@ -1398,8 +1408,9 @@ serve(async (req) => {
           date_of_birth: profile?.date_of_birth || "",
           nickname: profile?.nickname || "",
           classroom_id: stu?.classroom_id || null,
-          classroom_name: stu?.classrooms?.name || "",
-          grade_level: stu?.classrooms?.grade_level || (inferredRole === "student" ? profile?.department || "" : ""),
+          classroom_name: (stu?.classroom_id ? classroomById.get(stu.classroom_id)?.name : "") || "",
+          grade_level: (stu?.classroom_id ? classroomById.get(stu.classroom_id)?.grade_level : "") || (inferredRole === "student" ? profile?.department || "" : ""),
+
           student_status: stu?.status || "",
           is_approved: profile?.is_approved ?? false,
           created_at: u.created_at,

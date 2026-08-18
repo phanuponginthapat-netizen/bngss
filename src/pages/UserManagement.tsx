@@ -575,14 +575,18 @@ const UserManagement = () => {
         grade_level: cls.grade_level ?? prev.grade_level ?? "",
         classroom_id: stu.classroom_id ?? prev.classroom_id ?? null,
       }));
-      // Load classrooms for the selector
-      const { data: cls2 } = await supabase.from("classrooms").select("id, name, grade_level").order("grade_level").order("name");
-      setEditClassrooms(cls2 || []);
     } catch (e: any) {
-      swal.error("โหลดข้อมูลเต็มไม่สำเร็จ: " + (e?.message || e));
+      // ไม่ให้ล้มทั้งหน้า — ยังแก้ไขข้อมูลพื้นฐานได้ แม้ดึงข้อมูลเต็มไม่สำเร็จ
+      console.warn("get_full failed", e);
+      swal.toast.error("โหลดข้อมูลเต็มไม่สำเร็จ (แก้ไขข้อมูลพื้นฐานได้ตามปกติ)");
     } finally {
+      // โหลดรายชื่อห้องเรียนเสมอ เพื่อให้ตัวเลือกห้องเรียนใช้งานได้
+      const { data: cls2 } = await supabase
+        .from("classrooms").select("id, name, grade_level").order("grade_level").order("name");
+      setEditClassrooms(cls2 || []);
       setEditLoading(false);
     }
+
   };
 
   const handleDeleteUser = async (userId: string) => {
