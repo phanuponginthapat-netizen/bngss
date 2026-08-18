@@ -573,6 +573,8 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
       return;
     }
     justScannedRef.current.set(cdKey, now);
+    markScanned(studentId, mode, entryMethod);
+
     playSuccessSound();
     if (voiceEnabled) speakText(`สแกน${modeLabel}สำเร็จ ${spokenName}`);
     if (!seenSet.has(studentId)) {
