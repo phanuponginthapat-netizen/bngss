@@ -731,6 +731,11 @@ const FaceKioskPage = () => {
 
     const loop = async () => {
       if (cancelled || !videoRef.current) return;
+      // รอให้ระบบพูดจบก่อน แล้วค่อยตรวจจับต่อ — กันสแกนถี่เกินและลดโหลด CPU
+      if (isSpeaking()) {
+        await waitForSpeechEnd();
+        if (cancelled) return;
+      }
       try {
         // ตรวจจับจากเฟรมที่ผ่าน preprocess (contrast/brightness) — ช่วยกล้องคุณภาพต่ำ
         const video = videoRef.current;
