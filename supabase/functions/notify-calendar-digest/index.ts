@@ -3,6 +3,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
+import { requireCronOrAdmin } from "../_shared/requireCron.ts";
 import { pushMessage } from "../_shared/lineApi.ts";
 import { buildInfoCard } from "../_shared/lineFlex.ts";
 
@@ -30,11 +31,8 @@ function thDate(d: string): string {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
-    const cronSecret = Deno.env.get("CRON_SECRET") || "";
-    const header = req.headers.get("x-cron-secret") || "";
-    if (cronSecret && header !== cronSecret) {
-      return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    const denied = await requireCronOrAdmin(req, corsHeaders);
+    if (denied) return denied;
 
     const sb = makeAdmin();
     const today = bkkDate(0);
