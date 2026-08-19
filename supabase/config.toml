@@ -7,6 +7,9 @@ verify_jwt = false
 [functions.line-vault-drive-cleanup]
 verify_jwt = false
 
+[functions.line-vault-quota]
+verify_jwt = false
+
 [functions.setup-health-check]
 verify_jwt = false
 

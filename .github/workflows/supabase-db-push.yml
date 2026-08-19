@@ -29,6 +29,7 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+          github_token: ${{ github.token }}
 
       - name: Verify secrets
         run: |

@@ -15,11 +15,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { swal } from "@/lib/swal";
-import { Image as ImageIcon, FileText, FileSpreadsheet, Presentation, StickyNote, Download, Trash2, Search, Upload, Users, Building2, Lock, RefreshCw, Settings as SettingsIcon, Copy, ExternalLink, CheckCircle2, XCircle, KeyRound, Eye, EyeOff, Save, Archive, FolderOpen, MessageSquareText } from "lucide-react";
+import { Image as ImageIcon, FileText, FileSpreadsheet, Presentation, StickyNote, Download, Trash2, Search, Upload, Users, Building2, Lock, RefreshCw, Settings as SettingsIcon, Copy, ExternalLink, CheckCircle2, XCircle, KeyRound, Eye, EyeOff, Save, Archive, FolderOpen, MessageSquareText, Gauge } from "lucide-react";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import JSZip from "jszip";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import { getBackendConfig } from "@/lib/runtimeConfig";
 import { saveErrorMessage } from "@/lib/saveError";
 
@@ -1192,6 +1193,12 @@ function VaultSettings() {
   const [tokenDraft, setTokenDraft] = useState("");
   const [showToken, setShowToken] = useState(false);
   const [savingToken, setSavingToken] = useState(false);
+  const [quota, setQuota] = useState<{
+    ok?: boolean; error?: string;
+    quota_type?: string; quota_limit?: number | null;
+    total_usage?: number | null; remaining?: number | null; percent_used?: number | null; reset?: string;
+  } | null>(null);
+  const [loadingQuota, setLoadingQuota] = useState(false);
 
   async function copy(text: string) {
     await navigator.clipboard.writeText(text);
@@ -1245,6 +1252,21 @@ function VaultSettings() {
 
   useEffect(() => { checkStatus(); /* eslint-disable-next-line */ }, []);
 
+  async function loadQuota() {
+    setLoadingQuota(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("line-vault-quota", { body: {} });
+      if (error) { setQuota({ ok: false, error: error.message }); return; }
+      setQuota((data as any) ?? { ok: false, error: "ไม่มีข้อมูล" });
+    } catch (e: any) {
+      setQuota({ ok: false, error: e?.message || "เรียกไม่ได้" });
+    } finally {
+      setLoadingQuota(false);
+    }
+  }
+
+  useEffect(() => { loadQuota(); /* eslint-disable-next-line */ }, []);
+
   async function saveToken() {
     const value = tokenDraft.trim();
     if (!value) { toast.error("กรุณาวาง Channel Access Token ก่อน"); return; }
@@ -1295,6 +1317,45 @@ function VaultSettings() {
               <div className="p-2 rounded bg-muted"><div className="text-muted-foreground">รายการในคลัง</div><div className="text-lg font-semibold">{status.items ?? "-"}</div></div>
             </div>
           )}
+          <div className="border-t pt-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Gauge className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium">โควต้าข้อความรายเดือน</span>
+              <Button size="sm" variant="ghost" className="ml-auto" onClick={loadQuota} disabled={loadingQuota}>
+                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loadingQuota ? "animate-spin" : ""}`} />รีเฟรช
+              </Button>
+            </div>
+            {loadingQuota && !quota ? (
+              <p className="text-xs text-muted-foreground mt-1">กำลังโหลด…</p>
+            ) : quota?.ok === false ? (
+              <p className="text-xs text-destructive mt-1">
+                {quota.error === "invalid_token"
+                  ? "Channel Access Token ใช้ไม่ได้ (หมดอายุหรือถูกลบ) — ตรวจสอบที่ LINE Developers"
+                  : `ไม่สามารถตรวจสอบได้: ${quota.error ?? "ไม่ทราบสาเหตุ"}`}
+              </p>
+            ) : quota ? (
+              <div className="mt-2 space-y-1.5">
+                {quota.quota_limit !== null && quota.quota_limit !== undefined ? (
+                  <>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">ใช้ไป {quota.total_usage ?? "-"} / {quota.quota_limit.toLocaleString()}</span>
+                      <span className="font-semibold">{quota.percent_used ?? 0}%</span>
+                    </div>
+                    <Progress
+                      value={quota.percent_used ?? 0}
+                      className={quota.percent_used !== null && quota.percent_used >= 90 ? "h-2 bg-muted [&>div]:bg-destructive" : quota.percent_used !== null && quota.percent_used >= 70 ? "h-2 bg-muted [&>div]:bg-amber-500" : "h-2"}
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>เหลือ {quota.remaining?.toLocaleString() ?? "-"}</span>
+                      <span>{quota.quota_type === "unlimited" ? "ไม่จำกัด" : "รีเซ็ตทุกเดือน"}</span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-amber-600 mt-1">LINE ไม่แจ้งยอดโควต้า (บัญชีแบบไม่จำกัดหรือ token ผิดประเภท)</p>
+                )}
+              </div>
+            ) : null}
+          </div>
         </CardContent>
       </Card>
 
