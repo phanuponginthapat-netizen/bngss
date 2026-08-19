@@ -387,6 +387,7 @@ export function AppSidebar() {
       items: [
         { title: L("งานที่มอบหมาย", "Homework"), url: "/dashboard/homework", icon: BookOpenCheck, color: "text-emerald-400", roles: ["admin", "director", "teacher", "student"], desc: L("มอบหมายและตรวจการบ้านออนไลน์", "Assign & grade homework") },
         { title: L("คลังข้อสอบและวัดผล", "Exams"), url: "/dashboard/exam", icon: ClipboardList, color: "text-cyan-400", roles: ["admin", "director", "teacher"], desc: L("สร้าง พิมพ์ สแกน ตรวจข้อสอบอัตโนมัติ", "Create, print, scan & auto-grade") },
+        { title: L("ออกแบบกระดาษคำตอบ", "Design Answer Sheet"), url: "/dashboard/exam/:id/design-sheet", icon: Settings2, color: "text-emerald-400", roles: ["admin", "director", "teacher"], desc: L("ออกแบบรูปแบบกระดาษคำตอบ (เลือกช้อย, โลโก้, หลักรหัส)", "Choice format, school logo, student code digits") },
       ],
     },
     {

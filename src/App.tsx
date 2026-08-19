@@ -88,6 +88,7 @@ const ExamListPage = lazy(() => import("./pages/exam/ExamListPage"));
 const ExamNewPage = lazy(() => import("./pages/exam/ExamNewPage"));
 const ExamDetailPage = lazy(() => import("./pages/exam/ExamDetailPage"));
 const ExamAnswerSheetPage = lazy(() => import("./pages/exam/ExamAnswerSheetPage"));
+const ExamDesignSheetPage = lazy(() => import("./pages/exam/ExamDesignSheetPage"));
 const ExamPaperPrintPage = lazy(() => import("./pages/exam/ExamPaperPrintPage"));
 const ExamScanPage = lazy(() => import("./pages/exam/ExamScanPage"));
 const ExamResultsPage = lazy(() => import("./pages/exam/ExamResultsPage"));
@@ -538,6 +539,7 @@ const App = () => (
                 <Route path="exam/new" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><ExamNewPage /></ProtectedRoute>} />
                 <Route path="exam/:id" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><ExamDetailPage /></ProtectedRoute>} />
                 <Route path="exam/:id/answer-sheet" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><ExamAnswerSheetPage /></ProtectedRoute>} />
+                <Route path="exam/:id/design-sheet" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><ExamDesignSheetPage /></ProtectedRoute>} />
                 <Route path="exam/:id/paper" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><ExamPaperPrintPage /></ProtectedRoute>} />
                 <Route path="exam/:id/scan" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><ExamScanPage /></ProtectedRoute>} />
                 <Route path="exam/:id/results" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><ExamResultsPage /></ProtectedRoute>} />
