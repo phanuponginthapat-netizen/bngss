@@ -85,9 +85,8 @@ function KpiTile({ color, icon, label, value, sub }: { color: keyof typeof TONE 
 const FaceReportTab = () => {
 
   const today = new Date();
-  // รายงานจำนวนวันขาดต้องเปิดเป็นภาพรวมเดือนโดยค่าเริ่มต้น
-  // โหมด "วัน" มีวันเรียนเพียงวันเดียว จึงทำให้แต่ละคนแสดงได้สูงสุด 1 วันเสมอ
-  const [period, setPeriod] = useState<Period>("month");
+  // ค่าเริ่มต้นเป็น "รายวัน" เพื่อให้ครูเห็นข้อมูลของวันนี้ทันที ไม่สับสนกับยอดรวมทั้งเดือน
+  const [period, setPeriod] = useState<Period>("day");
   const [refDate, setRefDate] = useState(bkkDateISO(today));
   const [search, setSearch] = useState("");
   const [sending, setSending] = useState(false);
