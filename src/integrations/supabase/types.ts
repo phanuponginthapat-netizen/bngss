@@ -12832,6 +12832,7 @@ export type Database = {
           sample_index: number
           source: string | null
           student_id: string
+          texture: number[] | null
         }
         Insert: {
           captured_by?: string | null
@@ -12846,6 +12847,7 @@ export type Database = {
           sample_index?: number
           source?: string | null
           student_id: string
+          texture?: number[] | null
         }
         Update: {
           captured_by?: string | null
@@ -12860,6 +12862,7 @@ export type Database = {
           sample_index?: number
           source?: string | null
           student_id?: string
+          texture?: number[] | null
         }
         Relationships: [
           {
@@ -15973,6 +15976,15 @@ export type Database = {
     Functions: {
       _staff_check: { Args: { _uid: string }; Returns: boolean }
       app_base_url: { Args: never; Returns: string }
+      approve_face_request: {
+        Args: {
+          _photo_urls?: string[]
+          _reason?: string
+          _request_id: string
+          _samples: Json
+        }
+        Returns: string
+      }
       archive_and_purge_old_data: {
         Args: { _retention_years?: number }
         Returns: Json
