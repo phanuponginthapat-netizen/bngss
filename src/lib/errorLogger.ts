@@ -35,6 +35,10 @@ const NOISE_PATTERNS = [
   /^Script error\.?$/i,
   /Non-Error promise rejection captured/i,
   /play\(\) request was interrupted/i,
+  // Benign Realtime/PostgREST client error — fires when a postgres_changes
+  // subscription receives an UPDATE for a row that already left the local cache.
+  // Spams error_logs (seen ~900x/day from the login page) without any real impact.
+  /Object Not Found Matching Id:\d+, MethodName:update/i,
 ];
 
 const isNoise = (msg: string | undefined | null) =>
