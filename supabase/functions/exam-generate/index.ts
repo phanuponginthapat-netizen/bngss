@@ -62,6 +62,10 @@ Deno.serve(async (req) => {
     const { subject, topic, level, count, references, grade_level, indicators } = await req.json();
     const refs = Array.isArray(references) && references.length ? references.join(", ") : "onet";
 
+    // Clamp count to a sane, printable range (answer sheet fits ~128 per A4 page)
+    const requested = Math.max(1, Math.min(200, Number(count) || 10));
+    const requestedLabel = Number(count) || 10;
+
     const indicatorList: Array<{ code?: string; title: string; description?: string }> =
       Array.isArray(indicators) ? indicators : [];
     const indicatorBlock = indicatorList.length
@@ -78,13 +82,13 @@ Deno.serve(async (req) => {
 หัวข้อ/เนื้อหา: ${topic || "-"}
 ระดับชั้น: ${grade_level || "-"}
 ระดับความยาก: ${level || "medium"}
-จำนวนข้อ: ${count || 10}
+จำนวนข้อ: ${requestedLabel}
 อ้างอิงแนวข้อสอบ: ${refs}
 
 ตัวชี้วัด/มาตรฐานการเรียนรู้ที่ต้องใช้ในการออกข้อสอบ:
 ${indicatorBlock}
 
-โปรดออกข้อสอบ ${count} ข้อ:
+โปรดออกข้อสอบ ${requested} ข้อ:
 - ทุกข้อระบุ indicator_code และ indicator_description
 - กระจายตัวชี้วัดให้ครอบคลุม
 - correct_index = ตำแหน่งคำตอบถูกใน choices (0-3)
@@ -109,8 +113,23 @@ ${indicatorBlock}
 
     // Post-process: shuffle choices + remap correct_answer ให้เป็น A/B/C/D
     const rawQuestions: any[] = Array.isArray(parsed.questions) ? parsed.questions : [];
+
+    // Dedupe/normalize question_no (UNIQUE(exam_id, question_no) จะ fail ถ้าซ้ำ)
+    const seen = new Set<number>();
+    let fallbackNo = 1;
     const questions = rawQuestions.map((q) => {
-      const choices = Array.isArray(q.choices) ? q.choices.slice(0, 4) : [];
+      const rawNo = Number(q.question_no);
+      let qno = Number.isFinite(rawNo) && rawNo >= 1 ? rawNo : fallbackNo;
+      while (seen.has(qno)) qno = qno + 1;
+      seen.add(qno);
+      fallbackNo = Math.max(fallbackNo, qno + 1);
+
+      // Choices: ต้องมีครบ 4 ตัว — ถ้าเกินตัด ถ้าไม่พอเติมข้อความว่าง (จะโดนแก้ภายหลังถ้ายังไม่ครบ)
+      const choices = Array.isArray(q.choices)
+        ? q.choices.map((c: any) => String(c ?? "").trim()).filter((c: string) => c.length > 0).slice(0, 4)
+        : [];
+      while (choices.length < 4) choices.push(`ตัวเลือกที่ ${choices.length + 1}`);
+
       // รับได้ทั้ง correct_index (ใหม่) และ correct_answer (เก่า)
       const origIdx = q.correct_index !== undefined
         ? letterToIndex(q.correct_index)
@@ -118,6 +137,7 @@ ${indicatorBlock}
       const { choices: shuffled, correctIdx } = shuffleChoices(choices, origIdx);
       return {
         ...q,
+        question_no: qno,
         choices: shuffled,
         correct_answer: LETTERS[correctIdx] || "A", // เก็บเป็น A/B/C/D เสมอ (index-based)
         correct_index: correctIdx,

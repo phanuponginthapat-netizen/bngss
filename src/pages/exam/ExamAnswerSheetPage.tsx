@@ -10,6 +10,11 @@ import { BE_OFFSET } from "@/lib/dateBE";
 const DIGITS = ["0","1","2","3","4","5","6","7","8","9"];
 const LETTERS = ["A","B","C","D"];
 
+// กี่ข้อต่อ 1 half-sheet (2 คอลัมน์ × 32 แถว ที่ rowH ขั้นต่ำ 2.8mm)
+const MAX_PER_HALF = 64;
+// 1 หน้า A4 = 2 half-sheets
+const MAX_PER_PAGE = MAX_PER_HALF * 2;
+
 export default function ExamAnswerSheetPage() {
   const { id } = useParams();
   const [sp] = useSearchParams();
@@ -43,7 +48,7 @@ export default function ExamAnswerSheetPage() {
   });
 
   if (!exam) return <p className="p-6">กำลังโหลด...</p>;
-  const count = exam.question_count || 20;
+  const count = Math.min(Math.max(exam.question_count || 20, 1), MAX_PER_PAGE * 8);
   const digits = sheet?.student_code_digits || 5;
   const academicYear = exam.academic_year
     ? `${exam.academic_year + BE_OFFSET}`
@@ -61,7 +66,8 @@ export default function ExamAnswerSheetPage() {
     </div>
   );
 
-  const HalfSheet = () => (
+  // ครึ่งแผ่นแสดงข้อ qFrom..qFrom+qCount-1 (1-based)
+  const HalfSheet = ({ qFrom, qCount, pageNo }: { qFrom: number; qCount: number; pageNo: number }) => (
     <div className="relative" style={{ width: "140.5mm", height: "194mm", padding: "8mm", boxSizing: "border-box", border: "0.3mm solid black" }}>
       {/* 4 corner fiducials (top-left has extra dot = orientation reference) */}
       <Fiducial pos="left-[3mm] top-[3mm]" orientation />
@@ -87,40 +93,42 @@ export default function ExamAnswerSheetPage() {
         </p>
       </div>
 
-      {/* Student info + code bubbles */}
-      <div className="grid grid-cols-2 gap-2 mb-2 border-b pb-2">
-        <div className="text-[10px]">
-          <p className="mb-1">ชื่อ-นามสกุล: <span className="border-b border-dotted inline-block w-full">&nbsp;</span></p>
-          <p>วันที่: <span className="border-b border-dotted inline-block w-24">&nbsp;</span></p>
-        </div>
-        <div>
-          <p className="text-[9px] font-semibold mb-0.5">รหัสนักเรียน:</p>
-          <table className="border border-black text-[8px]">
-            <tbody>
-              <tr>
-                <td className="border border-black px-0.5 font-bold">หลัก</td>
-                {Array.from({ length: digits }).map((_, i) => (
-                  <td key={i} className="border border-black px-0.5 text-center">{i + 1}</td>
-                ))}
-              </tr>
-              {DIGITS.map((d) => (
-                <tr key={d}>
-                  <td className="border border-black px-0.5 text-center font-bold">{d}</td>
+      {/* Student info + code bubbles (เฉพาะหน้าแรกเท่านั้น) */}
+      {pageNo === 1 && (
+        <div className="grid grid-cols-2 gap-2 mb-2 border-b pb-2">
+          <div className="text-[10px]">
+            <p className="mb-1">ชื่อ-นามสกุล: <span className="border-b border-dotted inline-block w-full">&nbsp;</span></p>
+            <p>วันที่: <span className="border-b border-dotted inline-block w-24">&nbsp;</span></p>
+          </div>
+          <div>
+            <p className="text-[9px] font-semibold mb-0.5">รหัสนักเรียน:</p>
+            <table className="border border-black text-[8px]">
+              <tbody>
+                <tr>
+                  <td className="border border-black px-0.5 font-bold">หลัก</td>
                   {Array.from({ length: digits }).map((_, i) => (
-                    <td key={i} className="border border-black px-0.5 text-center">
-                      <div className="w-2.5 h-2.5 rounded-full border border-black mx-auto" />
-                    </td>
+                    <td key={i} className="border border-black px-0.5 text-center">{i + 1}</td>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+                {DIGITS.map((d) => (
+                  <tr key={d}>
+                    <td className="border border-black px-0.5 text-center font-bold">{d}</td>
+                    {Array.from({ length: digits }).map((_, i) => (
+                      <td key={i} className="border border-black px-0.5 text-center">
+                        <div className="w-2.5 h-2.5 rounded-full border border-black mx-auto" />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Answer bubbles — 2 columns; auto-shrink to fit half page */}
       {(() => {
-        const halfCol = Math.ceil(count / 2);
+        const halfCol = Math.ceil(qCount / 2);
         // Available vertical space for answer grid ≈ 90mm (after header+student info)
         const rowH = Math.min(5, Math.max(2.8, 90 / Math.max(halfCol, 1)));
         const bubble = Math.max(2.2, rowH - 1.2);
@@ -128,7 +136,7 @@ export default function ExamAnswerSheetPage() {
         return (
           <div className="grid grid-cols-2 gap-2 mt-1" style={{ overflow: "hidden" }}>
             {[0, 1].map((col) => {
-              const len = col === 0 ? halfCol : count - halfCol;
+              const len = col === 0 ? halfCol : qCount - halfCol;
               return (
                 <table key={col} style={{ width: "auto", borderCollapse: "collapse", fontSize: `${fontPx}px`, lineHeight: 1 }}>
                   <thead>
@@ -139,7 +147,7 @@ export default function ExamAnswerSheetPage() {
                   </thead>
                   <tbody>
                     {Array.from({ length: len }).map((_, i) => {
-                      const qno = col === 0 ? i + 1 : halfCol + i + 1;
+                      const qno = col === 0 ? qFrom + i : qFrom + halfCol + i;
                       return (
                         <tr key={qno} style={{ height: `${rowH}mm` }}>
                           <td className="pr-1 font-semibold" style={{ width: "8mm" }}>{qno}.</td>
@@ -162,6 +170,20 @@ export default function ExamAnswerSheetPage() {
     </div>
   );
 
+  // สร้างชุดหน้าต่างๆ: แต่ละหน้า 2 half-sheet, แต่ละ half อย่างมาก MAX_PER_HALF ข้อ
+  const pages: { halves: { qFrom: number; qCount: number }[] }[] = [];
+  {
+    let q = 1;
+    while (q <= count) {
+      const pageHalves: { qFrom: number; qCount: number }[] = [];
+      for (let h = 0; h < 2 && q <= count; h++) {
+        const qCount = Math.min(MAX_PER_HALF, count - q + 1);
+        pageHalves.push({ qFrom: q, qCount });
+        q += qCount;
+      }
+      pages.push({ halves: pageHalves });
+    }
+  }
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 print:bg-white print:p-0 print:m-0">
@@ -174,41 +196,46 @@ export default function ExamAnswerSheetPage() {
 
       <AutoPrint enabled={sp.get("autoprint") === "1" && !!exam} />
 
-      {/* A4 landscape: 297×210mm with 2 copies side-by-side + fold/cut line */}
-      <div
-        id="answer-sheet"
-        className="answer-sheet bg-white shadow-lg mx-auto relative print:shadow-none flex"
-        style={{ width: "281mm", height: "194mm", boxSizing: "border-box" }}
-      >
-        <HalfSheet />
-        {/* เส้นปะกลาง สำหรับพับ/ตัด */}
+      {pages.map((page, pi) => (
         <div
-          className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 pointer-events-none flex flex-col items-center justify-between"
-          aria-hidden
+          key={pi}
+          className="answer-page bg-white shadow-lg mx-auto relative print:shadow-none flex mb-4 print:mb-0"
+          style={{ width: "281mm", height: "194mm", boxSizing: "border-box", pageBreakAfter: "always" }}
         >
-          <span className="text-[8px] text-gray-500 rotate-90 mt-2">✂ พับ/ตัดตรงนี้</span>
-          <div className="w-px h-full border-l border-dashed border-gray-500" />
-          <span className="text-[8px] text-gray-500 rotate-90 mb-2">✂ พับ/ตัดตรงนี้</span>
+          <HalfSheet qFrom={page.halves[0]?.qFrom ?? 1} qCount={page.halves[0]?.qCount ?? 0} pageNo={pi + 1} />
+          {/* เส้นปะกลาง สำหรับพับ/ตัด */}
+          <div
+            className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 pointer-events-none flex flex-col items-center justify-between"
+            aria-hidden
+          >
+            <span className="text-[8px] text-gray-500 rotate-90 mt-2">✂ พับ/ตัดตรงนี้</span>
+            <div className="w-px h-full border-l border-dashed border-gray-500" />
+            <span className="text-[8px] text-gray-500 rotate-90 mb-2">✂ พับ/ตัดตรงนี้</span>
+          </div>
+          {page.halves[1] && <HalfSheet qFrom={page.halves[1].qFrom} qCount={page.halves[1].qCount} pageNo={pi + 1} />}
+          {pages.length > 1 && (
+            <div className="absolute bottom-1 right-2 text-[9px] text-gray-500">หน้า {pi + 1}/{pages.length}</div>
+          )}
         </div>
-        <HalfSheet />
-      </div>
+      ))}
 
       <style>{`
         @media print {
           @page { size: A4 landscape; margin: 8mm; }
           html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
           body * { visibility: hidden !important; }
-          #answer-sheet, #answer-sheet * { visibility: visible !important; }
-          #answer-sheet {
+          .answer-page, .answer-page * { visibility: visible !important; }
+          .answer-page {
             position: absolute !important;
             left: 0 !important; top: 0 !important;
             width: 281mm !important; height: 194mm !important;
             margin: 0 !important; box-shadow: none !important;
+            page-break-after: always !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
         }
-        #answer-sheet, #answer-sheet * {
+        .answer-page, .answer-page * {
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }

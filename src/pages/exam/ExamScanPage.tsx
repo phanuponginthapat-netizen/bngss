@@ -75,12 +75,16 @@ export default function ExamScanPage() {
       if (gradedUp.error) throw gradedUp.error;
       const gradedUrl = supabase.storage.from("exam-scans").getPublicUrl(gradedPath).data.publicUrl;
 
+      // Sanitize student code (digits only, keep as-is — DB stores text)
+      const rawCode = String(data.student_code ?? "").replace(/[^0-9]/g, "");
+      const studentCode = rawCode || null;
+
       // Lookup student by code
       let studentId: string | null = null;
       let studentName = "";
-      if (data.student_code) {
+      if (studentCode) {
         const { data: stu } = await supabase.from("students").select("id,prefix,first_name,last_name")
-          .eq("student_code", data.student_code).maybeSingle();
+          .eq("student_code", studentCode).maybeSingle();
         if (stu) {
           studentId = stu.id;
           studentName = `${stu.prefix || ""}${stu.first_name} ${stu.last_name}`;
@@ -88,10 +92,12 @@ export default function ExamScanPage() {
       }
 
       const pct = total > 0 ? (score / total) * 100 : 0;
-      const { error: subErr } = await supabase.from("exam_submissions").insert({
+
+      // Dedupe: ถ้าสแกนซ้ำสำหรับ code + exam เดียวกัน ให้ update แทน insert
+      const subPayload: any = {
         exam_id: exam.id,
         student_id: studentId,
-        student_code_detected: data.student_code || null,
+        student_code_detected: studentCode,
         student_name_snapshot: studentName,
         scan_image_url: scanUrl,
         graded_image_url: gradedUrl,
@@ -99,13 +105,30 @@ export default function ExamScanPage() {
         correct_map: correctMap,
         score, total, percentage: pct,
         graded_by: user.id,
-      });
+      };
+      const { data: existing, error: dupErr } = await supabase
+        .from("exam_submissions")
+        .select("id")
+        .eq("exam_id", exam.id)
+        .eq("student_code_detected", studentCode ?? "__none__")
+        .maybeSingle();
+      if (dupErr && !studentCode) {
+        // no code → nothing to dedupe on
+      }
+      let subErr: any = null;
+      if (existing?.id) {
+        const { error: uErr } = await supabase.from("exam_submissions").update(subPayload).eq("id", existing.id);
+        subErr = uErr;
+      } else {
+        const { error: iErr } = await supabase.from("exam_submissions").insert(subPayload);
+        subErr = iErr;
+      }
       if (subErr) {
         toast.error(saveErrorMessage(subErr));
         return;
       }
 
-      setResult({ score, total, pct, studentCode: data.student_code, studentName, gradedUrl });
+      setResult({ score, total, pct, studentCode, studentName, gradedUrl, confidence: data.confidence ?? null });
       toast.success(`ตรวจเสร็จ: ${score}/${total} (${pct.toFixed(1)}%)`);
     } catch (e: any) {
       toast.error(saveErrorMessage(e));
@@ -141,7 +164,13 @@ export default function ExamScanPage() {
             <CheckCircle2 className="w-6 h-6"/>
             <h2 className="text-xl font-bold">{result.score} / {result.total} ({result.pct.toFixed(1)}%)</h2>
           </div>
-          <p className="text-sm">รหัสนักเรียน: <strong>{result.studentCode || "ไม่พบ"}</strong> {result.studentName && `· ${result.studentName}`}</p>
+          <p className="text-sm">รหัสนักเรียน: <strong>{result.studentCode || "ไม่พบ"}</strong> {result.studentName && `· ${result.studentName}`}
+            {result.confidence != null && (
+              <span className={`ml-2 text-xs ${result.confidence >= 0.8 ? "text-green-600" : result.confidence >= 0.6 ? "text-amber-600" : "text-red-600"}`}>
+                ความมั่นใจ: {(result.confidence * 100).toFixed(0)}%
+              </span>
+            )}
+          </p>
           {result.gradedUrl && <img src={result.gradedUrl} alt="ผลการตรวจ" className="w-full rounded border" />}
         </Card>
       )}
@@ -291,20 +320,30 @@ async function renderGradedOverlay(
   ctx.fillStyle = "white";
   ctx.fillText(text, canvas.width - tw - padding * 2, padding * 2.2);
 
-  // List right side with green/red checks per question
+  // List right side with green/red checks per question — 2 columns when many rows
   const lineH = Math.max(18, Math.floor(canvas.height * 0.018));
   ctx.font = `${Math.floor(lineH * 0.7)}px monospace`;
-  questions.forEach((q, i) => {
+  const rowLabels = questions.map((q) => {
     const ok = correctMap[q.question_no];
     const ans = answers[String(q.question_no)] || "-";
-    const y = padding * 4 + i * lineH;
-    if (y + lineH > canvas.height - padding) return;
-    ctx.fillStyle = ok ? "rgba(34,197,94,0.95)" : "rgba(239,68,68,0.95)";
     const label = `${ok ? "✓" : "✗"} ${q.question_no}. ${ans}${ok ? "" : ` (${q.correct_answer})`}`;
     const lw = ctx.measureText(label).width;
-    ctx.fillRect(canvas.width - lw - padding * 2, y, lw + padding, lineH);
+    return { ok, label, lw };
+  });
+  const padCol = 8;
+  const maxRightW = Math.min(canvas.width * 0.42, Math.max(...rowLabels.map((r) => r.lw)) + padding * 2 + padCol);
+  const cols = rowLabels.length > Math.floor(canvas.height / lineH) ? 2 : 1;
+  const startX = canvas.width - maxRightW;
+  rowLabels.forEach((row, i) => {
+    const col = cols === 2 && i >= Math.ceil(rowLabels.length / 2) ? 1 : 0;
+    const rowInCol = cols === 2 ? (col === 0 ? i : i - Math.ceil(rowLabels.length / 2)) : i;
+    const x = startX + col * (maxRightW / cols);
+    const y = padding * 4 + rowInCol * lineH;
+    if (y + lineH > canvas.height - padding) return;
+    ctx.fillStyle = row.ok ? "rgba(34,197,94,0.95)" : "rgba(239,68,68,0.95)";
+    ctx.fillRect(x, y, Math.min(row.lw + padding, maxRightW / cols - padCol), lineH);
     ctx.fillStyle = "white";
-    ctx.fillText(label, canvas.width - lw - padding * 1.5, y + lineH * 0.75);
+    ctx.fillText(row.label, x + padCol, y + lineH * 0.75);
   });
 
   return canvas.toDataURL("image/png");
