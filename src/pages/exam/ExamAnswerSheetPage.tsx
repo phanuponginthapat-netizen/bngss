@@ -340,7 +340,7 @@ function SheetDesigner({ layout, digits, sheetId, examId, onSaved }: {
           <div>
             <Label>จำนวนหลักรหัสนักเรียน</Label>
             <Input type="number" min={1} max={10} value={codeDigits}
-              onChange={(e) => setCodeDigits(e.target.value)} />
+              onChange={(e) => setCodeDigits(Number(e.target.value))} />
           </div>
           <div className="flex items-center justify-between">
             <Label>แสดงโลโก้โรงเรียน</Label>
