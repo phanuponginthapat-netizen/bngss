@@ -5,7 +5,7 @@ import {
   Megaphone, Activity, Star, Home, LayoutDashboard,
   UserCog, ChevronDown, Award, Syringe, Globe, User, MessageSquare,
   DollarSign, ShoppingCart, Package, Heart, Banknote, Clock, BookOpenCheck, Brain, AlertTriangle,
-  UtensilsCrossed, Milk, ClipboardCheck, FolderOpen, Building2, Network, Database, Inbox, Settings as SettingsIcon,
+  UtensilsCrossed, Milk, ClipboardCheck, FolderOpen, Building2, Network, Database, Inbox, Settings as SettingsIcon, Settings2,
   Search, X, Recycle, History, TrendingUp, Coins, Trophy, QrCode, Cpu, Wifi, ScanLine, ScanFace, MapPin, Power, Sparkles, DoorOpen, Layers, CloudDownload, Gamepad2, MonitorPlay, StickyNote, Eye
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
