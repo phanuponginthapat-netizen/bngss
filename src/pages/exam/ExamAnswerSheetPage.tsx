@@ -1,14 +1,24 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Printer } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { Printer, Settings2 } from "lucide-react";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { BE_OFFSET } from "@/lib/dateBE";
 
 const DIGITS = ["0","1","2","3","4","5","6","7","8","9"];
-const LETTERS = ["A","B","C","D"];
+const CHOICE_FORMATS: Record<string, string[]> = {
+  abcd: ["A", "B", "C", "D"],
+  "1234": ["1", "2", "3", "4"],
+  thai: ["ก", "ข", "ค", "ง"],
+};
 
 // กี่ข้อต่อ 1 half-sheet (2 คอลัมน์ × 32 แถว ที่ rowH ขั้นต่ำ 2.8mm)
 const MAX_PER_HALF = 64;
@@ -49,7 +59,14 @@ export default function ExamAnswerSheetPage() {
 
   if (!exam) return <p className="p-6">กำลังโหลด...</p>;
   const count = Math.min(Math.max(exam.question_count || 20, 1), MAX_PER_PAGE * 8);
-  const digits = sheet?.student_code_digits || 5;
+  const layout = (sheet?.layout_config as any) || {};
+  const choiceFormat = (["abcd", "1234", "thai"] as const).includes(layout.choice_format)
+    ? layout.choice_format as "abcd" | "1234" | "thai"
+    : "abcd";
+  const LETTERS = CHOICE_FORMATS[choiceFormat];
+  const digits = layout.student_code_digits ?? sheet?.student_code_digits ?? 5;
+  const showLogo = layout.show_logo !== false;
+  const showHeader = layout.show_header !== false;
   const academicYear = exam.academic_year
     ? `${exam.academic_year + BE_OFFSET}`
     : `${new Date().getFullYear() + BE_OFFSET}`;
@@ -77,21 +94,23 @@ export default function ExamAnswerSheetPage() {
 
 
       {/* Header */}
-      <div className="text-center mb-2 border-b-2 border-black pb-2">
-        <div className="flex items-center justify-center gap-2 mb-0.5">
-          {schoolLogo && <img src={schoolLogo} alt="logo" className="h-9 w-9 object-contain" />}
-          <div>
-            <h1 className="text-base font-bold leading-tight">{schoolName || appName}</h1>
-            <p className="text-[11px] leading-tight">กระดาษคำตอบ — {exam.title}</p>
+      {showHeader && (
+        <div className="text-center mb-2 border-b-2 border-black pb-2">
+          <div className="flex items-center justify-center gap-2 mb-0.5">
+            {showLogo && schoolLogo && <img src={schoolLogo} alt="logo" className="h-9 w-9 object-contain" />}
+            <div>
+              <h1 className="text-base font-bold leading-tight">{schoolName || appName}</h1>
+              <p className="text-[11px] leading-tight">กระดาษคำตอบ — {exam.title}</p>
+            </div>
           </div>
+          <p className="text-[10px] text-gray-700 leading-tight">
+            วิชา: {exam.subjects?.name_th || "-"} · ห้อง: {exam.classrooms?.name || "-"} · {count} ข้อ
+          </p>
+          <p className="text-[10px] text-gray-700 leading-tight">
+            ปีการศึกษา {academicYear} · ครูผู้ออกข้อสอบ: {teacher || "-"}
+          </p>
         </div>
-        <p className="text-[10px] text-gray-700 leading-tight">
-          วิชา: {exam.subjects?.name_th || "-"} · ห้อง: {exam.classrooms?.name || "-"} · {count} ข้อ
-        </p>
-        <p className="text-[10px] text-gray-700 leading-tight">
-          ปีการศึกษา {academicYear} · ครูผู้ออกข้อสอบ: {teacher || "-"}
-        </p>
-      </div>
+      )}
 
       {/* Student info + code bubbles (เฉพาะหน้าแรกเท่านั้น) */}
       {pageNo === 1 && (
@@ -188,6 +207,13 @@ export default function ExamAnswerSheetPage() {
   return (
     <div className="bg-gray-100 min-h-screen p-4 print:bg-white print:p-0 print:m-0">
       <div className="max-w-5xl mx-auto mb-4 flex justify-end gap-2 print:hidden">
+        <SheetDesigner
+          layout={layout}
+          digits={digits}
+          sheetId={sheet?.id}
+          examId={exam.id}
+          onSaved={() => {}}
+        />
         <Button onClick={() => window.print()}>
           <Printer className="w-4 h-4 mr-1" /> พิมพ์กระดาษคำตอบ
         </Button>
@@ -226,8 +252,8 @@ export default function ExamAnswerSheetPage() {
           body * { visibility: hidden !important; }
           .answer-page, .answer-page * { visibility: visible !important; }
           .answer-page {
-            position: absolute !important;
-            left: 0 !important; top: 0 !important;
+            position: static !important;
+            left: auto !important; top: auto !important;
             width: 281mm !important; height: 194mm !important;
             margin: 0 !important; box-shadow: none !important;
             page-break-after: always !important;
@@ -241,6 +267,98 @@ export default function ExamAnswerSheetPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+function SheetDesigner({ layout, digits, sheetId, examId, onSaved }: {
+  layout: any;
+  digits: number;
+  sheetId?: string;
+  examId: string;
+  onSaved: () => void;
+}) {
+  const [fmt, setFmt] = useState<"abcd" | "1234" | "thai">(
+    (["abcd", "1234", "thai"] as const).includes(layout.choice_format) ? layout.choice_format : "abcd"
+  );
+  const [logo, setLogo] = useState(layout.show_logo !== false);
+  const [header, setHeader] = useState(layout.show_header !== false);
+  const [codeDigits, setCodeDigits] = useState(digits);
+  const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  async function save() {
+    if (!sheetId) return toast.error("ยังไม่มีกระดาษคำตอบ");
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("exam_sheets").update({
+        layout_config: { ...layout, choice_format: fmt, show_logo: logo, show_header: header },
+        student_code_digits: Math.max(1, Math.min(10, Number(codeDigits) || 5)),
+      }).eq("id", sheetId);
+      if (error) throw error;
+      toast.success("บันทึกรูปแบบกระดาษคำตอบแล้ว");
+      onSaved();
+      setOpen(false);
+      setTimeout(() => window.location.reload(), 300);
+    } catch (e: any) {
+      toast.error(e?.message || "บันทึกไม่สำเร็จ");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline">
+          <Settings2 className="w-4 h-4 mr-1" /> ออกแบบกระดาษ
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>ออกแบบกระดาษคำตอบ</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label>รูปแบบตัวเลือก</Label>
+            <RadioGroup
+              value={fmt}
+              onValueChange={(v) => setFmt(v as any)}
+              className="flex gap-4 mt-2"
+            >
+              {[
+                { v: "abcd", l: "A B C D" },
+                { v: "1234", l: "1 2 3 4" },
+                { v: "thai", l: "ก ข ค ง" },
+              ].map((o) => (
+                <label key={o.v} className="flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem value={o.v} />
+                  <span>{o.l}</span>
+                </label>
+              ))}
+            </RadioGroup>
+          </div>
+          <div>
+            <Label>จำนวนหลักรหัสนักเรียน</Label>
+            <Input type="number" min={1} max={10} value={codeDigits}
+              onChange={(e) => setCodeDigits(e.target.value)} />
+          </div>
+          <div className="flex items-center justify-between">
+            <Label>แสดงโลโก้โรงเรียน</Label>
+            <Switch checked={logo} onCheckedChange={setLogo} />
+          </div>
+          <div className="flex items-center justify-between">
+            <Label>แสดงหัวกระดาษ (ชื่อโรงเรียน/วิชา)</Label>
+            <Switch checked={header} onCheckedChange={setHeader} />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            การตรวจด้วยกล้องจะอ่านตัวอักษรบนหัวคอลัมน์เองโดยอัตโนมัติ — เปลี่ยนรูปแบบได้ไม่กระทบการตรวจ
+          </p>
+          <Button onClick={save} disabled={saving} className="w-full">
+            {saving ? "กำลังบันทึก..." : "บันทึกรูปแบบ"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

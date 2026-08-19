@@ -50,8 +50,17 @@ export default function ExamScanPage() {
       const scanUrl = supabase.storage.from("exam-scans").getPublicUrl(path).data.publicUrl;
 
       // Call OCR
+      const layout = (sheet?.layout_config as any) || {};
+      const choiceFormat = (["abcd", "1234", "thai"] as const).includes(layout.choice_format)
+        ? layout.choice_format as "abcd" | "1234" | "thai"
+        : "abcd";
       const { data, error } = await supabase.functions.invoke("exam-grade", {
-        body: { image_base64: dataUrl, question_count: exam.question_count, student_code_digits: sheet?.student_code_digits || 5 },
+        body: {
+          image_base64: dataUrl,
+          question_count: exam.question_count,
+          student_code_digits: sheet?.student_code_digits || 5,
+          choice_format: choiceFormat,
+        },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
