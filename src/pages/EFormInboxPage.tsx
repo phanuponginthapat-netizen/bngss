@@ -208,6 +208,18 @@ const EFormInboxPage = () => {
     window.open(data.signedUrl, "_blank");
   };
 
+  const advanceIfAllDone = async (eformId?: string) => {
+    if (!eformId) return;
+    const { data: peers } = await supabase
+      .from("eform_recipients")
+      .select("status")
+      .eq("eform_id", eformId);
+    const allDone = (peers ?? []).every((r: any) => ["signed", "replied", "rejected"].includes(r.status));
+    if (allDone && (peers?.length ?? 0) > 0) {
+      await supabase.from("eforms").update({ status: "completed" } as any).eq("id", eformId);
+    }
+  };
+
   const handleReply = async () => {
     if (!openItem) return;
     const { error } = await supabase
@@ -216,7 +228,9 @@ const EFormInboxPage = () => {
       .eq("id", openItem.id);
     if (error) return toast({ title: "ตอบกลับไม่สำเร็จ", description: error.message, variant: "destructive" });
     toast({ title: "ส่งคำตอบแล้ว" });
+    await advanceIfAllDone(openItem?.eforms?.id);
     qc.invalidateQueries({ queryKey: ["eform-inbox"] });
+    qc.invalidateQueries({ queryKey: ["eform-sent"] });
     setOpenItem(null);
   };
 
@@ -232,17 +246,7 @@ const EFormInboxPage = () => {
     if (error) return toast({ title: "ลงนามไม่สำเร็จ", description: error.message, variant: "destructive" });
 
     // If all recipients have signed/replied/rejected, advance the parent eform to completed
-    const eformId = openItem?.eforms?.id;
-    if (eformId) {
-      const { data: peers } = await supabase
-        .from("eform_recipients")
-        .select("status")
-        .eq("eform_id", eformId);
-      const allDone = (peers ?? []).every((r: any) => ["signed", "replied", "rejected"].includes(r.status));
-      if (allDone && (peers?.length ?? 0) > 0) {
-        await supabase.from("eforms").update({ status: "completed" } as any).eq("id", eformId);
-      }
-    }
+    await advanceIfAllDone(openItem?.eforms?.id);
 
     toast({ title: "ลงนามอิเล็กทรอนิกส์สำเร็จ" });
     qc.invalidateQueries({ queryKey: ["eform-inbox"] });
@@ -265,7 +269,9 @@ const EFormInboxPage = () => {
       .eq("id", openItem.id);
     if (error) return toast({ title: "ปฏิเสธไม่สำเร็จ", description: error.message, variant: "destructive" });
     toast({ title: "ปฏิเสธเอกสารแล้ว" });
+    await advanceIfAllDone(openItem?.eforms?.id);
     qc.invalidateQueries({ queryKey: ["eform-inbox"] });
+    qc.invalidateQueries({ queryKey: ["eform-sent"] });
     setOpenItem(null);
   };
 

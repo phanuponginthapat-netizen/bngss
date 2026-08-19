@@ -20,6 +20,8 @@ export default function DocsEditorPage() {
   const editorRef = useRef<JoditDocEditorHandle>(null);
 
   useEffect(() => {
+    setFileId(fileIdParam);
+    setLoading(!!fileIdParam);
     if (!fileIdParam) return;
     (async () => {
       try {
@@ -30,6 +32,7 @@ export default function DocsEditorPage() {
         setInitialHtml(value || "<p><br/></p>");
       } catch (e: any) {
         swal.error("เปิดไฟล์ไม่สำเร็จ", String(e?.message ?? e));
+        setFileId(null);
       } finally {
         setLoading(false);
       }

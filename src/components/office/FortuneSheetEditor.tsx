@@ -40,7 +40,7 @@ export function workbookToSheets(data: ArrayBuffer | Uint8Array): Sheet[] {
           v: {
             v: cell.v,
             m: cell.w ?? String(cell.v ?? ""),
-            ct: { fa: "General", t: cell.t === "n" ? "n" : "s" },
+            ct: { fa: "General", t: cell.t === "n" ? "n" : cell.t === "b" ? "b" : "s" },
             f: cell.f ? `=${cell.f}` : undefined,
           },
         });
@@ -58,7 +58,7 @@ export function workbookToSheets(data: ArrayBuffer | Uint8Array): Sheet[] {
     });
     return {
       name,
-      id: `sheet_${idx}_${name.replace(/\W/g, "_")}`,
+      id: `sheet_${idx}_${idx}`,
       order: idx,
       status: idx === 0 ? 1 : 0,
       celldata,
@@ -79,9 +79,10 @@ export function sheetsToXlsxBlob(sheets: Sheet[]): Blob {
     let maxC = 0;
     for (const cell of celldata) {
       const v = cell.v?.v;
-      if (v === undefined || v === null || v === "") continue;
+      if (v === undefined || v === null) continue;
       const addr = XLSX.utils.encode_cell({ r: cell.r, c: cell.c });
-      const t = typeof v === "number" ? "n" : "s";
+      const t = typeof v === "number" ? "n" : typeof v === "boolean" ? "b" : "s";
+      if (t === "s" && v === "") continue;
       ws[addr] = { v, t };
       const f = cell.v?.f;
       if (typeof f === "string" && f.startsWith("=")) ws[addr].f = f.slice(1);

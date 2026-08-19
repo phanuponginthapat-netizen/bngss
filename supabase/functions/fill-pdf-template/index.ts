@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
         if (isCheckedValue(v, f)) {
           drawCheck(page, x, y, w, h);
         }
-      } else if (f.type === "image") {
+      } else if (f.type === "image" || f.type === "signature") {
         if (typeof v === "string" && v.startsWith("data:image")) {
           try {
             const m = v.match(/^data:image\/(png|jpeg|jpg);base64,(.+)$/i);
@@ -131,19 +131,18 @@ Deno.serve(async (req) => {
             }
           } catch (e) { console.warn("embed image failed", e); }
         }
-      } else if (f.type === "signature") {
-        // skip
       } else {
         if (v == null || v === "") continue;
         const text = Array.isArray(v) ? v.join(", ") : String(v);
         const fnt = await getFont(f.fontFamily || "sarabun", !!f.bold);
-        const fontSize = f.fontSize && f.fontSize > 0
-          ? f.fontSize
-          : fitFontSize(fnt, text, w - 4, h, f.type === "longtext");
+        const fontSize = fitFontSize(fnt, text, w - 4, h, f.type === "longtext", f.fontSize);
         const lines = f.type === "longtext" ? wrapText(fnt, text, fontSize, w - 4) : [fitSingleLine(fnt, text, fontSize, w - 4)];
         drawTextBox(page, fnt, lines, x, y, w, h, fontSize, f.align || "left", f.color);
       }
     }
+
+    // ฝังค่า AcroForm ทั้งหมดลงในหน้ากระดาษ (flatten) ถ้ายังมีเหลือ
+    try { pdfDoc.getForm()?.flatten?.(); } catch (_) {}
 
 
     const outBytes = await pdfDoc.save();
@@ -214,12 +213,16 @@ async function fillNativeAcroForm(pdfDoc: any, values: Record<string, any>, mapp
           handled.add(name); handled.add(key);
         } else if (ctor.includes("RadioGroup")) {
           const option = selectRadioOption(field.getOptions?.() || [], raw);
-          if (option) field.select(option);
-          handled.add(name); handled.add(key);
+          if (option) {
+            field.select(option);
+            handled.add(name); handled.add(key);
+          }
         } else if (ctor.includes("Dropdown") || ctor.includes("OptionList")) {
-          const option = selectRadioOption(field.getOptions?.() || [], raw) || String(raw);
-          field.select(option);
-          handled.add(name); handled.add(key);
+          const option = selectRadioOption(field.getOptions?.() || [], raw);
+          if (option) {
+            field.select(option);
+            handled.add(name); handled.add(key);
+          }
         }
       } catch (e) {
         console.warn("AcroForm fill skipped", name, e);
@@ -254,11 +257,11 @@ function selectRadioOption(options: string[], raw: any) {
   return options.find((o) => o === value)
     || options.find((o) => o.trim().toLowerCase() === value.toLowerCase())
     || options.find((o) => o.toLowerCase().includes(value.toLowerCase()) || value.toLowerCase().includes(o.toLowerCase()))
-    || value;
+    || "";
 }
 
-function fitFontSize(font: any, text: string, maxW: number, maxH: number, multiline = false) {
-  let size = Math.max(8, Math.min(16, maxH * 0.72 || 12));
+function fitFontSize(font: any, text: string, maxW: number, maxH: number, multiline = false, requestedSize?: number) {
+  let size = Math.max(8, Math.min(requestedSize || 16, maxH * 0.72 || 12));
   while (size > 6) {
     const lines = multiline ? wrapText(font, text, size, maxW) : [text];
     const lineH = size * 1.15;

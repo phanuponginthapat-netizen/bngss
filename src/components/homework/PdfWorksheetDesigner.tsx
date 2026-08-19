@@ -32,7 +32,6 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
   const [fields, setFields] = useState<WorksheetField[]>(initialFields || []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<WorksheetFieldType | null>(null);
-  const pageRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const dragCleanupRef = useRef<(() => void) | null>(null);
 
   // กันมี listener ค้างถ้าผู้ใช้ปิด dialog กลางทาง drag
@@ -61,7 +60,11 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
-    const f = newField(activeTool, page, { x: Math.max(0, x - 5), y: Math.max(0, y - 2) });
+    const template = newField(activeTool, page);
+    const f = newField(activeTool, page, {
+      x: Math.max(0, Math.min(100 - template.w, x - 5)),
+      y: Math.max(0, Math.min(100 - template.h, y - 2)),
+    });
     setFields(arr => [...arr, f]);
     setSelectedId(f.id);
     setActiveTool(null);
@@ -82,7 +85,8 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
     try { target.setPointerCapture(e.pointerId); } catch { /* ignore */ }
     const parent = target.parentElement as HTMLDivElement;
     const startX = e.clientX, startY = e.clientY;
-    const startField = fields.find(f => f.id === id)!;
+    const startField = fields.find(f => f.id === id);
+    if (!startField) return;
     const parentRect = parent.getBoundingClientRect();
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== e.pointerId) return;
@@ -112,16 +116,19 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
     try { handle.setPointerCapture(e.pointerId); } catch { /* ignore */ }
     const parent = handle.closest(".pdf-page") as HTMLDivElement;
     const startX = e.clientX, startY = e.clientY;
-    const startField = fields.find(f => f.id === id)!;
+    const startField = fields.find(f => f.id === id);
+    if (!startField) return;
     const parentRect = parent.getBoundingClientRect();
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== e.pointerId) return;
       ev.preventDefault();
       const dw = ((ev.clientX - startX) / parentRect.width) * 100;
       const dh = ((ev.clientY - startY) / parentRect.height) * 100;
+      const maxW = 100 - startField.x;
+      const maxH = 100 - startField.y;
       updateField(id, {
-        w: Math.max(3, Math.min(100 - startField.x, startField.w + dw)),
-        h: Math.max(2, Math.min(100 - startField.y, startField.h + dh)),
+        w: Math.max(Math.min(3, maxW), Math.min(maxW, startField.w + dw)),
+        h: Math.max(Math.min(2, maxH), Math.min(maxH, startField.h + dh)),
       });
     };
     const cleanup = () => {
@@ -178,7 +185,6 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
           <div key={p.page} className="space-y-1">
             <div className="text-xs text-muted-foreground">หน้า {p.page}</div>
             <div
-              ref={(el) => { pageRefs.current[p.page] = el; }}
               className={`pdf-page relative bg-white shadow border mx-auto ${activeTool ? "touch-none" : "touch-pan-y"}`}
               style={{ width: "100%", maxWidth: p.width, aspectRatio: `${p.width} / ${p.height}`, cursor: activeTool ? "crosshair" : "default" }}
               onClick={(e) => handlePageClick(p.page, e)}

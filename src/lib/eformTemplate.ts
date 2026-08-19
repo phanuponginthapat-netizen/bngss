@@ -96,8 +96,8 @@ function escapeRegex(s: string) {
 
 function fieldValue(field: EFormField, raw: string, ctx: EFormRenderContext): string {
   if (field.type === "autofill") return resolveAutofill(field.autofillSource, ctx);
-  if (raw == null || raw === "") return "";
   if (field.type === "checkbox") return raw === "true" || raw === "1" ? "☑" : "☐";
+  if (raw == null || raw === "") return "";
   if (field.type === "date") {
     const d = new Date(raw);
     return isNaN(d.getTime()) ? raw : thaiDate(d);

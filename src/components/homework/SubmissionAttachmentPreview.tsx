@@ -31,6 +31,11 @@ export function SubmissionAttachmentPreview({ bucket, path, name, size }: Props)
         setUrl(data?.signedUrl || "");
         setLoading(false);
       }
+    }).catch(() => {
+      if (!cancelled) {
+        setUrl("");
+        setLoading(false);
+      }
     });
     return () => { cancelled = true; };
   }, [bucket, path]);

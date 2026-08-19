@@ -202,7 +202,7 @@ const EFormTemplateDesigner = ({ initialHtml, initialFields, onChange, headerExt
         // ถ้า selection เก่าถูกเปลี่ยนระหว่างแก้เอกสาร ให้ใช้ selection ปัจจุบันแทน
       }
     }
-    (editor.chain().focus() as any).setFontSize(`${size}px`).run();
+    (editor.chain().focus() as any).setFontSize(`${Math.round(size * 4 / 3)}px`).run();
   };
 
   const applyFontFamily = (nextFontFamily: string) => {
@@ -225,8 +225,8 @@ const EFormTemplateDesigner = ({ initialHtml, initialFields, onChange, headerExt
     const sync = () => {
       const raw: string | undefined = getActiveTextStyleAttrs(editor)?.fontSize;
       if (!raw) return;
-      const n = parseFloat(raw);
-      if (!Number.isNaN(n) && Math.round(n) !== fontSizePt) setFontSizePt(Math.round(n));
+      const px = parseFloat(raw);
+      if (!Number.isNaN(px) && Math.round(px * 3 / 4) !== fontSizePt) setFontSizePt(Math.round(px * 3 / 4));
     };
     editor.on("selectionUpdate", sync);
     editor.on("transaction", sync);

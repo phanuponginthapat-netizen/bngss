@@ -66,7 +66,11 @@ export function HomeworkSubmissionsDialog({ open, onOpenChange, assignmentId }: 
     const enriched = (subs || []).map((s: any) => ({ ...s, _name: map[s.student_id] || s.student_id.slice(0, 8), _authUserId: authMap[s.student_id] || null }));
     setRows(enriched);
     const d: Record<string, { score: string; feedback: string }> = {};
-    enriched.forEach((s: any) => { d[s.id] = { score: s.score?.toString() || "", feedback: s.feedback || "" }; });
+    enriched.forEach((s: any) => {
+      // ถ้ายังไม่เคยให้คะแนน ให้ใช้คะแนน auto (จากระบบตรวจอัตโนมัติ) เป็นค่าเริ่มต้นในช่อง
+      const suggested = (s.score != null && s.score !== "") ? s.score : (s.auto_score != null && s.status === "submitted" ? s.auto_score : "");
+      d[s.id] = { score: suggested?.toString() ?? "", feedback: s.feedback || "" };
+    });
     setDrafts(d);
     setLoading(false);
   };

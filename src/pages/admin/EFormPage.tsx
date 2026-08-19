@@ -10,7 +10,7 @@ import {
   FileText, Users, DollarSign, GraduationCap, Building2, Sparkles, Trash2, Plus,
 } from "lucide-react";
 import { EFormFillDialog } from "@/components/eform/EFormFillDialog";
-import type { EFormTemplateRow } from "@/lib/eformTemplate";
+import type { EFormRenderContext, EFormTemplateRow } from "@/lib/eformTemplate";
 import { applyCurrentOfficialPreset } from "@/lib/eformPresets";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -54,6 +54,26 @@ const EFormPage = () => {
   const garudaEmblem   = (cmsSettings as any).garuda_emblem   || "";
   const schoolSeal     = (cmsSettings as any).school_seal     || "";
   const schoolLogo     = (cmsSettings as any).school_logo     || "";
+
+  const { data: myProfile } = useQuery({
+    queryKey: ["my_profile_for_eform"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await supabase.from("profiles").select("first_name, last_name, position").eq("id", user.id).maybeSingle();
+      return data;
+    },
+  });
+
+  const fillContext: EFormRenderContext = useMemo(() => ({
+    user: {
+      name: myProfile ? `${(myProfile as any).first_name || ""} ${(myProfile as any).last_name || ""}`.trim() : "",
+      position: (myProfile as any)?.position || "",
+    },
+    school: { name: schoolName, address: schoolAddress, phone: schoolPhone },
+    director: { name: directorName, title: directorTitle },
+    assets: { garuda_emblem: garudaEmblem, school_seal: schoolSeal, school_logo: schoolLogo },
+  }), [myProfile, schoolName, schoolAddress, schoolPhone, directorName, directorTitle, garudaEmblem, schoolSeal, schoolLogo]);
 
 
   // Bucket templates by category (unknown → custom)
@@ -158,12 +178,7 @@ const EFormPage = () => {
         open={!!openTemplate}
         onOpenChange={(o) => { if (!o) setOpenTemplate(null); }}
         template={openTemplate}
-        context={{
-          user: { name: "", position: "" },
-          school: { name: schoolName, address: schoolAddress, phone: schoolPhone },
-          director: { name: directorName, title: directorTitle },
-          assets: { garuda_emblem: garudaEmblem, school_seal: schoolSeal, school_logo: schoolLogo },
-        }}
+        context={fillContext}
       />
     </div>
   );

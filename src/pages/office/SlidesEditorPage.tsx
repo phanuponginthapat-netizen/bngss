@@ -7,7 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Download, Plus, Trash2, Play, Type, Image as ImageIcon, Square, Circle,
   Copy, ChevronUp, ChevronDown, Maximize, Layout, Bold as BoldIcon, Italic as ItalicIcon, AlignLeft, AlignCenter, AlignRight, Minus } from "lucide-react";
 import pptxgen from "pptxgenjs";
-import { MIME } from "@/lib/office/driveFileIO";
+import { downloadFile, getFileMeta, MIME } from "@/lib/office/driveFileIO";
 import { SaveToDriveButton } from "@/components/office/SaveToDriveButton";
 import { swal } from "@/lib/swal";
 
@@ -73,7 +73,7 @@ function makeSlide(layoutIdx = 1, theme = THEMES[0]): Slide {
 export default function SlidesEditorPage() {
   const [sp] = useSearchParams();
   const fileIdParam = sp.get("file");
-  const [fileId, setFileId] = useState<string | null>(fileIdParam);
+  const [fileId, setFileId] = useState<string | null>(null);
   const [fileName, setFileName] = useState("สไลด์ใหม่.pptx");
   const [slides, setSlides] = useState<Slide[]>([makeSlide(0), makeSlide(1)]);
   const [active, setActive] = useState(0);
@@ -81,6 +81,25 @@ export default function SlidesEditorPage() {
   const [presenting, setPresenting] = useState(false);
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
+  const [driveOpenNotice, setDriveOpenNotice] = useState<string | null>(null);
+
+  // เมื่อเปิดจาก ?file= เรายังไม่มีตัวแปลง .pptx → Slide[] จึงโหลดชื่อไฟล์ได้เท่านั้น
+  // และสำคัญ: ไม่ set fileId จริง เพื่อกัน "บันทึก" ทับไฟล์ต้นฉบับด้วยสไลด์ว่าง
+  useEffect(() => {
+    if (!fileIdParam) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const meta = await getFileMeta(fileIdParam);
+        if (cancelled) return;
+        setFileName(meta.name);
+        setDriveOpenNotice("ยังไม่รองรับการเปิด .pptx เดิมกลับมาแก้ไขในตัวแก้ไขนี้ — กดปุ่ม \"บันทึกลง Drive\" เพื่อบันทึกเป็นไฟล์ใหม่ (ไฟล์ต้นฉบับไม่ถูกแก้ไข)");
+      } catch (e: any) {
+        if (!cancelled) swal.error("เปิดไฟล์ไม่สำเร็จ", String(e?.message ?? e));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [fileIdParam]);
 
   const cur = slides[active];
   const selected = cur?.elements.find(e => e.id === selEl);
@@ -261,6 +280,11 @@ export default function SlidesEditorPage() {
     <div className="h-screen bg-muted/30 flex flex-col">
       {/* Top */}
       <div className="bg-background/95 backdrop-blur border-b">
+        {driveOpenNotice && (
+          <div className="bg-amber-50 border-b border-amber-200 text-amber-800 text-xs px-3 py-2 flex items-center gap-2">
+            <span>⚠️ {driveOpenNotice}</span>
+          </div>
+        )}
         <div className="flex items-center gap-2 p-2 flex-wrap">
           <Button variant="ghost" size="sm" asChild>
             <Link to="/dashboard/office"><ArrowLeft className="w-4 h-4 mr-1" />กลับ</Link>

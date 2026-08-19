@@ -17,8 +17,10 @@ function json(body: unknown, status = 200) {
 }
 
 function isMissingAppUserCredential(status: number, bodyText: string) {
-  if (status === 401) return true;
-  return status === 401 && /App user credential not found|app_user_credential_missing/i.test(bodyText);
+  // เฉพาะ 401 ที่ยืนยันว่า token หมดอายุจริง (invalid_grant / invalid token) ถึงจะ revoke
+  // ไม่ใช่ 401 ชั่วคราวจาก quota/clock skew
+  if (status !== 401) return false;
+  return /invalid_grant|invalid_token|access_token|token expired|expired|revoked|invalid_client/i.test(bodyText);
 }
 
 Deno.serve(async (req) => {
@@ -116,13 +118,45 @@ Deno.serve(async (req) => {
       body: finalBody,
     });
 
-    // Update last_used
+    // Update last_used (fire-and-forget)
     admin.from("app_user_connections").update({ last_used_at: new Date().toISOString() })
-      .eq("user_id", user.id).eq("connector_id", "google_drive").then(() => {});
+      .eq("user_id", user.id).eq("connector_id", "google_drive").then(() => {}).catch(() => {});
 
     const contentType = upstream.headers.get("Content-Type") ?? "application/json";
     if (!upstream.ok) {
       const text = await upstream.text().catch(() => "");
+      // ถ้า token หมดอายุระหว่างรัน (expiry race) ให้ลอง refresh + retry หนึ่งครั้งก่อน revoke
+      if (upstream.status === 401 && conn.refresh_token) {
+        try {
+          const t = await refreshAccessToken(conn.refresh_token);
+          await admin.from("app_user_connections").update({
+            access_token: t.access_token,
+            access_token_expires_at: new Date(Date.now() + (t.expires_in ?? 3600) * 1000).toISOString(),
+          }).eq("user_id", user.id).eq("connector_id", "google_drive");
+          const retried = await fetch(url.toString(), {
+            method,
+            headers: { ...upstreamHeaders, "Authorization": `Bearer ${t.access_token}` },
+            body: finalBody,
+          });
+          if (retried.ok) {
+            const retryContentType = retried.headers.get("Content-Type") ?? "application/json";
+            if (retryContentType.startsWith("application/json") || retryContentType.startsWith("text/") || retryContentType.includes("+json")) {
+              const retryText = await retried.text();
+              return new Response(retryText, { status: retried.status, headers: { ...corsHeaders, "Content-Type": retryContentType } });
+            }
+            return new Response(retried.body, {
+              status: retried.status,
+              headers: {
+                ...corsHeaders,
+                "Content-Type": retryContentType,
+                "Content-Disposition": retried.headers.get("Content-Disposition") ?? "",
+              },
+            });
+          }
+        } catch (e) {
+          console.error("refresh-on-401 failed", e);
+        }
+      }
       if (isMissingAppUserCredential(upstream.status, text)) {
         await admin.from("app_user_connections")
           .update({ revoked_at: new Date().toISOString() })

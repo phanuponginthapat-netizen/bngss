@@ -829,7 +829,7 @@ const EFormRichEditor = ({ html, onChange, fontFamily = 'Sarabun', fontSizePt: i
         // ถ้า selection เก่าถูกเปลี่ยนระหว่างแก้เอกสาร ให้ใช้ selection ปัจจุบันแทน
       }
     }
-    (editor.chain().focus() as any).setFontSize(`${size}px`).run();
+    (editor.chain().focus() as any).setFontSize(`${Math.round(size * 4 / 3)}px`).run();
   };
 
   const applyFontFamily = (nextFontFamily: string) => {
@@ -854,8 +854,8 @@ const EFormRichEditor = ({ html, onChange, fontFamily = 'Sarabun', fontSizePt: i
       const attrs = getActiveTextStyleAttrs(editor);
       const raw: string | undefined = attrs?.fontSize;
       if (raw) {
-        const n = parseFloat(raw);
-        if (!Number.isNaN(n) && Math.round(n) !== fontSizePt) setFontSizePt(Math.round(n));
+        const px = parseFloat(raw);
+        if (!Number.isNaN(px) && Math.round(px * 3 / 4) !== fontSizePt) setFontSizePt(Math.round(px * 3 / 4));
         return;
       }
       // ไม่มี mark → อ่านขนาดจริงจาก DOM ที่ caret
@@ -864,7 +864,7 @@ const EFormRichEditor = ({ html, onChange, fontFamily = 'Sarabun', fontSizePt: i
       const el = (node?.nodeType === 1 ? node : node?.parentElement) as HTMLElement | null;
       if (el && editor.view.dom.contains(el)) {
         const px = parseFloat(window.getComputedStyle(el).fontSize);
-        if (!Number.isNaN(px) && Math.round(px) !== fontSizePt) setFontSizePt(Math.round(px));
+        if (!Number.isNaN(px) && Math.round(px * 3 / 4) !== fontSizePt) setFontSizePt(Math.round(px * 3 / 4));
       }
     };
     editor.on("selectionUpdate", sync);

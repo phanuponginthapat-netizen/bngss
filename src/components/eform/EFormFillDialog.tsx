@@ -18,6 +18,7 @@ import { EFORM_PAGE_STYLE, wrapEFormPrintHtml } from "@/lib/eformLayout";
 import { replaceSchoolAssetTokens } from "@/lib/eformSchoolAssets";
 import type { PdfOverlayField } from "@/lib/eformPdf";
 import { EFormPdfFill } from "@/components/eform/EFormPdfFill";
+import { generateFilledEformPdf } from "@/lib/eformPdfFillGen";
 import { SendEFormDialog } from "@/components/eform/SendEFormDialog";
 import EFormRichEditor from "@/components/eform/EFormRichEditor";
 import EFormPageCanvas, { PX_PER_MM } from "@/components/eform/EFormPageCanvas";
@@ -232,6 +233,8 @@ export const EFormFillDialog = ({ open, onOpenChange, template, context }: Props
   const [editMode, setEditMode] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
   const [richEditor, setRichEditor] = useState<any>(null);
+  const [filledPdf, setFilledPdf] = useState<{ blob: Blob; name: string } | null>(null);
+  const [genPdfBusy, setGenPdfBusy] = useState(false);
 
   const isPdfMode = template?.template_mode === "pdf" && !!template?.pdf_url;
   const pdfOverlays = (template?.pdf_overlay_fields || []) as PdfOverlayField[];
@@ -321,8 +324,24 @@ export const EFormFillDialog = ({ open, onOpenChange, template, context }: Props
     );
   };
 
+  const openSend = async () => {
+    if (isPdfMode && template) {
+      setGenPdfBusy(true);
+      try {
+        const pdf = await generateFilledEformPdf(template.name, template.pdf_url!, pdfOverlays, values, context);
+        setFilledPdf(pdf);
+      } catch (e: any) {
+        toast.error("สร้าง PDF ที่กรอกแล้วไม่สำเร็จ: " + (e.message || e));
+        return;
+      } finally {
+        setGenPdfBusy(false);
+      }
+    }
+    setSendOpen(true);
+  };
+
   const cleanHtmlForSend = isPdfMode
-    ? `<p>เอกสาร PDF ต้นแบบ <b>${template.name}</b> (ดูที่ไฟล์แนบ/หน้าจอ)</p>`
+    ? `<p>เอกสาร PDF แบบฟอร์ม <b>${template.name}</b> — ดูจากไฟล์แนบที่ส่งมาด้วย</p>`
     : (noFields || editMode)
       ? editedHtml
       : renderEFormTemplate(template.content_html, template.fields, values, context);
@@ -358,7 +377,9 @@ export const EFormFillDialog = ({ open, onOpenChange, template, context }: Props
                 )}
                 <Button size="sm" variant="outline" onClick={saveDraft} className="h-8"><Save className="w-4 h-4 mr-1" /> บันทึกร่าง</Button>
                 <Button size="sm" variant="outline" onClick={handlePrint} className="h-8"><Printer className="w-4 h-4 mr-1" /> พิมพ์ / PDF</Button>
-                <Button size="sm" onClick={() => setSendOpen(true)} className="h-8"><Send className="w-4 h-4 mr-1" /> ส่ง E-Form</Button>
+                <Button size="sm" onClick={openSend} disabled={genPdfBusy} className="h-8">
+                  <Send className="w-4 h-4 mr-1" /> {genPdfBusy ? "สร้าง PDF..." : "ส่ง E-Form"}
+                </Button>
                 <Button size="sm" variant="outline" onClick={() => setFullscreen(f => !f)} className="h-8">
                   {fullscreen ? <><Minimize2 className="w-4 h-4 mr-1" /> ย่อ</> : <><Maximize2 className="w-4 h-4 mr-1" /> เต็มจอ</>}
                 </Button>
@@ -489,6 +510,7 @@ export const EFormFillDialog = ({ open, onOpenChange, template, context }: Props
         category={template.category || "custom"}
         formData={values}
         urgency={values.urgency}
+        initialFiles={isPdfMode && filledPdf ? [filledPdf] : undefined}
       />
     </>
   );

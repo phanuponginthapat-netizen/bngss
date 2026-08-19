@@ -76,6 +76,13 @@ export default function TemplateEditorPage() {
   });
 
   useEffect(() => {
+    if (!tpl?.id) return;
+    setFields(((tpl?.field_map as any) || []) as TemplateField[]);
+    setIsMaster(Boolean((tpl as any)?.is_system_master));
+    setCategory(((tpl as any)?.category as string) || "");
+    setIsDefaultForCategory(Boolean((tpl as any)?.is_default_for_category));
+    setSharedRoles(((tpl as any)?.shared_with_roles as string[]) || ["admin", "director", "teacher"]);
+    setPublishedAt(((tpl as any)?.published_at as string) || null);
     if (!tpl?.source_pdf_path) return;
     (async () => {
       try {
@@ -88,12 +95,6 @@ export default function TemplateEditorPage() {
         toast.error("โหลด PDF ไม่สำเร็จ", { description: e?.message });
       }
     })();
-    setFields(((tpl?.field_map as any) || []) as TemplateField[]);
-    setIsMaster(Boolean((tpl as any)?.is_system_master));
-    setCategory(((tpl as any)?.category as string) || "");
-    setIsDefaultForCategory(Boolean((tpl as any)?.is_default_for_category));
-    setSharedRoles(((tpl as any)?.shared_with_roles as string[]) || ["admin", "director", "teacher"]);
-    setPublishedAt(((tpl as any)?.published_at as string) || null);
   }, [tpl?.id]);
 
   const updateField = (fid: string, patch: Partial<TemplateField>) => {
@@ -122,10 +123,16 @@ export default function TemplateEditorPage() {
   }, [selectedId, fields]);
 
 
+  const uniqueFieldKey = (): string => {
+    let n = 1;
+    while (fields.some((f) => f.key === `field_${n}`)) n++;
+    return `field_${n}`;
+  };
+
   const addField = () => {
     const newF: TemplateField = {
       id: crypto.randomUUID(),
-      key: `field_${fields.length + 1}`,
+      key: uniqueFieldKey(),
       label: "ช่องใหม่",
       type: "text",
       page: 1,
@@ -139,7 +146,7 @@ export default function TemplateEditorPage() {
   const createFieldFromRect = (rect: { x: number; y: number; w: number; h: number; page: number }) => {
     const newF: TemplateField = {
       id: crypto.randomUUID(),
-      key: `field_${fields.length + 1}`,
+      key: uniqueFieldKey(),
       label: "ช่องใหม่",
       type: "text",
       page: rect.page,

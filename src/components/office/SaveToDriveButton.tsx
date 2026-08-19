@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Save, Cloud } from "lucide-react";
-import { createFile, updateFileContent } from "@/lib/office/driveFileIO";
+import { createFile, renameFile, updateFileContent } from "@/lib/office/driveFileIO";
 import { swal } from "@/lib/swal";
 
 interface Props {
@@ -20,6 +20,11 @@ export function SaveToDriveButton({ fileId, fileName, defaultName, mimeType, get
   const [name, setName] = useState(fileName || defaultName);
   const [saving, setSaving] = useState(false);
 
+  // Keep the dialog's filename in sync with the page's filename input
+  useEffect(() => {
+    setName(fileName || defaultName);
+  }, [fileName, defaultName]);
+
   const doSave = async (asNew: boolean) => {
     setSaving(true);
     try {
@@ -30,8 +35,12 @@ export function SaveToDriveButton({ fileId, fileName, defaultName, mimeType, get
         onSaved?.(created.id, created.name);
       } else {
         await updateFileContent(fileId, data, mimeType);
+        const finalName = name.trim() || fileName;
+        if (finalName !== fileName) {
+          try { await renameFile(fileId, finalName); } catch { /* rename fails non-fatally */ }
+        }
         swal.toast.success("บันทึกทับไฟล์เดิมแล้ว");
-        onSaved?.(fileId, name);
+        onSaved?.(fileId, finalName);
       }
       setOpen(false);
     } catch (e: any) {

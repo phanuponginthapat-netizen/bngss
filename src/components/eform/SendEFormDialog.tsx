@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { notify } from "@/lib/notify";
@@ -23,6 +23,7 @@ interface Props {
   category?: string;
   formData?: Record<string, string>;
   urgency?: string;
+  initialFiles?: { blob: Blob; name: string }[];
 }
 
 interface Recipient {
@@ -31,12 +32,21 @@ interface Recipient {
   role: string;
 }
 
-export const SendEFormDialog = ({ open, onOpenChange, title, contentHtml, templateId, category, formData, urgency }: Props) => {
+export const SendEFormDialog = ({ open, onOpenChange, title, contentHtml, templateId, category, formData, urgency, initialFiles }: Props) => {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
+
+  // Merge auto-generated attachments (e.g. filled PDF) into the file list once per open.
+  useEffect(() => {
+    if (!open) return;
+    if (initialFiles && initialFiles.length > 0) {
+      setFiles(initialFiles.map((f) => new File([f.blob], f.name, { type: "application/pdf" })));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const { data: recipients = [], isLoading } = useQuery({
     queryKey: ["eform-recipients-list"],

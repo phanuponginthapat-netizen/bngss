@@ -39,7 +39,7 @@ export default function OfficeHomePage() {
       setFiles(await listRecentOfficeFiles(24));
     } catch (e: any) {
       const msg = String(e?.message ?? e);
-      if (msg.includes("not_connected") || msg.includes("428") || isDriveCredentialMissingError(msg)) setConnected(false);
+      if (e?.code === "DRIVE_NOT_CONNECTED" || msg.includes("not_connected") || msg.includes("428") || isDriveCredentialMissingError(msg)) setConnected(false);
       else setError(msg);
     } finally {
       setLoading(false);

@@ -59,7 +59,11 @@ export function EFormPdfDesigner({ pdfPath, overlays, onChange }: Props) {
   };
 
   const addFieldAt = (page: number, xPct: number, yPct: number) => {
-    const idx = overlays.length + 1;
+    const maxNum = overlays.reduce((m, o) => {
+      const n = /^field_(\d+)$/.exec(o.key)?.[1];
+      return n ? Math.max(m, Number(n)) : m;
+    }, 0);
+    const idx = maxNum + 1;
     const f: PdfOverlayField = {
       key: `field_${idx}`,
       label: `ช่อง ${idx}`,

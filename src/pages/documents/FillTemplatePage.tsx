@@ -38,13 +38,34 @@ export default function FillTemplatePage() {
     retry: false,
   });
 
-  const { data: students = [] } = useQuery({
-    queryKey: ["students-light"],
+  const { data: me } = useQuery({
+    queryKey: ["fill-me"],
     queryFn: async () => {
-      const { data } = await supabase.from("students").select("id, student_code, first_name, last_name, prefix").limit(2000);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await supabase.from("profiles").select("first_name, last_name, school_id").eq("id", user.id).maybeSingle();
+      return { userId: user.id, ...(data || {}) };
+    },
+  });
+
+  const schoolId = (me as any)?.school_id || null;
+  const { data: students = [] } = useQuery({
+    queryKey: ["students-light", schoolId ?? "all"],
+    queryFn: async () => {
+      // จำกัดเฉพาะนักเรียนในโรงเรียนของผู้ใช้ (กันเห็นข้อมูลข้ามโรงเรียน)
+      let q = supabase.from("students").select("id, student_code, first_name, last_name, prefix, auth_user_id");
+      if (schoolId) q = q.eq("school_id", schoolId);
+      const { data } = await q.limit(2000);
       return data || [];
     },
   });
+
+  // ถ้าผู้ใช้เป็นนักเรียน ให้เลือกตัวเองอัตโนมัติเพื่อให้ autofill ใช้ข้อมูลของตัวเอง
+  useEffect(() => {
+    if (studentId || !(me as any)?.userId || !students.length) return;
+    const mine = students.find((s: any) => s.auth_user_id === (me as any).userId);
+    if (mine) setStudentId(mine.id);
+  }, [students, me, studentId]);
 
   const { data: schoolInfo } = useQuery({
     queryKey: ["school-info-light"],
@@ -75,7 +96,8 @@ export default function FillTemplatePage() {
   useEffect(() => {
     if (!fields.length) return;
     const student = students.find((s: any) => s.id === studentId);
-    const ctx = { student, school: schoolInfo };
+    const userName = `${(me as any)?.first_name || ""} ${(me as any)?.last_name || ""}`.trim();
+    const ctx = { student, school: schoolInfo, user: userName ? { name: userName } : undefined };
     setValues((prev) => {
       const next = { ...prev };
       let changed = false;
@@ -87,7 +109,7 @@ export default function FillTemplatePage() {
       return changed ? next : prev;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId, schoolInfo, tpl?.id]);
+  }, [studentId, schoolInfo, me, tpl?.id]);
 
 
   const autoFill = () => {

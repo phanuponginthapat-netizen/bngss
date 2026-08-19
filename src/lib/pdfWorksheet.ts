@@ -46,6 +46,7 @@ export async function renderPdfToImages(
   let data: ArrayBuffer;
   if (typeof fileOrUrl === "string") {
     const resp = await fetch(fileOrUrl);
+    if (!resp.ok) throw new Error(`โหลด PDF ไม่สำเร็จ (${resp.status})`);
     data = await resp.arrayBuffer();
   } else if (fileOrUrl instanceof ArrayBuffer) {
     data = fileOrUrl;
@@ -57,6 +58,7 @@ export async function renderPdfToImages(
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
     const base = page.getViewport({ scale: 1 });
+    if (!base.width || !base.height) continue;
     const scale = targetWidth / base.width;
     const viewport = page.getViewport({ scale });
     const canvas = document.createElement("canvas");
@@ -126,8 +128,8 @@ export function gradeField(
   switch (field.type) {
     case "text":
     case "textarea": {
-      const expected = String(field.correct).split("|").map((s) => norm(s));
-      const got = norm(answer ?? "");
+      const expected = String(field.correct).split("|").map((s) => String(norm(s)));
+      const got = String(norm(answer ?? ""));
       return expected.includes(got) ? { correct: true, score: maxScore } : { correct: false, score: 0 };
     }
     case "mc": {

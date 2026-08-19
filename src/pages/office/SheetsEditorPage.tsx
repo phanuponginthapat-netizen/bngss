@@ -22,6 +22,7 @@ export default function SheetsEditorPage() {
   const sheetRef = useRef<FortuneSheetHandle>(null);
 
   useEffect(() => {
+    setFileId(fileIdParam);
     if (!fileIdParam) return;
     (async () => {
       try {
@@ -31,6 +32,7 @@ export default function SheetsEditorPage() {
         setSheets(workbookToSheets(new Uint8Array(buf)));
       } catch (e: any) {
         swal.error("เปิดไฟล์ไม่สำเร็จ", String(e?.message ?? e));
+        setFileId(null);
       } finally {
         setLoading(false);
       }

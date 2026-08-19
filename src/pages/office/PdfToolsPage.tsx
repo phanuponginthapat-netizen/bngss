@@ -57,6 +57,7 @@ export default function PdfToolsPage() {
   const pdfFile = useMemo(() => (pdfBytes ? { data: pdfBytes } : undefined), [pdfBytes]);
 
   useEffect(() => {
+    setFileId(fileIdParam);
     if (!fileIdParam) return;
     (async () => {
       try {
@@ -64,14 +65,14 @@ export default function PdfToolsPage() {
         setFileName(meta.name);
         const buf = await downloadFile(fileIdParam);
         setPdfBytes(new Uint8Array(buf));
-      } catch (e: any) { swal.error("เปิดไฟล์ไม่สำเร็จ", String(e?.message ?? e)); }
+      } catch (e: any) { swal.error("เปิดไฟล์ไม่สำเร็จ", String(e?.message ?? e)); setFileId(null); }
     })();
   }, [fileIdParam]);
 
   const handleUpload = async (file: File) => {
     const buf = await file.arrayBuffer();
     setPdfBytes(new Uint8Array(buf));
-    setFileName(file.name); setFileId(null); setAnnots([]); setPageIdx(0);
+    setFileName(file.name); setFileId(null); setAnnots([]); setPageIdx(0); setRotations({});
   };
 
   const handleMerge = async (files: FileList) => {
@@ -87,7 +88,7 @@ export default function PdfToolsPage() {
         const copied = await merged.copyPages(doc, doc.getPageIndices());
         copied.forEach(p => merged.addPage(p));
       }
-      setPdfBytes(await merged.save()); setAnnots([]); setPageIdx(0);
+      setPdfBytes(await merged.save()); setAnnots([]); setPageIdx(0); setRotations({});
       swal.toast.success("รวมไฟล์แล้ว");
     } catch (e: any) { swal.error("รวมไฟล์ไม่สำเร็จ", String(e?.message ?? e)); }
   };
@@ -113,6 +114,15 @@ export default function PdfToolsPage() {
     src.removePage(pageIdx);
     setPdfBytes(await src.save());
     setAnnots(a => a.filter(x => x.page !== pageIdx).map(x => x.page > pageIdx ? { ...x, page: x.page - 1 } : x));
+    setRotations(r => {
+      const next: Record<number, number> = {};
+      for (const [k, v] of Object.entries(r)) {
+        const n = Number(k);
+        if (n === pageIdx) continue;
+        next[n > pageIdx ? n - 1 : n] = v;
+      }
+      return next;
+    });
     setPageIdx(i => Math.max(0, i - 1));
   };
 
@@ -345,6 +355,7 @@ export default function PdfToolsPage() {
               {annots.filter(a => a.page === pageIdx).map(a => (
                 <div key={a.id}
                   onPointerDown={e => startDragAnnot(e, a.id)}
+                  onClick={e => e.stopPropagation()}
                   onDoubleClick={() => setAnnots(list => list.filter(x => x.id !== a.id))}
                   style={{ position: "absolute", left: `${a.x * 100}%`, top: `${a.y * 100}%`, cursor: "move" }}
                   title="ลาก = ย้าย, ดับเบิลคลิก = ลบ">

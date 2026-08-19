@@ -24,7 +24,9 @@ async function callProxy(payload: unknown, binary = false): Promise<Response> {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     if (isDriveCredentialMissingError(text || `Drive proxy error ${res.status}`)) {
-      throw new Error(driveReconnectMessage());
+      const err = new Error(driveReconnectMessage()) as Error & { code?: string };
+      err.code = "DRIVE_NOT_CONNECTED";
+      throw err;
     }
     if (binary) return new Response(text, { status: res.status, statusText: res.statusText, headers: res.headers });
     throw new Error(text || `Drive proxy error ${res.status}`);

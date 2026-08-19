@@ -251,7 +251,7 @@ const EFormTemplatesPage = () => {
                 </div>
                 <div className="flex flex-wrap gap-1.5 text-[10px]">
                   <Badge variant="outline">{t.page_size}</Badge>
-                  <Badge variant="outline">{t.font_size_pt}px</Badge>
+                  <Badge variant="outline">{t.font_size_pt}pt</Badge>
                   <Badge variant="outline">{(t.fields?.length || 0)} ช่อง</Badge>
                 </div>
                 <div className="flex gap-1.5 pt-1">

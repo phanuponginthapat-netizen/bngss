@@ -1066,6 +1066,9 @@ export const applyCurrentOfficialPreset = (template: EFormTemplateRow): EFormTem
   const presetId = OFFICIAL_PRESET_NAME_TO_ID[template.name];
   const preset = presetId ? EFORM_PRESETS.find((p) => p.id === presetId) : null;
   if (!preset) return template;
+  // ไม่เขียนทับเอกสารที่ผู้ดูแลแก้ไขแล้ว — ใช้ preset เฉพาะเมื่อ content_html ยังเป็นค่าเดิมจาก preset เท่านั้น
+  const isCustomized = template.content_html && template.content_html.trim() && template.content_html !== preset.content_html;
+  if (isCustomized) return template;
   return {
     ...template,
     name: preset.name,
