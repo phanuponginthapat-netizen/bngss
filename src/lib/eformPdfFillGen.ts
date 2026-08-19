@@ -104,7 +104,7 @@ export async function generateFilledEformPdf(
 
   const outBytes = await pdfDoc.save();
   const name = `${(templateName || "eform").replace(/[^\u0E00-\u0E7Fa-zA-Z0-9._-]/g, "_").slice(0, 60)}_filled.pdf`;
-  return { blob: new Blob([outBytes], { type: "application/pdf" }), name };
+  return { blob: new Blob([outBytes.buffer as ArrayBuffer], { type: "application/pdf" }), name };
 }
 
 function drawCheck(page: any, x: number, y: number, w: number, h: number) {
