@@ -159,13 +159,14 @@ export async function captureLineGroupEvent(
       // LOCK FIRST: insert a placeholder row keyed on the unique line_message_id
       // BEFORE touching Drive. Concurrent webhook retries lose the race here and
       // exit without uploading, so Drive can never accumulate duplicates.
+      // upsert+ignoreDuplicates ทำให้ duplicate key error ไม่โผล่ใน log แม้ LINE ส่ง webhook ซ้ำ
       const kind: "photo" | "file" = msg.type === "image" ? "photo" : "file";
       const placeholderTitle = msg.fileName || (kind === "photo"
         ? `รูปภาพจาก ${grp.group_name}`
         : `ไฟล์จาก ${grp.group_name}`);
       const { data: placeholder, error: lockErr } = await sb
         .from("line_vault_items")
-        .insert({ ...baseRow, kind, title: placeholderTitle })
+        .upsert({ ...baseRow, kind, title: placeholderTitle }, { onConflict: "line_message_id", ignoreDuplicates: true })
         .select("id")
         .maybeSingle();
       if (lockErr) {
@@ -176,6 +177,7 @@ export async function captureLineGroupEvent(
         console.error("[vault placeholder insert]", lockErr);
         return { captured: false, reason: "placeholder_failed" };
       }
+      if (!placeholder?.id) return { captured: false, reason: "duplicate_message" };
       const rowId = placeholder!.id as string;
 
       const content = await deps.downloadLineContent(token, msg.id);
