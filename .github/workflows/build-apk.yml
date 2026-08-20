@@ -52,6 +52,18 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      - name: Write google-services.json (FCM push)
+        working-directory: android
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > app/google-services.json
+            echo "google-services.json written (FCM enabled)"
+          else
+            echo "::warning::GOOGLE_SERVICES_JSON_BASE64 not set — FCM push disabled in this build"
+          fi
+
       - name: Make gradlew executable
         working-directory: android
         run: chmod +x gradlew

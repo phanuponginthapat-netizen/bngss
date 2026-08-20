@@ -14,6 +14,7 @@ import {
   isInIframe,
   isPreviewHost,
 } from "@/lib/pushSubscribe";
+import { isNativeFcmSupported } from "@/lib/fcmPush";
 
 const APK_DOWNLOAD_URL = "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-app-v1.0.0.apk";
 
@@ -245,7 +246,18 @@ export default function InstallPage() {
         <CardContent className="space-y-4">
           {status === "loading" && <p className="text-sm text-muted-foreground">กำลังตรวจสอบสถานะ...</p>}
 
-          {status === "unsupported" && (
+          {status === "unsupported" && isNativeFcmSupported() && (
+            <Alert>
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertTitle>แอป Android (APK) ใช้การแจ้งเตือนเนทีฟอัตโนมัติ</AlertTitle>
+              <AlertDescription>
+                แอปที่ติดตั้งจากไฟล์ APK จะรับการแจ้งเตือนผ่าน Firebase (FCM) แม้ปิดแอปหรือล็อกหน้าจอ —
+                ไม่ต้องกดเปิดเพิ่มเติม เมื่อเปิดแอปครั้งแรก ระบบจะขออนุญาตแจ้งเตือนเอง
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {status === "unsupported" && !isNativeFcmSupported() && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน Web Push</AlertDescription>

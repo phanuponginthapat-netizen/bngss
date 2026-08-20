@@ -5,6 +5,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { pushOne } from "../_shared/webPush.ts";
+import { sendFcm } from "../_shared/fcmPush.ts";
 
 import { corsHeaders } from "../_shared/cors.ts";
 
@@ -319,7 +320,7 @@ Deno.serve(async (req) => {
       if (pushUsers.length > 0) {
         const { data: subs } = await admin
           .from("push_subscriptions")
-          .select("id,user_id,endpoint,p256dh,auth")
+          .select("id,user_id,endpoint,p256dh,auth,provider,device_token")
           .in("user_id", pushUsers);
         const pushPayload = {
           title: payload.title,
@@ -338,17 +339,23 @@ Deno.serve(async (req) => {
         for (let i = 0; i < allSubs.length; i += PUSH_CHUNK) {
           const chunk = allSubs.slice(i, i + PUSH_CHUNK);
           await Promise.all(chunk.map(async (s: any) => {
-            let r = await pushOne(s, pushPayload);
+            // FCM (Android APK) → Firebase HTTP v1; Web Push → pushOne
+            const isFcm = s.provider === "fcm" && !!s.device_token;
+            let r = isFcm
+              ? await sendFcm(s.device_token, pushPayload)
+              : await pushOne(s, pushPayload);
             if (!r.ok && !r.gone && (r.status === 429 || (r.status && r.status >= 500))) {
               await new Promise((res) => setTimeout(res, 400));
-              r = await pushOne(s, pushPayload);
+              r = isFcm
+                ? await sendFcm(s.device_token, pushPayload)
+                : await pushOne(s, pushPayload);
             }
             if (r.ok) {
               pushCount++;
               log(s.user_id, "push", "sent");
             } else {
               if (r.gone) goneIds.push(s.id);
-              log(s.user_id, "push", r.gone ? "gone" : "failed", `${r.status ?? "?"}: ${r.error ?? "unknown"}`);
+              if (!r.skipped) log(s.user_id, "push", r.gone ? "gone" : "failed", `${r.status ?? "?"}: ${r.error ?? "unknown"}`);
             }
           }));
         }

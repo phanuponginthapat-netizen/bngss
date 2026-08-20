@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Bell, Smartphone, MessageCircle, MoonStar, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { subscribeToPush, getCurrentPushStatus } from "@/lib/pushSubscribe";
+import { isNativeFcmSupported } from "@/lib/fcmPush";
 import { saveErrorMessage } from "@/lib/saveError";
 
 const TYPES: Array<{ key: string; label: string }> = [
@@ -186,12 +187,13 @@ export default function NotificationSettingsPage() {
               {pushStatus === "subscribed" && <span className="text-green-600">✅ พร้อมรับแจ้งเตือน</span>}
               {pushStatus === "denied" && <span className="text-destructive">❌ ผู้ใช้/เบราว์เซอร์ปฏิเสธ</span>}
               {pushStatus === "default" && <span className="text-amber-600">⚠️ ยังไม่ได้เปิด — กดปุ่มเปิดด้านล่าง</span>}
-              {pushStatus === "unsupported" && <span className="text-muted-foreground">เบราว์เซอร์นี้ไม่รองรับ</span>}
+              {pushStatus === "unsupported" && isNativeFcmSupported() && <span className="text-green-600">📱 แอป Android ใช้การแจ้งเตือนเนทีฟ (FCM) อัตโนมัติ</span>}
+              {pushStatus === "unsupported" && !isNativeFcmSupported() && <span className="text-muted-foreground">เบราว์เซอร์นี้ไม่รองรับ</span>}
               {pushStatus === "checking" && <span className="text-muted-foreground">กำลังตรวจ...</span>}
             </span>
           </div>
           <div className="flex flex-wrap gap-2">
-            {pushStatus !== "subscribed" && pushStatus !== "unsupported" && (
+            {pushStatus !== "subscribed" && pushStatus !== "unsupported" && !isNativeFcmSupported() && (
               <Button variant="outline" onClick={enablePush} disabled={busy}>
                 <Bell className="w-4 h-4 mr-2" /> เปิดการแจ้งเตือนบนเครื่องนี้
               </Button>

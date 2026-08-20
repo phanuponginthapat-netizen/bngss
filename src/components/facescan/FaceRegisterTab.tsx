@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { RefreshCw, Sparkles, CheckCircle2, XCircle, Image as ImageIcon, Camera, Save, Upload, ShieldCheck, History, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { loadFaceModels, getDescriptorFromImage, loadImageFromUrl, detectorOptionsHQ, detectFaceWithLandmarks, assessFaceQuality, BANK_GRADE, type QualityReport } from "@/lib/faceApi";
+import { loadFaceModels, getDescriptorFromImage, loadImageFromUrl, detectorOptionsHQ, detectFaceWithLandmarks, assessFaceQuality, BANK_GRADE, embedWithArcFace, type QualityReport } from "@/lib/faceApi";
 import * as faceapi from "@vladmandic/face-api";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -83,14 +83,15 @@ const FaceRegisterTab = () => {
     // 1) Standard
     let desc = await getDescriptorFromImage(img);
     if (desc) return desc;
-    // 2) HQ: larger input + lower threshold
+    // 2) HQ: larger input + lower threshold — คำนวณ 512-D ArcFace จาก landmarks เสมอ (ไม่ใช้ 128-D)
     for (const size of [512, 608] as const) {
       for (const thr of [0.35, 0.25, 0.15]) {
         const res = await faceapi
           .detectSingleFace(img as any, detectorOptionsHQ(size, thr))
-          .withFaceLandmarks()
-          .withFaceDescriptor();
-        if (res?.descriptor) return res.descriptor;
+          .withFaceLandmarks();
+        if (!res) continue;
+        const arc = await embedWithArcFace(img, res.landmarks, 1, 1);
+        if (arc) return arc;
       }
     }
     return null;

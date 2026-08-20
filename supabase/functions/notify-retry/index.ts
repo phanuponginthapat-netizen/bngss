@@ -4,6 +4,7 @@
 // Mark each processed row with `retried_at` (in the reason text) so we never retry twice.
 
 import { pushOne } from "../_shared/webPush.ts";
+import { sendFcm } from "../_shared/fcmPush.ts";
 import { requireCronOrAdmin } from "../_shared/requireCron.ts";
 import { corsHeadersWithCron as corsHeaders } from "../_shared/cors.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
@@ -43,7 +44,7 @@ Deno.serve(async (req) => {
     const userIds = [...new Set(candidates.map((r: any) => r.user_id).filter(Boolean))];
     const { data: subs } = await admin
       .from("push_subscriptions")
-      .select("id,user_id,endpoint,p256dh,auth")
+      .select("id,user_id,endpoint,p256dh,auth,provider,device_token")
       .in("user_id", userIds);
 
     const subsByUser = new Map<string, any[]>();
@@ -71,12 +72,14 @@ Deno.serve(async (req) => {
       const notif = row.reference_id ? bodyByRef.get(row.reference_id) : null;
       for (const s of userSubs) {
         retried++;
-        const r = await pushOne(s, {
+        const isFcm = s.provider === "fcm" && !!s.device_token;
+        const payload = {
           title: row.title || "การแจ้งเตือน",
           body: notif?.message || "",
           url: "/dashboard",
           tag: row.notification_type || notif?.type || "general",
-        });
+        };
+        const r = isFcm ? await sendFcm(s.device_token, payload) : await pushOne(s, payload);
         if (r.ok) {
           success++;
           newLogs.push({

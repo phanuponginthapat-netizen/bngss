@@ -8,3 +8,5 @@ keystore-pass.txt
 # Release signing secrets - never commit
 RELEASE_SECRETS.txt
 keystore-b64.txt
+# Firebase config - written from CI secret, never commit
+google-services.json

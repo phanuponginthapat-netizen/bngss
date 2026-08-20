@@ -1,4 +1,5 @@
 import { pushOne } from "../_shared/webPush.ts";
+import { sendFcm } from "../_shared/fcmPush.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 
@@ -23,7 +24,7 @@ Deno.serve(async (req) => {
 
     const { data: subs, error } = await admin
       .from("push_subscriptions")
-      .select("id,endpoint,p256dh,auth")
+      .select("id,endpoint,p256dh,auth,provider,device_token")
       .eq("user_id", user_id);
     if (error) throw error;
     if (!subs?.length) {
@@ -35,12 +36,15 @@ Deno.serve(async (req) => {
     let sent = 0, failed = 0;
     const errors: string[] = [];
     await Promise.all(subs.map(async (s: any) => {
-      const r = await pushOne(s, { title, body, url, tag });
+      const isFcm = s.provider === "fcm" && !!s.device_token;
+      const r = isFcm
+        ? await sendFcm(s.device_token, { title, body, url, tag })
+        : await pushOne(s, { title, body, url, tag });
       if (r.ok) sent++;
       else {
         failed++;
         if (r.gone) await admin.from("push_subscriptions").delete().eq("id", s.id);
-        if (r.error && errors.length < 5) errors.push(`${r.status ?? "?"}: ${r.error}`);
+        if (!r.skipped && r.error && errors.length < 5) errors.push(`${r.status ?? "?"}: ${r.error}`);
       }
     }));
 

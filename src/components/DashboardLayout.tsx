@@ -87,6 +87,11 @@ const DashboardLayout = () => {
   useSessionKeepAlive(!!session);
   // กวาด pointer-events / scroll-lock ที่ Radix ทิ้งค้างตอน navigate ระหว่างที่ overlay เปิด
   useRadixOverlayCleanup();
+  // FCM: ถ้า token ตอนแอปเปิดก่อนล็อกอิน ให้บันทึกทันทีที่เข้า dashboard
+  useEffect(() => {
+    if (!userId) return;
+    import("@/lib/fcmPush").then(({ flushPendingFcmToken }) => flushPendingFcmToken()).catch(() => {});
+  }, [userId]);
 
   // load classroom for students so force-logout broadcasts can target class
   useEffect(() => {

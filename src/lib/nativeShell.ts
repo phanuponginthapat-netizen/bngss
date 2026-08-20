@@ -18,6 +18,11 @@ export function isStandalone(): boolean {
 export function initNativeShell() {
   if (typeof window === "undefined") return;
 
+  // FCM push สำหรับ APK Android — ลงทะเบียน token เนทีฟ (ปลอดภัย: ออกจากระบบ/ไม่ใช่แอป = ข้าม)
+  try {
+    import("./fcmPush").then(({ initFcmPush }) => initFcmPush()).catch(() => {});
+  } catch (_) {}
+
   const root = document.documentElement;
   const applyStandaloneClass = () => {
     if (isStandalone()) {

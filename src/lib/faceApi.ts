@@ -396,7 +396,7 @@ export function estimateFaceSharpness(
  * แทน 128-D descriptor ของ face-api ด้วย 512-D embedding จาก ArcFace (buffalo_s).
  * landmarks5 ต้องเป็นพิกัดในระบบพิกเซลของภาพต้นฉบับ (source), ไม่ใช่ canvas ที่ย่อ.
  */
-async function embedWithArcFace(
+export async function embedWithArcFace(
   source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement,
   landmarks: faceapi.FaceLandmarks68,
   scaleX: number,
@@ -419,7 +419,7 @@ export async function getDescriptorFromImage(
   const detected = await detectSingleFaceRobust(image);
   if (!detected) return null;
   const arc = await embedWithArcFace(image, detected.res.landmarks, detected.scaleX, detected.scaleY);
-  return arc ?? detected.res.descriptor ?? null;
+  return arc ?? null;
 }
 
 /**
@@ -463,7 +463,7 @@ export async function detectFaceWithLandmarks(
     : rawLm;
   const arc = await embedWithArcFace(image, lm, 1, 1);
   return {
-    descriptor: arc ?? res.descriptor ?? null,
+    descriptor: arc ?? null,
     box: {
       x: res.detection.box.x * scaleX,
       y: res.detection.box.y * scaleY,
@@ -552,7 +552,8 @@ export async function getAllDescriptors(
       if (minFaceSize > 0 && Math.min(box.width, box.height) < minFaceSize) return;
       const arc = await embedWithCache(video, d.landmarks, cacheTtlMs);
       if (arc) (d as any).descriptor = arc;
-      // ถ้า ArcFace ล้มเหลว → ปล่อย descriptor 128-D เดิมไว้เป็น fallback (เหมือนพฤติกรรมเดิม)
+      // ถ้า ArcFace ล้มเหลว → ลบ descriptor 128-D ทิ้ง อย่าให้หลุดไปจับคู่กับ 512-D (มิติไม่ตรง = ค่าเพี้ยน)
+      else delete (d as any).descriptor;
     }),
   );
   return res;
@@ -627,7 +628,11 @@ export function matchDescriptor(
   let second: { id: string | null; d: number } = { id: null, d: Infinity };
   for (const k of known) {
     const dists: number[] = [];
-    for (const d of k.descriptors) dists.push(cosineDistance(query, d));
+    for (const d of k.descriptors) {
+      // เทียบเฉพาะ embedding มิติเดียวกัน (512-D ArcFace) — มิติ 128-D เก่าข้ามทิ้ง กันค่าความเหมือนเพี้ยน
+      if (d.length !== query.length) continue;
+      dists.push(cosineDistance(query, d));
+    }
     if (dists.length === 0) continue;
     dists.sort((a, b) => a - b);
     const minD = dists[0];
