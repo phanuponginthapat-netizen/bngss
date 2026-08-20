@@ -16,6 +16,8 @@ import {
 } from "@/lib/pushSubscribe";
 import { isNativeFcmSupported } from "@/lib/fcmPush";
 
+import { fetchUpdateManifest, type AppUpdateManifest } from "@/lib/appUpdater";
+
 const APK_DOWNLOAD_URL = "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-app-v1.0.0.apk";
 
 export default function InstallPage() {
@@ -37,6 +39,11 @@ export default function InstallPage() {
     return () => window.removeEventListener("branding:ready", handler);
   }, []);
   const inPreview = isInIframe() || isPreviewHost();
+
+  const [apkManifest, setApkManifest] = useState<AppUpdateManifest | null>(null);
+  useEffect(() => {
+    fetchUpdateManifest().then(setApkManifest).catch(() => {});
+  }, []);
 
   useEffect(() => {
     getCurrentPushStatus().then(setStatus);
@@ -120,6 +127,9 @@ export default function InstallPage() {
             <CardTitle className="flex items-center gap-2">
               <Package className="w-5 h-5" />
               ดาวน์โหลด APK (Android)
+              {apkManifest?.versionName && (
+                <Badge variant="secondary" className="ml-auto">v{apkManifest.versionName}</Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -127,12 +137,21 @@ export default function InstallPage() {
               ติดตั้งเป็นแอปจริงบนเครื่อง Android — ใช้กล้องสแกนใบหน้า/QR ได้เต็มประสิทธิภาพ
               และใช้งานได้แม้ไม่มีอินเทอร์เน็ตเร็ว
             </p>
-            <a href={APK_DOWNLOAD_URL} download className="block">
+            {apkManifest?.notes && (
+              <p className="text-xs text-muted-foreground">อัปเดตล่าสุด: {apkManifest.notes}</p>
+            )}
+            <a
+              href={`${apkManifest?.url || APK_DOWNLOAD_URL}?v=${apkManifest?.versionCode ?? Date.now()}`}
+              download
+              className="block"
+            >
               <Button className="w-full" size="lg">
                 <Download className="w-4 h-4 mr-2" />
-                ดาวน์โหลด APK ({isAndroid ? "สำหรับเครื่องนี้" : "สำหรับ Android"})
+                ดาวน์โหลด APK {apkManifest?.versionName ? `v${apkManifest.versionName} ` : ""}
+                ({isAndroid ? "สำหรับเครื่องนี้" : "สำหรับ Android"})
               </Button>
             </a>
+
             {isAndroid ? (
               <ol className="space-y-2 text-sm">
                 <li className="flex items-start gap-2">
