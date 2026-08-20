@@ -266,20 +266,44 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Auto-detect teacher from rows when no personnel_id given
+      // Teacher resolution cache (shared per file) — supports whole-school timetables
+      // where every cell may carry a different teacher_name.
+      const teacherCache = new Map<string, any>();
+      const displayOf = (p: any) =>
+        `${p.prefix || "ครู"}${p.first_name}${p.last_name && p.last_name !== "-" ? " " + p.last_name : ""}`.trim();
+
+      async function resolveTeacher(rawName?: string): Promise<any | null> {
+        const name = stripTeacherPrefix(String(rawName || "").trim());
+        if (!name || name.toLowerCase() === "undefined" || name.toLowerCase() === "null") return null;
+        const key = thaiLoose(name);
+        if (teacherCache.has(key)) return teacherCache.get(key);
+        let found = await findPersonnelByName(admin, name);
+        if (!found) {
+          // create a proxy personnel record so the period is still linked to someone
+          const [fn = name, ...lnParts] = name.split(/\s+/);
+          const code = `T-${key.slice(0, 12)}-${Math.random().toString(36).slice(2, 6)}`;
+          const { data: created, error: cErr } = await admin
+            .from("personnel")
+            .insert({ employee_code: code, prefix: "ครู", first_name: fn, last_name: lnParts.join(" ") || "-", position: "ครู", status: "active" })
+            .select("id, prefix, first_name, last_name, employee_code")
+            .single();
+          if (cErr) { teacherWarnings.push(`สร้างครู "${name}" ไม่สำเร็จ: ${cErr.message}`); }
+          else { found = created; teacherWarnings.push(`ครู "${name}" ยังไม่มีในระบบ — สร้างทะเบียนชั่วคราวให้ (${code})`); }
+        }
+        teacherCache.set(key, found || null);
+        return found || null;
+      }
+
+      // Auto-detect the file's primary teacher when no personnel_id was given
       if (!teacher) {
         const nameFromRows = rows.map((r: any) => String(r.teacher_name || "").trim()).filter((s: string) => s && s.toLowerCase() !== "undefined");
         const primary = [...new Set(nameFromRows)].sort((a, b) => nameFromRows.filter((x) => x === b).length - nameFromRows.filter((x) => x === a).length)[0];
         if (primary) {
-          const found = await findPersonnelByName(admin, primary);
-          if (found) { teacher = found; teacherDisplay = `${found.prefix || "ครู"}${found.first_name}${found.last_name && found.last_name !== "-" ? " " + found.last_name : ""}`.trim(); }
-          else { teacherWarnings.push(`ครู "${primary}" ยังไม่มีในระบบ — สร้าง proxy personnel ให้`); }
+          const found = await resolveTeacher(primary);
+          if (found) { teacher = found; teacherDisplay = displayOf(found); }
         }
       }
 
-      if (replaceExisting && teacher?.id) {
-        await admin.from("schedules").delete().eq("teacher_id", teacher.id).eq("academic_year", yr).eq("semester", sem);
-      }
 
       const toInsert: any[] = [];
       for (const r of rows) {
