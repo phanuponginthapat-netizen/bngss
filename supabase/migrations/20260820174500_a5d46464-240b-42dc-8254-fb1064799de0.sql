@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.resolve_scanned_personnel(text) FROM anon;
