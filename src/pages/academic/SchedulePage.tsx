@@ -1,4 +1,4 @@
-import { Fragment, useState, useMemo, useEffect } from "react";
+import { Fragment, useState, useMemo, useEffect, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useParentChildren } from "@/hooks/useParentChildren";
 import { useUserRole } from "@/hooks/useUserRole";
