@@ -5,3 +5,6 @@
 *.keystore
 *.jks
 keystore-pass.txt
+# Release signing secrets - never commit
+RELEASE_SECRETS.txt
+keystore-b64.txt
