@@ -92,12 +92,11 @@ jobs:
 
             # 23505: อาจเป็นประวัติซ้ำ (schema_migrations) หรือ object ซ้ำใน catalog เช่น pg_proc/pg_type
             # -> ถือว่า migration นั้นถูกใช้ไปแล้ว mark เป็น applied แล้วดันต่อ
-            if grep -qE '23505|schema_migrations_pkey|pg_proc_proname_args_nsp_index|pg_type_typname_nsp_index' /tmp/push.log; then
-              grep -oE 'Key \(version\)=\([0-9]+\)' /tmp/push.log \
+            if grep -qE '23505|already exists|schema_migrations_pkey|pg_proc_proname_args_nsp_index|pg_type_typname_nsp_index' /tmp/push.log; then
+              grep -oE '\(version\)=\(?[0-9]{14}' /tmp/push.log \
                 | grep -oE '[0-9]{14}' | sort -u > /tmp/dup_versions.txt || true
               if [ ! -s /tmp/dup_versions.txt ]; then
-                grep -oE 'Applying migration [0-9]{14}' /tmp/push.log \
-                  | grep -oE '[0-9]{14}' | tail -n1 > /tmp/dup_versions.txt || true
+                grep -oE '[0-9]{14}' /tmp/push.log | tail -n1 > /tmp/dup_versions.txt || true
               fi
 
               if [ -s /tmp/dup_versions.txt ]; then
@@ -108,6 +107,7 @@ jobs:
                 continue
               fi
             fi
+
 
             # deadlock / lock timeout เป็นอาการชั่วคราว -> รอแล้วลองใหม่
             if grep -qiE '40P01|deadlock detected|55P03|lock timeout|canceling statement due to lock' /tmp/push.log; then
