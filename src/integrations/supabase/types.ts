@@ -16649,6 +16649,7 @@ export type Database = {
           table_name: string
         }[]
       }
+      same_school_as_owner: { Args: { _owner: string }; Returns: boolean }
       search_chat_users: {
         Args: { _term: string }
         Returns: {
