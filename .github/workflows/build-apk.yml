@@ -102,3 +102,22 @@ jobs:
           name: bngss-release-apk
           path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+
+      - name: Publish APK to Supabase Storage
+        if: github.event.inputs.release == 'true'
+        working-directory: android
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          code="$(curl -sS -o /dev/null -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H "Content-Type: application/octet-stream" \
+            -H "x-upsert: true" \
+            --data-binary "@app/build/outputs/apk/release/app-release.apk" \
+            "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/app-downloads/bngss-app-v1.0.0.apk")"
+          echo "Supabase storage upload HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "::error::Failed to upload APK to Supabase Storage (HTTP $code)"
+            exit 1
+          fi
