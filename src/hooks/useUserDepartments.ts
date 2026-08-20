@@ -40,10 +40,12 @@ export function useUserDepartments() {
     },
   });
 
-  const isPrivileged = role === "admin" || role === "director";
+  // ยังไม่มีการกำหนดหัวหน้างาน/ฝ่ายงาน → ให้บุคลากรทุกคน (ครู/ผอ./แอดมิน) เข้าถึงได้ทุกฝ่าย
+  const isPrivileged = role === "admin" || role === "director" || role === "teacher";
   const departments: SchoolDepartment[] = isPrivileged
     ? ["academic", "student_affairs", "general_admin", "finance_personnel", "director_office"]
     : (q.data || []).map((d) => d.department);
+
 
   const headOf = new Set((q.data || []).filter((d) => d.is_head).map((d) => d.department));
   const roleByDept = new Map<SchoolDepartment, DeptRole>(
