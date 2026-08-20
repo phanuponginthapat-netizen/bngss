@@ -3,6 +3,18 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "packageManager": "npm@10.9.4",
+  "allowScripts": [
+    "@swc/core",
+    "canvas",
+    "core-js",
+    "esbuild",
+    "protobufjs",
+    "sharp",
+    "fsevents",
+    "simple-git-hooks",
+    "rollup"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
