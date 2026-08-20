@@ -46,6 +46,8 @@ jobs:
 
       - name: Build web assets
         run: npm run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
 
       - name: Sync Capacitor
         run: npx cap sync android
