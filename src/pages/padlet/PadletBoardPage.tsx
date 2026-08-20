@@ -303,7 +303,8 @@ export default function PadletBoardPage() {
   };
 
   const likeNote = async (n: any) => {
-    await supabase.from("padlet_notes").update({ likes: (n.likes || 0) + 1 }).eq("id", n.id);
+    const { error } = await supabase.rpc("padlet_like_note" as any, { _note_id: n.id });
+    if (error) toast.error(saveErrorMessage(error));
   };
 
   const copyLink = async () => {
