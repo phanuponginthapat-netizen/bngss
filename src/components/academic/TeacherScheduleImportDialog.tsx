@@ -162,9 +162,10 @@ export const TeacherScheduleImportDialog = ({ open, onOpenChange }: Props) => {
                 </div>
                 <div>
                   <Label>เลือกครู <span className="text-muted-foreground">(เว้นว่าง = ตรวจจับอัตโนมัติจากไฟล์)</span></Label>
-                  <Select value={r.personnelId} onValueChange={(v) => updateRow(r.key, { personnelId: v })}>
+                  <Select value={r.personnelId || "__auto__"} onValueChange={(v) => updateRow(r.key, { personnelId: v === "__auto__" ? "" : v })}>
                     <SelectTrigger><SelectValue placeholder="-- ตรวจจับอัตโนมัติ --" /></SelectTrigger>
                     <SelectContent className="max-h-72">
+                      <SelectItem value="__auto__">-- ตรวจจับอัตโนมัติ (รองรับตารางทั้งโรงเรียน) --</SelectItem>
                       {teachers.map((t) => (
                         <SelectItem key={t.id} value={t.id}>
                           {t.prefix || ""}{t.first_name} {t.last_name !== "-" ? t.last_name : ""} ({t.employee_code})
@@ -172,6 +173,7 @@ export const TeacherScheduleImportDialog = ({ open, onOpenChange }: Props) => {
                       ))}
                     </SelectContent>
                   </Select>
+
                 </div>
                 <div>
                   <Label>ไฟล์ตารางสอน (PDF, JPG, PNG)</Label>
