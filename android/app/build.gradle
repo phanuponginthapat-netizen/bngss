@@ -1,5 +1,8 @@
 apply plugin: 'com.android.application'
 
+def releaseKeystore = file('release.keystore')
+def hasReleaseKeystore = releaseKeystore.exists()
+
 android {
     namespace = "com.bngss.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,8 +19,19 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (hasReleaseKeystore) {
+                storeFile releaseKeystore
+                storePassword System.getenv('KEYSTORE_PASSWORD')
+                keyAlias System.getenv('KEY_ALIAS')
+                keyPassword System.getenv('KEY_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

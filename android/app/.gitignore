@@ -1,2 +1,7 @@
 /build/*
 !/build/.npmkeep
+
+# Keystore files - never commit
+*.keystore
+*.jks
+keystore-pass.txt
