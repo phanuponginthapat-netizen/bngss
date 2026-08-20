@@ -16580,6 +16580,7 @@ export type Database = {
         Returns: undefined
       }
       now_bkk: { Args: never; Returns: string }
+      padlet_like_note: { Args: { _note_id: string }; Returns: number }
       parent_child_classroom_ids: {
         Args: { _user_id: string }
         Returns: string[]
