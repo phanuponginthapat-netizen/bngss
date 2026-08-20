@@ -1279,6 +1279,39 @@ const FaceKioskPage = () => {
         }
       }
 
+      // 3) ไม่ใช่นักเรียน → ลองเป็นบัตรบุคลากร (ลงเวลาปฏิบัติงาน)
+      if (!student) {
+        try {
+          const { data: pData } = await (supabase as any).rpc("resolve_scanned_personnel", { _input: raw });
+          const p = Array.isArray(pData) ? pData[0] : pData;
+          if (p?.id) {
+            const pName = `${p.prefix || ""}${p.first_name || ""} ${p.last_name || ""}`.trim() || p.employee_code;
+            const mode = scanModeRef.current === "exit" ? "exit" : "entry";
+            const last = justScannedRef.current.get(p.id) || 0;
+            if (tNow - last < 15_000) return;
+            justScannedRef.current.set(p.id, tNow);
+            playSuccessSound();
+            void runGate(pName, { id: p.id, kind: "personnel" });
+            const clockNote = staffClockRef.current
+              ? await clockStaff(p.id, mode, undefined, 1, pName)
+              : "บุคลากร (ปิดลงเวลา)";
+            setLastMatch({
+              name: pName,
+              studentCode: p.employee_code || "-",
+              classroom: `${p.position_name || "บุคลากร"} • ${clockNote}`,
+              confidence: 1,
+              scanType: mode,
+              capturedFace: undefined,
+              registeredFace: null,
+              time: new Date().toLocaleTimeString("th-TH", { hour12: false }),
+            });
+            if (matchTimerRef.current) window.clearTimeout(matchTimerRef.current);
+            matchTimerRef.current = window.setTimeout(() => setLastMatch(null), 6000);
+            return;
+          }
+        } catch {}
+      }
+
       if (!student) {
         if (tNow - unknownBeepRef.current > 4000) {
           unknownBeepRef.current = tNow;
@@ -1289,6 +1322,7 @@ const FaceKioskPage = () => {
       }
 
       await recordScan(student.studentId, student.studentCode, student.name, student.classroom, student.avatar || null, 1, undefined);
+
     };
 
 
@@ -1352,7 +1386,7 @@ const FaceKioskPage = () => {
 
 
     return () => { cancelled = true; };
-  }, [streaming, screensaver, known, recordScan]);
+  }, [streaming, screensaver, known, recordScan, clockStaff, runGate]);
 
 
 

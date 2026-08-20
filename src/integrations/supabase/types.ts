@@ -16608,6 +16608,17 @@ export type Database = {
       recompute_personnel_teaching_level: { Args: never; Returns: undefined }
       remind_incomplete_grades: { Args: never; Returns: Json }
       reset_content_data: { Args: never; Returns: Json }
+      resolve_scanned_personnel: {
+        Args: { _input: string }
+        Returns: {
+          employee_code: string
+          first_name: string
+          id: string
+          last_name: string
+          position_name: string
+          prefix: string
+        }[]
+      }
       resolve_scanned_student: {
         Args: { _input: string }
         Returns: {
