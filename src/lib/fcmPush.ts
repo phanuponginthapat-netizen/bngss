@@ -74,7 +74,7 @@ export async function initFcmPush(): Promise<void> {
       console.error("FCM registration error", err);
     });
 
-    PushNotifications.addListener("notificationReceived", (n: PushNotificationSchema) => {
+    PushNotifications.addListener("pushNotificationReceived", (n: PushNotificationSchema) => {
       const title = n.title || "BNGSS";
       const data = (n.data ?? {}) as Record<string, unknown>;
       const route = typeof data.url === "string" ? data.url : "/dashboard/inbox";
@@ -87,7 +87,8 @@ export async function initFcmPush(): Promise<void> {
       });
     });
 
-    PushNotifications.addListener("notificationActionPerformed", (action) => {
+    PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+
       const data = (action.notification.data ?? {}) as Record<string, unknown>;
       if (typeof data.url === "string" && data.url.startsWith("/")) {
         window.location.href = data.url;
