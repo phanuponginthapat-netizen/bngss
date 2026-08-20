@@ -37,6 +37,7 @@ WITH CHECK (
 
 -- 5) school_settings: replace blanket authenticated read
 DROP POLICY IF EXISTS "Authenticated read general settings" ON public.school_settings;
+DROP POLICY IF EXISTS "Authenticated read allowed settings" ON public.school_settings;
 CREATE POLICY "Authenticated read allowed settings"
 ON public.school_settings FOR SELECT TO authenticated
 USING (
