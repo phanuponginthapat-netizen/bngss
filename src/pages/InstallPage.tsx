@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Bell, Smartphone, Share, Plus, BellOff, CheckCircle2, AlertTriangle, Download, ArrowLeft, SkipForward } from "lucide-react";
+import { Bell, Smartphone, Share, Plus, BellOff, CheckCircle2, AlertTriangle, Download, ArrowLeft, SkipForward, Package } from "lucide-react";
 import { toast } from "sonner";
 import BackButton from "@/components/BackButton";
 import {
@@ -14,6 +14,8 @@ import {
   isInIframe,
   isPreviewHost,
 } from "@/lib/pushSubscribe";
+
+const APK_DOWNLOAD_URL = "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-app-v1.0.0.apk";
 
 export default function InstallPage() {
   const navigate = useNavigate();
@@ -46,6 +48,7 @@ export default function InstallPage() {
   }, []);
 
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !("MSStream" in window);
+  const isAndroid = /Android/i.test(navigator.userAgent);
   const isStandalone =
     window.matchMedia("(display-mode: standalone)").matches ||
     (window.navigator as any).standalone === true;
@@ -107,6 +110,52 @@ export default function InstallPage() {
             การติดตั้งแอปและการแจ้งเตือนจะใช้งานได้เมื่อเปิดเว็บจริงผ่านเบราว์เซอร์มือถือเท่านั้น
           </AlertDescription>
         </Alert>
+      )}
+
+      {/* Step 1: Install */}
+      {!isIOS && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5" />
+              ดาวน์โหลด APK (Android)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              ติดตั้งเป็นแอปจริงบนเครื่อง Android — ใช้กล้องสแกนใบหน้า/QR ได้เต็มประสิทธิภาพ
+              และใช้งานได้แม้ไม่มีอินเทอร์เน็ตเร็ว
+            </p>
+            <a href={APK_DOWNLOAD_URL} download className="block">
+              <Button className="w-full" size="lg">
+                <Download className="w-4 h-4 mr-2" />
+                ดาวน์โหลด APK ({isAndroid ? "สำหรับเครื่องนี้" : "สำหรับ Android"})
+              </Button>
+            </a>
+            {isAndroid ? (
+              <ol className="space-y-2 text-sm">
+                <li className="flex items-start gap-2">
+                  <Badge variant="outline" className="shrink-0">1</Badge>
+                  <span>แตะปุ่มดาวน์โหลดด้านบน แล้วรอไฟล์ติดตั้งให้เสร็จ</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Badge variant="outline" className="shrink-0">2</Badge>
+                  <span>เปิดแจ้งเตือน/โฟลเดอร์ดาวน์โหลด แล้วแตะไฟล์ <strong>.apk</strong></span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Badge variant="outline" className="shrink-0">3</Badge>
+                  <span>กด <strong>ติดตั้ง</strong> — ถ้าระบบถามให้อนุญาต "ติดตั้งแอปจากแหล่งที่ไม่รู้จัก"</span>
+                </li>
+              </ol>
+            ) : (
+              <Alert>
+                <AlertDescription className="text-xs">
+                  💡 APK ใช้ได้เฉพาะเครื่อง Android — สำหรับ iPhone/iPad ใช้วิธีติดตั้ง PWA ด้านล่าง
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Step 1: Install */}
