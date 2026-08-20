@@ -49,6 +49,11 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=6144
 
+      - name: Apply CMS branding (app name / icon / theme)
+        run: |
+          npm i --no-save --legacy-peer-deps sharp || echo "::warning::sharp install failed — icons will keep defaults"
+          node scripts/apply-cms-branding.mjs
+
       - name: Sync Capacitor
         run: npx cap sync android
 

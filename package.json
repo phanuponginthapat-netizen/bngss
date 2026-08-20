@@ -22,7 +22,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "brand:android": "node scripts/apply-cms-branding.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.bngss.app',
-  appName: 'BNGSS',
+  appName: 'BNG Smart',
   webDir: 'dist',
   android: {
     allowMixedContent: true,
