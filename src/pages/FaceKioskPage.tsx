@@ -1386,7 +1386,7 @@ const FaceKioskPage = () => {
 
 
     return () => { cancelled = true; };
-  }, [streaming, screensaver, known, recordScan]);
+  }, [streaming, screensaver, known, recordScan, clockStaff, runGate]);
 
 
 
