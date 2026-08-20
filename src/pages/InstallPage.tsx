@@ -16,6 +16,8 @@ import {
 } from "@/lib/pushSubscribe";
 import { isNativeFcmSupported } from "@/lib/fcmPush";
 
+import { fetchUpdateManifest, type AppUpdateManifest } from "@/lib/appUpdater";
+
 const APK_DOWNLOAD_URL = "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-app-v1.0.0.apk";
 
 export default function InstallPage() {
