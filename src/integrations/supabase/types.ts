@@ -16439,6 +16439,7 @@ export type Database = {
         Args: { _student_id: string; _user_id?: string }
         Returns: boolean
       }
+      is_staff_any: { Args: { _uid: string }; Returns: boolean }
       is_staff_user: { Args: { _uid: string }; Returns: boolean }
       is_subject_group_head: {
         Args: { _group: string; _user_id: string }
