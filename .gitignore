@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Vendor plugin ที่ต้อง commit dist/ เพื่อให้ npm ci ใช้ได้
+!vendor/capacitor-apk-updater/dist/
+
 # Supabase CLI cache
 supabase/.temp
 

@@ -1,0 +1,192 @@
+{
+  "api": {
+    "name": "ApkUpdaterPlugin",
+    "slug": "apkupdaterplugin",
+    "docs": "",
+    "tags": [],
+    "methods": [
+      {
+        "name": "getAppVersion",
+        "signature": "() => any",
+        "parameters": [],
+        "returns": "any",
+        "tags": [
+          {
+            "name": "since",
+            "text": "0.0.1"
+          }
+        ],
+        "docs": "Get the current app version code and name.",
+        "complexTypes": [
+          "GetAppVersionResult"
+        ],
+        "slug": "getappversion"
+      },
+      {
+        "name": "downloadApk",
+        "signature": "(options: DownloadApkOptions) => any",
+        "parameters": [
+          {
+            "name": "options",
+            "docs": "",
+            "type": "DownloadApkOptions"
+          }
+        ],
+        "returns": "any",
+        "tags": [
+          {
+            "name": "since",
+            "text": "0.0.1"
+          }
+        ],
+        "docs": "Download an APK file from a URL using the system DownloadManager.\r\n\r\nA notification will be shown during the download.",
+        "complexTypes": [
+          "DownloadApkOptions",
+          "DownloadApkResult"
+        ],
+        "slug": "downloadapk"
+      },
+      {
+        "name": "installApk",
+        "signature": "(options: InstallApkOptions) => any",
+        "parameters": [
+          {
+            "name": "options",
+            "docs": "",
+            "type": "InstallApkOptions"
+          }
+        ],
+        "returns": "any",
+        "tags": [
+          {
+            "name": "since",
+            "text": "0.0.1"
+          }
+        ],
+        "docs": "Install a previously downloaded APK file.\r\n\r\nThe user will be prompted by the system to confirm the installation.",
+        "complexTypes": [
+          "InstallApkOptions"
+        ],
+        "slug": "installapk"
+      }
+    ],
+    "properties": []
+  },
+  "interfaces": [
+    {
+      "name": "GetAppVersionResult",
+      "slug": "getappversionresult",
+      "docs": "",
+      "tags": [],
+      "methods": [],
+      "properties": [
+        {
+          "name": "versionCode",
+          "tags": [
+            {
+              "text": "0.0.1",
+              "name": "since"
+            }
+          ],
+          "docs": "The numeric version code of the app (e.g. `10`).",
+          "complexTypes": [],
+          "type": "number"
+        },
+        {
+          "name": "versionName",
+          "tags": [
+            {
+              "text": "0.0.1",
+              "name": "since"
+            }
+          ],
+          "docs": "The version name string of the app (e.g. `\"1.2.0\"`).",
+          "complexTypes": [],
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "DownloadApkOptions",
+      "slug": "downloadapkoptions",
+      "docs": "",
+      "tags": [],
+      "methods": [],
+      "properties": [
+        {
+          "name": "url",
+          "tags": [
+            {
+              "text": "0.0.1",
+              "name": "since"
+            }
+          ],
+          "docs": "The URL to download the APK from.",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "tags": [
+            {
+              "text": "\"Downloading update...\"",
+              "name": "default"
+            },
+            {
+              "text": "0.0.1",
+              "name": "since"
+            }
+          ],
+          "docs": "The title shown in the download notification.",
+          "complexTypes": [],
+          "type": "string | undefined"
+        }
+      ]
+    },
+    {
+      "name": "DownloadApkResult",
+      "slug": "downloadapkresult",
+      "docs": "",
+      "tags": [],
+      "methods": [],
+      "properties": [
+        {
+          "name": "filePath",
+          "tags": [
+            {
+              "text": "0.0.1",
+              "name": "since"
+            }
+          ],
+          "docs": "The local file path of the downloaded APK.",
+          "complexTypes": [],
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "InstallApkOptions",
+      "slug": "installapkoptions",
+      "docs": "",
+      "tags": [],
+      "methods": [],
+      "properties": [
+        {
+          "name": "filePath",
+          "tags": [
+            {
+              "text": "0.0.1",
+              "name": "since"
+            }
+          ],
+          "docs": "The local file path of the APK to install.",
+          "complexTypes": [],
+          "type": "string"
+        }
+      ]
+    }
+  ],
+  "enums": [],
+  "typeAliases": [],
+  "pluginConfigs": []
+}
