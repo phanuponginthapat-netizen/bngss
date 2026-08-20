@@ -23,6 +23,11 @@ export function initNativeShell() {
     import("./fcmPush").then(({ initFcmPush }) => initFcmPush()).catch(() => {});
   } catch (_) {}
 
+  // ตรวจเวอร์ชันใหม่บน APK Android — โชว์ป๊อปอัปให้อัปเดตในแอป (ข้ามถ้าเป็นเวอร์ชันจาก Play Store)
+  try {
+    import("./appUpdater").then(({ checkAndPromptUpdate }) => checkAndPromptUpdate()).catch(() => {});
+  } catch (_) {}
+
   const root = document.documentElement;
   const applyStandaloneClass = () => {
     if (isStandalone()) {
