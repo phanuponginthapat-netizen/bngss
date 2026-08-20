@@ -134,3 +134,17 @@ jobs:
             echo "::error::Failed to upload APK to Supabase Storage (HTTP $http_code)"
             exit 1
           fi
+
+          # อัปเดต version.json ให้แอปที่ติดตั้งแล้วเห็นเวอร์ชันใหม่
+          VC="$(grep -m1 'versionCode' app/build.gradle | tr -dc '0-9')"
+          VN="$(grep -m1 'versionName' app/build.gradle | sed 's/.*"\(.*\)".*/\1/')"
+          cat > /tmp/version.json <<JSON
+          {"versionCode":${VC},"versionName":"${VN}","url":"https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-app-v1.0.0.apk","notes":"อัปเดตไอคอน/ชื่อแอปตาม CMS และแก้บั๊กสิทธิ์กล้อง/GPS"}
+          JSON
+          curl -sS -X POST \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" \
+            -H "x-upsert: true" \
+            --data-binary "@/tmp/version.json" \
+            "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/app-downloads/version.json" && echo "version.json updated -> $VN ($VC)"
