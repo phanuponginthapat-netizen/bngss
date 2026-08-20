@@ -52,8 +52,17 @@ export function getCurrentCoords(opts?: {
   const maxWaitMs = opts?.maxWaitMs ?? 8000;
   const targetAccuracy = opts?.targetAccuracyMeters ?? 30;
 
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
+    // แอปเนทีฟ: ต้องขอสิทธิ์ตำแหน่งของระบบก่อน ไม่งั้น WebView จะอ่าน GPS ไม่ได้
+    try {
+      const { ensureLocationPermission } = await import("@/lib/geolocation");
+      const ok = await ensureLocationPermission();
+      if (!ok) return reject(new Error("ยังไม่ได้อนุญาตให้เข้าถึงตำแหน่ง"));
+    } catch { /* เว็บปกติ */ }
+
     if (!navigator.geolocation) return reject(new Error("เบราว์เซอร์ไม่รองรับ GPS"));
+
+
 
     let best: Coords | null = null;
     let watchId: number | null = null;
