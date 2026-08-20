@@ -123,7 +123,7 @@ const SubjectTabsNav = ({
             </button>
           </PopoverTrigger>
           <PopoverContent
-            className="w-[360px] p-0 z-[1000] shadow-2xl border-border"
+            className="w-[360px] max-w-[92vw] p-0 shadow-2xl border-border"
             align="start"
             sideOffset={6}
           >
