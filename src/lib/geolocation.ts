@@ -1,7 +1,46 @@
 export type Coords = { lat: number; lng: number; accuracy?: number };
 
+function isNative(): boolean {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return !!(window as any).Capacitor?.isNativePlatform?.();
+  } catch {
+    return false;
+  }
+}
+
+/** ขอสิทธิ์ตำแหน่งบนแอปเนทีฟ (เว็บจะขอผ่านเบราว์เซอร์เองตอนเรียกใช้) */
+export async function ensureLocationPermission(): Promise<boolean> {
+  if (!isNative()) return true;
+  try {
+    const { Geolocation } = await import("@capacitor/geolocation");
+    const st = await Geolocation.checkPermissions();
+    if (st.location === "granted" || st.coarseLocation === "granted") return true;
+    const req = await Geolocation.requestPermissions({ permissions: ["location", "coarseLocation"] });
+    return req.location === "granted" || req.coarseLocation === "granted";
+  } catch {
+    return false;
+  }
+}
+
 /** ขอพิกัดปัจจุบันจากอุปกรณ์ (คืน null ถ้าไม่อนุญาต/ไม่รองรับ) */
-export function getCurrentCoords(timeoutMs = 12000): Promise<Coords | null> {
+export async function getCurrentCoords(timeoutMs = 12000): Promise<Coords | null> {
+  // แอปเนทีฟ (APK/iOS) — ใช้ GPS ผ่าน Capacitor เพื่อให้ขอสิทธิ์ระบบได้ถูกต้อง
+  if (isNative()) {
+    try {
+      if (!(await ensureLocationPermission())) return null;
+      const { Geolocation } = await import("@capacitor/geolocation");
+      const pos = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: timeoutMs,
+        maximumAge: 30000,
+      });
+      return { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
+    } catch {
+      return null;
+    }
+  }
+
   return new Promise((resolve) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       resolve(null);
@@ -19,6 +58,7 @@ export function getCurrentCoords(timeoutMs = 12000): Promise<Coords | null> {
     );
   });
 }
+
 
 /** ลิงก์เปิด Google Maps จากพิกัด */
 export function mapsLink(lat: number, lng: number) {
