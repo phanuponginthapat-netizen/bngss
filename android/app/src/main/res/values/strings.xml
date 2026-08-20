@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">BNGSS</string>
-    <string name="title_activity_main">BNGSS</string>
+    <string name="app_name">BNG Smart</string>
+    <string name="title_activity_main">BNG Smart</string>
     <string name="package_name">com.bngss.app</string>
     <string name="custom_url_scheme">com.bngss.app</string>
 </resources>
