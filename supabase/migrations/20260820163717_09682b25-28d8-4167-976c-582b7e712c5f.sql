@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "vault_items_read_all_authenticated" ON public.line_vault_items;
