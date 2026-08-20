@@ -328,7 +328,14 @@ Deno.serve(async (req) => {
         const rawRoom = r.room ? String(r.room).trim() : "";
         const room = (rawRoom && rawRoom.toLowerCase() !== "undefined" && rawRoom.toLowerCase() !== "null") ? rawRoom : null;
 
-        // teacher_id: prefer explicit; else auto-created / matched teacher
+        // teacher: explicit selection wins; otherwise resolve per-row (whole-school timetable)
+        let rowTeacher = teacher;
+        if (!item.personnel_id) {
+          const perRow = await resolveTeacher(r.teacher_name);
+          if (perRow) rowTeacher = perRow;
+        }
+        if (!rowTeacher) { skipped++; teacherWarnings.push(`ข้ามคาบ ${day}/${period}: ไม่ทราบครูผู้สอน`); continue; }
+
         toInsert.push({
           classroom_id: cid,
           subject_id: sid,
@@ -337,8 +344,9 @@ Deno.serve(async (req) => {
           period,
           start_time: r.start_time || null,
           end_time: r.end_time || null,
-          teacher_name: teacherDisplay || (teacher ? `${teacher.prefix || "ครู"}${teacher.first_name}`.trim() : ""),
-          teacher_id: teacher?.id ?? null,
+          teacher_name: displayOf(rowTeacher),
+          teacher_id: rowTeacher.id,
+
           academic_year: yr,
           semester: sem,
           room,
