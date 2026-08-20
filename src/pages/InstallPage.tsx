@@ -40,6 +40,11 @@ export default function InstallPage() {
   }, []);
   const inPreview = isInIframe() || isPreviewHost();
 
+  const [apkManifest, setApkManifest] = useState<AppUpdateManifest | null>(null);
+  useEffect(() => {
+    fetchUpdateManifest().then(setApkManifest).catch(() => {});
+  }, []);
+
   useEffect(() => {
     getCurrentPushStatus().then(setStatus);
     const handler = (e: Event) => {
