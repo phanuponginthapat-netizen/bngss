@@ -18,7 +18,8 @@ concurrency:
 
 env:
   SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-  PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+  # ใช้ secret ถ้ามี ไม่งั้น fallback เป็น backend หลักของโรงเรียน (เหมือน deploy-edge-functions.yml)
+  PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF || 'gwmszzoqqxmejefhayqf' }}
 
 jobs:
   deploy:
