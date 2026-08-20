@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.sync_teacher_assignment_from_schedule() FROM PUBLIC, anon, authenticated;
