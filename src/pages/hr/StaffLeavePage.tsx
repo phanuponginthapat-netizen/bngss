@@ -275,7 +275,7 @@ const StaffLeavePage = () => {
       .update({
         status: "approved",
         approved_at: new Date().toISOString(),
-        approved_by: role || "admin",
+        approved_by: userId || role || "admin",
       } as any)
       .eq("id", id)
       .select();
