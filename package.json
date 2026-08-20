@@ -28,6 +28,7 @@
     "@capacitor/android": "^8.5.0",
     "@capacitor/camera": "^8.2.2",
     "@capacitor/core": "^8.5.0",
+    "@capacitor/geolocation": "^8.2.2",
     "@capacitor/ios": "^8.5.0",
     "@capacitor/push-notifications": "^8.1.2",
     "@capawesome/capacitor-app-update": "^8.0.4",
@@ -173,4 +174,3 @@
     "node": ">=20"
   }
 }
-
