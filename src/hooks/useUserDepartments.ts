@@ -40,12 +40,13 @@ export function useUserDepartments() {
     },
   });
 
-  // ยังไม่มีการกำหนดหัวหน้างาน/ฝ่ายงาน → ให้บุคลากรทุกคน (ครู/ผอ./แอดมิน) เข้าถึงได้ทุกฝ่าย
-  const isPrivileged = role === "admin" || role === "director" || role === "teacher";
-  const departments: SchoolDepartment[] = isPrivileged
+  // ระบบ/ผู้ดูแล = admin/director เท่านั้น
+  const isPrivileged = role === "admin" || role === "director";
+  // ยังไม่มีการกำหนดฝ่ายงาน/หัวหน้างาน → บุคลากรทุกคน (รวมครู) เข้าถึงงานได้ทุกฝ่าย
+  const allDeptAccess = isPrivileged || role === "teacher";
+  const departments: SchoolDepartment[] = allDeptAccess
     ? ["academic", "student_affairs", "general_admin", "finance_personnel", "director_office"]
     : (q.data || []).map((d) => d.department);
-
 
   const headOf = new Set((q.data || []).filter((d) => d.is_head).map((d) => d.department));
   const roleByDept = new Map<SchoolDepartment, DeptRole>(
@@ -55,7 +56,7 @@ export function useUserDepartments() {
   return {
     departments,
     headOf,
-    hasDepartment: (d: SchoolDepartment) => isPrivileged || departments.includes(d),
+    hasDepartment: (d: SchoolDepartment) => allDeptAccess || departments.includes(d),
     isHeadOf: (d: SchoolDepartment) => isPrivileged || headOf.has(d),
     isDeputyOf: (d: SchoolDepartment) => roleByDept.get(d) === "deputy_head",
     isSectionHeadOf: (d: SchoolDepartment) => roleByDept.get(d) === "section_head",
@@ -64,4 +65,5 @@ export function useUserDepartments() {
     isPrivileged,
     loading: roleLoading || q.isLoading,
   };
+
 }
