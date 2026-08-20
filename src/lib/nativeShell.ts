@@ -18,10 +18,25 @@ export function isStandalone(): boolean {
 export function initNativeShell() {
   if (typeof window === "undefined") return;
 
+  // สะพานสิทธิ์เนทีฟ (GPS/กล้อง) — ต้องติดตั้งก่อนหน้าใด ๆ จะเรียกใช้
+  try {
+    import("./nativePermissions").then(({ installNativePermissionBridge }) =>
+      installNativePermissionBridge(),
+    ).catch(() => {});
+  } catch (_) {}
+
+  // ปุ่มย้อนกลับของ Android — ให้ย้อนหน้าในแอป ไม่ใช่ปิดแอปทันที
+  try {
+    import("./nativeBackButton").then(({ installBackButtonHandler }) =>
+      installBackButtonHandler(),
+    ).catch(() => {});
+  } catch (_) {}
+
   // FCM push สำหรับ APK Android — ลงทะเบียน token เนทีฟ (ปลอดภัย: ออกจากระบบ/ไม่ใช่แอป = ข้าม)
   try {
     import("./fcmPush").then(({ initFcmPush }) => initFcmPush()).catch(() => {});
   } catch (_) {}
+
 
   // ตรวจเวอร์ชันใหม่บน APK Android — โชว์ป๊อปอัปให้อัปเดตในแอป (ข้ามถ้าเป็นเวอร์ชันจาก Play Store)
   try {
