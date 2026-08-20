@@ -354,11 +354,23 @@ const SchedulePage = () => {
   }, [activitySubjects]);
 
   // Set default view mode when role loads
+  // ครูทั่วไป และ "ครูที่เป็น admin/ผู้บริหาร" (มีทะเบียนบุคลากรผูกกับบัญชี)
+  // ให้เปิดหน้ามาที่ "ตารางสอนของฉัน" อัตโนมัติ
+  const autoModeApplied = useRef(false);
   useEffect(() => {
+    if (isStudent || isParent) return;
+    if (autoModeApplied.current) return;
     if (isTeacher && !isAdmin) {
+      autoModeApplied.current = true;
+      setViewMode("mySchedule");
+      return;
+    }
+    if (myPersonnel?.id) {
+      autoModeApplied.current = true;
       setViewMode("mySchedule");
     }
-  }, [isTeacher, isAdmin]);
+  }, [isTeacher, isAdmin, isStudent, isParent, myPersonnel]);
+
 
   const filtered = useMemo(() => {
     let rows: any[] = [];
