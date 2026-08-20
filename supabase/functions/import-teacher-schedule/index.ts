@@ -354,10 +354,11 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Merge consecutive same-class/same-subject/adjacent periods → double periods
+      // Merge consecutive same-teacher/same-class/same-subject/adjacent periods → double periods
       const mergeConsecutive = (rows: any[]) => {
         const sorted = [...rows].sort(
           (a, b) =>
+            String(a.teacher_id).localeCompare(String(b.teacher_id)) ||
             String(a.classroom_id).localeCompare(String(b.classroom_id)) ||
             a.day_of_week - b.day_of_week ||
             a.period - b.period,
@@ -366,6 +367,7 @@ Deno.serve(async (req) => {
         for (const row of sorted) {
           const prev = out[out.length - 1];
           const sameSubject = prev &&
+            prev.teacher_id === row.teacher_id &&
             prev.classroom_id === row.classroom_id &&
             prev.day_of_week === row.day_of_week &&
             (prev.subject_id ? prev.subject_id === row.subject_id : prev.subject_name_raw === row.subject_name_raw) &&
@@ -384,39 +386,69 @@ Deno.serve(async (req) => {
       toInsert.length = 0;
       toInsert.push(...mergedInsert);
 
-      const teacherId = teacher?.id ?? null;
-      for (const row of toInsert) {
-        // 1) delete same teacher's row at this slot (update semantics)
-        let mine: any[] = [];
-        if (teacherId) {
-          const q = await admin.from("schedules")
-            .select("id")
-            .match({ classroom_id: row.classroom_id, day_of_week: row.day_of_week, period: row.period, academic_year: row.academic_year, semester: row.semester, teacher_id: teacherId });
-          mine = q.data || [];
-          if (mine.length) { await admin.from("schedules").delete().in("id", mine.map((r: any) => r.id)); updated++; }
-        }
+      const teacherIds = [...new Set(toInsert.map((r) => r.teacher_id).filter(Boolean))];
 
-        // 2) warn if another teacher occupies the slot (but still insert for team teaching)
-        const q2 = await admin.from("schedules")
-          .select("id, teacher_name")
-          .match({ classroom_id: row.classroom_id, day_of_week: row.day_of_week, period: row.period, academic_year: row.academic_year, semester: row.semester });
-        const others = (q2.data || []).filter((o: any) => o.id && !mine.some((m: any) => m.id === o.id));
-        if (others.length) {
-          teacherWarnings.push(`คาบ ${row.day_of_week}/${row.period} มีครูอื่นสอนอยู่: ${others.map((o: any) => o.teacher_name).join(", ")} — บันทึกซ้อน${teacherDisplay ? `สำหรับครู ${teacherDisplay}` : ""}`);
-        }
-
-        const { error } = await admin.from("schedules").insert(row);
-        if (error) { teacherWarnings.push(`insert error: ${error.message}`); skipped++; continue; }
-        if (!mine.length) inserted++;
+      // Replace mode: wipe this year/semester for every teacher found in the file
+      if (replaceExisting && teacherIds.length) {
+        await admin.from("schedules").delete()
+          .in("teacher_id", teacherIds)
+          .eq("academic_year", yr).eq("semester", sem);
       }
 
+      // Load existing slots for the affected classrooms once (avoids 2 queries per row)
+      const classroomIds = [...new Set(toInsert.map((r) => r.classroom_id))];
+      const existing: any[] = [];
+      for (let i = 0; i < classroomIds.length; i += 50) {
+        const { data } = await admin.from("schedules")
+          .select("id, classroom_id, day_of_week, period, teacher_id, teacher_name")
+          .in("classroom_id", classroomIds.slice(i, i + 50))
+          .eq("academic_year", yr).eq("semester", sem);
+        existing.push(...(data || []));
+      }
+      const slotKey = (r: any) => `${r.classroom_id}|${r.day_of_week}|${r.period}`;
+      const bySlot = new Map<string, any[]>();
+      existing.forEach((e) => {
+        const k = slotKey(e);
+        bySlot.set(k, [...(bySlot.get(k) || []), e]);
+      });
+
+      // Update semantics: drop the same teacher's rows at those slots, then bulk insert
+      const dupIds: string[] = [];
+      for (const row of toInsert) {
+        const occupants = bySlot.get(slotKey(row)) || [];
+        const mine = occupants.filter((o) => o.teacher_id === row.teacher_id);
+        if (mine.length) { dupIds.push(...mine.map((m) => m.id)); updated++; }
+        const others = occupants.filter((o) => o.teacher_id !== row.teacher_id);
+        if (others.length) {
+          teacherWarnings.push(`คาบ ${row.day_of_week}/${row.period} มีครูอื่นสอนอยู่: ${[...new Set(others.map((o) => o.teacher_name))].join(", ")} — บันทึกซ้อนสำหรับครู ${row.teacher_name}`);
+        }
+      }
+      for (let i = 0; i < dupIds.length; i += 200) {
+        await admin.from("schedules").delete().in("id", dupIds.slice(i, i + 200));
+      }
+      for (let i = 0; i < toInsert.length; i += 200) {
+        const chunk = toInsert.slice(i, i + 200);
+        const { error } = await admin.from("schedules").insert(chunk);
+        if (error) {
+          // fall back to row-by-row so one bad row doesn't kill the whole batch
+          for (const row of chunk) {
+            const { error: e2 } = await admin.from("schedules").insert(row);
+            if (e2) { teacherWarnings.push(`insert error: ${e2.message}`); skipped++; }
+            else inserted++;
+          }
+        } else inserted += chunk.length;
+      }
+
+      const teacherNames = [...new Set(toInsert.map((r) => r.teacher_name).filter(Boolean))];
       results.push({
-        teacher: teacherDisplay || (teacher ? teacher.first_name : "?"),
+        teacher: teacherDisplay || (teacherNames.length > 1 ? `${teacherNames.length} ครู` : teacherNames[0] || "?"),
         inserted, updated, skipped,
         total: rows.length,
+        teachers: teacherNames,
         warnings: teacherWarnings,
-        auto_detected: !item.personnel_id && !!teacher,
+        auto_detected: !item.personnel_id && teacherNames.length > 0,
       });
+
       allWarnings.push(...teacherWarnings);
     }
 
