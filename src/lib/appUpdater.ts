@@ -22,7 +22,7 @@ export function isNativeAndroid(): boolean {
 
 export async function fetchUpdateManifest(): Promise<AppUpdateManifest | null> {
   try {
-    const res = await fetch(VERSION_URL, { cache: "no-store" });
+    const res = await fetch(`${VERSION_URL}?t=${Date.now()}`, { cache: "no-store" });
     if (!res.ok) return null;
     return (await res.json()) as AppUpdateManifest;
   } catch {
