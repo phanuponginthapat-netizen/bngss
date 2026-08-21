@@ -860,9 +860,9 @@ const FaceKioskPage = () => {
       try {
         // ตรวจจับจากเฟรมที่ผ่าน preprocess (contrast/brightness) — ช่วยกล้องคุณภาพต่ำ
         const video = videoRef.current;
-          // low mode: ข้าม preprocess ทั้งหมด (ใช้ video ตรงๆ) + ปิด liveness/texture เพื่อลด CPU 70%
+          // low mode: ข้าม preprocess ทั้งหมด (ใช้ video ตรงๆ) — texture ปิดใน low เพื่อลด CPU, liveness ยังเปิด (กันรูปถ่าย)
           const pre = perfMode === "low" ? video : (preprocessFrame(video, { maxWidth: perf.maxWidth, equalize: false }) || video);
-          const useLiveness = livenessEnabled && perfMode !== "low";
+          const useLiveness = livenessEnabled;
           const useTexture = textureGate && perfMode !== "low";
         const detections = await getAllDescriptors(pre as any, opts, {
           minFaceSize: MIN_FACE_PX * 0.6,
