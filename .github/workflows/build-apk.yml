@@ -42,7 +42,9 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        # npm install tolerates a recently added dependency and refreshes stale
+        # lock metadata in the runner instead of aborting with npm ci EUSAGE.
+        run: npm install --legacy-peer-deps --no-audit --no-fund
 
       - name: Build web assets
         run: npm run build
