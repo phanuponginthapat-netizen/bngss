@@ -20,15 +20,29 @@ export function isNativeAndroid(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
 }
 
+const STORAGE_BASE =
+  "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object";
+
+/** ทำให้ url ในไฟล์ manifest เป็น absolute เสมอ (กันกรณี CI เขียน path แบบสัมพัทธ์) */
+function normalizeManifest(m: AppUpdateManifest): AppUpdateManifest {
+  let url = (m.url || "").trim();
+  if (!/^https?:\/\//i.test(url)) {
+    const file = m.fileName || url.split("/").pop() || "bngss-app-latest.apk";
+    url = `${STORAGE_BASE}/public/app-downloads/${file}`;
+  }
+  return { ...m, url };
+}
+
 export async function fetchUpdateManifest(): Promise<AppUpdateManifest | null> {
   try {
     const res = await fetch(`${VERSION_URL}?t=${Date.now()}`, { cache: "no-store" });
     if (!res.ok) return null;
-    return (await res.json()) as AppUpdateManifest;
+    return normalizeManifest((await res.json()) as AppUpdateManifest);
   } catch {
     return null;
   }
 }
+
 
 export async function checkForAppUpdate(): Promise<AppUpdateManifest | null> {
   if (!isNativeAndroid()) return null;
