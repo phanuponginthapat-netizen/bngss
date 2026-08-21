@@ -14,6 +14,16 @@ import { installGlobalErrorHandlers } from "./lib/errorLogger";
 import { initNativeShell } from "./lib/nativeShell";
 import { installCrossTabSync } from "./lib/crossTabSync";
 import { installSwBackgroundSync } from "./lib/swBackgroundSync";
+import * as Sentry from "@sentry/react";
+
+if (import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    tracesSampleRate: 0.1,
+    replaysSessionSampleRate: 0.1,
+    replaysOnErrorSampleRate: 1.0,
+  });
+}
 
 installGlobalErrorHandlers();
 initNativeShell();
