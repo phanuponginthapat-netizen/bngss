@@ -330,7 +330,7 @@ const App = () => (
               <Route path="/liff/attendance" element={<LiffAttendancePage />} />
               <Route path="/install" element={<InstallPage />} />
               <Route path="/help" element={<HelpCenterPage />} />
-              <Route path="/preview-gov" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><PreviewGovPage /></ProtectedRoute>} />
+              <Route path="/preview-gov" element={<PreviewGovPage />} />
               
               
               
