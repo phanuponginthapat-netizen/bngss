@@ -83,6 +83,11 @@ export async function applyDynamicBranding() {
           "theme_primary_color",
           "background_color",
           "school_description",
+          "director_name",
+          "director_title",
+          "school_address",
+          "school_phone",
+          "garuda_emblem",
         ]),
       supabase
         .from("schools")
@@ -158,7 +163,7 @@ export async function applyDynamicBranding() {
 
 
 
-    const branding = { name, shortName, logo: logo192, favicon: map.app_favicon_url || logo192, themeColor };
+    const branding = { name, shortName, logo: logo192, favicon: map.app_favicon_url || logo192, themeColor, directorName: map.director_name || "", directorTitle: map.director_title || "ผู้อำนวยการโรงเรียน", schoolAddress: map.school_address || "", schoolPhone: map.school_phone || "", garuda: map.garuda_emblem || logo192 };
     (window as any).__branding = branding;
     applyThemeVars(themeColor);
     try { localStorage.setItem(BRAND_CACHE_KEY, JSON.stringify(branding)); } catch {}

@@ -10,13 +10,16 @@ export interface NRS01Data {
   photos: { outside?: string; inside?: string };
 }
 
+function getBrandingHV(){ try{ const b=(window as any).__branding||JSON.parse(localStorage.getItem("cms_branding_cache")||"{}"); return { name:b.name||"โรงเรียนบ้านหนองเงือก", logo:b.logo||"", director:b.directorName||"นายเกษม ใจกระเสน", directorTitle:b.directorTitle||"ผู้อำนวยการโรงเรียน"}; }catch{ return {name:"โรงเรียนบ้านหนองเงือก",logo:"",director:"นายเกษม ใจกระเสน",directorTitle:"ผู้อำนวยการโรงเรียน"} } }
 export function printHomeVisitNRS01(d: NRS01Data){
+  const br=getBrandingHV(); const school = d.schoolName || br.name;
   const html = `
   <div style="font-family:TH Sarabun New, sans-serif; padding:12pt 18pt; font-size:11pt; line-height:1.35; color:#000">
-    <div style="text-align:center; border-bottom:3px double #000; padding-bottom:6pt; margin-bottom:8pt">
+    <div style="display:flex; align-items:center; gap:10pt; border-bottom:2px solid #000; padding-bottom:6pt; margin-bottom:8pt"><img src="${br.logo}" style="width:42pt; height:42pt; object-fit:contain" onerror="this.style.display='none'"><div><div style="font-weight:bold; font-size:13pt">${school}</div><div style="font-size:8pt; color:#444">${br.directorTitle} ${br.director}</div></div><div style="margin-left:auto; text-align:right; font-size:8pt">ภาคเรียนที่ ${d.term} ปี ${d.year}</div></div>
+    <div style="text-align:center; padding-bottom:6pt; margin-bottom:8pt">
       <div style="font-size:16pt; font-weight:bold">แบบ นร./กสศ.01 ฉบับปรับปรุง มีนาคม 2567</div>
       <div style="font-size:13pt; font-weight:bold">แบบขอรับเงินอุดหนุนนักเรียนยากจน ภาคเรียนที่ ${d.term} ปีการศึกษา ${d.year}</div>
-      <div style="font-size:10pt">${d.schoolName} สังกัด ${d.affiliation}</div>
+      <div style="font-size:10pt">${school} สังกัด ${d.affiliation}</div>
     </div>
 
     <div style="font-weight:bold; background:#f0f0f0; padding:3pt 6pt; border:1px solid #999">1. ข้อมูลนักเรียน</div>
