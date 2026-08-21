@@ -6,7 +6,7 @@ on:
       release:
         description: 'Release build (signed with keystore secrets)'
         type: boolean
-        default: false
+        default: true
   push:
     branches: [main]
     paths:
@@ -95,7 +95,7 @@ jobs:
 
 
       - name: Build release APK (signed)
-        if: github.event.inputs.release == 'true'
+        if: github.event_name == 'push' || github.event.inputs.release == 'true'
         working-directory: android
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -118,7 +118,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload release APK
-        if: github.event.inputs.release == 'true'
+        if: github.event_name == 'push' || github.event.inputs.release == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: bngss-release-apk
@@ -126,7 +126,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish APK to Supabase Storage
-        if: github.event.inputs.release == 'true'
+        if: github.event_name == 'push' || github.event.inputs.release == 'true'
         working-directory: android
         env:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
