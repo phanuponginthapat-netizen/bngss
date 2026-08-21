@@ -29,3 +29,6 @@ supabase/.temp
 *.sln
 *.sw?
 .vercel
+# Extension signing key (private)
+*.pem
+scripts/*.pem
