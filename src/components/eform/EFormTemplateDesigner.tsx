@@ -127,7 +127,7 @@ const EFormTemplateDesigner = ({ initialHtml, initialFields, onChange, headerExt
     editorProps: {
       attributes: {
         class: "eform-editor max-w-none focus:outline-none bg-white text-black",
-        style: `position:relative;font-family:'Sarabun', sans-serif;font-size:16px;line-height:1.4;min-height:252mm;overflow-wrap:break-word;`,
+        style: `position:relative;font-family:'TH Sarabun New','Sarabun', sans-serif;font-size:21px;line-height:1.5;min-height:252mm;overflow-wrap:break-word;`,
       },
       handleKeyDown: (_view, event) => {
         if ((event.key === "Delete" || event.key === "Backspace") && handleEFormTableDelete(editorRef.current, true)) {

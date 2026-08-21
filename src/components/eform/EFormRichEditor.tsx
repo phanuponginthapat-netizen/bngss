@@ -28,9 +28,9 @@ import { buildSchoolAssetOverlayCSS } from "@/lib/eformSchoolAssets";
 import { escapeCurrentTable } from "@/lib/eformInsertHelpers";
 import { fitImageAttrs, paperContentMaxPx } from "@/lib/fitImageAttrs";
 
-// แปลงหน่วยฟอนต์เก่า pt → px เพื่อให้แสดงผลตรงกับ Google Docs (เลขเท่ากันทั้ง toolbar/หน้าเอกสาร)
+// แปลงหน่วยฟอนต์เก่า pt → px (1pt = 1.333px) เพื่อให้ 16pt ราชการ = 21px บนจอตรงกับพิมพ์
 export const normalizeFontSizes = (html: string) =>
-  (html || "").replace(/font-size\s*:\s*(\d+(?:\.\d+)?)pt/gi, (_m, n) => `font-size:${n}px`);
+  (html || "").replace(/font-size\s*:\s*(\d+(?:\.\d+)?)pt/gi, (_m, n) => `font-size:${Math.round(Number(n)*4/3)}px`);
 
 const unwrapEFormDocumentShell = (html: string) => {
   const raw = html || "";

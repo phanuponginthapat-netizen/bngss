@@ -99,7 +99,7 @@ export const EFormTemplateThumbnail = ({
             transformOrigin: "top left",
             fontFamily: template.font_family || 'Sarabun',
             fontSize: `${Math.round((template.font_size_pt || 16) * 4 / 3)}px`,
-            padding: "30mm 20mm 20mm 30mm",
+            padding: "25mm 20mm 20mm 30mm",
             color: "#000",
             lineHeight: 1.5,
             boxSizing: "border-box",
