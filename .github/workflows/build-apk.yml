@@ -131,38 +131,39 @@ jobs:
         env:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          echo "anon key length: ${#SUPABASE_ANON_KEY}"
           if [ -z "$SUPABASE_ANON_KEY" ]; then
             echo "::error::SUPABASE_ANON_KEY secret is empty/missing"
             exit 1
           fi
-          body_file="$(mktemp)"
-          http_code="$(curl -sS -o "$body_file" -w "%{http_code}" \
-            -X POST \
-            -H "apikey: $SUPABASE_ANON_KEY" \
-            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-            -H "Content-Type: application/octet-stream" \
-            -H "x-upsert: true" \
-            --data-binary "@app/build/outputs/apk/release/app-release.apk" \
-            "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/app-downloads/bngss-app-v1.0.0.apk")"
-          echo "Supabase storage upload HTTP $http_code"
-          echo "response: $(cat "$body_file")"
-          if [ "$http_code" != "200" ]; then
-            echo "::error::Failed to upload APK to Supabase Storage (HTTP $http_code)"
-            exit 1
-          fi
+          BASE="https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object"
+          VC="$APP_VERSION_CODE"
+          VN="$APP_VERSION_NAME"
+          FILE="bngss-app-v${VN}-${VC}.apk"
+          upload() {
+            local path="$1" ctype="$2" target="$3"
+            local body_file http_code
+            body_file="$(mktemp)"
+            http_code="$(curl -sS -o "$body_file" -w "%{http_code}" -X POST \
+              -H "apikey: $SUPABASE_ANON_KEY" \
+              -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+              -H "Content-Type: $ctype" \
+              -H "x-upsert: true" \
+              --data-binary "@${path}" \
+              "${BASE}/app-downloads/${target}")"
+            echo "upload ${target} -> HTTP ${http_code}: $(cat "$body_file")"
+            [ "$http_code" = "200" ]
+          }
 
-          # อัปเดต version.json ให้แอปที่ติดตั้งแล้วเห็นเวอร์ชันใหม่
-          VC="$(grep -m1 'versionCode' app/build.gradle | tr -dc '0-9')"
-          VN="$(grep -m1 'versionName' app/build.gradle | sed 's/.*"\(.*\)".*/\1/')"
-          printf '{"versionCode":%s,"versionName":"%s","url":"%s","notes":"%s"}' \
+          # ไฟล์ชื่อใหม่ทุกครั้ง (กันไฟล์ทับกันตอนผู้ใช้ดาวน์โหลด)
+          upload "app/build/outputs/apk/release/app-release.apk" "application/octet-stream" "$FILE" || exit 1
+          # ไฟล์ latest สำหรับลิงก์คงที่
+          upload "app/build/outputs/apk/release/app-release.apk" "application/octet-stream" "bngss-app-latest.apk" || exit 1
+
+          printf '{"versionCode":%s,"versionName":"%s","url":"%s","fileName":"%s","mandatory":true,"releasedAt":"%s","notes":"%s"}' \
             "$VC" "$VN" \
-            "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-app-v1.0.0.apk" \
-            "อัปเดตไอคอน/ชื่อแอปตาม CMS และแก้บั๊กสิทธิ์กล้อง/GPS" > /tmp/version.json
-          curl -sS -X POST \
-            -H "apikey: $SUPABASE_ANON_KEY" \
-            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-            -H "Content-Type: application/json" \
-            -H "x-upsert: true" \
-            --data-binary "@/tmp/version.json" \
-            "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/app-downloads/version.json" && echo "version.json updated -> $VN ($VC)"
+            "${BASE}/public/app-downloads/${FILE}" \
+            "$FILE" \
+            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            "อัปเดตเวอร์ชันใหม่ ${VN} (build ${VC})" > /tmp/version.json
+          upload "/tmp/version.json" "application/json" "version.json" || exit 1
+          echo "version.json updated -> $VN ($VC) / $FILE"
