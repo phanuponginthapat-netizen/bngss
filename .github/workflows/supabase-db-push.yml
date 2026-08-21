@@ -29,7 +29,7 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.45.4
           github_token: ${{ github.token }}
 
       - name: Verify secrets
