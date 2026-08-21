@@ -18,7 +18,7 @@ import { isNativeFcmSupported } from "@/lib/fcmPush";
 
 import { fetchUpdateManifest, type AppUpdateManifest } from "@/lib/appUpdater";
 
-const APK_DOWNLOAD_URL = "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-app-v1.0.0.apk";
+const APK_DOWNLOAD_URL = "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-app-latest.apk";
 
 export default function InstallPage() {
   const navigate = useNavigate();
@@ -142,7 +142,7 @@ export default function InstallPage() {
             )}
             <a
               href={`${apkManifest?.url || APK_DOWNLOAD_URL}?v=${apkManifest?.versionCode ?? Date.now()}`}
-              download
+              download={apkManifest?.fileName || "bngss-app.apk"}
               className="block"
             >
               <Button className="w-full" size="lg">

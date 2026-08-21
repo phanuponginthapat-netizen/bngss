@@ -9,8 +9,12 @@ export interface AppUpdateManifest {
   versionCode: number;
   versionName: string;
   url: string;
+  fileName?: string;
+  mandatory?: boolean;
+  releasedAt?: string;
   notes?: string;
 }
+
 
 export function isNativeAndroid(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
@@ -35,8 +39,10 @@ export async function checkForAppUpdate(): Promise<AppUpdateManifest | null> {
 }
 
 export async function performSideloadUpdate(url: string): Promise<void> {
+  // ใส่ query กัน cache เพื่อให้ได้ไฟล์ล่าสุดเสมอ
+  const fresh = `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`;
   const { filePath } = await ApkUpdater.downloadApk({
-    url,
+    url: fresh,
     title: "กำลังดาวน์โหลดอัปเดต BNGSS...",
   });
   await ApkUpdater.installApk({ filePath });
@@ -58,13 +64,26 @@ export async function checkAndPromptUpdate(): Promise<void> {
     if (await isPlayStoreUpdateAvailable()) return;
     const manifest = await checkForAppUpdate();
     if (!manifest) return;
-    const ok = window.confirm(
-      `มีเวอร์ชันใหม่ (${manifest.versionName}) พร้อมให้อัปเดต\n\n${
-        manifest.notes ?? "อัปเดตฟีเจอร์และแก้ไขล่าสุด"
-      }\n\nต้องการดาวน์โหลดและติดตั้งเลยหรือไม่?`
-    );
-    if (ok) await performSideloadUpdate(manifest.url);
+    const mandatory = manifest.mandatory !== false;
+    const message = `มีเวอร์ชันใหม่ (${manifest.versionName}) พร้อมให้อัปเดต\n\n${
+      manifest.notes ?? "อัปเดตฟีเจอร์และแก้ไขล่าสุด"
+    }\n\n${mandatory ? "จำเป็นต้องอัปเดตก่อนใช้งานต่อ" : "ต้องการดาวน์โหลดและติดตั้งเลยหรือไม่?"}`;
+
+    if (!mandatory) {
+      if (window.confirm(message)) await performSideloadUpdate(manifest.url);
+      return;
+    }
+    // บังคับอัปเดต: วนถามจนกว่าผู้ใช้จะยืนยันติดตั้ง
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      if (window.confirm(message)) {
+        await performSideloadUpdate(manifest.url);
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 1500));
+    }
   } catch {
     // ข้ามอัปเดตเงียบๆ เมื่อเกิดปัญหาเครือข่าย/ระบบ
   }
+
 }
