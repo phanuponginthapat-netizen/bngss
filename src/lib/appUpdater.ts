@@ -9,8 +9,12 @@ export interface AppUpdateManifest {
   versionCode: number;
   versionName: string;
   url: string;
+  fileName?: string;
+  mandatory?: boolean;
+  releasedAt?: string;
   notes?: string;
 }
+
 
 export function isNativeAndroid(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
