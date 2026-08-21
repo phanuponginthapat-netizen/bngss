@@ -69,7 +69,7 @@ const AutoFitText = ({
     });
     ro.observe(el);
     return () => ro.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [children, maxFontSize, minFontSize, maxLines, lineHeight]);
 
   const TagName = Tag as any;

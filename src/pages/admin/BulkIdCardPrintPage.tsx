@@ -44,7 +44,7 @@ const BulkIdCardPrintPage = () => {
 
       // Use photo_url from students table directly, fallback to profiles avatar
       const studentCodes = data.map((s: any) => s.student_code).filter(Boolean);
-      let avatarMap: Record<string, string> = {};
+      const avatarMap: Record<string, string> = {};
       if (studentCodes.length > 0) {
         const { data: profiles } = await supabase
           .from("profiles")

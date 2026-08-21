@@ -96,7 +96,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
       })
     );
 
-    let myReactions = new Map<string, string>();
+    const myReactions = new Map<string, string>();
     if (userId && list.length) {
       const { data: rxs } = await supabase
         .from("wall_post_reactions")

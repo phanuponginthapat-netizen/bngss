@@ -157,7 +157,7 @@ export const JoditDocEditor = forwardRef<JoditDocEditorHandle, Props>(function J
     if (editorRef.current && editorRef.current.value !== wrapped) {
       editorRef.current.value = wrapped;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [wrapped]);
 
   return (

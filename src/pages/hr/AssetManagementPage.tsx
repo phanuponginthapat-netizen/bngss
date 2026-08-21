@@ -175,7 +175,7 @@ const AssetManagementPage = () => {
 
   // Filtered and sorted records
   const filteredRecords = useMemo(() => {
-    let result = records.filter((r: any) => {
+    const result = records.filter((r: any) => {
       const matchSearch = !searchTerm ||
         r.asset_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.asset_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||

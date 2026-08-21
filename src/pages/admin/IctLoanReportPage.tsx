@@ -49,7 +49,7 @@ export default function IctLoanReportPage() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [from, to, borrowerType, statusFilter]);
+  useEffect(() => { load();   }, [from, to, borrowerType, statusFilter]);
 
   const isOverdue = (l: Loan) => l.status === "active" && l.expected_return_at && new Date(l.expected_return_at) < new Date();
   const personOf = (l: Loan) =>

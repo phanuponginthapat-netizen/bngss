@@ -355,7 +355,7 @@ export const ResizableImage = Image.extend({
         const { x, y } = pointerXY(e);
         const dx = x - sX, dy = y - sY;
         const ratio = sH / sW;
-        let w = Math.max(40, sW + dx);
+        const w = Math.max(40, sW + dx);
         let h = Math.max(30, sH + dy);
         if ("shiftKey" in e && (e as MouseEvent).shiftKey) h = Math.round(w * ratio);
         img.style.width = `${w}px`; img.style.height = `${h}px`;

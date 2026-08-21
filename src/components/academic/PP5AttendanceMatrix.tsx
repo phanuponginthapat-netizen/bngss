@@ -148,7 +148,7 @@ const PP5AttendanceMatrix = ({
     if (!dateIso) { toast.error("กรุณากำหนดวันที่ของคาบนี้ก่อน"); return; }
     if (!confirm(`ยืนยันตั้งสถานะ "${status === "present" ? "มาเรียน" : status === "absent" ? "ขาด" : "ลา"}" ให้นักเรียนทุกคนของคาบนี้?`)) return;
     for (const s of students) {
-      // eslint-disable-next-line no-await-in-loop
+       
       await setStatus(s.id, dateIso, status);
     }
     toast.success("บันทึกเรียบร้อย");
@@ -160,7 +160,7 @@ const PP5AttendanceMatrix = ({
     if (valid.length === 0) { toast.error("ยังไม่มีวันที่กำกับคาบ"); return; }
     if (!confirm(`ยืนยันตั้งสถานะ "${status === "present" ? "มาเรียน" : status === "absent" ? "ขาด" : "ลา"}" ทุกคาบให้นักเรียนคนนี้?`)) return;
     for (const d of valid) {
-      // eslint-disable-next-line no-await-in-loop
+       
       await setStatus(studentId, d, status);
     }
     toast.success("บันทึกเรียบร้อย");
@@ -180,7 +180,7 @@ const PP5AttendanceMatrix = ({
     let done = 0;
     for (const s of targets) {
       for (const d of periods) {
-        // eslint-disable-next-line no-await-in-loop
+         
         await setStatus(s.id, d, rangeStatus);
         done++;
       }
@@ -207,7 +207,7 @@ const PP5AttendanceMatrix = ({
     const start = parseDateBE(startDate);
     if (!start) return;
     const result: string[] = [];
-    let cur = new Date(start);
+    const cur = new Date(start);
     let added = 0;
     while (added < total) {
       const day = cur.getUTCDay();

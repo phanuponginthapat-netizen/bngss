@@ -31,7 +31,7 @@ export async function notify(opts: NotifyOptions): Promise<void> {
       throw new Error((data as any).error);
     }
   } catch (e) {
-    // eslint-disable-next-line no-console
+     
     console.warn("[notify] fanout failed", e);
   }
 }
@@ -48,7 +48,7 @@ export async function notifyRole(
     if (ids.length === 0) return;
     await notify({ ...opts, user_ids: ids });
   } catch (e) {
-    // eslint-disable-next-line no-console
+     
     console.warn("[notifyRole] failed", e);
   }
 }

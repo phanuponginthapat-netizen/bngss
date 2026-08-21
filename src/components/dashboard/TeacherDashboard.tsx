@@ -318,7 +318,7 @@ const TeacherDashboard = () => {
 
       // Get enrollment counts per subject
       const subjectIds = [...uniqueSubjects.keys()];
-      let enrollmentMap: Record<string, number> = {};
+      const enrollmentMap: Record<string, number> = {};
       if (subjectIds.length) {
         const { data: enrollments } = await supabase.from("enrollments")
           .select("subject_id").in("subject_id", subjectIds).eq("status", "active");

@@ -75,7 +75,7 @@ const FaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName }: Pr
       await refreshSamples(s.id);
     })();
     return () => stopCamera();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [open, studentCode]);
 
   const startCamera = async (mode: "user" | "environment" = facingMode, deviceId?: string) => {

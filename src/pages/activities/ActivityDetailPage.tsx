@@ -83,7 +83,7 @@ export default function ActivityDetailPage() {
     const entries = participants.map((p: any) => ({ id: p.id, name: personName(p), seed: p.seed }));
     const type = activity?.bracket_type || "single_elim";
     let generated: any[] = [];
-    let groupAssign: { id: string; group: string }[] = [];
+    const groupAssign: { id: string; group: string }[] = [];
     if (type === "round_robin") generated = roundRobin(entries);
     else if (type === "group_knockout") {
       const g = groupStage(entries, activity?.group_count || 2);

@@ -412,7 +412,7 @@ export default function LineVaultPage() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [isAdmin]);
+  useEffect(() => { load();   }, [isAdmin]);
 
   const yearOptions = useMemo(() => {
     const s = new Set<number>();
@@ -1250,7 +1250,7 @@ function VaultSettings() {
     }
   }
 
-  useEffect(() => { checkStatus(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { checkStatus();   }, []);
 
   async function loadQuota() {
     setLoadingQuota(true);
@@ -1265,7 +1265,7 @@ function VaultSettings() {
     }
   }
 
-  useEffect(() => { loadQuota(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { loadQuota();   }, []);
 
   async function saveToken() {
     const value = tokenDraft.trim();
@@ -1545,7 +1545,7 @@ function StorageBackfillCard({ onDone }: { onDone: () => void }) {
     }
   };
 
-  useEffect(() => { check(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { check();   }, []);
 
   return (
     <Card>

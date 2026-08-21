@@ -81,7 +81,7 @@ const FaceRegisterTab = () => {
 
   const detectRobust = async (img: HTMLImageElement): Promise<Float32Array | null> => {
     // 1) Standard
-    let desc = await getDescriptorFromImage(img);
+    const desc = await getDescriptorFromImage(img);
     if (desc) return desc;
     // 2) HQ: larger input + lower threshold — คำนวณ 512-D ArcFace จาก landmarks เสมอ (ไม่ใช้ 128-D)
     for (const size of [512, 608] as const) {

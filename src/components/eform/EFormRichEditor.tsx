@@ -788,7 +788,7 @@ const EFormRichEditor = ({ html, onChange, fontFamily = 'Sarabun', fontSizePt: i
     if (incoming !== editor.getHTML()) {
       editor.commands.setContent(incoming || "<p></p>", { emitUpdate: false });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [html, editor]);
 
 

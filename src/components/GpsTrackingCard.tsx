@@ -62,7 +62,7 @@ const GpsTrackingCard = () => {
       accuracyCircleRef.current = null;
     };
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [geo.configured, geo.lat, geo.lng, geo.radius]);
 
   // Watch position
@@ -116,7 +116,7 @@ const GpsTrackingCard = () => {
       { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }
     );
     return () => { navigator.geolocation.clearWatch(id); setWatching(false); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [geo.configured, geo.lat, geo.lng]);
 
 

@@ -86,7 +86,7 @@ export async function notifyStudentEvent(opts: StudentEventOpts): Promise<void> 
       url: opts.url,
     });
   } catch (e) {
-    // eslint-disable-next-line no-console
+     
     console.warn("[notifyStudentEvent] failed", e);
   }
 }

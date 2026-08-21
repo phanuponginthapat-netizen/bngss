@@ -83,7 +83,7 @@ export default function OrgChartPage() {
       if (error) throw error;
       // load position_title + avatar via SECURITY DEFINER RPC so every role sees photos
       const ids = (data || []).map((p: any) => p.user_id).filter(Boolean);
-      let profMap: Record<string, ProfileLite> = {};
+      const profMap: Record<string, ProfileLite> = {};
       if (ids.length) {
         const { data: profs } = await (supabase.rpc as any)("get_personnel_avatars", {
           _user_ids: ids,
