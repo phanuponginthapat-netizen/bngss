@@ -239,6 +239,7 @@ const AiImportPage = lazy(() => import("./pages/admin/AiImportPage"));
 
 const BulkOperationsPage = lazy(() => import("./pages/admin/BulkOperationsPage"));
 const DepartmentManagementPage = lazy(() => import("./pages/admin/DepartmentManagementPage"));
+const PreviewGovPage = lazy(() => import("./pages/PreviewGovPage"));
 const HomeworkPage = lazy(() => import("./pages/HomeworkPage"));
 const PadletListPage = lazy(() => import("./pages/padlet/PadletListPage"));
 const PadletBoardPage = lazy(() => import("./pages/padlet/PadletBoardPage"));
@@ -329,6 +330,7 @@ const App = () => (
               <Route path="/liff/attendance" element={<LiffAttendancePage />} />
               <Route path="/install" element={<InstallPage />} />
               <Route path="/help" element={<HelpCenterPage />} />
+              <Route path="/preview-gov" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><PreviewGovPage /></ProtectedRoute>} />
               
               
               
