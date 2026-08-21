@@ -139,6 +139,12 @@ export const SCORE_ALIASES: AliasMap = {
   score: ["คะแนน", "คะแนนที่ได้", "คะแนนรวม", "score", "totalscore", "points"],
   full_score: ["คะแนนเต็ม", "เต็ม", "fullscore", "maxscore"],
   grade: ["เกรด", "ผลการเรียน", "grade", "gradepoint", "gpa"],
+  subject_code: ["รหัสวิชา","รหัสวิชาเรียน","วิชา","รหัส","subjectcode","subject_code","code_subject"],
+  subject_name: ["ชื่อวิชา","วิชา","subjectname","subject_name"],
+  credit: ["หน่วยกิต","หนก","หน่วย","credit","credits","unit"],
+  term: ["ภาคเรียน","เทอม","ภาค","term","semester"],
+  year: ["ปีการศึกษา","ปี","ปีการศึกษา พ.ศ.","year","academic_year"],
+  school_code: ["รหัสโรงเรียน","รหัสสถานศึกษา","schoolcode","school_code"],
 };
 
 /** Precompute normalized → canonical lookup. */
@@ -203,4 +209,19 @@ export function mapRowKeys<T = any>(
     if (out[canonical] == null || out[canonical] === "") out[canonical] = v;
   }
   return out;
+}
+
+// Decode CSV buffer รองรับ TIS-620 (SchoolMIS เก่า) + UTF-8
+export function decodeCsvBuffer(buf: ArrayBuffer): string {
+  try {
+    const u8 = new Uint8Array(buf);
+    // UTF-8 BOM
+    if (u8[0]===0xEF && u8[1]===0xBB && u8[2]===0xBF) return new TextDecoder("utf-8").decode(u8.slice(3));
+    const text = new TextDecoder("utf-8", {fatal:true}).decode(u8);
+    // ถ้า decode แล้วมี � (replacement) เยอะ → ลอง TIS-620
+    if ((text.match(/�/g)||[]).length > 3) throw new Error("tis");
+    return text;
+  } catch {
+    try { return new TextDecoder("tis-620").decode(new Uint8Array(buf)); } catch { return new TextDecoder().decode(new Uint8Array(buf)); }
+  }
 }
