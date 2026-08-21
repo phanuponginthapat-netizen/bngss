@@ -17,7 +17,7 @@ on:
       - '.github/workflows/build-apk.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-apk:
@@ -167,3 +167,21 @@ jobs:
             "อัปเดตเวอร์ชันใหม่ ${VN} (build ${VC})" > /tmp/version.json
           upload "/tmp/version.json" "application/json" "version.json" || exit 1
           echo "version.json updated -> $VN ($VC) / $FILE"
+
+      - name: Prepare GitHub Release asset
+        if: github.event_name == 'push' || github.event.inputs.release == 'true'
+        working-directory: android
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk "/tmp/bngss-app-v${APP_VERSION_NAME}-${APP_VERSION_CODE}.apk"
+          ls -lh "/tmp/bngss-app-v${APP_VERSION_NAME}-${APP_VERSION_CODE}.apk"
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' || github.event.inputs.release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.APP_VERSION_NAME }}-${{ env.APP_VERSION_CODE }}
+          name: BNGSS v${{ env.APP_VERSION_NAME }} (${{ env.APP_VERSION_CODE }})
+          generate_release_notes: false
+          body: "อัปเดตอัตโนมัติจาก push ${{ github.sha }} — APK: bngss-app-v${{ env.APP_VERSION_NAME }}-${{ env.APP_VERSION_CODE }}.apk"
+          files: /tmp/bngss-app-v${{ env.APP_VERSION_NAME }}-${{ env.APP_VERSION_CODE }}.apk
+          fail_on_unmatched_files: true
