@@ -860,7 +860,8 @@ const FaceKioskPage = () => {
       try {
         // ตรวจจับจากเฟรมที่ผ่าน preprocess (contrast/brightness) — ช่วยกล้องคุณภาพต่ำ
         const video = videoRef.current;
-        const pre = preprocessFrame(video, { maxWidth: perf.maxWidth }) || video;
+          // ปิด histogram equalization บน kiosk (หนัก CPU) — ใช้แค่ contrast/brightness เบาๆ
+          const pre = preprocessFrame(video, { maxWidth: perf.maxWidth, equalize: false }) || video;
         const detections = await getAllDescriptors(pre as any, opts, {
           minFaceSize: MIN_FACE_PX * 0.6,
           cacheTtlMs: 220,

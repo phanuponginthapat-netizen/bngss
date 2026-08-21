@@ -217,10 +217,17 @@ async function speakRemote(text: string): Promise<boolean> {
 }
 
 
+const _lastSpoken = new Map<string, number>();
 /** Speak text in Thai — ใช้ไฟล์เสียง TTS ก่อนเสมอ เพราะ Chromium/Linux อาจรายงาน voice แต่ไม่มีเสียงออก */
 export function speakText(text: string) {
   const clean = String(text || "").trim();
   if (!clean) return;
+  // กันพูดประโยคเดิมซ้ำถี่ๆ (เช่น สแกนซ้ำ) — ลดกระตุก
+  const last = _lastSpoken.get(clean) || 0;
+  if (Date.now() - last < 2000) return;
+  _lastSpoken.set(clean, Date.now());
+  // จำกัดคิวไม่ให้ยาวเกิน 2 ประโยค
+  if (_speechPending >= 2) return;
   _speechPending += 1;
   _speechChain = _speechChain
     .then(() => speakRemote(clean))
@@ -228,7 +235,7 @@ export function speakText(text: string) {
     .catch(() => { /* noop */ })
     .finally(() => {
       _speechPending = Math.max(0, _speechPending - 1);
-      if (_speechPending === 0) _speechQuietUntil = Date.now() + SPEECH_TAIL_MS;
+      if (_speechPending === 0) _speechQuietUntil = Date.now() + 250;
     });
 }
 
