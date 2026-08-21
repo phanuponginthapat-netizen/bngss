@@ -1,0 +1,78 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      export:
+        description: 'Export IPA (needs Apple signing secrets)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+
+      - name: Build web assets
+        run: npm run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+
+      - name: Sync Capacitor iOS
+        run: npx cap sync ios
+
+      - name: Install CocoaPods
+        working-directory: ios/App
+        run: pod install
+
+      - name: Build (no signing) — check only
+        working-directory: ios/App
+        run: |
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -30
+
+      - name: Archive & Export IPA (signed)
+        if: inputs.export == true
+        working-directory: ios/App
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE_BASE64" ]; then echo "::error::APPLE_CERTIFICATE_BASE64 not set"; exit 1; fi
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 -d > /tmp/cert.p12
+          echo "$APPLE_PROVISIONING_PROFILE_BASE64" | base64 -d > /tmp/profile.mobileprovision
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+          security create-keychain -p temp temp.keychain
+          security import /tmp/cert.p12 -k temp.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security list-keychains -s temp.keychain
+          security set-key-partition-list -S apple-tool:,apple: -s -k temp temp.keychain
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release archive -archivePath build/App.xcarchive CODE_SIGN_STYLE=manual PROVISIONING_PROFILE_SPECIFIER="BNGSS" DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
+          xcodebuild -exportArchive -archivePath build/App.xcarchive -exportOptionsPlist ExportOptions.plist -exportPath build/ipa
+
+      - uses: actions/upload-artifact@v4
+        if: inputs.export == true
+        with:
+          name: bngss-ipa
+          path: ios/App/build/ipa/*.ipa
+          if-no-files-found: error
+
+      - name: Instructions
+        run: |
+          echo "iOS project พร้อมแล้วที่ ios/App"
+          echo "เปิดด้วย: npx cap open ios"
+          echo "ต้องมี: Apple Developer \$99/ปี + APNs .p8 + GoogleService-Info.plist วางที่ ios/App/App/"
+          echo "AAB พร้อมที่: android/app/build/outputs/bundle/release/app-release.aab"

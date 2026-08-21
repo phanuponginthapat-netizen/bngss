@@ -108,7 +108,7 @@ jobs:
             exit 1
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > app/release.keystore
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleRelease bundleRelease --no-daemon
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
@@ -124,6 +124,14 @@ jobs:
           name: bngss-release-apk
           path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+
+      - name: Upload release AAB (Play Store)
+        if: github.event_name == 'push' || github.event.inputs.release == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bngss-release-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: warn
 
       - name: Publish APK to Supabase Storage
         if: github.event_name == 'push' || github.event.inputs.release == 'true'
