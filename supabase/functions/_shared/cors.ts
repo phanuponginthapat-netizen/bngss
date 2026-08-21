@@ -1,9 +1,35 @@
 // Shared CORS header presets for all edge functions.
 // Import the one you need instead of re-declaring `corsHeaders` locally.
 
+const ALLOWED_ORIGINS = [
+  "https://bngss.vercel.app",
+  "https://bngss.lovable.app",
+  "http://localhost:8080",
+  "http://localhost:3000",
+];
+
+function resolveOrigin(reqOrigin: string | null): string {
+  if (!reqOrigin) return ALLOWED_ORIGINS[0];
+  if (ALLOWED_ORIGINS.includes(reqOrigin)) return reqOrigin;
+  // allow lovable preview subdomains
+  if (reqOrigin.endsWith(".lovable.app") || reqOrigin.endsWith(".lovableproject.com")) return reqOrigin;
+  return ALLOWED_ORIGINS[0];
+}
+
+export function getCorsHeaders(req?: Request, extra?: string[]) {
+  const origin = resolveOrigin(req?.headers.get("origin") ?? null);
+  const headers = extra ? [...extra] : [];
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Headers": ["authorization", "x-client-info", "apikey", "content-type", ...headers].join(", "),
+    "Vary": "Origin",
+  };
+}
+
 export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGINS[0],
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Vary": "Origin",
 };
 
 /** For cron/scheduled endpoints that accept an `x-cron-secret` header. */
