@@ -442,36 +442,37 @@ export default function AiChatBubble() {
   // Fallback: ใช้ server-side TTS ฟรี เมื่อเครื่องไม่มีเสียงไทย
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const speakViaServer = (text: string): Promise<"ok" | "fallback"> =>
-    new Promise<"ok" | "fallback">(async (resolve) => {
-      try {
-        const { data, error } = await supabase.functions.invoke("tts-th", {
-          body: { text },
-        });
-        if (error || !data) return resolve("fallback");
-        // ถ้า server ส่ง JSON {fallback:true} กลับมา (เครดิตหมด/อัปสตรีมพัง) → ใช้ browser TTS
-        if (!(data instanceof Blob) && (data as any)?.fallback) return resolve("fallback");
-        const blob = data instanceof Blob
-          ? new Blob([data], { type: "audio/mpeg" })
-          : new Blob([data as ArrayBuffer], { type: "audio/mpeg" });
-        if (blob.size < 100) return resolve("fallback");
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        // Google TTS ไทยพูดช้า/ยืดยาน → เร่งความเร็ว + คงระดับเสียงไว้ให้เป็นธรรมชาติ
-        audio.playbackRate = 1.35;
-        (audio as any).preservesPitch = true;
-        (audio as any).mozPreservesPitch = true;
-        (audio as any).webkitPreservesPitch = true;
-        remoteAudioRef.current = audio;
-        audio.onended = () => { URL.revokeObjectURL(url); resolve("ok"); };
-        audio.onerror = () => { URL.revokeObjectURL(url); resolve("fallback"); };
-        await audio.play().catch(() => resolve("fallback"));
-      } catch {
-        resolve("fallback");
-      }
+    new Promise<"ok" | "fallback">((resolve) => {
+      (async () => {
+        try {
+          const { data, error } = await supabase.functions.invoke("tts-th", {
+            body: { text },
+          });
+          if (error || !data) return resolve("fallback");
+          if (!(data instanceof Blob) && (data as any)?.fallback) return resolve("fallback");
+          const blob = data instanceof Blob
+            ? new Blob([data], { type: "audio/mpeg" })
+            : new Blob([data as ArrayBuffer], { type: "audio/mpeg" });
+          if (blob.size < 100) return resolve("fallback");
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          audio.playbackRate = 1.35;
+          (audio as any).preservesPitch = true;
+          (audio as any).mozPreservesPitch = true;
+          (audio as any).webkitPreservesPitch = true;
+          remoteAudioRef.current = audio;
+          audio.onended = () => { URL.revokeObjectURL(url); resolve("ok"); };
+          audio.onerror = () => { URL.revokeObjectURL(url); resolve("fallback"); };
+          await audio.play().catch(() => resolve("fallback"));
+        } catch {
+          resolve("fallback");
+        }
+      })();
     });
 
   const speakUtterance = (seg: { text: string; lang: "th-TH" | "en-US" }, thVoice: SpeechSynthesisVoice | null, enVoice: SpeechSynthesisVoice | null) =>
-    new Promise<void>(async (resolve) => {
+    new Promise<void>((resolve) => {
+      (async () => {
       // ไม่มีเสียงไทยในเครื่อง → ลอง server TTS ก่อน, ถ้าไม่ได้ค่อย fallback ไป browser
       if (seg.lang === "th-TH" && !thVoice) {
         const r = await speakViaServer(seg.text);
@@ -498,6 +499,7 @@ export default function AiChatBubble() {
       } catch {
         resolve();
       }
+      })();
     });
 
 
