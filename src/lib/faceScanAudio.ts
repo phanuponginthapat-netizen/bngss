@@ -177,6 +177,9 @@ async function playViaAudioContext(url: string): Promise<boolean> {
 /** เล่นเสียงพูดผ่าน server TTS (ใช้ได้บน Linux kiosk ที่ไม่มี voice ในเครื่อง) */
 async function speakRemote(text: string): Promise<boolean> {
   try {
+    // เครื่องสเปกต่ำ: ข้าม server TTS ไปใช้ local voice เลย (ลดหน่วงเครือข่าย)
+    const lowEnd = (navigator.hardwareConcurrency || 4) <= 4 || ((navigator as any).deviceMemory || 4) <= 4;
+    if (lowEnd && hasLocalVoice()) return false;
     const sequence = ++_speechSequence;
     const url = await fetchTtsUrl(text);
     if (!url) return false;

@@ -860,8 +860,10 @@ const FaceKioskPage = () => {
       try {
         // ตรวจจับจากเฟรมที่ผ่าน preprocess (contrast/brightness) — ช่วยกล้องคุณภาพต่ำ
         const video = videoRef.current;
-          // ปิด histogram equalization บน kiosk (หนัก CPU) — ใช้แค่ contrast/brightness เบาๆ
-          const pre = preprocessFrame(video, { maxWidth: perf.maxWidth, equalize: false }) || video;
+          // low mode: ข้าม preprocess ทั้งหมด (ใช้ video ตรงๆ) + ปิด liveness/texture เพื่อลด CPU 70%
+          const pre = perfMode === "low" ? video : (preprocessFrame(video, { maxWidth: perf.maxWidth, equalize: false }) || video);
+          const useLiveness = livenessEnabled && perfMode !== "low";
+          const useTexture = textureGate && perfMode !== "low";
         const detections = await getAllDescriptors(pre as any, opts, {
           minFaceSize: MIN_FACE_PX * 0.6,
           cacheTtlMs: 220,
@@ -951,13 +953,13 @@ const FaceKioskPage = () => {
                   // (กันรูปถ่าย/จอภาพ/คนหน้าคล้ายที่ mid-confidence ผ่านแค่การแตะปุ่ม)
                   if (pendingManualRef.current) return; // กำลังรอคนกดยืนยันอยู่แล้ว
                   let live = true;
-                  if (livenessEnabled) {
+                  if (useLiveness) {
                     let track = livenessRef.current.get(found.studentId);
                     if (!track) { track = newLivenessTrack(); livenessRef.current.set(found.studentId, track); }
                     live = recordLivenessSample(track, makeLivenessSample(tNow, det.landmarks, box)).live;
                   }
                   if (!live) return; // ยังไม่มีหลักฐานใบหน้าสด (รูปถ่าย/จอภาพนิ่ง) — รอ
-                  if (textureGate && !isStaffHit) {
+                  if (useTexture && !isStaffHit) {
                     const regSrc = await getRegisteredFaceImage(found.studentId, found.avatar || null);
                     const tv = await verifyScanTexture({
                       studentId: found.studentId,
@@ -1016,14 +1018,14 @@ const FaceKioskPage = () => {
                 const confirmed = (confirmRef.current.get(found.studentId)?.count ?? 0) >= CONFIRM_FRAMES;
                 // ใบหน้าสด (anti-spoof): สะสมหลักฐาน blink/ขยับศีรษะ — รูปถ่าย/จอภาพที่นิ่งจะไม่มีหลักฐาน
                 let live = true;
-                if (livenessEnabled) {
+                if (useLiveness) {
                   let track = livenessRef.current.get(found.studentId);
                   if (!track) { track = newLivenessTrack(); livenessRef.current.set(found.studentId, track); }
                   live = recordLivenessSample(track, makeLivenessSample(tNow, det.landmarks, box)).live;
                 }
                 if (confirmed && live) {
                   // Texture verification — เทียบพื้นผิวใบหน้าสดกับภาพลงทะเบียน กันคนหน้าคล้าย/รูปถ่าย
-                  if (textureGate && !isStaffHit) {
+                  if (useTexture && !isStaffHit) {
                     const regSrc = await getRegisteredFaceImage(found.studentId, found.avatar || null);
                     const tv = await verifyScanTexture({
                       studentId: found.studentId,
