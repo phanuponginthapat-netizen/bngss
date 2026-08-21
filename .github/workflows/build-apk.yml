@@ -138,9 +138,10 @@ jobs:
           # อัปเดต version.json ให้แอปที่ติดตั้งแล้วเห็นเวอร์ชันใหม่
           VC="$(grep -m1 'versionCode' app/build.gradle | tr -dc '0-9')"
           VN="$(grep -m1 'versionName' app/build.gradle | sed 's/.*"\(.*\)".*/\1/')"
-          cat > /tmp/version.json <<JSON
-          {"versionCode":${VC},"versionName":"${VN}","url":"https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-app-v1.0.0.apk","notes":"อัปเดตไอคอน/ชื่อแอปตาม CMS และแก้บั๊กสิทธิ์กล้อง/GPS"}
-          JSON
+          printf '{"versionCode":%s,"versionName":"%s","url":"%s","notes":"%s"}' \
+            "$VC" "$VN" \
+            "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-app-v1.0.0.apk" \
+            "อัปเดตไอคอน/ชื่อแอปตาม CMS และแก้บั๊กสิทธิ์กล้อง/GPS" > /tmp/version.json
           curl -sS -X POST \
             -H "apikey: $SUPABASE_ANON_KEY" \
             -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
