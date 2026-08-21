@@ -25,6 +25,7 @@ import { BE_OFFSET } from "@/lib/dateBE";
 import { notifyStudentEvent } from "@/lib/notifyStudentEvent";
 import { saveErrorMessage, safeInt } from "@/lib/saveError";
 import { swal } from "@/lib/swal";
+import { SDQ_QUESTIONS, scoreSDQ } from "@/lib/sdq";
 
 const SDQPage = () => {
   const { lang } = useLanguage();
@@ -47,11 +48,13 @@ const SDQPage = () => {
   const setFilterClassroom = studentData.setClassroomFilter;
   const [filterType, setFilterType] = useState("all");
 
-  // Form
+  // Form — 25 ข้อ สพฐ. (กรมสุขภาพจิต)
   const [formClassroom, setFormClassroom] = useState("");
   const [studentId, setStudentId] = useState("");
   const [assessor, setAssessor] = useState("");
   const [assessmentType, setAssessmentType] = useState("teacher");
+  const [answers, setAnswers] = useState<Record<number, 0|1|2>>({});
+  // keep old 5-field for display compatibility
   const [emotional, setEmotional] = useState("0");
   const [conduct, setConduct] = useState("0");
   const [hyper, setHyper] = useState("0");
@@ -202,7 +205,7 @@ const SDQPage = () => {
 
   const resetForm = () => {
     setStudentId(""); setFormClassroom(""); setEmotional("0"); setConduct("0");
-    setHyper("0"); setPeer("0"); setProsocial("0"); setAssessmentType("teacher");
+    setHyper("0"); setPeer("0"); setProsocial("0"); setAssessmentType("teacher"); setAnswers({});
   };
 
   const [savingAdd, setSavingAdd] = useState(false);
@@ -211,14 +214,20 @@ const SDQPage = () => {
     if (!assessor.trim()) { toast.error("กรุณาระบุผู้ประเมิน"); return; }
     if (savingAdd) return;
     setSavingAdd(true);
-    const total = [emotional, conduct, hyper, peer].reduce((a, b) => a + safeInt(b, 0), 0);
+    // ใช้ 25 ข้อ สพฐ. เป็นหลัก ถ้ายังตอบไม่ครบให้ fallback 5 ช่องเดิม
+    let em = safeInt(emotional,0), co=safeInt(conduct,0), hy=safeInt(hyper,0), pe=safeInt(peer,0), pr=safeInt(prosocial,0);
+    if (Object.keys(answers).length >= 15) {
+      const s = scoreSDQ(answers as any);
+      em=s.emotional; co=s.conduct; hy=s.hyper; pe=s.peer; pr=s.prosocial;
+    }
+    const total = em+co+hy+pe;
     const { data: inserted, error } = await supabase.from("sdq_records").insert({
       student_id: studentId,
-      emotional_score: safeInt(emotional, 0),
-      conduct_score: safeInt(conduct, 0),
-      hyperactivity_score: safeInt(hyper, 0),
-      peer_score: safeInt(peer, 0),
-      prosocial_score: safeInt(prosocial, 0),
+      emotional_score: em,
+      conduct_score: co,
+      hyperactivity_score: hy,
+      peer_score: pe,
+      prosocial_score: pr,
       total_difficulty: total,
       assessment_by: assessor,
       assessment_type: assessmentType,
@@ -319,15 +328,25 @@ const SDQPage = () => {
                         </SelectContent></Select></div>
                   </div>
                 </CardContent></Card>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div><Label>อารมณ์ (0-10)</Label><Input type="number" min="0" max="10" value={emotional} onChange={(e) => setEmotional(e.target.value)} /></div>
-                  <div><Label>ความประพฤติ (0-10)</Label><Input type="number" min="0" max="10" value={conduct} onChange={(e) => setConduct(e.target.value)} /></div>
-                  <div><Label>สมาธิ/ไฮเปอร์ (0-10)</Label><Input type="number" min="0" max="10" value={hyper} onChange={(e) => setHyper(e.target.value)} /></div>
-                  <div><Label>เพื่อน (0-10)</Label><Input type="number" min="0" max="10" value={peer} onChange={(e) => setPeer(e.target.value)} /></div>
-                  <div><Label>สังคม (0-10)</Label><Input type="number" min="0" max="10" value={prosocial} onChange={(e) => setProsocial(e.target.value)} /></div>
-                  <div className="flex items-end"><Badge variant={getLevel([emotional, conduct, hyper, peer].reduce((a, b) => a + parseInt(b || "0"), 0)).variant} className="text-lg px-4 py-2">
-                    รวม: {[emotional, conduct, hyper, peer].reduce((a, b) => a + parseInt(b || "0"), 0)}
-                  </Badge></div>
+                <div className="space-y-2 max-h-[45vh] overflow-auto pr-1 border rounded p-2 bg-muted/20">
+                  <p className="text-xs text-muted-foreground">แบบประเมิน SDQ 25 ข้อ สพฐ. (กรมสุขภาพจิต) — 0=ไม่จริง 1=ค่อนข้างจริง 2=จริงแน่นอน</p>
+                  {SDQ_QUESTIONS.map(q=>(
+                    <div key={q.id} className="flex items-center justify-between gap-2 py-1 border-b last:border-0">
+                      <span className="text-sm flex-1">{q.id}. {q.text}</span>
+                      <div className="flex gap-1">
+                        {[0,1,2].map(v=>(
+                          <button key={v} type="button" onClick={()=> setAnswers(a=>({...a, [q.id]:v as 0|1|2}))}
+                            className={`w-8 h-8 rounded text-xs font-bold border ${answers[q.id]===v?"bg-primary text-primary-foreground":"bg-white"}`}>{v}</button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-sm">ตอบแล้ว {Object.keys(answers).length}/25</span>
+                    <Badge variant={getLevel(Object.keys(answers).length>=15? scoreSDQ(answers as any).total : [emotional, conduct, hyper, peer].reduce((a,b)=>a+parseInt(b||"0"),0)).variant} className="text-sm">
+                      รวม: {Object.keys(answers).length>=15? scoreSDQ(answers as any).total : [emotional, conduct, hyper, peer].reduce((a,b)=>a+parseInt(b||"0"),0)}
+                    </Badge>
+                  </div>
                 </div>
                 <Button onClick={handleAdd} className="w-full" disabled={savingAdd}>{savingAdd ? "กำลังบันทึก..." : "บันทึก"}</Button>
               </div>
