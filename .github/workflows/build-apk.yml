@@ -71,6 +71,20 @@ jobs:
             echo "::warning::GOOGLE_SERVICES_JSON_BASE64 not set — FCM push disabled in this build"
           fi
 
+      - name: Bump app version (unique per build)
+        working-directory: android
+        run: |
+          BASE_VC="$(grep -m1 'versionCode' app/build.gradle | tr -dc '0-9')"
+          BASE_VN="$(grep -m1 'versionName' app/build.gradle | sed 's/.*"\(.*\)".*/\1/')"
+          MAJOR_MINOR="$(echo "$BASE_VN" | cut -d. -f1,2)"
+          NEW_VC=$(( BASE_VC + GITHUB_RUN_NUMBER ))
+          NEW_VN="${MAJOR_MINOR}.${NEW_VC}"
+          sed -i "s/^versionCode .*/versionCode ${NEW_VC}/" app/build.gradle
+          sed -i "s/^versionName .*/versionName \"${NEW_VN}\"/" app/build.gradle
+          grep -E 'versionCode|versionName' app/build.gradle
+          echo "APP_VERSION_CODE=${NEW_VC}" >> "$GITHUB_ENV"
+          echo "APP_VERSION_NAME=${NEW_VN}" >> "$GITHUB_ENV"
+
       - name: Make gradlew executable
         working-directory: android
         run: chmod +x gradlew
@@ -78,6 +92,7 @@ jobs:
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
+
 
       - name: Build release APK (signed)
         if: github.event.inputs.release == 'true'
