@@ -2,6 +2,7 @@
 // Hard limit 200 chars/request → chunk ที่ ~180 chars แบบ sentence-aware
 // รองรับทั้ง POST (JSON) และ GET ?text=... (ให้ <audio src> ใช้ตรงๆ บน Chromium/Linux)
 import { buildCorsHeaders } from "../_shared/cors.ts";
+import { rateLimit } from "../_shared/rateLimit.ts";
 
 const corsHeaders = buildCorsHeaders([], "GET, POST, OPTIONS");
 
@@ -66,6 +67,8 @@ async function fetchChunk(text: string, lang: string): Promise<Uint8Array | null
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const rl = await rateLimit(req, { name: "tts-th", limit: 30, windowMs: 60_000 });
+  if (rl.blocked) return rl.response!;
   const url = new URL(req.url);
   const isGet = req.method === "GET";
   try {

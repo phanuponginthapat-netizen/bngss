@@ -25,25 +25,21 @@ export async function ensureTfBackend(onProgress?: (msg: string) => void): Promi
   backendPromise = (async () => {
     const tf: any = (faceapi as any).tf;
     if (!tf) return "unknown";
-    // ตั้ง path ของ WASM ก่อนเสมอ — เพราะ tf.ready() อาจ init backend wasm เองตั้งแต่ครั้งแรก
     try {
       const v = tf.version_wasm || tf.version?.["tfjs-backend-wasm"] || "4.22.0";
       tf.setWasmPaths?.(`https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@${v}/dist/`);
     } catch { /* ไม่มีก็ข้าม */ }
-    // WebGL ก่อน (เร็วสุด)
     try {
       await tf.setBackend("webgl");
       await tf.ready();
       if (tf.getBackend() === "webgl") return "webgl";
     } catch { /* ลอง wasm ต่อ */ }
-    // WASM (รองรับเกือบทุกเครื่อง — มือถือที่ WebGL ใช้ไม่ได้)
     try {
       onProgress?.("กำลังเตรียมตัวประมวลผล (WASM)...");
       await tf.setBackend("wasm");
       await tf.ready();
       if (tf.getBackend() === "wasm") return "wasm";
     } catch { /* ลอง cpu ต่อ */ }
-
     try {
       await tf.setBackend("cpu");
       await tf.ready();
@@ -52,6 +48,11 @@ export async function ensureTfBackend(onProgress?: (msg: string) => void): Promi
       return "none";
     }
   })();
+  // reset cache on failure so retry works
+  backendPromise = backendPromise.then((b) => {
+    if (b === "none" || b === "unknown") backendPromise = null;
+    return b;
+  }).catch((e) => { backendPromise = null; throw e; });
   return backendPromise;
 }
 
@@ -63,13 +64,20 @@ export async function loadFaceModels(onProgress?: (msg: string) => void): Promis
     const backend = await ensureTfBackend(onProgress);
     if (backend === "none") throw new Error("อุปกรณ์นี้ประมวลผลโมเดล AI ไม่ได้");
     // Detector + landmarks จาก face-api + ArcFace ONNX สำหรับ 512-D embedding
-    // โหลดขนานกัน — ArcFace ~14MB จะใช้เวลานานสุด
-    await Promise.all([
-      faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL), // keep as fallback
+    // โหลดขนานกัน — ArcFace ~14MB จะใช้เวลานานสุด (ใช้ allSettled กัน CDN ล่มบางไฟล์)
+    const FALLBACK_URL = (import.meta as any).env?.VITE_FACE_MODEL_URL || MODEL_URL;
+    const loadWithFallback = async (net: any, url: string, fallback: string) => {
+      try { await net.loadFromUri(url); }
+      catch { if (fallback !== url) await net.loadFromUri(fallback); else throw new Error("model load failed"); }
+    };
+    const results = await Promise.allSettled([
+      loadWithFallback(faceapi.nets.ssdMobilenetv1, MODEL_URL, FALLBACK_URL),
+      loadWithFallback(faceapi.nets.faceLandmark68Net, MODEL_URL, FALLBACK_URL),
+      loadWithFallback(faceapi.nets.faceRecognitionNet, MODEL_URL, FALLBACK_URL),
       loadArcFace(onProgress).catch(() => { /* ArcFace ไม่พร้อมก็ยังตรวจจับใบหน้าได้ */ }),
     ]);
+    const failed = results.slice(0,3).filter(r => r.status === 'rejected');
+    if (failed.length >= 2) throw new Error("โหลดโมเดลหลักล้มเหลว กรุณาลองใหม่หรือตรวจสอบเครือข่าย");
     loaded = true;
     onProgress?.("พร้อมใช้งาน");
     // เริ่มโหลด tiny detector ใน background โดยไม่บล็อก UI

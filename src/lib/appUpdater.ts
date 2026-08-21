@@ -2,8 +2,8 @@ import { Capacitor } from "@capacitor/core";
 import { ApkUpdater } from "capacitor-apk-updater";
 import { AppUpdate, AppUpdateAvailability } from "@capawesome/capacitor-app-update";
 
-const VERSION_URL =
-  "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/version.json";
+const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || "https://gwmszzoqqxmejefhayqf.supabase.co";
+const VERSION_URL = `${SUPABASE_URL}/storage/v1/object/public/app-downloads/version.json`;
 
 export interface AppUpdateManifest {
   versionCode: number;
@@ -20,8 +20,7 @@ export function isNativeAndroid(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
 }
 
-const STORAGE_BASE =
-  "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object";
+const STORAGE_BASE = `${SUPABASE_URL}/storage/v1/object`;
 
 /** ทำให้ url ในไฟล์ manifest เป็น absolute เสมอ (กันกรณี CI เขียน path แบบสัมพัทธ์) */
 function normalizeManifest(m: AppUpdateManifest): AppUpdateManifest {
@@ -87,17 +86,19 @@ export async function checkAndPromptUpdate(): Promise<void> {
       if (window.confirm(message)) await performSideloadUpdate(manifest.url);
       return;
     }
-    // บังคับอัปเดต: วนถามจนกว่าผู้ใช้จะยืนยันติดตั้ง
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
+    // บังคับอัปเดต: ถามซ้ำแต่จำกัด 3 ครั้ง กันบล็อก UI ถ้า download ล้ม
+    let attempts = 0;
+    while (attempts < 3) {
       if (window.confirm(message)) {
-        await performSideloadUpdate(manifest.url);
-        return;
+        try { await performSideloadUpdate(manifest.url); return; }
+        catch (e) { console.warn("sideload update failed", e); attempts++; await new Promise(r=>setTimeout(r,1500)); continue; }
+      } else {
+        await new Promise((r) => setTimeout(r, 1500));
+        attempts++;
       }
-      await new Promise((r) => setTimeout(r, 1500));
     }
-  } catch {
-    // ข้ามอัปเดตเงียบๆ เมื่อเกิดปัญหาเครือข่าย/ระบบ
+  } catch (e) {
+    console.warn("checkAndPromptUpdate failed", e);
   }
 
 }

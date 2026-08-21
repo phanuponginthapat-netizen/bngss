@@ -12,7 +12,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { showLiveNotification } from "@/lib/liveNotification";
 
 let initialized = false;
-let pendingToken: string | null = null;
+const PENDING_KEY = "pending_fcm_token";
+let pendingToken: string | null = (() => {
+  try { return localStorage.getItem(PENDING_KEY); } catch { return null; }
+})();
+
+function setPendingToken(t: string | null) {
+  pendingToken = t;
+  try {
+    if (t) localStorage.setItem(PENDING_KEY, t);
+    else localStorage.removeItem(PENDING_KEY);
+  } catch { /* ignore */ }
+}
 
 export function isNativeFcmSupported(): boolean {
   try {
@@ -26,8 +37,7 @@ async function saveDeviceToken(token: string): Promise<void> {
   try {
     const { data } = await supabase.auth.getUser();
     if (!data.user) {
-      // ยังไม่ login (แอปเปิดก่อนล็อกอิน) — เก็บไว้ flush ทีหลัง
-      pendingToken = token;
+      setPendingToken(token);
       return;
     }
     await supabase.from("push_subscriptions").upsert(
@@ -49,9 +59,9 @@ async function saveDeviceToken(token: string): Promise<void> {
 
 /** หลัง login แล้ว ให้บันทึก token ที่ค้างไว้ตอนแอปเปิดก่อนล็อกอิน */
 export async function flushPendingFcmToken(): Promise<void> {
-  if (!pendingToken) return;
-  const t = pendingToken;
-  pendingToken = null;
+  const t = pendingToken || (() => { try { return localStorage.getItem(PENDING_KEY); } catch { return null; } })();
+  if (!t) return;
+  setPendingToken(null);
   await saveDeviceToken(t);
 }
 
