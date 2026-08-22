@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   Loader2, Plus, ArrowLeft, Trash2, Heart, Copy, Paperclip, Link2, StickyNote, X,
-  FileText, Image as ImageIcon, Download, Settings,
+  FileText, Image as ImageIcon, Download, Settings, Mic, Video, StopCircle,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { th } from "date-fns/locale";
@@ -91,6 +91,8 @@ export default function PadletBoardPage() {
   const [editBg, setEditBg] = useState("paper");
   const [editAllow, setEditAllow] = useState(true);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [recAudio, setRecAudio] = useState<MediaRecorder|null>(null);
+  const [recVideo, setRecVideo] = useState<MediaRecorder|null>(null);
 
   const openEdit = () => {
     if (!board) return;
@@ -244,6 +246,43 @@ export default function PadletBoardPage() {
   const removeAttachment = async (a: Attachment) => {
     await supabase.storage.from("padlet").remove([a.path]);
     setAttachments(prev => prev.filter(x => x.path !== a.path));
+  };
+
+  const togglePadletAudio = async () => {
+    if (recAudio) { recAudio.stop(); setRecAudio(null); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream);
+      const chunks: BlobPart[] = [];
+      rec.ondataavailable = e=> chunks.push(e.data);
+      rec.onstop = async ()=>{
+        const blob = new Blob(chunks, {type:"audio/webm"});
+        const file = new File([blob], `padlet-audio-${Date.now()}.webm`, {type:"audio/webm"});
+        const dt = new DataTransfer(); dt.items.add(file);
+        await uploadFiles(dt.files);
+        stream.getTracks().forEach(t=>t.stop());
+        toast.success("เพิ่มเสียงแล้ว");
+      };
+      rec.start(); setRecAudio(rec); toast("กำลังอัดเสียง... กดอีกครั้งเพื่อหยุด");
+    } catch(e:any){ toast.error(e?.message||"อัดเสียงไม่สำเร็จ"); }
+  };
+  const togglePadletVideo = async () => {
+    if (recVideo) { recVideo.stop(); setRecVideo(null); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio:true, video:true });
+      const rec = new MediaRecorder(stream);
+      const chunks: BlobPart[] = [];
+      rec.ondataavailable = e=> chunks.push(e.data);
+      rec.onstop = async ()=>{
+        const blob = new Blob(chunks, {type:"video/webm"});
+        const file = new File([blob], `padlet-video-${Date.now()}.webm`, {type:"video/webm"});
+        const dt = new DataTransfer(); dt.items.add(file);
+        await uploadFiles(dt.files);
+        stream.getTracks().forEach(t=>t.stop());
+        toast.success("เพิ่มวิดีโอแล้ว");
+      };
+      rec.start(); setRecVideo(rec); toast("กำลังอัดวิดีโอ... กดอีกครั้งเพื่อหยุด");
+    } catch(e:any){ toast.error(e?.message||"อัดวิดีโอไม่สำเร็จ"); }
   };
 
   const submitNote = async () => {
@@ -530,8 +569,12 @@ export default function PadletBoardPage() {
 
             <div>
               <label className="text-xs font-medium mb-1 block flex items-center gap-1">
-                <Paperclip className="w-3 h-3" /> ไฟล์แนบ · รูปภาพ / เอกสาร (สูงสุด 20MB ต่อไฟล์)
+                <Paperclip className="w-3 h-3" /> ไฟล์แนบ · รูปภาพ / เอกสาร / เสียง / วิดีโอ (สูงสุด 20MB ต่อไฟล์)
               </label>
+              <div className="flex gap-2 mb-2">
+                <Button type="button" size="sm" variant={recAudio?"default":"outline"} onClick={togglePadletAudio} className="gap-1">{recAudio?<StopCircle className="w-3 h-3"/>:<Mic className="w-3 h-3"/>}{recAudio?"หยุดอัด":"อัดเสียง"}</Button>
+                <Button type="button" size="sm" variant={recVideo?"default":"outline"} onClick={togglePadletVideo} className="gap-1">{recVideo?<StopCircle className="w-3 h-3"/>:<Video className="w-3 h-3"/>}{recVideo?"หยุดอัด":"อัดวิดีโอ"}</Button>
+              </div>
               <input
                 ref={fileRef}
                 type="file"
