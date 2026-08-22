@@ -163,6 +163,12 @@ const FaceKioskPage = () => {
   const geofence = useSchoolGeofence();
   const [geoStatus, setGeoStatus] = useState<{ ok: boolean; distance: number | null }>({ ok: !geofence.configured, distance: null });
   const { schoolName, schoolLogo } = useSystemSettings();
+  const [isTodayHoliday, setIsTodayHoliday] = useState(false);
+  useEffect(() => {
+    import("@/lib/holiday").then(({ fetchHolidays, isHolidaySync }) => {
+      fetchHolidays().then(list => setIsTodayHoliday(isHolidaySync(todayBangkok(), list))).catch(()=>{});
+    });
+  }, []);
 
   // ===== ธีมสีจาก CMS (theme_primary_color = สีหลัก/แถบเข้า, theme_accent_color = สีรอง/พื้นหลัง/แถบออก) =====
   const cmsColors = useCmsValues(["theme_primary_color", "theme_accent_color"]);
@@ -1587,6 +1593,9 @@ const FaceKioskPage = () => {
           {online ? <Wifi className="w-3 h-3 mr-1 text-emerald-600" /> : <WifiOff className="w-3 h-3 mr-1 text-amber-500" />}
           {online ? "ออนไลน์" : "ออฟไลน์"}
         </Badge>
+        {isTodayHoliday && (
+          <Badge className="bg-amber-500 text-white border-amber-600 animate-pulse">วันหยุด - ไม่นับขาด</Badge>
+        )}
         {geofence.configured && (
           <Badge className={geoStatus.ok ? "bg-emerald-500" : "bg-red-500"}>
             <MapPin className="w-3 h-3 mr-1" />

@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { BE_OFFSET, bkkDateISO, formatDateBE, parseDateBE, toISODate } from "@/lib/dateBE";
 import { saveErrorMessage } from "@/lib/saveError";
+import { fetchHolidays, isHolidaySync, type Holiday } from "@/lib/holiday";
 import { todayBangkok } from "@/lib/dateBE";
 
 interface Props {
@@ -74,6 +75,7 @@ const PP5AttendanceMatrix = ({
     while (base.length < total) base.push("");
     return base.slice(0, total);
   });
+  const effectiveTotal = Math.max(1, dates.filter(d => d && !isHolidaySync(d, holidays)).length);
 
   // Range quick-fill state
   const [rangeFrom, setRangeFrom] = useState<string>("");
@@ -89,6 +91,11 @@ const PP5AttendanceMatrix = ({
     setDates(base.slice(0, total));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodDates?.join(","), total]);
+
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  useEffect(() => { fetchHolidays().then(setHolidays).catch(()=>{}); }, []);
+
+  const isHoliday = (iso: string) => isHolidaySync(iso, holidays);
 
   const studentIds = students.map(s => s.id);
   const { data: absences = [] } = useQuery({
@@ -113,6 +120,7 @@ const PP5AttendanceMatrix = ({
   }, [absences]);
 
   const setStatus = async (studentId: string, dateIso: string, next: "present" | "absent" | "leave") => {
+    if (isHoliday(dateIso)) { toast.error("วันหยุด ไม่ต้องบันทึกการมาเรียน"); return; }
     if (!canEdit) return;
     if (!dateIso) { toast.error("กรุณากำหนดวันที่ของคาบนี้ก่อน"); return; }
     const key = `${studentId}|${dateIso}`;
@@ -139,12 +147,14 @@ const PP5AttendanceMatrix = ({
   };
 
   const cycleStatus = async (studentId: string, dateIso: string) => {
+    if (isHoliday(dateIso)) return;
     const cur = statusMap.get(`${studentId}|${dateIso}`);
     const next = !cur ? "absent" : cur.status === "absent" ? "leave" : "present";
     await setStatus(studentId, dateIso, next as any);
   };
 
   const bulkFillColumn = async (dateIso: string, status: "present" | "absent" | "leave") => {
+    if (isHoliday(dateIso)) { toast.error("วันหยุด ไม่ต้องบันทึก"); return; }
     if (!canEdit) return;
     if (!dateIso) { toast.error("กรุณากำหนดวันที่ของคาบนี้ก่อน"); return; }
     if (!confirm(`ยืนยันตั้งสถานะ "${status === "present" ? "มาเรียน" : status === "absent" ? "ขาด" : "ลา"}" ให้นักเรียนทุกคนของคาบนี้?`)) return;
@@ -249,9 +259,11 @@ const PP5AttendanceMatrix = ({
       const from = validDates.reduce((a, b) => a < b ? a : b);
       const to = validDates.reduce((a, b) => a > b ? a : b);
       // Deduplicate to distinct dates (face_scan is per day, not per period)
-      const distinctDates = Array.from(new Set(validDates)).sort();
-      const { data: scans } = await supabase.from("face_scan_logs").select("student_id, scan_date").eq("scan_type", "entry").gte("scan_date", from).lte("scan_date", to).in("student_id", studentIds);
-      const { data: attends } = await supabase.from("attendance").select("student_id, attendance_date").gte("attendance_date", from).lte("attendance_date", to).in("student_id", studentIds);
+      const distinctDates = Array.from(new Set(validDates)).sort().filter(d => !isHoliday(d));
+      if (distinctDates.length === 0) { toast.info("ทุกคาบเป็นวันหยุด ไม่ต้องดึงสแกน"); setAutoScanLoading(false); return; }
+      const fromH = distinctDates[0], toH = distinctDates[distinctDates.length-1];
+      const { data: scans } = await supabase.from("face_scan_logs").select("student_id, scan_date").eq("scan_type", "entry").gte("scan_date", fromH).lte("scan_date", toH).in("student_id", studentIds);
+      const { data: attends } = await supabase.from("attendance").select("student_id, attendance_date").gte("attendance_date", fromH).lte("attendance_date", toH).in("student_id", studentIds);
       const presentSet = new Set<string>();
       for (const s of (scans as any[]) || []) presentSet.add(`${s.student_id}|${s.scan_date}`);
       for (const a of (attends as any[]) || []) presentSet.add(`${a.student_id}|${a.attendance_date}`);
@@ -419,10 +431,14 @@ const PP5AttendanceMatrix = ({
               <TableHead rowSpan={2} className="text-center align-middle bg-emerald-50 dark:bg-emerald-950/30">%</TableHead>
             </TableRow>
             <TableRow>
-              {dates.map((d, i) => (
-                <TableHead key={i} className="text-center p-0.5 bg-muted/10 align-bottom" style={{ minWidth: 84 }}>
-                  <div className="text-[10px] text-muted-foreground">{i + 1}</div>
-                  {canEdit ? (
+              {dates.map((d, i) => {
+                const holiday = d ? isHoliday(d) : false;
+                return (
+                <TableHead key={i} className={`text-center p-0.5 align-bottom ${holiday ? "bg-amber-50 dark:bg-amber-950/40 border-amber-200" : "bg-muted/10"}`} style={{ minWidth: 84 }}>
+                  <div className="text-[10px] text-muted-foreground">{i + 1} {holiday && <span className="text-amber-600">หยุด</span>}</div>
+                  {holiday ? (
+                    <div className="text-[9px] font-bold text-amber-700 dark:text-amber-300 py-1">วันหยุด</div>
+                  ) : canEdit ? (
                     <div className="flex flex-col items-center gap-0.5">
                       <BEDatePicker value={d || ""} onChange={(iso) => updateDate(i, iso)} />
                       <div className="flex gap-0.5">
@@ -438,7 +454,7 @@ const PP5AttendanceMatrix = ({
                     <div className="text-[10px] font-medium">{fmtDateBE(d) || "—"}</div>
                   )}
                 </TableHead>
-              ))}
+              );})}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -448,12 +464,13 @@ const PP5AttendanceMatrix = ({
               let absent = 0, leave = 0;
               dates.forEach(d => {
                 if (!d) return;
+                if (isHoliday(d)) return;
                 const st = statusMap.get(`${s.id}|${d}`)?.status;
                 if (st === "absent") absent++;
                 else if (st === "leave") leave++;
               });
-              const attended = total - absent - leave;
-              const pct = Math.round((attended / total) * 100);
+              const attended = effectiveTotal - absent - leave;
+              const pct = Math.round((attended / effectiveTotal) * 100);
               return (
                 <TableRow key={s.id}>
                   <TableCell className="text-center">{idx + 1}</TableCell>
@@ -475,6 +492,10 @@ const PP5AttendanceMatrix = ({
                   </TableCell>
 
                   {dates.map((d, i) => {
+                    const holiday = d ? isHoliday(d) : false;
+                    if (holiday) {
+                      return <TableCell key={i} className="text-center bg-amber-50 dark:bg-amber-950/30 text-amber-600 font-bold text-[10px]">หยุด</TableCell>;
+                    }
                     const st = d ? statusMap.get(`${s.id}|${d}`)?.status : undefined;
                     const mark = st === "absent" ? "×" : st === "leave" ? "ล" : d ? "มา" : "";
                     const cls = st === "absent"
