@@ -478,10 +478,12 @@ const FaceKioskPage = () => {
 
       // === Local webcam (รองรับกล้อง USB / กล้องหน้า-หลังหลายรุ่น) ===
       const wide = mode === "wide";
+      const isAtom = perfMode === "atom";
       const res = await openCamera({
         facing: wide ? "environment" : "user",
-        width: Math.min(wide ? 1920 : 1280, perf.videoWidth),
-        height: Math.min(wide ? 1080 : 720, perf.videoHeight),
+        width: isAtom ? 1920 : Math.min(wide ? 1920 : 1280, perf.videoWidth),
+        height: isAtom ? 1080 : Math.min(wide ? 1080 : 720, perf.videoHeight),
+        frameRate: perf.frameRate,
       });
       await applyCameraAutoTune(res.stream);
       if (videoRef.current) {
@@ -808,7 +810,7 @@ const FaceKioskPage = () => {
     // input ใหญ่ขึ้น = เก็บรายละเอียดใบหน้าได้มาก แต่กินซีพียูมาก — ปรับตามโปรไฟล์ประสิทธิภาพ
     const opts = detectorOptionsHQ(perf.inputSize, 0.35);
     // ขนาดใบหน้าขั้นต่ำ (พิกเซลในเฟรม) ป้องกัน descriptor เพี้ยนจากใบหน้าที่เล็กเกิน
-    const MIN_FACE_PX = perfMode === "low" ? 56 : 70;
+    const MIN_FACE_PX = perfMode === "atom" || perfMode === "low" ? 56 : 70;
     // ระยะห่างระหว่าง best vs second-best ขั้นต่ำ — ยืนยันว่าระบุตัวตนได้ชัดเจน ไม่ไปทับคนอื่น
     const MIN_MARGIN = 0.04;
     // จำนวนเฟรมต่อเนื่องที่ต้องจับได้คนเดิม ก่อนบันทึก (กันบันทึกผิดจาก descriptor หลุด 1 เฟรม)
@@ -860,13 +862,14 @@ const FaceKioskPage = () => {
       try {
         // ตรวจจับจากเฟรมที่ผ่าน preprocess (contrast/brightness) — ช่วยกล้องคุณภาพต่ำ
         const video = videoRef.current;
-          // low mode: ข้าม preprocess ทั้งหมด (ใช้ video ตรงๆ) — texture ปิดใน low เพื่อลด CPU, liveness ยังเปิด (กันรูปถ่าย)
-          const pre = perfMode === "low" ? video : (preprocessFrame(video, { maxWidth: perf.maxWidth, equalize: false }) || video);
+          // atom/low: ข้าม preprocess ทั้งหมด (ใช้ video ตรงๆ) — texture ปิดเพื่อลด CPU, liveness ยังเปิด (กันรูปถ่าย)
+          const isAtom = perfMode === "atom" || perfMode === "low";
+          const pre = isAtom ? video : (preprocessFrame(video, { maxWidth: perf.maxWidth, equalize: false }) || video);
           const useLiveness = livenessEnabled;
-          const useTexture = textureGate && perfMode !== "low";
+          const useTexture = textureGate && !isAtom;
         const detections = await getAllDescriptors(pre as any, opts, {
           minFaceSize: MIN_FACE_PX * 0.6,
-          cacheTtlMs: 220,
+          cacheTtlMs: perfMode === "atom" ? 500 : 220,
         });
         // อัตราส่วนสำหรับสเกล box กลับสู่พิกัดของวิดีโอจริง
         const srcW = pre instanceof HTMLCanvasElement ? pre.width : video.videoWidth;
@@ -1614,22 +1617,22 @@ const FaceKioskPage = () => {
 
           <div className="space-y-1.5 border-t pt-2">
             <label className="text-xs font-semibold">ประสิทธิภาพการสแกน</label>
-            <div className="flex gap-1">
-              {(["low", "balanced", "high"] as KioskPerfMode[]).map((m) => (
+            <div className="grid grid-cols-2 gap-1">
+              {(["atom", "low", "balanced", "high"] as KioskPerfMode[]).map((m) => (
                 <Button
                   key={m}
                   size="sm"
                   variant={perfMode === m ? "default" : "outline"}
                   onClick={() => { setPerfMode(m); if (camMode !== "network") void startCamera(camMode); }}
-                  className="flex-1 text-[11px] px-1"
+                  className="text-[11px] px-1"
                 >
-                  {m === "low" ? "ประหยัด" : m === "balanced" ? "สมดุล" : "ละเอียด"}
+                  {m === "atom" ? "⚡ Atom 1080p" : m === "low" ? "ประหยัด" : m === "balanced" ? "สมดุล" : "ละเอียด"}
                 </Button>
               ))}
             </div>
             <p className="text-[10px] text-muted-foreground leading-snug">
-              {KIOSK_PERF_PROFILES[perfMode].label} • กล้อง {KIOSK_PERF_PROFILES[perfMode].videoWidth}px •
-              ตรวจทุก {KIOSK_PERF_PROFILES[perfMode].loopDelayMs} มิลลิวินาที — เครื่อง Linux สเปกต่ำแนะนำ "ประหยัด"
+              {KIOSK_PERF_PROFILES[perfMode].label} • กล้อง {KIOSK_PERF_PROFILES[perfMode].videoWidth}×{KIOSK_PERF_PROFILES[perfMode].videoHeight}@{KIOSK_PERF_PROFILES[perfMode].frameRate}fps •
+              ตรวจทุก {KIOSK_PERF_PROFILES[perfMode].loopDelayMs}ms{perfMode==="atom" ? " • ย่อ AI เหลือ 480px + ปิด sharpness/texture" : ""} — Atom แนะนำ "⚡ Atom 1080p"
             </p>
           </div>
 

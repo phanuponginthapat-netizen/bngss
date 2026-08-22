@@ -52,27 +52,24 @@ export interface OpenCameraOptions {
   /** ความละเอียดที่อยากได้ (จะลดลงอัตโนมัติถ้าเครื่องไม่ไหว) */
   width?: number;
   height?: number;
+  frameRate?: number;
   audio?: boolean;
 }
 
 function ladder(opts: OpenCameraOptions): MediaStreamConstraints[] {
-  const { deviceId, facing = "user", width = 1280, height = 720 } = opts;
+  const { deviceId, facing = "user", width = 1280, height = 720, frameRate } = opts;
   const audio = !!opts.audio;
+  const fps = frameRate ? { ideal: frameRate, max: frameRate } : undefined;
   const list: MediaStreamConstraints[] = [];
 
   if (deviceId) {
-    // 1) ล็อกอุปกรณ์ที่ผู้ใช้เลือก (exact ก่อน แล้วค่อย ideal)
-    list.push({ audio, video: { deviceId: { exact: deviceId }, width: { ideal: width }, height: { ideal: height } } });
+    list.push({ audio, video: { deviceId: { exact: deviceId }, width: { ideal: width }, height: { ideal: height }, ...(fps ? { frameRate: fps } : {}) } });
     list.push({ audio, video: { deviceId: { ideal: deviceId } } });
   }
 
-  // 2) ตาม facingMode พร้อมความละเอียด
-  list.push({ audio, video: { facingMode: { ideal: facing }, width: { ideal: width }, height: { ideal: height } } });
-  // 3) facingMode อย่างเดียว
+  list.push({ audio, video: { facingMode: { ideal: facing }, width: { ideal: width }, height: { ideal: height }, ...(fps ? { frameRate: fps } : {}) } });
   list.push({ audio, video: { facingMode: facing } });
-  // 4) ขนาดเล็กลง (เครื่องเก่า/กล้องคุณภาพต่ำ)
-  list.push({ audio, video: { facingMode: { ideal: facing }, width: { ideal: 640 }, height: { ideal: 480 } } });
-  // 5) อะไรก็ได้
+  list.push({ audio, video: { facingMode: { ideal: facing }, width: { ideal: 640 }, height: { ideal: 480 }, ...(fps ? { frameRate: { ideal: Math.min(fps.ideal, 15) } } : {}) } });
   list.push({ audio, video: true });
 
   return list;
