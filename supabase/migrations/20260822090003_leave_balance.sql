@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS public.leave_balances (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES auth.users(id),
-  year integer NOT NULL EXTRACT(YEAR FROM now()),
+  year integer NOT NULL DEFAULT EXTRACT(YEAR FROM now()),
   leave_type text NOT NULL, -- 'sick', 'personal', 'vacation', 'maternity', 'training'
   total_days numeric DEFAULT 0,
   used_days numeric DEFAULT 0,
