@@ -37,6 +37,9 @@ function GeneralSchoolSettings() {
   const [gradeEnd, setGradeEnd] = useState("ม.6");
   const [terminalGrades, setTerminalGrades] = useState<string[]>(["ป.6", "ม.3", "ม.6"]);
   const [emailDomain, setEmailDomain] = useState("@bng.ac.th");
+  const [directorSig, setDirectorSig] = useState("");
+  const [schoolSeal, setSchoolSeal] = useState("");
+  const [uploadingSig, setUploadingSig] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -50,8 +53,34 @@ function GeneralSchoolSettings() {
         setTerminalGrades(["ป.6", "ม.3", "ม.6"]);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolSettings]);
+
+  // โหลดลายเซ็น/ตราประทับจาก cms_settings
+  const { data: cmsBranding } = useQuery({
+    queryKey: ["cms_branding_sig"],
+    queryFn: async () => {
+      const { data } = await supabase.from("cms_settings").select("key,value").in("key", ["director_signature_url","school_seal_url"]);
+      const m: Record<string,string> = {}; (data||[]).forEach((r:any)=> m[r.key]=r.value);
+      setDirectorSig(m.director_signature_url||"");
+      setSchoolSeal(m.school_seal_url||"");
+      return m;
+    }
+  });
+
+  const uploadSig = async (file: File, key: string, setter: (v:string)=>void) => {
+    if (file.size > 2*1024*1024) { swal.toast.error("ไฟล์ต้องไม่เกิน 2MB"); return; }
+    setUploadingSig(true);
+    const ext = file.name.split(".").pop()||"png";
+    const path = `signatures/${key}_${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("cms-images").upload(path, file, { upsert:true, contentType:file.type });
+    if (upErr) { setUploadingSig(false); swal.error(upErr.message); return; }
+    const { data } = supabase.storage.from("cms-images").getPublicUrl(path);
+    const url = data.publicUrl;
+    const { error } = await supabase.from("cms_settings").upsert({ key, value: url } as any, { onConflict:"key" });
+    setUploadingSig(false);
+    if (error) { swal.error(error.message); return; }
+    setter(url); swal.toast.success("อัปโหลดแล้ว");
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -149,6 +178,25 @@ function GeneralSchoolSettings() {
             placeholder="@bng.ac.th"
             className="max-w-md"
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">ลายเซ็นดิจิทัล + ตราประทับ</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">อัปโหลดลายเซ็น ผอ. และตราโรงเรียน — จะฝังลงในฟอร์มราชการ (ปพ.5, นร./กสศ.01) อัตโนมัติ</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="border rounded p-3 space-y-2">
+              <Label>ลายเซ็น ผอ.</Label>
+              {directorSig && <img src={directorSig} alt="sig" className="h-20 object-contain border bg-white" />}
+              <Input type="file" accept="image/*" disabled={uploadingSig} onChange={e=> e.target.files?.[0] && uploadSig(e.target.files[0],"director_signature_url", setDirectorSig)} />
+            </div>
+            <div className="border rounded p-3 space-y-2">
+              <Label>ตราประทับโรงเรียน</Label>
+              {schoolSeal && <img src={schoolSeal} alt="seal" className="h-20 object-contain border bg-white" />}
+              <Input type="file" accept="image/*" disabled={uploadingSig} onChange={e=> e.target.files?.[0] && uploadSig(e.target.files[0],"school_seal_url", setSchoolSeal)} />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
