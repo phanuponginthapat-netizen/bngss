@@ -35,6 +35,7 @@ import { useForceLogoutListener } from "@/hooks/useForceLogoutListener";
 import OnboardingTour from "@/components/OnboardingTour";
 import { resolveProfileImageUrl } from "@/lib/profileImageUrl";
 import HeaderClock from "@/components/HeaderClock";
+import DarkModeToggle from "@/components/DarkModeToggle";
 
 /** ปุ่ม avatar ที่ toggle sidebar (แทน dropdown เดิม) */
 function AvatarSidebarToggle({ avatarUrl, fullName, userEmail }: { avatarUrl: string | null; fullName: string; userEmail: string }) {
@@ -319,6 +320,7 @@ const DashboardLayout = () => {
               <OfflineIndicator />
               <PWAInstallButton />
               <LanguageToggle />
+              <DarkModeToggle />
               <NotificationDropdown />
 
               <AvatarSidebarToggle avatarUrl={avatarUrl} fullName={fullName} userEmail={userEmail} />

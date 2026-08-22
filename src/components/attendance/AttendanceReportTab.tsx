@@ -125,6 +125,12 @@ export function AttendanceReportTab({
     const rows = classStudents.map((s: any, i: number) => {
       const sm = studentSummary[s.id];
       const rate = sm.total > 0 ? ((sm.present / sm.total) * 100).toFixed(1) : "0";
+      const avgLateMin = (() => {
+        const lateRecords = records.filter((r: any) => r.student_id === s.id && r.status === "late" && r.late_minutes);
+        return lateRecords.length > 0
+          ? Math.round(lateRecords.reduce((sum: number, r: any) => sum + (r.late_minutes || 0), 0) / lateRecords.length)
+          : "";
+      })();
       return {
         "ลำดับ": i + 1,
         "รหัสนักเรียน": s.student_code,
@@ -132,6 +138,7 @@ export function AttendanceReportTab({
         "มา": sm.present,
         "ขาด": sm.absent,
         "สาย": sm.late,
+        "สาย(นาทีเฉลี่ย)": avgLateMin,
         "ป่วย": sm.sick,
         "ลา": sm.leave,
         "รวมวัน": sm.total,
@@ -276,6 +283,7 @@ export function AttendanceReportTab({
                     <TableHead className="text-center w-12">{lang === "th" ? "มา" : "P"}</TableHead>
                     <TableHead className="text-center w-12">{lang === "th" ? "ขาด" : "A"}</TableHead>
                     <TableHead className="text-center w-12">{lang === "th" ? "สาย" : "L"}</TableHead>
+                    <TableHead className="text-center w-16">{lang === "th" ? "สาย (นาที)" : "L (min)"}</TableHead>
                     <TableHead className="text-center w-12">{lang === "th" ? "ป่วย" : "S"}</TableHead>
                     <TableHead className="text-center w-12">{lang === "th" ? "ลา" : "Lv"}</TableHead>
                     <TableHead className="w-32">{lang === "th" ? "อัตรา" : "Rate"}</TableHead>
@@ -293,6 +301,15 @@ export function AttendanceReportTab({
                         <TableCell className="text-center text-green-600 font-medium">{sm.present}</TableCell>
                         <TableCell className="text-center text-red-600 font-medium">{sm.absent || "-"}</TableCell>
                         <TableCell className="text-center text-yellow-600 font-medium">{sm.late || "-"}</TableCell>
+                        <TableCell className="text-center text-orange-600 font-medium text-xs">
+                          {sm.late > 0 ? (() => {
+                            const lateRecords = filteredRecords.filter((r: any) => r.student_id === s.id && r.status === "late" && r.late_minutes);
+                            const avgMin = lateRecords.length > 0
+                              ? Math.round(lateRecords.reduce((sum: number, r: any) => sum + (r.late_minutes || 0), 0) / lateRecords.length)
+                              : null;
+                            return avgMin !== null ? `~${avgMin}` : "-";
+                          })() : "-"}
+                        </TableCell>
                         <TableCell className="text-center text-blue-600 font-medium">{sm.sick || "-"}</TableCell>
                         <TableCell className="text-center text-purple-600 font-medium">{sm.leave || "-"}</TableCell>
                         <TableCell>

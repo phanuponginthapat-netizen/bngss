@@ -4,7 +4,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { ThemeProvider } from "next-themes";
 import { lazy, Suspense } from "react";
+import SkipToContent from "./components/SkipToContent";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import LinkAccount from "./pages/LinkAccount";
@@ -84,6 +86,7 @@ const PpDocsHubPage = lazy(() => import("./pages/academic/PpDocsHubPage"));
 const TeachingHubPage = lazy(() => import("./pages/academic/TeachingHubPage"));
 const LessonPlansPage = lazy(() => import("./pages/academic/LessonPlansPage"));
 const TeachingLogbookPage = lazy(() => import("./pages/academic/TeachingLogbookPage"));
+const AcademicProbationPage = lazy(() => import("./pages/academic/AcademicProbationPage"));
 
 // Exam OCR
 const ExamListPage = lazy(() => import("./pages/exam/ExamListPage"));
@@ -186,6 +189,7 @@ const OffsiteTripsPage = lazy(() => import("./pages/student/OffsiteTripsPage"));
 
 
 const AttendanceDashboardPage = lazy(() => import("./pages/hr/AttendanceDashboardPage"));
+const LeaveBalancePage = lazy(() => import("./pages/hr/LeaveBalancePage"));
 const SchoolLunchPage = lazy(() => import("./pages/admin/SchoolLunchPage"));
 const ObecHubPage = lazy(() => import("./pages/admin/ObecHubPage"));
 const DebugFcmPage = lazy(() => import("./pages/DebugFcmPage"));
@@ -245,8 +249,15 @@ const DatabaseSchemaPage = lazy(() => import("./pages/admin/DatabaseSchemaPage")
 const RlsAuditPage = lazy(() => import("./pages/admin/RlsAuditPage"));
 const AiImportPage = lazy(() => import("./pages/admin/AiImportPage"));
 
+const MfaSettingsPage = lazy(() => import("./pages/admin/MfaSettingsPage"));
 const BulkOperationsPage = lazy(() => import("./pages/admin/BulkOperationsPage"));
 const DepartmentManagementPage = lazy(() => import("./pages/admin/DepartmentManagementPage"));
+const ReportBuilderPage = lazy(() => import("./pages/admin/ReportBuilderPage"));
+const TrendAnalyticsPage = lazy(() => import("./pages/admin/TrendAnalyticsPage"));
+const BudgetApprovalPage = lazy(() => import("./pages/admin/BudgetApprovalPage"));
+const PettyCashPage = lazy(() => import("./pages/admin/PettyCashPage"));
+const BankReconciliationPage = lazy(() => import("./pages/admin/BankReconciliationPage"));
+const SisSyncPage = lazy(() => import("./pages/admin/SisSyncPage"));
 const PreviewGovPage = lazy(() => import("./pages/PreviewGovPage"));
 const HomeworkPage = lazy(() => import("./pages/HomeworkPage"));
 const PadletListPage = lazy(() => import("./pages/padlet/PadletListPage"));
@@ -289,9 +300,12 @@ import SystemLoader from "./components/SystemLoader";
 import CmsBranding from "./components/CmsBranding";
 
 const App = () => (
+  <>
+  <SkipToContent />
   <QueryClientProvider client={queryClient}>
     <LanguageProvider>
-      <TooltipProvider>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        <TooltipProvider>
         <CmsBranding />
         <Toaster />
         <Sonner />
@@ -411,6 +425,7 @@ const App = () => (
                 <Route path="academic/teaching-hub" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><TeachingHubPage /></ProtectedRoute>} />
                 <Route path="academic/lesson-plans" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><LessonPlansPage /></ProtectedRoute>} />
                 <Route path="academic/logbook" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><TeachingLogbookPage /></ProtectedRoute>} />
+                <Route path="academic/probation" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><AcademicProbationPage /></ProtectedRoute>} />
 
                 {/* Student Affairs */}
                 <Route path="student" element={<Navigate to="/dashboard/student/attendance" replace />} />
@@ -534,6 +549,7 @@ const App = () => (
                 <Route path="hr/id-plan" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["finance_personnel"]} bypassRoles={["teacher"]}><IdPlanPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="hr/substitute" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["finance_personnel"]} bypassRoles={["teacher"]}><SubstitutePage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="hr/org-chart" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><OrgChartPage /></ProtectedRoute>} />
+                <Route path="hr/leave-balance" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><LeaveBalancePage /></ProtectedRoute>} />
                 {/* assessment merged into evaluation */}
                 <Route path="hr/assessment" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["finance_personnel"]} bypassRoles={["teacher"]}><EvaluationPage /></DepartmentRoute></ProtectedRoute>} />
 
@@ -547,11 +563,18 @@ const App = () => (
                 <Route path="admin/district-sync" element={<ProtectedRoute allowedRoles={["admin","director"]}><DistrictSyncPage /></ProtectedRoute>} />
                 <Route path="admin/role-troubleshoot" element={<ProtectedRoute allowedRoles={["admin","director","teacher","student"]}><RoleTroubleshootPage /></ProtectedRoute>} />
                 <Route path="admin/rls-audit" element={<ProtectedRoute allowedRoles={["admin"]}><RlsAuditPage /></ProtectedRoute>} />
+                <Route path="admin/mfa" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><MfaSettingsPage /></ProtectedRoute>} />
                 <Route path="admin/database-schema" element={<ProtectedRoute allowedRoles={["admin","director"]}><DatabaseSchemaPage /></ProtectedRoute>} />
                 <Route path="help" element={<HelpCenterPage />} />
                 <Route path="admin/bulk-operations" element={<ProtectedRoute allowedRoles={["admin", "director"]}><BulkOperationsPage /></ProtectedRoute>} />
                 <Route path="admin/departments" element={<ProtectedRoute allowedRoles={["admin","director"]}><DepartmentManagementPage /></ProtectedRoute>} />
                 <Route path="admin/ai-import" element={<ProtectedRoute allowedRoles={["admin", "director"]}><AiImportPage /></ProtectedRoute>} />
+                <Route path="admin/report-builder" element={<ProtectedRoute allowedRoles={["admin", "director"]}><ReportBuilderPage /></ProtectedRoute>} />
+                <Route path="admin/trend-analytics" element={<ProtectedRoute allowedRoles={["admin", "director"]}><TrendAnalyticsPage /></ProtectedRoute>} />
+                <Route path="admin/budget-approval" element={<ProtectedRoute allowedRoles={["admin", "director"]}><BudgetApprovalPage /></ProtectedRoute>} />
+                <Route path="admin/petty-cash" element={<ProtectedRoute allowedRoles={["admin", "director"]}><PettyCashPage /></ProtectedRoute>} />
+                <Route path="admin/bank-reconciliation" element={<ProtectedRoute allowedRoles={["admin", "director"]}><BankReconciliationPage /></ProtectedRoute>} />
+                <Route path="admin/sis-sync" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SisSyncPage /></ProtectedRoute>} />
 
                 {/* Exam OCR */}
                 <Route path="exam" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><ExamListPage /></ProtectedRoute>} />
@@ -581,9 +604,11 @@ const App = () => (
             </Suspense>
           </ErrorBoundary>
         </BrowserRouter>
-      </TooltipProvider>
+        </TooltipProvider>
+      </ThemeProvider>
     </LanguageProvider>
   </QueryClientProvider>
+  </>
 );
 
 export default App;
