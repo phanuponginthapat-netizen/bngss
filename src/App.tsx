@@ -261,6 +261,7 @@ const BankReconciliationPage = lazy(() => import("./pages/admin/BankReconciliati
 const SisSyncPage = lazy(() => import("./pages/admin/SisSyncPage"));
 const ObservationSessionPage = lazy(() => import("./pages/admin/ObservationSessionPage"));
 const PObecExportPage = lazy(() => import("./pages/admin/PObecExportPage"));
+const GradeRemediationPage = lazy(() => import("./pages/academic/GradeRemediationPage"));
 const PreviewGovPage = lazy(() => import("./pages/PreviewGovPage"));
 const HomeworkPage = lazy(() => import("./pages/HomeworkPage"));
 const PadletListPage = lazy(() => import("./pages/padlet/PadletListPage"));
@@ -430,6 +431,7 @@ const App = () => (
                 <Route path="academic/logbook" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><TeachingLogbookPage /></ProtectedRoute>} />
                 <Route path="academic/probation" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><AcademicProbationPage /></ProtectedRoute>} />
                 <Route path="academic/grade-lock" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><AcademicGradeLockPage /></ProtectedRoute>} />
+                <Route path="academic/grade-remediation" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><GradeRemediationPage /></ProtectedRoute>} />
 
                 {/* Student Affairs */}
                 <Route path="student" element={<Navigate to="/dashboard/student/attendance" replace />} />
