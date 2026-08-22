@@ -123,14 +123,26 @@ export default function GradeRemediationPage() {
     if (error) toast.error(error.message);
     else {
       toast.success(L(`ประกาศ ${ids.length} คนแล้ว`, `Announced ${ids.length}`));
-      // notify students (best effort)
+      // notify students + parents via in-app + push + LINE (best effort, non-blocking)
       for (const id of ids) {
         const it = items.find((x) => x.id === id);
-        if (it) {
-          try {
-            await supabase.from("notifications" as any).insert({ user_id: it.student_id, title: "ประกาศรายชื่อติด 0 ร มส", body: `${it.subject_code} ${it.term} เกรด ${it.original_grade}`, type: "grade_remediation" } as any);
-          } catch {}
-        }
+        if (!it) continue;
+        try {
+          await supabase.from("notifications" as any).insert({ user_id: it.student_id, title: "ประกาศรายชื่อติด 0 ร มส", body: `${it.subject_code} ${it.term} เกรด ${it.original_grade} — ติดต่อครูผู้สอน`, type: "grade_remediation" } as any);
+        } catch {}
+        // push + LINE to student and parents
+        try {
+          const { data: stu } = await supabase.from("students").select("auth_user_id, parent_id, first_name, last_name").eq("id", it.student_id).maybeSingle();
+          const studentName = stu ? `${(stu as any).first_name} ${(stu as any).last_name}` : "";
+          const title = `ติด ${it.original_grade} วิชา ${it.subject_code}`;
+          const body = `${studentName} ติด ${it.original_grade} วิชา ${it.subject_code} ${it.term} — กรุณาติดต่อครู`;
+          // fanout handles push/line/gchat routing
+          supabase.functions.invoke("notify-fanout", { body: { title, body, type: "grade_remediation", student_id: it.student_id, subject_code: it.subject_code, term: it.term } }).catch(()=>{});
+          // also try direct parent push if parent_id exists
+          if ((stu as any)?.parent_id) {
+            supabase.functions.invoke("send-push", { body: { user_id: (stu as any).parent_id, title, body } }).catch(()=>{});
+          }
+        } catch {}
       }
       setSelected(new Set());
       load();

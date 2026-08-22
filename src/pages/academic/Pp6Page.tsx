@@ -11,8 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Printer, Download, Trash2, FileSpreadsheet, FolderOpen, Calendar, ClipboardList, Search, User } from "lucide-react";
 import { useSchoolInfo } from "@/components/documents/DocumentHeader";
-import { gradeColor } from "@/lib/gradeUtils";
+import { gradeColor, calculateGrade } from "@/lib/gradeUtils";
 import { openPrintWindow, toThaiDigits } from "@/lib/printUtils";
+import { exportSchoolMisExcel, printPor5 } from "@/lib/schoolMisExport";
 import { formatFullName, formatFullNameHtml } from "@/lib/nameFormat";
 import { toast } from "sonner";
 import PP6AutoImportDialog from "@/components/academic/PP6AutoImportDialog";
@@ -313,6 +314,21 @@ const ScoreOverviewTab = () => {
           </SelectContent>
         </Select>
         {classroomId && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์</Button>}
+        {classroomId && <Button variant="outline" onClick={() => {
+          const rows = mergedData.map((s: any) => {
+            const gpaNum = parseFloat(s.gpa) || 0;
+            return { schoolCode: schoolInfo.school_code || "", year: String(toBE(selectedClassroom.academic_year)), term: semester, subjectCode: "GPA", subjectName: `ปพ.6 ${selectedClassroom.grade_level}-${selectedClassroom.name}`, credit: 0, studentCode: s.student_code, studentName: s.student_name, fullScore: 4, score: gpaNum, classroom: `${selectedClassroom.grade_level}-${selectedClassroom.name}` };
+          });
+          printPor5(rows, { schoolName: schoolInfo.school_name || "โรงเรียน", term: semester, year: String(toBE(selectedClassroom.academic_year)), subjectCode: "ปพ.6", subjectName: `${selectedClassroom.grade_level}-${selectedClassroom.name}` });
+        }}><Printer className="w-4 h-4 mr-2" />พิมพ์ SchoolMIS</Button>}
+        {classroomId && <Button variant="outline" onClick={() => {
+          const rows = mergedData.map((s: any) => {
+            const gpaNum = parseFloat(s.gpa) || 0;
+            return { schoolCode: schoolInfo.school_code || "", year: String(toBE(selectedClassroom.academic_year)), term: semester, subjectCode: "GPA", subjectName: `ปพ.6 ${selectedClassroom.grade_level}-${selectedClassroom.name}`, credit: 0, studentCode: s.student_code, studentName: s.student_name, fullScore: 4, score: gpaNum, classroom: `${selectedClassroom.grade_level}-${selectedClassroom.name}` };
+          });
+          exportSchoolMisExcel(rows, `SchoolMIS_PP6_${selectedClassroom.grade_level}-${selectedClassroom.name}_${semester}.xlsx`);
+          toast.success("ส่งออก SchoolMIS แล้ว");
+        }}><Download className="w-4 h-4 mr-2" />Export SchoolMIS</Button>}
         {classroomId && selectedClassroom && (
           <Button variant="outline" onClick={async () => {
             const { printByCode } = await import("@/lib/printTemplate");
