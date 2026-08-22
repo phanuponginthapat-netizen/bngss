@@ -10,9 +10,10 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, RefreshCw, Cpu } from "lucide-react";
+import { Plus, Pencil, Trash2, RefreshCw, Cpu, Bluetooth, Thermometer, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { IOT_CATEGORIES, getCategory } from "@/lib/iotCategories";
+import { useSmartGate } from "@/hooks/useSmartGate";
 import { swal } from "@/lib/swal";
 import { saveErrorMessage } from "@/lib/saveError";
 
@@ -49,6 +50,7 @@ const emptyForm: DeviceForm = {
 
 export default function IoTDevicesPage() {
   const qc = useQueryClient();
+  const gate = useSmartGate();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<DeviceForm>(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -146,6 +148,21 @@ export default function IoTDevicesPage() {
           <Plus className="h-4 w-4 mr-2" /> เพิ่มอุปกรณ์
         </Button>
       </div>
+
+      <Card className="border-primary/20">
+        <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><ShieldAlert className="w-4 h-4 text-primary" /> SmartGate — micro:bit วัดไข้ + ตรวจโลหะ</CardTitle></CardHeader>
+        <CardContent className="flex flex-col md:flex-row md:items-center gap-3">
+          <div className="flex-1 grid grid-cols-3 gap-2 text-sm">
+            <div>สถานะ: <Badge variant={gate.connected ? "default" : "secondary"}>{gate.connected ? "เชื่อมต่อ" : "ไม่เชื่อม"}</Badge></div>
+            <div className="flex items-center gap-1"><Thermometer className="w-3 h-3" /> {gate.reading.tempC != null ? `${gate.reading.tempC.toFixed(1)}°C` : "—"}</div>
+            <div>Metal: {gate.reading.metalLevel ?? "—"}</div>
+          </div>
+          <div className="flex gap-2">
+            {!gate.connected ? <Button size="sm" onClick={() => gate.connect()}><Bluetooth className="w-4 h-4 mr-1" /> เชื่อมต่อ micro:bit</Button> : <Button size="sm" variant="outline" onClick={() => gate.disconnect()}>ตัดการเชื่อมต่อ</Button>}
+            <Button size="sm" variant="outline" onClick={() => gate.requestPassage().then(r => toast.success(r.detail || (r.allow ? "ผ่าน" : "ปฏิเสธ")))}>ทดสอบเปิดประตู</Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {isLoading ? (
         <p className="text-muted-foreground">กำลังโหลด...</p>

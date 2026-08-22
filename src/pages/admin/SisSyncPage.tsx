@@ -9,8 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   RefreshCw, ArrowDownToLine, ArrowUpFromLine, AlertTriangle,
-  CheckCircle2, Clock, XCircle, Loader2, Shield,
+  CheckCircle2, Clock, XCircle, Loader2, Shield, Upload, FileSpreadsheet,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 
 type SyncItem = {
   id: string;
@@ -66,6 +67,7 @@ export default function SisSyncPage() {
   const [loading, setLoading] = useState(false);
   const [pulling, setPulling] = useState(false);
   const [pushing, setPushing] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -117,6 +119,40 @@ export default function SisSyncPage() {
       toast.error(e?.message ?? "Failed");
     } finally {
       setPushing(false);
+    }
+  };
+
+  const handleDmcImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf);
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<any>(ws, { header: 1 });
+      const header = rows[0] as string[];
+      if (!header || header.length < 10) throw new Error(lang === "th" ? "ไฟล์ไม่ถูกต้อง: ต้องเป็น DMC 31 ฟิลด์" : "Invalid DMC file");
+      const dataRows = rows.slice(1).filter((r: any) => Array.isArray(r) && r.length > 0 && r.some((c: any) => c !== "" && c != null));
+      const payloads = dataRows.map((r: any[]) => ({
+        direction: "inbound",
+        entity_type: "student",
+        operation: "create",
+        payload: { dmc: r, header },
+        status: "pending",
+      }));
+      for (let i = 0; i < payloads.length; i += 100) {
+        const batch = payloads.slice(i, i + 100);
+        const { error } = await supabase.from("sis_sync_queue" as any).insert(batch as any);
+        if (error) throw error;
+      }
+      toast.success(lang === "th" ? `นำเข้า DMC ${dataRows.length} รายการ เข้าคิว inbound` : `Imported ${dataRows.length} DMC rows`);
+      load();
+    } catch (err: any) {
+      toast.error(err?.message || "Import failed");
+    } finally {
+      setImporting(false);
+      e.target.value = "";
     }
   };
 
@@ -218,6 +254,12 @@ export default function SisSyncPage() {
                 ? (lang === "th" ? "กำลังดึง..." : "Pulling...")
                 : (lang === "th" ? "ดึงข้อมูลจาก SIS" : "Pull from SIS")}
             </Button>
+            <div className="mt-3 border-t pt-3">
+              <label className="flex items-center gap-2 text-xs font-semibold mb-2"><FileSpreadsheet className="w-3 h-3" /> {lang === "th" ? "นำเข้า DMC ไฟล์ สพฐ. (31 ฟิลด์) → คิว inbound" : "Import DMC file (31 fields) → inbound queue"}</label>
+              <input type="file" accept=".xlsx,.xls" onChange={handleDmcImport} disabled={importing} className="text-xs w-full file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-primary file:text-primary-foreground file:text-xs" />
+              {importing && <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> {lang === "th" ? "กำลังนำเข้า..." : "Importing..."}</p>}
+              <p className="text-[10px] text-muted-foreground mt-1">{lang === "th" ? "รองรับ .xlsx จาก DMC สพฐ. ตรวจ 31 ฟิลด์ก่อนเข้าคิว" : "Supports DMC .xlsx, validates 31 fields"}</p>
+            </div>
           </CardContent>
         </Card>
         <Card>

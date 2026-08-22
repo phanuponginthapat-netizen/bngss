@@ -1,10 +1,11 @@
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookOpen, Users, ClipboardList, GraduationCap } from "lucide-react";
+import { BookOpen, Users, ClipboardList, GraduationCap, ShieldAlert } from "lucide-react";
 import TeacherSubjectPage from "./TeacherSubjectPage";
 import ClassroomManagementPage from "./ClassroomManagementPage";
 import EnrollmentPage from "./EnrollmentPage";
+import AcademicGradeLockPage from "./AcademicGradeLockPage";
 
 const AcademicManagementPage = () => {
   const { lang } = useLanguage();
@@ -30,7 +31,7 @@ const AcademicManagementPage = () => {
       </Card>
 
       <Tabs defaultValue="subjects" className="space-y-4">
-        <TabsList className="w-full sm:w-auto">
+        <TabsList className="w-full sm:w-auto flex flex-wrap h-auto">
           <TabsTrigger value="subjects" className="gap-1.5">
             <BookOpen className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">{lang === "th" ? "รายวิชา/ครู" : "Subjects/Teachers"}</span>
@@ -45,6 +46,11 @@ const AcademicManagementPage = () => {
             <ClipboardList className="w-3.5 h-3.5" />
             {lang === "th" ? "ลงทะเบียน" : "Enrollment"}
           </TabsTrigger>
+          <TabsTrigger value="grade-lock" className="gap-1.5">
+            <ShieldAlert className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{lang === "th" ? "ล็อกเกรด 80%" : "Grade Lock 80%"}</span>
+            <span className="sm:hidden">{lang === "th" ? "ล็อกเกรด" : "Lock"}</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="subjects">
@@ -55,6 +61,9 @@ const AcademicManagementPage = () => {
         </TabsContent>
         <TabsContent value="enrollment">
           <EnrollmentPage />
+        </TabsContent>
+        <TabsContent value="grade-lock">
+          <AcademicGradeLockPage />
         </TabsContent>
       </Tabs>
     </div>

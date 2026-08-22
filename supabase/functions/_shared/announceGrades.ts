@@ -15,6 +15,8 @@ export interface AnnounceGradesOptions {
   };
 }
 
+const GRADE_LOCK_THRESHOLD = 80;
+
 export async function announceGrades(opts: AnnounceGradesOptions) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -50,6 +52,84 @@ export async function announceGrades(opts: AnnounceGradesOptions) {
       id: (s as any).id,
       uid: (s as any).auth_user_id || null,
     });
+  }
+
+  // -------------------------------------------------------------------------
+  // Grade lock: 80% attendance threshold check (OBEC)
+  // Before announcing PP5/PP6, ensure every student in the file has >=80%
+  // Uses attendance table (academic_year + semester) sparse storage: missing = present
+  // -------------------------------------------------------------------------
+  try {
+    const academicYear = (file as any).academic_year ?? parsed?.meta?.academicYear ?? parsed?.meta?.academic_year;
+    const semester = (file as any).semester ?? parsed?.meta?.semester;
+    const yearNum = academicYear != null ? Number(academicYear) : null;
+    const semNum = semester != null ? Number(semester) : null;
+
+    if (yearNum && semNum && students && students.length > 0) {
+      const studentIds = (students as any[]).map((s) => s.id);
+      const { data: attRows } = await admin
+        .from("attendance")
+        .select("student_id, attendance_date, status")
+        .in("student_id", studentIds)
+        .eq("academic_year", yearNum)
+        .eq("semester", semNum);
+
+      const rows = (attRows || []) as { student_id: string; attendance_date: string; status: string }[];
+      const distinctDates = new Set(rows.map((r) => r.attendance_date));
+      const total = distinctDates.size;
+
+      // If we have attendance data for this term, enforce threshold
+      if (total > 0) {
+        const absentMap = new Map<string, { absent: number; leave: number }>();
+        for (const r of rows) {
+          const cur = absentMap.get(r.student_id) ?? { absent: 0, leave: 0 };
+          if (r.status === "absent") cur.absent += 1;
+          else if (r.status === "leave" || r.status === "sick") cur.leave += 1;
+          absentMap.set(r.student_id, cur);
+        }
+
+        const atRisk: string[] = [];
+        for (const s of students as any[]) {
+          const c = absentMap.get(s.id) ?? { absent: 0, leave: 0 };
+          const attended = Math.max(0, total - c.absent - c.leave);
+          const rate = Math.round((attended / total) * 10000) / 100;
+          if (rate < GRADE_LOCK_THRESHOLD) {
+            atRisk.push(`${s.student_code} (${rate.toFixed(1)}%)`);
+          }
+        }
+
+        if (atRisk.length > 0) {
+          throw new Error(
+            `ไม่สามารถประกาศผลได้: มีนักเรียน ${atRisk.length} คน ที่เวลาเรียนต่ำกว่า ${GRADE_LOCK_THRESHOLD}% — ` +
+            atRisk.slice(0, 10).join(", ") +
+            (atRisk.length > 10 ? ` และอีก ${atRisk.length - 10} คน` : "") +
+            ` — กรุณาตรวจสอบหน้า "ล็อกเกรด 80%" ก่อนประกาศ`
+          );
+        }
+      }
+
+      // Optional: also respect grade_lock table if present
+      const classroomId = parsed?.classroom_id || (file as any).classroom_id;
+      const termStr = yearNum && semNum ? `${semNum}/${yearNum}` : null;
+      if (classroomId && termStr) {
+        const { data: lock } = await admin
+          .from("grade_lock" as any)
+          .select("status")
+          .eq("classroom_id", classroomId)
+          .eq("term", termStr)
+          .maybeSingle();
+        // If explicitly unlocked, we already blocked above via attendance; if locked we allow.
+        // No hard block here — attendance is the source of truth.
+        void lock;
+      }
+    }
+  } catch (e: any) {
+    // Only block on our threshold error; re-throw it. Other errors (e.g. table not exists) should not block announce.
+    if (e?.message && String(e.message).includes("ไม่สามารถประกาศผลได้")) {
+      throw e;
+    }
+    // Log but don't block if it's a missing table or query error (e.g. grade_lock not migrated yet)
+    console.warn("grade-lock check skipped:", e?.message);
   }
 
   // Parent links
