@@ -74,6 +74,7 @@ const OBEC_PRINT_CSS = `
   .eform-print-page {
     width: 210mm;
     min-height: 297mm;
+    max-width: 210mm;
     padding: 25mm 20mm 20mm 30mm;
     box-sizing: border-box;
     margin: 0 auto;
@@ -81,7 +82,25 @@ const OBEC_PRINT_CSS = `
     font-family: 'Sarabun', sans-serif;
     font-size: 21px;
     line-height: 1.5;
+    overflow: hidden;
     overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .eform-print-page * {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .eform-print-page img {
+    max-width: 100% !important;
+    height: auto !important;
+    object-fit: contain;
+  }
+
+  .eform-print-page table {
+    table-layout: fixed !important;
+    width: 100% !important;
   }
 
   .eform-print-page p {
