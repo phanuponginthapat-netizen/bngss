@@ -10,6 +10,7 @@ import { useAiBotSettings } from "@/hooks/useAiBotSettings";
 import { swal } from "@/lib/swal";
 import { subscribeToPush, getCurrentPushStatus, isPwaCapable, isInIframe, isPreviewHost } from "@/lib/pushSubscribe";
 import { askFreeAI } from "@/lib/freeAI";
+import { useUserRole } from "@/hooks/useUserRole";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -48,6 +49,7 @@ function orderChatRows(rows: ChatLogRow[]): Msg[] {
 
 export default function AiChatBubble() {
   const bot = useAiBotSettings();
+  const { role: userRole } = useUserRole();
   const greetingMsg: Msg = useMemo(() => ({ role: "assistant", content: bot.greeting }), [bot.greeting]);
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([greetingMsg]);
@@ -904,10 +906,10 @@ export default function AiChatBubble() {
               <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={generateImage} title="สร้างรูปจากข้อความ" disabled={busy || !input.trim()}>
                 <Sparkles className="w-4 h-4 text-amber-500" />
               </Button>
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : "สร้างใบงาน ")} title="สร้างใบงาน" disabled={busy}><FileText className="w-3.5 h-3.5 text-sky-600" /></Button>
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : "สร้างแผนการสอน ")} title="สร้างแผนการสอน" disabled={busy}><BookOpen className="w-3.5 h-3.5 text-emerald-600" /></Button>
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : "สร้างข้อสอบ ")} title="สร้างข้อสอบ" disabled={busy}><ClipboardCheck className="w-3.5 h-3.5 text-violet-600" /></Button>
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : "สรุปผลการเรียน ")} title="สรุปผลการเรียน" disabled={busy}><GraduationCap className="w-3.5 h-3.5 text-amber-600" /></Button>
+              {["teacher","admin","director"].includes(userRole||"") && <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : "สร้างใบงาน ")} title="สร้างใบงาน" disabled={busy}><FileText className="w-3.5 h-3.5 text-sky-600" /></Button>}
+              {["teacher","admin","director"].includes(userRole||"") && <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : "สร้างแผนการสอน ")} title="สร้างแผนการสอน" disabled={busy}><BookOpen className="w-3.5 h-3.5 text-emerald-600" /></Button>}
+              {(["teacher","admin","director","student"].includes(userRole||"")) && <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : "สร้างข้อสอบ ")} title="สร้างข้อสอบ" disabled={busy}><ClipboardCheck className="w-3.5 h-3.5 text-violet-600" /></Button>}
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : userRole==="parent" ? "ดูผลการเรียน " : "สรุปผลการเรียน ")} title={userRole==="parent" ? "ดูผลการเรียนลูก" : "สรุปผลการเรียน"} disabled={busy}><GraduationCap className="w-3.5 h-3.5 text-amber-600" /></Button>
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value.slice(0, 2000))}
