@@ -188,6 +188,7 @@ const OffsiteTripsPage = lazy(() => import("./pages/student/OffsiteTripsPage"));
 const AttendanceDashboardPage = lazy(() => import("./pages/hr/AttendanceDashboardPage"));
 const SchoolLunchPage = lazy(() => import("./pages/admin/SchoolLunchPage"));
 const ObecHubPage = lazy(() => import("./pages/admin/ObecHubPage"));
+const DebugFcmPage = lazy(() => import("./pages/DebugFcmPage"));
 const BusPage = lazy(() => import("./pages/admin/BusPage"));
 const WpaPage = lazy(() => import("./pages/admin/WpaPage"));
 const DirectorRealtimePage = lazy(() => import("./pages/admin/DirectorRealtimePage"));
@@ -339,6 +340,7 @@ const App = () => (
               <Route path="/help" element={<HelpCenterPage />} />
               <Route path="/help-ai" element={<HelpCenterAI />} />
               <Route path="/parent-app" element={<ParentAppPage />} />
+              <Route path="/debug-fcm" element={<DebugFcmPage />} />
               <Route path="/preview-gov" element={<PreviewGovPage />} />
               
               
