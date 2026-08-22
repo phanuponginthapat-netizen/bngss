@@ -58,6 +58,7 @@ interface Profile {
   employee_code: string | null;
   position_title: string | null;
   department: string | null;
+  signature_url?: string | null;
   pdpa_accepted_at?: string | null;
   pdpa_version?: string | null;
 }
@@ -92,6 +93,20 @@ const ProfilePage = () => {
   const [userEmail, setUserEmail] = useState("");
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const sigCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [sigSaving, setSigSaving] = useState(false);
+  useEffect(()=>{
+    const c=sigCanvasRef.current; if(!c) return;
+    const ctx=c.getContext("2d")!; ctx.fillStyle="#fff"; ctx.fillRect(0,0,c.width,c.height); ctx.strokeStyle="#111"; ctx.lineWidth=2; ctx.lineCap="round";
+    let drawing=false;
+    const pos=(e:any)=>{ const r=c.getBoundingClientRect(); const t=e.touches?.[0]??e; return {x:(t.clientX-r.left)*(c.width/r.width), y:(t.clientY-r.top)*(c.height/r.height)}; };
+    const down=(e:any)=>{ drawing=true; const p=pos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); };
+    const move=(e:any)=>{ if(!drawing) return; e.preventDefault(); const p=pos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); };
+    const up=()=>{ drawing=false; };
+    c.addEventListener("mousedown",down); c.addEventListener("mousemove",move); window.addEventListener("mouseup",up);
+    c.addEventListener("touchstart",down); c.addEventListener("touchmove",move,{passive:false}); window.addEventListener("touchend",up);
+    return ()=>{ c.removeEventListener("mousedown",down); c.removeEventListener("mousemove",move); window.removeEventListener("mouseup",up); c.removeEventListener("touchstart",down); c.removeEventListener("touchmove",move); window.removeEventListener("touchend",up); };
+  }, [sigCanvasRef.current]);
 
   useEffect(() => {
     if (!userId) return;
@@ -672,6 +687,7 @@ const ProfilePage = () => {
             <TabsTrigger value="documents" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><FileText className="w-4 h-4 mr-1.5" /> เอกสารของฉัน</TabsTrigger>
             <TabsTrigger value="myposts" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><MessageSquare className="w-4 h-4 mr-1.5" /> โพสต์ของฉัน</TabsTrigger>
             <TabsTrigger value="card" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><IdCard className="w-4 h-4 mr-1.5" /> บัตรประจำตัว</TabsTrigger>
+            <TabsTrigger value="signature" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><PenLine className="w-4 h-4 mr-1.5" /> ลายเซ็น</TabsTrigger>
           </TabsList>
         </div>
 
@@ -1388,6 +1404,60 @@ const ProfilePage = () => {
             </Card>
           </TabsContent>
         )}
+
+        {/* Signature - ให้เจ้าตัวกำหนดเอง */}
+        <TabsContent value="signature">
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="text-base flex items-center gap-2"><PenLine className="w-4 h-4 text-primary" /> ลายเซ็นดิจิทัล — ใช้ในเอกสารราชการ</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              {profile?.signature_url && <div className="border rounded p-3 bg-white flex justify-center"><img src={profile.signature_url} alt="ลายเซ็น" className="h-24 object-contain" /></div>}
+              <div className="border rounded bg-white p-2">
+                <canvas ref={sigCanvasRef} width={600} height={200} className="w-full border rounded bg-white touch-none" style={{touchAction:"none"}} />
+                <p className="text-xs text-muted-foreground mt-1">วาดลายเซ็นด้วยเมาส์/นิ้ว แล้วกดบันทึก</p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={()=>{
+                  const c=sigCanvasRef.current; if(!c) return; const ctx=c.getContext("2d")!; ctx.clearRect(0,0,c.width,c.height); ctx.fillStyle="#fff"; ctx.fillRect(0,0,c.width,c.height);
+                }}>ล้าง</Button>
+                <Button disabled={sigSaving} onClick={async ()=>{
+                  const c=sigCanvasRef.current; if(!c||!profile) return;
+                  setSigSaving(true);
+                  try {
+                    const blob = await new Promise<Blob|null>(res=> c.toBlob(b=>res(b),"image/png"));
+                    if(!blob) throw new Error("วาดลายเซ็นก่อน");
+                    const path = `${userId}/signature_${Date.now()}.png`;
+                    const { error: upErr } = await supabase.storage.from("profile-images").upload(path, blob, { upsert:true, contentType:"image/png" });
+                    if(upErr) throw upErr;
+                    const { data } = supabase.storage.from("profile-images").getPublicUrl(path);
+                    const url = data.publicUrl;
+                    const { error } = await supabase.from("profiles").update({ signature_url: url } as any).eq("id", userId!);
+                    if(error) throw error;
+                    setProfile({...profile, signature_url: url} as any);
+                    toast.success("บันทึกลายเซ็นแล้ว — เอกสารราชการจะใช้ลายเซ็นนี้อัตโนมัติ");
+                  } catch(e:any){ toast.error(e.message||"บันทึกไม่สำเร็จ"); } finally{ setSigSaving(false); }
+                }}>{sigSaving?"กำลังบันทึก...":"บันทึกลายเซ็น"}</Button>
+                <label className="ml-auto flex items-center gap-2 text-sm">
+                  <span>อัปโหลดรูป</span>
+                  <input type="file" accept="image/*" className="text-xs" onChange={async e=>{
+                    const f=e.target.files?.[0]; if(!f||!profile) return;
+                    setSigSaving(true);
+                    try{
+                      const path=`${userId}/signature_${Date.now()}.${f.name.split(".").pop()}`;
+                      const { error: upErr } = await supabase.storage.from("profile-images").upload(path,f,{upsert:true, contentType:f.type});
+                      if(upErr) throw upErr;
+                      const { data } = supabase.storage.from("profile-images").getPublicUrl(path);
+                      const url=data.publicUrl;
+                      const { error } = await supabase.from("profiles").update({ signature_url:url } as any).eq("id", userId!);
+                      if(error) throw error;
+                      setProfile({...profile, signature_url:url} as any);
+                      toast.success("อัปโหลดลายเซ็นแล้ว");
+                    }catch(e:any){ toast.error(e.message||"อัปโหลดไม่สำเร็จ"); } finally{ setSigSaving(false); e.target.value=""; }
+                  }} />
+                </label>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* ID Card */}
         <TabsContent value="card">
