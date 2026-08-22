@@ -59,3 +59,25 @@ export const supabase = createClient<Database>(
     },
   },
 );
+
+// แก้ Edge Function non-2xx ให้โชว์ error จริงจาก body (แทน "Edge Function returned a non-2xx")
+const _origInvoke = supabase.functions.invoke.bind(supabase.functions);
+(supabase.functions as any).invoke = async (fn: string, opts?: any) => {
+  const res: any = await _origInvoke(fn, opts);
+  if (res?.error) {
+    try {
+      const ctx: any = res.error.context;
+      let bodyText = "";
+      if (ctx?.body) bodyText = typeof ctx.body === "string" ? ctx.body : await new Response(ctx.body).text().catch(()=> "");
+      else if (ctx?.response) bodyText = await ctx.response.text().catch(()=> "");
+      if (bodyText) {
+        try { const j = JSON.parse(bodyText); if (j?.error) res.error.message = String(j.error); else if (j?.message) res.error.message = String(j.message); } catch { if (bodyText.length < 500) res.error.message = bodyText; }
+      }
+      // แปล weak password ให้เข้าใจง่าย
+      if (/weak|pwned|compromised/i.test(res.error.message)) {
+        res.error.message = "รหัสผ่านนี้ไม่ปลอดภัย (พบในฐานข้อมูลรหัสผ่านรั่วไหล) กรุณาใช้รหัสที่คาดเดายากขึ้น เช่น ผสมตัวใหญ่/เล็ก ตัวเลข สัญลักษณ์ อย่างน้อย 10 ตัว";
+      }
+    } catch {}
+  }
+  return res;
+};
