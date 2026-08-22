@@ -259,7 +259,7 @@ const PettyCashPage = lazy(() => import("./pages/admin/PettyCashPage"));
 const BankReconciliationPage = lazy(() => import("./pages/admin/BankReconciliationPage"));
 const SisSyncPage = lazy(() => import("./pages/admin/SisSyncPage"));
 const ObservationSessionPage = lazy(() => import("./pages/admin/ObservationSessionPage"));
-const PObecExportPage = lazy(() => import("./pages/admin/POBecExportPage"));
+const PObecExportPage = lazy(() => import("./pages/admin/PObecExportPage"));
 const PreviewGovPage = lazy(() => import("./pages/PreviewGovPage"));
 const HomeworkPage = lazy(() => import("./pages/HomeworkPage"));
 const PadletListPage = lazy(() => import("./pages/padlet/PadletListPage"));
