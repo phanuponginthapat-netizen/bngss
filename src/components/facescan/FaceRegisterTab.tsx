@@ -11,8 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { RefreshCw, Sparkles, CheckCircle2, XCircle, Image as ImageIcon, Camera, Save, Upload, ShieldCheck, History, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { loadFaceModels, getDescriptorFromImage, loadImageFromUrl, detectorOptionsHQ, detectFaceWithLandmarks, assessFaceQuality, BANK_GRADE, embedWithArcFace, type QualityReport } from "@/lib/faceApi";
-import * as faceapi from "@vladmandic/face-api";
+import { loadFaceModels, getDescriptorFromImage, loadImageFromUrl, detectFaceWithLandmarks, assessFaceQuality, BANK_GRADE, embedWithArcFace, type QualityReport } from "@/lib/faceApi";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -80,15 +79,16 @@ const FaceRegisterTab = () => {
   const pending = withAvatar.filter((s: any) => !registeredIds.has(s.id));
 
   const detectRobust = async (img: HTMLImageElement): Promise<Float32Array | null> => {
-    // 1) Standard
     const desc = await getDescriptorFromImage(img);
     if (desc) return desc;
-    // 2) HQ: larger input + lower threshold — คำนวณ 512-D ArcFace จาก landmarks เสมอ (ไม่ใช้ 128-D)
+    const [{ default: faceapiMod }, { detectorOptionsHQ: detHQ }] = await Promise.all([
+      import("@vladmandic/face-api"),
+      import("@/lib/faceApi"),
+    ]);
+    const faceapi: any = (faceapiMod as any).default || faceapiMod;
     for (const size of [512, 608] as const) {
       for (const thr of [0.35, 0.25, 0.15]) {
-        const res = await faceapi
-          .detectSingleFace(img as any, detectorOptionsHQ(size, thr))
-          .withFaceLandmarks();
+        const res = await faceapi.detectSingleFace(img as any, detHQ(size, thr)).withFaceLandmarks();
         if (!res) continue;
         const arc = await embedWithArcFace(img, res.landmarks, 1, 1);
         if (arc) return arc;

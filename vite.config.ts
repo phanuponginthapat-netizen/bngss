@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
-  plugins: [react(), deployKitPlugin()].filter(Boolean),
+  plugins: [react(), mode === "development" ? deployKitPlugin() : null].filter(Boolean),
   resolve: {
     alias: [
       // ใช้ client แบบ runtime config (รองรับ Supabase self-hosted / เปลี่ยน backend หลัง deploy)

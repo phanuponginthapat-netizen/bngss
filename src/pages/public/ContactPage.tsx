@@ -3,6 +3,7 @@ import PublicPageLayout from "@/components/public/PublicPageLayout";
 import { getSchoolInfo } from "@/lib/schoolInfo";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { MapPin, Phone, Mail, Clock, Printer } from "lucide-react";
+import DOMPurify from "dompurify";
 
 export default function ContactPage() {
   const [info, setInfo] = useState<any>(null);
@@ -34,7 +35,7 @@ export default function ContactPage() {
         </div>
         <div className="overflow-hidden rounded-3xl border border-border/50 bg-background/70 shadow-sm">
           {c.map_embed ? (
-            <div className="aspect-square" dangerouslySetInnerHTML={{ __html: c.map_embed }} />
+            <div className="aspect-square" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(c.map_embed, { ADD_TAGS: ["iframe"], ADD_ATTR: ["src", "allowfullscreen", "loading", "referrerpolicy"] }) }} />
           ) : (
             <div className="flex aspect-square items-center justify-center text-muted-foreground">
               เพิ่มแผนที่ได้จาก CMS

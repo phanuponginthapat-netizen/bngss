@@ -32,3 +32,7 @@ supabase/.temp
 # Extension signing key (private)
 *.pem
 scripts/*.pem
+
+.env
+.env.*
+!.env.example

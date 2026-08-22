@@ -73,14 +73,17 @@ const AllStudentsPage = () => {
   const [detailStudent, setDetailStudent] = useState<any>(null);
   const [editStudent, setEditStudent] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 50;
 
   const { data: students = [], isLoading, isError, error } = useQuery({
-    queryKey: ["all_students_dmc"],
+    queryKey: ["all_students_dmc", page],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("students")
         .select("*, classrooms!students_classroom_id_fkey(name, grade_level)")
-        .order("student_code");
+        .order("student_code")
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
       if (error) throw error;
       return data || [];
     },
@@ -446,7 +449,14 @@ const AllStudentsPage = () => {
                 ))
               )}
             </TableBody>
-          </Table>
+            </Table>
+            <div className="flex items-center justify-between p-3 border-t">
+              <span className="text-xs text-muted-foreground">หน้า {page + 1} • {filtered.length} คน (50 ต่อหน้า)</span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))}>ก่อนหน้า</Button>
+                <Button variant="outline" size="sm" disabled={filtered.length < PAGE_SIZE} onClick={() => setPage(p => p + 1)}>ถัดไป</Button>
+              </div>
+            </div>
         </CardContent>
       </Card>
 
