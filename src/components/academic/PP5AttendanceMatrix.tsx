@@ -9,11 +9,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Wand2, Save, Zap } from "lucide-react";
+import { CalendarIcon, Wand2, Save, Zap, Download, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { BE_OFFSET, bkkDateISO, formatDateBE, parseDateBE, toISODate } from "@/lib/dateBE";
 import { saveErrorMessage } from "@/lib/saveError";
+import { todayBangkok } from "@/lib/dateBE";
 
 interface Props {
   subjectId: string;
@@ -237,6 +238,47 @@ const PP5AttendanceMatrix = ({
     qc.invalidateQueries({ queryKey: ["subjects"] });
   };
 
+  const [autoScanLoading, setAutoScanLoading] = useState(false);
+  const autoFillFromScan = async () => {
+    if (!canEdit) return;
+    const validDates = dates.filter(Boolean);
+    if (validDates.length === 0) { toast.error("ยังไม่มีวันที่กำกับคาบ"); return; }
+    if (students.length === 0) { toast.error("ไม่มีนักเรียน"); return; }
+    setAutoScanLoading(true);
+    try {
+      const from = validDates.reduce((a, b) => a < b ? a : b);
+      const to = validDates.reduce((a, b) => a > b ? a : b);
+      // Deduplicate to distinct dates (face_scan is per day, not per period)
+      const distinctDates = Array.from(new Set(validDates)).sort();
+      const { data: scans } = await supabase.from("face_scan_logs").select("student_id, scan_date").eq("scan_type", "entry").gte("scan_date", from).lte("scan_date", to).in("student_id", studentIds);
+      const { data: attends } = await supabase.from("attendance").select("student_id, attendance_date").gte("attendance_date", from).lte("attendance_date", to).in("student_id", studentIds);
+      const presentSet = new Set<string>();
+      for (const s of (scans as any[]) || []) presentSet.add(`${s.student_id}|${s.scan_date}`);
+      for (const a of (attends as any[]) || []) presentSet.add(`${a.student_id}|${a.attendance_date}`);
+      // Also check manual attendance present = not in absences (already handled) - scan is extra evidence for present
+      let filled = 0;
+      for (const s of students) {
+        for (const d of distinctDates) {
+          const key = `${s.id}|${d}`;
+          const hasScan = presentSet.has(key);
+          const cur = statusMap.get(key);
+          // If has scan and currently absent/leave or not present, set to present (delete absent/leave)
+          if (hasScan && cur) {
+            await supabase.from("attendance").delete().eq("id", cur.id);
+            filled++;
+          } else if (!hasScan && !cur) {
+            // No scan and no record => keep as present (no row) - don't auto mark absent to avoid overwriting holidays
+            // Do nothing; teacher can bulk mark absent if needed
+          }
+        }
+      }
+      qc.invalidateQueries({ queryKey: ["pp5_absences"] });
+      toast.success(`ดึงจากการสแกนแล้ว ${filled} รายการ (สแกนเข้า = มาเรียน)`);
+    } catch (e: any) {
+      toast.error("ดึงสแกนไม่สำเร็จ: " + (e?.message || ""));
+    } finally { setAutoScanLoading(false); }
+  };
+
   return (
     <div className="space-y-3">
       <Card>
@@ -276,7 +318,10 @@ const PP5AttendanceMatrix = ({
               </Button>
             </div>
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex gap-1">
+            <Button size="sm" variant="secondary" onClick={autoFillFromScan} disabled={!canEdit || autoScanLoading} title="ดึงบันทึกสแกนเข้าเรียน (face_scan_logs + attendance) มาใส่ช่องเวลาเรียนอัตโนมัติ">
+              {autoScanLoading ? <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Download className="w-3.5 h-3.5 mr-1" />} ดึงจากการสแกน
+            </Button>
             <Button size="sm" onClick={saveConfig} disabled={!canEdit}>
               <Save className="w-3.5 h-3.5 mr-1" />บันทึกตั้งค่า
             </Button>

@@ -18,6 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useSchoolInfo } from "@/components/documents/DocumentHeader";
 import { calculateGrade, gradeColor } from "@/lib/gradeUtils";
 import { openPrintWindow, toThaiDigits } from "@/lib/printUtils";
+import { exportSchoolMisExcel, printPor5 } from "@/lib/schoolMisExport";
 import { toast } from "sonner";
 import PP5AutoImportDialog from "@/components/academic/PP5AutoImportDialog";
 import { Megaphone, CheckCircle2 } from "lucide-react";
@@ -1208,7 +1209,43 @@ const ScoreViewTab = () => {
             <SelectItem value="2">ภาคเรียนที่ 2</SelectItem>
           </SelectContent>
         </Select>
-        {subjectId && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์</Button>}
+        {subjectId && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์ ปพ.5</Button>}
+        {subjectId && <Button variant="outline" onClick={async () => {
+          if (!selectedSubject) return;
+          const rows = displayData.map((r: any) => ({
+            schoolCode: schoolInfo.school_code || "",
+            year: String((selectedSubject as any).academic_year || ""),
+            term: String(semester || (selectedSubject as any).semester || ""),
+            subjectCode: (selectedSubject as any).code || "",
+            subjectName: (selectedSubject as any).name_th || "",
+            credit: (selectedSubject as any).credits || 0,
+            studentCode: r.student_code,
+            studentName: r.student_name,
+            fullScore: 100,
+            score: r.total || 0,
+            classroom: r.classroom || classLabel,
+          }));
+          const { school_name } = schoolInfo as any;
+          printPor5(rows, { schoolName: school_name || "โรงเรียน", term: String(semester || (selectedSubject as any).semester || ""), year: String((selectedSubject as any).academic_year || ""), subjectCode: (selectedSubject as any).code || "", subjectName: (selectedSubject as any).name_th || "" });
+        }}><Printer className="w-4 h-4 mr-2" />พิมพ์ SchoolMIS</Button>}
+        {subjectId && <Button variant="outline" onClick={async () => {
+          if (!selectedSubject) return;
+          const rows = displayData.map((r: any) => ({
+            schoolCode: schoolInfo.school_code || "",
+            year: String((selectedSubject as any).academic_year || ""),
+            term: String(semester || (selectedSubject as any).semester || ""),
+            subjectCode: (selectedSubject as any).code || "",
+            subjectName: (selectedSubject as any).name_th || "",
+            credit: (selectedSubject as any).credits || 0,
+            studentCode: r.student_code,
+            studentName: r.student_name,
+            fullScore: 100,
+            score: r.total || 0,
+            classroom: r.classroom || classLabel,
+          }));
+          exportSchoolMisExcel(rows, `SchoolMIS_${(selectedSubject as any).code || "PP5"}_${classLabel}.xlsx`);
+          toast.success("ส่งออก SchoolMIS แล้ว");
+        }}><Download className="w-4 h-4 mr-2" />Export SchoolMIS</Button>}
         {subjectId && selectedSubject && (
           <Button variant="outline" onClick={async () => {
             const { printByCode } = await import("@/lib/printTemplate");
