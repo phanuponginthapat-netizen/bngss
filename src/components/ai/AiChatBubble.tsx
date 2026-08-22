@@ -9,6 +9,7 @@ import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { useAiBotSettings } from "@/hooks/useAiBotSettings";
 import { swal } from "@/lib/swal";
 import { subscribeToPush, getCurrentPushStatus, isPwaCapable, isInIframe, isPreviewHost } from "@/lib/pushSubscribe";
+import { askFreeAI } from "@/lib/freeAI";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -592,6 +593,12 @@ export default function AiChatBubble() {
       setMessages([...nextDisplay, { role: "assistant", content: reply }]);
       speak(reply);
     } catch (e: any) {
+      // ลอง AI ฟรีในเครื่องก่อน (ไม่ต้องใช้ API)
+      try {
+        const prompt = nextSend.map(m=> `${m.role}: ${m.content}`).join("\n");
+        const free = await askFreeAI(prompt);
+        if (free) { setMessages([...nextDisplay, { role: "assistant", content: free + "\n\n_(ตอบด้วย AI ฟรีในเครื่อง)_" }]); speak(free); return; }
+      } catch {}
       const msg = String(e?.message || e?.context?.error || "");
       // จำแนกชนิด error ให้แม่นยำ — "เครดิตหมด" ใช้เฉพาะกรณีโควต้าจริงๆ เท่านั้น
       const isDailyQuota = /ครบ\s*\d+\s*ข้อความ|daily limit|quota.*exceed/i.test(msg);
