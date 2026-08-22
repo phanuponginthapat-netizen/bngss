@@ -586,9 +586,13 @@ serve(async (req) => {
     if (action === "reset_password") {
       const { user_id, new_password } = body;
       if (!user_id || !new_password) throw new Error("user_id and new_password required");
-      if (new_password.length < 6) throw new Error("Password must be at least 6 characters");
+      if (new_password.length < 6) throw new Error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
       const { error } = await adminClient.auth.admin.updateUserById(user_id, { password: new_password });
-      if (error) throw error;
+      if (error) {
+        const isWeak = /weak|pwned|compromised/i.test(error.message || "") || (error as any)?.code === "weak_password";
+        if (isWeak) throw new Error("รหัสผ่านนี้ไม่ปลอดภัย (พบในฐานข้อมูลรหัสผ่านรั่วไหล) กรุณาใช้รหัสที่คาดเดายากขึ้น เช่น ผสมตัวใหญ่/เล็ก ตัวเลข สัญลักษณ์ อย่างน้อย 10 ตัว");
+        throw error;
+      }
       await adminClient.from("profiles").update({ must_change_password: true } as any).eq("id", user_id);
       return ok({ success: true });
     }
