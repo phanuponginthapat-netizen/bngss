@@ -131,6 +131,7 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
 
 /** Register auto-flush listeners (idempotent) */
 let installed = false;
+let _intervalId: ReturnType<typeof setInterval> | null = null;
 export function installAutoSync(onChange?: () => void) {
   if (installed || typeof window === "undefined") return;
   installed = true;
@@ -141,8 +142,14 @@ export function installAutoSync(onChange?: () => void) {
   };
   window.addEventListener("online", trigger);
   window.addEventListener("focus", trigger);
-  // interval fallback ทุก 30 วิ กรณี event ไม่ยิง
-  setInterval(trigger, 30_000);
-  // ยิงครั้งแรกทันที
+  _intervalId = setInterval(trigger, 30_000);
   setTimeout(trigger, 1_500);
+}
+
+export function uninstallAutoSync() {
+  if (_intervalId != null) {
+    clearInterval(_intervalId);
+    _intervalId = null;
+  }
+  installed = false;
 }

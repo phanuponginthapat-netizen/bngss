@@ -143,10 +143,18 @@ export async function flush(): Promise<{ ok: number; failed: number }> {
 /**
  * Install background auto-flush. Call once at app boot.
  */
+let _intervalId: ReturnType<typeof setInterval> | null = null;
 export function installOfflineSync() {
   const tryFlush = () => flush().catch(() => {});
   window.addEventListener("online", tryFlush);
   window.addEventListener("focus", tryFlush);
-  setInterval(tryFlush, 60_000);
+  _intervalId = setInterval(tryFlush, 60_000);
   if (navigator.onLine) tryFlush();
+}
+
+export function uninstallOfflineSync() {
+  if (_intervalId != null) {
+    clearInterval(_intervalId);
+    _intervalId = null;
+  }
 }

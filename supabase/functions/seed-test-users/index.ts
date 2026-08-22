@@ -11,7 +11,11 @@ const TEST_USERS: Array<{ email: string; role: Role; first_name: string; last_na
   { email: "alumni@test.school", role: "alumni", first_name: "ทดสอบ", last_name: "ศิษย์เก่า" },
 ];
 
-const PASSWORD = "Test@1234";
+function genPassword() {
+  const buf = new Uint8Array(12);
+  crypto.getRandomValues(buf);
+  return "Test@" + btoa(String.fromCharCode(...buf)).replace(/[^a-zA-Z0-9]/g, "").slice(0, 12);
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -50,18 +54,19 @@ Deno.serve(async (req) => {
       const found = existing?.users?.find((x) => x.email?.toLowerCase() === u.email);
       let userId: string;
       let created = false;
+      const password = genPassword();
 
       if (found) {
         userId = found.id;
         await admin.auth.admin.updateUserById(userId, {
-          password: PASSWORD,
+          password,
           email_confirm: true,
           user_metadata: { first_name: u.first_name, last_name: u.last_name },
         });
       } else {
         const { data, error } = await admin.auth.admin.createUser({
           email: u.email,
-          password: PASSWORD,
+          password,
           email_confirm: true,
           user_metadata: { first_name: u.first_name, last_name: u.last_name },
         });
@@ -83,7 +88,7 @@ Deno.serve(async (req) => {
       await admin.from("user_roles").delete().eq("user_id", userId);
       await admin.from("user_roles").insert({ user_id: userId, role: u.role });
 
-      results.push({ email: u.email, password: PASSWORD, role: u.role, created, user_id: userId });
+      results.push({ email: u.email, password, role: u.role, created, user_id: userId });
     }
 
     return new Response(

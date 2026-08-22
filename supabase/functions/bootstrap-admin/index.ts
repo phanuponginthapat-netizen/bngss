@@ -40,8 +40,13 @@ Deno.serve(async (req) => {
     const adminCount = adminRows?.length ?? 0;
 
     // Recovery mode: exactly one admin exists → allow password reset of that admin.
-    // Safe because it only resets the sole admin account when the operator has lost access.
+    // Requires x-bootstrap-secret header to prevent unauthorized resets.
     if (adminCount === 1 && body?.reset === true) {
+      const bootstrapSecret = Deno.env.get("BOOTSTRAP_SECRET");
+      const provided = req.headers.get("x-bootstrap-secret") || "";
+      if (!bootstrapSecret || provided !== bootstrapSecret) {
+        return json({ error: "Unauthorized: bootstrap secret required for reset" }, 401);
+      }
       const userId = adminRows![0].user_id;
       const { data: userInfo } = await admin.auth.admin.getUserById(userId);
       const email = userInfo?.user?.email ?? DEFAULT_EMAIL;
