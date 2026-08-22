@@ -13,13 +13,14 @@ CREATE TABLE IF NOT EXISTS public.leave_balances (
 );
 
 ALTER TABLE public.leave_balances ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own leave balances" ON public.leave_balances;
 CREATE POLICY "Users can view own leave balances" ON public.leave_balances FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can manage leave balances" ON public.leave_balances;
 CREATE POLICY "Admins can manage leave balances" ON public.leave_balances FOR ALL USING (
   EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'admin')
 );
 
 -- Auto-calculate sick leave balance per Thai labor law (30 days/year paid)
--- Personal leave: 3 days/year, Vacation: based on years of service
 CREATE OR REPLACE FUNCTION public.calculate_leave_balances(_year integer)
 RETURNS void AS $$
 DECLARE
@@ -34,23 +35,16 @@ BEGIN
     WHERE ur.role IN ('teacher', 'director', 'admin')
   LOOP
     svc_years := EXTRACT(YEAR FROM age(now(), r.created_at));
-    
-    -- Sick leave: 30 days/year (paid)
     INSERT INTO public.leave_balances (user_id, year, leave_type, total_days)
     VALUES (r.id, _year, 'sick', 30)
     ON CONFLICT (user_id, year, leave_type) DO NOTHING;
-    
-    -- Personal leave: 3 days/year
     INSERT INTO public.leave_balances (user_id, year, leave_type, total_days)
     VALUES (r.id, _year, 'personal', 3)
     ON CONFLICT (user_id, year, leave_type) DO NOTHING;
-    
-    -- Vacation: 6 days (0-5 years), 7-12 days (6-10 years), 10-15 days (10+ years) per Thai law
     IF svc_years < 6 THEN vac_days := 6;
     ELSIF svc_years < 10 THEN vac_days := 7 + (svc_years - 6);
     ELSE vac_days := 15;
     END IF;
-    
     INSERT INTO public.leave_balances (user_id, year, leave_type, total_days)
     VALUES (r.id, _year, 'vacation', LEAST(vac_days, 15))
     ON CONFLICT (user_id, year, leave_type) DO NOTHING;
@@ -58,14 +52,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Auto-update used_days from staff_leave records
+-- Auto-update used_days from staff_leaves records (only if table exists)
 CREATE OR REPLACE FUNCTION public.update_leave_used_days()
 RETURNS trigger AS $$
 BEGIN
   UPDATE public.leave_balances lb
   SET used_days = (
     SELECT COALESCE(SUM(sl.days_requested), 0)
-    FROM public.staff_leave sl
+    FROM public.staff_leaves sl
     WHERE sl.user_id = lb.user_id
       AND sl.status = 'approved'
       AND sl.leave_type = lb.leave_type
@@ -78,8 +72,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trg_update_leave_used ON public.staff_leave;
-CREATE TRIGGER trg_update_leave_used
-  AFTER INSERT OR UPDATE OR DELETE ON public.staff_leave
-  FOR EACH ROW
-  EXECUTE FUNCTION public.update_leave_used_days();
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='staff_leaves') THEN
+    EXECUTE 'DROP TRIGGER IF EXISTS trg_update_leave_used ON public.staff_leaves';
+    EXECUTE 'CREATE TRIGGER trg_update_leave_used AFTER INSERT OR UPDATE OR DELETE ON public.staff_leaves FOR EACH ROW EXECUTE FUNCTION public.update_leave_used_days()';
+  END IF;
+END $$;

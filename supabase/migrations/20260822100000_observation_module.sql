@@ -1,119 +1,108 @@
-create table observer_tokens (
-  id uuid primary key default gen_random_uuid(),
-  token_hash text not null unique,
-  school_code text not null,
-  role text not null default 'observer' check (role in ('observer', 'lead_observer', 'admin')),
-  full_name text not null,
-  email text,
-  expires_at timestamptz not null,
-  created_at timestamptz not null default now(),
-  revoked_at timestamptz
+-- Observation module: time-limited tokens, session management, rubric scoring
+-- Fixed: uses IF NOT EXISTS + no FK to non-existent tables (profiles/classrooms)
+
+CREATE TABLE IF NOT EXISTS public.observer_tokens (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  token text NOT NULL UNIQUE,
+  observer_name text NOT NULL,
+  observer_role text DEFAULT 'ศึกษานิเทศก์',
+  created_by uuid REFERENCES auth.users(id),
+  expires_at timestamptz NOT NULL,
+  max_uses integer DEFAULT 1,
+  use_count integer DEFAULT 0,
+  is_active boolean DEFAULT true,
+  note text,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE public.observer_tokens ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Admins manage observer tokens" ON public.observer_tokens;
+CREATE POLICY "Admins manage observer tokens" ON public.observer_tokens FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'admin')
 );
 
-create table observation_sessions (
-  id uuid primary key default gen_random_uuid(),
-  observer_token_id uuid not null references observer_tokens(id),
-  teacher_id uuid not null references profiles(user_id),
-  classroom_id uuid not null references classrooms(id),
+CREATE TABLE IF NOT EXISTS public.observation_sessions (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  observer_token_id uuid REFERENCES public.observer_tokens(id),
+  teacher_id uuid NOT NULL REFERENCES auth.users(id),
+  classroom text,
   subject text,
-  grade_level text,
-  started_at timestamptz not null default now(),
-  ended_at timestamptz,
-  status text not null default 'in_progress' check (status in ('in_progress', 'completed', 'cancelled'))
+  scheduled_date date NOT NULL DEFAULT CURRENT_DATE,
+  scheduled_time text,
+  status text DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'in_progress', 'completed', 'cancelled')),
+  notes text,
+  created_by uuid REFERENCES auth.users(id),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+ALTER TABLE public.observation_sessions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Teachers view own observation sessions" ON public.observation_sessions;
+CREATE POLICY "Teachers view own observation sessions" ON public.observation_sessions FOR SELECT USING (
+  auth.uid() = teacher_id OR EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'director'))
+);
+DROP POLICY IF EXISTS "Admins manage observation sessions" ON public.observation_sessions;
+CREATE POLICY "Admins manage observation sessions" ON public.observation_sessions FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'director'))
 );
 
-create table observation_rubrics (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
+CREATE TABLE IF NOT EXISTS public.observation_rubrics (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  name text NOT NULL DEFAULT 'OBEC 5 ขั้นตอนการจัดการเรียนรู้',
   description text,
-  step_order int not null,
-  category text not null check (category in ('step', 'classroom_management', 'active_learning', 'assessment')),
-  criteria_text text not null,
-  max_score int not null default 4,
-  created_at timestamptz not null default now()
+  criteria jsonb NOT NULL DEFAULT '[]',
+  is_active boolean DEFAULT true,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE public.observation_rubrics ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Authenticated can read rubrics" ON public.observation_rubrics;
+CREATE POLICY "Authenticated can read rubrics" ON public.observation_rubrics FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Admins manage rubrics" ON public.observation_rubrics;
+CREATE POLICY "Admins manage rubrics" ON public.observation_rubrics FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'admin')
 );
 
-create table observation_records (
-  id uuid primary key default gen_random_uuid(),
-  session_id uuid not null references observation_sessions(id) on delete cascade,
-  rubric_id uuid not null references observation_rubrics(id),
-  score int not null check (score between 0 and 4),
-  comment text,
-  created_at timestamptz not null default now(),
-  unique (session_id, rubric_id)
+CREATE TABLE IF NOT EXISTS public.observation_records (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  session_id uuid NOT NULL REFERENCES public.observation_sessions(id) ON DELETE CASCADE,
+  rubric_id uuid NOT NULL REFERENCES public.observation_rubrics(id),
+  teacher_id uuid NOT NULL REFERENCES auth.users(id),
+  scores jsonb NOT NULL DEFAULT '{}',
+  total_score numeric,
+  max_score numeric,
+  overall_comment text,
+  strengths text,
+  suggestions text,
+  status text DEFAULT 'draft' CHECK (status IN ('draft', 'submitted', 'acknowledged')),
+  observed_at timestamptz DEFAULT now(),
+  submitted_at timestamptz,
+  acknowledged_at timestamptz,
+  created_by uuid REFERENCES auth.users(id),
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE public.observation_records ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Teachers view own observation records" ON public.observation_records;
+CREATE POLICY "Teachers view own observation records" ON public.observation_records FOR SELECT USING (
+  auth.uid() = teacher_id OR EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'director'))
+);
+DROP POLICY IF EXISTS "Observers can insert observation records" ON public.observation_records;
+CREATE POLICY "Observers can insert observation records" ON public.observation_records FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Admins manage observation records" ON public.observation_records;
+CREATE POLICY "Admins manage observation records" ON public.observation_records FOR ALL USING (
+  EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'director'))
 );
 
-alter table observer_tokens enable row level security;
-alter table observation_sessions enable row level security;
-alter table observation_rubrics enable row level security;
-alter table observation_records enable row level security;
-
--- observer_tokens: only admins can read; service_role manages inserts
-create policy "Observers can read own token"
-  on observer_tokens for select
-  using (true);
-
-create policy "Service role inserts tokens"
-  on observer_tokens for insert
-  with check (true);
-
-create policy "Service role updates tokens"
-  on observer_tokens for update
-  using (true);
-
--- observation_sessions: observer sees own sessions, service_role manages all
-create policy "Observers read own sessions"
-  on observation_sessions for select
-  using (true);
-
-create policy "Observers insert own sessions"
-  on observation_sessions for insert
-  with check (true);
-
-create policy "Observers update own sessions"
-  on observation_sessions for update
-  using (true);
-
--- observation_rubrics: readable by all authenticated users
-create policy "Authenticated users read rubrics"
-  on observation_rubrics for select
-  using (auth.role() = 'authenticated');
-
-create policy "Service role manages rubrics"
-  on observation_rubrics for all
-  using (true)
-  with check (true);
-
--- observation_records: observer owns records, teachers see records about them
-create policy "Observers read own records"
-  on observation_records for select
-  using (true);
-
-create policy "Observers insert records"
-  on observation_records for insert
-  with check (true);
-
-create policy "Observers update own records"
-  on observation_records for update
-  using (true);
-
-create policy "Teachers see records for their sessions"
-  on observation_records for select
-  using (
-    exists (
-      select 1 from observation_sessions s
-      where s.id = session_id
-        and s.teacher_id = auth.uid()
-    )
-  );
-
--- Seed default OBEC 5-step teaching model rubric
-insert into observation_rubrics (name, step_order, category, criteria_text, max_score) values
-  ('Step 1 - Learning Outcomes', 1, 'step', 'Teacher clearly states learning outcomes and connects to prior knowledge at the start of the lesson.', 4),
-  ('Step 2 - Recall Prior Knowledge', 2, 'step', 'Teacher activates students prior knowledge through review questions, discussions, or activities that link to new content.', 4),
-  ('Step 3 - Provide Learning Experience', 3, 'step', 'Teacher delivers content through varied, age-appropriate activities that promote understanding of the lesson topic.', 4),
-  ('Step 4 - Check for Understanding', 4, 'step', 'Teacher uses formative assessment strategies to verify students comprehension before moving forward.', 4),
-  ('Step 5 - Consolidate Learning', 5, 'step', 'Teacher summarizes key points and helps students consolidate what they have learned.', 4),
-  ('Classroom Management', 6, 'classroom_management', 'Teacher maintains a positive learning environment with clear expectations, smooth transitions, and effective time management.', 4),
-  ('Active Learning', 7, 'active_learning', 'Students are actively engaged through discussion, collaboration, hands-on tasks, or inquiry-based activities.', 4),
-  ('Assessment', 8, 'assessment', 'Teacher uses appropriate and varied assessment methods to evaluate student learning outcomes.', 4);
+-- Seed default OBEC rubric criteria (only if not already seeded)
+INSERT INTO public.observation_rubrics (name, description, criteria)
+SELECT
+  'OBEC 5 ขั้นตอนการจัดการเรียนรู้',
+  'แบบประเมินการสังเกตการสอนตามแนวปฏิบัติ สพฐ. (5 ขั้นตอน + การจัดการชั้นเรียน)',
+  '[
+    {"id": "step1", "name": "ขั้นตอนที่ 1: ขั้นนำ (Motivation)", "description": "สร้างความสนใจ motivation สอดคล้องกับเนื้อหา", "max_score": 5},
+    {"id": "step2", "name": "ขั้นตอนที่ 2: ขั้นกระตุ้นความรู้เดิม", "description": "เชื่อมโยงความรู้เดิมกับเนื้อหาใหม่", "max_score": 5},
+    {"id": "step3", "name": "ขั้นตอนที่ 3: ขั้นสอนเนื้อหาใหม่", "description": "การอธิบาย สาธิต ยกตัวอย่าง ถาม-ตอบ", "max_score": 5},
+    {"id": "step4", "name": "ขั้นตอนที่ 4: ขั้นฝึกปฏิบัติ", "description": "นักเรียนลงมือทำ กิจกรรมกลุ่ม การทำงานร่วมกัน", "max_score": 5},
+    {"id": "step5", "name": "ขั้นตอนที่ 5: ขั้นสรุปและประเมิน", "description": "ทบทวน สรุป ประเมินผลการเรียนรู้", "max_score": 5},
+    {"id": "cls_mgmt", "name": "การจัดการชั้นเรียน", "description": "ความเป็นระเบียบ การจัดที่นั่ง การใช้สื่อ การบริหารเวลา", "max_score": 5},
+    {"id": "active_learn", "name": "การจัดการเรียนรู้เชิงรุก", "description": "นักเรียนมีส่วนร่วม คิดวิเคราะห์ แก้ปัญหา ไม่ใช่แค่ฟัง", "max_score": 5},
+    {"id": "assess", "name": "การประเมินผลระหว่างเรียน", "description": "สังเกต ถาม ให้feedback ตรวจสอบความเข้าใจ", "max_score": 5}
+  ]'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM public.observation_rubrics WHERE name = 'OBEC 5 ขั้นตอนการจัดการเรียนรู้');
