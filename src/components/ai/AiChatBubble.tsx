@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Mic, MicOff, Send, Volume2, VolumeX, X, MessageCircle, Loader2, Play, ImagePlus, Sparkles } from "lucide-react";
+import { Bot, Mic, MicOff, Send, Volume2, VolumeX, X, MessageCircle, Loader2, Play, ImagePlus, Sparkles, FileText, BookOpen, ClipboardCheck, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -894,7 +894,7 @@ export default function AiChatBubble() {
               </div>
             )}
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onPickImage} />
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-wrap">
               <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={toggleMic} title="พูดใส่ไมค์">
                 {listening ? <MicOff className="w-4 h-4 text-destructive animate-pulse" /> : <Mic className="w-4 h-4" />}
               </Button>
@@ -904,6 +904,10 @@ export default function AiChatBubble() {
               <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={generateImage} title="สร้างรูปจากข้อความ" disabled={busy || !input.trim()}>
                 <Sparkles className="w-4 h-4 text-amber-500" />
               </Button>
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : "สร้างใบงาน ")} title="สร้างใบงาน" disabled={busy}><FileText className="w-3.5 h-3.5 text-sky-600" /></Button>
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : "สร้างแผนการสอน ")} title="สร้างแผนการสอน" disabled={busy}><BookOpen className="w-3.5 h-3.5 text-emerald-600" /></Button>
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : "สร้างข้อสอบ ")} title="สร้างข้อสอบ" disabled={busy}><ClipboardCheck className="w-3.5 h-3.5 text-violet-600" /></Button>
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : "สรุปผลการเรียน ")} title="สรุปผลการเรียน" disabled={busy}><GraduationCap className="w-3.5 h-3.5 text-amber-600" /></Button>
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value.slice(0, 2000))}
@@ -917,7 +921,7 @@ export default function AiChatBubble() {
               </Button>
             </div>
             <div className={`text-[10px] text-right pr-1 ${input.length >= 1800 ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-              {input.length}/2000 ตัวอักษร · ✨ สร้างรูป · 📷 แนบรูป
+              {input.length}/2000 ตัวอักษร · ✨ รูป · 📄 ใบงาน · 📚 แผน · 📋 ข้อสอบ · 🎓 สรุปเกรด
             </div>
           </form>
         </div>
