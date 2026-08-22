@@ -1,0 +1,1 @@
+export default function ParentAppPage(){ return <div className="p-6"><h1 className="text-2xl font-bold">แอปผู้ปกครอง</h1><p className="text-sm text-muted-foreground">ดูเกรด/ขาดลา/รถรับส่ง + จ่ายเงิน/ลา ผ่าน LINE OA 2 ทาง</p></div> }
