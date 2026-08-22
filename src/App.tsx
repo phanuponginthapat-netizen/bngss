@@ -85,6 +85,7 @@ const TeachingLogbookPage = lazy(() => import("./pages/academic/TeachingLogbookP
 
 // Exam OCR
 const ExamListPage = lazy(() => import("./pages/exam/ExamListPage"));
+const ExamAutoGradePage = lazy(() => import("./pages/admin/ExamAutoGradePage"));
 const ExamNewPage = lazy(() => import("./pages/exam/ExamNewPage"));
 const ExamDetailPage = lazy(() => import("./pages/exam/ExamDetailPage"));
 const ExamAnswerSheetPage = lazy(() => import("./pages/exam/ExamAnswerSheetPage"));
@@ -540,6 +541,7 @@ const App = () => (
 
                 {/* Exam OCR */}
                 <Route path="exam" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><ExamListPage /></ProtectedRoute>} />
+                <Route path="admin/exam-auto-grade" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><ExamAutoGradePage /></ProtectedRoute>} />
                 <Route path="exam/new" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><ExamNewPage /></ProtectedRoute>} />
                 <Route path="exam/:id" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><ExamDetailPage /></ProtectedRoute>} />
                 <Route path="exam/:id/answer-sheet" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><ExamAnswerSheetPage /></ProtectedRoute>} />
