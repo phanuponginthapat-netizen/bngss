@@ -57,6 +57,7 @@ const LiffAttendancePage = lazy(() => import("./pages/liff/LiffAttendancePage"))
 const LiffHomePage = lazy(() => import("./pages/liff/LiffHomePage"));
 const InstallPage = lazy(() => import("./pages/InstallPage"));
 const HelpCenterPage = lazy(() => import("./pages/HelpCenterPage"));
+const HelpCenterAI = lazy(() => import("./pages/HelpCenterAI"));
 
 // Academic
 const SchedulePage = lazy(() => import("./pages/academic/SchedulePage"));
@@ -335,6 +336,7 @@ const App = () => (
               <Route path="/liff/attendance" element={<LiffAttendancePage />} />
               <Route path="/install" element={<InstallPage />} />
               <Route path="/help" element={<HelpCenterPage />} />
+              <Route path="/help-ai" element={<HelpCenterAI />} />
               <Route path="/preview-gov" element={<PreviewGovPage />} />
               
               
