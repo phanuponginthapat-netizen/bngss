@@ -104,8 +104,9 @@ export async function sendFcm(token: string, payload: FcmPayload): Promise<FcmRe
         notification: { title: payload.title, body: payload.body ?? "" },
         android: {
           priority: "high",
-          notification: { channel_id: "default", sound: "default" },
+          notification: { channel_id: "default", sound: "default", visibility: "PUBLIC", notification_priority: "PRIORITY_MAX", default_sound: true, default_vibrate_timings: true },
         },
+        apns: { payload: { aps: { sound: "default", badge: 1 } } },
         data: { url: payload.url ?? "/dashboard", tag: payload.tag ?? "general" },
       },
     };

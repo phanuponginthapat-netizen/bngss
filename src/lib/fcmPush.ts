@@ -68,13 +68,25 @@ export async function flushPendingFcmToken(): Promise<void> {
 export async function initFcmPush(): Promise<void> {
   if (initialized) return;
   if (!isNativeFcmSupported()) return;
-  initialized = true;
   try {
+    // สร้าง channel ก่อนขอสิทธิ์ — ให้ FCM มี channel พร้อมแม้ขอครั้งแรกถูกปฏิเสธ
+    try {
+      await PushNotifications.createChannel({
+        id: "default",
+        name: "การแจ้งเตือน",
+        description: "การแจ้งเตือนจาก BNGSS",
+        importance: 4,
+        sound: "default",
+        vibration: true,
+        visibility: 1 as any,
+      });
+    } catch { /* มีแล้ว */ }
     const perm = await PushNotifications.requestPermissions();
     if (perm.receive !== "granted") {
       console.warn("FCM permission denied");
       return;
     }
+    initialized = true;
 
     PushNotifications.addListener("registration", (token) => {
       void saveDeviceToken(token.value);
