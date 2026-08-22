@@ -37,7 +37,7 @@ const EFormTemplatesPage = () => {
   const [draftFields, setDraftFields] = useState<EFormField[]>([]);
   const [draftPdfPath, setDraftPdfPath] = useState<string>("");
   const [draftOverlays, setDraftOverlays] = useState<PdfOverlayField[]>([]);
-  const [draftMeta, setDraftMeta] = useState({ name: "", description: "", category: "custom", page_size: "A4", font_family: "TH Sarabun New", font_size_pt: 16, is_active: true });
+  const [draftMeta, setDraftMeta] = useState({ name: "", description: "", category: "custom", page_size: "A4", font_family: "TH Sarabun New", font_size_pt: 16, is_active: true, visibility: "private" as "private"|"public" });
   const [saving, setSaving] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   useBodyScrollLock(fullscreen);
@@ -117,7 +117,7 @@ const EFormTemplatesPage = () => {
     setDraftFields([]);
     setDraftPdfPath("");
     setDraftOverlays([]);
-    setDraftMeta({ name: "", description: "", category: "custom", page_size: "A4", font_family: "TH Sarabun New", font_size_pt: 16, is_active: true });
+    setDraftMeta({ name: "", description: "", category: "custom", page_size: "A4", font_family: "TH Sarabun New", font_size_pt: 16, is_active: true, visibility: "private" });
     setPickerOpen(false);
     setEditorOpen(true);
   };
@@ -129,7 +129,7 @@ const EFormTemplatesPage = () => {
     setDraftFields([]);
     setDraftPdfPath("");
     setDraftOverlays([]);
-    setDraftMeta({ name: "ฟอร์ม PDF ใหม่", description: "", category: "official", page_size: "A4", font_family: "TH Sarabun New", font_size_pt: 14, is_active: true });
+    setDraftMeta({ name: "ฟอร์ม PDF ใหม่", description: "", category: "official", page_size: "A4", font_family: "TH Sarabun New", font_size_pt: 14, is_active: true, visibility: "private" });
     setPickerOpen(false);
     setEditorOpen(true);
   };
@@ -149,6 +149,7 @@ const EFormTemplatesPage = () => {
       font_family: p.font_family,
       font_size_pt: p.font_size_pt,
       is_active: true,
+      visibility: "private",
     });
     setPickerOpen(false);
     setEditorOpen(true);
@@ -163,7 +164,7 @@ const EFormTemplatesPage = () => {
     setDraftOverlays((t.pdf_overlay_fields || []) as PdfOverlayField[]);
     setDraftMeta({
       name: t.name, description: t.description || "", category: t.category || "custom",
-      page_size: t.page_size, font_family: t.font_family, font_size_pt: t.font_size_pt, is_active: t.is_active,
+      page_size: t.page_size, font_family: t.font_family, font_size_pt: t.font_size_pt, is_active: t.is_active, visibility: (t as any).visibility || "private",
     });
     setEditorOpen(true);
   };
@@ -324,6 +325,10 @@ const EFormTemplatesPage = () => {
                       <div className="flex items-center gap-2">
                         <Switch id="active" checked={draftMeta.is_active} onCheckedChange={(c) => setDraftMeta(m => ({ ...m, is_active: c }))} />
                         <Label htmlFor="active" className="text-xs">เปิดใช้งาน</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch id="vis" checked={draftMeta.visibility==="public"} onCheckedChange={(c) => setDraftMeta(m => ({ ...m, visibility: c? "public":"private" }))} />
+                        <Label htmlFor="vis" className="text-xs">{draftMeta.visibility==="public"?"แชร์ให้ทุกคน (Public)":"ส่วนตัว (Private) — เห็นคนเดียว"}</Label>
                       </div>
                     </div>
                   }
