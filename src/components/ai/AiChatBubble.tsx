@@ -792,13 +792,13 @@ export default function AiChatBubble() {
       {/* Chat panel */}
       {open && (
         <div className={cn(
-          "fixed z-40 border border-border rounded-2xl shadow-elegant flex flex-col overflow-hidden",
+          "fixed z-40 rounded-3xl shadow-2xl flex flex-col overflow-hidden backdrop-blur-xl bg-white/95 border border-white/60",
           "bottom-[calc(env(safe-area-inset-bottom)+76px)] right-3 md:bottom-[calc(env(safe-area-inset-bottom)+24px)] md:right-6",
-          "w-[min(340px,calc(100vw-2rem))] h-[min(480px,calc(100vh-8rem))]",
+          "w-[min(360px,calc(100vw-2rem))] h-[min(520px,calc(100vh-8rem))]",
         )}
-          style={{ backgroundColor: bot.bgColor }}
+          style={{ backgroundColor: bot.bgColor, boxShadow: "0 20px 60px -12px hsl(var(--primary)/0.25), 0 8px 20px -4px hsl(var(--foreground)/0.1)" }}
         >
-          <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ background: bot.headerGradient }}>
+          <div className="flex items-center gap-2.5 px-4 py-3 border-b border-white/50 backdrop-blur-sm" style={{ background: bot.headerGradient || "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))" }}>
             <Avatar className="w-8 h-8">
               {bot.avatarUrl ? <AvatarImage src={bot.avatarUrl} /> : schoolLogo ? <AvatarImage src={schoolLogo} /> : null}
               <AvatarFallback className="gradient-primary text-primary-foreground"><Bot className="w-4 h-4" /></AvatarFallback>
