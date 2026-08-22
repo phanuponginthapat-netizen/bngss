@@ -328,8 +328,16 @@ const ScoreEntryTab = () => {
     queryFn: async () => {
       if (scoreColumns.length === 0) return [];
       const colIds = scoreColumns.map((c: any) => c.id);
-      const { data } = await supabase.from("student_column_scores").select("*").in("column_id", colIds);
-      return data || [];
+      // chunk to avoid statement_timeout on large classes (200+ columns)
+      const chunks: string[][] = [];
+      for (let i = 0; i < colIds.length; i += 50) chunks.push(colIds.slice(i, i + 50));
+      const results: any[] = [];
+      for (const chunk of chunks) {
+        const { data, error } = await supabase.from("student_column_scores").select("*").in("column_id", chunk).limit(5000);
+        if (error) throw error;
+        if (data) results.push(...data);
+      }
+      return results;
     },
     enabled: scoreColumns.length > 0,
   });

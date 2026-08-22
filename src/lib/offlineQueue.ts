@@ -117,9 +117,10 @@ export async function flush(): Promise<{ ok: number; failed: number }> {
         if (res.error) throw res.error;
         await remove(it.id);
         ok++;
-      } catch {
+      } catch (e: any) {
         it.attempts++;
         if (it.attempts > MAX_ATTEMPTS) {
+          try { await (supabase.from("offline_failed_queue" as any) as any).insert({ queue_name: it.table, payload: it as any, error: String(e?.message || e), attempts: it.attempts }); } catch {}
           await remove(it.id);
         } else {
           await withStore("readwrite", (s) => {
