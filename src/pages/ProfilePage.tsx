@@ -22,7 +22,7 @@ import {
   Building, GraduationCap, Shield, Save, Pencil, IdCard,
   BookOpen, Clock, Users, ClipboardList, BarChart3, FileText, TrendingUp,
   FileCheck, Eye, Printer, Download, ListTodo, CheckCircle2, AlertTriangle,
-  ShieldCheck, ExternalLink, MessageSquare, Trash2, Pin, Image as ImageIcon
+  ShieldCheck, ExternalLink, MessageSquare, Trash2, Pin, Image as ImageIcon, PenLine
 } from "lucide-react";
 import { useIdCardSettings } from "@/hooks/useIdCardSettings";
 import { IdCardFront, IdCardBack } from "@/components/IdCardRenderer";

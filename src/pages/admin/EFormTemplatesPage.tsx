@@ -386,7 +386,7 @@ const EFormTemplatesPage = () => {
           setDraftFields([]);
           setDraftPdfPath("");
           setDraftOverlays([]);
-          setDraftMeta({ name: fileName || "นำเข้าจาก Word", description: "นำเข้าจากไฟล์ Word", category: "custom", page_size: "A4", font_family: "TH Sarabun New", font_size_pt: 16, is_active: true });
+          setDraftMeta({ name: fileName || "นำเข้าจาก Word", description: "นำเข้าจากไฟล์ Word", category: "custom", page_size: "A4", font_family: "TH Sarabun New", font_size_pt: 16, is_active: true, visibility: "private" });
           setPickerOpen(false);
           setEditorOpen(true);
         }}
