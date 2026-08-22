@@ -258,6 +258,7 @@ const BudgetApprovalPage = lazy(() => import("./pages/admin/BudgetApprovalPage")
 const PettyCashPage = lazy(() => import("./pages/admin/PettyCashPage"));
 const BankReconciliationPage = lazy(() => import("./pages/admin/BankReconciliationPage"));
 const SisSyncPage = lazy(() => import("./pages/admin/SisSyncPage"));
+const ObservationSessionPage = lazy(() => import("./pages/admin/ObservationSessionPage"));
 const PObecExportPage = lazy(() => import("./pages/admin/POBecExportPage"));
 const PreviewGovPage = lazy(() => import("./pages/PreviewGovPage"));
 const HomeworkPage = lazy(() => import("./pages/HomeworkPage"));
@@ -577,6 +578,7 @@ const App = () => (
                 <Route path="admin/petty-cash" element={<ProtectedRoute allowedRoles={["admin", "director"]}><PettyCashPage /></ProtectedRoute>} />
                 <Route path="admin/bank-reconciliation" element={<ProtectedRoute allowedRoles={["admin", "director"]}><BankReconciliationPage /></ProtectedRoute>} />
                 <Route path="admin/sis-sync" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SisSyncPage /></ProtectedRoute>} />
+                <Route path="admin/observation-sessions" element={<ProtectedRoute allowedRoles={["admin", "director"]}><ObservationSessionPage /></ProtectedRoute>} />
 
                 {/* Exam OCR */}
                 <Route path="exam" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><ExamListPage /></ProtectedRoute>} />
