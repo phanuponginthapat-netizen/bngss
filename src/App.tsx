@@ -341,6 +341,8 @@ const App = () => (
               <Route path="/help-ai" element={<HelpCenterAI />} />
               <Route path="/parent-app" element={<ParentAppPage />} />
               <Route path="/debug-fcm" element={<DebugFcmPage />} />
+              <Route path="/fcm-debug" element={<DebugFcmPage />} />
+              <Route path="/debug" element={<DebugFcmPage />} />
               <Route path="/preview-gov" element={<PreviewGovPage />} />
               
               
