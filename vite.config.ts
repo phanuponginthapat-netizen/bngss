@@ -33,13 +33,15 @@ export default defineConfig(({ mode }) => ({
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
           if (id.includes("/@tiptap/")) return "vendor-tiptap";
-          // Do not manually split Recharts/d3. It has circular module edges that
-          // can crash production builds with "Cannot access ... before initialization".
           if (id.includes("/jspdf") || id.includes("/html2canvas")) return "vendor-pdf";
           if (id.includes("/xlsx")) return "vendor-xlsx";
           if (id.includes("/leaflet")) return "vendor-map";
           if (id.includes("/@vladmandic/face-api")) return "vendor-face";
+          if (id.includes("/@tensorflow/tfjs")) return "vendor-tfjs";
+          if (id.includes("/face-api") || id.includes("/faceapi")) return "vendor-face";
           if (id.includes("/react-router")) return "vendor-router";
+          if (id.includes("/radix-ui")) return "vendor-radix";
+          if (id.includes("/sonner") || id.includes("/lucide")) return "vendor-ui";
           if (
             id.match(/\/react(-dom)?\//) &&
             !id.includes("react-hook-form") &&

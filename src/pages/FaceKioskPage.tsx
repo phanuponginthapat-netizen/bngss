@@ -1763,6 +1763,7 @@ const FaceKioskPage = () => {
             <p className="text-[10px] text-muted-foreground leading-snug">
               กล้อง Dahua WizMind ตรวจจับใบหน้าเองแล้วส่งภาพ best-shot เข้าระบบผ่าน bridge
               เครื่องนี้จะ <b>จดจำและบันทึกทันที</b> โดยไม่ต้องรัน detection ทั้งเฟรม (ลด CPU • หน่วง ~0.5–1.5 วิ)
+              {perfMode==="atom" && <span className="text-amber-600"> • Atom แนะนำปิดไว้ถ้าใช้ webcam หลัก</span>}
             </p>
             {wizmindOn && (
               <p className="text-[10px] text-muted-foreground">
