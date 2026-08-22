@@ -47,3 +47,26 @@ export function gradeColor(grade: string): string {
     default: return "bg-muted text-muted-foreground";
   }
 }
+
+export interface GradeProportion {
+  duringTerm: number; // default 70
+  midterm: number;    // default 10
+  final: number;      // default 20
+}
+
+const DEFAULT_PROPORTION: GradeProportion = { duringTerm: 70, midterm: 10, final: 20 };
+
+export function calculateGradeWithProportion(
+  scores: { duringTerm: number; midterm: number; final: number },
+  fullScores: { duringTerm: number; midterm: number; final: number },
+  proportion?: GradeProportion
+) {
+  const p = proportion || DEFAULT_PROPORTION;
+  const totalP = p.duringTerm + p.midterm + p.final;
+  const duringPct = scores.duringTerm / (fullScores.duringTerm || 100);
+  const midPct = scores.midterm / (fullScores.midterm || 100);
+  const finalPct = scores.final / (fullScores.final || 100);
+  const weighted = (duringPct * p.duringTerm + midPct * p.midterm + finalPct * p.final) / totalP;
+  const pct = weighted * 100;
+  return calculateGrade(pct, 100);
+}

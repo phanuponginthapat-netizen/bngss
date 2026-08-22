@@ -14,9 +14,10 @@ export interface GradeRow {
   studentName?: string;
   fullScore: number;
   score: number;
+  classroom?: string;
 }
 
-function getBranding(){ try{ const b=(window as any).__branding||JSON.parse(localStorage.getItem("cms_branding_cache")||"{}"); return { name:b.name||"โรงเรียนบ้านหนองเงือก", logo:b.logo||"", garuda:b.garuda||b.logo||"", director:b.directorName||"นายเกษม ใจกระเสน", directorTitle:b.directorTitle||"ผู้อำนวยการโรงเรียน", directorSig:b.directorSig||"", schoolSeal:b.schoolSeal||"", address:b.schoolAddress||"", phone:b.schoolPhone||"" }; }catch{ return {name:"โรงเรียนบ้านหนองเงือก",logo:"",garuda:"",director:"นายเกษม ใจกระเสน",directorTitle:"ผู้อำนวยการโรงเรียน",directorSig:"",schoolSeal:"",address:"",phone:""} } }
+function getBranding(){ try{ const b=(window as any).__branding||JSON.parse(localStorage.getItem("cms_branding_cache")||"{}"); return { name:b.name||"โรงเรียนบ้านหนองเงือก", schoolCode:b.schoolCode||b.code||"", logo:b.logo||"", garuda:b.garuda||b.logo||"", director:b.directorName||"นายเกษม ใจกระเสน", directorTitle:b.directorTitle||"ผู้อำนวยการโรงเรียน", directorSig:b.directorSig||"", schoolSeal:b.schoolSeal||"", address:b.schoolAddress||"", phone:b.schoolPhone||"" }; }catch{ return {name:"โรงเรียนบ้านหนองเงือก",schoolCode:"",logo:"",garuda:"",director:"นายเกษม ใจกระเสน",directorTitle:"ผู้อำนวยการโรงเรียน",directorSig:"",schoolSeal:"",address:"",phone:""} } }
 function brandingHeader(){ const b=getBranding(); const seal = b.schoolSeal? `<img src="${b.schoolSeal}" style="width:32pt; height:32pt; object-fit:contain; margin-left:6pt" onerror="this.style.display='none'">`:""; return `<div style="display:flex; align-items:center; gap:10pt; border-bottom:2px solid #000; padding-bottom:6pt; margin-bottom:8pt"><img src="${b.logo}" style="width:42pt; height:42pt; object-fit:contain; border-radius:4pt" onerror="this.style.display='none'"><div><div style="font-size:13pt; font-weight:bold">${b.name}</div><div style="font-size:8pt; color:#444">${b.address} ${b.phone?`โทร ${b.phone}`:""}</div></div><div style="margin-left:auto; display:flex; align-items:center; gap:6pt; text-align:right; font-size:8pt"><div>${b.directorTitle}<br><b>${b.director}</b></div>${seal}</div></div>`; }
 
 // SchoolMIS Excel: 8 คอลัมน์ตามเทมเพลต สพฐ.
@@ -26,12 +27,45 @@ export function exportSchoolMisExcel(rows: GradeRow[], fileName = "schoolmis_gra
   const title = [[b.name],[`โดย ${b.director} ${b.directorTitle}`],[]];
   const data = rows.map(r => {
     const g = calculateGrade(r.score, r.fullScore);
-    return [r.schoolCode||"", r.year||"", r.term||"", r.subjectCode, r.subjectName||"", r.credit||"", r.studentCode, r.studentName||"", r.fullScore, r.score, g.grade];
+    const schoolCode = r.schoolCode || b.schoolCode || "";
+    return [schoolCode, r.year||"", r.term||"", r.subjectCode, r.subjectName||"", r.credit||"", r.studentCode, r.studentName||"", r.fullScore, r.score, g.grade];
   });
   const ws = XLSX.utils.aoa_to_sheet([...title, header, ...data]);
   ws["!cols"] = [{wch:12},{wch:10},{wch:8},{wch:10},{wch:18},{wch:8},{wch:12},{wch:18},{wch:10},{wch:10},{wch:6}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "SchoolMIS");
+  XLSX.writeFile(wb, fileName);
+}
+
+// SchoolMIS Excel หลายห้อง: ส่งออกเกรดทุกห้องเรียนในไฟล์เดียว จัดกลุ่มตามห้องเรียน
+export function exportSchoolMisMultiClass(rows: GradeRow[], fileName = "schoolmis_grades_multiclass.xlsx") {
+  const b=getBranding();
+  const header = ["รหัสโรงเรียน","ปีการศึกษา","ภาคเรียน","รหัสวิชา","ชื่อวิชา","หน่วยกิต","เลขประจำตัว","ชื่อ-สกุล","คะแนนเต็ม","คะแนนที่ได้","เกรด"];
+  
+  // จัดกลุ่มตามห้องเรียน
+  const classMap = new Map<string, GradeRow[]>();
+  for (const r of rows) {
+    const classroom = r.classroom || "ไม่ระบุห้อง";
+    if (!classMap.has(classroom)) classMap.set(classroom, []);
+    classMap.get(classroom)!.push(r);
+  }
+  
+  const wb = XLSX.utils.book_new();
+  const sortedClasses = Array.from(classMap.keys()).sort();
+  
+  for (const classroom of sortedClasses) {
+    const classRows = classMap.get(classroom)!;
+    const title = [[b.name],[`โดย ${b.director} ${b.directorTitle}`],[],[`ห้องเรียน: ${classroom}`],[]];
+    const data = classRows.map(r => {
+      const g = calculateGrade(r.score, r.fullScore);
+      const schoolCode = r.schoolCode || b.schoolCode || "";
+      return [schoolCode, r.year||"", r.term||"", r.subjectCode, r.subjectName||"", r.credit||"", r.studentCode, r.studentName||"", r.fullScore, r.score, g.grade];
+    });
+    const ws = XLSX.utils.aoa_to_sheet([...title, header, ...data]);
+    ws["!cols"] = [{wch:12},{wch:10},{wch:8},{wch:10},{wch:18},{wch:8},{wch:12},{wch:18},{wch:10},{wch:10},{wch:6}];
+    XLSX.utils.book_append_sheet(wb, ws, classroom.substring(0, 31)); // Excel sheet name max 31 chars
+  }
+  
   XLSX.writeFile(wb, fileName);
 }
 
@@ -61,10 +95,10 @@ export function printPor5(rows: GradeRow[], meta: { schoolName: string; term: st
 }
 
 // Lunch: แบบรายงานอาหารกลางวัน สพฐ.
-export function printLunchReport(data: { date: string; menu: string; students: number; budgetPerHead: number; source: string }[]) {
+export function printLunchReport(data: { date: string; menu: string; students: number; budgetPerHead: number; source: string; budgetCode?: string }[]) {
   const b=getBranding();
   const sig = b.directorSig? `<img src="${b.directorSig}" style="height:28pt; display:block; margin:0 auto 4pt" onerror="this.style.display='none'"><br>`:"";
-  const html = `<div style="font-family:TH Sarabun New; padding:20pt">${brandingHeader()}<h2 style="text-align:center">รายงานอาหารกลางวันนักเรียน (สพฐ.)</h2><table border="1" cellpadding="4" cellspacing="0" style="width:100%; border-collapse:collapse"><tr style="background:#eee"><th>วันที่</th><th>เมนู (5 หมู่)</th><th>จำนวน นร.</th><th>งบ/คน</th><th>แหล่งทุน</th><th>รวม</th></tr>${data.map(d=>`<tr><td>${d.date}</td><td>${d.menu}</td><td style="text-align:center">${d.students}</td><td style="text-align:right">${d.budgetPerHead}</td><td>${d.source}</td><td style="text-align:right">${(d.students*d.budgetPerHead).toFixed(2)}</td></tr>`).join("")}</table><div style="margin-top:30pt; display:flex; justify-content:space-between; text-align:center"><div>ผู้จัดทำ<br>...........................</div><div>${sig}${b.directorTitle}<br>${b.director}<br>...........................</div></div></div>`;
+  const html = `<div style="font-family:TH Sarabun New; padding:20pt">${brandingHeader()}<h2 style="text-align:center">รายงานอาหารกลางวันนักเรียน (สพฐ.)</h2><table border="1" cellpadding="4" cellspacing="0" style="width:100%; border-collapse:collapse"><tr style="background:#eee"><th>วันที่</th><th>เมนู (5 หมู่)</th><th>จำนวน นร.</th><th>งบ/คน</th><th>แหล่งทุน</th><th>รหัสงบประมาณ</th><th>รวม</th></tr>${data.map(d=>`<tr><td>${d.date}</td><td>${d.menu}</td><td style="text-align:center">${d.students}</td><td style="text-align:right">${d.budgetPerHead}</td><td>${d.source}</td><td>${d.budgetCode||""}</td><td style="text-align:right">${(d.students*d.budgetPerHead).toFixed(2)}</td></tr>`).join("")}</table><div style="margin-top:30pt; display:flex; justify-content:space-between; text-align:center"><div>ผู้จัดทำ<br>...........................</div><div>${sig}${b.directorTitle}<br>${b.director}<br>...........................</div></div></div>`;
   openPrintWindow(html, { title: "รายงานอาหารกลางวัน" });
 }
 
