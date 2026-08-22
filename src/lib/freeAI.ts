@@ -23,11 +23,13 @@ export async function loadFreeAI(onProgress?: (p:string)=>void){
   return loading;
 }
 
+const SYSTEM = "You are BNG Smart School assistant — รอบรู้ทุกเรื่องการศึกษาไทย, ตอบได้ทั้งสาระทั่วไป, สร้างรูป/ใบงาน/แผนการสอน/ข้อสอบ, แนะนำงานโรงเรียน. ตอบเป็นภาษาไทยสุภาพ กระชับ.";
 export async function askFreeAI(prompt: string, onProgress?: (p:string)=>void): Promise<string>{
   const p = await loadFreeAI(onProgress);
-  const out: any = await p(prompt, { max_new_tokens: 256, temperature: 0.7 });
+  const full = `${SYSTEM}\n\nคำถาม: ${prompt}\nคำตอบ:`;
+  const out: any = await p(full, { max_new_tokens: 256, temperature: 0.7 });
   const text = Array.isArray(out) ? out[0]?.generated_text : out?.generated_text;
-  return String(text||"").trim() || "ขออภัย ลองใหม่ครับ";
+  return String(text||"").trim().replace(full,"").trim() || "ขออภัย ลองใหม่ครับ";
 }
 
 // สำหรับใบงาน/เฉลย — ใช้ prompt สำเร็จรูป

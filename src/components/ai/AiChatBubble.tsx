@@ -584,6 +584,25 @@ export default function AiChatBubble() {
     setInput("");
     setPendingImage(null);
     setBusy(true);
+    // --- Local tools (ไม่ต้องรอ AI) — สร้างรูป/ใบงาน/แผน/ข้อสอบ ได้ทันที ---
+    const lower = String(content||"").toLowerCase();
+    if (/(สร้างรูป|วาดรูป|generate image|create image)/i.test(lower)) {
+      try {
+        const prompt = content.replace(/.*(สร้างรูป|วาดรูป|generate image|create image)\s*/i,"").trim() || content;
+        const { data, error } = await supabase.functions.invoke("ai-chat", { body: { mode:"image", messages:[{role:"user", content: prompt}] } });
+        const reply = (data as any)?.reply || "สร้างรูปให้แล้วค่ะ";
+        setMessages([...nextDisplay, { role:"assistant", content: reply }]); speak(reply); setBusy(false); return;
+      } catch {}
+    }
+    if (/(สร้างใบงาน|ใบงาน|worksheet)/i.test(lower)) {
+      try { const { generateFreeWorksheet } = await import("@/lib/freeAI"); const t=content.replace(/.*(สร้างใบงาน|ใบงาน)\s*/i,"").trim()||"ใบงานทั่วไป"; const html=(await generateFreeWorksheet(t)).slice(0,800); const reply=`สร้างใบงานเรื่อง "${t}" ให้แล้วค่ะ\n\n${html}\n\n_(สร้างด้วย AI ฟรี)_`; setMessages([...nextDisplay, {role:"assistant", content: reply}]); speak(reply); setBusy(false); return; } catch {}
+    }
+    if (/(สร้างแผนการสอน|แผนการสอน|lesson plan)/i.test(lower)) {
+      try { const { askFreeAI } = await import("@/lib/freeAI"); const r=await askFreeAI(`สร้างแผนการสอนเรื่อง ${content} แบบ สพฐ. 5 ขั้น`); setMessages([...nextDisplay,{role:"assistant", content:r}]); speak(r); setBusy(false); return; } catch {}
+    }
+    if (/(สร้างข้อสอบ|ข้อสอบ|exam)/i.test(lower)) {
+      try { const { askFreeAI } = await import("@/lib/freeAI"); const r=await askFreeAI(`สร้างข้อสอบ 5 ข้อ เรื่อง ${content} พร้อมเฉลย`); setMessages([...nextDisplay,{role:"assistant", content:r}]); speak(r); setBusy(false); return; } catch {}
+    }
     try {
       const { data, error } = await supabase.functions.invoke("ai-chat", {
         body: { messages: nextSend },
