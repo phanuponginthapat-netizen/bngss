@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import {
   Loader2, Type, ChevronLeft, ChevronRight, Save, Pencil, Eraser,
   Highlighter, Square, Circle as CircleIcon, ArrowRight, Undo2, Redo2,
-  RotateCw, PenLine, Stamp, MousePointer2,
+  RotateCw, PenLine, Stamp, MousePointer2, Mic, Video, StopCircle,
 } from "lucide-react";
 import {
   downloadHomeworkBlob, signedHomeworkUrl,
@@ -54,6 +54,8 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
   const [color, setColor] = useState("#e11d48");
   const [size, setSize] = useState(3);
   const [signOpen, setSignOpen] = useState(false);
+  const [recAudio, setRecAudio] = useState<MediaRecorder|null>(null);
+  const [recVideo, setRecVideo] = useState<MediaRecorder|null>(null);
 
   const pushHistory = () => {
     const canvas = fabricCanvasRef.current;
@@ -352,6 +354,29 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
     catch (e: any) { toast.error(e?.message || "เปิดไม่สำเร็จ"); }
   };
 
+  const toggleAudio = async () => {
+    if (recAudio) { recAudio.stop(); setRecAudio(null); return; }
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const r = new MediaRecorder(s);
+      const chunks: BlobPart[] = [];
+      r.ondataavailable = e=> chunks.push(e.data);
+      r.onstop = async ()=>{ const b=new Blob(chunks,{type:"audio/webm"}); s.getTracks().forEach(t=>t.stop()); await onSave(b, `audio_${Date.now()}.webm`); toast.success("บันทึกเสียงแล้ว"); };
+      r.start(); setRecAudio(r); toast("กำลังอัดเสียง... กดอีกครั้งเพื่อหยุด");
+    } catch(e:any){ toast.error(e?.message||"อัดเสียงไม่สำเร็จ"); }
+  };
+  const toggleVideo = async () => {
+    if (recVideo) { recVideo.stop(); setRecVideo(null); return; }
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ audio:true, video:true });
+      const r = new MediaRecorder(s);
+      const chunks: BlobPart[] = [];
+      r.ondataavailable = e=> chunks.push(e.data);
+      r.onstop = async ()=>{ const b=new Blob(chunks,{type:"video/webm"}); s.getTracks().forEach(t=>t.stop()); await onSave(b, `video_${Date.now()}.webm`); toast.success("บันทึกวิดีโอแล้ว"); };
+      r.start(); setRecVideo(r); toast("กำลังอัดวิดีโอ... กดอีกครั้งเพื่อหยุด");
+    } catch(e:any){ toast.error(e?.message||"อัดวิดีโอไม่สำเร็จ"); }
+  };
+
   const placeSignature = (dataUrl: string) => {
     const canvas = fabricCanvasRef.current;
     const fabric = fabricNsRef.current;
@@ -400,6 +425,9 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
           <Button size="sm" variant="outline" onClick={() => addStamp("ต้นฉบับ", "#dc2626")} className="h-8"><Stamp className="w-4 h-4 mr-1" />ต้นฉบับ</Button>
           <Button size="sm" variant="outline" onClick={() => addStamp("สำเนา", "#0284c7")} className="h-8">สำเนา</Button>
           <Button size="sm" variant="outline" onClick={() => addStamp("อนุมัติ", "#16a34a")} className="h-8">อนุมัติ</Button>
+          <div className="w-px h-6 bg-border mx-1" />
+          <Button size="sm" variant={recAudio?"default":"outline"} onClick={toggleAudio} className="h-8" title="อัดเสียงพูด">{recAudio?<StopCircle className="w-4 h-4 mr-1"/>:<Mic className="w-4 h-4 mr-1"/>}{recAudio?"หยุด":"อัดเสียง"}</Button>
+          <Button size="sm" variant={recVideo?"default":"outline"} onClick={toggleVideo} className="h-8" title="อัดคลิปวิดีโอ">{recVideo?<StopCircle className="w-4 h-4 mr-1"/>:<Video className="w-4 h-4 mr-1"/>}{recVideo?"หยุด":"วิดีโอ"}</Button>
 
           {isPdfMime(attachment?.mime) && pageCount > 1 && (
             <div className="flex items-center gap-1 ml-auto">
