@@ -184,6 +184,7 @@ const OffsiteTripsPage = lazy(() => import("./pages/student/OffsiteTripsPage"));
 
 const AttendanceDashboardPage = lazy(() => import("./pages/hr/AttendanceDashboardPage"));
 const SchoolLunchPage = lazy(() => import("./pages/admin/SchoolLunchPage"));
+const ObecHubPage = lazy(() => import("./pages/admin/ObecHubPage"));
 const SchoolMilkPage = lazy(() => import("./pages/admin/SchoolMilkPage"));
 const ActionPlanPage = lazy(() => import("./pages/admin/ActionPlanPage"));
 const HubProjectsPage = lazy(() => import("./pages/projects/HubProjectsPage"));
@@ -465,6 +466,7 @@ const App = () => (
                 <Route path="documents/masters" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><MasterTemplatesPage /></ProtectedRoute>} />
                 <Route path="eform-inbox" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><InboxPage /></ProtectedRoute>} />
                 <Route path="admin/school-lunch" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["general_admin"]}><SchoolLunchPage /></DepartmentRoute></ProtectedRoute>} />
+                <Route path="admin/obec-hub" element={<ProtectedRoute allowedRoles={["admin", "director"]}><ObecHubPage /></ProtectedRoute>} />
                 <Route path="admin/school-milk" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["general_admin"]}><SchoolMilkPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="admin/action-plan" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["general_admin","academic","student_affairs","finance_personnel"]}><ActionPlanPage /></DepartmentRoute></ProtectedRoute>} />
                 {/* Garbage Bank */}
