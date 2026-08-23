@@ -22,9 +22,13 @@ import HomeworkReplies from "@/components/homework/HomeworkReplies";
 import {
   GraduationCap, Sparkles, Calendar, Bell, BookOpen,
   ClipboardList, FileText, Heart, ArrowRight, CheckCircle2, XCircle, Clock,
-  User as UserIcon, Upload, Thermometer, Wind,
+  User as UserIcon, Upload, Thermometer, Wind, Award, TrendingUp, TrendingDown,
+  Timer, Layers, BookMarked, AlertTriangle,
 } from "lucide-react";
 import { saveErrorMessage } from "@/lib/saveError";
+import { motion } from "framer-motion";
+import { Progress } from "@/components/ui/progress";
+import { AreaChart, Area, ResponsiveContainer } from "recharts";
 const MyRadarWidget = lazy(() => import("./MyRadarWidget"));
 
 const StudentDashboard = () => {
@@ -132,6 +136,68 @@ const StudentDashboard = () => {
     ? `${data.student.first_name} ${data.student.last_name}`
     : "";
 
+  // ── Enhanced student KPIs: GPA, upcoming exams, recent grades, sparkline trends ──
+  const { data: gpaData } = useQuery({
+    queryKey: ["student_gpa", data?.student?.student_code],
+    enabled: !!data?.student?.student_code,
+    queryFn: async () => {
+      const { data: rows } = await supabase
+        .from("student_scores")
+        .select("grade_point, total_score, grade, updated_at")
+        .eq("student_code", data!.student!.student_code)
+        .not("grade_point", "is", null)
+        .order("updated_at", { ascending: false })
+        .limit(20);
+      const pts = (rows || []).map(r => Number(r.grade_point)).filter(n => !isNaN(n));
+      const avg = pts.length ? (pts.reduce((a, b) => a + b, 0) / pts.length) : 0;
+      const spark = (rows || []).slice(0, 7).reverse().map(r => ({ v: Number(r.grade_point) || 0 }));
+      const recent = (rows || []).slice(0, 5);
+      return { gpa: pts.length ? avg.toFixed(2) : "—", count: pts.length, spark, recent, avgNum: avg };
+    },
+  });
+
+  const { data: upcomingExams } = useQuery({
+    queryKey: ["student_upcoming_exams", data?.student?.classroom_id],
+    enabled: !!data?.student,
+    queryFn: async () => {
+      const todayStr = todayBangkok();
+      // Try academic_events with exam type first
+      const { data: ev } = await supabase
+        .from("academic_events")
+        .select("id, title, event_date, event_type")
+        .gte("event_date", todayStr)
+        .or(`event_type.eq.exam,event_type.eq.sob,event_type.ilike.%exam%`)
+        .order("event_date", { ascending: true })
+        .limit(5);
+      if (ev && ev.length > 0) return ev;
+      // fallback to any upcoming events
+      const { data: fallback } = await supabase
+        .from("academic_events")
+        .select("id, title, event_date, event_type")
+        .gte("event_date", todayStr)
+        .order("event_date", { ascending: true })
+        .limit(5);
+      return fallback || [];
+    },
+  });
+
+  const { data: recentGrades } = useQuery({
+    queryKey: ["student_recent_grades", data?.student?.student_code],
+    enabled: !!data?.student?.student_code,
+    queryFn: async () => {
+      const { data: rows } = await supabase
+        .from("student_scores")
+        .select("id, grade, total_score, grade_point, subjects(name_th, code)")
+        .eq("student_code", data!.student!.student_code)
+        .order("updated_at", { ascending: false })
+        .limit(5);
+      return rows || [];
+    },
+  });
+
+  const pendingHomeworkCount = (data?.homework || []).filter((h: any) => !h.submitted_at && h.status !== "done").length;
+  const overdueHomeworkCount = (data?.homework || []).filter((h: any) => h.due_date && new Date(h.due_date) < new Date(new Date().toDateString()) && !h.submitted_at).length;
+
   return (
     <div className="space-y-6">
       <Suspense fallback={<Skeleton className="h-72 rounded-2xl" />}>
@@ -230,16 +296,180 @@ const StudentDashboard = () => {
         </Card>
       )}
 
-      {/* KPI */}
+      {/* ── Modern KPI: GPA, Attendance %, Homework, Exams, Recent Grades ── */}
       {data?.student && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {isLoading ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />) : (
-            <>
-              <MiniKpi icon={CheckCircle2} label={L("เข้าเรียน", "Attendance")} value={`${data.rate}%`} gradient="gradient-success" />
-              <MiniKpi icon={XCircle} label={L("ขาดเรียน (วัน)", "Absent (days)")} value={data.absent} gradient="gradient-warning" />
-              <MiniKpi icon={Heart} label={L("คะแนนพฤติกรรม", "Behavior Pts")} value={data.totalPoints} gradient="gradient-primary" />
-              <MiniKpi icon={FileText} label={L("ลา (วัน)", "Leave (days)")} value={data.leaveDays} gradient="gradient-info" />
-            </>
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Award className="w-4 h-4 text-primary" /> {L("ภาพรวมการเรียนของฉัน", "My Learning Overview")}
+            <span className="text-[11px] font-normal text-muted-foreground">{L("อัปเดตเรียลไทม์ · แตะเพื่อดูรายละเอียด", "Live · tap for details")}</span>
+          </h2>
+          {isLoading ? (
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Card key={i} className="rounded-2xl border border-border/40">
+                  <CardContent className="p-4 space-y-3">
+                    <Skeleton className="h-9 w-9 rounded-xl" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-7 w-12" />
+                    <Skeleton className="h-3 w-full" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
+              className="grid grid-cols-2 lg:grid-cols-5 gap-3"
+            >
+              {/* GPA */}
+              <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
+                <Card onClick={() => navigate("/dashboard/academic/transcript")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
+                  <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full gradient-primary opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-lg">
+                        <Award className="w-5 h-5 text-primary-foreground" />
+                      </div>
+                      <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-0">{gpaData?.count || 0} {L("วิชา", "subjects")}</Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground font-medium">{L("เกรดเฉลี่ย (GPA)", "My GPA")}</p>
+                    <p className="text-2xl font-extrabold tabular-nums">{gpaData?.gpa || "—"}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                      {(gpaData?.avgNum || 0) >= 3 ? <><TrendingUp className="w-3 h-3 text-success" /> {L("ดีมาก", "Excellent")}</> : (gpaData?.avgNum || 0) >= 2 ? <><TrendingUp className="w-3 h-3 text-amber-500" /> {L("พอใช้", "Average")}</> : gpaData?.gpa === "—" ? L("ยังไม่มีคะแนน", "No grades yet") : <><TrendingDown className="w-3 h-3 text-destructive" /> {L("ต้องพัฒนา", "Needs improvement")}</>}
+                    </p>
+                    <div className="mt-2 h-[28px]">
+                      {gpaData?.spark && gpaData.spark.length > 1 ? (
+                        <ResponsiveContainer width="100%" height={28}>
+                          <AreaChart data={gpaData.spark}>
+                            <Area type="monotone" dataKey="v" stroke="hsl(var(--primary))" strokeWidth={1.5} fill="hsl(var(--primary) / 0.18)" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-full flex items-center text-[10px] text-muted-foreground/60">{L("— ไม่มีข้อมูล —", "— no data —")}</div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* Attendance % */}
+              <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
+                <Card onClick={() => navigate("/dashboard/student/attendance")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
+                  <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full gradient-success opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="w-10 h-10 rounded-xl gradient-success flex items-center justify-center shadow-lg">
+                        <CheckCircle2 className="w-5 h-5 text-primary-foreground" />
+                      </div>
+                      <Badge variant="secondary" className={`text-[10px] border-0 ${parseFloat(data.rate) >= 80 ? "bg-success/10 text-success" : parseFloat(data.rate) >= 60 ? "bg-amber-100 text-amber-700" : "bg-destructive/10 text-destructive"}`}>{data.rate}%</Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground font-medium">{L("อัตรามาเรียน", "Attendance %")}</p>
+                    <p className="text-2xl font-extrabold tabular-nums">{data.rate}%</p>
+                    <Progress value={parseFloat(data.rate)} className="h-1.5 mt-2" />
+                    <p className="text-[10px] text-muted-foreground mt-1 truncate">{L(`มา ${data.present} · ขาด ${data.absent} · สาย ${data.late}`, `Present ${data.present} · Absent ${data.absent} · Late ${data.late}`)}</p>
+                    <div className="mt-2 h-[28px] flex gap-1 items-end">
+                      <div className="flex-1 bg-success rounded-t-sm" style={{ height: `${Math.max(12, (data.present / Math.max(1, data.present + data.absent + data.late)) * 100)}%` }} />
+                      <div className="flex-1 bg-warning rounded-t-sm" style={{ height: `${Math.max(6, (data.late / Math.max(1, data.present + data.absent + data.late)) * 100)}%` }} />
+                      <div className="flex-1 bg-destructive rounded-t-sm" style={{ height: `${Math.max(6, (data.absent / Math.max(1, data.present + data.absent + data.late)) * 100)}%` }} />
+                      <div className="flex-1 bg-muted rounded-t-sm h-[18%]" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* Upcoming Homework */}
+              <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
+                <Card onClick={() => navigate("/dashboard/homework")} className={`relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 h-full ${overdueHomeworkCount > 0 ? "ring-destructive/30" : "ring-border/40"}`}>
+                  <div className={`absolute -top-10 -right-10 w-28 h-28 rounded-full opacity-10 blur-2xl group-hover:opacity-20 transition-opacity ${overdueHomeworkCount > 0 ? "bg-destructive" : "gradient-warning"}`} />
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${overdueHomeworkCount > 0 ? "bg-destructive" : "gradient-warning"}`}>
+                        <BookMarked className="w-5 h-5 text-primary-foreground" />
+                      </div>
+                      {pendingHomeworkCount > 0 ? <Badge variant="secondary" className="text-[10px] bg-amber-100 text-amber-700 border-0">{pendingHomeworkCount} {L("ค้าง", "pending")}</Badge> : <Badge variant="secondary" className="text-[10px] bg-success/10 text-success border-0">{L("ครบ", "done")}</Badge>}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground font-medium">{L("การบ้านค้างส่ง", "Upcoming Homework")}</p>
+                    <p className="text-2xl font-extrabold tabular-nums">{pendingHomeworkCount}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {overdueHomeworkCount > 0 ? <span className="text-destructive font-medium flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {L(`เกินกำหนด ${overdueHomeworkCount}`, `Overdue ${overdueHomeworkCount}`)}</span> : `${L("ทั้งหมด", "Total")} ${(data.homework || []).length} ${L("ชิ้น", "items")}`}
+                    </p>
+                    <div className="mt-2">
+                      {pendingHomeworkCount === 0 ? (
+                        <div className="h-[28px] flex items-center justify-center rounded-lg bg-success/10 text-[10px] text-success font-medium">✓ {L("ส่งครบแล้ว", "All submitted")}</div>
+                      ) : (
+                        <div className="h-[28px] rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 flex items-center justify-center text-[10px] font-medium text-amber-700">{L(`เหลือ ${pendingHomeworkCount} งาน`, `${pendingHomeworkCount} pending`)}</div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* Upcoming Exams */}
+              <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
+                <Card onClick={() => navigate("/dashboard/academic/calendar")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
+                  <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full gradient-accent opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="w-10 h-10 rounded-xl gradient-accent flex items-center justify-center shadow-lg">
+                        <Timer className="w-5 h-5 text-primary-foreground" />
+                      </div>
+                      <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-0">{upcomingExams?.length || 0} {L("รายการ", "items")}</Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground font-medium">{L("สอบ/กิจกรรมที่จะถึง", "Upcoming Exams")}</p>
+                    <p className="text-2xl font-extrabold tabular-nums">{upcomingExams?.length || 0}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1 truncate">
+                      {upcomingExams && upcomingExams.length > 0 ? new Date(upcomingExams[0].event_date).toLocaleDateString(lang === "th" ? "th-TH" : "en-US", { day: "numeric", month: "short" }) + " · " + upcomingExams[0].title.slice(0, 18) : L("ไม่มีสอบเร็วๆ นี้", "No exams soon")}
+                    </p>
+                    <div className="mt-2 h-[28px]">
+                      {upcomingExams && upcomingExams.length > 0 ? (
+                        <div className="flex gap-1 h-full items-center">
+                          {upcomingExams.slice(0, 4).map((e: any, i: number) => (
+                            <div key={e.id} className="flex-1 text-center">
+                              <div className="text-[9px] font-bold text-primary bg-primary/10 rounded px-1 py-0.5 truncate">{new Date(e.event_date).toLocaleDateString(lang === "th" ? "th-TH" : "en-US", { day: "numeric", month: "short" })}</div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="h-full flex items-center justify-center rounded-lg bg-muted text-[10px] text-muted-foreground">{L("ไม่มีกิจกรรม", "No events")}</div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* Recent Grades */}
+              <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
+                <Card onClick={() => navigate("/dashboard/academic/transcript")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
+                  <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-primary opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg">
+                        <Layers className="w-5 h-5 text-primary-foreground" />
+                      </div>
+                      <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-0">{recentGrades?.length || 0} {L("รายการ", "items")}</Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground font-medium">{L("คะแนนล่าสุด", "Recent Grades")}</p>
+                    <p className="text-2xl font-extrabold tabular-nums">{recentGrades && recentGrades.length > 0 ? recentGrades[0].grade || recentGrades[0].total_score || "—" : "—"}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1 truncate">
+                      {recentGrades && recentGrades.length > 0 ? `${recentGrades[0].subjects?.name_th || recentGrades[0].subjects?.code || L("วิชา", "Subject")} · ${recentGrades[0].total_score ?? ""}` : L("ยังไม่มีคะแนน", "No grades yet")}
+                    </p>
+                    <div className="mt-2">
+                      {recentGrades && recentGrades.length > 0 ? (
+                        <div className="flex gap-1">
+                          {recentGrades.slice(0, 5).map((g: any) => (
+                            <div key={g.id} className={`flex-1 h-[28px] rounded flex items-center justify-center text-[10px] font-bold ${String(g.grade) === "4" || Number(g.grade) >= 3.5 ? "bg-success/15 text-success" : String(g.grade) === "0" || ["ร","มส","มผ"].includes(String(g.grade)) ? "bg-destructive/15 text-destructive" : "bg-muted text-foreground"}`}>{g.grade || "—"}</div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="h-[28px] flex items-center justify-center rounded-lg bg-muted text-[10px] text-muted-foreground">{L("— ไม่มีข้อมูล —", "— no data —")}</div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </motion.div>
           )}
         </div>
       )}

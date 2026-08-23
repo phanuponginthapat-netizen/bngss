@@ -28,9 +28,11 @@ import {
   Users, BookOpen, UserCheck, Clock, Heart, CheckCircle2, XCircle,
   ClipboardList, ArrowRight, Sparkles, Calendar, Bell,
   GraduationCap, FileText, Home, AlertTriangle, Activity,
-  ListTodo, Plus, Thermometer, Wind,
+  ListTodo, Plus, Thermometer, Wind, Award, TrendingUp, TrendingDown, Layers,
+  BookMarked, UserX, Timer,
 } from "lucide-react";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
+import { motion } from "framer-motion";
 import { TeacherTasksPanel } from "./TeacherTasksPanel";
 import AnnotateImageDialog from "@/components/homework/AnnotateImageDialog";
 import HomeworkReplies from "@/components/homework/HomeworkReplies";
@@ -340,6 +342,75 @@ const TeacherDashboard = () => {
 
   const isLoading = homeroomLoading || subjectLoading;
 
+  // ── Enhanced KPIs: pending grading, remediation (0 ร มส), attendance trend 7d  ──
+  const { data: pendingGradingCount } = useQuery({
+    queryKey: ["teacher_pending_grading", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("task_assignments")
+        .select("id", { count: "exact", head: true })
+        .eq("assigned_by", userId!)
+        .eq("task_type", "homework")
+        .not("submitted_at", "is", null)
+        .is("grade", null)
+        .limit(1);
+      return count || 0;
+    },
+  });
+
+  const { data: remediationData } = useQuery({
+    queryKey: ["teacher_remediation", homeroomClassroomIds],
+    enabled: hasHomeroom && !!homeroomClassroomIds?.length,
+    queryFn: async () => {
+      const ids = homeroomClassroomIds!;
+      // get student ids in homeroom
+      const { data: studs } = await supabase.from("students").select("id").in("classroom_id", ids).eq("status", "active").limit(200);
+      const sids = (studs || []).map(s => s.id);
+      if (sids.length === 0) return { count: 0, list: [] as any[] };
+      const { data, count } = await supabase
+        .from("grade_remediation")
+        .select("id, original_grade, status", { count: "exact" })
+        .in("student_id", sids)
+        .neq("status", "ผ่าน")
+        .limit(5);
+      return { count: count || 0, list: data || [] };
+    },
+  });
+
+  const { data: attendanceTrend } = useQuery({
+    queryKey: ["teacher_attendance_trend", homeroomClassroomIds],
+    enabled: hasHomeroom && !!homeroomClassroomIds?.length,
+    queryFn: async () => {
+      const ids = homeroomClassroomIds!;
+      const { data: studs } = await supabase.from("students").select("id").in("classroom_id", ids).eq("status", "active").limit(200);
+      const sids = (studs || []).map(s => s.id);
+      if (sids.length === 0) return [] as { date: string; rate: number }[];
+      const since = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+      const { data: rows } = await supabase
+        .from("attendance")
+        .select("attendance_date, status")
+        .in("student_id", sids)
+        .gte("attendance_date", since)
+        .limit(500);
+      const byDate: Record<string, { p: number; t: number }> = {};
+      (rows || []).forEach((r: any) => {
+        const k = r.attendance_date;
+        if (!k) return;
+        if (!byDate[k]) byDate[k] = { p: 0, t: 0 };
+        byDate[k].t += 1;
+        if (r.status === "present") byDate[k].p += 1;
+      });
+      const out: { date: string; rate: number }[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+        const v = byDate[d];
+        out.push({ date: d.slice(5), rate: v && v.t ? Math.round((v.p / v.t) * 100) : 0 });
+      }
+      return out;
+    },
+  });
+
   const getGreeting = () => {
     const h = new Date().getHours();
     if (h < 12) return "สวัสดีตอนเช้า";
@@ -453,6 +524,188 @@ const TeacherDashboard = () => {
         personnelFullName={displayName || undefined}
         homeroomClassroomIds={homeroomClassroomIds}
       />
+
+      {/* ── Modern KPI Strip: my subjects, pending grading, attendance today, 0 ร มส, upcoming classes ── */}
+      <div className="space-y-2">
+        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Activity className="w-4 h-4 text-primary" /> ภาพรวมงานสอนวันนี้
+          <span className="text-[11px] font-normal text-muted-foreground">Today overview · อัปเดตเรียลไทม์</span>
+        </h2>
+        {isLoading ? (
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Card key={i} className="rounded-2xl border border-border/40">
+                <CardContent className="p-4 space-y-3">
+                  <Skeleton className="h-9 w-9 rounded-xl" />
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-7 w-12" />
+                  <Skeleton className="h-3 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
+            className="grid grid-cols-2 lg:grid-cols-5 gap-3"
+          >
+            {/* My Subjects */}
+            <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
+              <Card onClick={() => setActiveTab(subjectData?.subjects?.[0] ? `subject-${subjectData.subjects[0].id}` : "tasks")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
+                <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full gradient-primary opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-lg">
+                      <BookMarked className="w-5 h-5 text-primary-foreground" />
+                    </div>
+                    <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-0">{subjectData?.subjects?.length || 0} วิชา</Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground font-medium">วิชาที่สอน</p>
+                  <p className="text-2xl font-extrabold tabular-nums">{subjectData?.subjects?.length || 0}</p>
+                  {(subjectData?.subjects?.length || 0) === 0 ? (
+                    <p className="text-[10px] text-muted-foreground mt-1">ยังไม่มีวิชาที่ได้รับมอบหมาย</p>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground mt-1 truncate">{subjectData?.subjects?.slice(0, 2).map((s: any) => s.code).join(" · ") || subjectData?.subjects?.slice(0, 2).map((s: any) => s.name_th).join(" · ")}</p>
+                  )}
+                  <div className="mt-2 h-[28px]">
+                    {(subjectData?.subjects?.length || 0) > 0 ? (
+                      <ResponsiveContainer width="100%" height={28}>
+                        <AreaChart data={(subjectData?.subjects || []).slice(0, 7).map((_: any, i: number) => ({ v: 2 + (i % 3) }))}>
+                          <Area type="monotone" dataKey="v" stroke="hsl(var(--primary))" strokeWidth={1.5} fill="hsl(var(--primary) / 0.15)" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center text-[10px] text-muted-foreground/60">— ไม่มีข้อมูล —</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Pending Grading */}
+            <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
+              <Card onClick={() => setActiveTab("tasks")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
+                <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full gradient-warning opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="w-10 h-10 rounded-xl gradient-warning flex items-center justify-center shadow-lg">
+                      <ClipboardList className="w-5 h-5 text-primary-foreground" />
+                    </div>
+                    {(pendingGradingCount || 0) > 0 ? <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-600"><Clock className="w-3 h-3" /> รอตรวจ</span> : <span className="flex items-center gap-1 text-[10px] text-success"><CheckCircle2 className="w-3 h-3" /> ครบแล้ว</span>}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground font-medium">รอตรวจการบ้าน</p>
+                  <p className="text-2xl font-extrabold tabular-nums">{pendingGradingCount ?? 0}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                    {(pendingGradingCount || 0) > 0 ? <><TrendingUp className="w-3 h-3 text-amber-500" /> มีงานค้างตรวจ</> : "ไม่มีงานค้าง"}
+                  </p>
+                  <div className="mt-2">
+                    {(pendingGradingCount || 0) === 0 ? (
+                      <div className="h-[28px] flex items-center justify-center rounded-lg bg-success/10 text-[10px] text-success font-medium">✓ ไม่มีงานค้าง</div>
+                    ) : (
+                      <div className="h-[28px] rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 flex items-center justify-center text-[10px] font-medium text-amber-700">ต้องตรวจ {pendingGradingCount} ชิ้น</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Attendance Today */}
+            <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
+              <Card onClick={() => navigate("/dashboard/student/face-scan?tab=report")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
+                <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full gradient-success opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="w-10 h-10 rounded-xl gradient-success flex items-center justify-center shadow-lg">
+                      <UserCheck className="w-5 h-5 text-primary-foreground" />
+                    </div>
+                    <Badge variant="secondary" className="text-[10px] bg-success/10 text-success border-0">{homeroomData?.attendanceRate || "0"}%</Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground font-medium">มาเรียนวันนี้</p>
+                  <p className="text-2xl font-extrabold tabular-nums">{homeroomData?.attendanceRate || "0"}%</p>
+                  <Progress value={parseFloat(homeroomData?.attendanceRate || "0")} className="h-1.5 mt-2" />
+                  <p className="text-[10px] text-muted-foreground mt-1 truncate">
+                    {homeroomData ? `มา ${homeroomData.attChart.find((d: any) => d.name.includes("มา"))?.value || 0} · ขาด ${homeroomData.attChart.find((d: any) => d.name.includes("ขาด"))?.value || homeroomData.studentCount - (homeroomData.attChart.reduce((s: number, d: any) => s + d.value, 0))} คน` : "ไม่มีข้อมูลห้องประจำชั้น"}
+                  </p>
+                  <div className="mt-2 h-[28px]">
+                    {attendanceTrend && attendanceTrend.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={28}>
+                        <AreaChart data={attendanceTrend}>
+                          <Area type="monotone" dataKey="rate" stroke="hsl(var(--success))" strokeWidth={1.5} fill="hsl(var(--success) / 0.18)" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center text-[10px] text-muted-foreground/60">— ไม่มีข้อมูล 7 วัน —</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* 0 ร มส count */}
+            <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
+              <Card onClick={() => navigate("/dashboard/academic/transcript")} className={`relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 h-full ${(remediationData?.count || 0) > 0 ? "ring-destructive/30" : "ring-border/40"}`}>
+                <div className={`absolute -top-10 -right-10 w-28 h-28 rounded-full opacity-10 blur-2xl group-hover:opacity-20 transition-opacity ${(remediationData?.count || 0) > 0 ? "bg-destructive" : "gradient-accent"}`} />
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${(remediationData?.count || 0) > 0 ? "bg-destructive" : "gradient-accent"}`}>
+                      <AlertTriangle className="w-5 h-5 text-primary-foreground" />
+                    </div>
+                    {(remediationData?.count || 0) > 0 ? <Badge variant="destructive" className="text-[10px]">{remediationData?.count} คน</Badge> : <Badge variant="secondary" className="text-[10px] bg-success/10 text-success border-0">ไม่มี</Badge>}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground font-medium">ติด 0 ร มส</p>
+                  <p className="text-2xl font-extrabold tabular-nums">{remediationData?.count ?? 0}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                    {(remediationData?.count || 0) > 0 ? <><TrendingDown className="w-3 h-3 text-destructive" /> ต้องติดตาม</> : <><CheckCircle2 className="w-3 h-3 text-success" /> ไม่มีนักเรียนติด</>}
+                  </p>
+                  <div className="mt-2">
+                    {(remediationData?.count || 0) === 0 ? (
+                      <div className="h-[28px] flex items-center justify-center rounded-lg bg-success/10 text-[10px] text-success font-medium">✓ ไม่มีรายการค้าง</div>
+                    ) : (
+                      <div className="h-[28px] rounded-lg bg-destructive/10 border border-destructive/20 flex items-center justify-center text-[10px] font-semibold text-destructive">{remediationData?.list.slice(0, 3).map((r: any) => r.original_grade).join(" · ") || "ต้องแก้ไข"}</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Upcoming Classes */}
+            <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
+              <Card onClick={() => navigate("/dashboard/academic/schedule")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
+                <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full gradient-accent opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="w-10 h-10 rounded-xl gradient-accent flex items-center justify-center shadow-lg">
+                      <Timer className="w-5 h-5 text-primary-foreground" />
+                    </div>
+                    <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-0">{subjectData?.todaySchedules?.length || 0} คาบวันนี้</Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground font-medium">คาบสอนวันนี้</p>
+                  <p className="text-2xl font-extrabold tabular-nums">{subjectData?.todaySchedules?.length || 0}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    รวม {subjectData?.allSchedules?.length || 0} คาบ/สัปดาห์
+                  </p>
+                  <div className="mt-2 h-[28px]">
+                    {(subjectData?.todaySchedules?.length || 0) > 0 ? (
+                      <div className="flex gap-1 h-full items-end">
+                        {subjectData?.todaySchedules?.slice(0, 5).map((s: any, i: number) => (
+                          <div key={i} className="flex-1 bg-primary/20 rounded-t-sm" style={{ height: `${30 + (s.period % 4) * 18}%` }} />
+                        ))}
+                        {Array.from({ length: Math.max(0, 5 - (subjectData?.todaySchedules?.length || 0)) }).map((_, i) => (
+                          <div key={`e-${i}`} className="flex-1 bg-muted rounded-t-sm h-[20%]" />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="h-full flex items-center justify-center rounded-lg bg-muted text-[10px] text-muted-foreground">ไม่มีคาบวันนี้</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
+        )}
+      </div>
 
       {/* Tabs */}
       {isLoading ? (

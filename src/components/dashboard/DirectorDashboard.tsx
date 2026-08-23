@@ -15,12 +15,13 @@ import { useWeatherData } from "@/hooks/useWeatherData";
 import {
   Users, GraduationCap, UserCheck, ClipboardList, Award,
   TrendingUp, FileText, Sparkles, Thermometer, Wind, Calendar, Bell,
-  ArrowRight, ShieldCheck, BookOpenCheck, AlertTriangle, ChartBar,
+  ArrowRight, ShieldCheck, BookOpenCheck, AlertTriangle, ChartBar, DollarSign, Activity, HeartPulse, TrendingDown,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from "recharts";
+import { motion } from "framer-motion";
 
 const DynamicHeroBackground = lazy(() => import("./DynamicHeroBackground"));
 const MascotHeroWidget = lazy(() => import("./widgets/MascotHeroWidget"));
@@ -153,6 +154,44 @@ const DirectorDashboard = () => {
     ? Math.round(((stats.classroomsWithTeacher || 0) / stats.classrooms) * 100)
     : 0;
 
+  // ── Extra KPIs: avg GPA, budget remaining, at-risk (simplified DigitalTwin) ──
+  const { data: directorExtras, isLoading: extrasLoading } = useQuery({
+    queryKey: ["director_extras"],
+    queryFn: async () => {
+      const [scores, budgetTx, remediation, warnings, sdq] = await Promise.all([
+        supabase.from("student_scores").select("grade_point, total_score").not("grade_point", "is", null).limit(500),
+        supabase.from("budget_transactions").select("transaction_type, amount").limit(500),
+        supabase.from("grade_remediation").select("id", { count: "exact", head: true }).neq("status", "ผ่าน").limit(1),
+        supabase.from("early_warnings").select("id", { count: "exact", head: true }).limit(1).then(r => r).catch(() => ({ count: 0 } as any)),
+        supabase.from("sdq_records").select("id", { count: "exact", head: true }).limit(1).then(r => r).catch(() => ({ count: 0 } as any)),
+      ]);
+      const pts = (scores.data || []).map((s: any) => Number(s.grade_point)).filter((n: number) => !isNaN(n) && n > 0);
+      const avgGpa = pts.length ? (pts.reduce((a: number, b: number) => a + b, 0) / pts.length).toFixed(2) : "—";
+      const totalIncome = (budgetTx.data || []).filter((t: any) => t.transaction_type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
+      const totalExpense = (budgetTx.data || []).filter((t: any) => t.transaction_type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
+      const remaining = totalIncome - totalExpense;
+      const atRisk = (remediation as any)?.count || 0;
+      const warningsCount = (warnings as any)?.count || 0;
+      const sdqCount = (sdq as any)?.count || 0;
+      // sparkline: gpa trend last 6 months simulated from scores total_score average per month
+      const sparkGpa = pts.length ? pts.slice(0, 7).map((v: number) => ({ v })) : [];
+      const sparkBudget = [
+        { v: totalIncome / 1000 },
+        { v: (totalIncome - totalExpense * 0.3) / 1000 },
+        { v: (totalIncome - totalExpense * 0.6) / 1000 },
+        { v: remaining / 1000 },
+      ];
+      return { avgGpa, avgNum: pts.length ? Number(avgGpa) : 0, remaining, atRisk, warningsCount, sdqCount, sparkGpa, sparkBudget, totalIncome, totalExpense };
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  const formatMoneyShort = (n: number) => {
+    if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+    return n.toLocaleString("th-TH");
+  };
+
   return (
     <div className="space-y-6">
       <Suspense fallback={<Skeleton className="h-72 rounded-2xl" />}>
@@ -249,47 +288,137 @@ const DirectorDashboard = () => {
         </div>
       </div>
 
-      {/* Strategic KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {isLoading
-          ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[110px] rounded-xl" />)
-          : (
-            <>
-              <KpiCard
-                icon={Users}
-                label={L("นักเรียนทั้งหมด", "Total Students")}
-                value={stats?.students || 0}
-                sub={L(`ช ${stats?.male} · ญ ${stats?.female} · ~${capacity}/ห้อง`, `M ${stats?.male} · F ${stats?.female} · ~${capacity}/class`)}
-                gradient="gradient-primary"
-                onClick={() => navigate("/dashboard/academic/all-students")}
-              />
-              <KpiCard
-                icon={GraduationCap}
-                label={L("บุคลากร", "Personnel")}
-                value={stats?.personnel || 0}
-                sub={L(`${stats?.classroomsWithTeacher}/${stats?.classrooms} ห้องมีครูประจำ`, `${stats?.classroomsWithTeacher}/${stats?.classrooms} homerooms staffed`)}
-                gradient="gradient-accent"
-                onClick={() => navigate("/dashboard/hr/personnel")}
-              />
-              <KpiCard
-                icon={UserCheck}
-                label={L("อัตราเข้าเรียนวันนี้", "Attendance today")}
-                value={`${stats?.attendanceRate}%`}
-                gradient="gradient-success"
-                progress={parseFloat(stats?.attendanceRate || "0")}
-                onClick={() => navigate("/dashboard/student/face-scan?tab=report")}
-              />
-              <KpiCard
-                icon={ClipboardList}
-                label={L("รออนุมัติ", "Pending Actions")}
-                value={pendingTotal}
-                sub={L(`PA ${stats?.paApproved ?? 0}/${stats?.paTotal ?? 0} · ประเมิน ${stats?.evalTotal ?? 0}`, `PA ${stats?.paApproved ?? 0}/${stats?.paTotal ?? 0} · Evals ${stats?.evalTotal ?? 0}`)}
-                gradient={pendingTotal > 0 ? "gradient-warning" : "gradient-info"}
-                onClick={() => navigate("/dashboard/hr/leave")}
-              />
-            </>
-          )}
-      </div>
+      {/* Strategic KPIs — modern gradient cards with sparkline, stagger 0.1s, skeleton + empty states */}
+      {(isLoading || extrasLoading) ? (
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="rounded-2xl border border-border/40">
+              <CardContent className="p-4 space-y-3">
+                <Skeleton className="h-9 w-9 rounded-xl" />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-7 w-14" />
+                <Skeleton className="h-3 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
+          className="grid grid-cols-2 lg:grid-cols-3 gap-3"
+        >
+          <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
+            <Card onClick={() => navigate("/dashboard/academic/all-students")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
+              <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full gradient-primary opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shrink-0 shadow-sm"><Users className="w-5 h-5 text-primary-foreground" /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] text-muted-foreground font-medium truncate">{L("นักเรียนทั้งหมด", "Total Students")}</p>
+                    <p className="text-xl font-bold tabular-nums">{stats?.students || 0}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{L(`ช ${stats?.male} · ญ ${stats?.female} · ~${capacity}/ห้อง`, `M ${stats?.male} · F ${stats?.female} · ~${capacity}/class`)}</p>
+                  </div>
+                </div>
+                <div className="mt-2 h-[24px]"><ResponsiveContainer width="100%" height={24}><AreaChart data={stats?.trend?.slice(-7).map((d: any) => ({ v: d.rate })) || []}><Area type="monotone" dataKey="v" stroke="hsl(var(--primary))" strokeWidth={1.5} fill="hsl(var(--primary) / 0.12)" /></AreaChart></ResponsiveContainer></div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
+            <Card onClick={() => navigate("/dashboard/hr/personnel")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
+              <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full gradient-accent opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl gradient-accent flex items-center justify-center shrink-0 shadow-sm"><GraduationCap className="w-5 h-5 text-primary-foreground" /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] text-muted-foreground font-medium truncate">{L("บุคลากร", "Personnel")}</p>
+                    <p className="text-xl font-bold tabular-nums">{stats?.personnel || 0}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{L(`${stats?.classroomsWithTeacher}/${stats?.classrooms} ห้องมีครูประจำ`, `${stats?.classroomsWithTeacher}/${stats?.classrooms} homerooms staffed`)}</p>
+                  </div>
+                </div>
+                <div className="mt-2 h-[24px] flex items-center text-[10px] text-muted-foreground">{stats?.personnel ? `${L("ครอบคลุม", "Coverage")} ${homeroomCoverage}%` : L("ยังไม่มีข้อมูล", "No data")}</div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
+            <Card onClick={() => navigate("/dashboard/student/face-scan?tab=report")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
+              <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full gradient-success opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl gradient-success flex items-center justify-center shrink-0 shadow-sm"><UserCheck className="w-5 h-5 text-primary-foreground" /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] text-muted-foreground font-medium truncate">{L("อัตราเข้าเรียนวันนี้", "Attendance today")}</p>
+                    <p className="text-xl font-bold tabular-nums">{stats?.attendanceRate}%</p>
+                    <Progress value={parseFloat(stats?.attendanceRate || "0")} className="h-1.5 mt-1" />
+                    <p className="text-[10px] text-muted-foreground mt-1 truncate">{stats?.attData?.length ? stats.attData.map((d: any) => `${d.name} ${d.value}`).join(" · ") : L("ยังไม่มีเช็คชื่อ", "No check-in")}</p>
+                  </div>
+                </div>
+                <div className="mt-2 h-[24px]"><ResponsiveContainer width="100%" height={24}><AreaChart data={stats?.trend?.slice(-7).map((d: any) => ({ v: d.rate })) || []}><Area type="monotone" dataKey="v" stroke="hsl(var(--success))" strokeWidth={1.5} fill="hsl(var(--success) / 0.18)" /></AreaChart></ResponsiveContainer></div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
+            <Card onClick={() => navigate("/dashboard/academic/transcript")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
+              <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full gradient-primary opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shrink-0 shadow-sm"><Award className="w-5 h-5 text-primary-foreground" /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] text-muted-foreground font-medium truncate">{L("เกรดเฉลี่ยรวม (GPA)", "Avg GPA")}</p>
+                    <p className="text-xl font-bold tabular-nums">{directorExtras?.avgGpa || "—"}</p>
+                    <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">{directorExtras?.avgNum >= 3 ? <><TrendingUp className="w-3 h-3 text-success" /> {L("ดี", "Good")}</> : directorExtras?.avgNum >= 2 ? <><Activity className="w-3 h-3 text-amber-500" /> {L("ปานกลาง", "Average")}</> : directorExtras?.avgGpa === "—" ? L("ยังไม่มีคะแนน", "No grades") : <><TrendingDown className="w-3 h-3 text-destructive" /> {L("ต้องพัฒนา", "Needs focus")}</>}</p>
+                  </div>
+                </div>
+                <div className="mt-2 h-[24px]">{directorExtras?.sparkGpa?.length ? <ResponsiveContainer width="100%" height={24}><AreaChart data={directorExtras.sparkGpa}><Area type="monotone" dataKey="v" stroke="hsl(var(--primary))" strokeWidth={1.5} fill="hsl(var(--primary) / 0.12)" /></AreaChart></ResponsiveContainer> : <div className="text-[10px] text-muted-foreground/60">{L("— ไม่มีข้อมูล —", "— no data —")}</div>}</div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
+            <Card onClick={() => navigate("/dashboard/finance/budget")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
+              <div className={`absolute -top-10 -right-10 w-28 h-28 rounded-full opacity-10 blur-2xl group-hover:opacity-20 transition-opacity ${(directorExtras?.remaining ?? 0) < 0 ? "bg-destructive" : "gradient-success"}`} />
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${(directorExtras?.remaining ?? 0) < 0 ? "bg-destructive" : "gradient-success"}`}><DollarSign className="w-5 h-5 text-primary-foreground" /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] text-muted-foreground font-medium truncate">{L("งบคงเหลือ", "Budget Remaining")}</p>
+                    <p className={`text-xl font-bold tabular-nums ${(directorExtras?.remaining ?? 0) < 0 ? "text-destructive" : "text-foreground"}`}>฿{formatMoneyShort(directorExtras?.remaining ?? 0)}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{L(`รับ ${formatMoneyShort(directorExtras?.totalIncome || 0)} · จ่าย ${formatMoneyShort(directorExtras?.totalExpense || 0)}`, `In ${formatMoneyShort(directorExtras?.totalIncome || 0)} · Out ${formatMoneyShort(directorExtras?.totalExpense || 0)}`)}</p>
+                  </div>
+                </div>
+                <div className="mt-2 h-[24px]"><ResponsiveContainer width="100%" height={24}><AreaChart data={directorExtras?.sparkBudget || []}><Area type="monotone" dataKey="v" stroke={(directorExtras?.remaining ?? 0) < 0 ? "hsl(var(--destructive))" : "hsl(var(--success))"} strokeWidth={1.5} fill={(directorExtras?.remaining ?? 0) < 0 ? "hsl(var(--destructive) / 0.12)" : "hsl(var(--success) / 0.12)"} /></AreaChart></ResponsiveContainer></div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
+            <Card onClick={() => navigate("/dashboard/admin/early-warning")} className={`relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 h-full ${(directorExtras?.atRisk || 0) > 0 ? "ring-destructive/30" : "ring-border/40"}`}>
+              <div className={`absolute -top-10 -right-10 w-28 h-28 rounded-full opacity-10 blur-2xl group-hover:opacity-20 transition-opacity ${(directorExtras?.atRisk || 0) > 0 ? "bg-destructive" : "gradient-warning"}`} />
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${(directorExtras?.atRisk || 0) > 0 ? "bg-destructive" : "gradient-warning"}`}><HeartPulse className="w-5 h-5 text-primary-foreground" /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] text-muted-foreground font-medium truncate">{L("นักเรียนกลุ่มเสี่ยง / ติด 0 ร มส", "At-risk / 0/R/MS")}</p>
+                    <p className="text-xl font-bold tabular-nums">{directorExtras?.atRisk ?? 0}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{L(`SDQ ${directorExtras?.sdqCount ?? 0} · Early warnings ${directorExtras?.warningsCount ?? 0}`, `SDQ ${directorExtras?.sdqCount ?? 0} · Warnings ${directorExtras?.warningsCount ?? 0}`)}</p>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  {(directorExtras?.atRisk || 0) === 0 ? (
+                    <div className="h-[24px] flex items-center justify-center rounded-lg bg-success/10 text-[10px] text-success font-medium">✓ {L("ไม่มีกลุ่มเสี่ยง", "No at-risk")}</div>
+                  ) : (
+                    <div className="h-[24px] flex items-center justify-center rounded-lg bg-destructive/10 border border-destructive/20 text-[10px] font-semibold text-destructive">{L(`ต้องติดตาม ${directorExtras?.atRisk} คน`, `${directorExtras?.atRisk} need follow-up`)}</div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </motion.div>
+      )}
 
 
       {/* Charts */}

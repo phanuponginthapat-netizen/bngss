@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { notify } from "@/lib/notify";
+import { notifyLeaveApproved, notifyLeaveRejected } from "@/lib/notificationTriggers";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
@@ -312,6 +313,16 @@ const StaffLeavePage = () => {
             url: "/dashboard/hr/leave",
             channels: ["in_app", "push", "line"],
           });
+          // Also fan-out via centralized trigger to include gchat (non-blocking)
+          notifyLeaveApproved({
+            applicantUserId: (person as any).user_id,
+            applicantName: `${(person as any).prefix || ""}${(person as any).first_name} ${(person as any).last_name}`,
+            leaveType: (record as any).leave_type,
+            startDate: (record as any).start_date,
+            endDate: (record as any).end_date,
+            leaveId: (record as any).id,
+            leaveTable: "staff_leaves",
+          }).catch((e) => console.warn("[StaffLeave] approve gchat fanout failed", e));
         }
       }
 
@@ -353,6 +364,19 @@ const StaffLeavePage = () => {
           `❌ *ไม่อนุมัติการลา*\n👤 ${(person as any).prefix || ""}${(person as any).first_name} ${(person as any).last_name}\n📅 ${(record as any).start_date} ถึง ${(record as any).end_date}\n🔴 เหตุผล: ${rejectReason || "-"}`,
           "hr"
         );
+        // Comprehensive notify via notify-fanout (in_app + push + line + gchat) — covers parent-style delivery for staff
+        if ((person as any).user_id) {
+          notifyLeaveRejected({
+            applicantUserId: (person as any).user_id,
+            applicantName: `${(person as any).prefix || ""}${(person as any).first_name} ${(person as any).last_name}`,
+            leaveType: (record as any).leave_type,
+            startDate: (record as any).start_date,
+            endDate: (record as any).end_date,
+            reason: rejectReason,
+            leaveId: rejectId,
+            leaveTable: "staff_leaves",
+          }).catch((e) => console.warn("[StaffLeave] reject notify failed", e));
+        }
       }
     }
 

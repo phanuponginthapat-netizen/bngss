@@ -1,5 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
+import { PageTransition } from "./components/PageTransition";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -310,6 +312,17 @@ import { useEffect } from "react";
 import { installGlobalErrorHandler } from "@/lib/globalErrorHandler";
 import { usePersistentSession } from "@/hooks/usePersistentSession";
 
+const AnimatedRoutesWrapper = ({ children }: { children: React.ReactNode }) => {
+  const location = useLocation();
+  return (
+    <AnimatePresence mode="wait">
+      <PageTransition key={location.pathname}>
+        {children}
+      </PageTransition>
+    </AnimatePresence>
+  );
+};
+
 const App = () => {
   usePersistentSession();
   useEffect(() => {
@@ -332,7 +345,8 @@ const App = () => {
         <BrowserRouter>
           <ErrorBoundary>
             <Suspense fallback={<SystemLoader />}>
-              <Routes>
+              <AnimatedRoutesWrapper>
+                <Routes>
               <Route path="/" element={<PublicLayout />} />
               <Route path="/setup" element={<SetupWizardPage />} />
               <Route path="/page/:slug" element={<PublicLayout />} />
@@ -627,6 +641,7 @@ const App = () => {
 
               <Route path="*" element={<NotFound />} />
               </Routes>
+              </AnimatedRoutesWrapper>
             </Suspense>
           </ErrorBoundary>
         </BrowserRouter>

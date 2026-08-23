@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Bus, Plus, Users, MapPin, LogIn } from "lucide-react";
+import { notifyBusBoarding } from "@/lib/notificationTriggers";
 
 export default function BusPage(){
   const qc = useQueryClient();
@@ -50,9 +51,22 @@ export default function BusPage(){
   };
   const board = async () => {
     if(!boardRoute || !boardStudent) return toast.error("เลือกสายและนักเรียน");
-    const { error } = await supabase.from("bus_attendance").insert({ route_id: boardRoute, student_id: boardStudent, status: "boarded" } as any);
+    const { data, error } = await supabase.from("bus_attendance").insert({ route_id: boardRoute, student_id: boardStudent, status: "boarded" } as any).select("id, boarded_at").single();
     if(error) toast.error(error.message);
-    else { toast.success("เช็คชื่อขึ้นรถแล้ว"); setBoardOpen(false); qc.invalidateQueries({queryKey:["bus-attendance"]}); }
+    else {
+      toast.success("เช็คชื่อขึ้นรถแล้ว");
+      setBoardOpen(false);
+      qc.invalidateQueries({queryKey:["bus-attendance"]});
+      try {
+        const route = (routes as any[]).find((r) => r.id === boardRoute);
+        notifyBusBoarding({
+          studentId: boardStudent,
+          routeName: route?.name || "รถรับส่ง",
+          boardedAt: (data as any)?.boarded_at || new Date().toISOString(),
+          attendanceId: (data as any)?.id || `${boardRoute}-${boardStudent}-${Date.now()}`,
+        }).catch((e) => console.warn("[Bus] boarding notify failed", e));
+      } catch (e) { console.warn("[Bus] boarding notify prep failed", e); }
+    }
   };
 
   const todayCount = boardings.filter((b:any)=> new Date(b.boarded_at).toDateString()===new Date().toDateString()).length;

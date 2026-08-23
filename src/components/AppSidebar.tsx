@@ -25,6 +25,7 @@ import {
 import { SidebarAccountFooter } from "@/components/SidebarAccountFooter";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
+import { motion, AnimatePresence } from "framer-motion";
 
 
 type MenuItem = {
@@ -83,9 +84,24 @@ const renderTooltip = (title: string, desc?: string) =>
       } as any)
     : title;
 
+// ── animation presets: subtle, spring 0.2s, not distracting ──
+const subtleSpring = { type: "spring" as const, stiffness: 380, damping: 30, mass: 0.6 };
+const collapseTransition = { duration: 0.2, ease: "easeInOut" as const };
+const listVariants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.05, delayChildren: 0.02 },
+  },
+};
+const itemVariants = {
+  hidden: { opacity: 0, y: 6 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: "easeOut" as const } },
+};
+
 
 export function AppSidebar() {
-  const { toggleSidebar } = useSidebar();
+  const { toggleSidebar, open: sidebarOpen, openMobile, isMobile } = useSidebar();
+  const isSidebarOpen = isMobile ? openMobile : sidebarOpen;
   // Sidebar is offcanvas on both mobile and desktop → when visible it is always "expanded".
   const collapsed = false;
   const { t, lang } = useLanguage();
@@ -131,52 +147,85 @@ export function AppSidebar() {
   // Compact sidebar with section headings — used by alumni and parent
   const renderCompactSidebar = (sections: CompactSection[]) => (
     <Sidebar side="right" collapsible="offcanvas" className="gradient-sidebar border-l-0">
-      <SidebarHeader className="px-4 py-5 border-b border-sidebar-border transition-all">
-        <div className="flex items-center gap-3">
-          <LogoMark />
-          <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-bold text-sidebar-foreground leading-tight break-words line-clamp-2">{headerTitle}</h2>
-            <p className="text-xs text-sidebar-foreground/60 truncate">{headerSubtitle}</p>
-          </div>
+      <motion.div
+        initial={{ opacity: 0, x: 10 }}
+        animate={{ opacity: isSidebarOpen ? 1 : 0.92, x: isSidebarOpen ? 0 : 8 }}
+        transition={subtleSpring}
+        className="flex h-full w-full flex-col"
+      >
+        <SidebarHeader className="px-4 py-5 border-b border-sidebar-border transition-all">
+          <div className="flex items-center gap-3">
+            <LogoMark />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm font-bold text-sidebar-foreground leading-tight break-words line-clamp-2">{headerTitle}</h2>
+              <p className="text-xs text-sidebar-foreground/60 truncate">{headerSubtitle}</p>
+            </div>
 
-          <button
-            type="button"
-            onClick={toggleSidebar}
-            aria-label="ซ่อนเมนู"
-            className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors flex-shrink-0"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      </SidebarHeader>
-      <SidebarContent className={`${collapsed ? 'px-1' : 'px-2'} py-3 gap-0 transition-all`}>
-        {sections.map((sec, si) => (
-          <SidebarGroup key={si} className="!p-0">
-            {!collapsed && (
-              <SidebarGroupLabel className="text-sidebar-foreground/60 text-xs font-semibold uppercase tracking-wider px-2 h-8 mt-1 flex items-center gap-2">
-                {sec.icon && <sec.icon className="w-3.5 h-3.5" />}
-                <span>{sec.label}</span>
-              </SidebarGroupLabel>
-            )}
-            {collapsed && si > 0 && <div className="mx-auto my-2 h-px w-6 bg-sidebar-border/60" />}
-            <SidebarGroupContent>
-              <SidebarMenu className="gap-0.5">
-                {sec.items.map((it) => (
-                  <SidebarMenuItem key={it.to}>
-                    <SidebarMenuButton asChild tooltip={it.label}>
-                      <NavLink to={it.to} end className={`text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-lg transition-colors ${collapsed ? 'justify-center' : ''}`} activeClassName="bg-sidebar-primary text-sidebar-primary-foreground font-medium">
-                        <it.icon className={`w-4 h-4 flex-shrink-0 ${it.color || 'text-violet-400'} ${collapsed ? '' : 'mr-2'}`} />
-                        {!collapsed && <span className="truncate">{it.label}</span>}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
-      </SidebarContent>
-      <SidebarAccountFooter />
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              aria-label="ซ่อนเมนู"
+              className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors flex-shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </SidebarHeader>
+        <SidebarContent className={`${collapsed ? 'px-1' : 'px-2'} py-3 gap-0 transition-all`}>
+          <motion.div initial="hidden" animate="visible" variants={listVariants}>
+            {sections.map((sec, si) => (
+              <motion.div key={si} variants={itemVariants}>
+                <SidebarGroup className="!p-0">
+                  {!collapsed && (
+                    <SidebarGroupLabel className="text-sidebar-foreground/60 text-xs font-semibold uppercase tracking-wider px-2 h-8 mt-1 flex items-center gap-2">
+                      {sec.icon && <sec.icon className="w-3.5 h-3.5" />}
+                      <span>{sec.label}</span>
+                    </SidebarGroupLabel>
+                  )}
+                  {collapsed && si > 0 && <div className="mx-auto my-2 h-px w-6 bg-sidebar-border/60" />}
+                  <SidebarGroupContent>
+                    <motion.ul
+                      variants={listVariants}
+                      initial="hidden"
+                      animate="visible"
+                      className="flex w-full min-w-0 flex-col gap-0.5"
+                    >
+                      {sec.items.map((it) => {
+                        const isActive = location.pathname === it.to;
+                        return (
+                          <motion.li
+                            key={it.to}
+                            variants={itemVariants}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.99 }}
+                            transition={{ duration: 0.2 }}
+                            className="group/menu-item relative list-none"
+                          >
+                            <SidebarMenuButton asChild tooltip={it.label}>
+                              <NavLink to={it.to} end className={`text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-lg transition-colors ${collapsed ? 'justify-center' : ''} relative`} activeClassName="bg-sidebar-primary text-sidebar-primary-foreground font-medium">
+                                {isActive && (
+                                  <motion.span
+                                    layoutId="compact-active-indicator"
+                                    className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-sidebar-primary"
+                                    transition={subtleSpring}
+                                  />
+                                )}
+                                <it.icon className={`w-4 h-4 flex-shrink-0 ${it.color || 'text-violet-400'} ${collapsed ? '' : 'mr-2'}`} />
+                                {!collapsed && <span className="truncate">{it.label}</span>}
+                              </NavLink>
+                            </SidebarMenuButton>
+                          </motion.li>
+                        );
+                      })}
+                    </motion.ul>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              </motion.div>
+            ))}
+          </motion.div>
+        </SidebarContent>
+        <SidebarAccountFooter />
+      </motion.div>
     </Sidebar>
 
 
@@ -645,7 +694,6 @@ export function AppSidebar() {
 
 
 
-
   const visibleDepts = useMemo(
     () => {
       const cfg = roleConfig[role || ""] || { order: [] };
@@ -691,365 +739,531 @@ export function AppSidebar() {
 
   return (
     <Sidebar side="right" collapsible="offcanvas" className="gradient-sidebar border-l-0">
-      <SidebarHeader className="px-3 py-2.5 border-b border-sidebar-border/70 bg-gradient-to-b from-sidebar-accent/20 to-transparent transition-all">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="relative">
-            <LogoMark />
-            <span className="absolute -inset-1 rounded-2xl bg-primary/20 blur-md -z-10" aria-hidden />
+      {/* spring open/close wrapper — subtle 0.2s spring, not distracting (CSS fallback: transition-all) */}
+      <motion.div
+        initial={{ opacity: 0, x: 12 }}
+        animate={{ opacity: isSidebarOpen ? 1 : 0.92, x: isSidebarOpen ? 0 : 8 }}
+        transition={subtleSpring}
+        className="flex h-full w-full flex-col"
+      >
+        <SidebarHeader className="px-3 py-2.5 border-b border-sidebar-border/70 bg-gradient-to-b from-sidebar-accent/20 to-transparent transition-all">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="relative">
+              <LogoMark />
+              <span className="absolute -inset-1 rounded-2xl bg-primary/20 blur-md -z-10" aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[13px] font-bold text-sidebar-foreground tracking-tight leading-tight break-words line-clamp-2">{headerTitle}</h2>
+              {headerSubtitle && <p className="text-[11px] text-sidebar-foreground/55 truncate">{headerSubtitle}</p>}
+            </div>
+
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              aria-label="ซ่อนเมนู"
+              className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors flex-shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-[13px] font-bold text-sidebar-foreground tracking-tight leading-tight break-words line-clamp-2">{headerTitle}</h2>
-            {headerSubtitle && <p className="text-[11px] text-sidebar-foreground/55 truncate">{headerSubtitle}</p>}
-          </div>
-
-          <button
-            type="button"
-            onClick={toggleSidebar}
-            aria-label="ซ่อนเมนู"
-            className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors flex-shrink-0"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        {!collapsed && (
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-sidebar-foreground/40" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={L("ค้นหาเมนู...", "Search menu...")}
-              className="h-8 pl-8 pr-7 text-sm bg-sidebar-accent/40 border-sidebar-border/60 text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus-visible:ring-1 focus-visible:ring-primary/60 focus-visible:border-primary/40 rounded-lg"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-sidebar-foreground/50 hover:text-sidebar-foreground"
-                aria-label="clear"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        )}
-      </SidebarHeader>
-
-      <SidebarContent className={`${collapsed ? 'px-1' : 'px-2'} py-1 gap-0 transition-all`}>
-        <ViewModeSwitcher collapsed={collapsed} />
-        
-        {role === "student" ? (
-          (() => {
-            // Build flat lookup by url for student section split
-            const all = [
-              ...visibleMain,
-              ...visibleDepts.flatMap((d) => d.items),
-            ];
-            const seen = new Set<string>();
-            const uniq = all.filter((i) => (seen.has(i.url) ? false : (seen.add(i.url), true)));
-
-            const inSection = (urls: string[]) => uniq.filter((i) => urls.includes(i.url));
-            const usedUrls = new Set<string>();
-            const mark = (items: MenuItem[]) => { items.forEach((i) => usedUrls.add(i.url)); return items; };
-
-            const myItems = mark(inSection([
-              "/dashboard", "/dashboard/profile", "/dashboard/portfolio",
-              "/dashboard/inbox", "/dashboard/feed", "/dashboard/members",
-              "/dashboard/student/my-face", "/",
-            ]));
-            const learnItems = mark(inSection([
-              "/dashboard/academic/schedule", "/dashboard/academic/calendar",
-              "/dashboard/homework", "/dashboard/student/leave",
-            ]));
-            const serviceItems = mark(uniq.filter((i) =>
-              i.url.startsWith("/dashboard/garbage") ||
-              i.url.startsWith("/dashboard/admin/ict") ||
-              i.url.startsWith("/dashboard/iot")
-            ));
-            const toolItems = mark(uniq.filter((i) =>
-              i.url === "/dashboard/my-drive" ||
-              i.url === "/dashboard/office" ||
-              i.url === "/dashboard/line-vault" ||
-              i.url === "/dashboard/browser"
-            ));
-            const otherItems = uniq.filter((i) => !usedUrls.has(i.url));
-
-            const sections = [
-              { label: L("ของฉัน", "My Account"), icon: User, items: myItems },
-              { label: L("การเรียน", "Learning"), icon: BookOpen, items: learnItems },
-              { label: L("บริการ", "Services"), icon: Sparkles, items: serviceItems },
-              { label: L("เครื่องมือ", "Tools"), icon: FolderOpen, items: toolItems },
-              ...(otherItems.length ? [{ label: L("อื่นๆ", "More"), icon: FolderOpen, items: otherItems }] : []),
-            ].filter((s) => s.items.length > 0);
-
-            return sections.map((sec, idx) => (
-              <SidebarGroup key={idx} className="!p-0">
-                {!collapsed ? (
-                  <SidebarGroupLabel className="text-sidebar-foreground/60 text-[10px] font-semibold uppercase tracking-wider px-2 h-6 mt-0 flex items-center gap-2">
-
-                    <sec.icon className="w-3.5 h-3.5" />
-                    <span>{sec.label}</span>
-                  </SidebarGroupLabel>
-                ) : (
-                  idx > 0 && <div className="mx-auto my-2 h-px w-6 bg-sidebar-border/60" />
+          {!collapsed && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="relative"
+            >
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-sidebar-foreground/40 pointer-events-none" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={L("ค้นหาเมนู...", "Search menu...")}
+                className="h-8 pl-8 pr-7 text-sm bg-sidebar-accent/40 border-sidebar-border/60 text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus-visible:ring-1 focus-visible:ring-primary/60 focus-visible:border-primary/40 rounded-lg"
+              />
+              <AnimatePresence>
+                {search && (
+                  <motion.button
+                    key="clear"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.15 }}
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-sidebar-foreground/50 hover:text-sidebar-foreground p-0.5 rounded-md hover:bg-sidebar-accent transition-colors"
+                    aria-label="clear"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </motion.button>
                 )}
-                <SidebarGroupContent>
-                  <SidebarMenu className="gap-0.5">
-                    {sec.items.map((item) => (
-                      <SidebarMenuItem key={item.url}>
-                        <SidebarMenuButton asChild tooltip={renderTooltip(item.title, item.desc)}>
-                          <NavLink to={item.url} end title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className={`text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-lg transition-colors text-sm ${collapsed ? "justify-center w-9 h-9 mx-auto" : "py-1"}`} activeClassName="bg-sidebar-primary text-sidebar-primary-foreground font-medium">
-                            <IconTile icon={item.icon} color={item.color} className={collapsed ? '' : 'mr-2'} />
-                            {!collapsed && <span className="truncate">{item.title}</span>}
-                          </NavLink>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            ));
-          })()
-        ) : (
-          <>
-        {visibleMain.length > 0 && (() => {
-          const pick = (urls: string[]) =>
-            urls.map((u) => visibleMain.find((i) => i.url === u)).filter(Boolean) as MenuItem[];
-          const used = new Set<string>();
-          const take = (urls: string[]) => {
-            const items = pick(urls);
-            items.forEach((i) => used.add(i.url));
-            return items;
-          };
-          const mainSections = [
-            {
-              key: "me",
-              label: L("ของฉัน", "My Account"),
-              color: "text-sky-400",
-              dot: "bg-sky-400",
-              icon: User,
-              items: take([
-                "/dashboard", "/", "/dashboard/profile",
-                "/dashboard/inbox", "/dashboard/feed",
-                "/dashboard/portfolio", "/dashboard/members",
-              ]),
-            },
-            {
-              key: "work",
-              label: L("งานประจำวัน", "Daily Work"),
-              color: "text-amber-400",
-              dot: "bg-amber-400",
-              icon: Clock,
-              items: take([
-                "/dashboard/hr/time-clock",
-                "/dashboard/student/face-scan",
-                "/dashboard/student/face-scan?tab=staff",
-                "/dashboard/student/attendance",
-                "/dashboard/student/behavior",
-                "/dashboard/student/leave",
-                "/dashboard/hr/leave",
-              ]),
-            },
-            {
-              key: "learn",
-              label: L("การเรียนการสอน", "Learning"),
-              color: "text-emerald-400",
-              dot: "bg-emerald-400",
-              icon: BookOpen,
-              items: take([
-                "/dashboard/academic/schedule",
-                "/dashboard/academic/calendar",
-                "/dashboard/homework",
-                "/dashboard/padlet",
-                "/dashboard/hub/games",
-              ]),
-            },
-            {
-              key: "events",
-              label: L("กิจกรรมและงานที่ได้รับมอบหมาย", "Activities & Tasks"),
-              color: "text-fuchsia-400",
-              dot: "bg-fuchsia-400",
-              icon: Trophy,
-              items: take([
-                "/dashboard/activities",
-                "/dashboard/certificates",
-                "/dashboard/admin/staff-tasks",
-              ]),
-            },
-          ];
-          // ให้ /dashboard/browser ตกไปหมวด "เครื่องมือ" (div_tools) แทน เพื่อไม่ให้ซ้ำ
-          used.add("/dashboard/browser");
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </SidebarHeader>
 
-          const leftover = visibleMain.filter((i) => !used.has(i.url));
-          if (leftover.length) {
-            mainSections.push({
-              key: "more_main",
-              label: L("เมนูอื่นๆ", "Other Menus"),
-              color: "text-slate-300",
-              dot: "bg-slate-300",
-              icon: FolderOpen,
-              items: leftover,
-            });
-          }
-          const shown = mainSections.filter((s) => s.items.length > 0);
-          return shown.map((sec, sIdx) => {
-            const isActive = sec.items.some((i) => location.pathname === i.url);
-            const body = (
-              <SidebarGroupContent>
-                <SidebarMenu className="gap-0.5">
-                  {sec.items.map((item) => (
-                    <SidebarMenuItem key={item.url}>
-                      <SidebarMenuButton asChild tooltip={renderTooltip(item.title, item.desc)}>
-                        <NavLink to={item.url} end title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className={`relative text-sidebar-foreground/85 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground hover:translate-x-0.5 rounded-lg text-sm transition-all duration-150 ${collapsed ? 'justify-center w-9 h-9 mx-auto' : 'py-1 pl-3 pr-2'}`} activeClassName="bg-sidebar-primary/15 text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary">
-                          <IconTile icon={item.icon} color={item.color} className={collapsed ? '' : 'mr-2'} />
-                          {!collapsed && <span className="truncate">{item.title}</span>}
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            );
-            if (collapsed) {
-              return (
-                <SidebarGroup key={sec.key} className="!p-0">
-                  {sIdx > 0 && <div className={`mx-auto my-3 h-0.5 w-6 rounded-full ${sec.dot} opacity-70`} />}
-                  {body}
+        <SidebarContent className={`${collapsed ? 'px-1' : 'px-2'} py-1 gap-0 transition-all`}>
+          <ViewModeSwitcher collapsed={collapsed} />
+          
+          {role === "student" ? (
+            (() => {
+              // Build flat lookup by url for student section split
+              const all = [
+                ...visibleMain,
+                ...visibleDepts.flatMap((d) => d.items),
+              ];
+              const seen = new Set<string>();
+              const uniq = all.filter((i) => (seen.has(i.url) ? false : (seen.add(i.url), true)));
+
+              const inSection = (urls: string[]) => uniq.filter((i) => urls.includes(i.url));
+              const usedUrls = new Set<string>();
+              const mark = (items: MenuItem[]) => { items.forEach((i) => usedUrls.add(i.url)); return items; };
+
+              const myItems = mark(inSection([
+                "/dashboard", "/dashboard/profile", "/dashboard/portfolio",
+                "/dashboard/inbox", "/dashboard/feed", "/dashboard/members",
+                "/dashboard/student/my-face", "/",
+              ]));
+              const learnItems = mark(inSection([
+                "/dashboard/academic/schedule", "/dashboard/academic/calendar",
+                "/dashboard/homework", "/dashboard/student/leave",
+              ]));
+              const serviceItems = mark(uniq.filter((i) =>
+                i.url.startsWith("/dashboard/garbage") ||
+                i.url.startsWith("/dashboard/admin/ict") ||
+                i.url.startsWith("/dashboard/iot")
+              ));
+              const toolItems = mark(uniq.filter((i) =>
+                i.url === "/dashboard/my-drive" ||
+                i.url === "/dashboard/office" ||
+                i.url === "/dashboard/line-vault" ||
+                i.url === "/dashboard/browser"
+              ));
+              const otherItems = uniq.filter((i) => !usedUrls.has(i.url));
+
+              const sections = [
+                { label: L("ของฉัน", "My Account"), icon: User, items: myItems },
+                { label: L("การเรียน", "Learning"), icon: BookOpen, items: learnItems },
+                { label: L("บริการ", "Services"), icon: Sparkles, items: serviceItems },
+                { label: L("เครื่องมือ", "Tools"), icon: FolderOpen, items: toolItems },
+                ...(otherItems.length ? [{ label: L("อื่นๆ", "More"), icon: FolderOpen, items: otherItems }] : []),
+              ].filter((s) => s.items.length > 0);
+
+              return sections.map((sec, idx) => (
+                <SidebarGroup key={idx} className="!p-0">
+                  {!collapsed ? (
+                    <SidebarGroupLabel className="text-sidebar-foreground/60 text-[10px] font-semibold uppercase tracking-wider px-2 h-6 mt-0 flex items-center gap-2">
+
+                      <sec.icon className="w-3.5 h-3.5" />
+                      <span>{sec.label}</span>
+                    </SidebarGroupLabel>
+                  ) : (
+                    idx > 0 && <div className="mx-auto my-2 h-px w-6 bg-sidebar-border/60" />
+                  )}
+                  <SidebarGroupContent>
+                    <motion.ul
+                      variants={listVariants}
+                      initial="hidden"
+                      animate="visible"
+                      className="flex w-full min-w-0 flex-col gap-0.5"
+                    >
+                      {sec.items.map((item) => {
+                        const isActive = location.pathname === item.url;
+                        return (
+                          <motion.li
+                            key={item.url}
+                            variants={itemVariants}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.99 }}
+                            transition={{ duration: 0.2 }}
+                            className="group/menu-item relative list-none"
+                          >
+                            <SidebarMenuButton asChild tooltip={renderTooltip(item.title, item.desc)}>
+                              <NavLink to={item.url} end title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className={`relative text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-lg transition-colors text-sm ${collapsed ? "justify-center w-9 h-9 mx-auto" : "py-1"} overflow-hidden`} activeClassName="bg-sidebar-primary text-sidebar-primary-foreground font-medium">
+                                {isActive && (
+                                  <motion.span
+                                    layoutId="student-active-indicator"
+                                    className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-sidebar-primary"
+                                    transition={subtleSpring}
+                                  />
+                                )}
+                                <IconTile icon={item.icon} color={item.color} className={collapsed ? '' : 'mr-2'} />
+                                {!collapsed && <span className="truncate">{item.title}</span>}
+                              </NavLink>
+                            </SidebarMenuButton>
+                          </motion.li>
+                        );
+                      })}
+                    </motion.ul>
+                  </SidebarGroupContent>
                 </SidebarGroup>
-              );
+              ));
+            })()
+          ) : (
+            <>
+          {visibleMain.length > 0 && (() => {
+            const pick = (urls: string[]) =>
+              urls.map((u) => visibleMain.find((i) => i.url === u)).filter(Boolean) as MenuItem[];
+            const used = new Set<string>();
+            const take = (urls: string[]) => {
+              const items = pick(urls);
+              items.forEach((i) => used.add(i.url));
+              return items;
+            };
+            const mainSections = [
+              {
+                key: "me",
+                label: L("ของฉัน", "My Account"),
+                color: "text-sky-400",
+                dot: "bg-sky-400",
+                icon: User,
+                items: take([
+                  "/dashboard", "/", "/dashboard/profile",
+                  "/dashboard/inbox", "/dashboard/feed",
+                  "/dashboard/portfolio", "/dashboard/members",
+                ]),
+              },
+              {
+                key: "work",
+                label: L("งานประจำวัน", "Daily Work"),
+                color: "text-amber-400",
+                dot: "bg-amber-400",
+                icon: Clock,
+                items: take([
+                  "/dashboard/hr/time-clock",
+                  "/dashboard/student/face-scan",
+                  "/dashboard/student/face-scan?tab=staff",
+                  "/dashboard/student/attendance",
+                  "/dashboard/student/behavior",
+                  "/dashboard/student/leave",
+                  "/dashboard/hr/leave",
+                ]),
+              },
+              {
+                key: "learn",
+                label: L("การเรียนการสอน", "Learning"),
+                color: "text-emerald-400",
+                dot: "bg-emerald-400",
+                icon: BookOpen,
+                items: take([
+                  "/dashboard/academic/schedule",
+                  "/dashboard/academic/calendar",
+                  "/dashboard/homework",
+                  "/dashboard/padlet",
+                  "/dashboard/hub/games",
+                ]),
+              },
+              {
+                key: "events",
+                label: L("กิจกรรมและงานที่ได้รับมอบหมาย", "Activities & Tasks"),
+                color: "text-fuchsia-400",
+                dot: "bg-fuchsia-400",
+                icon: Trophy,
+                items: take([
+                  "/dashboard/activities",
+                  "/dashboard/certificates",
+                  "/dashboard/admin/staff-tasks",
+                ]),
+              },
+            ];
+            // ให้ /dashboard/browser ตกไปหมวด "เครื่องมือ" (div_tools) แทน เพื่อไม่ให้ซ้ำ
+            used.add("/dashboard/browser");
+
+            const leftover = visibleMain.filter((i) => !used.has(i.url));
+            if (leftover.length) {
+              mainSections.push({
+                key: "more_main",
+                label: L("เมนูอื่นๆ", "Other Menus"),
+                color: "text-slate-300",
+                dot: "bg-slate-300",
+                icon: FolderOpen,
+                items: leftover,
+              });
             }
-            const open = q ? true : (openSections[sec.key] ?? (sec.key === "me" || isActive));
-            return (
-              <Collapsible key={sec.key} open={open} onOpenChange={(v) => setSectionOpen(sec.key, v)}>
-                <SidebarGroup className="!p-0">
-                  <CollapsibleTrigger className="w-full group/sec">
-                    <div className="px-2 mt-0.5 mb-0.5">
-                      <div className="h-px w-full bg-gradient-to-r from-transparent via-sidebar-border to-transparent mb-1" />
-                      <div className="flex items-center gap-2 h-6 px-1 rounded-md hover:bg-sidebar-accent/30 transition-colors cursor-pointer">
-                        <span className={`w-1.5 h-1.5 rounded-full ${sec.dot} shadow-[0_0_8px_currentColor] ${sec.color}`} />
-                        <sec.icon className={`w-3.5 h-3.5 ${sec.color}`} />
-                        <span className={`text-[10px] font-bold uppercase tracking-[0.16em] ${sec.color}`}>
-                          {sec.label}
-                        </span>
-                        <span className="text-[10px] font-medium text-sidebar-foreground/40 tabular-nums">{sec.items.length}</span>
-                        <div className={`flex-1 h-px bg-gradient-to-r from-current/30 to-transparent ${sec.color}`} />
-                        <ChevronDown className={`w-3.5 h-3.5 ${sec.color} opacity-70 transition-transform duration-200 [[data-state=open]>div>div>&]:rotate-180`} />
-                      </div>
-                    </div>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>{body}</CollapsibleContent>
-                </SidebarGroup>
-              </Collapsible>
-            );
-          });
-
-        })()}
-
-
-        {groupedDepts.map((sec, sIdx) => {
-          const flatItems = sec.items.flatMap((d) => d.items);
-          const isActive = flatItems.some((i) => location.pathname === i.url);
-          // ฝ่ายงานเริ่มต้นเป็นแบบพับไว้ (ยกเว้นฝ่ายที่กำลังใช้งานอยู่) เพื่อลดการเลื่อนหน้าจอ
-          const open = q ? true : (openSections[sec.key] ?? isActive);
-          return (
-            <div key={sec.key} className="mt-1">
-              {collapsed ? (
-                sIdx > 0 && <div className={`mx-auto my-3 h-0.5 w-6 rounded-full ${sec.dot} opacity-70`} />
-              ) : (
-                <Collapsible open={open} onOpenChange={(v) => setSectionOpen(sec.key, v)}>
-
+            const shown = mainSections.filter((s) => s.items.length > 0);
+            return shown.map((sec, sIdx) => {
+              const isActive = sec.items.some((i) => location.pathname === i.url);
+              const body = (
+                <SidebarGroupContent>
+                  <motion.ul
+                    variants={listVariants}
+                    initial="hidden"
+                    animate="visible"
+                    className="flex w-full min-w-0 flex-col gap-0.5"
+                  >
+                    {sec.items.map((item) => {
+                      const active = location.pathname === item.url;
+                      return (
+                        <motion.li
+                          key={item.url}
+                          variants={itemVariants}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.99 }}
+                          transition={{ duration: 0.2 }}
+                          className="group/menu-item relative list-none"
+                        >
+                          <SidebarMenuButton asChild tooltip={renderTooltip(item.title, item.desc)}>
+                            <NavLink to={item.url} end title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className={`relative text-sidebar-foreground/85 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground rounded-lg text-sm transition-colors duration-150 overflow-hidden ${collapsed ? 'justify-center w-9 h-9 mx-auto' : 'py-1 pl-3 pr-2'}`} activeClassName="bg-sidebar-primary/15 text-sidebar-primary font-semibold">
+                              {active && (
+                                <motion.span
+                                  layoutId="main-active-indicator"
+                                  className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-sidebar-primary"
+                                  transition={subtleSpring}
+                                />
+                              )}
+                              <IconTile icon={item.icon} color={item.color} className={collapsed ? '' : 'mr-2'} />
+                              {!collapsed && <span className="truncate">{item.title}</span>}
+                            </NavLink>
+                          </SidebarMenuButton>
+                        </motion.li>
+                      );
+                    })}
+                  </motion.ul>
+                </SidebarGroupContent>
+              );
+              if (collapsed) {
+                return (
+                  <SidebarGroup key={sec.key} className="!p-0">
+                    {sIdx > 0 && <div className={`mx-auto my-3 h-0.5 w-6 rounded-full ${sec.dot} opacity-70`} />}
+                    {body}
+                  </SidebarGroup>
+                );
+              }
+              const openState = q ? true : (openSections[sec.key] ?? (sec.key === "me" || isActive));
+              return (
+                <Collapsible key={sec.key} open={openState} onOpenChange={(v) => setSectionOpen(sec.key, v)}>
                   <SidebarGroup className="!p-0">
                     <CollapsibleTrigger className="w-full group/sec">
-                      <div className="px-2 mb-0.5">
+                      <div className="px-2 mt-0.5 mb-0.5">
                         <div className="h-px w-full bg-gradient-to-r from-transparent via-sidebar-border to-transparent mb-1" />
                         <div className="flex items-center gap-2 h-6 px-1 rounded-md hover:bg-sidebar-accent/30 transition-colors cursor-pointer">
                           <span className={`w-1.5 h-1.5 rounded-full ${sec.dot} shadow-[0_0_8px_currentColor] ${sec.color}`} />
-                          {sec.icon && <sec.icon className={`w-3.5 h-3.5 ${sec.color}`} />}
+                          <sec.icon className={`w-3.5 h-3.5 ${sec.color}`} />
                           <span className={`text-[10px] font-bold uppercase tracking-[0.16em] ${sec.color}`}>
                             {sec.label}
                           </span>
-                          <span className="text-[10px] font-medium text-sidebar-foreground/40 tabular-nums">{flatItems.length}</span>
+                          <span className="text-[10px] font-medium text-sidebar-foreground/40 tabular-nums">{sec.items.length}</span>
                           <div className={`flex-1 h-px bg-gradient-to-r from-current/30 to-transparent ${sec.color}`} />
-                          <ChevronDown className={`w-3.5 h-3.5 ${sec.color} opacity-70 transition-transform duration-200 [[data-state=open]>div>div>&]:rotate-180`} />
+                          <motion.span animate={{ rotate: openState ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                            <ChevronDown className={`w-3.5 h-3.5 ${sec.color} opacity-70`} />
+                          </motion.span>
                         </div>
                       </div>
                     </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarGroupContent>
-                        {null}
+                    <AnimatePresence initial={false}>
+                      {openState && (
+                        <motion.div
+                          key={`${sec.key}-content`}
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={collapseTransition}
+                          style={{ overflow: "hidden" }}
+                        >
+                          {body}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </SidebarGroup>
+                </Collapsible>
+              );
+            });
 
-                        {sec.items.length > 1 ? (
-                          <div className="space-y-2">
-                            {sec.items.map((d) => (
-                              d.items.length === 0 ? null : (
-                                <div key={d.label}>
-                                  <div className="flex items-center gap-1.5 px-3 pt-1 pb-1">
-                                    {d.icon && <d.icon className={`w-3 h-3 ${sec.color} opacity-70`} />}
-                                    <span className={`text-[10px] font-semibold uppercase tracking-wider ${sec.color} opacity-80`}>
-                                      {d.label}
-                                    </span>
-                                    <div className={`flex-1 h-px bg-gradient-to-r from-current/20 to-transparent ${sec.color}`} />
-                                  </div>
-                                  <SidebarMenu className="gap-0.5">
-                                    {d.items.map((item) => (
-                                      <SidebarMenuItem key={item.url}>
+          })()}
+
+
+          {groupedDepts.map((sec, sIdx) => {
+            const flatItems = sec.items.flatMap((d) => d.items);
+            const isActive = flatItems.some((i) => location.pathname === i.url);
+            // ฝ่ายงานเริ่มต้นเป็นแบบพับไว้ (ยกเว้นฝ่ายที่กำลังใช้งานอยู่) เพื่อลดการเลื่อนหน้าจอ
+            const openState = q ? true : (openSections[sec.key] ?? isActive);
+            return (
+              <div key={sec.key} className="mt-1">
+                {collapsed ? (
+                  sIdx > 0 && <div className={`mx-auto my-3 h-0.5 w-6 rounded-full ${sec.dot} opacity-70`} />
+                ) : (
+                  <Collapsible open={openState} onOpenChange={(v) => setSectionOpen(sec.key, v)}>
+
+                    <SidebarGroup className="!p-0">
+                      <CollapsibleTrigger className="w-full group/sec">
+                        <div className="px-2 mb-0.5">
+                          <div className="h-px w-full bg-gradient-to-r from-transparent via-sidebar-border to-transparent mb-1" />
+                          <div className="flex items-center gap-2 h-6 px-1 rounded-md hover:bg-sidebar-accent/30 transition-colors cursor-pointer">
+                            <span className={`w-1.5 h-1.5 rounded-full ${sec.dot} shadow-[0_0_8px_currentColor] ${sec.color}`} />
+                            {sec.icon && <sec.icon className={`w-3.5 h-3.5 ${sec.color}`} />}
+                            <span className={`text-[10px] font-bold uppercase tracking-[0.16em] ${sec.color}`}>
+                              {sec.label}
+                            </span>
+                            <span className="text-[10px] font-medium text-sidebar-foreground/40 tabular-nums">{flatItems.length}</span>
+                            <div className={`flex-1 h-px bg-gradient-to-r from-current/30 to-transparent ${sec.color}`} />
+                            <motion.span animate={{ rotate: openState ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                              <ChevronDown className={`w-3.5 h-3.5 ${sec.color} opacity-70`} />
+                            </motion.span>
+                          </div>
+                        </div>
+                      </CollapsibleTrigger>
+                      <AnimatePresence initial={false}>
+                        {openState && (
+                          <motion.div
+                            key={`${sec.key}-content`}
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={collapseTransition}
+                            style={{ overflow: "hidden" }}
+                          >
+                            <SidebarGroupContent>
+                              {null}
+
+                              {sec.items.length > 1 ? (
+                                <div className="space-y-2">
+                                  {sec.items.map((d) => (
+                                    d.items.length === 0 ? null : (
+                                      <div key={d.label}>
+                                        <div className="flex items-center gap-1.5 px-3 pt-1 pb-1">
+                                          {d.icon && <d.icon className={`w-3 h-3 ${sec.color} opacity-70`} />}
+                                          <span className={`text-[10px] font-semibold uppercase tracking-wider ${sec.color} opacity-80`}>
+                                            {d.label}
+                                          </span>
+                                          <div className={`flex-1 h-px bg-gradient-to-r from-current/20 to-transparent ${sec.color}`} />
+                                        </div>
+                                        <motion.ul
+                                          variants={listVariants}
+                                          initial="hidden"
+                                          animate="visible"
+                                          className="flex w-full min-w-0 flex-col gap-0.5"
+                                        >
+                                          {d.items.map((item) => {
+                                            const active = location.pathname === item.url;
+                                            return (
+                                              <motion.li
+                                                key={item.url}
+                                                variants={itemVariants}
+                                                whileHover={{ scale: 1.02 }}
+                                                whileTap={{ scale: 0.99 }}
+                                                transition={{ duration: 0.2 }}
+                                                className="group/menu-item relative list-none"
+                                              >
+                                                <SidebarMenuButton asChild tooltip={renderTooltip(item.title, item.desc)}>
+                                                  <NavLink to={item.url} title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className="relative text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground rounded-lg text-sm transition-colors duration-150 py-1 pl-3 pr-2 overflow-hidden" activeClassName="bg-sidebar-primary/15 text-sidebar-primary font-semibold">
+                                                    {active && (
+                                                      <motion.span
+                                                        layoutId="dept-active-indicator"
+                                                        className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-sidebar-primary"
+                                                        transition={subtleSpring}
+                                                      />
+                                                    )}
+                                                    <IconTile icon={item.icon} color={item.color} className="mr-2" />
+                                                    <span className="truncate">{item.title}</span>
+                                                  </NavLink>
+                                                </SidebarMenuButton>
+                                              </motion.li>
+                                            );
+                                          })}
+                                        </motion.ul>
+                                      </div>
+                                    )
+                                  ))}
+                                </div>
+                              ) : (
+                                <motion.ul
+                                  variants={listVariants}
+                                  initial="hidden"
+                                  animate="visible"
+                                  className="flex w-full min-w-0 flex-col gap-0.5"
+                                >
+                                  {flatItems.map((item) => {
+                                    const active = location.pathname === item.url;
+                                    return (
+                                      <motion.li
+                                        key={item.url}
+                                        variants={itemVariants}
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.99 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="group/menu-item relative list-none"
+                                      >
                                         <SidebarMenuButton asChild tooltip={renderTooltip(item.title, item.desc)}>
-                                          <NavLink to={item.url} title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className="relative text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground hover:translate-x-0.5 rounded-lg text-sm transition-all duration-150 py-1 pl-3 pr-2" activeClassName="bg-sidebar-primary/15 text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary">
+                                          <NavLink to={item.url} title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className="relative text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground rounded-lg text-sm transition-colors duration-150 py-1 pl-3 pr-2 overflow-hidden" activeClassName="bg-sidebar-primary/15 text-sidebar-primary font-semibold">
+                                            {active && (
+                                              <motion.span
+                                                layoutId="dept-active-indicator"
+                                                className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-sidebar-primary"
+                                                transition={subtleSpring}
+                                              />
+                                            )}
                                             <IconTile icon={item.icon} color={item.color} className="mr-2" />
                                             <span className="truncate">{item.title}</span>
                                           </NavLink>
                                         </SidebarMenuButton>
-                                      </SidebarMenuItem>
-                                    ))}
-                                  </SidebarMenu>
-                                </div>
-                              )
-                            ))}
-                          </div>
-                        ) : (
-                          <SidebarMenu className="gap-0.5">
-                            {flatItems.map((item) => (
-                              <SidebarMenuItem key={item.url}>
-                                <SidebarMenuButton asChild tooltip={renderTooltip(item.title, item.desc)}>
-                                  <NavLink to={item.url} title={`${item.title}${item.desc ? " — " + item.desc : ""}`} className="relative text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground hover:translate-x-0.5 rounded-lg text-sm transition-all duration-150 py-1 pl-3 pr-2" activeClassName="bg-sidebar-primary/15 text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary">
-                                    <IconTile icon={item.icon} color={item.color} className="mr-2" />
-                                    <span className="truncate">{item.title}</span>
-                                  </NavLink>
-                                </SidebarMenuButton>
-                              </SidebarMenuItem>
-                            ))}
-                          </SidebarMenu>
+                                      </motion.li>
+                                    );
+                                  })}
+                                </motion.ul>
+                              )}
+                            </SidebarGroupContent>
+                          </motion.div>
                         )}
-                      </SidebarGroupContent>
-                    </CollapsibleContent>
-                  </SidebarGroup>
-                </Collapsible>
-              )}
-              {collapsed && (
-                <SidebarMenu className="gap-0.5">
-                  {flatItems.map((item) => (
-                    <SidebarMenuItem key={item.url}>
-                      <SidebarMenuButton asChild tooltip={renderTooltip(item.title, item.desc)}>
-                        <NavLink to={item.url} title={item.title} className="text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground rounded-lg transition-colors justify-center w-10 h-10 mx-auto" activeClassName="bg-sidebar-primary/15 text-sidebar-primary font-semibold">
-                          <IconTile icon={item.icon} color={item.color} />
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              )}
-            </div>
-          );
-        })}
+                      </AnimatePresence>
+                    </SidebarGroup>
+                  </Collapsible>
+                )}
+                {collapsed && (
+                  <motion.ul
+                    variants={listVariants}
+                    initial="hidden"
+                    animate="visible"
+                    className="flex w-full min-w-0 flex-col gap-0.5"
+                  >
+                    {flatItems.map((item) => {
+                      const active = location.pathname === item.url;
+                      return (
+                        <motion.li
+                          key={item.url}
+                          variants={itemVariants}
+                          whileHover={{ scale: 1.02 }}
+                          transition={{ duration: 0.2 }}
+                          className="group/menu-item relative list-none"
+                        >
+                          <SidebarMenuButton asChild tooltip={renderTooltip(item.title, item.desc)}>
+                            <NavLink to={item.url} title={item.title} className="relative text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground rounded-lg transition-colors justify-center w-10 h-10 mx-auto overflow-hidden" activeClassName="bg-sidebar-primary/15 text-sidebar-primary font-semibold">
+                              {active && (
+                                <motion.span
+                                  layoutId="collapsed-active-indicator"
+                                  className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-sidebar-primary"
+                                  transition={subtleSpring}
+                                />
+                              )}
+                              <IconTile icon={item.icon} color={item.color} />
+                            </NavLink>
+                          </SidebarMenuButton>
+                        </motion.li>
+                      );
+                    })}
+                  </motion.ul>
+                )}
+              </div>
+            );
+          })}
 
-        {!collapsed && q && visibleMain.length === 0 && visibleDepts.length === 0 && (
-          <div className="px-3 py-6 text-center text-sm text-sidebar-foreground/60">
-            {L("ไม่พบเมนูที่ตรงกับคำค้น", "No menu matched your search")}
-          </div>
-        )}
-          </>
-        )}
-      </SidebarContent>
-      <SidebarAccountFooter />
+          <AnimatePresence>
+            {!collapsed && q && visibleMain.length === 0 && visibleDepts.length === 0 && (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                transition={{ duration: 0.2 }}
+                className="px-3 py-6 text-center text-sm text-sidebar-foreground/60"
+              >
+                {L("ไม่พบเมนูที่ตรงกับคำค้น", "No menu matched your search")}
+              </motion.div>
+            )}
+          </AnimatePresence>
+            </>
+          )}
+        </SidebarContent>
+        <SidebarAccountFooter />
+      </motion.div>
     </Sidebar>
 
 

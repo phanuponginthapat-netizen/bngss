@@ -24,6 +24,7 @@ import {
   type GradeLock,
   type StudentAttendanceRate,
 } from "@/lib/gradeLock";
+import { notifyGradeLockAnnounced } from "@/lib/notificationTriggers";
 
 const toBE = (y: number) => (y > 2400 ? y : y + BE_OFFSET);
 
@@ -247,6 +248,21 @@ export default function AcademicGradeLockPage() {
       if ((data as any)?.error) throw new Error((data as any).error);
       const d = data as any;
       toast.success(`ประกาศสำเร็จ — แจ้งเตือน ${d?.notified_students ?? d?.notified ?? 0} คน (ผู้ปกครอง ${d?.notified_parents ?? 0}) จาก ${d?.total ?? 0} คน`);
+      // Enhanced fan-out via centralized trigger — ensures parents + LINE + gchat even if edge fanout missed parent resolution
+      // Uses notify-fanout with classroom family resolution (student auth + parent_user_id + parent_student_links)
+      if (classroomId) {
+        const fileMeta = type === "pp5"
+          ? (pp5Files as any[]).find((f) => f.id === fileId)
+          : (pp6Files as any[]).find((f) => f.id === fileId);
+        notifyGradeLockAnnounced({
+          classroomId,
+          term,
+          fileId,
+          fileType: type,
+          subjectLabel: fileMeta?.subject_name || fileMeta?.subject_code || null,
+          classroomName: selectedClassroom?.name || null,
+        }).catch((e) => console.warn("[grade-lock] extra fanout failed", e));
+      }
       qc.invalidateQueries({ queryKey: ["grade_lock_pp5_files"] });
       qc.invalidateQueries({ queryKey: ["grade_lock_pp6_files"] });
       // Auto lock after successful announce if not locked
@@ -285,6 +301,19 @@ export default function AcademicGradeLockPage() {
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       toast.success("ประกาศสำเร็จ (บังคับ) — ควรติดตามนักเรียนที่เวลาเรียนต่ำกว่า 80%");
+      if (classroomId) {
+        const fileMeta = announceType === "pp5"
+          ? (pp5Files as any[]).find((f) => f.id === selectedFileId)
+          : (pp6Files as any[]).find((f) => f.id === selectedFileId);
+        notifyGradeLockAnnounced({
+          classroomId,
+          term,
+          fileId: selectedFileId,
+          fileType: announceType,
+          subjectLabel: fileMeta?.subject_name || fileMeta?.subject_code || null,
+          classroomName: selectedClassroom?.name || null,
+        }).catch((e) => console.warn("[grade-lock] extra fanout (force) failed", e));
+      }
       setWarningOpen(false);
       setAnnounceType(null);
       setSelectedFileId(null);

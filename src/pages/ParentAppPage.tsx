@@ -20,8 +20,18 @@ import {
   School,
   ScanFace,
   FileText,
+  Sparkles,
+  Award,
+  TrendingUp,
+  UserCheck,
+  Heart,
 } from "lucide-react";
 import { todayBangkok } from "@/lib/dateBE";
+import { motion } from "framer-motion";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { AreaChart, Area, ResponsiveContainer } from "recharts";
 
 // ---------- Types ----------
 type Child = {
@@ -136,6 +146,7 @@ export default function ParentAppPage() {
   const [loadingChildren, setLoadingChildren] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
 
   // ---- 1) resolve current user id ----
   useEffect(() => {
@@ -352,6 +363,12 @@ export default function ParentAppPage() {
     try {
       const kids = await fetchChildren(userId);
       setChildren(kids);
+      setSelectedChildId(prev => {
+        if (kids.length === 0) return prev;
+        if (!prev) return kids[0].id;
+        if (!kids.find(k => k.id === prev)) return kids[0].id;
+        return prev;
+      });
 
       if (kids.length === 0) {
         setBundles({});
@@ -639,16 +656,139 @@ export default function ParentAppPage() {
         </Card>
       )}
 
-      {/* Children cards */}
+      {/* Child selector — modern pill + Select, with stagger entrance */}
       {!loadingChildren && children.length > 0 && (
-        <div className="space-y-6">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Users className="w-4 h-4" />
-            {L(`พบข้อมูลบุตร ${children.length} คน`, `Found ${children.length} child${children.length > 1 ? "ren" : ""}`)}
-            <Badge variant="secondary">{todayBangkok()}</Badge>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Users className="w-4 h-4" />
+              {L(`พบข้อมูลบุตร ${children.length} คน`, `Found ${children.length} child${children.length > 1 ? "ren" : ""}`)}
+              <Badge variant="secondary">{todayBangkok()}</Badge>
+            </div>
+            {children.length > 1 && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground hidden sm:inline">{L("เลือกบุตร", "Select child")}:</span>
+                <div className="hidden sm:flex gap-1.5 flex-wrap">
+                  {children.map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => setSelectedChildId(c.id)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 ${selectedChildId === c.id ? "bg-primary text-primary-foreground border-primary shadow-md" : "bg-card border-border hover:bg-muted"}`}
+                    >
+                      {c.photo_url ? <img src={c.photo_url} alt="" className="w-5 h-5 rounded-full object-cover" /> : <GraduationCap className="w-3.5 h-3.5" />}
+                      <span className="max-w-[90px] truncate">{fullName(c)}</span>
+                    </button>
+                  ))}
+                </div>
+                <Select value={selectedChildId || undefined} onValueChange={(v) => setSelectedChildId(v)}>
+                  <SelectTrigger className="w-[200px] sm:hidden h-9 rounded-xl">
+                    <SelectValue placeholder={L("เลือกบุตร", "Select child")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {children.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{fullName(c)} · {c.student_code}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
-          {children.map((child) => {
+          {/* Selected child quick KPIs — 4 modern cards with gradient, sparkline, skeleton */}
+          {(() => {
+            const selId = selectedChildId || children[0]?.id;
+            const selBundle = selId ? bundles[selId] : null;
+            const selChild = children.find(c => c.id === selId);
+            if (!selChild) return null;
+            const gpaVals = selBundle?.scores?.map((s: any) => Number(s.grade_point)).filter((n: number) => !isNaN(n) && n > 0) || [];
+            const avgGpa = gpaVals.length ? (gpaVals.reduce((a: number, b: number) => a + b, 0) / gpaVals.length).toFixed(2) : "—";
+            const attendanceToday = selBundle?.faceLogs?.length || selBundle?.attendance?.length ? (selBundle?.attendance?.[0]?.status || selBundle?.faceLogs?.[0]?.status || "present") : null;
+            const attendanceLabel = !selBundle ? "—" : !selBundle.loading && !attendanceToday ? L("ยังไม่เช็คชื่อ", "Not checked") : attendanceToday === "present" ? L("มาเรียน", "Present") : attendanceToday === "late" ? L("มาสาย", "Late") : attendanceToday === "absent" ? L("ขาด", "Absent") : attendanceToday || "—";
+            return (
+              <motion.div initial="hidden" animate="visible" variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.08 } } }} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[0,1,2,3].map((idx) => {
+                  if (selBundle?.loading) {
+                    return (
+                      <Card key={idx} className="rounded-2xl border border-border/40">
+                        <CardContent className="p-4 space-y-2">
+                          <Skeleton className="h-9 w-9 rounded-xl" />
+                          <Skeleton className="h-3 w-16" />
+                          <Skeleton className="h-6 w-12" />
+                          <Skeleton className="h-2 w-full" />
+                        </CardContent>
+                      </Card>
+                    );
+                  }
+                  return null;
+                })}
+                {!selBundle?.loading && (
+                  <>
+                    <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.35 }}>
+                      <Card className="relative overflow-hidden border-0 shadow-elevated rounded-2xl ring-1 ring-border/40 h-full">
+                        <div className={`absolute -top-8 -right-8 w-20 h-20 rounded-full opacity-10 blur-xl ${attendanceToday === "present" || attendanceToday === "late" ? "bg-success" : attendanceToday === "absent" ? "bg-destructive" : "bg-muted"}`} />
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-1">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${attendanceToday === "present" ? "gradient-success" : attendanceToday === "late" ? "gradient-warning" : attendanceToday === "absent" ? "bg-destructive" : "bg-muted"}`}>
+                              <UserCheck className="w-4 h-4 text-primary-foreground" />
+                            </div>
+                            <Badge variant="secondary" className={`text-[10px] border-0 ${attendanceToday === "present" ? "bg-success/10 text-success" : attendanceToday === "late" ? "bg-amber-100 text-amber-700" : attendanceToday === "absent" ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}>{attendanceLabel}</Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground font-medium">{L("มาเรียนวันนี้", "Today")}</p>
+                          <p className="text-lg font-bold">{attendanceLabel}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{selBundle?.faceLogs?.[0]?.scan_time?.slice(0,5) || selBundle?.attendance?.[0]?.attendance_date || todayBangkok()}</p>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                    <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.35 }}>
+                      <Card className="relative overflow-hidden border-0 shadow-elevated rounded-2xl ring-1 ring-border/40 h-full">
+                        <div className="absolute -top-8 -right-8 w-20 h-20 rounded-full gradient-primary opacity-10 blur-xl" />
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-1">
+                            <div className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center shadow-sm"><Award className="w-4 h-4 text-primary-foreground" /></div>
+                            <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-0">{gpaVals.length} {L("วิชา", "subj")}</Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground font-medium">GPA</p>
+                          <p className="text-lg font-bold tabular-nums">{avgGpa}</p>
+                          <div className="mt-1 h-[20px]">{gpaVals.length > 1 ? <ResponsiveContainer width="100%" height={20}><AreaChart data={gpaVals.slice(0,6).map((v: number) => ({ v }))}><Area type="monotone" dataKey="v" stroke="hsl(var(--primary))" strokeWidth={1.5} fill="hsl(var(--primary) / 0.12)" /></AreaChart></ResponsiveContainer> : <span className="text-[10px] text-muted-foreground/60">{selBundle?.scores?.length ? `${selBundle.scores.length} ${L("รายการ", "items")}` : L("ยังไม่มีคะแนน", "No grades")}</span>}</div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                    <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.35 }}>
+                      <Card className="relative overflow-hidden border-0 shadow-elevated rounded-2xl ring-1 ring-border/40 h-full">
+                        <div className={`absolute -top-8 -right-8 w-20 h-20 rounded-full opacity-10 blur-xl ${ (selBundle?.homework?.length || 0) > 0 ? "gradient-warning" : "bg-success"}`} />
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-1">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${(selBundle?.homework?.length || 0) > 0 ? "gradient-warning" : "gradient-success"}`}><BookOpen className="w-4 h-4 text-primary-foreground" /></div>
+                            <Badge variant="secondary" className="text-[10px] bg-amber-100 text-amber-700 border-0">{selBundle?.homework?.length || 0} {L("ชิ้น", "items")}</Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground font-medium">{L("การบ้านจะถึงกำหนด", "Upcoming HW")}</p>
+                          <p className="text-lg font-bold">{selBundle?.homework?.length || 0}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{selBundle?.homework?.[0]?.due_date ? `${L("ถึง", "Due")} ${selBundle.homework[0].due_date}` : L("ไม่มีการบ้านค้าง", "No pending")}</p>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                    <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.35 }}>
+                      <Card className={`relative overflow-hidden border-0 shadow-elevated rounded-2xl ring-1 h-full ${(selBundle?.remediation?.length || 0) > 0 ? "ring-destructive/30" : "ring-border/40"}`}>
+                        <div className={`absolute -top-8 -right-8 w-20 h-20 rounded-full opacity-10 blur-xl ${(selBundle?.remediation?.length || 0) > 0 ? "bg-destructive" : "gradient-success"}`} />
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-1">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${(selBundle?.remediation?.length || 0) > 0 ? "bg-destructive" : "gradient-success"}`}><AlertTriangle className="w-4 h-4 text-primary-foreground" /></div>
+                            <Badge variant={ (selBundle?.remediation?.length || 0) > 0 ? "destructive" : "secondary"} className="text-[10px]">{selBundle?.remediation?.length || 0}</Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground font-medium">0 ร มส</p>
+                          <p className="text-lg font-bold">{selBundle?.remediation?.length || 0}</p>
+                          <p className="text-[10px] truncate" style={{ color: (selBundle?.remediation?.length || 0) > 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))" }}>{(selBundle?.remediation?.length || 0) > 0 ? selBundle.remediation[0].subject_code : L("ไม่มีรายการค้าง", "All clear")}</p>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  </>
+                )}
+              </motion.div>
+            );
+          })()}
+
+          {/* Detailed child cards — filtered by selector */}
+          {(selectedChildId ? children.filter(c => c.id === selectedChildId) : children).map((child) => {
             const bundle = bundles[child.id];
             const isLoadingBundle = !bundle || bundle.loading;
             return (
@@ -713,7 +853,7 @@ export default function ParentAppPage() {
               </Card>
             );
           })}
-        </div>
+        </motion.div>
       )}
 
       {/* Footer hint */}

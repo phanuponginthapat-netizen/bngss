@@ -17,6 +17,7 @@ import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { getBackendConfig } from "@/lib/runtimeConfig";
 import { saveErrorMessage } from "@/lib/saveError";
+import { notifyExamScheduled } from "@/lib/notificationTriggers";
 
 const ICS_FEED_URL = `${getBackendConfig().url}/functions/v1/calendar-ics`;
 
@@ -86,10 +87,32 @@ const AcademicCalendarPage = () => {
       const { error } = await supabase.from("academic_events").update(payload).eq("id", editingEvent.id);
       if (error) { toast.error(saveErrorMessage(error)); return; }
       toast.success("แก้ไขกิจกรรมสำเร็จ");
+      if (payload.event_type === "exam") {
+        notifyExamScheduled({
+          title: payload.title,
+          examDate: payload.event_date,
+          location: payload.location,
+          eventId: editingEvent.id,
+        }).catch((e) => console.warn("[Calendar] exam notify failed", e));
+      }
     } else {
-      const { error } = await supabase.from("academic_events").insert(payload);
+      const { data, error } = await supabase.from("academic_events").insert(payload).select("id").single();
       if (error) { toast.error(saveErrorMessage(error)); return; }
       toast.success("เพิ่มกิจกรรมสำเร็จ");
+      if (payload.event_type === "exam" && (data as any)?.id) {
+        notifyExamScheduled({
+          title: payload.title,
+          examDate: payload.event_date,
+          location: payload.location,
+          eventId: (data as any).id,
+        }).catch((e) => console.warn("[Calendar] exam notify failed", e));
+      } else if (payload.event_type === "exam") {
+        notifyExamScheduled({
+          title: payload.title,
+          examDate: payload.event_date,
+          location: payload.location,
+        }).catch((e) => console.warn("[Calendar] exam notify failed", e));
+      }
     }
 
     qc.invalidateQueries({ queryKey: ["academic_events"] });

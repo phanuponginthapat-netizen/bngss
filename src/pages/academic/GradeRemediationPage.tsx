@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { AlertTriangle, Megaphone, Wrench, ClipboardCheck, Printer, Upload, Calendar, CheckCircle2 } from "lucide-react";
 import { GRADE_REMEDIATION_TYPES, REMEDIATION_STATUS, STATUS_COLOR, GRADE_LABEL } from "@/lib/gradeRemediation";
+import { notifyGradeRemediationAnnounced, notifyGradeRemediationBatchAnnounced, notifyGradeRemediationFix, notifyGradeRemediationRetakeScheduled } from "@/lib/notificationTriggers";
 
 type Remediation = {
   id: string;
@@ -123,27 +124,30 @@ export default function GradeRemediationPage() {
     if (error) toast.error(error.message);
     else {
       toast.success(L(`ประกาศ ${ids.length} คนแล้ว`, `Announced ${ids.length}`));
-      // notify students + parents via in-app + push + LINE (best effort, non-blocking)
-      for (const id of ids) {
-        const it = items.find((x) => x.id === id);
-        if (!it) continue;
-        try {
-          await supabase.from("notifications" as any).insert({ user_id: it.student_id, title: "ประกาศรายชื่อติด 0 ร มส", body: `${it.subject_code} ${it.term} เกรด ${it.original_grade} — ติดต่อครูผู้สอน`, type: "grade_remediation" } as any);
-        } catch {}
-        // push + LINE to student and parents
-        try {
-          const { data: stu } = await supabase.from("students").select("auth_user_id, parent_id, first_name, last_name").eq("id", it.student_id).maybeSingle();
-          const studentName = stu ? `${(stu as any).first_name} ${(stu as any).last_name}` : "";
-          const title = `ติด ${it.original_grade} วิชา ${it.subject_code}`;
-          const body = `${studentName} ติด ${it.original_grade} วิชา ${it.subject_code} ${it.term} — กรุณาติดต่อครู`;
-          // fanout handles push/line/gchat routing
-          supabase.functions.invoke("notify-fanout", { body: { title, body, type: "grade_remediation", student_id: it.student_id, subject_code: it.subject_code, term: it.term } }).catch(()=>{});
-          // also try direct parent push if parent_id exists
-          if ((stu as any)?.parent_id) {
-            supabase.functions.invoke("send-push", { body: { user_id: (stu as any).parent_id, title, body } }).catch(()=>{});
-          }
-        } catch {}
-      }
+      // Comprehensive fan-out via centralized triggers — includes parent + student + homeroom, in_app/push/line/gchat
+      const toAnnounce = ids.map((id) => items.find((x) => x.id === id)).filter(Boolean) as Remediation[];
+      // Batch helper handles family resolution (auth_user_id + parent_user_id + parent_student_links + profiles.student_code) and dedup
+      notifyGradeRemediationBatchAnnounced(
+        toAnnounce.map((it) => ({
+          student_id: it.student_id,
+          subject_code: it.subject_code,
+          subject_name: it.subject_name,
+          term: it.term,
+          original_grade: it.original_grade,
+          id: it.id,
+        }))
+      ).catch((e) => console.warn("[GradeRemediation] batch notify failed", e));
+      // Also fire per-item via single helper for backward-compat audit trail (non-blocking)
+      toAnnounce.forEach((it) => {
+        notifyGradeRemediationAnnounced({
+          studentIds: [it.student_id],
+          subjectCode: it.subject_code,
+          subjectName: it.subject_name,
+          term: it.term,
+          originalGrade: it.original_grade,
+          remediationIds: [it.id],
+        }).catch(() => {});
+      });
       setSelected(new Set());
       load();
     }
@@ -171,7 +175,22 @@ export default function GradeRemediationPage() {
       status,
     } as any).eq("id", fixItem.id);
     if (error) toast.error(error.message);
-    else { toast.success(L("บันทึกการแก้แล้ว", "Fix saved")); setFixOpen(false); load(); }
+    else {
+      toast.success(L("บันทึกการแก้แล้ว", "Fix saved"));
+      // trigger grade remediation fix notification (student + parents via in_app/push/line/gchat)
+      notifyGradeRemediationFix({
+        studentId: fixItem.student_id,
+        subjectCode: fixItem.subject_code,
+        term: fixItem.term,
+        newGrade: fixGrade || null,
+        fixScore: fixScore ? Number(fixScore) : null,
+        fixMethod,
+        status,
+        remediationId: fixItem.id,
+      }).catch((e) => console.warn("[GradeRemediation] fix notify failed", e));
+      setFixOpen(false);
+      load();
+    }
   };
 
   const openRetake = (it: Remediation) => {
@@ -185,7 +204,15 @@ export default function GradeRemediationPage() {
     if (error) toast.error(error.message);
     else {
       await supabase.from("grade_remediation").update({ status: "รอสอบแก้" } as any).eq("id", retakeItem.id);
-      toast.success(L("นัดสอบแก้แล้ว", "Retake scheduled")); setRetakeOpen(false); load();
+      toast.success(L("นัดสอบแก้แล้ว", "Retake scheduled"));
+      notifyGradeRemediationRetakeScheduled({
+        studentId: retakeItem.student_id,
+        subjectCode: retakeItem.subject_code,
+        term: retakeItem.term,
+        retakeDate,
+        remediationId: retakeItem.id,
+      }).catch((e) => console.warn("[GradeRemediation] retake notify failed", e));
+      setRetakeOpen(false); load();
     }
   };
 
