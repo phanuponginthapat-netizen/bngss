@@ -80,3 +80,11 @@ verify_jwt = false
 # TTS ภาษาไทย: เรียกได้จากตู้ kiosk ทั้งแบบ GET (<audio src>) และ POST
 [functions.tts-th]
 verify_jwt = false
+
+# One-Stop API Gateway — ตรวจ JWT เองในฟังก์ชัน (admin/director) เพื่อตอบ error พร้อม CORS
+[functions.onestop-api]
+verify_jwt = false
+
+# BigData Warehouse Cron — nightly ETL, ตรวจ cron secret หรือ admin JWT เอง
+[functions.bigdata-warehouse-cron]
+verify_jwt = false

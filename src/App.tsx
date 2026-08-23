@@ -249,6 +249,7 @@ const RoleTroubleshootPage = lazy(() => import("./pages/admin/RoleTroubleshootPa
 const DatabaseSchemaPage = lazy(() => import("./pages/admin/DatabaseSchemaPage"));
 const RlsAuditPage = lazy(() => import("./pages/admin/RlsAuditPage"));
 const AiImportPage = lazy(() => import("./pages/admin/AiImportPage"));
+const BigDataDashboardPage = lazy(() => import("./pages/admin/BigDataDashboardPage"));
 
 
 const BulkOperationsPage = lazy(() => import("./pages/admin/BulkOperationsPage"));
@@ -509,6 +510,7 @@ const App = () => (
                 <Route path="admin/director-realtime" element={<ProtectedRoute allowedRoles={["admin","director"]}><DirectorRealtimePage /></ProtectedRoute>} />
                 <Route path="admin/school-milk" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["general_admin"]}><SchoolMilkPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="admin/action-plan" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["general_admin","academic","student_affairs","finance_personnel"]}><ActionPlanPage /></DepartmentRoute></ProtectedRoute>} />
+                <Route path="admin/bigdata" element={<ProtectedRoute allowedRoles={["admin", "director"]}><BigDataDashboardPage /></ProtectedRoute>} />
                 {/* Garbage Bank */}
                 <Route path="garbage" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><GarbageDashboardPage /></ProtectedRoute>} />
                 <Route path="garbage/my" element={<ProtectedRoute allowedRoles={["student", "teacher", "admin", "director"]}><GarbageMyPage /></ProtectedRoute>} />

@@ -451,7 +451,7 @@ export function AppSidebar() {
     //   items: [
     //     { title: L("ศูนย์เกมการเรียนรู้", "Game Hub"), url: "/dashboard/hub/games", icon: Gamepad2, color: "text-fuchsia-400", roles: ["admin", "director", "teacher", "student"], desc: L("คลังเกม · จัดการเกม · API Keys", "Store · Manage · API keys") },
     //   ],
-    },
+    // },
 
     // ── บริหารทั่วไป ──────────────────────────────────────────────
     {
