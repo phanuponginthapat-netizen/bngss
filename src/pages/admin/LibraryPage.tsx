@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { BookOpen, Plus, ScanBarcode, Undo2, AlertTriangle, Calendar } from "lucide-react";
+import { StudentSpiderDialog } from "@/components/student/StudentSpiderDialog";
 
 export default function LibraryPage() {
   const qc = useQueryClient();
@@ -20,6 +21,7 @@ export default function LibraryPage() {
   const [barcode, setBarcode] = useState("");
   const [borrowBookId, setBorrowBookId] = useState("");
   const [borrowStudentId, setBorrowStudentId] = useState("");
+  const [spiderId, setSpiderId] = useState<string | null>(null);
 
   const { data: books = [] } = useQuery({
     queryKey: ["library-books"],
@@ -108,7 +110,7 @@ export default function LibraryPage() {
                 return (
                   <TableRow key={l.id} className={isOverdue ? "bg-red-50" : ""}>
                     <TableCell>{l.library_books?.title || l.book_id.slice(0, 8)}</TableCell>
-                    <TableCell>{l.students ? `${l.students.first_name} ${l.students.last_name} (${l.students.student_code})` : l.student_id.slice(0, 8)}</TableCell>
+                    <TableCell><button onClick={() => setSpiderId(l.student_id)} className="text-primary hover:underline">{l.students ? `${l.students.first_name} ${l.students.last_name} (${l.students.student_code})` : l.student_id.slice(0, 8)}</button></TableCell>
                     <TableCell className="text-xs">{new Date(l.borrowed_at).toLocaleDateString("th-TH")}</TableCell>
                     <TableCell className="text-xs">{l.due_at ? new Date(l.due_at).toLocaleDateString("th-TH") : "-"}</TableCell>
                     <TableCell>{l.status === "borrowed" ? <Badge variant={isOverdue ? "destructive" : "secondary"}>{isOverdue ? "เกินกำหนด" : "ยืมอยู่"}</Badge> : <Badge variant="outline">คืนแล้ว</Badge>}</TableCell>
@@ -131,6 +133,7 @@ export default function LibraryPage() {
           <DialogFooter><Button onClick={addBook}>บันทึก</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+      <StudentSpiderDialog studentId={spiderId} open={!!spiderId} onOpenChange={(v) => { if (!v) setSpiderId(null); }} />
       <Dialog open={borrowOpen} onOpenChange={setBorrowOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>ยืมหนังสือ</DialogTitle></DialogHeader>

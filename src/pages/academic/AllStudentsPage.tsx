@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Users, Search, ArrowUpCircle, Download, Printer, Eye, Pencil, User, Heart, GraduationCap } from "lucide-react";
 import { ScanSearchButton } from "@/components/student/ScanSearchButton";
+import { StudentSpiderDialog } from "@/components/student/StudentSpiderDialog";
 import { useFieldVisibility, FIELD_LABELS, type DmcFieldConfig } from "@/hooks/useFieldVisibility";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { formatDateBE } from "@/lib/dateBE";
@@ -73,6 +74,7 @@ const AllStudentsPage = () => {
   const [detailStudent, setDetailStudent] = useState<any>(null);
   const [editStudent, setEditStudent] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  const [spiderId, setSpiderId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 50;
 
@@ -420,14 +422,14 @@ const AllStudentsPage = () => {
                     {fieldConfig.national_id && <TableCell className="font-mono text-xs">{s.national_id || "—"}</TableCell>}
                     <TableCell>{s.prefix}</TableCell>
                     <TableCell className="font-medium">
-                      <div className="flex items-center gap-1.5">
+                      <button onClick={() => setSpiderId(s.id)} className="text-primary hover:underline flex items-center gap-1.5">
                         <span>{s.first_name}</span>
                         {s.is_special_needs && (
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-700 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-300" title={s.special_needs_type || s.special_needs || "การศึกษาพิเศษ"}>
                             พิเศษ
                           </Badge>
                         )}
-                      </div>
+                      </button>
                     </TableCell>
                     <TableCell>{s.last_name}</TableCell>
                     {fieldConfig.gender && <TableCell className="text-xs">{isMale(s) ? "ชาย" : isFemale(s) ? "หญิง" : s.gender || "—"}</TableCell>}
@@ -460,6 +462,7 @@ const AllStudentsPage = () => {
         </CardContent>
       </Card>
 
+      <StudentSpiderDialog studentId={spiderId} open={!!spiderId} onOpenChange={(v) => { if (!v) setSpiderId(null); }} />
       {/* Detail Dialog */}
       <Dialog open={!!detailStudent} onOpenChange={(o) => { if (!o) setDetailStudent(null); }}>
         <DialogContent className="sm:max-w-2xl sm:max-h-[90vh] overflow-y-auto">
