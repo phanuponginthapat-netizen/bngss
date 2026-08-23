@@ -308,8 +308,10 @@ import SystemLoader from "./components/SystemLoader";
 import CmsBranding from "./components/CmsBranding";
 import { useEffect } from "react";
 import { installGlobalErrorHandler } from "@/lib/globalErrorHandler";
+import { usePersistentSession } from "@/hooks/usePersistentSession";
 
 const App = () => {
+  usePersistentSession();
   useEffect(() => {
     try { installGlobalErrorHandler(); } catch {}
   }, []);
