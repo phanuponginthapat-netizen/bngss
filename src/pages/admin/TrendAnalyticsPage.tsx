@@ -66,25 +66,19 @@ export default function TrendAnalyticsPage() {
   const { data: allScores = [], isLoading } = useQuery({
     queryKey: ["trend-analytics"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("student_scores" as any)
-        .select("academic_year, subject, score")
-        .order("academic_year", { ascending: true });
-      if (error) throw error;
-      const raw = (data || []) as { academic_year: number; subject: string; score: number }[];
+      const { data, error } = await supabase.rpc("get_trend_analytics" as any);
+      if (!error && data) return (data as any[]) as TrendRow[];
+      // Fallback: client grouping with limit to avoid OOM (old path, now with limit 5000)
+      const { data: raw, error: e2 } = await supabase.from("student_scores" as any).select("academic_year, subject, score").limit(5000).order("academic_year", { ascending: true });
+      if (e2) throw e2;
       const grouped: Record<string, TrendRow> = {};
-      for (const r of raw) {
+      for (const r of (raw as any[]) || []) {
         const key = `${r.academic_year}-${r.subject}`;
-        if (!grouped[key]) {
-          grouped[key] = { academic_year: r.academic_year, subject: r.subject, avg_score: 0, student_count: 0 };
-        }
+        if (!grouped[key]) grouped[key] = { academic_year: r.academic_year, subject: r.subject, avg_score: 0, student_count: 0 };
         grouped[key].avg_score += r.score;
         grouped[key].student_count += 1;
       }
-      return Object.values(grouped).map((g) => ({
-        ...g,
-        avg_score: g.student_count ? Math.round((g.avg_score / g.student_count) * 100) / 100 : 0,
-      }));
+      return Object.values(grouped).map((g) => ({ ...g, avg_score: g.student_count ? Math.round((g.avg_score / g.student_count) * 100) / 100 : 0 }));
     },
   });
 
