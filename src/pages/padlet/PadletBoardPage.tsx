@@ -93,6 +93,13 @@ export default function PadletBoardPage() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [recAudio, setRecAudio] = useState<MediaRecorder|null>(null);
   const [recVideo, setRecVideo] = useState<MediaRecorder|null>(null);
+  const [recSecs, setRecSecs] = useState(0);
+  const recTimerRef = useRef<number|null>(null);
+  const previewRef = useRef<HTMLVideoElement|null>(null);
+  const previewStreamRef = useRef<MediaStream|null>(null);
+  const startTimer = () => { setRecSecs(0); recTimerRef.current = window.setInterval(()=> setRecSecs(s=>s+1),1000); };
+  const stopTimer = () => { if (recTimerRef.current) clearInterval(recTimerRef.current); recTimerRef.current=null; };
+  const mmss = (s:number)=> `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
 
   const openEdit = () => {
     if (!board) return;
@@ -249,7 +256,7 @@ export default function PadletBoardPage() {
   };
 
   const togglePadletAudio = async () => {
-    if (recAudio) { recAudio.stop(); setRecAudio(null); return; }
+    if (recAudio) { recAudio.stop(); setRecAudio(null); stopTimer(); return; }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const rec = new MediaRecorder(stream);
@@ -261,15 +268,18 @@ export default function PadletBoardPage() {
         const dt = new DataTransfer(); dt.items.add(file);
         await uploadFiles(dt.files);
         stream.getTracks().forEach(t=>t.stop());
-        toast.success("เพิ่มเสียงแล้ว");
+        toast.success(`เพิ่มเสียงแล้ว (${mmss(recSecs)})`);
+        stopTimer();
       };
-      rec.start(); setRecAudio(rec); toast("กำลังอัดเสียง... กดอีกครั้งเพื่อหยุด");
-    } catch(e:any){ toast.error(e?.message||"อัดเสียงไม่สำเร็จ"); }
+      rec.start(); setRecAudio(rec); startTimer();
+    } catch(e:any){ toast.error(e?.message||"อัดเสียงไม่สำเร็จ"); stopTimer(); }
   };
   const togglePadletVideo = async () => {
-    if (recVideo) { recVideo.stop(); setRecVideo(null); return; }
+    if (recVideo) { recVideo.stop(); setRecVideo(null); stopTimer(); try{previewStreamRef.current?.getTracks().forEach(t=>t.stop());}catch{} previewStreamRef.current=null; if(previewRef.current) previewRef.current.srcObject=null; return; }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio:true, video:true });
+      previewStreamRef.current = stream;
+      setTimeout(()=>{ if(previewRef.current) previewRef.current.srcObject = stream; },50);
       const rec = new MediaRecorder(stream);
       const chunks: BlobPart[] = [];
       rec.ondataavailable = e=> chunks.push(e.data);
@@ -279,10 +289,12 @@ export default function PadletBoardPage() {
         const dt = new DataTransfer(); dt.items.add(file);
         await uploadFiles(dt.files);
         stream.getTracks().forEach(t=>t.stop());
-        toast.success("เพิ่มวิดีโอแล้ว");
+        previewStreamRef.current=null; if(previewRef.current) previewRef.current.srcObject=null;
+        toast.success(`เพิ่มวิดีโอแล้ว (${mmss(recSecs)})`);
+        stopTimer();
       };
-      rec.start(); setRecVideo(rec); toast("กำลังอัดวิดีโอ... กดอีกครั้งเพื่อหยุด");
-    } catch(e:any){ toast.error(e?.message||"อัดวิดีโอไม่สำเร็จ"); }
+      rec.start(); setRecVideo(rec); startTimer();
+    } catch(e:any){ toast.error(e?.message||"อัดวิดีโอไม่สำเร็จ"); stopTimer(); }
   };
 
   const submitNote = async () => {
@@ -571,9 +583,20 @@ export default function PadletBoardPage() {
               <label className="text-xs font-medium mb-1 block flex items-center gap-1">
                 <Paperclip className="w-3 h-3" /> ไฟล์แนบ · รูปภาพ / เอกสาร / เสียง / วิดีโอ (สูงสุด 20MB ต่อไฟล์)
               </label>
-              <div className="flex gap-2 mb-2">
-                <Button type="button" size="sm" variant={recAudio?"default":"outline"} onClick={togglePadletAudio} className="gap-1">{recAudio?<StopCircle className="w-3 h-3"/>:<Mic className="w-3 h-3"/>}{recAudio?"หยุดอัด":"อัดเสียง"}</Button>
-                <Button type="button" size="sm" variant={recVideo?"default":"outline"} onClick={togglePadletVideo} className="gap-1">{recVideo?<StopCircle className="w-3 h-3"/>:<Video className="w-3 h-3"/>}{recVideo?"หยุดอัด":"อัดวิดีโอ"}</Button>
+              {(recAudio || recVideo) && (
+                <div className={`rounded-xl border p-3 space-y-2 animate-pulse-soft ${recVideo ? "border-red-500 bg-red-50 dark:bg-red-950/20" : "border-primary bg-primary/5"}`}>
+                  <div className="flex items-center gap-2">
+                    {recVideo ? <span className="w-3 h-3 rounded-full bg-red-600 animate-pulse inline-block" /> : <Mic className="w-4 h-4 text-primary animate-pulse" />}
+                    <span className="text-sm font-semibold">{recVideo ? "กำลังอัดวีดีโอ..." : "กำลังอัดเสียง..."}</span>
+                    <span className="ml-auto font-mono font-bold tabular-nums">{mmss(recSecs)}</span>
+                  </div>
+                  {recVideo && <div className="rounded-lg overflow-hidden bg-black aspect-video max-w-xs mx-auto"><video ref={previewRef} muted playsInline autoPlay className="w-full h-full object-cover" /></div>}
+                  <Button type="button" size="sm" variant="destructive" className="w-full gap-2" onClick={recAudio ? togglePadletAudio : togglePadletVideo}><StopCircle className="w-4 h-4" /> หยุดและแนบไฟล์</Button>
+                </div>
+              )}
+              <div className={`flex gap-2 mb-2 ${recAudio || recVideo ? "opacity-50 pointer-events-none" : ""}`}>
+                <Button type="button" size="sm" variant={recAudio?"default":"outline"} onClick={togglePadletAudio} className="gap-1"><Mic className="w-3 h-3"/>อัดเสียง</Button>
+                <Button type="button" size="sm" variant={recVideo?"default":"outline"} onClick={togglePadletVideo} className="gap-1"><Video className="w-3 h-3"/>อัดวิดีโอ</Button>
               </div>
               <input
                 ref={fileRef}
