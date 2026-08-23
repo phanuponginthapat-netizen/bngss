@@ -62,8 +62,8 @@ const BEDatePicker = ({
 };
 
 const PP5AttendanceMatrix = ({
-  subjectId, classroomId, students,
-  hoursPerWeek, weeksPerSemester, periodDates,
+  subjectId, classroomId, students = [],
+  hoursPerWeek, weeksPerSemester, periodDates = [],
   semester, academicYear, canEdit,
 }: Props) => {
   const qc = useQueryClient();

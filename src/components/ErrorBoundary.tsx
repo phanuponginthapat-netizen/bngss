@@ -40,7 +40,7 @@ export class ErrorBoundary extends Component<Props, State> {
   static getDerivedStateFromError(error: Error): Partial<State> {
     // Auto-reload once on chunk load failure after deploy (Vercel old chunk 404)
     const msg = String(error?.message || "");
-    const isChunkError = msg.includes("Failed to fetch dynamically imported module") || msg.includes("Importing a module script failed");
+    const isChunkError = /Loading chunk.*failed|ChunkLoadError|Failed to fetch dynamically imported module|Importing a module script failed/i.test(msg);
     if (isChunkError) {
       try {
         const key = "chunk_reload_" + location.pathname;

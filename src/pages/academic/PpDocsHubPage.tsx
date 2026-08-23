@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Award, FileText, BookOpen, FolderOpen } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const CertificatePage = lazy(() => import("./CertificatePage"));
 const Pp3Page = lazy(() => import("./Pp3Page"));
@@ -65,9 +66,11 @@ export default function PpDocsHubPage() {
             </TabsList>
             {allowed.map((t) => (
               <TabsContent key={t.key} value={t.key} className="mt-4">
-                <Suspense fallback={<div className="p-8 text-center text-muted-foreground">กำลังโหลด...</div>}>
-                  <t.El />
-                </Suspense>
+                <ErrorBoundary label={`PpDocsHub:${t.key}`}>
+                  <Suspense fallback={<div className="p-8 text-center text-muted-foreground">กำลังโหลด...</div>}>
+                    <t.El />
+                  </Suspense>
+                </ErrorBoundary>
               </TabsContent>
             ))}
           </Tabs>
