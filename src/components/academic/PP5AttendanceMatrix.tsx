@@ -67,6 +67,10 @@ const PP5AttendanceMatrix = ({
   semester, academicYear, canEdit,
 }: Props) => {
   const qc = useQueryClient();
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  useEffect(() => { fetchHolidays().then(setHolidays).catch(()=>{}); }, []);
+  const isHoliday = (iso: string) => isHolidaySync(iso, holidays);
+
   const total = Math.max(1, (hoursPerWeek || 1) * (weeksPerSemester || 20));
   const [weeks, setWeeks] = useState<number>(weeksPerSemester || 20);
   const [startDate, setStartDate] = useState<string>("");
@@ -75,7 +79,7 @@ const PP5AttendanceMatrix = ({
     while (base.length < total) base.push("");
     return base.slice(0, total);
   });
-  const effectiveTotal = Math.max(1, dates.filter(d => d && !isHolidaySync(d, holidays)).length);
+  const effectiveTotal = Math.max(1, dates.filter(d => d && !isHoliday(d)).length);
 
   // Range quick-fill state
   const [rangeFrom, setRangeFrom] = useState<string>("");
@@ -91,11 +95,6 @@ const PP5AttendanceMatrix = ({
     setDates(base.slice(0, total));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodDates?.join(","), total]);
-
-  const [holidays, setHolidays] = useState<Holiday[]>([]);
-  useEffect(() => { fetchHolidays().then(setHolidays).catch(()=>{}); }, []);
-
-  const isHoliday = (iso: string) => isHolidaySync(iso, holidays);
 
   const studentIds = students.map(s => s.id);
   const { data: absences = [] } = useQuery({
