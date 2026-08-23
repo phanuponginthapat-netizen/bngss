@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { swal } from "@/lib/swal";
+import AudioVideoRecordButtons from "@/components/common/AudioVideoRecordButtons";
 import { saveErrorMessage } from "@/lib/saveError";
 import { Plus, Trash2, Check, X, Clock, FileText, Send, CalendarDays, Paperclip } from "lucide-react";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
@@ -581,9 +582,12 @@ const StaffLeavePage = () => {
                 <Input
                   className="mt-1"
                   type="file"
-                  accept="image/*,application/pdf"
+                  accept="image/*,application/pdf,audio/*,video/*"
                   onChange={(e) => setAttachment(e.target.files?.[0] || null)}
                 />
+                <div className="mt-2">
+                  <AudioVideoRecordButtons compact maxSizeMB={25} onCaptured={(f) => setAttachment(f)} />
+                </div>
                 {attachment && <p className="text-xs text-muted-foreground mt-1">{attachment.name}</p>}
               </div>
             </div>

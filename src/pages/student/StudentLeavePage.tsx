@@ -23,6 +23,7 @@ import { uploadLeaveAttachment, openLeaveAttachment } from "@/lib/leaveAttachmen
 import { notify } from "@/lib/notify";
 import { saveErrorMessage } from "@/lib/saveError";
 import { swal } from "@/lib/swal";
+import AudioVideoRecordButtons from "@/components/common/AudioVideoRecordButtons";
 
 
 const typeLabels: Record<string, any> = {
@@ -189,11 +190,14 @@ const StudentLeaveForm = () => {
               </div>
               <div>
                 <Label className="flex items-center gap-1"><Paperclip className="w-3.5 h-3.5" />{lang === "th" ? "ไฟล์/รูปแนบ (ถ้ามี)" : "Attachment (optional)"}</Label>
-                <Input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  onChange={(e) => setAttachment(e.target.files?.[0] || null)}
-                />
+                <div className="space-y-2">
+                  <Input
+                    type="file"
+                    accept="image/*,application/pdf,audio/*,video/*"
+                    onChange={(e) => setAttachment(e.target.files?.[0] || null)}
+                  />
+                  <AudioVideoRecordButtons compact maxSizeMB={25} onCaptured={(f) => setAttachment(f)} />
+                </div>
                 {attachment && <p className="text-xs text-muted-foreground mt-1">{attachment.name}</p>}
               </div>
               <Button onClick={handleSubmit} disabled={submitting} className="w-full">

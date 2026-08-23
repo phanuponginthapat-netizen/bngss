@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import LiffShell from "./LiffShell";
 import { uploadLeaveAttachment } from "@/lib/leaveAttachment";
 import { Paperclip } from "lucide-react";
+import AudioVideoRecordButtons from "@/components/common/AudioVideoRecordButtons";
 
 function LeaveForm({ lineUserId }: { lineUserId: string }) {
   const [type, setType] = useState("sick");
@@ -81,7 +82,10 @@ function LeaveForm({ lineUserId }: { lineUserId: string }) {
       </div>
       <div>
         <Label className="flex items-center gap-1"><Paperclip className="w-3.5 h-3.5" />ไฟล์/รูปแนบ (ถ้ามี)</Label>
-        <Input type="file" accept="image/*,application/pdf" onChange={(e) => setAttachment(e.target.files?.[0] || null)} />
+        <div className="space-y-2">
+          <Input type="file" accept="image/*,application/pdf,audio/*,video/*" onChange={(e) => setAttachment(e.target.files?.[0] || null)} />
+          <AudioVideoRecordButtons compact maxSizeMB={25} onCaptured={(f) => setAttachment(f)} />
+        </div>
         {attachment && <p className="text-xs text-muted-foreground mt-1">{attachment.name}</p>}
       </div>
       <Button onClick={submit} disabled={busy} className="w-full">
