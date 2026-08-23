@@ -8,6 +8,7 @@ import { TABLE_ALIAS_MAP, normalizeRowKeys } from "../_shared/importAliases.ts";
 declare const EdgeRuntime: { waitUntil: (promise: Promise<unknown>) => void };
 
 import { corsHeaders } from "../_shared/cors.ts";
+import { rateLimit } from "../_shared/rateLimit.ts";
 
 const JOB_BUCKET = "ai-import-temp";
 
@@ -211,6 +212,8 @@ ${JSON.stringify(ALLOWED_TABLES, null, 2)}
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
+    const rl = await rateLimit(req, { name: "ai-import-analyze", limit: 10, windowMs: 60_000 });
+    if (rl.blocked) return rl.response!;
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 

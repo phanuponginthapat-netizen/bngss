@@ -3,6 +3,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from "../_shared/cors.ts";
+import { rateLimit } from "../_shared/rateLimit.ts";
 
 // คอลัมน์ที่อนุญาตเขียนจริงในแต่ละตาราง
 const ALLOWED_COLUMNS: Record<string, string[]> = {
@@ -483,6 +484,8 @@ async function importPlan(admin: any, table: string, rows: any[]) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
+    const rl = await rateLimit(req, { name: "ai-import-execute", limit: 5, windowMs: 60_000 });
+    if (rl.blocked) return rl.response!;
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 

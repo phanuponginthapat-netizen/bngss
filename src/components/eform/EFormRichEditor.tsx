@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { EFORM_PAGE_STYLE } from "@/lib/eformLayout";
 import EFormWordToolbar from "./EFormWordToolbar";
 import EFormPageCanvas from "./EFormPageCanvas";
+import DOMPurify from "dompurify";
 import { findTableByDOM, mergeInlineStyle, resizeTableToWidth, setTableColumnWidths } from "@/lib/eformTableSizing";
 import { handleEFormTableDelete } from "@/lib/eformTableSelection";
 import { useSchoolReport } from "@/hooks/useSchoolReport";
@@ -33,7 +34,7 @@ export const normalizeFontSizes = (html: string) =>
   (html || "").replace(/font-size\s*:\s*(\d+(?:\.\d+)?)pt/gi, (_m, n) => `font-size:${Math.round(Number(n)*4/3)}px`);
 
 const unwrapEFormDocumentShell = (html: string) => {
-  const raw = html || "";
+  const raw = DOMPurify.sanitize(html || "", { ADD_TAGS: ["style"], ADD_ATTR: ["style", "class"] });
   if (!raw.trim() || typeof document === "undefined") return raw;
 
   const container = document.createElement("div");

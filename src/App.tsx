@@ -387,7 +387,7 @@ const App = () => {
                 <Route path="hub/hr" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><HrHubPage /></ProtectedRoute>} />
                 <Route path="hub/finance" element={<ProtectedRoute allowedRoles={["admin", "director"]}><FinanceHubPage /></ProtectedRoute>} />
                 <Route path="hub/student-health" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><StudentHealthHubPage /></ProtectedRoute>} />
-                <Route path="hub/wellbeing" element={<WellbeingHubPage />} />
+                <Route path="hub/wellbeing" element={<ProtectedRoute allowedRoles={["admin","director","teacher","student","parent"]}><WellbeingHubPage /></ProtectedRoute>} />
                 <Route path="hub/admin-reports" element={<ProtectedRoute allowedRoles={["admin", "director"]}><AdminReportsHubPage /></ProtectedRoute>} />
                 
 

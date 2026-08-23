@@ -117,8 +117,9 @@ const PagedEFormPreview = ({
     if (!editable) return;
     const el = contentRef.current;
     if (!el) return;
-    if (el.innerHTML !== html) el.innerHTML = html;
-    lastHtmlRef.current = html;
+    const safe = DOMPurify.sanitize(html);
+    if (el.innerHTML !== safe) el.innerHTML = safe;
+    lastHtmlRef.current = safe;
   }, [editable, html]);
 
   useEffect(() => {
@@ -219,7 +220,7 @@ const PagedEFormPreview = ({
           lastHtmlRef.current = next;
           onChange?.(next);
         }}
-        dangerouslySetInnerHTML={editable ? undefined : { __html: html }}
+        dangerouslySetInnerHTML={editable ? undefined : { __html: DOMPurify.sanitize(html) }}
       />
     </EFormPageCanvas>
   );
