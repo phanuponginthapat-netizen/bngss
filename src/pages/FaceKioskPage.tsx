@@ -30,7 +30,6 @@ import { CheckCircle2 } from "lucide-react";
 import { uploadFaceScanSnapshot } from "@/lib/faceScanUpload";
 import { useAutoScanMode } from "@/hooks/useAutoScanMode";
 import KioskScreensaver from "@/components/facescan/KioskScreensaver";
-import KioskHelloAi from "@/components/facescan/KioskHelloAi";
 import { useCmsValues } from "@/hooks/useCmsSettings";
 import { wakeKioskScreen } from "@/lib/kioskWake";
 import { getRegisteredFaceImage } from "@/lib/registeredFace";
@@ -145,7 +144,6 @@ const FaceKioskPage = () => {
   const { value: thresholdSetting } = useSchoolSetting("face_scan_threshold");
   const { value: voiceSetting } = useSchoolSetting("face_scan_voice");
   const { value: idleSecSetting } = useSchoolSetting("kiosk_idle_timeout_sec");
-  const { value: helloAiSetting } = useSchoolSetting("kiosk_hello_ai_enabled");
   const { value: powerSaveSetting } = useSchoolSetting("kiosk_power_save");
   const { value: wakeWordSetting } = useSchoolSetting("kiosk_wake_word_enabled");
   const { value: livenessSetting } = useSchoolSetting("face_liveness_enabled");
@@ -155,11 +153,9 @@ const FaceKioskPage = () => {
   const livenessEnabled = livenessSetting !== "false";
   const textureGate = textureSetting !== "false";
   const idleMs = Math.max(15, parseInt(idleSecSetting || "60", 10) || 60) * 1000;
-  const helloAiEnabled = helloAiSetting !== "false";
   const powerSave = powerSaveSetting !== "false";
   const wakeWordEnabled = wakeWordSetting !== "false";
-  const [helloAiOpen, setHelloAiOpen] = useState(false);
-  const [helloAiAutoListen, setHelloAiAutoListen] = useState(false);
+
   const geofence = useSchoolGeofence();
   const [geoStatus, setGeoStatus] = useState<{ ok: boolean; distance: number | null }>({ ok: !geofence.configured, distance: null });
   const { schoolName, schoolLogo } = useSystemSettings();
@@ -1521,22 +1517,10 @@ const FaceKioskPage = () => {
       {screensaver && (
         <KioskScreensaver
           onWake={wakeFromScreensaver}
-          onHelloAi={helloAiEnabled ? (source) => {
-            setHelloAiAutoListen(source === "voice");
-            setHelloAiOpen(true);
-          } : undefined}
-          helloAiEnabled={helloAiEnabled}
           reasonLabel={screensaverReason}
           wakeWordEnabled={wakeWordEnabled}
-          helloAiOpen={helloAiOpen}
         />
       )}
-
-      <KioskHelloAi
-        open={helloAiOpen}
-        autoListen={helloAiAutoListen}
-        onClose={() => { setHelloAiOpen(false); setHelloAiAutoListen(false); }}
-      />
 
       {/* Mode toggle — เด่นชัดด้านบน เพื่อให้ครูประจำประตูสลับโหมดเข้า/ออก ได้เร็ว */}
       <div className="absolute top-2 left-2 z-40 flex items-center gap-1 bg-white/85 backdrop-blur-sm rounded-full p-1 border-2 border-white/70 shadow-md" onClick={(e) => e.stopPropagation()}>
