@@ -74,6 +74,7 @@ export default function LibraryPage() {
         <div className="flex gap-2">
           <Button onClick={() => setAddOpen(true)}><Plus className="w-4 h-4 mr-1" /> เพิ่มหนังสือ</Button>
           <Button variant="outline" onClick={() => setBorrowOpen(true)}><ScanBarcode className="w-4 h-4 mr-1" /> ยืม</Button>
+          <Button variant="secondary" onClick={() => toast.info("RFID self-check: วางหนังสือบนแท่น → อ่านอัตโนมัติ")}><ScanBarcode className="w-4 h-4 mr-1" /> RFID สแกน</Button>
         </div>
       </div>
       <div className="grid grid-cols-3 gap-4">

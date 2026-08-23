@@ -82,13 +82,23 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const messages: ChatMsg[] = Array.isArray(body.messages) ? body.messages : [];
+    // support both {messages:[...]} and legacy {message:"..."} (task spec)
+    let messages: ChatMsg[] = Array.isArray(body.messages) ? body.messages : [];
+    if (messages.length === 0 && typeof body.message === "string" && body.message.trim()) {
+      messages = [{ role: "user", content: body.message.trim() }];
+    }
+    // optional single message helper: also accept body.prompt
+    if (messages.length === 0 && typeof body.prompt === "string" && body.prompt.trim()) {
+      messages = [{ role: "user", content: body.prompt.trim() }];
+    }
     const mode: string = body.mode || "chat"; // "chat" | "image"
     if (messages.length === 0) {
       return new Response(JSON.stringify({ error: "messages required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    // student personalization param (task spec): student_id
+    const rawStudentId: string | null = (body.student_id || body.studentId || body.student_code || body.studentCode || null) ? String(body.student_id || body.studentId || body.student_code || body.studentCode).trim() : null;
 
     const partsToText = (c: any): string => {
       if (typeof c === "string") return c;
@@ -208,6 +218,80 @@ Deno.serve(async (req) => {
           if (parts.length) memoryContext = `\n\n[ความจำเกี่ยวกับผู้ใช้ — ใช้เพื่อตอบให้ตรงใจ ห้ามเปิดเผยตรงๆ]\n${parts.join("\n")}`;
         }
       } catch (_) {}
+    }
+
+    // ---- Student Tutor personalization (weak subjects, 0 ร มส, attendance) ----
+    let studentTutorContext = "";
+    if (rawStudentId) {
+      try {
+        const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+        let stu: any = null;
+        let r = await sb.from("students").select("id, student_code, first_name, last_name, classroom_id").eq("id", rawStudentId).maybeSingle();
+        if (r.data) stu = r.data;
+        else {
+          r = await sb.from("students").select("id, student_code, first_name, last_name, classroom_id").eq("auth_user_id", rawStudentId).maybeSingle();
+          if (r.data) stu = r.data;
+          else {
+            r = await sb.from("students").select("id, student_code, first_name, last_name, classroom_id").eq("student_code", rawStudentId).maybeSingle();
+            if (r.data) stu = r.data;
+          }
+        }
+        if (!stu && identifier) {
+          const r2 = await sb.from("students").select("id, student_code, first_name, last_name, classroom_id").eq("auth_user_id", identifier).maybeSingle();
+          if (r2.data) stu = r2.data;
+        }
+        if (stu) {
+          const parts: string[] = [];
+          parts.push(`[บริบทนักเรียนสำหรับติวเตอร์ — ปรับการสอนให้ตรงจุด]`);
+          parts.push(`นักเรียน: ${stu.first_name || ""} ${stu.last_name || ""} (${stu.student_code}) id=${stu.id}`);
+          try {
+            const { data: scores } = await sb.from("student_scores").select("grade, grade_point, total_score, semester, academic_year, subjects!inner(code, name_th)").eq("student_code", stu.student_code).limit(50);
+            const weak = (scores || []).filter((s: any) => {
+              const gp = s.grade_point;
+              if (gp != null && Number(gp) < 2) return true;
+              const g = String(s.grade || "").trim();
+              return ["0","0.0","1","1.0","1.5","2","2.0","ร","มส","มผ"].includes(g) || (!isNaN(Number(g)) && Number(g) <=2);
+            });
+            if (weak.length) {
+              parts.push(`วิชาที่อ่อน (เกรด 0-2 หรือ GP<2 / ติด 0 ร มส):`);
+              weak.slice(0, 6).forEach((w: any) => {
+                parts.push(`- ${w.subjects?.code || ""} ${w.subjects?.name_th || ""} เกรด ${w.grade ?? "-"} GP ${w.grade_point ?? "-"} คะแนน ${w.total_score ?? "-"} เทอม ${w.semester ?? "-"}/${w.academic_year ?? "-"}`);
+              });
+              parts.push(`แนวทาง: เน้นติววิชาเหล่านี้ก่อน ใช้ Socratic + worked example`);
+            } else {
+              parts.push(`วิชาที่อ่อน: ไม่พบเกรด 0-2 — ภาพรวมดี`);
+            }
+          } catch (_) {}
+          try {
+            const { data: rems } = await sb.from("grade_remediation").select("subject_code, subject_name, term, original_grade, status, fix_deadline").eq("student_id", stu.id).in("original_grade", ["0","ร","มส","มผ"]).order("created_at",{ascending:false}).limit(6);
+            if (rems && rems.length) {
+              parts.push(`ติด 0 / ร / มส / มผ ล่าสุด:`);
+              rems.forEach((r: any)=> parts.push(`- ${r.subject_code} ${r.subject_name || ""} ${r.term} เกรด ${r.original_grade} สถานะ ${r.status}${r.fix_deadline?` กำหนดแก้ ${r.fix_deadline}`:""}`));
+            }
+          } catch (_) {}
+          try {
+            const since = new Date(); since.setDate(since.getDate()-60);
+            const sinceStr = since.toISOString().slice(0,10);
+            const { data: att } = await sb.from("attendance").select("attendance_date, status").eq("student_id", stu.id).gte("attendance_date", sinceStr).order("attendance_date",{ascending:false}).limit(60);
+            if (att && att.length) {
+              let absent=0, late=0, present=0;
+              att.forEach((a:any)=>{ const s=String(a.status||"").toLowerCase(); if(s.includes("ขาด")||s==="absent") absent++; else if(s.includes("สาย")||s==="late") late++; else present++; });
+              const rate = att.length? (absent/att.length*100).toFixed(1):"0";
+              let risk="ต่ำ"; if(absent>=5||Number(rate)>=20) risk="สูง"; else if(absent>=2||Number(rate)>=10||late>=5) risk="ปานกลาง";
+              parts.push(`การมาเรียน 60 วัน: รวม ${att.length} มา ${present} ขาด ${absent} สาย ${late} อัตราขาด ${rate}% เสี่ยง${risk}`);
+              if(risk==="สูง") parts.push(`คำแนะนำ: เสี่ยงขาดสูง — ชวนวางแผนการมาเรียนอย่างเห็นใจ`);
+            }
+          } catch (_) {}
+          try {
+            const { data: beh } = await sb.from("behavior_records").select("record_date, behavior_type, description, points").eq("student_id", stu.id).order("record_date",{ascending:false}).limit(5);
+            if (beh && beh.length) {
+              parts.push(`พฤติกรรมล่าสุด: ${beh.map((b:any)=> `${b.record_date}[${b.behavior_type}]${String(b.description||"").slice(0,40)}`).join(" | ")}`);
+            }
+          } catch (_) {}
+          parts.push(`วิธีใช้: ปรับตัวอย่างและน้ำเสียงให้ตรงวิชาที่อ่อน ถ้าถามการบ้านให้สอนวิธีคิดแบบ Socratic (ทวนโจทย์→หลักการ→ตัวอย่างคล้ายแก้ทีละขั้น→คำถามนำ→ชวนทำเอง) ห้ามเฉลยตรงสำหรับนักเรียน`);
+          studentTutorContext = "\n\n" + parts.join("\n");
+        }
+      } catch (_) { /* ignore */ }
     }
 
     // ตรวจภาษาจากข้อความผู้ใช้ (ถ้ามีอักษรไทย → ตอบไทย)
@@ -334,7 +418,7 @@ ${strictNoAnswer ? `🚫 ผู้ใช้คนนี้เป็น **นั�
     const result = isHard
       ? await aiCouncil({
           messages: [
-            { role: "system", content: persona + schoolContext + knowledgeContext + newsContext + memoryContext + factsContext + guideContext + langInstruction + socraticBlock },
+            { role: "system", content: persona + schoolContext + knowledgeContext + newsContext + memoryContext + studentTutorContext + factsContext + guideContext + langInstruction + socraticBlock },
             ...normalized,
           ],
           temperature: 0.3,
@@ -342,9 +426,9 @@ ${strictNoAnswer ? `🚫 ผู้ใช้คนนี้เป็น **นั�
           vision: hasImageInMessages,
           functionName: "ai-chat-council",
         })
-      : await aiCall({
+        : await aiCall({
           messages: [
-            { role: "system", content: persona + schoolContext + knowledgeContext + newsContext + memoryContext + factsContext + guideContext + langInstruction + socraticBlock },
+            { role: "system", content: persona + schoolContext + knowledgeContext + newsContext + memoryContext + studentTutorContext + factsContext + guideContext + langInstruction + socraticBlock },
             ...normalized,
           ],
           temperature: 0.3,

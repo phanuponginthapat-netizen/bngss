@@ -264,6 +264,9 @@ const PObecExportPage = lazy(() => import("./pages/admin/PObecExportPage"));
 const GradeRemediationPage = lazy(() => import("./pages/academic/GradeRemediationPage"));
 const PreviewGovPage = lazy(() => import("./pages/PreviewGovPage"));
 const HomeworkPage = lazy(() => import("./pages/HomeworkPage"));
+const AiTutorPage = lazy(() => import("./pages/ai/AiTutorPage"));
+const DigitalTwinPage = lazy(() => import("./pages/admin/DigitalTwinPage"));
+const EarlyWarningPage = lazy(() => import("./pages/admin/EarlyWarningPage"));
 const PadletListPage = lazy(() => import("./pages/padlet/PadletListPage"));
 const PadletBoardPage = lazy(() => import("./pages/padlet/PadletBoardPage"));
 const FeedPage = lazy(() => import("./pages/FeedPage"));
@@ -595,6 +598,11 @@ const App = () => (
                 <Route path="exam/:id/scan" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><ExamScanPage /></ProtectedRoute>} />
                 <Route path="exam/:id/results" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><ExamResultsPage /></ProtectedRoute>} />
 
+                {/* AI Tutor personalized — weak subjects, remediation, attendance (task spec) */}
+                <Route path="ai-tutor" element={<ProtectedRoute allowedRoles={["admin","director","teacher","student","parent"]}><AiTutorPage /></ProtectedRoute>} />
+                <Route path="ai/tutor" element={<ProtectedRoute allowedRoles={["admin","director","teacher","student","parent"]}><AiTutorPage /></ProtectedRoute>} />
+                <Route path="admin/digital-twin" element={<ProtectedRoute allowedRoles={["admin","director"]}><DigitalTwinPage /></ProtectedRoute>} />
+                <Route path="admin/early-warning" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><EarlyWarningPage /></ProtectedRoute>} />
                 {/* Homework & AI Chat — available to teachers and students */}
                 <Route path="homework" element={<ProtectedRoute allowedRoles={["admin","director","teacher","student","parent"]}><HomeworkPage /></ProtectedRoute>} />
                 <Route path="padlet" element={<ProtectedRoute allowedRoles={["admin","director","teacher","student","parent"]}><PadletListPage /></ProtectedRoute>} />

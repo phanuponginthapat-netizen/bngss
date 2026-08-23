@@ -149,6 +149,19 @@ export default function IoTDevicesPage() {
         </Button>
       </div>
 
+      <Card className="border-emerald-200 bg-emerald-50/50">
+        <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2">🏢 อาคารอัจฉริยะ — ปิดแอร์/ไฟ อัตโนมัติเมื่อไม่มีคน 30 นาที</CardTitle></CardHeader>
+        <CardContent className="flex gap-2">
+          <Button size="sm" onClick={async () => {
+            const { checkBuildingAutomation, executeBuildingActions } = await import("@/lib/smartBuilding");
+            const acts = await checkBuildingAutomation();
+            if (acts.length === 0) toast.success("ไม่มีอุปกรณ์ต้องปิด");
+            else { await executeBuildingActions(acts); toast.success(`สั่งปิด ${acts.length} อุปกรณ์`); qc.invalidateQueries({ queryKey: ["iot-devices-admin"] }); }
+          }}>ตรวจสอบและปิดอัตโนมัติ</Button>
+          <span className="text-xs text-muted-foreground py-2">ตรวจ occupancy จากสแกนหน้า + PIR</span>
+        </CardContent>
+      </Card>
+
       <Card className="border-primary/20">
         <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><ShieldAlert className="w-4 h-4 text-primary" /> SmartGate — micro:bit วัดไข้ + ตรวจโลหะ</CardTitle></CardHeader>
         <CardContent className="flex flex-col md:flex-row md:items-center gap-3">
