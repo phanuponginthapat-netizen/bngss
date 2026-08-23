@@ -228,6 +228,14 @@ export default function SetupWizardPage() {
         headers: { Authorization: `Bearer ${session.access_token}`, apikey: envKey ?? "" },
         body: form,
       });
+      if (res.status === 402 || res.status === 404) {
+        const txt = String(await res.clone().text()).toLowerCase();
+        if (txt.includes("max number") || txt.includes("not found") || txt.includes("function")) {
+          setR("restore", { status: "fail", message: "ฟังก์ชันกู้คืนถูกปิดชั่วคราว (เกินโควตา) — ใช้วิธี manual SQL restore แทน", detail: "ลบฟังก์ชันเกมส์/สำรองออกเพื่อลดโควตาแล้ว ลองใหม่หรือติดต่อแอดมิน" });
+          toast.error("กู้คืนไม่พร้อมใช้งานชั่วคราว");
+          return false;
+        }
+      }
       const json = await res.json();
       setRestoreSummary(json);
       if (!res.ok || !json.success) {

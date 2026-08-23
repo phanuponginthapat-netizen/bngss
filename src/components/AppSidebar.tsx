@@ -232,7 +232,8 @@ export function AppSidebar() {
         { to: "/dashboard/student/health-trend", icon: Heart, label: L("สุขภาพ", "Health"), color: "text-rose-400" },
         { to: "/dashboard/homework", icon: BookOpenCheck, label: L("การบ้าน", "Homework"), color: "text-emerald-400" },
         { to: "/dashboard/academic/schedule", icon: Calendar, label: L("ตารางเรียน", "Schedule"), color: "text-orange-400" },
-        { to: "/dashboard/games", icon: Gamepad2, label: L("เกมฮับ", "Games"), color: "text-fuchsia-400" },
+        // Games hidden — backend functions deleted (quota) — restore from git if needed
+        // { to: "/dashboard/games", icon: Gamepad2, label: L("เกมฮับ", "Games"), color: "text-fuchsia-400" },
       ],
     },
     {
@@ -279,7 +280,8 @@ export function AppSidebar() {
     { title: L("การลาของครู/บุคลากร", "Staff Leave"), url: "/dashboard/hr/leave", icon: FileText, color: "text-orange-400", roles: ["admin", "director", "teacher"], desc: L("ยื่นและอนุมัติใบลาของครูและบุคลากร", "Staff leave requests") },
     { title: L("บันทึกการมาเรียน", "Attendance"), url: "/dashboard/student/attendance", icon: ClipboardList, color: "text-emerald-400", roles: ["admin", "director", "teacher"], desc: L("เช็คชื่อหน้าเสาธงและรายคาบ", "Assembly & per-period") },
     { title: L("บันทึกพฤติกรรม", "Behavior"), url: "/dashboard/student/behavior", icon: Shield, color: "text-rose-400", roles: ["admin", "director", "teacher"], desc: L("บันทึกคะแนนความประพฤติ", "Conduct points") },
-    { title: L("ศูนย์เกมการเรียนรู้", "Game Hub"), url: "/dashboard/hub/games", icon: Gamepad2, color: "text-fuchsia-400", roles: ["admin", "director", "teacher", "student"], desc: L("คลังเกม · จัดการเกม · API Keys", "Store · Manage · API keys") },
+    // Game Hub hidden — backend deleted (quota)
+    // { title: L("ศูนย์เกมการเรียนรู้", "Game Hub"), url: "/dashboard/hub/games", icon: Gamepad2, color: "text-fuchsia-400", roles: ["admin", "director", "teacher", "student"], desc: L("คลังเกม · จัดการเกม · API Keys", "Store · Manage · API keys") },
     { title: L("กิจกรรมและการแข่งขัน", "Activities & Competitions"), url: "/dashboard/activities", icon: Trophy, color: "text-amber-400", roles: ["admin", "director", "teacher", "student", "parent"], desc: L("กีฬาสี วันวิทยาศาสตร์ วันภาษาไทย · สมัคร จัดสาย บันทึกผล", "Register, brackets & results") },
     { title: L("เกียรติบัตร", "Certificates"), url: "/dashboard/certificates", icon: Award, color: "text-yellow-400", roles: ["admin", "director", "teacher"], desc: L("ออกแบบเทมเพลตและพิมพ์เกียรติบัตรหลายใบ", "Design & bulk print certificates") },
     { title: L("สั่งงานบุคลากร", "Assign Staff Tasks"), url: "/dashboard/admin/staff-tasks", icon: ClipboardList, color: "text-orange-400", roles: ["admin", "director"], desc: L("ผอ. มอบหมายงานให้ครู/บุคลากร · ติดตามสถานะ", "Assign & track staff tasks") },
@@ -439,15 +441,16 @@ export function AppSidebar() {
         { title: L("เช็คใจ & ค้นหาแววอาชีพ", "Mind Check & Career Aptitude"), url: "/dashboard/hub/wellbeing", icon: Sparkles, color: "text-violet-400", roles: ["admin", "director", "teacher", "student", "parent"], desc: L("แบบประเมิน 2Q/9Q/8Q/ST-5 และวัดแวว 8 ด้าน", "Mental health screening & 8 intelligences") },
       ],
     },
-    {
-      key: "student_games",
-      label: L("ศูนย์เกมการเรียนรู้", "Game Hub"),
-      icon: Gamepad2,
-      color: "text-fuchsia-400",
-      roles: ["admin", "director", "teacher", "student"],
-      items: [
-        { title: L("ศูนย์เกมการเรียนรู้", "Game Hub"), url: "/dashboard/hub/games", icon: Gamepad2, color: "text-fuchsia-400", roles: ["admin", "director", "teacher", "student"], desc: L("คลังเกม · จัดการเกม · API Keys", "Store · Manage · API keys") },
-      ],
+    // Game Hub hidden — backend deleted (quota)
+    // {
+    //   key: "student_games",
+    //   label: L("ศูนย์เกมการเรียนรู้", "Game Hub"),
+    //   icon: Gamepad2,
+    //   color: "text-fuchsia-400",
+    //   roles: ["admin", "director", "teacher", "student"],
+    //   items: [
+    //     { title: L("ศูนย์เกมการเรียนรู้", "Game Hub"), url: "/dashboard/hub/games", icon: Gamepad2, color: "text-fuchsia-400", roles: ["admin", "director", "teacher", "student"], desc: L("คลังเกม · จัดการเกม · API Keys", "Store · Manage · API keys") },
+    //   ],
     },
 
     // ── บริหารทั่วไป ──────────────────────────────────────────────

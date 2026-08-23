@@ -73,19 +73,28 @@ const uploadCmsImageViaBackend = async (
   file: File | Blob,
   options?: Parameters<ReturnType<typeof supabase.storage.from>["upload"]>[2],
 ): Promise<UploadFallbackResult> => {
-  const { data, error } = await supabase.functions.invoke("upload-cms-image", {
-    body: {
-      bucket,
-      path,
-      base64: await fileToBase64(file),
-      contentType: options?.contentType || file.type || "application/octet-stream",
-      upsert: options?.upsert ?? true,
-    },
-  });
-
-  if (error) throw error;
-  if (!data?.publicUrl || !data?.path) throw new Error("อัปโหลดรูปไม่สำเร็จ");
-  return { path: data.path, publicUrl: data.publicUrl, usedFallback: true };
+  try {
+    const { data, error } = await supabase.functions.invoke("upload-cms-image", {
+      body: {
+        bucket,
+        path,
+        base64: await fileToBase64(file),
+        contentType: options?.contentType || file.type || "application/octet-stream",
+        upsert: options?.upsert ?? true,
+      },
+    });
+    if (error) throw error;
+    if (!data?.publicUrl || !data?.path) throw new Error("อัปโหลดรูปไม่สำเร็จ");
+    return { path: data.path, publicUrl: data.publicUrl, usedFallback: true };
+  } catch (e: any) {
+    // Function deleted (402) or not found — fallback to data URL instead of crashing UI
+    const msg = String(e?.message || "");
+    if (msg.includes("402") || msg.includes("Max number") || msg.includes("not found") || msg.includes("404")) {
+      const dataUrl = await fileToDataUrl(file);
+      return { path: dataUrl, publicUrl: dataUrl, usedFallback: true };
+    }
+    throw e;
+  }
 };
 
 /**
