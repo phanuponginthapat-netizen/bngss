@@ -162,8 +162,8 @@ const DirectorDashboard = () => {
         supabase.from("student_scores").select("grade_point, total_score").not("grade_point", "is", null).limit(500),
         supabase.from("budget_transactions").select("transaction_type, amount").limit(500),
         supabase.from("grade_remediation").select("id", { count: "exact", head: true }).neq("status", "ผ่าน").limit(1),
-        supabase.from("early_warnings").select("id", { count: "exact", head: true }).limit(1).then(r => r).catch(() => ({ count: 0 } as any)),
-        supabase.from("sdq_records").select("id", { count: "exact", head: true }).limit(1).then(r => r).catch(() => ({ count: 0 } as any)),
+        (supabase.from("early_warnings").select("id", { count: "exact", head: true }).limit(1) as any).then((r: any) => r).catch(() => ({ count: 0 } as any)),
+        (supabase.from("sdq_records").select("id", { count: "exact", head: true }).limit(1) as any).then((r: any) => r).catch(() => ({ count: 0 } as any)),
       ]);
       const pts = (scores.data || []).map((s: any) => Number(s.grade_point)).filter((n: number) => !isNaN(n) && n > 0);
       const avgGpa = pts.length ? (pts.reduce((a: number, b: number) => a + b, 0) / pts.length).toFixed(2) : "—";

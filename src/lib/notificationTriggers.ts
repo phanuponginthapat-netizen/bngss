@@ -111,7 +111,7 @@ async function resolveClassroomFamilyUserIds(classroomId: string): Promise<strin
 
 async function resolveRoleUserIds(roles: string[]): Promise<string[]> {
   try {
-    const { data } = await supabase.from("user_roles").select("user_id").in("role", roles);
+    const { data } = await supabase.from("user_roles").select("user_id").in("role", roles as any);
     return [...new Set((data ?? []).map((r: any) => r.user_id).filter(Boolean))];
   } catch (e) {
     console.warn("[notificationTriggers] resolveRoleUserIds failed", e);

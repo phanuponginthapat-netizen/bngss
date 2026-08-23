@@ -106,7 +106,7 @@ export default function ExamAutoGradePage() {
     }
     const key: Record<number, string> = {};
     examQuestions.forEach((q) => (key[q.question_no] = q.correct_answer));
-    const res = gradeFromBubbles(corrected as Record<number, string>, key);
+    const res = gradeFromBubbles(corrected as any, key as any);
     setGrading(res);
   }, [corrected, examQuestions]);
 

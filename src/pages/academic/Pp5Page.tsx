@@ -1061,6 +1061,7 @@ const ScoreViewTab = () => {
   const displayData = classroomId ? mergedData : scores;
   const selectedSubject = subjects.find((s: any) => s.id === subjectId);
   const selectedClassroom = classrooms.find((c: any) => c.id === classroomId);
+  const classLabel = selectedClassroom ? `${(selectedClassroom as any).grade_level || ""} - ${(selectedClassroom as any).name || ""}`.trim().replace(/^-\s*/, "") || (selectedClassroom as any).name || "" : "";
 
   const gradeDist: Record<string, number> = {};
   const gradeOrder = ["4", "3.5", "3", "2.5", "2", "1.5", "1", "0", "ร", "มส"];
@@ -1221,7 +1222,7 @@ const ScoreViewTab = () => {
         {subjectId && <Button variant="outline" onClick={async () => {
           if (!selectedSubject) return;
           const rows = displayData.map((r: any) => ({
-            schoolCode: schoolInfo.school_code || "",
+            schoolCode: (schoolInfo as any).school_code || "",
             year: String((selectedSubject as any).academic_year || ""),
             term: String(semester || (selectedSubject as any).semester || ""),
             subjectCode: (selectedSubject as any).code || "",
@@ -1239,7 +1240,7 @@ const ScoreViewTab = () => {
         {subjectId && <Button variant="outline" onClick={async () => {
           if (!selectedSubject) return;
           const rows = displayData.map((r: any) => ({
-            schoolCode: schoolInfo.school_code || "",
+            schoolCode: (schoolInfo as any).school_code || "",
             year: String((selectedSubject as any).academic_year || ""),
             term: String(semester || (selectedSubject as any).semester || ""),
             subjectCode: (selectedSubject as any).code || "",

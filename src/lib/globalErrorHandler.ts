@@ -208,8 +208,8 @@ export function installGlobalErrorHandler(): void {
   // Catch React hydration / resource errors that might otherwise blank screen
   window.addEventListener("error", (e) => {
     // Capture resource load errors (img, script) — don't break app
-    const target = e.target as HTMLElement | null;
-    if (target && target !== window && (target as HTMLImageElement).tagName) {
+    const target = e.target as unknown as HTMLElement | null;
+    if (target && (target as any) !== window && (target as HTMLImageElement).tagName) {
       // silent for resource errors to avoid toast spam
       e.preventDefault?.();
     }

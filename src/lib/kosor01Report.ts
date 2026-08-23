@@ -14,7 +14,7 @@ export interface Kosor01Row {
   counselor_name?: string;
 }
 
-export function printKosor01(rows: Kosor01Row[], meta: { year: string; semester: string; schoolName: string }) {
+export function printKosor01(rows: Kosor01Row[], meta: { year: string; semester: string; schoolName: string; counselor_name?: string }) {
   const headerRow = `<tr style="background:#eee; text-align:center"><th>ที่</th><th>รหัส นร.</th><th>ชื่อ-สกุล</th><th>ห้อง</th><th>ประเภท</th><th>ระดับความเสี่ยง</th><th>หมายเหตุ</th><th>วันที่เยี่ยมบ้าน</th></tr>`;
   
   const dataRows = rows.map((r, i) => 

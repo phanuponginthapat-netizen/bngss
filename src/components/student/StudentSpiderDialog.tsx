@@ -19,7 +19,7 @@ export function StudentSpiderDialog({ studentId, open, onOpenChange }: { student
     queryKey: ["spider_loans", studentId],
     enabled: !!studentId,
     queryFn: async () => {
-      const { data } = await supabase.from("library_loans").select("*, library_books(title)").eq("student_id", studentId!).order("borrowed_at", { ascending: false }).limit(5);
+      const { data } = await (supabase.from("library_loans" as any) as any).select("*, library_books(title)").eq("borrower_student_id" as any, studentId!).order("borrowed_at" as any, { ascending: false }).limit(5);
       return (data as any[]) || [];
     },
   });

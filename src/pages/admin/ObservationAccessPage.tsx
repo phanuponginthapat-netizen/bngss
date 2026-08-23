@@ -25,6 +25,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 interface ObserverToken {
   id: string;

@@ -14,11 +14,10 @@ export interface SdqFlagResult {
  * Returns list of students needing follow-up.
  */
 export async function autoFlagSdqStudents(academicYear: number, semester: number): Promise<SdqFlagResult[]> {
-  const { data: scores, error } = await supabase
-    .from("student_sdq_scores")
-    .select("student_id, total_difficulties, assessment_type, students!inner(id, prefix, first_name, last_name)")
-    .eq("academic_year", academicYear)
-    .eq("semester", semester);
+  void semester;
+  const { data: scores, error } = await (supabase.from("sdq_records" as any) as any)
+    .select("student_id, total_difficulty, assessment_type, students!inner(id, prefix, first_name, last_name)")
+    .eq("academic_year", academicYear);
 
   if (error || !scores) return [];
 
@@ -26,7 +25,7 @@ export async function autoFlagSdqStudents(academicYear: number, semester: number
   const CUTOFFS = { normal: 13, at_risk: 17 }; // Thai DPH 25-question cutoffs
 
   for (const score of scores) {
-    const td = score.total_difficulties ?? 0;
+    const td = (score as any).total_difficulty ?? (score as any).total_difficulties ?? 0;
     let band: "normal" | "at_risk" | "problematic" = "normal";
     if (td >= CUTOFFS.at_risk) band = "problematic";
     else if (td >= CUTOFFS.normal) band = "at_risk";

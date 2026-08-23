@@ -180,10 +180,10 @@ export default function AttachmentUploader({
       {value.length > 0 && (
         <ul className="space-y-1">
           {value.map((a) => (
-            <li key={a.id} className="flex items-center justify-between gap-2 text-xs border rounded px-2 py-1 bg-muted/30">
+            <li key={(a as any).id} className="flex items-center justify-between gap-2 text-xs border rounded px-2 py-1 bg-muted/30">
               <span className="truncate flex items-center gap-1">
-                {a.mime?.startsWith("audio/") && <Mic className="w-3 h-3 text-primary shrink-0" />}
-                {a.mime?.startsWith("video/") && <Video className="w-3 h-3 text-primary shrink-0" />}
+                {((a as any).mime || (a as any).type || "")?.startsWith("audio/") && <Mic className="w-3 h-3 text-primary shrink-0" />}
+                {((a as any).mime || (a as any).type || "")?.startsWith("video/") && <Video className="w-3 h-3 text-primary shrink-0" />}
                 {a.name} <span className="text-muted-foreground">({Math.round(a.size / 1024)} KB)</span>
               </span>
               <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => remove(a.id)} aria-label={`ลบไฟล์ ${a.name}`}>

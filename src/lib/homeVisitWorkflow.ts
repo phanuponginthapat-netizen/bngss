@@ -22,8 +22,7 @@ export async function checkHomeVisitNeeds(
   const MIN_VISITS = 1;
 
   // Get students flagged in screening
-  const { data: screened } = await supabase
-    .from("student_screening")
+  const { data: screened } = await (supabase.from("student_screenings" as any) as any)
     .select("student_id, screening_type, risk_level, students!inner(id, prefix, first_name, last_name)")
     .eq("academic_year", academicYear)
     .eq("semester", semester)

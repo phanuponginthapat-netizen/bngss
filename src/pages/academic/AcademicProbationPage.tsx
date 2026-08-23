@@ -46,8 +46,10 @@ export default function AcademicProbationPage() {
   const { data: scores = [], isLoading } = useQuery({
     queryKey: ["scores_prob", ay, sem],
     queryFn: async () => {
-      const { data } = await supabase.from("student_scores").select("student_id, student_code, academic_year, semester, gpax").eq("academic_year", ay).eq("semester", sem).not("gpax", "is", null);
-      return (data ?? []) as StudentScore[];
+      const { data } = await (supabase.from("student_scores" as any) as any).select("student_code, student_name, academic_year, semester, grade_point").eq("academic_year", ay).eq("semester", sem).not("grade_point" as any, "is", null);
+      // Map grade_point to gpax and synthesize student_id from student_code for compatibility
+      const mapped = ((data as any[]) || []).map((r: any) => ({ student_id: r.student_code, student_code: r.student_code, academic_year: r.academic_year, semester: r.semester, gpax: r.grade_point }));
+      return mapped as StudentScore[];
     },
   });
 

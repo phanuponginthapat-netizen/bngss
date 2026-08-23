@@ -19,7 +19,7 @@ import { toast } from "sonner";
 
 
 interface Personnel { id: string; first_name: string; last_name: string; prefix: string | null; position: string; department: string; subject_group: string | null; }
-interface ObservationSession { id: string; teacher_id: string; teacher_name?: string; classroom: string; subject: string; observation_date: string; status: "draft" | "in_progress" | "completed" | "cancelled"; observer_name: string; created_at: string; updated_at: string; }
+interface ObservationSession { id: string; teacher_id: string; teacher_name?: string; classroom: string; subject: string; observation_date?: string; scheduled_date?: string; status: "draft" | "in_progress" | "completed" | "cancelled"; observer_name: string; created_at: string; updated_at: string; }
 interface RubricCriterion { key: string; label_th: string; label_en: string; group: string; }
 interface ObservationRecord { id: string; session_id: string; scores: Record<string, number>; comments: Record<string, string>; overall_comment: string; strengths: string; suggestions: string; total_score: number; max_score: number; percentage: number; is_draft: boolean; submitted_by: string; submitted_at: string; }
 
@@ -151,20 +151,20 @@ export default function ObservationSessionPage() {
   const { data: sessions = [], isLoading: sessionsLoading } = useQuery({
     queryKey: ["observation-sessions"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("observation_sessions" as any)
-        .select("*").order("observation_date", { ascending: false });
+      const { data, error } = await (supabase.from("observation_sessions" as any) as any)
+        .select("*").order("scheduled_date" as any, { ascending: false });
       if (error) throw error;
-      return (data || []) as ObservationSession[];
+      return (data as any) || [];
     },
   });
 
   const { data: records = [] } = useQuery({
     queryKey: ["observation-records"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("observation_records" as any)
-        .select("*").order("submitted_at", { ascending: false });
+      const { data, error } = await (supabase.from("observation_records" as any) as any)
+        .select("*").order("created_at" as any, { ascending: false });
       if (error) throw error;
-      return (data || []) as ObservationRecord[];
+      return (data as any) || [];
     },
   });
 
@@ -172,9 +172,9 @@ export default function ObservationSessionPage() {
     mutationFn: async () => {
       const teacher = teachers.find((t) => t.id === formTeacherId);
       const teacherName = teacher ? `${teacher.prefix || ""} ${teacher.first_name} ${teacher.last_name}`.trim() : "";
-      const { data, error } = await supabase.from("observation_sessions" as any)
+      const { data, error } = await (supabase.from("observation_sessions" as any) as any)
         .insert({ teacher_id: formTeacherId, teacher_name: teacherName, classroom: formClassroom,
-          subject: formSubject, observation_date: formDate, status: "draft", observer_name: formObserver })
+          subject: formSubject, scheduled_date: formDate, observation_date: formDate, status: "draft", observer_name: formObserver } as any)
         .select().single();
       if (error) throw error; return data;
     },
@@ -229,8 +229,8 @@ export default function ObservationSessionPage() {
   const filteredRecords = useMemo(() => {
     let result = records;
     if (filterTeacher !== "all") result = result.filter((r) => { const s = sessions.find((x) => x.id === r.session_id); return s?.teacher_id === filterTeacher; });
-    if (filterDateFrom) result = result.filter((r) => { const s = sessions.find((x) => x.id === r.session_id); return s && s.observation_date >= filterDateFrom; });
-    if (filterDateTo) result = result.filter((r) => { const s = sessions.find((x) => x.id === r.session_id); return s && s.observation_date <= filterDateTo; });
+    if (filterDateFrom) result = result.filter((r) => { const s = sessions.find((x) => x.id === r.session_id) as any; return s && ((s.scheduled_date ?? s.observation_date) >= filterDateFrom); });
+    if (filterDateTo) result = result.filter((r) => { const s = sessions.find((x) => x.id === r.session_id) as any; return s && ((s.scheduled_date ?? s.observation_date) <= filterDateTo); });
     return result;
   }, [records, sessions, filterTeacher, filterDateFrom, filterDateTo]);
 
@@ -265,7 +265,7 @@ export default function ObservationSessionPage() {
       `@media print{body{padding:15px}}</style></head><body><h1>${title}</h1>` +
       `<div class="meta"><div>${tl}: ${session?.teacher_name || session?.teacher_id || "-"}</div>` +
       `<div>${cl}: ${session?.classroom || "-"} | ${sl}: ${session?.subject || "-"}</div>` +
-      `<div>${dl}: ${formatDate(session?.observation_date || "", lang)}</div>` +
+      `<div>${dl}: ${formatDate(((session as any)?.scheduled_date ?? (session as any)?.observation_date ?? ""), lang)}</div>` +
       `<div>${ol}: ${session?.observer_name || "-"}</div></div>` +
       `<table><thead><tr><th style="padding:8px;border:1px solid #ddd;background:#f5f5f5;text-align:left">${crl}</th>` +
       `<th style="padding:8px;border:1px solid #ddd;background:#f5f5f5;text-align:center">${scl}</th>` +
@@ -355,9 +355,9 @@ export default function ObservationSessionPage() {
                             <TableCell className="font-medium">{s.teacher_name || getTeacherName(s.teacher_id)}</TableCell>
                             <TableCell>{s.classroom}</TableCell>
                             <TableCell>{s.subject}</TableCell>
-                            <TableCell className="text-sm">{formatDate(s.observation_date, lang)}</TableCell>
+                            <TableCell className="text-sm">{formatDate((s as any).scheduled_date ?? (s as any).observation_date, lang)}</TableCell>
                             <TableCell className="text-sm">{s.observer_name || "-"}</TableCell>
-                            <TableCell><Badge variant={st.variant}>{st[lang as "th" | "en"]}</Badge></TableCell>
+                            <TableCell><Badge variant={st.variant}>{(st as any)[lang] ?? (st as any)[`label_${lang}`]}</Badge></TableCell>
                             <TableCell className="text-right space-x-1">
                               <Button variant="ghost" size="sm" onClick={() => { openScoring(s); setActiveTab("scoring"); }} title={L("\u0E1B\u0E23\u0E30\u0E21\u0E37\u0E2D\u0E02\u0E48\u0E32\u0E22", "Score", lang)}>
                                 <Star className="h-4 w-4" />
@@ -402,7 +402,7 @@ export default function ObservationSessionPage() {
                   <p className="text-sm text-muted-foreground flex items-center gap-3 mt-1">
                     <span className="flex items-center gap-1"><School className="h-3.5 w-3.5" />{scoringSession.classroom}</span>
                     <span className="flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />{scoringSession.subject}</span>
-                    <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{formatDate(scoringSession.observation_date, lang)}</span>
+                    <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{formatDate((scoringSession as any).scheduled_date ?? (scoringSession as any).observation_date, lang)}</span>
                   </p>
                 </div>
                 <div className="text-right">
@@ -416,13 +416,13 @@ export default function ObservationSessionPage() {
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
                       {group.key === "5-step" ? <ClipboardCheck className="h-4 w-4" /> : <Star className="h-4 w-4" />}
-                      {group[lang as "th" | "en"]}
+                      {(group as any)[lang] ?? (group as any)[`label_${lang}`]}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     {RUBRIC_CRITERIA.filter((c) => c.group === group.key).map((c) => (
                       <div key={c.key} className="space-y-3 pb-4 border-b last:border-b-0 last:pb-0">
-                        <ScoreSlider value={scores[c.key] || 0} onChange={(v) => setScores((prev) => ({ ...prev, [c.key]: v }))} label={c[lang as "th" | "en"]} />
+                        <ScoreSlider value={scores[c.key] || 0} onChange={(v) => setScores((prev) => ({ ...prev, [c.key]: v }))} label={(c as any)[lang] ?? (c as any)[`label_${lang}`] ?? c.key} />
                         <Textarea placeholder={L("\u0E04\u0E33\u0E21\u0E01\u0E32\u0E23\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E1E\u0E34\u0E48\u0E21...", "Additional comments...", lang)} value={scoreComments[c.key] || ""} onChange={(e) => setScoreComments((prev) => ({ ...prev, [c.key]: e.target.value }))} rows={2} className="text-sm" />
                       </div>
                     ))}
@@ -519,7 +519,7 @@ export default function ObservationSessionPage() {
                             <TableCell className="font-medium">{session?.teacher_name || getTeacherName(session?.teacher_id || "")}</TableCell>
                             <TableCell>{session?.classroom || "-"}</TableCell>
                             <TableCell>{session?.subject || "-"}</TableCell>
-                            <TableCell className="text-sm">{formatDate(session?.observation_date || "", lang)}</TableCell>
+                            <TableCell className="text-sm">{formatDate(((session as any)?.scheduled_date ?? (session as any)?.observation_date ?? ""), lang)}</TableCell>
                             <TableCell className="text-center font-semibold">{r.total_score} / {r.max_score}</TableCell>
                             <TableCell className="text-center"><Badge variant={sp >= 80 ? "outline" : sp >= 60 ? "secondary" : "destructive"}>{sp}%</Badge></TableCell>
                             <TableCell>
@@ -598,9 +598,9 @@ export default function ObservationSessionPage() {
                   <div><span className="text-muted-foreground">{L("\u0E04\u0E23\u0E13\u0E1C\u0E31\u0E14\u0E2A\u0E31\u0E0D\u0E27", "Teacher", lang)}: </span><span className="font-medium">{detailSession.teacher_name || getTeacherName(detailSession.teacher_id)}</span></div>
                   <div><span className="text-muted-foreground">{L("\u0E2B\u0E32\u0E40\u0E23\u0E34\u0E48\u0E21", "Classroom", lang)}: </span><span className="font-medium">{detailSession.classroom}</span></div>
                   <div><span className="text-muted-foreground">{L("\u0E27\u0E34\u0E2A\u0E32", "Subject", lang)}: </span><span className="font-medium">{detailSession.subject}</span></div>
-                  <div><span className="text-muted-foreground">{L("\u0E27\u0E31\u0E22\u0E17\u0E35\u0E48", "Date", lang)}: </span><span className="font-medium">{formatDate(detailSession.observation_date, lang)}</span></div>
+                  <div><span className="text-muted-foreground">{L("\u0E27\u0E31\u0E22\u0E17\u0E35\u0E48", "Date", lang)}: </span><span className="font-medium">{formatDate((detailSession as any).scheduled_date ?? (detailSession as any).observation_date, lang)}</span></div>
                   <div><span className="text-muted-foreground">{L("\u0E1C\u0E39\u0E49\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23", "Observer", lang)}: </span><span className="font-medium">{detailSession.observer_name || "-"}</span></div>
-                  <div><span className="text-muted-foreground">{L("\u0E2A\u0E31\u0E0D\u0E27", "Status", lang)}: </span><Badge variant={(STATUS_MAP[detailSession.status] || STATUS_MAP.draft).variant}>{(STATUS_MAP[detailSession.status] || STATUS_MAP.draft)[lang as "th" | "en"]}</Badge></div>
+                  <div><span className="text-muted-foreground">{L("\u0E2A\u0E31\u0E0D\u0E27", "Status", lang)}: </span><Badge variant={(STATUS_MAP[detailSession.status] || STATUS_MAP.draft).variant}>{(STATUS_MAP[detailSession.status] as any)[lang] ?? (STATUS_MAP[detailSession.status] as any)[`label_${lang}`] ?? detailSession.status}</Badge></div>
                 </div>
                 {record ? (
                   <>
@@ -619,7 +619,7 @@ export default function ObservationSessionPage() {
                       <TableBody>
                         {RUBRIC_CRITERIA.map((c) => (
                           <TableRow key={c.key}>
-                            <TableCell className="text-sm font-medium">{c[lang as "th" | "en"]}</TableCell>
+                            <TableCell className="text-sm font-medium">{(c as any)[lang] ?? (c as any)[`label_${lang}`] ?? c.key}</TableCell>
                             <TableCell className="text-center">{record.scores?.[c.key] ?? 0}</TableCell>
                             <TableCell className="text-sm text-muted-foreground">{record.comments?.[c.key] || "-"}</TableCell>
                           </TableRow>

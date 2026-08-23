@@ -315,18 +315,20 @@ const ScoreOverviewTab = () => {
         </Select>
         {classroomId && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์</Button>}
         {classroomId && <Button variant="outline" onClick={() => {
+          if (!selectedClassroom) return;
           const rows = mergedData.map((s: any) => {
             const gpaNum = parseFloat(s.gpa) || 0;
-            return { schoolCode: schoolInfo.school_code || "", year: String(toBE(selectedClassroom.academic_year)), term: semester, subjectCode: "GPA", subjectName: `ปพ.6 ${selectedClassroom.grade_level}-${selectedClassroom.name}`, credit: 0, studentCode: s.student_code, studentName: s.student_name, fullScore: 4, score: gpaNum, classroom: `${selectedClassroom.grade_level}-${selectedClassroom.name}` };
+            return { schoolCode: (schoolInfo as any).school_code || "", year: String(toBE((selectedClassroom as any).academic_year)), term: semester, subjectCode: "GPA", subjectName: `ปพ.6 ${(selectedClassroom as any).grade_level}-${(selectedClassroom as any).name}`, credit: 0, studentCode: s.student_code, studentName: s.student_name, fullScore: 4, score: gpaNum, classroom: `${(selectedClassroom as any).grade_level}-${(selectedClassroom as any).name}` };
           });
-          printPor5(rows, { schoolName: schoolInfo.school_name || "โรงเรียน", term: semester, year: String(toBE(selectedClassroom.academic_year)), subjectCode: "ปพ.6", subjectName: `${selectedClassroom.grade_level}-${selectedClassroom.name}` });
+          printPor5(rows, { schoolName: schoolInfo.school_name || "โรงเรียน", term: semester, year: String(toBE((selectedClassroom as any).academic_year)), subjectCode: "ปพ.6", subjectName: `${(selectedClassroom as any).grade_level}-${(selectedClassroom as any).name}` });
         }}><Printer className="w-4 h-4 mr-2" />พิมพ์ SchoolMIS</Button>}
         {classroomId && <Button variant="outline" onClick={() => {
+          if (!selectedClassroom) return;
           const rows = mergedData.map((s: any) => {
             const gpaNum = parseFloat(s.gpa) || 0;
-            return { schoolCode: schoolInfo.school_code || "", year: String(toBE(selectedClassroom.academic_year)), term: semester, subjectCode: "GPA", subjectName: `ปพ.6 ${selectedClassroom.grade_level}-${selectedClassroom.name}`, credit: 0, studentCode: s.student_code, studentName: s.student_name, fullScore: 4, score: gpaNum, classroom: `${selectedClassroom.grade_level}-${selectedClassroom.name}` };
+            return { schoolCode: (schoolInfo as any).school_code || "", year: String(toBE((selectedClassroom as any).academic_year)), term: semester, subjectCode: "GPA", subjectName: `ปพ.6 ${(selectedClassroom as any).grade_level}-${(selectedClassroom as any).name}`, credit: 0, studentCode: s.student_code, studentName: s.student_name, fullScore: 4, score: gpaNum, classroom: `${(selectedClassroom as any).grade_level}-${(selectedClassroom as any).name}` };
           });
-          exportSchoolMisExcel(rows, `SchoolMIS_PP6_${selectedClassroom.grade_level}-${selectedClassroom.name}_${semester}.xlsx`);
+          exportSchoolMisExcel(rows, `SchoolMIS_PP6_${(selectedClassroom as any).grade_level}-${(selectedClassroom as any).name}_${semester}.xlsx`);
           toast.success("ส่งออก SchoolMIS แล้ว");
         }}><Download className="w-4 h-4 mr-2" />Export SchoolMIS</Button>}
         {classroomId && selectedClassroom && (

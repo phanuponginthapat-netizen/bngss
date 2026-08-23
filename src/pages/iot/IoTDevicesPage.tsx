@@ -166,12 +166,12 @@ export default function IoTDevicesPage() {
         <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><ShieldAlert className="w-4 h-4 text-primary" /> SmartGate — micro:bit วัดไข้ + ตรวจโลหะ</CardTitle></CardHeader>
         <CardContent className="flex flex-col md:flex-row md:items-center gap-3">
           <div className="flex-1 grid grid-cols-3 gap-2 text-sm">
-            <div>สถานะ: <Badge variant={gate.connected ? "default" : "secondary"}>{gate.connected ? "เชื่อมต่อ" : "ไม่เชื่อม"}</Badge></div>
+            <div>สถานะ: <Badge variant={gate.status === "connected" ? "default" : "secondary"}>{gate.status === "connected" ? "เชื่อมต่อ" : "ไม่เชื่อม"}</Badge></div>
             <div className="flex items-center gap-1"><Thermometer className="w-3 h-3" /> {gate.reading.tempC != null ? `${gate.reading.tempC.toFixed(1)}°C` : "—"}</div>
             <div>Metal: {gate.reading.metalLevel ?? "—"}</div>
           </div>
           <div className="flex gap-2">
-            {!gate.connected ? <Button size="sm" onClick={() => gate.connect()}><Bluetooth className="w-4 h-4 mr-1" /> เชื่อมต่อ micro:bit</Button> : <Button size="sm" variant="outline" onClick={() => gate.disconnect()}>ตัดการเชื่อมต่อ</Button>}
+            {gate.status !== "connected" ? <Button size="sm" onClick={() => gate.connect()}><Bluetooth className="w-4 h-4 mr-1" /> เชื่อมต่อ micro:bit</Button> : <Button size="sm" variant="outline" onClick={() => gate.disconnect()}>ตัดการเชื่อมต่อ</Button>}
             <Button size="sm" variant="outline" onClick={() => gate.requestPassage().then(r => toast.success(r.detail || (r.allow ? "ผ่าน" : "ปฏิเสธ")))}>ทดสอบเปิดประตู</Button>
           </div>
         </CardContent>

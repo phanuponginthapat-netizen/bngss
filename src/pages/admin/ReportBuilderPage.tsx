@@ -52,23 +52,23 @@ export default function ReportBuilderPage() {
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["report-builder", source, dateFrom, dateTo, gradeLevel],
     queryFn: async () => {
-      let q = supabase.from(currentSource.table).select("*").limit(500);
+      let q = (supabase.from(currentSource.table as any) as any).select("*").limit(500);
 
       if (source === "students" && gradeLevel !== "all") {
-        q = q.eq("grade_level", gradeLevel);
+        q = q.eq("grade_level" as any, gradeLevel);
       }
       if (source === "attendance" && dateFrom) {
-        q = q.gte("attendance_date", dateFrom);
+        q = q.gte("attendance_date" as any, dateFrom);
       }
       if (source === "attendance" && dateTo) {
-        q = q.lte("attendance_date", dateTo);
+        q = q.lte("attendance_date" as any, dateTo);
       }
       if (source === "scores") {
-        if (gradeLevel !== "all") q = q.eq("grade_level", gradeLevel);
-        if (dateFrom) q = q.gte("academic_year", Number(dateFrom));
+        if (gradeLevel !== "all") q = q.eq("grade_level" as any, gradeLevel);
+        if (dateFrom) q = q.gte("academic_year" as any, Number(dateFrom));
       }
       if (source === "personnel" && gradeLevel !== "all") {
-        q = q.eq("department", gradeLevel);
+        q = q.eq("department" as any, gradeLevel);
       }
 
       const { data, error } = await q;
