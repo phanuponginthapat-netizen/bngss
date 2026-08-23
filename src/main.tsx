@@ -8,9 +8,11 @@ import "core-js/modules/es.weak-map.get-or-insert-computed.js";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { registerServiceWorker, subscribeToPush } from "./lib/pushSubscribe";
 import { applyDynamicBranding } from "./lib/dynamicManifest";
 import { installGlobalErrorHandlers } from "./lib/errorLogger";
+import { installGlobalErrorHandler } from "./lib/globalErrorHandler";
 import { initNativeShell } from "./lib/nativeShell";
 import { installCrossTabSync } from "./lib/crossTabSync";
 import { installSwBackgroundSync } from "./lib/swBackgroundSync";
@@ -26,6 +28,7 @@ if (import.meta.env.VITE_SENTRY_DSN) {
 }
 
 installGlobalErrorHandlers();
+installGlobalErrorHandler();
 initNativeShell();
 installCrossTabSync();
 installSwBackgroundSync();
@@ -71,7 +74,11 @@ window.addEventListener("appinstalled", () => {
 // ผูก manifest/ไอคอน/ชื่อ จาก CMS ก่อน mount เพื่อให้ prompt ติดตั้งใช้ค่าจริง
 applyDynamicBranding();
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(
+  <ErrorBoundary label="Root">
+    <App />
+  </ErrorBoundary>
+);
 
 // Register Service Worker for Web Push (skipped automatically in preview/iframe)
 // บน Android/iOS เบราว์เซอร์/OS จะ "พักแอป" เมื่อปิดหน้าจอ — เราพึ่ง Service Worker ให้ OS ปลุกขึ้นมาเอง

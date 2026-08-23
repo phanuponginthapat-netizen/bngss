@@ -306,9 +306,15 @@ const queryClient = new QueryClient({
 
 import SystemLoader from "./components/SystemLoader";
 import CmsBranding from "./components/CmsBranding";
+import { useEffect } from "react";
+import { installGlobalErrorHandler } from "@/lib/globalErrorHandler";
 
-const App = () => (
-  <>
+const App = () => {
+  useEffect(() => {
+    try { installGlobalErrorHandler(); } catch {}
+  }, []);
+  return (
+  <ErrorBoundary label="AppRoot">
   <SkipToContent />
   <QueryClientProvider client={queryClient}>
     <LanguageProvider>
@@ -626,7 +632,8 @@ const App = () => (
       </ThemeProvider>
     </LanguageProvider>
   </QueryClientProvider>
-  </>
-);
+  </ErrorBoundary>
+  );
+};
 
 export default App;

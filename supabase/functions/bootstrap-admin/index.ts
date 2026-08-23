@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeadersWithBootstrap as corsHeaders } from "../_shared/cors.ts";
 
 import { getAdminEmail } from "../_shared/appConfig.ts";
+import { rateLimit } from "../_shared/rateLimit.ts";
 
 function genPassword() {
   const buf = new Uint8Array(18);
@@ -18,6 +19,8 @@ function genPassword() {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const rl = await rateLimit(req, { name: "bootstrap-admin", limit: 3, windowMs: 60_000 });
+  if (rl.blocked) return rl.response!;
 
   const supaUrl = Deno.env.get("SUPABASE_URL")!;
   const srv = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

@@ -88,3 +88,6 @@ verify_jwt = false
 # BigData Warehouse Cron — nightly ETL, ตรวจ cron secret หรือ admin JWT เอง
 [functions.bigdata-warehouse-cron]
 verify_jwt = false
+
+[functions.health-cron]
+verify_jwt = false

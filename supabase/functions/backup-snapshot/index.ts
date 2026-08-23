@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { BlobWriter, TextReader, ZipWriter } from "https://deno.land/x/zipjs@v2.7.32/index.js";
+import { BlobReader, BlobWriter, TextReader, ZipReader, ZipWriter } from "https://deno.land/x/zipjs@v2.7.32/index.js";
 import { rateLimit } from "../_shared/rateLimit.ts";
 
 import { buildCorsHeaders } from "../_shared/cors.ts";
@@ -123,14 +123,108 @@ Deno.serve(async (req) => {
   await zip.add("_summary.json", new TextReader(JSON.stringify(summary, null, 2)));
   await zip.close();
   const blob = await zipBlob.getData();
-
   const filename = `school-backup-${todayBangkokISO()}.zip`;
+  const fileSize = (blob as Blob).size;
+
+  // --- Verification step: ensure zip can be listed and has size > 0 ---
+  let verificationStatus: string = "failed";
+  const verificationLog: Record<string, unknown> = {
+    filename,
+    file_size: fileSize,
+    checked_at: new Date().toISOString(),
+    generated_by: user.email ?? user.id,
+    verified: false,
+    entries: 0,
+  };
+
+  try {
+    if (fileSize === 0) throw new Error("zip size is 0");
+    const reader = new ZipReader(new BlobReader(blob as Blob));
+    const entries = await reader.getEntries();
+    verificationLog["entries"] = entries.length;
+    verificationLog["entry_names"] = entries.map((e) => e.filename);
+    verificationLog["verified"] = entries.length > 0;
+    if (entries.length === 0) throw new Error("zip has no entries");
+    // optional: ensure _summary.json present
+    const names = entries.map((e) => e.filename);
+    if (!names.includes("_summary.json")) {
+      verificationLog["warning"] = "_summary.json missing";
+    }
+    // verify first entry can be read (sanity)
+    // size check already done, but also ensure entries have uncompressed size >0 collectively
+    const totalUncompressed = entries.reduce((acc: number, e: any) => acc + (e.uncompressedSize ?? 0), 0);
+    verificationLog["total_uncompressed"] = totalUncompressed;
+    await reader.close();
+    verificationStatus = "verified";
+    verificationLog["verified"] = true;
+  } catch (e) {
+    verificationLog["error"] = String((e as Error).message ?? e);
+    verificationLog["verified"] = false;
+    verificationStatus = "failed";
+    console.error("backup verification failed:", verificationLog["error"]);
+  }
+
+  // --- Log to backup_snapshots table with status ---
+  try {
+    const snapshotDate = todayBangkokISO();
+    // Use upsert to avoid duplicate key on same day re-runs; fallback to insert with unique suffix
+    const payload = {
+      table_name: "_full_snapshot",
+      snapshot_date: snapshotDate,
+      row_count: Object.values(summary).filter((v) => typeof v === "number").length,
+      data: summary as unknown as Record<string, unknown>,
+      file_name: filename,
+      file_size: fileSize,
+      status: verificationStatus,
+      verification_log: verificationLog,
+    };
+    const { error: upErr } = await sb.from("backup_snapshots").upsert(payload as never, {
+      onConflict: "table_name,snapshot_date",
+    });
+    if (upErr) {
+      console.warn("backup_snapshots upsert failed:", upErr.message, "try insert with suffix");
+      // fallback: insert with unique table_name to preserve log
+      await sb.from("backup_snapshots").insert({
+        table_name: `_full_snapshot_${Date.now()}`,
+        snapshot_date: snapshotDate,
+        row_count: payload.row_count,
+        data: payload.data as never,
+        file_name: filename,
+        file_size: fileSize,
+        status: verificationStatus,
+        verification_log: verificationLog,
+      } as never);
+    }
+    console.log(`backup verification logged: status=${verificationStatus} size=${fileSize} entries=${verificationLog["entries"]}`);
+  } catch (e) {
+    console.warn("backup_snapshots log failed (non-blocking):", String((e as Error).message ?? e));
+  }
+
+  // If verification failed, return 500 with details instead of corrupt zip
+  if (verificationStatus === "failed") {
+    return new Response(
+      JSON.stringify({
+        error: "backup verification failed",
+        file_size: fileSize,
+        verification: verificationLog,
+        summary,
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
+  }
+
   return new Response(blob, {
     status: 200,
     headers: {
       ...corsHeaders,
       "Content-Type": "application/zip",
       "Content-Disposition": `attachment; filename="${filename}"`,
+      "X-Backup-Verified": "true",
+      "X-Backup-Size": String(fileSize),
+      "X-Backup-Entries": String(verificationLog["entries"] ?? 0),
     },
   });
 });

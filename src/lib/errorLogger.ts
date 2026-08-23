@@ -75,6 +75,8 @@ export function installGlobalErrorHandlers() {
   });
 
   window.addEventListener("unhandledrejection", (e) => {
+    // ป้องกัน blank screen ในบาง browser/shell ที่ treat unhandledrejection เป็น fatal
+    try { e.preventDefault(); } catch {}
     const r: any = e.reason;
     const msg = typeof r === "string" ? r : r?.message ?? "unhandledrejection";
     if (isNoise(msg)) return;
@@ -85,6 +87,16 @@ export function installGlobalErrorHandlers() {
     // ดึง body จาก edge function response ถ้ามี → แสดง toast ไทย
     toThaiErrorDetailed(r).then(showThaiToast).catch(() => showThaiToast(toThaiErrorDetailedSync(r)));
   });
+
+  // Ensure unhandledrejection never bubbles to blank screen via window.onunhandledrejection fallback
+  try {
+    const prev = (window as unknown as { onunhandledrejection?: unknown }).onunhandledrejection;
+    if (!prev) {
+      (window as unknown as { onunhandledrejection: unknown }).onunhandledrejection = (ev: PromiseRejectionEvent) => {
+        try { ev.preventDefault(); } catch {}
+      };
+    }
+  } catch {}
 }
 
 

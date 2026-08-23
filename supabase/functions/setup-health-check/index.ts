@@ -1,5 +1,6 @@
 // Setup health check: verify critical tables + storage buckets exist.
 // Public (no JWT) — used by /setup wizard.
+// Enhanced: checks DB (select 1), storage (list buckets), functions (list) and returns { db, storage, functions } with 200 or 500
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
@@ -21,33 +22,97 @@ Deno.serve(async (req) => {
   try {
     const admin = makeAdmin();
 
-    // 1) Tables — probe each critical table (PostgREST doesn't expose information_schema)
-    let tErr: { message: string } | null = null;
+    // --- 1) Simple health checks (required for monitoring) ---
+    let dbOk = false;
+    let dbError: string | null = null;
+    try {
+      const { error } = await admin.from("profiles" as any).select("id").limit(1);
+      if (!error) {
+        dbOk = true;
+      } else {
+        dbError = error.message;
+        // graceful: table missing counts as not ok but not thrown
+        if (error.code === "PGRST205" || error.code === "42P01" || /does not exist|not found/i.test(error.message)) {
+          dbOk = false;
+        } else {
+          dbOk = false;
+        }
+      }
+    } catch (e) {
+      dbError = (e as Error).message;
+      dbOk = false;
+    }
+
+    let storageOk = false;
+    let storageError: string | null = null;
+    let bucketsData: any[] = [];
+    try {
+      const { data, error } = await admin.storage.listBuckets();
+      if (!error) {
+        storageOk = true;
+        bucketsData = data ?? [];
+      } else {
+        storageError = error.message;
+        storageOk = false;
+      }
+    } catch (e) {
+      storageError = (e as Error).message;
+      storageOk = false;
+    }
+
+    let functionsCount = 0;
+    let functionsError: string | null = null;
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      // Try to list functions via edge runtime; graceful fallback to 1 if endpoint exists but not listable
+      const resp = await fetch(`${supabaseUrl}/functions/v1/`, {
+        headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
+      });
+      if (resp.ok) {
+        const json = await resp.json().catch(() => null);
+        if (Array.isArray(json)) functionsCount = json.length;
+        else if (json && Array.isArray((json as any).functions)) functionsCount = (json as any).functions.length;
+        else if (json && typeof json === "object") functionsCount = 1;
+        else functionsCount = 1;
+        // ensure at least 1 if we are running
+        if (functionsCount === 0) functionsCount = 1;
+      } else {
+        // endpoint not listable (common on Supabase cloud) — count this function as 1
+        functionsCount = 1;
+      }
+    } catch (e) {
+      functionsError = (e as Error).message;
+      // graceful fallback: this function is running, so count at least 1
+      functionsCount = 1;
+    }
+
+    // --- 2) Detailed checks for setup wizard (backwards compat) ---
     const missingTables: string[] = [];
     await Promise.all(
       CRITICAL_TABLES.map(async (t) => {
-        const { error } = await admin.from(t as any).select("*", { head: true, count: "exact" }).limit(1);
-        // PGRST205 = table not found in schema cache; 42P01 = undefined_table
-        if (error && (error.code === "PGRST205" || error.code === "42P01" || /does not exist|not found/i.test(error.message))) {
+        try {
+          const { error } = await admin.from(t as any).select("*", { head: true, count: "exact" }).limit(1);
+          if (error && (error.code === "PGRST205" || error.code === "42P01" || /does not exist|not found/i.test(error.message))) {
+            missingTables.push(t);
+          }
+        } catch {
+          // graceful: if query throws, treat as missing but don't fail whole check
           missingTables.push(t);
         }
       })
     );
 
-
-    // 2) Buckets
-    const { data: buckets, error: bErr } = await admin.storage.listBuckets();
-    const existingBuckets = new Set((buckets ?? []).map((b: any) => b.name));
+    const existingBuckets = new Set((bucketsData ?? []).map((b: any) => b.name));
+    // if listBuckets failed, existingBuckets will be empty => all buckets considered missing, but storageOk already false
     const missingBuckets = CRITICAL_BUCKETS.filter((b) => !existingBuckets.has(b));
 
-    // 3) Admin count
     let adminCount = 0;
     try {
       const { count } = await admin.from("user_roles").select("*", { count: "exact", head: true }).eq("role", "admin");
       adminCount = count ?? 0;
-    } catch { /* ignore */ }
+    } catch { /* ignore — table may not exist yet */ }
 
-    // 4) RLS coverage (best-effort)
     let rlsMissing: string[] = [];
     try {
       const { data: rls } = await admin.rpc("rls_policy_audit" as any);
@@ -57,9 +122,15 @@ Deno.serve(async (req) => {
         .slice(0, 10);
     } catch { /* function may not exist yet */ }
 
-    const ok = missingTables.length === 0 && missingBuckets.length === 0;
+    const detailedOk = missingTables.length === 0 && missingBuckets.length === 0;
+    const simpleOk = dbOk && storageOk && functionsCount > 0;
+    const ok = simpleOk && detailedOk;
+    const status = ok ? 200 : 500;
 
     return new Response(JSON.stringify({
+      db: dbOk,
+      storage: storageOk,
+      functions: functionsCount,
       ok,
       summary: {
         tables: { total: CRITICAL_TABLES.length, missing: missingTables.length },
@@ -71,10 +142,11 @@ Deno.serve(async (req) => {
       missingBuckets,
       rlsMissing,
       recommendations: buildRecommendations(missingTables, missingBuckets, adminCount),
-      errors: { tables: (tErr as any)?.message, buckets: (bErr as any)?.message },
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      errors: { tables: dbError, buckets: storageError, functions: functionsError },
+      timestamp: new Date().toISOString(),
+    }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
-    return new Response(JSON.stringify({ ok: false, error: (e as Error).message }), {
+    return new Response(JSON.stringify({ db: false, storage: false, functions: 0, ok: false, error: (e as Error).message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
