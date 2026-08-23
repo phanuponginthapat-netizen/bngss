@@ -447,9 +447,9 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
           <Button size="sm" variant="outline" onClick={() => addStamp("สำเนา", "#0284c7")} className="h-8">สำเนา</Button>
           <Button size="sm" variant="outline" onClick={() => addStamp("อนุมัติ", "#16a34a")} className="h-8">อนุมัติ</Button>
           <div className="w-px h-6 bg-border mx-1" />
-          <div className={`flex gap-1 ${recAudio || recVideo ? "opacity-50 pointer-events-none" : ""}`}>
-            <Button size="sm" variant={recAudio?"default":"outline"} onClick={toggleAudio} className="h-8" title="อัดเสียงพูด">{recAudio?<StopCircle className="w-4 h-4 mr-1"/>:<Mic className="w-4 h-4 mr-1"/>}{recAudio?"หยุด":"อัดเสียง"}</Button>
-            <Button size="sm" variant={recVideo?"default":"outline"} onClick={toggleVideo} className="h-8" title="อัดคลิปวิดีโอ">{recVideo?<StopCircle className="w-4 h-4 mr-1"/>:<Video className="w-4 h-4 mr-1"/>}{recVideo?"หยุด":"วิดีโอ"}</Button>
+          <div className="flex gap-1">
+            <Button size="sm" variant={recAudio?"destructive":"outline"} onClick={toggleAudio} disabled={Boolean(recVideo)} className="h-8" title="อัดเสียงพูด">{recAudio?<StopCircle className="w-4 h-4 mr-1"/>:<Mic className="w-4 h-4 mr-1"/>}{recAudio?"หยุด":"อัดเสียง"}</Button>
+            <Button size="sm" variant={recVideo?"destructive":"outline"} onClick={toggleVideo} disabled={Boolean(recAudio)} className="h-8" title="อัดคลิปวิดีโอ">{recVideo?<StopCircle className="w-4 h-4 mr-1"/>:<Video className="w-4 h-4 mr-1"/>}{recVideo?"หยุด":"วิดีโอ"}</Button>
           </div>
 
           {isPdfMime(attachment?.mime) && pageCount > 1 && (
@@ -461,14 +461,14 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
           )}
         </div>
         {(recAudio || recVideo) && (
-          <div className={`rounded-xl border p-3 space-y-2 sticky top-0 z-10 shadow-lg ${recVideo ? "border-red-500 bg-red-50 dark:bg-red-950/20" : "border-primary bg-primary/5"}`}>
+          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 space-y-2 sticky top-0 z-10 shadow-elevated" role="status" aria-live="polite">
             <div className="flex items-center gap-2">
-              {recVideo ? <span className="w-3 h-3 rounded-full bg-red-600 animate-pulse inline-block" /> : <span className="flex gap-1"><span className="w-1 h-4 bg-primary animate-pulse" style={{animationDelay:"0ms"}}/><span className="w-1 h-6 bg-primary animate-pulse" style={{animationDelay:"150ms"}}/><span className="w-1 h-3 bg-primary animate-pulse" style={{animationDelay:"300ms"}}/></span>}
+              {recVideo ? <span className="w-3 h-3 rounded-full bg-destructive animate-pulse inline-block" /> : <Mic className="h-4 w-4 text-destructive animate-pulse" />}
               <span className="text-sm font-semibold">{recVideo ? "กำลังอัดวีดีโอ..." : "กำลังอัดเสียง..."}</span>
               <span className="ml-auto font-mono font-bold tabular-nums">{mmss(recSecs)}</span>
             </div>
-            {!recVideo && <div className="flex items-center justify-center gap-1 py-2"><span className="w-2 h-2 rounded-full bg-primary animate-ping"/><span className="text-xs">ไมค์กำลังอัด...</span></div>}
-            {recVideo && <div className="rounded-lg overflow-hidden bg-black aspect-video w-full max-h-48 mx-auto border-2 border-red-500"><video ref={previewRef} muted playsInline autoPlay className="w-full h-full object-cover" /></div>}
+            {!recVideo && <div className="flex items-center justify-center gap-1 py-2 text-destructive"><span className="w-2 h-2 rounded-full bg-destructive animate-ping"/><span className="text-xs">ไมค์กำลังบันทึก</span></div>}
+            {recVideo && <div className="rounded-md overflow-hidden bg-foreground aspect-video w-full max-h-48 mx-auto border-2 border-destructive/70"><video ref={previewRef} muted playsInline autoPlay className="w-full h-full object-cover" /></div>}
             <Button type="button" size="sm" variant="destructive" className="w-full gap-2" onClick={recAudio ? toggleAudio : toggleVideo}><StopCircle className="w-4 h-4" /> หยุดและบันทึก</Button>
           </div>
         )}

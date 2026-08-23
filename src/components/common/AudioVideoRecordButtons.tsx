@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, Video, Square } from "lucide-react";
+import { toast } from "sonner";
 
 interface Props {
   onCaptured: (file: File) => void | Promise<void>;
@@ -26,6 +27,11 @@ export default function AudioVideoRecordButtons({ onCaptured, maxSizeMB = 25, di
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [kind]);
 
+  useEffect(() => () => {
+    if (recRef.current?.state === "recording") recRef.current.stop();
+    try { streamRef.current?.getTracks().forEach((track) => track.stop()); } catch {}
+  }, []);
+
   const cleanupPreview = () => {
     try { streamRef.current?.getTracks().forEach(t => t.stop()); } catch {}
     streamRef.current = null;
@@ -48,15 +54,26 @@ export default function AudioVideoRecordButtons({ onCaptured, maxSizeMB = 25, di
         cleanupPreview();
         const blob = new Blob(chunksRef.current, { type: mime });
         const file = new File([blob], `rec_${k}_${Date.now()}.webm`, { type: mime });
-        if (file.size > maxSizeMB * 1024 * 1024) return;
-        await onCaptured(file);
+        if (file.size > maxSizeMB * 1024 * 1024) {
+          toast.error(`ไฟล์บันทึกใหญ่เกิน ${maxSizeMB}MB`);
+          return;
+        }
+        try {
+          await onCaptured(file);
+          toast.success(k === "audio" ? "แนบไฟล์เสียงแล้ว" : "แนบไฟล์วิดีโอแล้ว");
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "แนบไฟล์ที่บันทึกไม่สำเร็จ");
+        }
       };
       rec.start(100);
       recRef.current = rec;
       setSecs(0);
       setKind(k);
-    } catch (e: any) {
-      console.warn("[record] failed", e?.message || e);
+    } catch (error) {
+      cleanupPreview();
+      toast.error(error instanceof Error
+        ? `ไม่สามารถเริ่มบันทึกได้: ${error.message}`
+        : "ไม่สามารถเข้าถึงไมโครโฟนหรือกล้องได้");
     }
   };
 
@@ -70,15 +87,15 @@ export default function AudioVideoRecordButtons({ onCaptured, maxSizeMB = 25, di
 
   if (kind) {
     return (
-      <div className={`rounded-xl border p-3 space-y-2 animate-pulse-soft sticky top-0 z-10 shadow-lg ${kind === "video" ? "border-red-500 bg-red-50 dark:bg-red-950/20" : "border-primary bg-primary/5"} ${compact ? "" : "w-full"}`}>
+      <div className={`rounded-lg border border-destructive/40 bg-destructive/5 p-3 space-y-2 sticky top-0 z-10 shadow-elevated ${compact ? "" : "w-full"}`} role="status" aria-live="polite">
         <div className="flex items-center gap-2">
-          {kind === "video" ? <span className="w-3 h-3 rounded-full bg-red-600 animate-pulse inline-block" /> : <span className="flex gap-1"><span className="w-1 h-4 bg-primary animate-pulse" style={{animationDelay:"0ms"}}/><span className="w-1 h-6 bg-primary animate-pulse" style={{animationDelay:"150ms"}}/><span className="w-1 h-3 bg-primary animate-pulse" style={{animationDelay:"300ms"}}/></span>}
+          {kind === "video" ? <span className="w-3 h-3 rounded-full bg-destructive animate-pulse inline-block" /> : <Mic className="h-4 w-4 text-destructive animate-pulse" />}
           <span className="text-sm font-semibold">{kind === "video" ? "กำลังอัดวีดีโอ..." : "กำลังอัดเสียง..."}</span>
           <span className="ml-auto font-mono font-bold tabular-nums">{mmss(secs)}</span>
         </div>
-        {kind === "audio" && <div className="flex items-center justify-center gap-1 py-1"><span className="w-2 h-2 rounded-full bg-primary animate-ping"/><span className="text-xs">ไมค์กำลังอัด...</span></div>}
+        {kind === "audio" && <div className="flex items-center justify-center gap-1 py-1 text-destructive"><span className="w-2 h-2 rounded-full bg-destructive animate-ping"/><span className="text-xs">ไมค์กำลังบันทึก</span></div>}
         {kind === "video" && (
-          <div className="rounded-lg overflow-hidden bg-black aspect-video w-full max-h-64 mx-auto border-2 border-red-500">
+          <div className="rounded-md overflow-hidden bg-foreground aspect-video w-full max-h-64 mx-auto border-2 border-destructive/70">
             <video ref={previewRef} muted playsInline autoPlay className="w-full h-full object-cover" />
           </div>
         )}
@@ -91,10 +108,10 @@ export default function AudioVideoRecordButtons({ onCaptured, maxSizeMB = 25, di
 
   return (
     <div className="flex items-center gap-2">
-      <Button type="button" size="sm" variant="secondary" onClick={() => start("audio")} disabled={disabled} title="อัดเสียง">
+      <Button type="button" size="sm" variant="secondary" onClick={() => start("audio")} disabled={disabled} aria-label="เริ่มอัดเสียง" title="อัดเสียง">
         <Mic className="w-4 h-4 mr-1" /> {!compact && "อัดเสียง"}
       </Button>
-      <Button type="button" size="sm" variant="secondary" onClick={() => start("video")} disabled={disabled} title="อัดวีดีโอ">
+      <Button type="button" size="sm" variant="secondary" onClick={() => start("video")} disabled={disabled} aria-label="เริ่มอัดวิดีโอ" title="อัดวิดีโอ">
         <Video className="w-4 h-4 mr-1" /> {!compact && "อัดวีดีโอ"}
       </Button>
     </div>
