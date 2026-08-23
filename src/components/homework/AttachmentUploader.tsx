@@ -75,7 +75,7 @@ export default function AttachmentUploader({
       const stream = await navigator.mediaDevices.getUserMedia(constraints as any);
       if (kind === "video") {
         previewStreamRef.current = stream;
-        setTimeout(() => { if (videoElRef.current && videoElRef.current.srcObject !== stream) videoElRef.current.srcObject = stream; }, 50);
+        requestAnimationFrame(() => { if (videoElRef.current){ videoElRef.current.srcObject = stream; videoElRef.current.play().catch(()=>{}); }});
       }
       const mime = kind === "audio" ? "audio/webm" : "video/webm";
       const rec = new MediaRecorder(stream, MediaRecorder.isTypeSupported(mime) ? { mimeType: mime } : undefined);

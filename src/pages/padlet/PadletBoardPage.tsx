@@ -279,7 +279,7 @@ export default function PadletBoardPage() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio:true, video:true });
       previewStreamRef.current = stream;
-      setTimeout(()=>{ if(previewRef.current) previewRef.current.srcObject = stream; },50);
+      requestAnimationFrame(()=>{ if(previewRef.current){ previewRef.current.srcObject=stream; previewRef.current.play().catch(()=>{}); }});
       const rec = new MediaRecorder(stream);
       const chunks: BlobPart[] = [];
       rec.ondataavailable = e=> chunks.push(e.data);

@@ -38,7 +38,7 @@ export default function AudioVideoRecordButtons({ onCaptured, maxSizeMB = 25, di
       const stream = await navigator.mediaDevices.getUserMedia(constraints as any);
       if (k === "video") {
         streamRef.current = stream;
-        setTimeout(() => { if (previewRef.current && previewRef.current.srcObject !== stream) previewRef.current.srcObject = stream; }, 50);
+        requestAnimationFrame(() => { if (previewRef.current){ previewRef.current.srcObject = stream; previewRef.current.play().catch(()=>{}); }});
       }
       const mime = k === "audio" ? "audio/webm" : "video/webm";
       const rec = new MediaRecorder(stream, MediaRecorder.isTypeSupported(mime) ? { mimeType: mime } : undefined);
