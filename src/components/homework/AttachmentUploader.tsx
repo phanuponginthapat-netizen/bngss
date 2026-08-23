@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Paperclip, X, Loader2, Mic, Video, Square, Circle } from "lucide-react";
+import { Paperclip, X, Loader2, Mic, Video, Square } from "lucide-react";
 import { uploadHomeworkFile, type Attachment } from "@/lib/homeworkStorage";
 import { toast } from "sonner";
 
@@ -36,6 +36,12 @@ export default function AttachmentUploader({
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [recordingAudio, recordingVideo]);
 
+  useEffect(() => () => {
+    if (audioRecorderRef.current?.state === "recording") audioRecorderRef.current.stop();
+    if (videoRecorderRef.current?.state === "recording") videoRecorderRef.current.stop();
+    try { previewStreamRef.current?.getTracks().forEach((track) => track.stop()); } catch {}
+  }, []);
+
   const cleanupPreview = () => {
     try { previewStreamRef.current?.getTracks().forEach(t => t.stop()); } catch {}
     previewStreamRef.current = null;
@@ -68,6 +74,10 @@ export default function AttachmentUploader({
   };
 
   const startRecord = async (kind: "audio" | "video") => {
+    if (value.length >= maxFiles) {
+      toast.error(`แนบได้สูงสุด ${maxFiles} ไฟล์`);
+      return;
+    }
     try {
       const constraints = kind === "audio"
         ? { audio: true }
@@ -122,19 +132,19 @@ export default function AttachmentUploader({
   return (
     <div className="space-y-2">
       {(recordingAudio || recordingVideo) && (
-        <div className={`rounded-xl border p-3 space-y-2 animate-pulse-soft sticky top-0 z-10 shadow-lg ${recordingVideo ? "border-red-500 bg-red-50 dark:bg-red-950/20" : "border-primary bg-primary/5"}`}>
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 space-y-2 sticky top-0 z-10 shadow-elevated" role="status" aria-live="polite">
           <div className="flex items-center gap-2">
             {recordingVideo
-              ? <span className="w-3 h-3 rounded-full bg-red-600 animate-pulse inline-block" />
-              : <span className="flex gap-1"><span className="w-1 h-4 bg-primary animate-pulse" style={{animationDelay:"0ms"}}/><span className="w-1 h-6 bg-primary animate-pulse" style={{animationDelay:"150ms"}}/><span className="w-1 h-3 bg-primary animate-pulse" style={{animationDelay:"300ms"}}/></span>}
+              ? <span className="w-3 h-3 rounded-full bg-destructive animate-pulse inline-block" />
+              : <Mic className="h-4 w-4 text-destructive animate-pulse" />}
             <span className="text-sm font-semibold">
               {recordingVideo ? "กำลังอัดวีดีโอ..." : "กำลังอัดเสียง..."}
             </span>
             <span className="ml-auto font-mono font-bold tabular-nums">{mmss(recordingSecs)}</span>
           </div>
-          {recordingAudio && <div className="flex items-center justify-center gap-1 py-1"><span className="w-2 h-2 rounded-full bg-primary animate-ping"/><span className="text-xs">ไมค์กำลังอัด...</span></div>}
+          {recordingAudio && <div className="flex items-center justify-center gap-1 py-1 text-destructive"><span className="w-2 h-2 rounded-full bg-destructive animate-ping"/><span className="text-xs">ไมค์กำลังบันทึก</span></div>}
           {recordingVideo && (
-            <div className="rounded-lg overflow-hidden bg-black aspect-video w-full max-h-64 mx-auto border-2 border-red-500">
+            <div className="rounded-md overflow-hidden bg-foreground aspect-video w-full max-h-64 mx-auto border-2 border-destructive/70">
               <video ref={videoElRef} muted playsInline autoPlay className="w-full h-full object-cover" />
             </div>
           )}
@@ -172,11 +182,11 @@ export default function AttachmentUploader({
           {value.map((a) => (
             <li key={a.id} className="flex items-center justify-between gap-2 text-xs border rounded px-2 py-1 bg-muted/30">
               <span className="truncate flex items-center gap-1">
-                {a.type?.startsWith("audio/") && <Mic className="w-3 h-3 text-primary shrink-0" />}
-                {a.type?.startsWith("video/") && <Video className="w-3 h-3 text-primary shrink-0" />}
+                {a.mime?.startsWith("audio/") && <Mic className="w-3 h-3 text-primary shrink-0" />}
+                {a.mime?.startsWith("video/") && <Video className="w-3 h-3 text-primary shrink-0" />}
                 {a.name} <span className="text-muted-foreground">({Math.round(a.size / 1024)} KB)</span>
               </span>
-              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => remove(a.id)}>
+              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => remove(a.id)} aria-label={`ลบไฟล์ ${a.name}`}>
                 <X className="w-3.5 h-3.5" />
               </Button>
             </li>
