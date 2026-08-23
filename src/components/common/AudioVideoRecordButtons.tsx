@@ -72,10 +72,11 @@ export default function AudioVideoRecordButtons({ onCaptured, maxSizeMB = 25, di
     return (
       <div className={`rounded-xl border p-3 space-y-2 animate-pulse-soft sticky top-0 z-10 shadow-lg ${kind === "video" ? "border-red-500 bg-red-50 dark:bg-red-950/20" : "border-primary bg-primary/5"} ${compact ? "" : "w-full"}`}>
         <div className="flex items-center gap-2">
-          {kind === "video" ? <span className="w-3 h-3 rounded-full bg-red-600 fill-red-600 animate-pulse inline-block" /> : <Mic className="w-4 h-4 text-primary animate-pulse" />}
+          {kind === "video" ? <span className="w-3 h-3 rounded-full bg-red-600 animate-pulse inline-block" /> : <span className="flex gap-1"><span className="w-1 h-4 bg-primary animate-pulse" style={{animationDelay:"0ms"}}/><span className="w-1 h-6 bg-primary animate-pulse" style={{animationDelay:"150ms"}}/><span className="w-1 h-3 bg-primary animate-pulse" style={{animationDelay:"300ms"}}/></span>}
           <span className="text-sm font-semibold">{kind === "video" ? "กำลังอัดวีดีโอ..." : "กำลังอัดเสียง..."}</span>
           <span className="ml-auto font-mono font-bold tabular-nums">{mmss(secs)}</span>
         </div>
+        {kind === "audio" && <div className="flex items-center justify-center gap-1 py-1"><span className="w-2 h-2 rounded-full bg-primary animate-ping"/><span className="text-xs">ไมค์กำลังอัด...</span></div>}
         {kind === "video" && (
           <div className="rounded-lg overflow-hidden bg-black aspect-video w-full max-h-64 mx-auto border-2 border-red-500">
             <video ref={previewRef} muted playsInline autoPlay className="w-full h-full object-cover" />

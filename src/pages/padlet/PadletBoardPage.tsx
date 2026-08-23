@@ -593,10 +593,11 @@ export default function PadletBoardPage() {
               {(recAudio || recVideo) && (
                 <div className={`rounded-xl border p-3 space-y-2 animate-pulse-soft sticky top-0 z-10 shadow-lg ${recVideo ? "border-red-500 bg-red-50 dark:bg-red-950/20" : "border-primary bg-primary/5"}`}>
                   <div className="flex items-center gap-2">
-                    {recVideo ? <span className="w-3 h-3 rounded-full bg-red-600 animate-pulse inline-block" /> : <Mic className="w-4 h-4 text-primary animate-pulse" />}
+                    {recVideo ? <span className="w-3 h-3 rounded-full bg-red-600 animate-pulse inline-block" /> : <span className="flex gap-1"><span className="w-1 h-4 bg-primary animate-pulse" style={{animationDelay:"0ms"}}/><span className="w-1 h-6 bg-primary animate-pulse" style={{animationDelay:"150ms"}}/><span className="w-1 h-3 bg-primary animate-pulse" style={{animationDelay:"300ms"}}/></span>}
                     <span className="text-sm font-semibold">{recVideo ? "กำลังอัดวีดีโอ..." : "กำลังอัดเสียง..."}</span>
                     <span className="ml-auto font-mono font-bold tabular-nums">{mmss(recSecs)}</span>
                   </div>
+                  {!recVideo && <div className="flex items-center justify-center gap-1 py-2"><span className="w-2 h-2 rounded-full bg-primary animate-ping"/><span className="text-xs">ไมค์กำลังอัด...</span></div>}
                   {recVideo && <div className="rounded-lg overflow-hidden bg-black aspect-video w-full max-h-64 mx-auto border-2 border-red-500"><video ref={previewRef} muted playsInline autoPlay className="w-full h-full object-cover" /></div>}
                   <Button type="button" size="sm" variant="destructive" className="w-full gap-2" onClick={recAudio ? togglePadletAudio : togglePadletVideo}><StopCircle className="w-4 h-4" /> หยุดและแนบไฟล์</Button>
                 </div>
