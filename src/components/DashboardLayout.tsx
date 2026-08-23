@@ -143,7 +143,7 @@ const DashboardLayout = () => {
     const checkFirstLogin = async () => {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("avatar_url, first_name, last_name, nickname, must_change_password, pdpa_accepted_at")
+        .select("avatar_url, first_name, last_name, nickname, pdpa_accepted_at")
         .eq("id", userId)
         .maybeSingle();
 
@@ -152,20 +152,16 @@ const DashboardLayout = () => {
         const name = profile.first_name ? (profile.nickname ? `${profile.first_name} (${profile.nickname})` : profile.first_name) : (profile.nickname || "");
         setFullName(name || "");
         
-        // Setup needed if: missing name, no PDPA consent, or admin forced password reset
+        // Setup needed if: missing name or no PDPA consent (no forced password)
         const needsName = !profile.first_name;
         const needsPdpa = !(profile as any).pdpa_accepted_at;
-        const needsPwd = (profile as any).must_change_password === true;
-        if (needsName || needsPdpa || needsPwd) {
-          // Also check school_settings flag
+        if (needsName || needsPdpa) {
           const { data: setting } = await supabase
             .from("school_settings")
             .select("setting_value")
             .eq("setting_key", `first_login_done_${userId}`)
             .maybeSingle();
-          
-          // PDPA and forced password reset always re-trigger setup, ignore the legacy flag
-          if (needsPdpa || needsPwd) {
+          if (needsPdpa) {
             setNeedsSetup(true);
           } else {
             setNeedsSetup(!setting?.setting_value);

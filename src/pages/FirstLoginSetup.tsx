@@ -11,9 +11,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { toast } from "sonner";
-import { Lock, CheckCircle, ArrowRight, Briefcase, User, ShieldCheck, XCircle } from "lucide-react";
+import { CheckCircle, ArrowRight, Briefcase, User, ShieldCheck } from "lucide-react";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
-import { checkPassword } from "@/lib/passwordPolicy";
 import { saveErrorMessage } from "@/lib/saveError";
 
 interface FirstLoginSetupProps {
@@ -45,8 +44,8 @@ const FirstLoginSetup = ({ userId, onComplete }: FirstLoginSetupProps) => {
   const { role } = useUserRole();
   const { user } = useAuthSession();
   const isTeacher = role === "teacher" || role === "director";
-  // Steps: 1 = PDPA, 2 = Personal, [3 = Personnel (teacher only)], last = Password
-  const totalSteps = isTeacher ? 4 : 3;
+  // Steps: 1 = PDPA, 2 = Personal, [3 = Personnel (teacher only)] — no password step
+  const totalSteps = isTeacher ? 3 : 2;
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
@@ -79,10 +78,6 @@ const FirstLoginSetup = ({ userId, onComplete }: FirstLoginSetupProps) => {
   const [prefilled, setPrefilled] = useState(false);
   const [existingStudentCode, setExistingStudentCode] = useState("");
   const [existingEmployeeCode, setExistingEmployeeCode] = useState("");
-
-  // Last step: Password
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
 
   // Auto-set prefix based on gender (only if user hasn't already chosen one)
   // Students default to เด็กชาย/เด็กหญิง, others to นาย/นางสาว
@@ -250,7 +245,13 @@ const FirstLoginSetup = ({ userId, onComplete }: FirstLoginSetupProps) => {
     }
 
 
-    setStep(3);
+    if (isTeacher) {
+      setStep(3);
+    } else {
+      await supabase.from("school_settings").upsert({ setting_key: `first_login_done_${userId}`, setting_value: "true" }, { onConflict: "setting_key" });
+      toast.success(lang === "th" ? "ตั้งค่าเสร็จสมบูรณ์!" : "Setup complete!");
+      onComplete();
+    }
     setLoading(false);
   };
 
@@ -322,42 +323,11 @@ const FirstLoginSetup = ({ userId, onComplete }: FirstLoginSetupProps) => {
     if (error) {
       toast.error(saveErrorMessage(error));
     } else {
-      setStep(4);
+      await supabase.from("school_settings").upsert({ setting_key: `first_login_done_${userId}`, setting_value: "true" }, { onConflict: "setting_key" });
+      toast.success(lang === "th" ? "ตั้งค่าเสร็จสมบูรณ์!" : "Setup complete!");
+      onComplete();
     }
     setLoading(false);
-  };
-
-  const handlePasswordSubmit = async () => {
-    const policy = checkPassword(newPassword, {
-      forbidden: [user?.email?.split("@")[0] || "", generatedCode, firstName, lastName].filter(Boolean),
-    });
-    if (!policy.valid) {
-      toast.error(lang === "th" ? "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร" : "Password must be at least 6 characters");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      toast.error(lang === "th" ? "รหัสผ่านไม่ตรงกัน" : "Passwords do not match");
-      return;
-    }
-    setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) {
-      toast.error(saveErrorMessage(error));
-      setLoading(false);
-      return;
-    }
-
-    // Mark first login complete
-    await supabase
-      .from("school_settings")
-      .upsert({ setting_key: `first_login_done_${userId}`, setting_value: "true" }, { onConflict: "setting_key" });
-
-    // Clear must_change_password flag if it was set by admin
-    await supabase.from("profiles").update({ must_change_password: false } as any).eq("id", userId);
-
-    toast.success(lang === "th" ? "ตั้งค่าเสร็จสมบูรณ์!" : "Setup complete!");
-    setLoading(false);
-    onComplete();
   };
 
   const stepTitles = isTeacher
@@ -365,20 +335,15 @@ const FirstLoginSetup = ({ userId, onComplete }: FirstLoginSetupProps) => {
         { title: lang === "th" ? "ข้อตกลง PDPA" : "PDPA Consent", icon: ShieldCheck },
         { title: lang === "th" ? "ข้อมูลส่วนตัว" : "Personal Info", icon: User },
         { title: lang === "th" ? "ข้อมูลบุคลากร" : "Personnel Info", icon: Briefcase },
-        { title: lang === "th" ? "ตั้งรหัสผ่าน" : "Set Password", icon: Lock },
       ]
     : [
         { title: lang === "th" ? "ข้อตกลง PDPA" : "PDPA Consent", icon: ShieldCheck },
         { title: lang === "th" ? "ข้อมูลส่วนตัว" : "Personal Info", icon: User },
-        { title: lang === "th" ? "ตั้งรหัสผ่าน" : "Set Password", icon: Lock },
       ];
 
-  // Map actual step (1..4) to title index based on role
-  // Non-teacher: step 1→0 (PDPA), 2→1 (Personal), 3→2 (Password)
-  // Teacher:     step 1→0 (PDPA), 2→1 (Personal), 3→2 (Personnel), 4→3 (Password)
-  const titleIndex = !isTeacher && step === 3 ? 2 : step - 1;
+  const titleIndex = step - 1;
   const currentTitle = stepTitles[titleIndex] ?? stepTitles[0];
-  const displayStep = !isTeacher && step === 3 ? 3 : step;
+  const displayStep = step;
 
   return (
     <div className="min-h-screen min-h-[100dvh] flex items-center justify-center gradient-primary relative overflow-hidden px-4 py-8">
@@ -619,76 +584,7 @@ const FirstLoginSetup = ({ userId, onComplete }: FirstLoginSetupProps) => {
             </div>
           )}
 
-          {/* Last Step: Password */}
-          {((step === 3 && !isTeacher) || (step === 4 && isTeacher)) && (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">{lang === "th" ? "รหัสผ่านใหม่" : "New Password"}</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="pl-10 h-9" placeholder="••••••••" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">{lang === "th" ? "ยืนยันรหัสผ่านใหม่" : "Confirm New Password"}</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="pl-10 h-9" placeholder="••••••••" />
-                </div>
-              </div>
-              {/* Password policy checklist + strength */}
-              {(() => {
-                const policy = checkPassword(newPassword, {
-                  forbidden: [user?.email?.split("@")[0] || "", generatedCode, firstName, lastName].filter(Boolean),
-                });
-                const barColor =
-                  policy.score <= 1 ? "bg-red-500" :
-                  policy.score === 2 ? "bg-yellow-500" :
-                  policy.score === 3 ? "bg-blue-500" : "bg-green-600";
-                return (
-                  <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium">{lang === "th" ? "ความแข็งแรงของรหัสผ่าน" : "Password strength"}</span>
-                      <span className="text-muted-foreground">{policy.strengthLabel[lang === "th" ? "th" : "en"]}</span>
-                    </div>
-                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                      <div className={`h-full transition-all ${barColor}`} style={{ width: `${(policy.score / 4) * 100}%` }} />
-                    </div>
-                    <ul className="text-xs space-y-1 pt-1">
-                      {policy.rules.map((r) => (
-                        <li
-                          key={r.id}
-                          className={`flex items-center gap-1.5 ${r.passed ? "text-green-700" : r.required ? "text-muted-foreground" : "text-muted-foreground/70"}`}
-                        >
-                          {r.passed
-                            ? <CheckCircle className="w-3.5 h-3.5 shrink-0" />
-                            : <XCircle className="w-3.5 h-3.5 shrink-0 opacity-50" />
-                          }
-                          <span>{lang === "th" ? r.label : r.labelEn}</span>
-                          {!r.required && (
-                            <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
-                              {lang === "th" ? "ทางเลือก" : "optional"}
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                      {confirmPassword && (
-                        <li className={`flex items-center gap-1.5 ${newPassword === confirmPassword ? "text-green-700" : "text-red-600"}`}>
-                          {newPassword === confirmPassword
-                            ? <CheckCircle className="w-3.5 h-3.5 shrink-0" />
-                            : <XCircle className="w-3.5 h-3.5 shrink-0" />}
-                          {lang === "th" ? "รหัสผ่านตรงกัน" : "Passwords match"}
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                );
-              })()}
-              <Button onClick={handlePasswordSubmit} className="w-full h-10 gradient-primary text-primary-foreground font-semibold gap-2 mt-2" disabled={loading}>
-                {loading ? "..." : <><CheckCircle className="w-4 h-4" /> {lang === "th" ? "เสร็จสิ้น เข้าสู่ระบบ" : "Complete & Enter"}</>}
-              </Button>
-            </div>
-          )}
+
         </CardContent>
       </Card>
     </div>
