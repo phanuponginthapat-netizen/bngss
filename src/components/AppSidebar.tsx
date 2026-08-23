@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import {
   GraduationCap, BookOpen, Users, ClipboardList, Calendar, CalendarDays, CalendarRange,
-  FileText, BarChart3, Shield, ShieldCheck, IdCard,
+  FileText, BarChart3, Shield, ShieldCheck, IdCard, Lock, Wrench, UserX, Bell, Bot,
   Megaphone, Activity, Star, Home, LayoutDashboard,
   UserCog, ChevronDown, Award, Syringe, Globe, User, MessageSquare,
   DollarSign, ShoppingCart, Package, Heart, Banknote, Clock, BookOpenCheck, Brain, AlertTriangle,
@@ -363,6 +363,10 @@ export function AppSidebar() {
       items: [
         { title: L("ตั้งค่าข้อมูลโรงเรียน", "School Settings"), url: "/dashboard/admin/school-settings", icon: SettingsIcon, color: "text-orange-400", roles: ["admin", "director"], desc: L("ระบบ ระดับชั้น ปีการศึกษา GPS ฟิลด์ โมดูล", "System, grades, year, GPS, fields, modules") },
         { title: L("บัญชีผู้สังเกตการณ์ (ศน.)", "Observer Access"), url: "/dashboard/admin/observation", icon: Eye, color: "text-cyan-400", roles: ["admin", "director"], desc: L("QR + Username/Password สำหรับแชร์ให้ผู้ตรวจ · PDPA", "QR + credentials for external reviewers · PDPA") },
+        { title: L("สังเกตการสอน", "Observation Sessions"), url: "/dashboard/admin/observation-sessions", icon: Eye, color: "text-teal-400", roles: ["admin", "director"], desc: L("ตารางสังเกตการสอน · บันทึกผล · รายงาน", "Observation schedule & reports") },
+        { title: L("BigData", "BigData"), url: "/dashboard/admin/bigdata", icon: Database, color: "text-indigo-400", roles: ["admin", "director"], desc: L("คลังข้อมูลขนาดใหญ่ · วิเคราะห์เชิงลึก", "BigData analytics dashboard") },
+        { title: L("Digital Twin", "Digital Twin"), url: "/dashboard/admin/digital-twin", icon: Cpu, color: "text-sky-400", roles: ["admin", "director"], desc: L("แบบจำลองดิจิทัลโรงเรียน · จำลองสถานการณ์", "School digital twin simulation") },
+        { title: L("แจ้งเตือนเสี่ยง", "Early Warning"), url: "/dashboard/admin/early-warning", icon: Bell, color: "text-amber-400", roles: ["admin", "director", "teacher"], desc: L("แจ้งเตือนนักเรียนเสี่ยง · ขาดเรียน ผลตก", "At-risk student alerts") },
         { title: L("ระบบและรายงานผู้ดูแล", "System & Reports (Admin)"), url: "/dashboard/hub/admin-reports", icon: BarChart3, color: "text-teal-400", roles: ["admin", "director"], desc: L("อัปเดต · Log · วิเคราะห์ · Audit · O-NET/NT/PISA · สมศ.", "Updates, logs, analytics, audit, tests") },
       ],
     },
@@ -427,6 +431,9 @@ export function AppSidebar() {
         { title: L("ปพ.5 บันทึกผลการพัฒนาผู้เรียน", "PP.5 Grade Book"), url: "/dashboard/academic/pp5", icon: ClipboardList, color: "text-fuchsia-400", roles: ["admin", "director", "teacher"], desc: L("ลงคะแนน คุณลักษณะ อ่าน-คิด-เขียน รายวิชา", "Per-subject grading") },
         { title: L("ปพ.6 รายงานผลการพัฒนาผู้เรียน", "PP.6 Report"), url: "/dashboard/academic/pp6", icon: FileText, color: "text-purple-400", roles: ["admin", "director", "teacher"], desc: L("รายงานผลการพัฒนาผู้เรียนรายภาคเรียน", "Per-semester report") },
         { title: L("ปพ.2 · 3 · 4 · 7 · 8", "PP.2/3/4/7/8"), url: "/dashboard/academic/pp-docs", icon: FolderOpen, color: "text-pink-400", roles: ["admin", "director", "teacher"], desc: L("รวมเอกสาร ปพ.2 3 4 7 8", "Combined PP.2/3/4/7/8") },
+        { title: L("ล็อกเกรด 80%", "Grade Lock"), url: "/dashboard/academic/grade-lock", icon: Lock, color: "text-amber-400", roles: ["admin", "director", "teacher"], desc: L("ล็อกเกรดเมื่อส่งครบ 80% · ป้องกันแก้ไข", "Lock grades at 80% submission") },
+        { title: L("แก้ 0 ร มส", "Grade Remediation"), url: "/dashboard/academic/grade-remediation", icon: Wrench, color: "text-orange-400", roles: ["admin", "director", "teacher"], desc: L("แก้ผลการเรียน 0 ร มส · ลงทะเบียนซ้ำ", "Remediate 0/R/MS grades") },
+        { title: L("พักการเรียน", "Probation"), url: "/dashboard/academic/probation", icon: UserX, color: "text-rose-400", roles: ["admin", "director", "teacher"], desc: L("พักการเรียน · ติดตามสถานะนักเรียน", "Academic probation tracking") },
       ],
     },
     {
@@ -536,6 +543,9 @@ export function AppSidebar() {
         { title: L("Google Drive ของฉัน", "My Drive"), url: "/dashboard/my-drive", icon: FolderOpen, color: "text-blue-400", roles: ["admin", "director", "teacher", "student", "parent", "alumni"], desc: L("เชื่อม Google Drive ส่วนตัว เปิดไฟล์ในระบบ", "Connect your own Google Drive & browse in-app") },
         { title: L("ชุดเอกสาร Office", "Office Suite"), url: "/dashboard/office", icon: FileText, color: "text-indigo-400", roles: ["admin", "director", "teacher", "student", "parent", "alumni"], desc: L("Docs · Sheets · Slides · PDF บันทึกลง Google Drive", "Docs, Sheets, Slides, PDF — save to Google Drive") },
         { title: L("คลังไฟล์ LINE Vault", "LINE Vault"), url: "/dashboard/line-vault", icon: StickyNote, color: "text-teal-400", roles: ["admin", "director", "teacher"], desc: L("รูป · ไฟล์ · โน้ตจาก LINE OA ไม่หมดอายุ", "Photos, files & notes from LINE OA — never expire") },
+        { title: L("ตั้งค่าแจ้งเตือน", "Notification Settings"), url: "/dashboard/settings/notifications", icon: Bell, color: "text-amber-400", roles: ["admin", "director", "teacher", "student", "parent", "alumni"], desc: L("ตั้งค่าการรับแจ้งเตือน · LINE · อีเมล", "Notification preferences · LINE · email") },
+        { title: L("สแกน QR", "Mobile QR Scan"), url: "/dashboard/staff/mobile-qr-scan", icon: QrCode, color: "text-emerald-400", roles: ["admin", "director", "teacher"], desc: L("สแกน QR เช็คชื่อด้วยมือถือ", "Mobile QR check-in") },
+        { title: L("AI ติวเตอร์", "AI Tutor"), url: "/dashboard/ai-tutor", icon: Bot, color: "text-violet-400", roles: ["admin", "director", "teacher", "student", "parent"], desc: L("ติวเตอร์ส่วนตัว วิเคราะห์จุดอ่อน · แนะนำบทเรียน", "Personal AI tutor · weak spots & lessons") },
       ],
     },
 
