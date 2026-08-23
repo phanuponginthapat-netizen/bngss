@@ -37,25 +37,10 @@ verify_jwt = false
 [functions.link-account]
 verify_jwt = false
 
-[functions.games-auth]
-verify_jwt = false
-
-[functions.games-submit]
-verify_jwt = false
-
-[functions.games-leaderboard]
-verify_jwt = false
-
 [functions.calendar-ics]
 verify_jwt = false
 
 [functions.manifest]
-verify_jwt = false
-
-[functions.ext-config]
-verify_jwt = false
-
-[functions.ext-log]
 verify_jwt = false
 
 [functions.district-feed-api]
