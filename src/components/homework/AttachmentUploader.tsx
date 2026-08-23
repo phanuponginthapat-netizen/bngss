@@ -122,7 +122,7 @@ export default function AttachmentUploader({
   return (
     <div className="space-y-2">
       {(recordingAudio || recordingVideo) && (
-        <div className={`rounded-xl border p-3 space-y-2 animate-pulse-soft ${recordingVideo ? "border-red-500 bg-red-50 dark:bg-red-950/20" : "border-primary bg-primary/5"}`}>
+        <div className={`rounded-xl border p-3 space-y-2 animate-pulse-soft sticky top-0 z-10 shadow-lg ${recordingVideo ? "border-red-500 bg-red-50 dark:bg-red-950/20" : "border-primary bg-primary/5"}`}>
           <div className="flex items-center gap-2">
             {recordingVideo
               ? <Circle className="w-4 h-4 text-red-600 fill-red-600 animate-pulse" />
@@ -133,7 +133,7 @@ export default function AttachmentUploader({
             <span className="ml-auto font-mono font-bold tabular-nums">{mmss(recordingSecs)}</span>
           </div>
           {recordingVideo && (
-            <div className="rounded-lg overflow-hidden bg-black aspect-video max-w-xs mx-auto">
+            <div className="rounded-lg overflow-hidden bg-black aspect-video w-full max-h-64 mx-auto border-2 border-red-500">
               <video ref={videoElRef} muted playsInline autoPlay className="w-full h-full object-cover" />
             </div>
           )}

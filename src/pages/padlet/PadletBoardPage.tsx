@@ -100,6 +100,13 @@ export default function PadletBoardPage() {
   const startTimer = () => { setRecSecs(0); recTimerRef.current = window.setInterval(()=> setRecSecs(s=>s+1),1000); };
   const stopTimer = () => { if (recTimerRef.current) clearInterval(recTimerRef.current); recTimerRef.current=null; };
   const mmss = (s:number)=> `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  // Attach preview stream when recVideo starts (ensure video element is mounted)
+  useEffect(() => {
+    if (recVideo && previewStreamRef.current && previewRef.current) {
+      previewRef.current.srcObject = previewStreamRef.current;
+      previewRef.current.play().catch(()=>{});
+    }
+  }, [recVideo]);
 
   const openEdit = () => {
     if (!board) return;
@@ -584,13 +591,13 @@ export default function PadletBoardPage() {
                 <Paperclip className="w-3 h-3" /> ไฟล์แนบ · รูปภาพ / เอกสาร / เสียง / วิดีโอ (สูงสุด 20MB ต่อไฟล์)
               </label>
               {(recAudio || recVideo) && (
-                <div className={`rounded-xl border p-3 space-y-2 animate-pulse-soft ${recVideo ? "border-red-500 bg-red-50 dark:bg-red-950/20" : "border-primary bg-primary/5"}`}>
+                <div className={`rounded-xl border p-3 space-y-2 animate-pulse-soft sticky top-0 z-10 shadow-lg ${recVideo ? "border-red-500 bg-red-50 dark:bg-red-950/20" : "border-primary bg-primary/5"}`}>
                   <div className="flex items-center gap-2">
                     {recVideo ? <span className="w-3 h-3 rounded-full bg-red-600 animate-pulse inline-block" /> : <Mic className="w-4 h-4 text-primary animate-pulse" />}
                     <span className="text-sm font-semibold">{recVideo ? "กำลังอัดวีดีโอ..." : "กำลังอัดเสียง..."}</span>
                     <span className="ml-auto font-mono font-bold tabular-nums">{mmss(recSecs)}</span>
                   </div>
-                  {recVideo && <div className="rounded-lg overflow-hidden bg-black aspect-video max-w-xs mx-auto"><video ref={previewRef} muted playsInline autoPlay className="w-full h-full object-cover" /></div>}
+                  {recVideo && <div className="rounded-lg overflow-hidden bg-black aspect-video w-full max-h-64 mx-auto border-2 border-red-500"><video ref={previewRef} muted playsInline autoPlay className="w-full h-full object-cover" /></div>}
                   <Button type="button" size="sm" variant="destructive" className="w-full gap-2" onClick={recAudio ? togglePadletAudio : togglePadletVideo}><StopCircle className="w-4 h-4" /> หยุดและแนบไฟล์</Button>
                 </div>
               )}
