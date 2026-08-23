@@ -195,6 +195,14 @@ function AudioRecorder({ value, onChange, readOnly, studentId }: { value: any; o
   const chunksRef = useRef<BlobPart[]>([]);
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [recSecs, setRecSecs] = useState(0);
+  const recTimerRef = useRef<number|null>(null);
+  const startTimer = () => { setRecSecs(0); recTimerRef.current = window.setInterval(()=>setRecSecs(s=>s+1),1000); };
+  const stopTimer = () => { if(recTimerRef.current) clearInterval(recTimerRef.current); recTimerRef.current=null; };
+  const mmss = (s:number)=> `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  useEffect(() => {
+    return () => { if(recTimerRef.current) clearInterval(recTimerRef.current); };
+  }, []);
 
   useEffect(() => {
     if (!value) { setUrl(null); return; }
@@ -228,24 +236,40 @@ function AudioRecorder({ value, onChange, readOnly, studentId }: { value: any; o
         setError(String(e?.message ?? e));
       } finally {
         stream?.getTracks().forEach(t => t.stop());
+        stopTimer();
       }
     };
     rec.start();
     recRef.current = rec;
     setRecording(true);
+    startTimer();
   };
-  const stop = () => { recRef.current?.stop(); setRecording(false); };
+  const stop = () => { recRef.current?.stop(); setRecording(false); stopTimer(); };
 
   return (
-    <div className="w-full h-full flex items-center gap-1 bg-white/95 border border-amber-400 rounded px-1">
-      {!readOnly && (
-        recording
-          ? <Button size="icon" variant="destructive" className="h-6 w-6" onClick={stop}><Square className="w-3 h-3" /></Button>
-          : <Button size="icon" variant="outline" className="h-6 w-6" onClick={start}><Mic className="w-3 h-3" /></Button>
+    <div className="w-full h-full flex flex-col gap-1 bg-white/95 border border-amber-400 rounded px-1 py-1">
+      {recording ? (
+        <div className="rounded-lg border border-red-500 bg-red-50 dark:bg-red-950/20 p-2 space-y-1 sticky top-0 z-10 shadow">
+          <div className="flex items-center gap-2">
+            <span className="flex gap-1"><span className="w-1 h-4 bg-red-600 animate-pulse" style={{animationDelay:"0ms"}}/><span className="w-1 h-6 bg-red-600 animate-pulse" style={{animationDelay:"150ms"}}/><span className="w-1 h-3 bg-red-600 animate-pulse" style={{animationDelay:"300ms"}}/></span>
+            <span className="text-xs font-semibold">กำลังอัดเสียง...</span>
+            <span className="ml-auto font-mono font-bold tabular-nums text-xs">{mmss(recSecs)}</span>
+            <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse inline-block" />
+          </div>
+          <div className="flex items-center justify-center gap-1 py-1"><span className="w-2 h-2 rounded-full bg-red-600 animate-ping"/><span className="text-[10px]">ไมค์กำลังอัด...</span></div>
+          <Button size="sm" variant="destructive" className="w-full h-6 text-xs gap-1" onClick={stop}><Square className="w-3 h-3" /> หยุดและบันทึก</Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1">
+          {!readOnly && (
+            <Button size="icon" variant="outline" className="h-6 w-6" onClick={start}><Mic className="w-3 h-3" /></Button>
+          )}
+          {url && <audio src={url} controls className="h-6 flex-1" />}
+          {!url && <span className="text-[10px] text-muted-foreground">ยังไม่มีเสียง</span>}
+        </div>
       )}
-      {url && <audio src={url} controls className="h-6 flex-1" />}
-      {!url && !recording && <span className="text-[10px] text-muted-foreground">ยังไม่มีเสียง</span>}
       {error && <span className="text-[10px] text-destructive truncate" title={error}>{error}</span>}
+      {!recording && url && null}
     </div>
   );
 }
