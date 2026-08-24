@@ -1133,12 +1133,13 @@ const FaceKioskPage = () => {
                   let track = livenessRef.current.get(found.studentId);
                   if (!track) { track = newLivenessTrack(); livenessRef.current.set(found.studentId, track); }
                   live = recordLivenessSample(track, makeLivenessSample(tNow, det.landmarks, box)).live;
-                  // กันผู้ใช้ยืนรอนานเกินไป — เห็นใบหน้าคนเดิมต่อเนื่องเกิน 1.5 วินาที
+                  // กันผู้ใช้ยืนรอนานเกินไป — เห็นใบหน้าคนเดิมต่อเนื่องเกิน 0.7 วินาที
                   // และเป็น match ที่แน่นมาก ให้ผ่าน (รูปถ่ายจะถูกกรองด้วย texture gate อยู่แล้ว)
                   if (!live && strongHit) {
                     const firstSeen = (track.samples[0]?.t ?? tNow);
-                    if (tNow - firstSeen > 1500) live = true;
+                    if (tNow - firstSeen > 700) live = true;
                   }
+
                 }
                 if (confirmed && live) {
                   // Texture verification — เทียบพื้นผิวใบหน้าสดกับภาพลงทะเบียน กันคนหน้าคล้าย/รูปถ่าย

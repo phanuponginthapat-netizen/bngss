@@ -59,13 +59,14 @@ export const LIVENESS_CONFIG = {
   /** EAR สูงกว่านี้ = ตาเปิด (ต้องกลับมาถึงค่านี้ถึงนับว่า "กะพริบครบ 1 ครั้ง") */
   BLINK_EAR_OPEN: 0.27,
   /** ต้องสะสมการหมุนศีรษะรวมถึงเกณฑ์นี้ (แบบช้า) — คนจริงขยับหัวเล็กน้อยตลอด */
-  POSE_TRAVEL_TARGET: 0.12,
+  POSE_TRAVEL_TARGET: 0.09,
   /** จำนวนตัวอย่างขั้นต่ำก่อนพิจารณา micro-motion */
-  MICRO_MIN_SAMPLES: 4,
+  MICRO_MIN_SAMPLES: 3,
   /** ต้องเห็นใบหน้าต่อเนื่องอย่างน้อยกี่ ms ก่อนใช้ micro-motion */
-  MICRO_MIN_MS: 900,
+  MICRO_MIN_MS: 550,
   /** ผลรวมการขยับตำแหน่ง/ระยะ (นอร์มัลไลซ์ด้วยขนาดใบหน้า) ที่ถือว่าเป็นคนจริง */
-  MICRO_MOTION_TARGET: 0.05,
+  MICRO_MOTION_TARGET: 0.04,
+
   /** จำนวนตัวอย่างสูงสุดที่เก็บ (กันหน่วยความจำบาน) */
   MAX_SAMPLES: 48,
 } as const;
