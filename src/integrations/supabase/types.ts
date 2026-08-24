@@ -16045,6 +16045,10 @@ export type Database = {
         Args: { closing_year_be: number }
         Returns: undefined
       }
+      cron_invoke: {
+        Args: { _body?: Json; _function_name: string; _timeout_ms?: number }
+        Returns: number
+      }
       current_school_id: { Args: never; Returns: string }
       district_outbox_enqueue: {
         Args: {
