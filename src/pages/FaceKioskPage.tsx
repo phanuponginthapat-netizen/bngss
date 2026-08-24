@@ -33,7 +33,7 @@ import KioskScreensaver from "@/components/facescan/KioskScreensaver";
 import { useCmsValues } from "@/hooks/useCmsSettings";
 import { wakeKioskScreen } from "@/lib/kioskWake";
 import { getRegisteredFaceImage } from "@/lib/registeredFace";
-import { checkTodayScan, markScanned, methodLabel } from "@/lib/scanDedup";
+import { checkTodayScan, markScanned, methodLabel, clearScanDedupCache } from "@/lib/scanDedup";
 import { useKioskHeartbeat } from "@/hooks/useKioskHeartbeat";
 import { useKioskLockdown } from "@/hooks/useKioskLockdown";
 import { useIsPortrait } from "@/hooks/useScreenOrientation";
@@ -421,8 +421,10 @@ const FaceKioskPage = () => {
 
 
   useEffect(() => {
-    (async () => {
+    let dayKey = todayBangkok();
+    const load = async () => {
       const today = todayBangkok();
+      dayKey = today;
       const { data } = await supabase.from("face_scan_logs")
         .select("student_id, scan_type").eq("scan_date", today);
       const entrySet = new Set<string>();
@@ -434,8 +436,39 @@ const FaceKioskPage = () => {
       }
       seenTodayRef.current = { entry: entrySet, exit: exitSet };
       setTodayCounts({ entry: entrySet.size, exit: exitSet.size });
-    })();
+    };
+    void load();
+
+    // ข้ามวัน → ล้างสถานะกันสแกนซ้ำแล้วโหลดใหม่
+    const dayTimer = window.setInterval(() => {
+      if (todayBangkok() !== dayKey) {
+        clearScanDedupCache();
+        cooldownRef.current.clear();
+        justScannedRef.current.clear();
+        void load();
+      }
+    }, 60_000);
+
+    // ซิงก์ข้ามเครื่อง: เครื่องอื่นสแกน (ใบหน้า/QR) → กันสแกนซ้ำที่เครื่องนี้ทันที
+    const ch = supabase
+      .channel("kiosk-scan-dedup")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "face_scan_logs" }, (payload: any) => {
+        const r = payload.new || {};
+        if (!r.student_id || r.scan_date !== todayBangkok()) return;
+        const set = r.scan_type === "exit" ? seenTodayRef.current.exit : seenTodayRef.current.entry;
+        if (set.has(r.student_id)) return;
+        set.add(r.student_id);
+        markScanned(r.student_id, r.scan_type === "exit" ? "exit" : "entry", r.entry_method);
+        setTodayCounts({ entry: seenTodayRef.current.entry.size, exit: seenTodayRef.current.exit.size });
+      })
+      .subscribe();
+
+    return () => {
+      window.clearInterval(dayTimer);
+      supabase.removeChannel(ch);
+    };
   }, []);
+
 
   useEffect(() => {
     if (qrOnly) {
@@ -540,6 +573,7 @@ const FaceKioskPage = () => {
   const recordScan = useCallback(async (
     studentId: string, studentCode: string, name: string, classroom: string, avatar: string | null, confidence: number, capturedFace?: string,
     enrolledFace?: string | null,
+    method: "face" | "qr" = "face",
   ) => {
     const now = Date.now();
     const mode = scanModeRef.current;
@@ -650,7 +684,7 @@ const FaceKioskPage = () => {
     const scanTemp = gateRef.current.getLiveTemp();
     const { data, error } = await supabase.from("face_scan_logs").insert({
       student_id: studentId, scan_date: todayBangkok(), scan_type: mode, confidence,
-      scanned_by: user?.id, device_label: `tablet-kiosk-${mode}`,
+      scanned_by: user?.id, device_label: `tablet-kiosk-${mode}`, entry_method: method,
       captured_face_url: uploadedFaceUrl,
       ...(scanTemp != null ? { temperature_c: scanTemp } : {}),
     } as any).select("id").maybeSingle();
@@ -671,7 +705,7 @@ const FaceKioskPage = () => {
     }
     justScannedRef.current.set(cdKey, now);
     justScannedRef.current.set(studentId, now);
-    markScanned(studentId, mode, "face");
+    markScanned(studentId, mode, method);
 
     playSuccessSound();
     if (voiceEnabled) speakText(`สแกน${modeLabel}สำเร็จ ${name}`);
@@ -1386,7 +1420,7 @@ const FaceKioskPage = () => {
         return;
       }
 
-      await recordScan(student.studentId, student.studentCode, student.name, student.classroom, student.avatar || null, 1, undefined);
+      await recordScan(student.studentId, student.studentCode, student.name, student.classroom, student.avatar || null, 1, undefined, null, "qr");
 
     };
 
