@@ -1,6 +1,6 @@
 // OBEC Hub — ส่งออกไฟล์ตามสเปค สพฐ. แบบไร้รอยต่อ
 import * as XLSX from "xlsx";
-import * as JSZip from "jszip";
+import JSZip from "jszip";
 
 /**
  * DMC Export — 25+ fields ตาม标准 สพฐ. Data Management Center
