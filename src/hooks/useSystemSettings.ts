@@ -46,7 +46,9 @@ export function useSystemSettings() {
     try {
       const logo = settings.school_logo || settings.app_favicon_url || "";
       const favicon = settings.app_favicon_url || settings.school_logo || "";
-      const name = settings.app_name || settings.school_name || "";
+      const rawName = settings.app_name || settings.school_name || "";
+      // กันชื่อสั้น/ถูกตัด แสดงเป็นตัวอักษรไม่ครบ
+      const name = (rawName || "").replace(/\s/g, "").length < 3 ? "BNG Smart School" : rawName;
       const shortName = settings.app_short_name || (settings as any).school_short_name || name;
       const themeColor =
         (settings as any).theme_color ||
