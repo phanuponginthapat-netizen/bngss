@@ -51,7 +51,7 @@ type FaceLog = {
   scan_date: string;
   scan_time: string | null;
   scan_type: string | null;
-  status: string | null;
+  entry_method: string | null;
   created_at: string;
 };
 
