@@ -67,11 +67,12 @@ const LeaveBalancePage = () => {
       const ids = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
       let profileMap: Record<string, any> = {};
       if (ids.length) {
-        const { data: profs } = await (supabase as any)
-          .from("profiles")
-          .select("id, first_name, last_name, prefix")
-          .in("id", ids);
-        profileMap = Object.fromEntries((profs || []).map((p: any) => [p.id, p]));
+        const [{ data: profs }, { data: pers }] = await Promise.all([
+          (supabase as any).from("profiles").select("id, first_name, last_name").in("id", ids),
+          (supabase as any).from("personnel").select("user_id, prefix").in("user_id", ids),
+        ]);
+        const prefixMap = Object.fromEntries((pers || []).map((p: any) => [p.user_id, p.prefix]));
+        profileMap = Object.fromEntries((profs || []).map((p: any) => [p.id, { ...p, prefix: prefixMap[p.id] }]));
       }
       return rows.map((b: any) => ({
         ...b,
