@@ -1078,14 +1078,18 @@ export type FaceVariantKey = "normal" | "bright" | "dark" | "warm" | "cool" | "f
 
 const VARIANT_FILTERS: Record<FaceVariantKey, string> = {
   normal: "none",
-  bright: "brightness(1.45) contrast(0.92) saturate(0.95)",
-  dark: "brightness(0.6) contrast(1.12)",
-  warm: "sepia(0.35) saturate(1.25) hue-rotate(-12deg) brightness(1.05)",
-  cool: "saturate(0.85) hue-rotate(14deg) brightness(0.95) contrast(1.05)",
-  flat: "contrast(0.72) brightness(1.12) saturate(0.8)",
+  // ค่าถูกลดลงจากเดิม (1.45/0.6) — ของเดิมแรงเกินจนใบหน้าเพี้ยนกลายเป็น "คนละคน"
+  bright: "brightness(1.16) contrast(0.97)",
+  dark: "brightness(0.84) contrast(1.05)",
+  warm: "sepia(0.14) saturate(1.08) brightness(1.03)",
+  cool: "saturate(0.92) hue-rotate(6deg) brightness(0.97)",
+  flat: "contrast(0.88) brightness(1.05)",
 };
 
 export const DEFAULT_FACE_VARIANTS: FaceVariantKey[] = ["bright", "dark", "warm", "cool"];
+
+/** ระยะห่างสูงสุดที่ variant ยังถือว่าเป็น "คนเดียวกัน" — เกินกว่านี้แปลว่าฟิลเตอร์ทำให้เพี้ยน ต้องทิ้ง */
+export const VARIANT_MAX_DRIFT = 0.30;
 
 /** สร้างภาพใบหน้าในสภาพแสงจำลอง 1 แบบ */
 export function makeFaceVariant(
