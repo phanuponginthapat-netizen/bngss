@@ -1315,24 +1315,35 @@ const FaceKioskPage = () => {
   // อ่าน QR จากเฟรมวิดีโอเดียวกัน ใช้ native BarcodeDetector ถ้ามี
   // กันสแกนซ้ำผ่าน seenTodayRef + cooldownRef เดิม (รวมถึงเคสจับทั้งหน้า+QR พร้อมกัน)
   const qrCooldownRef = useRef<Map<string, number>>(new Map());
+  const lastQrAtRef = useRef<number>(0);
   useEffect(() => {
     if (!streaming || screensaver) return;
     // @ts-ignore — BarcodeDetector ยังไม่อยู่ใน TS lib มาตรฐาน
     const BD: any = (window as any).BarcodeDetector;
     const scanCanvas = document.createElement("canvas");
     const scanCtx = scanCanvas.getContext("2d", { willReadFrequently: true });
+    // โหลด jsQR เสมอ — Chromium บน Linux มักมี BarcodeDetector แต่ใช้งานจริงไม่ได้ (คืนค่าว่างตลอด)
     let jsQR: any = null;
-    if (!BD) {
-      import("jsqr").then(m => jsQR = m.default).catch(() => {});
-    }
+    import("jsqr").then((m) => { jsQR = m.default; }).catch(() => {});
     let cancelled = false;
     let detector: any = null;
+    let detectorMisses = 0;      // นับเฟรมที่ native detector ไม่เจออะไรเลย
+    let detectorHits = 0;
     if (BD) {
-      try {
-        detector = new BD({ formats: ["qr_code", "code_128", "code_39", "ean_13"] });
-      } catch (e) {
-        try { detector = new BD({ formats: ["qr_code"] }); } catch {}
-      }
+      (async () => {
+        try {
+          // ถ้าไม่รองรับ qr_code (เช่น Linux ที่ไม่มี barcode service) → ไม่ใช้ native
+          const supported: string[] = (await BD.getSupportedFormats?.()) || [];
+          if (supported.length && !supported.includes("qr_code")) return;
+          try {
+            detector = new BD({ formats: ["qr_code", "code_128", "code_39", "ean_13"] });
+          } catch {
+            detector = new BD({ formats: ["qr_code"] });
+          }
+        } catch {
+          detector = null;
+        }
+      })();
     }
 
     // map student_code -> student info สำหรับ lookup ไว
@@ -1467,11 +1478,25 @@ const FaceKioskPage = () => {
       try {
         let rawCodes: string[] = [];
         if (detector) {
-          const codes = await detector.detect(videoRef.current);
-          rawCodes = (codes || []).map((c: any) => String(c.rawValue || "").trim());
+          try {
+            const codes = await detector.detect(videoRef.current);
+            rawCodes = (codes || []).map((c: any) => String(c.rawValue || "").trim()).filter(Boolean);
+          } catch {
+            // native detector พัง (Linux/ไม่มี service) → เลิกใช้ ไปใช้ jsQR
+            detector = null;
+          }
+          if (rawCodes.length) detectorHits++;
+          else detectorMisses++;
+          // ไม่เคยอ่านได้เลยใน ~8 วินาทีแรก → ปิด native แล้วใช้ jsQR แทน
+          if (detector && detectorHits === 0 && detectorMisses > 60 && jsQR) detector = null;
+          // เสริมด้วย jsQR ระหว่างที่ native ยังไม่เคยอ่านได้ (กันเคสอ่านไม่ออกเงียบ ๆ)
+          if (!rawCodes.length && detectorHits === 0 && jsQR) {
+            rawCodes = scanJsQrMulti(videoRef.current);
+          }
         } else {
           rawCodes = scanJsQrMulti(videoRef.current);
         }
+        if (rawCodes.length) lastQrAtRef.current = Date.now();
         const tNow = Date.now();
         await Promise.all(rawCodes.map((r) => processCode(r, tNow)));
       } catch (e) {
