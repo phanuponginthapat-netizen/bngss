@@ -36,6 +36,7 @@ import { getRegisteredFaceImage } from "@/lib/registeredFace";
 import { checkTodayScan, markScanned, methodLabel } from "@/lib/scanDedup";
 import { useKioskHeartbeat } from "@/hooks/useKioskHeartbeat";
 import { useKioskLockdown } from "@/hooks/useKioskLockdown";
+import { useIsPortrait } from "@/hooks/useScreenOrientation";
 import { KIOSK_TURBO_PROFILE } from "@/lib/kioskPerf";
 
 import { saveErrorMessage } from "@/lib/saveError";
@@ -137,6 +138,8 @@ const FaceKioskPage = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
   const [now, setNow] = useState(new Date());
+  // รองรับการวางจอทั้งแนวตั้งและแนวนอน — สลับ layout อัตโนมัติ
+  const portrait = useIsPortrait();
   const [savedPos, setSavedPos] = useState({ x: 50, y: 50 });
   const [faceCount, setFaceCount] = useState(0);
   const [networkUrl, setNetworkUrl] = useState<string>(() => localStorage.getItem(NETWORK_CAM_URL_KEY) || "");
@@ -1818,9 +1821,13 @@ const FaceKioskPage = () => {
       )}
 
       {/* Main grid: camera (left) + scan list (right) */}
-      <div className="absolute inset-0 grid grid-cols-[1fr_360px] gap-3 p-3 pt-12 pb-28">
+      <div
+        className={`absolute inset-0 grid gap-3 p-3 pt-12 pb-28 ${
+          portrait ? "grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,38%)]" : "grid-cols-[1fr_360px] grid-rows-1"
+        }`}
+      >
         {/* Camera panel with school header */}
-        <div className="relative rounded-2xl overflow-hidden bg-white shadow-xl flex flex-col" style={cameraPanelStyle}>
+        <div className="relative min-h-0 rounded-2xl overflow-hidden bg-white shadow-xl flex flex-col" style={cameraPanelStyle}>
           {/* School header banner */}
           <div className="flex items-center gap-3 px-5 py-3" style={headerBannerStyle}>
             {schoolLogo ? (
@@ -1904,8 +1911,8 @@ const FaceKioskPage = () => {
 
             {/* ผลการจับคู่ล่าสุด: ใบหน้าที่ลงทะเบียน vs ใบหน้าตอนสแกน */}
             {lastMatch && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 animate-scale-in">
-                <div className={`flex items-center gap-4 rounded-2xl px-5 py-3 shadow-2xl backdrop-blur bg-white/95 border-2 ${lastMatch.scanType === "exit" ? "border-rose-400" : "border-emerald-400"}`}>
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 animate-scale-in w-[92%] max-w-[640px]">
+                <div className={`flex flex-wrap items-center justify-center gap-4 rounded-2xl px-5 py-3 shadow-2xl backdrop-blur bg-white/95 border-2 ${lastMatch.scanType === "exit" ? "border-rose-400" : "border-emerald-400"}`}>
                   <div className="text-center">
                     <div className="w-24 h-24 rounded-xl overflow-hidden bg-slate-100 border-2 border-slate-300">
                       {lastMatch.registeredFace
@@ -1923,7 +1930,7 @@ const FaceKioskPage = () => {
                     </div>
                     <p className="text-[11px] font-semibold text-slate-600 mt-1">ตอนสแกน</p>
                   </div>
-                  <div className="pl-3 border-l border-slate-200 min-w-[190px]">
+                  <div className="pl-3 sm:border-l border-slate-200 min-w-[190px]">
                     <p className={`text-xs font-bold ${lastMatch.scanType === "exit" ? "text-rose-600" : "text-emerald-600"}`}>
                       บันทึก{lastMatch.scanType === "exit" ? "ออก" : "เข้า"}โรงเรียนแล้ว
                     </p>
@@ -1950,14 +1957,14 @@ const FaceKioskPage = () => {
         </div>
 
         {/* Recent scans list */}
-        <div className="rounded-2xl bg-white/80 backdrop-blur shadow-xl overflow-hidden flex flex-col" style={sidePanelStyle}>
+        <div className="min-h-0 rounded-2xl bg-white/80 backdrop-blur shadow-xl overflow-hidden flex flex-col" style={sidePanelStyle}>
           <div className="px-3 py-2" style={sideHeaderStyle}>
             <h2 className="text-sm font-bold" style={{ color: themeAccent }}>รายการสแกนล่าสุด</h2>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2 space-y-2">
+          <div className={`flex-1 overflow-y-auto p-2 ${portrait ? "grid grid-cols-2 gap-2 content-start" : "space-y-2"}`}>
             {recent.length === 0 ? (
-              <p className="text-center text-sm text-slate-400 py-12">ยังไม่มีการสแกน</p>
+              <p className={`text-center text-sm text-slate-400 py-12 ${portrait ? "col-span-2" : ""}`}>ยังไม่มีการสแกน</p>
             ) : (
               recent.map((r, i) => (
                 <div key={i} className={`flex items-center gap-2 rounded-lg p-1.5 border shadow-sm ${r.scanType === "exit" ? "bg-rose-50 border-rose-200" : "bg-white border-pink-200"}`}>

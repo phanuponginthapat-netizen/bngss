@@ -64,6 +64,7 @@ export default function KioskSetupPage() {
   const [battCritical, setBattCritical] = useState(5);
   const [battChargeMax, setBattChargeMax] = useState(80);
   const [lowMem, setLowMem] = useState<"auto" | "on" | "off">("auto");
+  const [rotate, setRotate] = useState<"normal" | "left" | "right" | "inverted" | "auto">("normal");
   const [memMinMb, setMemMinMb] = useState(140);
   const [savedUpdatedAt, setSavedUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -112,6 +113,7 @@ export default function KioskSetupPage() {
           if (typeof cfg.exitPin === "string") setExitPin(cfg.exitPin);
           if (typeof cfg.battCritical === "number") setBattCritical(cfg.battCritical);
           if (typeof cfg.battChargeMax === "number") setBattChargeMax(cfg.battChargeMax);
+          if (["normal", "left", "right", "inverted", "auto"].includes(cfg.rotate)) setRotate(cfg.rotate);
           if (cfg.lowMem === "auto" || cfg.lowMem === "on" || cfg.lowMem === "off") setLowMem(cfg.lowMem);
           if (typeof cfg.memMinMb === "number") setMemMinMb(cfg.memMinMb);
           if (typeof cfg.updated_at === "string") setSavedUpdatedAt(cfg.updated_at);
@@ -156,7 +158,7 @@ export default function KioskSetupPage() {
         enableDailyReboot, rebootTime, idleLogoutMin, idleShutdownMin,
         powerOn, powerOff, exitPin,
         battCritical, battChargeMax,
-        lowMem, memMinMb,
+        lowMem, memMinMb, rotate,
         updated_at: nowIso,
       };
       const { error } = await supabase
@@ -217,11 +219,12 @@ export default function KioskSetupPage() {
         battChargeMax,
         lowMem,
         memMinMb,
+        rotate,
         monitorAgentUrl:
           mode === "student" ? `${PUBLIC_ORIGIN}/dashboard/monitor/agent` : undefined,
         schoolName,
       }),
-    [mode, kioskUrl, kioskUser, wifiSsid, wifiPass, enableDailyReboot, rebootTime, idleLogoutMin, idleShutdownMin, powerOn, powerOff, battCritical, battChargeMax, lowMem, memMinMb, schoolName, PUBLIC_ORIGIN],
+    [mode, kioskUrl, kioskUser, wifiSsid, wifiPass, enableDailyReboot, rebootTime, idleLogoutMin, idleShutdownMin, powerOn, powerOff, battCritical, battChargeMax, lowMem, memMinMb, rotate, schoolName, PUBLIC_ORIGIN],
   );
 
   const oneLiner = `curl -fsSL ${PUBLIC_ORIGIN}/kiosk-setup.sh | sudo KIOSK_MODE=${mode} bash`;
@@ -494,6 +497,25 @@ export default function KioskSetupPage() {
                 0 = ไม่จำกัด · ยืดอายุแบตเครื่องที่เสียบไฟตลอด (ต้องรองรับโดยฮาร์ดแวร์)
               </p>
             </div>
+          </div>
+
+          <div className="rounded-lg border p-3">
+            <Label className="flex items-center gap-2 mb-2">
+              <RotateCcw className="h-4 w-4" /> การวางจอ / การหมุนหน้าจอ
+            </Label>
+            <Select value={rotate} onValueChange={(v) => setRotate(v as typeof rotate)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent className="z-50 bg-popover">
+                <SelectItem value="normal">แนวนอน (Landscape)</SelectItem>
+                <SelectItem value="left">แนวตั้ง — หมุนซ้าย 90°</SelectItem>
+                <SelectItem value="right">แนวตั้ง — หมุนขวา 90°</SelectItem>
+                <SelectItem value="inverted">แนวนอนกลับหัว 180°</SelectItem>
+                <SelectItem value="auto">ไม่ตั้งค่า (ใช้ค่าเดิมของเครื่อง)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              หมุนทั้งภาพและพิกัดทัชสกรีนให้ตรงกัน · หน้าสแกนใบหน้าจะจัดวางเป็นแนวตั้ง/แนวนอนอัตโนมัติ
+            </p>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">

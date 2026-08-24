@@ -200,6 +200,10 @@ KIOSK_BATT_CRITICAL="${KIOSK_BATT_CRITICAL:-5}"      # % ต่ำสุดก�
 KIOSK_BATT_CHARGE_MAX="${KIOSK_BATT_CHARGE_MAX:-80}" # จำกัดชาร์จสูงสุด ยืดอายุแบต (0 = ไม่จำกัด)
 KIOSK_TIMEZONE="${KIOSK_TIMEZONE:-Asia/Bangkok}"
 
+# การหมุนจอ: normal (แนวนอน) | left | right (แนวตั้ง) | inverted | auto (ตามค่าเดิมของเครื่อง)
+# ระบบจะหมุนทั้งภาพและพิกัดทัชสกรีนให้ตรงกัน
+KIOSK_ROTATE="${KIOSK_ROTATE:-normal}"
+
 # โหมดประหยัดหน่วยความจำ (zram + earlyoom + mem-guard + flag Chromium)
 # auto = เปิดอัตโนมัติเมื่อ RAM <= 3GB (เช่น HP Pavilion x2 2GB) | 1 = บังคับเปิด | 0 = ปิด
 KIOSK_LOWMEM="${KIOSK_LOWMEM:-auto}"
@@ -1211,6 +1215,44 @@ Exec=sh -c 'sleep 5; /opt/kiosk/fix-audio.sh; true'
 X-GNOME-Autostart-enabled=true
 EOF
 
+# ---------------- 5.5) การหมุนจอ (แนวตั้ง/แนวนอน) + พิกัดทัชสกรีน ----------------
+apt-get install -y --no-install-recommends x11-xserver-utils xinput >/dev/null 2>&1 || true
+cat >/opt/kiosk/fix-rotation.sh <<EOF
+#!/usr/bin/env bash
+# หมุนจอ + ปรับพิกัดทัช ให้ตรงกับการวางจอ (แนวตั้ง/แนวนอน)
+set +e
+ROT="\${1:-$KIOSK_ROTATE}"
+[ "\$ROT" = "auto" ] && exit 0
+export DISPLAY="\${DISPLAY:-:0}"
+OUT="\$(xrandr --query 2>/dev/null | awk '/ connected/{print \$1; exit}')"
+[ -z "\$OUT" ] && exit 0
+xrandr --output "\$OUT" --rotate "\$ROT" 2>/dev/null
+
+case "\$ROT" in
+  left)     M="0 -1 1 1 0 0 0 0 1" ;;
+  right)    M="0 1 0 -1 0 1 0 0 1" ;;
+  inverted) M="-1 0 1 0 -1 1 0 0 1" ;;
+  *)        M="1 0 0 0 1 0 0 0 1" ;;
+esac
+# ใช้กับทุกอุปกรณ์ทัช/ปากกา (ทัชสกรีนของ HP Pavilion x2 ชื่อไม่แน่นอน)
+xinput list --name-only 2>/dev/null | while read -r DEV; do
+  case "\$DEV" in
+    *[Tt]ouch*|*[Ss]tylus*|*[Pp]en*|*Finger*|*ELAN*|*SYNA*|*Goodix*|*Wacom*)
+      xinput set-prop "\$DEV" "Coordinate Transformation Matrix" \$M 2>/dev/null ;;
+  esac
+done
+logger -t kiosk-rotate "output=\$OUT rotate=\$ROT"
+EOF
+chmod +x /opt/kiosk/fix-rotation.sh
+
+cat >"$USER_HOME/.config/autostart/kiosk-rotate.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Kiosk Screen Rotation
+Exec=sh -c 'sleep 3; /opt/kiosk/fix-rotation.sh'
+X-GNOME-Autostart-enabled=true
+EOF
+
 # ---------------- 5.4) กล้อง UVC: คืนค่าสี/แสงที่ปลอดภัย (HP Pavilion x2 ฯลฯ) ----------------
 # ห้ามดัน brightness/gain แบบตายตัว: กล้อง HP บางรุ่นมีค่า default สูงอยู่แล้วและจะขาวโพลน
 apt-get install -y --no-install-recommends v4l-utils >/dev/null 2>&1 || true
@@ -1486,6 +1528,7 @@ done
 xset s off -dpms s noblank 2>/dev/null || true
 /opt/kiosk/fix-camera.sh >/dev/null 2>&1 || true
 /opt/kiosk/fix-audio.sh >/dev/null 2>&1 || true
+/opt/kiosk/fix-rotation.sh >/dev/null 2>&1 || true
 
 _APPEND_KIOSK() { case "\$1" in *\?*) echo "\$1&kiosk=1";; *) echo "\$1?kiosk=1";; esac; }
 MAIN_URL="\$(_APPEND_KIOSK "$KIOSK_URL")"
@@ -1523,6 +1566,7 @@ PREF="$DOOR_PROFILE/Default/Preferences"
 xset s off -dpms s noblank 2>/dev/null || true
 /opt/kiosk/fix-camera.sh >/dev/null 2>&1 || true
 /opt/kiosk/fix-audio.sh >/dev/null 2>&1 || true
+/opt/kiosk/fix-rotation.sh >/dev/null 2>&1 || true
 pgrep -x unclutter >/dev/null || unclutter -idle 0.5 -root &
 
 # respawn loop — chromium crash/quit จะเปิดใหม่ทันที

@@ -59,6 +59,7 @@ sudo reboot
 | `KIOSK_POWER_OFF` | (ว่าง) | `17:30` | ปิดเครื่องเองตามเวลา (systemd timer + cron fallback) |
 | `KIOSK_BATT_CRITICAL` | `5` | `5` | แบตต่ำกว่า % นี้ และไม่ได้เสียบไฟ → shutdown ปลอดภัย (`0` = ปิด) |
 | `KIOSK_BATT_CHARGE_MAX` | `80` | `80` | จำกัดชาร์จสูงสุด ยืดอายุแบต (`0` = ไม่จำกัด) |
+| `KIOSK_ROTATE` | `normal` | `normal` | หมุนจอ: `normal` แนวนอน / `left`,`right` แนวตั้ง / `inverted` กลับหัว / `auto` ไม่ตั้งค่า (ปรับพิกัดทัชให้อัตโนมัติ) |
 | `KIOSK_TIMEZONE` | `Asia/Bangkok` | `Asia/Bangkok` | ตั้ง timezone + RTC=UTC + NTP ให้ตารางเวลาแม่นยำ |
 
 ## สิ่งที่สคริปต์ทำ (ทั้ง 2 โหมด)
