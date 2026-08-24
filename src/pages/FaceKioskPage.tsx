@@ -255,6 +255,10 @@ const FaceKioskPage = () => {
   }, []);
 
   useEffect(() => {
+    return () => { if (noticeTimerRef.current) window.clearTimeout(noticeTimerRef.current); };
+  }, []);
+
+  useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
