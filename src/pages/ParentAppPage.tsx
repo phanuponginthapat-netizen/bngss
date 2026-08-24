@@ -702,7 +702,7 @@ export default function ParentAppPage() {
             if (!selChild) return null;
             const gpaVals = selBundle?.scores?.map((s: any) => Number(s.grade_point)).filter((n: number) => !isNaN(n) && n > 0) || [];
             const avgGpa = gpaVals.length ? (gpaVals.reduce((a: number, b: number) => a + b, 0) / gpaVals.length).toFixed(2) : "—";
-            const attendanceToday = selBundle?.faceLogs?.length || selBundle?.attendance?.length ? (selBundle?.attendance?.[0]?.status || selBundle?.faceLogs?.[0]?.status || "present") : null;
+            const attendanceToday = selBundle?.faceLogs?.length || selBundle?.attendance?.length ? (selBundle?.attendance?.[0]?.status || (selBundle?.faceLogs?.length ? "present" : "") || "present") : null;
             const attendanceLabel = !selBundle ? "—" : !selBundle.loading && !attendanceToday ? L("ยังไม่เช็คชื่อ", "Not checked") : attendanceToday === "present" ? L("มาเรียน", "Present") : attendanceToday === "late" ? L("มาสาย", "Late") : attendanceToday === "absent" ? L("ขาด", "Absent") : attendanceToday || "—";
             return (
               <motion.div initial="hidden" animate="visible" variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.08 } } }} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
