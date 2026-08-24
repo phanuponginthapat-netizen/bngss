@@ -30,7 +30,7 @@ function GradeView({ lineUserId }: { lineUserId: string }) {
       {rows.map((r, i) => (
         <div key={i} className="rounded-xl border bg-card p-3 flex justify-between">
           <div>
-            <p className="font-medium">{r.subjects?.name}</p>
+            <p className="font-medium">{r.subjects?.name_th}</p>
             <p className="text-xs text-muted-foreground">{r.subjects?.code}</p>
           </div>
           <div className="text-right">
