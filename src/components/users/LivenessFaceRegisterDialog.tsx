@@ -677,10 +677,11 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
       }
       case "color": {
         if (Math.abs(yaw) < 0.20) {
-          setSamples((s) => {
-            if (s.length >= 4 + colorFrameIdx + 1) return s;
-            return [...s, captureSample(data!, "color")];
-          });
+          const got = stepShotsRef.current.color ?? 0;
+          if (got <= colorFrameIdx && got < challengeColors.length) {
+            stepShotsRef.current.color = got + 1;
+            setSamples((s) => [...s, captureSample(data!, "color")]);
+          }
         }
         setStatusMsg(`สลับสี ${colorFrameIdx + 1}/${challengeColors.length} — มองที่กล้อง`);
         break;
