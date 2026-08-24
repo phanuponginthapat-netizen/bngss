@@ -206,8 +206,8 @@ KIOSK_ROTATE="${KIOSK_ROTATE:-normal}"
 # ระดับเสียงสูงสุด (%) — กันลำโพงในตัวขับดังเกินจนร้อน/ไหม้ (ปลอดภัย 50-75)
 KIOSK_VOLUME="${KIOSK_VOLUME:-65}"
 case "$KIOSK_VOLUME" in ''|*[!0-9]*) KIOSK_VOLUME=65 ;; esac
-[ "$KIOSK_VOLUME" -gt 85 ] && KIOSK_VOLUME=85
-[ "$KIOSK_VOLUME" -lt 20 ] && KIOSK_VOLUME=20
+[ "$KIOSK_VOLUME" -gt 85 ] && KIOSK_VOLUME=85 || true
+[ "$KIOSK_VOLUME" -lt 20 ] && KIOSK_VOLUME=20 || true
 
 # โหมดประหยัดหน่วยความจำ (zram + earlyoom + mem-guard + flag Chromium)
 # auto = เปิดอัตโนมัติเมื่อ RAM <= 3GB (เช่น HP Pavilion x2 2GB) | 1 = บังคับเปิด | 0 = ปิด
