@@ -74,21 +74,32 @@ async function reverseGeocode(lat: number, lng: number): Promise<string | null> 
   }
 }
 
-async function fetchOpenverseImages(query: string): Promise<string[]> {
+/**
+ * Keyword image search via Wikimedia Commons (keyless).
+ * หมายเหตุ: เดิมใช้ Openverse แต่ API เปลี่ยนไปบังคับ auth แล้วคืน 401 ทุกครั้ง
+ */
+async function fetchKeywordImages(query: string): Promise<string[]> {
   try {
-    const res = await fetch(
-      `https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&page_size=24&mature=false`
-    );
+    const url =
+      `https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*` +
+      `&generator=search&gsrnamespace=6&gsrlimit=12&gsrsearch=${encodeURIComponent(query)}` +
+      `&prop=imageinfo&iiprop=url&iiurlwidth=1600`;
+    const res = await fetch(url);
     if (!res.ok) return [];
     const json = await res.json();
-    const results = json?.results ?? [];
-    return results
-      .map((r: any) => r.thumbnail || r.url)
-      .filter((u: any) => typeof u === "string" && u.startsWith("http"));
+    const pages = json?.query?.pages ?? {};
+    const imgs: string[] = [];
+    for (const k of Object.keys(pages)) {
+      const info = pages[k]?.imageinfo?.[0];
+      const src = info?.thumburl || info?.url;
+      if (src && /\.(jpe?g|png|webp)$/i.test(src)) imgs.push(src);
+    }
+    return imgs;
   } catch {
     return [];
   }
 }
+
 
 /** Guaranteed visual variety even if all geo APIs fail or are blocked */
 function picsumFallback(lat: number, lng: number): string[] {
