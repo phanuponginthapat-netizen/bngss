@@ -1173,12 +1173,20 @@ for DEV in /dev/video*; do
 
   set_ctl() { v4l2-ctl -d "$DEV" --set-ctrl "$1=$2" >/dev/null 2>&1; }
   has_ctl() { v4l2-ctl -d "$DEV" -l 2>/dev/null | grep -q "^ *$1"; }
+  ctl_line() { v4l2-ctl -d "$DEV" -l 2>/dev/null | grep -m1 "^ *$1"; }
   ctl_def() { v4l2-ctl -d "$DEV" -l 2>/dev/null | sed -n "s/^ *$1 .*default=\([-0-9]*\).*/\1/p" | head -1; }
   reset_ctl() { local d; d=$(ctl_def "$1"); [ -n "$d" ] && set_ctl "$1" "$d"; }
+  set_auto_exposure() {
+    local c="$1" line
+    has_ctl "$c" || return 0
+    line=$(ctl_line "$c")
+    # UVC menu: 3=Aperture Priority (continuous auto); boolean controls: 1=auto
+    if echo "$line" | grep -q "type=bool"; then set_ctl "$c" 1; else set_ctl "$c" 3; fi
+  }
 
-  # 1) auto exposure ต่อเนื่อง (3 = aperture priority) + white balance อัตโนมัติ
-  has_ctl auto_exposure && set_ctl auto_exposure 3
-  has_ctl exposure_auto && set_ctl exposure_auto 3
+  # 1) auto exposure ต่อเนื่อง โดยรองรับทั้ง UVC menu และ boolean control
+  set_auto_exposure auto_exposure
+  set_auto_exposure exposure_auto
   has_ctl exposure_auto_priority && set_ctl exposure_auto_priority 0   # 0 = ห้ามลด fps ตอนแสงน้อย (สำคัญมาก!)
   has_ctl white_balance_temperature_auto && set_ctl white_balance_temperature_auto 1
   has_ctl white_balance_automatic && set_ctl white_balance_automatic 1

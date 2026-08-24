@@ -148,26 +148,12 @@ export async function applyCameraAutoTune(stream: MediaStream): Promise<void> {
   try {
     const caps: any = (track as any).getCapabilities?.() ?? {};
     const advanced: any[] = [];
-    const at = (c: any, ratio: number) =>
-      typeof c?.min === "number" && typeof c?.max === "number"
-        ? c.min + (c.max - c.min) * ratio
-        : undefined;
 
     if (caps.focusMode?.includes?.("continuous")) advanced.push({ focusMode: "continuous" });
-    // สำคัญ: ใช้ auto exposure/white balance — การล็อกค่าสูงคือสาเหตุที่ภาพขาวโพลน
+    // ให้ไดรเวอร์เริ่มจากโหมดอัตโนมัติเท่านั้น แล้วใช้ autoExposureBalance()
+    // ปรับตามแสงจริงภายหลัง ห้ามกำหนด brightness/gain/contrast แบบค่าคงที่
     if (caps.exposureMode?.includes?.("continuous")) advanced.push({ exposureMode: "continuous" });
     if (caps.whiteBalanceMode?.includes?.("continuous")) advanced.push({ whiteBalanceMode: "continuous" });
-    if (caps.sharpness && typeof caps.sharpness.max === "number") {
-      const s = at(caps.sharpness, 0.7);
-      if (s !== undefined) advanced.push({ sharpness: s });
-    }
-    // ค่ากลาง ๆ เท่านั้น (ไม่ดันสุด) เพื่อคงรายละเอียดผิวหน้า ไม่ให้ไฮไลต์แตก
-    const contrast = at(caps.contrast, 0.5);
-    if (contrast !== undefined) advanced.push({ contrast });
-    const brightness = at(caps.brightness, 0.5);
-    if (brightness !== undefined) advanced.push({ brightness });
-    const gain = at(caps.exposureCompensation, 0.5);
-    if (gain !== undefined) advanced.push({ exposureCompensation: gain });
 
     if (advanced.length > 0) {
       await (track as any).applyConstraints({ advanced }).catch(() => {});
