@@ -708,6 +708,12 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
               const tooBlurry = sharpness < MIN_SHARPNESS;
               // แสงน้อย — วัดความสว่างบริเวณใบหน้า (ย้อนแสง/มืด) เพื่อให้คำแนะนำตอนสแกนไม่ติด
               const brightness = estimateBrightness(video, box);
+              // ปรับแสงกล้องอัตโนมัติสองทาง (มืด → สว่างขึ้น, ขาวโพลน → หรี่ลง)
+              reportFrameLuminance(brightness);
+              if (Date.now() - lastExposureRef.current > 900) {
+                lastExposureRef.current = Date.now();
+                void autoExposureBalance(video.srcObject as MediaStream | null, brightness);
+              }
               const tooDark = brightness > 0 && brightness < BANK_GRADE.BRIGHTNESS_MIN - 10;
               const tooBright = brightness > BANK_GRADE.BRIGHTNESS_MAX + 10;
               // Anti-false-positive: landmark sanity (กันจับต้นไม้/วัตถุ)
