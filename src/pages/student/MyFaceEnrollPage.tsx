@@ -21,12 +21,28 @@ const MyFaceEnrollPage = () => {
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
+      const cols =
+        "id, student_code, prefix, first_name, last_name, photo_url, classrooms!students_classroom_id_fkey(name, grade_level)";
       const { data } = await supabase
         .from("students")
-        .select("id, student_code, prefix, first_name, last_name, photo_url, classrooms!students_classroom_id_fkey(name, grade_level)")
+        .select(cols)
         .eq("auth_user_id", user.id)
         .maybeSingle();
-      return data;
+      if (data) return data;
+      // สำรอง: บัญชียังไม่ผูกโดยตรง — หาจากรหัสนักเรียนในโปรไฟล์
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("student_code")
+        .eq("id", user.id)
+        .maybeSingle();
+      const code = prof?.student_code?.trim();
+      if (!code) return null;
+      const { data: byCode } = await supabase
+        .from("students")
+        .select(cols)
+        .eq("student_code", code)
+        .maybeSingle();
+      return byCode;
     },
   });
 
@@ -36,12 +52,26 @@ const MyFaceEnrollPage = () => {
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
+      const cols = "id, employee_code, prefix, first_name, last_name, avatar_url";
       const { data } = await (supabase as any)
         .from("personnel")
-        .select("id, employee_code, prefix, first_name, last_name, avatar_url")
+        .select(cols)
         .eq("user_id", user.id)
         .maybeSingle();
-      return data;
+      if (data) return data;
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("employee_code")
+        .eq("id", user.id)
+        .maybeSingle();
+      const code = prof?.employee_code?.trim();
+      if (!code) return null;
+      const { data: byCode } = await (supabase as any)
+        .from("personnel")
+        .select(cols)
+        .eq("employee_code", code)
+        .maybeSingle();
+      return byCode;
     },
   });
 
