@@ -33,16 +33,16 @@ KIOSK_WIFI_PASS="${KIOSK_WIFI_PASS:-}"
 
 # ── โหลด kiosk_config จาก CMS (ext-config) เพื่อ override ค่าที่ผู้ใช้ตั้งไว้ในหน้า Kiosk Setup ──
 # ผู้ใช้ไม่ต้องส่ง env var เอง — ค่าที่ตั้งในเว็บจะถูกใช้เป็น default โดยอัตโนมัติ
-CMS_BASE="${CMS_BASE:-https://gwmszzoqqxmejefhayqf.supabase.co}"
-CMS_ANON_KEY="${CMS_ANON_KEY:-sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v}"
+CMS_BASE="${CMS_BASE:-https://dlkyxvhnnffblerwedjz.supabase.co}"
+CMS_ANON_KEY="${CMS_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4}"
 
 # ── Backend guard — ต้องเป็น backend ของโรงเรียนเท่านั้น ห้าม Lovable Cloud ──
-CANONICAL_BACKEND="https://gwmszzoqqxmejefhayqf.supabase.co"
+CANONICAL_BACKEND="https://dlkyxvhnnffblerwedjz.supabase.co"
 case "$CMS_BASE" in
   *lovableproject.com*|*lovable.dev*|*dlkyxvhnnffblerwedjz*)
     echo "⚠  CMS_BASE ชี้ไป Lovable Cloud ($CMS_BASE) — บังคับกลับเป็น backend โรงเรียน"
     CMS_BASE="$CANONICAL_BACKEND"
-    CMS_ANON_KEY="sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v"
+    CMS_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4"
     ;;
 esac
 echo "► Backend: $CMS_BASE"
@@ -680,12 +680,25 @@ log "▶  [5.5/10] ดึง branding จาก CMS + ติดตั้ง Plym
 
 # ดึง config จาก edge function (public) — timeout สั้น ไม่ตายถ้าเน็ตล้ม
 # Edge Functions รันบน Supabase (ไม่ใช่ที่ app URL) — ต้อง hard-code project ref
-CMS_SUPABASE_URL="${CMS_SUPABASE_URL:-https://gwmszzoqqxmejefhayqf.supabase.co}"
-CMS_SUPABASE_ANON="${CMS_SUPABASE_ANON:-sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v}"
+CMS_SUPABASE_URL="${CMS_SUPABASE_URL:-https://dlkyxvhnnffblerwedjz.supabase.co}"
+CMS_SUPABASE_ANON="${CMS_SUPABASE_ANON:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4}"
 CMS_JSON=$(curl -sf --max-time 8 "$CMS_SUPABASE_URL/functions/v1/ext-config" \
   -H "apikey: $CMS_SUPABASE_ANON" \
   -H "Authorization: Bearer $CMS_SUPABASE_ANON" \
   2>/dev/null || echo '{}')
+
+# fallback: ถ้า edge function ล่ม/ตอบว่าง → ดึงตรงจากตาราง cms_settings ผ่าน REST
+if [[ "$(echo -n "$CMS_JSON" | wc -c)" -lt 20 ]]; then
+  _rows=$(curl -sf --max-time 8 \
+    "$CMS_SUPABASE_URL/rest/v1/cms_settings?select=key,value&key=in.(school_name,app_name,school_logo,school_logo_512,app_favicon_url,theme_color,primary_color)" \
+    -H "apikey: $CMS_SUPABASE_ANON" -H "Authorization: Bearer $CMS_SUPABASE_ANON" 2>/dev/null || echo '[]')
+  CMS_JSON=$(python3 -c "import sys,json;
+rows=json.loads(sys.stdin.read() or '[]')
+print(json.dumps({r['key']: r.get('value') or '' for r in rows if r.get('key')}))" <<<"$_rows" 2>/dev/null || echo '{}')
+  echo "► ใช้ CMS จาก REST fallback ($(echo -n "$CMS_JSON" | wc -c) bytes)"
+fi
+
+
 
 # หา field ด้วย python (มี JSON parser แน่ๆ)
 extract_json() {
@@ -726,15 +739,34 @@ install -d -m 755 "$THEME_DIR"
 # ดาวน์โหลดโลโก้ (ถ้ามี) — แปลงเป็น PNG จริงเสมอ เพราะ Plymouth อ่าน WebP/SVG/JPG บางแบบไม่ได้
 LOGO_PATH="$THEME_DIR/logo.png"
 rm -f "$LOGO_PATH" "$LOGO_PATH.tmp" "$LOGO_PATH.src"
-if [[ -n "$CMS_LOGO_URL" ]]; then
-  if curl -sfL --max-time 15 "$CMS_LOGO_URL" -o "$LOGO_PATH.src"; then
-    if have convert; then
-      convert "$LOGO_PATH.src" -auto-orient -resize '320x320>' -background none -gravity center -extent 320x320 PNG32:"$LOGO_PATH" 2>/dev/null || true
-    fi
+
+# ลองหลาย URL ตามลำดับ (CMS → ไอคอนของเว็บ) กันเคสค่าใดค่าหนึ่งว่าง/โหลดไม่ได้
+CMS_LOGO_512=$(extract_json school_logo_512)
+CMS_FAVICON=$(extract_json app_favicon_url)
+_LOGO_CANDIDATES=(
+  "$CMS_LOGO_URL"
+  "$CMS_LOGO_512"
+  "$CMS_FAVICON"
+  "${KIOSK_ORIGIN%/}/icon-512.png"
+  "${KIOSK_ORIGIN%/}/icon-192.png"
+)
+for _lu in "${_LOGO_CANDIDATES[@]}"; do
+  [[ -z "$_lu" ]] && continue
+  rm -f "$LOGO_PATH.src"
+  curl -sfL --max-time 15 "$_lu" -o "$LOGO_PATH.src" || continue
+  [[ -s "$LOGO_PATH.src" ]] || continue
+  if have convert; then
+    convert "$LOGO_PATH.src" -auto-orient -resize '320x320>' -background none -gravity center -extent 320x320 PNG32:"$LOGO_PATH" 2>/dev/null || true
   fi
-fi
+  if [[ -s "$LOGO_PATH" ]]; then
+    log "   ✓ โลโก้ boot: $_lu"
+    break
+  fi
+done
+
 # ถ้าไม่มีโลโก้/แปลงไม่ได้ → สร้างโลโก้ตัวอักษรที่ Plymouth โหลดได้แน่นอน
 if [[ ! -s "$LOGO_PATH" ]] && have convert; then
+  log "   ⚠ ใช้โลโก้ตัวอักษรแทน (ดาวน์โหลด/แปลงโลโก้ CMS ไม่สำเร็จ)"
   convert -size 320x320 xc:none -gravity center -fill white -pointsize 96 -font DejaVu-Sans-Bold \
     -annotate 0 "$(printf '%s' "$CMS_NAME" | cut -c1-2)" PNG32:"$LOGO_PATH" 2>/dev/null || true
 fi
