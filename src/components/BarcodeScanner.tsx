@@ -28,6 +28,7 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
   const lastScanRef = useRef<{ code: string; at: number }>({ code: "", at: 0 });
   const [error, setError] = useState<string | null>(null);
   const [refocusing, setRefocusing] = useState(false);
+  const [manual, setManual] = useState("");
 
   // Keep latest callbacks in refs so the scanner effect does NOT restart the camera
   // every time the parent re-renders (e.g. after each successful scan updates parent
@@ -213,14 +214,42 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
           </button>
         </div>
         {error ? (
-          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            <div>
-              <div className="font-medium">{error}</div>
-              <div className="mt-1 text-destructive/80">
-                ตรวจสอบว่าเปิดผ่าน HTTPS และอนุญาตสิทธิ์กล้องในเบราว์เซอร์ (คลิกไอคอนกล้องบน address bar)
+          <div className="space-y-3">
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <div>
+                <div className="font-medium">{error}</div>
+                <div className="mt-1 text-destructive/80">
+                  ตรวจสอบว่าเปิดผ่าน HTTPS และอนุญาตสิทธิ์กล้องในเบราว์เซอร์ (คลิกไอคอนกล้องบน address bar)
+                </div>
               </div>
             </div>
+            <form
+              className="flex items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const code = manual.trim();
+                if (code.length < 2) return;
+                onScanRef.current(code);
+                setManual("");
+                if (!continuous) onCloseRef.current();
+              }}
+            >
+              <input
+                value={manual}
+                onChange={(e) => setManual(e.target.value)}
+                placeholder="กรอกรหัสนักเรียน/รหัสบนบัตรแทนการสแกน"
+                className="flex-1 h-10 rounded-md border border-input bg-background px-3 text-sm"
+                autoFocus
+              />
+              <button
+                type="submit"
+                className="h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
+                disabled={manual.trim().length < 2}
+              >
+                ยืนยัน
+              </button>
+            </form>
           </div>
         ) : (
           <p className="text-xs text-muted-foreground text-center">
@@ -231,6 +260,7 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
               : "เล็งกล้องไปที่บาร์โค้ดหรือ QR Code ระบบจะสแกนอัตโนมัติ"}
           </p>
         )}
+
 
         {children}
       </DialogContent>
