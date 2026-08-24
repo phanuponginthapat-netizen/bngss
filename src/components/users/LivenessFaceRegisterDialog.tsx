@@ -118,6 +118,7 @@ interface CapturedSample {
     noseTipY: number;
     noseWidthFrac: number;   // ความกว้างจมูกเทียบกับใบหน้า
     noseHeightFrac: number;  // ความสูงสันจมูก
+    lum: number;             // ความสว่างเฉลี่ยบริเวณใบหน้า (0-255)
   };
 }
 
