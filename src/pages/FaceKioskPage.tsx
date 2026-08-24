@@ -960,7 +960,23 @@ const FaceKioskPage = () => {
                 : lowConfidence ? "ขยับเข้าใกล้/หันตรงกล้อง"
                 : "กรุณาลงทะเบียน";
 
-              drawFaceFrame(ctx, { box, label, sublabel, matched: !!found, confidence: m.confidence, color });
+              // กรอบนิ่ง (EMA) — ขยับหน้าเล็กน้อยกรอบจะไม่กระตุก/กระพริบ
+              let drawBox = box;
+              const sKey = found ? found.studentId : `anon-${Math.round(box.x / 40)}-${Math.round(box.y / 40)}`;
+              const prevBox = kioskSmoothRef.current.get(sKey);
+              if (prevBox) {
+                const a = 0.45;
+                drawBox = {
+                  x: prevBox.x + (box.x - prevBox.x) * a,
+                  y: prevBox.y + (box.y - prevBox.y) * a,
+                  width: prevBox.width + (box.width - prevBox.width) * a,
+                  height: prevBox.height + (box.height - prevBox.height) * a,
+                };
+              }
+              kioskSmoothRef.current.set(sKey, drawBox);
+              if (kioskSmoothRef.current.size > 24) kioskSmoothRef.current.clear();
+
+              drawFaceFrame(ctx, { box: drawBox, label, sublabel, matched: !!found, confidence: m.confidence, color });
 
 
               if (found) {
