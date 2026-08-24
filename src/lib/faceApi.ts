@@ -261,7 +261,9 @@ function createDetectionCanvas(
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
-  (ctx as any).filter = "contrast(1.16) brightness(1.06) saturate(1.05)";
+  // ปรับตามแสงล่าสุด — ถ้าเฟรมก่อนหน้าสว่างจ้า ให้หรี่ลงแทนการดันสว่างเสมอ
+  (ctx as any).filter = `contrast(1.12) brightness(${_lastFrameBrightnessFactor().toFixed(3)}) saturate(1.04)`;
+
   ctx.drawImage(input as CanvasImageSource, 0, 0, w, h);
   (ctx as any).filter = "none";
 
