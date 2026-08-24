@@ -717,7 +717,7 @@ const FaceKioskPage = () => {
         toast.info("สแกนซ้ำ", { description: `${name} ถูกบันทึก${modeLabel}โรงเรียนวันนี้แล้ว`, duration: 1800 });
         return;
       }
-      toast.error(saveErrorMessage(error)); return;
+      showNotice("error", "บันทึกไม่สำเร็จ", saveErrorMessage(error), 5000); return;
     }
     if (!data) {
       seenSet.add(studentId);
