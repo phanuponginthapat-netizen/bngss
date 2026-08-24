@@ -33,16 +33,16 @@ KIOSK_WIFI_PASS="${KIOSK_WIFI_PASS:-}"
 
 # ── โหลด kiosk_config จาก CMS (ext-config) เพื่อ override ค่าที่ผู้ใช้ตั้งไว้ในหน้า Kiosk Setup ──
 # ผู้ใช้ไม่ต้องส่ง env var เอง — ค่าที่ตั้งในเว็บจะถูกใช้เป็น default โดยอัตโนมัติ
-CMS_BASE="${CMS_BASE:-https://gwmszzoqqxmejefhayqf.supabase.co}"
-CMS_ANON_KEY="${CMS_ANON_KEY:-sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v}"
+CMS_BASE="${CMS_BASE:-https://dlkyxvhnnffblerwedjz.supabase.co}"
+CMS_ANON_KEY="${CMS_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4}"
 
 # ── Backend guard — ต้องเป็น backend ของโรงเรียนเท่านั้น ห้าม Lovable Cloud ──
-CANONICAL_BACKEND="https://gwmszzoqqxmejefhayqf.supabase.co"
+CANONICAL_BACKEND="https://dlkyxvhnnffblerwedjz.supabase.co"
 case "$CMS_BASE" in
   *lovableproject.com*|*lovable.dev*|*dlkyxvhnnffblerwedjz*)
     echo "⚠  CMS_BASE ชี้ไป Lovable Cloud ($CMS_BASE) — บังคับกลับเป็น backend โรงเรียน"
     CMS_BASE="$CANONICAL_BACKEND"
-    CMS_ANON_KEY="sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v"
+    CMS_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4"
     ;;
 esac
 echo "► Backend: $CMS_BASE"
@@ -680,8 +680,8 @@ log "▶  [5.5/10] ดึง branding จาก CMS + ติดตั้ง Plym
 
 # ดึง config จาก edge function (public) — timeout สั้น ไม่ตายถ้าเน็ตล้ม
 # Edge Functions รันบน Supabase (ไม่ใช่ที่ app URL) — ต้อง hard-code project ref
-CMS_SUPABASE_URL="${CMS_SUPABASE_URL:-https://gwmszzoqqxmejefhayqf.supabase.co}"
-CMS_SUPABASE_ANON="${CMS_SUPABASE_ANON:-sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v}"
+CMS_SUPABASE_URL="${CMS_SUPABASE_URL:-https://dlkyxvhnnffblerwedjz.supabase.co}"
+CMS_SUPABASE_ANON="${CMS_SUPABASE_ANON:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4}"
 CMS_JSON=$(curl -sf --max-time 8 "$CMS_SUPABASE_URL/functions/v1/ext-config" \
   -H "apikey: $CMS_SUPABASE_ANON" \
   -H "Authorization: Bearer $CMS_SUPABASE_ANON" \
