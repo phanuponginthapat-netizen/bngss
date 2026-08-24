@@ -2,7 +2,9 @@ import { Capacitor } from "@capacitor/core";
 import { ApkUpdater } from "capacitor-apk-updater";
 import { AppUpdate, AppUpdateAvailability } from "@capawesome/capacitor-app-update";
 
-const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || "https://gwmszzoqqxmejefhayqf.supabase.co";
+import { getBackendConfig } from "@/lib/runtimeConfig";
+
+const SUPABASE_URL = getBackendConfig().url;
 const VERSION_URL = `${SUPABASE_URL}/storage/v1/object/public/app-downloads/version.json`;
 
 export interface AppUpdateManifest {
