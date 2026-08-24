@@ -1,18 +1,8 @@
 name: Deploy to Vercel
 
 on:
+  workflow_call:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'vite.config.ts'
-      - 'index.html'
-      - 'capacitor.config.ts'
-      - 'vercel.json'
-      - '.github/workflows/deploy-vercel.yml'
 
 jobs:
   deploy:

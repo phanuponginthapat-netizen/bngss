@@ -4,12 +4,7 @@ name: Deploy Supabase Database Migrations
 # ต้องตั้ง GitHub Secret: SUPABASE_ACCESS_TOKEN (Personal Access Token จาก Supabase Dashboard)
 # ต้องตั้ง GitHub Secret หรือ Variable: SUPABASE_PROJECT_REF (project ref ของ backend ภายนอก)
 on:
-  push:
-    branches: [main]
-    paths:
-      - "supabase/migrations/**"
-      - "supabase/config.toml"
-      - ".github/workflows/supabase-db-push.yml"
+  workflow_call:
   workflow_dispatch:
 
 concurrency:
