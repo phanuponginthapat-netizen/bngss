@@ -707,17 +707,44 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
               const lowConfidence = m.studentId != null && m.confidence < MIN_CONFIDENCE;
               const passQuality = !tooBlurry && !notHuman && !faceTooSmall;
               const passMatch = !ambiguous && !lowConfidence && isStrongMatch(m);
-              const matchedId = (passQuality && passMatch) ? m.studentId : null;
-              const found = matchedId ? known.find((k) => k.studentId === matchedId) as any : null;
+              let matchedId = (passQuality && passMatch) ? m.studentId : null;
 
-              // Multi-frame voting — ต้อง match ติดกัน ≥ VOTE_REQUIRED ครั้งภายใน VOTE_WINDOW_MS
+              // ── Sticky lock: ถ้าเพิ่งล็อกคนนี้ไว้และยังเป็นคนเดิมที่ตรงที่สุด
+              //    ให้ถือว่ายังล็อกอยู่ แม้เฟรมนั้นจะเบลอ/ขยับเล็กน้อย (กันหลุดบ่อย) ──
+              const lock = lockRef.current;
+              const lockAlive = !!lock && tNow < lock.until;
+              if (!matchedId && lockAlive && lock && m.studentId === lock.studentId
+                  && !notHuman && m.confidence >= MIN_CONFIDENCE * 0.88) {
+                matchedId = lock.studentId;
+              }
+              const found = matchedId ? known.find((k) => k.studentId === matchedId) as any : null;
+              if (found) lockRef.current = { studentId: found.studentId, until: tNow + LOCK_HOLD_MS, box };
+
+              // กรอบนิ่ง (EMA) — ลดการกระตุกของกรอบเวลาขยับหน้าเล็กน้อย
+              let drawBox = box;
+              const smoothKey = found ? found.studentId : `anon-${Math.round(box.x / 40)}-${Math.round(box.y / 40)}`;
+              const prevSmooth = smoothBoxRef.current.get(smoothKey);
+              if (prevSmooth) {
+                const a = 0.45;
+                drawBox = {
+                  x: prevSmooth.x + (box.x - prevSmooth.x) * a,
+                  y: prevSmooth.y + (box.y - prevSmooth.y) * a,
+                  width: prevSmooth.width + (box.width - prevSmooth.width) * a,
+                  height: prevSmooth.height + (box.height - prevSmooth.height) * a,
+                };
+              }
+              smoothBoxRef.current.set(smoothKey, drawBox);
+              if (smoothBoxRef.current.size > 24) smoothBoxRef.current.clear();
+
+              // Multi-frame voting — สะสมคะแนนต่อเนื่อง จะรีเซ็ตก็ต่อเมื่อหายไปนานเกิน VOTE_IDLE_RESET_MS
               let voteOk = false;
               if (found) {
                 const cur = voteRef.current.get(found.studentId);
-                if (!cur || tNow - cur.firstAt > VOTE_WINDOW_MS) {
-                  voteRef.current.set(found.studentId, { hits: 1, firstAt: tNow });
+                if (!cur || tNow - cur.lastAt > VOTE_IDLE_RESET_MS) {
+                  voteRef.current.set(found.studentId, { hits: 1, firstAt: tNow, lastAt: tNow });
                 } else {
                   cur.hits++;
+                  cur.lastAt = tNow;
                   voteOk = cur.hits >= VOTE_REQUIRED;
                 }
               }
