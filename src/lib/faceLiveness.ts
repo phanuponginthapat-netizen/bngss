@@ -60,9 +60,16 @@ export const LIVENESS_CONFIG = {
   BLINK_EAR_OPEN: 0.27,
   /** ต้องสะสมการหมุนศีรษะรวมถึงเกณฑ์นี้ (แบบช้า) — คนจริงขยับหัวเล็กน้อยตลอด */
   POSE_TRAVEL_TARGET: 0.12,
+  /** จำนวนตัวอย่างขั้นต่ำก่อนพิจารณา micro-motion */
+  MICRO_MIN_SAMPLES: 4,
+  /** ต้องเห็นใบหน้าต่อเนื่องอย่างน้อยกี่ ms ก่อนใช้ micro-motion */
+  MICRO_MIN_MS: 900,
+  /** ผลรวมการขยับตำแหน่ง/ระยะ (นอร์มัลไลซ์ด้วยขนาดใบหน้า) ที่ถือว่าเป็นคนจริง */
+  MICRO_MOTION_TARGET: 0.05,
   /** จำนวนตัวอย่างสูงสุดที่เก็บ (กันหน่วยความจำบาน) */
   MAX_SAMPLES: 48,
 } as const;
+
 
 /** เก็บ tracker แยกตามคน (studentId) — เรียกใหม่ทุกเฟรมที่เจอใบหน้าคนเดิม */
 export function newLivenessTrack(): TrackState {
