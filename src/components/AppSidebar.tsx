@@ -751,10 +751,11 @@ export function AppSidebar() {
 
   return (
     <Sidebar side="right" collapsible="offcanvas" className="gradient-sidebar border-l-0">
-      {/* spring open/close wrapper — subtle 0.2s spring, not distracting (CSS fallback: transition-all) */}
+      {/* spring open/close wrapper — initial={false} keeps the menu visible even
+          if the enter animation never runs (reduced motion / restored tab). */}
       <motion.div
-        initial={{ opacity: 0, x: 12 }}
-        animate={{ opacity: isSidebarOpen ? 1 : 0.92, x: isSidebarOpen ? 0 : 8 }}
+        initial={false}
+        animate={{ opacity: 1, x: 0 }}
         transition={subtleSpring}
         className="flex h-full w-full flex-col"
       >
