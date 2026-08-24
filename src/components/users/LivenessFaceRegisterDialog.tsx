@@ -168,16 +168,26 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
   const [camTick, setCamTick] = useState(0);
 
   const [modelError, setModelError] = useState<string | null>(null);
-
+  const [modelMsg, setModelMsg] = useState<string>("กำลังโหลดโมเดล AI...");
+  const [modelTick, setModelTick] = useState(0);
 
   useEffect(() => {
-    loadFaceModels()
-      .then(() => { setModelReady(true); setModelError(null); })
-      .catch(() => setModelError("โหลดระบบตรวจจับใบหน้าไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วเปิดหน้านี้ใหม่"));
-    // โหลด OpenCV.js แบบเบื้องหลัง (ใช้ช่วยหาใบหน้าเมื่อ face-api ตรวจไม่เจอ)
-    loadOpenCV();
-    return () => { disposeOpenCV(); };
-  }, []);
+    let alive = true;
+    setModelError(null);
+    setModelMsg("กำลังโหลดโมเดล AI...");
+    loadFaceModels((m) => { if (alive) setModelMsg(m); })
+      .then(() => { if (!alive) return; setModelReady(true); setModelError(null); })
+      .catch((e) => {
+        if (!alive) return;
+        setModelError(
+          `โหลดระบบตรวจจับใบหน้าไม่สำเร็จ (${e instanceof Error ? e.message : "network"}) — ตรวจอินเทอร์เน็ต/ไฟร์วอลล์ของโรงเรียน แล้วกด "ลองโหลดใหม่"`,
+        );
+      });
+    // โหลด OpenCV.js แบบเบื้องหลัง (ใช้ช่วยหาใบหน้าเมื่อ face-api ตรวจไม่เจอ) — ห้ามบล็อก UI
+    void Promise.resolve(loadOpenCV()).catch(() => { /* ไม่บังคับ */ });
+    return () => { alive = false; disposeOpenCV(); };
+  }, [modelTick]);
+
 
   // helper: ครอบใบหน้าจาก video → dataURL (พร้อม padding) + คำนวณ metrics
   const captureSample = useCallback(
@@ -1022,11 +1032,14 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
               </div>
             )}
             {!streaming && (
-              <div className="absolute inset-0 flex items-center justify-center">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
                 <Button onClick={() => startCamera()} disabled={!modelReady || !!modelError} size="lg" className="gradient-primary">
-                  {!modelReady ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Camera className="w-4 h-4 mr-2" />}
+                  {!modelReady && !modelError ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Camera className="w-4 h-4 mr-2" />}
                   {modelError ? "ระบบตรวจจับใบหน้าไม่พร้อม" : !modelReady ? "กำลังโหลดโมเดล..." : "เริ่มลงทะเบียน"}
                 </Button>
+                {!modelReady && !modelError && (
+                  <span className="text-xs text-white/80">{modelMsg}</span>
+                )}
               </div>
             )}
           </div>
@@ -1039,10 +1052,14 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
 
 
           {modelError && (
-            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-              {modelError}
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive space-y-2">
+              <div>{modelError}</div>
+              <Button size="sm" variant="outline" onClick={() => setModelTick((t) => t + 1)}>
+                ลองโหลดใหม่
+              </Button>
             </div>
           )}
+
 
           {/* Captured samples — gallery (รูปใบหน้าที่ระบบบันทึกไว้ในแต่ละขั้น) */}
           {samples.length > 0 && (
