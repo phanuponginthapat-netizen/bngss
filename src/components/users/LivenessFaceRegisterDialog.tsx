@@ -252,6 +252,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           noseTipY: +((tip.y - box.y) / box.height).toFixed(3),
           noseWidthFrac: +((nxMax - nxMin) / box.width).toFixed(3),
           noseHeightFrac: +((nyMax - nyMin) / box.height).toFixed(3),
+          lum: Math.round(estimateBrightness(v, box)),
         },
       };
     },
