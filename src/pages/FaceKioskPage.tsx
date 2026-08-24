@@ -791,7 +791,7 @@ const FaceKioskPage = () => {
       }
       if (res.reason === "too_soon") {
         playDuplicateSound();
-        toast.warning("เพิ่งลงเวลาเข้างาน", { description: `${name} — ต้องห่างอย่างน้อย 5 นาที`, duration: 2000 });
+        showNotice("warning", "เพิ่งลงเวลาเข้างาน", `${name} — ต้องห่างอย่างน้อย 5 นาที`, 3000);
         return "บุคลากร • เพิ่งลงเวลาเข้า";
       }
       return "บุคลากร";
