@@ -799,7 +799,7 @@ const FaceKioskPage = () => {
       showNotice("error", "ลงเวลาไม่สำเร็จ", saveErrorMessage(e), 5000);
       return "บุคลากร • ลงเวลาไม่สำเร็จ";
     }
-  }, [voiceEnabled]);
+  }, [voiceEnabled, showNotice]);
 
   // ===== ระดับ match กลาง (ลงทะเบียนมือถือ → สแกนคีออส): รอผู้ใช้ยืนยันบนจอก่อนบันทึก =====
   const confirmPendingManual = useCallback(async () => {
