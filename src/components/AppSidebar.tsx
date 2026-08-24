@@ -174,7 +174,7 @@ export function AppSidebar() {
           </div>
         </SidebarHeader>
         <SidebarContent className={`${collapsed ? 'px-1' : 'px-2'} py-3 gap-0 transition-all`}>
-          <motion.div initial="hidden" animate="visible" variants={listVariants}>
+          <motion.div initial={false} animate="visible" variants={listVariants}>
             {sections.map((sec, si) => (
               <motion.div key={si} variants={itemVariants}>
                 <SidebarGroup className="!p-0">
@@ -188,7 +188,7 @@ export function AppSidebar() {
                   <SidebarGroupContent>
                     <motion.ul
                       variants={listVariants}
-                      initial="hidden"
+                      initial={false}
                       animate="visible"
                       className="flex w-full min-w-0 flex-col gap-0.5"
                     >
@@ -875,7 +875,7 @@ export function AppSidebar() {
                   <SidebarGroupContent>
                     <motion.ul
                       variants={listVariants}
-                      initial="hidden"
+                      initial={false}
                       animate="visible"
                       className="flex w-full min-w-0 flex-col gap-0.5"
                     >
@@ -999,7 +999,7 @@ export function AppSidebar() {
                 <SidebarGroupContent>
                   <motion.ul
                     variants={listVariants}
-                    initial="hidden"
+                    initial={false}
                     animate="visible"
                     className="flex w-full min-w-0 flex-col gap-0.5"
                   >
@@ -1141,7 +1141,7 @@ export function AppSidebar() {
                                         </div>
                                         <motion.ul
                                           variants={listVariants}
-                                          initial="hidden"
+                                          initial={false}
                                           animate="visible"
                                           className="flex w-full min-w-0 flex-col gap-0.5"
                                         >
@@ -1180,7 +1180,7 @@ export function AppSidebar() {
                               ) : (
                                 <motion.ul
                                   variants={listVariants}
-                                  initial="hidden"
+                                  initial={false}
                                   animate="visible"
                                   className="flex w-full min-w-0 flex-col gap-0.5"
                                 >
@@ -1223,7 +1223,7 @@ export function AppSidebar() {
                 {collapsed && (
                   <motion.ul
                     variants={listVariants}
-                    initial="hidden"
+                    initial={false}
                     animate="visible"
                     className="flex w-full min-w-0 flex-col gap-0.5"
                   >
