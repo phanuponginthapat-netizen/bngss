@@ -138,8 +138,9 @@ export function detectorOptionsHQ(_inputSize: 320 | 416 | 512 | 608 = 608, minCo
 
 
 /**
- * ปรับกล้องอัตโนมัติให้คมชัด/สว่างที่สุดเท่าที่ฮาร์ดแวร์รองรับ
- * รองรับมือถือหลายรุ่น + USB/เว็บแคมโน้ตบุ๊กบน Linux (UVC) ที่ภาพมักมืดเกินไป
+ * ปรับกล้องให้ "พอดี" ไม่สว่างจ้าจนหน้าขาว (over-exposure) และไม่มืดจนจับหน้าไม่ได้
+ * แนวทาง: ปล่อยให้กล้อง auto-exposure/auto-WB ทำงานเป็นหลัก แล้วค่อยปรับละเอียด
+ * ด้วย autoExposureBalance() ตามค่าความสว่างจริงของใบหน้าในแต่ละเฟรม
  */
 export async function applyCameraAutoTune(stream: MediaStream): Promise<void> {
   const track = stream.getVideoTracks()[0];
@@ -153,21 +154,20 @@ export async function applyCameraAutoTune(stream: MediaStream): Promise<void> {
         : undefined;
 
     if (caps.focusMode?.includes?.("continuous")) advanced.push({ focusMode: "continuous" });
+    // สำคัญ: ใช้ auto exposure/white balance — การล็อกค่าสูงคือสาเหตุที่ภาพขาวโพลน
     if (caps.exposureMode?.includes?.("continuous")) advanced.push({ exposureMode: "continuous" });
     if (caps.whiteBalanceMode?.includes?.("continuous")) advanced.push({ whiteBalanceMode: "continuous" });
-    if (caps.sharpness && typeof caps.sharpness.max === "number") advanced.push({ sharpness: caps.sharpness.max });
-    if (caps.contrast && typeof caps.contrast.max === "number") {
-      const target = at(caps.contrast, 0.75);
-      if (target !== undefined) advanced.push({ contrast: target });
+    if (caps.sharpness && typeof caps.sharpness.max === "number") {
+      const s = at(caps.sharpness, 0.7);
+      if (s !== undefined) advanced.push({ sharpness: s });
     }
-    // --- แก้ภาพมืดบนเว็บแคมโน้ตบุ๊ก (เช่น HP Pavilion x2) ---
-    const brightness = at(caps.brightness, 0.72);
+    // ค่ากลาง ๆ เท่านั้น (ไม่ดันสุด) เพื่อคงรายละเอียดผิวหน้า ไม่ให้ไฮไลต์แตก
+    const contrast = at(caps.contrast, 0.5);
+    if (contrast !== undefined) advanced.push({ contrast });
+    const brightness = at(caps.brightness, 0.5);
     if (brightness !== undefined) advanced.push({ brightness });
-    const gain = at(caps.exposureCompensation, 0.8);
+    const gain = at(caps.exposureCompensation, 0.5);
     if (gain !== undefined) advanced.push({ exposureCompensation: gain });
-    // ISO/gain สูงขึ้นเล็กน้อย — สว่างขึ้นโดยไม่ลด framerate
-    const iso = at(caps.iso, 0.55);
-    if (iso !== undefined) advanced.push({ iso });
 
     if (advanced.length > 0) {
       await (track as any).applyConstraints({ advanced }).catch(() => {});
@@ -176,33 +176,59 @@ export async function applyCameraAutoTune(stream: MediaStream): Promise<void> {
 }
 
 /**
- * ปรับความสว่างกล้องเพิ่มอีกขั้นเมื่อภาพยังมืด (เรียกซ้ำได้)
- * meanLum 0-255 — ถ้าต่ำกว่า ~80 จะดันค่า brightness/exposure ขึ้นทีละสเต็ป
+ * ปรับแสงกล้องแบบสองทาง (auto-exposure ของเราเอง)
+ * meanLum 0-255 ของ "พื้นที่ใบหน้า":
+ *  - < 80  → ดันสว่างขึ้นทีละสเต็ป
+ *  - > 165 → หรี่ลงทีละสเต็ป (แก้อาการหน้าขาวโพลน จับใบหน้าไม่ได้)
+ *  - 80-165 → ไม่แตะ
  */
-export async function boostCameraForLowLight(
+export async function autoExposureBalance(
   stream: MediaStream | null | undefined,
   meanLum: number,
 ): Promise<void> {
-  if (!stream || meanLum >= 80) return;
+  if (!stream || !Number.isFinite(meanLum) || meanLum <= 0) return;
+  const dir = meanLum < 80 ? 1 : meanLum > 165 ? -1 : 0;
+  if (dir === 0) return;
   const track = stream.getVideoTracks?.()[0];
   if (!track || typeof (track as any).getCapabilities !== "function") return;
   try {
     const caps: any = (track as any).getCapabilities?.() ?? {};
     const cur: any = (track as any).getSettings?.() ?? {};
     const advanced: any[] = [];
-    const bump = (key: string, step = 0.15) => {
+    // ยิ่งเบี่ยงจากเป้ามาก ยิ่งปรับแรงขึ้น (แต่ไม่เกิน 25% ของช่วง)
+    const target = dir > 0 ? 105 : 140;
+    const strength = Math.min(0.25, Math.abs(meanLum - target) / 255 + 0.05);
+    const step = (key: string, scale = 1) => {
       const c = caps[key];
       if (!c || typeof c.min !== "number" || typeof c.max !== "number") return;
-      const now = typeof cur[key] === "number" ? cur[key] : c.min + (c.max - c.min) * 0.5;
-      const next = Math.min(c.max, now + (c.max - c.min) * step);
-      if (next > now) advanced.push({ [key]: next });
+      const range = c.max - c.min;
+      if (range <= 0) return;
+      const now = typeof cur[key] === "number" ? cur[key] : c.min + range * 0.5;
+      const next = Math.min(c.max, Math.max(c.min, now + dir * range * strength * scale));
+      if (Math.abs(next - now) > range * 0.01) advanced.push({ [key]: next });
     };
-    bump("brightness");
-    bump("exposureCompensation");
-    bump("iso", 0.2);
+    step("brightness");
+    step("exposureCompensation");
+    step("iso", 0.6);
+    // ถ้ากล้องรองรับ exposureTime แบบ manual และภาพขาวโพลนมาก → ลดเวลารับแสง
+    if (dir < 0 && meanLum > 200 && caps.exposureTime && caps.exposureMode?.includes?.("manual")) {
+      const c = caps.exposureTime;
+      const now = typeof cur.exposureTime === "number" ? cur.exposureTime : c.max;
+      const next = Math.max(c.min, now * 0.75);
+      if (next < now) advanced.push({ exposureMode: "manual" }, { exposureTime: next });
+    }
     if (advanced.length) await (track as any).applyConstraints({ advanced }).catch(() => {});
   } catch { /* ข้าม */ }
 }
+
+/** เดิม: ดันสว่างอย่างเดียว — ตอนนี้เรียกตัวปรับสองทางเพื่อกันภาพขาวโพลน */
+export async function boostCameraForLowLight(
+  stream: MediaStream | null | undefined,
+  meanLum: number,
+): Promise<void> {
+  return autoExposureBalance(stream, meanLum);
+}
+
 
 
 type DetectableInput = HTMLImageElement | HTMLVideoElement | HTMLCanvasElement;
@@ -235,7 +261,9 @@ function createDetectionCanvas(
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
-  (ctx as any).filter = "contrast(1.16) brightness(1.06) saturate(1.05)";
+  // ปรับตามแสงล่าสุด — ถ้าเฟรมก่อนหน้าสว่างจ้า ให้หรี่ลงแทนการดันสว่างเสมอ
+  (ctx as any).filter = `contrast(1.12) brightness(${_lastFrameBrightnessFactor().toFixed(3)}) saturate(1.04)`;
+
   ctx.drawImage(input as CanvasImageSource, 0, 0, w, h);
   (ctx as any).filter = "none";
 
@@ -327,6 +355,21 @@ async function detectSingleFaceRobust(input: DetectableInput) {
 
 
 let _normCanvas: HTMLCanvasElement | null = null;
+/** ค่าความสว่างเฉลี่ยของเฟรมล่าสุด (0-255) — ใช้ตัดสินใจว่าจะดันสว่างหรือหรี่ลง */
+let _lastMeanLum = 110;
+/** ตัวคูณ brightness ของ canvas filter: มืด → >1, สว่างจ้า → <1 */
+function _lastFrameBrightnessFactor(): number {
+  if (_lastMeanLum > 190) return 0.78;
+  if (_lastMeanLum > 165) return 0.88;
+  if (_lastMeanLum < 70) return 1.15;
+  if (_lastMeanLum < 95) return 1.06;
+  return 1;
+}
+/** ให้ส่วนอื่นอ่าน/อัปเดตค่าแสงล่าสุดได้ (เช่นหน้า kiosk ที่วัดเฉพาะพื้นที่ใบหน้า) */
+export function reportFrameLuminance(meanLum: number) {
+  if (Number.isFinite(meanLum) && meanLum > 0) _lastMeanLum = meanLum;
+}
+export function getFrameLuminance() { return _lastMeanLum; }
 /**
  * เตรียมเฟรมก่อนตรวจจับ: ปรับ brightness/contrast + Histogram Equalization (CLAHE-ish)
  * บน luminance — ช่วยให้กล้อง/แสงคนละแบบให้ embedding ใกล้กันมากขึ้น (bank-grade normalization)
@@ -345,7 +388,8 @@ export function preprocessFrame(
   _normCanvas.width = w; _normCanvas.height = h;
   const ctx = _normCanvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) return null;
-  (ctx as any).filter = "contrast(1.12) brightness(1.04) saturate(1.04)";
+  (ctx as any).filter = `contrast(1.1) brightness(${_lastFrameBrightnessFactor().toFixed(3)}) saturate(1.03)`;
+
   ctx.drawImage(video as any, 0, 0, w, h);
   (ctx as any).filter = "none";
 
@@ -359,10 +403,19 @@ export function preprocessFrame(
         lumSum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
       }
       const meanLum = lumSum / (w * h);
+      _lastMeanLum = _lastMeanLum * 0.6 + meanLum * 0.4; // smooth เพื่อกัน filter กระพริบ
       // target ~110: gamma > 1 = สว่างขึ้น (แสงน้อย), gamma < 1 = หรี่ลง (แสงจ้า/ย้อนแสง)
-      const gamma = Math.min(1.9, Math.max(0.72, (meanLum / 110) ** 0.5));
+      const gamma = Math.min(1.9, Math.max(0.6, (meanLum / 110) ** 0.5));
+      // ถ้าภาพขาวโพลน (clipping) ให้ดึงไฮไลต์ลงเพิ่ม เพื่อคืนรายละเอียดผิวหน้า
+      const highlightPull = meanLum > 185 ? 0.82 : meanLum > 165 ? 0.9 : 1;
       const gammaLut = new Uint8ClampedArray(256);
-      for (let v = 0; v < 256; v++) gammaLut[v] = Math.round(255 * Math.pow(v / 255, 1 / gamma));
+      for (let v = 0; v < 256; v++) {
+        const g = 255 * Math.pow(v / 255, 1 / gamma);
+        // soft rolloff เฉพาะโซนสว่าง
+        const roll = v > 200 ? highlightPull : v > 160 ? 1 - (1 - highlightPull) * ((v - 160) / 40) : 1;
+        gammaLut[v] = Math.round(g * roll);
+      }
+
       const hist = new Uint32Array(256);
       // build luminance histogram
       for (let i = 0; i < data.length; i += 4) {
@@ -1013,4 +1066,72 @@ function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: num
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
+}
+
+/* ============================================================
+ * Multi-condition face augmentation
+ * เก็บ/สร้าง embedding ของใบหน้าเดียวกันในหลายสภาพแสง
+ * (ปกติ / สว่างจ้า / มืด / โทนอุ่น / โทนเย็น / คอนทราสต์ต่ำ)
+ * ทำให้ตอนสแกนจริงในแสงต่างกันยังจับได้แม่นยำ
+ * ============================================================ */
+export type FaceVariantKey = "normal" | "bright" | "dark" | "warm" | "cool" | "flat";
+
+const VARIANT_FILTERS: Record<FaceVariantKey, string> = {
+  normal: "none",
+  bright: "brightness(1.45) contrast(0.92) saturate(0.95)",
+  dark: "brightness(0.6) contrast(1.12)",
+  warm: "sepia(0.35) saturate(1.25) hue-rotate(-12deg) brightness(1.05)",
+  cool: "saturate(0.85) hue-rotate(14deg) brightness(0.95) contrast(1.05)",
+  flat: "contrast(0.72) brightness(1.12) saturate(0.8)",
+};
+
+export const DEFAULT_FACE_VARIANTS: FaceVariantKey[] = ["bright", "dark", "warm", "cool"];
+
+/** สร้างภาพใบหน้าในสภาพแสงจำลอง 1 แบบ */
+export function makeFaceVariant(
+  source: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement,
+  variant: FaceVariantKey,
+): HTMLCanvasElement | null {
+  const w = (source as any).naturalWidth || (source as any).videoWidth || (source as any).width;
+  const h = (source as any).naturalHeight || (source as any).videoHeight || (source as any).height;
+  if (!w || !h) return null;
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const ctx = c.getContext("2d");
+  if (!ctx) return null;
+  (ctx as any).filter = VARIANT_FILTERS[variant] ?? "none";
+  ctx.drawImage(source as any, 0, 0, w, h);
+  (ctx as any).filter = "none";
+  return c;
+}
+
+/**
+ * คำนวณ embedding ของใบหน้าเดียวกันในหลายสภาพแสง
+ * ใช้ตอนลงทะเบียน — เพิ่มความทนต่อแสงจ้า/แสงน้อย/สีไฟต่างกัน
+ */
+export async function embedFaceVariants(
+  source: HTMLImageElement | HTMLCanvasElement,
+  variants: FaceVariantKey[] = DEFAULT_FACE_VARIANTS,
+): Promise<{ variant: FaceVariantKey; descriptor: Float32Array }[]> {
+  const out: { variant: FaceVariantKey; descriptor: Float32Array }[] = [];
+  for (const v of variants) {
+    try {
+      const canvas = makeFaceVariant(source, v);
+      if (!canvas) continue;
+      const d = await getDescriptorFromImage(canvas);
+      if (d) out.push({ variant: v, descriptor: d });
+    } catch { /* ข้ามตัวที่ตรวจไม่เจอ */ }
+  }
+  return out;
+}
+
+/** สะดวก: รับ dataURL/URL ของภาพใบหน้าที่ครอบไว้แล้ว */
+export async function embedFaceVariantsFromUrl(
+  url: string,
+  variants: FaceVariantKey[] = DEFAULT_FACE_VARIANTS,
+): Promise<{ variant: FaceVariantKey; descriptor: Float32Array }[]> {
+  try {
+    const img = await loadImageFromUrl(url);
+    return await embedFaceVariants(img, variants);
+  } catch { return []; }
 }

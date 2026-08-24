@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
   loadFaceModels, detectFaceWithLandmarks, applyCameraAutoTune, estimateFaceSharpness, euclidean,
+  autoExposureBalance, estimateBrightness, embedFaceVariantsFromUrl,
 } from "@/lib/faceApi";
 import { loadOpenCV, isOpenCVReady, detectFacesCV, disposeOpenCV, type CVBox } from "@/lib/opencvFace";
 import { openCamera, stopStream } from "@/lib/cameraStream";
@@ -134,6 +135,8 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
   const loopRef = useRef<number | null>(null);
   const busyRef = useRef(false);
   const detectMetaRef = useRef({ misses: 0, stableHits: 0 });
+  /** เวลาปรับแสงกล้องครั้งล่าสุด (throttle) */
+  const lastExposureRef = useRef(0);
   /** กัน catch เขียนทับ error ที่เป็น "blocked" (ใบหน้าซ้ำ/ไม่ตรง) — ควรโชว์ข้อความเดิม + บังคับเริ่มใหม่ */
   const blockedRef = useRef(false);
 
@@ -562,6 +565,20 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     const faceFrac = box.width / vw;
     const sharpness = estimateFaceSharpness(videoRef.current, box);
 
+    // ---- ปรับแสงอัตโนมัติแบบสองทาง: กันหน้าขาวโพลน (แสงจ้า) และหน้ามืดเกินไป ----
+    const now = Date.now();
+    if (now - lastExposureRef.current > 900) {
+      lastExposureRef.current = now;
+      const lum = estimateBrightness(videoRef.current, box);
+      if (lum > 0) {
+        void autoExposureBalance(videoRef.current.srcObject as MediaStream | null, lum);
+        if (lum > 200) setStatusMsg("แสงจ้าเกินไป — กำลังปรับกล้อง / เลี่ยงแสงย้อนหน้าต่าง");
+        else if (lum < 55) setStatusMsg("แสงน้อยเกินไป — กำลังปรับกล้อง / หาที่สว่างขึ้น");
+      }
+    }
+
+
+
     if (faceFrac < 0.06) {
       detectMetaRef.current.stableHits = 0;
       drawOverlay(data, "bad");
@@ -815,11 +832,31 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           }
         }
 
+        // ---- 2.5) เพิ่มตัวอย่างในหลายสภาพแสง (สว่างจ้า / มืด / โทนอุ่น / โทนเย็น) ----
+        // ช่วยให้สแกนจริงในแสงต่างกัน (แดดจ้าหน้าประตู, ห้องมืด, ไฟวอร์มไวท์) ยังจับได้แม่น
+        toast.loading("กำลังสร้างข้อมูลใบหน้าหลายสภาพแสง...", { id: __tid_save_1 });
+        const variantSamples: CapturedSample[] = [];
+        try {
+          const base = [...finalSamples].sort((a, b) => b.metrics.sharpness - a.metrics.sharpness).slice(0, 3);
+          for (const sm of base) {
+            const vs = await embedFaceVariantsFromUrl(sm.image);
+            for (const v of vs) {
+              variantSamples.push({
+                descriptor: v.descriptor,
+                image: sm.image,
+                metrics: { ...sm.metrics, lighting: v.variant } as any,
+              });
+            }
+          }
+        } catch (ve) { console.warn("variant embeddings skipped:", ve); }
+        const allSamples = [...finalSamples, ...variantSamples];
+
         // texture (LBP) ของแต่ละตัวอย่าง — ใช้ยืนยันพื้นผิวใบหน้าตอนสแกน
-        const textures = await Promise.all(finalSamples.map((sm) => urlToFaceTexture(sm.image)));
+        const textures = await Promise.all(allSamples.map((sm) => urlToFaceTexture(sm.image)));
 
         if (isPersonnel) {
-          const payload = finalSamples.map((sm, i) => ({
+          const payload = allSamples.map((sm, i) => ({
+
             descriptor: Array.from(sm.descriptor),
             quality_score: sm.metrics.sharpness,
             face_image: sm.image,
@@ -848,7 +885,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             const { error } = await (supabase as any).from("personnel_face_descriptors").insert(rowsP);
             if (error) throw error;
           }
-          toast.success(`ลงทะเบียนใบหน้าบุคลากรสำเร็จ ${finalSamples.length} ภาพ`);
+          toast.success(`ลงทะเบียนใบหน้าบุคลากรสำเร็จ ${finalSamples.length} ภาพ (+${variantSamples.length} สภาพแสง)`);
         } else if (submitMode === "request") {
           // ---- โหมดนักเรียนลงทะเบียนเอง: บันทึกและใช้งานได้ทันที ----
           const ts = Date.now();
@@ -869,7 +906,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
 
 
           const { error } = await supabase.rpc("self_enroll_face", {
-            _samples: finalSamples.map((sm, i) => ({
+            _samples: allSamples.map((sm, i) => ({
               descriptor: Array.from(sm.descriptor),
               quality_score: sm.metrics.sharpness,
               face_image: sm.image,
@@ -889,7 +926,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             }
             throw error;
           }
-          toast.success(`ลงทะเบียนใบหน้าสำเร็จ ${finalSamples.length} ภาพ — ใช้งานได้ทันที`);
+          toast.success(`ลงทะเบียนใบหน้าสำเร็จ ${finalSamples.length} ภาพ (+${variantSamples.length} สภาพแสง) — ใช้งานได้ทันที`);
         } else {
           const { data: ex } = await supabase
             .from("student_face_descriptors")
@@ -897,7 +934,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             .eq("student_id", studentId)
             .order("sample_index", { ascending: false }).limit(1);
           let next = ex && ex[0] ? ex[0].sample_index + 1 : 0;
-          const rows = finalSamples.map((sm, i) => ({
+          const rows = allSamples.map((sm, i) => ({
             student_id: studentId,
             sample_index: next++,
             descriptor: Array.from(sm.descriptor),

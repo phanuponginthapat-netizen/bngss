@@ -7,7 +7,7 @@ import { ScanFace, Camera, CameraOff, CheckCircle2, AlertCircle, Users, Monitor,
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame, detectorOptionsHQ, applyCameraAutoTune, preprocessFrame, estimateFaceSharpness, estimateBrightness, BANK_GRADE, isStrongMatch, isConfirmGrade, landmarkSanityScore, detectFaceWithLandmarks, assessFaceQuality, type KnownFace } from "@/lib/faceApi";
+import { loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame, detectorOptionsHQ, applyCameraAutoTune, preprocessFrame, estimateFaceSharpness, estimateBrightness, BANK_GRADE, isStrongMatch, isConfirmGrade, landmarkSanityScore, detectFaceWithLandmarks, assessFaceQuality, autoExposureBalance, reportFrameLuminance, type KnownFace } from "@/lib/faceApi";
 import { faceGuideStatus } from "@/lib/faceGuide";
 import { useUserRole } from "@/hooks/useUserRole";
 import { ShieldCheck } from "lucide-react";
@@ -55,6 +55,8 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const cooldownRef = useRef<Map<string, number>>(new Map());
+  /** เวลาปรับแสงกล้องครั้งล่าสุด (throttle) */
+  const lastExposureRef = useRef(0);
   const duplicateNoticeRef = useRef<Map<string, number>>(new Map());
   const justScannedRef = useRef<Map<string, number>>(new Map()); // `${studentId}:${mode}` -> timestamp
   const seenTodayRef = useRef<{ entry: Set<string>; exit: Set<string> }>({ entry: new Set(), exit: new Set() });
@@ -708,6 +710,12 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
               const tooBlurry = sharpness < MIN_SHARPNESS;
               // แสงน้อย — วัดความสว่างบริเวณใบหน้า (ย้อนแสง/มืด) เพื่อให้คำแนะนำตอนสแกนไม่ติด
               const brightness = estimateBrightness(video, box);
+              // ปรับแสงกล้องอัตโนมัติสองทาง (มืด → สว่างขึ้น, ขาวโพลน → หรี่ลง)
+              reportFrameLuminance(brightness);
+              if (Date.now() - lastExposureRef.current > 900) {
+                lastExposureRef.current = Date.now();
+                void autoExposureBalance(video.srcObject as MediaStream | null, brightness);
+              }
               const tooDark = brightness > 0 && brightness < BANK_GRADE.BRIGHTNESS_MIN - 10;
               const tooBright = brightness > BANK_GRADE.BRIGHTNESS_MAX + 10;
               // Anti-false-positive: landmark sanity (กันจับต้นไม้/วัตถุ)
