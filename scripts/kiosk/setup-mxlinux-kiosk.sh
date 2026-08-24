@@ -133,6 +133,33 @@ else
   KIOSK_MONITOR_AGENT_URL="${KIOSK_MONITOR_AGENT_URL:-}"
   KIOSK_EXTENSION_URL="${KIOSK_EXTENSION_URL:-}"   # door mode: ไม่ติดตั้ง extension (ตู้ประตูไม่มีนักเรียนใช้เว็บ)
 fi
+
+# ------------------------------------------------------------
+# ตรวจ URL จริงก่อนติดตั้ง — กันเคส "ติดตั้งแล้วขึ้น 404"
+# (โดเมนเก่า/พิมพ์ผิด/หน้าไม่มีอยู่ → fallback ไปโดเมนหลัก)
+KIOSK_FALLBACK_ORIGIN="${KIOSK_FALLBACK_ORIGIN:-https://bngss.lovable.app}"
+_probe_url() { curl -sSL -o /dev/null -w '%{http_code}' --max-time 10 "$1" 2>/dev/null || echo 000; }
+if command -v curl >/dev/null 2>&1; then
+  _code="$(_probe_url "$KIOSK_URL")"
+  if [[ "$_code" == "404" || "$_code" == "410" || "$_code" == "000" ]]; then
+    if [[ "$KIOSK_MODE" == "student" ]]; then
+      _alt="${KIOSK_FALLBACK_ORIGIN%/}/"
+    else
+      _alt="${KIOSK_FALLBACK_ORIGIN%/}/kiosk"
+    fi
+    _alt_code="$(_probe_url "$_alt")"
+    if [[ "$_alt_code" == "200" || "$_alt_code" == "304" ]]; then
+      echo "⚠  URL $KIOSK_URL ตอบ $_code → เปลี่ยนเป็น $_alt"
+      KIOSK_URL="$_alt"
+      [[ -n "${KIOSK_MONITOR_AGENT_URL:-}" ]] && KIOSK_MONITOR_AGENT_URL="${KIOSK_FALLBACK_ORIGIN%/}/dashboard/monitor/agent"
+      [[ -n "${KIOSK_EXTENSION_URL:-}" ]] && KIOSK_EXTENSION_URL="${KIOSK_FALLBACK_ORIGIN%/}/safe-browser-extension.zip"
+    else
+      echo "⚠  URL $KIOSK_URL ตอบ $_code และ fallback $_alt ตอบ $_alt_code — ตรวจอินเทอร์เน็ต/URL ในหน้า Kiosk Setup"
+    fi
+  fi
+fi
+# ------------------------------------------------------------
+
 # PIN สำหรับปลดล็อก Alt+F4 / Alt+Tab / Super / F11 / Ctrl+W / Ctrl+Q — default ตรงกับ CMS
 KIOSK_EXIT_PIN="${KIOSK_EXIT_PIN:-bng521987}"
 
