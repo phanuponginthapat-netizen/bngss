@@ -781,7 +781,7 @@ const FaceKioskPage = () => {
       }
       if (res.reason === "duplicate") {
         playDuplicateSound();
-        toast.info("ลงเวลาแล้ว", { description: `${name} ลงเวลา${mode === "exit" ? "ออก" : "เข้า"}งานวันนี้แล้ว`, duration: 1800 });
+        showNotice("info", "ลงเวลาแล้ว", `${name} ลงเวลา${mode === "exit" ? "ออก" : "เข้า"}งานวันนี้แล้ว`, 2500);
         return "บุคลากร • ลงเวลาแล้ววันนี้";
       }
       if (res.reason === "no_clock_in") {
