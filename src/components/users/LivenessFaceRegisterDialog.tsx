@@ -798,25 +798,40 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           throw new Error("ตรวจพบใบหน้ามากกว่า 1 คนระหว่างการลงทะเบียน");
         }
 
-        // ---- 1.1) เลือกเฉพาะภาพคุณภาพดีที่สุด ไม่เกินเพดาน (กันข้อมูลบวม) ----
-        const seenSteps = new Map<StepKey, number>();
-        const picked = [...usable]
-          .sort((a, b) => b.metrics.sharpness - a.metrics.sharpness)
-          .filter((sm) => {
-            const n = seenSteps.get(sm.metrics.stepKey) ?? 0;
-            if (n >= MAX_PER_STEP) return false;
-            seenSteps.set(sm.metrics.stepKey, n + 1);
-            return true;
-          })
-          .slice(0, MAX_SAMPLES);
-        let finalSamples = picked.length >= MIN_SAMPLES ? picked : usable.slice(0, MAX_SAMPLES);
+        // ---- 1.1) เลือกภาพคุณภาพดีที่สุด "แบบวนทีละมุม" เพื่อไม่ให้มุมใดหายไป ----
+        const byStep = new Map<StepKey, typeof samples>();
+        for (const sm of usable) {
+          const arr = byStep.get(sm.metrics.stepKey) ?? [];
+          arr.push(sm);
+          byStep.set(sm.metrics.stepKey, arr);
+        }
+        for (const arr of byStep.values()) arr.sort((a, b) => b.metrics.sharpness - a.metrics.sharpness);
+        const picked: typeof samples = [];
+        for (let round = 0; round < MAX_PER_STEP; round++) {
+          for (const arr of byStep.values()) {
+            if (arr[round] && picked.length < MAX_SAMPLES) picked.push(arr[round]);
+          }
+        }
+        let finalSamples = picked.length ? picked : usable.slice(0, MAX_SAMPLES);
+
         // เติมจากชุดเต็มถ้ายังไม่ถึงขั้นต่ำ (ไม่ทิ้งงานผู้ใช้ทั้งชุดเพราะแสงไม่ดีบางเฟรม)
         if (finalSamples.length < MIN_SAMPLES) {
           const extra = samples.filter((sm) => !finalSamples.includes(sm));
           finalSamples = [...finalSamples, ...extra].slice(0, MAX_SAMPLES);
         }
 
-        // ---- 1.2) ควรมีมุมหลากหลาย: บังคับแค่ "หน้าตรง + อย่างน้อย 1 ด้าน" ----
+        // ---- 1.2) ควรมีมุมหลากหลาย: กู้คืนมุมที่ขาดจากชุดเต็มก่อน แล้วค่อยแจ้งเตือน ----
+        const ensureAngle = (keys: StepKey[]) => {
+          const have = new Set(finalSamples.map((sm) => sm.metrics.stepKey));
+          if (keys.some((k) => have.has(k))) return;
+          const cand = samples
+            .filter((sm) => keys.includes(sm.metrics.stepKey))
+            .sort((a, b) => b.metrics.sharpness - a.metrics.sharpness)[0];
+          if (cand) finalSamples = [cand, ...finalSamples].slice(0, MAX_SAMPLES);
+        };
+        ensureAngle(["center"] as StepKey[]);
+        ensureAngle(["left", "right"] as StepKey[]);
+
         const angleSet = new Set(finalSamples.map((sm) => sm.metrics.stepKey));
         const hasSide = angleSet.has("left") || angleSet.has("right");
         if (finalSamples.length < MIN_SAMPLES || !angleSet.has("center") || !hasSide) {
@@ -827,6 +842,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             `) — กรุณากด "เริ่มใหม่" และทำครบทุกขั้นตอนช้าๆ`,
           );
         }
+
 
         // ---- 2) ตรวจสอบใบหน้าซ้ำกับผู้อื่นในระบบ (กันจำผิดคน) ----
         const descriptorArrays = finalSamples.map((sm) => Array.from(sm.descriptor));
