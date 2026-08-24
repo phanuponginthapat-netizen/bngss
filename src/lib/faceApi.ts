@@ -1116,14 +1116,23 @@ export function makeFaceVariant(
 export async function embedFaceVariants(
   source: HTMLImageElement | HTMLCanvasElement,
   variants: FaceVariantKey[] = DEFAULT_FACE_VARIANTS,
+  baseDescriptor?: Float32Array | null,
 ): Promise<{ variant: FaceVariantKey; descriptor: Float32Array }[]> {
   const out: { variant: FaceVariantKey; descriptor: Float32Array }[] = [];
+  // ต้นแบบของภาพนี้ (ไม่ใส่ฟิลเตอร์) ใช้เทียบว่า variant เพี้ยนเกินไปหรือไม่
+  let ref = baseDescriptor ?? null;
+  if (!ref) {
+    try { ref = await getDescriptorFromImage(source as any); } catch { ref = null; }
+  }
   for (const v of variants) {
     try {
       const canvas = makeFaceVariant(source, v);
       if (!canvas) continue;
       const d = await getDescriptorFromImage(canvas);
-      if (d) out.push({ variant: v, descriptor: d });
+      if (!d) continue;
+      // ทิ้ง variant ที่ฟิลเตอร์ทำให้ใบหน้าเพี้ยนจนกลายเป็น "คนละคน"
+      if (ref && euclidean(d, ref) > VARIANT_MAX_DRIFT) continue;
+      out.push({ variant: v, descriptor: d });
     } catch { /* ข้ามตัวที่ตรวจไม่เจอ */ }
   }
   return out;
@@ -1133,9 +1142,10 @@ export async function embedFaceVariants(
 export async function embedFaceVariantsFromUrl(
   url: string,
   variants: FaceVariantKey[] = DEFAULT_FACE_VARIANTS,
+  baseDescriptor?: Float32Array | null,
 ): Promise<{ variant: FaceVariantKey; descriptor: Float32Array }[]> {
   try {
     const img = await loadImageFromUrl(url);
-    return await embedFaceVariants(img, variants);
+    return await embedFaceVariants(img, variants, baseDescriptor);
   } catch { return []; }
 }
