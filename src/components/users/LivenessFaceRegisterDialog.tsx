@@ -1032,11 +1032,14 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
               </div>
             )}
             {!streaming && (
-              <div className="absolute inset-0 flex items-center justify-center">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
                 <Button onClick={() => startCamera()} disabled={!modelReady || !!modelError} size="lg" className="gradient-primary">
-                  {!modelReady ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Camera className="w-4 h-4 mr-2" />}
+                  {!modelReady && !modelError ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Camera className="w-4 h-4 mr-2" />}
                   {modelError ? "ระบบตรวจจับใบหน้าไม่พร้อม" : !modelReady ? "กำลังโหลดโมเดล..." : "เริ่มลงทะเบียน"}
                 </Button>
+                {!modelReady && !modelError && (
+                  <span className="text-xs text-white/80">{modelMsg}</span>
+                )}
               </div>
             )}
           </div>
@@ -1049,10 +1052,14 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
 
 
           {modelError && (
-            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-              {modelError}
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive space-y-2">
+              <div>{modelError}</div>
+              <Button size="sm" variant="outline" onClick={() => setModelTick((t) => t + 1)}>
+                ลองโหลดใหม่
+              </Button>
             </div>
           )}
+
 
           {/* Captured samples — gallery (รูปใบหน้าที่ระบบบันทึกไว้ในแต่ละขั้น) */}
           {samples.length > 0 && (
