@@ -726,15 +726,34 @@ install -d -m 755 "$THEME_DIR"
 # ดาวน์โหลดโลโก้ (ถ้ามี) — แปลงเป็น PNG จริงเสมอ เพราะ Plymouth อ่าน WebP/SVG/JPG บางแบบไม่ได้
 LOGO_PATH="$THEME_DIR/logo.png"
 rm -f "$LOGO_PATH" "$LOGO_PATH.tmp" "$LOGO_PATH.src"
-if [[ -n "$CMS_LOGO_URL" ]]; then
-  if curl -sfL --max-time 15 "$CMS_LOGO_URL" -o "$LOGO_PATH.src"; then
-    if have convert; then
-      convert "$LOGO_PATH.src" -auto-orient -resize '320x320>' -background none -gravity center -extent 320x320 PNG32:"$LOGO_PATH" 2>/dev/null || true
-    fi
+
+# ลองหลาย URL ตามลำดับ (CMS → ไอคอนของเว็บ) กันเคสค่าใดค่าหนึ่งว่าง/โหลดไม่ได้
+CMS_LOGO_512=$(extract_json school_logo_512)
+CMS_FAVICON=$(extract_json app_favicon_url)
+_LOGO_CANDIDATES=(
+  "$CMS_LOGO_URL"
+  "$CMS_LOGO_512"
+  "$CMS_FAVICON"
+  "${KIOSK_ORIGIN%/}/icon-512.png"
+  "${KIOSK_ORIGIN%/}/icon-192.png"
+)
+for _lu in "${_LOGO_CANDIDATES[@]}"; do
+  [[ -z "$_lu" ]] && continue
+  rm -f "$LOGO_PATH.src"
+  curl -sfL --max-time 15 "$_lu" -o "$LOGO_PATH.src" || continue
+  [[ -s "$LOGO_PATH.src" ]] || continue
+  if have convert; then
+    convert "$LOGO_PATH.src" -auto-orient -resize '320x320>' -background none -gravity center -extent 320x320 PNG32:"$LOGO_PATH" 2>/dev/null || true
   fi
-fi
+  if [[ -s "$LOGO_PATH" ]]; then
+    log "   ✓ โลโก้ boot: $_lu"
+    break
+  fi
+done
+
 # ถ้าไม่มีโลโก้/แปลงไม่ได้ → สร้างโลโก้ตัวอักษรที่ Plymouth โหลดได้แน่นอน
 if [[ ! -s "$LOGO_PATH" ]] && have convert; then
+  log "   ⚠ ใช้โลโก้ตัวอักษรแทน (ดาวน์โหลด/แปลงโลโก้ CMS ไม่สำเร็จ)"
   convert -size 320x320 xc:none -gravity center -fill white -pointsize 96 -font DejaVu-Sans-Bold \
     -annotate 0 "$(printf '%s' "$CMS_NAME" | cut -c1-2)" PNG32:"$LOGO_PATH" 2>/dev/null || true
 fi
