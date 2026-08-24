@@ -23,7 +23,9 @@ import {
   Terminal,
   DoorOpen,
   Users,
+  Cpu,
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   generateKioskSetupScript,
   getUninstallScript,
