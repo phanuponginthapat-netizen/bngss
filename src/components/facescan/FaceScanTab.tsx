@@ -669,17 +669,33 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const tNow = Date.now();
             const mirrored = facing === "user";
-            // วงรีเป้าหมาย — บอกระยะที่ใบหน้าควรอยู่ (กลางจอ) เพื่อให้กะระยะได้แม่น
+            // วงรีเป้าหมาย — บอกระยะ/ตำแหน่งที่ใบหน้าควรอยู่ (กลางจอ) เพื่อให้กะระยะได้แม่น
             const targetW = video.videoWidth * 0.34;
             const targetH = targetW * 1.35;
             const tcx = video.videoWidth / 2, tcy = video.videoHeight * 0.46;
+            const guideLocked = lockRef.current != null && tNow < lockRef.current.until;
             ctx.save();
-            ctx.setLineDash([8, 7]);
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = "rgba(255,255,255,0.35)";
+            ctx.setLineDash(guideLocked ? [] : [8, 7]);
+            ctx.lineWidth = guideLocked ? 4 : 2;
+            ctx.strokeStyle = guideLocked ? "rgba(34,197,94,0.95)" : "rgba(255,255,255,0.45)";
+            if (guideLocked) { ctx.shadowColor = "#22c55e"; ctx.shadowBlur = 16; }
             ctx.beginPath();
             ctx.ellipse(tcx, tcy, targetW / 2, targetH / 2, 0, 0, Math.PI * 2);
             ctx.stroke();
+            // ขีดบอกตำแหน่งกึ่งกลาง (บน/ล่าง/ซ้าย/ขวา) ให้จัดหน้าได้แม่นยำ
+            ctx.shadowBlur = 0;
+            ctx.setLineDash([]);
+            ctx.lineWidth = 3;
+            const tick = Math.max(10, targetW * 0.07);
+            const ticks: [number, number, number, number][] = [
+              [tcx, tcy - targetH / 2 - tick, tcx, tcy - targetH / 2 + tick],
+              [tcx, tcy + targetH / 2 - tick, tcx, tcy + targetH / 2 + tick],
+              [tcx - targetW / 2 - tick, tcy, tcx - targetW / 2 + tick, tcy],
+              [tcx + targetW / 2 - tick, tcy, tcx + targetW / 2 + tick, tcy],
+            ];
+            for (const [x1, y1, x2, y2] of ticks) {
+              ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+            }
             ctx.restore();
             await Promise.all(detections.map(async (det) => {
               const rb = det.detection.box;
