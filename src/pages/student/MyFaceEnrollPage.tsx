@@ -113,9 +113,26 @@ const MyFaceEnrollPage = () => {
     },
   });
 
+  // สำรองสุดท้าย: ใช้ข้อมูลจากโปรไฟล์ (กรณี RLS ยังไม่ให้อ่านแถวนักเรียน/บุคลากร แต่มีรหัสอยู่ในโปรไฟล์)
+  const { data: profileFallback } = useQuery({
+    queryKey: ["my-face-profile-fallback"],
+    enabled: !isLoading && !loadingP && !me && !mePersonnel,
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name, student_code, employee_code, avatar_url")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (!data || (!data.student_code && !data.employee_code)) return null;
+      return data;
+    },
+  });
+
   const pending = null as any;
   const registered = (me ? samples.length : personnelSamples.length) > 0;
-  const person: any = me || mePersonnel;
+  const person: any = me || mePersonnel || profileFallback;
   const fullName = person
     ? `${person.prefix || ""}${person.first_name || ""} ${person.last_name || ""}`.trim()
     : "";
