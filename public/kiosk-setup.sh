@@ -141,6 +141,11 @@ KIOSK_BATT_CRITICAL="${KIOSK_BATT_CRITICAL:-5}"      # % ต่ำสุดก�
 KIOSK_BATT_CHARGE_MAX="${KIOSK_BATT_CHARGE_MAX:-80}" # จำกัดชาร์จสูงสุด ยืดอายุแบต (0 = ไม่จำกัด)
 KIOSK_TIMEZONE="${KIOSK_TIMEZONE:-Asia/Bangkok}"
 
+# โหมดประหยัดหน่วยความจำ (zram + earlyoom + mem-guard + flag Chromium)
+# auto = เปิดอัตโนมัติเมื่อ RAM <= 3GB (เช่น HP Pavilion x2 2GB) | 1 = บังคับเปิด | 0 = ปิด
+KIOSK_LOWMEM="${KIOSK_LOWMEM:-auto}"
+KIOSK_MEM_MIN_MB="${KIOSK_MEM_MIN_MB:-140}"   # แรมว่างต่ำกว่านี้ 3 รอบ → รีสตาร์ท Chromium
+
 # ------------------------------------------
 
 LOG_FILE=/var/log/kiosk-setup.log
@@ -1640,7 +1645,7 @@ EOF
   cat >/opt/kiosk/mem-guard.sh <<EOF
 #!/usr/bin/env bash
 # เฝ้าดู MemAvailable — ถ้าต่ำกว่า threshold ติดกัน 3 รอบ → รีสตาร์ท Chromium เพื่อคืนแรม
-THRESHOLD_MB=\${KIOSK_MEM_MIN_MB:-140}
+THRESHOLD_MB=${KIOSK_MEM_MIN_MB}
 low=0
 while true; do
   AVAIL=\$(awk '/MemAvailable/{print int(\$2/1024)}' /proc/meminfo 2>/dev/null || echo 999)
