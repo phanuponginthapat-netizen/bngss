@@ -71,7 +71,7 @@ export default function SisSyncPage() {
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("sis_sync_queue")
       .select("*")
       .order("created_at", { ascending: false })

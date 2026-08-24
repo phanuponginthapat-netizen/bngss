@@ -83,7 +83,7 @@ export default function BankReconciliationPage() {
       const since = new Date();
       since.setDate(since.getDate() - 30);
       const iso = since.toISOString().slice(0, 10);
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("petty_cash")
         .select("id, date, description, amount, type, category")
         .gte("date", iso)

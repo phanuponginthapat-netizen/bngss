@@ -319,7 +319,7 @@ export default function ParentAppPage() {
       : Promise.resolve({ data: [], error: null } as unknown as { data: HomeworkRow[] | null });
 
     // 0 ร มส status — grade_remediation where student_id = child.id and status != 'ผ่าน'
-    const remediationPromise = supabase
+    const remediationPromise = (supabase as any)
       .from("grade_remediation")
       .select("id, student_id, subject_code, subject_name, term, original_grade, status, fix_deadline, created_at")
       .eq("student_id", child.id)

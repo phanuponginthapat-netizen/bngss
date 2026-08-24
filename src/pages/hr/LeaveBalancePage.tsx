@@ -57,7 +57,7 @@ const LeaveBalancePage = () => {
   const { data: balances = [], isLoading } = useQuery({
     queryKey: ["leave-balances", year],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("leave_balances")
         .select(`
           id, user_id, year, leave_type, total_days, used_days, remaining_days,
@@ -115,7 +115,7 @@ const LeaveBalancePage = () => {
         toast.error(lang === "th" ? "กรุณากรอกจำนวนวันที่ถูกต้อง" : "Invalid number of days");
         return;
       }
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("leave_balances")
         .update({ total_days: val, updated_at: new Date().toISOString() })
         .eq("id", selected.id);

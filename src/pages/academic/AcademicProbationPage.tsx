@@ -56,7 +56,7 @@ export default function AcademicProbationPage() {
   const { data: probRecs = [] } = useQuery({
     queryKey: ["academic_probation", ay, sem],
     queryFn: async () => {
-      const { data } = await supabase.from("academic_probation").select("*").eq("academic_year", ay).eq("semester", sem);
+      const { data } = await (supabase as any).from("academic_probation").select("*").eq("academic_year", ay).eq("semester", sem);
       return (data ?? []) as ProbationRecord[];
     },
   });
@@ -65,10 +65,10 @@ export default function AcademicProbationPage() {
     mutationFn: async (rec: any) => {
       const existing = probRecs.find((r) => r.student_id === rec.student_id);
       if (existing) {
-        const { error } = await supabase.from("academic_probation").update({ status: rec.status, notes: rec.notes, gpax: rec.gpax, updated_at: new Date().toISOString() }).eq("id", existing.id);
+        const { error } = await (supabase as any).from("academic_probation").update({ status: rec.status, notes: rec.notes, gpax: rec.gpax, updated_at: new Date().toISOString() }).eq("id", existing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("academic_probation").insert(rec);
+        const { error } = await (supabase as any).from("academic_probation").insert(rec);
         if (error) throw error;
       }
     },

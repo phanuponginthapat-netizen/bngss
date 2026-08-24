@@ -59,7 +59,7 @@ export default function GradeRemediationPage() {
 
   const load = async () => {
     setLoading(true);
-    let q = supabase.from("grade_remediation").select("*, students(first_name, last_name, student_code, prefix)").order("created_at", { ascending: false }).limit(200);
+    let q = (supabase as any).from("grade_remediation").select("*, students(first_name, last_name, student_code, prefix)").order("created_at", { ascending: false }).limit(200);
     if (termFilter) q = q.eq("term", termFilter);
     if (statusFilter !== "all") q = q.eq("status", statusFilter);
     const { data } = await q;
@@ -99,7 +99,7 @@ export default function GradeRemediationPage() {
       let inserted = 0;
       for (const g of grades) {
         const term = g.term || (g.academic_year ? `${g.academic_year}` : "1/2568");
-        const { error } = await supabase.from("grade_remediation").insert({
+        const { error } = await (supabase as any).from("grade_remediation").insert({
           student_id: g.student_id,
           subject_code: g.subject_code || "GEN",
           subject_name: g.subject_name || g.subject_code || "",
@@ -120,7 +120,7 @@ export default function GradeRemediationPage() {
   const handleAnnounce = async () => {
     if (selected.size === 0) return toast.error(L("เลือกอย่างน้อย 1 รายการ", "Select at least 1"));
     const ids = Array.from(selected);
-    const { error } = await supabase.from("grade_remediation").update({ status: "ประกาศแล้ว", announced_at: new Date().toISOString() } as any).in("id", ids);
+    const { error } = await (supabase as any).from("grade_remediation").update({ status: "ประกาศแล้ว", announced_at: new Date().toISOString() }).in("id", ids);
     if (error) toast.error(error.message);
     else {
       toast.success(L(`ประกาศ ${ids.length} คนแล้ว`, `Announced ${ids.length}`));
@@ -166,14 +166,14 @@ export default function GradeRemediationPage() {
     if (!fixItem) return;
     const isPass = fixGrade && !GRADE_REMEDIATION_TYPES.includes(fixGrade as any);
     const status = isPass ? "ผ่าน" : fixGrade === "" ? "กำลังแก้" : "ไม่ผ่าน";
-    const { error } = await supabase.from("grade_remediation").update({
+    const { error } = await (supabase as any).from("grade_remediation").update({
       fix_score: fixScore ? Number(fixScore) : null,
       new_grade: fixGrade || null,
       fix_method: fixMethod,
       fix_deadline: fixDeadline || null,
       notes: fixNotes || null,
       status,
-    } as any).eq("id", fixItem.id);
+    }).eq("id", fixItem.id);
     if (error) toast.error(error.message);
     else {
       toast.success(L("บันทึกการแก้แล้ว", "Fix saved"));
@@ -200,10 +200,10 @@ export default function GradeRemediationPage() {
   };
   const submitRetake = async () => {
     if (!retakeItem || !retakeDate) return;
-    const { error } = await supabase.from("remediation_sessions").insert({ remediation_id: retakeItem.id, session_date: retakeDate, result: "รอผล" } as any);
+    const { error } = await (supabase as any).from("remediation_sessions").insert({ remediation_id: retakeItem.id, session_date: retakeDate, result: "รอผล" });
     if (error) toast.error(error.message);
     else {
-      await supabase.from("grade_remediation").update({ status: "รอสอบแก้" } as any).eq("id", retakeItem.id);
+      await (supabase as any).from("grade_remediation").update({ status: "รอสอบแก้" }).eq("id", retakeItem.id);
       toast.success(L("นัดสอบแก้แล้ว", "Retake scheduled"));
       notifyGradeRemediationRetakeScheduled({
         studentId: retakeItem.student_id,

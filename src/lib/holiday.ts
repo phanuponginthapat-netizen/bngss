@@ -7,7 +7,7 @@ const CACHE_MS = 5 * 60 * 1000;
 
 export async function fetchHolidays(): Promise<Holiday[]> {
   if (cached && Date.now() - cached.at < CACHE_MS) return cached.data;
-  const { data } = await supabase.from("holidays").select("*");
+  const { data } = await (supabase as any).from("holidays").select("*");
   const list = (data as any[]) || [];
   cached = { data: list, at: Date.now() };
   return list;

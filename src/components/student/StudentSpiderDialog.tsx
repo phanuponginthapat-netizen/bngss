@@ -27,7 +27,7 @@ export function StudentSpiderDialog({ studentId, open, onOpenChange }: { student
     queryKey: ["spider_remed", studentId],
     enabled: !!studentId,
     queryFn: async () => {
-      const { data } = await supabase.from("grade_remediation").select("*").eq("student_id", studentId!).limit(5);
+      const { data } = await (supabase as any).from("grade_remediation").select("*").eq("student_id", studentId).limit(5);
       return (data as any[]) || [];
     },
   });
@@ -35,7 +35,7 @@ export function StudentSpiderDialog({ studentId, open, onOpenChange }: { student
     queryKey: ["spider_bus", studentId],
     enabled: !!studentId,
     queryFn: async () => {
-      const { data } = await supabase.from("bus_attendance").select("*, bus_routes(name)").eq("student_id", studentId!).order("boarded_at", { ascending: false }).limit(5);
+      const { data } = await (supabase as any).from("bus_attendance").select("*, bus_routes(name)").eq("student_id", studentId).order("boarded_at", { ascending: false }).limit(5);
       return (data as any[]) || [];
     },
   });

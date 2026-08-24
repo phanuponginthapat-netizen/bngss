@@ -20,7 +20,7 @@ export default function WpaPage(){
   const { data: items = [] } = useQuery({
     queryKey: ["wpa-assessments"],
     queryFn: async () => {
-      const { data } = await supabase.from("wpa_assessments").select("*, personnel(first_name, last_name, position)").order("created_at",{ascending:false});
+      const { data } = await (supabase as any).from("wpa_assessments").select("*, personnel(first_name, last_name, position)").order("created_at",{ascending:false});
       return (data as any[])||[];
     },
   });
@@ -31,7 +31,7 @@ export default function WpaPage(){
     // Find personnel id for current user if exists
     const { data: per } = await supabase.from("personnel").select("id").eq("user_id", user?.id).maybeSingle();
     const personnel_id = (per as any)?.id || null;
-    const { error } = await supabase.from("wpa_assessments").insert({ personnel_id, period: period.trim(), score: score ? Number(score) : null, status: "draft" } as any);
+    const { error } = await (supabase as any).from("wpa_assessments").insert({ personnel_id, period: period.trim(), score: score ? Number(score) : null, status: "draft" });
     if(error) toast.error(error.message);
     else { toast.success("สร้าง วPA แล้ว"); setOpen(false); qc.invalidateQueries({queryKey:["wpa-assessments"]}); }
   };
