@@ -582,9 +582,15 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           setStatusMsg("ตรงแล้ว — อยู่นิ่งอีกนิด");
           break;
         }
-        setStatusMsg("ตรงแล้ว! กำลังบันทึก...");
         detectMetaRef.current.stableHits = 0;
         setSamples((s) => [...s, captureSample(data!, "center")]);
+        {
+          const need = SHOTS_PER_STEP.center ?? 1;
+          const got = (stepShotsRef.current.center ?? 0) + 1;
+          stepShotsRef.current.center = got;
+          if (got < need) { setStatusMsg(`กำลังเก็บภาพหน้าตรง (${got}/${need}) — อยู่นิ่งๆ`); break; }
+        }
+        setStatusMsg("ตรงแล้ว! กำลังบันทึก...");
         setStepIdx((i) => i + 1);
         break;
       }
