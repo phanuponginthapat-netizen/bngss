@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import {
   loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame,
-  detectorOptionsHQ, applyCameraAutoTune, preprocessFrame, estimateFaceSharpness, estimateBrightness,
+  detectorOptionsHQ, applyCameraAutoTune, boostCameraForLowLight, preprocessFrame, estimateFaceSharpness, estimateBrightness,
   BANK_GRADE,
   type KnownFace, type MatchResult,
 } from "@/lib/faceApi";
@@ -84,6 +84,7 @@ const FaceKioskPage = () => {
   const confirmRef = useRef<Map<string, { count: number; lastTs: number }>>(new Map());
   /** ล็อกใบหน้าที่จับได้ชั่วคราว — ขยับเล็กน้อย/เบลอชั่วขณะ จะไม่หลุดล็อก */
   const kioskLockRef = useRef<{ studentId: string; until: number } | null>(null);
+  const lastLowLightBoostRef = useRef(0);
   /** กรอบวาดแบบเกลี่ยให้นิ่ง (EMA) */
   const kioskSmoothRef = useRef<Map<string, { x: number; y: number; width: number; height: number }>>(new Map());
   // ใบหน้าสด (anti-spoof): สะสมหลักฐาน blink/ขยับศีรษะแยกตาม studentId
