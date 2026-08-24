@@ -786,7 +786,7 @@ const FaceKioskPage = () => {
       }
       if (res.reason === "no_clock_in") {
         playDuplicateSound();
-        toast.warning("ยังไม่ได้ลงเวลาเข้างาน", { description: name, duration: 2000 });
+        showNotice("warning", "ยังไม่ได้ลงเวลาเข้างาน", name, 3000);
         return "บุคลากร • ยังไม่ได้ลงเวลาเข้า";
       }
       if (res.reason === "too_soon") {
