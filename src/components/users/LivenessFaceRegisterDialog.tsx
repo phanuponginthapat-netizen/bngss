@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
   loadFaceModels, detectFaceWithLandmarks, applyCameraAutoTune, estimateFaceSharpness, euclidean,
+  autoExposureBalance, estimateBrightness, embedFaceVariantsFromUrl,
 } from "@/lib/faceApi";
 import { loadOpenCV, isOpenCVReady, detectFacesCV, disposeOpenCV, type CVBox } from "@/lib/opencvFace";
 import { openCamera, stopStream } from "@/lib/cameraStream";
