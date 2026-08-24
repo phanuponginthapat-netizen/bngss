@@ -57,8 +57,34 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 CFG_JSON=$(curl -fsSL --max-time 10 -H "apikey: $CMS_ANON_KEY" "$CMS_BASE/functions/v1/ext-config" 2>/dev/null || true)
+if [[ -z "$CFG_JSON" || "$CFG_JSON" == *'"code"'*'404'* ]]; then
+  # fallback: อ่านตรงจากตาราง cms_settings (กรณี backend ไม่มี edge function ext-config)
+  echo "► ext-config ไม่พร้อม — อ่าน CMS จาก REST (cms_settings)"
+  ROWS_JSON=$(curl -fsSL --max-time 10 -H "apikey: $CMS_ANON_KEY" -H "Authorization: Bearer $CMS_ANON_KEY" \
+    "$CMS_BASE/rest/v1/cms_settings?select=key,value&key=in.(school_name,app_name,school_logo,school_logo_512,app_favicon_url,theme_color,primary_color,kiosk_config)" 2>/dev/null || true)
+  if [[ -n "$ROWS_JSON" ]] && command -v python3 >/dev/null 2>&1; then
+    CFG_JSON=$(ROWS_JSON="$ROWS_JSON" python3 - <<'PYEOF' 2>/dev/null || true
+import json,os
+out={}
+try: rows=json.loads(os.environ.get("ROWS_JSON","[]"))
+except Exception: rows=[]
+for r in rows if isinstance(rows,list) else []:
+    k=r.get("key"); v=r.get("value")
+    if not k: continue
+    if k=="kiosk_config" and isinstance(v,str):
+        try: v=json.loads(v)
+        except Exception: pass
+    out[k]=v
+print(json.dumps(out,ensure_ascii=False))
+PYEOF
+)
+  else
+    CFG_JSON=""
+  fi
+fi
 if [[ -z "$CFG_JSON" ]]; then
   echo "⚠  ดึง CMS config ไม่ได้ (network/DNS?) — ใช้ค่า default"
+
 elif ! command -v python3 >/dev/null 2>&1; then
   echo "⚠  ไม่มี python3 — ข้าม CMS config"
 else
