@@ -722,7 +722,7 @@ const FaceKioskPage = () => {
     if (!data) {
       seenSet.add(studentId);
       playDuplicateSound();
-      toast.info("สแกนซ้ำ", { description: `${name} ถูกบันทึก${modeLabel}โรงเรียนวันนี้แล้ว`, duration: 1800 });
+        showNotice("info", "สแกนซ้ำ", `${name} ถูกบันทึก${modeLabel}โรงเรียนวันนี้แล้ว`, 2500);
       return;
     }
     justScannedRef.current.set(cdKey, now);
