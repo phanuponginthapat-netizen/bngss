@@ -425,14 +425,15 @@ async function detectSingleFaceRobust(input: DetectableInput) {
 let _normCanvas: HTMLCanvasElement | null = null;
 /** ค่าความสว่างเฉลี่ยของเฟรมล่าสุด (0-255) — ใช้ตัดสินใจว่าจะดันสว่างหรือหรี่ลง */
 let _lastMeanLum = 110;
-/** ตัวคูณ brightness ของ canvas filter: มืด → >1, สว่างจ้า → <1 */
+/**
+ * ตัวคูณ brightness ของ canvas filter — มาตรฐาน ArcFace ใช้ภาพดิบ ไม่ดันแสง
+ * ช่วยเฉพาะกรณีมืดจัดจริง ๆ เท่านั้น และไม่หรี่ภาพ (ปล่อยให้กล้อง auto-exposure ทำงาน)
+ */
 function _lastFrameBrightnessFactor(): number {
-  if (_lastMeanLum > 190) return 0.78;
-  if (_lastMeanLum > 165) return 0.88;
-  if (_lastMeanLum < 70) return 1.15;
-  if (_lastMeanLum < 95) return 1.06;
+  if (_lastMeanLum < 60) return 1.08;
   return 1;
 }
+
 /** ให้ส่วนอื่นอ่าน/อัปเดตค่าแสงล่าสุดได้ (เช่นหน้า kiosk ที่วัดเฉพาะพื้นที่ใบหน้า) */
 export function reportFrameLuminance(meanLum: number) {
   if (Number.isFinite(meanLum) && meanLum > 0) _lastMeanLum = meanLum;
