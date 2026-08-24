@@ -1,8 +1,9 @@
 /**
- * โปรไฟล์ประสิทธิภาพของโหมดคีออส — ลดภาระ CPU บนเครื่อง Linux สเปกต่ำ
- * เก็บค่าไว้ใน localStorage เพื่อให้ตู้จำค่าเดิมหลังรีบูต
+ * โปรไฟล์ประสิทธิภาพของโหมดคีออส — เหลือโหมดเดียว "Turbo"
+ * ปรับจูนมาสำหรับเครื่องสเปกต่ำอย่าง HP Pavilion x2 (Intel Atom x5)
+ * เป้าหมาย: ไม่ค้าง ไม่กระตุก สแกนไว และยังแม่นยำ
  */
-export type KioskPerfMode = "atom" | "low" | "balanced" | "high";
+export type KioskPerfMode = "turbo";
 
 export const KIOSK_PERF_KEY = "face_kiosk_perf_mode";
 
@@ -22,71 +23,27 @@ export interface KioskPerfProfile {
   label: string;
 }
 
-export const KIOSK_PERF_PROFILES: Record<KioskPerfMode, KioskPerfProfile> = {
-  atom: {
-    inputSize: 320,
-    maxWidth: 480,
-    loopDelayMs: 240,
-    checkSharpness: false,
-    videoWidth: 1920,
-    videoHeight: 1080,
-    frameRate: 12,
-    label: "Atom 1080p ลื่น (แนะนำ)",
-  },
-  low: {
-    inputSize: 320,
-    maxWidth: 480,
-    loopDelayMs: 200,
-    checkSharpness: false,
-    videoWidth: 640,
-    videoHeight: 480,
-    frameRate: 15,
-    label: "ประหยัด (640p)",
-  },
-  balanced: {
-    inputSize: 416,
-    maxWidth: 640,
-    loopDelayMs: 160,
-    checkSharpness: true,
-    videoWidth: 1280,
-    videoHeight: 720,
-    frameRate: 24,
-    label: "สมดุล",
-  },
-  high: {
-    inputSize: 608,
-    maxWidth: 960,
-    loopDelayMs: 200,
-    checkSharpness: true,
-    videoWidth: 1920,
-    videoHeight: 1080,
-    frameRate: 30,
-    label: "ละเอียดสูง (เครื่องแรง)",
-  },
+/** โปรไฟล์เดียวของระบบ — เร็วที่สุดที่ยังคงความแม่นยำ */
+export const KIOSK_TURBO_PROFILE: KioskPerfProfile = {
+  inputSize: 320,
+  maxWidth: 480,
+  loopDelayMs: 110,
+  checkSharpness: false,
+  // 720p @15fps ถอดรหัสเบากว่า 1080p มากบน Atom แต่ยังจับใบหน้าระยะ ~1.5 ม. ได้
+  videoWidth: 1280,
+  videoHeight: 720,
+  frameRate: 15,
+  label: "Turbo (เหมาะกับ HP Pavilion x2 / Atom)",
 };
 
-/** เดาโปรไฟล์ที่เหมาะสมจากสเปกเครื่อง (ใช้เมื่อยังไม่เคยตั้งค่า) */
+export const KIOSK_PERF_PROFILES: Record<KioskPerfMode, KioskPerfProfile> = {
+  turbo: KIOSK_TURBO_PROFILE,
+};
+
 export function detectKioskPerfMode(): KioskPerfMode {
-  try {
-    const ua = navigator.userAgent || "";
-    const isAtom = /Atom/i.test(ua) || /Intel.*Atom/i.test(ua);
-    if (isAtom) return "atom";
-    const cores = navigator.hardwareConcurrency || 4;
-    const mem = (navigator as any).deviceMemory || 4;
-    const isLinux = /Linux/i.test(navigator.platform || navigator.userAgent) && !/Android/i.test(navigator.userAgent);
-    if (cores <= 2) return "atom";
-    if (cores <= 4 || mem <= 4) return "low";
-    if (isLinux && cores <= 8) return "balanced";
-    return "balanced";
-  } catch {
-    return "balanced";
-  }
+  return "turbo";
 }
 
 export function loadKioskPerfMode(): KioskPerfMode {
-  try {
-    const saved = localStorage.getItem(KIOSK_PERF_KEY) as KioskPerfMode | null;
-    if (saved && KIOSK_PERF_PROFILES[saved]) return saved;
-  } catch { /* noop */ }
-  return detectKioskPerfMode();
+  return "turbo";
 }
