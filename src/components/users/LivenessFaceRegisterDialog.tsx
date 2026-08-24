@@ -45,10 +45,12 @@ const SAMPLE_OUTLIER_MAX = 0.72;
 /** ถ้าใบหน้าใกล้กับคนอื่นในระบบมากกว่านี้ = ถือว่าซ้ำคน */
 const DUPLICATE_THRESHOLD = 0.36;
 /** จำนวนภาพขั้นต่ำ/สูงสุดที่บันทึกจริง */
-const MIN_SAMPLES = 3;
-const MAX_SAMPLES = 8;
+const MIN_SAMPLES = 6;
+const MAX_SAMPLES = 12;
 /** จำกัดจำนวนภาพต่อขั้นตอน เพื่อให้ได้มุมหลากหลาย ไม่ซ้ำท่าเดียว */
-const MAX_PER_STEP = 2;
+const MAX_PER_STEP = 4;
+/** จำนวนภาพที่ต้องเก็บให้ครบในแต่ละขั้นตอน (ยิงรัวหลายเฟรม) */
+const SHOTS_PER_STEP: Partial<Record<string, number>> = { center: 3, near: 2, left: 3, right: 3 };
 
 const median = (xs: number[]) => {
   if (!xs.length) return 0;
