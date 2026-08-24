@@ -25,9 +25,11 @@ export interface KioskPerfProfile {
 
 /** โปรไฟล์เดียวของระบบ — เร็วที่สุดที่ยังคงความแม่นยำ */
 export const KIOSK_TURBO_PROFILE: KioskPerfProfile = {
-  inputSize: 320,
-  maxWidth: 480,
-  loopDelayMs: 110,
+  // 416 เก็บรายละเอียดใบหน้าได้มากกว่า 320 อย่างชัดเจน (ลดการจำสลับคน)
+  // แต่ยังเร็วพอบน Atom เมื่อคู่กับ maxWidth 640 และรอบตรวจจับถี่ขึ้น
+  inputSize: 416,
+  maxWidth: 640,
+  loopDelayMs: 70,
   checkSharpness: false,
   // 720p @15fps ถอดรหัสเบากว่า 1080p มากบน Atom แต่ยังจับใบหน้าระยะ ~1.5 ม. ได้
   videoWidth: 1280,
@@ -35,6 +37,7 @@ export const KIOSK_TURBO_PROFILE: KioskPerfProfile = {
   frameRate: 15,
   label: "Turbo (เหมาะกับ HP Pavilion x2 / Atom)",
 };
+
 
 export const KIOSK_PERF_PROFILES: Record<KioskPerfMode, KioskPerfProfile> = {
   turbo: KIOSK_TURBO_PROFILE,
