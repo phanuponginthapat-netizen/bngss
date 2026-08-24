@@ -230,7 +230,7 @@ export async function gentleLowLightAssist(
   meanLum: number,
 ): Promise<void> {
   if (!stream || !Number.isFinite(meanLum) || meanLum <= 0) return;
-  if (meanLum > 175) { await resetCameraExposure(stream); return; }
+  if (meanLum > 160) { await resetCameraExposure(stream); return; }
   if (meanLum >= 70) return;
   const track = stream.getVideoTracks?.()[0];
   if (!track || typeof (track as any).getCapabilities !== "function") return;
