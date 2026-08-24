@@ -1324,6 +1324,7 @@ done
 PREF="$DOOR_PROFILE/Default/Preferences"
 [[ -f "\$PREF" ]] && sed -i 's/"exited_cleanly":false/"exited_cleanly":true/; s/"exit_type":"Crashed"/"exit_type":"Normal"/' "\$PREF" || true
 xset s off -dpms s noblank 2>/dev/null || true
+/opt/kiosk/fix-camera.sh >/dev/null 2>&1 || true
 pgrep -x unclutter >/dev/null || unclutter -idle 0.5 -root &
 
 # respawn loop — chromium crash/quit จะเปิดใหม่ทันที
