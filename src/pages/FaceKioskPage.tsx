@@ -345,7 +345,7 @@ const FaceKioskPage = () => {
         // พบโลหะ/วัตถุต้องสงสัย → ปิดประตู + แจ้งชื่อ
         playWeaponAlert();
         if (voiceEnabled) speakText(`${name} มีสิ่งของต้องสงสัย ขอให้คุณครูตรวจสอบ`);
-        toast.error("พบวัตถุต้องสงสัย — ประตูปิด", { description: `${name} • ${res.detail}`, duration: 8000 });
+        showNotice("error", "พบวัตถุต้องสงสัย — ประตูปิด", `${name} • ${res.detail}`, 8000);
         void logEvent("weapon", false, false);
         alertStaff("weapon", res.detail);
         return;
@@ -355,7 +355,7 @@ const FaceKioskPage = () => {
         playFeverAlert();
         const t = res.tempC != null ? res.tempC.toFixed(1) : "";
         if (voiceEnabled) speakText(`${name} มีไข้สูง อุณหภูมิ ${t} องศา กรุณาพบเจ้าหน้าที่`);
-        toast.warning("อุณหภูมิสูง", { description: `${name} • ${res.detail}`, duration: 6000 });
+        showNotice("warning", "อุณหภูมิสูง", `${name} • ${res.detail}`, 6000);
         void logEvent("fever", true, res.opened);
         alertStaff("fever", res.detail);
         if (res.opened) playGateOpenSound();
