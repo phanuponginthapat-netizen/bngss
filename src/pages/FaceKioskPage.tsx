@@ -875,8 +875,9 @@ const FaceKioskPage = () => {
           const useTexture = textureGate && !isAtom;
         const detections = await getAllDescriptors(pre as any, opts, {
           minFaceSize: MIN_FACE_PX * 0.6,
-          cacheTtlMs: perfMode === "atom" ? 500 : 220,
+          cacheTtlMs: perfMode === "atom" ? 200 : 150,
         });
+
         // อัตราส่วนสำหรับสเกล box กลับสู่พิกัดของวิดีโอจริง
         const srcW = pre instanceof HTMLCanvasElement ? pre.width : video.videoWidth;
         const scaleBack = video.videoWidth / Math.max(1, srcW);
