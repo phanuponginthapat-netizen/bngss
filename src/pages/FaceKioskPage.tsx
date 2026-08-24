@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import {
   loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame,
-  detectorOptionsHQ, applyCameraAutoTune, autoExposureBalance, reportFrameLuminance, preprocessFrame, estimateFaceSharpness, estimateBrightness,
+  detectorOptionsHQ, applyCameraDefaults, gentleLowLightAssist, reportFrameLuminance, preprocessFrame, estimateFaceSharpness, estimateBrightness,
   BANK_GRADE,
   type KnownFace, type MatchResult,
 } from "@/lib/faceApi";
@@ -493,7 +493,8 @@ const FaceKioskPage = () => {
         height: Math.min(wide ? 720 : 720, perf.videoHeight),
         frameRate: perf.frameRate,
       });
-      await applyCameraAutoTune(res.stream);
+      // ใช้ค่ากล้องเริ่มต้นของอุปกรณ์ + autofocus/auto-exposure (เหมือนหน้าลงทะเบียนใบหน้า)
+      await applyCameraDefaults(res.stream);
       if (videoRef.current) {
         await attachStreamToVideo(videoRef.current, res.stream);
         setStreaming(true);
@@ -914,9 +915,10 @@ const FaceKioskPage = () => {
               const tooBright = brightness > BANK_GRADE.BRIGHTNESS_MAX + 10;
               // กล้องโน้ตบุ๊ก/USB บางรุ่น ภาพมืดมากหรือขาวโพลน — ปรับ exposure ของฮาร์ดแวร์เองแบบสองทาง
               reportFrameLuminance(brightness);
-              if ((tooDark || tooBright) && tNow - lastLowLightBoostRef.current > 2000) {
+              if ((tooDark || tooBright) && tNow - lastLowLightBoostRef.current > 2500) {
                 lastLowLightBoostRef.current = tNow;
-                void autoExposureBalance(video.srcObject as MediaStream | null, brightness);
+                // มืดมากเท่านั้นถึงค่อย ๆ เพิ่มแสง / สว่างเกินให้คืนค่าเริ่มต้นของกล้อง
+                void gentleLowLightAssist(video.srcObject as MediaStream | null, brightness);
               }
 
 
