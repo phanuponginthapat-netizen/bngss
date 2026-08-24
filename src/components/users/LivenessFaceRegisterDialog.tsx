@@ -613,16 +613,14 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         st.maxFrac = Math.max(st.maxFrac || 0, faceFrac);
 
         const grow = faceFrac / st.baseFrac;
-        if (grow >= 1.15 || faceFrac > 0.5) {
+        const nearPass = grow >= 1.15 || faceFrac > 0.5
+          || (elapsed > 8000 && (st.maxFrac || 0) / st.baseFrac >= 1.06);
+        if (nearPass) {
           setSamples((s) => [...s, captureSample(data!, "near")]);
-          setStatusMsg("ตรวจการเคลื่อนไหวผ่าน!");
-          setStepIdx((i) => i + 1);
-          break;
-        }
-
-        // กันค้าง: ถ้าขยับได้บ้างแล้วและเวลาเกิน 8 วิ ให้ผ่าน
-        if (elapsed > 8000 && (st.maxFrac || 0) / st.baseFrac >= 1.06) {
-          setSamples((s) => [...s, captureSample(data!, "near")]);
+          const need = SHOTS_PER_STEP.near ?? 1;
+          const got = (stepShotsRef.current.near ?? 0) + 1;
+          stepShotsRef.current.near = got;
+          if (got < need) { setStatusMsg(`กำลังเก็บภาพระยะใกล้ (${got}/${need})`); break; }
           setStatusMsg("ตรวจการเคลื่อนไหวผ่าน!");
           setStepIdx((i) => i + 1);
           break;
@@ -642,9 +640,13 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             setStatusMsg("ดีแล้ว — ค้างไว้อีกนิด");
             break;
           }
-          setStatusMsg("ดีมาก!");
           detectMetaRef.current.stableHits = 0;
           setSamples((s) => [...s, captureSample(data!, "left")]);
+          const need = SHOTS_PER_STEP.left ?? 1;
+          const got = (stepShotsRef.current.left ?? 0) + 1;
+          stepShotsRef.current.left = got;
+          if (got < need) { setStatusMsg(`กำลังเก็บภาพหันซ้าย (${got}/${need}) — ค้างไว้`); break; }
+          setStatusMsg("ดีมาก!");
           setStepIdx((i) => i + 1);
         } else {
           detectMetaRef.current.stableHits = 0;
@@ -659,9 +661,13 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             setStatusMsg("ดีแล้ว — ค้างไว้อีกนิด");
             break;
           }
-          setStatusMsg("ดีมาก!");
           detectMetaRef.current.stableHits = 0;
           setSamples((s) => [...s, captureSample(data!, "right")]);
+          const need = SHOTS_PER_STEP.right ?? 1;
+          const got = (stepShotsRef.current.right ?? 0) + 1;
+          stepShotsRef.current.right = got;
+          if (got < need) { setStatusMsg(`กำลังเก็บภาพหันขวา (${got}/${need}) — ค้างไว้`); break; }
+          setStatusMsg("ดีมาก!");
           setStepIdx((i) => i + 1);
         } else {
           detectMetaRef.current.stableHits = 0;
