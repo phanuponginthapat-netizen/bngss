@@ -959,6 +959,44 @@ ls /usr/lib*/plymouth/script.so /usr/lib/*/plymouth/script.so 2>/dev/null || tru
 CHECKPLY
 chmod +x /opt/kiosk/check-plymouth.sh
 
+# ตัวอัปเดต boot splash จาก CMS (เรียกเองได้ทีหลังโดยไม่ต้องติดตั้งใหม่)
+if curl -sfL --max-time 20 "${KIOSK_ORIGIN%/}/kiosk-boot-splash.sh" -o /opt/kiosk/update-boot-splash.sh && \
+   [[ -s /opt/kiosk/update-boot-splash.sh ]]; then
+  chmod +x /opt/kiosk/update-boot-splash.sh
+  log "   ✔  ติดตั้ง /opt/kiosk/update-boot-splash.sh (อัปเดตโลโก้บูตจาก CMS)"
+
+  # อัปเดตอัตโนมัติวันละครั้ง (เผื่อเปลี่ยนโลโก้/ชื่อใน CMS)
+  cat >/etc/systemd/system/kiosk-boot-splash.service <<EOF
+[Unit]
+Description=Refresh Plymouth boot splash from CMS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=KIOSK_ORIGIN=${KIOSK_ORIGIN}
+ExecStart=/bin/bash /opt/kiosk/update-boot-splash.sh
+EOF
+  cat >/etc/systemd/system/kiosk-boot-splash.timer <<'EOF'
+[Unit]
+Description=Daily CMS boot splash refresh
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=24h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  systemctl enable --now kiosk-boot-splash.timer 2>/dev/null || true
+else
+  log "   ⚠  ดาวน์โหลด kiosk-boot-splash.sh ไม่สำเร็จ (ข้าม auto-refresh)"
+fi
+
+
+
 
 
 # ---------------- 5.6) LightDM greeter + wallpaper ----------------
