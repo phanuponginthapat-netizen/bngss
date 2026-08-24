@@ -35,7 +35,7 @@ import { wakeKioskScreen } from "@/lib/kioskWake";
 import { getRegisteredFaceImage } from "@/lib/registeredFace";
 import { checkTodayScan, markScanned, methodLabel } from "@/lib/scanDedup";
 import { useKioskHeartbeat } from "@/hooks/useKioskHeartbeat";
-import { KIOSK_PERF_KEY, KIOSK_PERF_PROFILES, KIOSK_TURBO_PROFILE, loadKioskPerfMode, type KioskPerfMode } from "@/lib/kioskPerf";
+import { KIOSK_TURBO_PROFILE } from "@/lib/kioskPerf";
 
 import { saveErrorMessage } from "@/lib/saveError";
 import { notifyRole } from "@/lib/notify";
@@ -120,9 +120,7 @@ const FaceKioskPage = () => {
   useEffect(() => { localStorage.setItem("face_kiosk_qr_only", qrOnly ? "1" : "0"); }, [qrOnly]);
   const { selection: scanModeSelection, setSelection: setScanModeSelection, effective: scanMode, effectiveRef: scanModeRef, cutoff: modeCutoff, checkWindow, entryWindow, exitWindow } = useAutoScanMode();
   const [camMode, setCamMode] = useState<CamMode>("standard");
-  const [perfMode, setPerfMode] = useState<KioskPerfMode>(() => loadKioskPerfMode());
-  const perf = KIOSK_PERF_PROFILES[perfMode];
-  useEffect(() => { localStorage.setItem(KIOSK_PERF_KEY, perfMode); }, [perfMode]);
+  const perf = KIOSK_TURBO_PROFILE;
   // ช่วงเว้นระยะเพิ่มเติมระหว่างรอบสแกน (มิลลิวินาที) — ปรับได้จากหน้าตั้งค่า
   const [scanGapMs, setScanGapMs] = useState<number>(() => {
     const v = Number(localStorage.getItem("face_kiosk_scan_gap") || "");
@@ -1168,7 +1166,7 @@ const FaceKioskPage = () => {
       cancelled = true;
       if (detectionLoopRef.current) clearTimeout(detectionLoopRef.current);
     };
-  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef, runGate, perf, perfMode, scanGapMs, livenessEnabled, textureGate]);
+  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef, runGate, perf, scanGapMs, livenessEnabled, textureGate]);
 
   // ===== WizMind bridge: รับ event ใบหน้าจากกล้อง CCTV แบบ realtime แล้วจดจำทันที =====
   useEffect(() => {
