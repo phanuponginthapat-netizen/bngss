@@ -82,10 +82,16 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
   const { homeroomClassroomIds, isFiltered } = useHomeroomClassrooms();
   const canConfirm = isAdmin || isDirector;
   const [confirming, setConfirming] = useState(false);
-  // Multi-frame voting: studentId -> {hits, firstAt}
-  const voteRef = useRef<Map<string, { hits: number; firstAt: number }>>(new Map());
+  // Multi-frame voting: studentId -> {hits, firstAt, lastAt}
+  const voteRef = useRef<Map<string, { hits: number; firstAt: number; lastAt: number }>>(new Map());
   const VOTE_REQUIRED = 2;
-  const VOTE_WINDOW_MS = 2200;
+  /** ไม่นับคะแนนใหม่ถ้าหลุดไปนานเกินนี้ (ขยับนิดหน่อยไม่หลุด) */
+  const VOTE_IDLE_RESET_MS = 3500;
+  /** ล็อกใบหน้าที่เจอไว้ชั่วคราว — เฟรมที่คุณภาพตกชั่วขณะจะไม่ทำให้หลุดล็อก */
+  const lockRef = useRef<{ studentId: string; until: number; box: { x: number; y: number; width: number; height: number } } | null>(null);
+  const LOCK_HOLD_MS = 1800;
+  /** กรอบที่วาด — เกลี่ยให้นิ่ง (EMA) ไม่กระตุกตามการขยับเล็กน้อย */
+  const smoothBoxRef = useRef<Map<string, { x: number; y: number; width: number; height: number }>>(new Map());
   // ใบหน้าสด (anti-spoof): สะสมหลักฐาน blink/ขยับศีรษะแยกตาม studentId
   const livenessRef = useRef<Map<string, LivenessTrack>>(new Map());
   // texture ไม่ผ่าน (สงสัยรูปถ่าย/คนหน้าคล้าย): studentId -> timestamp ครั้งสุดท้ายที่ถูกปฏิเสธ
