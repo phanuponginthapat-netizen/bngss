@@ -117,6 +117,30 @@ const FaceKioskPage = () => {
     scanType: "entry" | "exit"; capturedFace?: string; registeredFace?: string | null; time: string;
   } | null>(null);
   const matchTimerRef = useRef<number | null>(null);
+  // ข้อความเตือน/แจ้งเตือนกลางจอ — ให้ใหญ่เห็นชัด เหมือนการสแกนสำเร็จ
+  const [notice, setNotice] = useState<{
+    type: "info" | "warning" | "error";
+    title: string;
+    description: string;
+  } | null>(null);
+  const noticeTimerRef = useRef<number | null>(null);
+  const showNotice = useCallback((
+    type: "info" | "warning" | "error",
+    title: string,
+    description: string,
+    duration = 3000,
+  ) => {
+    if (type === "info") toast.info(title, { description, duration });
+    else if (type === "warning") toast.warning(title, { description, duration });
+    else toast.error(title, { description, duration });
+    setNotice({ type, title, description });
+    if (noticeTimerRef.current) window.clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = window.setTimeout(() => setNotice(null), duration);
+  }, []);
+  const clearNotice = useCallback(() => {
+    setNotice(null);
+    if (noticeTimerRef.current) { window.clearTimeout(noticeTimerRef.current); noticeTimerRef.current = null; }
+  }, []);
   const [todayCounts, setTodayCounts] = useState<{ entry: number; exit: number }>({ entry: 0, exit: 0 });
   // โหมด QR เท่านั้น — ไม่โหลด/รันโมเดลใบหน้า ประหยัด CPU สำหรับเครื่องสเปกต่ำ (Pavilion x2 / Atom / Celeron)
   const [qrOnly, setQrOnly] = useState<boolean>(() => localStorage.getItem("face_kiosk_qr_only") === "1");
