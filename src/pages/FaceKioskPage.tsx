@@ -540,6 +540,7 @@ const FaceKioskPage = () => {
   const recordScan = useCallback(async (
     studentId: string, studentCode: string, name: string, classroom: string, avatar: string | null, confidence: number, capturedFace?: string,
     enrolledFace?: string | null,
+    method: "face" | "qr" = "face",
   ) => {
     const now = Date.now();
     const mode = scanModeRef.current;
@@ -650,7 +651,7 @@ const FaceKioskPage = () => {
     const scanTemp = gateRef.current.getLiveTemp();
     const { data, error } = await supabase.from("face_scan_logs").insert({
       student_id: studentId, scan_date: todayBangkok(), scan_type: mode, confidence,
-      scanned_by: user?.id, device_label: `tablet-kiosk-${mode}`,
+      scanned_by: user?.id, device_label: `tablet-kiosk-${mode}`, entry_method: method,
       captured_face_url: uploadedFaceUrl,
       ...(scanTemp != null ? { temperature_c: scanTemp } : {}),
     } as any).select("id").maybeSingle();
@@ -671,7 +672,7 @@ const FaceKioskPage = () => {
     }
     justScannedRef.current.set(cdKey, now);
     justScannedRef.current.set(studentId, now);
-    markScanned(studentId, mode, "face");
+    markScanned(studentId, mode, method);
 
     playSuccessSound();
     if (voiceEnabled) speakText(`สแกน${modeLabel}สำเร็จ ${name}`);
@@ -1386,7 +1387,7 @@ const FaceKioskPage = () => {
         return;
       }
 
-      await recordScan(student.studentId, student.studentCode, student.name, student.classroom, student.avatar || null, 1, undefined);
+      await recordScan(student.studentId, student.studentCode, student.name, student.classroom, student.avatar || null, 1, undefined, null, "qr");
 
     };
 
