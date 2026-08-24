@@ -26,6 +26,7 @@ set -euo pipefail
 
 # ---------- ค่าที่ปรับได้ผ่าน env ----------
 KIOSK_MODE_SET=""; [[ -n "${KIOSK_MODE:-}" ]] && KIOSK_MODE_SET=1   # ผู้ใช้ระบุโหมดเอง → CMS ห้าม override
+KIOSK_URL_SET=""; [[ -n "${KIOSK_URL:-}" ]] && KIOSK_URL_SET=1       # URL จาก env ต้องไม่ถูก CMS ทับ
 KIOSK_MODE="${KIOSK_MODE:-door}"                     # door | student
 KIOSK_USER="${KIOSK_USER:-${SUDO_USER:-$(logname 2>/dev/null || echo demo)}}"
 KIOSK_WIFI_SSID="${KIOSK_WIFI_SSID:-}"
@@ -62,7 +63,7 @@ elif ! command -v python3 >/dev/null 2>&1; then
   echo "⚠  ไม่มี python3 — ข้าม CMS config"
 else
   export CFG_JSON_RAW="$CFG_JSON"
-  EVAL_OUT=$(CFG_JSON_RAW="$CFG_JSON" KIOSK_MODE_SET="$KIOSK_MODE_SET" python3 <<'PYEOF' 2>&1
+  EVAL_OUT=$(CFG_JSON_RAW="$CFG_JSON" KIOSK_MODE_SET="$KIOSK_MODE_SET" KIOSK_URL_SET="$KIOSK_URL_SET" python3 <<'PYEOF' 2>&1
 import json,os,sys
 raw={}
 try: raw=json.loads(os.environ.get("CFG_JSON_RAW",""))
@@ -78,7 +79,7 @@ if d:
     m=d.get('mode')
     if m and not os.environ.get('KIOSK_MODE_SET'): emit('KIOSK_MODE',m)
     for k_cfg,k_env in [
-      ('kioskUrl','KIOSK_URL'),('kioskUser','KIOSK_USER'),
+      ('kioskUser','KIOSK_USER'),
       ('wifiSsid','KIOSK_WIFI_SSID'),('wifiPass','KIOSK_WIFI_PASS'),
       ('rebootTime','KIOSK_DAILY_REBOOT'),
       ('idleLogoutMin','KIOSK_IDLE_LOGOUT_MIN'),('idleShutdownMin','KIOSK_IDLE_SHUTDOWN_MIN'),
@@ -86,6 +87,7 @@ if d:
       ('exitPin','KIOSK_EXIT_PIN'),
     ]:
         if not os.environ.get(k_env): emit(k_env,d.get(k_cfg))
+    if not os.environ.get('KIOSK_URL_SET'): emit('KIOSK_URL',d.get('kioskUrl'))
     if d.get('enableDailyReboot') is False and not os.environ.get('KIOSK_DAILY_REBOOT'):
         print('export KIOSK_DAILY_REBOOT=""')
     sys.stderr.write(f'# CMS: mode={d.get("mode")} powerOn={d.get("powerOn")} powerOff={d.get("powerOff")} reboot={d.get("rebootTime")}\n')
@@ -138,10 +140,14 @@ fi
 # ตรวจ URL จริงก่อนติดตั้ง — กันเคส "ติดตั้งแล้วขึ้น 404"
 # (โดเมนเก่า/พิมพ์ผิด/หน้าไม่มีอยู่ → fallback ไปโดเมนหลัก)
 KIOSK_FALLBACK_ORIGIN="${KIOSK_FALLBACK_ORIGIN:-https://bngss.lovable.app}"
-_probe_url() { curl -sSL -o /dev/null -w '%{http_code}' --max-time 10 "$1" 2>/dev/null || echo 000; }
+_probe_url() {
+  local code
+  code=$(curl -sSL -o /dev/null -w '%{http_code}' --connect-timeout 5 --max-time 10 "$1" 2>/dev/null || true)
+  echo "${code:-000}"
+}
 if command -v curl >/dev/null 2>&1; then
   _code="$(_probe_url "$KIOSK_URL")"
-  if [[ "$_code" == "404" || "$_code" == "410" || "$_code" == "000" ]]; then
+  if [[ ! "$_code" =~ ^(2|3)[0-9][0-9]$ ]]; then
     if [[ "$KIOSK_MODE" == "student" ]]; then
       _alt="${KIOSK_FALLBACK_ORIGIN%/}/"
     else
@@ -602,9 +608,13 @@ cat >/etc/lightdm/lightdm.conf.d/60-kiosk-autologin.conf <<EOF
 [Seat:*]
 autologin-user=$KIOSK_USER
 autologin-user-timeout=0
+autologin-session=xfce
+user-session=xfce
 xserver-command=X -s 0 -dpms
 EOF
 getent group nopasswdlogin >/dev/null && usermod -aG nopasswdlogin "$KIOSK_USER" || true
+systemctl set-default graphical.target >/dev/null 2>&1 || true
+systemctl enable lightdm.service >/dev/null 2>&1 || true
 
 install -d -m 755 "$USER_HOME/.config/autostart"
 cat >"$USER_HOME/.config/autostart/kiosk-noblank.desktop" <<EOF
@@ -1412,12 +1422,19 @@ else
   install -d -m 700 -o "$KIOSK_USER" -g "$KIOSK_USER" "$DOOR_PROFILE"
   cat >/opt/kiosk/start-kiosk.sh <<EOF
 #!/usr/bin/env bash
+RUNTIME_DIR="/run/user/\$(id -u)"
+mkdir -p "\$RUNTIME_DIR" 2>/dev/null || true
+exec 9>"\$RUNTIME_DIR/kiosk-browser.lock"
+flock -n 9 || exit 0
 # ลบ Singleton locks ที่ค้าง — สาเหตุใหญ่ที่ chromium เด้งออกทันทีในโหมด kiosk
 rm -f "$DOOR_PROFILE"/Singleton* "\$HOME"/.config/chromium/Singleton* 2>/dev/null || true
-for i in \$(seq 1 30); do
-  curl -sf --max-time 2 -o /dev/null "$KIOSK_URL" && break
-  sleep 2
-done
+PRIMARY_URL="$KIOSK_URL"
+FALLBACK_URL="${KIOSK_FALLBACK_ORIGIN%/}/kiosk"
+TARGET_URL="\$PRIMARY_URL"
+# อย่าหน่วงการเปิด Chromium ระหว่างรอ Wi-Fi; fallback เฉพาะเมื่อ URL เดิมตอบว่าไม่มีหน้าจริง
+P_CODE=\$(curl -sSL -o /dev/null -w '%{http_code}' --connect-timeout 2 --max-time 4 "\$PRIMARY_URL" 2>/dev/null || true)
+if [[ "\$P_CODE" =~ ^(4|5)[0-9][0-9]$ ]]; then TARGET_URL="\$FALLBACK_URL"; fi
+logger -t kiosk "opening \$TARGET_URL (configured=\$PRIMARY_URL)"
 PREF="$DOOR_PROFILE/Default/Preferences"
 [[ -f "\$PREF" ]] && sed -i 's/"exited_cleanly":false/"exited_cleanly":true/; s/"exit_type":"Crashed"/"exit_type":"Normal"/' "\$PREF" || true
 xset s off -dpms s noblank 2>/dev/null || true
@@ -1429,7 +1446,7 @@ while true; do
   rm -f "$DOOR_PROFILE"/Singleton* 2>/dev/null || true
   $CHROMIUM_BIN \\
     --user-data-dir="$DOOR_PROFILE" \\
-    --kiosk "$KIOSK_URL" \\
+    --kiosk "\$TARGET_URL" \\
     --noerrdialogs --disable-infobars --disable-session-crashed-bubble \\
     --disable-features=TranslateUI,AutofillServerCommunication,MediaRouter,GlobalMediaControls,ScreenCaptureNotification \\
     --overscroll-history-navigation=0 --disable-pinch --no-first-run \\
@@ -1574,12 +1591,40 @@ X-GNOME-Autostart-enabled=true
 EOF
 
 
-cat >"$USER_HOME/.config/autostart/kiosk-chromium.desktop" <<EOF
-[Desktop Entry]
-Type=Application
-Name=Smart School Kiosk
-Exec=/opt/kiosk/start-kiosk.sh
-X-GNOME-Autostart-enabled=true
+rm -f "$USER_HOME/.config/autostart/kiosk-chromium.desktop"
+cat >/opt/kiosk/wait-and-start-browser.sh <<EOF
+#!/usr/bin/env bash
+export HOME="$USER_HOME"
+export USER="$KIOSK_USER"
+export DISPLAY=:0
+export XAUTHORITY="$USER_HOME/.Xauthority"
+for i in \$(seq 1 120); do
+  [[ -S /tmp/.X11-unix/X0 && -f "\$XAUTHORITY" ]] && break
+  sleep 1
+done
+[[ -S /tmp/.X11-unix/X0 ]] || { logger -t kiosk "X display :0 not ready"; exit 1; }
+exec /opt/kiosk/start-kiosk.sh
+EOF
+chmod +x /opt/kiosk/wait-and-start-browser.sh
+
+cat >/etc/systemd/system/kiosk-browser.service <<EOF
+[Unit]
+Description=Kiosk Chromium Browser
+After=display-manager.service network-online.target
+Wants=display-manager.service network-online.target
+[Service]
+Type=simple
+User=$KIOSK_USER
+Group=$(id -gn "$KIOSK_USER")
+Environment=HOME=$USER_HOME
+Environment=USER=$KIOSK_USER
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=$USER_HOME/.Xauthority
+ExecStart=/opt/kiosk/wait-and-start-browser.sh
+Restart=always
+RestartSec=5
+[Install]
+WantedBy=graphical.target
 EOF
 
 # Watchdog — เปิด Chromium ใหม่ถ้าตาย
@@ -2110,7 +2155,8 @@ fi
 # ---------------- 10) Enable services + set ownership ----------------
 log "▶  [10/10] Enable service + set ownership..."
 systemctl daemon-reload
-ENABLE_LIST=(kiosk-watchdog kiosk-healthcheck kiosk-ctl)
+systemctl disable --now kiosk-watchdog.service >/dev/null 2>&1 || true
+ENABLE_LIST=(kiosk-browser kiosk-healthcheck kiosk-ctl)
 [[ "$KIOSK_MODE" == "door" ]] && ENABLE_LIST+=(kiosk-wake)
 for s in "${ENABLE_LIST[@]}"; do
   systemctl reenable "$s.service" >/dev/null 2>&1 || true
