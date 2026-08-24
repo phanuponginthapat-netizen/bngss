@@ -24,8 +24,8 @@ export default function NewsListPage() {
         {posts.map((p) => (
           <Link key={p.id} to={`/dashboard/news/${p.id}`} className="group overflow-hidden rounded-2xl border border-border/50 bg-background/70 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
             <div className="aspect-video overflow-hidden bg-muted">
-              {p.cover_url ? (
-                <img src={p.cover_url} alt={p.title} className="h-full w-full object-cover transition group-hover:scale-105" />
+              {p.cover_image_url ? (
+                <img src={p.cover_image_url} alt={p.title} loading="lazy" className="h-full w-full object-cover transition group-hover:scale-105" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/20 to-orange-100">
                   <Calendar className="h-12 w-12 text-primary/50" />
