@@ -368,7 +368,7 @@ const TeacherDashboard = () => {
       const { data: studs } = await supabase.from("students").select("id").in("classroom_id", ids).eq("status", "active").limit(200);
       const sids = (studs || []).map(s => s.id);
       if (sids.length === 0) return { count: 0, list: [] as any[] };
-      const { data, count } = await supabase
+      const { data, count } = await (supabase as any)
         .from("grade_remediation")
         .select("id, original_grade, status", { count: "exact" })
         .in("student_id", sids)

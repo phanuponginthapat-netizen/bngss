@@ -31,7 +31,7 @@ export default function BusPage(){
   const { data: boardings = [] } = useQuery({
     queryKey: ["bus-attendance"],
     queryFn: async () => {
-      const { data } = await supabase.from("bus_attendance").select("*, students(first_name,last_name,student_code), bus_routes(name)").order("boarded_at",{ascending:false}).limit(100);
+      const { data } = await (supabase as any).from("bus_attendance").select("*, students(first_name,last_name,student_code), bus_routes(name)").order("boarded_at",{ascending:false}).limit(100);
       return (data as any[])||[];
     },
   });
@@ -51,7 +51,7 @@ export default function BusPage(){
   };
   const board = async () => {
     if(!boardRoute || !boardStudent) return toast.error("เลือกสายและนักเรียน");
-    const { data, error } = await supabase.from("bus_attendance").insert({ route_id: boardRoute, student_id: boardStudent, status: "boarded" } as any).select("id, boarded_at").single();
+    const { data, error } = await (supabase as any).from("bus_attendance").insert({ route_id: boardRoute, student_id: boardStudent, status: "boarded" }).select("id, boarded_at").single();
     if(error) toast.error(error.message);
     else {
       toast.success("เช็คชื่อขึ้นรถแล้ว");

@@ -90,7 +90,13 @@ const DashboardLayout = () => {
   useRadixOverlayCleanup();
   // FCM: ถ้า token ตอนแอปเปิดก่อนล็อกอิน ให้บันทึกทันทีที่เข้า dashboard
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      // Do not leave the whole dashboard on an endless loading screen when
+      // the session has no matching profile/role. ProtectedRoute will send
+      // the user back to login with a visible result.
+      if (isReady && !roleLoading) setNeedsSetup(false);
+      return;
+    }
     import("@/lib/fcmPush").then(({ flushPendingFcmToken }) => flushPendingFcmToken()).catch(() => {});
   }, [userId]);
 
@@ -105,7 +111,7 @@ const DashboardLayout = () => {
       .then(({ data }) => {
         setStudentClassroom((data as any)?.classrooms?.name ?? null);
       });
-  }, [userId, role]);
+  }, [userId, role, isReady, roleLoading]);
 
 
   useEffect(() => {
@@ -195,7 +201,7 @@ const DashboardLayout = () => {
     
   };
 
-  if (!isReady || roleLoading || needsSetup === null) {
+  if (!isReady || roleLoading || (!!userId && !!role && needsSetup === null)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -329,7 +335,7 @@ const DashboardLayout = () => {
 
             <EnablePushBanner />
             <ObserverBanner />
-            <ErrorBoundary>
+            <ErrorBoundary label="DashboardContent">
               <ModuleGuard />
               <NotificationHighlightScroller />
               <div key={location.pathname} className="animate-fade-in-up">

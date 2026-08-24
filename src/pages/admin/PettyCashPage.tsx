@@ -51,7 +51,7 @@ export default function PettyCashPage() {
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ["petty_cash"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("petty_cash")
         .select("*")
         .order("date", { ascending: false });
@@ -82,14 +82,14 @@ export default function PettyCashPage() {
 
   const addMutation = useMutation({
     mutationFn: async (entry: typeof form) => {
-      const { error } = await supabase.from("petty_cash").insert({
+      const { error } = await (supabase as any).from("petty_cash").insert({
         date: entry.date,
         description: entry.description,
         amount: Number(entry.amount),
         type: entry.type,
         category: entry.category || null,
         receipt_no: entry.receipt_no || null,
-      } as any);
+      });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -126,7 +126,7 @@ export default function PettyCashPage() {
       if (error) throw error;
       // try to link back if FK column exists (migration 20260822100005_finance_link)
       if (data?.id) {
-        const { error: linkErr } = await supabase
+        const { error: linkErr } = await (supabase as any)
           .from("petty_cash")
           .update({ budget_transaction_id: data.id } as any)
           .eq("id", entry.id);

@@ -221,7 +221,7 @@ export async function getBehavior(studentId: string): Promise<BehaviorSummary | 
 export async function getRemediation(studentId: string): Promise<RemediationItem[]> {
   const student = await resolveStudent(studentId);
   if (!student) return [];
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from("grade_remediation")
     .select("id, subject_code, subject_name, term, original_grade, status, fix_deadline")
     .eq("student_id", student.id)

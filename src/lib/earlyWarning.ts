@@ -87,7 +87,7 @@ export async function calculateRisk(studentId: string): Promise<RiskResult> {
         .order("attendance_date", { ascending: false })
         .limit(500),
       // grade remediation — 0 ร มส มผ that not yet passed
-      supabase
+      (supabase as any)
         .from("grade_remediation")
         .select("id, original_grade, status")
         .eq("student_id", studentId)

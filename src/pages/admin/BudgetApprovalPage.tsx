@@ -45,20 +45,20 @@ export default function BudgetApprovalPage() {
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ["budget-transactions", filterStatus],
     queryFn: async () => {
-      let query = supabase.from("budget_transactions").select("*").order("created_at", { ascending: false });
+      let query = (supabase as any).from("budget_transactions").select("*").order("created_at", { ascending: false });
       if (filterStatus !== "all") {
         query = query.eq("approval_status", filterStatus);
       }
       const { data, error } = await query;
       if (error) throw error;
-      return data as BudgetTransaction[];
+      return data as unknown as BudgetTransaction[];
     },
   });
 
   const approveMutation = useMutation({
     mutationFn: async ({ id, status, rejectionReason }: { id: string; status: "approved" | "rejected"; rejectionReason?: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("budget_transactions")
         .update({
           approval_status: status,
