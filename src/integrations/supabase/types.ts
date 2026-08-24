@@ -16007,6 +16007,14 @@ export type Database = {
           semester: number
         }[]
       }
+      calculate_late_minutes: {
+        Args: {
+          _attendance_date: string
+          _scan_time: string
+          _student_id: string
+        }
+        Returns: number
+      }
       can_access_eform_attachment: {
         Args: { _eform_id: string; _user_id: string }
         Returns: boolean
