@@ -1450,7 +1450,7 @@ const FaceKioskPage = () => {
         if (tNow - unknownBeepRef.current > 4000) {
           unknownBeepRef.current = tNow;
           playUnknownSound();
-          toast.error(`QR ไม่พบข้อมูลในระบบ (${extracted.slice(0, 20)})`, { duration: 1800 });
+          showNotice("error", "QR ไม่พบข้อมูลในระบบ", extracted.slice(0, 20), 3000);
         }
         return;
       }
