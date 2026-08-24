@@ -563,6 +563,20 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     const faceFrac = box.width / vw;
     const sharpness = estimateFaceSharpness(videoRef.current, box);
 
+    // ---- ปรับแสงอัตโนมัติแบบสองทาง: กันหน้าขาวโพลน (แสงจ้า) และหน้ามืดเกินไป ----
+    const now = Date.now();
+    if (now - lastExposureRef.current > 900) {
+      lastExposureRef.current = now;
+      const lum = estimateBrightness(videoRef.current, box);
+      if (lum > 0) {
+        void autoExposureBalance(videoRef.current.srcObject as MediaStream | null, lum);
+        if (lum > 200) setStatusMsg("แสงจ้าเกินไป — กำลังปรับกล้อง / เลี่ยงแสงย้อนหน้าต่าง");
+        else if (lum < 55) setStatusMsg("แสงน้อยเกินไป — กำลังปรับกล้อง / หาที่สว่างขึ้น");
+      }
+    }
+
+
+
     if (faceFrac < 0.06) {
       detectMetaRef.current.stableHits = 0;
       drawOverlay(data, "bad");
