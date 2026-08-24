@@ -915,8 +915,15 @@ const FaceKioskPage = () => {
               // tier 2: กลาง (AUTO_DIST, MANUAL_DIST] → ต้องกดยืนยันบนจอก่อน
               const tier2 = m.studentId != null && m.distance > AUTO_DIST && m.distance <= MANUAL_DIST
                 && m.margin >= MANUAL_MIN_MARGIN && m.confidence >= 1 - MANUAL_DIST;
-              const matchedId = !tooSmall && !tooBlurry && (tier1 || tier2) ? m.studentId : null;
+              let matchedId = !tooSmall && !tooBlurry && (tier1 || tier2) ? m.studentId : null;
+              // Sticky lock — ถ้าเพิ่งล็อกคนนี้ไว้ และยังเป็นคนเดิมที่ตรงที่สุด ให้คงล็อกไว้
+              const kLock = kioskLockRef.current;
+              if (!matchedId && kLock && tNow < kLock.until && m.studentId === kLock.studentId
+                  && !tooSmall && m.confidence >= MIN_CONFIDENCE * 0.88) {
+                matchedId = kLock.studentId;
+              }
               const found = matchedId ? matchKnown.find((k: any) => k.studentId === matchedId) as any : null;
+              if (found) kioskLockRef.current = { studentId: found.studentId, until: tNow + 1800 };
               const isStaffHit = !!found?.isStaff;
               const needsManual = matchedId != null && !tier1 && !!tier2;
 
