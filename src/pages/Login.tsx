@@ -134,6 +134,8 @@ const Login = () => {
         const msg =
           code === "not_found"
             ? lang === "th" ? "ไม่พบผู้ใช้ตาม QR นี้" : "User not found for this QR"
+            : code === "no_account"
+            ? lang === "th" ? "บัตรนี้ยังไม่ได้ผูกบัญชีผู้ใช้ — แจ้งผู้ดูแลระบบเพื่อสร้างบัญชี" : "This ID card has no linked account yet"
             : code === "inactive"
             ? lang === "th" ? "บัญชีถูกระงับ" : "Account inactive"
             : code === "invalid_qr" || code === "invalid_input"
