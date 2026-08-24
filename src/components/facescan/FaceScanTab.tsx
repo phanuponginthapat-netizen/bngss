@@ -82,10 +82,16 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
   const { homeroomClassroomIds, isFiltered } = useHomeroomClassrooms();
   const canConfirm = isAdmin || isDirector;
   const [confirming, setConfirming] = useState(false);
-  // Multi-frame voting: studentId -> {hits, firstAt}
-  const voteRef = useRef<Map<string, { hits: number; firstAt: number }>>(new Map());
+  // Multi-frame voting: studentId -> {hits, firstAt, lastAt}
+  const voteRef = useRef<Map<string, { hits: number; firstAt: number; lastAt: number }>>(new Map());
   const VOTE_REQUIRED = 2;
-  const VOTE_WINDOW_MS = 2200;
+  /** ไม่นับคะแนนใหม่ถ้าหลุดไปนานเกินนี้ (ขยับนิดหน่อยไม่หลุด) */
+  const VOTE_IDLE_RESET_MS = 3500;
+  /** ล็อกใบหน้าที่เจอไว้ชั่วคราว — เฟรมที่คุณภาพตกชั่วขณะจะไม่ทำให้หลุดล็อก */
+  const lockRef = useRef<{ studentId: string; until: number; box: { x: number; y: number; width: number; height: number } } | null>(null);
+  const LOCK_HOLD_MS = 1800;
+  /** กรอบที่วาด — เกลี่ยให้นิ่ง (EMA) ไม่กระตุกตามการขยับเล็กน้อย */
+  const smoothBoxRef = useRef<Map<string, { x: number; y: number; width: number; height: number }>>(new Map());
   // ใบหน้าสด (anti-spoof): สะสมหลักฐาน blink/ขยับศีรษะแยกตาม studentId
   const livenessRef = useRef<Map<string, LivenessTrack>>(new Map());
   // texture ไม่ผ่าน (สงสัยรูปถ่าย/คนหน้าคล้าย): studentId -> timestamp ครั้งสุดท้ายที่ถูกปฏิเสธ
@@ -663,17 +669,33 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const tNow = Date.now();
             const mirrored = facing === "user";
-            // วงรีเป้าหมาย — บอกระยะที่ใบหน้าควรอยู่ (กลางจอ) เพื่อให้กะระยะได้แม่น
+            // วงรีเป้าหมาย — บอกระยะ/ตำแหน่งที่ใบหน้าควรอยู่ (กลางจอ) เพื่อให้กะระยะได้แม่น
             const targetW = video.videoWidth * 0.34;
             const targetH = targetW * 1.35;
             const tcx = video.videoWidth / 2, tcy = video.videoHeight * 0.46;
+            const guideLocked = lockRef.current != null && tNow < lockRef.current.until;
             ctx.save();
-            ctx.setLineDash([8, 7]);
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = "rgba(255,255,255,0.35)";
+            ctx.setLineDash(guideLocked ? [] : [8, 7]);
+            ctx.lineWidth = guideLocked ? 4 : 2;
+            ctx.strokeStyle = guideLocked ? "rgba(34,197,94,0.95)" : "rgba(255,255,255,0.45)";
+            if (guideLocked) { ctx.shadowColor = "#22c55e"; ctx.shadowBlur = 16; }
             ctx.beginPath();
             ctx.ellipse(tcx, tcy, targetW / 2, targetH / 2, 0, 0, Math.PI * 2);
             ctx.stroke();
+            // ขีดบอกตำแหน่งกึ่งกลาง (บน/ล่าง/ซ้าย/ขวา) ให้จัดหน้าได้แม่นยำ
+            ctx.shadowBlur = 0;
+            ctx.setLineDash([]);
+            ctx.lineWidth = 3;
+            const tick = Math.max(10, targetW * 0.07);
+            const ticks: [number, number, number, number][] = [
+              [tcx, tcy - targetH / 2 - tick, tcx, tcy - targetH / 2 + tick],
+              [tcx, tcy + targetH / 2 - tick, tcx, tcy + targetH / 2 + tick],
+              [tcx - targetW / 2 - tick, tcy, tcx - targetW / 2 + tick, tcy],
+              [tcx + targetW / 2 - tick, tcy, tcx + targetW / 2 + tick, tcy],
+            ];
+            for (const [x1, y1, x2, y2] of ticks) {
+              ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+            }
             ctx.restore();
             await Promise.all(detections.map(async (det) => {
               const rb = det.detection.box;
@@ -701,17 +723,44 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
               const lowConfidence = m.studentId != null && m.confidence < MIN_CONFIDENCE;
               const passQuality = !tooBlurry && !notHuman && !faceTooSmall;
               const passMatch = !ambiguous && !lowConfidence && isStrongMatch(m);
-              const matchedId = (passQuality && passMatch) ? m.studentId : null;
-              const found = matchedId ? known.find((k) => k.studentId === matchedId) as any : null;
+              let matchedId = (passQuality && passMatch) ? m.studentId : null;
 
-              // Multi-frame voting — ต้อง match ติดกัน ≥ VOTE_REQUIRED ครั้งภายใน VOTE_WINDOW_MS
+              // ── Sticky lock: ถ้าเพิ่งล็อกคนนี้ไว้และยังเป็นคนเดิมที่ตรงที่สุด
+              //    ให้ถือว่ายังล็อกอยู่ แม้เฟรมนั้นจะเบลอ/ขยับเล็กน้อย (กันหลุดบ่อย) ──
+              const lock = lockRef.current;
+              const lockAlive = !!lock && tNow < lock.until;
+              if (!matchedId && lockAlive && lock && m.studentId === lock.studentId
+                  && !notHuman && m.confidence >= MIN_CONFIDENCE * 0.88) {
+                matchedId = lock.studentId;
+              }
+              const found = matchedId ? known.find((k) => k.studentId === matchedId) as any : null;
+              if (found) lockRef.current = { studentId: found.studentId, until: tNow + LOCK_HOLD_MS, box };
+
+              // กรอบนิ่ง (EMA) — ลดการกระตุกของกรอบเวลาขยับหน้าเล็กน้อย
+              let drawBox = box;
+              const smoothKey = found ? found.studentId : `anon-${Math.round(box.x / 40)}-${Math.round(box.y / 40)}`;
+              const prevSmooth = smoothBoxRef.current.get(smoothKey);
+              if (prevSmooth) {
+                const a = 0.45;
+                drawBox = {
+                  x: prevSmooth.x + (box.x - prevSmooth.x) * a,
+                  y: prevSmooth.y + (box.y - prevSmooth.y) * a,
+                  width: prevSmooth.width + (box.width - prevSmooth.width) * a,
+                  height: prevSmooth.height + (box.height - prevSmooth.height) * a,
+                };
+              }
+              smoothBoxRef.current.set(smoothKey, drawBox);
+              if (smoothBoxRef.current.size > 24) smoothBoxRef.current.clear();
+
+              // Multi-frame voting — สะสมคะแนนต่อเนื่อง จะรีเซ็ตก็ต่อเมื่อหายไปนานเกิน VOTE_IDLE_RESET_MS
               let voteOk = false;
               if (found) {
                 const cur = voteRef.current.get(found.studentId);
-                if (!cur || tNow - cur.firstAt > VOTE_WINDOW_MS) {
-                  voteRef.current.set(found.studentId, { hits: 1, firstAt: tNow });
+                if (!cur || tNow - cur.lastAt > VOTE_IDLE_RESET_MS) {
+                  voteRef.current.set(found.studentId, { hits: 1, firstAt: tNow, lastAt: tNow });
                 } else {
                   cur.hits++;
+                  cur.lastAt = tNow;
                   voteOk = cur.hits >= VOTE_REQUIRED;
                 }
               }
@@ -733,9 +782,9 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
                 : justScanned ? "#16a34a" : inCooldown ? "#10b981" : (voteOk && liveOk) ? "#22c55e" : "#3b82f6";
               const voteHits = found ? (voteRef.current.get(found.studentId)?.hits || 0) : 0;
               drawFaceFrame(ctx, {
-                box,
+                box: drawBox,
                 label: found
-                  ? `${found.name}${justScanned ? " ✓ บันทึกแล้ว" : textureFailed ? " พื้นผิวไม่ตรง" : !voteOk && !inCooldown ? ` กำลังยืนยัน ${voteHits}/${VOTE_REQUIRED}` : (voteOk && !liveOk && !inCooldown) ? " ยืนยันใบหน้าสด" : ""}`
+                  ? `${found.name}${justScanned ? " ✓ บันทึกแล้ว" : textureFailed ? " พื้นผิวไม่ตรง" : !voteOk && !inCooldown ? ` 🔒 ล็อกใบหน้า ${voteHits}/${VOTE_REQUIRED}` : (voteOk && !liveOk && !inCooldown) ? " ยืนยันใบหน้าสด" : ""}`
                   : notHuman ? "ไม่ใช่ใบหน้ามนุษย์"
                   : tooBlurry ? "ภาพเบลอ ให้นิ่งสักครู่"
                   : tooDark ? "แสงมืดเกินไป หาที่สว่างขึ้น"

@@ -82,6 +82,10 @@ const FaceKioskPage = () => {
   const justScannedRef = useRef<Map<string, number>>(new Map());
   // ยืนยันตัวตน: ต้องเจอ student คนเดิมติดกันอย่างน้อย N เฟรม ภายในเวลาที่กำหนด ก่อนบันทึก
   const confirmRef = useRef<Map<string, { count: number; lastTs: number }>>(new Map());
+  /** ล็อกใบหน้าที่จับได้ชั่วคราว — ขยับเล็กน้อย/เบลอชั่วขณะ จะไม่หลุดล็อก */
+  const kioskLockRef = useRef<{ studentId: string; until: number } | null>(null);
+  /** กรอบวาดแบบเกลี่ยให้นิ่ง (EMA) */
+  const kioskSmoothRef = useRef<Map<string, { x: number; y: number; width: number; height: number }>>(new Map());
   // ใบหน้าสด (anti-spoof): สะสมหลักฐาน blink/ขยับศีรษะแยกตาม studentId
   const livenessRef = useRef<Map<string, LivenessTrack>>(new Map());
   // texture ไม่ผ่าน (สงสัยรูปถ่าย/คนหน้าคล้าย): studentId -> timestamp ครั้งสุดท้ายที่ถูกปฏิเสธ
@@ -817,7 +821,7 @@ const FaceKioskPage = () => {
     const MIN_MARGIN = 0.04;
     // จำนวนเฟรมต่อเนื่องที่ต้องจับได้คนเดิม ก่อนบันทึก (กันบันทึกผิดจาก descriptor หลุด 1 เฟรม)
     const CONFIRM_FRAMES = 2;
-    const CONFIRM_WINDOW_MS = 1500;
+    const CONFIRM_WINDOW_MS = 3000;
 
     // ── เกณฑ์แบบขั้นบันได ──────────────────────────────────────────────
     // tier 1: ระยะ ≤ 0.42 (cos_sim ≥ 0.58) → ยืนยันอัตโนมัติ (บันทึกได้เลย)
@@ -911,8 +915,15 @@ const FaceKioskPage = () => {
               // tier 2: กลาง (AUTO_DIST, MANUAL_DIST] → ต้องกดยืนยันบนจอก่อน
               const tier2 = m.studentId != null && m.distance > AUTO_DIST && m.distance <= MANUAL_DIST
                 && m.margin >= MANUAL_MIN_MARGIN && m.confidence >= 1 - MANUAL_DIST;
-              const matchedId = !tooSmall && !tooBlurry && (tier1 || tier2) ? m.studentId : null;
+              let matchedId = !tooSmall && !tooBlurry && (tier1 || tier2) ? m.studentId : null;
+              // Sticky lock — ถ้าเพิ่งล็อกคนนี้ไว้ และยังเป็นคนเดิมที่ตรงที่สุด ให้คงล็อกไว้
+              const kLock = kioskLockRef.current;
+              if (!matchedId && kLock && tNow < kLock.until && m.studentId === kLock.studentId
+                  && !tooSmall && m.confidence >= MIN_CONFIDENCE * 0.88) {
+                matchedId = kLock.studentId;
+              }
               const found = matchedId ? matchKnown.find((k: any) => k.studentId === matchedId) as any : null;
+              if (found) kioskLockRef.current = { studentId: found.studentId, until: tNow + 1800 };
               const isStaffHit = !!found?.isStaff;
               const needsManual = matchedId != null && !tier1 && !!tier2;
 
@@ -949,7 +960,23 @@ const FaceKioskPage = () => {
                 : lowConfidence ? "ขยับเข้าใกล้/หันตรงกล้อง"
                 : "กรุณาลงทะเบียน";
 
-              drawFaceFrame(ctx, { box, label, sublabel, matched: !!found, confidence: m.confidence, color });
+              // กรอบนิ่ง (EMA) — ขยับหน้าเล็กน้อยกรอบจะไม่กระตุก/กระพริบ
+              let drawBox = box;
+              const sKey = found ? found.studentId : `anon-${Math.round(box.x / 40)}-${Math.round(box.y / 40)}`;
+              const prevBox = kioskSmoothRef.current.get(sKey);
+              if (prevBox) {
+                const a = 0.45;
+                drawBox = {
+                  x: prevBox.x + (box.x - prevBox.x) * a,
+                  y: prevBox.y + (box.y - prevBox.y) * a,
+                  width: prevBox.width + (box.width - prevBox.width) * a,
+                  height: prevBox.height + (box.height - prevBox.height) * a,
+                };
+              }
+              kioskSmoothRef.current.set(sKey, drawBox);
+              if (kioskSmoothRef.current.size > 24) kioskSmoothRef.current.clear();
+
+              drawFaceFrame(ctx, { box: drawBox, label, sublabel, matched: !!found, confidence: m.confidence, color });
 
 
               if (found) {
