@@ -55,6 +55,8 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const cooldownRef = useRef<Map<string, number>>(new Map());
+  /** เวลาปรับแสงกล้องครั้งล่าสุด (throttle) */
+  const lastExposureRef = useRef(0);
   const duplicateNoticeRef = useRef<Map<string, number>>(new Map());
   const justScannedRef = useRef<Map<string, number>>(new Map()); // `${studentId}:${mode}` -> timestamp
   const seenTodayRef = useRef<{ entry: Set<string>; exit: Set<string> }>({ entry: new Set(), exit: new Set() });
