@@ -437,6 +437,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     setSaveError(null); setSavedOk(false); blockedRef.current = false;
     detectMetaRef.current = { misses: 0, stableHits: 0 };
     blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0, startedAt: 0, baseFrac: 0, maxFrac: 0 } as any;
+    stepShotsRef.current = {};
     (async () => {
       if (personnelId) { setStudentId(personnelId); return; }
       if (selfPersonnel) { setStudentId("self"); return; } // บุคลากรลงทะเบียนเอง — เซิร์ฟเวอร์หาให้เอง (RPC)
@@ -922,6 +923,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     detectMetaRef.current = { misses: 0, stableHits: 0 };
     blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0, startedAt: 0, baseFrac: 0, maxFrac: 0 } as any;
     if (!streaming) void startCamera();
+    stepShotsRef.current = {};
   };
 
   /** ลองบันทึกอีกครั้งโดยไม่ต้องถ่ายใหม่ (ใช้กับกรณีเน็ตหลุด/เซิร์ฟเวอร์ตอบช้า) */
