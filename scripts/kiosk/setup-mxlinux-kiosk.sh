@@ -1099,34 +1099,88 @@ EOF
 
 cat >/opt/kiosk/fix-audio.sh <<'EOF'
 #!/usr/bin/env bash
+# คืนเสียงให้ตู้ kiosk: ปลุก PulseAudio, ปลด mute ทุกช่อง, เลือกลำโพงจริง (ไม่เอา dummy/HDMI ถ้ามีอนาล็อก)
 set +e
 export PULSE_RUNTIME_PATH="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pulse"
-pulseaudio --start --exit-idle-time=-1 >/dev/null 2>&1 || true
+pulseaudio --start --exit-idle-time=-1 >/dev/null 2>&1
 sleep 1
-amixer -q sset Master 85% unmute 2>/dev/null || true
-amixer -q sset Speaker 85% unmute 2>/dev/null || true
-amixer -q sset PCM 85% unmute 2>/dev/null || true
-amixer -q sset Capture 90% cap 2>/dev/null || true
-amixer -q sset Mic 90% cap 2>/dev/null || true
-amixer -q sset 'Internal Mic' 90% cap 2>/dev/null || true
-SINK="$(pactl list short sinks 2>/dev/null | awk '!/dummy/ && /analog-stereo|hdmi-stereo|alsa_output/ {print $2; exit}')"
-if [ -n "$SINK" ]; then
-  pactl set-default-sink "$SINK" 2>/dev/null || true
-  pactl set-sink-mute "$SINK" 0 2>/dev/null || true
-  pactl set-sink-volume "$SINK" 100% 2>/dev/null || true
+
+# ถ้ามีแต่ dummy sink (เกิดบ่อยเมื่อ pulse start ก่อน sound card พร้อม) → รีสตาร์ท pulse หนึ่งครั้ง
+if ! pactl list short sinks 2>/dev/null | grep -qv dummy; then
+  pulseaudio -k >/dev/null 2>&1
+  sleep 1
+  pulseaudio --start --exit-idle-time=-1 >/dev/null 2>&1
+  sleep 2
 fi
-pactl set-sink-mute @DEFAULT_SINK@ 0 2>/dev/null || true
-pactl set-sink-volume @DEFAULT_SINK@ 100% 2>/dev/null || true
+
+# ปลดล็อกทุก control ของทุกการ์ด ALSA (บางเครื่อง Master ไม่ใช่ตัวคุมจริง)
+for CARD in $(aplay -l 2>/dev/null | sed -n 's/^card \([0-9]*\):.*/\1/p' | sort -u); do
+  amixer -q -c "$CARD" sset 'Auto-Mute Mode' Disabled 2>/dev/null
+  amixer -c "$CARD" scontrols 2>/dev/null | sed -n "s/.*'\(.*\)',.*/\1/p" | while read -r CTL; do
+    case "$CTL" in
+      *Capture*|*Mic*|*Boost*) amixer -q -c "$CARD" sset "$CTL" 90% cap 2>/dev/null ;;
+      *) amixer -q -c "$CARD" sset "$CTL" 90% unmute 2>/dev/null ;;
+    esac
+  done
+done
+alsactl store >/dev/null 2>&1
+
+# เปิด profile เสียงออกให้การ์ดที่ยัง off อยู่
+pactl list short cards 2>/dev/null | awk '{print $2}' | while read -r CARD; do
+  pactl set-card-profile "$CARD" output:analog-stereo 2>/dev/null || \
+  pactl set-card-profile "$CARD" output:analog-stereo+input:analog-stereo 2>/dev/null
+done
+
+# เลือก sink: อนาล็อกก่อน แล้วค่อย HDMI แล้วค่อยอะไรก็ได้ที่ไม่ใช่ dummy
+SINK="$(pactl list short sinks 2>/dev/null | awk '!/dummy/ && /analog/ {print $2; exit}')"
+[ -z "$SINK" ] && SINK="$(pactl list short sinks 2>/dev/null | awk '!/dummy/ && /hdmi/ {print $2; exit}')"
+[ -z "$SINK" ] && SINK="$(pactl list short sinks 2>/dev/null | awk '!/dummy/ {print $2; exit}')"
+if [ -n "$SINK" ]; then
+  pactl set-default-sink "$SINK" 2>/dev/null
+  pactl set-sink-mute "$SINK" 0 2>/dev/null
+  pactl set-sink-volume "$SINK" 100% 2>/dev/null
+  # ย้ายเสียงที่กำลังเล่นอยู่ (เช่น Chromium ที่เปิดค้าง) มาที่ sink ใหม่
+  pactl list short sink-inputs 2>/dev/null | awk '{print $1}' | while read -r IN; do
+    pactl move-sink-input "$IN" "$SINK" 2>/dev/null
+    pactl set-sink-input-mute "$IN" 0 2>/dev/null
+  done
+fi
+pactl set-sink-mute @DEFAULT_SINK@ 0 2>/dev/null
+pactl set-sink-volume @DEFAULT_SINK@ 100% 2>/dev/null
+
 SRC="$(pactl list short sources 2>/dev/null | awk '!/\.monitor/ && /input|alsa_input/ {print $2; exit}')"
 if [ -n "$SRC" ]; then
-  pactl set-default-source "$SRC" 2>/dev/null || true
-  pactl set-source-mute "$SRC" 0 2>/dev/null || true
-  pactl set-source-volume "$SRC" 90% 2>/dev/null || true
+  pactl set-default-source "$SRC" 2>/dev/null
+  pactl set-source-mute "$SRC" 0 2>/dev/null
+  pactl set-source-volume "$SRC" 90% 2>/dev/null
 fi
-pactl set-source-mute @DEFAULT_SOURCE@ 0 2>/dev/null || true
-pactl set-source-volume @DEFAULT_SOURCE@ 90% 2>/dev/null || true
+pactl set-source-mute @DEFAULT_SOURCE@ 0 2>/dev/null
+pactl set-source-volume @DEFAULT_SOURCE@ 90% 2>/dev/null
+logger -t kiosk-audio "sink=$(pactl get-default-sink 2>/dev/null) inputs=$(pactl list short sink-inputs 2>/dev/null | wc -l)"
 EOF
 chmod +x /opt/kiosk/fix-audio.sh
+
+# ตรวจสอบเสียงซ้ำเป็นระยะ (ลำโพง USB/HDMI เสียบภายหลัง หรือ pulse ตาย)
+cat >/etc/systemd/system/kiosk-audio.service <<EOF
+[Unit]
+Description=Kiosk audio keep-alive
+[Service]
+Type=oneshot
+User=$KIOSK_USER
+Environment=XDG_RUNTIME_DIR=/run/user/$(id -u "$KIOSK_USER" 2>/dev/null || echo 1000)
+ExecStart=/opt/kiosk/fix-audio.sh
+EOF
+cat >/etc/systemd/system/kiosk-audio.timer <<'EOF'
+[Unit]
+Description=Kiosk audio keep-alive timer
+[Timer]
+OnBootSec=90
+OnUnitActiveSec=5min
+[Install]
+WantedBy=timers.target
+EOF
+systemctl daemon-reload >/dev/null 2>&1 || true
+systemctl enable --now kiosk-audio.timer >/dev/null 2>&1 || true
 
 # ---- Text-to-Speech (Chromium ต้องใช้ speech-dispatcher บน Linux) ----
 systemctl unmask speech-dispatcher.service 2>/dev/null || true
@@ -1415,7 +1469,7 @@ if [[ "$KIOSK_MODE" == "student" ]]; then
     --disable-save-password-bubble --disable-signin-promo \
     --autoplay-policy=no-user-gesture-required \
     --use-fake-ui-for-media-stream \
-    --alsa-output-device=default --audio-buffer-size=2048 \
+    --audio-buffer-size=2048 \
     --enable-features=WebRTCPipeWireCapturer --disk-cache-size=0 \
     --password-store=basic $LOWMEM_FLAGS $EXT_FLAG"
   cat >/opt/kiosk/start-kiosk.sh <<EOF
@@ -1430,6 +1484,7 @@ for i in \$(seq 1 30); do
 done
 xset s off -dpms s noblank 2>/dev/null || true
 /opt/kiosk/fix-camera.sh >/dev/null 2>&1 || true
+/opt/kiosk/fix-audio.sh >/dev/null 2>&1 || true
 
 _APPEND_KIOSK() { case "\$1" in *\?*) echo "\$1&kiosk=1";; *) echo "\$1?kiosk=1";; esac; }
 MAIN_URL="\$(_APPEND_KIOSK "$KIOSK_URL")"
@@ -1466,6 +1521,7 @@ PREF="$DOOR_PROFILE/Default/Preferences"
 [[ -f "\$PREF" ]] && sed -i 's/"exited_cleanly":false/"exited_cleanly":true/; s/"exit_type":"Crashed"/"exit_type":"Normal"/' "\$PREF" || true
 xset s off -dpms s noblank 2>/dev/null || true
 /opt/kiosk/fix-camera.sh >/dev/null 2>&1 || true
+/opt/kiosk/fix-audio.sh >/dev/null 2>&1 || true
 pgrep -x unclutter >/dev/null || unclutter -idle 0.5 -root &
 
 # respawn loop — chromium crash/quit จะเปิดใหม่ทันที
@@ -1483,7 +1539,7 @@ while true; do
     --disable-dev-shm-usage --start-maximized \\
     --autoplay-policy=no-user-gesture-required \\
     --use-fake-ui-for-media-stream \\
-    --alsa-output-device=default --audio-buffer-size=2048 \\
+    --audio-buffer-size=2048 \\
     --force-device-scale-factor=\${KIOSK_SCALE:-0.85} \\
     --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy \\
     --enable-accelerated-video-decode \\

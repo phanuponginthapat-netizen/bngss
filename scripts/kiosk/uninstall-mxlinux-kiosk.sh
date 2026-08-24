@@ -14,7 +14,8 @@ for s in kiosk-wake kiosk-watchdog kiosk-healthcheck kiosk-ctl kiosk-daily-reboo
          kiosk-power-off.timer kiosk-power-off kiosk-power-on.timer kiosk-power-on \
          kiosk-battery.timer kiosk-battery kiosk-set-wakealarm \
          kiosk-cpu-perf kiosk-extension-update.timer kiosk-extension-update \
-         kiosk-mount-noexec kiosk-wipe-userdata kiosk-memguard kiosk-zram; do
+         kiosk-mount-noexec kiosk-wipe-userdata kiosk-memguard kiosk-zram \
+         kiosk-audio.timer kiosk-audio; do
   systemctl disable --now "$s" 2>/dev/null || true
   rm -f "/etc/systemd/system/$s.service" "/etc/systemd/system/$s.timer" 2>/dev/null || true
 done

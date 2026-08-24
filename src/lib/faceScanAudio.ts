@@ -213,8 +213,17 @@ async function speakRemote(text: string): Promise<boolean> {
       return url ? await playViaAudioElement(url) : false;
     }
     const ctx = getCtx();
-    if (!ctx) return false;
-    if (ctx.state === "suspended") await ctx.resume().catch(() => {});
+    if (!ctx) {
+      const url = _ttsCache.get(text) || (await fetchTtsUrl(text));
+      return url ? await playViaAudioElement(url) : false;
+    }
+    if (ctx.state !== "running") await ctx.resume().catch(() => {});
+    // AudioContext ปลุกไม่ขึ้น (เช่น Chromium kiosk ที่ยังไม่มี user gesture / pulse เพิ่งกลับมา)
+    // → ใช้ <audio> element แทน เพื่อไม่ให้เงียบทั้งระบบ
+    if (ctx.state !== "running") {
+      const url = _ttsCache.get(text) || (await fetchTtsUrl(text));
+      if (url && (await playViaAudioElement(url))) return true;
+    }
     try { _speakingSource?.stop(); } catch { /* noop */ }
     const src = ctx.createBufferSource();
     const gain = ctx.createGain();
