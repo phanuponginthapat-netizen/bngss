@@ -325,9 +325,10 @@ const MyFaceEnrollPage = () => {
       <LivenessFaceRegisterDialog
         open={open}
         onOpenChange={setOpen}
-        studentCode={me?.student_code || (profileFallback as any)?.student_code || undefined}
-        personnelId={!me ? mePersonnel?.id : undefined}
-        selfPersonnel={!me && !(profileFallback as any)?.student_code}
+        studentCode={me?.student_code || (serverIdentity as any)?.student_code || undefined}
+        personnelId={!me ? (mePersonnel?.id || ((serverIdentity as any)?.kind === "personnel" ? (serverIdentity as any).id : undefined)) : undefined}
+        selfPersonnel={!me && !(serverIdentity as any)?.student_code}
+
         displayName={fullName}
         submitMode="request"
         reason={reason}
