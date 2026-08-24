@@ -1,7 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { AnimatePresence } from "framer-motion";
-import { PageTransition } from "./components/PageTransition";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -313,14 +311,11 @@ import { installGlobalErrorHandler } from "@/lib/globalErrorHandler";
 import { usePersistentSession } from "@/hooks/usePersistentSession";
 
 const AnimatedRoutesWrapper = ({ children }: { children: React.ReactNode }) => {
-  const location = useLocation();
-  return (
-    <AnimatePresence mode="wait">
-      <PageTransition key={location.pathname}>
-        {children}
-      </PageTransition>
-    </AnimatePresence>
-  );
+  // Do not animate the entire router tree from opacity: 0. If Framer Motion is
+  // interrupted during auth redirects, tab restore, or a chunk refresh, the
+  // wrapper can remain transparent while the dashboard is fully mounted.
+  // Individual pages already provide their own non-blocking entrance motion.
+  return <>{children}</>;
 };
 
 const App = () => {

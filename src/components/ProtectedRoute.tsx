@@ -4,6 +4,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthSession } from "@/hooks/useAuthSession";
+import SystemLoader from "@/components/SystemLoader";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -35,22 +36,20 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
     queryKey: ["profile-link-status", userId],
     enabled: isReady && !!userId,
     queryFn: async () => {
-      const { data } = await supabase
+      if (!userId) return null;
+      const { data, error } = await supabase
         .from("profiles")
         .select("account_linked, employee_code, student_code")
-        .eq("id", userId!)
+        .eq("id", userId)
         .maybeSingle();
+      if (error) throw error;
       return data;
     },
     staleTime: 60 * 1000,
   });
 
   if (!isReady || loading || (userId && profileLoading)) {
-    return (
-      <div className="flex items-center justify-center min-h-[200px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
+    return <SystemLoader />;
   }
 
   if (!session || !userId) {

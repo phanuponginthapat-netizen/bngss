@@ -36,6 +36,7 @@ import OnboardingTour from "@/components/OnboardingTour";
 import { resolveProfileImageUrl } from "@/lib/profileImageUrl";
 import HeaderClock from "@/components/HeaderClock";
 import DarkModeToggle from "@/components/DarkModeToggle";
+import SystemLoader from "@/components/SystemLoader";
 
 /** ปุ่ม avatar ที่ toggle sidebar (แทน dropdown เดิม) */
 function AvatarSidebarToggle({ avatarUrl, fullName, userEmail }: { avatarUrl: string | null; fullName: string; userEmail: string }) {
@@ -125,6 +126,7 @@ const DashboardLayout = () => {
 
   useEffect(() => {
     if (!userId) return;
+    let cancelled = false;
     // Admin / alumni are exempt from first-login setup,
     // but still need profile data (avatar + name) loaded for the header.
     const exempt = role === "admin" || role === "director" || role === "alumni";
@@ -147,40 +149,48 @@ const DashboardLayout = () => {
 
     // Check if first login setup is needed
     const checkFirstLogin = async () => {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("avatar_url, first_name, last_name, nickname, pdpa_accepted_at")
-        .eq("id", userId)
-        .maybeSingle();
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("avatar_url, first_name, last_name, nickname, pdpa_accepted_at")
+          .eq("id", userId)
+          .maybeSingle();
+        if (profileError) throw profileError;
+        if (cancelled) return;
 
-      if (profile) {
-        setAvatarUrl(await resolveProfileImageUrl(profile.avatar_url));
-        const name = profile.first_name ? (profile.nickname ? `${profile.first_name} (${profile.nickname})` : profile.first_name) : (profile.nickname || "");
-        setFullName(name || "");
-        
-        // Setup needed if: missing name or no PDPA consent (no forced password)
-        const needsName = !profile.first_name;
-        const needsPdpa = !(profile as any).pdpa_accepted_at;
-        if (needsName || needsPdpa) {
-          const { data: setting } = await supabase
-            .from("school_settings")
-            .select("setting_value")
-            .eq("setting_key", `first_login_done_${userId}`)
-            .maybeSingle();
-          if (needsPdpa) {
-            setNeedsSetup(true);
+        if (profile) {
+          setAvatarUrl(await resolveProfileImageUrl(profile.avatar_url));
+          if (cancelled) return;
+          const name = profile.first_name ? (profile.nickname ? `${profile.first_name} (${profile.nickname})` : profile.first_name) : (profile.nickname || "");
+          setFullName(name || "");
+
+          // Setup needed if: missing name or no PDPA consent (no forced password)
+          const needsName = !profile.first_name;
+          const needsPdpa = !(profile as any).pdpa_accepted_at;
+          if (needsName || needsPdpa) {
+            const { data: setting, error: settingError } = await supabase
+              .from("school_settings")
+              .select("setting_value")
+              .eq("setting_key", `first_login_done_${userId}`)
+              .maybeSingle();
+            if (settingError) throw settingError;
+            if (cancelled) return;
+            setNeedsSetup(needsPdpa || !setting?.setting_value);
           } else {
-            setNeedsSetup(!setting?.setting_value);
+            setNeedsSetup(false);
           }
         } else {
-          setNeedsSetup(false);
+          setNeedsSetup(true);
         }
-      } else {
-        setNeedsSetup(true);
+      } catch (error) {
+        console.error("Unable to check first-login setup", error);
+        // Profile setup must not block the entire authenticated application.
+        if (!cancelled) setNeedsSetup(false);
       }
     };
     
-    checkFirstLogin();
+    void checkFirstLogin();
+    return () => { cancelled = true; };
   }, [userId, role]);
 
   const handleLogout = async () => {
@@ -202,11 +212,7 @@ const DashboardLayout = () => {
   };
 
   if (!isReady || roleLoading || (!!userId && !!role && needsSetup === null)) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
+    return <SystemLoader />;
   }
 
   if (needsSetup && userId && role !== "admin" && role !== "director" && role !== "alumni") {
