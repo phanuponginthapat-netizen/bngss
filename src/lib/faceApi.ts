@@ -403,10 +403,19 @@ export function preprocessFrame(
         lumSum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
       }
       const meanLum = lumSum / (w * h);
+      _lastMeanLum = _lastMeanLum * 0.6 + meanLum * 0.4; // smooth เพื่อกัน filter กระพริบ
       // target ~110: gamma > 1 = สว่างขึ้น (แสงน้อย), gamma < 1 = หรี่ลง (แสงจ้า/ย้อนแสง)
-      const gamma = Math.min(1.9, Math.max(0.72, (meanLum / 110) ** 0.5));
+      const gamma = Math.min(1.9, Math.max(0.6, (meanLum / 110) ** 0.5));
+      // ถ้าภาพขาวโพลน (clipping) ให้ดึงไฮไลต์ลงเพิ่ม เพื่อคืนรายละเอียดผิวหน้า
+      const highlightPull = meanLum > 185 ? 0.82 : meanLum > 165 ? 0.9 : 1;
       const gammaLut = new Uint8ClampedArray(256);
-      for (let v = 0; v < 256; v++) gammaLut[v] = Math.round(255 * Math.pow(v / 255, 1 / gamma));
+      for (let v = 0; v < 256; v++) {
+        const g = 255 * Math.pow(v / 255, 1 / gamma);
+        // soft rolloff เฉพาะโซนสว่าง
+        const roll = v > 200 ? highlightPull : v > 160 ? 1 - (1 - highlightPull) * ((v - 160) / 40) : 1;
+        gammaLut[v] = Math.round(g * roll);
+      }
+
       const hist = new Uint32Array(256);
       // build luminance histogram
       for (let i = 0; i < data.length; i += 4) {
