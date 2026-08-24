@@ -370,7 +370,7 @@ const FaceKioskPage = () => {
     } catch {
       playGateDeniedSound();
     }
-  }, [voiceEnabled, scanModeRef]);
+  }, [voiceEnabled, scanModeRef, showNotice]);
 
 
   // ===== WizMind / CCTV bridge (realtime) =====
