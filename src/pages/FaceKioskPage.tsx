@@ -1540,7 +1540,7 @@ const FaceKioskPage = () => {
 
 
     return () => { cancelled = true; };
-  }, [streaming, screensaver, known, recordScan, clockStaff, runGate]);
+  }, [streaming, screensaver, known, recordScan, clockStaff, runGate, showNotice]);
 
 
 
