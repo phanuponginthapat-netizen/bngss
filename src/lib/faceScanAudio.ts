@@ -271,7 +271,7 @@ export async function waitForSpeechEnd(maxWaitMs = 12000): Promise<void> {
 export function prewarmSpeech(phrases: string[]) {
   for (const p of phrases) {
     const clean = String(p || "").trim();
-    if (clean && !_ttsCache.has(clean)) void fetchTtsUrl(clean).catch(() => {});
+    if (clean && !_bufCache.has(clean)) void getTtsBuffer(clean).catch(() => {});
   }
 }
 
