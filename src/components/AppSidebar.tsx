@@ -147,9 +147,11 @@ export function AppSidebar() {
   // Compact sidebar with section headings — used by alumni and parent
   const renderCompactSidebar = (sections: CompactSection[]) => (
     <Sidebar side="right" collapsible="offcanvas" className="gradient-sidebar border-l-0">
+      {/* initial={false} → never mount at opacity:0; if the enter animation is
+          skipped (reduced-motion, tab restore) the menu must still be visible. */}
       <motion.div
-        initial={{ opacity: 0, x: 10 }}
-        animate={{ opacity: isSidebarOpen ? 1 : 0.92, x: isSidebarOpen ? 0 : 8 }}
+        initial={false}
+        animate={{ opacity: 1, x: 0 }}
         transition={subtleSpring}
         className="flex h-full w-full flex-col"
       >
