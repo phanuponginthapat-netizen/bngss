@@ -11,9 +11,10 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  loadFaceModels, detectFaceWithLandmarks, applyCameraAutoTune, estimateFaceSharpness, euclidean,
+  loadFaceModels, detectFaceWithLandmarks, applyCameraAutoTune, estimateFaceSharpness,
   autoExposureBalance, estimateBrightness, embedFaceVariantsFromUrl,
 } from "@/lib/faceApi";
+import { cosineDistance } from "@/lib/arcface";
 import { loadOpenCV, isOpenCVReady, detectFacesCV, disposeOpenCV, type CVBox } from "@/lib/opencvFace";
 import { openCamera, stopStream } from "@/lib/cameraStream";
 import { urlToFaceTexture } from "@/lib/faceThumb";
@@ -38,11 +39,10 @@ interface Props {
   selfPersonnel?: boolean;
 }
 
-/** ระยะห่าง "ค่ากลาง" สูงสุดที่ยอมรับได้ระหว่างตัวอย่างของคนเดียวกัน
- *  (ขั้นตอนหันซ้าย/ขวา/แสงสี ทำให้ระยะคู่ใดคู่หนึ่งกว้างได้ตามธรรมชาติ) */
-const SELF_CONSISTENCY_MEDIAN_MAX = 0.72;
-/** ตัวอย่างที่ค่ากลางห่างเกินนี้ถือเป็น outlier → ตัดทิ้งแทนการบล็อกทั้งชุด */
-const SAMPLE_OUTLIER_MAX = 0.80;
+/** ArcFace ใช้ cosine distance (0 = เหมือนกัน) ไม่ใช่ Euclidean distance
+ *  มุมด้านข้างยอมให้ห่างจากภาพหน้าตรงได้มากกว่าเล็กน้อย */
+const SAMPLE_OUTLIER_MAX = 0.62;
+const SIDE_SAMPLE_OUTLIER_MAX = 0.72;
 /** ถ้าใบหน้าใกล้กับคนอื่นในระบบมากกว่านี้ = ถือว่าซ้ำคน */
 const DUPLICATE_THRESHOLD = 0.36;
 /** จำนวนภาพขั้นต่ำ/สูงสุดที่บันทึกจริง */
@@ -773,29 +773,39 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           throw new Error(`เก็บภาพใบหน้าได้เพียง ${samples.length} ภาพ (ต้องการอย่างน้อย ${MIN_SAMPLES}) — กรุณากด "เริ่มใหม่"`);
         }
 
-        // ---- 1) ตรวจสอบว่าตัวอย่างเป็น "คนเดียวกัน" โดยใช้ค่ากลาง + ตัด outlier ----
-        // ใช้เฉพาะเฟรมที่แสงปกติ และไม่ใช่ขั้นตอนแสงสี (จอสาดสีทำให้ค่าใบหน้าเพี้ยนเป็นธรรมชาติ)
+        // ---- 1) เลือกภาพฐานที่เสถียร แล้วตัดเฉพาะเฟรมที่ ArcFace อ่านค่าหลุด ----
+        // ArcFace คืนเวกเตอร์ L2-normalized จึงต้องใช้ cosine distance ให้ตรงกับตอนสแกนจริง
+        // (การใช้ Euclidean ที่นี่เคยทำให้คนเดียวกันแสดงค่าต่างถึง ~1.6 และบล็อกทั้งชุด)
         const refPool = samples.filter(
           (sm) => sm.metrics.stepKey !== "color" && sm.metrics.lum >= LUM_OK_MIN && sm.metrics.lum <= LUM_OK_MAX,
         );
         const checkPool = refPool.length >= 3 ? refPool : samples.filter((sm) => sm.metrics.stepKey !== "color");
         const pool = checkPool.length >= 3 ? checkPool : samples;
-        const medians = pool.map((sa, i) =>
-          median(pool.filter((_, j) => j !== i).map((sb) => euclidean(sa.descriptor, sb.descriptor))),
-        );
-        let usable = pool.filter((_, i) => medians[i] <= SAMPLE_OUTLIER_MAX);
-        if (usable.length < 2) usable = pool;
-        const usableMedians = usable.map((sa, i) =>
-          median(usable.filter((_, j) => j !== i).map((sb) => euclidean(sa.descriptor, sb.descriptor))),
-        );
-        const overall = median(usableMedians);
-        if (pool.length >= 4 && overall > SELF_CONSISTENCY_MEDIAN_MAX) {
-          blockedRef.current = true;
-          setBlockedMsg(
-            `ตรวจพบใบหน้าไม่ตรงกันระหว่างขั้นตอน (ค่าต่าง ${overall.toFixed(2)}) — ` +
-            `อาจเกิดจากแสงจ้า/ย้อนแสง กรุณาลงทะเบียนใหม่ในที่แสงสม่ำเสมอ และเป็นคนเดียวกันตลอด`,
+        const centerPool = pool.filter((sm) => sm.metrics.stepKey === "center");
+        const anchorPool = centerPool.length >= 2 ? centerPool : pool;
+        const anchor = anchorPool
+          .map((sample, i) => ({
+            sample,
+            score: median(anchorPool.filter((_, j) => j !== i).map((other) => cosineDistance(sample.descriptor, other.descriptor))),
+          }))
+          .sort((a, b) => a.score - b.score)[0]?.sample;
+        if (!anchor) throw new Error("ไม่พบข้อมูลใบหน้าที่ใช้ตรวจสอบได้ กรุณากดเริ่มใหม่");
+
+        const usable = pool.filter((sm) => {
+          const distance = cosineDistance(anchor.descriptor, sm.descriptor);
+          const limit = sm.metrics.stepKey === "left" || sm.metrics.stepKey === "right"
+            ? SIDE_SAMPLE_OUTLIER_MAX
+            : SAMPLE_OUTLIER_MAX;
+          return Number.isFinite(distance) && distance <= limit;
+        });
+        // ไม่กล่าวหาว่าเป็นคนละคนจากเฟรมเดียวที่โมเดลอ่านหลุด: เก็บชุดที่ตรงกับภาพหน้าตรง
+        // และแจ้งให้ถ่ายใหม่เฉพาะเมื่อภาพดีเหลือไม่พอจริง ๆ
+        if (usable.length < MIN_SAMPLES) {
+          const bestDistance = median(pool.map((sm) => cosineDistance(anchor.descriptor, sm.descriptor)));
+          throw new Error(
+            `ภาพบางส่วนอ่านค่าใบหน้าไม่เสถียร (ค่ากลาง ${bestDistance.toFixed(2)}) เหลือภาพที่ใช้ได้ ` +
+            `${usable.length}/${MIN_SAMPLES} ภาพ — กรุณาอยู่นิ่งและหลีกเลี่ยงแสงย้อนแล้วลองใหม่`,
           );
-          throw new Error("ตรวจพบใบหน้ามากกว่า 1 คนระหว่างการลงทะเบียน");
         }
 
         // ---- 1.1) เลือกภาพคุณภาพดีที่สุด "แบบวนทีละมุม" เพื่อไม่ให้มุมใดหายไป ----
