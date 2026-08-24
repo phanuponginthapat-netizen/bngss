@@ -4,7 +4,7 @@
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { corsHeadersWithCron } from "../_shared/cors.ts";
 import { requireCronOrAdmin } from "../_shared/requireCron.ts";
-import { notifyRole } from "../_shared/fanout.ts";
+import { fanout } from "../_shared/fanout.ts";
 
 const corsHeaders = corsHeadersWithCron;
 
@@ -156,13 +156,15 @@ Deno.serve(async (req) => {
         if (error) throw new Error(error.message);
       }
       if (counts.high > 0) {
-        notifyRole(admin, "admin", {
+        fanout({
+          roles: ["admin", "director"],
           title: "ระบบเตือนภัยล่วงหน้า",
           body: `พบนักเรียนเสี่ยงสูง ${counts.high} คน และเสี่ยงปานกลาง ${counts.medium} คน`,
           type: "early_warning",
           severity: "warning",
           url: "/dashboard/admin/early-warning",
-        }).catch(() => {});
+          dedup_key: `early-warning-${now.slice(0, 10)}`,
+        }, admin).catch(() => {});
       }
     }
 
