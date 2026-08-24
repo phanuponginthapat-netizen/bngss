@@ -16,9 +16,9 @@ export function useClassroomsMaster() {
     queryFn: async () => {
       const { data } = await supabase
         .from("classrooms")
-        .select("id, grade_level, classroom_name, advisor_name")
+        .select("id, grade_level, name, homeroom_teacher")
         .order("grade_level")
-        .order("classroom_name");
+        .order("name");
       return data || [];
     },
     staleTime: MASTER_STALE_TIME,
@@ -33,7 +33,7 @@ export function useSubjectsMaster() {
       const { data } = await supabase
         .from("subjects")
         .select("*")
-        .order("subject_code");
+        .order("code");
       return data || [];
     },
     staleTime: MASTER_STALE_TIME,

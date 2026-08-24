@@ -48,7 +48,7 @@ export default function ActivityDetailPage() {
     enabled: !!id,
     queryFn: async () =>
       (await db.from("activity_participants")
-        .select("id, team_name, group_name, seed, bib_no, student_id, students(prefix, first_name, last_name, classrooms(name))")
+        .select("id, team_name, group_name, seed, bib_no, student_id, students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name))")
         .eq("activity_id", id)).data || [],
   });
 

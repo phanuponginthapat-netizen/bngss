@@ -47,7 +47,7 @@ export default function StaffTasksPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("personnel")
-        .select("id, user_id, prefix, first_name, last_name, position_title, department, status")
+        .select("id, user_id, prefix, first_name, last_name, position, department, status")
         .not("user_id", "is", null)
         .order("first_name");
       if (error) throw error;
@@ -83,7 +83,7 @@ export default function StaffTasksPage() {
     const q = search.trim().toLowerCase();
     if (!q) return personnel;
     return personnel.filter((p: any) =>
-      `${p.prefix || ""}${p.first_name} ${p.last_name} ${p.position_title || ""} ${p.department || ""}`
+      `${p.prefix || ""}${p.first_name} ${p.last_name} ${p.position || ""} ${p.department || ""}`
         .toLowerCase()
         .includes(q),
     );
@@ -324,7 +324,7 @@ export default function StaffTasksPage() {
                       <div className="min-w-0">
                         <p className="text-sm truncate">{`${p.prefix || ""}${p.first_name} ${p.last_name}`}</p>
                         <p className="text-[10px] text-muted-foreground truncate">
-                          {[p.position_title, p.department].filter(Boolean).join(" · ") || "-"}
+                          {[p.position, p.department].filter(Boolean).join(" · ") || "-"}
                         </p>
                       </div>
                     </label>

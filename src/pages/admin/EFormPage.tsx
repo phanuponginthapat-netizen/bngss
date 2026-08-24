@@ -60,7 +60,7 @@ const EFormPage = () => {
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
-      const { data } = await supabase.from("profiles").select("first_name, last_name, position").eq("id", user.id).maybeSingle();
+      const { data } = await supabase.from("profiles").select("first_name, last_name, position_title").eq("id", user.id).maybeSingle();
       return data;
     },
   });
@@ -68,7 +68,7 @@ const EFormPage = () => {
   const fillContext: EFormRenderContext = useMemo(() => ({
     user: {
       name: myProfile ? `${(myProfile as any).first_name || ""} ${(myProfile as any).last_name || ""}`.trim() : "",
-      position: (myProfile as any)?.position || "",
+      position: (myProfile as any)?.position_title || "",
     },
     school: { name: schoolName, address: schoolAddress, phone: schoolPhone },
     director: { name: directorName, title: directorTitle },

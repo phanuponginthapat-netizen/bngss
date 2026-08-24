@@ -306,7 +306,7 @@ function TripDetail({ tripId, isAdmin, onBack }: { tripId: string; isAdmin: bool
     queryFn: async () => {
       const { data, error } = await supabase
         .from("student_offsite_participants")
-        .select("*, students(id, first_name, last_name, student_code, classrooms(grade_level, name))")
+        .select("*, students(id, first_name, last_name, student_code, classrooms!students_classroom_id_fkey(grade_level, name))")
         .eq("trip_id", tripId)
         .order("created_at");
       if (error) throw error;

@@ -87,7 +87,7 @@ const fetchData = async (): Promise<SmscData> => {
     supabase.from("sdq_records").select("id", { count: "exact", head: true }),
     supabase.from("health_measurements").select("id", { count: "exact", head: true }),
     supabase.from("action_plans").select("id", { count: "exact", head: true }),
-    supabase.from("action_plans").select("project_name, budget_amount, status").order("created_at", { ascending: false }).limit(10),
+    supabase.from("action_plans").select("title, budget_amount, status").order("created_at", { ascending: false }).limit(10),
     supabase.from("pa_agreements").select("id", { count: "exact", head: true }),
     supabase.from("pa_agreements").select("academic_year, status, personnel:personnel_id(first_name, last_name)").order("created_at", { ascending: false }).limit(10),
     supabase.from("staff_evaluations").select("id", { count: "exact", head: true }),
@@ -163,7 +163,7 @@ const fetchData = async (): Promise<SmscData> => {
     healthRecords: health.count || 0,
     actionPlans: actionPlans.count || 0,
     actionPlanList: (actionPlanList.data || []).map((a: any) => ({
-      title: a.project_name, budget: a.budget_amount, status: a.status,
+      title: a.title, budget: a.budget_amount, status: a.status,
     })),
     paAgreements: pa.count || 0,
     paList: (paList.data || []).map((p: any) => ({

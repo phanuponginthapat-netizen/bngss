@@ -15,7 +15,7 @@ function GradeView({ lineUserId }: { lineUserId: string }) {
       const s = students?.[0];
       if (!s) { setLoading(false); return; }
       const { data } = await supabase.from("enrollments")
-        .select("total_score,grade,midterm_score,final_score,subjects(name,code)")
+        .select("total_score,grade,midterm_score,final_score,subjects(name_th,code)")
         .eq("student_id", s.id).eq("status", "active").limit(30);
       setRows(data ?? []);
       setLoading(false);
