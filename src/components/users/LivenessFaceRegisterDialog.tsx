@@ -816,11 +816,31 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           }
         }
 
+        // ---- 2.5) เพิ่มตัวอย่างในหลายสภาพแสง (สว่างจ้า / มืด / โทนอุ่น / โทนเย็น) ----
+        // ช่วยให้สแกนจริงในแสงต่างกัน (แดดจ้าหน้าประตู, ห้องมืด, ไฟวอร์มไวท์) ยังจับได้แม่น
+        toast.loading("กำลังสร้างข้อมูลใบหน้าหลายสภาพแสง...", { id: __tid_save_1 });
+        const variantSamples: CapturedSample[] = [];
+        try {
+          const base = [...finalSamples].sort((a, b) => b.metrics.sharpness - a.metrics.sharpness).slice(0, 3);
+          for (const sm of base) {
+            const vs = await embedFaceVariantsFromUrl(sm.image);
+            for (const v of vs) {
+              variantSamples.push({
+                descriptor: v.descriptor,
+                image: sm.image,
+                metrics: { ...sm.metrics, lighting: v.variant } as any,
+              });
+            }
+          }
+        } catch (ve) { console.warn("variant embeddings skipped:", ve); }
+        const allSamples = [...finalSamples, ...variantSamples];
+
         // texture (LBP) ของแต่ละตัวอย่าง — ใช้ยืนยันพื้นผิวใบหน้าตอนสแกน
-        const textures = await Promise.all(finalSamples.map((sm) => urlToFaceTexture(sm.image)));
+        const textures = await Promise.all(allSamples.map((sm) => urlToFaceTexture(sm.image)));
 
         if (isPersonnel) {
-          const payload = finalSamples.map((sm, i) => ({
+          const payload = allSamples.map((sm, i) => ({
+
             descriptor: Array.from(sm.descriptor),
             quality_score: sm.metrics.sharpness,
             face_image: sm.image,
