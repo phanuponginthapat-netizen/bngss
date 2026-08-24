@@ -1173,6 +1173,27 @@ EndSection
 EOF
 fi
 
+# ---------------- 5.9) ตรวจ RAM → เตรียม flag ประหยัดหน่วยความจำ ----------------
+TOTAL_MB=$(awk '/MemTotal/{print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 4096)
+case "${KIOSK_LOWMEM:-auto}" in
+  1|true|yes|on)  LOWMEM=1 ;;
+  0|false|no|off) LOWMEM=0 ;;
+  *)              [[ "$TOTAL_MB" -le 3072 ]] && LOWMEM=1 || LOWMEM=0 ;;
+esac
+LOWMEM_FLAGS=""
+if [[ "$LOWMEM" == "1" ]]; then
+  log "   RAM ${TOTAL_MB}MB → เปิดโหมดประหยัดหน่วยความจำ (low-RAM mode)"
+  # จำกัด renderer + heap ของ V8 และตัดฟีเจอร์ที่กินแรมโดยไม่กระทบกล้อง/เสียง
+  # หมายเหตุ: heap 320MB เพียงพอต่อโมเดลจดจำใบหน้า (tfjs) แต่ยังไม่ทำให้ระบบ swap หนัก
+  LOWMEM_FLAGS="--renderer-process-limit=2 --process-per-site \
+    --js-flags=--max-old-space-size=320 \
+    --disable-features=CalculateNativeWinOcclusion,BackForwardCache,OptimizationHints \
+    --disable-smooth-scrolling --disable-logging --disable-gpu-program-cache"
+else
+  log "   RAM ${TOTAL_MB}MB → ใช้ค่าปกติ"
+fi
+[[ "$LOWMEM" == "1" ]] && DOOR_CACHE_SIZE=33554432 || DOOR_CACHE_SIZE=104857600
+
 # ---------------- 6) Kiosk launcher + watchdog + health-check ----------------
 log "▶  [6/10] Chromium launcher + watchdog + health-check (mode=$KIOSK_MODE)..."
 
@@ -1191,7 +1212,7 @@ if [[ "$KIOSK_MODE" == "student" ]]; then
     --use-fake-ui-for-media-stream \
     --alsa-output-device=default --audio-buffer-size=2048 \
     --enable-features=WebRTCPipeWireCapturer --disk-cache-size=0 \
-    --password-store=basic $EXT_FLAG"
+    --password-store=basic $LOWMEM_FLAGS $EXT_FLAG"
   cat >/opt/kiosk/start-kiosk.sh <<EOF
 #!/usr/bin/env bash
 # ล้าง profile ก่อนเริ่ม (double safety นอกจาก tmpfs+wipe service)
@@ -1253,7 +1274,8 @@ while true; do
     --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy \\
     --enable-accelerated-video-decode \\
     --enable-features=WebRTCPipeWireCapturer,CanvasOopRasterization \
-    --password-store=basic --disk-cache-size=104857600 \\
+    --password-store=basic --disk-cache-size=$DOOR_CACHE_SIZE \\
+    $LOWMEM_FLAGS \\
     --auto-select-desktop-capture-source="Entire screen" \\
     --enable-usermedia-screen-capturing \\
     --allow-http-screen-capture
@@ -1560,6 +1582,113 @@ EOF
 
 # ปิด core dump
 echo "* hard core 0" >/etc/security/limits.d/kiosk-nocore.conf
+
+# ---------------- 8.5) Low-RAM tuning: zram + earlyoom + mem-guard ----------------
+if [[ "$LOWMEM" == "1" ]]; then
+  log "▶  [8.5/10] Low-RAM tuning (zram + earlyoom + mem-guard) — RAM ${TOTAL_MB}MB..."
+
+  # 1) zram swap — บีบอัดหน่วยความจำใน RAM แทนการเขียน swap ลง eMMC (เร็วกว่ามาก + ยืดอายุ eMMC)
+  apt-get install -y --no-install-recommends zram-tools earlyoom 2>/dev/null || true
+  ZRAM_MB=$(( TOTAL_MB * 60 / 100 ))   # ~60% ของ RAM (lz4 บีบได้ ~2-3 เท่า)
+  if [[ -f /etc/default/zramswap ]]; then
+    backup_once /etc/default/zramswap
+    cat >/etc/default/zramswap <<EOF
+ALGO=lz4
+SIZE=$ZRAM_MB
+PRIORITY=100
+EOF
+    systemctl enable zramswap.service >/dev/null 2>&1 || true
+    systemctl restart zramswap.service >/dev/null 2>&1 || true
+  else
+    # fallback: ตั้ง zram เองผ่าน systemd (กรณีไม่มีแพ็กเกจ zram-tools)
+    cat >/etc/systemd/system/kiosk-zram.service <<EOF
+[Unit]
+Description=Kiosk zram swap
+After=local-fs.target
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'modprobe zram num_devices=1; echo lz4 > /sys/block/zram0/comp_algorithm 2>/dev/null; echo ${ZRAM_MB}M > /sys/block/zram0/disksize; mkswap /dev/zram0; swapon -p 100 /dev/zram0'
+ExecStop=/bin/sh -c 'swapoff /dev/zram0 || true'
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl enable --now kiosk-zram.service >/dev/null 2>&1 || true
+  fi
+
+  # 2) sysctl สำหรับ zram — ให้ swap ไป zram ได้เร็ว (swap ใน RAM ไม่ช้าเหมือน disk)
+  cat >/etc/sysctl.d/99-kiosk-lowmem.conf <<'EOF'
+vm.swappiness=150
+vm.page-cluster=0
+vm.vfs_cache_pressure=200
+vm.dirty_ratio=8
+vm.dirty_background_ratio=4
+vm.min_free_kbytes=32768
+EOF
+  sysctl -p /etc/sysctl.d/99-kiosk-lowmem.conf >/dev/null 2>&1 || true
+
+  # 3) earlyoom — ฆ่า process ที่กินแรมก่อนระบบค้าง (ห้ามแตะ Xorg/systemd)
+  if [[ -f /etc/default/earlyoom ]]; then
+    backup_once /etc/default/earlyoom
+    cat >/etc/default/earlyoom <<'EOF'
+EARLYOOM_ARGS="-m 6 -s 20 --avoid '^(Xorg|xfwm4|xfce4-session|systemd|dbus-daemon)$' --prefer '^(chromium|chrome)$' -r 0"
+EOF
+    systemctl enable --now earlyoom.service >/dev/null 2>&1 || true
+  fi
+
+  # 4) mem-guard — ถ้าแรมว่างต่ำมากติดต่อกัน ให้รีสตาร์ท Chromium (watchdog จะเปิดใหม่ให้)
+  cat >/opt/kiosk/mem-guard.sh <<EOF
+#!/usr/bin/env bash
+# เฝ้าดู MemAvailable — ถ้าต่ำกว่า threshold ติดกัน 3 รอบ → รีสตาร์ท Chromium เพื่อคืนแรม
+THRESHOLD_MB=\${KIOSK_MEM_MIN_MB:-140}
+low=0
+while true; do
+  AVAIL=\$(awk '/MemAvailable/{print int(\$2/1024)}' /proc/meminfo 2>/dev/null || echo 999)
+  if [[ "\$AVAIL" -lt "\$THRESHOLD_MB" ]]; then
+    low=\$((low+1))
+    logger -t kiosk "mem-guard: MemAvailable \${AVAIL}MB < \${THRESHOLD_MB}MB (\$low/3)"
+    if [[ \$low -ge 3 ]]; then
+      logger -t kiosk "mem-guard: restarting chromium เพื่อคืนหน่วยความจำ"
+      sync; echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+      pkill -f "$KIOSK_PGREP_PATTERN" 2>/dev/null || true
+      low=0
+      sleep 45
+    fi
+  else
+    low=0
+  fi
+  sleep 30
+done
+EOF
+  chmod +x /opt/kiosk/mem-guard.sh
+  cat >/etc/systemd/system/kiosk-memguard.service <<EOF
+[Unit]
+Description=Kiosk Low-Memory Guard
+After=graphical.target
+[Service]
+Type=simple
+ExecStart=/opt/kiosk/mem-guard.sh
+Restart=always
+RestartSec=10
+[Install]
+WantedBy=graphical.target
+EOF
+  systemctl enable kiosk-memguard.service >/dev/null 2>&1 || true
+
+  # 5) ตัดตัวกินแรมที่เหลือใน Xfce (compositor ปิดไปแล้วในขั้นที่ 7)
+  apt-get purge -y xfce4-screensaver mousepad ristretto parole gnome-software 2>/dev/null || true
+  apt-get autoremove -y 2>/dev/null || true
+
+  # 6) cache ของ Chromium ลง tmpfs ขนาดจำกัด — ลดการเขียน eMMC และไม่บวมกินดิสก์
+  if ! grep -q "# kiosk-chromium-cache" /etc/fstab; then
+    backup_once /etc/fstab
+    echo "tmpfs $USER_HOME/.cache/chromium tmpfs rw,nosuid,nodev,noatime,size=64M,uid=$(id -u "$KIOSK_USER"),gid=$(id -g "$KIOSK_USER"),mode=0700 0 0 # kiosk-chromium-cache" >> /etc/fstab
+    install -d -m 700 -o "$KIOSK_USER" -g "$KIOSK_USER" "$USER_HOME/.cache/chromium"
+    mount "$USER_HOME/.cache/chromium" 2>/dev/null || true
+  fi
+
+  log "   ✔ zram ${ZRAM_MB}MB + earlyoom + mem-guard พร้อมใช้งาน"
+fi
 
 # ---------------- 9) Daily reboot + Power schedule ----------------
 if [[ -n "$KIOSK_DAILY_REBOOT" ]]; then
