@@ -3,12 +3,7 @@ name: Deploy Supabase Edge Functions
 # ทุกครั้งที่โค้ดใน supabase/functions เปลี่ยน จะ deploy ขึ้น Supabase ของโรงเรียนอัตโนมัติ
 # ต้องตั้ง GitHub Secret: SUPABASE_ACCESS_TOKEN (Personal Access Token จาก Supabase Dashboard)
 on:
-  push:
-    branches: [main]
-    paths:
-      - "supabase/functions/**"
-      - "supabase/config.toml"
-      - ".github/workflows/deploy-edge-functions.yml"
+  workflow_call:
   workflow_dispatch:
 
 concurrency:
