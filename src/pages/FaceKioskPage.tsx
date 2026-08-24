@@ -1216,6 +1216,7 @@ const FaceKioskPage = () => {
                 if (!tooSmall && !ambiguous && tNow - unknownBeepRef.current > 5000) {
                   unknownBeepRef.current = tNow;
                   playUnknownSound();
+                  showNotice("error", "ไม่พบข้อมูลใบหน้า", "กรุณาลงทะเบียนใบหน้าก่อนใช้งาน", 3500);
                   if (voiceEnabled && !tooBlurry && !lowConfidence) {
                     speakText("ไม่พบข้อมูลใบหน้าในระบบ กรุณาลงทะเบียน");
                   }
