@@ -329,8 +329,8 @@ function createDetectionCanvas(
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
-  // ปรับตามแสงล่าสุด — ถ้าเฟรมก่อนหน้าสว่างจ้า ให้หรี่ลงแทนการดันสว่างเสมอ
-  (ctx as any).filter = `contrast(1.12) brightness(${_lastFrameBrightnessFactor().toFixed(3)}) saturate(1.04)`;
+  // ใช้ภาพปกติตามมาตรฐาน ArcFace — ไม่ดันคอนทราสต์/ความสว่าง
+  (ctx as any).filter = "none";
 
   ctx.drawImage(input as CanvasImageSource, 0, 0, w, h);
   (ctx as any).filter = "none";
