@@ -6,14 +6,28 @@ import {
   cosineDistance,
 } from "./arcface";
 
-// Use CDN-hosted models from @vladmandic/face-api repo (jsdelivr)
+// Use CDN-hosted models from @vladmandic/face-api repo (jsdelivr), with a mirror
+// fallback — some school networks block jsdelivr, which used to hang the
+// enrollment dialog forever because loadFromUri() has no built-in timeout.
 const MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model";
+const MIRROR_URL = "https://unpkg.com/@vladmandic/face-api@1.7.15/model";
+const MODEL_TIMEOUT_MS = 20000;
+const BACKEND_TIMEOUT_MS = 15000;
+
+/** ล้มเหลวเร็วแทนที่จะค้างตลอดกาลเมื่อเครือข่าย/CDN ไม่ตอบ */
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`${label} timeout`)), ms);
+    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+  });
+}
 
 let loaded = false;
 let loadingPromise: Promise<void> | null = null;
 let tinyLoaded = false;
 let tinyLoadingPromise: Promise<void> | null = null;
 let backendPromise: Promise<string> | null = null;
+
 
 /**
  * เตรียม TensorFlow.js backend ก่อนใช้งานโมเดล
