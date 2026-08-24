@@ -869,7 +869,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             const { error } = await (supabase as any).from("personnel_face_descriptors").insert(rowsP);
             if (error) throw error;
           }
-          toast.success(`ลงทะเบียนใบหน้าบุคลากรสำเร็จ ${finalSamples.length} ภาพ`);
+          toast.success(`ลงทะเบียนใบหน้าบุคลากรสำเร็จ ${finalSamples.length} ภาพ (+${variantSamples.length} สภาพแสง)`);
         } else if (submitMode === "request") {
           // ---- โหมดนักเรียนลงทะเบียนเอง: บันทึกและใช้งานได้ทันที ----
           const ts = Date.now();
