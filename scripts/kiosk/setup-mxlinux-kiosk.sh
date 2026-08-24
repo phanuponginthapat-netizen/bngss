@@ -1184,12 +1184,11 @@ LOWMEM_FLAGS=""
 if [[ "$LOWMEM" == "1" ]]; then
   log "   RAM ${TOTAL_MB}MB → เปิดโหมดประหยัดหน่วยความจำ (low-RAM mode)"
   # จำกัด renderer + heap ของ V8 และตัดฟีเจอร์ที่กินแรมโดยไม่กระทบกล้อง/เสียง
-  LOWMEM_FLAGS="--renderer-process-limit=2 --js-flags=--max-old-space-size=192 \
-    --process-per-site --disable-background-timer-throttling=false \
-    --disable-features=CalculateNativeWinOcclusion,BackForwardCache,InterestFeedContentSuggestions \
-    --disable-extensions-http-throttling --disable-smooth-scrolling \
-    --disable-logging --blink-settings=imagesEnabled=true \
-    --purge-memory-button --memory-pressure-off=false"
+  # หมายเหตุ: heap 320MB เพียงพอต่อโมเดลจดจำใบหน้า (tfjs) แต่ยังไม่ทำให้ระบบ swap หนัก
+  LOWMEM_FLAGS="--renderer-process-limit=2 --process-per-site \
+    --js-flags=--max-old-space-size=320 \
+    --disable-features=CalculateNativeWinOcclusion,BackForwardCache,OptimizationHints \
+    --disable-smooth-scrolling --disable-logging --disable-gpu-program-cache"
 else
   log "   RAM ${TOTAL_MB}MB → ใช้ค่าปกติ"
 fi
