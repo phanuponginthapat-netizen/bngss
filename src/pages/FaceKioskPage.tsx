@@ -1315,24 +1315,36 @@ const FaceKioskPage = () => {
   // อ่าน QR จากเฟรมวิดีโอเดียวกัน ใช้ native BarcodeDetector ถ้ามี
   // กันสแกนซ้ำผ่าน seenTodayRef + cooldownRef เดิม (รวมถึงเคสจับทั้งหน้า+QR พร้อมกัน)
   const qrCooldownRef = useRef<Map<string, number>>(new Map());
+  const lastQrAtRef = useRef<number>(0);
+  const [qrEngine, setQrEngine] = useState<string>("");
   useEffect(() => {
     if (!streaming || screensaver) return;
     // @ts-ignore — BarcodeDetector ยังไม่อยู่ใน TS lib มาตรฐาน
     const BD: any = (window as any).BarcodeDetector;
     const scanCanvas = document.createElement("canvas");
     const scanCtx = scanCanvas.getContext("2d", { willReadFrequently: true });
+    // โหลด jsQR เสมอ — Chromium บน Linux มักมี BarcodeDetector แต่ใช้งานจริงไม่ได้ (คืนค่าว่างตลอด)
     let jsQR: any = null;
-    if (!BD) {
-      import("jsqr").then(m => jsQR = m.default).catch(() => {});
-    }
+    import("jsqr").then((m) => { jsQR = m.default; }).catch(() => {});
     let cancelled = false;
     let detector: any = null;
+    let detectorMisses = 0;      // นับเฟรมที่ native detector ไม่เจออะไรเลย
+    let detectorHits = 0;
     if (BD) {
-      try {
-        detector = new BD({ formats: ["qr_code", "code_128", "code_39", "ean_13"] });
-      } catch (e) {
-        try { detector = new BD({ formats: ["qr_code"] }); } catch {}
-      }
+      (async () => {
+        try {
+          // ถ้าไม่รองรับ qr_code (เช่น Linux ที่ไม่มี barcode service) → ไม่ใช้ native
+          const supported: string[] = (await BD.getSupportedFormats?.()) || [];
+          if (supported.length && !supported.includes("qr_code")) return;
+          try {
+            detector = new BD({ formats: ["qr_code", "code_128", "code_39", "ean_13"] });
+          } catch {
+            detector = new BD({ formats: ["qr_code"] });
+          }
+        } catch {
+          detector = null;
+        }
+      })();
     }
 
     // map student_code -> student info สำหรับ lookup ไว
@@ -1436,6 +1448,7 @@ const FaceKioskPage = () => {
         ? [
             { sx: 0, sy: 0, sw: W, sh: H, maxW: 640 },
             { sx: W * 0.2, sy: H * 0.2, sw: W * 0.6, sh: H * 0.6, maxW: 640 },
+            { sx: W * 0.3, sy: H * 0.25, sw: W * 0.4, sh: H * 0.5, maxW: 520 },
           ]
         : [
             { sx: 0, sy: 0, sw: W, sh: H, maxW: 800 },
@@ -1443,6 +1456,7 @@ const FaceKioskPage = () => {
             { sx: W * 0.45, sy: 0, sw: W * 0.55, sh: H * 0.55, maxW: 640 },
             { sx: 0, sy: H * 0.45, sw: W * 0.55, sh: H * 0.55, maxW: 640 },
             { sx: W * 0.45, sy: H * 0.45, sw: W * 0.55, sh: H * 0.55, maxW: 640 },
+            { sx: W * 0.3, sy: H * 0.25, sw: W * 0.4, sh: H * 0.5, maxW: 560 },
           ];
       const found = new Set<string>();
       for (const p of passes) {
@@ -1453,7 +1467,7 @@ const FaceKioskPage = () => {
         scanCtx.imageSmoothingEnabled = false;
         scanCtx.drawImage(video, p.sx, p.sy, p.sw, p.sh, 0, 0, w, h);
         const img = scanCtx.getImageData(0, 0, w, h);
-        const res = jsQR(img.data, w, h, { inversionAttempts: isLowEnd ? "dontInvert" : "attemptBoth" });
+        const res = jsQR(img.data, w, h, { inversionAttempts: "attemptBoth" });
         if (res?.data) found.add(res.data);
       }
       return [...found];
@@ -1467,11 +1481,28 @@ const FaceKioskPage = () => {
       try {
         let rawCodes: string[] = [];
         if (detector) {
-          const codes = await detector.detect(videoRef.current);
-          rawCodes = (codes || []).map((c: any) => String(c.rawValue || "").trim());
+          try {
+            const codes = await detector.detect(videoRef.current);
+            rawCodes = (codes || []).map((c: any) => String(c.rawValue || "").trim()).filter(Boolean);
+          } catch {
+            // native detector พัง (Linux/ไม่มี service) → เลิกใช้ ไปใช้ jsQR
+            detector = null;
+          }
+          if (rawCodes.length) detectorHits++;
+          else detectorMisses++;
+          // ไม่เคยอ่านได้เลยใน ~8 วินาทีแรก → ปิด native แล้วใช้ jsQR แทน
+          if (detector && detectorHits === 0 && detectorMisses > 60 && jsQR) {
+            detector = null;
+            setQrEngine("jsQR");
+          }
+          // เสริมด้วย jsQR ระหว่างที่ native ยังไม่เคยอ่านได้ (กันเคสอ่านไม่ออกเงียบ ๆ)
+          if (!rawCodes.length && detectorHits === 0 && jsQR) {
+            rawCodes = scanJsQrMulti(videoRef.current);
+          }
         } else {
           rawCodes = scanJsQrMulti(videoRef.current);
         }
+        if (rawCodes.length) lastQrAtRef.current = Date.now();
         const tNow = Date.now();
         await Promise.all(rawCodes.map((r) => processCode(r, tNow)));
       } catch (e) {
@@ -1481,6 +1512,7 @@ const FaceKioskPage = () => {
       const interval = detector ? 120 : (isLowEnd ? 350 : 250);
       if (!cancelled) setTimeout(loop, interval);
     };
+    setQrEngine(BD ? "native" : "jsQR");
     loop();
 
 
@@ -1662,7 +1694,7 @@ const FaceKioskPage = () => {
           <LogOut className="w-3 h-3 mr-1 text-rose-600" /> ออก {todayCounts.exit}
         </Badge>
         <Badge variant="secondary" className={`backdrop-blur-sm border-white/60 ${qrOnly ? "bg-indigo-600 text-white" : "bg-white/80 text-slate-700"}`}>
-          <QrCode className="w-3 h-3 mr-1" /> {qrOnly ? "QR เท่านั้น" : "QR สำรอง"}
+          <QrCode className="w-3 h-3 mr-1" /> {qrOnly ? "QR เท่านั้น" : "QR สำรอง"}{qrEngine ? ` • ${qrEngine}` : ""}
         </Badge>
         <Badge variant="secondary" className="bg-white/80 backdrop-blur-sm border-white/60 text-slate-700">
           {online ? <Wifi className="w-3 h-3 mr-1 text-emerald-600" /> : <WifiOff className="w-3 h-3 mr-1 text-amber-500" />}
