@@ -714,7 +714,7 @@ const FaceKioskPage = () => {
       if (error.code === "23505") {
         seenSet.add(studentId);
         playDuplicateSound();
-        toast.info("สแกนซ้ำ", { description: `${name} ถูกบันทึก${modeLabel}โรงเรียนวันนี้แล้ว`, duration: 1800 });
+        showNotice("info", "สแกนซ้ำ", `${name} ถูกบันทึก${modeLabel}โรงเรียนวันนี้แล้ว`, 2500);
         return;
       }
       showNotice("error", "บันทึกไม่สำเร็จ", saveErrorMessage(error), 5000); return;
