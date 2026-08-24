@@ -45,10 +45,12 @@ const SAMPLE_OUTLIER_MAX = 0.72;
 /** ถ้าใบหน้าใกล้กับคนอื่นในระบบมากกว่านี้ = ถือว่าซ้ำคน */
 const DUPLICATE_THRESHOLD = 0.36;
 /** จำนวนภาพขั้นต่ำ/สูงสุดที่บันทึกจริง */
-const MIN_SAMPLES = 3;
-const MAX_SAMPLES = 8;
+const MIN_SAMPLES = 6;
+const MAX_SAMPLES = 12;
 /** จำกัดจำนวนภาพต่อขั้นตอน เพื่อให้ได้มุมหลากหลาย ไม่ซ้ำท่าเดียว */
-const MAX_PER_STEP = 2;
+const MAX_PER_STEP = 4;
+/** จำนวนภาพที่ต้องเก็บให้ครบในแต่ละขั้นตอน (ยิงรัวหลายเฟรม) */
+const SHOTS_PER_STEP: Partial<Record<string, number>> = { center: 3, near: 2, left: 3, right: 3 };
 
 const median = (xs: number[]) => {
   if (!xs.length) return 0;
@@ -143,6 +145,9 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     closedFrames: number;   // จำนวนเฟรมที่ตาปิดต่อเนื่อง
     blinks: number;         // จำนวนครั้งที่กะพริบสำเร็จ
   }>({ baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0, startedAt: 0, baseFrac: 0, maxFrac: 0 } as any);
+  /** นับจำนวนภาพที่เก็บได้ในแต่ละขั้นตอน (ยิงรัวจนครบก่อนไปขั้นถัดไป) */
+  const stepShotsRef = useRef<Record<string, number>>({});
+
 
   const [challengeColors, setChallengeColors] = useState<string[]>(makeChallengeColors);
 
@@ -432,6 +437,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     setSaveError(null); setSavedOk(false); blockedRef.current = false;
     detectMetaRef.current = { misses: 0, stableHits: 0 };
     blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0, startedAt: 0, baseFrac: 0, maxFrac: 0 } as any;
+    stepShotsRef.current = {};
     (async () => {
       if (personnelId) { setStudentId(personnelId); return; }
       if (selfPersonnel) { setStudentId("self"); return; } // บุคลากรลงทะเบียนเอง — เซิร์ฟเวอร์หาให้เอง (RPC)
@@ -577,9 +583,15 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           setStatusMsg("ตรงแล้ว — อยู่นิ่งอีกนิด");
           break;
         }
-        setStatusMsg("ตรงแล้ว! กำลังบันทึก...");
         detectMetaRef.current.stableHits = 0;
         setSamples((s) => [...s, captureSample(data!, "center")]);
+        {
+          const need = SHOTS_PER_STEP.center ?? 1;
+          const got = (stepShotsRef.current.center ?? 0) + 1;
+          stepShotsRef.current.center = got;
+          if (got < need) { setStatusMsg(`กำลังเก็บภาพหน้าตรง (${got}/${need}) — อยู่นิ่งๆ`); break; }
+        }
+        setStatusMsg("ตรงแล้ว! กำลังบันทึก...");
         setStepIdx((i) => i + 1);
         break;
       }
@@ -602,16 +614,14 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         st.maxFrac = Math.max(st.maxFrac || 0, faceFrac);
 
         const grow = faceFrac / st.baseFrac;
-        if (grow >= 1.15 || faceFrac > 0.5) {
+        const nearPass = grow >= 1.15 || faceFrac > 0.5
+          || (elapsed > 8000 && (st.maxFrac || 0) / st.baseFrac >= 1.06);
+        if (nearPass) {
           setSamples((s) => [...s, captureSample(data!, "near")]);
-          setStatusMsg("ตรวจการเคลื่อนไหวผ่าน!");
-          setStepIdx((i) => i + 1);
-          break;
-        }
-
-        // กันค้าง: ถ้าขยับได้บ้างแล้วและเวลาเกิน 8 วิ ให้ผ่าน
-        if (elapsed > 8000 && (st.maxFrac || 0) / st.baseFrac >= 1.06) {
-          setSamples((s) => [...s, captureSample(data!, "near")]);
+          const need = SHOTS_PER_STEP.near ?? 1;
+          const got = (stepShotsRef.current.near ?? 0) + 1;
+          stepShotsRef.current.near = got;
+          if (got < need) { setStatusMsg(`กำลังเก็บภาพระยะใกล้ (${got}/${need})`); break; }
           setStatusMsg("ตรวจการเคลื่อนไหวผ่าน!");
           setStepIdx((i) => i + 1);
           break;
@@ -631,9 +641,13 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             setStatusMsg("ดีแล้ว — ค้างไว้อีกนิด");
             break;
           }
-          setStatusMsg("ดีมาก!");
           detectMetaRef.current.stableHits = 0;
           setSamples((s) => [...s, captureSample(data!, "left")]);
+          const need = SHOTS_PER_STEP.left ?? 1;
+          const got = (stepShotsRef.current.left ?? 0) + 1;
+          stepShotsRef.current.left = got;
+          if (got < need) { setStatusMsg(`กำลังเก็บภาพหันซ้าย (${got}/${need}) — ค้างไว้`); break; }
+          setStatusMsg("ดีมาก!");
           setStepIdx((i) => i + 1);
         } else {
           detectMetaRef.current.stableHits = 0;
@@ -648,9 +662,13 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             setStatusMsg("ดีแล้ว — ค้างไว้อีกนิด");
             break;
           }
-          setStatusMsg("ดีมาก!");
           detectMetaRef.current.stableHits = 0;
           setSamples((s) => [...s, captureSample(data!, "right")]);
+          const need = SHOTS_PER_STEP.right ?? 1;
+          const got = (stepShotsRef.current.right ?? 0) + 1;
+          stepShotsRef.current.right = got;
+          if (got < need) { setStatusMsg(`กำลังเก็บภาพหันขวา (${got}/${need}) — ค้างไว้`); break; }
+          setStatusMsg("ดีมาก!");
           setStepIdx((i) => i + 1);
         } else {
           detectMetaRef.current.stableHits = 0;
@@ -660,10 +678,11 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
       }
       case "color": {
         if (Math.abs(yaw) < 0.20) {
-          setSamples((s) => {
-            if (s.length >= 4 + colorFrameIdx + 1) return s;
-            return [...s, captureSample(data!, "color")];
-          });
+          const got = stepShotsRef.current.color ?? 0;
+          if (got <= colorFrameIdx && got < challengeColors.length) {
+            stepShotsRef.current.color = got + 1;
+            setSamples((s) => [...s, captureSample(data!, "color")]);
+          }
         }
         setStatusMsg(`สลับสี ${colorFrameIdx + 1}/${challengeColors.length} — มองที่กล้อง`);
         break;
@@ -752,6 +771,17 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           })
           .slice(0, MAX_SAMPLES);
         const finalSamples = picked.length >= MIN_SAMPLES ? picked : usable.slice(0, MAX_SAMPLES);
+
+        // ---- 1.2) ต้องมีมุมหลากหลาย (หน้าตรง + ซ้าย + ขวา) ไม่งั้นระบบจะจำผิดคนตอนสแกน ----
+        const angleSet = new Set(finalSamples.map((sm) => sm.metrics.stepKey));
+        const missing = (["center", "left", "right"] as StepKey[]).filter((k) => !angleSet.has(k));
+        if (finalSamples.length < MIN_SAMPLES || missing.length) {
+          throw new Error(
+            `ภาพใบหน้าที่เก็บได้ยังไม่เพียงพอ (${finalSamples.length}/${MIN_SAMPLES} ภาพ` +
+            (missing.length ? `, ขาดมุม: ${missing.join(", ")}` : "") +
+            `) — กรุณากด "เริ่มใหม่" และทำครบทุกขั้นตอนช้าๆ`,
+          );
+        }
 
         // ---- 2) ตรวจสอบใบหน้าซ้ำกับผู้อื่นในระบบ (กันจำผิดคน) ----
         const descriptorArrays = finalSamples.map((sm) => Array.from(sm.descriptor));
@@ -904,6 +934,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     detectMetaRef.current = { misses: 0, stableHits: 0 };
     blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0, startedAt: 0, baseFrac: 0, maxFrac: 0 } as any;
     if (!streaming) void startCamera();
+    stepShotsRef.current = {};
   };
 
   /** ลองบันทึกอีกครั้งโดยไม่ต้องถ่ายใหม่ (ใช้กับกรณีเน็ตหลุด/เซิร์ฟเวอร์ตอบช้า) */
