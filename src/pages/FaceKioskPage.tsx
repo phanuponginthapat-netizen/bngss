@@ -421,8 +421,10 @@ const FaceKioskPage = () => {
 
 
   useEffect(() => {
-    (async () => {
+    let dayKey = todayBangkok();
+    const load = async () => {
       const today = todayBangkok();
+      dayKey = today;
       const { data } = await supabase.from("face_scan_logs")
         .select("student_id, scan_type").eq("scan_date", today);
       const entrySet = new Set<string>();
@@ -434,8 +436,39 @@ const FaceKioskPage = () => {
       }
       seenTodayRef.current = { entry: entrySet, exit: exitSet };
       setTodayCounts({ entry: entrySet.size, exit: exitSet.size });
-    })();
+    };
+    void load();
+
+    // ข้ามวัน → ล้างสถานะกันสแกนซ้ำแล้วโหลดใหม่
+    const dayTimer = window.setInterval(() => {
+      if (todayBangkok() !== dayKey) {
+        clearScanDedupCache();
+        cooldownRef.current.clear();
+        justScannedRef.current.clear();
+        void load();
+      }
+    }, 60_000);
+
+    // ซิงก์ข้ามเครื่อง: เครื่องอื่นสแกน (ใบหน้า/QR) → กันสแกนซ้ำที่เครื่องนี้ทันที
+    const ch = supabase
+      .channel("kiosk-scan-dedup")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "face_scan_logs" }, (payload: any) => {
+        const r = payload.new || {};
+        if (!r.student_id || r.scan_date !== todayBangkok()) return;
+        const set = r.scan_type === "exit" ? seenTodayRef.current.exit : seenTodayRef.current.entry;
+        if (set.has(r.student_id)) return;
+        set.add(r.student_id);
+        markScanned(r.student_id, r.scan_type === "exit" ? "exit" : "entry", r.entry_method);
+        setTodayCounts({ entry: seenTodayRef.current.entry.size, exit: seenTodayRef.current.exit.size });
+      })
+      .subscribe();
+
+    return () => {
+      window.clearInterval(dayTimer);
+      supabase.removeChannel(ch);
+    };
   }, []);
+
 
   useEffect(() => {
     if (qrOnly) {
