@@ -145,6 +145,9 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     closedFrames: number;   // จำนวนเฟรมที่ตาปิดต่อเนื่อง
     blinks: number;         // จำนวนครั้งที่กะพริบสำเร็จ
   }>({ baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0, startedAt: 0, baseFrac: 0, maxFrac: 0 } as any);
+  /** นับจำนวนภาพที่เก็บได้ในแต่ละขั้นตอน (ยิงรัวจนครบก่อนไปขั้นถัดไป) */
+  const stepShotsRef = useRef<Record<string, number>>({});
+
 
   const [challengeColors, setChallengeColors] = useState<string[]>(makeChallengeColors);
 
