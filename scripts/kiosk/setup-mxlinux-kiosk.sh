@@ -687,6 +687,19 @@ CMS_JSON=$(curl -sf --max-time 8 "$CMS_SUPABASE_URL/functions/v1/ext-config" \
   -H "Authorization: Bearer $CMS_SUPABASE_ANON" \
   2>/dev/null || echo '{}')
 
+# fallback: ถ้า edge function ล่ม/ตอบว่าง → ดึงตรงจากตาราง cms_settings ผ่าน REST
+if [[ "$(echo -n "$CMS_JSON" | wc -c)" -lt 20 ]]; then
+  _rows=$(curl -sf --max-time 8 \
+    "$CMS_SUPABASE_URL/rest/v1/cms_settings?select=key,value&key=in.(school_name,app_name,school_logo,school_logo_512,app_favicon_url,theme_color,primary_color)" \
+    -H "apikey: $CMS_SUPABASE_ANON" -H "Authorization: Bearer $CMS_SUPABASE_ANON" 2>/dev/null || echo '[]')
+  CMS_JSON=$(python3 -c "import sys,json;
+rows=json.loads(sys.stdin.read() or '[]')
+print(json.dumps({r['key']: r.get('value') or '' for r in rows if r.get('key')}))" <<<"$_rows" 2>/dev/null || echo '{}')
+  echo "► ใช้ CMS จาก REST fallback ($(echo -n "$CMS_JSON" | wc -c) bytes)"
+fi
+
+
+
 # หา field ด้วย python (มี JSON parser แน่ๆ)
 extract_json() {
   python3 -c "import sys,json;d=json.loads(sys.stdin.read() or '{}');print(d.get('$1','') or '')" <<<"$CMS_JSON" 2>/dev/null || echo ""
