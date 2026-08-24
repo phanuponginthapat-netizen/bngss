@@ -18,6 +18,8 @@ export interface KioskScriptConfig {
   battChargeMax?: number;        // จำกัดชาร์จสูงสุด % (0 = ไม่จำกัด)
   monitorAgentUrl?: string;
   schoolName?: string;
+  lowMem?: "auto" | "on" | "off";  // โหมดประหยัดแรม (zram + earlyoom + mem-guard)
+  memMinMb?: number;               // แรมว่างขั้นต่ำก่อนรีสตาร์ท Chromium
 }
 
 /**
@@ -113,6 +115,19 @@ export function generateKioskSetupScript(cfg: KioskScriptConfig): string {
     out = out.replace(
       /KIOSK_MONITOR_AGENT_URL="\$\{KIOSK_MONITOR_AGENT_URL:-[^"]*\}"/,
       `KIOSK_MONITOR_AGENT_URL="\${KIOSK_MONITOR_AGENT_URL:-${escape(cfg.monitorAgentUrl)}}"`,
+    );
+  }
+  if (cfg.lowMem !== undefined) {
+    const v = cfg.lowMem === "on" ? "1" : cfg.lowMem === "off" ? "0" : "auto";
+    out = out.replace(
+      /KIOSK_LOWMEM="\$\{KIOSK_LOWMEM:-[^"}]*\}"/,
+      `KIOSK_LOWMEM="\${KIOSK_LOWMEM:-${v}}"`,
+    );
+  }
+  if (cfg.memMinMb !== undefined) {
+    out = out.replace(
+      /KIOSK_MEM_MIN_MB="\$\{KIOSK_MEM_MIN_MB:-[^"}]*\}"/,
+      `KIOSK_MEM_MIN_MB="\${KIOSK_MEM_MIN_MB:-${cfg.memMinMb}}"`,
     );
   }
 

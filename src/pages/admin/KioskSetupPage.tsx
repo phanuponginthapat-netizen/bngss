@@ -23,7 +23,9 @@ import {
   Terminal,
   DoorOpen,
   Users,
+  Cpu,
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   generateKioskSetupScript,
   getUninstallScript,
@@ -61,6 +63,8 @@ export default function KioskSetupPage() {
   const [exitPin, setExitPin] = useState("");
   const [battCritical, setBattCritical] = useState(5);
   const [battChargeMax, setBattChargeMax] = useState(80);
+  const [lowMem, setLowMem] = useState<"auto" | "on" | "off">("auto");
+  const [memMinMb, setMemMinMb] = useState(140);
   const [savedUpdatedAt, setSavedUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -108,6 +112,8 @@ export default function KioskSetupPage() {
           if (typeof cfg.exitPin === "string") setExitPin(cfg.exitPin);
           if (typeof cfg.battCritical === "number") setBattCritical(cfg.battCritical);
           if (typeof cfg.battChargeMax === "number") setBattChargeMax(cfg.battChargeMax);
+          if (cfg.lowMem === "auto" || cfg.lowMem === "on" || cfg.lowMem === "off") setLowMem(cfg.lowMem);
+          if (typeof cfg.memMinMb === "number") setMemMinMb(cfg.memMinMb);
           if (typeof cfg.updated_at === "string") setSavedUpdatedAt(cfg.updated_at);
         }
       } catch (e) {
@@ -150,6 +156,7 @@ export default function KioskSetupPage() {
         enableDailyReboot, rebootTime, idleLogoutMin, idleShutdownMin,
         powerOn, powerOff, exitPin,
         battCritical, battChargeMax,
+        lowMem, memMinMb,
         updated_at: nowIso,
       };
       const { error } = await supabase
@@ -208,11 +215,13 @@ export default function KioskSetupPage() {
         powerOff,
         battCritical,
         battChargeMax,
+        lowMem,
+        memMinMb,
         monitorAgentUrl:
           mode === "student" ? `${PUBLIC_ORIGIN}/dashboard/monitor/agent` : undefined,
         schoolName,
       }),
-    [mode, kioskUrl, kioskUser, wifiSsid, wifiPass, enableDailyReboot, rebootTime, idleLogoutMin, idleShutdownMin, powerOn, powerOff, battCritical, battChargeMax, schoolName, PUBLIC_ORIGIN],
+    [mode, kioskUrl, kioskUser, wifiSsid, wifiPass, enableDailyReboot, rebootTime, idleLogoutMin, idleShutdownMin, powerOn, powerOff, battCritical, battChargeMax, lowMem, memMinMb, schoolName, PUBLIC_ORIGIN],
   );
 
   const oneLiner = `curl -fsSL ${PUBLIC_ORIGIN}/kiosk-setup.sh | sudo KIOSK_MODE=${mode} bash`;
@@ -483,6 +492,39 @@ export default function KioskSetupPage() {
               />
               <p className="text-xs text-muted-foreground mt-1">
                 0 = ไม่จำกัด · ยืดอายุแบตเครื่องที่เสียบไฟตลอด (ต้องรองรับโดยฮาร์ดแวร์)
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-lg border p-3">
+              <Label className="flex items-center gap-2 mb-2">
+                <Cpu className="h-4 w-4" /> โหมดประหยัดแรม (zram + earlyoom)
+              </Label>
+              <Select value={lowMem} onValueChange={(v) => setLowMem(v as "auto" | "on" | "off")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent className="z-50 bg-popover">
+                  <SelectItem value="auto">อัตโนมัติ (เปิดเมื่อ RAM ≤ 3GB)</SelectItem>
+                  <SelectItem value="on">เปิดเสมอ</SelectItem>
+                  <SelectItem value="off">ปิด</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                เหมาะกับ HP Pavilion x2 / เครื่อง Atom 2GB · บีบอัดแรมด้วย zram แทนการ swap ลง eMMC
+              </p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <Label className="flex items-center gap-2 mb-2">
+                <Cpu className="h-4 w-4" /> แรมว่างขั้นต่ำก่อนรีสตาร์ท Chromium (MB)
+              </Label>
+              <Input
+                type="number" min={60} max={1024}
+                value={memMinMb}
+                onChange={(e) => setMemMinMb(Number(e.target.value) || 140)}
+                disabled={lowMem === "off"}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                ถ้าแรมว่างต่ำกว่าค่านี้ 3 รอบติดกัน ระบบจะรีเฟรช Chromium ให้อัตโนมัติ (ไม่ต้องรีบูตเครื่อง)
               </p>
             </div>
           </div>

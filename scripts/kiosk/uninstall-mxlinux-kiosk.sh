@@ -14,7 +14,7 @@ for s in kiosk-wake kiosk-watchdog kiosk-healthcheck kiosk-ctl kiosk-daily-reboo
          kiosk-power-off.timer kiosk-power-off kiosk-power-on.timer kiosk-power-on \
          kiosk-battery.timer kiosk-battery kiosk-set-wakealarm \
          kiosk-cpu-perf kiosk-extension-update.timer kiosk-extension-update \
-         kiosk-mount-noexec kiosk-wipe-userdata; do
+         kiosk-mount-noexec kiosk-wipe-userdata kiosk-memguard kiosk-zram; do
   systemctl disable --now "$s" 2>/dev/null || true
   rm -f "/etc/systemd/system/$s.service" "/etc/systemd/system/$s.timer" 2>/dev/null || true
 done
@@ -39,9 +39,16 @@ rm -f /etc/cron.d/kiosk-power-off /etc/cron.d/kiosk-arm-wakealarm /etc/cron.d/ki
 rm -f /etc/sudoers.d/kiosk-power
 rm -f /run/kiosk-battery.json
 echo 0 > /sys/class/rtc/rtc0/wakealarm 2>/dev/null || true
-rm -f /etc/sysctl.d/99-kiosk.conf
+rm -f /etc/sysctl.d/99-kiosk.conf /etc/sysctl.d/99-kiosk-lowmem.conf
 rm -f /etc/security/limits.d/kiosk-nocore.conf
 rm -f /etc/systemd/journald.conf.d/kiosk.conf
+# คืนค่า low-RAM tuning: ปิด zram + earlyoom + ถอด tmpfs cache ออกจาก fstab
+swapoff /dev/zram0 2>/dev/null || true
+systemctl disable --now zramswap.service earlyoom.service 2>/dev/null || true
+if grep -q "# kiosk-chromium-cache" /etc/fstab 2>/dev/null; then
+  umount "$USER_HOME/.cache/chromium" 2>/dev/null || true
+  sed -i '/# kiosk-chromium-cache/d' /etc/fstab
+fi
 sysctl --system >/dev/null 2>&1 || true
 
 if [[ -n "$USER_HOME" && -d "$USER_HOME/.config/autostart" ]]; then
