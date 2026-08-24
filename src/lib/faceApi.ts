@@ -329,8 +329,8 @@ function createDetectionCanvas(
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
-  // ปรับตามแสงล่าสุด — ถ้าเฟรมก่อนหน้าสว่างจ้า ให้หรี่ลงแทนการดันสว่างเสมอ
-  (ctx as any).filter = `contrast(1.12) brightness(${_lastFrameBrightnessFactor().toFixed(3)}) saturate(1.04)`;
+  // ใช้ภาพปกติตามมาตรฐาน ArcFace — ไม่ดันคอนทราสต์/ความสว่าง
+  (ctx as any).filter = "none";
 
   ctx.drawImage(input as CanvasImageSource, 0, 0, w, h);
   (ctx as any).filter = "none";
@@ -425,22 +425,24 @@ async function detectSingleFaceRobust(input: DetectableInput) {
 let _normCanvas: HTMLCanvasElement | null = null;
 /** ค่าความสว่างเฉลี่ยของเฟรมล่าสุด (0-255) — ใช้ตัดสินใจว่าจะดันสว่างหรือหรี่ลง */
 let _lastMeanLum = 110;
-/** ตัวคูณ brightness ของ canvas filter: มืด → >1, สว่างจ้า → <1 */
+/**
+ * ตัวคูณ brightness ของ canvas filter — มาตรฐาน ArcFace ใช้ภาพดิบ ไม่ดันแสง
+ * ช่วยเฉพาะกรณีมืดจัดจริง ๆ เท่านั้น และไม่หรี่ภาพ (ปล่อยให้กล้อง auto-exposure ทำงาน)
+ */
 function _lastFrameBrightnessFactor(): number {
-  if (_lastMeanLum > 190) return 0.78;
-  if (_lastMeanLum > 165) return 0.88;
-  if (_lastMeanLum < 70) return 1.15;
-  if (_lastMeanLum < 95) return 1.06;
+  if (_lastMeanLum < 60) return 1.08;
   return 1;
 }
+
 /** ให้ส่วนอื่นอ่าน/อัปเดตค่าแสงล่าสุดได้ (เช่นหน้า kiosk ที่วัดเฉพาะพื้นที่ใบหน้า) */
 export function reportFrameLuminance(meanLum: number) {
   if (Number.isFinite(meanLum) && meanLum > 0) _lastMeanLum = meanLum;
 }
 export function getFrameLuminance() { return _lastMeanLum; }
 /**
- * เตรียมเฟรมก่อนตรวจจับ: ปรับ brightness/contrast + Histogram Equalization (CLAHE-ish)
- * บน luminance — ช่วยให้กล้อง/แสงคนละแบบให้ embedding ใกล้กันมากขึ้น (bank-grade normalization)
+ * เตรียมเฟรมก่อนตรวจจับ — ค่าเริ่มต้นคือ "ภาพปกติตามมาตรฐาน ArcFace"
+ * (resize อย่างเดียว ไม่ทำ histogram equalization / ไม่ดันแสง)
+ * ต้องส่ง equalize: true เท่านั้นถึงจะเปิดการปรับแสงเสริม
  */
 export function preprocessFrame(
   video: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement,
@@ -456,12 +458,25 @@ export function preprocessFrame(
   _normCanvas.width = w; _normCanvas.height = h;
   const ctx = _normCanvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) return null;
-  (ctx as any).filter = `contrast(1.1) brightness(${_lastFrameBrightnessFactor().toFixed(3)}) saturate(1.03)`;
+  const bf = _lastFrameBrightnessFactor();
+  (ctx as any).filter = bf === 1 ? "none" : `brightness(${bf.toFixed(3)})`;
 
   ctx.drawImage(video as any, 0, 0, w, h);
   (ctx as any).filter = "none";
 
-  if (opts.equalize !== false) {
+  // วัดความสว่างเฉลี่ยไว้ใช้ตัดสินใจ (ไม่แก้ภาพ)
+  try {
+    const probe = ctx.getImageData(0, 0, w, h).data;
+    let lumSum = 0;
+    for (let i = 0; i < probe.length; i += 16) {
+      lumSum += 0.299 * probe[i] + 0.587 * probe[i + 1] + 0.114 * probe[i + 2];
+    }
+    const meanLum = lumSum / Math.max(1, probe.length / 16);
+    _lastMeanLum = _lastMeanLum * 0.6 + meanLum * 0.4;
+  } catch { /* ข้าม */ }
+
+  if (opts.equalize === true) {
+
     try {
       const img = ctx.getImageData(0, 0, w, h);
       const data = img.data;
@@ -472,8 +487,8 @@ export function preprocessFrame(
       }
       const meanLum = lumSum / (w * h);
       _lastMeanLum = _lastMeanLum * 0.6 + meanLum * 0.4; // smooth เพื่อกัน filter กระพริบ
-      // target ~110: gamma > 1 = สว่างขึ้น (แสงน้อย), gamma < 1 = หรี่ลง (แสงจ้า/ย้อนแสง)
-      const gamma = Math.min(1.9, Math.max(0.6, (meanLum / 110) ** 0.5));
+      // target ~110: ภาพมืด → ยกสว่าง, ภาพสว่างจ้า → หรี่ลง (แก้ทิศทางที่กลับด้าน)
+      const gamma = Math.min(1.9, Math.max(0.6, (110 / Math.max(1, meanLum)) ** 0.5));
       // ถ้าภาพขาวโพลน (clipping) ให้ดึงไฮไลต์ลงเพิ่ม เพื่อคืนรายละเอียดผิวหน้า
       const highlightPull = meanLum > 185 ? 0.82 : meanLum > 165 ? 0.9 : 1;
       const gammaLut = new Uint8ClampedArray(256);
