@@ -190,7 +190,7 @@ export default function BrowserPolicyPage() {
           <div>
             <Label>URL หน้าเข้าสู่ระบบ</Label>
             <Input
-              placeholder="https://bngss.vercel.app/auth"
+              placeholder="https://bngss.lovable.app/auth"
               value={loginUrl}
               onChange={(e) => setLoginUrl(e.target.value)}
             />
