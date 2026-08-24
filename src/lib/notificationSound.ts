@@ -111,7 +111,7 @@ async function playMp3(ac: AudioContext, urgent: boolean) {
     const src = ac.createBufferSource();
     const g = ac.createGain();
     src.buffer = buf;
-    g.gain.value = urgent ? 1.0 : 0.75;
+    g.gain.value = urgent ? 0.85 : 0.65; // เพดานกันเสียงคลิป (ลำโพงในตัวร้อน)
     src.connect(g).connect(ac.destination);
     src.start(0);
     return true;

@@ -111,7 +111,7 @@ function speakLocal(text: string): Promise<void> {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = "th-TH";
       u.rate = 1.05;
-      u.volume = 1;
+      u.volume = 0.85; // กันเสียงคลิป/ลำโพงในตัวร้อน
       let done = false;
       const finish = () => { if (!done) { done = true; resolve(); } };
       u.onend = finish;
@@ -188,7 +188,7 @@ async function playViaAudioElement(url: string): Promise<boolean> {
     try { _ttsAudio?.pause(); } catch { /* noop */ }
     const audio = new Audio(url);
     audio.preload = "auto";
-    audio.volume = 1;
+    audio.volume = 0.85; // กันเสียงคลิป/ลำโพงในตัวร้อน
     _ttsAudio = audio;
     await audio.play();
     await new Promise<void>((resolve) => {
