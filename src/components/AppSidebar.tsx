@@ -6,7 +6,7 @@ import {
   UserCog, ChevronDown, Award, Syringe, Globe, User, MessageSquare,
   DollarSign, ShoppingCart, Package, Heart, Banknote, Clock, BookOpenCheck, Brain, AlertTriangle,
   UtensilsCrossed, Milk, ClipboardCheck, FolderOpen, Building2, Network, Database, Inbox, Settings as SettingsIcon, Settings2,
-  Search, X, Recycle, History, TrendingUp, Coins, Trophy, QrCode, Cpu, Wifi, ScanLine, ScanFace, MapPin, Power, Sparkles, DoorOpen, Layers, CloudDownload, Gamepad2, MonitorPlay, StickyNote, Eye
+  Search, X, Recycle, History, TrendingUp, Coins, Trophy, Cpu, Wifi, ScanLine, ScanFace, MapPin, Power, Sparkles, DoorOpen, Layers, CloudDownload, Gamepad2, MonitorPlay, StickyNote, Eye
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -544,7 +544,7 @@ export function AppSidebar() {
         { title: L("ชุดเอกสาร Office", "Office Suite"), url: "/dashboard/office", icon: FileText, color: "text-indigo-400", roles: ["admin", "director", "teacher", "student", "parent", "alumni"], desc: L("Docs · Sheets · Slides · PDF บันทึกลง Google Drive", "Docs, Sheets, Slides, PDF — save to Google Drive") },
         { title: L("คลังไฟล์ LINE Vault", "LINE Vault"), url: "/dashboard/line-vault", icon: StickyNote, color: "text-teal-400", roles: ["admin", "director", "teacher"], desc: L("รูป · ไฟล์ · โน้ตจาก LINE OA ไม่หมดอายุ", "Photos, files & notes from LINE OA — never expire") },
         { title: L("ตั้งค่าแจ้งเตือน", "Notification Settings"), url: "/dashboard/settings/notifications", icon: Bell, color: "text-amber-400", roles: ["admin", "director", "teacher", "student", "parent", "alumni"], desc: L("ตั้งค่าการรับแจ้งเตือน · LINE · อีเมล", "Notification preferences · LINE · email") },
-        { title: L("สแกน QR", "Mobile QR Scan"), url: "/dashboard/staff/mobile-qr-scan", icon: QrCode, color: "text-emerald-400", roles: ["admin", "director", "teacher"], desc: L("สแกน QR เช็คชื่อด้วยมือถือ", "Mobile QR check-in") },
+        
         { title: L("AI ติวเตอร์", "AI Tutor"), url: "/dashboard/ai-tutor", icon: Bot, color: "text-violet-400", roles: ["admin", "director", "teacher", "student", "parent"], desc: L("ติวเตอร์ส่วนตัว วิเคราะห์จุดอ่อน · แนะนำบทเรียน", "Personal AI tutor · weak spots & lessons") },
       ],
     },
