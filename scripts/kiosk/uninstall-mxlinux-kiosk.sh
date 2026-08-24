@@ -37,6 +37,7 @@ rm -f /etc/chromium/policies/managed/kiosk-permissions.json
 rm -f /etc/chromium-browser/policies/managed/kiosk-permissions.json
 rm -f /etc/cron.d/kiosk-power-off /etc/cron.d/kiosk-arm-wakealarm /etc/cron.d/kiosk-battery
 rm -f /etc/sudoers.d/kiosk-power
+rm -f /etc/udev/rules.d/95-kiosk-camera.rules; udevadm control --reload-rules 2>/dev/null || true
 rm -f /run/kiosk-battery.json
 echo 0 > /sys/class/rtc/rtc0/wakealarm 2>/dev/null || true
 rm -f /etc/sysctl.d/99-kiosk.conf /etc/sysctl.d/99-kiosk-lowmem.conf
@@ -56,6 +57,7 @@ if [[ -n "$USER_HOME" && -d "$USER_HOME/.config/autostart" ]]; then
   rm -f "$USER_HOME/.config/autostart/kiosk-chromium.desktop"
   rm -f "$USER_HOME/.config/autostart/kiosk-pulseaudio.desktop"
   rm -f "$USER_HOME/.config/autostart/kiosk-unmute.desktop"
+  rm -f "$USER_HOME/.config/autostart/kiosk-camera.desktop"
 fi
 
 echo "▶  คืน GRUB / fstab / lightdm จาก .kiosk.bak..."

@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import {
   loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame,
-  detectorOptionsHQ, applyCameraAutoTune, preprocessFrame, estimateFaceSharpness, estimateBrightness,
+  detectorOptionsHQ, applyCameraAutoTune, boostCameraForLowLight, preprocessFrame, estimateFaceSharpness, estimateBrightness,
   BANK_GRADE,
   type KnownFace, type MatchResult,
 } from "@/lib/faceApi";
@@ -84,6 +84,7 @@ const FaceKioskPage = () => {
   const confirmRef = useRef<Map<string, { count: number; lastTs: number }>>(new Map());
   /** ล็อกใบหน้าที่จับได้ชั่วคราว — ขยับเล็กน้อย/เบลอชั่วขณะ จะไม่หลุดล็อก */
   const kioskLockRef = useRef<{ studentId: string; until: number } | null>(null);
+  const lastLowLightBoostRef = useRef(0);
   /** กรอบวาดแบบเกลี่ยให้นิ่ง (EMA) */
   const kioskSmoothRef = useRef<Map<string, { x: number; y: number; width: number; height: number }>>(new Map());
   // ใบหน้าสด (anti-spoof): สะสมหลักฐาน blink/ขยับศีรษะแยกตาม studentId
@@ -907,6 +908,12 @@ const FaceKioskPage = () => {
               const brightness = perf.checkSharpness ? estimateBrightness(video, box) : 120;
               const tooDark = brightness > 0 && brightness < BANK_GRADE.BRIGHTNESS_MIN - 10;
               const tooBright = brightness > BANK_GRADE.BRIGHTNESS_MAX + 10;
+              // กล้องโน้ตบุ๊ก/USB บางรุ่นเปิดมาภาพมืดมาก — ดันค่า brightness/exposure ของฮาร์ดแวร์ขึ้นเอง
+              if (tooDark && tNow - lastLowLightBoostRef.current > 3000) {
+                lastLowLightBoostRef.current = tNow;
+                void boostCameraForLowLight(video.srcObject as MediaStream | null, brightness);
+              }
+
 
               const m = matchDescriptor(det.descriptor, matchKnown, threshold);
               const ambiguous = m.studentId != null && m.margin < MIN_MARGIN;

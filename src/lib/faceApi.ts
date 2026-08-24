@@ -109,8 +109,8 @@ export function detectorOptionsHQ(_inputSize: 320 | 416 | 512 | 608 = 608, minCo
 
 
 /**
- * ปรับกล้องอัตโนมัติให้คมชัดที่สุดเท่าที่ฮาร์ดแวร์รองรับ
- * รองรับมือถือหลายรุ่น โดยใช้ continuous autofocus / exposure / white-balance
+ * ปรับกล้องอัตโนมัติให้คมชัด/สว่างที่สุดเท่าที่ฮาร์ดแวร์รองรับ
+ * รองรับมือถือหลายรุ่น + USB/เว็บแคมโน้ตบุ๊กบน Linux (UVC) ที่ภาพมักมืดเกินไป
  */
 export async function applyCameraAutoTune(stream: MediaStream): Promise<void> {
   const track = stream.getVideoTracks()[0];
@@ -118,19 +118,63 @@ export async function applyCameraAutoTune(stream: MediaStream): Promise<void> {
   try {
     const caps: any = (track as any).getCapabilities?.() ?? {};
     const advanced: any[] = [];
+    const at = (c: any, ratio: number) =>
+      typeof c?.min === "number" && typeof c?.max === "number"
+        ? c.min + (c.max - c.min) * ratio
+        : undefined;
+
     if (caps.focusMode?.includes?.("continuous")) advanced.push({ focusMode: "continuous" });
     if (caps.exposureMode?.includes?.("continuous")) advanced.push({ exposureMode: "continuous" });
     if (caps.whiteBalanceMode?.includes?.("continuous")) advanced.push({ whiteBalanceMode: "continuous" });
     if (caps.sharpness && typeof caps.sharpness.max === "number") advanced.push({ sharpness: caps.sharpness.max });
     if (caps.contrast && typeof caps.contrast.max === "number") {
-      const target = caps.contrast.min + (caps.contrast.max - caps.contrast.min) * 0.75;
-      advanced.push({ contrast: target });
+      const target = at(caps.contrast, 0.75);
+      if (target !== undefined) advanced.push({ contrast: target });
     }
+    // --- แก้ภาพมืดบนเว็บแคมโน้ตบุ๊ก (เช่น HP Pavilion x2) ---
+    const brightness = at(caps.brightness, 0.72);
+    if (brightness !== undefined) advanced.push({ brightness });
+    const gain = at(caps.exposureCompensation, 0.8);
+    if (gain !== undefined) advanced.push({ exposureCompensation: gain });
+    // ISO/gain สูงขึ้นเล็กน้อย — สว่างขึ้นโดยไม่ลด framerate
+    const iso = at(caps.iso, 0.55);
+    if (iso !== undefined) advanced.push({ iso });
+
     if (advanced.length > 0) {
       await (track as any).applyConstraints({ advanced }).catch(() => {});
     }
   } catch { /* ไม่รองรับก็ข้าม */ }
 }
+
+/**
+ * ปรับความสว่างกล้องเพิ่มอีกขั้นเมื่อภาพยังมืด (เรียกซ้ำได้)
+ * meanLum 0-255 — ถ้าต่ำกว่า ~80 จะดันค่า brightness/exposure ขึ้นทีละสเต็ป
+ */
+export async function boostCameraForLowLight(
+  stream: MediaStream | null | undefined,
+  meanLum: number,
+): Promise<void> {
+  if (!stream || meanLum >= 80) return;
+  const track = stream.getVideoTracks?.()[0];
+  if (!track || typeof (track as any).getCapabilities !== "function") return;
+  try {
+    const caps: any = (track as any).getCapabilities?.() ?? {};
+    const cur: any = (track as any).getSettings?.() ?? {};
+    const advanced: any[] = [];
+    const bump = (key: string, step = 0.15) => {
+      const c = caps[key];
+      if (!c || typeof c.min !== "number" || typeof c.max !== "number") return;
+      const now = typeof cur[key] === "number" ? cur[key] : c.min + (c.max - c.min) * 0.5;
+      const next = Math.min(c.max, now + (c.max - c.min) * step);
+      if (next > now) advanced.push({ [key]: next });
+    };
+    bump("brightness");
+    bump("exposureCompensation");
+    bump("iso", 0.2);
+    if (advanced.length) await (track as any).applyConstraints({ advanced }).catch(() => {});
+  } catch { /* ข้าม */ }
+}
+
 
 type DetectableInput = HTMLImageElement | HTMLVideoElement | HTMLCanvasElement;
 
