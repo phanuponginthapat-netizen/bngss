@@ -21,6 +21,7 @@ export interface KioskScriptConfig {
   lowMem?: "auto" | "on" | "off";  // โหมดประหยัดแรม (zram + earlyoom + mem-guard)
   memMinMb?: number;               // แรมว่างขั้นต่ำก่อนรีสตาร์ท Chromium
   rotate?: "normal" | "left" | "right" | "inverted" | "auto"; // การหมุนจอ (แนวนอน/แนวตั้ง)
+  volume?: number; // เพดานระดับเสียง % (กันลำโพงในตัวร้อน/ไหม้)
 }
 
 /**
@@ -129,6 +130,14 @@ export function generateKioskSetupScript(cfg: KioskScriptConfig): string {
     out = out.replace(
       /KIOSK_MEM_MIN_MB="\$\{KIOSK_MEM_MIN_MB:-[^"}]*\}"/,
       `KIOSK_MEM_MIN_MB="\${KIOSK_MEM_MIN_MB:-${cfg.memMinMb}}"`,
+    );
+  }
+
+  if (cfg.volume !== undefined) {
+    const v = Math.max(20, Math.min(85, Math.round(cfg.volume)));
+    out = out.replace(
+      /KIOSK_VOLUME="\$\{KIOSK_VOLUME:-[^"}]*\}"/,
+      `KIOSK_VOLUME="\${KIOSK_VOLUME:-${v}}"`,
     );
   }
 

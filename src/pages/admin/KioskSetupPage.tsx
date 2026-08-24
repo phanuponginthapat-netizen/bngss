@@ -65,6 +65,7 @@ export default function KioskSetupPage() {
   const [battChargeMax, setBattChargeMax] = useState(80);
   const [lowMem, setLowMem] = useState<"auto" | "on" | "off">("auto");
   const [rotate, setRotate] = useState<"normal" | "left" | "right" | "inverted" | "auto">("normal");
+  const [volume, setVolume] = useState(65);
   const [memMinMb, setMemMinMb] = useState(140);
   const [savedUpdatedAt, setSavedUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -114,6 +115,7 @@ export default function KioskSetupPage() {
           if (typeof cfg.battCritical === "number") setBattCritical(cfg.battCritical);
           if (typeof cfg.battChargeMax === "number") setBattChargeMax(cfg.battChargeMax);
           if (["normal", "left", "right", "inverted", "auto"].includes(cfg.rotate)) setRotate(cfg.rotate);
+          if (typeof cfg.volume === "number") setVolume(Math.max(20, Math.min(85, cfg.volume)));
           if (cfg.lowMem === "auto" || cfg.lowMem === "on" || cfg.lowMem === "off") setLowMem(cfg.lowMem);
           if (typeof cfg.memMinMb === "number") setMemMinMb(cfg.memMinMb);
           if (typeof cfg.updated_at === "string") setSavedUpdatedAt(cfg.updated_at);
@@ -158,7 +160,7 @@ export default function KioskSetupPage() {
         enableDailyReboot, rebootTime, idleLogoutMin, idleShutdownMin,
         powerOn, powerOff, exitPin,
         battCritical, battChargeMax,
-        lowMem, memMinMb, rotate,
+        lowMem, memMinMb, rotate, volume,
         updated_at: nowIso,
       };
       const { error } = await supabase
@@ -220,11 +222,12 @@ export default function KioskSetupPage() {
         lowMem,
         memMinMb,
         rotate,
+        volume,
         monitorAgentUrl:
           mode === "student" ? `${PUBLIC_ORIGIN}/dashboard/monitor/agent` : undefined,
         schoolName,
       }),
-    [mode, kioskUrl, kioskUser, wifiSsid, wifiPass, enableDailyReboot, rebootTime, idleLogoutMin, idleShutdownMin, powerOn, powerOff, battCritical, battChargeMax, lowMem, memMinMb, rotate, schoolName, PUBLIC_ORIGIN],
+    [mode, kioskUrl, kioskUser, wifiSsid, wifiPass, enableDailyReboot, rebootTime, idleLogoutMin, idleShutdownMin, powerOn, powerOff, battCritical, battChargeMax, lowMem, memMinMb, rotate, volume, schoolName, PUBLIC_ORIGIN],
   );
 
   const oneLiner = `curl -fsSL ${PUBLIC_ORIGIN}/kiosk-setup.sh | sudo KIOSK_MODE=${mode} bash`;
@@ -515,6 +518,20 @@ export default function KioskSetupPage() {
             </Select>
             <p className="text-xs text-muted-foreground mt-1">
               หมุนทั้งภาพและพิกัดทัชสกรีนให้ตรงกัน · หน้าสแกนใบหน้าจะจัดวางเป็นแนวตั้ง/แนวนอนอัตโนมัติ
+            </p>
+          </div>
+
+          <div className="rounded-lg border p-3">
+            <Label className="mb-2 block">ระดับเสียงสูงสุดของลำโพง (%)</Label>
+            <Input
+              type="number"
+              min={20}
+              max={85}
+              value={volume}
+              onChange={(e) => setVolume(Math.max(20, Math.min(85, Number(e.target.value) || 65)))}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              แนะนำ 55–70 · ระบบจะไม่ดันเสียงเกินค่านี้ และปิด Bass/Boost/Amp เพื่อกันลำโพงในตัวถูกขับเกินกำลังจนร้อนหรือไหม้
             </p>
           </div>
 
