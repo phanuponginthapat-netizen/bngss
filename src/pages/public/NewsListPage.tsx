@@ -35,7 +35,7 @@ export default function NewsListPage() {
             <div className="p-5">
               {p.category && <span className="mb-2 inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">{p.category}</span>}
               <h3 className="line-clamp-2 font-bold text-foreground group-hover:text-primary">{p.title}</h3>
-              {p.excerpt && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{p.excerpt}</p>}
+              {p.content && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{String(p.content).replace(/<[^>]*>/g, " ").slice(0, 160)}</p>}
               {p.published_at && <div className="mt-3 text-xs text-muted-foreground">{new Date(p.published_at).toLocaleDateString("th-TH")}</div>}
             </div>
           </Link>
