@@ -487,8 +487,8 @@ export function preprocessFrame(
       }
       const meanLum = lumSum / (w * h);
       _lastMeanLum = _lastMeanLum * 0.6 + meanLum * 0.4; // smooth เพื่อกัน filter กระพริบ
-      // target ~110: gamma > 1 = สว่างขึ้น (แสงน้อย), gamma < 1 = หรี่ลง (แสงจ้า/ย้อนแสง)
-      const gamma = Math.min(1.9, Math.max(0.6, (meanLum / 110) ** 0.5));
+      // target ~110: ภาพมืด → ยกสว่าง, ภาพสว่างจ้า → หรี่ลง (แก้ทิศทางที่กลับด้าน)
+      const gamma = Math.min(1.9, Math.max(0.6, (110 / Math.max(1, meanLum)) ** 0.5));
       // ถ้าภาพขาวโพลน (clipping) ให้ดึงไฮไลต์ลงเพิ่ม เพื่อคืนรายละเอียดผิวหน้า
       const highlightPull = meanLum > 185 ? 0.82 : meanLum > 165 ? 0.9 : 1;
       const gammaLut = new Uint8ClampedArray(256);
