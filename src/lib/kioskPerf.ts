@@ -26,7 +26,7 @@ export const KIOSK_PERF_PROFILES: Record<KioskPerfMode, KioskPerfProfile> = {
   atom: {
     inputSize: 320,
     maxWidth: 480,
-    loopDelayMs: 600,
+    loopDelayMs: 240,
     checkSharpness: false,
     videoWidth: 1920,
     videoHeight: 1080,
@@ -36,7 +36,7 @@ export const KIOSK_PERF_PROFILES: Record<KioskPerfMode, KioskPerfProfile> = {
   low: {
     inputSize: 320,
     maxWidth: 480,
-    loopDelayMs: 450,
+    loopDelayMs: 200,
     checkSharpness: false,
     videoWidth: 640,
     videoHeight: 480,
@@ -46,7 +46,7 @@ export const KIOSK_PERF_PROFILES: Record<KioskPerfMode, KioskPerfProfile> = {
   balanced: {
     inputSize: 416,
     maxWidth: 640,
-    loopDelayMs: 280,
+    loopDelayMs: 160,
     checkSharpness: true,
     videoWidth: 1280,
     videoHeight: 720,
