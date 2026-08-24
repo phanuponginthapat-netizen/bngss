@@ -855,9 +855,13 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         toast.loading("กำลังสร้างข้อมูลใบหน้าหลายสภาพแสง...", { id: __tid_save_1 });
         const variantSamples: CapturedSample[] = [];
         try {
-          const base = [...finalSamples].sort((a, b) => b.metrics.sharpness - a.metrics.sharpness).slice(0, 3);
+          const base = [...finalSamples]
+            // ใช้เฉพาะภาพแสงปกติเป็นต้นแบบ — ภาพขาวโพลน/มืดจัดจะยิ่งเพี้ยนเมื่อใส่ฟิลเตอร์
+            .filter((sm) => sm.metrics.lum >= LUM_OK_MIN && sm.metrics.lum <= LUM_OK_MAX)
+            .sort((a, b) => b.metrics.sharpness - a.metrics.sharpness)
+            .slice(0, 3);
           for (const sm of base) {
-            const vs = await embedFaceVariantsFromUrl(sm.image);
+            const vs = await embedFaceVariantsFromUrl(sm.image, undefined, sm.descriptor);
             for (const v of vs) {
               variantSamples.push({
                 descriptor: v.descriptor,
