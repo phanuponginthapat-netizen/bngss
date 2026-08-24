@@ -106,8 +106,10 @@ export function installKioskLockdown(opts: KioskLockdownOptions = {}): () => voi
   on(window, "popstate", onPopState);
 
   // ---- 4) beforeunload ----
+  let allowUnload = false;
   if (blockUnload) {
     const onBeforeUnload = (e: Event) => {
+      if (allowUnload) return;
       const ev = e as BeforeUnloadEvent;
       ev.preventDefault();
       ev.returnValue = "";
@@ -157,7 +159,7 @@ export function installKioskLockdown(opts: KioskLockdownOptions = {}): () => voi
       }
       recovering = false;
       // กู้ไม่ได้จริง → ส่งไปหน้า login พร้อมกลับมาที่ kiosk อัตโนมัติหลัง login
-      window.removeEventListener("beforeunload", () => {});
+      allowUnload = true;
       window.location.replace(`/login?next=${encodeURIComponent(returnPath)}`);
     };
 
