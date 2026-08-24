@@ -82,6 +82,10 @@ const FaceKioskPage = () => {
   const justScannedRef = useRef<Map<string, number>>(new Map());
   // ยืนยันตัวตน: ต้องเจอ student คนเดิมติดกันอย่างน้อย N เฟรม ภายในเวลาที่กำหนด ก่อนบันทึก
   const confirmRef = useRef<Map<string, { count: number; lastTs: number }>>(new Map());
+  /** ล็อกใบหน้าที่จับได้ชั่วคราว — ขยับเล็กน้อย/เบลอชั่วขณะ จะไม่หลุดล็อก */
+  const kioskLockRef = useRef<{ studentId: string; until: number } | null>(null);
+  /** กรอบวาดแบบเกลี่ยให้นิ่ง (EMA) */
+  const kioskSmoothRef = useRef<Map<string, { x: number; y: number; width: number; height: number }>>(new Map());
   // ใบหน้าสด (anti-spoof): สะสมหลักฐาน blink/ขยับศีรษะแยกตาม studentId
   const livenessRef = useRef<Map<string, LivenessTrack>>(new Map());
   // texture ไม่ผ่าน (สงสัยรูปถ่าย/คนหน้าคล้าย): studentId -> timestamp ครั้งสุดท้ายที่ถูกปฏิเสธ
