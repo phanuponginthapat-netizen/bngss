@@ -10,7 +10,7 @@ export default function NewsListPage() {
     (async () => {
       const { data } = await supabase
         .from("news_posts")
-        .select("id, title, excerpt, cover_url, category, published_at, is_published")
+        .select("id, title, content, cover_image_url, category, published_at, is_published")
         .eq("is_published", true)
         .order("published_at", { ascending: false })
         .limit(60);
