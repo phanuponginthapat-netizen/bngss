@@ -147,9 +147,11 @@ export function AppSidebar() {
   // Compact sidebar with section headings — used by alumni and parent
   const renderCompactSidebar = (sections: CompactSection[]) => (
     <Sidebar side="right" collapsible="offcanvas" className="gradient-sidebar border-l-0">
+      {/* initial={false} → never mount at opacity:0; if the enter animation is
+          skipped (reduced-motion, tab restore) the menu must still be visible. */}
       <motion.div
-        initial={{ opacity: 0, x: 10 }}
-        animate={{ opacity: isSidebarOpen ? 1 : 0.92, x: isSidebarOpen ? 0 : 8 }}
+        initial={false}
+        animate={{ opacity: 1, x: 0 }}
         transition={subtleSpring}
         className="flex h-full w-full flex-col"
       >
@@ -172,7 +174,7 @@ export function AppSidebar() {
           </div>
         </SidebarHeader>
         <SidebarContent className={`${collapsed ? 'px-1' : 'px-2'} py-3 gap-0 transition-all`}>
-          <motion.div initial="hidden" animate="visible" variants={listVariants}>
+          <motion.div initial={false} animate="visible" variants={listVariants}>
             {sections.map((sec, si) => (
               <motion.div key={si} variants={itemVariants}>
                 <SidebarGroup className="!p-0">
@@ -186,7 +188,7 @@ export function AppSidebar() {
                   <SidebarGroupContent>
                     <motion.ul
                       variants={listVariants}
-                      initial="hidden"
+                      initial={false}
                       animate="visible"
                       className="flex w-full min-w-0 flex-col gap-0.5"
                     >
@@ -749,10 +751,11 @@ export function AppSidebar() {
 
   return (
     <Sidebar side="right" collapsible="offcanvas" className="gradient-sidebar border-l-0">
-      {/* spring open/close wrapper — subtle 0.2s spring, not distracting (CSS fallback: transition-all) */}
+      {/* spring open/close wrapper — initial={false} keeps the menu visible even
+          if the enter animation never runs (reduced motion / restored tab). */}
       <motion.div
-        initial={{ opacity: 0, x: 12 }}
-        animate={{ opacity: isSidebarOpen ? 1 : 0.92, x: isSidebarOpen ? 0 : 8 }}
+        initial={false}
+        animate={{ opacity: 1, x: 0 }}
         transition={subtleSpring}
         className="flex h-full w-full flex-col"
       >
@@ -872,7 +875,7 @@ export function AppSidebar() {
                   <SidebarGroupContent>
                     <motion.ul
                       variants={listVariants}
-                      initial="hidden"
+                      initial={false}
                       animate="visible"
                       className="flex w-full min-w-0 flex-col gap-0.5"
                     >
@@ -996,7 +999,7 @@ export function AppSidebar() {
                 <SidebarGroupContent>
                   <motion.ul
                     variants={listVariants}
-                    initial="hidden"
+                    initial={false}
                     animate="visible"
                     className="flex w-full min-w-0 flex-col gap-0.5"
                   >
@@ -1138,7 +1141,7 @@ export function AppSidebar() {
                                         </div>
                                         <motion.ul
                                           variants={listVariants}
-                                          initial="hidden"
+                                          initial={false}
                                           animate="visible"
                                           className="flex w-full min-w-0 flex-col gap-0.5"
                                         >
@@ -1177,7 +1180,7 @@ export function AppSidebar() {
                               ) : (
                                 <motion.ul
                                   variants={listVariants}
-                                  initial="hidden"
+                                  initial={false}
                                   animate="visible"
                                   className="flex w-full min-w-0 flex-col gap-0.5"
                                 >
@@ -1220,7 +1223,7 @@ export function AppSidebar() {
                 {collapsed && (
                   <motion.ul
                     variants={listVariants}
-                    initial="hidden"
+                    initial={false}
                     animate="visible"
                     className="flex w-full min-w-0 flex-col gap-0.5"
                   >
