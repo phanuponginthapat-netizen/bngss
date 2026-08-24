@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    allowedHosts: ["bngss.lovable.app", "localhost", ".lovableproject.com", ".lovable.app"],
     hmr: {
       overlay: false,
     },
