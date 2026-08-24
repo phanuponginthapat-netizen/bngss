@@ -650,10 +650,7 @@ const FaceKioskPage = () => {
       if (now - lastNotice > 5_000) {
         duplicateNoticeRef.current.set(cdKey, now);
         playDuplicateSound();
-        toast.info("สแกนซ้ำ", {
-          description: `${name} บันทึก${modeLabel}วันนี้แล้ว (${methodLabel(mode === "exit" ? todayState.exitMethod : todayState.entryMethod)})`,
-          duration: 1800,
-        });
+        showNotice("info", "สแกนซ้ำ", `${name} บันทึก${modeLabel}วันนี้แล้ว (${methodLabel(mode === "exit" ? todayState.exitMethod : todayState.entryMethod)})`, 2500);
       }
       cooldownRef.current.set(cdKey, now);
       cooldownRef.current.set(studentId, now);
