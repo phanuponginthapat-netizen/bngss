@@ -16108,6 +16108,19 @@ export type Database = {
           table_name: string
         }[]
       }
+      get_my_face_identity: {
+        Args: never
+        Returns: {
+          classroom_name: string
+          code: string
+          first_name: string
+          kind: string
+          last_name: string
+          person_id: string
+          photo_url: string
+          prefix: string
+        }[]
+      }
       get_my_personnel: {
         Args: never
         Returns: {
@@ -16487,6 +16500,7 @@ export type Database = {
         Args: { _line_user_id: string; _student_id: string }
         Returns: number
       }
+      link_my_identity: { Args: never; Returns: string }
       list_school_members: {
         Args: never
         Returns: {

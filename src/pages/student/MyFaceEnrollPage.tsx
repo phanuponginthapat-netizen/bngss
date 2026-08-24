@@ -113,29 +113,40 @@ const MyFaceEnrollPage = () => {
     },
   });
 
-  // สำรองสุดท้าย: ใช้ข้อมูลจากโปรไฟล์ (กรณี RLS ยังไม่ให้อ่านแถวนักเรียน/บุคลากร แต่มีรหัสอยู่ในโปรไฟล์)
-  const { data: profileFallback } = useQuery({
-    queryKey: ["my-face-profile-fallback"],
+  // สำรองสุดท้าย: ให้เซิร์ฟเวอร์หาข้อมูลให้ (ข้าม RLS อย่างปลอดภัย) + ผูกบัญชีอัตโนมัติ
+  const { data: serverIdentity } = useQuery({
+    queryKey: ["my-face-identity"],
     enabled: !isLoading && !loadingP && !me && !mePersonnel,
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, first_name, last_name, student_code, employee_code, avatar_url")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (!data || (!data.student_code && !data.employee_code)) return null;
-      return data;
+      const { data } = await (supabase as any).rpc("get_my_face_identity");
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row) return null;
+      // ผูกบัญชีให้เรียบร้อย ครั้งหน้าจะหาเจอทันที
+      (supabase as any).rpc("link_my_identity").then(() => {
+        qc.invalidateQueries({ queryKey: ["my-student-face-record"] });
+        qc.invalidateQueries({ queryKey: ["my-personnel-face-record"] });
+      });
+      return {
+        id: row.person_id,
+        kind: row.kind as "student" | "personnel",
+        student_code: row.kind === "student" ? row.code : null,
+        employee_code: row.kind === "personnel" ? row.code : null,
+        prefix: row.prefix,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        photo_url: row.photo_url,
+        classrooms: row.classroom_name ? { name: row.classroom_name } : null,
+      };
     },
   });
 
   const pending = null as any;
   const registered = (me ? samples.length : personnelSamples.length) > 0;
-  const person: any = me || mePersonnel || profileFallback;
+  const person: any = me || mePersonnel || serverIdentity;
   const fullName = person
     ? `${person.prefix || ""}${person.first_name || ""} ${person.last_name || ""}`.trim()
     : "";
+
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["my-face-samples"] });
@@ -148,16 +159,31 @@ const MyFaceEnrollPage = () => {
   if (!person) {
     return (
       <Card className="border-dashed">
-        <CardContent className="p-8 text-center space-y-2">
+        <CardContent className="p-8 text-center space-y-3">
           <AlertTriangle className="w-10 h-10 mx-auto text-amber-500" />
-          <p className="font-semibold">ไม่พบข้อมูลนักเรียน/บุคลากรของบัญชีนี้</p>
+          <p className="font-semibold">ยังเชื่อมบัญชีกับข้อมูลนักเรียน/บุคลากรไม่สำเร็จ</p>
           <p className="text-sm text-muted-foreground">
-            กรุณาติดต่อผู้ดูแลระบบเพื่อเชื่อมบัญชีผู้ใช้กับข้อมูลของท่านก่อนลงทะเบียนใบหน้า
+            กดปุ่มด้านล่างเพื่อให้ระบบค้นหาและเชื่อมบัญชีให้อัตโนมัติ (จากรหัสนักเรียน อีเมล หรือชื่อ-นามสกุล)
+            หากยังไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบ
           </p>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={async () => {
+              const { data } = await (supabase as any).rpc("link_my_identity");
+              qc.invalidateQueries();
+              if (!data || data === "none") {
+                alert("ระบบยังหาข้อมูลของบัญชีนี้ไม่พบ กรุณาแจ้งผู้ดูแลระบบให้เชื่อมรหัสนักเรียนกับบัญชีนี้");
+              }
+            }}
+          >
+            <ShieldCheck className="w-4 h-4" />เชื่อมบัญชีอัตโนมัติ
+          </Button>
         </CardContent>
       </Card>
     );
   }
+
 
 
   return (
@@ -299,9 +325,10 @@ const MyFaceEnrollPage = () => {
       <LivenessFaceRegisterDialog
         open={open}
         onOpenChange={setOpen}
-        studentCode={me?.student_code || (profileFallback as any)?.student_code || undefined}
-        personnelId={!me ? mePersonnel?.id : undefined}
-        selfPersonnel={!me && !(profileFallback as any)?.student_code}
+        studentCode={me?.student_code || (serverIdentity as any)?.student_code || undefined}
+        personnelId={!me ? (mePersonnel?.id || ((serverIdentity as any)?.kind === "personnel" ? (serverIdentity as any).id : undefined)) : undefined}
+        selfPersonnel={!me && !(serverIdentity as any)?.student_code}
+
         displayName={fullName}
         submitMode="request"
         reason={reason}
