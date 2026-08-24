@@ -758,7 +758,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
 
         if (!isPersonnel) {
           const { data: dup, error: dupErr } = await supabase.rpc("check_face_duplicate", {
-            _student_id: studentId,
+            _student_id: studentId === "self" ? null : studentId,
             _descriptors: descriptorArrays,
             _threshold: DUPLICATE_THRESHOLD,
           });
