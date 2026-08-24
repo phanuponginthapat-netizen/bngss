@@ -440,8 +440,9 @@ export function reportFrameLuminance(meanLum: number) {
 }
 export function getFrameLuminance() { return _lastMeanLum; }
 /**
- * เตรียมเฟรมก่อนตรวจจับ: ปรับ brightness/contrast + Histogram Equalization (CLAHE-ish)
- * บน luminance — ช่วยให้กล้อง/แสงคนละแบบให้ embedding ใกล้กันมากขึ้น (bank-grade normalization)
+ * เตรียมเฟรมก่อนตรวจจับ — ค่าเริ่มต้นคือ "ภาพปกติตามมาตรฐาน ArcFace"
+ * (resize อย่างเดียว ไม่ทำ histogram equalization / ไม่ดันแสง)
+ * ต้องส่ง equalize: true เท่านั้นถึงจะเปิดการปรับแสงเสริม
  */
 export function preprocessFrame(
   video: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement,
@@ -457,12 +458,25 @@ export function preprocessFrame(
   _normCanvas.width = w; _normCanvas.height = h;
   const ctx = _normCanvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) return null;
-  (ctx as any).filter = `contrast(1.1) brightness(${_lastFrameBrightnessFactor().toFixed(3)}) saturate(1.03)`;
+  const bf = _lastFrameBrightnessFactor();
+  (ctx as any).filter = bf === 1 ? "none" : `brightness(${bf.toFixed(3)})`;
 
   ctx.drawImage(video as any, 0, 0, w, h);
   (ctx as any).filter = "none";
 
-  if (opts.equalize !== false) {
+  // วัดความสว่างเฉลี่ยไว้ใช้ตัดสินใจ (ไม่แก้ภาพ)
+  try {
+    const probe = ctx.getImageData(0, 0, w, h).data;
+    let lumSum = 0;
+    for (let i = 0; i < probe.length; i += 16) {
+      lumSum += 0.299 * probe[i] + 0.587 * probe[i + 1] + 0.114 * probe[i + 2];
+    }
+    const meanLum = lumSum / Math.max(1, probe.length / 16);
+    _lastMeanLum = _lastMeanLum * 0.6 + meanLum * 0.4;
+  } catch { /* ข้าม */ }
+
+  if (opts.equalize === true) {
+
     try {
       const img = ctx.getImageData(0, 0, w, h);
       const data = img.data;
