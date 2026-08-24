@@ -1205,7 +1205,7 @@ cat >"$USER_HOME/.config/autostart/kiosk-camera.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Kiosk Camera Tune
-Exec=sh -c 'sleep 8; while true; do /opt/kiosk/fix-camera.sh; sleep 60; done'
+Exec=sh -c 'sleep 8; /opt/kiosk/fix-camera.sh; true'
 X-GNOME-Autostart-enabled=true
 EOF
 cat >/etc/udev/rules.d/95-kiosk-camera.rules <<'EOF'
