@@ -1173,6 +1173,28 @@ EndSection
 EOF
 fi
 
+# ---------------- 5.9) ตรวจ RAM → เตรียม flag ประหยัดหน่วยความจำ ----------------
+TOTAL_MB=$(awk '/MemTotal/{print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 4096)
+case "${KIOSK_LOWMEM:-auto}" in
+  1|true|yes|on)  LOWMEM=1 ;;
+  0|false|no|off) LOWMEM=0 ;;
+  *)              [[ "$TOTAL_MB" -le 3072 ]] && LOWMEM=1 || LOWMEM=0 ;;
+esac
+LOWMEM_FLAGS=""
+if [[ "$LOWMEM" == "1" ]]; then
+  log "   RAM ${TOTAL_MB}MB → เปิดโหมดประหยัดหน่วยความจำ (low-RAM mode)"
+  # จำกัด renderer + heap ของ V8 และตัดฟีเจอร์ที่กินแรมโดยไม่กระทบกล้อง/เสียง
+  LOWMEM_FLAGS="--renderer-process-limit=2 --js-flags=--max-old-space-size=192 \
+    --process-per-site --disable-background-timer-throttling=false \
+    --disable-features=CalculateNativeWinOcclusion,BackForwardCache,InterestFeedContentSuggestions \
+    --disable-extensions-http-throttling --disable-smooth-scrolling \
+    --disable-logging --blink-settings=imagesEnabled=true \
+    --purge-memory-button --memory-pressure-off=false"
+else
+  log "   RAM ${TOTAL_MB}MB → ใช้ค่าปกติ"
+fi
+[[ "$LOWMEM" == "1" ]] && DOOR_CACHE_SIZE=33554432 || DOOR_CACHE_SIZE=104857600
+
 # ---------------- 6) Kiosk launcher + watchdog + health-check ----------------
 log "▶  [6/10] Chromium launcher + watchdog + health-check (mode=$KIOSK_MODE)..."
 
@@ -1191,7 +1213,7 @@ if [[ "$KIOSK_MODE" == "student" ]]; then
     --use-fake-ui-for-media-stream \
     --alsa-output-device=default --audio-buffer-size=2048 \
     --enable-features=WebRTCPipeWireCapturer --disk-cache-size=0 \
-    --password-store=basic $EXT_FLAG"
+    --password-store=basic $LOWMEM_FLAGS $EXT_FLAG"
   cat >/opt/kiosk/start-kiosk.sh <<EOF
 #!/usr/bin/env bash
 # ล้าง profile ก่อนเริ่ม (double safety นอกจาก tmpfs+wipe service)
@@ -1253,7 +1275,8 @@ while true; do
     --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy \\
     --enable-accelerated-video-decode \\
     --enable-features=WebRTCPipeWireCapturer,CanvasOopRasterization \
-    --password-store=basic --disk-cache-size=104857600 \\
+    --password-store=basic --disk-cache-size=$DOOR_CACHE_SIZE \\
+    $LOWMEM_FLAGS \\
     --auto-select-desktop-capture-source="Entire screen" \\
     --enable-usermedia-screen-capturing \\
     --allow-http-screen-capture
