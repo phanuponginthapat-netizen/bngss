@@ -123,7 +123,7 @@ export function SocialWallWidget({
               className="absolute inset-0 w-full h-full"
               loading="lazy"
               frameBorder={0}
-              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share; accelerometer; gyroscope"
               allowFullScreen
               referrerPolicy="no-referrer-when-downgrade"
             />
@@ -138,7 +138,7 @@ export function SocialWallWidget({
               title={link.label || meta.label}
               loading="lazy"
               frameBorder={0}
-              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share; accelerometer; gyroscope"
               allowFullScreen
               referrerPolicy="no-referrer-when-downgrade"
               style={{
