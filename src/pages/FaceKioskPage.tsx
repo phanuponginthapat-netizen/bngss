@@ -2033,6 +2033,26 @@ const FaceKioskPage = () => {
               </div>
             )}
 
+            {/* ข้อความเตือน/แจ้งเตือนกลางจอ — ให้ใหญ่เห็นชัด เหมือนสแกนสำเร็จ */}
+            {notice && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 animate-scale-in">
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={clearNotice} />
+                <div className={`relative max-w-xl w-full rounded-3xl border-4 p-6 shadow-2xl text-center ${
+                  notice.type === "error"
+                    ? "bg-rose-50 border-rose-500 text-rose-900"
+                    : notice.type === "warning"
+                      ? "bg-amber-50 border-amber-500 text-amber-900"
+                      : "bg-sky-50 border-sky-500 text-sky-900"
+                }`}>
+                  {notice.type === "error" && <XCircle className="w-20 h-20 mx-auto mb-4 text-rose-600" />}
+                  {notice.type === "warning" && <AlertTriangle className="w-20 h-20 mx-auto mb-4 text-amber-600" />}
+                  {notice.type === "info" && <Info className="w-20 h-20 mx-auto mb-4 text-sky-600" />}
+                  <h3 className="text-3xl sm:text-4xl font-extrabold leading-tight mb-3">{notice.title}</h3>
+                  <p className="text-xl sm:text-2xl font-medium opacity-90">{notice.description}</p>
+                </div>
+              </div>
+            )}
+
             {!streaming && (
               <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-6 text-white">
                 <ScanFace className="w-32 h-32 opacity-40" />
