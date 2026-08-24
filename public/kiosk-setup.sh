@@ -1430,14 +1430,10 @@ flock -n 9 || exit 0
 rm -f "$DOOR_PROFILE"/Singleton* "\$HOME"/.config/chromium/Singleton* 2>/dev/null || true
 PRIMARY_URL="$KIOSK_URL"
 FALLBACK_URL="${KIOSK_FALLBACK_ORIGIN%/}/kiosk"
-TARGET_URL="\$FALLBACK_URL"
-for i in \$(seq 1 90); do
-  P_CODE=\$(curl -sSL -o /dev/null -w '%{http_code}' --connect-timeout 2 --max-time 5 "\$PRIMARY_URL" 2>/dev/null || true)
-  if [[ "\$P_CODE" =~ ^(2|3)[0-9][0-9]$ ]]; then TARGET_URL="\$PRIMARY_URL"; break; fi
-  F_CODE=\$(curl -sSL -o /dev/null -w '%{http_code}' --connect-timeout 2 --max-time 5 "\$FALLBACK_URL" 2>/dev/null || true)
-  if [[ "\$F_CODE" =~ ^(2|3)[0-9][0-9]$ ]]; then TARGET_URL="\$FALLBACK_URL"; break; fi
-  sleep 2
-done
+TARGET_URL="\$PRIMARY_URL"
+# อย่าหน่วงการเปิด Chromium ระหว่างรอ Wi-Fi; fallback เฉพาะเมื่อ URL เดิมตอบว่าไม่มีหน้าจริง
+P_CODE=\$(curl -sSL -o /dev/null -w '%{http_code}' --connect-timeout 2 --max-time 4 "\$PRIMARY_URL" 2>/dev/null || true)
+if [[ "\$P_CODE" =~ ^(4|5)[0-9][0-9]$ ]]; then TARGET_URL="\$FALLBACK_URL"; fi
 logger -t kiosk "opening \$TARGET_URL (configured=\$PRIMARY_URL)"
 PREF="$DOOR_PROFILE/Default/Preferences"
 [[ -f "\$PREF" ]] && sed -i 's/"exited_cleanly":false/"exited_cleanly":true/; s/"exit_type":"Crashed"/"exit_type":"Normal"/' "\$PREF" || true
@@ -2159,7 +2155,8 @@ fi
 # ---------------- 10) Enable services + set ownership ----------------
 log "▶  [10/10] Enable service + set ownership..."
 systemctl daemon-reload
-ENABLE_LIST=(kiosk-browser kiosk-watchdog kiosk-healthcheck kiosk-ctl)
+systemctl disable --now kiosk-watchdog.service >/dev/null 2>&1 || true
+ENABLE_LIST=(kiosk-browser kiosk-healthcheck kiosk-ctl)
 [[ "$KIOSK_MODE" == "door" ]] && ENABLE_LIST+=(kiosk-wake)
 for s in "${ENABLE_LIST[@]}"; do
   systemctl reenable "$s.service" >/dev/null 2>&1 || true
