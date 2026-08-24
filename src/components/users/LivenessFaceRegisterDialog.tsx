@@ -39,19 +39,22 @@ interface Props {
 }
 
 /** ระยะห่าง "ค่ากลาง" สูงสุดที่ยอมรับได้ระหว่างตัวอย่างของคนเดียวกัน
- *  (ขั้นตอนหันซ้าย/ขวา/กะพริบตา ทำให้ระยะคู่ใดคู่หนึ่งกว้างได้ตามธรรมชาติ) */
-const SELF_CONSISTENCY_MEDIAN_MAX = 0.62;
+ *  (ขั้นตอนหันซ้าย/ขวา/แสงสี ทำให้ระยะคู่ใดคู่หนึ่งกว้างได้ตามธรรมชาติ) */
+const SELF_CONSISTENCY_MEDIAN_MAX = 0.72;
 /** ตัวอย่างที่ค่ากลางห่างเกินนี้ถือเป็น outlier → ตัดทิ้งแทนการบล็อกทั้งชุด */
-const SAMPLE_OUTLIER_MAX = 0.72;
+const SAMPLE_OUTLIER_MAX = 0.80;
 /** ถ้าใบหน้าใกล้กับคนอื่นในระบบมากกว่านี้ = ถือว่าซ้ำคน */
 const DUPLICATE_THRESHOLD = 0.36;
 /** จำนวนภาพขั้นต่ำ/สูงสุดที่บันทึกจริง */
-const MIN_SAMPLES = 6;
+const MIN_SAMPLES = 4;
 const MAX_SAMPLES = 12;
 /** จำกัดจำนวนภาพต่อขั้นตอน เพื่อให้ได้มุมหลากหลาย ไม่ซ้ำท่าเดียว */
 const MAX_PER_STEP = 4;
 /** จำนวนภาพที่ต้องเก็บให้ครบในแต่ละขั้นตอน (ยิงรัวหลายเฟรม) */
 const SHOTS_PER_STEP: Partial<Record<string, number>> = { center: 3, near: 2, left: 3, right: 3 };
+/** ช่วงความสว่างที่ใช้ตัดสินว่าเฟรม "ขาวโพลน / มืดเกิน" — ไม่นำมาใช้เช็คความเป็นคนเดียวกัน */
+const LUM_OK_MIN = 55;
+const LUM_OK_MAX = 205;
 
 const median = (xs: number[]) => {
   if (!xs.length) return 0;
