@@ -234,14 +234,10 @@ export function getEmbedUrl(link: Pick<SocialLink, "platform" | "url">): string 
         const href = encodeURIComponent(url);
         return `https://www.facebook.com/plugins/post.php?href=${href}&width=500&show_text=true`;
       }
-      // Page Plugin ไม่รองรับ URL แบบ profile.php?id=<id> (จะถูก redirect ไปหน้า login)
-      // → แปลงเป็นรูปแบบ https://www.facebook.com/<id> ก่อน
-      let pageUrl = url;
-      const numericId = u.searchParams.get("id");
-      if (path.toLowerCase().includes("profile.php") && numericId) {
-        pageUrl = `https://www.facebook.com/${numericId}`;
-      }
-      const href = encodeURIComponent(pageUrl);
+      // Page Plugin ไม่รองรับเพจแบบ profile.php?id=<id> (Meta จะ redirect ไปหน้า login → iframe พัง)
+      // กรณีนี้ให้แสดงเป็นการ์ดลิงก์แทนการฝัง
+      if (path.toLowerCase().includes("profile.php")) return null;
+      const href = encodeURIComponent(url);
       // Page Plugin: height สูงสุด ~1000px, width 500 (ค่าที่ Meta รองรับ) เพื่อโชว์โพสต์ได้เยอะ
       return `https://www.facebook.com/plugins/page.php?href=${href}&tabs=timeline&width=500&height=645&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true`;
 
