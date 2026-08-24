@@ -1447,6 +1447,7 @@ const FaceKioskPage = () => {
         ? [
             { sx: 0, sy: 0, sw: W, sh: H, maxW: 640 },
             { sx: W * 0.2, sy: H * 0.2, sw: W * 0.6, sh: H * 0.6, maxW: 640 },
+            { sx: W * 0.3, sy: H * 0.25, sw: W * 0.4, sh: H * 0.5, maxW: 520 },
           ]
         : [
             { sx: 0, sy: 0, sw: W, sh: H, maxW: 800 },
@@ -1454,6 +1455,7 @@ const FaceKioskPage = () => {
             { sx: W * 0.45, sy: 0, sw: W * 0.55, sh: H * 0.55, maxW: 640 },
             { sx: 0, sy: H * 0.45, sw: W * 0.55, sh: H * 0.55, maxW: 640 },
             { sx: W * 0.45, sy: H * 0.45, sw: W * 0.55, sh: H * 0.55, maxW: 640 },
+            { sx: W * 0.3, sy: H * 0.25, sw: W * 0.4, sh: H * 0.5, maxW: 560 },
           ];
       const found = new Set<string>();
       for (const p of passes) {
@@ -1464,7 +1466,7 @@ const FaceKioskPage = () => {
         scanCtx.imageSmoothingEnabled = false;
         scanCtx.drawImage(video, p.sx, p.sy, p.sw, p.sh, 0, 0, w, h);
         const img = scanCtx.getImageData(0, 0, w, h);
-        const res = jsQR(img.data, w, h, { inversionAttempts: isLowEnd ? "dontInvert" : "attemptBoth" });
+        const res = jsQR(img.data, w, h, { inversionAttempts: "attemptBoth" });
         if (res?.data) found.add(res.data);
       }
       return [...found];
