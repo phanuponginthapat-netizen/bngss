@@ -34,7 +34,7 @@ export default function LibraryPage() {
   const { data: loans = [] } = useQuery({
     queryKey: ["library-loans"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("library_loans").select("*, library_books(title, barcode), students(first_name, last_name, student_code)").order("borrowed_at", { ascending: false }).limit(100);
+      const { data, error } = await supabase.from("library_loans").select("*, library_books(title, barcode), students(first_name, last_name, student_code)").order("loaned_at", { ascending: false }).limit(100);
       if (error) throw error;
       return data as any[];
     },
@@ -111,7 +111,7 @@ export default function LibraryPage() {
                   <TableRow key={l.id} className={isOverdue ? "bg-red-50" : ""}>
                     <TableCell>{l.library_books?.title || l.book_id.slice(0, 8)}</TableCell>
                     <TableCell><button onClick={() => setSpiderId(l.student_id)} className="text-primary hover:underline">{l.students ? `${l.students.first_name} ${l.students.last_name} (${l.students.student_code})` : l.student_id.slice(0, 8)}</button></TableCell>
-                    <TableCell className="text-xs">{new Date(l.borrowed_at).toLocaleDateString("th-TH")}</TableCell>
+                    <TableCell className="text-xs">{new Date(l.loaned_at).toLocaleDateString("th-TH")}</TableCell>
                     <TableCell className="text-xs">{l.due_at ? new Date(l.due_at).toLocaleDateString("th-TH") : "-"}</TableCell>
                     <TableCell>{l.status === "borrowed" ? <Badge variant={isOverdue ? "destructive" : "secondary"}>{isOverdue ? "เกินกำหนด" : "ยืมอยู่"}</Badge> : <Badge variant="outline">คืนแล้ว</Badge>}</TableCell>
                     <TableCell>{l.status === "borrowed" && <Button size="sm" variant="outline" onClick={() => returnBook(l.id)}><Undo2 className="w-3 h-3 mr-1" /> คืน</Button>}</TableCell>
