@@ -13,7 +13,7 @@
 #
 #  ตัวอย่าง:
 #     sudo KIOSK_MODE=door \
-#          KIOSK_URL="https://bngss.vercel.app/kiosk" \
+#          KIOSK_URL="https://bngss.lovable.app/kiosk" \
 #          KIOSK_WIFI_SSID="MySchoolWiFi" KIOSK_WIFI_PASS="password" \
 #          bash setup-mxlinux-kiosk.sh
 #
@@ -114,7 +114,7 @@ fi
 
 # ค่า default แยกตามโหมด
 if [[ "$KIOSK_MODE" == "student" ]]; then
-  KIOSK_URL="${KIOSK_URL:-https://bngss.vercel.app/}"
+  KIOSK_URL="${KIOSK_URL:-https://bngss.lovable.app/}"
   KIOSK_DAILY_REBOOT="${KIOSK_DAILY_REBOOT-}"                 # student: ไม่ reboot กลางวัน ใช้ shutdown แทน
   KIOSK_IDLE_LOGOUT_MIN="${KIOSK_IDLE_LOGOUT_MIN:-30}"
   KIOSK_IDLE_SHUTDOWN_MIN="${KIOSK_IDLE_SHUTDOWN_MIN:-120}"
@@ -124,7 +124,7 @@ if [[ "$KIOSK_MODE" == "student" ]]; then
   KIOSK_EXTENSION_URL="${KIOSK_EXTENSION_URL:-${KIOSK_URL%/}/safe-browser-extension.zip}"
 else
   KIOSK_MODE="door"
-  KIOSK_URL="${KIOSK_URL:-https://bngss.vercel.app/kiosk}"
+  KIOSK_URL="${KIOSK_URL:-https://bngss.lovable.app/kiosk}"
   KIOSK_DAILY_REBOOT="${KIOSK_DAILY_REBOOT:-03:00}"
   KIOSK_IDLE_LOGOUT_MIN="${KIOSK_IDLE_LOGOUT_MIN:-0}"
   KIOSK_IDLE_SHUTDOWN_MIN="${KIOSK_IDLE_SHUTDOWN_MIN:-0}"
