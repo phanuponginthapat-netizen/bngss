@@ -791,7 +791,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           .sort((a, b) => a.score - b.score)[0]?.sample;
         if (!anchor) throw new Error("ไม่พบข้อมูลใบหน้าที่ใช้ตรวจสอบได้ กรุณากดเริ่มใหม่");
 
-        let usable = pool.filter((sm) => {
+        const usable = pool.filter((sm) => {
           const distance = cosineDistance(anchor.descriptor, sm.descriptor);
           const limit = sm.metrics.stepKey === "left" || sm.metrics.stepKey === "right"
             ? SIDE_SAMPLE_OUTLIER_MAX
