@@ -14,8 +14,8 @@ log() { echo -e "$*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 KIOSK_ORIGIN="${KIOSK_ORIGIN:-https://bngss.lovable.app}"
-CMS_SUPABASE_URL="${CMS_SUPABASE_URL:-https://dlkyxvhnnffblerwedjz.supabase.co}"
-CMS_SUPABASE_ANON="${CMS_SUPABASE_ANON:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4}"
+CMS_SUPABASE_URL="${CMS_SUPABASE_URL:-https://gwmszzoqqxmejefhayqf.supabase.co}"
+CMS_SUPABASE_ANON="${CMS_SUPABASE_ANON:-sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v}"
 
 log "▶ ดึง branding จาก CMS ..."
 CMS_JSON=$(curl -sf --max-time 10 "$CMS_SUPABASE_URL/functions/v1/ext-config" \
