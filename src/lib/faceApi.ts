@@ -44,19 +44,17 @@ export async function ensureTfBackend(onProgress?: (msg: string) => void): Promi
       tf.setWasmPaths?.(`https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@${v}/dist/`);
     } catch { /* ไม่มีก็ข้าม */ }
     try {
-      await tf.setBackend("webgl");
-      await tf.ready();
+      await withTimeout((async () => { await tf.setBackend("webgl"); await tf.ready(); })(), BACKEND_TIMEOUT_MS, "webgl");
       if (tf.getBackend() === "webgl") return "webgl";
     } catch { /* ลอง wasm ต่อ */ }
     try {
       onProgress?.("กำลังเตรียมตัวประมวลผล (WASM)...");
-      await tf.setBackend("wasm");
-      await tf.ready();
+      // WASM binary มาจาก CDN — ถ้าเครือข่ายบล็อกต้องไม่ค้าง ให้ตกไป cpu
+      await withTimeout((async () => { await tf.setBackend("wasm"); await tf.ready(); })(), BACKEND_TIMEOUT_MS, "wasm");
       if (tf.getBackend() === "wasm") return "wasm";
     } catch { /* ลอง cpu ต่อ */ }
     try {
-      await tf.setBackend("cpu");
-      await tf.ready();
+      await withTimeout((async () => { await tf.setBackend("cpu"); await tf.ready(); })(), BACKEND_TIMEOUT_MS, "cpu");
       return tf.getBackend();
     } catch {
       return "none";
@@ -79,15 +77,23 @@ export async function loadFaceModels(onProgress?: (msg: string) => void): Promis
     if (backend === "none") throw new Error("อุปกรณ์นี้ประมวลผลโมเดล AI ไม่ได้");
     // Detector + landmarks จาก face-api + ArcFace ONNX สำหรับ 512-D embedding
     // โหลดขนานกัน — ArcFace ~14MB จะใช้เวลานานสุด (ใช้ allSettled กัน CDN ล่มบางไฟล์)
-    const FALLBACK_URL = (import.meta as any).env?.VITE_FACE_MODEL_URL || MODEL_URL;
-    const loadWithFallback = async (net: any, url: string, fallback: string) => {
-      try { await net.loadFromUri(url); }
-      catch { if (fallback !== url) await net.loadFromUri(fallback); else throw new Error("model load failed"); }
+    const CUSTOM_URL = (import.meta as any).env?.VITE_FACE_MODEL_URL || null;
+    // ลำดับแหล่งโหลด: ตั้งค่าเอง → jsdelivr → unpkg (แต่ละแหล่งมี timeout ของตัวเอง)
+    const SOURCES = [CUSTOM_URL, MODEL_URL, MIRROR_URL].filter(Boolean) as string[];
+    const loadWithFallback = async (net: any) => {
+      let lastErr: unknown = null;
+      for (const url of SOURCES) {
+        try {
+          await withTimeout(net.loadFromUri(url), MODEL_TIMEOUT_MS, "model");
+          return;
+        } catch (e) { lastErr = e; }
+      }
+      throw lastErr instanceof Error ? lastErr : new Error("model load failed");
     };
     const results = await Promise.allSettled([
-      loadWithFallback(faceapi.nets.ssdMobilenetv1, MODEL_URL, FALLBACK_URL),
-      loadWithFallback(faceapi.nets.faceLandmark68Net, MODEL_URL, FALLBACK_URL),
-      loadWithFallback(faceapi.nets.faceRecognitionNet, MODEL_URL, FALLBACK_URL),
+      loadWithFallback(faceapi.nets.ssdMobilenetv1),
+      loadWithFallback(faceapi.nets.faceLandmark68Net),
+      loadWithFallback(faceapi.nets.faceRecognitionNet),
       loadArcFace(onProgress).catch(() => { /* ArcFace ไม่พร้อมก็ยังตรวจจับใบหน้าได้ */ }),
     ]);
     const failed = results.slice(0,3).filter(r => r.status === 'rejected');
@@ -95,7 +101,7 @@ export async function loadFaceModels(onProgress?: (msg: string) => void): Promis
     loaded = true;
     onProgress?.("พร้อมใช้งาน");
     // เริ่มโหลด tiny detector ใน background โดยไม่บล็อก UI
-    void ensureTinyDetector();
+    void ensureTinyDetector().catch(() => { /* optional */ });
   })().catch((e) => {
     loadingPromise = null;
     throw e;
@@ -107,11 +113,20 @@ export async function loadFaceModels(onProgress?: (msg: string) => void): Promis
 async function ensureTinyDetector(): Promise<void> {
   if (tinyLoaded) return;
   if (tinyLoadingPromise) return tinyLoadingPromise;
-  tinyLoadingPromise = faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL).then(() => {
-    tinyLoaded = true;
-  });
+  tinyLoadingPromise = (async () => {
+    for (const url of [MODEL_URL, MIRROR_URL]) {
+      try {
+        await withTimeout(faceapi.nets.tinyFaceDetector.loadFromUri(url), MODEL_TIMEOUT_MS, "tiny");
+        tinyLoaded = true;
+        return;
+      } catch { /* ลองแหล่งถัดไป */ }
+    }
+    tinyLoadingPromise = null;
+    throw new Error("tiny detector load failed");
+  })();
   return tinyLoadingPromise;
 }
+
 
 // Detector หลัก — ลด minConfidence ลงให้จับใบหน้าได้ง่ายขึ้น (แสงน้อย/กล้องเว็บแคมคุณภาพต่ำ)
 export const detectorOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.35, maxResults: 10 });
