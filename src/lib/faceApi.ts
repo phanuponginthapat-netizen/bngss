@@ -355,6 +355,21 @@ async function detectSingleFaceRobust(input: DetectableInput) {
 
 
 let _normCanvas: HTMLCanvasElement | null = null;
+/** ค่าความสว่างเฉลี่ยของเฟรมล่าสุด (0-255) — ใช้ตัดสินใจว่าจะดันสว่างหรือหรี่ลง */
+let _lastMeanLum = 110;
+/** ตัวคูณ brightness ของ canvas filter: มืด → >1, สว่างจ้า → <1 */
+function _lastFrameBrightnessFactor(): number {
+  if (_lastMeanLum > 190) return 0.78;
+  if (_lastMeanLum > 165) return 0.88;
+  if (_lastMeanLum < 70) return 1.15;
+  if (_lastMeanLum < 95) return 1.06;
+  return 1;
+}
+/** ให้ส่วนอื่นอ่าน/อัปเดตค่าแสงล่าสุดได้ (เช่นหน้า kiosk ที่วัดเฉพาะพื้นที่ใบหน้า) */
+export function reportFrameLuminance(meanLum: number) {
+  if (Number.isFinite(meanLum) && meanLum > 0) _lastMeanLum = meanLum;
+}
+export function getFrameLuminance() { return _lastMeanLum; }
 /**
  * เตรียมเฟรมก่อนตรวจจับ: ปรับ brightness/contrast + Histogram Equalization (CLAHE-ish)
  * บน luminance — ช่วยให้กล้อง/แสงคนละแบบให้ embedding ใกล้กันมากขึ้น (bank-grade normalization)
@@ -373,7 +388,8 @@ export function preprocessFrame(
   _normCanvas.width = w; _normCanvas.height = h;
   const ctx = _normCanvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) return null;
-  (ctx as any).filter = "contrast(1.12) brightness(1.04) saturate(1.04)";
+  (ctx as any).filter = `contrast(1.1) brightness(${_lastFrameBrightnessFactor().toFixed(3)}) saturate(1.03)`;
+
   ctx.drawImage(video as any, 0, 0, w, h);
   (ctx as any).filter = "none";
 
