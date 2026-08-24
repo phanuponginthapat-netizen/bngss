@@ -153,71 +153,82 @@ async function fetchTtsUrl(text: string): Promise<string | null> {
   return url;
 }
 
-/** สำรองสุดท้าย: เล่น mp3 ผ่าน WebAudio (บาง Chromium/Linux บล็อก <audio> แต่ AudioContext ยังออกเสียง) */
-async function playViaAudioContext(url: string): Promise<boolean> {
+/** แคชเสียงที่ decode แล้ว — เล่นผ่าน WebAudio ทำให้ไม่กระตุกแม้ main thread ทำงานหนัก */
+const _bufCache = new Map<string, AudioBuffer>();
+
+async function getTtsBuffer(text: string): Promise<AudioBuffer | null> {
+  const cached = _bufCache.get(text);
+  if (cached) return cached;
+  const url = await fetchTtsUrl(text);
+  if (!url) return null;
   try {
+    const ctx = getCtx();
+    if (!ctx) return null;
+    const raw = await (await fetch(url)).arrayBuffer();
+    const decoded = await ctx.decodeAudioData(raw.slice(0));
+    _bufCache.set(text, decoded);
+    if (_bufCache.size > TTS_CACHE_MAX) {
+      const oldest = _bufCache.keys().next().value as string | undefined;
+      if (oldest) _bufCache.delete(oldest);
+    }
+    return decoded;
+  } catch { return null; }
+}
+
+/** สำรองสุดท้าย: เล่นผ่าน <audio> element (กรณี decode ไม่ได้) */
+async function playViaAudioElement(url: string): Promise<boolean> {
+  try {
+    try { _ttsAudio?.pause(); } catch { /* noop */ }
+    const audio = new Audio(url);
+    audio.preload = "auto";
+    audio.volume = 1;
+    _ttsAudio = audio;
+    await audio.play();
+    await new Promise<void>((resolve) => {
+      audio.addEventListener("ended", () => resolve(), { once: true });
+      audio.addEventListener("error", () => resolve(), { once: true });
+      setTimeout(resolve, 15000);
+    });
+    return true;
+  } catch { return false; }
+}
+
+let _speakingSource: AudioBufferSourceNode | null = null;
+
+/** เล่นเสียงพูดผ่าน server TTS (ใช้ได้บน Linux kiosk ที่ไม่มี voice ในเครื่อง) */
+async function speakRemote(text: string): Promise<boolean> {
+  try {
+    const sequence = ++_speechSequence;
+    const buf = await getTtsBuffer(text);
+    if (sequence !== _speechSequence) return true; // มีข้อความใหม่กว่าแล้ว
+    if (!buf) {
+      const url = _ttsCache.get(text) || (await fetchTtsUrl(text));
+      return url ? await playViaAudioElement(url) : false;
+    }
     const ctx = getCtx();
     if (!ctx) return false;
     if (ctx.state === "suspended") await ctx.resume().catch(() => {});
-    const buf = await (await fetch(url)).arrayBuffer();
-    const decoded = await ctx.decodeAudioData(buf.slice(0));
+    try { _speakingSource?.stop(); } catch { /* noop */ }
     const src = ctx.createBufferSource();
-    src.buffer = decoded;
-    src.playbackRate.value = 1.15;
-    src.connect(ctx.destination);
+    const gain = ctx.createGain();
+    gain.gain.value = 1;
+    src.buffer = buf;
+    // ความเร็วปกติ — การเร่ง playbackRate บนเครื่องสเปกต่ำทำให้เสียงแตก/ฟังไม่รู้เรื่อง
+    src.playbackRate.value = 1;
+    src.connect(gain).connect(ctx.destination);
+    _speakingSource = src;
     await new Promise<void>((resolve) => {
-      src.onended = () => resolve();
-      setTimeout(resolve, (decoded.duration / 1.15) * 1000 + 800);
+      let done = false;
+      const finish = () => { if (!done) { done = true; resolve(); } };
+      src.onended = finish;
+      // เผื่อ onended ไม่ยิงบน Chromium/Linux บางรุ่น
+      setTimeout(finish, buf.duration * 1000 + 500);
       src.start();
     });
     return true;
   } catch { return false; }
 }
 
-/** เล่นเสียงพูดผ่าน server TTS (ใช้ได้บน Linux kiosk ที่ไม่มี voice ในเครื่อง) */
-async function speakRemote(text: string): Promise<boolean> {
-  try {
-    // เครื่องสเปกต่ำ: ข้าม server TTS ไปใช้ local voice เลย (ลดหน่วงเครือข่าย)
-    const lowEnd = (navigator.hardwareConcurrency || 4) <= 4 || ((navigator as any).deviceMemory || 4) <= 4;
-    if (lowEnd && hasLocalVoice()) return false;
-    const sequence = ++_speechSequence;
-    const url = await fetchTtsUrl(text);
-    if (!url) return false;
-    if (sequence !== _speechSequence) return true; // มีข้อความใหม่กว่าแล้ว
-    try { _ttsAudio?.pause(); } catch { /* noop */ }
-    const audio = new Audio(url);
-    audio.preload = "auto";
-    audio.volume = 1;
-    audio.playbackRate = 1.15;
-    (audio as any).preservesPitch = true;
-    _ttsAudio = audio;
-    // รอให้บัฟเฟอร์พร้อมก่อนเล่น — กันเสียงสะดุดบนเครื่องช้า
-    if (audio.readyState < 3) {
-      await new Promise<void>((resolve) => {
-        const done = () => resolve();
-        audio.addEventListener("canplaythrough", done, { once: true });
-        audio.addEventListener("error", done, { once: true });
-        setTimeout(done, 1200);
-      });
-    }
-    try {
-      await audio.play();
-    } catch {
-      // autoplay ถูกบล็อก หรือ element เล่นไม่ได้ → ใช้ WebAudio แทน
-      return await playViaAudioContext(url);
-    }
-    // ให้ประโยคถัดไปรอจนพูดจบ ไม่ตัดทับกัน
-    let ended = false;
-    await new Promise<void>((resolve) => {
-      audio.addEventListener("ended", () => { ended = true; resolve(); }, { once: true });
-      audio.addEventListener("error", () => resolve(), { once: true });
-      setTimeout(resolve, 6000);
-    });
-    // ถ้าไม่มีความคืบหน้าเลย (เวลาเล่น = 0) แปลว่าเงียบจริง → ลอง WebAudio
-    if (!ended && audio.currentTime < 0.05) return await playViaAudioContext(url);
-    return true;
-  } catch { return false; }
-}
 
 
 const _lastSpoken = new Map<string, number>();
@@ -260,7 +271,7 @@ export async function waitForSpeechEnd(maxWaitMs = 12000): Promise<void> {
 export function prewarmSpeech(phrases: string[]) {
   for (const p of phrases) {
     const clean = String(p || "").trim();
-    if (clean && !_ttsCache.has(clean)) void fetchTtsUrl(clean).catch(() => {});
+    if (clean && !_bufCache.has(clean)) void getTtsBuffer(clean).catch(() => {});
   }
 }
 
