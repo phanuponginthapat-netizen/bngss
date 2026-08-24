@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import {
   loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame,
-  detectorOptionsHQ, applyCameraDefaults, gentleLowLightAssist, reportFrameLuminance, preprocessFrame, estimateFaceSharpness, estimateBrightness,
+  detectorOptionsHQ, applyCameraDefaults, autoExposureBalance, reportFrameLuminance, preprocessFrame, estimateFaceSharpness, estimateBrightness,
   BANK_GRADE,
   type KnownFace, type MatchResult,
 } from "@/lib/faceApi";
@@ -910,15 +910,17 @@ const FaceKioskPage = () => {
               const sharpness = perf.checkSharpness ? estimateFaceSharpness(video, box) : MIN_SHARPNESS;
               const tooBlurry = sharpness < MIN_SHARPNESS;
               // แสงน้อย — วัดความสว่างบริเวณใบหน้า เพื่อให้คำแนะนำตอนสแกน
-              const brightness = perf.checkSharpness ? estimateBrightness(video, box) : 120;
+              // การวัดแสงใช้ canvas เพียง 32×32 จึงเบามากและต้องทำแม้โหมด Turbo
+              // เดิมผูกกับ checkSharpness=false ทำให้ Kiosk ใช้ค่า 120 ตายตัวและไม่เคยหรี่กล้องที่ขาวโพลน
+              const brightness = estimateBrightness(video, box);
               const tooDark = brightness > 0 && brightness < BANK_GRADE.BRIGHTNESS_MIN - 10;
               const tooBright = brightness > BANK_GRADE.BRIGHTNESS_MAX + 10;
               // กล้องโน้ตบุ๊ก/USB บางรุ่น ภาพมืดมากหรือขาวโพลน — ปรับ exposure ของฮาร์ดแวร์เองแบบสองทาง
               reportFrameLuminance(brightness);
-              if ((tooDark || tooBright) && tNow - lastLowLightBoostRef.current > 2500) {
+              if ((tooDark || tooBright) && tNow - lastLowLightBoostRef.current > 1200) {
                 lastLowLightBoostRef.current = tNow;
-                // มืดมากเท่านั้นถึงค่อย ๆ เพิ่มแสง / สว่างเกินให้คืนค่าเริ่มต้นของกล้อง
-                void gentleLowLightAssist(video.srcObject as MediaStream | null, brightness);
+                // ปรับสองทางตามแสงจริง: ลด brightness/exposure/gain เมื่อขาว และเพิ่มเมื่อมืด
+                void autoExposureBalance(video.srcObject as MediaStream | null, brightness);
               }
 
 
