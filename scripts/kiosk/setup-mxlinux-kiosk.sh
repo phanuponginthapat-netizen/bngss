@@ -1024,6 +1024,72 @@ Exec=sh -c 'sleep 5; /opt/kiosk/fix-audio.sh; true'
 X-GNOME-Autostart-enabled=true
 EOF
 
+# ---------------- 5.4) กล้อง UVC: แก้ภาพมืด/เฟรมช้า (HP Pavilion x2 ฯลฯ) ----------------
+# เว็บแคมโน้ตบุ๊ก Atom ส่วนใหญ่เปิดมาด้วยค่า brightness/gain ต่ำ + auto-exposure ช้า
+# และ Chromium มักดึงภาพเป็น YUYV 720p ซึ่งบน Atom ได้แค่ ~5 fps → ตั้งค่าใหม่ให้เอง
+apt-get install -y --no-install-recommends v4l-utils >/dev/null 2>&1 || true
+
+cat >/opt/kiosk/fix-camera.sh <<'EOF'
+#!/usr/bin/env bash
+# ปรับค่ากล้อง UVC ให้สว่างขึ้นและตอบสนองเร็วขึ้น (idempotent, รันซ้ำได้)
+set +e
+command -v v4l2-ctl >/dev/null 2>&1 || exit 0
+for DEV in /dev/video*; do
+  [ -e "$DEV" ] || continue
+  # ข้าม device ที่เป็น metadata (ไม่มี capability capture)
+  v4l2-ctl -d "$DEV" --all 2>/dev/null | grep -q "Video Capture" || continue
+
+  set_ctl() { v4l2-ctl -d "$DEV" --set-ctrl "$1=$2" >/dev/null 2>&1; }
+  has_ctl() { v4l2-ctl -d "$DEV" -l 2>/dev/null | grep -q "^ *$1"; }
+  ctl_max() { v4l2-ctl -d "$DEV" -l 2>/dev/null | sed -n "s/^ *$1 .*max=\([-0-9]*\).*/\1/p" | head -1; }
+  ctl_min() { v4l2-ctl -d "$DEV" -l 2>/dev/null | sed -n "s/^ *$1 .*min=\([-0-9]*\).*/\1/p" | head -1; }
+  ctl_pct() { # $1=control $2=percent → ค่าในช่วง min..max
+    local mn mx; mn=$(ctl_min "$1"); mx=$(ctl_max "$1")
+    [ -n "$mn" ] && [ -n "$mx" ] || return 1
+    echo $(( mn + (mx - mn) * $2 / 100 ))
+  }
+
+  # 1) auto exposure ต่อเนื่อง (3 = aperture priority) + white balance อัตโนมัติ
+  has_ctl auto_exposure && set_ctl auto_exposure 3
+  has_ctl exposure_auto && set_ctl exposure_auto 3
+  has_ctl exposure_auto_priority && set_ctl exposure_auto_priority 0   # 0 = ห้ามลด fps ตอนแสงน้อย (สำคัญมาก!)
+  has_ctl white_balance_temperature_auto && set_ctl white_balance_temperature_auto 1
+  has_ctl white_balance_automatic && set_ctl white_balance_automatic 1
+
+  # 2) ความสว่าง/คอนทราสต์/เกน — ดันขึ้นให้เห็นหน้าในห้องแสงน้อย
+  V=$(ctl_pct brightness 72) && [ -n "$V" ] && set_ctl brightness "$V"
+  V=$(ctl_pct gain 70)       && [ -n "$V" ] && set_ctl gain "$V"
+  V=$(ctl_pct contrast 60)   && [ -n "$V" ] && set_ctl contrast "$V"
+  V=$(ctl_pct saturation 55) && [ -n "$V" ] && set_ctl saturation "$V"
+  V=$(ctl_pct sharpness 70)  && [ -n "$V" ] && set_ctl sharpness "$V"
+  has_ctl backlight_compensation && set_ctl backlight_compensation 1
+  has_ctl gain_automatic && set_ctl gain_automatic 1
+
+  # 3) ไฟบ้านไทย 50Hz — กันภาพมืดสลับริ้วและกันกล้องลดชัตเตอร์
+  has_ctl power_line_frequency && set_ctl power_line_frequency 1
+
+  logger -t kiosk "camera tuned: $DEV"
+done
+exit 0
+EOF
+chmod +x /opt/kiosk/fix-camera.sh
+
+# รันตอนเข้าเดสก์ท็อป และรันซ้ำเมื่อเสียบกล้อง USB ใหม่
+cat >"$USER_HOME/.config/autostart/kiosk-camera.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Kiosk Camera Tune
+Exec=sh -c 'sleep 8; /opt/kiosk/fix-camera.sh; true'
+X-GNOME-Autostart-enabled=true
+EOF
+cat >/etc/udev/rules.d/95-kiosk-camera.rules <<'EOF'
+ACTION=="add", SUBSYSTEM=="video4linux", RUN+="/bin/sh -c '/opt/kiosk/fix-camera.sh >/dev/null 2>&1 &'"
+EOF
+udevadm control --reload-rules 2>/dev/null || true
+/opt/kiosk/fix-camera.sh >/dev/null 2>&1 || true
+
+
+
 # ---------------- 5.5) Auto-install Smart School Browser Extension (student mode) ----------------
 EXT_DIR="/opt/kiosk/extension"
 EXT_FLAG=""
