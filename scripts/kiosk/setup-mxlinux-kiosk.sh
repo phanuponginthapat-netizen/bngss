@@ -1079,7 +1079,7 @@ cat >"$USER_HOME/.config/autostart/kiosk-camera.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Kiosk Camera Tune
-Exec=sh -c 'sleep 8; /opt/kiosk/fix-camera.sh; true'
+Exec=sh -c 'sleep 8; while true; do /opt/kiosk/fix-camera.sh; sleep 60; done'
 X-GNOME-Autostart-enabled=true
 EOF
 cat >/etc/udev/rules.d/95-kiosk-camera.rules <<'EOF'
@@ -1295,6 +1295,7 @@ for i in \$(seq 1 30); do
   sleep 2
 done
 xset s off -dpms s noblank 2>/dev/null || true
+/opt/kiosk/fix-camera.sh >/dev/null 2>&1 || true
 
 _APPEND_KIOSK() { case "\$1" in *\?*) echo "\$1&kiosk=1";; *) echo "\$1?kiosk=1";; esac; }
 MAIN_URL="\$(_APPEND_KIOSK "$KIOSK_URL")"
