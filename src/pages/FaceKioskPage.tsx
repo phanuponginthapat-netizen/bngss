@@ -1242,7 +1242,7 @@ const FaceKioskPage = () => {
       cancelled = true;
       if (detectionLoopRef.current) clearTimeout(detectionLoopRef.current);
     };
-  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef, runGate, perf, scanGapMs, livenessEnabled, textureGate]);
+  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef, runGate, perf, scanGapMs, livenessEnabled, textureGate, showNotice]);
 
   // ===== WizMind bridge: รับ event ใบหน้าจากกล้อง CCTV แบบ realtime แล้วจดจำทันที =====
   useEffect(() => {
