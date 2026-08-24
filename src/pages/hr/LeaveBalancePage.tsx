@@ -59,21 +59,29 @@ const LeaveBalancePage = () => {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("leave_balances")
-        .select(`
-          id, user_id, year, leave_type, total_days, used_days, remaining_days,
-          profiles:user_id (first_name, last_name, prefix)
-        `)
+        .select("id, user_id, year, leave_type, total_days, used_days, remaining_days")
         .eq("year", year)
         .order("leave_type");
       if (error) throw error;
-      return (data || []).map((b: any) => ({
+      const rows = (data || []) as any[];
+      const ids = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
+      let profileMap: Record<string, any> = {};
+      if (ids.length) {
+        const { data: profs } = await (supabase as any)
+          .from("profiles")
+          .select("id, first_name, last_name, prefix")
+          .in("id", ids);
+        profileMap = Object.fromEntries((profs || []).map((p: any) => [p.id, p]));
+      }
+      return rows.map((b: any) => ({
         ...b,
-        first_name: b.profiles?.first_name,
-        last_name: b.profiles?.last_name,
-        prefix: b.profiles?.prefix,
+        first_name: profileMap[b.user_id]?.first_name,
+        last_name: profileMap[b.user_id]?.last_name,
+        prefix: profileMap[b.user_id]?.prefix,
       })) as LeaveBalance[];
     },
   });
+
 
   const staffBalances = (() => {
     const map: Record<string, { name: string; types: Record<string, LeaveBalance> }> = {};
