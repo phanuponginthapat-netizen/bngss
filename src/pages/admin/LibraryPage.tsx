@@ -34,7 +34,7 @@ export default function LibraryPage() {
   const { data: loans = [] } = useQuery({
     queryKey: ["library-loans"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("library_loans").select("*, library_books(title, barcode), students(first_name, last_name, student_code)").order("borrowed_at", { ascending: false }).limit(100);
+      const { data, error } = await supabase.from("library_loans").select("*, library_books(title, barcode), students(first_name, last_name, student_code)").order("loaned_at", { ascending: false }).limit(100);
       if (error) throw error;
       return data as any[];
     },
@@ -47,7 +47,7 @@ export default function LibraryPage() {
     },
   });
 
-  const activeLoans = loans.filter((l: any) => l.status === "borrowed");
+  const activeLoans = loans.filter((l: any) => !l.returned_at);
   const overdue = activeLoans.filter((l: any) => l.due_at && new Date(l.due_at) < new Date());
 
   const addBook = async () => {
@@ -59,12 +59,12 @@ export default function LibraryPage() {
   const borrow = async () => {
     if (!borrowBookId || !borrowStudentId) return toast.error("เลือกหนังสือและนักเรียน");
     const due = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
-    const { error } = await supabase.from("library_loans").insert({ book_id: borrowBookId, student_id: borrowStudentId, due_at: due, status: "borrowed" } as any);
+    const { error } = await supabase.from("library_loans").insert({ book_id: borrowBookId, borrower_student_id: borrowStudentId, due_at: due } as any);
     if (error) toast.error(error.message);
     else { toast.success("ยืมสำเร็จ กำหนดคืน 7 วัน"); setBorrowOpen(false); qc.invalidateQueries({ queryKey: ["library-loans"] }); }
   };
   const returnBook = async (id: string) => {
-    const { error } = await supabase.from("library_loans").update({ returned_at: new Date().toISOString(), status: "returned" } as any).eq("id", id);
+    const { error } = await supabase.from("library_loans").update({ returned_at: new Date().toISOString() } as any).eq("id", id);
     if (error) toast.error(error.message);
     else { toast.success("คืนแล้ว"); qc.invalidateQueries({ queryKey: ["library-loans"] }); }
   };
@@ -106,15 +106,15 @@ export default function LibraryPage() {
             <TableHeader><TableRow><TableHead>หนังสือ</TableHead><TableHead>นักเรียน</TableHead><TableHead>ยืมเมื่อ</TableHead><TableHead>กำหนดคืน</TableHead><TableHead>สถานะ</TableHead><TableHead></TableHead></TableRow></TableHeader>
             <TableBody>
               {loans.map((l: any) => {
-                const isOverdue = l.status === "borrowed" && l.due_at && new Date(l.due_at) < new Date();
+                const isOverdue = !l.returned_at && l.due_at && new Date(l.due_at) < new Date();
                 return (
                   <TableRow key={l.id} className={isOverdue ? "bg-red-50" : ""}>
                     <TableCell>{l.library_books?.title || l.book_id.slice(0, 8)}</TableCell>
-                    <TableCell><button onClick={() => setSpiderId(l.student_id)} className="text-primary hover:underline">{l.students ? `${l.students.first_name} ${l.students.last_name} (${l.students.student_code})` : l.student_id.slice(0, 8)}</button></TableCell>
-                    <TableCell className="text-xs">{new Date(l.borrowed_at).toLocaleDateString("th-TH")}</TableCell>
+                    <TableCell><button onClick={() => setSpiderId(l.borrower_student_id)} className="text-primary hover:underline">{l.students ? `${l.students.first_name} ${l.students.last_name} (${l.students.student_code})` : (l.borrower_student_id || "").slice(0, 8)}</button></TableCell>
+                    <TableCell className="text-xs">{new Date(l.loaned_at).toLocaleDateString("th-TH")}</TableCell>
                     <TableCell className="text-xs">{l.due_at ? new Date(l.due_at).toLocaleDateString("th-TH") : "-"}</TableCell>
-                    <TableCell>{l.status === "borrowed" ? <Badge variant={isOverdue ? "destructive" : "secondary"}>{isOverdue ? "เกินกำหนด" : "ยืมอยู่"}</Badge> : <Badge variant="outline">คืนแล้ว</Badge>}</TableCell>
-                    <TableCell>{l.status === "borrowed" && <Button size="sm" variant="outline" onClick={() => returnBook(l.id)}><Undo2 className="w-3 h-3 mr-1" /> คืน</Button>}</TableCell>
+                    <TableCell>{!l.returned_at ? <Badge variant={isOverdue ? "destructive" : "secondary"}>{isOverdue ? "เกินกำหนด" : "ยืมอยู่"}</Badge> : <Badge variant="outline">คืนแล้ว</Badge>}</TableCell>
+                    <TableCell>{!l.returned_at && <Button size="sm" variant="outline" onClick={() => returnBook(l.id)}><Undo2 className="w-3 h-3 mr-1" /> คืน</Button>}</TableCell>
                   </TableRow>
                 );
               })}

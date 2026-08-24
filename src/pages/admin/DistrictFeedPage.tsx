@@ -228,8 +228,8 @@ export default function DistrictFeedPage() {
       };
     } else if (kind === "obec") {
       const [lunch, milk] = await Promise.all([
-        supabase.from("school_lunch_records").select("*").order("record_date", { ascending: false }).limit(500),
-        supabase.from("school_milk_records").select("*").order("record_date", { ascending: false }).limit(500),
+        supabase.from("school_lunch_records").select("*").order("lunch_date", { ascending: false }).limit(500),
+        supabase.from("school_milk_records").select("*").order("distribution_date", { ascending: false }).limit(500),
       ]);
       payload = { exported_at: new Date().toISOString(), school_lunch: lunch.data || [], school_milk: milk.data || [] };
     } else if (kind === "pp") {
