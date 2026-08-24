@@ -449,7 +449,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     })();
     return () => { stopCamera(); if (loopRef.current) { clearTimeout(loopRef.current); loopRef.current = null; } };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, studentCode, personnelId]);
+  }, [open, studentCode, personnelId, selfPersonnel, submitMode]);
 
 
   const startCamera = async (mode: "user" | "environment" = facingMode, deviceId?: string) => {
