@@ -139,7 +139,9 @@ const MODULES: ModuleCard[] = [
 export default function BigDataDashboardPage() {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const schoolName = useCmsValue("school_name") || useCmsValue("app_name") || "โรงเรียน";
+  const cmsSchoolName = useCmsValue("school_name");
+  const cmsAppName = useCmsValue("app_name");
+  const schoolName = cmsSchoolName || cmsAppName || "โรงเรียน";
   const [data, setData] = useState<OneStopPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
