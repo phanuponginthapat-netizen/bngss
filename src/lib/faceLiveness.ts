@@ -60,9 +60,16 @@ export const LIVENESS_CONFIG = {
   BLINK_EAR_OPEN: 0.27,
   /** ต้องสะสมการหมุนศีรษะรวมถึงเกณฑ์นี้ (แบบช้า) — คนจริงขยับหัวเล็กน้อยตลอด */
   POSE_TRAVEL_TARGET: 0.12,
+  /** จำนวนตัวอย่างขั้นต่ำก่อนพิจารณา micro-motion */
+  MICRO_MIN_SAMPLES: 4,
+  /** ต้องเห็นใบหน้าต่อเนื่องอย่างน้อยกี่ ms ก่อนใช้ micro-motion */
+  MICRO_MIN_MS: 900,
+  /** ผลรวมการขยับตำแหน่ง/ระยะ (นอร์มัลไลซ์ด้วยขนาดใบหน้า) ที่ถือว่าเป็นคนจริง */
+  MICRO_MOTION_TARGET: 0.05,
   /** จำนวนตัวอย่างสูงสุดที่เก็บ (กันหน่วยความจำบาน) */
   MAX_SAMPLES: 48,
 } as const;
+
 
 /** เก็บ tracker แยกตามคน (studentId) — เรียกใหม่ทุกเฟรมที่เจอใบหน้าคนเดิม */
 export function newLivenessTrack(): TrackState {
@@ -121,7 +128,25 @@ export function recordLivenessSample(
   if (state.poseTravel >= LIVENESS_CONFIG.POSE_TRAVEL_TARGET) {
     return { live: true, signal: "pose", poseTravel: state.poseTravel, samples: n };
   }
+  // Micro-motion — คนจริงยืนนิ่งก็ยังมีการขยับตำแหน่ง/ระยะเล็กน้อยตลอด
+  // รูปถ่ายที่ถือนิ่งหรือติดกับที่จะไม่มีการเปลี่ยนแปลงต่อเนื่องแบบนี้
+  // ช่วยไม่ให้ผู้ใช้ต้องยืนรอนานเป็นนาทีเพียงเพราะยังไม่กะพริบตาให้กล้องเห็น
+  if (n >= LIVENESS_CONFIG.MICRO_MIN_SAMPLES) {
+    const first = state.samples[0];
+    const last = state.samples[n - 1];
+    const span = last.t - first.t;
+    let motion = 0;
+    for (let i = 1; i < n; i++) {
+      const a = state.samples[i - 1], b = state.samples[i];
+      const scale = Math.max(1, b.size);
+      motion += (Math.abs(b.cx - a.cx) + Math.abs(b.cy - a.cy)) / scale + Math.abs(b.size - a.size) / scale;
+    }
+    if (span >= LIVENESS_CONFIG.MICRO_MIN_MS && motion >= LIVENESS_CONFIG.MICRO_MOTION_TARGET) {
+      return { live: true, signal: "pose", poseTravel: state.poseTravel, samples: n };
+    }
+  }
   return { live: false, signal: "none", poseTravel: state.poseTravel, samples: n };
+
 }
 
 /** สร้าง LivenessSample จากผลตรวจจับ face-api (computed EAR/yaw/pitch) */

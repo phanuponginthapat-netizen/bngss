@@ -830,7 +830,10 @@ const FaceKioskPage = () => {
     //         ระยะห่างอาจกว้างเพราะมุม/แสง/กล้องต่างกัน — ระดับนี้ยังน่าเชื่อถือพอ
     //         แต่กันคนหน้าคล้ายด้วยการให้เจ้าหน้าที่/ผู้ใช้ยืนยันด้วยตนเอง
     const AUTO_DIST = 0.42;
+    /** ตรงมากจนไม่ต้องรอเฟรมยืนยันเพิ่ม (fast-pass) — ลดเวลายืนหน้าเครื่อง */
+    const STRONG_DIST = 0.32;
     const MANUAL_DIST = 0.55;
+
     const MANUAL_MIN_MARGIN = 0.03;
     const MANUAL_TIMEOUT_MS = 15_000; // ไม่ยืนยันภายใน 15 วิ → ปิดป๊อปอัปอัตโนมัติ
 
@@ -875,8 +878,9 @@ const FaceKioskPage = () => {
           const useTexture = textureGate && !isAtom;
         const detections = await getAllDescriptors(pre as any, opts, {
           minFaceSize: MIN_FACE_PX * 0.6,
-          cacheTtlMs: perfMode === "atom" ? 500 : 220,
+          cacheTtlMs: perfMode === "atom" ? 200 : 150,
         });
+
         // อัตราส่วนสำหรับสเกล box กลับสู่พิกัดของวิดีโอจริง
         const srcW = pre instanceof HTMLCanvasElement ? pre.width : video.videoWidth;
         const scaleBack = video.videoWidth / Math.max(1, srcW);
@@ -1047,17 +1051,27 @@ const FaceKioskPage = () => {
                 } else {
                   confirmRef.current.set(found.studentId, { count: 1, lastTs: tNow });
                 }
-                const confirmed = (confirmRef.current.get(found.studentId)?.count ?? 0) >= CONFIRM_FRAMES;
+                // Fast-pass: ตรงมาก + ใบหน้าใหญ่ชัด → ยืนยันเฟรมเดียว ไม่ต้องยืนรอ
+                const strongHit = m.distance <= STRONG_DIST && m.margin >= MIN_MARGIN * 2 && faceSize >= MIN_FACE_PX * 1.25;
+                const needFrames = strongHit ? 1 : CONFIRM_FRAMES;
+                const confirmed = (confirmRef.current.get(found.studentId)?.count ?? 0) >= needFrames;
                 // ใบหน้าสด (anti-spoof): สะสมหลักฐาน blink/ขยับศีรษะ — รูปถ่าย/จอภาพที่นิ่งจะไม่มีหลักฐาน
                 let live = true;
                 if (useLiveness) {
                   let track = livenessRef.current.get(found.studentId);
                   if (!track) { track = newLivenessTrack(); livenessRef.current.set(found.studentId, track); }
                   live = recordLivenessSample(track, makeLivenessSample(tNow, det.landmarks, box)).live;
+                  // กันผู้ใช้ยืนรอนานเกินไป — เห็นใบหน้าคนเดิมต่อเนื่องเกิน 6 วินาที
+                  // และเป็น match ที่แน่นมาก ให้ผ่าน (รูปถ่ายจะถูกกรองด้วย texture gate อยู่แล้ว)
+                  if (!live && strongHit) {
+                    const firstSeen = (track.samples[0]?.t ?? tNow);
+                    if (tNow - firstSeen > 6000) live = true;
+                  }
                 }
                 if (confirmed && live) {
                   // Texture verification — เทียบพื้นผิวใบหน้าสดกับภาพลงทะเบียน กันคนหน้าคล้าย/รูปถ่าย
-                  if (useTexture && !isStaffHit) {
+                  if (useTexture && !isStaffHit && !strongHit) {
+
                     const regSrc = await getRegisteredFaceImage(found.studentId, found.avatar || null);
                     const tv = await verifyScanTexture({
                       studentId: found.studentId,

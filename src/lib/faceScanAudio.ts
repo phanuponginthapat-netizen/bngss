@@ -2,11 +2,18 @@
 let _audioCtx: AudioContext | null = null;
 function getCtx(): AudioContext | null {
   try {
-    if (!_audioCtx) _audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    if (!_audioCtx) {
+      const Ctor = (window.AudioContext || (window as any).webkitAudioContext);
+      // latencyHint "playback" = บัฟเฟอร์ใหญ่ขึ้นมาก → เสียงไม่ขาด/กระตุกบนเครื่องสเปกต่ำ
+      // ที่ CPU ถูกใช้เต็มโดยการตรวจจับใบหน้า (Atom/HP thin client)
+      try { _audioCtx = new Ctor({ latencyHint: "playback" }); }
+      catch { _audioCtx = new Ctor(); }
+    }
     if (_audioCtx.state === "suspended") _audioCtx.resume().catch(() => {});
     return _audioCtx;
   } catch { return null; }
 }
+
 
 /**
  * ปลดล็อกระบบเสียงบน iOS Safari — ต้องเรียกจากภายใน user gesture (เช่น onClick)
@@ -211,20 +218,25 @@ async function speakRemote(text: string): Promise<boolean> {
     try { _speakingSource?.stop(); } catch { /* noop */ }
     const src = ctx.createBufferSource();
     const gain = ctx.createGain();
-    gain.gain.value = 1;
     src.buffer = buf;
     // ความเร็วปกติ — การเร่ง playbackRate บนเครื่องสเปกต่ำทำให้เสียงแตก/ฟังไม่รู้เรื่อง
     src.playbackRate.value = 1;
     src.connect(gain).connect(ctx.destination);
     _speakingSource = src;
+    // เริ่มเล่นล่วงหน้าเล็กน้อย (pre-roll) + fade-in สั้นๆ
+    // ให้ scheduler มีบัฟเฟอร์พอ ไม่ underrun ตอน CPU พุ่งจากการตรวจจับใบหน้า
+    const startAt = ctx.currentTime + 0.18;
+    gain.gain.setValueAtTime(0.0001, startAt);
+    gain.gain.linearRampToValueAtTime(1, startAt + 0.05);
     await new Promise<void>((resolve) => {
       let done = false;
       const finish = () => { if (!done) { done = true; resolve(); } };
       src.onended = finish;
       // เผื่อ onended ไม่ยิงบน Chromium/Linux บางรุ่น
-      setTimeout(finish, buf.duration * 1000 + 500);
-      src.start();
+      setTimeout(finish, buf.duration * 1000 + 700);
+      src.start(startAt);
     });
+
     return true;
   } catch { return false; }
 }
