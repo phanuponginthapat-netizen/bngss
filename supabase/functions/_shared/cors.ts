@@ -27,21 +27,21 @@ export function getCorsHeaders(req?: Request, extra?: string[]) {
 }
 
 export const corsHeaders = {
-  "Access-Control-Allow-Origin": ALLOWED_ORIGINS[0],
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Vary": "Origin",
 };
 
 /** For cron/scheduled endpoints that accept an `x-cron-secret` header. */
 export const corsHeadersWithCron = {
-  "Access-Control-Allow-Origin": ALLOWED_ORIGINS[0],
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
   "Vary": "Origin",
 };
 
 /** Cron + explicit Allow-Methods. Use for POST-only cron/webhook endpoints. */
 export const corsHeadersWithCronAndMethods = {
-  "Access-Control-Allow-Origin": ALLOWED_ORIGINS[0],
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Vary": "Origin",
@@ -49,7 +49,7 @@ export const corsHeadersWithCronAndMethods = {
 
 /** POST-only endpoints (no cron secret). */
 export const corsHeadersPost = {
-  "Access-Control-Allow-Origin": ALLOWED_ORIGINS[0],
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Vary": "Origin",
@@ -57,14 +57,14 @@ export const corsHeadersPost = {
 
 /** For games hub endpoints that accept `x-hub-key`. */
 export const corsHeadersWithHubKey = {
-  "Access-Control-Allow-Origin": ALLOWED_ORIGINS[0],
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-hub-key",
   "Vary": "Origin",
 };
 
 /** For bootstrap endpoint (`x-bootstrap-secret`). */
 export const corsHeadersWithBootstrap = {
-  "Access-Control-Allow-Origin": ALLOWED_ORIGINS[0],
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-bootstrap-secret",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
   "Vary": "Origin",
@@ -74,7 +74,7 @@ export const corsHeadersWithBootstrap = {
 export const buildCorsHeaders = (extraHeaders: string[] = [], methods?: string) => {
   const base = ["authorization", "x-client-info", "apikey", "content-type", ...extraHeaders];
   const h: Record<string, string> = {
-    "Access-Control-Allow-Origin": ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": base.join(", "),
     "Vary": "Origin",
   };
