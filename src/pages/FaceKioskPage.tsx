@@ -33,7 +33,7 @@ import KioskScreensaver from "@/components/facescan/KioskScreensaver";
 import { useCmsValues } from "@/hooks/useCmsSettings";
 import { wakeKioskScreen } from "@/lib/kioskWake";
 import { getRegisteredFaceImage } from "@/lib/registeredFace";
-import { checkTodayScan, markScanned, methodLabel } from "@/lib/scanDedup";
+import { checkTodayScan, markScanned, methodLabel, clearScanDedupCache } from "@/lib/scanDedup";
 import { useKioskHeartbeat } from "@/hooks/useKioskHeartbeat";
 import { useKioskLockdown } from "@/hooks/useKioskLockdown";
 import { useIsPortrait } from "@/hooks/useScreenOrientation";
