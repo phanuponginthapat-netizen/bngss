@@ -910,7 +910,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             }
             throw error;
           }
-          toast.success(`ลงทะเบียนใบหน้าสำเร็จ ${finalSamples.length} ภาพ — ใช้งานได้ทันที`);
+          toast.success(`ลงทะเบียนใบหน้าสำเร็จ ${finalSamples.length} ภาพ (+${variantSamples.length} สภาพแสง) — ใช้งานได้ทันที`);
         } else {
           const { data: ex } = await supabase
             .from("student_face_descriptors")
@@ -918,7 +918,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             .eq("student_id", studentId)
             .order("sample_index", { ascending: false }).limit(1);
           let next = ex && ex[0] ? ex[0].sample_index + 1 : 0;
-          const rows = finalSamples.map((sm, i) => ({
+          const rows = allSamples.map((sm, i) => ({
             student_id: studentId,
             sample_index: next++,
             descriptor: Array.from(sm.descriptor),
