@@ -1157,14 +1157,13 @@ Exec=sh -c 'sleep 5; /opt/kiosk/fix-audio.sh; true'
 X-GNOME-Autostart-enabled=true
 EOF
 
-# ---------------- 5.4) กล้อง UVC: แก้ภาพมืด/เฟรมช้า (HP Pavilion x2 ฯลฯ) ----------------
-# เว็บแคมโน้ตบุ๊ก Atom ส่วนใหญ่เปิดมาด้วยค่า brightness/gain ต่ำ + auto-exposure ช้า
-# และ Chromium มักดึงภาพเป็น YUYV 720p ซึ่งบน Atom ได้แค่ ~5 fps → ตั้งค่าใหม่ให้เอง
+# ---------------- 5.4) กล้อง UVC: คืนค่าสี/แสงที่ปลอดภัย (HP Pavilion x2 ฯลฯ) ----------------
+# ห้ามดัน brightness/gain แบบตายตัว: กล้อง HP บางรุ่นมีค่า default สูงอยู่แล้วและจะขาวโพลน
 apt-get install -y --no-install-recommends v4l-utils >/dev/null 2>&1 || true
 
 cat >/opt/kiosk/fix-camera.sh <<'EOF'
 #!/usr/bin/env bash
-# ปรับค่ากล้อง UVC ให้สว่างขึ้นและตอบสนองเร็วขึ้น (idempotent, รันซ้ำได้)
+# คืนค่ากล้อง UVC และปิด backlight compensation ที่ทำให้ใบหน้าขาว (idempotent)
 set +e
 command -v v4l2-ctl >/dev/null 2>&1 || exit 0
 for DEV in /dev/video*; do
@@ -1185,16 +1184,17 @@ for DEV in /dev/video*; do
   has_ctl white_balance_automatic && set_ctl white_balance_automatic 1
   has_ctl gain_automatic && set_ctl gain_automatic 1
 
-  # 2) คืนค่าภาพเป็น "ค่าเริ่มต้นของกล้อง" (ArcFace ต้องการภาพปกติ)
-  #    เดิมดัน brightness/gain/contrast สูง → ภาพขาวโพลน จับใบหน้าไม่ได้
-  for C in brightness gain contrast saturation sharpness gamma backlight_compensation; do
+  # 2) คืนค่าภาพเป็นค่าเริ่มต้นของกล้อง แล้วบังคับปิดการชดเชยย้อนแสง
+  #    backlight_compensation=1 จะเร่ง exposure จนหน้าขาวในจุดติดตั้งที่มีหน้าต่าง/ไฟด้านหลัง
+  for C in brightness gain contrast saturation sharpness gamma; do
     has_ctl "$C" && reset_ctl "$C"
   done
+  has_ctl backlight_compensation && set_ctl backlight_compensation 0
 
   # 3) ไฟบ้านไทย 50Hz — กันภาพริ้ว
   has_ctl power_line_frequency && set_ctl power_line_frequency 1
 
-  logger -t kiosk "camera reset to defaults: $DEV"
+  logger -t kiosk "camera safe defaults applied: $DEV"
 done
 exit 0
 EOF
