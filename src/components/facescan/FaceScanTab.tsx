@@ -7,7 +7,7 @@ import { ScanFace, Camera, CameraOff, CheckCircle2, AlertCircle, Users, Monitor,
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame, detectorOptionsHQ, applyCameraAutoTune, preprocessFrame, estimateFaceSharpness, estimateBrightness, BANK_GRADE, isStrongMatch, isConfirmGrade, landmarkSanityScore, detectFaceWithLandmarks, assessFaceQuality, type KnownFace } from "@/lib/faceApi";
+import { loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame, detectorOptionsHQ, applyCameraAutoTune, preprocessFrame, estimateFaceSharpness, estimateBrightness, BANK_GRADE, isStrongMatch, isConfirmGrade, landmarkSanityScore, detectFaceWithLandmarks, assessFaceQuality, autoExposureBalance, reportFrameLuminance, type KnownFace } from "@/lib/faceApi";
 import { faceGuideStatus } from "@/lib/faceGuide";
 import { useUserRole } from "@/hooks/useUserRole";
 import { ShieldCheck } from "lucide-react";
