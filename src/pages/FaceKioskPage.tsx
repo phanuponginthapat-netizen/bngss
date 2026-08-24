@@ -796,7 +796,7 @@ const FaceKioskPage = () => {
       }
       return "บุคลากร";
     } catch (e: any) {
-      toast.error(saveErrorMessage(e));
+      showNotice("error", "ลงเวลาไม่สำเร็จ", saveErrorMessage(e), 5000);
       return "บุคลากร • ลงเวลาไม่สำเร็จ";
     }
   }, [voiceEnabled]);
