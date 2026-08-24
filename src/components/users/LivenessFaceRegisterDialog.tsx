@@ -890,7 +890,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
 
 
           const { error } = await supabase.rpc("self_enroll_face", {
-            _samples: finalSamples.map((sm, i) => ({
+            _samples: allSamples.map((sm, i) => ({
               descriptor: Array.from(sm.descriptor),
               quality_score: sm.metrics.sharpness,
               face_image: sm.image,
