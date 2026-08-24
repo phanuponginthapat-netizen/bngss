@@ -28,6 +28,7 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
   const lastScanRef = useRef<{ code: string; at: number }>({ code: "", at: 0 });
   const [error, setError] = useState<string | null>(null);
   const [refocusing, setRefocusing] = useState(false);
+  const [manual, setManual] = useState("");
 
   // Keep latest callbacks in refs so the scanner effect does NOT restart the camera
   // every time the parent re-renders (e.g. after each successful scan updates parent
