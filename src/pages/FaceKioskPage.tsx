@@ -636,7 +636,7 @@ const FaceKioskPage = () => {
       if (now - lastNotice > 5_000) {
         duplicateNoticeRef.current.set(cdKey, now);
         playDuplicateSound();
-        toast.info("สแกนซ้ำ", { description: `${name} ถูกบันทึก${modeLabel}โรงเรียนวันนี้แล้ว`, duration: 1800 });
+        showNotice("info", "สแกนซ้ำ", `${name} ถูกบันทึก${modeLabel}โรงเรียนวันนี้แล้ว`, 2500);
       }
       coolNow();
       return;
