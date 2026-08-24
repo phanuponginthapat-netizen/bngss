@@ -1067,3 +1067,71 @@ function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: num
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
 }
+
+/* ============================================================
+ * Multi-condition face augmentation
+ * เก็บ/สร้าง embedding ของใบหน้าเดียวกันในหลายสภาพแสง
+ * (ปกติ / สว่างจ้า / มืด / โทนอุ่น / โทนเย็น / คอนทราสต์ต่ำ)
+ * ทำให้ตอนสแกนจริงในแสงต่างกันยังจับได้แม่นยำ
+ * ============================================================ */
+export type FaceVariantKey = "normal" | "bright" | "dark" | "warm" | "cool" | "flat";
+
+const VARIANT_FILTERS: Record<FaceVariantKey, string> = {
+  normal: "none",
+  bright: "brightness(1.45) contrast(0.92) saturate(0.95)",
+  dark: "brightness(0.6) contrast(1.12)",
+  warm: "sepia(0.35) saturate(1.25) hue-rotate(-12deg) brightness(1.05)",
+  cool: "saturate(0.85) hue-rotate(14deg) brightness(0.95) contrast(1.05)",
+  flat: "contrast(0.72) brightness(1.12) saturate(0.8)",
+};
+
+export const DEFAULT_FACE_VARIANTS: FaceVariantKey[] = ["bright", "dark", "warm", "cool"];
+
+/** สร้างภาพใบหน้าในสภาพแสงจำลอง 1 แบบ */
+export function makeFaceVariant(
+  source: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement,
+  variant: FaceVariantKey,
+): HTMLCanvasElement | null {
+  const w = (source as any).naturalWidth || (source as any).videoWidth || (source as any).width;
+  const h = (source as any).naturalHeight || (source as any).videoHeight || (source as any).height;
+  if (!w || !h) return null;
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const ctx = c.getContext("2d");
+  if (!ctx) return null;
+  (ctx as any).filter = VARIANT_FILTERS[variant] ?? "none";
+  ctx.drawImage(source as any, 0, 0, w, h);
+  (ctx as any).filter = "none";
+  return c;
+}
+
+/**
+ * คำนวณ embedding ของใบหน้าเดียวกันในหลายสภาพแสง
+ * ใช้ตอนลงทะเบียน — เพิ่มความทนต่อแสงจ้า/แสงน้อย/สีไฟต่างกัน
+ */
+export async function embedFaceVariants(
+  source: HTMLImageElement | HTMLCanvasElement,
+  variants: FaceVariantKey[] = DEFAULT_FACE_VARIANTS,
+): Promise<{ variant: FaceVariantKey; descriptor: Float32Array }[]> {
+  const out: { variant: FaceVariantKey; descriptor: Float32Array }[] = [];
+  for (const v of variants) {
+    try {
+      const canvas = makeFaceVariant(source, v);
+      if (!canvas) continue;
+      const d = await getDescriptorFromImage(canvas);
+      if (d) out.push({ variant: v, descriptor: d });
+    } catch { /* ข้ามตัวที่ตรวจไม่เจอ */ }
+  }
+  return out;
+}
+
+/** สะดวก: รับ dataURL/URL ของภาพใบหน้าที่ครอบไว้แล้ว */
+export async function embedFaceVariantsFromUrl(
+  url: string,
+  variants: FaceVariantKey[] = DEFAULT_FACE_VARIANTS,
+): Promise<{ variant: FaceVariantKey; descriptor: Float32Array }[]> {
+  try {
+    const img = await loadImageFromUrl(url);
+    return await embedFaceVariants(img, variants);
+  } catch { return []; }
+}
