@@ -168,16 +168,26 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
   const [camTick, setCamTick] = useState(0);
 
   const [modelError, setModelError] = useState<string | null>(null);
-
+  const [modelMsg, setModelMsg] = useState<string>("กำลังโหลดโมเดล AI...");
+  const [modelTick, setModelTick] = useState(0);
 
   useEffect(() => {
-    loadFaceModels()
-      .then(() => { setModelReady(true); setModelError(null); })
-      .catch(() => setModelError("โหลดระบบตรวจจับใบหน้าไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วเปิดหน้านี้ใหม่"));
-    // โหลด OpenCV.js แบบเบื้องหลัง (ใช้ช่วยหาใบหน้าเมื่อ face-api ตรวจไม่เจอ)
-    loadOpenCV();
-    return () => { disposeOpenCV(); };
-  }, []);
+    let alive = true;
+    setModelError(null);
+    setModelMsg("กำลังโหลดโมเดล AI...");
+    loadFaceModels((m) => { if (alive) setModelMsg(m); })
+      .then(() => { if (!alive) return; setModelReady(true); setModelError(null); })
+      .catch((e) => {
+        if (!alive) return;
+        setModelError(
+          `โหลดระบบตรวจจับใบหน้าไม่สำเร็จ (${e instanceof Error ? e.message : "network"}) — ตรวจอินเทอร์เน็ต/ไฟร์วอลล์ของโรงเรียน แล้วกด "ลองโหลดใหม่"`,
+        );
+      });
+    // โหลด OpenCV.js แบบเบื้องหลัง (ใช้ช่วยหาใบหน้าเมื่อ face-api ตรวจไม่เจอ) — ห้ามบล็อก UI
+    void Promise.resolve(loadOpenCV()).catch(() => { /* ไม่บังคับ */ });
+    return () => { alive = false; disposeOpenCV(); };
+  }, [modelTick]);
+
 
   // helper: ครอบใบหน้าจาก video → dataURL (พร้อม padding) + คำนวณ metrics
   const captureSample = useCallback(
