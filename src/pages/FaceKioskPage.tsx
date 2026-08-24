@@ -821,7 +821,7 @@ const FaceKioskPage = () => {
     const MIN_MARGIN = 0.04;
     // จำนวนเฟรมต่อเนื่องที่ต้องจับได้คนเดิม ก่อนบันทึก (กันบันทึกผิดจาก descriptor หลุด 1 เฟรม)
     const CONFIRM_FRAMES = 2;
-    const CONFIRM_WINDOW_MS = 1500;
+    const CONFIRM_WINDOW_MS = 3000;
 
     // ── เกณฑ์แบบขั้นบันได ──────────────────────────────────────────────
     // tier 1: ระยะ ≤ 0.42 (cos_sim ≥ 0.58) → ยืนยันอัตโนมัติ (บันทึกได้เลย)
