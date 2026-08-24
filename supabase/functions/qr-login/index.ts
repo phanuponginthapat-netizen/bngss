@@ -65,7 +65,9 @@ Deno.serve(async (req) => {
 
     // หา auth_user_id จากทั้งนักเรียนและบุคลากร (ครู/เจ้าหน้าที่)
     let authUserId: string | null = null;
+    let foundButNoAccount = false;
     if (uuid) {
+      // 1) ตรง auth_user_id ของนักเรียน
       const { data: s } = await admin
         .from("students")
         .select("auth_user_id, status")
@@ -75,7 +77,20 @@ Deno.serve(async (req) => {
         if (s.status && s.status !== "active") return respond({ error: "inactive" }, 403);
         authUserId = s.auth_user_id;
       }
+      // 2) บัตรบางใบพิมพ์ QR เป็น students.id (กรณีนักเรียนยังไม่มีบัญชีตอนพิมพ์)
       if (!authUserId) {
+        const { data: sById } = await admin
+          .from("students")
+          .select("auth_user_id, status")
+          .eq("id", uuid)
+          .maybeSingle();
+        if (sById) {
+          if (sById.status && sById.status !== "active") return respond({ error: "inactive" }, 403);
+          if (sById.auth_user_id) authUserId = sById.auth_user_id;
+          else foundButNoAccount = true;
+        }
+      }
+      if (!authUserId && !foundButNoAccount) {
         const { data: p } = await admin
           .from("personnel")
           .select("user_id, status")
@@ -84,6 +99,19 @@ Deno.serve(async (req) => {
         if (p?.user_id) {
           if (p.status && p.status !== "active") return respond({ error: "inactive" }, 403);
           authUserId = p.user_id;
+        }
+      }
+      // 3) บัตรบุคลากรที่พิมพ์ QR เป็น personnel.id
+      if (!authUserId && !foundButNoAccount) {
+        const { data: pById } = await admin
+          .from("personnel")
+          .select("user_id, status")
+          .eq("id", uuid)
+          .maybeSingle();
+        if (pById) {
+          if (pById.status && pById.status !== "active") return respond({ error: "inactive" }, 403);
+          if (pById.user_id) authUserId = pById.user_id;
+          else foundButNoAccount = true;
         }
       }
     }
@@ -96,8 +124,10 @@ Deno.serve(async (req) => {
       if (s?.auth_user_id) {
         if (s.status && s.status !== "active") return respond({ error: "inactive" }, 403);
         authUserId = s.auth_user_id;
+      } else if (s) {
+        foundButNoAccount = true;
       }
-      if (!authUserId) {
+      if (!authUserId && !foundButNoAccount) {
         const { data: p } = await admin
           .from("personnel")
           .select("user_id, status")
@@ -106,10 +136,14 @@ Deno.serve(async (req) => {
         if (p?.user_id) {
           if (p.status && p.status !== "active") return respond({ error: "inactive" }, 403);
           authUserId = p.user_id;
+        } else if (p) {
+          foundButNoAccount = true;
         }
       }
     }
+    if (!authUserId && foundButNoAccount) return respond({ error: "no_account" }, 409);
     if (!authUserId) return respond({ error: "not_found" }, 404);
+
 
     // ดึง email แล้วออก magic link → แลกเป็น session
     const { data: au } = await admin.auth.admin.getUserById(authUserId);
