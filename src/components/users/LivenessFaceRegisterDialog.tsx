@@ -434,9 +434,17 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
     blinkStateRef.current = { baseline: 0, samples: [], closed: false, closedFrames: 0, blinks: 0, startedAt: 0, baseFrac: 0, maxFrac: 0 } as any;
     (async () => {
       if (personnelId) { setStudentId(personnelId); return; }
-      const { data: s } = await supabase
-        .from("students").select("id").eq("student_code", studentCode || "").maybeSingle();
-      if (!s) { toast.error("ไม่พบนักเรียน"); onOpenChange(false); return; }
+      if (selfPersonnel) { setStudentId("self"); return; } // บุคลากรลงทะเบียนเอง — เซิร์ฟเวอร์หาให้เอง (RPC)
+      const { data: rows } = await supabase
+        .from("students").select("id").eq("student_code", (studentCode || "").trim()).limit(1);
+      const s = rows?.[0];
+      if (!s) {
+        // โหมดลงทะเบียนด้วยตนเอง: ฟังก์ชันฝั่งเซิร์ฟเวอร์จะหานักเรียนจากบัญชีที่ล็อกอินเอง
+        if (submitMode === "request") { setStudentId("self"); return; }
+        toast.error("ไม่พบนักเรียน");
+        onOpenChange(false);
+        return;
+      }
       setStudentId(s.id);
     })();
     return () => { stopCamera(); if (loopRef.current) { clearTimeout(loopRef.current); loopRef.current = null; } };
