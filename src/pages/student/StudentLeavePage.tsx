@@ -71,14 +71,29 @@ const StudentLeaveForm = () => {
         .select("student_code")
         .eq("id", userId!)
         .maybeSingle();
-      if (!profile?.student_code) return null;
-      const { data: student } = await supabase
-        .from("students")
-        .select("id, student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level)")
-        .eq("student_code", profile.student_code)
-        .maybeSingle();
-      return student;
+      if (profile?.student_code) {
+        const { data: student } = await supabase
+          .from("students")
+          .select("id, student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level)")
+          .eq("student_code", profile.student_code)
+          .maybeSingle();
+        if (student) return student;
+      }
+      // สำรอง: ให้เซิร์ฟเวอร์ค้นหา/เชื่อมบัญชีให้ (รหัส/อีเมล/ชื่อ-นามสกุล)
+      const { data: ident } = await (supabase as any).rpc("get_my_face_identity");
+      const row = Array.isArray(ident) ? ident[0] : ident;
+      if (!row || row.kind !== "student") return null;
+      (supabase as any).rpc("link_my_identity");
+      return {
+        id: row.person_id,
+        student_code: row.code,
+        prefix: row.prefix,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        classrooms: row.classroom_name ? { name: row.classroom_name, grade_level: null } : null,
+      } as any;
     },
+
   });
 
   const studentId = myStudent?.id;
