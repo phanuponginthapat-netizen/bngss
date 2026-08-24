@@ -452,13 +452,12 @@ const Dashboard = () => {
           <CardContent>
             {isLoading ? <Skeleton className="h-[180px]" /> : totalAtt > 0 ? (
               <div className="flex items-center gap-5">
-                <ResponsiveContainer width={120} height={120}>
-                  <PieChart>
-                    <Pie data={stats!.attData} cx="50%" cy="50%" innerRadius={38} outerRadius={55} paddingAngle={3} dataKey="value" strokeWidth={0}>
-                      {stats!.attData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
+                <PieChart width={120} height={120}>
+                  <Pie data={stats!.attData} cx="50%" cy="50%" innerRadius={38} outerRadius={55} paddingAngle={3} dataKey="value" strokeWidth={0}>
+                    {stats!.attData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                  </Pie>
+                </PieChart>
+
                 <div className="flex-1 space-y-2.5">
                   <AttRow color="hsl(var(--success))" label={L("มาเรียน", "Present")} value={presentN} total={totalAtt} />
                   <AttRow color="hsl(var(--warning))" label={L("สาย", "Late")} value={lateN} total={totalAtt} />
