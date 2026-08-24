@@ -450,8 +450,8 @@ export default function ParentAppPage() {
               {b.faceLogs.map((f) => (
                 <div key={f.id} className="flex items-center justify-between rounded-lg border bg-muted/20 px-3 py-2">
                   <div className="flex items-center gap-2">
-                    <Badge variant={f.status === "present" ? "default" : f.status === "late" ? "secondary" : "outline"} className="capitalize">
-                      {f.status || f.scan_type || "scan"}
+                    <Badge variant={f.scan_type === "in" ? "default" : "secondary"} className="capitalize">
+                      {f.scan_type || "scan"}
                     </Badge>
                     <span className="text-xs font-mono">{f.scan_time?.slice(0, 8) || new Date(f.created_at).toLocaleTimeString("th-TH")}</span>
                   </div>
