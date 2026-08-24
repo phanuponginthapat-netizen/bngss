@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { DoorOpen } from "lucide-react";
 
 const getBranding = () => {
   if (typeof window === "undefined") return null as any;
@@ -12,8 +13,44 @@ const getBranding = () => {
   }
 };
 
+const isKioskRoute = () => {
+  if (typeof window === "undefined") return false;
+  return /^\/(kiosk|face-kiosk)(\/|$)/i.test(window.location.pathname) || /^\/kiosk-/i.test(window.location.pathname);
+};
+
+const KioskLoader = () => (
+  <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-slate-900 via-slate-950 to-black">
+    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(56,189,248,0.12),transparent_60%)]" />
+    <div className="relative flex flex-col items-center gap-5 px-8">
+      <div className="relative w-24 h-24 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 shadow-2xl flex items-center justify-center border border-slate-700/50 animate-float">
+        <DoorOpen className="w-12 h-12 text-sky-400" />
+        <div className="absolute inset-0 rounded-2xl bg-sky-400/20 blur-xl animate-pulse-soft" />
+      </div>
+      <div className="text-white text-xl font-bold tracking-tight text-center">ตู้สแกนหน้า</div>
+      <div className="w-56 h-2 rounded-full bg-slate-800 overflow-hidden">
+        <div className="h-full w-1/2 rounded-full bg-gradient-to-r from-sky-500 via-sky-400 to-emerald-400 animate-[loader-slide_1.4s_ease-in-out_infinite]" />
+      </div>
+      <div className="text-slate-400 text-sm font-medium tracking-wide flex items-center gap-1.5">
+        กำลังโหลดระบบ
+        <span className="inline-flex gap-1 ml-1">
+          <span className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+          <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+          <span className="w-1.5 h-1.5 bg-sky-300 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+        </span>
+      </div>
+    </div>
+    <style>{`
+      @keyframes loader-slide {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(200%); }
+      }
+    `}</style>
+  </div>
+);
+
 const SystemLoader = () => {
   const [b, setBranding] = useState<any>(() => getBranding());
+  const kiosk = useMemo(() => isKioskRoute(), []);
 
   useEffect(() => {
     const onBrandingReady = (event: Event) => {
@@ -23,6 +60,8 @@ const SystemLoader = () => {
     setBranding(getBranding());
     return () => window.removeEventListener("branding:ready", onBrandingReady);
   }, []);
+
+  if (kiosk) return <KioskLoader />;
 
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-sky-100 via-sky-50 to-rose-100">
