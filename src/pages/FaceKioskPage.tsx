@@ -35,7 +35,7 @@ import { wakeKioskScreen } from "@/lib/kioskWake";
 import { getRegisteredFaceImage } from "@/lib/registeredFace";
 import { checkTodayScan, markScanned, methodLabel } from "@/lib/scanDedup";
 import { useKioskHeartbeat } from "@/hooks/useKioskHeartbeat";
-import { KIOSK_PERF_KEY, KIOSK_PERF_PROFILES, loadKioskPerfMode, type KioskPerfMode } from "@/lib/kioskPerf";
+import { KIOSK_PERF_KEY, KIOSK_PERF_PROFILES, KIOSK_TURBO_PROFILE, loadKioskPerfMode, type KioskPerfMode } from "@/lib/kioskPerf";
 
 import { saveErrorMessage } from "@/lib/saveError";
 import { notifyRole } from "@/lib/notify";
@@ -484,11 +484,10 @@ const FaceKioskPage = () => {
 
       // === Local webcam (รองรับกล้อง USB / กล้องหน้า-หลังหลายรุ่น) ===
       const wide = mode === "wide";
-      const isAtom = perfMode === "atom";
       const res = await openCamera({
         facing: wide ? "environment" : "user",
-        width: isAtom ? 1920 : Math.min(wide ? 1920 : 1280, perf.videoWidth),
-        height: isAtom ? 1080 : Math.min(wide ? 1080 : 720, perf.videoHeight),
+        width: Math.min(wide ? 1280 : 1280, perf.videoWidth),
+        height: Math.min(wide ? 720 : 720, perf.videoHeight),
         frameRate: perf.frameRate,
       });
       await applyCameraAutoTune(res.stream);
@@ -816,7 +815,7 @@ const FaceKioskPage = () => {
     // input ใหญ่ขึ้น = เก็บรายละเอียดใบหน้าได้มาก แต่กินซีพียูมาก — ปรับตามโปรไฟล์ประสิทธิภาพ
     const opts = detectorOptionsHQ(perf.inputSize, 0.35);
     // ขนาดใบหน้าขั้นต่ำ (พิกเซลในเฟรม) ป้องกัน descriptor เพี้ยนจากใบหน้าที่เล็กเกิน
-    const MIN_FACE_PX = perfMode === "atom" || perfMode === "low" ? 56 : 70;
+    const MIN_FACE_PX = 56;
     // ระยะห่างระหว่าง best vs second-best ขั้นต่ำ — ยืนยันว่าระบุตัวตนได้ชัดเจน ไม่ไปทับคนอื่น
     const MIN_MARGIN = 0.04;
     // จำนวนเฟรมต่อเนื่องที่ต้องจับได้คนเดิม ก่อนบันทึก (กันบันทึกผิดจาก descriptor หลุด 1 เฟรม)
@@ -872,13 +871,13 @@ const FaceKioskPage = () => {
         // ตรวจจับจากเฟรมที่ผ่าน preprocess (contrast/brightness) — ช่วยกล้องคุณภาพต่ำ
         const video = videoRef.current;
           // atom/low: ข้าม preprocess ทั้งหมด (ใช้ video ตรงๆ) — texture ปิดเพื่อลด CPU, liveness ยังเปิด (กันรูปถ่าย)
-          const isAtom = perfMode === "atom" || perfMode === "low";
-          const pre = isAtom ? video : (preprocessFrame(video, { maxWidth: perf.maxWidth, equalize: false }) || video);
+          // Turbo: ใช้เฟรมวิดีโอตรงๆ ไม่ preprocess (ลด CPU) — liveness ยังเปิดกันรูปถ่าย
+          const pre = video;
           const useLiveness = livenessEnabled;
-          const useTexture = textureGate && !isAtom;
+          const useTexture = textureGate;
         const detections = await getAllDescriptors(pre as any, opts, {
           minFaceSize: MIN_FACE_PX * 0.6,
-          cacheTtlMs: perfMode === "atom" ? 200 : 150,
+          cacheTtlMs: 150,
         });
 
         // อัตราส่วนสำหรับสเกล box กลับสู่พิกัดของวิดีโอจริง
@@ -1651,22 +1650,10 @@ const FaceKioskPage = () => {
 
           <div className="space-y-1.5 border-t pt-2">
             <label className="text-xs font-semibold">ประสิทธิภาพการสแกน</label>
-            <div className="grid grid-cols-2 gap-1">
-              {(["atom", "low", "balanced", "high"] as KioskPerfMode[]).map((m) => (
-                <Button
-                  key={m}
-                  size="sm"
-                  variant={perfMode === m ? "default" : "outline"}
-                  onClick={() => { setPerfMode(m); if (camMode !== "network") void startCamera(camMode); }}
-                  className="text-[11px] px-1"
-                >
-                  {m === "atom" ? "⚡ Atom 1080p" : m === "low" ? "ประหยัด" : m === "balanced" ? "สมดุล" : "ละเอียด"}
-                </Button>
-              ))}
-            </div>
+            <p className="text-[11px] font-medium">⚡ {KIOSK_TURBO_PROFILE.label}</p>
             <p className="text-[10px] text-muted-foreground leading-snug">
-              {KIOSK_PERF_PROFILES[perfMode].label} • กล้อง {KIOSK_PERF_PROFILES[perfMode].videoWidth}×{KIOSK_PERF_PROFILES[perfMode].videoHeight}@{KIOSK_PERF_PROFILES[perfMode].frameRate}fps •
-              ตรวจทุก {KIOSK_PERF_PROFILES[perfMode].loopDelayMs}ms{perfMode==="atom" ? " • ย่อ AI เหลือ 480px + ปิด sharpness/texture" : ""} — Atom แนะนำ "⚡ Atom 1080p"
+              กล้อง {KIOSK_TURBO_PROFILE.videoWidth}×{KIOSK_TURBO_PROFILE.videoHeight}@{KIOSK_TURBO_PROFILE.frameRate}fps •
+              ตรวจทุก {KIOSK_TURBO_PROFILE.loopDelayMs}ms • ปรับจูนอัตโนมัติสำหรับเครื่องสเปกต่ำ ไม่ต้องเลือกโหมดอีกต่อไป
             </p>
           </div>
 
@@ -1797,7 +1784,6 @@ const FaceKioskPage = () => {
             <p className="text-[10px] text-muted-foreground leading-snug">
               กล้อง Dahua WizMind ตรวจจับใบหน้าเองแล้วส่งภาพ best-shot เข้าระบบผ่าน bridge
               เครื่องนี้จะ <b>จดจำและบันทึกทันที</b> โดยไม่ต้องรัน detection ทั้งเฟรม (ลด CPU • หน่วง ~0.5–1.5 วิ)
-              {perfMode==="atom" && <span className="text-amber-600"> • Atom แนะนำปิดไว้ถ้าใช้ webcam หลัก</span>}
             </p>
             {wizmindOn && (
               <p className="text-[10px] text-muted-foreground">
