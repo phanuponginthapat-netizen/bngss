@@ -176,6 +176,74 @@ export async function applyCameraAutoTune(stream: MediaStream): Promise<void> {
 }
 
 /**
+ * โหมด "ค่ากล้องเริ่มต้นของอุปกรณ์" (เหมือนหน้าลงทะเบียนใบหน้า)
+ * เปิดเฉพาะ autofocus / auto-exposure / auto-white-balance
+ * ไม่ไปดัน brightness / contrast / gain ใด ๆ — กันภาพขาวโพลนจนจับใบหน้าไม่ได้
+ */
+export async function applyCameraDefaults(stream: MediaStream | null | undefined): Promise<void> {
+  const track = stream?.getVideoTracks?.()[0];
+  if (!track || typeof (track as any).getCapabilities !== "function") return;
+  try {
+    const caps: any = (track as any).getCapabilities?.() ?? {};
+    const advanced: any[] = [];
+    if (caps.focusMode?.includes?.("continuous")) advanced.push({ focusMode: "continuous" });
+    if (caps.exposureMode?.includes?.("continuous")) advanced.push({ exposureMode: "continuous" });
+    if (caps.whiteBalanceMode?.includes?.("continuous")) advanced.push({ whiteBalanceMode: "continuous" });
+    if (advanced.length) await (track as any).applyConstraints({ advanced }).catch(() => {});
+  } catch { /* ข้าม */ }
+}
+
+/** คืนค่าแสง/สี กลับไปเป็นค่าเริ่มต้นของกล้อง (ใช้เมื่อภาพสว่างเกิน) */
+export async function resetCameraExposure(stream: MediaStream | null | undefined): Promise<void> {
+  const track = stream?.getVideoTracks?.()[0];
+  if (!track || typeof (track as any).getCapabilities !== "function") return;
+  try {
+    const caps: any = (track as any).getCapabilities?.() ?? {};
+    const advanced: any[] = [];
+    const mid = (c: any) => (typeof c?.min === "number" && typeof c?.max === "number" ? c.min + (c.max - c.min) * 0.5 : undefined);
+    if (caps.exposureMode?.includes?.("continuous")) advanced.push({ exposureMode: "continuous" });
+    if (caps.whiteBalanceMode?.includes?.("continuous")) advanced.push({ whiteBalanceMode: "continuous" });
+    const b = mid(caps.brightness); if (b !== undefined) advanced.push({ brightness: b });
+    const ec = mid(caps.exposureCompensation); if (ec !== undefined) advanced.push({ exposureCompensation: ec });
+    if (advanced.length) await (track as any).applyConstraints({ advanced }).catch(() => {});
+  } catch { /* ข้าม */ }
+}
+
+/**
+ * ปรับแสงเฉพาะ "ตอนมืดมาก" เท่านั้น แบบค่อยเป็นค่อยไป
+ * สว่างเกิน → คืนค่ากล้องกลับเป็นค่าเริ่มต้น (ไม่หรี่เอง เพราะทำให้ภาพเพี้ยน)
+ */
+export async function gentleLowLightAssist(
+  stream: MediaStream | null | undefined,
+  meanLum: number,
+): Promise<void> {
+  if (!stream || !Number.isFinite(meanLum) || meanLum <= 0) return;
+  if (meanLum > 175) { await resetCameraExposure(stream); return; }
+  if (meanLum >= 70) return;
+  const track = stream.getVideoTracks?.()[0];
+  if (!track || typeof (track as any).getCapabilities !== "function") return;
+  try {
+    const caps: any = (track as any).getCapabilities?.() ?? {};
+    const cur: any = (track as any).getSettings?.() ?? {};
+    const advanced: any[] = [];
+    const step = (key: string) => {
+      const c = caps[key];
+      if (!c || typeof c.min !== "number" || typeof c.max !== "number") return;
+      const range = c.max - c.min;
+      if (range <= 0) return;
+      const now = typeof cur[key] === "number" ? cur[key] : c.min + range * 0.5;
+      // ค่อย ๆ ขึ้นทีละ 8% ของช่วง และไม่เกิน 75% ของช่วง
+      const cap = c.min + range * 0.75;
+      const next = Math.min(cap, now + range * 0.08);
+      if (next > now) advanced.push({ [key]: next });
+    };
+    step("brightness");
+    step("exposureCompensation");
+    if (advanced.length) await (track as any).applyConstraints({ advanced }).catch(() => {});
+  } catch { /* ข้าม */ }
+}
+
+/**
  * ปรับแสงกล้องแบบสองทาง (auto-exposure ของเราเอง)
  * meanLum 0-255 ของ "พื้นที่ใบหน้า":
  *  - < 80  → ดันสว่างขึ้นทีละสเต็ป

@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import {
   loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame,
-  detectorOptionsHQ, applyCameraAutoTune, autoExposureBalance, reportFrameLuminance, preprocessFrame, estimateFaceSharpness, estimateBrightness,
+  detectorOptionsHQ, applyCameraDefaults, gentleLowLightAssist, reportFrameLuminance, preprocessFrame, estimateFaceSharpness, estimateBrightness,
   BANK_GRADE,
   type KnownFace, type MatchResult,
 } from "@/lib/faceApi";
@@ -493,7 +493,8 @@ const FaceKioskPage = () => {
         height: Math.min(wide ? 720 : 720, perf.videoHeight),
         frameRate: perf.frameRate,
       });
-      await applyCameraAutoTune(res.stream);
+      // ใช้ค่ากล้องเริ่มต้นของอุปกรณ์ + autofocus/auto-exposure (เหมือนหน้าลงทะเบียนใบหน้า)
+      await applyCameraDefaults(res.stream);
       if (videoRef.current) {
         await attachStreamToVideo(videoRef.current, res.stream);
         setStreaming(true);
@@ -833,7 +834,7 @@ const FaceKioskPage = () => {
     //         แต่กันคนหน้าคล้ายด้วยการให้เจ้าหน้าที่/ผู้ใช้ยืนยันด้วยตนเอง
     const AUTO_DIST = 0.42;
     /** ตรงมากจนไม่ต้องรอเฟรมยืนยันเพิ่ม (fast-pass) — ลดเวลายืนหน้าเครื่อง */
-    const STRONG_DIST = 0.32;
+    const STRONG_DIST = 0.38;
     const MANUAL_DIST = 0.55;
 
     const MANUAL_MIN_MARGIN = 0.03;
@@ -914,9 +915,10 @@ const FaceKioskPage = () => {
               const tooBright = brightness > BANK_GRADE.BRIGHTNESS_MAX + 10;
               // กล้องโน้ตบุ๊ก/USB บางรุ่น ภาพมืดมากหรือขาวโพลน — ปรับ exposure ของฮาร์ดแวร์เองแบบสองทาง
               reportFrameLuminance(brightness);
-              if ((tooDark || tooBright) && tNow - lastLowLightBoostRef.current > 2000) {
+              if ((tooDark || tooBright) && tNow - lastLowLightBoostRef.current > 2500) {
                 lastLowLightBoostRef.current = tNow;
-                void autoExposureBalance(video.srcObject as MediaStream | null, brightness);
+                // มืดมากเท่านั้นถึงค่อย ๆ เพิ่มแสง / สว่างเกินให้คืนค่าเริ่มต้นของกล้อง
+                void gentleLowLightAssist(video.srcObject as MediaStream | null, brightness);
               }
 
 
@@ -1061,7 +1063,7 @@ const FaceKioskPage = () => {
                   confirmRef.current.set(found.studentId, { count: 1, lastTs: tNow });
                 }
                 // Fast-pass: ตรงมาก + ใบหน้าใหญ่ชัด → ยืนยันเฟรมเดียว ไม่ต้องยืนรอ
-                const strongHit = m.distance <= STRONG_DIST && m.margin >= MIN_MARGIN * 2 && faceSize >= MIN_FACE_PX * 1.25;
+                const strongHit = m.distance <= STRONG_DIST && m.margin >= MIN_MARGIN * 1.5 && faceSize >= MIN_FACE_PX * 1.1;
                 const needFrames = strongHit ? 1 : CONFIRM_FRAMES;
                 const confirmed = (confirmRef.current.get(found.studentId)?.count ?? 0) >= needFrames;
                 // ใบหน้าสด (anti-spoof): สะสมหลักฐาน blink/ขยับศีรษะ — รูปถ่าย/จอภาพที่นิ่งจะไม่มีหลักฐาน
@@ -1070,11 +1072,11 @@ const FaceKioskPage = () => {
                   let track = livenessRef.current.get(found.studentId);
                   if (!track) { track = newLivenessTrack(); livenessRef.current.set(found.studentId, track); }
                   live = recordLivenessSample(track, makeLivenessSample(tNow, det.landmarks, box)).live;
-                  // กันผู้ใช้ยืนรอนานเกินไป — เห็นใบหน้าคนเดิมต่อเนื่องเกิน 6 วินาที
+                  // กันผู้ใช้ยืนรอนานเกินไป — เห็นใบหน้าคนเดิมต่อเนื่องเกิน 1.5 วินาที
                   // และเป็น match ที่แน่นมาก ให้ผ่าน (รูปถ่ายจะถูกกรองด้วย texture gate อยู่แล้ว)
                   if (!live && strongHit) {
                     const firstSeen = (track.samples[0]?.t ?? tNow);
-                    if (tNow - firstSeen > 6000) live = true;
+                    if (tNow - firstSeen > 1500) live = true;
                   }
                 }
                 if (confirmed && live) {
