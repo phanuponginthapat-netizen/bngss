@@ -193,18 +193,30 @@ export async function applyCameraDefaults(stream: MediaStream | null | undefined
   } catch { /* ข้าม */ }
 }
 
-/** คืนค่าแสง/สี กลับไปเป็นค่าเริ่มต้นของกล้อง (ใช้เมื่อภาพสว่างเกิน) */
+/** คืนค่าแสง/สี กลับไปเป็นค่าอัตโนมัติของกล้อง และหรี่ลงถ้ายังขาวโพลน */
 export async function resetCameraExposure(stream: MediaStream | null | undefined): Promise<void> {
   const track = stream?.getVideoTracks?.()[0];
   if (!track || typeof (track as any).getCapabilities !== "function") return;
   try {
     const caps: any = (track as any).getCapabilities?.() ?? {};
+    const cur: any = (track as any).getSettings?.() ?? {};
     const advanced: any[] = [];
-    const mid = (c: any) => (typeof c?.min === "number" && typeof c?.max === "number" ? c.min + (c.max - c.min) * 0.5 : undefined);
     if (caps.exposureMode?.includes?.("continuous")) advanced.push({ exposureMode: "continuous" });
     if (caps.whiteBalanceMode?.includes?.("continuous")) advanced.push({ whiteBalanceMode: "continuous" });
-    const b = mid(caps.brightness); if (b !== undefined) advanced.push({ brightness: b });
-    const ec = mid(caps.exposureCompensation); if (ec !== undefined) advanced.push({ exposureCompensation: ec });
+    // หรี่ลงทีละ 10% ของช่วง (ไม่ต่ำกว่ากึ่งกลาง) แทนการดันไปค่ากลางแบบเดิม
+    const down = (key: string) => {
+      const c = caps[key];
+      if (!c || typeof c.min !== "number" || typeof c.max !== "number") return;
+      const range = c.max - c.min;
+      if (range <= 0) return;
+      const mid = c.min + range * 0.5;
+      const now = typeof cur[key] === "number" ? cur[key] : mid;
+      const next = Math.max(c.min, Math.min(now, now - range * 0.1));
+      if (next < now) advanced.push({ [key]: next });
+    };
+    down("brightness");
+    down("exposureCompensation");
+    down("gain");
     if (advanced.length) await (track as any).applyConstraints({ advanced }).catch(() => {});
   } catch { /* ข้าม */ }
 }
@@ -218,7 +230,7 @@ export async function gentleLowLightAssist(
   meanLum: number,
 ): Promise<void> {
   if (!stream || !Number.isFinite(meanLum) || meanLum <= 0) return;
-  if (meanLum > 175) { await resetCameraExposure(stream); return; }
+  if (meanLum > 160) { await resetCameraExposure(stream); return; }
   if (meanLum >= 70) return;
   const track = stream.getVideoTracks?.()[0];
   if (!track || typeof (track as any).getCapabilities !== "function") return;

@@ -1174,13 +1174,8 @@ for DEV in /dev/video*; do
 
   set_ctl() { v4l2-ctl -d "$DEV" --set-ctrl "$1=$2" >/dev/null 2>&1; }
   has_ctl() { v4l2-ctl -d "$DEV" -l 2>/dev/null | grep -q "^ *$1"; }
-  ctl_max() { v4l2-ctl -d "$DEV" -l 2>/dev/null | sed -n "s/^ *$1 .*max=\([-0-9]*\).*/\1/p" | head -1; }
-  ctl_min() { v4l2-ctl -d "$DEV" -l 2>/dev/null | sed -n "s/^ *$1 .*min=\([-0-9]*\).*/\1/p" | head -1; }
-  ctl_pct() { # $1=control $2=percent → ค่าในช่วง min..max
-    local mn mx; mn=$(ctl_min "$1"); mx=$(ctl_max "$1")
-    [ -n "$mn" ] && [ -n "$mx" ] || return 1
-    echo $(( mn + (mx - mn) * $2 / 100 ))
-  }
+  ctl_def() { v4l2-ctl -d "$DEV" -l 2>/dev/null | sed -n "s/^ *$1 .*default=\([-0-9]*\).*/\1/p" | head -1; }
+  reset_ctl() { local d; d=$(ctl_def "$1"); [ -n "$d" ] && set_ctl "$1" "$d"; }
 
   # 1) auto exposure ต่อเนื่อง (3 = aperture priority) + white balance อัตโนมัติ
   has_ctl auto_exposure && set_ctl auto_exposure 3
@@ -1188,20 +1183,18 @@ for DEV in /dev/video*; do
   has_ctl exposure_auto_priority && set_ctl exposure_auto_priority 0   # 0 = ห้ามลด fps ตอนแสงน้อย (สำคัญมาก!)
   has_ctl white_balance_temperature_auto && set_ctl white_balance_temperature_auto 1
   has_ctl white_balance_automatic && set_ctl white_balance_automatic 1
-
-  # 2) ความสว่าง/คอนทราสต์/เกน — ดันขึ้นให้เห็นหน้าในห้องแสงน้อย
-  V=$(ctl_pct brightness 72) && [ -n "$V" ] && set_ctl brightness "$V"
-  V=$(ctl_pct gain 70)       && [ -n "$V" ] && set_ctl gain "$V"
-  V=$(ctl_pct contrast 60)   && [ -n "$V" ] && set_ctl contrast "$V"
-  V=$(ctl_pct saturation 55) && [ -n "$V" ] && set_ctl saturation "$V"
-  V=$(ctl_pct sharpness 70)  && [ -n "$V" ] && set_ctl sharpness "$V"
-  has_ctl backlight_compensation && set_ctl backlight_compensation 1
   has_ctl gain_automatic && set_ctl gain_automatic 1
 
-  # 3) ไฟบ้านไทย 50Hz — กันภาพมืดสลับริ้วและกันกล้องลดชัตเตอร์
+  # 2) คืนค่าภาพเป็น "ค่าเริ่มต้นของกล้อง" (ArcFace ต้องการภาพปกติ)
+  #    เดิมดัน brightness/gain/contrast สูง → ภาพขาวโพลน จับใบหน้าไม่ได้
+  for C in brightness gain contrast saturation sharpness gamma backlight_compensation; do
+    has_ctl "$C" && reset_ctl "$C"
+  done
+
+  # 3) ไฟบ้านไทย 50Hz — กันภาพริ้ว
   has_ctl power_line_frequency && set_ctl power_line_frequency 1
 
-  logger -t kiosk "camera tuned: $DEV"
+  logger -t kiosk "camera reset to defaults: $DEV"
 done
 exit 0
 EOF
@@ -1212,7 +1205,7 @@ cat >"$USER_HOME/.config/autostart/kiosk-camera.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Kiosk Camera Tune
-Exec=sh -c 'sleep 8; while true; do /opt/kiosk/fix-camera.sh; sleep 60; done'
+Exec=sh -c 'sleep 8; /opt/kiosk/fix-camera.sh; true'
 X-GNOME-Autostart-enabled=true
 EOF
 cat >/etc/udev/rules.d/95-kiosk-camera.rules <<'EOF'
