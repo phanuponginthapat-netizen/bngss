@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import {
   loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame,
-  detectorOptionsHQ, applyCameraAutoTune, boostCameraForLowLight, preprocessFrame, estimateFaceSharpness, estimateBrightness,
+  detectorOptionsHQ, applyCameraAutoTune, autoExposureBalance, reportFrameLuminance, preprocessFrame, estimateFaceSharpness, estimateBrightness,
   BANK_GRADE,
   type KnownFace, type MatchResult,
 } from "@/lib/faceApi";
