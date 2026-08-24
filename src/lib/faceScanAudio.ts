@@ -2,11 +2,18 @@
 let _audioCtx: AudioContext | null = null;
 function getCtx(): AudioContext | null {
   try {
-    if (!_audioCtx) _audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    if (!_audioCtx) {
+      const Ctor = (window.AudioContext || (window as any).webkitAudioContext);
+      // latencyHint "playback" = บัฟเฟอร์ใหญ่ขึ้นมาก → เสียงไม่ขาด/กระตุกบนเครื่องสเปกต่ำ
+      // ที่ CPU ถูกใช้เต็มโดยการตรวจจับใบหน้า (Atom/HP thin client)
+      try { _audioCtx = new Ctor({ latencyHint: "playback" }); }
+      catch { _audioCtx = new Ctor(); }
+    }
     if (_audioCtx.state === "suspended") _audioCtx.resume().catch(() => {});
     return _audioCtx;
   } catch { return null; }
 }
+
 
 /**
  * ปลดล็อกระบบเสียงบน iOS Safari — ต้องเรียกจากภายใน user gesture (เช่น onClick)
