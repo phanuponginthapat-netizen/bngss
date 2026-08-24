@@ -1214,6 +1214,7 @@ const FaceKioskPage = () => {
         );
       }
     };
+    setQrEngine(BD ? "native" : "jsQR");
     loop();
     return () => {
       cancelled = true;
@@ -1316,6 +1317,7 @@ const FaceKioskPage = () => {
   // กันสแกนซ้ำผ่าน seenTodayRef + cooldownRef เดิม (รวมถึงเคสจับทั้งหน้า+QR พร้อมกัน)
   const qrCooldownRef = useRef<Map<string, number>>(new Map());
   const lastQrAtRef = useRef<number>(0);
+  const [qrEngine, setQrEngine] = useState<string>("");
   useEffect(() => {
     if (!streaming || screensaver) return;
     // @ts-ignore — BarcodeDetector ยังไม่อยู่ใน TS lib มาตรฐาน
@@ -1490,7 +1492,10 @@ const FaceKioskPage = () => {
           if (rawCodes.length) detectorHits++;
           else detectorMisses++;
           // ไม่เคยอ่านได้เลยใน ~8 วินาทีแรก → ปิด native แล้วใช้ jsQR แทน
-          if (detector && detectorHits === 0 && detectorMisses > 60 && jsQR) detector = null;
+          if (detector && detectorHits === 0 && detectorMisses > 60 && jsQR) {
+            detector = null;
+            setQrEngine("jsQR");
+          }
           // เสริมด้วย jsQR ระหว่างที่ native ยังไม่เคยอ่านได้ (กันเคสอ่านไม่ออกเงียบ ๆ)
           if (!rawCodes.length && detectorHits === 0 && jsQR) {
             rawCodes = scanJsQrMulti(videoRef.current);
@@ -1689,7 +1694,7 @@ const FaceKioskPage = () => {
           <LogOut className="w-3 h-3 mr-1 text-rose-600" /> ออก {todayCounts.exit}
         </Badge>
         <Badge variant="secondary" className={`backdrop-blur-sm border-white/60 ${qrOnly ? "bg-indigo-600 text-white" : "bg-white/80 text-slate-700"}`}>
-          <QrCode className="w-3 h-3 mr-1" /> {qrOnly ? "QR เท่านั้น" : "QR สำรอง"}
+          <QrCode className="w-3 h-3 mr-1" /> {qrOnly ? "QR เท่านั้น" : "QR สำรอง"}{qrEngine ? ` • ${qrEngine}` : ""}
         </Badge>
         <Badge variant="secondary" className="bg-white/80 backdrop-blur-sm border-white/60 text-slate-700">
           {online ? <Wifi className="w-3 h-3 mr-1 text-emerald-600" /> : <WifiOff className="w-3 h-3 mr-1 text-amber-500" />}
