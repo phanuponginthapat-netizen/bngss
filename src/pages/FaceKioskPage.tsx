@@ -668,7 +668,7 @@ const FaceKioskPage = () => {
         if (now - lastNotice > 5_000) {
           duplicateNoticeRef.current.set(wkey, now);
           playDuplicateSound();
-          toast.warning("ปฏิเสธการสแกน", { description: `${name} ยังไม่ได้บันทึกเข้าโรงเรียนวันนี้`, duration: 2200 });
+          showNotice("warning", "ปฏิเสธการสแกน", `${name} ยังไม่ได้บันทึกเข้าโรงเรียนวันนี้`, 3000);
         }
         return;
       }
