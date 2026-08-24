@@ -1,0 +1,71 @@
+name: Auto Deploy (DB → Functions → Web)
+
+# ทุก push ขึ้น main จะรันอัตโนมัติตามลำดับ:
+#   1) push migrations ขึ้น Supabase ของโรงเรียน
+#   2) deploy edge functions
+#   3) build + deploy เว็บขึ้น Vercel
+# ต้องมี GitHub Secrets: SUPABASE_ACCESS_TOKEN, VERCEL_TOKEN
+# (ไม่บังคับ) SUPABASE_PROJECT_REF ถ้าต้องการ override backend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: auto-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      db: ${{ steps.filter.outputs.db }}
+      functions: ${{ steps.filter.outputs.functions }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - id: filter
+        run: |
+          set -e
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "db=true"        >> "$GITHUB_OUTPUT"
+            echo "functions=true" >> "$GITHUB_OUTPUT"
+            echo "web=true"       >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          BASE="${{ github.event.before }}"
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            CHANGED="$(git ls-files)"
+          else
+            CHANGED="$(git diff --name-only "$BASE" "${{ github.sha }}" || git ls-files)"
+          fi
+          echo "$CHANGED"
+          has() { echo "$CHANGED" | grep -qE "$1" && echo true || echo false; }
+          echo "db=$(has '^supabase/migrations/')"                                   >> "$GITHUB_OUTPUT"
+          echo "functions=$(has '^supabase/(functions/|config\.toml)')"              >> "$GITHUB_OUTPUT"
+          echo "web=$(has '^(src/|public/|index\.html|package(-lock)?\.json|vite\.config\.ts|vercel\.json|tailwind\.config\.ts)')" >> "$GITHUB_OUTPUT"
+
+  database:
+    needs: changes
+    if: needs.changes.outputs.db == 'true'
+    uses: ./.github/workflows/supabase-db-push.yml
+    secrets: inherit
+
+  functions:
+    needs: [changes, database]
+    # รันแม้ database ถูกข้าม แต่ไม่รันถ้า database ล้มเหลว
+    if: always() && needs.changes.outputs.functions == 'true' && needs.database.result != 'failure'
+    uses: ./.github/workflows/deploy-edge-functions.yml
+    secrets: inherit
+
+  web:
+    needs: [changes, database, functions]
+    if: always() && needs.changes.outputs.web == 'true' && needs.database.result != 'failure' && needs.functions.result != 'failure'
+    uses: ./.github/workflows/deploy-vercel.yml
+    secrets: inherit
