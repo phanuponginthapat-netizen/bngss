@@ -34,16 +34,16 @@ KIOSK_WIFI_PASS="${KIOSK_WIFI_PASS:-}"
 
 # ── โหลด kiosk_config จาก CMS (ext-config) เพื่อ override ค่าที่ผู้ใช้ตั้งไว้ในหน้า Kiosk Setup ──
 # ผู้ใช้ไม่ต้องส่ง env var เอง — ค่าที่ตั้งในเว็บจะถูกใช้เป็น default โดยอัตโนมัติ
-CMS_BASE="${CMS_BASE:-https://dlkyxvhnnffblerwedjz.supabase.co}"
-CMS_ANON_KEY="${CMS_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4}"
+CMS_BASE="${CMS_BASE:-https://gwmszzoqqxmejefhayqf.supabase.co}"
+CMS_ANON_KEY="${CMS_ANON_KEY:-sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v}"
 
 # ── Backend guard — ต้องเป็น backend ของโรงเรียนเท่านั้น ห้าม Lovable Cloud ──
-CANONICAL_BACKEND="https://dlkyxvhnnffblerwedjz.supabase.co"
+CANONICAL_BACKEND="https://gwmszzoqqxmejefhayqf.supabase.co"
 case "$CMS_BASE" in
   *lovableproject.com*|*lovable.dev*|*dlkyxvhnnffblerwedjz*)
     echo "⚠  CMS_BASE ชี้ไป Lovable Cloud ($CMS_BASE) — บังคับกลับเป็น backend โรงเรียน"
     CMS_BASE="$CANONICAL_BACKEND"
-    CMS_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4"
+    CMS_ANON_KEY="sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v"
     ;;
 esac
 echo "► Backend: $CMS_BASE"
@@ -57,8 +57,34 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 CFG_JSON=$(curl -fsSL --max-time 10 -H "apikey: $CMS_ANON_KEY" "$CMS_BASE/functions/v1/ext-config" 2>/dev/null || true)
+if [[ -z "$CFG_JSON" || "$CFG_JSON" == *'"code"'*'404'* ]]; then
+  # fallback: อ่านตรงจากตาราง cms_settings (กรณี backend ไม่มี edge function ext-config)
+  echo "► ext-config ไม่พร้อม — อ่าน CMS จาก REST (cms_settings)"
+  ROWS_JSON=$(curl -fsSL --max-time 10 -H "apikey: $CMS_ANON_KEY" -H "Authorization: Bearer $CMS_ANON_KEY" \
+    "$CMS_BASE/rest/v1/cms_settings?select=key,value&key=in.(school_name,app_name,school_logo,school_logo_512,app_favicon_url,theme_color,primary_color,kiosk_config)" 2>/dev/null || true)
+  if [[ -n "$ROWS_JSON" ]] && command -v python3 >/dev/null 2>&1; then
+    CFG_JSON=$(ROWS_JSON="$ROWS_JSON" python3 - <<'PYEOF' 2>/dev/null || true
+import json,os
+out={}
+try: rows=json.loads(os.environ.get("ROWS_JSON","[]"))
+except Exception: rows=[]
+for r in rows if isinstance(rows,list) else []:
+    k=r.get("key"); v=r.get("value")
+    if not k: continue
+    if k=="kiosk_config" and isinstance(v,str):
+        try: v=json.loads(v)
+        except Exception: pass
+    out[k]=v
+print(json.dumps(out,ensure_ascii=False))
+PYEOF
+)
+  else
+    CFG_JSON=""
+  fi
+fi
 if [[ -z "$CFG_JSON" ]]; then
   echo "⚠  ดึง CMS config ไม่ได้ (network/DNS?) — ใช้ค่า default"
+
 elif ! command -v python3 >/dev/null 2>&1; then
   echo "⚠  ไม่มี python3 — ข้าม CMS config"
 else
@@ -690,8 +716,8 @@ log "▶  [5.5/10] ดึง branding จาก CMS + ติดตั้ง Plym
 
 # ดึง config จาก edge function (public) — timeout สั้น ไม่ตายถ้าเน็ตล้ม
 # Edge Functions รันบน Supabase (ไม่ใช่ที่ app URL) — ต้อง hard-code project ref
-CMS_SUPABASE_URL="${CMS_SUPABASE_URL:-https://dlkyxvhnnffblerwedjz.supabase.co}"
-CMS_SUPABASE_ANON="${CMS_SUPABASE_ANON:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4}"
+CMS_SUPABASE_URL="${CMS_SUPABASE_URL:-https://gwmszzoqqxmejefhayqf.supabase.co}"
+CMS_SUPABASE_ANON="${CMS_SUPABASE_ANON:-sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v}"
 CMS_JSON=$(curl -sf --max-time 8 "$CMS_SUPABASE_URL/functions/v1/ext-config" \
   -H "apikey: $CMS_SUPABASE_ANON" \
   -H "Authorization: Bearer $CMS_SUPABASE_ANON" \
