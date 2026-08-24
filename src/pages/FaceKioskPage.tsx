@@ -750,7 +750,7 @@ const FaceKioskPage = () => {
       time: new Date().toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
       scanType: mode,
     }, ...r].slice(0, 10));
-  }, [voiceEnabled, runGate]);
+  }, [voiceEnabled, runGate, showNotice]);
 
   // ===== ลงเวลาปฏิบัติงานบุคลากรจากการสแกนใบหน้าที่คีออส =====
   const clockStaff = useCallback(async (
