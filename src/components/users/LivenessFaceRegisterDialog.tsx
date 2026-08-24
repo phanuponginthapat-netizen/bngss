@@ -774,19 +774,26 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         }
 
         // ---- 1) ตรวจสอบว่าตัวอย่างเป็น "คนเดียวกัน" โดยใช้ค่ากลาง + ตัด outlier ----
-        const medians = samples.map((sa, i) =>
-          median(samples.filter((_, j) => j !== i).map((sb) => euclidean(sa.descriptor, sb.descriptor))),
+        // ใช้เฉพาะเฟรมที่แสงปกติ และไม่ใช่ขั้นตอนแสงสี (จอสาดสีทำให้ค่าใบหน้าเพี้ยนเป็นธรรมชาติ)
+        const refPool = samples.filter(
+          (sm) => sm.metrics.stepKey !== "color" && sm.metrics.lum >= LUM_OK_MIN && sm.metrics.lum <= LUM_OK_MAX,
         );
-        let usable = samples.filter((_, i) => medians[i] <= SAMPLE_OUTLIER_MAX);
-        if (usable.length < 2) usable = samples;
+        const checkPool = refPool.length >= 3 ? refPool : samples.filter((sm) => sm.metrics.stepKey !== "color");
+        const pool = checkPool.length >= 3 ? checkPool : samples;
+        const medians = pool.map((sa, i) =>
+          median(pool.filter((_, j) => j !== i).map((sb) => euclidean(sa.descriptor, sb.descriptor))),
+        );
+        let usable = pool.filter((_, i) => medians[i] <= SAMPLE_OUTLIER_MAX);
+        if (usable.length < 2) usable = pool;
         const usableMedians = usable.map((sa, i) =>
           median(usable.filter((_, j) => j !== i).map((sb) => euclidean(sa.descriptor, sb.descriptor))),
         );
         const overall = median(usableMedians);
-        if (samples.length >= 3 && overall > SELF_CONSISTENCY_MEDIAN_MAX) {
+        if (pool.length >= 4 && overall > SELF_CONSISTENCY_MEDIAN_MAX) {
           blockedRef.current = true;
           setBlockedMsg(
-            `ตรวจพบใบหน้าไม่ตรงกันระหว่างขั้นตอน (ค่าต่าง ${overall.toFixed(2)}) — กรุณาลงทะเบียนใหม่โดยให้เป็นคนเดียวกันตลอด`,
+            `ตรวจพบใบหน้าไม่ตรงกันระหว่างขั้นตอน (ค่าต่าง ${overall.toFixed(2)}) — ` +
+            `อาจเกิดจากแสงจ้า/ย้อนแสง กรุณาลงทะเบียนใหม่ในที่แสงสม่ำเสมอ และเป็นคนเดียวกันตลอด`,
           );
           throw new Error("ตรวจพบใบหน้ามากกว่า 1 คนระหว่างการลงทะเบียน");
         }
@@ -802,15 +809,21 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             return true;
           })
           .slice(0, MAX_SAMPLES);
-        const finalSamples = picked.length >= MIN_SAMPLES ? picked : usable.slice(0, MAX_SAMPLES);
+        let finalSamples = picked.length >= MIN_SAMPLES ? picked : usable.slice(0, MAX_SAMPLES);
+        // เติมจากชุดเต็มถ้ายังไม่ถึงขั้นต่ำ (ไม่ทิ้งงานผู้ใช้ทั้งชุดเพราะแสงไม่ดีบางเฟรม)
+        if (finalSamples.length < MIN_SAMPLES) {
+          const extra = samples.filter((sm) => !finalSamples.includes(sm));
+          finalSamples = [...finalSamples, ...extra].slice(0, MAX_SAMPLES);
+        }
 
-        // ---- 1.2) ต้องมีมุมหลากหลาย (หน้าตรง + ซ้าย + ขวา) ไม่งั้นระบบจะจำผิดคนตอนสแกน ----
+        // ---- 1.2) ควรมีมุมหลากหลาย: บังคับแค่ "หน้าตรง + อย่างน้อย 1 ด้าน" ----
         const angleSet = new Set(finalSamples.map((sm) => sm.metrics.stepKey));
-        const missing = (["center", "left", "right"] as StepKey[]).filter((k) => !angleSet.has(k));
-        if (finalSamples.length < MIN_SAMPLES || missing.length) {
+        const hasSide = angleSet.has("left") || angleSet.has("right");
+        if (finalSamples.length < MIN_SAMPLES || !angleSet.has("center") || !hasSide) {
           throw new Error(
             `ภาพใบหน้าที่เก็บได้ยังไม่เพียงพอ (${finalSamples.length}/${MIN_SAMPLES} ภาพ` +
-            (missing.length ? `, ขาดมุม: ${missing.join(", ")}` : "") +
+            (!angleSet.has("center") ? ", ขาดมุมหน้าตรง" : "") +
+            (!hasSide ? ", ขาดมุมด้านข้าง" : "") +
             `) — กรุณากด "เริ่มใหม่" และทำครบทุกขั้นตอนช้าๆ`,
           );
         }
