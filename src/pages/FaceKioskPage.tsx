@@ -1911,8 +1911,8 @@ const FaceKioskPage = () => {
 
             {/* ผลการจับคู่ล่าสุด: ใบหน้าที่ลงทะเบียน vs ใบหน้าตอนสแกน */}
             {lastMatch && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 animate-scale-in">
-                <div className={`flex items-center gap-4 rounded-2xl px-5 py-3 shadow-2xl backdrop-blur bg-white/95 border-2 ${lastMatch.scanType === "exit" ? "border-rose-400" : "border-emerald-400"}`}>
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 animate-scale-in w-[92%] max-w-[640px]">
+                <div className={`flex flex-wrap items-center justify-center gap-4 rounded-2xl px-5 py-3 shadow-2xl backdrop-blur bg-white/95 border-2 ${lastMatch.scanType === "exit" ? "border-rose-400" : "border-emerald-400"}`}>
                   <div className="text-center">
                     <div className="w-24 h-24 rounded-xl overflow-hidden bg-slate-100 border-2 border-slate-300">
                       {lastMatch.registeredFace
@@ -1930,7 +1930,7 @@ const FaceKioskPage = () => {
                     </div>
                     <p className="text-[11px] font-semibold text-slate-600 mt-1">ตอนสแกน</p>
                   </div>
-                  <div className="pl-3 border-l border-slate-200 min-w-[190px]">
+                  <div className="pl-3 sm:border-l border-slate-200 min-w-[190px]">
                     <p className={`text-xs font-bold ${lastMatch.scanType === "exit" ? "text-rose-600" : "text-emerald-600"}`}>
                       บันทึก{lastMatch.scanType === "exit" ? "ออก" : "เข้า"}โรงเรียนแล้ว
                     </p>
