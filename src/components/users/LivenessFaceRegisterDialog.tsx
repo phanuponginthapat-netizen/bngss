@@ -772,6 +772,17 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           .slice(0, MAX_SAMPLES);
         const finalSamples = picked.length >= MIN_SAMPLES ? picked : usable.slice(0, MAX_SAMPLES);
 
+        // ---- 1.2) ต้องมีมุมหลากหลาย (หน้าตรง + ซ้าย + ขวา) ไม่งั้นระบบจะจำผิดคนตอนสแกน ----
+        const angleSet = new Set(finalSamples.map((sm) => sm.metrics.stepKey));
+        const missing = (["center", "left", "right"] as StepKey[]).filter((k) => !angleSet.has(k));
+        if (finalSamples.length < MIN_SAMPLES || missing.length) {
+          throw new Error(
+            `ภาพใบหน้าที่เก็บได้ยังไม่เพียงพอ (${finalSamples.length}/${MIN_SAMPLES} ภาพ` +
+            (missing.length ? `, ขาดมุม: ${missing.join(", ")}` : "") +
+            `) — กรุณากด "เริ่มใหม่" และทำครบทุกขั้นตอนช้าๆ`,
+          );
+        }
+
         // ---- 2) ตรวจสอบใบหน้าซ้ำกับผู้อื่นในระบบ (กันจำผิดคน) ----
         const descriptorArrays = finalSamples.map((sm) => Array.from(sm.descriptor));
 
