@@ -39,19 +39,22 @@ interface Props {
 }
 
 /** ระยะห่าง "ค่ากลาง" สูงสุดที่ยอมรับได้ระหว่างตัวอย่างของคนเดียวกัน
- *  (ขั้นตอนหันซ้าย/ขวา/กะพริบตา ทำให้ระยะคู่ใดคู่หนึ่งกว้างได้ตามธรรมชาติ) */
-const SELF_CONSISTENCY_MEDIAN_MAX = 0.62;
+ *  (ขั้นตอนหันซ้าย/ขวา/แสงสี ทำให้ระยะคู่ใดคู่หนึ่งกว้างได้ตามธรรมชาติ) */
+const SELF_CONSISTENCY_MEDIAN_MAX = 0.72;
 /** ตัวอย่างที่ค่ากลางห่างเกินนี้ถือเป็น outlier → ตัดทิ้งแทนการบล็อกทั้งชุด */
-const SAMPLE_OUTLIER_MAX = 0.72;
+const SAMPLE_OUTLIER_MAX = 0.80;
 /** ถ้าใบหน้าใกล้กับคนอื่นในระบบมากกว่านี้ = ถือว่าซ้ำคน */
 const DUPLICATE_THRESHOLD = 0.36;
 /** จำนวนภาพขั้นต่ำ/สูงสุดที่บันทึกจริง */
-const MIN_SAMPLES = 6;
+const MIN_SAMPLES = 4;
 const MAX_SAMPLES = 12;
 /** จำกัดจำนวนภาพต่อขั้นตอน เพื่อให้ได้มุมหลากหลาย ไม่ซ้ำท่าเดียว */
 const MAX_PER_STEP = 4;
 /** จำนวนภาพที่ต้องเก็บให้ครบในแต่ละขั้นตอน (ยิงรัวหลายเฟรม) */
 const SHOTS_PER_STEP: Partial<Record<string, number>> = { center: 3, near: 2, left: 3, right: 3 };
+/** ช่วงความสว่างที่ใช้ตัดสินว่าเฟรม "ขาวโพลน / มืดเกิน" — ไม่นำมาใช้เช็คความเป็นคนเดียวกัน */
+const LUM_OK_MIN = 55;
+const LUM_OK_MAX = 205;
 
 const median = (xs: number[]) => {
   if (!xs.length) return 0;
@@ -115,6 +118,7 @@ interface CapturedSample {
     noseTipY: number;
     noseWidthFrac: number;   // ความกว้างจมูกเทียบกับใบหน้า
     noseHeightFrac: number;  // ความสูงสันจมูก
+    lum: number;             // ความสว่างเฉลี่ยบริเวณใบหน้า (0-255)
   };
 }
 
@@ -248,6 +252,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
           noseTipY: +((tip.y - box.y) / box.height).toFixed(3),
           noseWidthFrac: +((nxMax - nxMin) / box.width).toFixed(3),
           noseHeightFrac: +((nyMax - nyMin) / box.height).toFixed(3),
+          lum: Math.round(estimateBrightness(v, box)),
         },
       };
     },
@@ -769,19 +774,26 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         }
 
         // ---- 1) ตรวจสอบว่าตัวอย่างเป็น "คนเดียวกัน" โดยใช้ค่ากลาง + ตัด outlier ----
-        const medians = samples.map((sa, i) =>
-          median(samples.filter((_, j) => j !== i).map((sb) => euclidean(sa.descriptor, sb.descriptor))),
+        // ใช้เฉพาะเฟรมที่แสงปกติ และไม่ใช่ขั้นตอนแสงสี (จอสาดสีทำให้ค่าใบหน้าเพี้ยนเป็นธรรมชาติ)
+        const refPool = samples.filter(
+          (sm) => sm.metrics.stepKey !== "color" && sm.metrics.lum >= LUM_OK_MIN && sm.metrics.lum <= LUM_OK_MAX,
         );
-        let usable = samples.filter((_, i) => medians[i] <= SAMPLE_OUTLIER_MAX);
-        if (usable.length < 2) usable = samples;
+        const checkPool = refPool.length >= 3 ? refPool : samples.filter((sm) => sm.metrics.stepKey !== "color");
+        const pool = checkPool.length >= 3 ? checkPool : samples;
+        const medians = pool.map((sa, i) =>
+          median(pool.filter((_, j) => j !== i).map((sb) => euclidean(sa.descriptor, sb.descriptor))),
+        );
+        let usable = pool.filter((_, i) => medians[i] <= SAMPLE_OUTLIER_MAX);
+        if (usable.length < 2) usable = pool;
         const usableMedians = usable.map((sa, i) =>
           median(usable.filter((_, j) => j !== i).map((sb) => euclidean(sa.descriptor, sb.descriptor))),
         );
         const overall = median(usableMedians);
-        if (samples.length >= 3 && overall > SELF_CONSISTENCY_MEDIAN_MAX) {
+        if (pool.length >= 4 && overall > SELF_CONSISTENCY_MEDIAN_MAX) {
           blockedRef.current = true;
           setBlockedMsg(
-            `ตรวจพบใบหน้าไม่ตรงกันระหว่างขั้นตอน (ค่าต่าง ${overall.toFixed(2)}) — กรุณาลงทะเบียนใหม่โดยให้เป็นคนเดียวกันตลอด`,
+            `ตรวจพบใบหน้าไม่ตรงกันระหว่างขั้นตอน (ค่าต่าง ${overall.toFixed(2)}) — ` +
+            `อาจเกิดจากแสงจ้า/ย้อนแสง กรุณาลงทะเบียนใหม่ในที่แสงสม่ำเสมอ และเป็นคนเดียวกันตลอด`,
           );
           throw new Error("ตรวจพบใบหน้ามากกว่า 1 คนระหว่างการลงทะเบียน");
         }
@@ -797,15 +809,21 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             return true;
           })
           .slice(0, MAX_SAMPLES);
-        const finalSamples = picked.length >= MIN_SAMPLES ? picked : usable.slice(0, MAX_SAMPLES);
+        let finalSamples = picked.length >= MIN_SAMPLES ? picked : usable.slice(0, MAX_SAMPLES);
+        // เติมจากชุดเต็มถ้ายังไม่ถึงขั้นต่ำ (ไม่ทิ้งงานผู้ใช้ทั้งชุดเพราะแสงไม่ดีบางเฟรม)
+        if (finalSamples.length < MIN_SAMPLES) {
+          const extra = samples.filter((sm) => !finalSamples.includes(sm));
+          finalSamples = [...finalSamples, ...extra].slice(0, MAX_SAMPLES);
+        }
 
-        // ---- 1.2) ต้องมีมุมหลากหลาย (หน้าตรง + ซ้าย + ขวา) ไม่งั้นระบบจะจำผิดคนตอนสแกน ----
+        // ---- 1.2) ควรมีมุมหลากหลาย: บังคับแค่ "หน้าตรง + อย่างน้อย 1 ด้าน" ----
         const angleSet = new Set(finalSamples.map((sm) => sm.metrics.stepKey));
-        const missing = (["center", "left", "right"] as StepKey[]).filter((k) => !angleSet.has(k));
-        if (finalSamples.length < MIN_SAMPLES || missing.length) {
+        const hasSide = angleSet.has("left") || angleSet.has("right");
+        if (finalSamples.length < MIN_SAMPLES || !angleSet.has("center") || !hasSide) {
           throw new Error(
             `ภาพใบหน้าที่เก็บได้ยังไม่เพียงพอ (${finalSamples.length}/${MIN_SAMPLES} ภาพ` +
-            (missing.length ? `, ขาดมุม: ${missing.join(", ")}` : "") +
+            (!angleSet.has("center") ? ", ขาดมุมหน้าตรง" : "") +
+            (!hasSide ? ", ขาดมุมด้านข้าง" : "") +
             `) — กรุณากด "เริ่มใหม่" และทำครบทุกขั้นตอนช้าๆ`,
           );
         }
@@ -837,9 +855,13 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
         toast.loading("กำลังสร้างข้อมูลใบหน้าหลายสภาพแสง...", { id: __tid_save_1 });
         const variantSamples: CapturedSample[] = [];
         try {
-          const base = [...finalSamples].sort((a, b) => b.metrics.sharpness - a.metrics.sharpness).slice(0, 3);
+          const base = [...finalSamples]
+            // ใช้เฉพาะภาพแสงปกติเป็นต้นแบบ — ภาพขาวโพลน/มืดจัดจะยิ่งเพี้ยนเมื่อใส่ฟิลเตอร์
+            .filter((sm) => sm.metrics.lum >= LUM_OK_MIN && sm.metrics.lum <= LUM_OK_MAX)
+            .sort((a, b) => b.metrics.sharpness - a.metrics.sharpness)
+            .slice(0, 3);
           for (const sm of base) {
-            const vs = await embedFaceVariantsFromUrl(sm.image);
+            const vs = await embedFaceVariantsFromUrl(sm.image, undefined, sm.descriptor);
             for (const v of vs) {
               variantSamples.push({
                 descriptor: v.descriptor,
