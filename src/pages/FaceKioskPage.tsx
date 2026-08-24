@@ -21,7 +21,7 @@ import SmartGatePanel from "@/components/facescan/SmartGatePanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Camera, X, Maximize, ScanFace, Users, Wifi, WifiOff, Settings as SettingsIcon, MapPin, Cctv, QrCode, LogIn, LogOut, Clock } from "lucide-react";
+import { Camera, X, Maximize, ScanFace, Users, Wifi, WifiOff, Settings as SettingsIcon, MapPin, Cctv, QrCode, LogIn, LogOut, Clock, AlertTriangle, XCircle, Info } from "lucide-react";
 import { toast } from "sonner";
 import { useSchoolSetting } from "@/hooks/useSchoolSetting";
 import { useSchoolGeofence, calcDistanceMeters, getCurrentCoords } from "@/hooks/useSchoolGeofence";
