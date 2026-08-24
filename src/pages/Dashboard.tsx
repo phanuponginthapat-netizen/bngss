@@ -87,7 +87,10 @@ const Dashboard = () => {
   // Global realtime is handled by DashboardLayout's useGlobalRealtime()
 
   const { data: stats, isLoading } = useQuery({
-    enabled: true,
+    // Role dashboards fetch their own scoped data. Running the full admin
+    // aggregation for every user delayed the first render and could leave
+    // lower-privilege dashboards appearing empty while denied queries settled.
+    enabled: role === "admin",
     queryKey: ["dashboard_stats_v2"],
     queryFn: async () => {
       const [
