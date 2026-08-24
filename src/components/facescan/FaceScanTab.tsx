@@ -766,9 +766,9 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
                 : justScanned ? "#16a34a" : inCooldown ? "#10b981" : (voteOk && liveOk) ? "#22c55e" : "#3b82f6";
               const voteHits = found ? (voteRef.current.get(found.studentId)?.hits || 0) : 0;
               drawFaceFrame(ctx, {
-                box,
+                box: drawBox,
                 label: found
-                  ? `${found.name}${justScanned ? " ✓ บันทึกแล้ว" : textureFailed ? " พื้นผิวไม่ตรง" : !voteOk && !inCooldown ? ` กำลังยืนยัน ${voteHits}/${VOTE_REQUIRED}` : (voteOk && !liveOk && !inCooldown) ? " ยืนยันใบหน้าสด" : ""}`
+                  ? `${found.name}${justScanned ? " ✓ บันทึกแล้ว" : textureFailed ? " พื้นผิวไม่ตรง" : !voteOk && !inCooldown ? ` 🔒 ล็อกใบหน้า ${voteHits}/${VOTE_REQUIRED}` : (voteOk && !liveOk && !inCooldown) ? " ยืนยันใบหน้าสด" : ""}`
                   : notHuman ? "ไม่ใช่ใบหน้ามนุษย์"
                   : tooBlurry ? "ภาพเบลอ ให้นิ่งสักครู่"
                   : tooDark ? "แสงมืดเกินไป หาที่สว่างขึ้น"
