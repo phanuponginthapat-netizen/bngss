@@ -113,29 +113,40 @@ const MyFaceEnrollPage = () => {
     },
   });
 
-  // สำรองสุดท้าย: ใช้ข้อมูลจากโปรไฟล์ (กรณี RLS ยังไม่ให้อ่านแถวนักเรียน/บุคลากร แต่มีรหัสอยู่ในโปรไฟล์)
-  const { data: profileFallback } = useQuery({
-    queryKey: ["my-face-profile-fallback"],
+  // สำรองสุดท้าย: ให้เซิร์ฟเวอร์หาข้อมูลให้ (ข้าม RLS อย่างปลอดภัย) + ผูกบัญชีอัตโนมัติ
+  const { data: serverIdentity } = useQuery({
+    queryKey: ["my-face-identity"],
     enabled: !isLoading && !loadingP && !me && !mePersonnel,
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, first_name, last_name, student_code, employee_code, avatar_url")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (!data || (!data.student_code && !data.employee_code)) return null;
-      return data;
+      const { data } = await (supabase as any).rpc("get_my_face_identity");
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row) return null;
+      // ผูกบัญชีให้เรียบร้อย ครั้งหน้าจะหาเจอทันที
+      (supabase as any).rpc("link_my_identity").then(() => {
+        qc.invalidateQueries({ queryKey: ["my-student-face-record"] });
+        qc.invalidateQueries({ queryKey: ["my-personnel-face-record"] });
+      });
+      return {
+        id: row.person_id,
+        kind: row.kind as "student" | "personnel",
+        student_code: row.kind === "student" ? row.code : null,
+        employee_code: row.kind === "personnel" ? row.code : null,
+        prefix: row.prefix,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        photo_url: row.photo_url,
+        classrooms: row.classroom_name ? { name: row.classroom_name } : null,
+      };
     },
   });
 
   const pending = null as any;
   const registered = (me ? samples.length : personnelSamples.length) > 0;
-  const person: any = me || mePersonnel || profileFallback;
+  const person: any = me || mePersonnel || serverIdentity;
   const fullName = person
     ? `${person.prefix || ""}${person.first_name || ""} ${person.last_name || ""}`.trim()
     : "";
+
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["my-face-samples"] });
