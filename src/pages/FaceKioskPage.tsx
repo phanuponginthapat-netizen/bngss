@@ -1214,7 +1214,6 @@ const FaceKioskPage = () => {
         );
       }
     };
-    setQrEngine(BD ? "native" : "jsQR");
     loop();
     return () => {
       cancelled = true;
@@ -1513,6 +1512,7 @@ const FaceKioskPage = () => {
       const interval = detector ? 120 : (isLowEnd ? 350 : 250);
       if (!cancelled) setTimeout(loop, interval);
     };
+    setQrEngine(BD ? "native" : "jsQR");
     loop();
 
 
