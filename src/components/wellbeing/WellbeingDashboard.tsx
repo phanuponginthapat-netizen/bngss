@@ -42,7 +42,7 @@ export default function WellbeingDashboard() {
   const { data, isLoading } = useQuery({
     queryKey: ["wellbeing-dashboard"],
     queryFn: async () => {
-      const sJoin = "students(first_name,last_name,student_code,classroom_id,classrooms(name,grade_level))";
+      const sJoin = "students(first_name,last_name,student_code,classroom_id,classrooms!students_classroom_id_fkey(name,grade_level))";
       const [m, c] = await Promise.all([
         supabase
           .from("mental_health_assessments")

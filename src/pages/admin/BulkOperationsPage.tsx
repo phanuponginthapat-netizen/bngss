@@ -269,11 +269,11 @@ function BulkPersonnel() {
     if (!message || selected.size === 0) return;
     setBusy(true);
     const ids = Array.from(selected);
-    const { data: ps } = await supabase.from("personnel").select("auth_user_id").in("id", ids);
+    const { data: ps } = await supabase.from("personnel").select("user_id").in("id", ids);
     const rows = (ps || [])
-      .filter((p: any) => p.auth_user_id)
+      .filter((p: any) => p.user_id)
       .map((p: any) => ({
-        user_id: p.auth_user_id,
+        user_id: p.user_id,
         title: "ประกาศจากผู้บริหาร",
         message,
         item_type: "notification",

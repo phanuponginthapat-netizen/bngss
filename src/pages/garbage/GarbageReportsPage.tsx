@@ -267,7 +267,7 @@ export default function GarbageReportsPage() {
         supabase.from("garbage_student_points").select("total_points, students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name))"),
         supabase.from("garbage_personnel_points").select("total_points, personnel(prefix, first_name, last_name)"),
         supabase.from("garbage_items").select("name, unit, points_per_unit"),
-        supabase.from("garbage_rewards").select("name, points_required, stock"),
+        supabase.from("garbage_rewards").select("name, points_cost, stock"),
       ]);
 
       const D = (allDeps || []) as any[];
@@ -405,7 +405,7 @@ export default function GarbageReportsPage() {
       autoTable(doc, {
         startY: yAfter4 + 2,
         head: [["รางวัล", "แต้มที่ใช้แลก", "สต๊อกคงเหลือ"]],
-        body: (rewards || []).map((r: any) => [r.name, Number(r.points_required || 0).toLocaleString(), Number(r.stock || 0).toLocaleString()]),
+        body: (rewards || []).map((r: any) => [r.name, Number(r.points_cost || 0).toLocaleString(), Number(r.stock || 0).toLocaleString()]),
         styles: { font: "THSarabunNew", fontSize: 12 },
         headStyles: { font: "THSarabunNew", fontStyle: "bold", fillColor: [245, 158, 11] },
       });
@@ -436,7 +436,7 @@ export default function GarbageReportsPage() {
         supabase.from("garbage_deposits").select("created_at, quantity, points_earned, garbage_items(name, unit), students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name)), personnel(prefix, first_name, last_name, department)"),
         supabase.from("garbage_redemptions").select("created_at, quantity, points_used, garbage_rewards(name), students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name)), personnel(prefix, first_name, last_name)"),
         supabase.from("garbage_items").select("name, unit, points_per_unit, is_active"),
-        supabase.from("garbage_rewards").select("name, points_required, stock, is_active"),
+        supabase.from("garbage_rewards").select("name, points_cost, stock, is_active"),
         supabase.from("garbage_student_points").select("total_points, students(prefix, first_name, last_name, student_code, classrooms!students_classroom_id_fkey(name))"),
         supabase.from("garbage_personnel_points").select("total_points, personnel(prefix, first_name, last_name, employee_code, department)"),
       ]);
@@ -509,7 +509,7 @@ export default function GarbageReportsPage() {
         "ประเภทขยะ": i.name, "หน่วย": normalizeUnit(i.unit), "แต้มต่อหน่วย": Number(i.points_per_unit || 0), "เปิดใช้": i.is_active ? "ใช่" : "ไม่",
       }))), "อัตราแลก");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet((rewards || []).map((r: any) => ({
-        "ของรางวัล": r.name, "แต้มที่ใช้แลก": Number(r.points_required || 0), "สต๊อก": Number(r.stock || 0), "เปิดใช้": r.is_active ? "ใช่" : "ไม่",
+        "ของรางวัล": r.name, "แต้มที่ใช้แลก": Number(r.points_cost || 0), "สต๊อก": Number(r.stock || 0), "เปิดใช้": r.is_active ? "ใช่" : "ไม่",
       }))), "รางวัล");
 
       XLSX.writeFile(wb, `รายงานธนาคารขยะ-${format(new Date(), "yyyyMMdd-HHmm")}.xlsx`);

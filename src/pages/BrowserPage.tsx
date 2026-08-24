@@ -16,7 +16,7 @@ export default function BrowserPage() {
   const { user } = useAuthSession();
   const cms = useCmsValues(["browser_homepage"]);
   const navigate = useNavigate();
-  const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
+  const [profile, setProfile] = useState<{ first_name: string | null; last_name: string | null; avatar_url: string | null } | null>(null);
   const [extInstalled, setExtInstalled] = useState<boolean | null>(null);
   const [autoOpened, setAutoOpened] = useState(false);
 
@@ -45,7 +45,7 @@ export default function BrowserPage() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("full_name, avatar_url").eq("id", user.id).maybeSingle()
+    supabase.from("profiles").select("first_name, last_name, avatar_url").eq("id", user.id).maybeSingle()
       .then(({ data }) => setProfile(data as any));
   }, [user]);
 
@@ -66,10 +66,10 @@ export default function BrowserPage() {
           <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-muted/50">
             <Avatar className="h-9 w-9">
               <AvatarImage src={profile?.avatar_url ?? undefined} />
-              <AvatarFallback>{(profile?.full_name || user.email || "U").slice(0, 1)}</AvatarFallback>
+              <AvatarFallback>{(`${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim() || user.email || "U").slice(0, 1)}</AvatarFallback>
             </Avatar>
             <div className="text-sm">
-              <div className="font-medium">{profile?.full_name || user.email}</div>
+              <div className="font-medium">{`${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim() || user.email}</div>
               <Badge variant="secondary" className="text-[10px] h-4">เข้าสู่ระบบแล้ว</Badge>
             </div>
           </div>

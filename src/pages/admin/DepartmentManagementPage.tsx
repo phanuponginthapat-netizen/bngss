@@ -56,7 +56,7 @@ export default function DepartmentManagementPage() {
     queryFn: async () => {
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, first_name, last_name, employee_code, prefix")
+        .select("id, first_name, last_name, employee_code")
         .order("first_name");
       const { data: roles } = await supabase.from("user_roles").select("user_id, role");
       const roleMap = new Map((roles || []).map((r: any) => [r.user_id, r.role]));

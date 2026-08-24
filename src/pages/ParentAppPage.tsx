@@ -51,7 +51,7 @@ type FaceLog = {
   scan_date: string;
   scan_time: string | null;
   scan_type: string | null;
-  status: string | null;
+  entry_method: string | null;
   created_at: string;
 };
 
@@ -272,7 +272,7 @@ export default function ParentAppPage() {
     // attendance today from face_scan_logs + attendance
     const facePromise = supabase
       .from("face_scan_logs")
-      .select("id, scan_date, scan_time, scan_type, status, created_at")
+      .select("id, scan_date, scan_time, scan_type, entry_method, created_at")
       .eq("student_id", child.id)
       .eq("scan_date", today)
       .order("scan_time", { ascending: false })
@@ -450,8 +450,8 @@ export default function ParentAppPage() {
               {b.faceLogs.map((f) => (
                 <div key={f.id} className="flex items-center justify-between rounded-lg border bg-muted/20 px-3 py-2">
                   <div className="flex items-center gap-2">
-                    <Badge variant={f.status === "present" ? "default" : f.status === "late" ? "secondary" : "outline"} className="capitalize">
-                      {f.status || f.scan_type || "scan"}
+                    <Badge variant={f.scan_type === "in" ? "default" : "secondary"} className="capitalize">
+                      {f.scan_type || "scan"}
                     </Badge>
                     <span className="text-xs font-mono">{f.scan_time?.slice(0, 8) || new Date(f.created_at).toLocaleTimeString("th-TH")}</span>
                   </div>
@@ -702,7 +702,7 @@ export default function ParentAppPage() {
             if (!selChild) return null;
             const gpaVals = selBundle?.scores?.map((s: any) => Number(s.grade_point)).filter((n: number) => !isNaN(n) && n > 0) || [];
             const avgGpa = gpaVals.length ? (gpaVals.reduce((a: number, b: number) => a + b, 0) / gpaVals.length).toFixed(2) : "—";
-            const attendanceToday = selBundle?.faceLogs?.length || selBundle?.attendance?.length ? (selBundle?.attendance?.[0]?.status || selBundle?.faceLogs?.[0]?.status || "present") : null;
+            const attendanceToday = selBundle?.faceLogs?.length || selBundle?.attendance?.length ? (selBundle?.attendance?.[0]?.status || (selBundle?.faceLogs?.length ? "present" : "") || "present") : null;
             const attendanceLabel = !selBundle ? "—" : !selBundle.loading && !attendanceToday ? L("ยังไม่เช็คชื่อ", "Not checked") : attendanceToday === "present" ? L("มาเรียน", "Present") : attendanceToday === "late" ? L("มาสาย", "Late") : attendanceToday === "absent" ? L("ขาด", "Absent") : attendanceToday || "—";
             return (
               <motion.div initial="hidden" animate="visible" variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.08 } } }} className="grid grid-cols-2 lg:grid-cols-4 gap-3">

@@ -147,8 +147,9 @@ export default function SetupWizardPage() {
   const checkCms = async () => {
     setR("cms", { status: "checking" });
     try {
-      const { data } = await supabase.from("cms_settings").select("school_name, logo_url").maybeSingle();
-      const name = (data as any)?.school_name ?? "";
+      const { data } = await supabase.from("cms_settings").select("key, value").in("key", ["school_name", "logo_url"]);
+      const name = (data || []).find((r: any) => r.key === "school_name")?.value ?? "";
+
       setSchoolName(name);
       if (name && name !== "โรงเรียนตัวอย่าง") {
         setR("cms", { status: "ok", message: `ตั้งค่าแล้ว: ${name}` });
