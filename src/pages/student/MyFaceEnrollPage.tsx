@@ -159,16 +159,31 @@ const MyFaceEnrollPage = () => {
   if (!person) {
     return (
       <Card className="border-dashed">
-        <CardContent className="p-8 text-center space-y-2">
+        <CardContent className="p-8 text-center space-y-3">
           <AlertTriangle className="w-10 h-10 mx-auto text-amber-500" />
-          <p className="font-semibold">ไม่พบข้อมูลนักเรียน/บุคลากรของบัญชีนี้</p>
+          <p className="font-semibold">ยังเชื่อมบัญชีกับข้อมูลนักเรียน/บุคลากรไม่สำเร็จ</p>
           <p className="text-sm text-muted-foreground">
-            กรุณาติดต่อผู้ดูแลระบบเพื่อเชื่อมบัญชีผู้ใช้กับข้อมูลของท่านก่อนลงทะเบียนใบหน้า
+            กดปุ่มด้านล่างเพื่อให้ระบบค้นหาและเชื่อมบัญชีให้อัตโนมัติ (จากรหัสนักเรียน อีเมล หรือชื่อ-นามสกุล)
+            หากยังไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบ
           </p>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={async () => {
+              const { data } = await (supabase as any).rpc("link_my_identity");
+              qc.invalidateQueries();
+              if (!data || data === "none") {
+                alert("ระบบยังหาข้อมูลของบัญชีนี้ไม่พบ กรุณาแจ้งผู้ดูแลระบบให้เชื่อมรหัสนักเรียนกับบัญชีนี้");
+              }
+            }}
+          >
+            <ShieldCheck className="w-4 h-4" />เชื่อมบัญชีอัตโนมัติ
+          </Button>
         </CardContent>
       </Card>
     );
   }
+
 
 
   return (
