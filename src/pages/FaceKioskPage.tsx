@@ -21,7 +21,7 @@ import SmartGatePanel from "@/components/facescan/SmartGatePanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Camera, X, Maximize, ScanFace, Users, Wifi, WifiOff, Settings as SettingsIcon, MapPin, Cctv, QrCode, LogIn, LogOut, Clock } from "lucide-react";
+import { Camera, X, Maximize, ScanFace, Users, Wifi, WifiOff, Settings as SettingsIcon, MapPin, Cctv, QrCode, LogIn, LogOut, Clock, AlertTriangle, XCircle, Info } from "lucide-react";
 import { toast } from "sonner";
 import { useSchoolSetting } from "@/hooks/useSchoolSetting";
 import { useSchoolGeofence, calcDistanceMeters, getCurrentCoords } from "@/hooks/useSchoolGeofence";
@@ -117,6 +117,30 @@ const FaceKioskPage = () => {
     scanType: "entry" | "exit"; capturedFace?: string; registeredFace?: string | null; time: string;
   } | null>(null);
   const matchTimerRef = useRef<number | null>(null);
+  // ข้อความเตือน/แจ้งเตือนกลางจอ — ให้ใหญ่เห็นชัด เหมือนการสแกนสำเร็จ
+  const [notice, setNotice] = useState<{
+    type: "info" | "warning" | "error";
+    title: string;
+    description: string;
+  } | null>(null);
+  const noticeTimerRef = useRef<number | null>(null);
+  const showNotice = useCallback((
+    type: "info" | "warning" | "error",
+    title: string,
+    description: string,
+    duration = 3000,
+  ) => {
+    if (type === "info") toast.info(title, { description, duration });
+    else if (type === "warning") toast.warning(title, { description, duration });
+    else toast.error(title, { description, duration });
+    setNotice({ type, title, description });
+    if (noticeTimerRef.current) window.clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = window.setTimeout(() => setNotice(null), duration);
+  }, []);
+  const clearNotice = useCallback(() => {
+    setNotice(null);
+    if (noticeTimerRef.current) { window.clearTimeout(noticeTimerRef.current); noticeTimerRef.current = null; }
+  }, []);
   const [todayCounts, setTodayCounts] = useState<{ entry: number; exit: number }>({ entry: 0, exit: 0 });
   // โหมด QR เท่านั้น — ไม่โหลด/รันโมเดลใบหน้า ประหยัด CPU สำหรับเครื่องสเปกต่ำ (Pavilion x2 / Atom / Celeron)
   const [qrOnly, setQrOnly] = useState<boolean>(() => localStorage.getItem("face_kiosk_qr_only") === "1");
@@ -231,6 +255,10 @@ const FaceKioskPage = () => {
   }, []);
 
   useEffect(() => {
+    return () => { if (noticeTimerRef.current) window.clearTimeout(noticeTimerRef.current); };
+  }, []);
+
+  useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
@@ -317,7 +345,7 @@ const FaceKioskPage = () => {
         // พบโลหะ/วัตถุต้องสงสัย → ปิดประตู + แจ้งชื่อ
         playWeaponAlert();
         if (voiceEnabled) speakText(`${name} มีสิ่งของต้องสงสัย ขอให้คุณครูตรวจสอบ`);
-        toast.error("พบวัตถุต้องสงสัย — ประตูปิด", { description: `${name} • ${res.detail}`, duration: 8000 });
+        showNotice("error", "พบวัตถุต้องสงสัย — ประตูปิด", `${name} • ${res.detail}`, 8000);
         void logEvent("weapon", false, false);
         alertStaff("weapon", res.detail);
         return;
@@ -327,7 +355,7 @@ const FaceKioskPage = () => {
         playFeverAlert();
         const t = res.tempC != null ? res.tempC.toFixed(1) : "";
         if (voiceEnabled) speakText(`${name} มีไข้สูง อุณหภูมิ ${t} องศา กรุณาพบเจ้าหน้าที่`);
-        toast.warning("อุณหภูมิสูง", { description: `${name} • ${res.detail}`, duration: 6000 });
+        showNotice("warning", "อุณหภูมิสูง", `${name} • ${res.detail}`, 6000);
         void logEvent("fever", true, res.opened);
         alertStaff("fever", res.detail);
         if (res.opened) playGateOpenSound();
@@ -342,7 +370,7 @@ const FaceKioskPage = () => {
     } catch {
       playGateDeniedSound();
     }
-  }, [voiceEnabled, scanModeRef]);
+  }, [voiceEnabled, scanModeRef, showNotice]);
 
 
   // ===== WizMind / CCTV bridge (realtime) =====
@@ -597,7 +625,7 @@ const FaceKioskPage = () => {
       if (now - lastNotice > 5_000) {
         duplicateNoticeRef.current.set(wkey, now);
         playDuplicateSound();
-        toast.warning("ปฏิเสธการสแกน", { description: win.reason, duration: 2200 });
+        showNotice("warning", "ปฏิเสธการสแกน", win.reason, 3000);
       }
       return;
     }
@@ -608,7 +636,7 @@ const FaceKioskPage = () => {
       if (now - lastNotice > 5_000) {
         duplicateNoticeRef.current.set(cdKey, now);
         playDuplicateSound();
-        toast.info("สแกนซ้ำ", { description: `${name} ถูกบันทึก${modeLabel}โรงเรียนวันนี้แล้ว`, duration: 1800 });
+        showNotice("info", "สแกนซ้ำ", `${name} ถูกบันทึก${modeLabel}โรงเรียนวันนี้แล้ว`, 2500);
       }
       coolNow();
       return;
@@ -622,10 +650,7 @@ const FaceKioskPage = () => {
       if (now - lastNotice > 5_000) {
         duplicateNoticeRef.current.set(cdKey, now);
         playDuplicateSound();
-        toast.info("สแกนซ้ำ", {
-          description: `${name} บันทึก${modeLabel}วันนี้แล้ว (${methodLabel(mode === "exit" ? todayState.exitMethod : todayState.entryMethod)})`,
-          duration: 1800,
-        });
+        showNotice("info", "สแกนซ้ำ", `${name} บันทึก${modeLabel}วันนี้แล้ว (${methodLabel(mode === "exit" ? todayState.exitMethod : todayState.entryMethod)})`, 2500);
       }
       cooldownRef.current.set(cdKey, now);
       cooldownRef.current.set(studentId, now);
@@ -643,7 +668,7 @@ const FaceKioskPage = () => {
         if (now - lastNotice > 5_000) {
           duplicateNoticeRef.current.set(wkey, now);
           playDuplicateSound();
-          toast.warning("ปฏิเสธการสแกน", { description: `${name} ยังไม่ได้บันทึกเข้าโรงเรียนวันนี้`, duration: 2200 });
+          showNotice("warning", "ปฏิเสธการสแกน", `${name} ยังไม่ได้บันทึกเข้าโรงเรียนวันนี้`, 3000);
         }
         return;
       }
@@ -659,10 +684,7 @@ const FaceKioskPage = () => {
           if (now - lastNotice > 5_000) {
             duplicateNoticeRef.current.set(wkey, now);
             playDuplicateSound();
-            toast.warning("ปฏิเสธการสแกน", {
-              description: `${name} เพิ่งสแกนเข้าเมื่อ ${Math.round(gapMin)} นาทีที่แล้ว — ต้องห่างอย่างน้อย 30 นาทีจึงสแกนออกได้`,
-              duration: 2500,
-            });
+            showNotice("warning", "ปฏิเสธการสแกน", `${name} เพิ่งสแกนเข้าเมื่อ ${Math.round(gapMin)} นาทีที่แล้ว — ต้องห่างอย่างน้อย 30 นาทีจึงสแกนออกได้`, 3500);
           }
           return;
         }
@@ -692,15 +714,15 @@ const FaceKioskPage = () => {
       if (error.code === "23505") {
         seenSet.add(studentId);
         playDuplicateSound();
-        toast.info("สแกนซ้ำ", { description: `${name} ถูกบันทึก${modeLabel}โรงเรียนวันนี้แล้ว`, duration: 1800 });
+        showNotice("info", "สแกนซ้ำ", `${name} ถูกบันทึก${modeLabel}โรงเรียนวันนี้แล้ว`, 2500);
         return;
       }
-      toast.error(saveErrorMessage(error)); return;
+      showNotice("error", "บันทึกไม่สำเร็จ", saveErrorMessage(error), 5000); return;
     }
     if (!data) {
       seenSet.add(studentId);
       playDuplicateSound();
-      toast.info("สแกนซ้ำ", { description: `${name} ถูกบันทึก${modeLabel}โรงเรียนวันนี้แล้ว`, duration: 1800 });
+        showNotice("info", "สแกนซ้ำ", `${name} ถูกบันทึก${modeLabel}โรงเรียนวันนี้แล้ว`, 2500);
       return;
     }
     justScannedRef.current.set(cdKey, now);
@@ -728,7 +750,7 @@ const FaceKioskPage = () => {
       time: new Date().toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
       scanType: mode,
     }, ...r].slice(0, 10));
-  }, [voiceEnabled, runGate]);
+  }, [voiceEnabled, runGate, showNotice]);
 
   // ===== ลงเวลาปฏิบัติงานบุคลากรจากการสแกนใบหน้าที่คีออส =====
   const clockStaff = useCallback(async (
@@ -759,25 +781,25 @@ const FaceKioskPage = () => {
       }
       if (res.reason === "duplicate") {
         playDuplicateSound();
-        toast.info("ลงเวลาแล้ว", { description: `${name} ลงเวลา${mode === "exit" ? "ออก" : "เข้า"}งานวันนี้แล้ว`, duration: 1800 });
+        showNotice("info", "ลงเวลาแล้ว", `${name} ลงเวลา${mode === "exit" ? "ออก" : "เข้า"}งานวันนี้แล้ว`, 2500);
         return "บุคลากร • ลงเวลาแล้ววันนี้";
       }
       if (res.reason === "no_clock_in") {
         playDuplicateSound();
-        toast.warning("ยังไม่ได้ลงเวลาเข้างาน", { description: name, duration: 2000 });
+        showNotice("warning", "ยังไม่ได้ลงเวลาเข้างาน", name, 3000);
         return "บุคลากร • ยังไม่ได้ลงเวลาเข้า";
       }
       if (res.reason === "too_soon") {
         playDuplicateSound();
-        toast.warning("เพิ่งลงเวลาเข้างาน", { description: `${name} — ต้องห่างอย่างน้อย 5 นาที`, duration: 2000 });
+        showNotice("warning", "เพิ่งลงเวลาเข้างาน", `${name} — ต้องห่างอย่างน้อย 5 นาที`, 3000);
         return "บุคลากร • เพิ่งลงเวลาเข้า";
       }
       return "บุคลากร";
     } catch (e: any) {
-      toast.error(saveErrorMessage(e));
+      showNotice("error", "ลงเวลาไม่สำเร็จ", saveErrorMessage(e), 5000);
       return "บุคลากร • ลงเวลาไม่สำเร็จ";
     }
-  }, [voiceEnabled]);
+  }, [voiceEnabled, showNotice]);
 
   // ===== ระดับ match กลาง (ลงทะเบียนมือถือ → สแกนคีออส): รอผู้ใช้ยืนยันบนจอก่อนบันทึก =====
   const confirmPendingManual = useCallback(async () => {
@@ -1194,6 +1216,7 @@ const FaceKioskPage = () => {
                 if (!tooSmall && !ambiguous && tNow - unknownBeepRef.current > 5000) {
                   unknownBeepRef.current = tNow;
                   playUnknownSound();
+                  showNotice("error", "ไม่พบข้อมูลใบหน้า", "กรุณาลงทะเบียนใบหน้าก่อนใช้งาน", 3500);
                   if (voiceEnabled && !tooBlurry && !lowConfidence) {
                     speakText("ไม่พบข้อมูลใบหน้าในระบบ กรุณาลงทะเบียน");
                   }
@@ -1219,7 +1242,7 @@ const FaceKioskPage = () => {
       cancelled = true;
       if (detectionLoopRef.current) clearTimeout(detectionLoopRef.current);
     };
-  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef, runGate, perf, scanGapMs, livenessEnabled, textureGate]);
+  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef, runGate, perf, scanGapMs, livenessEnabled, textureGate, showNotice]);
 
   // ===== WizMind bridge: รับ event ใบหน้าจากกล้อง CCTV แบบ realtime แล้วจดจำทันที =====
   useEffect(() => {
@@ -1427,7 +1450,7 @@ const FaceKioskPage = () => {
         if (tNow - unknownBeepRef.current > 4000) {
           unknownBeepRef.current = tNow;
           playUnknownSound();
-          toast.error(`QR ไม่พบข้อมูลในระบบ (${extracted.slice(0, 20)})`, { duration: 1800 });
+          showNotice("error", "QR ไม่พบข้อมูลในระบบ", extracted.slice(0, 20), 3000);
         }
         return;
       }
@@ -1517,7 +1540,7 @@ const FaceKioskPage = () => {
 
 
     return () => { cancelled = true; };
-  }, [streaming, screensaver, known, recordScan, clockStaff, runGate]);
+  }, [streaming, screensaver, known, recordScan, clockStaff, runGate, showNotice]);
 
 
 
@@ -2006,6 +2029,26 @@ const FaceKioskPage = () => {
                       {lastMatch.time} · ความมั่นใจ {(lastMatch.confidence * 100).toFixed(0)}%
                     </p>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* ข้อความเตือน/แจ้งเตือนกลางจอ — ให้ใหญ่เห็นชัด เหมือนสแกนสำเร็จ */}
+            {notice && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 animate-scale-in">
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={clearNotice} />
+                <div className={`relative max-w-xl w-full rounded-3xl border-4 p-6 shadow-2xl text-center ${
+                  notice.type === "error"
+                    ? "bg-rose-50 border-rose-500 text-rose-900"
+                    : notice.type === "warning"
+                      ? "bg-amber-50 border-amber-500 text-amber-900"
+                      : "bg-sky-50 border-sky-500 text-sky-900"
+                }`}>
+                  {notice.type === "error" && <XCircle className="w-20 h-20 mx-auto mb-4 text-rose-600" />}
+                  {notice.type === "warning" && <AlertTriangle className="w-20 h-20 mx-auto mb-4 text-amber-600" />}
+                  {notice.type === "info" && <Info className="w-20 h-20 mx-auto mb-4 text-sky-600" />}
+                  <h3 className="text-3xl sm:text-4xl font-extrabold leading-tight mb-3">{notice.title}</h3>
+                  <p className="text-xl sm:text-2xl font-medium opacity-90">{notice.description}</p>
                 </div>
               </div>
             )}
