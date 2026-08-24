@@ -121,10 +121,14 @@
         // (ถ้า fetch ช้าหรือค้าง หน้า loading จะไม่ค้างตาม เพราะ main.tsx โหลดขนานกัน)
         (function () {
           var CACHE_KEY = "cms_branding_cache";
+          var DEFAULT_NAME = "BNG Smart School";
+          var DEFAULT_KIOSK_NAME = "ตู้สแกนหน้า";
           var __cfg = (window.__BNG_CONFIG__ || {});
           try { var __ls = JSON.parse(localStorage.getItem("bng.backend.config") || "{}"); if (__ls && __ls.url) { __cfg = { SUPABASE_URL: __ls.url, SUPABASE_ANON_KEY: __ls.anonKey }; } } catch (e) {}
           var backendUrl = __cfg.SUPABASE_URL || "";
           var publishableKey = __cfg.SUPABASE_ANON_KEY || "";
+          var path = (location && location.pathname) || "";
+          var isKiosk = /^\/(kiosk|face-kiosk)(\/|$)/i.test(path) || /^\/kiosk-/i.test(path);
           var keys = [
             "app_name",
             "app_short_name",
@@ -144,18 +148,40 @@
             });
           }
 
+          function setKioskLoader() {
+            var k = document.getElementById("ldr-kiosk");
+            var b = document.getElementById("ldr-brand");
+            var n = document.getElementById("ldr-name");
+            if (k) k.style.display = "block";
+            if (b) b.style.display = "none";
+            if (n) { n.textContent = DEFAULT_KIOSK_NAME; n.style.display = "block"; }
+            document.title = DEFAULT_KIOSK_NAME;
+          }
+
           function applyBranding(b) {
             if (!b) return;
             window.__branding = b;
+            if (isKiosk) {
+              setKioskLoader();
+              if (b.themeColor) {
+                var tc = document.querySelector('meta[name="theme-color"]');
+                if (tc) tc.setAttribute("content", b.themeColor);
+              }
+              try { window.dispatchEvent(new CustomEvent("branding:ready", { detail: b })); } catch (e) {}
+              return;
+            }
             if (b.themeColor) {
               var tc = document.querySelector('meta[name="theme-color"]');
               if (tc) tc.setAttribute("content", b.themeColor);
             }
-            if (b.name) {
-              document.title = b.name;
-              var n = document.getElementById("ldr-name");
-              if (n) { n.textContent = b.name; n.style.display = "block"; }
+            var name = b.name;
+            // ถ้าชื่อสั้นเกินไป/ดูเหมือนถูกตัด ให้ fallback เป็นชื่อเต็ม
+            if (!name || String(name).replace(/\s/g, "").length < 3) {
+              name = DEFAULT_NAME;
             }
+            document.title = name;
+            var n = document.getElementById("ldr-name");
+            if (n) { n.textContent = name; n.style.display = "block"; }
             var brand = document.getElementById("ldr-brand");
             if (brand) {
               if (b.logo) {
@@ -176,7 +202,12 @@
             try { window.dispatchEvent(new CustomEvent("branding:ready", { detail: b })); } catch (e) {}
           }
 
-          try { applyBranding(JSON.parse(localStorage.getItem(CACHE_KEY) || "null")); } catch (e) {}
+          // Kiosk: ใช้ loader ของตู้สแกนหน้าโดยเฉพาะ ไม่ใช้โลโก้ CMS
+          if (isKiosk) {
+            setKioskLoader();
+          } else {
+            try { applyBranding(JSON.parse(localStorage.getItem(CACHE_KEY) || "null")); } catch (e) {}
+          }
 
           if (!backendUrl || backendUrl.indexOf("%") === 0 || !publishableKey || publishableKey.indexOf("%") === 0) return;
 
