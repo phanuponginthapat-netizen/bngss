@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
  * Fetch a diverse set of location-based photos using only free, key-less sources:
  *  1. Wikipedia (en + th) geosearch pageimages
  *  2. Wikimedia Commons geosearch (community photos near coordinates)
- *  3. Openverse (CC-licensed image search) keyed off reverse-geocoded place name
+ *  3. Wikimedia Commons keyword search keyed off reverse-geocoded place name
  * Results are de-duplicated and shuffled to keep the hero feeling fresh.
  */
 
@@ -74,21 +74,32 @@ async function reverseGeocode(lat: number, lng: number): Promise<string | null> 
   }
 }
 
-async function fetchOpenverseImages(query: string): Promise<string[]> {
+/**
+ * Keyword image search via Wikimedia Commons (keyless).
+ * หมายเหตุ: เดิมใช้ Openverse แต่ API เปลี่ยนไปบังคับ auth แล้วคืน 401 ทุกครั้ง
+ */
+async function fetchKeywordImages(query: string): Promise<string[]> {
   try {
-    const res = await fetch(
-      `https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&page_size=24&mature=false`
-    );
+    const url =
+      `https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*` +
+      `&generator=search&gsrnamespace=6&gsrlimit=12&gsrsearch=${encodeURIComponent(query)}` +
+      `&prop=imageinfo&iiprop=url&iiurlwidth=1600`;
+    const res = await fetch(url);
     if (!res.ok) return [];
     const json = await res.json();
-    const results = json?.results ?? [];
-    return results
-      .map((r: any) => r.thumbnail || r.url)
-      .filter((u: any) => typeof u === "string" && u.startsWith("http"));
+    const pages = json?.query?.pages ?? {};
+    const imgs: string[] = [];
+    for (const k of Object.keys(pages)) {
+      const info = pages[k]?.imageinfo?.[0];
+      const src = info?.thumburl || info?.url;
+      if (src && /\.(jpe?g|png|webp)$/i.test(src)) imgs.push(src);
+    }
+    return imgs;
   } catch {
     return [];
   }
 }
+
 
 /** Guaranteed visual variety even if all geo APIs fail or are blocked */
 function picsumFallback(lat: number, lng: number): string[] {
@@ -109,7 +120,7 @@ async function fetchAllImages(lat: number, lng: number): Promise<string[]> {
   const queries = place
     ? [`${place} landscape`, `${place} temple`, `${place} city`, "thailand nature"]
     : ["thailand landscape", "thailand temple", "asia nature"];
-  const openverseResults = await Promise.all(queries.map(fetchOpenverseImages));
+  const openverseResults = await Promise.all(queries.map(fetchKeywordImages));
   const openverse = openverseResults.flat();
 
   const geo = Array.from(new Set([...enWiki, ...thWiki, ...commons, ...openverse]));
