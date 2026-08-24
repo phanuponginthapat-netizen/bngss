@@ -35,6 +35,7 @@ import { wakeKioskScreen } from "@/lib/kioskWake";
 import { getRegisteredFaceImage } from "@/lib/registeredFace";
 import { checkTodayScan, markScanned, methodLabel } from "@/lib/scanDedup";
 import { useKioskHeartbeat } from "@/hooks/useKioskHeartbeat";
+import { useKioskLockdown } from "@/hooks/useKioskLockdown";
 import { KIOSK_TURBO_PROFILE } from "@/lib/kioskPerf";
 
 import { saveErrorMessage } from "@/lib/saveError";
@@ -230,6 +231,9 @@ const FaceKioskPage = () => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  // ---- Lockdown เบราว์เซอร์: กันหลุดหน้า kiosk + กัน session หมดอายุ ----
+  useKioskLockdown(true);
 
   // ---- ส่งสถานะเครื่อง (heartbeat) ให้หน้า Kiosk Door Health เห็นว่าเครื่องออนไลน์ ----
   const kioskStartedAtRef = useRef<number>(Date.now());
