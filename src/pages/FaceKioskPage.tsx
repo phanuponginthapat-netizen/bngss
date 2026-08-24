@@ -912,10 +912,11 @@ const FaceKioskPage = () => {
               const brightness = perf.checkSharpness ? estimateBrightness(video, box) : 120;
               const tooDark = brightness > 0 && brightness < BANK_GRADE.BRIGHTNESS_MIN - 10;
               const tooBright = brightness > BANK_GRADE.BRIGHTNESS_MAX + 10;
-              // กล้องโน้ตบุ๊ก/USB บางรุ่นเปิดมาภาพมืดมาก — ดันค่า brightness/exposure ของฮาร์ดแวร์ขึ้นเอง
-              if (tooDark && tNow - lastLowLightBoostRef.current > 3000) {
+              // กล้องโน้ตบุ๊ก/USB บางรุ่น ภาพมืดมากหรือขาวโพลน — ปรับ exposure ของฮาร์ดแวร์เองแบบสองทาง
+              reportFrameLuminance(brightness);
+              if ((tooDark || tooBright) && tNow - lastLowLightBoostRef.current > 2000) {
                 lastLowLightBoostRef.current = tNow;
-                void boostCameraForLowLight(video.srcObject as MediaStream | null, brightness);
+                void autoExposureBalance(video.srcObject as MediaStream | null, brightness);
               }
 
 
