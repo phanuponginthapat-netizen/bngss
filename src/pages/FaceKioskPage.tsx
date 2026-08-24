@@ -684,10 +684,7 @@ const FaceKioskPage = () => {
           if (now - lastNotice > 5_000) {
             duplicateNoticeRef.current.set(wkey, now);
             playDuplicateSound();
-            toast.warning("ปฏิเสธการสแกน", {
-              description: `${name} เพิ่งสแกนเข้าเมื่อ ${Math.round(gapMin)} นาทีที่แล้ว — ต้องห่างอย่างน้อย 30 นาทีจึงสแกนออกได้`,
-              duration: 2500,
-            });
+            showNotice("warning", "ปฏิเสธการสแกน", `${name} เพิ่งสแกนเข้าเมื่อ ${Math.round(gapMin)} นาทีที่แล้ว — ต้องห่างอย่างน้อย 30 นาทีจึงสแกนออกได้`, 3500);
           }
           return;
         }
