@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
  * Fetch a diverse set of location-based photos using only free, key-less sources:
  *  1. Wikipedia (en + th) geosearch pageimages
  *  2. Wikimedia Commons geosearch (community photos near coordinates)
- *  3. Openverse (CC-licensed image search) keyed off reverse-geocoded place name
+ *  3. Wikimedia Commons keyword search keyed off reverse-geocoded place name
  * Results are de-duplicated and shuffled to keep the hero feeling fresh.
  */
 
@@ -120,7 +120,7 @@ async function fetchAllImages(lat: number, lng: number): Promise<string[]> {
   const queries = place
     ? [`${place} landscape`, `${place} temple`, `${place} city`, "thailand nature"]
     : ["thailand landscape", "thailand temple", "asia nature"];
-  const openverseResults = await Promise.all(queries.map(fetchOpenverseImages));
+  const openverseResults = await Promise.all(queries.map(fetchKeywordImages));
   const openverse = openverseResults.flat();
 
   const geo = Array.from(new Set([...enWiki, ...thWiki, ...commons, ...openverse]));

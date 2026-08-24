@@ -337,7 +337,7 @@ const App = () => {
         <TranslatePackOverlay />
         <IdleScreensaver />
         {typeof window !== "undefined" && window.innerWidth >= 768 ? <TranslationBubble /> : null}
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <ErrorBoundary>
             <Suspense fallback={<SystemLoader />}>
               <AnimatedRoutesWrapper>
