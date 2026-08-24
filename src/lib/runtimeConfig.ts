@@ -35,10 +35,7 @@ const BLOCKED_PROJECT_REFS = ["dlkyxvhnnffblerwedjz"];
 /** true ถ้า URL ชี้ไป backend ที่ห้ามใช้ (Lovable Cloud / โปรเจกต์ remix) */
 export function isBlockedBackendUrl(url?: string): boolean {
   if (!url) return false;
-  // On Lovable's own domain, allow its own project
-  try {
-    if (typeof window !== "undefined" && window.location.hostname === "bngss.lovable.app") return false;
-  } catch {}
+  // บล็อกทุกโดเมน รวมถึงโดเมน Lovable — ระบบต้องใช้ Supabase ภายนอกเท่านั้น
   const u = url.toLowerCase();
   if (BLOCKED_PROJECT_REFS.some((ref) => u.includes(ref))) return true;
   return false;
