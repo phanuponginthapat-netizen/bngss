@@ -197,7 +197,7 @@ export default function DigitalTwinPage() {
         const libBooksP = (supabase as any).from("library_books").select("id").limit(200);
         const libLoansP = (supabase as any)
           .from("library_loans")
-          .select("id, status, due_at, borrowed_at")
+          .select("id, returned_at, due_at, loaned_at")
           .limit(200);
 
         const busRoutesP = (supabase as any).from("bus_routes").select("id, name").limit(100);
@@ -271,7 +271,7 @@ export default function DigitalTwinPage() {
         const budgetRows: { amount: number | null; transaction_type: string | null; category: string | null }[] = getData(4);
         const energyRows: any[] = getData(5);
         const libBooksRows: any[] = getData(6);
-        const libLoansRows: { id: string; status: string | null; due_at: string | null }[] = getData(7);
+        const libLoansRows: { id: string; returned_at: string | null; due_at: string | null }[] = getData(7);
         const busRoutesRows: { id: string; name: string }[] = getData(8);
         const busAttendRows: { id: string; boarded_at: string; route_id: string | null }[] = getData(9);
         const kioskRows: { id: string; device_id: string; status: string | null; last_seen_at: string | null }[] = getData(10);
@@ -408,10 +408,10 @@ export default function DigitalTwinPage() {
 
         // ---- Library ----
         const libTotal = libBooksRows.length;
-        const libActive = libLoansRows.filter((l) => (l.status ?? "").toLowerCase() === "borrowed").length;
+        const libActive = libLoansRows.filter((l) => !l.returned_at).length;
         const now = new Date();
         const libOverdue = libLoansRows.filter(
-          (l) => (l.status ?? "").toLowerCase() === "borrowed" && l.due_at && new Date(l.due_at) < now
+          (l) => !l.returned_at && l.due_at && new Date(l.due_at) < now
         ).length;
         const libAvailable = Math.max(0, libTotal - libActive);
 

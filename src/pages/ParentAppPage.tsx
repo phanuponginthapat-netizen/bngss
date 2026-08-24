@@ -272,7 +272,7 @@ export default function ParentAppPage() {
     // attendance today from face_scan_logs + attendance
     const facePromise = supabase
       .from("face_scan_logs")
-      .select("id, scan_date, scan_time, scan_type, status, created_at")
+      .select("id, scan_date, scan_time, scan_type, entry_method, created_at")
       .eq("student_id", child.id)
       .eq("scan_date", today)
       .order("scan_time", { ascending: false })
