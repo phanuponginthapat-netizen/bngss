@@ -203,6 +203,11 @@ KIOSK_TIMEZONE="${KIOSK_TIMEZONE:-Asia/Bangkok}"
 # การหมุนจอ: normal (แนวนอน) | left | right (แนวตั้ง) | inverted | auto (ตามค่าเดิมของเครื่อง)
 # ระบบจะหมุนทั้งภาพและพิกัดทัชสกรีนให้ตรงกัน
 KIOSK_ROTATE="${KIOSK_ROTATE:-normal}"
+# ระดับเสียงสูงสุด (%) — กันลำโพงในตัวขับดังเกินจนร้อน/ไหม้ (ปลอดภัย 50-75)
+KIOSK_VOLUME="${KIOSK_VOLUME:-65}"
+case "$KIOSK_VOLUME" in ''|*[!0-9]*) KIOSK_VOLUME=65 ;; esac
+[ "$KIOSK_VOLUME" -gt 85 ] && KIOSK_VOLUME=85
+[ "$KIOSK_VOLUME" -lt 20 ] && KIOSK_VOLUME=20
 
 # โหมดประหยัดหน่วยความจำ (zram + earlyoom + mem-guard + flag Chromium)
 # auto = เปิดอัตโนมัติเมื่อ RAM <= 3GB (เช่น HP Pavilion x2 2GB) | 1 = บังคับเปิด | 0 = ปิด
@@ -1106,6 +1111,11 @@ cat >/opt/kiosk/fix-audio.sh <<'EOF'
 # คืนเสียงให้ตู้ kiosk: ปลุก PulseAudio, ปลด mute ทุกช่อง, เลือกลำโพงจริง (ไม่เอา dummy/HDMI ถ้ามีอนาล็อก)
 set +e
 export PULSE_RUNTIME_PATH="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pulse"
+# เพดานเสียง (ป้องกันลำโพงในตัวถูกขับเกินกำลังจนร้อน/ไหม้)
+VOL=65
+[ -r /opt/kiosk/audio.conf ] && . /opt/kiosk/audio.conf
+case "$VOL" in ''|*[!0-9]*) VOL=65 ;; esac
+[ "$VOL" -gt 85 ] && VOL=85
 pulseaudio --start --exit-idle-time=-1 >/dev/null 2>&1
 sleep 1
 
@@ -1122,8 +1132,9 @@ for CARD in $(aplay -l 2>/dev/null | sed -n 's/^card \([0-9]*\):.*/\1/p' | sort 
   amixer -q -c "$CARD" sset 'Auto-Mute Mode' Disabled 2>/dev/null
   amixer -c "$CARD" scontrols 2>/dev/null | sed -n "s/.*'\(.*\)',.*/\1/p" | while read -r CTL; do
     case "$CTL" in
-      *Capture*|*Mic*|*Boost*) amixer -q -c "$CARD" sset "$CTL" 90% cap 2>/dev/null ;;
-      *) amixer -q -c "$CARD" sset "$CTL" 90% unmute 2>/dev/null ;;
+      *Capture*|*Mic*) amixer -q -c "$CARD" sset "$CTL" 90% cap 2>/dev/null ;;
+      *Boost*|*Bass*|*Loudness*|*Amp*) amixer -q -c "$CARD" sset "$CTL" 0% 2>/dev/null || amixer -q -c "$CARD" sset "$CTL" off 2>/dev/null ;;
+      *) amixer -q -c "$CARD" sset "$CTL" "${VOL}%" unmute 2>/dev/null ;;
     esac
   done
 done
@@ -1142,7 +1153,7 @@ SINK="$(pactl list short sinks 2>/dev/null | awk '!/dummy/ && /analog/ {print $2
 if [ -n "$SINK" ]; then
   pactl set-default-sink "$SINK" 2>/dev/null
   pactl set-sink-mute "$SINK" 0 2>/dev/null
-  pactl set-sink-volume "$SINK" 100% 2>/dev/null
+  pactl set-sink-volume "$SINK" "${VOL}%" 2>/dev/null
   # ย้ายเสียงที่กำลังเล่นอยู่ (เช่น Chromium ที่เปิดค้าง) มาที่ sink ใหม่
   pactl list short sink-inputs 2>/dev/null | awk '{print $1}' | while read -r IN; do
     pactl move-sink-input "$IN" "$SINK" 2>/dev/null
@@ -1150,7 +1161,11 @@ if [ -n "$SINK" ]; then
   done
 fi
 pactl set-sink-mute @DEFAULT_SINK@ 0 2>/dev/null
-pactl set-sink-volume @DEFAULT_SINK@ 100% 2>/dev/null
+pactl set-sink-volume @DEFAULT_SINK@ "${VOL}%" 2>/dev/null
+# กันแอปดันเสียงเกินเพดาน (PulseAudio boost >100% ทำลำโพงเล็กพังได้)
+pactl list short sink-inputs 2>/dev/null | awk '{print $1}' | while read -r IN; do
+  pactl set-sink-input-volume "$IN" "${VOL}%" 2>/dev/null
+done
 
 SRC="$(pactl list short sources 2>/dev/null | awk '!/\.monitor/ && /input|alsa_input/ {print $2; exit}')"
 if [ -n "$SRC" ]; then
@@ -1163,6 +1178,7 @@ pactl set-source-volume @DEFAULT_SOURCE@ 90% 2>/dev/null
 logger -t kiosk-audio "sink=$(pactl get-default-sink 2>/dev/null) inputs=$(pactl list short sink-inputs 2>/dev/null | wc -l)"
 EOF
 chmod +x /opt/kiosk/fix-audio.sh
+printf 'VOL=%s\n' "$KIOSK_VOLUME" >/opt/kiosk/audio.conf
 
 # ตรวจสอบเสียงซ้ำเป็นระยะ (ลำโพง USB/HDMI เสียบภายหลัง หรือ pulse ตาย)
 cat >/etc/systemd/system/kiosk-audio.service <<EOF
