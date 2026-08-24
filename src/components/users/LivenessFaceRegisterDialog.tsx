@@ -135,6 +135,8 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
   const loopRef = useRef<number | null>(null);
   const busyRef = useRef(false);
   const detectMetaRef = useRef({ misses: 0, stableHits: 0 });
+  /** เวลาปรับแสงกล้องครั้งล่าสุด (throttle) */
+  const lastExposureRef = useRef(0);
   /** กัน catch เขียนทับ error ที่เป็น "blocked" (ใบหน้าซ้ำ/ไม่ตรง) — ควรโชว์ข้อความเดิม + บังคับเริ่มใหม่ */
   const blockedRef = useRef(false);
 
