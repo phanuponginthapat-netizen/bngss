@@ -15,7 +15,7 @@ import {
 import { learnFromScan } from "@/lib/faceLearning";
 import { verifyScanTexture } from "@/lib/faceTexture";
 import { newLivenessTrack, recordLivenessSample, makeLivenessSample, type LivenessTrack } from "@/lib/faceLiveness";
-import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, prewarmSpeech, isSpeaking, waitForSpeechEnd, playFeverAlert, playWeaponAlert, playGateOpenSound, playGateDeniedSound, unlockAudio } from "@/lib/faceScanAudio";
+import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, prewarmSpeech, isSpeaking, waitForSpeechEnd, playFeverAlert, playWeaponAlert, playGateOpenSound, playGateDeniedSound, unlockAudio, diagnoseAudio } from "@/lib/faceScanAudio";
 import { useSmartGate } from "@/hooks/useSmartGate";
 import SmartGatePanel from "@/components/facescan/SmartGatePanel";
 import { Button } from "@/components/ui/button";
