@@ -203,11 +203,11 @@ KIOSK_TIMEZONE="${KIOSK_TIMEZONE:-Asia/Bangkok}"
 # การหมุนจอ: normal (แนวนอน) | left | right (แนวตั้ง) | inverted | auto (ตามค่าเดิมของเครื่อง)
 # ระบบจะหมุนทั้งภาพและพิกัดทัชสกรีนให้ตรงกัน
 KIOSK_ROTATE="${KIOSK_ROTATE:-normal}"
-# ระดับเสียงสูงสุด (%) — กันลำโพงในตัวขับดังเกินจนร้อน/ไหม้ (ปลอดภัย 50-75)
-KIOSK_VOLUME="${KIOSK_VOLUME:-65}"
-case "$KIOSK_VOLUME" in ''|*[!0-9]*) KIOSK_VOLUME=65 ;; esac
-[ "$KIOSK_VOLUME" -gt 85 ] && KIOSK_VOLUME=85 || true
-[ "$KIOSK_VOLUME" -lt 20 ] && KIOSK_VOLUME=20 || true
+# ระดับเสียงสูงสุด (%) — HP Pavilion x2 ใช้ลำโพง/แอมป์ขนาดเล็ก จึงจำกัดแบบ conservative
+KIOSK_VOLUME="${KIOSK_VOLUME:-35}"
+case "$KIOSK_VOLUME" in ''|*[!0-9]*) KIOSK_VOLUME=35 ;; esac
+[ "$KIOSK_VOLUME" -gt 50 ] && KIOSK_VOLUME=50 || true
+[ "$KIOSK_VOLUME" -lt 10 ] && KIOSK_VOLUME=10 || true
 
 # โหมดประหยัดหน่วยความจำ (zram + earlyoom + mem-guard + flag Chromium)
 # auto = เปิดอัตโนมัติเมื่อ RAM <= 3GB (เช่น HP Pavilion x2 2GB) | 1 = บังคับเปิด | 0 = ปิด
@@ -1108,14 +1108,15 @@ EOF
 
 cat >/opt/kiosk/fix-audio.sh <<'EOF'
 #!/usr/bin/env bash
-# คืนเสียงให้ตู้ kiosk: ปลุก PulseAudio, ปลด mute ทุกช่อง, เลือกลำโพงจริง (ไม่เอา dummy/HDMI ถ้ามีอนาล็อก)
+# คืนเสียงให้ตู้ kiosk โดยไม่เปิด ALSA controls ทุกตัว ซึ่งอาจเปิด speaker amp ค้างจนร้อน
 set +e
 export PULSE_RUNTIME_PATH="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pulse"
 # เพดานเสียง (ป้องกันลำโพงในตัวถูกขับเกินกำลังจนร้อน/ไหม้)
-VOL=65
+VOL=35
 [ -r /opt/kiosk/audio.conf ] && . /opt/kiosk/audio.conf
-case "$VOL" in ''|*[!0-9]*) VOL=65 ;; esac
-[ "$VOL" -gt 85 ] && VOL=85
+case "$VOL" in ''|*[!0-9]*) VOL=35 ;; esac
+[ "$VOL" -gt 50 ] && VOL=50
+[ "$VOL" -lt 10 ] && VOL=10
 pulseaudio --start --exit-idle-time=-1 >/dev/null 2>&1
 sleep 1
 
@@ -1127,14 +1128,15 @@ if ! pactl list short sinks 2>/dev/null | grep -qv dummy; then
   sleep 2
 fi
 
-# ปลดล็อกทุก control ของทุกการ์ด ALSA (บางเครื่อง Master ไม่ใช่ตัวคุมจริง)
+# ปรับเฉพาะช่องเสียงออกมาตรฐาน ห้าม unmute controls แบบเหมารวม เพราะบางรุ่นมี amplifier switch
 for CARD in $(aplay -l 2>/dev/null | sed -n 's/^card \([0-9]*\):.*/\1/p' | sort -u); do
-  amixer -q -c "$CARD" sset 'Auto-Mute Mode' Disabled 2>/dev/null
   amixer -c "$CARD" scontrols 2>/dev/null | sed -n "s/.*'\(.*\)',.*/\1/p" | while read -r CTL; do
     case "$CTL" in
-      *Capture*|*Mic*) amixer -q -c "$CARD" sset "$CTL" 90% cap 2>/dev/null ;;
-      *Boost*|*Bass*|*Loudness*|*Amp*) amixer -q -c "$CARD" sset "$CTL" 0% 2>/dev/null || amixer -q -c "$CARD" sset "$CTL" off 2>/dev/null ;;
-      *) amixer -q -c "$CARD" sset "$CTL" "${VOL}%" unmute 2>/dev/null ;;
+      *Boost*|*Bass*|*Loudness*)
+        amixer -q -c "$CARD" sset "$CTL" 0% 2>/dev/null
+        amixer -q -c "$CARD" sset "$CTL" off 2>/dev/null ;;
+      Master|Speaker|PCM|Headphone)
+        amixer -q -c "$CARD" sset "$CTL" "${VOL}%" unmute 2>/dev/null ;;
     esac
   done
 done
