@@ -278,6 +278,27 @@ const FaceKioskPage = () => {
     uptimeSec: Math.floor((now.getTime() - kioskStartedAtRef.current) / 60000) * 60,
   });
 
+  // ---- Screen Wake Lock — กันจอดับ (สำคัญ: ตู้นี้ไม่ได้ใช้ wakeLock มาก่อน จึง sleep แม้ xset -dpms) ----
+  useEffect(() => {
+    let lock: any = null;
+    const acquire = async () => {
+      try {
+        // @ts-ignore
+        if ("wakeLock" in navigator && document.visibilityState === "visible") {
+          // @ts-ignore
+          lock = await navigator.wakeLock.request("screen");
+        }
+      } catch { /* ignore */ }
+    };
+    const onVis = () => { if (document.visibilityState === "visible") acquire(); };
+    acquire();
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      try { lock?.release?.(); } catch { /* ignore */ }
+    };
+  }, []);
+
   useEffect(() => {
     if (!screensaver) return;
     const t = setInterval(() => {
