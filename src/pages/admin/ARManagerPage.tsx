@@ -18,6 +18,7 @@ import {
 import { swal } from "@/lib/swal";
 import ArMediaViewer from "@/components/ar/ArMediaViewer";
 import { uploadArFile, resolveArUrl, toStorageRef, AR_BUCKET } from "@/lib/arMedia";
+import { sanitizeStorageKey } from "@/lib/uploadFallback";
 import { compileTargets } from "@/lib/mindAr";
 import ArImage from "@/components/ar/ArImage";
 
