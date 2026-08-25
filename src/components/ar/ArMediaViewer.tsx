@@ -1,4 +1,6 @@
 import { createElement, useEffect, useState } from "react";
+import { useArUrl } from "@/lib/arMedia";
+
 
 /** โหลด <model-viewer> จาก CDN เพียงครั้งเดียว (รองรับ AR บนมือถือ Android/iOS) */
 let modelViewerPromise: Promise<void> | null = null;
@@ -31,11 +33,14 @@ export interface ArMediaViewerProps {
   className?: string;
 }
 
-export const ArMediaViewer = ({ mediaType, mediaUrl, posterUrl, title, className }: ArMediaViewerProps) => {
+export const ArMediaViewer = ({ mediaType, mediaUrl: rawUrl, posterUrl: rawPoster, title, className }: ArMediaViewerProps) => {
+  const mediaUrl = useArUrl(rawUrl);
+  const posterUrl = useArUrl(rawPoster);
   const [mvReady, setMvReady] = useState(false);
   const [mvError, setMvError] = useState<string | null>(null);
 
   useEffect(() => {
+
     if (mediaType !== "model3d") return;
     let alive = true;
     loadModelViewer()
@@ -46,7 +51,12 @@ export const ArMediaViewer = ({ mediaType, mediaUrl, posterUrl, title, className
 
   const wrap = "w-full overflow-hidden rounded-xl bg-muted " + (className || "");
 
+  if (rawUrl && !mediaUrl) {
+    return <div className={wrap}><div className="p-10 text-center text-sm text-muted-foreground">กำลังเตรียมสื่อ...</div></div>;
+  }
+
   if (mediaType === "image") {
+
     return (
       <div className={wrap}>
         <img src={mediaUrl} alt={title || "สื่อการเรียนรู้ AR"} loading="lazy" className="w-full h-auto object-contain" />
