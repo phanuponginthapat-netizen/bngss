@@ -1162,6 +1162,128 @@ export type Database = {
         }
         Relationships: []
       }
+      ar_experiences: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          grade_level: string | null
+          id: string
+          is_active: boolean
+          is_public: boolean
+          marker_label: string | null
+          media_type: string
+          media_url: string
+          poster_url: string | null
+          project_id: string | null
+          school_id: string | null
+          sort_order: number
+          subject: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string
+          view_count: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          grade_level?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          marker_label?: string | null
+          media_type?: string
+          media_url: string
+          poster_url?: string | null
+          project_id?: string | null
+          school_id?: string | null
+          sort_order?: number
+          subject?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          view_count?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          grade_level?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          marker_label?: string | null
+          media_type?: string
+          media_url?: string
+          poster_url?: string | null
+          project_id?: string | null
+          school_id?: string | null
+          sort_order?: number
+          subject?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          view_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ar_experiences_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "ar_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ar_projects: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          is_public: boolean
+          location: string | null
+          school_id: string | null
+          slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          location?: string | null
+          school_id?: string | null
+          slug: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          location?: string | null
+          school_id?: string | null
+          slug?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       archive_logs: {
         Row: {
           archive_path: string | null
@@ -16007,6 +16129,7 @@ export type Database = {
           semester: number
         }[]
       }
+      bump_ar_view: { Args: { _code: string }; Returns: undefined }
       calculate_late_minutes: {
         Args: {
           _attendance_date: string
@@ -16282,6 +16405,38 @@ export type Database = {
           student_code: string
         }[]
       }
+      get_public_ar_experience: {
+        Args: { _code: string }
+        Returns: {
+          code: string
+          created_at: string
+          description: string
+          grade_level: string
+          id: string
+          marker_label: string
+          media_type: string
+          media_url: string
+          poster_url: string
+          project_slug: string
+          project_title: string
+          subject: string
+          tags: string[]
+          title: string
+          view_count: number
+        }[]
+      }
+      get_public_ar_project: {
+        Args: { _slug: string }
+        Returns: {
+          cover_url: string
+          created_at: string
+          description: string
+          id: string
+          location: string
+          slug: string
+          title: string
+        }[]
+      }
       get_public_org_chart: {
         Args: never
         Returns: {
@@ -16513,6 +16668,50 @@ export type Database = {
         Returns: number
       }
       link_my_identity: { Args: never; Returns: string }
+      list_public_ar_experiences: {
+        Args: { _limit?: number }
+        Returns: {
+          code: string
+          description: string
+          grade_level: string
+          id: string
+          media_type: string
+          media_url: string
+          poster_url: string
+          subject: string
+          tags: string[]
+          title: string
+          view_count: number
+        }[]
+      }
+      list_public_ar_project_items: {
+        Args: { _slug: string }
+        Returns: {
+          code: string
+          description: string
+          id: string
+          marker_label: string
+          media_type: string
+          media_url: string
+          poster_url: string
+          sort_order: number
+          title: string
+          view_count: number
+        }[]
+      }
+      list_public_ar_projects: {
+        Args: { _limit?: number }
+        Returns: {
+          cover_url: string
+          created_at: string
+          description: string
+          id: string
+          item_count: number
+          location: string
+          slug: string
+          title: string
+        }[]
+      }
       list_school_members: {
         Args: never
         Returns: {
