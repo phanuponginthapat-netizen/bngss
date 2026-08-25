@@ -72,12 +72,23 @@ export default function ARProjectPage() {
     );
   }
 
+  const trackable = items.filter((i) => i.target_index !== null && i.target_index !== undefined);
+  const canTrack = !!project.targets_url && trackable.length > 0;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
+      {arOpen && project.targets_url && (
+        <ArImageTracker
+          targetsUrl={project.targets_url}
+          items={trackable}
+          title={project.title}
+          onClose={() => setArOpen(false)}
+        />
+      )}
       <div className="max-w-4xl mx-auto p-4 space-y-5">
         <div className="flex items-center justify-between">
           <Button asChild variant="ghost" size="sm"><Link to="/ar"><ArrowLeft className="h-4 w-4 mr-2" />คลังสื่อ AR</Link></Button>
-          <Button size="sm" onClick={() => setScanOpen(true)}><ScanLine className="h-4 w-4 mr-2" />สแกนป้าย</Button>
+          <Button size="sm" variant="outline" onClick={() => setScanOpen(true)}><ScanLine className="h-4 w-4 mr-2" />สแกน QR งานอื่น</Button>
         </div>
 
         <Card className="overflow-hidden">
@@ -86,15 +97,23 @@ export default function ARProjectPage() {
               <ArImage src={project.cover_url} alt={project.title} className="w-full h-full object-cover" />
             </div>
           )}
-          <CardContent className="p-4 space-y-2">
+          <CardContent className="p-4 space-y-3">
             <h1 className="text-2xl font-bold">{project.title}</h1>
             {project.location && (
               <p className="text-sm text-muted-foreground flex items-center gap-1"><MapPin className="h-4 w-4" />{project.location}</p>
             )}
             {project.description && <p className="text-sm text-muted-foreground whitespace-pre-wrap">{project.description}</p>}
-            <Badge variant="secondary">{items.length} ป้าย</Badge>
+            <Badge variant="secondary">{trackable.length} เป้าหมาย AR</Badge>
+            <Button size="lg" className="w-full" disabled={!canTrack} onClick={() => setArOpen(true)}>
+              <Camera className="h-5 w-5 mr-2" />
+              {canTrack ? "เปิดกล้อง AR แล้วส่องที่ป้าย/วัตถุ" : "งานนี้ยังไม่พร้อมสแกน AR"}
+            </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              ส่องกล้องค้างไว้ที่ป้ายหรือวัตถุ ระบบจะเล่นสื่อทับอัตโนมัติ และหยุดเมื่อเลื่อนกล้องออกจากเฟรม
+            </p>
           </CardContent>
         </Card>
+
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((i, idx) => {
