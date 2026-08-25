@@ -933,7 +933,7 @@ const FaceKioskPage = () => {
     //         แต่กันคนหน้าคล้ายด้วยการให้เจ้าหน้าที่/ผู้ใช้ยืนยันด้วยตนเอง
     // ZKTeco mode: เข้ม+เร็ว แบบเครื่องสแกนประตูจริง — ยืนในวงรีแล้วเทียบครั้งเดียวผ่านเลย
     const ZKTECO = true;
-    const AUTO_DIST = threshold;
+    const AUTO_DIST = Math.min(0.52, threshold + 0.04);
     const STRONG_DIST = ZKTECO ? 0.36 : 0.40;
     const MANUAL_DIST = ZKTECO ? 0.40 : 0.55; // Zkteco ปิด tier2 manual ทั้งหมด
 
@@ -1800,6 +1800,9 @@ const FaceKioskPage = () => {
         <Badge variant="secondary" className="bg-white/80 backdrop-blur-sm border-white/60 text-slate-700">
           {online ? <Wifi className="w-3 h-3 mr-1 text-emerald-600" /> : <WifiOff className="w-3 h-3 mr-1 text-amber-500" />}
           {online ? "ออนไลน์" : "ออฟไลน์"}
+        </Badge>
+        <Badge variant="secondary" className={`backdrop-blur-sm border-white/60 ${matchKnown.length === 0 ? "bg-red-100 text-red-700 animate-pulse" : "bg-white/80 text-slate-700"}`}>
+          ใบหน้า {matchKnown.length} คน {matchKnown.length === 0 ? "⚠️ โหลดไม่เข้า" : ""}
         </Badge>
         {isTodayHoliday && (
           <Badge className="bg-amber-500 text-white border-amber-600 animate-pulse">วันหยุด - ไม่นับขาด</Badge>

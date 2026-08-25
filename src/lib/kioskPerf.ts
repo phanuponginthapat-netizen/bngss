@@ -25,14 +25,14 @@ export interface KioskPerfProfile {
 
 /** โปรไฟล์เดียวของระบบ — เร็วที่สุดที่ยังคงความแม่นยำ */
 export const KIOSK_TURBO_PROFILE: KioskPerfProfile = {
-  inputSize: 416,
-  maxWidth: 640,
-  loopDelayMs: 320,
-  checkSharpness: true,
-  videoWidth: 1280,
-  videoHeight: 720,
-  frameRate: 15,
-  label: "Turbo (สมดุล แม่นยำ)",
+  inputSize: 320,
+  maxWidth: 480,
+  loopDelayMs: 600,
+  checkSharpness: false,
+  videoWidth: 640,
+  videoHeight: 480,
+  frameRate: 10,
+  label: "ช้า แม่น (แก้ไม่พบหน้า)",
 };
 
 
