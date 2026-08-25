@@ -249,7 +249,7 @@ export default function ARManagerPage() {
       const urls = await Promise.all(withMarker.map((i) => resolveArUrl(i.marker_image_url)));
       if (urls.some((u) => !u)) throw new Error("เปิดภาพเป้าหมายบางรายการไม่ได้");
       const blob = await compileTargets(urls, setCompileProgress);
-      const path = `${active.slug}/targets-${Date.now()}.mind`;
+      const path = sanitizeStorageKey(`${active.slug}/targets-${Date.now()}.mind`);
       const up = await supabase.storage.from(AR_BUCKET).upload(path, blob, {
         upsert: true, contentType: "application/octet-stream",
       });
