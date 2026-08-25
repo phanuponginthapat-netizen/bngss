@@ -13,16 +13,19 @@ import { QRCodeCanvas } from "qrcode.react";
 import { toast } from "sonner";
 import {
   Boxes, Plus, Pencil, Trash2, QrCode, Upload, ExternalLink, Download, Eye,
-  FolderOpen, ArrowLeft, Printer, MapPin,
+  FolderOpen, ArrowLeft, Printer, MapPin, Target, Loader2, Camera,
 } from "lucide-react";
 import { swal } from "@/lib/swal";
 import ArMediaViewer from "@/components/ar/ArMediaViewer";
-import { uploadArFile } from "@/lib/arMedia";
+import { uploadArFile, resolveArUrl, toStorageRef, AR_BUCKET } from "@/lib/arMedia";
+import { compileTargets } from "@/lib/mindAr";
+import ArImage from "@/components/ar/ArImage";
 
 interface ArProject {
   id: string; slug: string; title: string; description: string | null;
   cover_url: string | null; location: string | null;
   is_public: boolean; is_active: boolean;
+  targets_url: string | null; targets_version: number | null;
 }
 
 interface ArItem {
@@ -31,6 +34,9 @@ interface ArItem {
   media_type: string; media_url: string; poster_url: string | null;
   subject: string | null; grade_level: string | null; tags: string[] | null;
   is_public: boolean; is_active: boolean; view_count: number;
+  marker_image_url: string | null; target_index: number | null;
+  overlay_width: number | null; overlay_height: number | null;
+  loop_media: boolean | null; muted: boolean | null;
 }
 
 const MEDIA_TYPES = [
@@ -44,6 +50,8 @@ const emptyItem = {
   id: "", code: "", title: "", marker_label: "", sort_order: 0, description: "",
   media_type: "image", media_url: "", poster_url: "", subject: "", grade_level: "",
   tags: "", is_public: true, is_active: true,
+  marker_image_url: "", overlay_width: 1, overlay_height: 0.5625,
+  loop_media: true, muted: true,
 };
 
 const emptyProject = {
@@ -158,6 +166,10 @@ export default function ARManagerPage() {
       media_url: i.media_url, poster_url: i.poster_url || "", subject: i.subject || "",
       grade_level: i.grade_level || "", tags: (i.tags || []).join(", "),
       is_public: i.is_public, is_active: i.is_active,
+      marker_image_url: i.marker_image_url || "",
+      overlay_width: Number(i.overlay_width ?? 1),
+      overlay_height: Number(i.overlay_height ?? 0.5625),
+      loop_media: i.loop_media !== false, muted: i.muted !== false,
     });
     setItemOpen(true);
   };
@@ -194,6 +206,11 @@ export default function ARManagerPage() {
       tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
       is_public: form.is_public,
       is_active: form.is_active,
+      marker_image_url: form.marker_image_url.trim() || null,
+      overlay_width: Number(form.overlay_width) || 1,
+      overlay_height: Number(form.overlay_height) || 0.5625,
+      loop_media: form.loop_media,
+      muted: form.muted,
     };
     const q = form.id
       ? supabase.from("ar_experiences" as any).update(payload).eq("id", form.id)
