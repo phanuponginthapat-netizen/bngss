@@ -19,6 +19,7 @@ import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, prew
 import { useSmartGate } from "@/hooks/useSmartGate";
 import SmartGatePanel from "@/components/facescan/SmartGatePanel";
 import FaceGuideOverlay from "@/components/facescan/FaceGuideOverlay";
+import { faceGuideStatus } from "@/lib/faceGuide";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -1040,6 +1041,9 @@ const FaceKioskPage = () => {
               }
 
 
+              // ต้องอยู่ในวงรีไกด์เท่านั้น — นอกกรอบไม่จับ (ลด CPU + กันคนเดินผ่านด้านข้าง)
+              const guide = faceGuideStatus(box, { cx, cy, w: targetW, h: targetH });
+              const inGuide = guide.ok;
               const m = matchDescriptor(det.descriptor, matchKnown, threshold);
               const ambiguous = m.studentId != null && m.margin < MIN_MARGIN;
               const lowConfidence = m.studentId != null && m.confidence < MIN_CONFIDENCE;
@@ -1048,7 +1052,7 @@ const FaceKioskPage = () => {
               // tier 2: กลาง (AUTO_DIST, MANUAL_DIST] → ต้องกดยืนยันบนจอก่อน
               const tier2 = m.studentId != null && m.distance > AUTO_DIST && m.distance <= MANUAL_DIST
                 && m.margin >= MANUAL_MIN_MARGIN && m.confidence >= 1 - MANUAL_DIST;
-              let matchedId = !tooSmall && !tooBlurry && (tier1 || tier2) ? m.studentId : null;
+              let matchedId = inGuide && !tooSmall && !tooBlurry && (tier1 || tier2) ? m.studentId : null;
               // Sticky lock — ถ้าเพิ่งล็อกคนนี้ไว้ และยังเป็นคนเดิมที่ตรงที่สุด ให้คงล็อกไว้
               const kLock = kioskLockRef.current;
               if (!matchedId && kLock && tNow < kLock.until && m.studentId === kLock.studentId
@@ -1064,7 +1068,7 @@ const FaceKioskPage = () => {
               const inCooldown = found ? (tNow - (cooldownRef.current.get(found.studentId) || 0) < 30_000) : false;
               const textureFailed = found ? (tNow - (textureFailRef.current.get(found.studentId) || 0) < 3000) : false;
               const color = !found
-                ? (tooSmall ? "#94a3b8" : tooBlurry ? "#64748b" : tooDark ? "#7c3aed" : tooBright ? "#f59e0b" : (ambiguous || lowConfidence) ? "#eab308" : "#f97316")
+                ? (!inGuide ? guide.color : tooSmall ? "#94a3b8" : tooBlurry ? "#64748b" : tooDark ? "#7c3aed" : tooBright ? "#f59e0b" : (ambiguous || lowConfidence) ? "#eab308" : "#f97316")
                 : needsManual ? "#f59e0b"
                 : isStaffHit ? "#2563eb"
                 : textureFailed ? "#dc2626"
@@ -1072,6 +1076,7 @@ const FaceKioskPage = () => {
 
               const label = found
                 ? `${isStaffHit ? "👤 " : ""}${found.name}${isStaffHit ? " (บุคลากร)" : needsManual ? " — แตะยืนยันบนจอ" : textureFailed ? " พื้นผิวไม่ตรง" : justScanned ? " ✓ บันทึกแล้ว" : ""}`
+                : !inGuide ? guide.text
                 : tooSmall ? "ขยับเข้าใกล้กล้อง"
                 : tooBlurry ? "ภาพเบลอ ให้นิ่งสักครู่"
                 : tooDark ? "แสงมืดเกินไป หาที่สว่างขึ้น"
@@ -1173,30 +1178,29 @@ const FaceKioskPage = () => {
                   // รอการยืนยัน — ไม่บันทึกอัตโนมัติ
                   return;
                 }
-                // นับเฟรมยืนยันก่อนบันทึก
-                const c = confirmRef.current.get(found.studentId);
-                if (c && tNow - c.lastTs <= CONFIRM_WINDOW_MS) {
-                  c.count += 1; c.lastTs = tNow;
-                } else {
-                  confirmRef.current.set(found.studentId, { count: 1, lastTs: tNow });
-                }
-                // Fast-pass: ตรงมาก + ใบหน้าใหญ่ชัด → ยืนยันเฟรมเดียว ไม่ต้องยืนรอ
+                // Fast-pass + ในวงรีไกด์ → ยืนยันทันทีเฟรมเดียว ไม่ต้องวนลูป (ตามคำขอ: ไม่วนลูปยืนยัน)
                 const strongHit = m.distance <= STRONG_DIST && m.margin >= MIN_MARGIN * 1.5 && faceSize >= MIN_FACE_PX * 1.1;
-                const needFrames = strongHit ? 1 : CONFIRM_FRAMES;
-                const confirmed = (confirmRef.current.get(found.studentId)?.count ?? 0) >= needFrames;
-                // ใบหน้าสด (anti-spoof): สะสมหลักฐาน blink/ขยับศีรษะ — รูปถ่าย/จอภาพที่นิ่งจะไม่มีหลักฐาน
+                // ในวงรีไกด์ → ยืนยันทันทีเฟรมเดียว ไม่ต้องวนลูป
+                const needFrames = inGuide ? 1 : strongHit ? 1 : CONFIRM_FRAMES;
+                // นับเฟรมเฉพาะเมื่อไม่อยู่ในโหมด immediate
+                if (!inGuide) {
+                  const c = confirmRef.current.get(found.studentId);
+                  if (c && tNow - c.lastTs <= CONFIRM_WINDOW_MS) { c.count += 1; c.lastTs = tNow; }
+                  else confirmRef.current.set(found.studentId, { count: 1, lastTs: tNow });
+                } else {
+                  confirmRef.current.set(found.studentId, { count: needFrames, lastTs: tNow });
+                }
+                const confirmed = inGuide ? true : (confirmRef.current.get(found.studentId)?.count ?? 0) >= needFrames;
+                // ใบหน้าสด: ในวงรีให้ผ่านทันที (ลดหน่วง) — นอกวงรีค่อยตรวจ blink
                 let live = true;
-                if (useLiveness) {
+                if (useLiveness && !inGuide) {
                   let track = livenessRef.current.get(found.studentId);
                   if (!track) { track = newLivenessTrack(); livenessRef.current.set(found.studentId, track); }
                   live = recordLivenessSample(track, makeLivenessSample(tNow, det.landmarks, box)).live;
-                  // กันผู้ใช้ยืนรอนานเกินไป — เห็นใบหน้าคนเดิมต่อเนื่องเกิน 0.4 วินาที
-                  // และเป็น match ที่แน่นมาก ให้ผ่าน (รูปถ่ายจะถูกกรองด้วย texture gate อยู่แล้ว)
                   if (!live && strongHit) {
                     const firstSeen = (track.samples[0]?.t ?? tNow);
                     if (tNow - firstSeen > 400) live = true;
                   }
-
                 }
                 if (confirmed && live) {
                   // Texture verification — เทียบพื้นผิวใบหน้าสดกับภาพลงทะเบียน กันคนหน้าคล้าย/รูปถ่าย
