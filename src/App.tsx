@@ -49,6 +49,7 @@ const PublicAssetPage = lazy(() => import("./pages/PublicAssetPage"));
 const ARGalleryPage = lazy(() => import("./pages/ARGalleryPage"));
 const ARViewPage = lazy(() => import("./pages/ARViewPage"));
 const ARManagerPage = lazy(() => import("./pages/admin/ARManagerPage"));
+const ARProjectPage = lazy(() => import("./pages/ARProjectPage"));
 const PublicProfilePage = lazy(() => import("./pages/PublicProfilePage"));
 const FindProfilePage = lazy(() => import("./pages/FindProfilePage"));
 const InboxPage = lazy(() => import("./pages/InboxPage"));
@@ -352,6 +353,7 @@ const App = () => {
               <Route path="/sdq-assess/:studentId" element={<PublicSDQPage />} />
               <Route path="/asset/:id" element={<PublicAssetPage />} />
               <Route path="/ar" element={<ARGalleryPage />} />
+              <Route path="/ar/p/:slug" element={<ARProjectPage />} />
               <Route path="/ar/:code" element={<ARViewPage />} />
               <Route path="/p/:id" element={<PublicProfilePage />} />
               <Route path="/find" element={<FindProfilePage />} />
