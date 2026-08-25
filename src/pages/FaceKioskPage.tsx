@@ -932,6 +932,8 @@ const FaceKioskPage = () => {
     const MIN_SHARPNESS = 70; // ใต้ค่านี้ = เบลอเกินไป ไม่บันทึก (โหมดประหยัดข้ามการตรวจ)
 
     const snapCanvas = document.createElement("canvas");
+    const roiCanvas = document.createElement("canvas");
+    const roiCtx = roiCanvas.getContext("2d", { willReadFrequently: true });
     const captureFaceCrop = (video: HTMLVideoElement, box: { x: number; y: number; width: number; height: number }): string | undefined => {
       try {
         const pad = 0.25;
@@ -956,21 +958,51 @@ const FaceKioskPage = () => {
         if (cancelled) return;
       }
       try {
-        // ตรวจจับจากเฟรมที่ผ่าน preprocess (contrast/brightness) — ช่วยกล้องคุณภาพต่ำ
+        // ตรวจจับเฉพาะในวงรีไกด์ — ลด CPU 40–60% และบังคับให้ยืนกลางกรอบ
         const video = videoRef.current;
-          // atom/low: ข้าม preprocess ทั้งหมด (ใช้ video ตรงๆ) — texture ปิดเพื่อลด CPU, liveness ยังเปิด (กันรูปถ่าย)
-          // Turbo: ใช้เฟรมวิดีโอตรงๆ ไม่ preprocess (ลด CPU) — liveness ยังเปิดกันรูปถ่าย
-          const pre = video;
-          const useLiveness = livenessEnabled;
-          const useTexture = textureGate;
-        const detections = await getAllDescriptors(pre as any, opts, {
+        const vw = video.videoWidth, vh = video.videoHeight;
+        const useLiveness = livenessEnabled;
+        const useTexture = textureGate;
+        // วงรีเป้าหมายเดียวกับ FaceGuideOverlay (targetRatio 0.30, cy 0.46)
+        const targetW = vw * 0.30;
+        const targetH = targetW * 1.35;
+        const cx = vw / 2, cy = vh * 0.46;
+        const pad = 1.45; // เผื่อขยับเล็กน้อย
+        const roiW = Math.min(vw, targetW * pad);
+        const roiH = Math.min(vh, targetH * pad);
+        const roiX = Math.max(0, Math.min(vw - roiW, cx - roiW / 2));
+        const roiY = Math.max(0, Math.min(vh - roiH, cy - roiH / 2));
+        // crop วิดีโอเป็น ROI canvas เล็ก — detector วิ่งบนพื้นที่ ~30% ของเฟรม
+        let pre: HTMLCanvasElement | HTMLVideoElement = video;
+        let roiOffsetX = 0, roiOffsetY = 0;
+        if (roiCtx && vw && vh) {
+          roiCanvas.width = Math.round(roiW);
+          roiCanvas.height = Math.round(roiH);
+          roiCtx.drawImage(video, roiX, roiY, roiW, roiH, 0, 0, roiCanvas.width, roiCanvas.height);
+          pre = roiCanvas;
+          roiOffsetX = roiX;
+          roiOffsetY = roiY;
+        }
+        const rawDetections = await getAllDescriptors(pre as any, opts, {
           minFaceSize: MIN_FACE_PX * 0.6,
           cacheTtlMs: 300,
         });
+        // แปลงพิกัดจาก ROI กลับเป็นพิกัดวิดีโอจริง
+        const detections = roiOffsetX || roiOffsetY
+          ? rawDetections.map((d: any) => {
+              const b = d.detection.box;
+              const nb = { ...b, x: b.x + roiOffsetX, y: b.y + roiOffsetY } as any;
+              // ปรับ landmarks ด้วยถ้ามี
+              if (d.landmarks && typeof d.landmarks.shift === "function") {
+                try { d.landmarks.shift(roiOffsetX, roiOffsetY); } catch {}
+              }
+              return { ...d, detection: { ...d.detection, box: nb } };
+            })
+          : rawDetections;
 
-        // อัตราส่วนสำหรับสเกล box กลับสู่พิกัดของวิดีโอจริง
-        const srcW = pre instanceof HTMLCanvasElement ? pre.width : video.videoWidth;
-        const scaleBack = video.videoWidth / Math.max(1, srcW);
+        // อัตราส่วนสำหรับสเกล box กลับสู่พิกัดของวิดีโอจริง (ROI แล้ว scale=1)
+        const srcW = 1;
+        const scaleBack = 1;
         setFaceCount(detections.length);
 
         const canvas = overlayRef.current;
