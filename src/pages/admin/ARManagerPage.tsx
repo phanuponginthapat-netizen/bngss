@@ -13,16 +13,19 @@ import { QRCodeCanvas } from "qrcode.react";
 import { toast } from "sonner";
 import {
   Boxes, Plus, Pencil, Trash2, QrCode, Upload, ExternalLink, Download, Eye,
-  FolderOpen, ArrowLeft, Printer, MapPin,
+  FolderOpen, ArrowLeft, Printer, MapPin, Target, Loader2, Camera,
 } from "lucide-react";
 import { swal } from "@/lib/swal";
 import ArMediaViewer from "@/components/ar/ArMediaViewer";
-import { uploadArFile } from "@/lib/arMedia";
+import { uploadArFile, resolveArUrl, toStorageRef, AR_BUCKET } from "@/lib/arMedia";
+import { compileTargets } from "@/lib/mindAr";
+import ArImage from "@/components/ar/ArImage";
 
 interface ArProject {
   id: string; slug: string; title: string; description: string | null;
   cover_url: string | null; location: string | null;
   is_public: boolean; is_active: boolean;
+  targets_url: string | null; targets_version: number | null;
 }
 
 interface ArItem {
@@ -31,6 +34,9 @@ interface ArItem {
   media_type: string; media_url: string; poster_url: string | null;
   subject: string | null; grade_level: string | null; tags: string[] | null;
   is_public: boolean; is_active: boolean; view_count: number;
+  marker_image_url: string | null; target_index: number | null;
+  overlay_width: number | null; overlay_height: number | null;
+  loop_media: boolean | null; muted: boolean | null;
 }
 
 const MEDIA_TYPES = [
@@ -44,6 +50,8 @@ const emptyItem = {
   id: "", code: "", title: "", marker_label: "", sort_order: 0, description: "",
   media_type: "image", media_url: "", poster_url: "", subject: "", grade_level: "",
   tags: "", is_public: true, is_active: true,
+  marker_image_url: "", overlay_width: 1, overlay_height: 0.5625,
+  loop_media: true, muted: true,
 };
 
 const emptyProject = {
@@ -158,6 +166,10 @@ export default function ARManagerPage() {
       media_url: i.media_url, poster_url: i.poster_url || "", subject: i.subject || "",
       grade_level: i.grade_level || "", tags: (i.tags || []).join(", "),
       is_public: i.is_public, is_active: i.is_active,
+      marker_image_url: i.marker_image_url || "",
+      overlay_width: Number(i.overlay_width ?? 1),
+      overlay_height: Number(i.overlay_height ?? 0.5625),
+      loop_media: i.loop_media !== false, muted: i.muted !== false,
     });
     setItemOpen(true);
   };
@@ -194,6 +206,11 @@ export default function ARManagerPage() {
       tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
       is_public: form.is_public,
       is_active: form.is_active,
+      marker_image_url: form.marker_image_url.trim() || null,
+      overlay_width: Number(form.overlay_width) || 1,
+      overlay_height: Number(form.overlay_height) || 0.5625,
+      loop_media: form.loop_media,
+      muted: form.muted,
     };
     const q = form.id
       ? supabase.from("ar_experiences" as any).update(payload).eq("id", form.id)
@@ -214,6 +231,53 @@ export default function ARManagerPage() {
     toast.success("ลบแล้ว");
     load();
   };
+
+  /* ---------- คอมไพล์ภาพเป้าหมาย (image tracking) ---------- */
+  const [compiling, setCompiling] = useState(false);
+  const [compileProgress, setCompileProgress] = useState(0);
+
+  const compileProjectTargets = async () => {
+    if (!active) return;
+    const withMarker = activeItems.filter((i) => !!i.marker_image_url);
+    if (withMarker.length === 0) {
+      toast.error("ยังไม่มีป้ายที่อัปโหลด “ภาพเป้าหมาย” — เพิ่มภาพป้าย/วัตถุก่อน");
+      return;
+    }
+    setCompiling(true);
+    setCompileProgress(0);
+    try {
+      const urls = await Promise.all(withMarker.map((i) => resolveArUrl(i.marker_image_url)));
+      if (urls.some((u) => !u)) throw new Error("เปิดภาพเป้าหมายบางรายการไม่ได้");
+      const blob = await compileTargets(urls, setCompileProgress);
+      const path = `${active.slug}/targets-${Date.now()}.mind`;
+      const up = await supabase.storage.from(AR_BUCKET).upload(path, blob, {
+        upsert: true, contentType: "application/octet-stream",
+      });
+      if (up.error) throw up.error;
+
+      const version = (active.targets_version || 0) + 1;
+      const pu = await supabase.from("ar_projects" as any)
+        .update({ targets_url: toStorageRef(path), targets_version: version })
+        .eq("id", active.id);
+      if (pu.error) throw pu.error;
+
+      for (let idx = 0; idx < withMarker.length; idx++) {
+        await supabase.from("ar_experiences" as any)
+          .update({ target_index: idx }).eq("id", withMarker[idx].id);
+      }
+      const noMarker = activeItems.filter((i) => !i.marker_image_url).map((i) => i.id);
+      if (noMarker.length) {
+        await supabase.from("ar_experiences" as any).update({ target_index: null }).in("id", noMarker);
+      }
+      toast.success(`สร้างเป้าหมาย AR สำเร็จ ${withMarker.length} จุด`);
+      load();
+    } catch (e: any) {
+      toast.error("สร้างเป้าหมายไม่สำเร็จ: " + (e?.message || ""));
+    } finally {
+      setCompiling(false);
+    }
+  };
+
 
   /* ---------- QR ---------- */
   const downloadQr = () => {
@@ -311,30 +375,53 @@ export default function ARManagerPage() {
                 {active.location && <><MapPin className="h-3 w-3" />{active.location} · </>}/ar/p/{active.slug}
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setSheetOpen(true)}><Printer className="h-4 w-4 mr-2" />พิมพ์ QR ทั้งงาน</Button>
-              <Button size="sm" onClick={openNewItem}><Plus className="h-4 w-4 mr-2" />เพิ่มป้าย AR</Button>
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" size="sm" onClick={() => setQrTarget({ title: active.title, url: projectUrl(active.slug), file: `ar-${active.slug}` })}>
+                <QrCode className="h-4 w-4 mr-2" />QR เปิดเครื่องมือ AR
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setSheetOpen(true)}>
+                <Printer className="h-4 w-4 mr-2" />พิมพ์โปสเตอร์ QR
+              </Button>
+              <Button variant="secondary" size="sm" onClick={compileProjectTargets} disabled={compiling}>
+                {compiling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Target className="h-4 w-4 mr-2" />}
+                {compiling ? `กำลังสร้างเป้าหมาย ${compileProgress}%` : "สร้าง/อัปเดตเป้าหมาย AR"}
+              </Button>
+              <Button size="sm" onClick={openNewItem}><Plus className="h-4 w-4 mr-2" />เพิ่มป้าย/วัตถุ</Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
+            <div className="text-xs text-muted-foreground rounded-md border border-dashed p-3">
+              ขั้นตอน: เพิ่มป้าย/วัตถุ → อัปโหลด <b>ภาพเป้าหมาย</b> (ภาพป้ายจริงที่จะใช้สแกน) และไฟล์สื่อ → กด <b>สร้าง/อัปเดตเป้าหมาย AR</b> →
+              ติด <b>QR เปิดเครื่องมือ AR</b> ของงานไว้จุดเดียว ผู้ชมสแกนแล้วส่องกล้องที่ป้าย สื่อจะเล่นทับอัตโนมัติและหยุดเมื่อหลุดเฟรม
+              {active.targets_url
+                ? <span className="text-primary"> · พร้อมใช้งาน (เวอร์ชัน {active.targets_version || 1})</span>
+                : <span className="text-destructive"> · ยังไม่ได้สร้างไฟล์เป้าหมาย</span>}
+            </div>
             {activeItems.length === 0 ? (
-              <p className="text-muted-foreground py-6 text-center">ยังไม่มีป้ายในงานนี้ — กด “เพิ่มป้าย AR” เพื่อใส่วีดีโอ/ภาพ/โมเดล 3 มิติ แล้วออก QR</p>
+              <p className="text-muted-foreground py-6 text-center">ยังไม่มีป้ายในงานนี้ — กด “เพิ่มป้าย/วัตถุ” เพื่อกำหนดภาพเป้าหมายและสื่อที่จะแสดง</p>
             ) : activeItems.map((i, idx) => (
               <div key={i.id} className="flex items-center gap-3 p-3 rounded-lg border flex-wrap">
+                {i.marker_image_url ? (
+                  <ArImage src={i.marker_image_url} alt={i.title} className="h-12 w-12 rounded object-cover border" />
+                ) : (
+                  <div className="h-12 w-12 rounded border flex items-center justify-center text-muted-foreground"><Camera className="h-5 w-5" /></div>
+                )}
                 <div className="flex-1 min-w-[200px]">
                   <div className="font-medium">{idx + 1}. {i.title}</div>
-                  <div className="text-xs text-muted-foreground">{i.marker_label ? `ป้าย: ${i.marker_label} · ` : ""}/ar/{i.code}</div>
+                  <div className="text-xs text-muted-foreground">{i.marker_label ? `ป้าย: ${i.marker_label}` : "ยังไม่ตั้งชื่อจุดติดตั้ง"}</div>
                 </div>
                 <Badge variant="outline">{MEDIA_TYPES.find((m) => m.value === i.media_type)?.label || i.media_type}</Badge>
-                <Badge variant={i.is_public && i.is_active ? "default" : "secondary"}>{i.is_public && i.is_active ? "เผยแพร่" : "ปิด"}</Badge>
+                <Badge variant={i.target_index !== null && i.target_index !== undefined ? "default" : "destructive"}>
+                  {i.target_index !== null && i.target_index !== undefined ? `เป้าหมาย #${i.target_index + 1}` : i.marker_image_url ? "รอสร้างเป้าหมาย" : "ไม่มีภาพเป้าหมาย"}
+                </Badge>
                 <Badge variant="secondary" className="gap-1"><Eye className="h-3 w-3" />{i.view_count}</Badge>
                 <div className="flex gap-1">
-                  <Button size="icon" variant="ghost" onClick={() => setQrTarget({ title: i.title, url: itemUrl(i.code), file: `ar-${i.code}` })}><QrCode className="h-4 w-4" /></Button>
                   <Button size="icon" variant="ghost" onClick={() => openEditItem(i)}><Pencil className="h-4 w-4" /></Button>
                   <Button size="icon" variant="ghost" onClick={() => removeItem(i)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </div>
               </div>
             ))}
+
           </CardContent>
         </Card>
       )}
@@ -427,7 +514,35 @@ export default function ARManagerPage() {
                 </Button>
               </div>
             </div>
+            <div className="rounded-lg border p-3 space-y-3">
+              <Label className="flex items-center gap-2"><Target className="h-4 w-4" />ภาพเป้าหมายสำหรับสแกน (ป้าย/วัตถุจริง) *</Label>
+              <p className="text-xs text-muted-foreground">
+                ถ่ายหรืออัปโหลดภาพหน้าตรงของป้าย/วัตถุนั้น ๆ ให้ชัดและมีลวดลายเยอะ ระบบจะใช้ภาพนี้ตรวจจับเพื่อเล่นสื่อทับ (ไม่ต้องมี QR ที่ป้าย)
+              </p>
+              <div className="flex gap-2">
+                <Input value={form.marker_image_url} onChange={(e) => setForm({ ...form, marker_image_url: e.target.value })} placeholder="อัปโหลดภาพป้าย/วัตถุ" />
+                <Button type="button" variant="outline" disabled={uploading === "marker"} asChild>
+                  <label className="cursor-pointer">
+                    <Upload className="h-4 w-4 mr-2" />{uploading === "marker" ? "กำลังอัปโหลด" : "อัปโหลด"}
+                    <input type="file" accept="image/*" className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f, "marker", (ref) => setForm((s) => ({ ...s, marker_image_url: ref }))); e.currentTarget.value = ""; }} />
+                  </label>
+                </Button>
+              </div>
+              {form.marker_image_url && (
+                <ArImage src={form.marker_image_url} alt="ภาพเป้าหมาย" className="h-32 rounded border object-contain bg-muted" />
+              )}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div><Label>ความกว้างสื่อ (เท่าของป้าย)</Label><Input type="number" step="0.05" value={form.overlay_width} onChange={(e) => setForm({ ...form, overlay_width: Number(e.target.value) })} /></div>
+                <div><Label>ความสูงสื่อ (เท่าของป้าย)</Label><Input type="number" step="0.05" value={form.overlay_height} onChange={(e) => setForm({ ...form, overlay_height: Number(e.target.value) })} /></div>
+              </div>
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 text-sm"><Switch checked={form.loop_media} onCheckedChange={(v) => setForm({ ...form, loop_media: v })} />เล่นวนซ้ำ</label>
+                <label className="flex items-center gap-2 text-sm"><Switch checked={form.muted} onCheckedChange={(v) => setForm({ ...form, muted: v })} />เริ่มแบบปิดเสียง</label>
+              </div>
+            </div>
             <div><Label>แท็ก (คั่นด้วย ,)</Label><Input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} /></div>
+
             <div className="flex items-center gap-6">
               <label className="flex items-center gap-2 text-sm"><Switch checked={form.is_public} onCheckedChange={(v) => setForm({ ...form, is_public: v })} />เผยแพร่สาธารณะ</label>
               <label className="flex items-center gap-2 text-sm"><Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />เปิดใช้งาน</label>
@@ -463,25 +578,19 @@ export default function ARManagerPage() {
         </DialogContent>
       </Dialog>
 
-      {/* QR sheet */}
+      {/* โปสเตอร์ QR เปิดเครื่องมือ AR ของงาน */}
       <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>QR ทั้งงาน · {active?.title}</DialogTitle></DialogHeader>
-          <div ref={sheetRef} className="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-white p-3 rounded-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>โปสเตอร์ QR เปิด AR · {active?.title}</DialogTitle></DialogHeader>
+          <div ref={sheetRef} className="bg-white p-6 rounded-lg text-center">
             {active && (
-              <div className="cell border rounded-lg p-3 text-center">
-                <QRCodeCanvas value={projectUrl(active.slug)} size={150} includeMargin level="M" />
-                <div className="t font-semibold text-sm mt-1 text-black">รวมทั้งงาน</div>
+              <div className="cell">
+                <div className="t text-black text-lg font-bold">{active.title}</div>
+                <div className="s text-gray-600 text-xs mb-2">สแกนเพื่อเปิดกล้อง AR แล้วส่องที่ป้าย/วัตถุ</div>
+                <QRCodeCanvas value={projectUrl(active.slug)} size={220} includeMargin level="M" />
                 <div className="s text-[11px] text-gray-600 break-all">{projectUrl(active.slug)}</div>
               </div>
             )}
-            {activeItems.map((i, idx) => (
-              <div key={i.id} className="cell border rounded-lg p-3 text-center">
-                <QRCodeCanvas value={itemUrl(i.code)} size={150} includeMargin level="M" />
-                <div className="t font-semibold text-sm mt-1 text-black">{idx + 1}. {i.marker_label || i.title}</div>
-                <div className="s text-[11px] text-gray-600 break-all">{itemUrl(i.code)}</div>
-              </div>
-            ))}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSheetOpen(false)}>ปิด</Button>
@@ -490,5 +599,6 @@ export default function ARManagerPage() {
         </DialogContent>
       </Dialog>
     </div>
+
   );
 }

@@ -1164,6 +1164,7 @@ export type Database = {
       }
       ar_experiences: {
         Row: {
+          autoplay: boolean
           code: string
           created_at: string
           created_by: string | null
@@ -1172,20 +1173,27 @@ export type Database = {
           id: string
           is_active: boolean
           is_public: boolean
+          loop_media: boolean
+          marker_image_url: string | null
           marker_label: string | null
           media_type: string
           media_url: string
+          muted: boolean
+          overlay_height: number
+          overlay_width: number
           poster_url: string | null
           project_id: string | null
           school_id: string | null
           sort_order: number
           subject: string | null
           tags: string[] | null
+          target_index: number | null
           title: string
           updated_at: string
           view_count: number
         }
         Insert: {
+          autoplay?: boolean
           code: string
           created_at?: string
           created_by?: string | null
@@ -1194,20 +1202,27 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_public?: boolean
+          loop_media?: boolean
+          marker_image_url?: string | null
           marker_label?: string | null
           media_type?: string
           media_url: string
+          muted?: boolean
+          overlay_height?: number
+          overlay_width?: number
           poster_url?: string | null
           project_id?: string | null
           school_id?: string | null
           sort_order?: number
           subject?: string | null
           tags?: string[] | null
+          target_index?: number | null
           title: string
           updated_at?: string
           view_count?: number
         }
         Update: {
+          autoplay?: boolean
           code?: string
           created_at?: string
           created_by?: string | null
@@ -1216,15 +1231,21 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_public?: boolean
+          loop_media?: boolean
+          marker_image_url?: string | null
           marker_label?: string | null
           media_type?: string
           media_url?: string
+          muted?: boolean
+          overlay_height?: number
+          overlay_width?: number
           poster_url?: string | null
           project_id?: string | null
           school_id?: string | null
           sort_order?: number
           subject?: string | null
           tags?: string[] | null
+          target_index?: number | null
           title?: string
           updated_at?: string
           view_count?: number
@@ -1251,6 +1272,8 @@ export type Database = {
           location: string | null
           school_id: string | null
           slug: string
+          targets_url: string | null
+          targets_version: number
           title: string
           updated_at: string
         }
@@ -1265,6 +1288,8 @@ export type Database = {
           location?: string | null
           school_id?: string | null
           slug: string
+          targets_url?: string | null
+          targets_version?: number
           title: string
           updated_at?: string
         }
@@ -1279,6 +1304,8 @@ export type Database = {
           location?: string | null
           school_id?: string | null
           slug?: string
+          targets_url?: string | null
+          targets_version?: number
           title?: string
           updated_at?: string
         }
@@ -16434,6 +16461,8 @@ export type Database = {
           id: string
           location: string
           slug: string
+          targets_url: string
+          targets_version: number
           title: string
         }[]
       }
@@ -16687,14 +16716,21 @@ export type Database = {
       list_public_ar_project_items: {
         Args: { _slug: string }
         Returns: {
+          autoplay: boolean
           code: string
           description: string
           id: string
+          loop_media: boolean
+          marker_image_url: string
           marker_label: string
           media_type: string
           media_url: string
+          muted: boolean
+          overlay_height: number
+          overlay_width: number
           poster_url: string
           sort_order: number
+          target_index: number
           title: string
           view_count: number
         }[]
