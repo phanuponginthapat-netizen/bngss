@@ -232,6 +232,53 @@ export default function ARManagerPage() {
     load();
   };
 
+  /* ---------- คอมไพล์ภาพเป้าหมาย (image tracking) ---------- */
+  const [compiling, setCompiling] = useState(false);
+  const [compileProgress, setCompileProgress] = useState(0);
+
+  const compileProjectTargets = async () => {
+    if (!active) return;
+    const withMarker = activeItems.filter((i) => !!i.marker_image_url);
+    if (withMarker.length === 0) {
+      toast.error("ยังไม่มีป้ายที่อัปโหลด “ภาพเป้าหมาย” — เพิ่มภาพป้าย/วัตถุก่อน");
+      return;
+    }
+    setCompiling(true);
+    setCompileProgress(0);
+    try {
+      const urls = await Promise.all(withMarker.map((i) => resolveArUrl(i.marker_image_url)));
+      if (urls.some((u) => !u)) throw new Error("เปิดภาพเป้าหมายบางรายการไม่ได้");
+      const blob = await compileTargets(urls, setCompileProgress);
+      const path = `${active.slug}/targets-${Date.now()}.mind`;
+      const up = await supabase.storage.from(AR_BUCKET).upload(path, blob, {
+        upsert: true, contentType: "application/octet-stream",
+      });
+      if (up.error) throw up.error;
+
+      const version = (active.targets_version || 0) + 1;
+      const pu = await supabase.from("ar_projects" as any)
+        .update({ targets_url: toStorageRef(path), targets_version: version })
+        .eq("id", active.id);
+      if (pu.error) throw pu.error;
+
+      for (let idx = 0; idx < withMarker.length; idx++) {
+        await supabase.from("ar_experiences" as any)
+          .update({ target_index: idx }).eq("id", withMarker[idx].id);
+      }
+      const noMarker = activeItems.filter((i) => !i.marker_image_url).map((i) => i.id);
+      if (noMarker.length) {
+        await supabase.from("ar_experiences" as any).update({ target_index: null }).in("id", noMarker);
+      }
+      toast.success(`สร้างเป้าหมาย AR สำเร็จ ${withMarker.length} จุด`);
+      load();
+    } catch (e: any) {
+      toast.error("สร้างเป้าหมายไม่สำเร็จ: " + (e?.message || ""));
+    } finally {
+      setCompiling(false);
+    }
+  };
+
+
   /* ---------- QR ---------- */
   const downloadQr = () => {
     const canvas = qrRef.current?.querySelector("canvas") as HTMLCanvasElement | null;
