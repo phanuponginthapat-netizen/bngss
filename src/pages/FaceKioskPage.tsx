@@ -1791,18 +1791,34 @@ const FaceKioskPage = () => {
             <Button
               size="sm"
               variant="outline"
+              disabled={audioTesting}
               className="w-full text-[11px]"
-              onClick={() => {
-                unlockAudio();
-                playSuccessSound();
-                speakText("ทดสอบเสียงพูดของตู้สแกนใบหน้า");
+              onClick={async () => {
+                setAudioTesting(true);
+                setAudioDiag(["⏳ กำลังตรวจระบบเสียง..."]);
+                try {
+                  const r = await diagnoseAudio();
+                  setAudioDiag(r.lines);
+                } catch (e: any) {
+                  setAudioDiag([`❌ ตรวจไม่สำเร็จ: ${e?.message || e}`]);
+                } finally {
+                  setAudioTesting(false);
+                }
               }}
             >
-              เล่นเสียงทดสอบ
+              {audioTesting ? "กำลังทดสอบ..." : "เล่นเสียงทดสอบ + ตรวจระบบเสียง"}
             </Button>
+            {audioDiag.length > 0 && (
+              <div className="rounded-md bg-muted/60 p-2 space-y-0.5">
+                {audioDiag.map((l, i) => (
+                  <p key={i} className="text-[10px] leading-snug break-words">{l}</p>
+                ))}
+              </div>
+            )}
             <p className="text-[10px] text-muted-foreground leading-snug">
               ถ้าได้ยินเสียง "ตึ๊ง" แต่ไม่ได้ยินเสียงพูด แปลว่าลำโพงใช้ได้แต่ TTS มีปัญหา — ถ้าไม่ได้ยินเลย ให้รัน <code>/opt/kiosk/fix-audio.sh</code> บนตู้
             </p>
+
           </div>
 
 
