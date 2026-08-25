@@ -511,7 +511,35 @@ export default function ARManagerPage() {
                 </Button>
               </div>
             </div>
+            <div className="rounded-lg border p-3 space-y-3">
+              <Label className="flex items-center gap-2"><Target className="h-4 w-4" />ภาพเป้าหมายสำหรับสแกน (ป้าย/วัตถุจริง) *</Label>
+              <p className="text-xs text-muted-foreground">
+                ถ่ายหรืออัปโหลดภาพหน้าตรงของป้าย/วัตถุนั้น ๆ ให้ชัดและมีลวดลายเยอะ ระบบจะใช้ภาพนี้ตรวจจับเพื่อเล่นสื่อทับ (ไม่ต้องมี QR ที่ป้าย)
+              </p>
+              <div className="flex gap-2">
+                <Input value={form.marker_image_url} onChange={(e) => setForm({ ...form, marker_image_url: e.target.value })} placeholder="อัปโหลดภาพป้าย/วัตถุ" />
+                <Button type="button" variant="outline" disabled={uploading === "marker"} asChild>
+                  <label className="cursor-pointer">
+                    <Upload className="h-4 w-4 mr-2" />{uploading === "marker" ? "กำลังอัปโหลด" : "อัปโหลด"}
+                    <input type="file" accept="image/*" className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f, "marker", (ref) => setForm((s) => ({ ...s, marker_image_url: ref }))); e.currentTarget.value = ""; }} />
+                  </label>
+                </Button>
+              </div>
+              {form.marker_image_url && (
+                <ArImage src={form.marker_image_url} alt="ภาพเป้าหมาย" className="h-32 rounded border object-contain bg-muted" />
+              )}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div><Label>ความกว้างสื่อ (เท่าของป้าย)</Label><Input type="number" step="0.05" value={form.overlay_width} onChange={(e) => setForm({ ...form, overlay_width: Number(e.target.value) })} /></div>
+                <div><Label>ความสูงสื่อ (เท่าของป้าย)</Label><Input type="number" step="0.05" value={form.overlay_height} onChange={(e) => setForm({ ...form, overlay_height: Number(e.target.value) })} /></div>
+              </div>
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 text-sm"><Switch checked={form.loop_media} onCheckedChange={(v) => setForm({ ...form, loop_media: v })} />เล่นวนซ้ำ</label>
+                <label className="flex items-center gap-2 text-sm"><Switch checked={form.muted} onCheckedChange={(v) => setForm({ ...form, muted: v })} />เริ่มแบบปิดเสียง</label>
+              </div>
+            </div>
             <div><Label>แท็ก (คั่นด้วย ,)</Label><Input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} /></div>
+
             <div className="flex items-center gap-6">
               <label className="flex items-center gap-2 text-sm"><Switch checked={form.is_public} onCheckedChange={(v) => setForm({ ...form, is_public: v })} />เผยแพร่สาธารณะ</label>
               <label className="flex items-center gap-2 text-sm"><Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />เปิดใช้งาน</label>
