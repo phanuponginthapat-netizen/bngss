@@ -51,7 +51,12 @@ export const ArMediaViewer = ({ mediaType, mediaUrl: rawUrl, posterUrl: rawPoste
 
   const wrap = "w-full overflow-hidden rounded-xl bg-muted " + (className || "");
 
+  if (rawUrl && !mediaUrl) {
+    return <div className={wrap}><div className="p-10 text-center text-sm text-muted-foreground">กำลังเตรียมสื่อ...</div></div>;
+  }
+
   if (mediaType === "image") {
+
     return (
       <div className={wrap}>
         <img src={mediaUrl} alt={title || "สื่อการเรียนรู้ AR"} loading="lazy" className="w-full h-auto object-contain" />
