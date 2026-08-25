@@ -5,13 +5,14 @@ const AFRAME_SRC = "https://aframe.io/releases/1.5.0/aframe.min.js";
 
 const loaded = new Map<string, Promise<void>>();
 
-const loadScript = (src: string) => {
+const loadScript = (src: string, asModule = false) => {
   if (loaded.has(src)) return loaded.get(src)!;
   const p = new Promise<void>((resolve, reject) => {
     const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
     if (existing && (existing as any).dataset.loaded === "1") return resolve();
     const el = document.createElement("script");
     el.src = src;
+    if (asModule) el.type = "module";
     el.async = false;
     el.crossOrigin = "anonymous";
     el.onload = () => { (el as any).dataset.loaded = "1"; resolve(); };
@@ -28,13 +29,38 @@ export const loadArViewer = async () => {
   await loadScript(`${CDN}/mindar-image-aframe.prod.js`);
 };
 
+const getCompilerCtor = () => (window as any).MINDAR?.IMAGE?.Compiler;
+
+const waitForCompiler = async (ms = 8000) => {
+  const t0 = Date.now();
+  while (Date.now() - t0 < ms) {
+    const c = getCompilerCtor();
+    if (c) return c;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return null;
+};
+
 /** สำหรับหน้าจัดการ: ตัวคอมไพล์ภาพเป้าหมาย (.mind) */
 export const loadArCompiler = async () => {
-  await loadScript(`${CDN}/mindar-image.prod.js`);
-  const compiler = (window as any).MINDAR?.IMAGE?.Compiler;
-  if (!compiler) throw new Error("ไม่พบตัวคอมไพล์ภาพเป้าหมาย");
-  return new compiler();
+  let ctor = getCompilerCtor();
+  if (!ctor) {
+    // dist/mindar-image.prod.js เป็น ES module ต้องโหลดแบบ module
+    try {
+      await loadScript(`${CDN}/mindar-image.prod.js`, true);
+      ctor = await waitForCompiler(6000);
+    } catch { /* ลองทางสำรองด้านล่าง */ }
+  }
+  if (!ctor) {
+    // ทางสำรอง: bundle แบบ classic script ที่รวมตัวคอมไพล์ไว้
+    await loadScript(AFRAME_SRC);
+    await loadScript(`${CDN}/mindar-image-aframe.prod.js`);
+    ctor = await waitForCompiler(8000);
+  }
+  if (!ctor) throw new Error("ไม่พบตัวคอมไพล์ภาพเป้าหมาย");
+  return new ctor();
 };
+
 
 const loadImage = (url: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
