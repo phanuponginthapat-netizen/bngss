@@ -281,6 +281,19 @@ const FaceKioskPage = () => {
     uptimeSec: Math.floor((now.getTime() - kioskStartedAtRef.current) / 60000) * 60,
   });
 
+  // ---- ปลดล็อกเสียง — Chromium kiosk บล็อก AudioContext จนกว่าจะมี gesture ครั้งแรก ----
+  useEffect(() => {
+    const once = () => { try { unlockAudio(); } catch {} };
+    window.addEventListener("click", once, { once: true } as any);
+    window.addEventListener("touchstart", once, { once: true } as any);
+    window.addEventListener("keydown", once, { once: true } as any);
+    return () => {
+      window.removeEventListener("click", once as any);
+      window.removeEventListener("touchstart", once as any);
+      window.removeEventListener("keydown", once as any);
+    };
+  }, []);
+
   // ---- Screen Wake Lock — กันจอดับ (สำคัญ: ตู้นี้ไม่ได้ใช้ wakeLock มาก่อน จึง sleep แม้ xset -dpms) ----
   useEffect(() => {
     let lock: any = null;
@@ -548,6 +561,7 @@ const FaceKioskPage = () => {
 
 
   const startCamera = useCallback(async (mode: CamMode = camMode) => {
+    try { unlockAudio(); } catch {}
     const ok = await verifyLocation();
     if (!ok) return;
     try {
