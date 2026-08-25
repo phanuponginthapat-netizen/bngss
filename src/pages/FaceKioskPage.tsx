@@ -168,6 +168,8 @@ const FaceKioskPage = () => {
   const [faceCount, setFaceCount] = useState(0);
   const [networkUrl, setNetworkUrl] = useState<string>(() => localStorage.getItem(NETWORK_CAM_URL_KEY) || "");
   const [netStatus, setNetStatus] = useState<string>("");
+  const [audioDiag, setAudioDiag] = useState<string[]>([]);
+  const [audioTesting, setAudioTesting] = useState(false);
   const [netTesting, setNetTesting] = useState(false);
   const netCamRef = useRef<NetworkCameraHandle | null>(null);
 
