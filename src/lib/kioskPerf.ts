@@ -25,17 +25,14 @@ export interface KioskPerfProfile {
 
 /** โปรไฟล์เดียวของระบบ — เร็วที่สุดที่ยังคงความแม่นยำ */
 export const KIOSK_TURBO_PROFILE: KioskPerfProfile = {
-  // 320 เร็วขึ้น ~40% จาก 416 บน Atom x5 — ยังแม่นพอที่ระยะ 70–120 ซม. (หน้า ~90–140px > MIN_FACE_PX 56)
-  // ลด maxWidth/video เพื่อลด decode + ลด loopDelay เพื่อกันกระตุก
-  inputSize: 320,
-  maxWidth: 480,
-  loopDelayMs: 140,
-  checkSharpness: false,
-  // 640x480 @12fps เบากว่า 1280x720 @15fps มาก (ครึ่งพิกเซล/เฟรมน้อยลง) เหมาะกับ Pavilion x2 2GB
-  videoWidth: 640,
-  videoHeight: 480,
-  frameRate: 12,
-  label: "Turbo (เหมาะกับ HP Pavilion x2 / Atom)",
+  inputSize: 416,
+  maxWidth: 640,
+  loopDelayMs: 320,
+  checkSharpness: true,
+  videoWidth: 1280,
+  videoHeight: 720,
+  frameRate: 15,
+  label: "Turbo (สมดุล แม่นยำ)",
 };
 
 

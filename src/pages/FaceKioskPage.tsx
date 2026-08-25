@@ -933,7 +933,7 @@ const FaceKioskPage = () => {
     //         แต่กันคนหน้าคล้ายด้วยการให้เจ้าหน้าที่/ผู้ใช้ยืนยันด้วยตนเอง
     // ZKTeco mode: เข้ม+เร็ว แบบเครื่องสแกนประตูจริง — ยืนในวงรีแล้วเทียบครั้งเดียวผ่านเลย
     const ZKTECO = true;
-    const AUTO_DIST = ZKTECO ? 0.40 : 0.44;
+    const AUTO_DIST = threshold;
     const STRONG_DIST = ZKTECO ? 0.36 : 0.40;
     const MANUAL_DIST = ZKTECO ? 0.40 : 0.55; // Zkteco ปิด tier2 manual ทั้งหมด
 
