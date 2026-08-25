@@ -184,7 +184,8 @@ const FaceKioskPage = () => {
   const threshold = parseFloat(thresholdSetting || "0.48");
   const voiceEnabled = voiceSetting !== "false";
   const livenessEnabled = livenessSetting !== "false";
-  const textureGate = textureSetting !== "false";
+  // door kiosk: texture gate เปิดเฉพาะเมื่อตั้ง "true" ชัดเจน — default ปิดเพื่อกัน "เขียวแล้วหลุด" บน Atom/Pavilion x2
+  const textureGate = textureSetting === "true";
   const idleMs = Math.max(15, parseInt(idleSecSetting || "60", 10) || 60) * 1000;
   const powerSave = powerSaveSetting !== "false";
   const wakeWordEnabled = wakeWordSetting !== "false";
@@ -914,9 +915,9 @@ const FaceKioskPage = () => {
     //         เหตุผล: คนที่ลงทะเบียนจากกล้องหน้ามือถือแล้วมาสแกนที่กล้องคีออส
     //         ระยะห่างอาจกว้างเพราะมุม/แสง/กล้องต่างกัน — ระดับนี้ยังน่าเชื่อถือพอ
     //         แต่กันคนหน้าคล้ายด้วยการให้เจ้าหน้าที่/ผู้ใช้ยืนยันด้วยตนเอง
-    const AUTO_DIST = 0.42;
+    const AUTO_DIST = 0.44;
     /** ตรงมากจนไม่ต้องรอเฟรมยืนยันเพิ่ม (fast-pass) — ลดเวลายืนหน้าเครื่อง */
-    const STRONG_DIST = 0.38;
+    const STRONG_DIST = 0.40;
     const MANUAL_DIST = 0.55;
 
     const MANUAL_MIN_MARGIN = 0.03;
@@ -1156,11 +1157,11 @@ const FaceKioskPage = () => {
                   let track = livenessRef.current.get(found.studentId);
                   if (!track) { track = newLivenessTrack(); livenessRef.current.set(found.studentId, track); }
                   live = recordLivenessSample(track, makeLivenessSample(tNow, det.landmarks, box)).live;
-                  // กันผู้ใช้ยืนรอนานเกินไป — เห็นใบหน้าคนเดิมต่อเนื่องเกิน 0.7 วินาที
+                  // กันผู้ใช้ยืนรอนานเกินไป — เห็นใบหน้าคนเดิมต่อเนื่องเกิน 0.4 วินาที
                   // และเป็น match ที่แน่นมาก ให้ผ่าน (รูปถ่ายจะถูกกรองด้วย texture gate อยู่แล้ว)
                   if (!live && strongHit) {
                     const firstSeen = (track.samples[0]?.t ?? tNow);
-                    if (tNow - firstSeen > 700) live = true;
+                    if (tNow - firstSeen > 400) live = true;
                   }
 
                 }
