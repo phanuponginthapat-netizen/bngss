@@ -53,6 +53,7 @@ export const loadArCompiler = async () => {
   }
   if (!ctor) {
     // ทางสำรอง: bundle แบบ classic script ที่รวมตัวคอมไพล์ไว้
+    await loadScript(AFRAME_SRC);
     await loadScript(`${CDN}/mindar-image-aframe.prod.js`);
     ctor = await waitForCompiler(8000);
   }
