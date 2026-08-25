@@ -4,17 +4,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Boxes, Eye, MapPin, ScanLine, Image as ImageIcon, Video, Box } from "lucide-react";
+import { ArrowLeft, Boxes, Eye, MapPin, ScanLine, Image as ImageIcon, Video, Box, Camera } from "lucide-react";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import ArImage from "@/components/ar/ArImage";
+import ArImageTracker, { type TrackedItem } from "@/components/ar/ArImageTracker";
 import { extractArCode } from "@/lib/arCode";
 
 interface Project {
   id: string; slug: string; title: string; description: string | null;
   cover_url: string | null; location: string | null;
+  targets_url: string | null; targets_version: number | null;
 }
 
-interface Marker {
+interface Marker extends TrackedItem {
   id: string; code: string; title: string; marker_label: string | null;
   description: string | null; media_type: string; media_url: string;
   poster_url: string | null; sort_order: number; view_count: number;
@@ -29,6 +31,8 @@ export default function ARProjectPage() {
   const [items, setItems] = useState<Marker[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanOpen, setScanOpen] = useState(false);
+  const [arOpen, setArOpen] = useState(false);
+
 
   useEffect(() => {
     (async () => {
