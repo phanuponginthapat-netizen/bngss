@@ -505,6 +505,7 @@ EOF
 log "▶  [3.6/10] Sudoers NOPASSWD สำหรับ shutdown/reboot..."
 cat >/etc/sudoers.d/kiosk-power <<EOF
 $KIOSK_USER ALL=(ALL) NOPASSWD: /sbin/shutdown, /sbin/reboot, /sbin/poweroff, /usr/sbin/rtcwake, /bin/systemctl suspend, /bin/systemctl hibernate
+$KIOSK_USER ALL=(ALL) NOPASSWD: /sbin/alsa, /usr/sbin/alsa, /sbin/modprobe, /usr/sbin/modprobe, /usr/bin/alsactl, /sbin/alsactl
 EOF
 chmod 440 /etc/sudoers.d/kiosk-power
 
