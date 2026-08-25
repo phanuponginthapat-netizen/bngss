@@ -375,30 +375,50 @@ export default function ARManagerPage() {
                 {active.location && <><MapPin className="h-3 w-3" />{active.location} · </>}/ar/p/{active.slug}
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setSheetOpen(true)}><Printer className="h-4 w-4 mr-2" />พิมพ์ QR ทั้งงาน</Button>
-              <Button size="sm" onClick={openNewItem}><Plus className="h-4 w-4 mr-2" />เพิ่มป้าย AR</Button>
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" size="sm" onClick={() => setQrTarget({ title: active.title, url: projectUrl(active.slug), file: `ar-${active.slug}` })}>
+                <QrCode className="h-4 w-4 mr-2" />QR เปิดเครื่องมือ AR
+              </Button>
+              <Button variant="secondary" size="sm" onClick={compileProjectTargets} disabled={compiling}>
+                {compiling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Target className="h-4 w-4 mr-2" />}
+                {compiling ? `กำลังสร้างเป้าหมาย ${compileProgress}%` : "สร้าง/อัปเดตเป้าหมาย AR"}
+              </Button>
+              <Button size="sm" onClick={openNewItem}><Plus className="h-4 w-4 mr-2" />เพิ่มป้าย/วัตถุ</Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
+            <div className="text-xs text-muted-foreground rounded-md border border-dashed p-3">
+              ขั้นตอน: เพิ่มป้าย/วัตถุ → อัปโหลด <b>ภาพเป้าหมาย</b> (ภาพป้ายจริงที่จะใช้สแกน) และไฟล์สื่อ → กด <b>สร้าง/อัปเดตเป้าหมาย AR</b> →
+              ติด <b>QR เปิดเครื่องมือ AR</b> ของงานไว้จุดเดียว ผู้ชมสแกนแล้วส่องกล้องที่ป้าย สื่อจะเล่นทับอัตโนมัติและหยุดเมื่อหลุดเฟรม
+              {active.targets_url
+                ? <span className="text-primary"> · พร้อมใช้งาน (เวอร์ชัน {active.targets_version || 1})</span>
+                : <span className="text-destructive"> · ยังไม่ได้สร้างไฟล์เป้าหมาย</span>}
+            </div>
             {activeItems.length === 0 ? (
-              <p className="text-muted-foreground py-6 text-center">ยังไม่มีป้ายในงานนี้ — กด “เพิ่มป้าย AR” เพื่อใส่วีดีโอ/ภาพ/โมเดล 3 มิติ แล้วออก QR</p>
+              <p className="text-muted-foreground py-6 text-center">ยังไม่มีป้ายในงานนี้ — กด “เพิ่มป้าย/วัตถุ” เพื่อกำหนดภาพเป้าหมายและสื่อที่จะแสดง</p>
             ) : activeItems.map((i, idx) => (
               <div key={i.id} className="flex items-center gap-3 p-3 rounded-lg border flex-wrap">
+                {i.marker_image_url ? (
+                  <ArImage src={i.marker_image_url} alt={i.title} className="h-12 w-12 rounded object-cover border" />
+                ) : (
+                  <div className="h-12 w-12 rounded border flex items-center justify-center text-muted-foreground"><Camera className="h-5 w-5" /></div>
+                )}
                 <div className="flex-1 min-w-[200px]">
                   <div className="font-medium">{idx + 1}. {i.title}</div>
-                  <div className="text-xs text-muted-foreground">{i.marker_label ? `ป้าย: ${i.marker_label} · ` : ""}/ar/{i.code}</div>
+                  <div className="text-xs text-muted-foreground">{i.marker_label ? `ป้าย: ${i.marker_label}` : "ยังไม่ตั้งชื่อจุดติดตั้ง"}</div>
                 </div>
                 <Badge variant="outline">{MEDIA_TYPES.find((m) => m.value === i.media_type)?.label || i.media_type}</Badge>
-                <Badge variant={i.is_public && i.is_active ? "default" : "secondary"}>{i.is_public && i.is_active ? "เผยแพร่" : "ปิด"}</Badge>
+                <Badge variant={i.target_index !== null && i.target_index !== undefined ? "default" : "destructive"}>
+                  {i.target_index !== null && i.target_index !== undefined ? `เป้าหมาย #${i.target_index + 1}` : i.marker_image_url ? "รอสร้างเป้าหมาย" : "ไม่มีภาพเป้าหมาย"}
+                </Badge>
                 <Badge variant="secondary" className="gap-1"><Eye className="h-3 w-3" />{i.view_count}</Badge>
                 <div className="flex gap-1">
-                  <Button size="icon" variant="ghost" onClick={() => setQrTarget({ title: i.title, url: itemUrl(i.code), file: `ar-${i.code}` })}><QrCode className="h-4 w-4" /></Button>
                   <Button size="icon" variant="ghost" onClick={() => openEditItem(i)}><Pencil className="h-4 w-4" /></Button>
                   <Button size="icon" variant="ghost" onClick={() => removeItem(i)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </div>
               </div>
             ))}
+
           </CardContent>
         </Card>
       )}
