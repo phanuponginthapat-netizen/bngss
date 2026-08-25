@@ -73,9 +73,9 @@ export default function FaceGuideOverlay({ videoRef, active, targetRatio = 0.32,
       const cx = cw / 2, cy = ch * 0.46;
       let status = { text: "รอใบหน้า...", color: "rgba(255,255,255,0.45)", ok: false };
 
-      // ---- ตรวจจับใบหน้าจริงแบบ live (throttle ~150ms) ----
+      // ---- ตรวจจับใบหน้าจริงแบบ live (throttle ~300ms — ลด CPU บน Pavilion x2) ----
       const now = performance.now();
-      if (now - lastDetectRef.current > 150) {
+      if (now - lastDetectRef.current > 300) {
         lastDetectRef.current = now;
         const det = await detectFaceBox(v);
         if (cancelled) return;

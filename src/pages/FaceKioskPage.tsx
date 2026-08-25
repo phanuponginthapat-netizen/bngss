@@ -965,7 +965,7 @@ const FaceKioskPage = () => {
           const useTexture = textureGate;
         const detections = await getAllDescriptors(pre as any, opts, {
           minFaceSize: MIN_FACE_PX * 0.6,
-          cacheTtlMs: 150,
+          cacheTtlMs: 300,
         });
 
         // อัตราส่วนสำหรับสเกล box กลับสู่พิกัดของวิดีโอจริง
