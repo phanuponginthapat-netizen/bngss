@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { QRCodeCanvas } from "qrcode.react";
 import { toast } from "sonner";
 import { Boxes, Plus, Pencil, Trash2, QrCode, Upload, ExternalLink, Download, Eye } from "lucide-react";
-import { confirmDelete } from "@/lib/swal";
+import { swal } from "@/lib/swal";
 import ArMediaViewer from "@/components/ar/ArMediaViewer";
 
 interface ArItem {
@@ -116,7 +116,7 @@ export default function ARManagerPage() {
   };
 
   const remove = async (i: ArItem) => {
-    const ok = await confirmDelete(`ลบสื่อ “${i.title}”?`);
+    const ok = await swal.confirm({ title: `ลบสื่อ “${i.title}”?`, text: "การลบไม่สามารถย้อนกลับได้", danger: true, icon: "warning" });
     if (!ok) return;
     const { error } = await supabase.from("ar_experiences" as any).delete().eq("id", i.id);
     if (error) { toast.error("ลบไม่สำเร็จ: " + error.message); return; }
