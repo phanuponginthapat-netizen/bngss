@@ -6,7 +6,8 @@ import {
   UserCog, ChevronDown, Award, Syringe, Globe, User, MessageSquare,
   DollarSign, ShoppingCart, Package, Heart, Banknote, Clock, BookOpenCheck, Brain, AlertTriangle,
   UtensilsCrossed, Milk, ClipboardCheck, FolderOpen, Building2, Network, Database, Inbox, Settings as SettingsIcon, Settings2,
-  Search, X, Recycle, History, TrendingUp, Coins, Trophy, Cpu, Wifi, ScanLine, ScanFace, MapPin, Power, Sparkles, DoorOpen, Layers, CloudDownload, Gamepad2, MonitorPlay, StickyNote, Eye
+  Search, X, Recycle, History, TrendingUp, Coins, Trophy, Cpu, Wifi, ScanLine, ScanFace, MapPin, Power, Sparkles, DoorOpen, Layers, CloudDownload, Gamepad2, MonitorPlay, StickyNote, Eye,
+  Boxes,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -592,6 +593,16 @@ export function AppSidebar() {
       items: [
         { title: L("จองห้องและตารางการใช้งาน", "Book & Schedule"), url: "/dashboard/academic/learning-center", icon: CalendarDays, color: "text-emerald-400", roles: ["admin", "director", "teacher"], desc: L("จองห้องพิเศษและดูตารางการใช้", "Reserve rooms & view schedules") },
         { title: L("จัดการห้องพิเศษ", "Manage Rooms"), url: "/dashboard/admin/special-rooms", icon: SettingsIcon, color: "text-amber-400", roles: ["admin", "director"], desc: L("เพิ่ม/แก้ไขห้องพิเศษ", "Add/edit special rooms") },
+      ],
+    },
+    {
+      key: "services_ar",
+      label: L("สื่อ AR / QR แหล่งเรียนรู้", "AR Learning"),
+      icon: Boxes,
+      color: "text-cyan-400",
+      roles: ["admin", "director", "teacher"],
+      items: [
+        { title: L("จัดการสื่อ AR", "Manage AR Media"), url: "/dashboard/admin/ar", icon: Boxes, color: "text-cyan-400", roles: ["admin", "director", "teacher"], desc: L("สร้าง QR ที่สแกนแล้วเห็นภาพ/วิดีโอ/3D", "QR to image, video, 3D") },
       ],
     },
     {

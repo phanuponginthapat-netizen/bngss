@@ -46,6 +46,9 @@ const TeacherCredentialsPage = lazy(() => import("./pages/admin/TeacherCredentia
 const DutyTeachersPage = lazy(() => import("./pages/admin/DutyTeachersPage"));
 const PublicSDQPage = lazy(() => import("./pages/PublicSDQPage"));
 const PublicAssetPage = lazy(() => import("./pages/PublicAssetPage"));
+const ARGalleryPage = lazy(() => import("./pages/ARGalleryPage"));
+const ARViewPage = lazy(() => import("./pages/ARViewPage"));
+const ARManagerPage = lazy(() => import("./pages/admin/ARManagerPage"));
 const PublicProfilePage = lazy(() => import("./pages/PublicProfilePage"));
 const FindProfilePage = lazy(() => import("./pages/FindProfilePage"));
 const InboxPage = lazy(() => import("./pages/InboxPage"));
@@ -348,6 +351,8 @@ const App = () => {
               <Route path="/org-chart" element={<PublicOrgChartPage />} />
               <Route path="/sdq-assess/:studentId" element={<PublicSDQPage />} />
               <Route path="/asset/:id" element={<PublicAssetPage />} />
+              <Route path="/ar" element={<ARGalleryPage />} />
+              <Route path="/ar/:code" element={<ARViewPage />} />
               <Route path="/p/:id" element={<PublicProfilePage />} />
               <Route path="/find" element={<FindProfilePage />} />
               <Route path="/pdpa" element={<PdpaPage />} />
@@ -498,6 +503,7 @@ const App = () => {
                 <Route path="admin/ai-analytics" element={<ProtectedRoute allowedRoles={["admin", "director"]}><AiAnalyticsPage /></ProtectedRoute>} />
                 <Route path="admin/system-update" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SystemUpdatePage /></ProtectedRoute>} />
                 <Route path="admin/kiosk-setup" element={<ProtectedRoute allowedRoles={["admin", "director"]}><KioskSetupPage /></ProtectedRoute>} />
+                <Route path="admin/ar" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><ARManagerPage /></ProtectedRoute>} />
                 <Route path="admin/kiosk-health" element={<ProtectedRoute allowedRoles={["admin", "director"]}><KioskDoorHealthPage /></ProtectedRoute>} />
                 <Route path="admin/smart-gate" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SmartGateReportPage /></ProtectedRoute>} />
                 
