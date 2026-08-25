@@ -111,7 +111,7 @@ function speakLocal(text: string): Promise<void> {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = "th-TH";
       u.rate = 1.05;
-      u.volume = 0.55; // ลดกำลังขับลำโพงเล็กของ kiosk
+      u.volume = 1; // ปล่อยเต็ม แล้วคุมระดับที่ระบบปฏิบัติการ (KIOSK_VOLUME)
       let done = false;
       const finish = () => { if (!done) { done = true; resolve(); } };
       u.onend = finish;
@@ -188,7 +188,7 @@ async function playViaAudioElement(url: string): Promise<boolean> {
     try { _ttsAudio?.pause(); } catch { /* noop */ }
     const audio = new Audio(url);
     audio.preload = "auto";
-    audio.volume = 0.55; // ลดกำลังขับลำโพงเล็กของ kiosk
+    audio.volume = 1; // ปล่อยเต็ม แล้วคุมระดับที่ระบบปฏิบัติการ (KIOSK_VOLUME)
     _ttsAudio = audio;
     await audio.play();
     await new Promise<void>((resolve) => {
@@ -236,7 +236,7 @@ async function speakRemote(text: string): Promise<boolean> {
     // ให้ scheduler มีบัฟเฟอร์พอ ไม่ underrun ตอน CPU พุ่งจากการตรวจจับใบหน้า
     const startAt = ctx.currentTime + 0.18;
     gain.gain.setValueAtTime(0.0001, startAt);
-    gain.gain.linearRampToValueAtTime(0.55, startAt + 0.05);
+    gain.gain.linearRampToValueAtTime(1, startAt + 0.05);
     await new Promise<void>((resolve) => {
       let done = false;
       const finish = () => { if (!done) { done = true; resolve(); } };
