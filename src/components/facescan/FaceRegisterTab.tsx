@@ -86,15 +86,9 @@ const FaceRegisterTab = () => {
       import("@/lib/faceApi"),
     ]);
     const faceapi: any = (faceapiMod as any).default || faceapiMod;
-    for (const size of [512, 608] as const) {
-      for (const thr of [0.35, 0.25, 0.15]) {
-        const res = await faceapi.detectSingleFace(img as any, detHQ(size, thr)).withFaceLandmarks();
-        if (!res) continue;
-        const arc = await embedWithArcFace(img, res.landmarks, 1, 1);
-        if (arc) return arc;
-      }
-    }
-    return null;
+    const res = await faceapi.detectSingleFace(img as any, detHQ(512, 0.25)).withFaceLandmarks().catch(()=>null);
+    if (!res) return null;
+    return await embedWithArcFace(img, res.landmarks, 1, 1).catch(()=>null);
   };
 
   const runAutoSync = async (force = false) => {
@@ -112,32 +106,28 @@ const FaceRegisterTab = () => {
     const { data: { user } } = await supabase.auth.getUser();
     let ok = 0, fail = 0, done = 0;
     const fails: Array<{ id: string; name: string; reason: string }> = [];
-    for (const s of targets as any[]) {
-      const fullName = `${s.prefix || ""}${s.first_name || ""} ${s.last_name || ""}`.trim();
-      try {
-        const img = await loadImageFromUrl(s.photo_url).catch((e) => {
-          throw new Error("โหลดรูปไม่ได้ (CORS/404)");
-        });
-        const desc = await detectRobust(img);
-        if (!desc) {
-          fail++;
-          fails.push({ id: s.id, name: fullName, reason: "ตรวจไม่พบใบหน้าในรูป (เบลอ/มุมเอียง/หลายคน)" });
-        } else {
-          if (force) {
-            await supabase.from("student_face_descriptors").delete().eq("student_id", s.id).eq("source", "profile_avatar");
-          }
-          const { error } = await supabase.from("student_face_descriptors").insert({
-            student_id: s.id, sample_index: 0,
-            descriptor: Array.from(desc), captured_by: user?.id, source: "profile_avatar",
-          });
-          if (error) { fail++; fails.push({ id: s.id, name: fullName, reason: "DB: " + error.message }); }
-          else ok++;
+    // Batch 3 parallel (เร็ว 3เท่า ไม่หนัก Atom)
+    const BATCH = 3;
+    for (let i = 0; i < targets.length; i += BATCH) {
+      const batch = targets.slice(i, i + BATCH) as any[];
+      const results = await Promise.all(batch.map(async (s: any) => {
+        const fullName = `${s.prefix || ""}${s.first_name || ""} ${s.last_name || ""}`.trim();
+        try {
+          const img = await loadImageFromUrl(s.photo_url).catch(() => { throw new Error("โหลดรูปไม่ได้ (CORS/404)"); });
+          const desc = await detectRobust(img);
+          if (!desc) return { ok: false, name: fullName, id: s.id, reason: "ตรวจไม่พบใบหน้าในรูป (เบลอ/มุมเอียง/หลายคน)" };
+          if (force) await supabase.from("student_face_descriptors").delete().eq("student_id", s.id).eq("source", "profile_avatar");
+          const { error } = await supabase.from("student_face_descriptors").insert({ student_id: s.id, sample_index: 0, descriptor: Array.from(desc), captured_by: user?.id, source: "profile_avatar" });
+          if (error) return { ok: false, name: fullName, id: s.id, reason: "DB: " + error.message };
+          return { ok: true, name: fullName, id: s.id };
+        } catch (e: any) {
+          return { ok: false, name: fullName, id: s.id, reason: e?.message || "unknown error" };
         }
-      } catch (e: any) {
-        fail++;
-        fails.push({ id: s.id, name: fullName, reason: e?.message || "unknown error" });
+      }));
+      for (const r of results) {
+        if (r.ok) ok++; else { fail++; fails.push({ id: r.id, name: r.name, reason: r.reason }); }
+        done++;
       }
-      done++;
       setProgress({ done, total: targets.length, ok, fail });
     }
     setFailedList(fails);
