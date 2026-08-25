@@ -575,25 +575,19 @@ export default function ARManagerPage() {
         </DialogContent>
       </Dialog>
 
-      {/* QR sheet */}
+      {/* โปสเตอร์ QR เปิดเครื่องมือ AR ของงาน */}
       <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>QR ทั้งงาน · {active?.title}</DialogTitle></DialogHeader>
-          <div ref={sheetRef} className="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-white p-3 rounded-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>โปสเตอร์ QR เปิด AR · {active?.title}</DialogTitle></DialogHeader>
+          <div ref={sheetRef} className="bg-white p-6 rounded-lg text-center">
             {active && (
-              <div className="cell border rounded-lg p-3 text-center">
-                <QRCodeCanvas value={projectUrl(active.slug)} size={150} includeMargin level="M" />
-                <div className="t font-semibold text-sm mt-1 text-black">รวมทั้งงาน</div>
+              <div className="cell">
+                <div className="t text-black text-lg font-bold">{active.title}</div>
+                <div className="s text-gray-600 text-xs mb-2">สแกนเพื่อเปิดกล้อง AR แล้วส่องที่ป้าย/วัตถุ</div>
+                <QRCodeCanvas value={projectUrl(active.slug)} size={220} includeMargin level="M" />
                 <div className="s text-[11px] text-gray-600 break-all">{projectUrl(active.slug)}</div>
               </div>
             )}
-            {activeItems.map((i, idx) => (
-              <div key={i.id} className="cell border rounded-lg p-3 text-center">
-                <QRCodeCanvas value={itemUrl(i.code)} size={150} includeMargin level="M" />
-                <div className="t font-semibold text-sm mt-1 text-black">{idx + 1}. {i.marker_label || i.title}</div>
-                <div className="s text-[11px] text-gray-600 break-all">{itemUrl(i.code)}</div>
-              </div>
-            ))}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSheetOpen(false)}>ปิด</Button>
@@ -602,5 +596,6 @@ export default function ARManagerPage() {
         </DialogContent>
       </Dialog>
     </div>
+
   );
 }
