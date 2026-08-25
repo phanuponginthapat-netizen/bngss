@@ -111,7 +111,7 @@ function speakLocal(text: string): Promise<void> {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = "th-TH";
       u.rate = 1.05;
-      u.volume = 0.55; // ลดกำลังขับลำโพงเล็กของ kiosk
+      u.volume = 1; // ปล่อยเต็ม แล้วคุมระดับที่ระบบปฏิบัติการ (KIOSK_VOLUME)
       let done = false;
       const finish = () => { if (!done) { done = true; resolve(); } };
       u.onend = finish;
@@ -188,7 +188,7 @@ async function playViaAudioElement(url: string): Promise<boolean> {
     try { _ttsAudio?.pause(); } catch { /* noop */ }
     const audio = new Audio(url);
     audio.preload = "auto";
-    audio.volume = 0.55; // ลดกำลังขับลำโพงเล็กของ kiosk
+    audio.volume = 1; // ปล่อยเต็ม แล้วคุมระดับที่ระบบปฏิบัติการ (KIOSK_VOLUME)
     _ttsAudio = audio;
     await audio.play();
     await new Promise<void>((resolve) => {
@@ -236,7 +236,7 @@ async function speakRemote(text: string): Promise<boolean> {
     // ให้ scheduler มีบัฟเฟอร์พอ ไม่ underrun ตอน CPU พุ่งจากการตรวจจับใบหน้า
     const startAt = ctx.currentTime + 0.18;
     gain.gain.setValueAtTime(0.0001, startAt);
-    gain.gain.linearRampToValueAtTime(0.55, startAt + 0.05);
+    gain.gain.linearRampToValueAtTime(1, startAt + 0.05);
     await new Promise<void>((resolve) => {
       let done = false;
       const finish = () => { if (!done) { done = true; resolve(); } };
@@ -323,4 +323,71 @@ export function playGateOpenSound() {
 export function playGateDeniedSound() {
   tone(300, 0.22, 0, "sawtooth", 0.07);
   tone(200, 0.28, 0.2, "sawtooth", 0.07);
+}
+
+/** ผลการตรวจสอบระบบเสียงของตู้ (ใช้ในปุ่ม "เล่นเสียงทดสอบ") */
+export interface AudioDiagnostics {
+  ok: boolean;
+  lines: string[];
+}
+
+/**
+ * ตรวจว่าเสียงติดขั้นตอนไหน: AudioContext → เรียกไฟล์เสียง TTS → decode → เล่นจริง
+ * คืนรายละเอียดเป็นข้อความไทยเพื่อนำไปแสดงบนหน้าจอตู้
+ */
+export async function diagnoseAudio(text = "ทดสอบเสียงพูดของตู้สแกนใบหน้า"): Promise<AudioDiagnostics> {
+  const lines: string[] = [];
+  let ok = false;
+
+  unlockAudio();
+  const ctx = getCtx();
+  if (!ctx) lines.push("❌ เบราว์เซอร์เปิด AudioContext ไม่ได้");
+  else {
+    if (ctx.state !== "running") await ctx.resume().catch(() => {});
+    lines.push(`${ctx.state === "running" ? "✅" : "⚠️"} AudioContext: ${ctx.state} (${Math.round(ctx.sampleRate)} Hz)`);
+  }
+
+  // เสียงบี๊ปผ่าน WebAudio
+  try { playSuccessSound(); lines.push("▶️ ส่งเสียงบี๊ปทดสอบแล้ว (ถ้าไม่ได้ยิน = ปัญหาที่ลำโพง/ALSA/PulseAudio)"); }
+  catch { lines.push("❌ เล่นเสียงบี๊ปไม่ได้"); }
+
+  // ไฟล์เสียงจาก TTS
+  let url: string | null = null;
+  try {
+    url = await fetchTtsUrl(text);
+    lines.push(url ? "✅ ดึงไฟล์เสียง TTS สำเร็จ" : "❌ ดึงไฟล์เสียง TTS ไม่สำเร็จ (เช็คเน็ต/ฟังก์ชัน tts-th)");
+  } catch (e: any) {
+    lines.push(`❌ เรียก TTS ผิดพลาด: ${e?.message || e}`);
+  }
+
+  if (url) {
+    let played = false;
+    try {
+      const buf = await getTtsBuffer(text);
+      if (buf && ctx && ctx.state === "running") {
+        lines.push(`✅ ถอดรหัสเสียงได้ (${buf.duration.toFixed(1)} วินาที)`);
+        const src = ctx.createBufferSource();
+        const g = ctx.createGain();
+        g.gain.value = 0.6;
+        src.buffer = buf;
+        src.connect(g).connect(ctx.destination);
+        src.start();
+        played = true;
+        lines.push("▶️ เล่นเสียงพูดผ่าน WebAudio แล้ว");
+      } else {
+        lines.push("⚠️ ถอดรหัส/WebAudio ไม่พร้อม — ลองเล่นผ่านตัวเล่นเสียงปกติ");
+      }
+    } catch (e: any) {
+      lines.push(`⚠️ WebAudio ล้มเหลว: ${e?.message || e}`);
+    }
+    if (!played) {
+      const okEl = await playViaAudioElement(url);
+      lines.push(okEl ? "▶️ เล่นเสียงพูดผ่าน <audio> แล้ว" : "❌ เล่นเสียงพูดไม่ได้ทั้งสองวิธี");
+      played = okEl;
+    }
+    ok = played;
+  }
+
+  if (!ok) lines.push("👉 ถ้ายังเงียบ ให้รัน /opt/kiosk/fix-audio.sh บนตู้ แล้วรีสตาร์ทเบราว์เซอร์");
+  return { ok, lines };
 }

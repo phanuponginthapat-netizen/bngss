@@ -15,7 +15,7 @@ import {
 import { learnFromScan } from "@/lib/faceLearning";
 import { verifyScanTexture } from "@/lib/faceTexture";
 import { newLivenessTrack, recordLivenessSample, makeLivenessSample, type LivenessTrack } from "@/lib/faceLiveness";
-import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, prewarmSpeech, isSpeaking, waitForSpeechEnd, playFeverAlert, playWeaponAlert, playGateOpenSound, playGateDeniedSound, unlockAudio } from "@/lib/faceScanAudio";
+import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, prewarmSpeech, isSpeaking, waitForSpeechEnd, playFeverAlert, playWeaponAlert, playGateOpenSound, playGateDeniedSound, unlockAudio, diagnoseAudio } from "@/lib/faceScanAudio";
 import { useSmartGate } from "@/hooks/useSmartGate";
 import SmartGatePanel from "@/components/facescan/SmartGatePanel";
 import { Button } from "@/components/ui/button";
@@ -168,6 +168,8 @@ const FaceKioskPage = () => {
   const [faceCount, setFaceCount] = useState(0);
   const [networkUrl, setNetworkUrl] = useState<string>(() => localStorage.getItem(NETWORK_CAM_URL_KEY) || "");
   const [netStatus, setNetStatus] = useState<string>("");
+  const [audioDiag, setAudioDiag] = useState<string[]>([]);
+  const [audioTesting, setAudioTesting] = useState(false);
   const [netTesting, setNetTesting] = useState(false);
   const netCamRef = useRef<NetworkCameraHandle | null>(null);
 
@@ -1789,18 +1791,34 @@ const FaceKioskPage = () => {
             <Button
               size="sm"
               variant="outline"
+              disabled={audioTesting}
               className="w-full text-[11px]"
-              onClick={() => {
-                unlockAudio();
-                playSuccessSound();
-                speakText("ทดสอบเสียงพูดของตู้สแกนใบหน้า");
+              onClick={async () => {
+                setAudioTesting(true);
+                setAudioDiag(["⏳ กำลังตรวจระบบเสียง..."]);
+                try {
+                  const r = await diagnoseAudio();
+                  setAudioDiag(r.lines);
+                } catch (e: any) {
+                  setAudioDiag([`❌ ตรวจไม่สำเร็จ: ${e?.message || e}`]);
+                } finally {
+                  setAudioTesting(false);
+                }
               }}
             >
-              เล่นเสียงทดสอบ
+              {audioTesting ? "กำลังทดสอบ..." : "เล่นเสียงทดสอบ + ตรวจระบบเสียง"}
             </Button>
+            {audioDiag.length > 0 && (
+              <div className="rounded-md bg-muted/60 p-2 space-y-0.5">
+                {audioDiag.map((l, i) => (
+                  <p key={i} className="text-[10px] leading-snug break-words">{l}</p>
+                ))}
+              </div>
+            )}
             <p className="text-[10px] text-muted-foreground leading-snug">
               ถ้าได้ยินเสียง "ตึ๊ง" แต่ไม่ได้ยินเสียงพูด แปลว่าลำโพงใช้ได้แต่ TTS มีปัญหา — ถ้าไม่ได้ยินเลย ให้รัน <code>/opt/kiosk/fix-audio.sh</code> บนตู้
             </p>
+
           </div>
 
 
