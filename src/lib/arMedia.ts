@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { sanitizeStorageKey } from "@/lib/uploadFallback";
 import { useEffect, useState } from "react";
 
 export const AR_BUCKET = "ar-media";
@@ -42,9 +43,11 @@ export const useArUrl = (value?: string | null) => {
 
 /** อัปโหลดไฟล์สื่อ AR แล้วคืนค่า reference สำหรับบันทึกลงฐานข้อมูล */
 export const uploadArFile = async (file: File, folder: string, kind: string) => {
-  const ext = file.name.split(".").pop() || "bin";
-  const path = `${folder}/${kind}-${Date.now()}.${ext}`;
+  const rawExt = file.name.split(".").pop() || "bin";
+  const ext = rawExt.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8) || "bin";
+  const path = sanitizeStorageKey(`${folder}/${kind}-${Date.now()}.${ext}`);
   const { error } = await supabase.storage.from(AR_BUCKET).upload(path, file, { upsert: true });
   if (error) throw error;
   return toStorageRef(path);
 };
+
