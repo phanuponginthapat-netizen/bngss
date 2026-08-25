@@ -905,10 +905,10 @@ const FaceKioskPage = () => {
     const opts = detectorOptionsHQ(perf.inputSize, 0.35);
     // ขนาดใบหน้าขั้นต่ำ (พิกเซลในเฟรม) ป้องกัน descriptor เพี้ยนจากใบหน้าที่เล็กเกิน
     const MIN_FACE_PX = 56;
-    // ระยะห่างระหว่าง best vs second-best ขั้นต่ำ — ยืนยันว่าระบุตัวตนได้ชัดเจน ไม่ไปทับคนอื่น
-    const MIN_MARGIN = 0.04;
+    // Zkteco: ระยะห่าง best vs second-best ต้อง ≥0.06 (เข้มกว่าเดิม 0.04) กันคนหน้าคล้าย
+    const MIN_MARGIN = ZKTECO ? 0.06 : 0.04;
     // จำนวนเฟรมต่อเนื่องที่ต้องจับได้คนเดิม ก่อนบันทึก (กันบันทึกผิดจาก descriptor หลุด 1 เฟรม)
-    const CONFIRM_FRAMES = 2;
+    const CONFIRM_FRAMES = ZKTECO ? 1 : 2;
     const CONFIRM_WINDOW_MS = 3000;
 
     // ── เกณฑ์แบบขั้นบันได ──────────────────────────────────────────────
@@ -917,13 +917,15 @@ const FaceKioskPage = () => {
     //         เหตุผล: คนที่ลงทะเบียนจากกล้องหน้ามือถือแล้วมาสแกนที่กล้องคีออส
     //         ระยะห่างอาจกว้างเพราะมุม/แสง/กล้องต่างกัน — ระดับนี้ยังน่าเชื่อถือพอ
     //         แต่กันคนหน้าคล้ายด้วยการให้เจ้าหน้าที่/ผู้ใช้ยืนยันด้วยตนเอง
-    const AUTO_DIST = 0.44;
-    /** ตรงมากจนไม่ต้องรอเฟรมยืนยันเพิ่ม (fast-pass) — ลดเวลายืนหน้าเครื่อง */
-    const STRONG_DIST = 0.40;
-    const MANUAL_DIST = 0.55;
+    // ZKTeco mode: เข้ม+เร็ว แบบเครื่องสแกนประตูจริง — ยืนในวงรีแล้วเทียบครั้งเดียวผ่านเลย
+    const ZKTECO = true;
+    const AUTO_DIST = ZKTECO ? 0.40 : 0.44;
+    const STRONG_DIST = ZKTECO ? 0.36 : 0.40;
+    const MANUAL_DIST = ZKTECO ? 0.40 : 0.55; // Zkteco ปิด tier2 manual ทั้งหมด
 
-    const MANUAL_MIN_MARGIN = 0.03;
-    const MANUAL_TIMEOUT_MS = 15_000; // ไม่ยืนยันภายใน 15 วิ → ปิดป๊อปอัปอัตโนมัติ
+    const MANUAL_MIN_MARGIN = ZKTECO ? 0.06 : 0.03;
+    const MANUAL_TIMEOUT_MS = 15_000;
+    const ZKTECO_MIN_MARGIN = 0.06;
 
     // ความมั่นใจขั้นต่ำสำหรับ tier 1 (ยืนยันอัตโนมัติ) = 1 - AUTO_DIST = 0.58
     // (เดิม 0.66 → distance ≤ 0.34 ซึ่งเกิด "dead band" ช่วง 0.34–0.42
@@ -1049,13 +1051,13 @@ const FaceKioskPage = () => {
               const lowConfidence = m.studentId != null && m.confidence < MIN_CONFIDENCE;
               // tier 1: แน่นพอ → ยืนยันอัตโนมัติ (เหมือนเดิม)
               const tier1 = m.studentId != null && m.distance <= AUTO_DIST && !ambiguous && !lowConfidence;
-              // tier 2: กลาง (AUTO_DIST, MANUAL_DIST] → ต้องกดยืนยันบนจอก่อน
-              const tier2 = m.studentId != null && m.distance > AUTO_DIST && m.distance <= MANUAL_DIST
+              // Zkteco ปิด tier2 ทั้งหมด — ไม่ต้องกดยืนยันบนจอ ผ่านคือผ่าน ไม่ผ่านคือไม่พบ
+              const tier2 = !ZKTECO && m.studentId != null && m.distance > AUTO_DIST && m.distance <= MANUAL_DIST
                 && m.margin >= MANUAL_MIN_MARGIN && m.confidence >= 1 - MANUAL_DIST;
               let matchedId = inGuide && !tooSmall && !tooBlurry && (tier1 || tier2) ? m.studentId : null;
-              // Sticky lock — ถ้าเพิ่งล็อกคนนี้ไว้ และยังเป็นคนเดิมที่ตรงที่สุด ให้คงล็อกไว้
-              const kLock = kioskLockRef.current;
-              if (!matchedId && kLock && tNow < kLock.until && m.studentId === kLock.studentId
+              // Zkteco ไม่ใช้ sticky lock — ยืนยันทันทีเฟรมเดียว ไม่ล็อกค้าง
+              const kLock = ZKTECO ? null : kioskLockRef.current;
+              if (!ZKTECO && !matchedId && kLock && tNow < kLock.until && m.studentId === kLock.studentId
                   && !tooSmall && m.confidence >= MIN_CONFIDENCE * 0.88) {
                 matchedId = kLock.studentId;
               }
