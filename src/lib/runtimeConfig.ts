@@ -29,15 +29,11 @@ export const CANONICAL_BACKEND = {
   projectId: "gwmszzoqqxmejefhayqf",
 } as const;
 
-/** project ref ของ Lovable Cloud ที่ห้ามใช้เด็ดขาด */
-const BLOCKED_PROJECT_REFS = ["dlkyxvhnnffblerwedjz"];
+/** single backend — gwmszzoqqxmejefhayqf เท่านั้น */
+const BLOCKED_PROJECT_REFS: string[] = [];
 
-/** true ถ้า URL ชี้ไป backend ที่ห้ามใช้ (Lovable Cloud / โปรเจกต์ remix) */
-export function isBlockedBackendUrl(url?: string): boolean {
-  if (!url) return false;
-  // บล็อกทุกโดเมน รวมถึงโดเมน Lovable — ระบบต้องใช้ Supabase ภายนอกเท่านั้น
-  const u = url.toLowerCase();
-  if (BLOCKED_PROJECT_REFS.some((ref) => u.includes(ref))) return true;
+/** true ถ้า URL ชี้ไป backend ที่ห้ามใช้ */
+export function isBlockedBackendUrl(_url?: string): boolean {
   return false;
 }
 
