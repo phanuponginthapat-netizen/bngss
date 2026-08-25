@@ -379,6 +379,9 @@ export default function ARManagerPage() {
               <Button variant="outline" size="sm" onClick={() => setQrTarget({ title: active.title, url: projectUrl(active.slug), file: `ar-${active.slug}` })}>
                 <QrCode className="h-4 w-4 mr-2" />QR เปิดเครื่องมือ AR
               </Button>
+              <Button variant="outline" size="sm" onClick={() => setSheetOpen(true)}>
+                <Printer className="h-4 w-4 mr-2" />พิมพ์โปสเตอร์ QR
+              </Button>
               <Button variant="secondary" size="sm" onClick={compileProjectTargets} disabled={compiling}>
                 {compiling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Target className="h-4 w-4 mr-2" />}
                 {compiling ? `กำลังสร้างเป้าหมาย ${compileProgress}%` : "สร้าง/อัปเดตเป้าหมาย AR"}
