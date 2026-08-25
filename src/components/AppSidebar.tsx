@@ -602,7 +602,7 @@ export function AppSidebar() {
       color: "text-cyan-400",
       roles: ["admin", "director", "teacher"],
       items: [
-        { title: L("จัดการสื่อ AR", "Manage AR Media"), url: "/dashboard/admin/ar", icon: Boxes, color: "text-cyan-400", roles: ["admin", "director", "teacher"], desc: L("สร้าง QR ที่สแกนแล้วเห็นภาพ/วิดีโอ/3D", "QR to image, video, 3D") },
+        { title: L("จัดการงาน AR", "Manage AR Projects"), url: "/dashboard/admin/ar", icon: Boxes, color: "text-cyan-400", roles: ["admin", "director", "teacher"], desc: L("สร้าง QR ที่สแกนแล้วเห็นภาพ/วิดีโอ/3D", "QR to image, video, 3D") },
       ],
     },
     {
