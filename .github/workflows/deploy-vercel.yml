@@ -29,6 +29,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_SCOPE: phanuponginthapat-netizens-projects
         run: |
+          set -o pipefail
           if [ -z "$VERCEL_TOKEN" ]; then
             echo "::error::Missing VERCEL_TOKEN secret. Create a token at https://vercel.com/account/tokens (scope: Full Account) and add it as a repository secret."
             exit 1
@@ -40,4 +41,5 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_SCOPE: phanuponginthapat-netizens-projects
         run: |
+          set -o pipefail
           npx --yes vercel@latest deploy --prebuilt --prod --token "$VERCEL_TOKEN" --scope "$VERCEL_SCOPE" --name bngss --yes 2>&1 | tail -10
