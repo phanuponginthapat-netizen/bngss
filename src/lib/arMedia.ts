@@ -41,13 +41,35 @@ export const useArUrl = (value?: string | null) => {
   return url;
 };
 
+/** ขนาดไฟล์สูงสุดที่เซิร์ฟเวอร์ยอมรับต่อ 1 ไฟล์ */
+export const AR_MAX_FILE_BYTES = 50 * 1024 * 1024;
+
 /** อัปโหลดไฟล์สื่อ AR แล้วคืนค่า reference สำหรับบันทึกลงฐานข้อมูล */
 export const uploadArFile = async (file: File, folder: string, kind: string) => {
+  if (file.size > AR_MAX_FILE_BYTES) {
+    throw new Error(
+      `ไฟล์ใหญ่เกินไป (${(file.size / 1048576).toFixed(1)} MB) จำกัดไม่เกิน 50 MB — กรุณาบีบอัดวิดีโอ (เช่น 720p) หรือใช้ลิงก์ YouTube แทน`,
+    );
+  }
   const rawExt = file.name.split(".").pop() || "bin";
   const ext = rawExt.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8) || "bin";
   const path = sanitizeStorageKey(`${folder}/${kind}-${Date.now()}.${ext}`);
-  const { error } = await supabase.storage.from(AR_BUCKET).upload(path, file, { upsert: true });
-  if (error) throw error;
+  const { error } = await supabase.storage.from(AR_BUCKET).upload(path, file, {
+    upsert: true,
+    contentType: file.type || "application/octet-stream",
+    cacheControl: "31536000",
+  });
+  if (error) {
+    const msg = String((error as any)?.message || "");
+    if (/exceeded|too large|413/i.test(msg)) {
+      throw new Error("ไฟล์ใหญ่เกินขีดจำกัดของเซิร์ฟเวอร์ (50 MB) — กรุณาบีบอัดวิดีโอหรือใช้ลิงก์ YouTube");
+    }
+    if (/row-level security|not authorized|403|401/i.test(msg)) {
+      throw new Error("ไม่มีสิทธิ์อัปโหลด — กรุณาเข้าสู่ระบบด้วยบัญชีบุคลากรอีกครั้ง");
+    }
+    throw error;
+  }
   return toStorageRef(path);
 };
+
 
