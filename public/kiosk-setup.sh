@@ -505,6 +505,7 @@ EOF
 log "▶  [3.6/10] Sudoers NOPASSWD สำหรับ shutdown/reboot..."
 cat >/etc/sudoers.d/kiosk-power <<EOF
 $KIOSK_USER ALL=(ALL) NOPASSWD: /sbin/shutdown, /sbin/reboot, /sbin/poweroff, /usr/sbin/rtcwake, /bin/systemctl suspend, /bin/systemctl hibernate
+$KIOSK_USER ALL=(ALL) NOPASSWD: /sbin/alsa, /usr/sbin/alsa, /sbin/modprobe, /usr/sbin/modprobe, /usr/bin/alsactl, /sbin/alsactl
 EOF
 chmod 440 /etc/sudoers.d/kiosk-power
 
@@ -1128,25 +1129,54 @@ if ! pactl list short sinks 2>/dev/null | grep -qv dummy; then
   sleep 2
 fi
 
-# ปรับเฉพาะช่องเสียงออกมาตรฐาน ห้าม unmute controls แบบเหมารวม เพราะบางรุ่นมี amplifier switch
+# ปลด mute ให้ครบทุกสวิตช์ทางออกเสียง (บางรุ่นเช่น bytcr-rt5640 บน HP Pavilion x2
+# ต้องเปิด "Speaker Switch"/mixer switch ด้วย ไม่งั้นเงียบสนิทเหมือน driver หาย)
+# แต่ยังคุมระดับเสียงไว้ที่เพดาน และปิด Boost/Bass/Loudness กันลำโพงร้อน
 for CARD in $(aplay -l 2>/dev/null | sed -n 's/^card \([0-9]*\):.*/\1/p' | sort -u); do
   amixer -c "$CARD" scontrols 2>/dev/null | sed -n "s/.*'\(.*\)',.*/\1/p" | while read -r CTL; do
     case "$CTL" in
       *Boost*|*Bass*|*Loudness*)
         amixer -q -c "$CARD" sset "$CTL" 0% 2>/dev/null
         amixer -q -c "$CARD" sset "$CTL" off 2>/dev/null ;;
-      Master|Speaker|PCM|Headphone)
-        amixer -q -c "$CARD" sset "$CTL" "${VOL}%" unmute 2>/dev/null ;;
+      *Mic*|*Capture*|*Input*|*Digital*Gain*)
+        : ;;
+      "Auto-Mute Mode")
+        amixer -q -c "$CARD" sset "$CTL" Disabled 2>/dev/null ;;
+      Master|Speaker|PCM|Headphone|Front|"Master Mono"|*Playback*|*Speaker*|*Headphone*|*DAC*|*Mixer*|*Out*)
+        # สวิตช์ (on/off) → เปิด ; ระดับเสียง → ตั้งที่เพดาน
+        if amixer -c "$CARD" sget "$CTL" 2>/dev/null | grep -q "Limits:"; then
+          amixer -q -c "$CARD" sset "$CTL" "${VOL}%" unmute 2>/dev/null
+        else
+          amixer -q -c "$CARD" sset "$CTL" on 2>/dev/null || \
+          amixer -q -c "$CARD" sset "$CTL" unmute 2>/dev/null
+        fi ;;
     esac
   done
 done
 alsactl store >/dev/null 2>&1
 
-# เปิด profile เสียงออกให้การ์ดที่ยัง off อยู่
+# เปิด profile เสียงออกให้การ์ดที่ยัง off อยู่ (เลือกจากรายชื่อ profile จริงของการ์ด)
 pactl list short cards 2>/dev/null | awk '{print $2}' | while read -r CARD; do
-  pactl set-card-profile "$CARD" output:analog-stereo 2>/dev/null || \
-  pactl set-card-profile "$CARD" output:analog-stereo+input:analog-stereo 2>/dev/null
+  CUR="$(pactl list cards 2>/dev/null | awk -v c="$CARD" '$0 ~ "Name: "c {f=1} f && /Active Profile:/ {print $3; exit}')"
+  [ -n "$CUR" ] && [ "$CUR" != "off" ] && continue
+  pactl set-card-profile "$CARD" output:analog-stereo 2>/dev/null && continue
+  pactl set-card-profile "$CARD" output:analog-stereo+input:analog-stereo 2>/dev/null && continue
+  PROF="$(pactl list cards 2>/dev/null | sed -n 's/^\t\t\(output:[^:]*\): .*available: yes.*/\1/p' | head -n1)"
+  [ -z "$PROF" ] && PROF="$(pactl list cards 2>/dev/null | sed -n 's/^\t\t\(output:[^:]*\): .*/\1/p' | head -n1)"
+  [ -n "$PROF" ] && pactl set-card-profile "$CARD" "$PROF" 2>/dev/null
 done
+
+# ถ้ายังไม่มี sink ใช้งานได้เลย → โมดูลเสียงอาจโหลดไม่ขึ้น ลอง reload driver หนึ่งครั้ง
+if ! pactl list short sinks 2>/dev/null | grep -qv dummy; then
+  if command -v alsa >/dev/null 2>&1; then
+    sudo -n alsa force-reload >/dev/null 2>&1 || alsa force-reload >/dev/null 2>&1
+  else
+    sudo -n modprobe -r snd_hda_intel >/dev/null 2>&1 && sudo -n modprobe snd_hda_intel >/dev/null 2>&1
+  fi
+  sleep 2
+  pulseaudio -k >/dev/null 2>&1; sleep 1
+  pulseaudio --start --exit-idle-time=-1 >/dev/null 2>&1; sleep 2
+fi
 
 # เลือก sink: อนาล็อกก่อน แล้วค่อย HDMI แล้วค่อยอะไรก็ได้ที่ไม่ใช่ dummy
 SINK="$(pactl list short sinks 2>/dev/null | awk '!/dummy/ && /analog/ {print $2; exit}')"
