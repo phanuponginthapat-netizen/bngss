@@ -1,4 +1,6 @@
 import { createElement, useEffect, useState } from "react";
+import { useArUrl } from "@/lib/arMedia";
+
 
 /** โหลด <model-viewer> จาก CDN เพียงครั้งเดียว (รองรับ AR บนมือถือ Android/iOS) */
 let modelViewerPromise: Promise<void> | null = null;
