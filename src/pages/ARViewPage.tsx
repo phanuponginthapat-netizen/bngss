@@ -12,6 +12,9 @@ interface ArItem {
   media_type: string; media_url: string; poster_url: string | null;
   subject: string | null; grade_level: string | null; tags: string[] | null;
   view_count: number;
+  marker_label: string | null;
+  project_slug: string | null;
+  project_title: string | null;
 }
 
 const typeLabel: Record<string, string> = {
@@ -63,7 +66,7 @@ export default function ARViewPage() {
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
       <div className="max-w-3xl mx-auto p-4 space-y-4">
         <div className="flex items-center justify-between">
-          <Button asChild variant="ghost" size="sm"><Link to="/ar"><ArrowLeft className="h-4 w-4 mr-2" />คลังสื่อ AR</Link></Button>
+          <Button asChild variant="ghost" size="sm"><Link to={item.project_slug ? `/ar/p/${item.project_slug}` : "/ar"}><ArrowLeft className="h-4 w-4 mr-2" />{item.project_title || "คลังสื่อ AR"}</Link></Button>
           <Badge variant="secondary" className="gap-1"><Eye className="h-3 w-3" />{item.view_count} ครั้ง</Badge>
         </div>
 
@@ -71,6 +74,7 @@ export default function ARViewPage() {
           <CardContent className="p-4 space-y-4">
             <ArMediaViewer mediaType={item.media_type} mediaUrl={item.media_url} posterUrl={item.poster_url} title={item.title} />
             <div className="space-y-2">
+              {item.marker_label && <p className="text-sm text-muted-foreground">{item.marker_label}</p>}
               <h1 className="text-2xl font-bold">{item.title}</h1>
               <div className="flex flex-wrap gap-2">
                 <Badge>{typeLabel[item.media_type] || item.media_type}</Badge>
