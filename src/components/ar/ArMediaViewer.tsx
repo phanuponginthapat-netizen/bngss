@@ -33,11 +33,14 @@ export interface ArMediaViewerProps {
   className?: string;
 }
 
-export const ArMediaViewer = ({ mediaType, mediaUrl, posterUrl, title, className }: ArMediaViewerProps) => {
+export const ArMediaViewer = ({ mediaType, mediaUrl: rawUrl, posterUrl: rawPoster, title, className }: ArMediaViewerProps) => {
+  const mediaUrl = useArUrl(rawUrl);
+  const posterUrl = useArUrl(rawPoster);
   const [mvReady, setMvReady] = useState(false);
   const [mvError, setMvError] = useState<string | null>(null);
 
   useEffect(() => {
+
     if (mediaType !== "model3d") return;
     let alive = true;
     loadModelViewer()
