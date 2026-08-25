@@ -15,6 +15,9 @@ export default defineConfig(({ mode }) => ({
     },
   },
   plugins: [react(), mode === "development" ? deployKitPlugin() : null].filter(Boolean),
+  optimizeDeps: {
+    exclude: ["capacitor-apk-updater"],
+  },
   resolve: {
     alias: [
       // ใช้ client แบบ runtime config (รองรับ Supabase self-hosted / เปลี่ยน backend หลัง deploy)
