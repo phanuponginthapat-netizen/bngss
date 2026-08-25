@@ -18,6 +18,7 @@ import { newLivenessTrack, recordLivenessSample, makeLivenessSample, type Livene
 import { playSuccessSound, playDuplicateSound, playUnknownSound, speakText, prewarmSpeech, isSpeaking, waitForSpeechEnd, playFeverAlert, playWeaponAlert, playGateOpenSound, playGateDeniedSound, unlockAudio, diagnoseAudio } from "@/lib/faceScanAudio";
 import { useSmartGate } from "@/hooks/useSmartGate";
 import SmartGatePanel from "@/components/facescan/SmartGatePanel";
+import FaceGuideOverlay from "@/components/facescan/FaceGuideOverlay";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -1981,6 +1982,14 @@ const FaceKioskPage = () => {
           {/* Camera feed */}
           <div className="relative flex-1 bg-black">
             <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
+            <FaceGuideOverlay
+              videoRef={videoRef}
+              active={streaming && modelReady && !screensaver && !qrOnly}
+              targetRatio={0.30}
+              topLabel="ยืนกลางกรอบ • ห่าง 70–120 ซม."
+              fit="cover"
+              mirror={camMode !== "network" && camMode !== "wide"}
+            />
             <canvas ref={overlayRef} className="absolute inset-0 w-full h-full pointer-events-none" />
 
             {/* AI camera overlay tag */}
