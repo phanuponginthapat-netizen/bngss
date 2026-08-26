@@ -164,8 +164,9 @@ fi
 
 # ------------------------------------------------------------
 # ตรวจ URL จริงก่อนติดตั้ง — กันเคส "ติดตั้งแล้วขึ้น 404"
-# (โดเมนเก่า/พิมพ์ผิด/หน้าไม่มีอยู่ → fallback ไปโดเมนหลัก)
+# (โดเมนเก่า/พิมพ์ผิด/หน้าไม่มีอยู่ → fallback ไปโดเมนหลัก — รองรับทั้ง lovable.app และ vercel.app)
 KIOSK_FALLBACK_ORIGIN="${KIOSK_FALLBACK_ORIGIN:-https://bngss.lovable.app}"
+KIOSK_FALLBACK_ORIGIN_VERCEL="https://bngss-phanuponginthapat-netizens-projects.vercel.app"
 _probe_url() {
   local code
   code=$(curl -sSL -o /dev/null -w '%{http_code}' --connect-timeout 5 --max-time 10 "$1" 2>/dev/null || true)
@@ -174,19 +175,25 @@ _probe_url() {
 if command -v curl >/dev/null 2>&1; then
   _code="$(_probe_url "$KIOSK_URL")"
   if [[ ! "$_code" =~ ^(2|3)[0-9][0-9]$ ]]; then
-    if [[ "$KIOSK_MODE" == "student" ]]; then
-      _alt="${KIOSK_FALLBACK_ORIGIN%/}/"
-    else
-      _alt="${KIOSK_FALLBACK_ORIGIN%/}/kiosk"
-    fi
-    _alt_code="$(_probe_url "$_alt")"
-    if [[ "$_alt_code" == "200" || "$_alt_code" == "304" ]]; then
-      echo "⚠  URL $KIOSK_URL ตอบ $_code → เปลี่ยนเป็น $_alt"
-      KIOSK_URL="$_alt"
-      [[ -n "${KIOSK_MONITOR_AGENT_URL:-}" ]] && KIOSK_MONITOR_AGENT_URL="${KIOSK_FALLBACK_ORIGIN%/}/dashboard/monitor/agent"
-      [[ -n "${KIOSK_EXTENSION_URL:-}" ]] && KIOSK_EXTENSION_URL="${KIOSK_FALLBACK_ORIGIN%/}/safe-browser-extension.zip"
-    else
-      echo "⚠  URL $KIOSK_URL ตอบ $_code และ fallback $_alt ตอบ $_alt_code — ตรวจอินเทอร์เน็ต/URL ในหน้า Kiosk Setup"
+    _found=""
+    for _fb in "$KIOSK_FALLBACK_ORIGIN" "$KIOSK_FALLBACK_ORIGIN_VERCEL"; do
+      if [[ "$KIOSK_MODE" == "student" ]]; then
+        _alt="${_fb%/}/"
+      else
+        _alt="${_fb%/}/kiosk"
+      fi
+      _alt_code="$(_probe_url "$_alt")"
+      if [[ "$_alt_code" == "200" || "$_alt_code" == "304" ]]; then
+        echo "⚠  URL $KIOSK_URL ตอบ $_code → เปลี่ยนเป็น $_alt"
+        KIOSK_URL="$_alt"
+        [[ -n "${KIOSK_MONITOR_AGENT_URL:-}" ]] && KIOSK_MONITOR_AGENT_URL="${_fb%/}/dashboard/monitor/agent"
+        [[ -n "${KIOSK_EXTENSION_URL:-}" ]] && KIOSK_EXTENSION_URL="${_fb%/}/safe-browser-extension.zip"
+        _found=1
+        break
+      fi
+    done
+    if [[ -z "$_found" ]]; then
+      echo "⚠  URL $KIOSK_URL ตอบ $_code และ fallback ทั้งสองตอบไม่สำเร็จ — ตรวจอินเทอร์เน็ต/URL ในหน้า Kiosk Setup"
     fi
   fi
 fi

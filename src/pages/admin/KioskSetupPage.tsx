@@ -40,11 +40,14 @@ export default function KioskSetupPage() {
   const schoolName = useCmsValue("school_name") || "โรงเรียน";
   const cmsOrigin = useCmsValue("public_origin");
 
-  // Priority: CMS public_origin → real prod window origin → empty (admin must set it in CMS)
+  // Priority: CMS public_origin → real prod window origin → empty
+  // ถ้าเปิดจาก vercel.app ให้ใช้ vercel origin แม้ CMS ยังเป็น lovable.app — ติดตั้งจาก vercel จะได้ kioskUrl เป็น vercel
   const PUBLIC_ORIGIN = useMemo(() => {
     const cms = (cmsOrigin || "").trim().replace(/\/+$/, "");
+    const guess = guessPublicOrigin() || "";
+    if (guess && guess.includes("vercel.app") && cms.includes("lovable.app")) return guess;
     if (cms) return cms;
-    return guessPublicOrigin() || "";
+    return guess || "";
   }, [cmsOrigin]);
 
 
