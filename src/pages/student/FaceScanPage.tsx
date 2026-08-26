@@ -14,8 +14,9 @@ import StaffFaceTab from "@/components/facescan/StaffFaceTab";
 import { useUserRole } from "@/hooks/useUserRole";
 
 const FaceScanPage = () => {
-  const { isAdmin, isDirector } = useUserRole();
+  const { isAdmin, isDirector, isTeacher, isObserver, isParent } = useUserRole();
   const canManage = isAdmin || isDirector;
+  const canSeeReport = isAdmin || isDirector || isTeacher || isObserver || isParent;
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get("tab") || "qr";
   const [tab, setTab] = useState(initialTab);
