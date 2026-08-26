@@ -39,6 +39,7 @@ import { checkTodayScan, markScanned, methodLabel, clearScanDedupCache } from "@
 import { useKioskHeartbeat } from "@/hooks/useKioskHeartbeat";
 import { useKioskLockdown } from "@/hooks/useKioskLockdown";
 import KioskFaceRegisterDialog from "@/components/kiosk/KioskFaceRegisterDialog";
+import { downloadFacesToCache, pickAndSaveFaceFolder, loadFaceCache, getSavedDirName, hasFileSystemAccess } from "@/lib/kioskFaceCache";
 import { useIsPortrait } from "@/hooks/useScreenOrientation";
 import { KIOSK_TURBO_PROFILE } from "@/lib/kioskPerf";
 
@@ -161,6 +162,11 @@ const FaceKioskPage = () => {
   useEffect(() => {
     prewarmSpeech(["ไม่พบข้อมูลใบหน้าในระบบ กรุณาลงทะเบียน", "สแกนเข้าสำเร็จ", "สแกนออกสำเร็จ"]);
   }, []);
+  // โหลด cache ใบหน้า + โฟลเดอร์ที่จำไว้
+  useEffect(() => {
+    loadFaceCache().then(c => c && setFaceCacheMeta(c.meta)).catch(() => {});
+    getSavedDirName().then(setFaceCacheDir).catch(() => {});
+  }, []);
   const [screensaver, setScreensaver] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
@@ -175,6 +181,9 @@ const FaceKioskPage = () => {
   const [audioTesting, setAudioTesting] = useState(false);
   const [netTesting, setNetTesting] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
+  const [faceCacheMeta, setFaceCacheMeta] = useState<any>(null);
+  const [downloadingFaces, setDownloadingFaces] = useState(false);
+  const [faceCacheDir, setFaceCacheDir] = useState<string | null>(null);
   const qc = useQueryClient();
   const netCamRef = useRef<NetworkCameraHandle | null>(null);
 
@@ -427,6 +436,17 @@ const FaceKioskPage = () => {
   const { data: known = [] } = useQuery({
     queryKey: ["face-known-kiosk"],
     queryFn: async () => {
+      // ลอง cache local ก่อน — ไวและออฟไลน์ได้
+      try {
+        const cached = await loadFaceCache();
+        if (cached?.faces?.length) {
+          // ใช้ cache ทันที (ไม่ต้องรอ network)
+          return cached.faces.map(f => ({
+            studentId: f.studentId, descriptors: f.descriptors, name: f.name, classroom: f.classroom,
+            avatar: null, studentCode: f.studentCode, registeredFace: null,
+          })) as any;
+        }
+      } catch {}
       const { data, error } = await supabase
         .from("student_face_descriptors")
         .select("student_id, descriptor, face_image, quality_score, students!inner(id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name))");
@@ -449,7 +469,14 @@ const FaceKioskPage = () => {
           });
         }
       }
-      return Array.from(map.values());
+      const arr = Array.from(map.values());
+      // เก็บลง cache ไว้ใช้ครั้งต่อไปแบบ offline
+      try {
+        const toCache = arr.map(a => ({ studentId: a.studentId, studentCode: a.studentCode, name: a.name, classroom: a.classroom, descriptors: a.descriptors }));
+        await saveFaceCache(toCache as any);
+        setFaceCacheMeta({ count: toCache.length, savedAt: new Date().toISOString() });
+      } catch {}
+      return arr;
     },
     staleTime: 60_000,
   });
@@ -1893,6 +1920,42 @@ const FaceKioskPage = () => {
 
           </div>
 
+          <div className="space-y-1.5 border-t pt-2">
+            <label className="text-xs font-semibold flex items-center gap-1"><ScanFace className="w-3 h-3" /> ดาวน์โหลดใบหน้าลงเครื่อง (ออฟไลน์)</label>
+            <div className="rounded-md bg-muted/40 p-2 text-[10px] leading-snug">
+              {faceCacheMeta ? (
+                <p>แคช: {faceCacheMeta.count || faceCacheMeta.totalDescriptors || "?"} คน • {faceCacheMeta.savedAt ? new Date(faceCacheMeta.savedAt).toLocaleString("th-TH") : "-"}</p>
+              ) : <p className="text-muted-foreground">ยังไม่เคยดาวน์โหลด — กดปุ่มด้านล่างเพื่อเก็บไว้ในเครื่อง</p>}
+              {faceCacheDir && <p className="truncate">โฟลเดอร์: {faceCacheDir}/bngss-faces.json</p>}
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="flex-1 text-[11px]" disabled={downloadingFaces} onClick={async () => {
+                setDownloadingFaces(true);
+                try {
+                  const { faces, dirName } = await downloadFacesToCache();
+                  setFaceCacheMeta({ count: faces.length, savedAt: new Date().toISOString() });
+                  if (dirName) setFaceCacheDir(dirName);
+                  qc.invalidateQueries({ queryKey: ["face-known-kiosk"] });
+                  toast.success(`ดาวน์โหลด ${faces.length} คนลงเครื่องแล้ว`);
+                } catch (e: any) { toast.error(e?.message || "ดาวน์โหลดไม่สำเร็จ"); }
+                finally { setDownloadingFaces(false); }
+              }}>{downloadingFaces ? "..." : "ดาวน์โหลดลงเครื่อง"}</Button>
+              <Button size="sm" variant="outline" className="flex-1 text-[11px]" disabled={downloadingFaces} onClick={async () => {
+                try {
+                  if (!(await hasFileSystemAccess())) { toast.error("เบราว์เซอร์นี้ไม่รองรับการเลือกโฟลเดอร์"); return; }
+                  setDownloadingFaces(true);
+                  // ดาวน์โหลดก่อนแล้วให้เลือกโฟลเดอร์
+                  const { faces } = await downloadFacesToCache();
+                  const dir = await pickAndSaveFaceFolder(faces as any);
+                  if (dir) { setFaceCacheDir(dir); toast.success(`บันทึกไฟล์ลงโฟลเดอร์ ${dir} แล้ว`); }
+                  setFaceCacheMeta({ count: faces.length, savedAt: new Date().toISOString() });
+                  qc.invalidateQueries({ queryKey: ["face-known-kiosk"] });
+                } catch (e: any) { toast.error(e?.message || "เลือกโฟลเดอร์ไม่สำเร็จ"); }
+                finally { setDownloadingFaces(false); }
+              }}>เลือกโฟลเดอร์</Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground">ครั้งต่อไปจะใช้ข้อมูลในเครื่องก่อน ไม่ต้องรอดาวน์โหลดใหม่ — เจอหน้าแล้วค่อยยิงผลไป server ช่วยสแกนไวขึ้น</p>
+          </div>
 
           <div className="space-y-2 border-t pt-2">
             <label className="text-xs font-semibold flex items-center gap-1">
