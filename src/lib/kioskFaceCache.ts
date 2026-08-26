@@ -110,25 +110,37 @@ export async function hasFileSystemAccess(): Promise<boolean> {
 }
 
 // ดาวน์โหลดจาก Supabase แล้วเก็บทั้ง IndexedDB + ไฟล์ (ถ้าเลือกโฟลเดอร์)
+// ใช้ edge kiosk-face-download ก่อน (bypass RLS สำหรับตู้ anon) ถ้าไม่ได้ค่อย fallback ตรง
 export async function downloadFacesToCache(): Promise<{ faces: CachedFace[]; dirName: string | null }> {
-  // ดึง descriptors ทั้งหมด + ข้อมูลนักเรียน
-  const { data, error } = await supabase
-    .from("student_face_descriptors")
-    .select("student_id, descriptor, students!inner(id, student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name,grade_level))")
-    .limit(10000);
-  if (error) throw error;
-  const map = new Map<string, CachedFace>();
-  for (const row of (data as any[]) || []) {
-    const sid = row.student_id;
-    const s = row.students;
-    const name = `${s.prefix || ""}${s.first_name || ""} ${s.last_name || ""}`.trim();
-    const cls = s.classrooms ? `${s.classrooms.grade_level || ""}/${s.classrooms.name || ""}` : "-";
-    const code = s.student_code || "";
-    const existing = map.get(sid);
-    if (existing) existing.descriptors.push(row.descriptor as number[]);
-    else map.set(sid, { studentId: sid, studentCode: code, name, classroom: cls, descriptors: [row.descriptor as number[]] });
+  let faces: CachedFace[] = [];
+  let viaEdge = false;
+  try {
+    const { data, error } = await supabase.functions.invoke("kiosk-face-download");
+    if (!error && (data as any)?.faces && Array.isArray((data as any).faces)) {
+      faces = (data as any).faces as CachedFace[];
+      viaEdge = true;
+    } else if (error) throw error;
+  } catch { /* fallback */ }
+  if (!viaEdge) {
+    const { data, error } = await supabase
+      .from("student_face_descriptors")
+      .select("student_id, descriptor, students!inner(id, student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name,grade_level))")
+      .limit(10000);
+    if (error) throw error;
+    const map = new Map<string, CachedFace>();
+    for (const row of (data as any[]) || []) {
+      const sid = row.student_id;
+      const s = row.students;
+      const name = `${s.prefix || ""}${s.first_name || ""} ${s.last_name || ""}`.trim();
+      const cls = s.classrooms ? `${s.classrooms.grade_level || ""}/${s.classrooms.name || ""}` : "-";
+      const code = s.student_code || "";
+      const existing = map.get(sid);
+      if (existing) existing.descriptors.push(row.descriptor as number[]);
+      else map.set(sid, { studentId: sid, studentCode: code, name, classroom: cls, descriptors: [row.descriptor as number[]] });
+    }
+    faces = Array.from(map.values());
   }
-  const faces = Array.from(map.values());
+  if (faces.length === 0) throw new Error("ไม่พบข้อมูลใบหน้าในระบบ — ให้ลงทะเบียนใบหน้าก่อน (0 คน)");
   await saveFaceCache(faces);
   // ถ้าเคยเลือกโฟลเดอร์ไว้แล้ว ให้เขียนทับไฟล์เดิมอัตโนมัติ
   let dirName: string | null = await getSavedDirName();

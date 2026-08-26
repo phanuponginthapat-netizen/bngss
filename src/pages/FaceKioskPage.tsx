@@ -440,11 +440,25 @@ const FaceKioskPage = () => {
       try {
         const cached = await loadFaceCache();
         if (cached?.faces?.length) {
-          // ใช้ cache ทันที (ไม่ต้องรอ network)
+          // ใช้ cache ทันที (ไม่ต้องรอ network) — แต่ถ้าเพิ่งลงทะเบียนใหม่ cache จะถูกอัปเดตจาก dialog แล้ว
           return cached.faces.map(f => ({
             studentId: f.studentId, descriptors: f.descriptors, name: f.name, classroom: f.classroom,
             avatar: null, studentCode: f.studentCode, registeredFace: null,
           })) as any;
+        }
+      } catch {}
+      // ลอง edge ก่อน (bypass RLS สำหรับตู้ anon)
+      try {
+        const { data: edgeData, error: edgeErr } = await supabase.functions.invoke("kiosk-face-download");
+        if (!edgeErr && (edgeData as any)?.faces && Array.isArray((edgeData as any).faces) && (edgeData as any).faces.length > 0) {
+          const faces = (edgeData as any).faces as any[];
+          const arr = faces.map(f => ({
+            studentId: f.studentId, descriptors: f.descriptors, name: f.name, classroom: f.classroom,
+            avatar: null, studentCode: f.studentCode, registeredFace: null,
+          }));
+          // เก็บลง cache ไว้ครั้งต่อไป
+          try { await saveFaceCache(faces as any); setFaceCacheMeta({ count: faces.length, savedAt: new Date().toISOString() }); } catch {}
+          return arr as any;
         }
       } catch {}
       const { data, error } = await supabase
