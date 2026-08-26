@@ -1,49 +1,69 @@
 /**
- * โปรไฟล์ประสิทธิภาพของโหมดคีออส — เหลือโหมดเดียว "Turbo"
- * ปรับจูนมาสำหรับเครื่องสเปกต่ำอย่าง HP Pavilion x2 (Intel Atom x5)
- * เป้าหมาย: ไม่ค้าง ไม่กระตุก สแกนไว และยังแม่นยำ
+ * โปรไฟล์ประสิทธิภาพของโหมดคีออส — ครูจำลองใช้ balanced (ArcFace ปกติ)
  */
-export type KioskPerfMode = "turbo";
+export type KioskPerfMode = "low" | "balanced" | "high";
 
 export const KIOSK_PERF_KEY = "face_kiosk_perf_mode";
 
 export interface KioskPerfProfile {
-  /** ขนาด input ของตัวตรวจจับใบหน้า (ยิ่งเล็กยิ่งเร็ว) */
   inputSize: 320 | 416 | 512 | 608;
-  /** ความกว้างสูงสุดของเฟรมที่นำไป preprocess */
   maxWidth: number;
-  /** ระยะเวลาพักระหว่างรอบตรวจจับ (ms) */
   loopDelayMs: number;
-  /** ประเมินความคมชัดของใบหน้าทุกเฟรมหรือไม่ (กินซีพียู) */
   checkSharpness: boolean;
-  /** ความละเอียดวิดีโอที่ขอจากกล้อง */
   videoWidth: number;
   videoHeight: number;
   frameRate: number;
   label: string;
 }
 
-/** โปรไฟล์เดียวของระบบ — เร็วที่สุดที่ยังคงความแม่นยำ */
-export const KIOSK_TURBO_PROFILE: KioskPerfProfile = {
-  inputSize: 416,
-  maxWidth: 640,
-  loopDelayMs: 180,
-  checkSharpness: false,
-  videoWidth: 1280,
-  videoHeight: 720,
-  frameRate: 15,
-  label: "ไว แม่น (เร็วสุด)",
-};
-
-
 export const KIOSK_PERF_PROFILES: Record<KioskPerfMode, KioskPerfProfile> = {
-  turbo: KIOSK_TURBO_PROFILE,
+  low: {
+    inputSize: 320,
+    maxWidth: 480,
+    loopDelayMs: 450,
+    checkSharpness: false,
+    videoWidth: 640,
+    videoHeight: 480,
+    frameRate: 15,
+    label: "ประหยัด (เครื่องสเปกต่ำ)",
+  },
+  balanced: {
+    inputSize: 416,
+    maxWidth: 640,
+    loopDelayMs: 280,
+    checkSharpness: true,
+    videoWidth: 1280,
+    videoHeight: 720,
+    frameRate: 24,
+    label: "สมดุล (ArcFace ปกติ เหมือนครู)",
+  },
+  high: {
+    inputSize: 608,
+    maxWidth: 960,
+    loopDelayMs: 200,
+    checkSharpness: true,
+    videoWidth: 1920,
+    videoHeight: 1080,
+    frameRate: 30,
+    label: "ละเอียดสูง (เครื่องแรง)",
+  },
 };
 
 export function detectKioskPerfMode(): KioskPerfMode {
-  return "turbo";
+  try {
+    const cores = navigator.hardwareConcurrency || 4;
+    const mem = (navigator as any).deviceMemory || 4;
+    if (cores <= 4 || mem <= 4) return "low";
+    return "balanced";
+  } catch {
+    return "balanced";
+  }
 }
 
 export function loadKioskPerfMode(): KioskPerfMode {
-  return "turbo";
+  try {
+    const saved = localStorage.getItem(KIOSK_PERF_KEY) as KioskPerfMode | null;
+    if (saved && KIOSK_PERF_PROFILES[saved]) return saved;
+  } catch {}
+  return detectKioskPerfMode();
 }

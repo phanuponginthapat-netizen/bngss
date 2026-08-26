@@ -834,45 +834,40 @@ export interface MatchResult {
  * distance ยิ่งต่ำ = ยิ่งเหมือน. Threshold ~0.42 = strong match (cos_sim ≥ 0.58)
  * — เทียบเท่ามาตรฐาน InsightFace/buffalo_s
  */
-let top3Cache: { key: string; top3: KnownFace[]; at: number } | null = null;
-function quantizeInt8(arr: Float32Array | number[]): Int8Array {
-  const out = new Int8Array(arr.length);
-  for (let i = 0; i < arr.length; i++) out[i] = Math.max(-128, Math.min(127, Math.round((arr[i] as number) * 127)));
-  return out;
-}
-function cosineDistanceInt8(a: Int8Array, b: number[]): number {
-  let dot = 0, nA = 0, nB = 0;
-  for (let i = 0; i < a.length; i++) { const av = a[i] / 127; const bv = b[i] as number; dot += av * bv; nA += av * av; nB += bv * bv; }
-  return 1 - dot / (Math.sqrt(nA) * Math.sqrt(nB) + 1e-6);
-}
-
 export function matchDescriptor(
   query: Float32Array | number[],
   known: KnownFace[],
   threshold: number = BANK_GRADE.MATCH_THRESHOLD,
 ): MatchResult {
-  // แคช Top3 500ms — คนเดิมยืนหน้าตู้ไม่คำนวณใหม่
-  const qKey = `${Math.round((query[0] as number) * 100)}:${known.length}`;
-  if (top3Cache && Date.now() - top3Cache.at < 500 && top3Cache.key === qKey) {
-    known = top3Cache.top3;
-  } else {
-  // 2 ขั้น: ขั้นไวหา Top3 ด้วย INT8 1 รูปเด่น/คน (1000 ครั้ง INT8 เร็ว 1.8เท่า) → ขั้นเป๊ะเทียบครบ 3 รูปเฉพาะ Top3 (9 ครั้ง) = 1009 แทน 3000
-  if (known.length > 50) {
-    const qInt8 = quantizeInt8(query as Float32Array);
-    const candidates: Array<{ id: string; d: number; k: KnownFace }> = [];
-    for (const k of known) {
-      const d = k.descriptors[0];
-      if (!d || d.length !== query.length) continue;
-      const dist = cosineDistanceInt8(qInt8, d);
-      candidates.push({ id: k.studentId, d: dist, k });
+  let best: { id: string | null; d: number } = { id: null, d: Infinity };
+  let second: { id: string | null; d: number } = { id: null, d: Infinity };
+  for (const k of known) {
+    const dists: number[] = [];
+    for (const d of k.descriptors) {
+      if (d.length !== query.length) continue;
+      dists.push(cosineDistance(query, d));
     }
-    candidates.sort((a, b) => a.d - b.d);
-    const top3 = candidates.slice(0, 3).map(c => c.k);
-    if (top3.length > 0) {
-      top3Cache = { key: qKey, top3, at: Date.now() };
-      known = top3;
+    if (dists.length === 0) continue;
+    dists.sort((a, b) => a - b);
+    const minD = dists[0];
+    const median = dists[Math.floor(dists.length / 2)];
+    const secondMin = dists.length > 1 ? dists[1] : minD;
+    const score = minD * 0.6 + secondMin * 0.25 + median * 0.15;
+    if (score < best.d) {
+      second = best;
+      best = { id: k.studentId, d: score };
+    } else if (score < second.d) {
+      second = { id: k.studentId, d: score };
     }
   }
+  const matched = best.d < threshold ? best.id : null;
+  return {
+    studentId: matched,
+    distance: best.d,
+    confidence: Math.max(0, 1 - best.d),
+    secondDistance: second.d === Infinity ? 1 : second.d,
+    margin: (second.d === Infinity ? 1 : second.d) - best.d,
+  };
   }
   let best: { id: string | null; d: number } = { id: null, d: Infinity };
   let second: { id: string | null; d: number } = { id: null, d: Infinity };
