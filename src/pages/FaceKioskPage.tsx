@@ -1036,16 +1036,28 @@ const FaceKioskPage = () => {
           roiOffsetX = roiX;
           roiOffsetY = roiY;
         }
-        const rawDetections = await getAllDescriptors(pre as any, opts, {
+        let rawDetections = await getAllDescriptors(pre as any, opts, {
           minFaceSize: MIN_FACE_PX * 0.6,
           cacheTtlMs: 300,
         });
+        let isFallback = false;
+        // Fallback แบบบุคลากร: ถ้าในวงรีไม่เจอ ลองเต็มเฟรม (robust) — กันกรณีอยู่นอกวงรีนิดหน่อยแล้วไม่จับเลย
+        if (rawDetections.length === 0 && (roiOffsetX || roiOffsetY)) {
+          const full = await getAllDescriptors(video as any, opts, {
+            minFaceSize: MIN_FACE_PX * 0.6,
+            cacheTtlMs: 300,
+          });
+          if (full.length > 0) {
+            rawDetections = full;
+            roiOffsetX = 0; roiOffsetY = 0;
+            isFallback = true;
+          }
+        }
         // แปลงพิกัดจาก ROI กลับเป็นพิกัดวิดีโอจริง
         const detections = roiOffsetX || roiOffsetY
           ? rawDetections.map((d: any) => {
               const b = d.detection.box;
               const nb = { ...b, x: b.x + roiOffsetX, y: b.y + roiOffsetY } as any;
-              // ปรับ landmarks ด้วยถ้ามี
               if (d.landmarks && typeof d.landmarks.shift === "function") {
                 try { d.landmarks.shift(roiOffsetX, roiOffsetY); } catch {}
               }
@@ -1104,7 +1116,7 @@ const FaceKioskPage = () => {
               // Zkteco ปิด tier2 ทั้งหมด — ไม่ต้องกดยืนยันบนจอ ผ่านคือผ่าน ไม่ผ่านคือไม่พบ
               const tier2 = !ZKTECO && m.studentId != null && m.distance > AUTO_DIST && m.distance <= MANUAL_DIST
                 && m.margin >= MANUAL_MIN_MARGIN && m.confidence >= 1 - MANUAL_DIST;
-              let matchedId = inGuide && !tooSmall && !tooBlurry && (tier1 || tier2) ? m.studentId : null;
+              let matchedId = (inGuide || isFallback) && !tooSmall && !tooBlurry && (tier1 || tier2) ? m.studentId : null;
               // Zkteco ไม่ใช้ sticky lock — ยืนยันทันทีเฟรมเดียว ไม่ล็อกค้าง
               const kLock = ZKTECO ? null : kioskLockRef.current;
               if (!ZKTECO && !matchedId && kLock && tNow < kLock.until && m.studentId === kLock.studentId
