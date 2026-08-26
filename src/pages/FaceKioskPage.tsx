@@ -743,6 +743,18 @@ const FaceKioskPage = () => {
     cooldownRef.current.set(cdKey, now);
     cooldownRef.current.set(studentId, now);
 
+    // แสดงผลทันทีหลังกรอบเขียว — ไม่รออัปโหลด/DB (แก้หน่วง "เขียวแล้วนานกว่าจะแสดงผล")
+    const immediateTime = new Date().toLocaleTimeString("th-TH", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    setLastMatch({ name, studentCode, classroom, confidence, scanType: mode, capturedFace, registeredFace: enrolledFace || null, time: immediateTime });
+    setRecent(r => [{ studentId, studentCode, name, classroom, avatar: enrolledFace || null, capturedFace, time: immediateTime, confidence, scanType: mode } as any, ...r].slice(0, 10));
+    playSuccessSound();
+    if (voiceEnabled) speakText(`สแกน${modeLabel}สำเร็จ ${name}`);
+    void runGate(name, { id: studentId, kind: "student" });
+    justScannedRef.current.set(cdKey, now);
+    justScannedRef.current.set(studentId, now);
+    markScanned(studentId, mode, method);
+    if (!seenSet.has(studentId)) { seenSet.add(studentId); setTodayCounts(c => ({ ...c, [mode]: c[mode] + 1 })); }
+
     const { data: { user } } = await supabase.auth.getUser();
     const uploadedFaceUrl = await uploadFaceScanSnapshot(capturedFace, studentId);
     // อุณหภูมิจาก micro:bit (null เมื่อไม่ได้เชื่อมต่อ → ใช้กฎเดิมของระบบ)
@@ -768,31 +780,9 @@ const FaceKioskPage = () => {
         showNotice("info", "สแกนซ้ำ", `${name} ถูกบันทึก${modeLabel}โรงเรียนวันนี้แล้ว`, 2500);
       return;
     }
-    justScannedRef.current.set(cdKey, now);
-    justScannedRef.current.set(studentId, now);
-    markScanned(studentId, mode, method);
-
-    playSuccessSound();
-    if (voiceEnabled) speakText(`สแกน${modeLabel}สำเร็จ ${name}`);
-    void runGate(name, { id: studentId, kind: "student" });
-    if (!seenSet.has(studentId)) {
-      seenSet.add(studentId);
-      setTodayCounts((c) => ({ ...c, [mode]: c[mode] + 1 }));
-    }
-    // ใบหน้าที่ลงทะเบียนไว้ (ภาพตอนลงทะเบียน) — แสดงคู่กับใบหน้าที่สแกนได้
-    const registeredFace = enrolledFace || (await getRegisteredFaceImage(studentId, avatar));
-    setLastMatch({
-      name, studentCode, classroom, confidence, scanType: mode,
-      capturedFace, registeredFace,
-      time: new Date().toLocaleTimeString("th-TH", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-    });
+    // immediate feedback already shown — just auto-hide timer
     if (matchTimerRef.current) window.clearTimeout(matchTimerRef.current);
     matchTimerRef.current = window.setTimeout(() => setLastMatch(null), 6000);
-    setRecent((r) => [{
-      studentId, studentCode, name, classroom, avatar: registeredFace, capturedFace, confidence,
-      time: new Date().toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-      scanType: mode,
-    }, ...r].slice(0, 10));
   }, [voiceEnabled, runGate, showNotice]);
 
   // ===== ลงเวลาปฏิบัติงานบุคลากรจากการสแกนใบหน้าที่คีออส =====
