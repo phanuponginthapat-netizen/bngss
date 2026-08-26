@@ -1,4 +1,4 @@
-import { createElement, useEffect, useState } from "react";
+import { createElement, useEffect, useState, useRef } from "react";
 import { useArUrl } from "@/lib/arMedia";
 
 
@@ -38,6 +38,7 @@ export const ArMediaViewer = ({ mediaType, mediaUrl: rawUrl, posterUrl: rawPoste
   const posterUrl = useArUrl(rawPoster);
   const [mvReady, setMvReady] = useState(false);
   const [mvError, setMvError] = useState<string | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
 
@@ -66,8 +67,16 @@ export const ArMediaViewer = ({ mediaType, mediaUrl: rawUrl, posterUrl: rawPoste
 
   if (mediaType === "video") {
     return (
-      <div className={wrap}>
-        <video src={mediaUrl} poster={posterUrl || undefined} controls playsInline className="w-full h-auto" />
+      <div ref={wrapRef} className={`${wrap} relative group`}>
+        <video src={mediaUrl} poster={posterUrl || undefined} controls playsInline preload="metadata" className="w-full h-auto max-h-[70vh]" />
+        <button
+          type="button"
+          onClick={() => { const el = wrapRef.current; if (!el) return; if (document.fullscreenElement === el) document.exitFullscreen().catch(()=>{}); else el.requestFullscreen().catch(()=>{}); }}
+          className="absolute top-2 right-2 p-2 rounded-lg bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur"
+          title="เต็มจอ"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        </button>
       </div>
     );
   }

@@ -31,8 +31,8 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState("");
   const [found, setFound] = useState<TrackedItem | null>(null);
-  const [muted, setMuted] = useState(true);
-  const mutedRef = useRef(true);
+  const [muted, setMuted] = useState(false);
+  const mutedRef = useRef(false);
   useEffect(() => { mutedRef.current = muted; }, [muted]);
 
   const tracked = useMemo(
