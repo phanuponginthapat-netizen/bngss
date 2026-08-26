@@ -1067,19 +1067,24 @@ const FaceKioskPage = () => {
           roiOffsetX = roiX;
           roiOffsetY = roiY;
         }
-        const rawDetections = await getAllDescriptors(pre as any, opts, {
+        let rawDetections = await getAllDescriptors(pre as any, opts, {
           minFaceSize: MIN_FACE_PX * 0.6,
           cacheTtlMs: 300,
         });
-        // แปลงพิกัดจาก ROI กลับเป็นพิกัดวิดีโอจริง
-        const detections = roiOffsetX || roiOffsetY
+        // Fallback: ถ้า ROI ไม่เจอ ให้ลองทั้งเฟรม (เหมือนครู) — กันพลาดตอนยืนไม่กลางกรอบ
+        if (rawDetections.length === 0 && (roiOffsetX || roiOffsetY)) {
+          rawDetections = await getAllDescriptors(video as any, opts, { minFaceSize: MIN_FACE_PX * 0.6, cacheTtlMs: 300 });
+        }
+        // แปลงพิกัดจาก ROI กลับเป็นพิกัดวิดีโอจริง (ถ้ามี ROI)
+        const detections = (roiOffsetX || roiOffsetY) && rawDetections.length > 0 && rawDetections[0].detection.box.x < roiW
           ? rawDetections.map((d: any) => {
               const b = d.detection.box;
-              const nb = { ...b, x: b.x + roiOffsetX, y: b.y + roiOffsetY } as any;
-              if (d.landmarks && typeof d.landmarks.shift === "function") {
+              const needsShift = b.x < roiW && b.y < roiH;
+              const nb = needsShift ? { ...b, x: b.x + roiOffsetX, y: b.y + roiOffsetY } as any : b;
+              if (needsShift && d.landmarks && typeof d.landmarks.shift === "function") {
                 try { d.landmarks.shift(roiOffsetX, roiOffsetY); } catch {}
               }
-              return { ...d, detection: { ...d.detection, box: nb } };
+              return needsShift ? { ...d, detection: { ...d.detection, box: nb } } : d;
             })
           : rawDetections;
 
