@@ -108,11 +108,11 @@ Deno.serve(async (req) => {
     const { error: insErr } = await admin.from("student_face_descriptors").insert(rows);
     if (insErr) return respond({ error: "db_error", detail: insErr.message }, 500);
 
-    // ล้าง cache และบันทึก history (best effort)
+    // บันทึก history (best effort) — ใช้ direct_add ที่ผ่าน check constraint
     try {
       await admin.from("face_registration_history").insert({
         student_id: sid,
-        action: "kiosk_register",
+        action: "direct_add",
         previous_count: 0,
         new_count: rows.length,
         photo_urls: [],
