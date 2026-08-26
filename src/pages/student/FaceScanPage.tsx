@@ -55,7 +55,7 @@ const FaceScanPage = () => {
             <TabsTrigger value="staff" className="gap-2 whitespace-nowrap"><Briefcase className="w-4 h-4" /><span>บุคลากร</span></TabsTrigger>
             {canManage && <TabsTrigger value="approval" className="gap-2 whitespace-nowrap"><ShieldCheck className="w-4 h-4" /><span>อนุมัติ</span></TabsTrigger>}
             {canManage && <TabsTrigger value="database" className="gap-2 whitespace-nowrap"><Database className="w-4 h-4" /><span>ฐานข้อมูล</span></TabsTrigger>}
-            <TabsTrigger value="report" className="gap-2 whitespace-nowrap"><BarChart3 className="w-4 h-4" /><span>รายงาน</span></TabsTrigger>
+            {canSeeReport && <TabsTrigger value="report" className="gap-2 whitespace-nowrap"><BarChart3 className="w-4 h-4" /><span>รายงาน</span></TabsTrigger>}
             {canManage && <TabsTrigger value="settings" className="gap-2 whitespace-nowrap"><Settings className="w-4 h-4" /><span>ตั้งค่า</span></TabsTrigger>}
           </TabsList>
         </div>
