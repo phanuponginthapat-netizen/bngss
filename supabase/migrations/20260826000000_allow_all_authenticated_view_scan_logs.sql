@@ -13,3 +13,5 @@ CREATE POLICY "all authenticated can view scan logs"
 ON public.face_scan_logs
 FOR SELECT TO authenticated
 USING (true);
+
+-- trigger redeploy
