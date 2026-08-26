@@ -470,14 +470,13 @@ const FaceKioskPage = () => {
   const { data: known = [] } = useQuery({
     queryKey: ["face-known-kiosk"],
     queryFn: async () => {
-      // ลอง cache local ก่อน — ไวและออฟไลน์ได้
+      // ลอง cache local ก่อน — ไวและออฟไลน์ได้ (มีทั้ง นร. และบุคลากร)
       try {
         const cached = await loadFaceCache();
         if (cached?.faces?.length) {
-          // ใช้ cache ทันที (ไม่ต้องรอ network) — แต่ถ้าเพิ่งลงทะเบียนใหม่ cache จะถูกอัปเดตจาก dialog แล้ว
           return cached.faces.map(f => ({
             studentId: f.studentId, descriptors: f.descriptors, name: f.name, classroom: f.classroom,
-            avatar: null, studentCode: f.studentCode, registeredFace: null,
+            avatar: null, studentCode: f.studentCode, registeredFace: null, isStaff: (f as any).isStaff || false,
           })) as any;
         }
       } catch {}
@@ -987,11 +986,9 @@ const FaceKioskPage = () => {
     const opts = detectorOptionsHQ(perf.inputSize, 0.35);
     // ขนาดใบหน้าขั้นต่ำ (พิกเซลในเฟรม) ป้องกัน descriptor เพี้ยนจากใบหน้าที่เล็กเกิน
     const MIN_FACE_PX = 56;
-    // ZKTeco mode: เข้ม+เร็ว แบบเครื่องสแกนประตูจริง
-    const ZKTECO = true;
-    // Zkteco: ระยะห่าง best vs second-best ต้อง ≥0.06 (เข้มกว่าเดิม 0.04) กันคนหน้าคล้าย
+    // โหมดปกติ: ผ่อนเกณฑ์ให้จับได้เหมือนเดิม (เคยเข้ม Zkteco จนไม่พบ)
+    const ZKTECO = false;
     const MIN_MARGIN = ZKTECO ? 0.06 : 0.04;
-    // จำนวนเฟรมต่อเนื่องที่ต้องจับได้คนเดิม ก่อนบันทึก (กันบันทึกผิดจาก descriptor หลุด 1 เฟรม)
     const CONFIRM_FRAMES = ZKTECO ? 1 : 2;
     const CONFIRM_WINDOW_MS = 3000;
 
@@ -1137,7 +1134,7 @@ const FaceKioskPage = () => {
               // Zkteco ปิด tier2 ทั้งหมด — ไม่ต้องกดยืนยันบนจอ ผ่านคือผ่าน ไม่ผ่านคือไม่พบ
               const tier2 = !ZKTECO && m.studentId != null && m.distance > AUTO_DIST && m.distance <= MANUAL_DIST
                 && m.margin >= MANUAL_MIN_MARGIN && m.confidence >= 1 - MANUAL_DIST;
-              let matchedId = inGuide && !tooSmall && !tooBlurry && (tier1 || tier2) ? m.studentId : null;
+              let matchedId = !tooSmall && !tooBlurry && (tier1 || tier2) ? m.studentId : null;
               // Zkteco ไม่ใช้ sticky lock — ยืนยันทันทีเฟรมเดียว ไม่ล็อกค้าง
               const kLock = ZKTECO ? null : kioskLockRef.current;
               if (!ZKTECO && !matchedId && kLock && tNow < kLock.until && m.studentId === kLock.studentId
