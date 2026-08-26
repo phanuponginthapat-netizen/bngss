@@ -100,7 +100,7 @@ const FaceScanPage = () => {
         <TabsContent value="staff" className="mt-4"><StaffFaceTab /></TabsContent>
         {canManage && <TabsContent value="approval" className="mt-4"><FaceApprovalTab /></TabsContent>}
         {canManage && <TabsContent value="database" className="mt-4"><FaceDatabaseTab /></TabsContent>}
-        <TabsContent value="report" className="mt-4"><FaceReportTab /></TabsContent>
+        {canSeeReport && <TabsContent value="report" className="mt-4"><FaceReportTab /></TabsContent>}
         {canManage && <TabsContent value="settings" className="mt-4"><FaceSettingsTab /></TabsContent>}
       </Tabs>
     </div>
