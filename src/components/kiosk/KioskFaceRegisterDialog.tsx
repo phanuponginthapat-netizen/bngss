@@ -10,7 +10,8 @@ import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { loadFaceModels, detectFaceWithLandmarks, assessFaceQuality } from "@/lib/faceApi";
 import { canvasToFaceThumb } from "@/lib/faceThumb";
 import FaceGuideOverlay from "@/components/facescan/FaceGuideOverlay";
-import { openCamera, stopStream, attachStreamToVideo } from "@/lib/cameraStream";
+import { openCamera, stopStream } from "@/lib/cameraStream";
+import { attachStreamToVideo } from "@/lib/cameraIos";
 
 interface Props {
   open: boolean;
