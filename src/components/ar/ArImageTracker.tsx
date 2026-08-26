@@ -32,6 +32,8 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
   const [error, setError] = useState("");
   const [found, setFound] = useState<TrackedItem | null>(null);
   const [muted, setMuted] = useState(true);
+  const mutedRef = useRef(true);
+  useEffect(() => { mutedRef.current = muted; }, [muted]);
 
   const tracked = useMemo(
     () => items.filter((i) => i.target_index !== null && i.target_index !== undefined),
@@ -61,7 +63,7 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
           .map(({ item, url, poster }) => {
             const id = `armedia-${item.id}`;
             if (item.media_type === "video")
-              return `<video id="${id}" src="${url}" ${poster ? `poster="${poster}"` : ""} preload="auto" playsinline webkit-playsinline muted crossorigin="anonymous" ${item.loop_media === false ? "" : "loop"}></video>`;
+              return `<video id="${id}" src="${url}" ${poster ? `poster="${poster}"` : ""} preload="auto" playsinline webkit-playsinline crossorigin="anonymous" ${item.loop_media === false ? "" : "loop"}></video>`;
             if (item.media_type === "image" || item.media_type === "youtube")
               return `<img id="${id}" src="${item.media_type === "youtube" ? poster || url : url}" crossorigin="anonymous" />`;
             return "";
@@ -84,6 +86,11 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
           .join("");
 
         hostRef.current.innerHTML = `
+          <style>
+            a-scene { width:100% !important; height:100% !important; }
+            a-scene video { object-fit: cover !important; width:100% !important; height:100% !important; }
+            .a-canvas { width:100% !important; height:100% !important; object-fit: cover !important; }
+          </style>
           <a-scene mindar-image="imageTargetSrc: ${mindUrl}; autoStart: true; uiScanning: no; uiLoading: no; uiError: no; filterMinCF: 0.0001; filterBeta: 0.01; missTolerance: 8; warmupTolerance: 2"
                    color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights"
                    vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
@@ -102,7 +109,7 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
           el.addEventListener("targetFound", () => {
             setFound(item);
             const v = document.getElementById(`armedia-${item.id}`) as HTMLVideoElement | null;
-            if (v?.play) { v.currentTime = 0; v.muted = muted || item.muted !== false; v.play().catch(() => {}); }
+            if (v?.play) { v.currentTime = 0; v.muted = mutedRef.current || !!item.muted; v.play().catch(() => {}); }
           });
           el.addEventListener("targetLost", () => {
             setFound((cur) => (cur?.id === item.id ? null : cur));
