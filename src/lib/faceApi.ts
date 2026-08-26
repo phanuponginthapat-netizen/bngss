@@ -873,6 +873,7 @@ export function matchDescriptor(
       known = top3;
     }
   }
+  }
   let best: { id: string | null; d: number } = { id: null, d: Infinity };
   let second: { id: string | null; d: number } = { id: null, d: Infinity };
   for (const k of known) {
