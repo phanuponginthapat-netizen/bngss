@@ -22,7 +22,7 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: 2.45.4
-          github_token: ${{ github.token }}
+          github-token: ${{ github.token }}
       - name: Verify secrets
         run: |
           : "${SUPABASE_ACCESS_TOKEN:?SUPABASE_ACCESS_TOKEN secret is not set}"
