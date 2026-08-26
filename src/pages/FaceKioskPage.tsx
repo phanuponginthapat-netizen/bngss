@@ -5,7 +5,7 @@ import { openCamera, stopStream } from "@/lib/cameraStream";
 
 import { attachNetworkCamera, validateStreamUrl, describeStreamKind, classifyStreamUrl, testStreamUrl, type NetworkCameraHandle } from "@/lib/networkCamera";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame,
   detectorOptionsHQ, applyCameraDefaults, autoExposureBalance, reportFrameLuminance, preprocessFrame, estimateFaceSharpness, estimateBrightness,
@@ -38,6 +38,7 @@ import { getRegisteredFaceImage } from "@/lib/registeredFace";
 import { checkTodayScan, markScanned, methodLabel, clearScanDedupCache } from "@/lib/scanDedup";
 import { useKioskHeartbeat } from "@/hooks/useKioskHeartbeat";
 import { useKioskLockdown } from "@/hooks/useKioskLockdown";
+import KioskFaceRegisterDialog from "@/components/kiosk/KioskFaceRegisterDialog";
 import { useIsPortrait } from "@/hooks/useScreenOrientation";
 import { KIOSK_TURBO_PROFILE } from "@/lib/kioskPerf";
 
@@ -173,6 +174,8 @@ const FaceKioskPage = () => {
   const [audioDiag, setAudioDiag] = useState<string[]>([]);
   const [audioTesting, setAudioTesting] = useState(false);
   const [netTesting, setNetTesting] = useState(false);
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const qc = useQueryClient();
   const netCamRef = useRef<NetworkCameraHandle | null>(null);
 
 
@@ -1678,18 +1681,17 @@ const FaceKioskPage = () => {
     return () => clearInterval(check);
   }, [streaming, screensaver, isNearScanWindow, isOutsideAllScanWindows, idleMs, powerSave, startCamera]);
 
-  // Power save: ปิดกล้อง+AI ระหว่างพักหน้าจอ (โน๊ตบุ๊คเก่า) — ปลุกเมื่อออกจาก screensaver
+  // Power save: door ตู้หน้าประตูต้องพร้อมสแกนตลอด — ไม่ปิดกล้องตอนพักหน้าจอ (กันค้าง/รอเปิดกล้องนาน)
   useEffect(() => {
     if (!powerSave) return;
-    if (screensaver && streaming) {
-      stopCamera();
-    }
+    // Door: keep camera on for instant wake (fix hang after long idle)
+    // if (screensaver && streaming) stopCamera();
   }, [screensaver, powerSave, streaming, stopCamera]);
 
-  // Wake-loop: ตรวจใบหน้าเบา ๆ ตอนพักหน้าจอ (เฉพาะเมื่อไม่ได้ power save เพราะกล้องปิด)
+  // Wake-loop: ตรวจใบหน้าเบา ๆ ตอนพักหน้าจอ — door ให้ทำงานแม้ powerSave เพราะกล้องไม่ปิดแล้ว
   useEffect(() => {
     if (!screensaver) return;
-    if (powerSave) return; // กล้องปิดอยู่ ใช้การแตะปลุกแทน
+    // if (powerSave) return; // door: keep detecting to wake instantly
     if (!streaming || !modelReady) return;
     let cancelled = false;
     const opts = detectorOptionsHQ(320, 0.5);
@@ -2017,22 +2019,27 @@ const FaceKioskPage = () => {
         {/* Camera panel with school header */}
         <div className="relative min-h-0 rounded-2xl overflow-hidden bg-white shadow-xl flex flex-col" style={cameraPanelStyle}>
           {/* School header banner */}
-          <div className="flex items-center gap-3 px-5 py-3" style={headerBannerStyle}>
-            {schoolLogo ? (
-              <img src={schoolLogo} alt="logo" className="w-14 h-14 object-contain drop-shadow" />
-            ) : (
-              <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: hexA(themePrimary, 0.25) }}>
-                <ScanFace className="w-7 h-7" style={{ color: themePrimary }} />
+          <div className="flex items-center justify-between gap-3 px-5 py-3" style={headerBannerStyle}>
+            <div className="flex items-center gap-3">
+              {schoolLogo ? (
+                <img src={schoolLogo} alt="logo" className="w-14 h-14 object-contain drop-shadow" />
+              ) : (
+                <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: hexA(themePrimary, 0.25) }}>
+                  <ScanFace className="w-7 h-7" style={{ color: themePrimary }} />
+                </div>
+              )}
+              <div className="leading-tight">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight" style={{ color: themePrimary }}>
+                  {schoolName || "โรงเรียน"}
+                </h1>
+                <p className="text-xs md:text-sm font-medium" style={{ color: hexA(themePrimary, 0.85) }}>
+                  ระบบบันทึกเวลามาเรียนด้วย AI Camera
+                </p>
               </div>
-            )}
-            <div className="leading-tight">
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight" style={{ color: themePrimary }}>
-                {schoolName || "โรงเรียน"}
-              </h1>
-              <p className="text-xs md:text-sm font-medium" style={{ color: hexA(themePrimary, 0.85) }}>
-                ระบบบันทึกเวลามาเรียนด้วย AI Camera
-              </p>
             </div>
+            <Button size="sm" variant="outline" className="shrink-0 bg-white/80 backdrop-blur text-xs" onClick={() => setRegisterOpen(true)}>
+              <ScanFace className="w-4 h-4 mr-1" /> ลงทะเบียนใบหน้า
+            </Button>
           </div>
 
 
@@ -2216,6 +2223,8 @@ const FaceKioskPage = () => {
           </div>
         </div>
       </div>
+
+      <KioskFaceRegisterDialog open={registerOpen} onOpenChange={setRegisterOpen} onRegistered={() => { qc.invalidateQueries({ queryKey: ["face-known-kiosk"] }); qc.invalidateQueries({ queryKey: ["face-known"] }); }} />
 
       {/* Bottom bar: clock + ONLINE */}
       <div className="absolute bottom-0 inset-x-0 z-30 p-3 flex items-center justify-center gap-3" style={bottomBarStyle}>
