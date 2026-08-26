@@ -16640,6 +16640,7 @@ export type Database = {
         Args: { _student_id: string; _user_id: string }
         Returns: boolean
       }
+      is_observer: { Args: { _uid: string }; Returns: boolean }
       is_parent_of: {
         Args: { _student_id: string; _user_id: string }
         Returns: boolean

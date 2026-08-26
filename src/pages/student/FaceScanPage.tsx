@@ -14,8 +14,9 @@ import StaffFaceTab from "@/components/facescan/StaffFaceTab";
 import { useUserRole } from "@/hooks/useUserRole";
 
 const FaceScanPage = () => {
-  const { isAdmin, isDirector } = useUserRole();
+  const { isAdmin, isDirector, isTeacher, isObserver, isParent } = useUserRole();
   const canManage = isAdmin || isDirector;
+  const canSeeReport = isAdmin || isDirector || isTeacher || isObserver || isParent;
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get("tab") || "qr";
   const [tab, setTab] = useState(initialTab);
@@ -54,7 +55,7 @@ const FaceScanPage = () => {
             <TabsTrigger value="staff" className="gap-2 whitespace-nowrap"><Briefcase className="w-4 h-4" /><span>บุคลากร</span></TabsTrigger>
             {canManage && <TabsTrigger value="approval" className="gap-2 whitespace-nowrap"><ShieldCheck className="w-4 h-4" /><span>อนุมัติ</span></TabsTrigger>}
             {canManage && <TabsTrigger value="database" className="gap-2 whitespace-nowrap"><Database className="w-4 h-4" /><span>ฐานข้อมูล</span></TabsTrigger>}
-            <TabsTrigger value="report" className="gap-2 whitespace-nowrap"><BarChart3 className="w-4 h-4" /><span>รายงาน</span></TabsTrigger>
+            {canSeeReport && <TabsTrigger value="report" className="gap-2 whitespace-nowrap"><BarChart3 className="w-4 h-4" /><span>รายงาน</span></TabsTrigger>}
             {canManage && <TabsTrigger value="settings" className="gap-2 whitespace-nowrap"><Settings className="w-4 h-4" /><span>ตั้งค่า</span></TabsTrigger>}
           </TabsList>
         </div>
@@ -99,7 +100,7 @@ const FaceScanPage = () => {
         <TabsContent value="staff" className="mt-4"><StaffFaceTab /></TabsContent>
         {canManage && <TabsContent value="approval" className="mt-4"><FaceApprovalTab /></TabsContent>}
         {canManage && <TabsContent value="database" className="mt-4"><FaceDatabaseTab /></TabsContent>}
-        <TabsContent value="report" className="mt-4"><FaceReportTab /></TabsContent>
+        {canSeeReport && <TabsContent value="report" className="mt-4"><FaceReportTab /></TabsContent>}
         {canManage && <TabsContent value="settings" className="mt-4"><FaceSettingsTab /></TabsContent>}
       </Tabs>
     </div>
