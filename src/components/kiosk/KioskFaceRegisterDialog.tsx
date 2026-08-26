@@ -12,6 +12,7 @@ import { canvasToFaceThumb } from "@/lib/faceThumb";
 import FaceGuideOverlay from "@/components/facescan/FaceGuideOverlay";
 import { openCamera, stopStream } from "@/lib/cameraStream";
 import { attachStreamToVideo } from "@/lib/cameraIos";
+import { loadFaceCache, saveFaceCache } from "@/lib/kioskFaceCache";
 
 interface Props {
   open: boolean;
@@ -129,7 +130,16 @@ export default function KioskFaceRegisterDialog({ open, onOpenChange, onRegister
       }
       toast.success("ลงทะเบียนใบหน้าสำเร็จ ✓ สแกนประตูได้ทันที");
       setCaptureCount(c => c + 1);
-      // ล้าง cache ให้ kiosk จับได้ทันที
+      // อัปเดต cache ในเครื่องทันที — ไม่ต้องรอ ดาวน์โหลดใหม่
+      try {
+        const cached = await loadFaceCache().catch(() => null);
+        const faces = cached?.faces ? [...cached.faces] : [];
+        const idx = faces.findIndex(f => f.studentId === student.id);
+        const newEntry = { studentId: student.id, studentCode: student.student_code || "", name: fullName, classroom, descriptors: [Array.from(desc as Float32Array)] };
+        if (idx >= 0) faces[idx] = newEntry;
+        else faces.push(newEntry as any);
+        await saveFaceCache(faces as any);
+      } catch {}
       try { const { clearRegisteredFaceCache } = await import("@/lib/registeredFace"); clearRegisteredFaceCache(student.id); } catch {}
       // ปิด dialog หลัง 1 วิ
       setTimeout(() => { onOpenChange(false); onRegistered?.(); }, 1000);
