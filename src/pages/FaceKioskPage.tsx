@@ -1134,7 +1134,7 @@ const FaceKioskPage = () => {
               // Zkteco ปิด tier2 ทั้งหมด — ไม่ต้องกดยืนยันบนจอ ผ่านคือผ่าน ไม่ผ่านคือไม่พบ
               const tier2 = !ZKTECO && m.studentId != null && m.distance > AUTO_DIST && m.distance <= MANUAL_DIST
                 && m.margin >= MANUAL_MIN_MARGIN && m.confidence >= 1 - MANUAL_DIST;
-              let matchedId = !tooSmall && !tooBlurry && (tier1 || tier2) ? m.studentId : null;
+              let matchedId = inGuide && !tooSmall && !tooBlurry && (tier1 || tier2) ? m.studentId : null;
               // Zkteco ไม่ใช้ sticky lock — ยืนยันทันทีเฟรมเดียว ไม่ล็อกค้าง
               const kLock = ZKTECO ? null : kioskLockRef.current;
               if (!ZKTECO && !matchedId && kLock && tNow < kLock.until && m.studentId === kLock.studentId
