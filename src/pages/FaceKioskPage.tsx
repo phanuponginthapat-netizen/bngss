@@ -41,7 +41,7 @@ import { useKioskLockdown } from "@/hooks/useKioskLockdown";
 import KioskFaceRegisterDialog from "@/components/kiosk/KioskFaceRegisterDialog";
 import { downloadFacesToCache, pickAndSaveFaceFolder, loadFaceCache, getSavedDirName, hasFileSystemAccess } from "@/lib/kioskFaceCache";
 import { useIsPortrait } from "@/hooks/useScreenOrientation";
-import { KIOSK_TURBO_PROFILE } from "@/lib/kioskPerf";
+import { KIOSK_PERF_PROFILES } from "@/lib/kioskPerf";
 
 import { saveErrorMessage } from "@/lib/saveError";
 import { notifyRole } from "@/lib/notify";
@@ -151,7 +151,7 @@ const FaceKioskPage = () => {
   useEffect(() => { localStorage.setItem("face_kiosk_qr_only", qrOnly ? "1" : "0"); }, [qrOnly]);
   const { selection: scanModeSelection, setSelection: setScanModeSelection, effective: scanMode, effectiveRef: scanModeRef, cutoff: modeCutoff, checkWindow, entryWindow, exitWindow } = useAutoScanMode();
   const [camMode, setCamMode] = useState<CamMode>("standard");
-  const perf = KIOSK_TURBO_PROFILE;
+  const perf = KIOSK_PERF_PROFILES.balanced;
   // ช่วงเว้นระยะเพิ่มเติมระหว่างรอบสแกน (มิลลิวินาที) — ปรับได้จากหน้าตั้งค่า
   const [scanGapMs, setScanGapMs] = useState<number>(() => {
     const v = Number(localStorage.getItem("face_kiosk_scan_gap") || "");
@@ -1902,10 +1902,10 @@ const FaceKioskPage = () => {
 
           <div className="space-y-1.5 border-t pt-2">
             <label className="text-xs font-semibold">ประสิทธิภาพการสแกน</label>
-            <p className="text-[11px] font-medium">⚡ {KIOSK_TURBO_PROFILE.label}</p>
+            <p className="text-[11px] font-medium">⚡ {KIOSK_PERF_PROFILES.balanced.label}</p>
             <p className="text-[10px] text-muted-foreground leading-snug">
-              กล้อง {KIOSK_TURBO_PROFILE.videoWidth}×{KIOSK_TURBO_PROFILE.videoHeight}@{KIOSK_TURBO_PROFILE.frameRate}fps •
-              ตรวจทุก {KIOSK_TURBO_PROFILE.loopDelayMs}ms • ปรับจูนอัตโนมัติสำหรับเครื่องสเปกต่ำ ไม่ต้องเลือกโหมดอีกต่อไป
+              กล้อง {KIOSK_PERF_PROFILES.balanced.videoWidth}×{KIOSK_PERF_PROFILES.balanced.videoHeight}@{KIOSK_PERF_PROFILES.balanced.frameRate}fps •
+              ตรวจทุก {KIOSK_PERF_PROFILES.balanced.loopDelayMs}ms • ArcFace ปกติ เหมือนครู
             </p>
           </div>
 

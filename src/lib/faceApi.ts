@@ -868,36 +868,6 @@ export function matchDescriptor(
     secondDistance: second.d === Infinity ? 1 : second.d,
     margin: (second.d === Infinity ? 1 : second.d) - best.d,
   };
-  }
-  let best: { id: string | null; d: number } = { id: null, d: Infinity };
-  let second: { id: string | null; d: number } = { id: null, d: Infinity };
-  for (const k of known) {
-    const dists: number[] = [];
-    for (const d of k.descriptors) {
-      if (d.length !== query.length) continue;
-      dists.push(cosineDistance(query, d));
-    }
-    if (dists.length === 0) continue;
-    dists.sort((a, b) => a - b);
-    const minD = dists[0];
-    const median = dists[Math.floor(dists.length / 2)];
-    const secondMin = dists.length > 1 ? dists[1] : minD;
-    const score = minD * 0.6 + secondMin * 0.25 + median * 0.15;
-    if (score < best.d) {
-      second = best;
-      best = { id: k.studentId, d: score };
-    } else if (score < second.d) {
-      second = { id: k.studentId, d: score };
-    }
-  }
-  const matched = best.d < threshold ? best.id : null;
-  return {
-    studentId: matched,
-    distance: best.d,
-    confidence: Math.max(0, 1 - best.d),
-    secondDistance: second.d === Infinity ? 1 : second.d,
-    margin: (second.d === Infinity ? 1 : second.d) - best.d,
-  };
 }
 
 // ============================================================
