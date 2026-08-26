@@ -293,6 +293,40 @@ const FaceKioskPage = () => {
     uptimeSec: Math.floor((now.getTime() - kioskStartedAtRef.current) / 60000) * 60,
   });
 
+  // ---- โหลดสแกนล่าสุดจาก server ให้ทุกตู้เห็นเหมือนกัน (ทุก platform) ----
+  useEffect(() => {
+    const loadRecentFromServer = async () => {
+      try {
+        const today = todayBangkok();
+        const { data } = await supabase
+          .from("face_scan_logs")
+          .select("student_id, scan_time, scan_type, confidence, captured_face_url, students!inner(prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name))")
+          .eq("scan_date", today)
+          .order("scan_time", { ascending: false })
+          .limit(10);
+        if (data && data.length) {
+          const mapped = (data as any[]).map(r => ({
+            studentId: r.student_id,
+            studentCode: r.students.student_code || "-",
+            name: `${r.students.prefix || ""}${r.students.first_name} ${r.students.last_name}`.trim(),
+            classroom: r.students.classrooms ? `${r.students.classrooms.grade_level}/${r.students.classrooms.name}` : "-",
+            avatar: r.students.photo_url,
+            capturedFace: r.captured_face_url,
+            time: new Date(r.scan_time).toLocaleTimeString("th-TH", { hour12: false }),
+            confidence: r.confidence,
+            scanType: r.scan_type,
+          }));
+          setRecent(mapped as any);
+        }
+      } catch {}
+    };
+    loadRecentFromServer();
+    const ch = supabase.channel("kiosk-recent-global").on("postgres_changes", { event: "INSERT", schema: "public", table: "face_scan_logs" }, () => {
+      setTimeout(loadRecentFromServer, 800);
+    }).subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
+
   // ---- ปลดล็อกเสียง — Chromium kiosk บล็อก AudioContext จนกว่าจะมี gesture ครั้งแรก ----
   useEffect(() => {
     const once = () => { try { unlockAudio(); } catch {} };
