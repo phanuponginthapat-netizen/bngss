@@ -1789,10 +1789,10 @@ const FaceKioskPage = () => {
   }, [streaming, startCamera]);
 
   const handleTap = () => {
+    try { unlockAudio(); } catch {}
     lastDetectedAtRef.current = Date.now();
     if (screensaver) wakeFromScreensaver();
     else if (!streaming && (qrOnly || modelReady)) {
-      // แตะที่หน้าตอนไม่ได้ screensaver แต่กล้องปิด → เปิดกล้องด้วย
       startCamera().catch(() => {});
     }
   };
@@ -2140,13 +2140,13 @@ const FaceKioskPage = () => {
           </div>
 
 
-          {/* Camera feed */}
-          <div className="relative flex-1 bg-black">
-            <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
+          {/* Camera feed — เต็มจอ */}
+          <div className="relative flex-1 bg-black min-h-[50vh] md:min-h-0">
+            <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline autoPlay />
             <FaceGuideOverlay
               videoRef={videoRef}
               active={streaming && modelReady && !screensaver && !qrOnly}
-              targetRatio={0.30}
+              targetRatio={0.32}
               topLabel="ยืนกลางกรอบ • ห่าง 70–120 ซม."
               fit="cover"
               mirror={camMode !== "network" && camMode !== "wide"}
