@@ -919,6 +919,8 @@ const FaceKioskPage = () => {
     const opts = detectorOptionsHQ(perf.inputSize, 0.35);
     // ขนาดใบหน้าขั้นต่ำ (พิกเซลในเฟรม) ป้องกัน descriptor เพี้ยนจากใบหน้าที่เล็กเกิน
     const MIN_FACE_PX = 56;
+    // ZKTeco mode: เข้ม+เร็ว แบบเครื่องสแกนประตูจริง
+    const ZKTECO = true;
     // Zkteco: ระยะห่าง best vs second-best ต้อง ≥0.06 (เข้มกว่าเดิม 0.04) กันคนหน้าคล้าย
     const MIN_MARGIN = ZKTECO ? 0.06 : 0.04;
     // จำนวนเฟรมต่อเนื่องที่ต้องจับได้คนเดิม ก่อนบันทึก (กันบันทึกผิดจาก descriptor หลุด 1 เฟรม)
