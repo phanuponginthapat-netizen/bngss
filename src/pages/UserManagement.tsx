@@ -443,7 +443,9 @@ const UserManagement = () => {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      swal.toast.success("แก้ไขผู้ใช้สำเร็จ");
+      if (data?.warning) swal.toast.success(data.warning);
+      else swal.toast.success("แก้ไขผู้ใช้สำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["user-roles"] });
       setEditOpen(false); setEditUser(null); fetchUsers();
     } catch (e: any) {
       swal.error(e.message || "Failed to update user");
