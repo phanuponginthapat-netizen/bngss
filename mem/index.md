@@ -12,3 +12,4 @@ Bucket `profile-images` ต้อง public เพื่อให้ URL เก�
 - [Notification role matrix](mem/features/notification-role-matrix.md) — role_notification_defaults + precedence School>Role>User
 - [Security hardening phase 2](mem/features/security-hardening.md) — REVOKE anon/authenticated จาก SECURITY DEFINER, whitelist ฟังก์ชัน public
 - [Role/RLS matrix](mem/features/role-rls-matrix.md) — สิทธิ์อ่าน/เขียนของแต่ละ role ต่อกลุ่มตาราง + กติกาเขียน policy
+- [Canonical department names](mem/features/personnel-department-canonical.md) — ชื่อฝ่ายมาตรฐาน "ฝ่ายวิชาการ/ฝ่ายบริหารงานทั่วไป/..." + แมป enum + บัญชีระบบที่ต้องซ่อน

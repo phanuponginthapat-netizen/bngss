@@ -78,7 +78,7 @@ const UserManagement = () => {
   const [formFirstName, setFormFirstName] = useState("");
   const [formLastName, setFormLastName] = useState("");
   const [formRole, setFormRole] = useState<AppRole>("teacher");
-  const [formDept, setFormDept] = useState("วิชาการ");
+  const [formDept, setFormDept] = useState("ฝ่ายวิชาการ");
   const [formStudentCode, setFormStudentCode] = useState("");
   const [formGradeLevel, setFormGradeLevel] = useState("");
   const [formPrefix, setFormPrefix] = useState("ด.ช.");
@@ -723,7 +723,7 @@ const UserManagement = () => {
   const resetForm = () => {
     setFormEmail(""); setFormPassword("School@1234");
     setFormFirstName(""); setFormLastName("");
-    setFormRole("teacher"); setFormDept("วิชาการ");
+    setFormRole("teacher"); setFormDept("ฝ่ายวิชาการ");
     setFormStudentCode(""); setFormGradeLevel(""); setFormPrefix("ด.ช.");
     setFormNationalId(""); setFormPosition("ครู"); setFormAcademicStanding("ไม่มี");
     setFormGender(""); setFormDateOfBirth(""); setFormPhone(""); setFormSubjectGroup("");
