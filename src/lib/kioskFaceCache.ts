@@ -13,6 +13,7 @@ const VERSION = 1;
 const KEY_DESCRIPTORS = "descriptors";
 const KEY_META = "meta";
 const KEY_DIR_HANDLE = "dirHandle";
+const KEY_VERSION = "version";
 
 export interface CachedFace {
   studentId: string;
@@ -20,6 +21,11 @@ export interface CachedFace {
   name: string;
   classroom: string;
   descriptors: number[][];
+  /** ภาพใบหน้าที่ลงทะเบียน (data URL) — โหลดเก็บไว้ในเครื่องเพื่อใช้ประมวลผล/แสดงผลแบบออฟไลน์ */
+  images?: string[];
+  /** embedding ที่คำนวณใหม่จากภาพด้านบนด้วยโมเดลของเครื่องนี้เอง — ช่วยให้จับคู่แม่นขึ้น */
+  localDescriptors?: number[][];
+  isStaff?: boolean;
 }
 
 function openDb(): Promise<IDBDatabase> {
