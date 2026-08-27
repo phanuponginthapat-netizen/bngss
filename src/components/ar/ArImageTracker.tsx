@@ -273,7 +273,48 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
         });
         try { await system?.start?.(); } catch { /* บาง build เริ่มเองแล้ว */ }
         await ready;
-        if (!disposed) setPhase("ready");
+        if (disposed) return;
+
+        // ยืนยันว่ากล้องขึ้นภาพจริง — ถ้าไม่ขึ้น ให้ลองเริ่มใหม่ก่อนแจ้ง error (กันหน้าจอขาว)
+        const findCamVideo = (): HTMLVideoElement | null => {
+          const all = Array.from(document.querySelectorAll<HTMLVideoElement>("video"));
+          return all.find((v) => !v.id.startsWith("armedia-") && (v.srcObject || v.videoWidth > 0)) || null;
+        };
+        const waitCamVideo = async (ms: number) => {
+          const until = Date.now() + ms;
+          while (Date.now() < until && !disposed) {
+            const v = findCamVideo();
+            if (v && v.videoWidth > 0 && v.readyState >= 2) return v;
+            await new Promise((r) => setTimeout(r, 150));
+          }
+          return findCamVideo();
+        };
+
+        let cam = await waitCamVideo(4000);
+        if (!disposed && (!cam || cam.videoWidth === 0)) {
+          try { await system?.stop?.(); } catch { /* ignore */ }
+          await new Promise((r) => setTimeout(r, 400));
+          try { await system?.start?.(); } catch { /* ignore */ }
+          cam = await waitCamVideo(5000);
+        }
+        if (disposed) return;
+        if (!cam || cam.videoWidth === 0) {
+          throw new Error("เปิดกล้องไม่สำเร็จ — ปิดแอป/แท็บอื่นที่ใช้กล้องอยู่ แล้วลองใหม่อีกครั้ง");
+        }
+
+        // ย้ายวิดีโอกล้องเข้ามาในเวที และบังคับให้แสดงผลเต็มจอ (บางเบราว์เซอร์วางไว้นอก container)
+        if (hostRef.current && cam.parentElement !== hostRef.current) {
+          hostRef.current.insertBefore(cam, hostRef.current.firstChild);
+        }
+        cam.setAttribute("playsinline", "");
+        cam.muted = true;
+        cam.style.display = "block";
+        cam.style.opacity = "1";
+        cam.style.visibility = "visible";
+        cam.style.zIndex = "0";
+        try { await cam.play(); } catch { /* ignore */ }
+
+        setPhase("ready");
       } catch (e: any) {
         if (disposed) return;
         setError(e?.message || "เปิดกล้อง AR ไม่สำเร็จ");
