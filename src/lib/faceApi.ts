@@ -96,12 +96,21 @@ export async function loadFaceModels(onProgress?: (msg: string) => void): Promis
       loadWithFallback(faceapi.nets.faceRecognitionNet),
       loadArcFace(onProgress).catch(() => { /* ArcFace ไม่พร้อมก็ยังตรวจจับใบหน้าได้ */ }),
     ]);
-    const failed = results.slice(0,3).filter(r => r.status === 'rejected');
-    if (failed.length >= 2) throw new Error("โหลดโมเดลหลักล้มเหลว กรุณาลองใหม่หรือตรวจสอบเครือข่าย");
+    const ssdOk = results[0].status === "fulfilled" && faceapi.nets.ssdMobilenetv1.isLoaded;
+    const lmOk = results[1].status === "fulfilled" && faceapi.nets.faceLandmark68Net.isLoaded;
+    // landmarks จำเป็นเสมอ (ใช้ครอปหน้าให้ ArcFace) — ถ้าไม่มีถือว่าใช้ไม่ได้
+    if (!lmOk) throw new Error("โหลดโมเดลหลักล้มเหลว กรุณาลองใหม่หรือตรวจสอบเครือข่าย");
+    // ถ้า SSD โหลดไม่สำเร็จ ต้องรอ tiny detector ให้พร้อมก่อน ไม่งั้นจะ "ไม่พบใบหน้า" ทุกเฟรม
+    if (!ssdOk) {
+      await ensureTinyDetector().catch(() => {
+        throw new Error("โหลดโมเดลตรวจจับใบหน้าล้มเหลว กรุณาตรวจสอบเครือข่าย");
+      });
+    }
     loaded = true;
     onProgress?.("พร้อมใช้งาน");
     // เริ่มโหลด tiny detector ใน background โดยไม่บล็อก UI
     void ensureTinyDetector().catch(() => { /* optional */ });
+
   })().catch((e) => {
     loadingPromise = null;
     throw e;
