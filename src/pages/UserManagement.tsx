@@ -615,6 +615,8 @@ const UserManagement = () => {
       if (data?.error) throw new Error(data.error);
       if (data?.warning) swal.toast.success(data.warning);
       else swal.toast.success(`เปลี่ยน Role เป็น ${t(`role.${newRole}`)} สำเร็จ`);
+      queryClient.invalidateQueries({ queryKey: ["user-roles"] });
+      queryClient.invalidateQueries({ queryKey: ["user-roles", userId] });
       await fetchUsers();
     } catch (e: any) {
       swal.error(e.message || "Failed to update role");
