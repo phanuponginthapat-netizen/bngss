@@ -4,7 +4,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { buildCorsHeaders } from "../_shared/cors.ts";
 const corsHeaders = buildCorsHeaders(['x-supabase-client-platform', 'x-supabase-client-platform-version', 'x-supabase-client-runtime', 'x-supabase-client-runtime-version']);
 
-type ManagedRole = "admin" | "teacher" | "student" | "director" | "alumni" | "parent";
+type ManagedRole = "admin" | "teacher" | "student" | "director" | "alumni" | "parent" | "observer";
+
+const ROLE_PRIORITY = ["admin", "director", "teacher", "parent", "student", "alumni", "observer"];
+function pickPrimaryRole(list: string[]): string | undefined {
+  return ROLE_PRIORITY.find((r) => list.includes(r)) ?? list[0];
+}
 
 async function ensureSingleRole(adminClient: any, userId: string, role: ManagedRole) {
   await adminClient.from("user_roles").delete().eq("user_id", userId);
@@ -903,9 +908,14 @@ serve(async (req) => {
       const { data: { user: targetUser } } = await adminClient.auth.admin.getUserById(user_id);
       const { data: profile } = await adminClient.from("profiles").select("*").eq("id", user_id).maybeSingle();
       const { data: roleRows } = await adminClient.from("user_roles").select("role").eq("user_id", user_id);
-      const role = (roleRows || []).map((r: any) => r.role).find((r: string) => ["student", "teacher", "director", "admin"].includes(r)) || (roleRows || [])[0]?.role;
+      const role = pickPrimaryRole((roleRows || []).map((r: any) => r.role));
       let personnel = null, student = null, classroom = null;
-      if (targetUser?.email) {
+      {
+        // ผูกด้วย user_id ก่อน (เชื่อถือได้กว่า) แล้วค่อย fallback เป็นอีเมล
+        const byUid = await adminClient.from("personnel").select("*").eq("user_id", user_id).maybeSingle();
+        personnel = byUid.data;
+      }
+      if (!personnel && targetUser?.email) {
         const { data } = await adminClient.from("personnel").select("*").eq("email", targetUser.email).maybeSingle();
         personnel = data;
       }
@@ -1380,7 +1390,13 @@ serve(async (req) => {
       const { data: classroomRows } = await adminClient.from("classrooms").select("id, name, grade_level");
       const classroomById = new Map((classroomRows || []).map((c: any) => [c.id, c]));
 
-      const roleMap = new Map((roles || []).map((r: any) => [r.user_id, r.role]));
+      const rolesByUser = new Map<string, string[]>();
+      for (const r of roles || []) {
+        const arr = rolesByUser.get(r.user_id) || [];
+        arr.push(r.role);
+        rolesByUser.set(r.user_id, arr);
+      }
+      const roleMap = new Map([...rolesByUser].map(([uid, list]) => [uid, pickPrimaryRole(list)]));
       const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
       const personnelByEmail = new Map((personnelList || []).filter((p: any) => p.email).map((p: any) => [p.email, p]));
       const personnelByUserId = new Map((personnelList || []).filter((p: any) => p.user_id).map((p: any) => [p.user_id, p]));
