@@ -42,8 +42,28 @@ export async function ensureTfBackend(onProgress?: (msg: string) => void): Promi
     try {
       const v = tf.version_wasm || tf.version?.["tfjs-backend-wasm"] || "4.22.0";
       tf.setWasmPaths?.(`https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@${v}/dist/`);
+      // WASM: ใช้ SIMD + หลายเธรด (ถ้า browser อนุญาต) ให้ CPU หลายคอร์ช่วยกันประมวลผล
+      const cores = Math.max(1, Math.min(4, (navigator as any)?.hardwareConcurrency || 2));
+      tf.env?.().set?.("WASM_HAS_SIMD_SUPPORT", true);
+      tf.wasm?.setThreadsCount?.((self as any).crossOriginIsolated ? cores : 1);
     } catch { /* ไม่มีก็ข้าม */ }
+    // 1) WebGPU — เร็วที่สุดถ้าเครื่อง/เบราว์เซอร์รองรับ (ใช้ GPU เต็มรูปแบบ)
     try {
+      if ((navigator as any)?.gpu && tf.findBackend?.("webgpu")) {
+        await withTimeout((async () => { await tf.setBackend("webgpu"); await tf.ready(); })(), BACKEND_TIMEOUT_MS, "webgpu");
+        if (tf.getBackend() === "webgpu") return "webgpu";
+      }
+    } catch { /* ลอง webgl ต่อ */ }
+    // 2) WebGL — GPU shader (รองรับกว้างสุด) ปรับ flag ให้ลดภาระ CPU/หน่วยความจำ
+    try {
+      try {
+        const env = tf.env?.();
+        env?.set?.("WEBGL_PACK", true);
+        env?.set?.("WEBGL_FORCE_F16_TEXTURES", true);   // ใช้ VRAM ครึ่งเดียว เร็วขึ้นบน iGPU
+        env?.set?.("WEBGL_CPU_FORWARD", false);          // ให้ GPU ทำ op เล็กด้วย ไม่ตกมาที่ CPU
+        env?.set?.("WEBGL_FLUSH_THRESHOLD", 1);
+        env?.set?.("WEBGL_DELETE_TEXTURE_THRESHOLD", 256 * 1024 * 1024); // แคชเทกซ์เจอร์ใน RAM/VRAM แทนสร้างใหม่ทุกเฟรม
+      } catch {}
       await withTimeout((async () => { await tf.setBackend("webgl"); await tf.ready(); })(), BACKEND_TIMEOUT_MS, "webgl");
       if (tf.getBackend() === "webgl") return "webgl";
     } catch { /* ลอง wasm ต่อ */ }
@@ -53,6 +73,7 @@ export async function ensureTfBackend(onProgress?: (msg: string) => void): Promi
       await withTimeout((async () => { await tf.setBackend("wasm"); await tf.ready(); })(), BACKEND_TIMEOUT_MS, "wasm");
       if (tf.getBackend() === "wasm") return "wasm";
     } catch { /* ลอง cpu ต่อ */ }
+
     try {
       await withTimeout((async () => { await tf.setBackend("cpu"); await tf.ready(); })(), BACKEND_TIMEOUT_MS, "cpu");
       return tf.getBackend();
