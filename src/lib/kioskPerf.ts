@@ -67,3 +67,29 @@ export function loadKioskPerfMode(): KioskPerfMode {
   } catch {}
   return detectKioskPerfMode();
 }
+
+/**
+ * ระยะเวลาห่างระหว่างรอบตรวจจับจริง
+ *
+ * - เมื่อรันบน Electron kiosk ที่ใส่ COOP/COEP แล้ว (`crossOriginIsolated === true`)
+ *   WASM จะใช้หลายเธรดได้ → ตรวจได้ถี่ขึ้นเป็น ~5–6 เฟรม/วินาที โดย CPU ไม่ตัน
+ * - เบราว์เซอร์ธรรมดา (เธรดเดียว) คงค่าเดิมไว้ กัน CPU ไหม้บนเครื่องสเปกเบา
+ */
+export function resolveLoopDelayMs(profile: KioskPerfProfile): number {
+  try {
+    const isolated = typeof crossOriginIsolated !== "undefined" && crossOriginIsolated;
+    const cores = navigator.hardwareConcurrency || 4;
+    if (isolated && cores >= 4) return Math.max(170, Math.round(profile.loopDelayMs * 0.62));
+    if (isolated) return Math.max(200, Math.round(profile.loopDelayMs * 0.8));
+  } catch {}
+  return profile.loopDelayMs;
+}
+
+/** true = กำลังรันในโหมด isolated (Electron kiosk) → WASM หลายเธรดพร้อมใช้ */
+export function isIsolatedRuntime(): boolean {
+  try {
+    return typeof crossOriginIsolated !== "undefined" && !!crossOriginIsolated;
+  } catch {
+    return false;
+  }
+}
