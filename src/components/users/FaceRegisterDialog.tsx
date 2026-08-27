@@ -139,7 +139,7 @@ const FaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName }: Pr
       const { error } = await supabase.from("student_face_descriptors").upsert({
         student_id: studentId, sample_index: 0,
         descriptor: Array.from(desc), captured_by: user?.id, source: "profile_avatar",
-      });
+      }, { onConflict: "student_id,sample_index" });
       if (error) throw error;
       toast.success("ซิงค์ใบหน้าจากรูปโปรไฟล์สำเร็จ");
       await refreshSamples(studentId);

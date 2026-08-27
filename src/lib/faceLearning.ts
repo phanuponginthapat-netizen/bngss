@@ -201,7 +201,7 @@ export async function learnFromScan(input: LearnInput): Promise<LearnResult> {
       captured_by: auth?.user?.id ?? null,
       quality_score: quality,
       source: input.source ? `auto_learn:${input.source}` : "auto_learn",
-    } as any);
+    } as any, { onConflict: "student_id,sample_index" });
     if (insErr) return { learned: false, reason: insErr.message };
 
     bumpQuota(studentId);

@@ -473,7 +473,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
         descriptor: Array.from(det.descriptor),
         captured_by: user?.id,
         source: "confirm_mode",
-      } as any);
+      } as any, { onConflict: "student_id,sample_index" });
       if (error) throw error;
       toast.success(`เพิ่ม descriptor ใหม่ให้ ${target?.name || "นักเรียน"}`, {
         description: `มั่นใจ ${Math.round(m.confidence * 100)}% • Δ ${m.margin.toFixed(2)} • คุณภาพ ${q.score}/100`,
