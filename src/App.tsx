@@ -563,7 +563,7 @@ const App = () => {
                 <Route path="games/api-keys" element={<ProtectedRoute allowedRoles={["admin", "director"]}><GameHubApiKeysPage /></ProtectedRoute>} />
                 <Route path="games/:id" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><GameDetailPage /></ProtectedRoute>} />
                 {/* In-app Browser */}
-                <Route path="browser" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student"]}><BrowserPage /></ProtectedRoute>} />
+                <Route path="browser" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><BrowserPage /></ProtectedRoute>} />
                 <Route path="browser/logs" element={<ProtectedRoute allowedRoles={["admin", "director"]}><BrowserLogsPage /></ProtectedRoute>} />
                 <Route path="browser/extension" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><ExtensionPage /></ProtectedRoute>} />
                 {/* Classroom Monitor (NetSupport-style, WebRTC) */}
