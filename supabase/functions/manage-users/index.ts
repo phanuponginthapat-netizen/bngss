@@ -814,7 +814,9 @@ serve(async (req) => {
         });
       }
 
+      let syncWarning: string | null = null;
       if (role === "teacher" || role === "director" || role === "admin") {
+        try {
         const { data: { user: targetUser } } = await adminClient.auth.admin.getUserById(user_id);
         if (targetUser) {
           await createOrUpdatePersonnelRecord(adminClient, {
@@ -835,6 +837,10 @@ serve(async (req) => {
           if (Object.keys(personnelUpdate).length > 0) {
             await adminClient.from("personnel").update(personnelUpdate).eq("user_id", user_id);
           }
+        }
+        } catch (e) {
+          // เปลี่ยนบทบาทสำเร็จแล้ว — ซิงก์ระเบียนบุคลากรล้มเหลวต้องไม่ทำให้ทั้งคำขอล้มเหลว
+          syncWarning = `เปลี่ยนบทบาทสำเร็จ แต่ซิงก์ข้อมูลบุคลากรไม่สำเร็จ: ${(e as any)?.message || e}`;
         }
       }
 
@@ -899,7 +905,7 @@ serve(async (req) => {
         }
       }
 
-      return ok({ success: true });
+      return ok({ success: true, warning: syncWarning || undefined });
     }
 
     if (action === "get_full") {
