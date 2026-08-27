@@ -2078,7 +2078,9 @@ const UserManagement = () => {
                           <SelectItem value="director">{t("role.director")}</SelectItem>
                           <SelectItem value="teacher">{t("role.teacher")}</SelectItem>
                           <SelectItem value="student">{t("role.student")}</SelectItem>
+                          <SelectItem value="parent">{t("role.parent")}</SelectItem>
                           <SelectItem value="alumni">{t("role.alumni")}</SelectItem>
+                          <SelectItem value="observer">{t("role.observer")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </TableCell>
