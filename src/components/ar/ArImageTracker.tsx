@@ -53,10 +53,18 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
 
   const cms = useCmsValues(["school_logo", "school_name", "app_name"]);
 
-  const tracked = useMemo(
-    () => items.filter((i) => i.target_index !== null && i.target_index !== undefined),
-    [items]
-  );
+  const tracked = useMemo(() => {
+    // กันสื่อสองชิ้นผูกกับป้ายเดียวกัน (target_index ซ้ำ) ซึ่งทำให้ขึ้นวีดีโอผิดป้าย
+    const seen = new Set<number>();
+    return items.filter((i) => {
+      if (i.target_index === null || i.target_index === undefined) return false;
+      const idx = Number(i.target_index);
+      if (!Number.isFinite(idx) || seen.has(idx)) return false;
+      seen.add(idx);
+      return true;
+    });
+  }, [items]);
+
 
   useEffect(() => {
     let disposed = false;
