@@ -295,12 +295,11 @@ import DepartmentRoute from "./components/DepartmentRoute";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60 * 1000, // 1 minute — keeps data feeling live without hammering the API
-      gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
-      // Auto-refetch when the user returns to the tab. Needed because Realtime is
-      // intentionally OFF for profiles/students/pdpa_consents (PII protection).
-      refetchOnWindowFocus: true,
-      refetchOnMount: "always",
+      staleTime: 3 * 60 * 1000, // 3 นาที — ลดการยิง API ซ้ำเวลาสลับหน้า
+      gcTime: 15 * 60 * 1000, // เก็บ cache ไว้นานขึ้น ทำให้กลับหน้าเดิมไวขึ้น
+      // Realtime + invalidate ครอบคลุมอยู่แล้ว จึงไม่ต้อง refetch ทุกครั้งที่ mount/โฟกัส
+      refetchOnWindowFocus: false,
+      refetchOnMount: true,
       refetchOnReconnect: "always",
       retry: 1,
     },

@@ -40,6 +40,8 @@ export default defineConfig(({ mode }) => ({
           if (id.includes("/jspdf") || id.includes("/html2canvas")) return "vendor-pdf";
           if (id.includes("/xlsx")) return "vendor-xlsx";
           if (id.includes("/leaflet")) return "vendor-map";
+          if (id.includes("/recharts") || id.includes("/d3-")) return "vendor-charts";
+          if (id.includes("/@tanstack/")) return "vendor-query";
           if (id.includes("/@vladmandic/face-api")) return "vendor-face";
           if (id.includes("/@tensorflow/tfjs")) return "vendor-tfjs";
           if (id.includes("/face-api") || id.includes("/faceapi")) return "vendor-face";
