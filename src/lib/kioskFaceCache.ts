@@ -111,21 +111,35 @@ export async function hasFileSystemAccess(): Promise<boolean> {
 
 // ดาวน์โหลดจาก Supabase แล้วเก็บทั้ง IndexedDB + ไฟล์ (ถ้าเลือกโฟลเดอร์)
 // ใช้ edge kiosk-face-download ก่อน (bypass RLS สำหรับตู้ anon) ถ้าไม่ได้ค่อย fallback ตรง
-export async function downloadFacesToCache(): Promise<{ faces: CachedFace[]; dirName: string | null }> {
+// withImages = ดึง "ภาพใบหน้าที่ลงทะเบียน" ลงเครื่องด้วย เพื่อ
+//   1) แสดงภาพต้นฉบับตอนจับคู่ได้ทันทีแบบออฟไลน์
+//   2) นำไปคำนวณ embedding ซ้ำด้วยโมเดลของเครื่องนี้เอง (ดูฟังก์ชันด้านล่าง) → แม่นขึ้น
+export async function downloadFacesToCache(
+  opts?: { withImages?: boolean; withStaff?: boolean },
+): Promise<{ faces: CachedFace[]; dirName: string | null; version?: string }> {
+  const withImages = opts?.withImages !== false;
+  const withStaff = opts?.withStaff !== false;
   let faces: CachedFace[] = [];
+  let version: string | undefined;
   let viaEdge = false;
   try {
-    const { data, error } = await supabase.functions.invoke("kiosk-face-download");
+    const { data, error } = await supabase.functions.invoke("kiosk-face-download", {
+      body: { images: withImages ? "1" : "0", staff: withStaff ? "1" : "0" },
+    });
     if (!error && (data as any)?.faces && Array.isArray((data as any).faces)) {
       faces = (data as any).faces as CachedFace[];
+      version = (data as any).version;
       viaEdge = true;
     } else if (error) throw error;
   } catch { /* fallback */ }
   if (!viaEdge) {
     const { data, error } = await supabase
       .from("student_face_descriptors")
-      .select("student_id, descriptor, students!inner(id, student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name,grade_level))")
-      .limit(10000);
+      .select(
+        "student_id, descriptor" + (withImages ? ", face_image" : "") +
+        ", students!inner(id, student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name,grade_level))",
+      )
+      .limit(20000);
     if (error) throw error;
     const map = new Map<string, CachedFace>();
     for (const row of (data as any[]) || []) {
@@ -135,13 +149,22 @@ export async function downloadFacesToCache(): Promise<{ faces: CachedFace[]; dir
       const cls = s.classrooms ? `${s.classrooms.grade_level || ""}/${s.classrooms.name || ""}` : "-";
       const code = s.student_code || "";
       const existing = map.get(sid);
-      if (existing) existing.descriptors.push(row.descriptor as number[]);
-      else map.set(sid, { studentId: sid, studentCode: code, name, classroom: cls, descriptors: [row.descriptor as number[]] });
+      if (existing) {
+        existing.descriptors.push(row.descriptor as number[]);
+        if (row.face_image && (existing.images?.length ?? 0) < 2) (existing.images ||= []).push(row.face_image);
+      } else {
+        map.set(sid, {
+          studentId: sid, studentCode: code, name, classroom: cls,
+          descriptors: [row.descriptor as number[]],
+          images: row.face_image ? [row.face_image] : [],
+        });
+      }
     }
     faces = Array.from(map.values());
   }
   if (faces.length === 0) throw new Error("ไม่พบข้อมูลใบหน้าในระบบ — ให้ลงทะเบียนใบหน้าก่อน (0 คน)");
   await saveFaceCache(faces);
+  if (version) await idbPut(KEY_VERSION, { version, checkedAt: new Date().toISOString() });
   // ถ้าเคยเลือกโฟลเดอร์ไว้แล้ว ให้เขียนทับไฟล์เดิมอัตโนมัติ
   let dirName: string | null = await getSavedDirName();
   const dirHandle = await idbGet<any>(KEY_DIR_HANDLE);
@@ -157,5 +180,74 @@ export async function downloadFacesToCache(): Promise<{ faces: CachedFace[]; dir
       }
     } catch { /* ignore */ }
   }
-  return { faces, dirName };
+  return { faces, dirName, version };
 }
+
+/** เวอร์ชันข้อมูลบน server (เบามาก) — ใช้เช็คว่าต้องโหลดใหม่ไหม */
+export async function fetchServerFaceVersion(): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke("kiosk-face-download", { body: { meta: "1" } });
+    if (error) return null;
+    return (data as any)?.version ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * รีเฟรช cache อัตโนมัติเมื่อข้อมูลบน server เปลี่ยน (มีคนลงทะเบียนใบหน้าใหม่)
+ * หรือเมื่อ cache เก่าเกิน maxAgeMs — ทำงานเบื้องหลัง ไม่บล็อกการสแกน
+ */
+export async function refreshFaceCacheIfStale(maxAgeMs = 6 * 60 * 60 * 1000): Promise<CachedFace[] | null> {
+  try {
+    const meta = await idbGet<any>(KEY_META);
+    const local = await idbGet<any>(KEY_VERSION);
+    const age = meta?.savedAt ? Date.now() - new Date(meta.savedAt).getTime() : Infinity;
+    const serverVersion = await fetchServerFaceVersion();
+    const changed = !!serverVersion && serverVersion !== local?.version;
+    if (!changed && age < maxAgeMs && meta?.count) return null;
+    const { faces } = await downloadFacesToCache();
+    return faces;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * ใช้ "ภาพใบหน้าที่โหลดลงเครื่อง" คำนวณ embedding ซ้ำด้วยโมเดล/ไปป์ไลน์ของเครื่องนี้เอง
+ *
+ * ทำไมช่วยให้แม่นขึ้น: ภาพลงทะเบียนมักถ่ายจากมือถือ แต่ตอนสแกนใช้กล้องคีออส
+ * เมื่อคำนวณ embedding ใหม่จากภาพเดิมด้วยโมเดลเดียวกับที่ใช้ตอนสแกน (รวมภาพหลายสภาพแสง)
+ * ระยะห่างของคนเดียวกันจะแคบลงมาก → ลดทั้งการจำไม่ได้และการจำผิดคน
+ * ผลลัพธ์ถูกเก็บลง IndexedDB จึงทำครั้งเดียว ครั้งต่อไปใช้ของเดิมทันที
+ */
+export async function augmentCacheWithLocalEmbeddings(
+  onProgress?: (done: number, total: number) => void,
+): Promise<number> {
+  const cached = await loadFaceCache();
+  if (!cached?.faces?.length) return 0;
+  const { embedFaceVariantsFromUrl } = await import("@/lib/faceApi");
+  const targets = cached.faces.filter((f) => (f.images?.length ?? 0) > 0 && !(f as any).localDescriptors?.length);
+  let done = 0;
+  let added = 0;
+  for (const face of targets) {
+    try {
+      const local: number[][] = [];
+      for (const img of (face.images || []).slice(0, 2)) {
+        const vs = await embedFaceVariantsFromUrl(img);
+        for (const v of vs) local.push(Array.from(v.descriptor));
+      }
+      if (local.length) {
+        (face as any).localDescriptors = local;
+        added += local.length;
+      }
+    } catch { /* ข้ามภาพที่อ่านไม่ได้ */ }
+    done += 1;
+    onProgress?.(done, targets.length);
+    // ปล่อยให้ UI/กล้องทำงานต่อระหว่างประมวลผล
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  if (added) await saveFaceCache(cached.faces);
+  return added;
+}
+
