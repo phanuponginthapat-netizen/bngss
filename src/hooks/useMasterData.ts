@@ -32,7 +32,7 @@ export function useSubjectsMaster() {
     queryFn: async () => {
       const { data } = await supabase
         .from("subjects")
-        .select("id, code, name_th, name_en, credit, grade_level, subject_type")
+        .select("*")
         .order("code");
       return data || [];
     },
