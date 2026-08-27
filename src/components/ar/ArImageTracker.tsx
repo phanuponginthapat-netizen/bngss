@@ -238,8 +238,16 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
   const toggleSound = () => {
     const next = !muted;
     setMuted(next);
-    document.querySelectorAll<HTMLVideoElement>("video[id^='armedia-']").forEach((v) => { v.muted = next; });
+    mutedRef.current = next;
+    audioUnlockedRef.current = true;
+    document.querySelectorAll<HTMLVideoElement>("video[id^='armedia-']").forEach((v) => {
+      v.muted = next;
+      v.volume = 1;
+      // ถ้ากำลังเล่นอยู่และเพิ่งเปิดเสียง ให้เล่นต่อเนื่องโดยไม่สะดุด
+      if (!next && !v.paused) v.play().catch(() => {});
+    });
   };
+
 
   const loading = phase !== "ready" && phase !== "error";
   const brandName = cms.school_name || cms.app_name || "แหล่งเรียนรู้ AR";
