@@ -47,7 +47,9 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
   const [found, setFound] = useState<TrackedItem | null>(null);
   const [muted, setMuted] = useState(false);
   const mutedRef = useRef(false);
+  const audioUnlockedRef = useRef(false);
   useEffect(() => { mutedRef.current = muted; }, [muted]);
+
 
   const cms = useCmsValues(["school_logo", "school_name", "app_name"]);
 
@@ -139,20 +141,55 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
         sceneEl = hostRef.current.querySelector("a-scene");
 
         const byId = new Map(media.map((m) => [m.item.id, m.item]));
+        // ปลดล็อกเสียงครั้งเดียวด้วย gesture ที่ผู้ใช้กดเปิด AR — ป้ายถัดไปจะมีเสียงเองทุกครั้ง
+        const unlockAudio = async () => {
+          const vids = Array.from(document.querySelectorAll<HTMLVideoElement>("video[id^='armedia-']"));
+          for (const v of vids) {
+            try {
+              v.muted = true;
+              await v.play();
+              v.pause();
+              v.currentTime = 0;
+              v.muted = mutedRef.current;
+            } catch { /* ไม่ critical */ }
+          }
+          audioUnlockedRef.current = true;
+        };
+
+        const playWithSound = async (v: HTMLVideoElement) => {
+          v.currentTime = 0;
+          v.muted = mutedRef.current;
+          v.volume = 1;
+          try {
+            await v.play();
+          } catch {
+            // เบราว์เซอร์บล็อกเสียง → เล่นแบบเงียบไว้ก่อน แล้วลองเปิดเสียงซ้ำ
+            try {
+              v.muted = true;
+              await v.play();
+              if (!mutedRef.current) {
+                v.muted = false;
+                if (v.paused) await v.play().catch(() => {});
+              }
+            } catch { /* ignore */ }
+          }
+        };
+
         hostRef.current.querySelectorAll("[mindar-image-target]").forEach((el) => {
           const item = byId.get((el as HTMLElement).dataset.item || "");
           if (!item) return;
           el.addEventListener("targetFound", () => {
             setFound(item);
             const v = document.getElementById(`armedia-${item.id}`) as HTMLVideoElement | null;
-            if (v?.play) { v.currentTime = 0; v.muted = mutedRef.current || !!item.muted; v.play().catch(() => {}); }
+            if (v?.play) void playWithSound(v);
           });
           el.addEventListener("targetLost", () => {
             setFound((cur) => (cur?.id === item.id ? null : cur));
             const v = document.getElementById(`armedia-${item.id}`) as HTMLVideoElement | null;
-            if (v?.pause) v.pause();
+            if (v?.pause) { v.pause(); v.muted = mutedRef.current; }
           });
         });
+
 
         // รอ scene พร้อม → สั่งเริ่มจับภาพ → ค่อยเปิดหน้าจอสแกน
         const waitLoaded = () =>
@@ -163,6 +200,8 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
           });
         await waitLoaded();
         if (disposed) return;
+        await unlockAudio();
+
 
         setPhase("warmup");
         const system = sceneEl?.systems?.["mindar-image-system"];
@@ -199,8 +238,16 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
   const toggleSound = () => {
     const next = !muted;
     setMuted(next);
-    document.querySelectorAll<HTMLVideoElement>("video[id^='armedia-']").forEach((v) => { v.muted = next; });
+    mutedRef.current = next;
+    audioUnlockedRef.current = true;
+    document.querySelectorAll<HTMLVideoElement>("video[id^='armedia-']").forEach((v) => {
+      v.muted = next;
+      v.volume = 1;
+      // ถ้ากำลังเล่นอยู่และเพิ่งเปิดเสียง ให้เล่นต่อเนื่องโดยไม่สะดุด
+      if (!next && !v.paused) v.play().catch(() => {});
+    });
   };
+
 
   const loading = phase !== "ready" && phase !== "error";
   const brandName = cms.school_name || cms.app_name || "แหล่งเรียนรู้ AR";
