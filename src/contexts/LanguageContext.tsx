@@ -35,6 +35,7 @@ const translations: Translations = {
   "role.director": { th: "ผู้อำนวยการ", en: "Director", mm: "ကျောင်းအုပ်" },
   "role.alumni": { th: "ศิษย์เก่า", en: "Alumni", mm: "ကျောင်းသားဟောင်း" },
   "role.parent": { th: "ผู้ปกครอง", en: "Parent", mm: "မိဘ" },
+  "role.observer": { th: "ศึกษานิเทศก์ (อ่านอย่างเดียว)", en: "Observer", mm: "လေ့လာသူ" },
 
   // Departments
   "dept.academic": { th: "ฝ่ายวิชาการ", en: "Academic Affairs" },

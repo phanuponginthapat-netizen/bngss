@@ -275,6 +275,7 @@ const UserManagement = () => {
     director: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
     alumni: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
     parent: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+    observer: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
   };
 
   const handleAddUser = async () => {
@@ -442,7 +443,9 @@ const UserManagement = () => {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      swal.toast.success("แก้ไขผู้ใช้สำเร็จ");
+      if (data?.warning) swal.toast.success(data.warning);
+      else swal.toast.success("แก้ไขผู้ใช้สำเร็จ");
+      queryClient.invalidateQueries({ queryKey: ["user-roles"] });
       setEditOpen(false); setEditUser(null); fetchUsers();
     } catch (e: any) {
       swal.error(e.message || "Failed to update user");
@@ -522,6 +525,8 @@ const UserManagement = () => {
       const cls = data.classroom || {};
       setEditForm((prev: any) => ({
         ...prev,
+        // บทบาทจริงจากฐานข้อมูล (กันค่าค้างจากตารางรายชื่อ)
+        role: data.role ?? prev.role,
         email: data.user?.email || prev.email,
         // profile
         nickname: p.nickname ?? prev.nickname ?? "",
@@ -612,6 +617,8 @@ const UserManagement = () => {
       if (data?.error) throw new Error(data.error);
       if (data?.warning) swal.toast.success(data.warning);
       else swal.toast.success(`เปลี่ยน Role เป็น ${t(`role.${newRole}`)} สำเร็จ`);
+      queryClient.invalidateQueries({ queryKey: ["user-roles"] });
+      queryClient.invalidateQueries({ queryKey: ["user-roles", userId] });
       await fetchUsers();
     } catch (e: any) {
       swal.error(e.message || "Failed to update role");
@@ -1256,7 +1263,9 @@ const UserManagement = () => {
                       <SelectItem value="director">{t("role.director")}</SelectItem>
                       <SelectItem value="teacher">{t("role.teacher")}</SelectItem>
                       <SelectItem value="student">{t("role.student")}</SelectItem>
+                      <SelectItem value="parent">{t("role.parent")}</SelectItem>
                       <SelectItem value="alumni">{t("role.alumni")}</SelectItem>
+                      <SelectItem value="observer">{t("role.observer")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1635,7 +1644,9 @@ const UserManagement = () => {
                         <SelectItem value="director">{t("role.director")}</SelectItem>
                         <SelectItem value="teacher">{t("role.teacher")}</SelectItem>
                         <SelectItem value="student">{t("role.student")}</SelectItem>
+                        <SelectItem value="parent">{t("role.parent")}</SelectItem>
                         <SelectItem value="alumni">{t("role.alumni")}</SelectItem>
+                        <SelectItem value="observer">{t("role.observer")}</SelectItem>
                         
                       </SelectContent>
                     </Select>
@@ -1967,7 +1978,9 @@ const UserManagement = () => {
                   <SelectItem value="director">ผู้อำนวยการ</SelectItem>
                   <SelectItem value="teacher">ครู/บุคลากร</SelectItem>
                   <SelectItem value="student">นักเรียน</SelectItem>
+                  <SelectItem value="parent">ผู้ปกครอง</SelectItem>
                   <SelectItem value="alumni">ศิษย์เก่า</SelectItem>
+                  <SelectItem value="observer">ศึกษานิเทศก์</SelectItem>
                   
                 </SelectContent>
               </Select>
@@ -2071,7 +2084,9 @@ const UserManagement = () => {
                           <SelectItem value="director">{t("role.director")}</SelectItem>
                           <SelectItem value="teacher">{t("role.teacher")}</SelectItem>
                           <SelectItem value="student">{t("role.student")}</SelectItem>
+                          <SelectItem value="parent">{t("role.parent")}</SelectItem>
                           <SelectItem value="alumni">{t("role.alumni")}</SelectItem>
+                          <SelectItem value="observer">{t("role.observer")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </TableCell>
