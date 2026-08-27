@@ -1097,6 +1097,25 @@ const FaceKioskPage = () => {
           }
         }
 
+        // ── ตัวช่วยบนเครื่อง (sidecar / OpenVINO): คัดเฟรมว่างก่อน ─────────────
+        // เฟรมที่ไม่มีคนจะไม่ถูกส่งเข้า pipeline หนักในเบราว์เซอร์ → CPU ลดลงมาก
+        // ถ้าไม่มี sidecar หรือคัดกรองไม่ได้ (null) จะทำงานตามปกติทุกประการ
+        if (!trackFresh && sidecarReady()) {
+          const has = await sidecarHasFace(pre as any, { minScore: 0.55, timeoutMs: 600 });
+          if (has === false) {
+            setFaceCount(0);
+            lastBox = null;
+            if (!cancelled) {
+              detectionLoopRef.current = window.setTimeout(
+                () => requestAnimationFrame(() => { if (!cancelled) void loop(); }),
+                loopDelayMs + scanGapMs,
+              );
+            }
+            return;
+          }
+        }
+
+
         let rawDetections = await getAllDescriptors(pre as any, opts, {
           minFaceSize: MIN_FACE_PX * 0.6,
           cacheTtlMs: 300,
