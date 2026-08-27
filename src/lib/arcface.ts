@@ -76,10 +76,21 @@ export async function loadArcFace(onProgress?: (msg: string) => void): Promise<v
     const res = await cachedFetch(ARCFACE_MODEL_URL, onProgress);
     if (!res.ok) throw new Error(`ArcFace model fetch failed: ${res.status}`);
     const buf = await res.arrayBuffer();
-    const s = await ort.InferenceSession.create(buf, {
-      executionProviders: ["wasm"],
-      graphOptimizationLevel: "all",
-    });
+    // ใช้ WebGPU (GPU) ถ้ามี — ตกกลับมาที่ WASM/CPU อัตโนมัติเมื่อไม่รองรับ
+    const providers: any[] = (navigator as any)?.gpu ? ["webgpu", "wasm"] : ["wasm"];
+    let s: ort.InferenceSession;
+    try {
+      s = await ort.InferenceSession.create(buf, {
+        executionProviders: providers,
+        graphOptimizationLevel: "all",
+      });
+    } catch {
+      s = await ort.InferenceSession.create(buf, {
+        executionProviders: ["wasm"],
+        graphOptimizationLevel: "all",
+      });
+    }
+
     inputName = s.inputNames[0] || "input.1";
     session = s;
     onProgress?.("ArcFace พร้อมใช้งาน");
