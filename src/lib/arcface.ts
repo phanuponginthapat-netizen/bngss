@@ -23,8 +23,13 @@ import type * as faceapi from "@vladmandic/face-api";
 // Must match the installed onnxruntime-web version.
 const ORT_VERSION = "1.19.2";
 ort.env.wasm.wasmPaths = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/`;
-ort.env.wasm.numThreads = 1; // avoid COOP/COEP headers requirement
+// หลายเธรดต้องมี COOP/COEP — ถ้าไม่มีก็ใช้เธรดเดียว (กันโหลดพัง)
+ort.env.wasm.numThreads =
+  typeof self !== "undefined" && (self as any).crossOriginIsolated
+    ? Math.max(1, Math.min(4, (navigator as any)?.hardwareConcurrency || 2))
+    : 1;
 ort.env.wasm.simd = true;
+
 
 // buffalo_s w600k_mbf — MobileFaceNet, 512-D, ~14MB, ~99.3% LFW.
 // Immich mirrors the official InsightFace models with CORS enabled.
@@ -71,10 +76,21 @@ export async function loadArcFace(onProgress?: (msg: string) => void): Promise<v
     const res = await cachedFetch(ARCFACE_MODEL_URL, onProgress);
     if (!res.ok) throw new Error(`ArcFace model fetch failed: ${res.status}`);
     const buf = await res.arrayBuffer();
-    const s = await ort.InferenceSession.create(buf, {
-      executionProviders: ["wasm"],
-      graphOptimizationLevel: "all",
-    });
+    // ใช้ WebGPU (GPU) ถ้ามี — ตกกลับมาที่ WASM/CPU อัตโนมัติเมื่อไม่รองรับ
+    const providers: any[] = (navigator as any)?.gpu ? ["webgpu", "wasm"] : ["wasm"];
+    let s: ort.InferenceSession;
+    try {
+      s = await ort.InferenceSession.create(buf, {
+        executionProviders: providers,
+        graphOptimizationLevel: "all",
+      });
+    } catch {
+      s = await ort.InferenceSession.create(buf, {
+        executionProviders: ["wasm"],
+        graphOptimizationLevel: "all",
+      });
+    }
+
     inputName = s.inputNames[0] || "input.1";
     session = s;
     onProgress?.("ArcFace พร้อมใช้งาน");

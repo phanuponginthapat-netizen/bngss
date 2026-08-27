@@ -1021,6 +1021,7 @@ const FaceKioskPage = () => {
     // กล่องใบหน้าล่าสุด (พิกัดวิดีโอจริง) — ใช้ทำ ROI เฉพาะตอน "ติดตามหน้าที่เจอแล้ว" เท่านั้น
     let lastBox: { x: number; y: number; width: number; height: number } | null = null;
     let lastBoxAt = 0;
+    let missCount = 0;
 
     const captureFaceCrop = (video: HTMLVideoElement, box: { x: number; y: number; width: number; height: number }): string | undefined => {
       try {
@@ -1052,19 +1053,38 @@ const FaceKioskPage = () => {
         const useLiveness = livenessEnabled;
         const useTexture = textureGate;
 
-        // ROI ใช้เฉพาะ "ติดตาม" ใบหน้าที่เพิ่งเจอ (ภายใน 1.2 วิ) เพื่อประหยัด CPU
+        // ── ตรวจเฉพาะ "ในวงรีไกด์" เท่านั้น ─────────────────────────────
+        // เดิมสแกนทั้งเฟรม → CPU ทำงานหนักมากบนเครื่องคีออส และยังจับคนเดินผ่านด้านข้าง
+        // ตอนนี้ crop เฉพาะบริเวณวงรี (+ระยะเผื่อ) แล้วส่งเข้าโมเดล ทำให้พิกเซลที่ต้อง
+        // ประมวลผลลดลง ~70% ต่อเฟรม และไม่ต้องคิดคำนวณใบหน้าที่อยู่นอกกรอบเลย
         let pre: HTMLCanvasElement | HTMLVideoElement = video;
         let roiOffsetX = 0, roiOffsetY = 0;
         const trackFresh = !!lastBox && Date.now() - lastBoxAt < 1200;
-        if (roiCtx && vw && vh && trackFresh && lastBox) {
-          const pad = 1.8;
-          const roiW = Math.min(vw, lastBox.width * pad);
-          const roiH = Math.min(vh, lastBox.height * pad);
-          const cx = lastBox.x + lastBox.width / 2;
-          const cy = lastBox.y + lastBox.height / 2;
+
+        if (roiCtx && vw && vh) {
+          // พื้นที่ค้นหา: ถ้ากำลังติดตามใบหน้าอยู่ ใช้กรอบรอบใบหน้า (เล็กสุด/เร็วสุด)
+          // ถ้ายังไม่เจอ ใช้กรอบรอบวงรีไกด์ (ไม่ใช่ทั้งเฟรม)
+          const gW = vw * 0.30;
+          const gH = gW * 1.35;
+          let cx: number, cy: number, roiW: number, roiH: number;
+          if (trackFresh && lastBox) {
+            const pad = 1.8;
+            roiW = lastBox.width * pad;
+            roiH = lastBox.height * pad;
+            cx = lastBox.x + lastBox.width / 2;
+            cy = lastBox.y + lastBox.height / 2;
+          } else {
+            const pad = 1.35; // เผื่อขอบรอบวงรี เพื่อให้ยังจับได้เมื่อยืนเยื้องเล็กน้อย
+            roiW = gW * pad * 1.6;
+            roiH = gH * pad;
+            cx = vw / 2;
+            cy = vh * 0.46;
+          }
+          roiW = Math.min(vw, roiW);
+          roiH = Math.min(vh, roiH);
           const roiX = Math.max(0, Math.min(vw - roiW, cx - roiW / 2));
           const roiY = Math.max(0, Math.min(vh - roiH, cy - roiH / 2));
-          if (roiW > 40 && roiH > 40) {
+          if (roiW > 40 && roiH > 40 && (roiW < vw * 0.98 || roiH < vh * 0.98)) {
             roiCanvas.width = Math.round(roiW);
             roiCanvas.height = Math.round(roiH);
             roiCtx.drawImage(video, roiX, roiY, roiW, roiH, 0, 0, roiCanvas.width, roiCanvas.height);
@@ -1078,16 +1098,28 @@ const FaceKioskPage = () => {
           minFaceSize: MIN_FACE_PX * 0.6,
           cacheTtlMs: 300,
         });
-        let usedRoi = roiOffsetX !== 0 || roiOffsetY !== 0;
-        // ถ้า ROI ติดตามไม่เจอ → ถอยกลับไปสแกนทั้งเฟรมทันที
-        if (rawDetections.length === 0 && usedRoi) {
+        let usedRoi = pre !== video;
+        // ROI ติดตามหลุด (คนขยับเร็ว) → ถอยไปใช้ ROI วงรีก่อน แล้วค่อยทั้งเฟรมเป็นทางสุดท้าย
+        if (rawDetections.length === 0 && usedRoi && trackFresh) {
           lastBox = null;
-          usedRoi = false;
-          rawDetections = await getAllDescriptors(video as any, opts, { minFaceSize: MIN_FACE_PX * 0.6, cacheTtlMs: 300 });
+          missCount += 1;
+        } else if (rawDetections.length === 0 && usedRoi) {
+          missCount += 1;
+          // ทุก ๆ 6 เฟรมที่ว่างเปล่า ลองสแกนทั้งเฟรมหนึ่งครั้ง (กันกล้องเยื้อง/ติดตั้งเอียง)
+          if (missCount % 6 === 0) {
+            const full = await getAllDescriptors(video as any, opts, { minFaceSize: MIN_FACE_PX * 0.6, cacheTtlMs: 300 });
+            if (full.length > 0) {
+              rawDetections = full;
+              usedRoi = false;
+              roiOffsetX = 0; roiOffsetY = 0;
+            }
+          }
+        } else if (rawDetections.length > 0) {
+          missCount = 0;
         }
 
         // แปลงพิกัดจาก ROI กลับเป็นพิกัดวิดีโอจริง
-        const detections = usedRoi
+        const detections = usedRoi && (roiOffsetX !== 0 || roiOffsetY !== 0)
           ? rawDetections.map((d: any) => {
               const b = d.detection.box;
               const nb = { ...b, x: b.x + roiOffsetX, y: b.y + roiOffsetY } as any;
@@ -1097,6 +1129,7 @@ const FaceKioskPage = () => {
               return { ...d, detection: { ...d.detection, box: nb } };
             })
           : rawDetections;
+
 
         if (detections.length > 0) {
           const b0: any = detections[0].detection.box;
