@@ -9,6 +9,8 @@ import { BarcodeScanner } from "@/components/BarcodeScanner";
 import ArImage from "@/components/ar/ArImage";
 import ArImageTracker, { type TrackedItem } from "@/components/ar/ArImageTracker";
 import { extractArCode } from "@/lib/arCode";
+import { useCmsValues } from "@/hooks/useCmsSettings";
+
 
 interface Project {
   id: string; slug: string; title: string; description: string | null;
