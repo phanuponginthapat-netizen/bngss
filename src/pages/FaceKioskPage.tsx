@@ -39,7 +39,7 @@ import { checkTodayScan, markScanned, methodLabel, clearScanDedupCache } from "@
 import { useKioskHeartbeat } from "@/hooks/useKioskHeartbeat";
 import { useKioskLockdown } from "@/hooks/useKioskLockdown";
 import KioskFaceRegisterDialog from "@/components/kiosk/KioskFaceRegisterDialog";
-import { downloadFacesToCache, pickAndSaveFaceFolder, loadFaceCache, saveFaceCache, getSavedDirName, hasFileSystemAccess } from "@/lib/kioskFaceCache";
+import { downloadFacesToCache, pickAndSaveFaceFolder, loadFaceCache, saveFaceCache, getSavedDirName, hasFileSystemAccess, refreshFaceCacheIfStale, augmentCacheWithLocalEmbeddings } from "@/lib/kioskFaceCache";
 import { useIsPortrait } from "@/hooks/useScreenOrientation";
 import { KIOSK_PERF_PROFILES, resolveLoopDelayMs, isIsolatedRuntime } from "@/lib/kioskPerf";
 import { probeSidecar, sidecarHasFace, sidecarReady, sidecarProvider } from "@/lib/faceSidecar";
@@ -171,6 +171,24 @@ const FaceKioskPage = () => {
   // โหลด cache ใบหน้า + โฟลเดอร์ที่จำไว้
   useEffect(() => {
     loadFaceCache().then(c => c && setFaceCacheMeta(c.meta)).catch(() => {});
+    // เบื้องหลัง: เช็คว่ามีใบหน้าใหม่บนเซิร์ฟเวอร์ไหม → โหลดลงเครื่อง แล้วคำนวณ
+    // embedding จากภาพในเครื่องด้วยโมเดลของตู้เอง (ทำครั้งเดียว เก็บไว้ใช้ต่อ)
+    (async () => {
+      try {
+        const refreshed = await refreshFaceCacheIfStale();
+        if (refreshed) {
+          const meta = await loadFaceCache();
+          if (meta) setFaceCacheMeta(meta.meta);
+          qc.invalidateQueries({ queryKey: ["face-known-kiosk"] });
+          qc.invalidateQueries({ queryKey: ["face-known-kiosk-staff"] });
+        }
+        const added = await augmentCacheWithLocalEmbeddings();
+        if (added > 0) {
+          qc.invalidateQueries({ queryKey: ["face-known-kiosk"] });
+          qc.invalidateQueries({ queryKey: ["face-known-kiosk-staff"] });
+        }
+      } catch {}
+    })();
     getSavedDirName().then(setFaceCacheDir).catch(() => {});
   }, []);
   const [screensaver, setScreensaver] = useState(false);
@@ -481,8 +499,14 @@ const FaceKioskPage = () => {
         const cached = await loadFaceCache();
         if (cached?.faces?.length) {
           return cached.faces.map(f => ({
-            studentId: f.studentId, descriptors: f.descriptors, name: f.name, classroom: f.classroom,
-            avatar: null, studentCode: f.studentCode, registeredFace: null, isStaff: (f as any).isStaff || false,
+            studentId: f.studentId,
+            // รวม embedding ที่คำนวณใหม่จากภาพในเครื่องด้วย → จับคู่แม่นขึ้นข้ามกล้อง
+            descriptors: [...(f.descriptors || []), ...((f as any).localDescriptors || [])],
+            name: f.name, classroom: f.classroom,
+            avatar: (f as any).images?.[0] || null,
+            studentCode: f.studentCode,
+            registeredFace: (f as any).images?.[0] || null,
+            isStaff: (f as any).isStaff || false,
           })) as any;
         }
       } catch {}
@@ -493,7 +517,8 @@ const FaceKioskPage = () => {
           const faces = (edgeData as any).faces as any[];
           const arr = faces.map(f => ({
             studentId: f.studentId, descriptors: f.descriptors, name: f.name, classroom: f.classroom,
-            avatar: null, studentCode: f.studentCode, registeredFace: null,
+            avatar: f.images?.[0] || null, studentCode: f.studentCode, registeredFace: f.images?.[0] || null,
+            isStaff: !!f.isStaff,
           }));
           // เก็บลง cache ไว้ครั้งต่อไป
           try { await saveFaceCache(faces as any); setFaceCacheMeta({ count: faces.length, savedAt: new Date().toISOString() }); } catch {}
@@ -539,6 +564,20 @@ const FaceKioskPage = () => {
     queryKey: ["face-known-kiosk-staff"],
     enabled: staffFaceEnabled,
     queryFn: async () => {
+      // ใช้ข้อมูลบุคลากรที่โหลดลงเครื่องแล้วก่อน (ออฟไลน์ได้ + ไม่ต้องรอเครือข่าย)
+      try {
+        const cached = await loadFaceCache();
+        const staff = (cached?.faces || []).filter((f: any) => f.isStaff);
+        if (staff.length) {
+          return staff.map((f: any) => ({
+            studentId: f.studentId,
+            descriptors: [...(f.descriptors || []), ...(f.localDescriptors || [])],
+            name: f.name, classroom: f.classroom,
+            avatar: f.images?.[0] || null, registeredFace: f.images?.[0] || null,
+            studentCode: f.studentCode, isStaff: true,
+          })) as any;
+        }
+      } catch {}
       const { data, error } = await (supabase as any)
         .from("personnel_face_descriptors")
         .select("personnel_id, descriptor, face_image, personnel!inner(id, prefix, first_name, last_name, employee_code, position)");
