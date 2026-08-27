@@ -360,7 +360,7 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
     <div className="fixed inset-0 z-[100] bg-background">
       {/* กล้องเต็มจอ — บังคับ video/canvas ของ MindAR ให้ครอบเต็มพื้นที่ */}
       <style>{`
-        .ar-stage { position:absolute; inset:0; overflow:hidden; }
+        .ar-stage { position:absolute; inset:0; overflow:hidden; background:#000; }
         .ar-stage > video,
         .ar-stage a-scene > video,
         .ar-stage video:not([id^="armedia-"]) {
@@ -369,10 +369,12 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
           min-width:100% !important; min-height:100% !important;
           width:auto !important; height:auto !important;
           object-fit:cover !important;
+          display:block !important; opacity:1 !important; visibility:visible !important; z-index:0 !important;
         }
         .ar-stage a-scene, .ar-stage .a-canvas, .ar-stage canvas.a-canvas {
           position:absolute !important; inset:0 !important;
           width:100% !important; height:100% !important;
+          background:transparent !important;
         }
         .ar-stage .a-loader-title, .ar-stage .mindar-ui-overlay { display:none !important; }
         .ar-stage video[id^="armedia-"] { display:none !important; }
