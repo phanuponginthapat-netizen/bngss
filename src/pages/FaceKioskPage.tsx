@@ -1148,7 +1148,9 @@ const FaceKioskPage = () => {
 
 
               // ต้องอยู่ในวงรีไกด์เท่านั้น — นอกกรอบไม่จับ (ลด CPU + กันคนเดินผ่านด้านข้าง)
-              const guide = faceGuideStatus(box, { cx, cy, w: targetW, h: targetH });
+              const gTargetW = vw * 0.30;
+              const gTargetH = gTargetW * 1.35;
+              const guide = faceGuideStatus(box, { cx: vw / 2, cy: vh * 0.46, w: gTargetW, h: gTargetH });
               const inGuide = guide.ok;
               const m = matchDescriptor(det.descriptor, matchKnown, threshold);
               const ambiguous = m.studentId != null && m.margin < MIN_MARGIN;
