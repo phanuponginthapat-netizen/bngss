@@ -96,12 +96,21 @@ export async function loadFaceModels(onProgress?: (msg: string) => void): Promis
       loadWithFallback(faceapi.nets.faceRecognitionNet),
       loadArcFace(onProgress).catch(() => { /* ArcFace ไม่พร้อมก็ยังตรวจจับใบหน้าได้ */ }),
     ]);
-    const failed = results.slice(0,3).filter(r => r.status === 'rejected');
-    if (failed.length >= 2) throw new Error("โหลดโมเดลหลักล้มเหลว กรุณาลองใหม่หรือตรวจสอบเครือข่าย");
+    const ssdOk = results[0].status === "fulfilled" && faceapi.nets.ssdMobilenetv1.isLoaded;
+    const lmOk = results[1].status === "fulfilled" && faceapi.nets.faceLandmark68Net.isLoaded;
+    // landmarks จำเป็นเสมอ (ใช้ครอปหน้าให้ ArcFace) — ถ้าไม่มีถือว่าใช้ไม่ได้
+    if (!lmOk) throw new Error("โหลดโมเดลหลักล้มเหลว กรุณาลองใหม่หรือตรวจสอบเครือข่าย");
+    // ถ้า SSD โหลดไม่สำเร็จ ต้องรอ tiny detector ให้พร้อมก่อน ไม่งั้นจะ "ไม่พบใบหน้า" ทุกเฟรม
+    if (!ssdOk) {
+      await ensureTinyDetector().catch(() => {
+        throw new Error("โหลดโมเดลตรวจจับใบหน้าล้มเหลว กรุณาตรวจสอบเครือข่าย");
+      });
+    }
     loaded = true;
     onProgress?.("พร้อมใช้งาน");
     // เริ่มโหลด tiny detector ใน background โดยไม่บล็อก UI
     void ensureTinyDetector().catch(() => { /* optional */ });
+
   })().catch((e) => {
     loadingPromise = null;
     throw e;
@@ -129,7 +138,7 @@ async function ensureTinyDetector(): Promise<void> {
 
 
 // Detector หลัก — ลด minConfidence ลงให้จับใบหน้าได้ง่ายขึ้น (แสงน้อย/กล้องเว็บแคมคุณภาพต่ำ)
-export const detectorOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.35, maxResults: 10 });
+export const detectorOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.25, maxResults: 10 });
 
 // Fallback Tiny detector — เร็วกว่าแต่แม่นยำน้อยกว่า ใช้เมื่อ HQ ทำงานช้าเกินไป
 export function detectorOptionsHQ(_inputSize: 320 | 416 | 512 | 608 = 608, minConfidence = 0.5) {
@@ -370,54 +379,100 @@ export async function detectLandmarksFromImage(
   return { landmarks: lm };
 }
 
+/** สร้างภาพช่วยตรวจจับกรณีแสงน้อย/ย้อนแสง — ดันสว่าง+คอนทราสต์เฉพาะรอบตรวจจับ */
+function createBoostedCanvas(
+  input: DetectableInput,
+  brightness: number,
+  maxWidth: number,
+): { canvas: HTMLCanvasElement; scaleX: number; scaleY: number } | null {
+  const { width, height } = getInputSize(input);
+  if (!width || !height) return null;
+  const scale = Math.min(1, maxWidth / width);
+  const w = Math.max(1, Math.round(width * scale));
+  const h = Math.max(1, Math.round(height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  try { (ctx as any).filter = `brightness(${brightness}) contrast(1.15)`; } catch { /* ไม่รองรับก็ข้าม */ }
+  ctx.drawImage(input as CanvasImageSource, 0, 0, w, h);
+  try { (ctx as any).filter = "none"; } catch { /* noop */ }
+  return { canvas, scaleX: width / w, scaleY: height / h };
+}
+
 async function detectSingleFaceRobust(input: DetectableInput) {
   const { width } = getInputSize(input);
   if (!width) return null;
   if (input instanceof HTMLVideoElement && input.readyState < 2) return null;
+  // ต้องมี landmark net เสมอ — ถ้ายังไม่พร้อม ตรวจไปก็ throw ทุกเฟรม
+  if (!faceapi.nets.faceLandmark68Net.isLoaded) return null;
 
-  const enhanced = createDetectionCanvas(
-    input,
-    { maxWidth: input instanceof HTMLVideoElement ? 960 : 1280 },
-  );
+  const maxWidth = input instanceof HTMLVideoElement ? 960 : 1280;
+  const enhanced = createDetectionCanvas(input, { maxWidth });
+  const enhancedInput = enhanced?.canvas ?? input;
+  const scaleX = enhanced?.scaleX ?? 1;
+  const scaleY = enhanced?.scaleY ?? 1;
+
   const attempts: Array<{
     input: DetectableInput;
     scaleX: number;
     scaleY: number;
     opts: faceapi.SsdMobilenetv1Options | faceapi.TinyFaceDetectorOptions;
-  }> = [
-    { input, scaleX: 1, scaleY: 1, opts: detectorOptions },
-  ];
+  }> = [];
 
-  const enhancedInput = enhanced?.canvas ?? input;
-  const scaleX = enhanced?.scaleX ?? 1;
-  const scaleY = enhanced?.scaleY ?? 1;
-  attempts.push(
-    { input: enhancedInput, scaleX, scaleY, opts: detectorOptions },
-    { input: enhancedInput, scaleX, scaleY, opts: detectorOptionsHQ(512, 0.2) },
-    { input: enhancedInput, scaleX, scaleY, opts: detectorOptionsHQ(608, 0.1) },
-  );
+  const ssdReady = faceapi.nets.ssdMobilenetv1.isLoaded;
+  if (ssdReady) {
+    attempts.push(
+      { input, scaleX: 1, scaleY: 1, opts: detectorOptions },
+      { input: enhancedInput, scaleX, scaleY, opts: detectorOptions },
+      { input: enhancedInput, scaleX, scaleY, opts: detectorOptionsHQ(512, 0.2) },
+      { input: enhancedInput, scaleX, scaleY, opts: detectorOptionsHQ(608, 0.1) },
+    );
+  }
 
   for (const attempt of attempts) {
-    const res = await runSingleFaceDetection(attempt.input, attempt.opts);
-    if (res) {
-      return { res, scaleX: attempt.scaleX, scaleY: attempt.scaleY };
+    try {
+      const res = await runSingleFaceDetection(attempt.input, attempt.opts);
+      if (res) return { res, scaleX: attempt.scaleX, scaleY: attempt.scaleY };
+    } catch (e) {
+      // โมเดล/backend มีปัญหาชั่วคราว → ไปลองวิธีถัดไปแทนที่จะพังทั้งลูป
+      console.warn("[face] detection attempt failed", e);
     }
   }
 
-  // Fallback สุดท้าย: ใช้ TinyFaceDetector — โหลด lazy ตอนนี้ถ้ายังไม่พร้อม
+  // Fallback 2: TinyFaceDetector — โหลด lazy ตอนนี้ถ้ายังไม่พร้อม
   try {
     await ensureTinyDetector();
     for (const tinyOpt of [
       new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.2 }),
       new faceapi.TinyFaceDetectorOptions({ inputSize: 608, scoreThreshold: 0.1 }),
     ]) {
-      const tinyRes = await runSingleFaceDetection(enhancedInput, tinyOpt);
-      if (tinyRes) return { res: tinyRes, scaleX, scaleY };
+      try {
+        const tinyRes = await runSingleFaceDetection(enhancedInput, tinyOpt);
+        if (tinyRes) return { res: tinyRes, scaleX, scaleY };
+      } catch (e) { console.warn("[face] tiny attempt failed", e); }
     }
   } catch { /* tiny ไม่พร้อมก็ข้าม */ }
 
+  // Fallback 3: แสงน้อย/ย้อนแสง — ดันสว่างแล้วลองอีกรอบ (ทั้ง SSD และ tiny)
+  for (const brightness of [1.45, 0.75]) {
+    const boosted = createBoostedCanvas(input, brightness, maxWidth);
+    if (!boosted) continue;
+    const boostedOpts: Array<faceapi.SsdMobilenetv1Options | faceapi.TinyFaceDetectorOptions> = [];
+    if (ssdReady) boostedOpts.push(detectorOptionsHQ(608, 0.15));
+    if (tinyLoaded) boostedOpts.push(new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.15 }));
+    for (const opts of boostedOpts) {
+      try {
+        const res = await runSingleFaceDetection(boosted.canvas, opts);
+        if (res) return { res, scaleX: boosted.scaleX, scaleY: boosted.scaleY };
+      } catch (e) { console.warn("[face] boosted attempt failed", e); }
+    }
+  }
+
   return null;
 }
+
 
 
 let _normCanvas: HTMLCanvasElement | null = null;
