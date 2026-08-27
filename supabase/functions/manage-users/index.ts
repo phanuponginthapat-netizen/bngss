@@ -1344,17 +1344,31 @@ serve(async (req) => {
       const { user_id, role } = body;
       if (!user_id || !role) throw new Error("user_id and role required");
       await ensureSingleRole(adminClient, user_id, role);
-      if (role === "teacher" || role === "director") {
-        const { data: { user: targetUser } } = await adminClient.auth.admin.getUserById(user_id);
-        if (targetUser) {
-          await createOrUpdatePersonnelRecord(adminClient, {
-            userId: user_id, firstName: targetUser.user_metadata?.first_name || "",
-            lastName: targetUser.user_metadata?.last_name || "", email: targetUser.email || "",
-          });
+      let warning: string | undefined;
+      if (role === "teacher" || role === "director" || role === "admin") {
+        // ซิงก์ระเบียนบุคลากรแบบ best-effort — ถ้าล้มเหลวต้องไม่ทำให้การเปลี่ยน role ล้มเหลวตาม
+        try {
+          const { data: { user: targetUser } } = await adminClient.auth.admin.getUserById(user_id);
+          if (targetUser) {
+            const { data: prof } = await adminClient
+              .from("profiles").select("first_name, last_name, prefix, department, position_title")
+              .eq("id", user_id).maybeSingle();
+            await createOrUpdatePersonnelRecord(adminClient, {
+              userId: user_id,
+              firstName: prof?.first_name || targetUser.user_metadata?.first_name || "",
+              lastName: prof?.last_name || targetUser.user_metadata?.last_name || "",
+              email: targetUser.email || "",
+              department: prof?.department || undefined,
+              position: role === "director" ? "ผู้อำนวยการ" : role === "admin" ? "ผู้ดูแลระบบ" : (prof?.position_title || "ครู"),
+            });
+          }
+        } catch (e: any) {
+          warning = `เปลี่ยน Role สำเร็จ แต่ซิงก์ข้อมูลบุคลากรไม่สำเร็จ: ${e?.message || e}`;
         }
       }
-      return ok({ success: true });
+      return ok({ success: true, warning });
     }
+
 
     if (action === "list") {
       const { data: { users }, error } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
