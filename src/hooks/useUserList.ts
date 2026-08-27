@@ -59,72 +59,19 @@ export function useUserList() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const [rolesRes, profilesRes, personnelRes, studentsRes] = await Promise.all([
-        supabase.from("user_roles").select("user_id, role"),
-        supabase.from("profiles").select("id, first_name, last_name, department, student_code, employee_code, position_title, gender, phone, date_of_birth, is_approved, nickname, google_email"),
-        supabase.from("personnel").select("user_id, email, prefix, position, academic_standing, subject_group"),
-        supabase.from("students").select("auth_user_id, auth_email, student_code, prefix, classroom_id, status, classrooms!students_classroom_id_fkey(id, name, grade_level)"),
-      ]);
+      // The admin list must come from the protected function. Reading user_roles
+      // directly is intentionally RLS-scoped to the signed-in user and caused
+      // other users to be inferred as teachers after a successful role change.
+      const { data, error } = await supabase.functions.invoke("manage-users", {
+        body: { action: "list" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
-      if (rolesRes.error) throw rolesRes.error;
-      if (profilesRes.error) throw profilesRes.error;
-      if (personnelRes.error) throw personnelRes.error;
-      if (studentsRes.error) throw studentsRes.error;
-
-      const rolesByUser = new Map<string, AppRole[]>();
-      for (const row of rolesRes.data || []) {
-        const current = rolesByUser.get(row.user_id) || [];
-        current.push(row.role as AppRole);
-        rolesByUser.set(row.user_id, current);
-      }
-      const roleMap = new Map(
-        [...rolesByUser.entries()].map(([userId, roles]) => [userId, pickPrimaryRole(roles)]),
-      );
-      const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.id, p]));
-      const personnelMap = new Map((personnelRes.data || []).filter((p: any) => p.user_id).map((p: any) => [p.user_id, p]));
-      const studentByAuthMap = new Map((studentsRes.data || []).filter((s: any) => s.auth_user_id).map((s: any) => [s.auth_user_id, s]));
-
-      const userIds = new Set<string>([
-        ...(rolesRes.data || []).map((r: any) => r.user_id),
-        ...(profilesRes.data || []).map((p: any) => p.id),
-        ...(personnelRes.data || []).map((p: any) => p.user_id).filter(Boolean),
-        ...(studentsRes.data || []).map((s: any) => s.auth_user_id).filter(Boolean),
-      ]);
-
-      const nextUsers: UserItem[] = Array.from(userIds).map((userId) => {
-        const profile: any = profileMap.get(userId);
-        const personnel: any = personnelMap.get(userId);
-        const stu: any = studentByAuthMap.get(userId);
-        const role = roleMap.get(userId) || (stu ? "student" : personnel ? "teacher" : null);
-        if (!role) return null;
-
-        return {
-          id: userId,
-          email: personnel?.email || stu?.auth_email || profile?.google_email || "",
-          first_name: profile?.first_name || "",
-          last_name: profile?.last_name || "",
-          role,
-          department: profile?.department || "",
-          student_code: profile?.student_code || stu?.student_code || "",
-          employee_code: profile?.employee_code || "",
-          created_at: "",
-          prefix: personnel?.prefix || stu?.prefix || "",
-          position_title: personnel?.position || profile?.position_title || "",
-          academic_standing: personnel?.academic_standing || "",
-          subject_group: personnel?.subject_group || "",
-          is_approved: profile?.is_approved ?? false,
-          phone: profile?.phone || "",
-          gender: profile?.gender || "",
-          date_of_birth: profile?.date_of_birth || "",
-          nickname: profile?.nickname || "",
-          classroom_id: stu?.classroom_id || null,
-          classroom_name: stu?.classrooms?.name || "",
-          grade_level: stu?.classrooms?.grade_level || (role === "student" ? profile?.department || "" : ""),
-          student_status: stu?.status || "",
-        };
-      }).filter(Boolean) as UserItem[];
-
-      setUsers(nextUsers);
+      const nextUsers = Array.isArray(data?.users)
+        ? data.users.filter((user: UserItem) => Boolean(user?.id && user?.role))
+        : [];
+      setUsers(nextUsers as UserItem[]);
       queryClient.invalidateQueries({ queryKey: ["users"] });
       queryClient.invalidateQueries({ queryKey: ["profiles"] });
       queryClient.invalidateQueries({ queryKey: ["user_roles"] });
