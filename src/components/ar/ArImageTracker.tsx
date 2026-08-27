@@ -53,14 +53,23 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
 
   const cms = useCmsValues(["school_logo", "school_name", "app_name"]);
 
-  const tracked = useMemo(
-    () => items.filter((i) => i.target_index !== null && i.target_index !== undefined),
-    [items]
-  );
+  const tracked = useMemo(() => {
+    // กันสื่อสองชิ้นผูกกับป้ายเดียวกัน (target_index ซ้ำ) ซึ่งทำให้ขึ้นวีดีโอผิดป้าย
+    const seen = new Set<number>();
+    return items.filter((i) => {
+      if (i.target_index === null || i.target_index === undefined) return false;
+      const idx = Number(i.target_index);
+      if (!Number.isFinite(idx) || seen.has(idx)) return false;
+      seen.add(idx);
+      return true;
+    });
+  }, [items]);
+
 
   useEffect(() => {
     let disposed = false;
     let sceneEl: any = null;
+    let cleanupTimers: (() => void) | null = null;
 
     (async () => {
       try {
@@ -129,7 +138,7 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
         // uiScanning/uiLoading ปิด เพราะเราทำ overlay เอง
         // autoStart: false → เริ่มจับภาพเองหลังทุกอย่างพร้อม เพื่อให้ "ส่องปุ๊บติดปั๊บ"
         hostRef.current.innerHTML = `
-          <a-scene mindar-image="imageTargetSrc: ${mindUrl}; autoStart: false; uiScanning: no; uiLoading: no; uiError: no; filterMinCF: 0.001; filterBeta: 1000; missTolerance: 5; warmupTolerance: 1"
+          <a-scene mindar-image="imageTargetSrc: ${mindUrl}; autoStart: false; uiScanning: no; uiLoading: no; uiError: no; filterMinCF: 0.0005; filterBeta: 300; missTolerance: 2; warmupTolerance: 4"
                    color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights"
                    vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
                    embedded>
@@ -175,20 +184,71 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
           }
         };
 
+        // ล็อกให้เล่นได้ครั้งละป้ายเดียว + ต้องจับเป้าหมายค้างไว้สักครู่ก่อนถึงจะเล่น
+        // เพื่อกันการจับพลาดชั่ววูบแล้วขึ้นวีดีโอผิดป้าย
+        const CONFIRM_MS = 260;   // ต้องเห็นป้ายต่อเนื่องก่อนเล่น
+        const RELEASE_MS = 500;   // หลุดเฟรมชั่วคราวยังไม่ปล่อยทันที
+        let activeId: string | null = null;
+        const confirmTimers = new Map<string, number>();
+        const releaseTimers = new Map<string, number>();
+
+        const stopItem = (item: TrackedItem) => {
+          const v = document.getElementById(`armedia-${item.id}`) as HTMLVideoElement | null;
+          if (v?.pause) { v.pause(); v.muted = mutedRef.current; }
+          const node = hostRef.current?.querySelector(`[data-item="${item.id}"]`) as any;
+          node?.setAttribute?.("visible", "false");
+        };
+
         hostRef.current.querySelectorAll("[mindar-image-target]").forEach((el) => {
           const item = byId.get((el as HTMLElement).dataset.item || "");
           if (!item) return;
+          (el as any).setAttribute?.("visible", "false");
+
           el.addEventListener("targetFound", () => {
-            setFound(item);
-            const v = document.getElementById(`armedia-${item.id}`) as HTMLVideoElement | null;
-            if (v?.play) void playWithSound(v);
+            // กลับมาเจอป้ายเดิมระหว่างช่วงผ่อนผัน → ยกเลิกการหยุด
+            const rel = releaseTimers.get(item.id);
+            if (rel) { clearTimeout(rel); releaseTimers.delete(item.id); }
+            // มีป้ายอื่นกำลังเล่นอยู่ → ไม่แย่งจนกว่าป้ายนั้นจะหลุดจริง
+            if (activeId && activeId !== item.id) return;
+            if (activeId === item.id) return;
+            if (confirmTimers.has(item.id)) return;
+            const t = window.setTimeout(() => {
+              confirmTimers.delete(item.id);
+              if (activeId && activeId !== item.id) return;
+              activeId = item.id;
+              // ปิดสื่อชิ้นอื่นทั้งหมดให้แน่ใจว่าเล่นทีละป้าย
+              tracked.forEach((other) => { if (other.id !== item.id) stopItem(other); });
+              (el as any).setAttribute?.("visible", "true");
+              setFound(item);
+              const v = document.getElementById(`armedia-${item.id}`) as HTMLVideoElement | null;
+              if (v?.play) void playWithSound(v);
+            }, CONFIRM_MS);
+            confirmTimers.set(item.id, t);
           });
+
           el.addEventListener("targetLost", () => {
-            setFound((cur) => (cur?.id === item.id ? null : cur));
-            const v = document.getElementById(`armedia-${item.id}`) as HTMLVideoElement | null;
-            if (v?.pause) { v.pause(); v.muted = mutedRef.current; }
+            const pending = confirmTimers.get(item.id);
+            if (pending) { clearTimeout(pending); confirmTimers.delete(item.id); }
+            if (activeId !== item.id) { stopItem(item); return; }
+            if (releaseTimers.has(item.id)) return;
+            const t = window.setTimeout(() => {
+              releaseTimers.delete(item.id);
+              if (activeId !== item.id) return;
+              activeId = null;
+              stopItem(item);
+              setFound((cur) => (cur?.id === item.id ? null : cur));
+            }, RELEASE_MS);
+            releaseTimers.set(item.id, t);
           });
         });
+
+        cleanupTimers = () => {
+          confirmTimers.forEach((t) => clearTimeout(t));
+          releaseTimers.forEach((t) => clearTimeout(t));
+          confirmTimers.clear();
+          releaseTimers.clear();
+        };
+
 
 
         // รอ scene พร้อม → สั่งเริ่มจับภาพ → ค่อยเปิดหน้าจอสแกน
@@ -221,6 +281,7 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
 
     return () => {
       disposed = true;
+      cleanupTimers?.();
       try {
         const scene: any = hostRef.current?.querySelector("a-scene");
         scene?.systems?.["mindar-image-system"]?.stop?.();
