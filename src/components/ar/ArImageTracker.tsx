@@ -47,7 +47,9 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
   const [found, setFound] = useState<TrackedItem | null>(null);
   const [muted, setMuted] = useState(false);
   const mutedRef = useRef(false);
+  const audioUnlockedRef = useRef(false);
   useEffect(() => { mutedRef.current = muted; }, [muted]);
+
 
   const cms = useCmsValues(["school_logo", "school_name", "app_name"]);
 
