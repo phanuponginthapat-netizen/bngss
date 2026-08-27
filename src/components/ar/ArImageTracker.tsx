@@ -139,20 +139,55 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
         sceneEl = hostRef.current.querySelector("a-scene");
 
         const byId = new Map(media.map((m) => [m.item.id, m.item]));
+        // ปลดล็อกเสียงครั้งเดียวด้วย gesture ที่ผู้ใช้กดเปิด AR — ป้ายถัดไปจะมีเสียงเองทุกครั้ง
+        const unlockAudio = async () => {
+          const vids = Array.from(document.querySelectorAll<HTMLVideoElement>("video[id^='armedia-']"));
+          for (const v of vids) {
+            try {
+              v.muted = true;
+              await v.play();
+              v.pause();
+              v.currentTime = 0;
+              v.muted = mutedRef.current;
+            } catch { /* ไม่ critical */ }
+          }
+          audioUnlockedRef.current = true;
+        };
+
+        const playWithSound = async (v: HTMLVideoElement) => {
+          v.currentTime = 0;
+          v.muted = mutedRef.current;
+          v.volume = 1;
+          try {
+            await v.play();
+          } catch {
+            // เบราว์เซอร์บล็อกเสียง → เล่นแบบเงียบไว้ก่อน แล้วลองเปิดเสียงซ้ำ
+            try {
+              v.muted = true;
+              await v.play();
+              if (!mutedRef.current) {
+                v.muted = false;
+                if (v.paused) await v.play().catch(() => {});
+              }
+            } catch { /* ignore */ }
+          }
+        };
+
         hostRef.current.querySelectorAll("[mindar-image-target]").forEach((el) => {
           const item = byId.get((el as HTMLElement).dataset.item || "");
           if (!item) return;
           el.addEventListener("targetFound", () => {
             setFound(item);
             const v = document.getElementById(`armedia-${item.id}`) as HTMLVideoElement | null;
-            if (v?.play) { v.currentTime = 0; v.muted = mutedRef.current || !!item.muted; v.play().catch(() => {}); }
+            if (v?.play) void playWithSound(v);
           });
           el.addEventListener("targetLost", () => {
             setFound((cur) => (cur?.id === item.id ? null : cur));
             const v = document.getElementById(`armedia-${item.id}`) as HTMLVideoElement | null;
-            if (v?.pause) v.pause();
+            if (v?.pause) { v.pause(); v.muted = mutedRef.current; }
           });
         });
+
 
         // รอ scene พร้อม → สั่งเริ่มจับภาพ → ค่อยเปิดหน้าจอสแกน
         const waitLoaded = () =>
