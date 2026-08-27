@@ -8,6 +8,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { swal } from "@/lib/swal";
 import type { AppRole } from "@/hooks/useUserRole";
 
+const ROLE_PRIORITY: AppRole[] = [
+  "admin",
+  "director",
+  "teacher",
+  "parent",
+  "student",
+  "alumni",
+  "observer",
+];
+
+function pickPrimaryRole(roles: AppRole[]): AppRole | null {
+  return ROLE_PRIORITY.find((role) => roles.includes(role)) ?? roles[0] ?? null;
+}
+
 export interface UserItem {
   id: string;
   email: string;
@@ -57,7 +71,15 @@ export function useUserList() {
       if (personnelRes.error) throw personnelRes.error;
       if (studentsRes.error) throw studentsRes.error;
 
-      const roleMap = new Map((rolesRes.data || []).map((r: any) => [r.user_id, r.role]));
+      const rolesByUser = new Map<string, AppRole[]>();
+      for (const row of rolesRes.data || []) {
+        const current = rolesByUser.get(row.user_id) || [];
+        current.push(row.role as AppRole);
+        rolesByUser.set(row.user_id, current);
+      }
+      const roleMap = new Map(
+        [...rolesByUser.entries()].map(([userId, roles]) => [userId, pickPrimaryRole(roles)]),
+      );
       const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.id, p]));
       const personnelMap = new Map((personnelRes.data || []).filter((p: any) => p.user_id).map((p: any) => [p.user_id, p]));
       const studentByAuthMap = new Map((studentsRes.data || []).filter((s: any) => s.auth_user_id).map((s: any) => [s.auth_user_id, s]));
