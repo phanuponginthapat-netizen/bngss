@@ -138,7 +138,7 @@ async function ensureTinyDetector(): Promise<void> {
 
 
 // Detector หลัก — ลด minConfidence ลงให้จับใบหน้าได้ง่ายขึ้น (แสงน้อย/กล้องเว็บแคมคุณภาพต่ำ)
-export const detectorOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.35, maxResults: 10 });
+export const detectorOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.25, maxResults: 10 });
 
 // Fallback Tiny detector — เร็วกว่าแต่แม่นยำน้อยกว่า ใช้เมื่อ HQ ทำงานช้าเกินไป
 export function detectorOptionsHQ(_inputSize: 320 | 416 | 512 | 608 = 608, minConfidence = 0.5) {
