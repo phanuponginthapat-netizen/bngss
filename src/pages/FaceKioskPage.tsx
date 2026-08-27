@@ -1046,51 +1046,66 @@ const FaceKioskPage = () => {
         if (cancelled) return;
       }
       try {
-        // ตรวจจับเฉพาะในวงรีไกด์ — ลด CPU 40–60% และบังคับให้ยืนกลางกรอบ
+        // ตรวจจับทั้งเฟรมเป็นหลัก (เหมือนโหมดจำลองของครู) — แม่นกว่า ไม่พลาดใบหน้า
         const video = videoRef.current;
         const vw = video.videoWidth, vh = video.videoHeight;
         const useLiveness = livenessEnabled;
         const useTexture = textureGate;
-        // วงรีเป้าหมายเดียวกับ FaceGuideOverlay (targetRatio 0.30, cy 0.46)
-        const targetW = vw * 0.30;
-        const targetH = targetW * 1.35;
-        const cx = vw / 2, cy = vh * 0.46;
-        const pad = 1.45; // เผื่อขยับเล็กน้อย
-        const roiW = Math.min(vw, targetW * pad);
-        const roiH = Math.min(vh, targetH * pad);
-        const roiX = Math.max(0, Math.min(vw - roiW, cx - roiW / 2));
-        const roiY = Math.max(0, Math.min(vh - roiH, cy - roiH / 2));
-        // crop วิดีโอเป็น ROI canvas เล็ก — detector วิ่งบนพื้นที่ ~30% ของเฟรม
+
+        // ROI ใช้เฉพาะ "ติดตาม" ใบหน้าที่เพิ่งเจอ (ภายใน 1.2 วิ) เพื่อประหยัด CPU
         let pre: HTMLCanvasElement | HTMLVideoElement = video;
         let roiOffsetX = 0, roiOffsetY = 0;
-        if (roiCtx && vw && vh) {
-          roiCanvas.width = Math.round(roiW);
-          roiCanvas.height = Math.round(roiH);
-          roiCtx.drawImage(video, roiX, roiY, roiW, roiH, 0, 0, roiCanvas.width, roiCanvas.height);
-          pre = roiCanvas;
-          roiOffsetX = roiX;
-          roiOffsetY = roiY;
+        const trackFresh = !!lastBox && Date.now() - lastBoxAt < 1200;
+        if (roiCtx && vw && vh && trackFresh && lastBox) {
+          const pad = 1.8;
+          const roiW = Math.min(vw, lastBox.width * pad);
+          const roiH = Math.min(vh, lastBox.height * pad);
+          const cx = lastBox.x + lastBox.width / 2;
+          const cy = lastBox.y + lastBox.height / 2;
+          const roiX = Math.max(0, Math.min(vw - roiW, cx - roiW / 2));
+          const roiY = Math.max(0, Math.min(vh - roiH, cy - roiH / 2));
+          if (roiW > 40 && roiH > 40) {
+            roiCanvas.width = Math.round(roiW);
+            roiCanvas.height = Math.round(roiH);
+            roiCtx.drawImage(video, roiX, roiY, roiW, roiH, 0, 0, roiCanvas.width, roiCanvas.height);
+            pre = roiCanvas;
+            roiOffsetX = roiX;
+            roiOffsetY = roiY;
+          }
         }
+
         let rawDetections = await getAllDescriptors(pre as any, opts, {
           minFaceSize: MIN_FACE_PX * 0.6,
           cacheTtlMs: 300,
         });
-        // Fallback: ถ้า ROI ไม่เจอ ให้ลองทั้งเฟรม (เหมือนครู) — กันพลาดตอนยืนไม่กลางกรอบ
-        if (rawDetections.length === 0 && (roiOffsetX || roiOffsetY)) {
+        let usedRoi = roiOffsetX !== 0 || roiOffsetY !== 0;
+        // ถ้า ROI ติดตามไม่เจอ → ถอยกลับไปสแกนทั้งเฟรมทันที
+        if (rawDetections.length === 0 && usedRoi) {
+          lastBox = null;
+          usedRoi = false;
           rawDetections = await getAllDescriptors(video as any, opts, { minFaceSize: MIN_FACE_PX * 0.6, cacheTtlMs: 300 });
         }
-        // แปลงพิกัดจาก ROI กลับเป็นพิกัดวิดีโอจริง (ถ้ามี ROI)
-        const detections = (roiOffsetX || roiOffsetY) && rawDetections.length > 0 && rawDetections[0].detection.box.x < roiW
+
+        // แปลงพิกัดจาก ROI กลับเป็นพิกัดวิดีโอจริง
+        const detections = usedRoi
           ? rawDetections.map((d: any) => {
               const b = d.detection.box;
-              const needsShift = b.x < roiW && b.y < roiH;
-              const nb = needsShift ? { ...b, x: b.x + roiOffsetX, y: b.y + roiOffsetY } as any : b;
-              if (needsShift && d.landmarks && typeof d.landmarks.shift === "function") {
+              const nb = { ...b, x: b.x + roiOffsetX, y: b.y + roiOffsetY } as any;
+              if (d.landmarks && typeof d.landmarks.shift === "function") {
                 try { d.landmarks.shift(roiOffsetX, roiOffsetY); } catch {}
               }
-              return needsShift ? { ...d, detection: { ...d.detection, box: nb } } : d;
+              return { ...d, detection: { ...d.detection, box: nb } };
             })
           : rawDetections;
+
+        if (detections.length > 0) {
+          const b0: any = detections[0].detection.box;
+          lastBox = { x: b0.x, y: b0.y, width: b0.width, height: b0.height };
+          lastBoxAt = Date.now();
+        } else {
+          lastBox = null;
+        }
+
 
         // อัตราส่วนสำหรับสเกล box กลับสู่พิกัดของวิดีโอจริง (ROI แล้ว scale=1)
         const srcW = 1;
