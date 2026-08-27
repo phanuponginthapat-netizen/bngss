@@ -610,7 +610,8 @@ const UserManagement = () => {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      swal.toast.success(`เปลี่ยน Role เป็น ${t(`role.${newRole}`)} สำเร็จ`);
+      if (data?.warning) swal.toast.success(data.warning);
+      else swal.toast.success(`เปลี่ยน Role เป็น ${t(`role.${newRole}`)} สำเร็จ`);
       await fetchUsers();
     } catch (e: any) {
       swal.error(e.message || "Failed to update role");
