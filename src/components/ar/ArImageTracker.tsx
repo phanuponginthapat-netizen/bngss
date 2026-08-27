@@ -73,14 +73,16 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
 
     (async () => {
       try {
-        // 1) อุ่นเครื่องกล้องก่อน — ขอสิทธิ์ล่วงหน้าให้ MindAR เปิดกล้องได้ทันที ไม่ต้องรอ prompt
+        // 1) อุ่นเครื่องกล้อง — ขอสิทธิ์ล่วงหน้า แล้วปล่อยกล้องให้ว่างก่อนส่งต่อให้ MindAR
         setPhase("camera");
         try {
           const warm = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+            video: { facingMode: { ideal: "environment" } },
             audio: false,
           });
-          warm.getTracks().forEach((t) => t.stop());
+          warm.getTracks().forEach((t) => { try { t.stop(); } catch { /* ignore */ } });
+          // บางเครื่อง (Android) ต้องรอให้กล้องถูกปล่อยจริงก่อน ไม่งั้น MindAR เปิดไม่ติด → จอขาว
+          await new Promise((r) => setTimeout(r, 350));
         } catch {
           throw new Error("ไม่สามารถเข้าถึงกล้องได้ กรุณาอนุญาตการใช้กล้องในเบราว์เซอร์");
         }
@@ -271,7 +273,48 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
         });
         try { await system?.start?.(); } catch { /* บาง build เริ่มเองแล้ว */ }
         await ready;
-        if (!disposed) setPhase("ready");
+        if (disposed) return;
+
+        // ยืนยันว่ากล้องขึ้นภาพจริง — ถ้าไม่ขึ้น ให้ลองเริ่มใหม่ก่อนแจ้ง error (กันหน้าจอขาว)
+        const findCamVideo = (): HTMLVideoElement | null => {
+          const all = Array.from(document.querySelectorAll<HTMLVideoElement>("video"));
+          return all.find((v) => !v.id.startsWith("armedia-") && (v.srcObject || v.videoWidth > 0)) || null;
+        };
+        const waitCamVideo = async (ms: number) => {
+          const until = Date.now() + ms;
+          while (Date.now() < until && !disposed) {
+            const v = findCamVideo();
+            if (v && v.videoWidth > 0 && v.readyState >= 2) return v;
+            await new Promise((r) => setTimeout(r, 150));
+          }
+          return findCamVideo();
+        };
+
+        let cam = await waitCamVideo(4000);
+        if (!disposed && (!cam || cam.videoWidth === 0)) {
+          try { await system?.stop?.(); } catch { /* ignore */ }
+          await new Promise((r) => setTimeout(r, 400));
+          try { await system?.start?.(); } catch { /* ignore */ }
+          cam = await waitCamVideo(5000);
+        }
+        if (disposed) return;
+        if (!cam || cam.videoWidth === 0) {
+          throw new Error("เปิดกล้องไม่สำเร็จ — ปิดแอป/แท็บอื่นที่ใช้กล้องอยู่ แล้วลองใหม่อีกครั้ง");
+        }
+
+        // ย้ายวิดีโอกล้องเข้ามาในเวที และบังคับให้แสดงผลเต็มจอ (บางเบราว์เซอร์วางไว้นอก container)
+        if (hostRef.current && cam.parentElement !== hostRef.current) {
+          hostRef.current.insertBefore(cam, hostRef.current.firstChild);
+        }
+        cam.setAttribute("playsinline", "");
+        cam.muted = true;
+        cam.style.display = "block";
+        cam.style.opacity = "1";
+        cam.style.visibility = "visible";
+        cam.style.zIndex = "0";
+        try { await cam.play(); } catch { /* ignore */ }
+
+        setPhase("ready");
       } catch (e: any) {
         if (disposed) return;
         setError(e?.message || "เปิดกล้อง AR ไม่สำเร็จ");
@@ -317,7 +360,7 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
     <div className="fixed inset-0 z-[100] bg-background">
       {/* กล้องเต็มจอ — บังคับ video/canvas ของ MindAR ให้ครอบเต็มพื้นที่ */}
       <style>{`
-        .ar-stage { position:absolute; inset:0; overflow:hidden; }
+        .ar-stage { position:absolute; inset:0; overflow:hidden; background:#000; }
         .ar-stage > video,
         .ar-stage a-scene > video,
         .ar-stage video:not([id^="armedia-"]) {
@@ -326,10 +369,12 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
           min-width:100% !important; min-height:100% !important;
           width:auto !important; height:auto !important;
           object-fit:cover !important;
+          display:block !important; opacity:1 !important; visibility:visible !important; z-index:0 !important;
         }
         .ar-stage a-scene, .ar-stage .a-canvas, .ar-stage canvas.a-canvas {
           position:absolute !important; inset:0 !important;
           width:100% !important; height:100% !important;
+          background:transparent !important;
         }
         .ar-stage .a-loader-title, .ar-stage .mindar-ui-overlay { display:none !important; }
         .ar-stage video[id^="armedia-"] { display:none !important; }
