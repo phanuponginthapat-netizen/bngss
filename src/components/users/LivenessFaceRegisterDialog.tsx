@@ -993,7 +993,7 @@ const LivenessFaceRegisterDialog = ({ open, onOpenChange, studentCode, displayNa
             captured_by: user?.id,
             source: "liveness_wizard",
           }));
-          const { error } = await supabase.from("student_face_descriptors").insert(rows);
+          const { error } = await supabase.from("student_face_descriptors").upsert(rows, { onConflict: "student_id,sample_index" });
           if (error) throw error;
           toast.success(`ลงทะเบียนสำเร็จ ${rows.length} ตัวอย่าง (Liveness verified)`);
         }

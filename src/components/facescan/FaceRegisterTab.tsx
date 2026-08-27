@@ -117,7 +117,7 @@ const FaceRegisterTab = () => {
           const desc = await detectRobust(img);
           if (!desc) return { ok: false, name: fullName, id: s.id, reason: "ตรวจไม่พบใบหน้าในรูป (เบลอ/มุมเอียง/หลายคน)" };
           if (force) await supabase.from("student_face_descriptors").delete().eq("student_id", s.id).eq("source", "profile_avatar");
-          const { error } = await supabase.from("student_face_descriptors").insert({ student_id: s.id, sample_index: 0, descriptor: Array.from(desc), captured_by: user?.id, source: "profile_avatar" });
+          const { error } = await supabase.from("student_face_descriptors").upsert({ student_id: s.id, sample_index: 0, descriptor: Array.from(desc), captured_by: user?.id, source: "profile_avatar" });
           if (error) return { ok: false, name: fullName, id: s.id, reason: "DB: " + error.message };
           return { ok: true, name: fullName, id: s.id };
         } catch (e: any) {
@@ -343,7 +343,7 @@ const FaceRegisterTab = () => {
         face_image: canvasToFaceThumb(s.canvas) || null,
         texture: s.texture ?? null,
       }));
-      const { error } = await supabase.from("student_face_descriptors").insert(rows);
+      const { error } = await supabase.from("student_face_descriptors").upsert(rows, { onConflict: "student_id,sample_index" });
       if (error) throw error;
 
       const photo_urls = await uploadShotsToStorage(studentId).catch(() => [] as string[]);

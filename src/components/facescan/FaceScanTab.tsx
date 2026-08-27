@@ -467,7 +467,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
       }
       const { data: { user } } = await supabase.auth.getUser();
       const nextIdx = existing?.length || 0;
-      const { error } = await supabase.from("student_face_descriptors").insert({
+      const { error } = await supabase.from("student_face_descriptors").upsert({
         student_id: m.studentId,
         sample_index: nextIdx,
         descriptor: Array.from(det.descriptor),

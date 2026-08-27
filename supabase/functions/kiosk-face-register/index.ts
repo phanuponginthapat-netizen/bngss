@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
       face_image: i === 0 && face_image ? face_image : null,
     }));
 
-    const { error: insErr } = await admin.from("student_face_descriptors").insert(rows);
+    const { error: insErr } = await admin.from("student_face_descriptors").upsert(rows, { onConflict: "student_id,sample_index" });
     if (insErr) return respond({ error: "db_error", detail: insErr.message }, 500);
 
     // บันทึก history (best effort) — ใช้ direct_add ที่ผ่าน check constraint

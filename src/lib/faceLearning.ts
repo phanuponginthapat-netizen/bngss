@@ -194,7 +194,7 @@ export async function learnFromScan(input: LearnInput): Promise<LearnResult> {
     const { data: auth } = await supabase.auth.getUser();
     const nextIdx = Math.max(-1, ...existing.map((r: any) => r.sample_index ?? -1)) + 1;
     const quality = Math.round(Math.min(100, match.confidence * 100));
-    const { error: insErr } = await supabase.from("student_face_descriptors").insert({
+    const { error: insErr } = await supabase.from("student_face_descriptors").upsert({
       student_id: studentId,
       sample_index: nextIdx,
       descriptor: probe,
