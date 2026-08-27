@@ -31,35 +31,53 @@ type Person = {
 type ProfileLite = { id: string; avatar_url: string | null; position_title: string | null };
 
 const DEPARTMENTS = [
+  "สำนักผู้อำนวยการ",
   "ฝ่ายวิชาการ",
   "ฝ่ายกิจการนักเรียน",
-  "ฝ่ายบริหารทั่วไป",
+  "ฝ่ายบริหารงานทั่วไป",
   "ฝ่ายงบประมาณและบุคคล",
-  "ฝ่ายอาคารสถานที่",
-  "ฝ่ายแผนงานและประกันคุณภาพ",
   "ConnextED",
 ];
 
+/** ชื่อฝ่ายในฐานข้อมูลเก่า/ย่อ → ชื่อมาตรฐานที่ระบบใช้ */
+const DEPT_ALIAS: Record<string, string> = {
+  "วิชาการ": "ฝ่ายวิชาการ",
+  "academic": "ฝ่ายวิชาการ",
+  "กิจการนักเรียน": "ฝ่ายกิจการนักเรียน",
+  "student_affairs": "ฝ่ายกิจการนักเรียน",
+  "บริหารทั่วไป": "ฝ่ายบริหารงานทั่วไป",
+  "ฝ่ายบริหารทั่วไป": "ฝ่ายบริหารงานทั่วไป",
+  "บริหารงานทั่วไป": "ฝ่ายบริหารงานทั่วไป",
+  "general_admin": "ฝ่ายบริหารงานทั่วไป",
+  "งบประมาณและบุคคล": "ฝ่ายงบประมาณและบุคคล",
+  "finance_personnel": "ฝ่ายงบประมาณและบุคคล",
+  "อำนวยการ": "สำนักผู้อำนวยการ",
+  "director_office": "สำนักผู้อำนวยการ",
+};
+const normalizeDept = (d?: string | null) => {
+  const v = (d || "").trim();
+  return DEPT_ALIAS[v] || v;
+};
+
 const DEPT_COLORS: Record<string, string> = {
+  "สำนักผู้อำนวยการ": "from-amber-500/20 to-yellow-500/10 border-amber-500/30",
   "ฝ่ายวิชาการ": "from-blue-500/20 to-cyan-500/10 border-blue-500/30",
   "ฝ่ายกิจการนักเรียน": "from-amber-500/20 to-orange-500/10 border-amber-500/30",
-  "ฝ่ายบริหารทั่วไป": "from-purple-500/20 to-fuchsia-500/10 border-purple-500/30",
+  "ฝ่ายบริหารงานทั่วไป": "from-purple-500/20 to-fuchsia-500/10 border-purple-500/30",
   "ฝ่ายงบประมาณและบุคคล": "from-emerald-500/20 to-green-500/10 border-emerald-500/30",
-  "ฝ่ายอาคารสถานที่": "from-rose-500/20 to-pink-500/10 border-rose-500/30",
-  "ฝ่ายแผนงานและประกันคุณภาพ": "from-indigo-500/20 to-violet-500/10 border-indigo-500/30",
   "ConnextED": "from-teal-500/20 to-cyan-500/10 border-teal-500/30",
 };
 
 // Solid hex colors for the printed report (no Tailwind in print window).
 const DEPT_PRINT_COLORS: Record<string, { bar: string; soft: string }> = {
+  "สำนักผู้อำนวยการ":        { bar: "#d97706", soft: "#fffbeb" },
   "ฝ่ายวิชาการ":            { bar: "#2563eb", soft: "#eff6ff" },
   "ฝ่ายกิจการนักเรียน":      { bar: "#f59e0b", soft: "#fffbeb" },
-  "ฝ่ายบริหารทั่วไป":         { bar: "#a855f7", soft: "#faf5ff" },
+  "ฝ่ายบริหารงานทั่วไป":      { bar: "#a855f7", soft: "#faf5ff" },
   "ฝ่ายงบประมาณและบุคคล":   { bar: "#10b981", soft: "#ecfdf5" },
-  "ฝ่ายอาคารสถานที่":         { bar: "#f43f5e", soft: "#fff1f2" },
-  "ฝ่ายแผนงานและประกันคุณภาพ": { bar: "#6366f1", soft: "#eef2ff" },
   "ConnextED":              { bar: "#14b8a6", soft: "#f0fdfa" },
 };
+
 
 const fullName = (p: Person) => `${p.prefix || ""}${p.first_name} ${p.last_name}`.trim();
 const initials = (p: Person) => (p.first_name?.[0] || "") + (p.last_name?.[0] || "");
@@ -77,7 +95,7 @@ export default function OrgChartPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("personnel")
-        .select("id, prefix, first_name, last_name, position, department, subject_group, user_id, email, phone, status")
+        .select("id, employee_code, prefix, first_name, last_name, position, department, subject_group, user_id, email, phone, status")
         .eq("status", "active")
         .order("last_name");
       if (error) throw error;
@@ -90,13 +108,18 @@ export default function OrgChartPage() {
         });
         for (const pr of (profs || []) as ProfileLite[]) profMap[pr.id] = pr;
       }
-      return (data || []).map((p: any) => ({
-        ...p,
-        position_title: profMap[p.user_id]?.position_title || null,
-        avatar_url: profMap[p.user_id]?.avatar_url || null,
-      })) as (Person & { avatar_url: string | null })[];
+      return (data || [])
+        // ตัดบัญชีอุปกรณ์/ระบบออกจากผังบุคลากร
+        .filter((p: any) => p.department !== "ระบบ" && p.employee_code !== "kiosk")
+        .map((p: any) => ({
+          ...p,
+          department: normalizeDept(p.department),
+          position_title: profMap[p.user_id]?.position_title || null,
+          avatar_url: profMap[p.user_id]?.avatar_url || null,
+        })) as (Person & { avatar_url: string | null })[];
     },
   });
+
 
   // Load role assignments so หัวหน้า/รอง/หัวหน้าหมวด แสดงถูกต้องแม้ position_title ไม่ระบุ
   const { data: deptRoles = [] } = useQuery({
@@ -118,7 +141,7 @@ export default function OrgChartPage() {
   const DEPT_ENUM_TO_TH: Record<string, string> = {
     academic: "ฝ่ายวิชาการ",
     student_affairs: "ฝ่ายกิจการนักเรียน",
-    general_admin: "ฝ่ายบริหารทั่วไป",
+    general_admin: "ฝ่ายบริหารงานทั่วไป",
     finance_personnel: "ฝ่ายงบประมาณและบุคคล",
     director_office: "สำนักผู้อำนวยการ",
   };

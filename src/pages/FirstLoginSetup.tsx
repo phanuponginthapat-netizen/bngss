@@ -34,7 +34,7 @@ const POSITION_LEVELS = [
   "ค.ศ. 3 (ชำนาญการพิเศษ)", "ค.ศ. 4 (เชี่ยวชาญ)", "ค.ศ. 5 (เชี่ยวชาญพิเศษ)",
 ];
 
-const DEPARTMENTS = ["วิชาการ", "กิจการนักเรียน", "บริหารทั่วไป", "งบประมาณและบุคคล", "ConnextED"];
+const DEPARTMENTS = ["ฝ่ายวิชาการ", "ฝ่ายกิจการนักเรียน", "ฝ่ายบริหารงานทั่วไป", "ฝ่ายงบประมาณและบุคคล", "สำนักผู้อำนวยการ", "ConnextED"];
 
 const PREFIXES_MALE = ["เด็กชาย", "นาย"];
 const PREFIXES_FEMALE = ["เด็กหญิง", "นางสาว", "นาง"];
@@ -66,7 +66,7 @@ const FirstLoginSetup = ({ userId, onComplete }: FirstLoginSetupProps) => {
   const [generatedCode, setGeneratedCode] = useState("");
   const [position, setPosition] = useState("ครู");
   const [positionLevel, setPositionLevel] = useState("");
-  const [department, setDepartment] = useState("วิชาการ");
+  const [department, setDepartment] = useState("ฝ่ายวิชาการ");
   const [subjectGroup, setSubjectGroup] = useState("");
   const [hireDate, setHireDate] = useState("");
   const [academicStanding, setAcademicStanding] = useState("");
@@ -113,7 +113,7 @@ const FirstLoginSetup = ({ userId, onComplete }: FirstLoginSetupProps) => {
         // HR fields
         setPosition(pick(e.position, p.position_title) || "ครู");
         setPositionLevel(pick(e.position_level));
-        setDepartment(pick(e.department, p.department) || "วิชาการ");
+        setDepartment(pick(e.department, p.department) || "ฝ่ายวิชาการ");
         setSubjectGroup(pick(e.subject_group));
         setHireDate(pick(e.hire_date, p.hire_date));
         setAcademicStanding(pick(e.academic_standing));

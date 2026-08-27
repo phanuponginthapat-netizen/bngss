@@ -16,16 +16,19 @@ import { Progress } from "@/components/ui/progress";
 // Position types for workforce planning
 const POSITION_TYPES = [
   { type: "ผู้อำนวยการ", required: 1 },
-  { type: "รองผู้อำนวยการ", required: 2 },
+  { type: "รองผู้อำนวยการ", required: 0 },
   { type: "ครู คศ.3", required: 0 },
   { type: "ครู คศ.2", required: 0 },
   { type: "ครู คศ.1", required: 0 },
   { type: "ครูผู้ช่วย", required: 0 },
+  { type: "ครูพี่เลี้ยงเด็กพิเศษ", required: 0 },
   { type: "พนักงานราชการ", required: 0 },
   { type: "ลูกจ้างชั่วคราว", required: 0 },
   { type: "ครูอัตราจ้าง", required: 0 },
+  { type: "เจ้าหน้าที่ธุรการ", required: 1 },
   { type: "นักการภารโรง", required: 1 },
 ];
+
 
 const PersonnelPage = () => {
   const { lang } = useLanguage();
@@ -62,12 +65,19 @@ const PersonnelPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase.from("personnel").select("*").order("employee_code");
       if (error) throw error;
-      return data || [];
+      // ตัดบัญชีระบบ (ตู้สแกน/อุปกรณ์) ออกจากทะเบียนบุคลากร
+      return (data || []).filter((p: any) => p.department !== "ระบบ" && p.employee_code !== "kiosk");
     },
   });
 
   const isLoading = profilesLoading || rolesLoading || personnelLoading;
   const isError = profilesError || personnelError;
+
+  const ROLE_PRIORITY = ["director", "admin", "teacher"];
+  const roleOf = (userId: string) => {
+    const mine = userRoles.filter((r: any) => r.user_id === userId).map((r: any) => r.role);
+    return ROLE_PRIORITY.find((r) => mine.includes(r)) || mine[0] || null;
+  };
 
   const staffRoles = ["admin", "teacher", "director"];
   const staffUserIds = userRoles.filter((r: any) => staffRoles.includes(r.role)).map((r: any) => r.user_id);
@@ -77,16 +87,20 @@ const PersonnelPage = () => {
     const academicStanding = personnel?.academic_standing || "";
     const combined = `${rawPosition} ${academicStanding}`;
 
-    if (combined.includes("ผู้อำนวยการ")) return "ผู้อำนวยการ";
     if (combined.includes("รองผู้อำนวยการ")) return "รองผู้อำนวยการ";
-    if (combined.includes("คศ.3")) return "ครู คศ.3";
-    if (combined.includes("คศ.2")) return "ครู คศ.2";
-    if (combined.includes("คศ.1")) return "ครู คศ.1";
+    if (combined.includes("ผู้อำนวยการ")) return "ผู้อำนวยการ";
     if (combined.includes("ครูผู้ช่วย")) return "ครูผู้ช่วย";
+    // วิทยฐานะไทย → ระดับตำแหน่งตามอัตรากำลัง
+    if (combined.includes("คศ.3") || combined.includes("ชำนาญการพิเศษ")) return "ครู คศ.3";
+    if (combined.includes("คศ.2") || combined.includes("ชำนาญการ")) return "ครู คศ.2";
     if (combined.includes("พนักงานราชการ")) return "พนักงานราชการ";
-    if (combined.includes("ลูกจ้างชั่วคราว")) return "ลูกจ้างชั่วคราว";
     if (combined.includes("ครูอัตราจ้าง")) return "ครูอัตราจ้าง";
-    if (combined.includes("นักการภารโรง")) return "นักการภารโรง";
+    if (combined.includes("พี่เลี้ยง")) return "ครูพี่เลี้ยงเด็กพิเศษ";
+    if (combined.includes("ภารโรง")) return "นักการภารโรง";
+    if (combined.includes("ธุรการ")) return "เจ้าหน้าที่ธุรการ";
+    if (combined.includes("ลูกจ้างชั่วคราว")) return "ลูกจ้างชั่วคราว";
+    if (combined.includes("ศึกษานิเทศก์")) return "ศึกษานิเทศก์";
+    if (combined.includes("คศ.1") || /(^|\s)ครู(\s|$)/.test(academicStanding)) return "ครู คศ.1";
     if (role === "director") return "ผู้อำนวยการ";
     if (role === "admin") return rawPosition || "ผู้ดูแลระบบ";
     return rawPosition || "ครู";
@@ -96,30 +110,38 @@ const PersonnelPage = () => {
   const profileBased = profiles
     .filter((p: any) => staffUserIds.includes(p.id))
     .map((p: any) => {
-      const role = userRoles.find((r: any) => r.user_id === p.id);
-      const personnel = personnelData.find((pd: any) =>
-        (p.employee_code && pd.employee_code === p.employee_code) ||
-        ((!p.employee_code || p.employee_code === "-") && pd.first_name === p.first_name && pd.last_name === p.last_name)
-      );
+      const role = roleOf(p.id);
+      // ผูกด้วย user_id ก่อน (แม่นยำที่สุด) แล้วค่อย fallback รหัส/ชื่อ
+      const personnel =
+        personnelData.find((pd: any) => pd.user_id && pd.user_id === p.id) ||
+        personnelData.find((pd: any) =>
+          (p.employee_code && p.employee_code !== "-" && pd.employee_code === p.employee_code) ||
+          (pd.first_name === p.first_name && pd.last_name === p.last_name)
+        );
       if (personnel?.id) profileMatchedPersonnelIds.add(personnel.id);
 
       return {
         ...p,
-        role: role?.role || "teacher",
-        position: getNormalizedPosition(p, personnel, role?.role || "teacher"),
-        dept: p.department || personnel?.department || "-",
-        employeeCode: p.employee_code || personnel?.employee_code || "-",
+        role: role || "teacher",
+        position: getNormalizedPosition(p, personnel, role || "teacher"),
+        // ฝ่ายงานยึด personnel เป็นหลัก (profiles.department มักว่างหรือค้างของเก่า)
+        dept: personnel?.department || p.department || "-",
+        employeeCode: personnel?.employee_code || p.employee_code || "-",
         personnelStatus: personnel?.status || "active",
         hireDate: p.hire_date || personnel?.hire_date,
         leaveDate: p.leave_date,
       };
-    });
+    })
+    // บัญชีระบบที่ไม่มีระเบียนบุคลากรจริง ไม่ต้องนับเป็นบุคลากร
+    .filter((s: any) => s.dept !== "ระบบ");
 
-  // Include standalone personnel records (no linked auth profile) e.g. seeded data
+  // ระเบียนบุคลากรที่ยังไม่ถูกจับคู่กับโปรไฟล์ (รวมกรณีมี user_id แต่ยังไม่มี role)
   const standalonePersonnel = personnelData
-    .filter((pd: any) => !profileMatchedPersonnelIds.has(pd.id) && !pd.user_id)
+    .filter((pd: any) => !profileMatchedPersonnelIds.has(pd.id))
     .map((pd: any) => {
-      const role = (pd.position || "").includes("ผู้อำนวยการ") ? "director" : "teacher";
+      const role =
+        (pd.user_id ? roleOf(pd.user_id) : null) ||
+        ((pd.position || "").includes("ผู้อำนวยการ") ? "director" : "teacher");
       return {
         id: `personnel-${pd.id}`,
         first_name: pd.first_name,
@@ -143,6 +165,8 @@ const PersonnelPage = () => {
     });
 
   const mergedStaff = [...profileBased, ...standalonePersonnel];
+
+
 
   const DEPARTMENTS = [...new Set(mergedStaff.map((s: any) => s.dept).filter(Boolean))].sort();
 
