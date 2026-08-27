@@ -1021,6 +1021,7 @@ const FaceKioskPage = () => {
     // กล่องใบหน้าล่าสุด (พิกัดวิดีโอจริง) — ใช้ทำ ROI เฉพาะตอน "ติดตามหน้าที่เจอแล้ว" เท่านั้น
     let lastBox: { x: number; y: number; width: number; height: number } | null = null;
     let lastBoxAt = 0;
+    let missCount = 0;
 
     const captureFaceCrop = (video: HTMLVideoElement, box: { x: number; y: number; width: number; height: number }): string | undefined => {
       try {
@@ -1101,11 +1102,11 @@ const FaceKioskPage = () => {
         // ROI ติดตามหลุด (คนขยับเร็ว) → ถอยไปใช้ ROI วงรีก่อน แล้วค่อยทั้งเฟรมเป็นทางสุดท้าย
         if (rawDetections.length === 0 && usedRoi && trackFresh) {
           lastBox = null;
-          missRef.current = (missRef.current || 0) + 1;
+          missCount += 1;
         } else if (rawDetections.length === 0 && usedRoi) {
-          missRef.current = (missRef.current || 0) + 1;
+          missCount += 1;
           // ทุก ๆ 6 เฟรมที่ว่างเปล่า ลองสแกนทั้งเฟรมหนึ่งครั้ง (กันกล้องเยื้อง/ติดตั้งเอียง)
-          if (missRef.current % 6 === 0) {
+          if (missCount % 6 === 0) {
             const full = await getAllDescriptors(video as any, opts, { minFaceSize: MIN_FACE_PX * 0.6, cacheTtlMs: 300 });
             if (full.length > 0) {
               rawDetections = full;
@@ -1114,7 +1115,7 @@ const FaceKioskPage = () => {
             }
           }
         } else if (rawDetections.length > 0) {
-          missRef.current = 0;
+          missCount = 0;
         }
 
         // แปลงพิกัดจาก ROI กลับเป็นพิกัดวิดีโอจริง
