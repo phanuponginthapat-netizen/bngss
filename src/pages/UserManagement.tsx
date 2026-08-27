@@ -523,6 +523,8 @@ const UserManagement = () => {
       const cls = data.classroom || {};
       setEditForm((prev: any) => ({
         ...prev,
+        // บทบาทจริงจากฐานข้อมูล (กันค่าค้างจากตารางรายชื่อ)
+        role: data.role ?? prev.role,
         email: data.user?.email || prev.email,
         // profile
         nickname: p.nickname ?? prev.nickname ?? "",
