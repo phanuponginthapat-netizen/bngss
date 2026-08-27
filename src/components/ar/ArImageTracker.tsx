@@ -129,10 +129,10 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
             const id = `armedia-${item.id}`;
             let inner = "";
             if (item.media_type === "video")
-              inner = `<a-video src="#${id}" width="${w}" height="${h}" position="0 0 0.01"></a-video>`;
+              inner = `<a-video src="#${id}" width="${w}" height="${h}" position="0 0 0.01" material="shader: flat; transparent: false; side: double"></a-video>`;
             else if (item.media_type === "model3d")
               inner = `<a-gltf-model src="url(${url})" scale="${w} ${w} ${w}" position="0 0 0.05" rotation="0 0 0" animation="property: rotation; to: 0 360 0; loop: true; dur: 12000; easing: linear"></a-gltf-model>`;
-            else inner = `<a-image src="#${id}" width="${w}" height="${h}" position="0 0 0.01"></a-image>`;
+            else inner = `<a-image src="#${id}" width="${w}" height="${h}" position="0 0 0.01" material="shader: flat; side: double"></a-image>`;
             return `<a-entity data-item="${item.id}" mindar-image-target="targetIndex: ${item.target_index}">${inner}</a-entity>`;
           })
           .join("");
@@ -374,10 +374,16 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
         .ar-stage a-scene, .ar-stage .a-canvas, .ar-stage canvas.a-canvas {
           position:absolute !important; inset:0 !important;
           width:100% !important; height:100% !important;
-          background:transparent !important;
+          background:transparent !important; z-index:1 !important;
         }
         .ar-stage .a-loader-title, .ar-stage .mindar-ui-overlay { display:none !important; }
-        .ar-stage video[id^="armedia-"] { display:none !important; }
+        /* ห้ามใช้ display:none กับวีดีโอสื่อ — บางเบราว์เซอร์จะหยุดถอดรหัสเฟรม ทำให้ texture บนป้ายว่างเปล่า */
+        .ar-stage video[id^="armedia-"], video[id^="armedia-"] {
+          position:fixed !important; top:0 !important; left:0 !important;
+          width:2px !important; height:2px !important; min-width:0 !important; min-height:0 !important;
+          opacity:0.01 !important; pointer-events:none !important; z-index:-1 !important;
+          transform:none !important; object-fit:fill !important;
+        }
         @keyframes ar-sweep { 0%{transform:translateY(-46%)} 50%{transform:translateY(46%)} 100%{transform:translateY(-46%)} }
       `}</style>
 
