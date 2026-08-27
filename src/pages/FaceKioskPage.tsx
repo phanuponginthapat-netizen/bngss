@@ -204,6 +204,24 @@ const FaceKioskPage = () => {
   const [downloadingFaces, setDownloadingFaces] = useState(false);
   const [faceCacheDir, setFaceCacheDir] = useState<string | null>(null);
   const qc = useQueryClient();
+
+  // เมื่อโมเดลพร้อมแล้ว: คำนวณ embedding ใหม่จาก "ภาพที่โหลดลงเครื่อง" ด้วยโมเดลของตู้เอง
+  // ทำครั้งเดียวแล้วเก็บลง IndexedDB — ทำให้จับคู่ข้ามกล้อง (มือถือ→คีออส) แม่นขึ้นชัดเจน
+  const localEmbedDoneRef = useRef(false);
+  useEffect(() => {
+    if (!modelReady || localEmbedDoneRef.current) return;
+    localEmbedDoneRef.current = true;
+    (async () => {
+      try {
+        const added = await augmentCacheWithLocalEmbeddings();
+        if (added > 0) {
+          qc.invalidateQueries({ queryKey: ["face-known-kiosk"] });
+          qc.invalidateQueries({ queryKey: ["face-known-kiosk-staff"] });
+        }
+      } catch {}
+    })();
+  }, [modelReady, qc]);
+
   const netCamRef = useRef<NetworkCameraHandle | null>(null);
 
 
