@@ -73,14 +73,16 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
 
     (async () => {
       try {
-        // 1) อุ่นเครื่องกล้องก่อน — ขอสิทธิ์ล่วงหน้าให้ MindAR เปิดกล้องได้ทันที ไม่ต้องรอ prompt
+        // 1) อุ่นเครื่องกล้อง — ขอสิทธิ์ล่วงหน้า แล้วปล่อยกล้องให้ว่างก่อนส่งต่อให้ MindAR
         setPhase("camera");
         try {
           const warm = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+            video: { facingMode: { ideal: "environment" } },
             audio: false,
           });
-          warm.getTracks().forEach((t) => t.stop());
+          warm.getTracks().forEach((t) => { try { t.stop(); } catch { /* ignore */ } });
+          // บางเครื่อง (Android) ต้องรอให้กล้องถูกปล่อยจริงก่อน ไม่งั้น MindAR เปิดไม่ติด → จอขาว
+          await new Promise((r) => setTimeout(r, 350));
         } catch {
           throw new Error("ไม่สามารถเข้าถึงกล้องได้ กรุณาอนุญาตการใช้กล้องในเบราว์เซอร์");
         }
