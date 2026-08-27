@@ -129,10 +129,10 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
             const id = `armedia-${item.id}`;
             let inner = "";
             if (item.media_type === "video")
-              inner = `<a-video src="#${id}" width="${w}" height="${h}" position="0 0 0.01"></a-video>`;
+              inner = `<a-video src="#${id}" width="${w}" height="${h}" position="0 0 0.01" material="shader: flat; transparent: false; side: double"></a-video>`;
             else if (item.media_type === "model3d")
               inner = `<a-gltf-model src="url(${url})" scale="${w} ${w} ${w}" position="0 0 0.05" rotation="0 0 0" animation="property: rotation; to: 0 360 0; loop: true; dur: 12000; easing: linear"></a-gltf-model>`;
-            else inner = `<a-image src="#${id}" width="${w}" height="${h}" position="0 0 0.01"></a-image>`;
+            else inner = `<a-image src="#${id}" width="${w}" height="${h}" position="0 0 0.01" material="shader: flat; side: double"></a-image>`;
             return `<a-entity data-item="${item.id}" mindar-image-target="targetIndex: ${item.target_index}">${inner}</a-entity>`;
           })
           .join("");
