@@ -83,7 +83,7 @@ const NotificationDropdown = () => {
       return (data || []) as any[];
     },
     enabled: !!userId,
-    refetchInterval: 30000,
+    refetchInterval: 3 * 60_000, // realtime ครอบอยู่แล้ว — poll เป็น fallback
   });
 
   const { data: inboxItems = [] } = useQuery({
@@ -100,7 +100,7 @@ const NotificationDropdown = () => {
       return (data || []) as any[];
     },
     enabled: !!userId,
-    refetchInterval: 30000,
+    refetchInterval: 3 * 60_000, // realtime ครอบอยู่แล้ว — poll เป็น fallback
   });
 
   // Realtime

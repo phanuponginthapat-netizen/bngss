@@ -91,10 +91,8 @@ function GeneralSchoolSettings() {
         { setting_key: "terminal_grades", setting_value: JSON.stringify(terminalGrades) },
         { setting_key: "email_domain", setting_value: emailDomain },
       ];
-      for (const u of updates) {
-        const { error } = await supabase.from("school_settings").upsert(u, { onConflict: "setting_key" });
-        if (error) throw error;
-      }
+      const { error } = await supabase.from("school_settings").upsert(updates, { onConflict: "setting_key" });
+      if (error) throw error;
       swal.toast.success("บันทึกการตั้งค่าเรียบร้อย");
       qc.invalidateQueries({ queryKey: ["school_settings"] });
     } catch (e: any) {

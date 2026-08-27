@@ -138,13 +138,12 @@ const HomepageEditor = () => {
   const handleSave = async () => {
     const __tid_save_1 = toast.loading("กำลังบันทึก...");
     setSaving(true);
-    for (const [key, s] of Object.entries(settings)) {
-      if (s.id) {
-        await supabase.from("cms_settings").update({ value: s.value }).eq("id", s.id);
-      } else {
-        await supabase.from("cms_settings").insert({ key, value: s.value });
-      }
-    }
+    const entries = Object.entries(settings);
+    const toInsert = entries.filter(([, s]) => !s.id).map(([key, s]) => ({ key, value: s.value }));
+    await Promise.all([
+      ...entries.filter(([, s]) => !!s.id).map(([, s]) => supabase.from("cms_settings").update({ value: s.value }).eq("id", s.id!)),
+      ...(toInsert.length ? [supabase.from("cms_settings").insert(toInsert)] : []),
+    ]);
     toast.success("บันทึกหน้าแรกสำเร็จ");
     toast.dismiss(__tid_save_1);
       setSaving(false);
