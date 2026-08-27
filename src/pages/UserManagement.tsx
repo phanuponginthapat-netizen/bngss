@@ -1972,7 +1972,9 @@ const UserManagement = () => {
                   <SelectItem value="director">ผู้อำนวยการ</SelectItem>
                   <SelectItem value="teacher">ครู/บุคลากร</SelectItem>
                   <SelectItem value="student">นักเรียน</SelectItem>
+                  <SelectItem value="parent">ผู้ปกครอง</SelectItem>
                   <SelectItem value="alumni">ศิษย์เก่า</SelectItem>
+                  <SelectItem value="observer">ศึกษานิเทศก์</SelectItem>
                   
                 </SelectContent>
               </Select>
