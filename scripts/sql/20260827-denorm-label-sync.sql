@@ -108,3 +108,28 @@ FROM public.subjects sj WHERE sj.id = q.subject_id AND COALESCE(btrim(q.subject_
 
 UPDATE public.student_enrollment_history h SET classroom_name = c.name
 FROM public.classrooms c WHERE c.id = h.classroom_id AND COALESCE(btrim(h.classroom_name),'') = '';
+
+-- เติมชื่อจากรหัส (code) สำหรับตารางที่อ้างด้วยรหัสแทน id
+CREATE OR REPLACE FUNCTION public.sync_labels_by_code()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF TG_TABLE_NAME = 'student_scores' THEN
+    IF COALESCE(btrim(NEW.student_name),'') = '' AND NEW.student_code IS NOT NULL THEN
+      SELECT btrim(concat_ws(' ', COALESCE(prefix,''), first_name, last_name)) INTO NEW.student_name
+      FROM students WHERE student_code = NEW.student_code LIMIT 1;
+    END IF;
+  ELSIF TG_TABLE_NAME = 'grade_remediation' THEN
+    IF COALESCE(btrim(NEW.subject_name),'') = '' AND NEW.subject_code IS NOT NULL THEN
+      SELECT COALESCE(name_th, code) INTO NEW.subject_name FROM subjects WHERE code = NEW.subject_code LIMIT 1;
+    END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_labels_code ON public.student_scores;
+CREATE TRIGGER trg_labels_code BEFORE INSERT OR UPDATE ON public.student_scores
+FOR EACH ROW EXECUTE FUNCTION public.sync_labels_by_code();
+
+DROP TRIGGER IF EXISTS trg_labels_code ON public.grade_remediation;
+CREATE TRIGGER trg_labels_code BEFORE INSERT OR UPDATE ON public.grade_remediation
+FOR EACH ROW EXECUTE FUNCTION public.sync_labels_by_code();
