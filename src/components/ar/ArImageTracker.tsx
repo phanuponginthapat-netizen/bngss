@@ -137,7 +137,7 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
         // uiScanning/uiLoading ปิด เพราะเราทำ overlay เอง
         // autoStart: false → เริ่มจับภาพเองหลังทุกอย่างพร้อม เพื่อให้ "ส่องปุ๊บติดปั๊บ"
         hostRef.current.innerHTML = `
-          <a-scene mindar-image="imageTargetSrc: ${mindUrl}; autoStart: false; uiScanning: no; uiLoading: no; uiError: no; filterMinCF: 0.001; filterBeta: 1000; missTolerance: 5; warmupTolerance: 1"
+          <a-scene mindar-image="imageTargetSrc: ${mindUrl}; autoStart: false; uiScanning: no; uiLoading: no; uiError: no; filterMinCF: 0.0005; filterBeta: 300; missTolerance: 2; warmupTolerance: 4"
                    color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights"
                    vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
                    embedded>
