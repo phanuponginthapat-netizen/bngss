@@ -39,7 +39,7 @@ import { checkTodayScan, markScanned, methodLabel, clearScanDedupCache } from "@
 import { useKioskHeartbeat } from "@/hooks/useKioskHeartbeat";
 import { useKioskLockdown } from "@/hooks/useKioskLockdown";
 import KioskFaceRegisterDialog from "@/components/kiosk/KioskFaceRegisterDialog";
-import { downloadFacesToCache, pickAndSaveFaceFolder, loadFaceCache, getSavedDirName, hasFileSystemAccess } from "@/lib/kioskFaceCache";
+import { downloadFacesToCache, pickAndSaveFaceFolder, loadFaceCache, saveFaceCache, getSavedDirName, hasFileSystemAccess } from "@/lib/kioskFaceCache";
 import { useIsPortrait } from "@/hooks/useScreenOrientation";
 import { KIOSK_PERF_PROFILES } from "@/lib/kioskPerf";
 
