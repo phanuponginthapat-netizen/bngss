@@ -609,6 +609,10 @@ const UserManagement = () => {
   };
 
   const handleRoleChange = async (userId: string, newRole: AppRole) => {
+    const previousRole = users.find((user) => user.id === userId)?.role;
+    setUsers((current) => current.map((user) => (
+      user.id === userId ? { ...user, role: newRole } : user
+    )));
     try {
       const { data, error } = await supabase.functions.invoke("manage-users", {
         body: { action: "update_role", user_id: userId, role: newRole },
@@ -621,6 +625,11 @@ const UserManagement = () => {
       queryClient.invalidateQueries({ queryKey: ["user-roles", userId] });
       await fetchUsers();
     } catch (e: any) {
+      if (previousRole) {
+        setUsers((current) => current.map((user) => (
+          user.id === userId ? { ...user, role: previousRole } : user
+        )));
+      }
       swal.error(e.message || "Failed to update role");
     }
   };
