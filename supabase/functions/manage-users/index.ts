@@ -1377,7 +1377,7 @@ serve(async (req) => {
           const { data: { user: targetUser } } = await adminClient.auth.admin.getUserById(user_id);
           if (targetUser) {
             const { data: prof } = await adminClient
-              .from("profiles").select("first_name, last_name, prefix, department, position_title")
+              .from("profiles").select("first_name, last_name, department, position_title")
               .eq("id", user_id).maybeSingle();
             await createOrUpdatePersonnelRecord(adminClient, {
               userId: user_id,
