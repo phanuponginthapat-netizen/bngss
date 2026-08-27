@@ -69,3 +69,17 @@ DROP POLICY IF EXISTS "staff manage offline_failed" ON public.offline_failed_que
 CREATE POLICY "staff manage offline_failed" ON public.offline_failed_queue
   FOR ALL TO authenticated
   USING (public.is_staff_any(auth.uid())) WITH CHECK (public.is_staff_any(auth.uid()));
+
+-- 4) ตาราง dimension: อ่านได้ทุกคนที่ล็อกอิน แต่เขียนได้เฉพาะ admin/ผอ.
+DROP POLICY IF EXISTS "Authenticated can manage dim_date" ON public.dim_date;
+DROP POLICY IF EXISTS "Authenticated can manage dim_subject" ON public.dim_subject;
+DROP POLICY IF EXISTS dim_date_admin_write ON public.dim_date;
+CREATE POLICY dim_date_admin_write ON public.dim_date FOR ALL TO authenticated
+  USING (public.is_admin_or_director(auth.uid())) WITH CHECK (public.is_admin_or_director(auth.uid()));
+DROP POLICY IF EXISTS dim_subject_admin_write ON public.dim_subject;
+CREATE POLICY dim_subject_admin_write ON public.dim_subject FOR ALL TO authenticated
+  USING (public.is_admin_or_director(auth.uid())) WITH CHECK (public.is_admin_or_director(auth.uid()));
+DROP POLICY IF EXISTS dim_date_read ON public.dim_date;
+CREATE POLICY dim_date_read ON public.dim_date FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS dim_subject_read ON public.dim_subject;
+CREATE POLICY dim_subject_read ON public.dim_subject FOR SELECT TO authenticated USING (true);
