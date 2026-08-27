@@ -374,10 +374,16 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
         .ar-stage a-scene, .ar-stage .a-canvas, .ar-stage canvas.a-canvas {
           position:absolute !important; inset:0 !important;
           width:100% !important; height:100% !important;
-          background:transparent !important;
+          background:transparent !important; z-index:1 !important;
         }
         .ar-stage .a-loader-title, .ar-stage .mindar-ui-overlay { display:none !important; }
-        .ar-stage video[id^="armedia-"] { display:none !important; }
+        /* ห้ามใช้ display:none กับวีดีโอสื่อ — บางเบราว์เซอร์จะหยุดถอดรหัสเฟรม ทำให้ texture บนป้ายว่างเปล่า */
+        .ar-stage video[id^="armedia-"], video[id^="armedia-"] {
+          position:fixed !important; top:0 !important; left:0 !important;
+          width:2px !important; height:2px !important; min-width:0 !important; min-height:0 !important;
+          opacity:0.01 !important; pointer-events:none !important; z-index:-1 !important;
+          transform:none !important; object-fit:fill !important;
+        }
         @keyframes ar-sweep { 0%{transform:translateY(-46%)} 50%{transform:translateY(46%)} 100%{transform:translateY(-46%)} }
       `}</style>
 
