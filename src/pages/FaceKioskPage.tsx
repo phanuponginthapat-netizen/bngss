@@ -182,11 +182,6 @@ const FaceKioskPage = () => {
           qc.invalidateQueries({ queryKey: ["face-known-kiosk"] });
           qc.invalidateQueries({ queryKey: ["face-known-kiosk-staff"] });
         }
-        const added = await augmentCacheWithLocalEmbeddings();
-        if (added > 0) {
-          qc.invalidateQueries({ queryKey: ["face-known-kiosk"] });
-          qc.invalidateQueries({ queryKey: ["face-known-kiosk-staff"] });
-        }
       } catch {}
     })();
     getSavedDirName().then(setFaceCacheDir).catch(() => {});
