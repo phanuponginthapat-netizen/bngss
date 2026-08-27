@@ -9,6 +9,8 @@ import { BarcodeScanner } from "@/components/BarcodeScanner";
 import ArImage from "@/components/ar/ArImage";
 import ArImageTracker, { type TrackedItem } from "@/components/ar/ArImageTracker";
 import { extractArCode } from "@/lib/arCode";
+import { useCmsValues } from "@/hooks/useCmsSettings";
+
 
 interface Project {
   id: string; slug: string; title: string; description: string | null;
@@ -32,6 +34,8 @@ export default function ARProjectPage() {
   const [loading, setLoading] = useState(true);
   const [scanOpen, setScanOpen] = useState(false);
   const [arOpen, setArOpen] = useState(false);
+  const cms = useCmsValues(["school_logo", "school_name", "app_name"]);
+
 
 
   useEffect(() => {
@@ -86,10 +90,19 @@ export default function ARProjectPage() {
         />
       )}
       <div className="max-w-4xl mx-auto p-4 space-y-5">
-        <div className="flex items-center justify-between">
-          <Button asChild variant="ghost" size="sm"><Link to="/ar"><ArrowLeft className="h-4 w-4 mr-2" />คลังสื่อ AR</Link></Button>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {cms.school_logo && <img src={cms.school_logo} alt={cms.school_name || "โรงเรียน"} className="h-9 w-9 object-contain" />}
+            <div className="min-w-0">
+              <div className="text-sm font-semibold leading-tight line-clamp-1">{cms.school_name || cms.app_name || "แหล่งเรียนรู้ AR"}</div>
+              <Link to="/ar" className="text-xs text-muted-foreground hover:underline inline-flex items-center gap-1">
+                <ArrowLeft className="h-3 w-3" />คลังสื่อ AR
+              </Link>
+            </div>
+          </div>
           <Button size="sm" variant="outline" onClick={() => setScanOpen(true)}><ScanLine className="h-4 w-4 mr-2" />สแกน QR งานอื่น</Button>
         </div>
+
 
         <Card className="overflow-hidden">
           {project.cover_url && (
