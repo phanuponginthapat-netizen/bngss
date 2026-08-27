@@ -41,7 +41,8 @@ import { useKioskLockdown } from "@/hooks/useKioskLockdown";
 import KioskFaceRegisterDialog from "@/components/kiosk/KioskFaceRegisterDialog";
 import { downloadFacesToCache, pickAndSaveFaceFolder, loadFaceCache, saveFaceCache, getSavedDirName, hasFileSystemAccess } from "@/lib/kioskFaceCache";
 import { useIsPortrait } from "@/hooks/useScreenOrientation";
-import { KIOSK_PERF_PROFILES } from "@/lib/kioskPerf";
+import { KIOSK_PERF_PROFILES, resolveLoopDelayMs, isIsolatedRuntime } from "@/lib/kioskPerf";
+import { probeSidecar, sidecarHasFace, sidecarReady, sidecarProvider } from "@/lib/faceSidecar";
 
 import { saveErrorMessage } from "@/lib/saveError";
 import { notifyRole } from "@/lib/notify";
@@ -152,6 +153,8 @@ const FaceKioskPage = () => {
   const { selection: scanModeSelection, setSelection: setScanModeSelection, effective: scanMode, effectiveRef: scanModeRef, cutoff: modeCutoff, checkWindow, entryWindow, exitWindow } = useAutoScanMode();
   const [camMode, setCamMode] = useState<CamMode>("standard");
   const perf = KIOSK_PERF_PROFILES.balanced;
+  // ตรวจถี่ขึ้นเมื่อรันบน Electron kiosk (COOP/COEP → WASM หลายเธรด)
+  const loopDelayMs = resolveLoopDelayMs(perf);
   // ช่วงเว้นระยะเพิ่มเติมระหว่างรอบสแกน (มิลลิวินาที) — ปรับได้จากหน้าตั้งค่า
   const [scanGapMs, setScanGapMs] = useState<number>(() => {
     const v = Number(localStorage.getItem("face_kiosk_scan_gap") || "");
@@ -1436,7 +1439,7 @@ const FaceKioskPage = () => {
         // ปล่อยให้เบราว์เซอร์วาดเฟรมก่อนเริ่มรอบใหม่ → ภาพไม่กระตุก
         detectionLoopRef.current = window.setTimeout(
           () => requestAnimationFrame(() => { if (!cancelled) void loop(); }),
-          perf.loopDelayMs + scanGapMs,
+          loopDelayMs + scanGapMs,
         );
       }
     };
@@ -1445,7 +1448,7 @@ const FaceKioskPage = () => {
       cancelled = true;
       if (detectionLoopRef.current) clearTimeout(detectionLoopRef.current);
     };
-  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef, runGate, perf, scanGapMs, livenessEnabled, textureGate, showNotice]);
+  }, [streaming, modelReady, screensaver, matchKnown, threshold, recordScan, camMode, qrOnly, voiceEnabled, scanModeRef, runGate, perf, loopDelayMs, scanGapMs, livenessEnabled, textureGate, showNotice]);
 
   // ===== WizMind bridge: รับ event ใบหน้าจากกล้อง CCTV แบบ realtime แล้วจดจำทันที =====
   useEffect(() => {
@@ -1964,7 +1967,9 @@ const FaceKioskPage = () => {
             <p className="text-[11px] font-medium">⚡ {KIOSK_PERF_PROFILES.balanced.label}</p>
             <p className="text-[10px] text-muted-foreground leading-snug">
               กล้อง {KIOSK_PERF_PROFILES.balanced.videoWidth}×{KIOSK_PERF_PROFILES.balanced.videoHeight}@{KIOSK_PERF_PROFILES.balanced.frameRate}fps •
-              ตรวจทุก {KIOSK_PERF_PROFILES.balanced.loopDelayMs}ms • ArcFace ปกติ เหมือนครู
+              ตรวจทุก {loopDelayMs}ms • ArcFace ปกติ เหมือนครู
+              {isIsolatedRuntime() ? " • โหมดหลายเธรด (Electron)" : ""}
+              {sidecarReady() ? ` • ตัวช่วย ${sidecarProvider()}` : ""}
             </p>
           </div>
 
