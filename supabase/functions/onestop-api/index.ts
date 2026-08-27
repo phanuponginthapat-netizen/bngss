@@ -112,10 +112,10 @@ Deno.serve(async (req) => {
     };
 
     const fetchBus = async () => {
-      const { data, count } = await admin.from("bus_routes").select("id, route_name, status", { count: "exact" }).limit(100);
+      const { data, count } = await admin.from("bus_routes").select("id, name, is_active", { count: "exact" }).limit(100);
       const routes: any[] = data ?? [];
       const byStatus: Record<string, number> = {};
-      routes.forEach((r: any) => { const s = r.status ?? "unknown"; byStatus[s] = (byStatus[s] || 0) + 1; });
+      routes.forEach((r: any) => { const s = r.is_active === false ? "inactive" : r.is_active === true ? "active" : "unknown"; byStatus[s] = (byStatus[s] || 0) + 1; });
       return { total_routes: count ?? routes.length, by_status: byStatus, sample: routes.slice(0, 5) };
     };
 
@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
       // use iot_devices or fallback to face_scan_logs count today as kiosk activity proxy
       let kioskDevices: any = { count: 0, rows: [] };
       try {
-        const r = await admin.from("iot_devices").select("id, device_type, status").limit(50);
+        const r = await admin.from("iot_devices").select("id, device_type, last_status, is_active").limit(50);
         kioskDevices = { count: (r as any).count ?? r.data?.length ?? 0, rows: r.data ?? [] };
       } catch (_) {
         // ignore if table missing
