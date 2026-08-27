@@ -261,15 +261,15 @@ const useCmsSettings = () => {
   };
   const saveAll = async () => {
     try {
-      for (const [key, s] of Object.entries(settings)) {
-        if (s.id) {
-          const { error } = await supabase.from("cms_settings").update({ value: s.value }).eq("id", s.id);
-          if (error) throw error;
-        } else {
-          const { error } = await supabase.from("cms_settings").insert({ key, value: s.value });
-          if (error) throw error;
-        }
-      }
+      const entries = Object.entries(settings);
+      const toInsert = entries.filter(([, s]) => !s.id).map(([key, s]) => ({ key, value: s.value }));
+      const toUpdate = entries.filter(([, s]) => !!s.id);
+      const results = await Promise.all([
+        ...toUpdate.map(([, s]) => supabase.from("cms_settings").update({ value: s.value }).eq("id", s.id!)),
+        ...(toInsert.length ? [supabase.from("cms_settings").insert(toInsert)] : []),
+      ]);
+      const failed = results.find((r: any) => r?.error);
+      if (failed) throw (failed as any).error;
       toast.success("บันทึกการตั้งค่าสำเร็จ");
       await qc.invalidateQueries({ queryKey: ["cms_settings_bulk"] });
       try { localStorage.removeItem("cms_settings_bulk_v1"); } catch { /* noop */ }

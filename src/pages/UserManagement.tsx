@@ -148,9 +148,8 @@ const UserManagement = () => {
         { setting_key: "terminal_grades", setting_value: JSON.stringify(settingTerminalGrades) },
         { setting_key: "email_domain", setting_value: settingEmailDomain },
       ];
-      for (const u of updates) {
-        await supabase.from("school_settings").upsert(u, { onConflict: "setting_key" });
-      }
+      const { error: setErr } = await supabase.from("school_settings").upsert(updates, { onConflict: "setting_key" });
+      if (setErr) throw setErr;
       swal.toast.success("บันทึกการตั้งค่าเรียบร้อย");
       queryClient.invalidateQueries({ queryKey: ["school_settings"] });
       setSettingsOpen(false);
@@ -193,37 +192,45 @@ const UserManagement = () => {
         return;
       }
 
-      // Calculate GPA for each student and update
+      // Calculate GPA for each student — ดึงข้อมูลครั้งเดียวแล้วคำนวณในหน่วยความจำ (เร็วกว่าเดิมมาก)
       const currentYear = new Date().getFullYear();
-      let count = 0;
-      for (const st of studentsToGraduate) {
-        // Get scores for GPA
-        const { data: stScores } = await supabase
-          .from("student_scores")
-          .select("grade_point, subject_id")
-          .eq("student_code", st.student_code);
-        
-        const { data: subs } = await supabase.from("subjects").select("id, credits");
-        const subMap = new Map((subs || []).map(s => [s.id, s.credits || 0]));
-        
-        let totalWeighted = 0, totalCredits = 0;
-        (stScores || []).forEach((sc: any) => {
-          const credits = subMap.get(sc.subject_id) || 0;
-          totalWeighted += (sc.grade_point || 0) * credits;
-          totalCredits += credits;
-        });
-        const gpa = totalCredits > 0 ? Math.round((totalWeighted / totalCredits) * 100) / 100 : 0;
-        const gradeLevel = (st as any).classrooms?.grade_level || "";
+      const studentCodes = studentsToGraduate.map((s: any) => s.student_code).filter(Boolean);
+      const [{ data: subs }, { data: allScores }] = await Promise.all([
+        supabase.from("subjects").select("id, credits"),
+        studentCodes.length
+          ? supabase.from("student_scores").select("student_code, grade_point, subject_id").in("student_code", studentCodes)
+          : Promise.resolve({ data: [] as any[] } as any),
+      ]);
+      const subMap = new Map((subs || []).map((s: any) => [s.id, s.credits || 0]));
+      const scoresByCode = new Map<string, any[]>();
+      (allScores || []).forEach((sc: any) => {
+        const arr = scoresByCode.get(sc.student_code) || [];
+        arr.push(sc);
+        scoresByCode.set(sc.student_code, arr);
+      });
 
-        await supabase.from("students").update({
-          status: "graduated",
-          graduated_at: todayBangkok(),
-          graduation_year: currentYear,
-          graduation_gpa: gpa,
-          graduation_level: gradeLevel,
-          classroom_id: null,
-        }).eq("id", st.id);
-        count++;
+      let count = 0;
+      const CHUNK = 25;
+      for (let i = 0; i < studentsToGraduate.length; i += CHUNK) {
+        const chunk = studentsToGraduate.slice(i, i + CHUNK);
+        await Promise.all(chunk.map(async (st: any) => {
+          let totalWeighted = 0, totalCredits = 0;
+          (scoresByCode.get(st.student_code) || []).forEach((sc: any) => {
+            const credits = subMap.get(sc.subject_id) || 0;
+            totalWeighted += (sc.grade_point || 0) * credits;
+            totalCredits += credits;
+          });
+          const gpa = totalCredits > 0 ? Math.round((totalWeighted / totalCredits) * 100) / 100 : 0;
+          await supabase.from("students").update({
+            status: "graduated",
+            graduated_at: todayBangkok(),
+            graduation_year: currentYear,
+            graduation_gpa: gpa,
+            graduation_level: st.classrooms?.grade_level || "",
+            classroom_id: null,
+          }).eq("id", st.id);
+          count++;
+        }));
       }
 
       // Change role to alumni instead of deleting auth accounts
