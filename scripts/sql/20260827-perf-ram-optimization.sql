@@ -56,7 +56,7 @@ AS $$
 DECLARE
   spec  jsonb := '[
     {"t":"face_scan_logs","c":"created_at","d":365},
-    {"t":"kiosk_health_samples","c":"created_at","d":30},
+    {"t":"kiosk_health_samples","c":"sampled_at","d":30},
     {"t":"error_logs","c":"created_at","d":90},
     {"t":"browser_logs","c":"created_at","d":30},
     {"t":"ai_usage_logs","c":"created_at","d":180},
