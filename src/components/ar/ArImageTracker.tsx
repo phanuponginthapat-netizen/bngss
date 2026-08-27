@@ -69,6 +69,7 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
   useEffect(() => {
     let disposed = false;
     let sceneEl: any = null;
+    let cleanupTimers: (() => void) | null = null;
 
     (async () => {
       try {
@@ -280,6 +281,7 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
 
     return () => {
       disposed = true;
+      cleanupTimers?.();
       try {
         const scene: any = hostRef.current?.querySelector("a-scene");
         scene?.systems?.["mindar-image-system"]?.stop?.();
