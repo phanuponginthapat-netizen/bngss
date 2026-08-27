@@ -155,6 +155,9 @@ const FaceKioskPage = () => {
   const perf = KIOSK_PERF_PROFILES.balanced;
   // ตรวจถี่ขึ้นเมื่อรันบน Electron kiosk (COOP/COEP → WASM หลายเธรด)
   const loopDelayMs = resolveLoopDelayMs(perf);
+  // ตรวจหาตัวช่วยประมวลผลบนเครื่อง (face sidecar) ครั้งเดียวตอนเปิดหน้า
+  useEffect(() => { void probeSidecar(true); }, []);
+
   // ช่วงเว้นระยะเพิ่มเติมระหว่างรอบสแกน (มิลลิวินาที) — ปรับได้จากหน้าตั้งค่า
   const [scanGapMs, setScanGapMs] = useState<number>(() => {
     const v = Number(localStorage.getItem("face_kiosk_scan_gap") || "");
