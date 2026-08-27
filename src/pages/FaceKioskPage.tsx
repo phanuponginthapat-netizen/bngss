@@ -1018,6 +1018,10 @@ const FaceKioskPage = () => {
     const snapCanvas = document.createElement("canvas");
     const roiCanvas = document.createElement("canvas");
     const roiCtx = roiCanvas.getContext("2d", { willReadFrequently: true });
+    // กล่องใบหน้าล่าสุด (พิกัดวิดีโอจริง) — ใช้ทำ ROI เฉพาะตอน "ติดตามหน้าที่เจอแล้ว" เท่านั้น
+    let lastBox: { x: number; y: number; width: number; height: number } | null = null;
+    let lastBoxAt = 0;
+
     const captureFaceCrop = (video: HTMLVideoElement, box: { x: number; y: number; width: number; height: number }): string | undefined => {
       try {
         const pad = 0.25;
