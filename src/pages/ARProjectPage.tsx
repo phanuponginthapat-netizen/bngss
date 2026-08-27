@@ -34,6 +34,8 @@ export default function ARProjectPage() {
   const [loading, setLoading] = useState(true);
   const [scanOpen, setScanOpen] = useState(false);
   const [arOpen, setArOpen] = useState(false);
+  const cms = useCmsValues(["school_logo", "school_name", "app_name"]);
+
 
 
   useEffect(() => {
