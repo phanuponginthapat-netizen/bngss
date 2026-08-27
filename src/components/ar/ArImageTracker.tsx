@@ -198,6 +198,8 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
           });
         await waitLoaded();
         if (disposed) return;
+        await unlockAudio();
+
 
         setPhase("warmup");
         const system = sceneEl?.systems?.["mindar-image-system"];
