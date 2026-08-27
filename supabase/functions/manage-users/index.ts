@@ -12,9 +12,19 @@ function pickPrimaryRole(list: string[]): string | undefined {
 }
 
 async function ensureSingleRole(adminClient: any, userId: string, role: ManagedRole) {
-  await adminClient.from("user_roles").delete().eq("user_id", userId);
-  const { error } = await adminClient.from("user_roles").insert({ user_id: userId, role });
-  if (error) throw error;
+  // Insert the requested role first so readers never observe a role-less user
+  // and incorrectly infer "teacher" from an existing personnel record.
+  const { error: insertError } = await adminClient
+    .from("user_roles")
+    .upsert({ user_id: userId, role }, { onConflict: "user_id,role", ignoreDuplicates: true });
+  if (insertError) throw insertError;
+
+  const { error: cleanupError } = await adminClient
+    .from("user_roles")
+    .delete()
+    .eq("user_id", userId)
+    .neq("role", role);
+  if (cleanupError) throw cleanupError;
 }
 
 async function findAuthUserByEmail(adminClient: any, email: string) {
