@@ -136,10 +136,10 @@ const FaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName }: Pr
       const { data: { user } } = await supabase.auth.getUser();
       await supabase.from("student_face_descriptors")
         .delete().eq("student_id", studentId).eq("source", "profile_avatar");
-      const { error } = await supabase.from("student_face_descriptors").insert({
+      const { error } = await supabase.from("student_face_descriptors").upsert({
         student_id: studentId, sample_index: 0,
         descriptor: Array.from(desc), captured_by: user?.id, source: "profile_avatar",
-      });
+      }, { onConflict: "student_id,sample_index" });
       if (error) throw error;
       toast.success("ซิงค์ใบหน้าจากรูปโปรไฟล์สำเร็จ");
       await refreshSamples(studentId);
@@ -158,7 +158,7 @@ const FaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName }: Pr
         student_id: studentId, sample_index: nextIdx++,
         descriptor: Array.from(s.desc), captured_by: user?.id, source: "camera",
       }));
-      const { error } = await supabase.from("student_face_descriptors").insert(rows);
+      const { error } = await supabase.from("student_face_descriptors").upsert(rows, { onConflict: "student_id,sample_index" });
       if (error) throw error;
       toast.success(`บันทึก ${shots.length} ภาพสำเร็จ`);
       setShots([]);
@@ -269,7 +269,7 @@ const FaceRegisterDialog = ({ open, onOpenChange, studentCode, displayName }: Pr
         captured_by: user?.id,
         source: "upload",
       }));
-      const { error } = await supabase.from("student_face_descriptors").insert(rows);
+      const { error } = await supabase.from("student_face_descriptors").upsert(rows, { onConflict: "student_id,sample_index" });
       if (error) throw error;
       toast.success(`บันทึก ${rows.length} ภาพจากไฟล์อัปโหลดสำเร็จ`);
       clearUploads();

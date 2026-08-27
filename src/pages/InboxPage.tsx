@@ -157,10 +157,9 @@ export default function InboxPage() {
 
   const markAllRead = useMutation({
     mutationFn: async () => {
-      await Promise.all([
-        supabase.from("inbox_items").update({ is_read: true }).eq("user_id", userId!).eq("is_read", false),
-        supabase.from("notifications").update({ is_read: true }).eq("user_id", userId!).eq("is_read", false),
-      ]);
+      // ลำดับคงที่ (notifications ก่อน inbox_items) เพื่อกัน deadlock เวลาอัปเดตพร้อมกัน
+      await supabase.from("notifications").update({ is_read: true }).eq("user_id", userId!).eq("is_read", false);
+      await supabase.from("inbox_items").update({ is_read: true }).eq("user_id", userId!).eq("is_read", false);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["inbox_items_all"] });

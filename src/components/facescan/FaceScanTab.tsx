@@ -467,13 +467,13 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
       }
       const { data: { user } } = await supabase.auth.getUser();
       const nextIdx = existing?.length || 0;
-      const { error } = await supabase.from("student_face_descriptors").insert({
+      const { error } = await supabase.from("student_face_descriptors").upsert({
         student_id: m.studentId,
         sample_index: nextIdx,
         descriptor: Array.from(det.descriptor),
         captured_by: user?.id,
         source: "confirm_mode",
-      } as any);
+      } as any, { onConflict: "student_id,sample_index" });
       if (error) throw error;
       toast.success(`เพิ่ม descriptor ใหม่ให้ ${target?.name || "นักเรียน"}`, {
         description: `มั่นใจ ${Math.round(m.confidence * 100)}% • Δ ${m.margin.toFixed(2)} • คุณภาพ ${q.score}/100`,

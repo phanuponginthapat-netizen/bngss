@@ -163,12 +163,11 @@ const NotificationDropdown = () => {
 
   const markAllAsRead = async () => {
     if (!userId) return;
-    await Promise.all([
-      (supabase.from("notifications") as any)
-        .update({ is_read: true }).eq("user_id", userId).eq("is_read", false),
-      (supabase.from("inbox_items") as any)
-        .update({ is_read: true }).eq("user_id", userId).eq("is_read", false),
-    ]);
+    // ลำดับคงที่ (notifications ก่อน inbox_items) เพื่อกัน deadlock
+    await (supabase.from("notifications") as any)
+      .update({ is_read: true }).eq("user_id", userId).eq("is_read", false);
+    await (supabase.from("inbox_items") as any)
+      .update({ is_read: true }).eq("user_id", userId).eq("is_read", false);
     qc.invalidateQueries({ queryKey: ["my_notifications", userId] });
     qc.invalidateQueries({ queryKey: ["my_inbox_items", userId] });
   };
