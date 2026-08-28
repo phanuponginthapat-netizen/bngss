@@ -145,6 +145,7 @@ const KioskSetupPage = lazy(() => import("./pages/admin/KioskSetupPage"));
 const KioskDoorHealthPage = lazy(() => import("./pages/admin/KioskDoorHealthPage"));
 const SmartGateReportPage = lazy(() => import("./pages/admin/SmartGateReportPage"));
 const SetupWizardPage = lazy(() => import("./pages/SetupWizardPage"));
+import SetupGuard from "@/components/SetupGuard";
 
 const UpstreamSyncPage = lazy(() => import("./pages/admin/UpstreamSyncPage"));
 const FieldVisibilityPage = lazy(() => import("./pages/admin/FieldVisibilityPage"));
@@ -346,7 +347,7 @@ const App = () => {
               <AnimatedRoutesWrapper>
                 <Routes>
               <Route path="/" element={<PublicLayout />} />
-              <Route path="/setup" element={<SetupWizardPage />} />
+              <Route path="/setup" element={<SetupGuard><SetupWizardPage /></SetupGuard>} />
               <Route path="/page/:slug" element={<PublicLayout />} />
               <Route path="/org-chart" element={<PublicOrgChartPage />} />
               <Route path="/sdq-assess/:studentId" element={<PublicSDQPage />} />
