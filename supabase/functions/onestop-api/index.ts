@@ -147,12 +147,53 @@ Deno.serve(async (req) => {
       }
     }
 
-    // module=all — parallel with resilience via Promise.allSettled
+    // module=all
+    // source=auto (ค่าเริ่มต้น) → ใช้ snapshot รายคืนถ้ายังสด (<25 ชม.) สำหรับตัวเลขสะสม
+    // (นักเรียน/ผลการเรียน/การเงิน) แล้วดึงสดเฉพาะข้อมูล "วันนี้" — ลดภาระ DB อย่างมาก
+    // source=live → บังคับคำนวณสดทั้งหมด
+    const source = (url.searchParams.get("source") || "auto").toLowerCase();
+
+    let snapshot: any = null;
+    if (source !== "live") {
+      const { data: snapRow } = await admin
+        .from("district_snapshots")
+        .select("payload, generated_at")
+        .eq("snapshot_type", "nightly")
+        .order("snapshot_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const fresh = snapRow?.generated_at &&
+        Date.now() - new Date(snapRow.generated_at).getTime() < 25 * 3600 * 1000;
+      if (fresh) snapshot = snapRow;
+    }
+
+    const p = snapshot?.payload ?? null;
+    const useCached = Boolean(p);
+
     const settled = await Promise.allSettled([
-      fetchStudents(),
-      fetchAttendance(),
-      fetchGrades(),
-      fetchFinance(),
+      useCached ? Promise.resolve({ total: p.kpi?.students?.total ?? 0, ...(p.kpi?.students ?? {}) }) : fetchStudents(),
+      fetchAttendance(), // ข้อมูลวันนี้ — ต้องสดเสมอ
+      useCached
+        ? Promise.resolve({
+            count: p.grading?.total_records ?? 0,
+            avg_score: p.grading?.average_score ?? 0,
+            distribution: p.grading?.grade_distribution ?? {},
+            school_gpa: p.grading?.school_gpa ?? 0,
+            pass_rate: p.grading?.pass_rate ?? 0,
+            sample: [],
+          })
+        : fetchGrades(),
+      useCached
+        ? Promise.resolve({
+            budget: {
+              income_total: p.finance?.income_total ?? 0,
+              expense_total: p.finance?.expense_total ?? 0,
+              balance: p.finance?.balance ?? 0,
+              count: p.finance?.procurement_count ?? 0,
+            },
+            petty_cash: { income_total: 0, expense_total: 0, balance: 0, count: 0 },
+          })
+        : fetchFinance(),
       fetchLibrary(),
       fetchBus(),
       fetchKiosk(),
@@ -177,8 +218,11 @@ Deno.serve(async (req) => {
       library: libraryVal,
       bus: busVal,
       kiosk: kioskVal,
+      source: useCached ? "snapshot+live_today" : "live",
+      snapshot_generated_at: snapshot?.generated_at ?? null,
       generated_at,
     });
+
   } catch (e: any) {
     console.error("onestop-api error:", e);
     return json({ error: e?.message ?? String(e) }, 500);
