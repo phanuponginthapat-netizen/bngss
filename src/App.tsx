@@ -145,6 +145,7 @@ const KioskSetupPage = lazy(() => import("./pages/admin/KioskSetupPage"));
 const KioskDoorHealthPage = lazy(() => import("./pages/admin/KioskDoorHealthPage"));
 const SmartGateReportPage = lazy(() => import("./pages/admin/SmartGateReportPage"));
 const SetupWizardPage = lazy(() => import("./pages/SetupWizardPage"));
+import SetupGuard from "@/components/SetupGuard";
 
 const UpstreamSyncPage = lazy(() => import("./pages/admin/UpstreamSyncPage"));
 const FieldVisibilityPage = lazy(() => import("./pages/admin/FieldVisibilityPage"));
@@ -346,7 +347,7 @@ const App = () => {
               <AnimatedRoutesWrapper>
                 <Routes>
               <Route path="/" element={<PublicLayout />} />
-              <Route path="/setup" element={<SetupWizardPage />} />
+              <Route path="/setup" element={<SetupGuard><SetupWizardPage /></SetupGuard>} />
               <Route path="/page/:slug" element={<PublicLayout />} />
               <Route path="/org-chart" element={<PublicOrgChartPage />} />
               <Route path="/sdq-assess/:studentId" element={<PublicSDQPage />} />
@@ -425,7 +426,7 @@ const App = () => {
                 <Route path="office/sheets" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><SheetsEditorPage /></ProtectedRoute>} />
                 <Route path="office/slides" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><SlidesEditorPage /></ProtectedRoute>} />
                 <Route path="office/pdf" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><PdfToolsPage /></ProtectedRoute>} />
-                <Route path="inbox" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><InboxPage /></ProtectedRoute>} />
+                <Route path="inbox" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><InboxPage /></ProtectedRoute>} />
                 <Route path="news/:id" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "alumni", "parent"]}><NewsDetailPage /></ProtectedRoute>} />
                 
                 <Route path="users" element={<ProtectedRoute allowedRoles={["admin", "director"]}><UserManagement /></ProtectedRoute>} />
@@ -636,9 +637,9 @@ const App = () => {
                 <Route path="padlet/:id" element={<ProtectedRoute allowedRoles={["admin","director","teacher","student","parent"]}><PadletBoardPage /></ProtectedRoute>} />
 
                 {/* Social feed + portfolio */}
-                <Route path="feed" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><FeedPage /></ProtectedRoute>} />
-                <Route path="portfolio" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "alumni"]}><PortfolioPage /></ProtectedRoute>} />
-                <Route path="members" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><MembersPage /></ProtectedRoute>} />
+                <Route path="feed" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><FeedPage /></ProtectedRoute>} />
+                <Route path="portfolio" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><PortfolioPage /></ProtectedRoute>} />
+                <Route path="members" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent", "alumni"]}><MembersPage /></ProtectedRoute>} />
                 
               </Route>
 
