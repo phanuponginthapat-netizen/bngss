@@ -7,6 +7,11 @@ import { requireCronOrAdmin } from "../_shared/requireCron.ts";
 
 import { corsHeadersWithCron as corsHeaders } from "../_shared/cors.ts";
 import { todayBangkokISO } from "../_shared/thaiDate.ts";
+import {
+  summarizeStudents, summarizePersonnel, summarizeGrading, summarizeAttendance,
+  summarizeBehavior, summarizeLeaves, summarizeFinance, summarizeAssets,
+  summarizeWelfare, summarizeProjects,
+} from "../_shared/aggregates.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -86,55 +91,8 @@ Deno.serve(async (req) => {
         const assetRows = assets.data || [];
         const projRows = projects.data || [];
 
-        const byGrade: Record<string, number> = {};
-        const byGender = { male: 0, female: 0, other: 0 };
-        let specialNeeds = 0;
-        sRows.forEach((s: any) => {
-          if (s.status !== "active") return;
-          byGrade[s.grade_level || "unknown"] = (byGrade[s.grade_level || "unknown"] || 0) + 1;
-          if (s.gender === "ชาย" || s.gender === "male") byGender.male++;
-          else if (s.gender === "หญิง" || s.gender === "female") byGender.female++;
-          else byGender.other++;
-          if (s.is_special_needs) specialNeeds++;
-        });
-
-        const gradeDist: Record<string, number> = {};
-        let sum = 0, cnt = 0, pass = 0, fail = 0;
-        scoreRows.forEach((r: any) => {
-          gradeDist[r.grade || "-"] = (gradeDist[r.grade || "-"] || 0) + 1;
-          const ts = Number(r.total_score);
-          if (Number.isFinite(ts)) { sum += ts; cnt++; if (ts >= 50) pass++; else fail++; }
-        });
-        const gpaMap: Record<string, number> = { "4": 4, "3.5": 3.5, "3": 3, "2.5": 2.5, "2": 2, "1.5": 1.5, "1": 1, "0": 0 };
-        let gpaSum = 0, gpaN = 0;
-        Object.entries(gradeDist).forEach(([g, n]) => {
-          if (gpaMap[g] !== undefined) { gpaSum += gpaMap[g] * n; gpaN += n; }
-        });
-
-        const attSummary = { present: 0, absent: 0, late: 0, leave: 0, total: attRows.length };
-        attRows.forEach((r: any) => {
-          if (r.status === "present") attSummary.present++;
-          else if (r.status === "absent") attSummary.absent++;
-          else if (r.status === "late") attSummary.late++;
-          else if (r.status === "leave") attSummary.leave++;
-        });
-
-        const behSummary = {
-          total: behRows.length,
-          positive: behRows.filter((r: any) => r.behavior_type === "positive").length,
-          negative: behRows.filter((r: any) => r.behavior_type === "negative").length,
-        };
-
-        const income = budRows.filter((r: any) => r.transaction_type === "income").reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
-        const expense = budRows.filter((r: any) => r.transaction_type === "expense").reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
-        const procTotal = procRows.reduce((s: number, r: any) => s + Number(r.total_amount || 0), 0);
-
-        const assetByCat: Record<string, number> = {};
-        const assetByStatus: Record<string, number> = {};
-        assetRows.forEach((a: any) => {
-          assetByCat[a.asset_category || "อื่น ๆ"] = (assetByCat[a.asset_category || "อื่น ๆ"] || 0) + 1;
-          assetByStatus[a.status || "unknown"] = (assetByStatus[a.status || "unknown"] || 0) + 1;
-        });
+        const grading = summarizeGrading(scoreRows);
+        const finance = summarizeFinance(budRows, procRows);
 
         const payload = {
           snapshot_version: "2.0",
@@ -142,65 +100,34 @@ Deno.serve(async (req) => {
           snapshot_date: today,
           school: s,
           kpi: {
-            students: {
-              total: students.count ?? sRows.length,
-              active: sRows.filter((r: any) => r.status === "active").length,
-              by_grade: byGrade,
-              by_gender: byGender,
-              special_needs: specialNeeds,
-            },
-            personnel: {
-              total: personnel.count ?? pRows.length,
-              active: pRows.filter((r: any) => r.status === "active").length,
-              by_rank: pRows.reduce((acc: any, p: any) => {
-                const k = p.academic_rank || "ไม่ระบุ"; acc[k] = (acc[k] || 0) + 1; return acc;
-              }, {}),
-            },
+            students: summarizeStudents(sRows, students.count),
+            personnel: summarizePersonnel(pRows, personnel.count),
             classrooms: classrooms.count ?? (classrooms.data || []).length,
             subjects: subjects.count ?? 0,
           },
-          grading: {
-            year, total_records: scoreRows.length,
-            grade_distribution: gradeDist,
-            average_score: cnt ? +(sum / cnt).toFixed(2) : 0,
-            school_gpa: gpaN ? +(gpaSum / gpaN).toFixed(2) : 0,
-            pass_count: pass, fail_count: fail,
-            pass_rate: (pass + fail) ? +((pass / (pass + fail)) * 100).toFixed(2) : 0,
-          },
-          attendance: attSummary,
-          behavior: behSummary,
-          leaves: {
-            total: leaveRows.length,
-            approved: leaveRows.filter((r: any) => r.status === "approved").length,
-            pending: leaveRows.filter((r: any) => r.status === "pending").length,
-            rejected: leaveRows.filter((r: any) => r.status === "rejected").length,
-          },
+          grading: { year, ...grading },
+          attendance: summarizeAttendance(attRows),
+          behavior: summarizeBehavior(behRows),
+          leaves: summarizeLeaves(leaveRows),
           finance: {
             fiscal_year: year,
-            income_total: +income.toFixed(2),
-            expense_total: +expense.toFixed(2),
-            balance: +(income - expense).toFixed(2),
-            procurement_total: +procTotal.toFixed(2),
-            procurement_count: procRows.length,
+            income_total: finance.income_total,
+            expense_total: finance.expense_total,
+            balance: finance.balance,
+            expense_by_category: finance.expense_by_category,
+            procurement_total: finance.procurement_total,
+            procurement_count: finance.procurement_count,
           },
-          assets: {
-            total: assets.count ?? assetRows.length,
-            by_category: assetByCat,
-            by_status: assetByStatus,
-          },
+          assets: summarizeAssets(assetRows, assets.count),
           welfare: {
-            health_visits: (health.data || []).length,
+            ...summarizeWelfare({
+              healthCount: (health.data || []).length,
+              homeVisitCount: (homeVisits.data || []).length,
+              sdqRows: sdq.data || [],
+            }),
             sdq_records: (sdq.data || []).length,
-            home_visits: (homeVisits.data || []).length,
           },
-          projects: {
-            total: projects.count ?? projRows.length,
-            budget_received_total: projRows.reduce((s: number, r: any) => s + Number(r.budget_received || 0), 0),
-            budget_spent_total: projRows.reduce((s: number, r: any) => s + Number(r.budget_spent || 0), 0),
-            by_status: projRows.reduce((acc: any, r: any) => {
-              const k = r.status || "unknown"; acc[k] = (acc[k] || 0) + 1; return acc;
-            }, {}),
-          },
+          projects: summarizeProjects(projRows, projects.count),
           activities: {
             recent_news: news.data || [],
             recent_events: events.data || [],

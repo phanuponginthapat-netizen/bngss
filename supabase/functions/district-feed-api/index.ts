@@ -20,6 +20,10 @@
 // Cache: GET 200 responses cached 5 min by default; /health and /openapi.json cached 1h
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  summarizeGrading, summarizeAttendance, summarizeBehavior, summarizeFinance,
+  summarizeAssets, summarizeWelfare,
+} from "../_shared/aggregates.ts";
 
 import { buildCorsHeaders } from "../_shared/cors.ts";
 const corsHeaders = buildCorsHeaders(['x-api-key'], "GET, OPTIONS");
@@ -258,20 +262,16 @@ Deno.serve(async (req) => {
       let pq = supabase.from("procurement_records").select("total_amount, status, created_at").gte("created_at", `${fiscalYear}-01-01`).limit(10000);
       if (schoolIdParam) { bq = bq.eq("school_id", schoolIdParam); pq = pq.eq("school_id", schoolIdParam); }
       const [bRes, pRes] = await Promise.all([bq, pq]);
-      const bRows = bRes.data || []; const pRows = pRes.data || [];
-      const income = bRows.filter((r: any) => r.transaction_type === "income").reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
-      const expense = bRows.filter((r: any) => r.transaction_type === "expense").reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
-      const byCat: Record<string, number> = {};
-      bRows.forEach((r: any) => { if (r.transaction_type === "expense") byCat[r.category || "อื่น ๆ"] = (byCat[r.category || "อื่น ๆ"] || 0) + Number(r.amount || 0); });
+      const f = summarizeFinance(bRes.data || [], pRes.data || []);
       body = {
         school_id: schoolIdParam, fiscal_year: fiscalYear,
         finance: {
-          income_total: +income.toFixed(2),
-          expense_total: +expense.toFixed(2),
-          balance: +(income - expense).toFixed(2),
-          expense_by_category: byCat,
-          procurement_total: +pRows.reduce((s: number, r: any) => s + Number(r.total_amount || 0), 0).toFixed(2),
-          procurement_count: pRows.length,
+          income_total: f.income_total,
+          expense_total: f.expense_total,
+          balance: f.balance,
+          expense_by_category: f.expense_by_category,
+          procurement_total: f.procurement_total,
+          procurement_count: f.procurement_count,
         },
       };
     } else if (path === "/assets") {
@@ -298,15 +298,7 @@ Deno.serve(async (req) => {
       let q = supabase.from("assets").select("id, status, asset_category, acquisition_value").limit(20000);
       if (schoolIdParam) q = q.eq("school_id", schoolIdParam);
       const { data } = await q;
-      const rows = data || [];
-      const byCat: Record<string, number> = {}; const byStatus: Record<string, number> = {};
-      let totalValue = 0;
-      rows.forEach((r: any) => {
-        byCat[r.asset_category || "อื่น ๆ"] = (byCat[r.asset_category || "อื่น ๆ"] || 0) + 1;
-        byStatus[r.status || "unknown"] = (byStatus[r.status || "unknown"] || 0) + 1;
-        totalValue += Number(r.acquisition_value || 0);
-      });
-      body = { school_id: schoolIdParam, assets: { total: rows.length, by_category: byCat, by_status: byStatus, total_value: +totalValue.toFixed(2) } };
+      body = { school_id: schoolIdParam, assets: summarizeAssets(data || []) };
     } else if (path === "/behavior/summary") {
       if (!requireScope("*") && !requireScope("stats")) return json({ error: "scope_denied" }, 403);
       let q = supabase.from("behavior_records").select("behavior_type, points, record_date").limit(20000);
@@ -314,15 +306,9 @@ Deno.serve(async (req) => {
       if (fromParam) q = q.gte("record_date", fromParam);
       if (toParam) q = q.lte("record_date", toParam);
       const { data } = await q;
-      const rows = data || [];
       body = {
         school_id: schoolIdParam, from: fromParam, to: toParam,
-        behavior: {
-          total: rows.length,
-          positive: rows.filter((r: any) => r.behavior_type === "positive").length,
-          negative: rows.filter((r: any) => r.behavior_type === "negative").length,
-          net_points: rows.reduce((s: number, r: any) => s + Number(r.points || 0), 0),
-        },
+        behavior: summarizeBehavior(data || []),
       };
     } else if (path === "/welfare/summary") {
       if (!requireScope("*") && !requireScope("stats")) return json({ error: "scope_denied" }, 403);
@@ -333,17 +319,15 @@ Deno.serve(async (req) => {
         filterSid(supabase.from("home_visits").select("id", { count: "exact", head: true })),
         filterSid(supabase.from("vaccine_records").select("id", { count: "exact", head: true })),
       ]);
-      const sdqRows = sdq.data || [];
-      const sdqByCat: Record<string, number> = {};
-      sdqRows.forEach((r: any) => { sdqByCat[r.category || "ไม่ระบุ"] = (sdqByCat[r.category || "ไม่ระบุ"] || 0) + 1; });
       body = {
         school_id: schoolIdParam,
-        welfare: {
-          health_visits: health.count ?? 0,
-          home_visits: hv.count ?? 0,
-          vaccine_records: vac.count ?? 0,
-          sdq: { total: sdq.count ?? sdqRows.length, by_category: sdqByCat },
-        },
+        welfare: summarizeWelfare({
+          healthCount: health.count ?? 0,
+          homeVisitCount: hv.count ?? 0,
+          vaccineCount: vac.count ?? 0,
+          sdqRows: sdq.data || [],
+          sdqCount: sdq.count,
+        }),
       };
     } else if (path === "/school-info") {
       // ConnextED-style school info: profile + KPIs
@@ -394,30 +378,9 @@ Deno.serve(async (req) => {
       if (academicYear) q = q.eq("academic_year", parseInt(academicYear, 10));
       if (semester) q = q.eq("semester", parseInt(semester, 10));
       const { data } = await q;
-      const rows = data || [];
-      const gradeDist: Record<string, number> = {};
-      let sum = 0, cnt = 0, pass = 0, fail = 0;
-      rows.forEach((r: any) => {
-        const g = r.grade || "-";
-        gradeDist[g] = (gradeDist[g] || 0) + 1;
-        const ts = Number(r.total_score);
-        if (Number.isFinite(ts)) { sum += ts; cnt++; if (ts >= 50) pass++; else fail++; }
-      });
-      const gpaMap: Record<string, number> = { "4": 4, "3.5": 3.5, "3": 3, "2.5": 2.5, "2": 2, "1.5": 1.5, "1": 1, "0": 0 };
-      let gpaSum = 0, gpaN = 0;
-      Object.entries(gradeDist).forEach(([g, n]) => {
-        if (gpaMap[g] !== undefined) { gpaSum += gpaMap[g] * n; gpaN += n; }
-      });
       body = {
         school_id: schoolIdParam, academic_year: academicYear, semester,
-        grading: {
-          total_records: rows.length,
-          grade_distribution: gradeDist,
-          average_score: cnt ? +(sum / cnt).toFixed(2) : 0,
-          school_gpa: gpaN ? +(gpaSum / gpaN).toFixed(2) : 0,
-          pass_count: pass, fail_count: fail,
-          pass_rate: (pass + fail) ? +((pass / (pass + fail)) * 100).toFixed(2) : 0,
-        },
+        grading: summarizeGrading(data || []),
       };
     } else if (path === "/activities") {
       // Overview of school activities
@@ -590,14 +553,7 @@ Deno.serve(async (req) => {
       if (fromParam) q = q.gte("attendance_date", fromParam);
       if (toParam) q = q.lte("attendance_date", toParam);
       const { data } = await q.limit(20000);
-      const summary = { present: 0, absent: 0, late: 0, leave: 0, total: data?.length ?? 0 };
-      (data || []).forEach((r: any) => {
-        if (r.status === "present") summary.present++;
-        else if (r.status === "absent") summary.absent++;
-        else if (r.status === "late") summary.late++;
-        else if (r.status === "leave") summary.leave++;
-      });
-      body = { school_id: schoolIdParam, from: fromParam, to: toParam, summary };
+      body = { school_id: schoolIdParam, from: fromParam, to: toParam, summary: summarizeAttendance(data || []) };
     } else if (path === "/documents/summary") {
       if (!requireScope("documents") && !requireScope("stats")) return json({ error: "scope_denied" }, 403);
       let q = supabase.from("documents").select("doc_type, doc_date, school_id");
@@ -747,7 +703,7 @@ Deno.serve(async (req) => {
         const t = r.test_type || "other";
         (byType[t] = byType[t] || []).push(r);
       });
-      const avgOf = (xs: number[]) => xs.length ? +(xs.reduce((s, n) => s + n, 0) / xs.length).toFixed(2) : null;
+      const avgOf = (xs: number[]) => xs.length ? +(xs.reduce((s: number, n: number) => s + n, 0) / xs.length).toFixed(2) : null;
       const summary: any = {};
       for (const [t, arr] of Object.entries(byType)) {
         // Weighted by student_count only when provided (>0); otherwise fall back to simple average
@@ -844,7 +800,7 @@ Deno.serve(async (req) => {
         health: {
           records_total: hr.count ?? 0,
           measurements_total: hmRows.length,
-          avg_bmi: bmis.length ? +(bmis.reduce((s, n) => s + n, 0) / bmis.length).toFixed(2) : null,
+          avg_bmi: bmis.length ? +(bmis.reduce((s: number, n: number) => s + n, 0) / bmis.length).toFixed(2) : null,
           vaccines_by_name: vacByName,
           screenings_by_type: scrByType,
         },
@@ -1009,7 +965,7 @@ Deno.serve(async (req) => {
         exams: {
           total: exRes.count ?? 0,
           submissions_total: subs.length,
-          avg_score: scores.length ? +(scores.reduce((s, n) => s + n, 0) / scores.length).toFixed(2) : null,
+          avg_score: scores.length ? +(scores.reduce((s: number, n: number) => s + n, 0) / scores.length).toFixed(2) : null,
         },
       };
     } else if (path === "/homework/summary") {
@@ -1153,7 +1109,7 @@ Deno.serve(async (req) => {
       ]);
       const seScores = (se.data || []).map((r: any) => Number(r.overall_score)).filter((v: number) => Number.isFinite(v));
       const peScores = (pe.data || []).map((r: any) => Number(r.total_score)).filter((v: number) => Number.isFinite(v));
-      const avg = (xs: number[]) => xs.length ? +(xs.reduce((s, n) => s + n, 0) / xs.length).toFixed(2) : null;
+      const avg = (xs: number[]) => xs.length ? +(xs.reduce((s: number, n: number) => s + n, 0) / xs.length).toFixed(2) : null;
       body = {
         school_id: schoolIdParam,
         evaluations: {

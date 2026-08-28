@@ -2,6 +2,9 @@
 // GET /onestop-api?module=all | attendance | grades | finance | library | bus | kiosk | students
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import {
+  summarizeGrading, summarizeFinance, summarizePettyCash, summarizeLibrary,
+} from "../_shared/aggregates.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -66,27 +69,26 @@ Deno.serve(async (req) => {
         .select("total_score, grade, academic_year, semester")
         .limit(500);
       const rows = data ?? [];
-      const scores = rows.map((r: any) => Number(r.total_score)).filter((n: number) => Number.isFinite(n));
-      const avg = scores.length ? +(scores.reduce((a: number, b: number) => a + b, 0) / scores.length).toFixed(2) : 0;
-      const dist: Record<string, number> = {};
-      rows.forEach((r: any) => { const g = r.grade ?? "-"; dist[g] = (dist[g] || 0) + 1; });
-      return { count: rows.length, avg_score: avg, distribution: dist, sample: rows.slice(0, 5) };
+      const g = summarizeGrading(rows);
+      return {
+        count: g.total_records,
+        avg_score: g.average_score,
+        distribution: g.grade_distribution,
+        school_gpa: g.school_gpa,
+        pass_rate: g.pass_rate,
+        sample: rows.slice(0, 5),
+      };
     };
 
     const fetchFinance = async () => {
       const [budgetRes, pettyRes] = await Promise.all([
-        admin.from("budget_transactions").select("amount, transaction_type, fiscal_year").limit(1000),
+        admin.from("budget_transactions").select("amount, transaction_type, category, fiscal_year").limit(1000),
         admin.from("petty_cash").select("amount, type, date").limit(1000),
       ]);
-      const bRows: any[] = (budgetRes as any).data ?? [];
-      const pRows: any[] = (pettyRes as any).data ?? [];
-      const income = bRows.filter((r) => r.transaction_type === "income").reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
-      const expense = bRows.filter((r) => r.transaction_type === "expense").reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
-      const pettyIn = pRows.filter((r) => r.type === "income" || r.type === "in").reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
-      const pettyOut = pRows.filter((r) => r.type === "expense" || r.type === "out").reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
+      const b = summarizeFinance((budgetRes as any).data ?? []);
       return {
-        budget: { income_total: +income.toFixed(2), expense_total: +expense.toFixed(2), balance: +(income - expense).toFixed(2), count: bRows.length },
-        petty_cash: { income_total: +pettyIn.toFixed(2), expense_total: +pettyOut.toFixed(2), balance: +(pettyIn - pettyOut).toFixed(2), count: pRows.length },
+        budget: { income_total: b.income_total, expense_total: b.expense_total, balance: b.balance, count: b.count },
+        petty_cash: summarizePettyCash((pettyRes as any).data ?? []),
       };
     };
 
@@ -97,16 +99,8 @@ Deno.serve(async (req) => {
       ]);
       const books: any[] = (booksRes as any).data ?? [];
       const loans: any[] = (loansRes as any).data ?? [];
-      const totalCopies = books.reduce((s: number, b: any) => s + Number(b.copies_total || 0), 0);
-      const availableCopies = books.reduce((s: number, b: any) => s + Number(b.copies_available || 0), 0);
-      const activeLoans = loans.filter((l: any) => !l.returned_at).length;
-      const overdue = loans.filter((l: any) => !l.returned_at && l.due_at && new Date(l.due_at) < new Date()).length;
       return {
-        books_total: (booksRes as any).count ?? books.length,
-        total_copies: totalCopies,
-        available_copies: availableCopies,
-        active_loans: activeLoans,
-        overdue_loans: overdue,
+        ...summarizeLibrary(books, loans, (booksRes as any).count),
         sample_books: books.slice(0, 3),
       };
     };
