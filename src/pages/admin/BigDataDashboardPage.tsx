@@ -62,6 +62,8 @@ type OneStopBus = { total_routes: number; by_status: Record<string, number>; sam
 type OneStopKiosk = { students_count: number; devices: { count: number; rows: any[] }; generated_at?: string };
 type OneStopPayload = {
   generated_at: string;
+  source?: string;
+  snapshot_generated_at?: string | null;
   students?: { total: number };
   attendance?: OneStopAttendance;
   grades?: OneStopGrades;
@@ -468,6 +470,12 @@ export default function BigDataDashboardPage() {
               <Calendar className="w-3.5 h-3.5" />
               สร้างเมื่อ: {generatedAt ? formatDateTimeBE(generatedAt) : "-"}
             </span>
+            <span className="hidden sm:inline">•</span>
+            <Badge variant="outline" className="text-[10px]">
+              {data?.source === "live"
+                ? "คำนวณสดทั้งหมด"
+                : `ข้อมูลสะสมจากสรุปรายคืน${data?.snapshot_generated_at ? ` (${formatDateTimeBE(data.snapshot_generated_at)})` : ""} + ข้อมูลวันนี้แบบสด`}
+            </Badge>
             {data?.students?.total != null && (
               <>
                 <span className="hidden sm:inline">•</span>
