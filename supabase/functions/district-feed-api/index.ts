@@ -703,7 +703,7 @@ Deno.serve(async (req) => {
         const t = r.test_type || "other";
         (byType[t] = byType[t] || []).push(r);
       });
-      const avgOf = (xs: number[]) => xs.length ? +(xs.reduce((s, n) => s + n, 0) / xs.length).toFixed(2) : null;
+      const avgOf = (xs: number[]) => xs.length ? +(xs.reduce((s: number, n: number) => s + n, 0) / xs.length).toFixed(2) : null;
       const summary: any = {};
       for (const [t, arr] of Object.entries(byType)) {
         // Weighted by student_count only when provided (>0); otherwise fall back to simple average
@@ -800,7 +800,7 @@ Deno.serve(async (req) => {
         health: {
           records_total: hr.count ?? 0,
           measurements_total: hmRows.length,
-          avg_bmi: bmis.length ? +(bmis.reduce((s, n) => s + n, 0) / bmis.length).toFixed(2) : null,
+          avg_bmi: bmis.length ? +(bmis.reduce((s: number, n: number) => s + n, 0) / bmis.length).toFixed(2) : null,
           vaccines_by_name: vacByName,
           screenings_by_type: scrByType,
         },
@@ -965,7 +965,7 @@ Deno.serve(async (req) => {
         exams: {
           total: exRes.count ?? 0,
           submissions_total: subs.length,
-          avg_score: scores.length ? +(scores.reduce((s, n) => s + n, 0) / scores.length).toFixed(2) : null,
+          avg_score: scores.length ? +(scores.reduce((s: number, n: number) => s + n, 0) / scores.length).toFixed(2) : null,
         },
       };
     } else if (path === "/homework/summary") {
@@ -1109,7 +1109,7 @@ Deno.serve(async (req) => {
       ]);
       const seScores = (se.data || []).map((r: any) => Number(r.overall_score)).filter((v: number) => Number.isFinite(v));
       const peScores = (pe.data || []).map((r: any) => Number(r.total_score)).filter((v: number) => Number.isFinite(v));
-      const avg = (xs: number[]) => xs.length ? +(xs.reduce((s, n) => s + n, 0) / xs.length).toFixed(2) : null;
+      const avg = (xs: number[]) => xs.length ? +(xs.reduce((s: number, n: number) => s + n, 0) / xs.length).toFixed(2) : null;
       body = {
         school_id: schoolIdParam,
         evaluations: {
