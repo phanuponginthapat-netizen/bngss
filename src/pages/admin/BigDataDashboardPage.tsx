@@ -165,7 +165,9 @@ export default function BigDataDashboardPage() {
       const token = sess.session?.access_token;
       if (!token) throw new Error("ไม่พบ session — กรุณาเข้าสู่ระบบใหม่ (ต้องเป็น admin/director)");
 
-      const url = `${SUPABASE_RUNTIME_URL}/functions/v1/onestop-api?module=all`;
+      // ปกติใช้ snapshot รายคืน + ข้อมูลสดเฉพาะวันนี้ (เบา/เร็ว)
+      // กด "รีเฟรช" = บังคับคำนวณสดทั้งหมด
+      const url = `${SUPABASE_RUNTIME_URL}/functions/v1/onestop-api?module=all&source=${isRefresh ? "live" : "auto"}`;
       const res = await fetch(url, {
         method: "GET",
         headers: {
