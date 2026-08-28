@@ -13,3 +13,4 @@ Bucket `profile-images` ต้อง public เพื่อให้ URL เก�
 - [Security hardening phase 2](mem/features/security-hardening.md) — REVOKE anon/authenticated จาก SECURITY DEFINER, whitelist ฟังก์ชัน public
 - [Role/RLS matrix](mem/features/role-rls-matrix.md) — สิทธิ์อ่าน/เขียนของแต่ละ role ต่อกลุ่มตาราง + กติกาเขียน policy
 - [Canonical department names](mem/features/personnel-department-canonical.md) — ชื่อฝ่ายมาตรฐาน "ฝ่ายวิชาการ/ฝ่ายบริหารงานทั่วไป/..." + แมป enum + บัญชีระบบที่ต้องซ่อน
+- [Shared KPI aggregates](mem://features/shared-aggregates) — สูตรสรุป KPI รวมศูนย์ใน `_shared/aggregates.ts` ห้ามเขียนซ้ำ
