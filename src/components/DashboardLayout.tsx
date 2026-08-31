@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { useGlobalRealtime } from "@/hooks/useGlobalRealtime";
+import { useIdlePrefetch } from "@/hooks/useIdlePrefetch";
 import FirstLoginSetup from "@/pages/FirstLoginSetup";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import BackButton from "@/components/BackButton";
@@ -82,6 +83,7 @@ const DashboardLayout = () => {
   const { role, userId, loading: roleLoading } = useUserRole();
   const { appName, schoolLogo } = useSystemSettings();
   useGlobalRealtime();
+  useIdlePrefetch();
   useForceLogoutListener({ userId, role, classroom: studentClassroom });
   // ออกจากระบบอัตโนมัติเมื่อไม่มีการใช้งาน 2 ชม. (เฉพาะ desktop browser — ยกเว้น PWA/มือถือ/kiosk)
   useIdleLogout(!!session);

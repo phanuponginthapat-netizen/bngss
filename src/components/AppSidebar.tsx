@@ -380,6 +380,7 @@ export function AppSidebar() {
       color: "text-sky-400",
       roles: ["admin", "director"],
       items: [
+        { title: L("ตรวจความสมบูรณ์ข้อมูล", "Data Quality"), url: "/dashboard/admin/data-quality", icon: Activity, color: "text-amber-400", roles: ["admin", "director"], desc: L("ผู้ใช้ไม่มีบทบาท · นักเรียนไม่มีห้อง · ครูไม่มีตารางสอน", "Missing roles, classrooms & schedules") },
         { title: L("สุขภาพระบบ (Health)", "System Health"), url: "/dashboard/admin/system-health", icon: Activity, color: "text-emerald-400", roles: ["admin", "director"], desc: L("สถานะ Realtime · Edge · Cron · Live Feed", "Realtime, edge, cron & live feed status") },
         { title: L("ตรวจสอบ RLS Policy", "RLS Audit"), url: "/dashboard/admin/rls-audit", icon: Shield, color: "text-rose-400", roles: ["admin"], desc: L("สรุปสถานะสิทธิ์ INSERT/UPDATE/DELETE ทุกตาราง", "Policy coverage per table") },
         { title: L("โครงสร้างฐานข้อมูล", "Database Schema"), url: "/dashboard/admin/database-schema", icon: Database, color: "text-indigo-400", roles: ["admin", "director"], desc: L("เปิดดู Schema · Foreign Keys · API endpoints", "Browse schema, FKs & API endpoints") },
