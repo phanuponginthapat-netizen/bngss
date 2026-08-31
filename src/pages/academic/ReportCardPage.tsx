@@ -13,6 +13,8 @@ import { openPrintWindow, currentThaiDate } from "@/lib/printUtils";
 import { formatFullNameHtml, formatFullName, formatFullNamePlain } from "@/lib/nameFormat";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { useStudentsWithClass } from "@/hooks/useStudentsWithClass";
+import ClassBookletDialog from "@/components/academic/ClassBookletDialog";
+
 
 const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
   const [studentCode, setStudentCode] = useState("");
@@ -195,19 +197,24 @@ const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
   return (
     <div className="space-y-6">
       {!embedded && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-foreground">สมุดรายงานผลการพัฒนาคุณภาพผู้เรียน (ปพ.6)</h1>
             <p className="text-sm text-muted-foreground">รายงานผลการเรียน คุณลักษณะ และสมรรถนะ รายภาคเรียน</p>
           </div>
+          <div className="flex items-center gap-2">
+            {studentCode && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร</Button>}
+            <ClassBookletDialog kind="pp6" school={schoolInfo} defaultSemester={semester} />
+          </div>
+        </div>
+      )}
+      {embedded && (
+        <div className="flex justify-end gap-2">
           {studentCode && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร</Button>}
+          <ClassBookletDialog kind="pp6" school={schoolInfo} defaultSemester={semester} />
         </div>
       )}
-      {embedded && studentCode && (
-        <div className="flex justify-end">
-          <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร</Button>
-        </div>
-      )}
+
 
       <div className="flex flex-wrap gap-3 items-end">
         <StudentSelector students={students} classrooms={classrooms} studentCode={studentCode} onStudentChange={setStudentCode} />
