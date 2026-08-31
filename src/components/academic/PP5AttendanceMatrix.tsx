@@ -104,7 +104,7 @@ const PP5AttendanceMatrix = ({
       const { data } = await supabase.from("attendance")
         .select("id, student_id, attendance_date, status")
         .eq("subject_id", subjectId)
-        .eq("academic_year", academicYear)
+        .eq("academic_year", toCE(academicYear))
         .eq("semester", semester)
         .in("student_id", studentIds)
         .in("status", ["absent", "leave"]);

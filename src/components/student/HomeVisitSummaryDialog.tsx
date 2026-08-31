@@ -127,7 +127,7 @@ export const HomeVisitSummaryDialog = ({ open, onOpenChange, academicYear, semes
       const { data } = await supabase
         .from("home_visit_summaries")
         .select("*")
-        .eq("academic_year", academicYear)
+        .eq("academic_year", toCE(academicYear))
         .eq("semester", semester)
         .maybeSingle();
       return data;

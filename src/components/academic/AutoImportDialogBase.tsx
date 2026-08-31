@@ -137,7 +137,7 @@ export function AutoImportDialogBase<T>({
         // Dedup check
         let dupQuery = (supabase.from(tableName) as any)
           .select("id, file_name, file_path")
-          .eq("grade_level", gradeLevel).eq("semester", semester).eq("academic_year", year);
+          .eq("grade_level", gradeLevel).eq("semester", semester).eq("academic_year", toCE(year));
         for (const [k, v] of Object.entries(dedupWhere)) dupQuery = dupQuery.eq(k, v);
         const { data: dupe } = await dupQuery.maybeSingle();
 
