@@ -300,12 +300,22 @@ const queryClient = new QueryClient({
       gcTime: 15 * 60 * 1000, // เก็บ cache ไว้นานขึ้น ทำให้กลับหน้าเดิมไวขึ้น
       // Realtime + invalidate ครอบคลุมอยู่แล้ว จึงไม่ต้อง refetch ทุกครั้งที่ mount/โฟกัส
       refetchOnWindowFocus: false,
-      refetchOnMount: true,
+      // ใช้ cache ที่ยังไม่หมดอายุทันที (ไม่ยิงซ้ำตอน mount) → สลับหน้าไหลลื่น
+      refetchOnMount: false,
       refetchOnReconnect: "always",
-      retry: 1,
+      // เปลี่ยนฟิลเตอร์/หน้าเพจแล้วยังเห็นข้อมูลเดิมระหว่างโหลด (ไม่กระพริบ)
+      placeholderData: (prev: unknown) => prev,
+      // อย่ารีทรายคำขอที่ผิดพลาดถาวร (401/403/404/409) — เปลืองคอนเนกชัน
+      retry: (failureCount, error: any) => {
+        const status = error?.status ?? error?.code;
+        if (typeof status === "number" && status >= 400 && status < 500) return false;
+        return failureCount < 2;
+      },
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000) + Math.random() * 300,
     },
   },
 });
+
 
 
 import SystemLoader from "./components/SystemLoader";
