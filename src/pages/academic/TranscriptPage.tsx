@@ -13,6 +13,8 @@ import { openPrintWindow, currentThaiDate } from "@/lib/printUtils";
 import { formatFullNameHtml, formatFullName, formatFullNamePlain } from "@/lib/nameFormat";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { useStudentsWithClass } from "@/hooks/useStudentsWithClass";
+import ClassBookletDialog from "@/components/academic/ClassBookletDialog";
+
 
 const TranscriptPage = () => {
   const { lang } = useLanguage();
