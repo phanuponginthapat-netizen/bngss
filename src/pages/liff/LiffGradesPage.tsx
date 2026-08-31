@@ -14,9 +14,9 @@ function GradeView({ lineUserId }: { lineUserId: string }) {
         .or(`line_user_id.eq.${lineUserId},line_user_id_2.eq.${lineUserId},line_user_id_3.eq.${lineUserId}`);
       const s = students?.[0];
       if (!s) { setLoading(false); return; }
-      const { data } = await supabase.from("enrollments")
-        .select("total_score,grade,midterm_score,final_score,subjects(name_th,code)")
-        .eq("student_id", s.id).eq("status", "active").limit(30);
+      const { data } = await supabase.from("student_scores")
+        .select("total_score,grade,subjects(name_th,code)")
+        .eq("student_id", s.id).order("created_at", { ascending: false }).limit(30);
       setRows(data ?? []);
       setLoading(false);
     })();

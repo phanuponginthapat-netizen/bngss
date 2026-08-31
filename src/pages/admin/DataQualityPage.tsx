@@ -37,7 +37,7 @@ async function runChecks(): Promise<Issue[]> {
   // 1) ผู้ใช้ที่ยังไม่มีบทบาท (role)
   try {
     const [{ data: profiles }, { data: roles }]: any[] = await Promise.all([
-      (supabase as any).from("profiles").select("id, first_name, last_name, email").limit(5000),
+      (supabase as any).from("profiles").select("id, first_name, last_name, google_email").limit(5000),
       (supabase as any).from("user_roles").select("user_id").limit(20000),
     ]);
     const withRole = new Set((roles || []).map((r: { user_id: string }) => r.user_id));
