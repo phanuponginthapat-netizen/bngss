@@ -183,13 +183,17 @@ const TranscriptPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">ระเบียนแสดงผลการเรียน (ปพ.1)</h1>
           <p className="text-sm text-muted-foreground">แบบแสดงผลการเรียนตลอดหลักสูตร ครบทุกระดับชั้น</p>
         </div>
-        {studentCode && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร</Button>}
+        <div className="flex items-center gap-2">
+          {studentCode && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร</Button>}
+          <ClassBookletDialog kind="pp1" school={schoolInfo} />
+        </div>
       </div>
+
 
       <StudentSelector students={students} classrooms={classrooms} studentCode={studentCode} onStudentChange={setStudentCode} />
 
