@@ -1,0 +1,83 @@
+src/pages/Dashboard.tsx:117:        supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("status", "active"),
+src/pages/Dashboard.tsx-118-        supabase.from("homeroom_records").select("id", { count: "exact", head: true }),
+src/pages/Dashboard.tsx-119-        supabase.from("home_visits").select("id", { count: "exact", head: true }),
+src/pages/Dashboard.tsx-120-        supabase.from("documents").select("id, status", { count: "exact" }),
+src/pages/Dashboard.tsx-121-      ]);
+src/pages/Dashboard.tsx-122-
+src/pages/Dashboard.tsx-123-      // รวมการแสกนหน้าของวันนี้เข้ากับการเช็คชื่อ
+src/pages/Dashboard.tsx-124-      const todayISO = todayBangkok();
+src/pages/Dashboard.tsx-125-      const lateThresholdSetting = await supabase
+src/pages/Dashboard.tsx-126-        .from("school_settings").select("setting_value")
+src/pages/Dashboard.tsx-127-        .eq("setting_key", "face_scan_late_threshold").maybeSingle();
+--
+src/pages/academic/EnrollmentPage.tsx:114:    const { data } = await supabase.from("enrollments").select("*").eq("subject_id", subjectId).order("enrolled_at");
+src/pages/academic/EnrollmentPage.tsx-115-    setEnrollments(data || []);
+src/pages/academic/EnrollmentPage.tsx-116-  };
+src/pages/academic/EnrollmentPage.tsx-117-
+src/pages/academic/EnrollmentPage.tsx-118-  // Add classroom
+src/pages/academic/EnrollmentPage.tsx-119-  const handleAddClassroom = async () => {
+src/pages/academic/EnrollmentPage.tsx-120-    if (savingClassroom) return;
+src/pages/academic/EnrollmentPage.tsx-121-    if (!classroomForm.name || !classroomForm.grade_level) { toast.error("กรุณากรอกชื่อห้องและระดับชั้น"); return; }
+src/pages/academic/EnrollmentPage.tsx-122-    setSavingClassroom(true);
+src/pages/academic/EnrollmentPage.tsx-123-    try {
+src/pages/academic/EnrollmentPage.tsx-124-      const { error } = await supabase.from("classrooms").insert({
+--
+src/pages/academic/EnrollmentPage.tsx:183:      const { error } = await supabase.from("enrollments").upsert(enrollData, { onConflict: "student_id,subject_id,semester,academic_year" });
+src/pages/academic/EnrollmentPage.tsx-184-      if (error) { toast.error(saveErrorMessage(error)); return; }
+src/pages/academic/EnrollmentPage.tsx-185-      toast.success(`ลงทะเบียนรายห้อง ${classStudents.length} คนสำเร็จ`);
+src/pages/academic/EnrollmentPage.tsx-186-      fetchEnrollmentsBySubject(selectedSubject);
+src/pages/academic/EnrollmentPage.tsx-187-    } finally {
+src/pages/academic/EnrollmentPage.tsx-188-      setSavingEnroll(false);
+src/pages/academic/EnrollmentPage.tsx-189-    }
+src/pages/academic/EnrollmentPage.tsx-190-  };
+src/pages/academic/EnrollmentPage.tsx-191-
+src/pages/academic/EnrollmentPage.tsx-192-  // Enroll selected individuals
+src/pages/academic/EnrollmentPage.tsx-193-  const handleEnrollIndividual = async () => {
+--
+src/pages/academic/EnrollmentPage.tsx:208:      const { error } = await supabase.from("enrollments").upsert(enrollData, { onConflict: "student_id,subject_id,semester,academic_year" });
+src/pages/academic/EnrollmentPage.tsx-209-      if (error) { toast.error(saveErrorMessage(error)); return; }
+src/pages/academic/EnrollmentPage.tsx-210-      toast.success(`ลงทะเบียนรายบุคคล ${selectedStudentIds.length} คนสำเร็จ`);
+src/pages/academic/EnrollmentPage.tsx-211-      setSelectedStudentIds([]);
+src/pages/academic/EnrollmentPage.tsx-212-      fetchEnrollmentsBySubject(selectedSubject);
+src/pages/academic/EnrollmentPage.tsx-213-    } finally {
+src/pages/academic/EnrollmentPage.tsx-214-      setSavingEnroll(false);
+src/pages/academic/EnrollmentPage.tsx-215-    }
+src/pages/academic/EnrollmentPage.tsx-216-  };
+src/pages/academic/EnrollmentPage.tsx-217-
+src/pages/academic/EnrollmentPage.tsx-218-  // Remove enrollment
+--
+src/pages/academic/EnrollmentPage.tsx:220:    const { error } = await supabase.from("enrollments").delete().eq("id", id);
+src/pages/academic/EnrollmentPage.tsx-221-    if (error) { toast.error(saveErrorMessage(error)); return; }
+src/pages/academic/EnrollmentPage.tsx-222-    toast.success("ถอนการลงทะเบียนสำเร็จ");
+src/pages/academic/EnrollmentPage.tsx-223-    fetchEnrollmentsBySubject(selectedSubject);
+src/pages/academic/EnrollmentPage.tsx-224-  };
+src/pages/academic/EnrollmentPage.tsx-225-
+src/pages/academic/EnrollmentPage.tsx-226-  const toggleStudent = (id: string) => {
+src/pages/academic/EnrollmentPage.tsx-227-    setSelectedStudentIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+src/pages/academic/EnrollmentPage.tsx-228-  };
+src/pages/academic/EnrollmentPage.tsx-229-
+src/pages/academic/EnrollmentPage.tsx-230-  const toggleAll = () => {
+--
+src/pages/admin/DistrictFeedPage.tsx:236:      const { data } = await supabase.from("enrollments").select("*").limit(2000);
+src/pages/admin/DistrictFeedPage.tsx-237-      payload = { exported_at: new Date().toISOString(), enrollments: data || [] };
+src/pages/admin/DistrictFeedPage.tsx-238-    }
+src/pages/admin/DistrictFeedPage.tsx-239-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+src/pages/admin/DistrictFeedPage.tsx-240-    const url = URL.createObjectURL(blob);
+src/pages/admin/DistrictFeedPage.tsx-241-    const a = document.createElement("a");
+src/pages/admin/DistrictFeedPage.tsx-242-    a.href = url; a.download = `district-feed-${kind}-${Date.now()}.json`; a.click();
+src/pages/admin/DistrictFeedPage.tsx-243-    URL.revokeObjectURL(url);
+src/pages/admin/DistrictFeedPage.tsx-244-  };
+src/pages/admin/DistrictFeedPage.tsx-245-
+src/pages/admin/DistrictFeedPage.tsx-246-  const exportCsv = async () => {
+--
+src/components/dashboard/TeacherDashboard.tsx:325:        const { data: enrollments } = await supabase.from("enrollments")
+src/components/dashboard/TeacherDashboard.tsx-326-          .select("subject_id").in("subject_id", subjectIds).eq("status", "active");
+src/components/dashboard/TeacherDashboard.tsx-327-        (enrollments || []).forEach(e => {
+src/components/dashboard/TeacherDashboard.tsx-328-          enrollmentMap[e.subject_id] = (enrollmentMap[e.subject_id] || 0) + 1;
+src/components/dashboard/TeacherDashboard.tsx-329-        });
+src/components/dashboard/TeacherDashboard.tsx-330-      }
+src/components/dashboard/TeacherDashboard.tsx-331-
+src/components/dashboard/TeacherDashboard.tsx-332-      return {
+src/components/dashboard/TeacherDashboard.tsx-333-        subjects: [...uniqueSubjects.values()],
+src/components/dashboard/TeacherDashboard.tsx-334-        enrollmentMap,
+src/components/dashboard/TeacherDashboard.tsx-335-        todaySchedules: (schedules.data || []).filter(s => s.day_of_week === new Date().getDay()),

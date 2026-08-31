@@ -1,0 +1,91 @@
+src/lib/ppBooklet.ts:177:  const scoreQuery = supabase.from("student_scores").select("*").in("student_code", codes);
+src/lib/ppBooklet.ts-178-  const [{ data: subjects }, { data: scores }, { data: assessments }, { data: attendance }] = await Promise.all([
+src/lib/ppBooklet.ts-179-    supabase.from("subjects").select("*"),
+--
+src/lib/aiTutor.ts:107:    .from("student_scores")
+src/lib/aiTutor.ts-108-    .select("id, subject_id, grade, grade_point, total_score, semester, academic_year, subjects!inner(id, code, name_th, name_en, credits)")
+src/lib/aiTutor.ts-109-    .eq("student_code", student.student_code)
+--
+src/pages/ParentAppPage.tsx:291:          .from("student_scores")
+src/pages/ParentAppPage.tsx-292-          .select("id, student_code, subject_id, total_score, grade, grade_point, semester, academic_year, subjects(code, name_th)")
+src/pages/ParentAppPage.tsx-293-          .eq("student_code", child.student_code)
+--
+src/lib/pp5ApplyToSystem.ts:207:        .from("student_scores")
+src/lib/pp5ApplyToSystem.ts-208-        .upsert(scoreRows.slice(i, i + 500), { onConflict: "student_code,subject_id" });
+src/lib/pp5ApplyToSystem.ts-209-      if (sErr) throw new Error(`กระจายผลการเรียนไม่สำเร็จ: ${sErr.message}`);
+--
+src/pages/academic/TranscriptPage.tsx:36:      const { data } = await supabase.from("student_scores").select("*").eq("student_code", studentCode).order("academic_year").order("semester");
+src/pages/academic/TranscriptPage.tsx-37-      return data || [];
+src/pages/academic/TranscriptPage.tsx-38-    },
+--
+src/pages/academic/ReportCardPage.tsx:38:      let q = supabase.from("student_scores").select("*").eq("student_code", studentCode);
+src/pages/academic/ReportCardPage.tsx-39-      if (semester) q = q.eq("semester", parseInt(semester));
+src/pages/academic/ReportCardPage.tsx-40-      const { data } = await q;
+--
+src/pages/liff/LiffGradesPage.tsx:17:      const { data } = await (supabase as any).from("student_scores")
+src/pages/liff/LiffGradesPage.tsx-18-        .select("total_score,grade,subjects(name_th,code)")
+src/pages/liff/LiffGradesPage.tsx-19-        .eq("student_id", s.id).order("created_at", { ascending: false }).limit(30);
+--
+src/pages/academic/Pp7Page.tsx:32:      const { data } = await supabase.from("student_scores").select("*").eq("student_code", studentCode);
+src/pages/academic/Pp7Page.tsx-33-      return data || [];
+src/pages/academic/Pp7Page.tsx-34-    },
+--
+src/pages/academic/Pp6Page.tsx:116:      const { data } = await supabase.from("student_scores").select("*")
+src/pages/academic/Pp6Page.tsx-117-        .in("subject_id", subjectIds)
+src/pages/academic/Pp6Page.tsx-118-        .eq("semester", parseInt(semester));
+--
+src/pages/academic/Pp5Page.tsx:581:      const { error } = await supabase.from("student_scores").upsert({
+src/pages/academic/Pp5Page.tsx-582-        student_name: studentName,
+src/pages/academic/Pp5Page.tsx-583-        student_code: (s as any).student_code,
+--
+src/pages/academic/Pp5Page.tsx:1042:      let q = supabase.from("student_scores").select("*").eq("subject_id", subjectId);
+src/pages/academic/Pp5Page.tsx-1043-      if (semester) q = q.eq("semester", parseInt(semester));
+src/pages/academic/Pp5Page.tsx-1044-      const { data } = await q.order("student_name");
+--
+src/pages/UserManagement.tsx:201:          ? supabase.from("student_scores").select("student_code, grade_point, subject_id").in("student_code", studentCodes)
+src/pages/UserManagement.tsx-202-          : Promise.resolve({ data: [] as any[] } as any),
+src/pages/UserManagement.tsx-203-      ]);
+--
+src/pages/ProfilePage.tsx:231:        .from("student_scores")
+src/pages/ProfilePage.tsx-232-        .select("*, subjects(name_th, code)")
+src/pages/ProfilePage.tsx-233-        .eq("student_code", code)
+--
+src/pages/academic/AlumniPage.tsx:43:        .from("student_scores")
+src/pages/academic/AlumniPage.tsx-44-        .select("*, subjects(*)")
+src/pages/academic/AlumniPage.tsx-45-        .eq("student_code", selectedStudent.student_code)
+--
+src/pages/admin/DigitalTwinPage.tsx:182:          .from("student_scores")
+src/pages/admin/DigitalTwinPage.tsx-183-          .select("grade_point, grade, total_score, academic_year")
+src/pages/admin/DigitalTwinPage.tsx-184-          .limit(500);
+--
+src/components/StudentActivityTimeline.tsx:52:          ? supabase.from("student_scores").select("id,created_at,total_score,subject_id")
+src/components/StudentActivityTimeline.tsx-53-              .eq("student_code", code).order("created_at", { ascending: false }).limit(limit)
+src/components/StudentActivityTimeline.tsx-54-          : Promise.resolve({ data: [] as any[] }),
+--
+src/components/dashboard/widgets/MascotHeroWidget.tsx:209:        supabase.from("student_scores")
+src/components/dashboard/widgets/MascotHeroWidget.tsx-210-          .select("subject_id,total_score,academic_year")
+src/components/dashboard/widgets/MascotHeroWidget.tsx-211-          .eq("student_code", stu.student_code)
+--
+src/components/dashboard/widgets/MascotHeroWidget.tsx:251:        supabase.from("student_scores")
+src/components/dashboard/widgets/MascotHeroWidget.tsx-252-          .select("subject_id,total_score,academic_year")
+src/components/dashboard/widgets/MascotHeroWidget.tsx-253-          .in("academic_year", [_currentAY, prev])
+--
+src/components/dashboard/StudentDashboard.tsx:145:        .from("student_scores")
+src/components/dashboard/StudentDashboard.tsx-146-        .select("grade_point, total_score, grade, updated_at")
+src/components/dashboard/StudentDashboard.tsx-147-        .eq("student_code", data!.student!.student_code)
+--
+src/components/dashboard/StudentDashboard.tsx:189:        .from("student_scores")
+src/components/dashboard/StudentDashboard.tsx-190-        .select("id, grade, total_score, grade_point, subjects(name_th, code)")
+src/components/dashboard/StudentDashboard.tsx-191-        .eq("student_code", data!.student!.student_code)
+--
+src/components/dashboard/MyRadarWidget.tsx:66:          .from("student_scores")
+src/components/dashboard/MyRadarWidget.tsx-67-          .select("subject_id,total_score,academic_year")
+src/components/dashboard/MyRadarWidget.tsx-68-          .eq("student_code", studentCode!)
+--
+src/components/dashboard/DirectorDashboard.tsx:162:        supabase.from("student_scores").select("grade_point, total_score").not("grade_point", "is", null).limit(500),
+src/components/dashboard/DirectorDashboard.tsx-163-        supabase.from("budget_transactions").select("transaction_type, amount").limit(500),
+src/components/dashboard/DirectorDashboard.tsx-164-        (supabase as any).from("grade_remediation").select("id", { count: "exact", head: true }).neq("status", "ผ่าน").limit(1),
+--
+src/components/dashboard/SchoolRadarWidget.tsx:61:          .from("student_scores")
+src/components/dashboard/SchoolRadarWidget.tsx-62-          .select("subject_id,total_score,academic_year")
+src/components/dashboard/SchoolRadarWidget.tsx-63-          .in("academic_year", [currentAcademicYear, prevYear])

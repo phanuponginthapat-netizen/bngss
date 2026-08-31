@@ -1,0 +1,275 @@
+src/lib/ppBooklet.ts:177:  const scoreQuery = supabase.from("student_scores").select("*").in("student_code", codes);
+src/lib/ppBooklet.ts-178-  const [{ data: subjects }, { data: scores }, { data: assessments }, { data: attendance }] = await Promise.all([
+src/lib/ppBooklet.ts-179-    supabase.from("subjects").select("*"),
+src/lib/ppBooklet.ts-180-    (opts.semester ? scoreQuery.eq("semester", opts.semester) : scoreQuery).order("academic_year").order("semester"),
+src/lib/ppBooklet.ts-181-    supabase.from("student_assessment_scores").select("*, assessment_criteria(*)").in("student_id", ids),
+src/lib/ppBooklet.ts-182-    opts.semester
+src/lib/ppBooklet.ts-183-      ? supabase.from("attendance").select("student_id, status").in("student_id", ids).eq("semester", opts.semester)
+src/lib/ppBooklet.ts-184-      : Promise.resolve({ data: [] as any[] }),
+src/lib/ppBooklet.ts-185-  ]);
+src/lib/ppBooklet.ts-186-
+src/lib/ppBooklet.ts-187-  return {
+--
+src/lib/aiTutor.ts:107:    .from("student_scores")
+src/lib/aiTutor.ts-108-    .select("id, subject_id, grade, grade_point, total_score, semester, academic_year, subjects!inner(id, code, name_th, name_en, credits)")
+src/lib/aiTutor.ts-109-    .eq("student_code", student.student_code)
+src/lib/aiTutor.ts-110-    .order("updated_at", { ascending: false })
+src/lib/aiTutor.ts-111-    .limit(100);
+src/lib/aiTutor.ts-112-
+src/lib/aiTutor.ts-113-  if (error) {
+src/lib/aiTutor.ts-114-    console.warn("[aiTutor] getWeakSubjects error", error);
+src/lib/aiTutor.ts-115-    return [];
+src/lib/aiTutor.ts-116-  }
+src/lib/aiTutor.ts-117-  const rows = (data || []) as any[];
+--
+src/lib/pp5ApplyToSystem.ts:207:        .from("student_scores")
+src/lib/pp5ApplyToSystem.ts-208-        .upsert(scoreRows.slice(i, i + 500), { onConflict: "student_code,subject_id" });
+src/lib/pp5ApplyToSystem.ts-209-      if (sErr) throw new Error(`กระจายผลการเรียนไม่สำเร็จ: ${sErr.message}`);
+src/lib/pp5ApplyToSystem.ts-210-    }
+src/lib/pp5ApplyToSystem.ts-211-  }
+src/lib/pp5ApplyToSystem.ts-212-
+src/lib/pp5ApplyToSystem.ts-213-  if (fileRow?.id) {
+src/lib/pp5ApplyToSystem.ts-214-    await (supabase.from(kind === "pp5" ? "pp5_files" : "pp6_files") as any)
+src/lib/pp5ApplyToSystem.ts-215-      .update({ applied_at: new Date().toISOString() })
+src/lib/pp5ApplyToSystem.ts-216-      .eq("id", fileRow.id);
+src/lib/pp5ApplyToSystem.ts-217-  }
+--
+src/pages/ProfilePage.tsx:231:        .from("student_scores")
+src/pages/ProfilePage.tsx-232-        .select("*, subjects(name_th, code)")
+src/pages/ProfilePage.tsx-233-        .eq("student_code", code)
+src/pages/ProfilePage.tsx-234-        .order("academic_year", { ascending: false });
+src/pages/ProfilePage.tsx-235-      return data || [];
+src/pages/ProfilePage.tsx-236-    },
+src/pages/ProfilePage.tsx-237-  });
+src/pages/ProfilePage.tsx-238-
+src/pages/ProfilePage.tsx-239-  const { data: studentSchedules } = useQuery({
+src/pages/ProfilePage.tsx-240-    queryKey: ["profile_student_schedules", studentRecord?.classroom_id],
+src/pages/ProfilePage.tsx-241-    enabled: role === "student" && !!studentRecord?.classroom_id,
+--
+src/pages/ParentAppPage.tsx:291:          .from("student_scores")
+src/pages/ParentAppPage.tsx-292-          .select("id, student_code, subject_id, total_score, grade, grade_point, semester, academic_year, subjects(code, name_th)")
+src/pages/ParentAppPage.tsx-293-          .eq("student_code", child.student_code)
+src/pages/ParentAppPage.tsx-294-          .order("updated_at", { ascending: false })
+src/pages/ParentAppPage.tsx-295-          .limit(5)
+src/pages/ParentAppPage.tsx-296-      : Promise.resolve({ data: [], error: null } as unknown as { data: ScoreRow[] | null });
+src/pages/ParentAppPage.tsx-297-
+src/pages/ParentAppPage.tsx-298-    // upcoming homework — try task_assignments by classroom_id + due_date >= today, limit 5
+src/pages/ParentAppPage.tsx-299-    // also fallback to homework_assignments
+src/pages/ParentAppPage.tsx-300-    const homeworkTaskPromise = child.classroom_id
+src/pages/ParentAppPage.tsx-301-      ? supabase
+--
+src/pages/academic/TranscriptPage.tsx:36:      const { data } = await supabase.from("student_scores").select("*").eq("student_code", studentCode).order("academic_year").order("semester");
+src/pages/academic/TranscriptPage.tsx-37-      return data || [];
+src/pages/academic/TranscriptPage.tsx-38-    },
+src/pages/academic/TranscriptPage.tsx-39-    enabled: !!studentCode,
+src/pages/academic/TranscriptPage.tsx-40-  });
+src/pages/academic/TranscriptPage.tsx-41-  const { data: subjects = [] } = useQuery({ queryKey: ["subjects"], queryFn: async () => { const { data } = await supabase.from("subjects").select("*"); return data || []; } });
+src/pages/academic/TranscriptPage.tsx-42-
+src/pages/academic/TranscriptPage.tsx-43-  const student = students.find((s: any) => s.student_code === studentCode);
+src/pages/academic/TranscriptPage.tsx-44-  const { data: assessmentScores = [] } = useQuery({
+src/pages/academic/TranscriptPage.tsx-45-    queryKey: ["transcript_assessments", student?.id],
+src/pages/academic/TranscriptPage.tsx-46-    queryFn: async () => {
+--
+src/pages/UserManagement.tsx:201:          ? supabase.from("student_scores").select("student_code, grade_point, subject_id").in("student_code", studentCodes)
+src/pages/UserManagement.tsx-202-          : Promise.resolve({ data: [] as any[] } as any),
+src/pages/UserManagement.tsx-203-      ]);
+src/pages/UserManagement.tsx-204-      const subMap = new Map((subs || []).map((s: any) => [s.id, s.credits || 0]));
+src/pages/UserManagement.tsx-205-      const scoresByCode = new Map<string, any[]>();
+src/pages/UserManagement.tsx-206-      (allScores || []).forEach((sc: any) => {
+src/pages/UserManagement.tsx-207-        const arr = scoresByCode.get(sc.student_code) || [];
+src/pages/UserManagement.tsx-208-        arr.push(sc);
+src/pages/UserManagement.tsx-209-        scoresByCode.set(sc.student_code, arr);
+src/pages/UserManagement.tsx-210-      });
+src/pages/UserManagement.tsx-211-
+--
+src/pages/academic/AlumniPage.tsx:43:        .from("student_scores")
+src/pages/academic/AlumniPage.tsx-44-        .select("*, subjects(*)")
+src/pages/academic/AlumniPage.tsx-45-        .eq("student_code", selectedStudent.student_code)
+src/pages/academic/AlumniPage.tsx-46-        .order("academic_year")
+src/pages/academic/AlumniPage.tsx-47-        .order("semester");
+src/pages/academic/AlumniPage.tsx-48-      return data || [];
+src/pages/academic/AlumniPage.tsx-49-    },
+src/pages/academic/AlumniPage.tsx-50-    enabled: !!selectedStudent?.student_code,
+src/pages/academic/AlumniPage.tsx-51-  });
+src/pages/academic/AlumniPage.tsx-52-
+src/pages/academic/AlumniPage.tsx-53-  const { data: subjects = [] } = useQuery({
+--
+src/pages/academic/Pp5Page.tsx:581:      const { error } = await supabase.from("student_scores").upsert({
+src/pages/academic/Pp5Page.tsx-582-        student_name: studentName,
+src/pages/academic/Pp5Page.tsx-583-        student_code: (s as any).student_code,
+src/pages/academic/Pp5Page.tsx-584-        subject_id: currentAssignment!.subject_id,
+src/pages/academic/Pp5Page.tsx-585-        assignment_score: assignmentTotal,
+src/pages/academic/Pp5Page.tsx-586-        midterm_score: midtermTotal,
+src/pages/academic/Pp5Page.tsx-587-        final_score: finalTotal,
+src/pages/academic/Pp5Page.tsx-588-        attendance_score: attendanceTotal,
+src/pages/academic/Pp5Page.tsx-589-        total_score: pct,
+src/pages/academic/Pp5Page.tsx-590-        grade,
+src/pages/academic/Pp5Page.tsx-591-        grade_point: gradePoint,
+--
+src/pages/academic/Pp5Page.tsx:1042:      let q = supabase.from("student_scores").select("*").eq("subject_id", subjectId);
+src/pages/academic/Pp5Page.tsx-1043-      if (semester) q = q.eq("semester", parseInt(semester));
+src/pages/academic/Pp5Page.tsx-1044-      const { data } = await q.order("student_name");
+src/pages/academic/Pp5Page.tsx-1045-      return data || [];
+src/pages/academic/Pp5Page.tsx-1046-    },
+src/pages/academic/Pp5Page.tsx-1047-    enabled: !!subjectId,
+src/pages/academic/Pp5Page.tsx-1048-  });
+src/pages/academic/Pp5Page.tsx-1049-
+src/pages/academic/Pp5Page.tsx-1050-  const mergedData = classStudents.map((s: any) => {
+src/pages/academic/Pp5Page.tsx-1051-    const score = scores.find((sc: any) => sc.student_code === s.student_code);
+src/pages/academic/Pp5Page.tsx-1052-    return {
+--
+src/pages/academic/Pp6Page.tsx:116:      const { data } = await supabase.from("student_scores").select("*")
+src/pages/academic/Pp6Page.tsx-117-        .in("subject_id", subjectIds)
+src/pages/academic/Pp6Page.tsx-118-        .eq("semester", parseInt(semester));
+src/pages/academic/Pp6Page.tsx-119-      return data || [];
+src/pages/academic/Pp6Page.tsx-120-    },
+src/pages/academic/Pp6Page.tsx-121-    enabled: !!classroomId && subjects.length > 0,
+src/pages/academic/Pp6Page.tsx-122-  });
+src/pages/academic/Pp6Page.tsx-123-
+src/pages/academic/Pp6Page.tsx-124-  const mergedData = classStudents.map((s: any) => {
+src/pages/academic/Pp6Page.tsx-125-    const studentScores = allScores.filter((sc: any) => sc.student_code === s.student_code);
+src/pages/academic/Pp6Page.tsx-126-    const gradesBySubject: Record<string, { grade: string; gradePoint: number }> = {};
+--
+src/pages/academic/Pp7Page.tsx:32:      const { data } = await supabase.from("student_scores").select("*").eq("student_code", studentCode);
+src/pages/academic/Pp7Page.tsx-33-      return data || [];
+src/pages/academic/Pp7Page.tsx-34-    },
+src/pages/academic/Pp7Page.tsx-35-    enabled: !!studentCode,
+src/pages/academic/Pp7Page.tsx-36-  });
+src/pages/academic/Pp7Page.tsx-37-  const { data: subjects = [] } = useQuery({ queryKey: ["subjects"], queryFn: async () => { const { data } = await supabase.from("subjects").select("*"); return data || []; } });
+src/pages/academic/Pp7Page.tsx-38-
+src/pages/academic/Pp7Page.tsx-39-  const student = students.find((s: any) => s.student_code === studentCode);
+src/pages/academic/Pp7Page.tsx-40-  const getSubject = (sid: string) => subjects.find((s: any) => s.id === sid);
+src/pages/academic/Pp7Page.tsx-41-  const totalCredits = scores.reduce((a: number, s: any) => { const sub = getSubject(s.subject_id); return a + (sub?.credits || 0); }, 0);
+src/pages/academic/Pp7Page.tsx-42-  const totalGP = scores.reduce((a: number, s: any) => { const sub = getSubject(s.subject_id); return a + (s.grade_point || 0) * (sub?.credits || 0); }, 0);
+--
+src/pages/admin/DigitalTwinPage.tsx:182:          .from("student_scores")
+src/pages/admin/DigitalTwinPage.tsx-183-          .select("grade_point, grade, total_score, academic_year")
+src/pages/admin/DigitalTwinPage.tsx-184-          .limit(500);
+src/pages/admin/DigitalTwinPage.tsx-185-
+src/pages/admin/DigitalTwinPage.tsx-186-        const budgetP = (supabase as any)
+src/pages/admin/DigitalTwinPage.tsx-187-          .from("budget_transactions")
+src/pages/admin/DigitalTwinPage.tsx-188-          .select("amount, transaction_type, category")
+src/pages/admin/DigitalTwinPage.tsx-189-          .limit(1000);
+src/pages/admin/DigitalTwinPage.tsx-190-
+src/pages/admin/DigitalTwinPage.tsx-191-        const energyP = (supabase as any)
+src/pages/admin/DigitalTwinPage.tsx-192-          .from("iot_devices")
+--
+src/pages/academic/ReportCardPage.tsx:38:      let q = supabase.from("student_scores").select("*").eq("student_code", studentCode);
+src/pages/academic/ReportCardPage.tsx-39-      if (semester) q = q.eq("semester", parseInt(semester));
+src/pages/academic/ReportCardPage.tsx-40-      const { data } = await q;
+src/pages/academic/ReportCardPage.tsx-41-      return data || [];
+src/pages/academic/ReportCardPage.tsx-42-    },
+src/pages/academic/ReportCardPage.tsx-43-    enabled: !!studentCode,
+src/pages/academic/ReportCardPage.tsx-44-  });
+src/pages/academic/ReportCardPage.tsx-45-
+src/pages/academic/ReportCardPage.tsx-46-  const student = students.find((s: any) => s.student_code === studentCode);
+src/pages/academic/ReportCardPage.tsx-47-
+src/pages/academic/ReportCardPage.tsx-48-  const { data: assessmentScores = [] } = useQuery({
+--
+src/pages/liff/LiffGradesPage.tsx:17:      const { data } = await (supabase as any).from("student_scores")
+src/pages/liff/LiffGradesPage.tsx-18-        .select("total_score,grade,subjects(name_th,code)")
+src/pages/liff/LiffGradesPage.tsx-19-        .eq("student_id", s.id).order("created_at", { ascending: false }).limit(30);
+src/pages/liff/LiffGradesPage.tsx-20-      setRows(data ?? []);
+src/pages/liff/LiffGradesPage.tsx-21-      setLoading(false);
+src/pages/liff/LiffGradesPage.tsx-22-    })();
+src/pages/liff/LiffGradesPage.tsx-23-  }, [lineUserId]);
+src/pages/liff/LiffGradesPage.tsx-24-
+src/pages/liff/LiffGradesPage.tsx-25-  if (loading) return <p>กำลังโหลด...</p>;
+src/pages/liff/LiffGradesPage.tsx-26-  if (!rows.length) return <p className="text-muted-foreground">ยังไม่มีคะแนน</p>;
+src/pages/liff/LiffGradesPage.tsx-27-
+--
+src/components/StudentActivityTimeline.tsx:52:          ? supabase.from("student_scores").select("id,created_at,total_score,subject_id")
+src/components/StudentActivityTimeline.tsx-53-              .eq("student_code", code).order("created_at", { ascending: false }).limit(limit)
+src/components/StudentActivityTimeline.tsx-54-          : Promise.resolve({ data: [] as any[] }),
+src/components/StudentActivityTimeline.tsx-55-        supabase.from("home_visits").select("id,visit_date,recommendations")
+src/components/StudentActivityTimeline.tsx-56-          .eq("student_id", studentId).order("visit_date", { ascending: false }).limit(limit),
+src/components/StudentActivityTimeline.tsx-57-        supabase.from("homeroom_records").select("id,homeroom_date,topic,advisor_notes")
+src/components/StudentActivityTimeline.tsx-58-          .eq("student_id", studentId).order("homeroom_date", { ascending: false }).limit(limit),
+src/components/StudentActivityTimeline.tsx-59-      ]);
+src/components/StudentActivityTimeline.tsx-60-
+src/components/StudentActivityTimeline.tsx-61-      const all: TimelineItem[] = [];
+src/components/StudentActivityTimeline.tsx-62-      (att.data || []).forEach((r: any) => all.push({
+--
+src/components/dashboard/SchoolRadarWidget.tsx:61:          .from("student_scores")
+src/components/dashboard/SchoolRadarWidget.tsx-62-          .select("subject_id,total_score,academic_year")
+src/components/dashboard/SchoolRadarWidget.tsx-63-          .in("academic_year", [currentAcademicYear, prevYear])
+src/components/dashboard/SchoolRadarWidget.tsx-64-          .not("total_score", "is", null),
+src/components/dashboard/SchoolRadarWidget.tsx-65-        supabase.from("subjects").select("id,name_th"),
+src/components/dashboard/SchoolRadarWidget.tsx-66-      ]);
+src/components/dashboard/SchoolRadarWidget.tsx-67-
+src/components/dashboard/SchoolRadarWidget.tsx-68-      const subjectMap = new Map<string, SubjectGroup["key"]>();
+src/components/dashboard/SchoolRadarWidget.tsx-69-      ((subjectsRes.data as any[]) || []).forEach((s) => {
+src/components/dashboard/SchoolRadarWidget.tsx-70-        const g = classifyGroup(s.name_th || "");
+src/components/dashboard/SchoolRadarWidget.tsx-71-        if (g) subjectMap.set(s.id, g);
+--
+src/components/dashboard/widgets/MascotHeroWidget.tsx:209:        supabase.from("student_scores")
+src/components/dashboard/widgets/MascotHeroWidget.tsx-210-          .select("subject_id,total_score,academic_year")
+src/components/dashboard/widgets/MascotHeroWidget.tsx-211-          .eq("student_code", stu.student_code)
+src/components/dashboard/widgets/MascotHeroWidget.tsx-212-          .in("academic_year", [_currentAY, prev])
+src/components/dashboard/widgets/MascotHeroWidget.tsx-213-          .not("total_score", "is", null),
+src/components/dashboard/widgets/MascotHeroWidget.tsx-214-        supabase.from("subjects").select("id,name_th"),
+src/components/dashboard/widgets/MascotHeroWidget.tsx-215-      ]);
+src/components/dashboard/widgets/MascotHeroWidget.tsx-216-      const subjMap = new Map<string, SubjectGroup["key"]>();
+src/components/dashboard/widgets/MascotHeroWidget.tsx-217-      ((subjectsRes.data as any[]) || []).forEach((s) => {
+src/components/dashboard/widgets/MascotHeroWidget.tsx-218-        const g = classifySubjectGroup(s.name_th || "");
+src/components/dashboard/widgets/MascotHeroWidget.tsx-219-        if (g) subjMap.set(s.id, g);
+--
+src/components/dashboard/widgets/MascotHeroWidget.tsx:251:        supabase.from("student_scores")
+src/components/dashboard/widgets/MascotHeroWidget.tsx-252-          .select("subject_id,total_score,academic_year")
+src/components/dashboard/widgets/MascotHeroWidget.tsx-253-          .in("academic_year", [_currentAY, prev])
+src/components/dashboard/widgets/MascotHeroWidget.tsx-254-          .not("total_score", "is", null),
+src/components/dashboard/widgets/MascotHeroWidget.tsx-255-        supabase.from("subjects").select("id,name_th"),
+src/components/dashboard/widgets/MascotHeroWidget.tsx-256-      ]);
+src/components/dashboard/widgets/MascotHeroWidget.tsx-257-      const subjMap = new Map<string, SubjectGroup["key"]>();
+src/components/dashboard/widgets/MascotHeroWidget.tsx-258-      ((subjectsRes.data as any[]) || []).forEach((s) => {
+src/components/dashboard/widgets/MascotHeroWidget.tsx-259-        const g = classifySubjectGroup(s.name_th || "");
+src/components/dashboard/widgets/MascotHeroWidget.tsx-260-        if (g) subjMap.set(s.id, g);
+src/components/dashboard/widgets/MascotHeroWidget.tsx-261-      });
+--
+src/components/dashboard/DirectorDashboard.tsx:162:        supabase.from("student_scores").select("grade_point, total_score").not("grade_point", "is", null).limit(500),
+src/components/dashboard/DirectorDashboard.tsx-163-        supabase.from("budget_transactions").select("transaction_type, amount").limit(500),
+src/components/dashboard/DirectorDashboard.tsx-164-        (supabase as any).from("grade_remediation").select("id", { count: "exact", head: true }).neq("status", "ผ่าน").limit(1),
+src/components/dashboard/DirectorDashboard.tsx-165-        ((supabase as any).from("early_warnings").select("id", { count: "exact", head: true }).limit(1) as any).then((r: any) => r).catch(() => ({ count: 0 } as any)),
+src/components/dashboard/DirectorDashboard.tsx-166-        (supabase.from("sdq_records").select("id", { count: "exact", head: true }).limit(1) as any).then((r: any) => r).catch(() => ({ count: 0 } as any)),
+src/components/dashboard/DirectorDashboard.tsx-167-      ]);
+src/components/dashboard/DirectorDashboard.tsx-168-      const pts = (scores.data || []).map((s: any) => Number(s.grade_point)).filter((n: number) => !isNaN(n) && n > 0);
+src/components/dashboard/DirectorDashboard.tsx-169-      const avgGpa = pts.length ? (pts.reduce((a: number, b: number) => a + b, 0) / pts.length).toFixed(2) : "—";
+src/components/dashboard/DirectorDashboard.tsx-170-      const totalIncome = (budgetTx.data || []).filter((t: any) => t.transaction_type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
+src/components/dashboard/DirectorDashboard.tsx-171-      const totalExpense = (budgetTx.data || []).filter((t: any) => t.transaction_type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
+src/components/dashboard/DirectorDashboard.tsx-172-      const remaining = totalIncome - totalExpense;
+--
+src/components/dashboard/StudentDashboard.tsx:145:        .from("student_scores")
+src/components/dashboard/StudentDashboard.tsx-146-        .select("grade_point, total_score, grade, updated_at")
+src/components/dashboard/StudentDashboard.tsx-147-        .eq("student_code", data!.student!.student_code)
+src/components/dashboard/StudentDashboard.tsx-148-        .not("grade_point", "is", null)
+src/components/dashboard/StudentDashboard.tsx-149-        .order("updated_at", { ascending: false })
+src/components/dashboard/StudentDashboard.tsx-150-        .limit(20);
+src/components/dashboard/StudentDashboard.tsx-151-      const pts = (rows || []).map(r => Number(r.grade_point)).filter(n => !isNaN(n));
+src/components/dashboard/StudentDashboard.tsx-152-      const avg = pts.length ? (pts.reduce((a, b) => a + b, 0) / pts.length) : 0;
+src/components/dashboard/StudentDashboard.tsx-153-      const spark = (rows || []).slice(0, 7).reverse().map(r => ({ v: Number(r.grade_point) || 0 }));
+src/components/dashboard/StudentDashboard.tsx-154-      const recent = (rows || []).slice(0, 5);
+src/components/dashboard/StudentDashboard.tsx-155-      return { gpa: pts.length ? avg.toFixed(2) : "—", count: pts.length, spark, recent, avgNum: avg };
+--
+src/components/dashboard/StudentDashboard.tsx:189:        .from("student_scores")
+src/components/dashboard/StudentDashboard.tsx-190-        .select("id, grade, total_score, grade_point, subjects(name_th, code)")
+src/components/dashboard/StudentDashboard.tsx-191-        .eq("student_code", data!.student!.student_code)
+src/components/dashboard/StudentDashboard.tsx-192-        .order("updated_at", { ascending: false })
+src/components/dashboard/StudentDashboard.tsx-193-        .limit(5);
+src/components/dashboard/StudentDashboard.tsx-194-      return rows || [];
+src/components/dashboard/StudentDashboard.tsx-195-    },
+src/components/dashboard/StudentDashboard.tsx-196-  });
+src/components/dashboard/StudentDashboard.tsx-197-
+src/components/dashboard/StudentDashboard.tsx-198-  const pendingHomeworkCount = (data?.homework || []).filter((h: any) => !h.submitted_at && h.status !== "done").length;
+src/components/dashboard/StudentDashboard.tsx-199-  const overdueHomeworkCount = (data?.homework || []).filter((h: any) => h.due_date && new Date(h.due_date) < new Date(new Date().toDateString()) && !h.submitted_at).length;
+--
+src/components/dashboard/MyRadarWidget.tsx:66:          .from("student_scores")
+src/components/dashboard/MyRadarWidget.tsx-67-          .select("subject_id,total_score,academic_year")
+src/components/dashboard/MyRadarWidget.tsx-68-          .eq("student_code", studentCode!)
+src/components/dashboard/MyRadarWidget.tsx-69-          .in("academic_year", [currentAcademicYear, prevYear])
+src/components/dashboard/MyRadarWidget.tsx-70-          .not("total_score", "is", null),
+src/components/dashboard/MyRadarWidget.tsx-71-        supabase.from("subjects").select("id,name_th"),
+src/components/dashboard/MyRadarWidget.tsx-72-      ]);
+src/components/dashboard/MyRadarWidget.tsx-73-
+src/components/dashboard/MyRadarWidget.tsx-74-      const subjectMap = new Map<string, SubjectGroup["key"]>();
+src/components/dashboard/MyRadarWidget.tsx-75-      ((subjectsRes.data as any[]) || []).forEach((s) => {
+src/components/dashboard/MyRadarWidget.tsx-76-        const g = classifyGroup(s.name_th || "");

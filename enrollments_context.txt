@@ -1,0 +1,27 @@
+src/components/dashboard/TeacherDashboard.tsx:325:        const { data: enrollments } = await supabase.from("enrollments")
+src/components/dashboard/TeacherDashboard.tsx-326-          .select("subject_id").in("subject_id", subjectIds).eq("status", "active");
+src/components/dashboard/TeacherDashboard.tsx-327-        (enrollments || []).forEach(e => {
+--
+src/pages/Dashboard.tsx:117:        supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("status", "active"),
+src/pages/Dashboard.tsx-118-        supabase.from("homeroom_records").select("id", { count: "exact", head: true }),
+src/pages/Dashboard.tsx-119-        supabase.from("home_visits").select("id", { count: "exact", head: true }),
+--
+src/pages/academic/EnrollmentPage.tsx:114:    const { data } = await supabase.from("enrollments").select("*").eq("subject_id", subjectId).order("enrolled_at");
+src/pages/academic/EnrollmentPage.tsx-115-    setEnrollments(data || []);
+src/pages/academic/EnrollmentPage.tsx-116-  };
+--
+src/pages/academic/EnrollmentPage.tsx:183:      const { error } = await supabase.from("enrollments").upsert(enrollData, { onConflict: "student_id,subject_id,semester,academic_year" });
+src/pages/academic/EnrollmentPage.tsx-184-      if (error) { toast.error(saveErrorMessage(error)); return; }
+src/pages/academic/EnrollmentPage.tsx-185-      toast.success(`ลงทะเบียนรายห้อง ${classStudents.length} คนสำเร็จ`);
+--
+src/pages/academic/EnrollmentPage.tsx:208:      const { error } = await supabase.from("enrollments").upsert(enrollData, { onConflict: "student_id,subject_id,semester,academic_year" });
+src/pages/academic/EnrollmentPage.tsx-209-      if (error) { toast.error(saveErrorMessage(error)); return; }
+src/pages/academic/EnrollmentPage.tsx-210-      toast.success(`ลงทะเบียนรายบุคคล ${selectedStudentIds.length} คนสำเร็จ`);
+--
+src/pages/academic/EnrollmentPage.tsx:220:    const { error } = await supabase.from("enrollments").delete().eq("id", id);
+src/pages/academic/EnrollmentPage.tsx-221-    if (error) { toast.error(saveErrorMessage(error)); return; }
+src/pages/academic/EnrollmentPage.tsx-222-    toast.success("ถอนการลงทะเบียนสำเร็จ");
+--
+src/pages/admin/DistrictFeedPage.tsx:236:      const { data } = await supabase.from("enrollments").select("*").limit(2000);
+src/pages/admin/DistrictFeedPage.tsx-237-      payload = { exported_at: new Date().toISOString(), enrollments: data || [] };
+src/pages/admin/DistrictFeedPage.tsx-238-    }
