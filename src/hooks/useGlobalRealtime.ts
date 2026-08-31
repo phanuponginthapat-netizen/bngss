@@ -156,19 +156,25 @@ export function useGlobalRealtime() {
     // รวม invalidate ต่อ queryKey เป็นรอบเดียวใน 400ms
     const pendingInvalidations = new Map<string, string[]>();
     let invalidationTimer: number | null = null;
+    const flushInvalidations = () => {
+      invalidationTimer = null;
+      const batch = Array.from(pendingInvalidations.values());
+      pendingInvalidations.clear();
+      // refetchType: "active" → ยิงใหม่เฉพาะ query ที่หน้าจอกำลังใช้จริง
+      // ส่วนที่อยู่เบื้องหลังแค่ mark stale ไว้ ดึงตอนกลับไปหน้านั้น (ลดโหลด DB มาก)
+      for (const key of batch) qc.invalidateQueries({ queryKey: key, refetchType: "active" });
+    };
     const scheduleInvalidate = (keys: string[][]) => {
       for (const key of keys) {
         const sig = JSON.stringify(key);
         if (!pendingInvalidations.has(sig)) pendingInvalidations.set(sig, key);
       }
       if (invalidationTimer !== null) return;
-      invalidationTimer = window.setTimeout(() => {
-        invalidationTimer = null;
-        const batch = Array.from(pendingInvalidations.values());
-        pendingInvalidations.clear();
-        for (const key of batch) qc.invalidateQueries({ queryKey: key });
-      }, 400);
+      // แท็บที่ซ่อนอยู่: หน่วงยาวขึ้น (ไม่ต้องรีบ) — ลดคำขอพร้อมกันทั้งโรงเรียน
+      const delay = document.visibilityState === "visible" ? 400 : 3000;
+      invalidationTimer = window.setTimeout(flushInvalidations, delay);
     };
+
 
     for (const table of tables) {
       const filter =
