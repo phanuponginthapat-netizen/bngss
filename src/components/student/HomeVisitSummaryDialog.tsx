@@ -15,6 +15,7 @@ import { useSchoolInfo } from "@/components/documents/DocumentHeader";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { resolveStorageUrl } from "@/lib/storageUrl";
 import { saveErrorMessage } from "@/lib/saveError";
+import { toCE } from "@/lib/utils";
 
 interface Props {
   open: boolean;
@@ -126,7 +127,7 @@ export const HomeVisitSummaryDialog = ({ open, onOpenChange, academicYear, semes
       const { data } = await supabase
         .from("home_visit_summaries")
         .select("*")
-        .eq("academic_year", academicYear)
+        .eq("academic_year", toCE(academicYear))
         .eq("semester", semester)
         .maybeSingle();
       return data;

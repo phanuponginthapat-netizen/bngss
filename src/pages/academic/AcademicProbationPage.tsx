@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { toCE } from "@/lib/utils";
+import { BE_OFFSET } from "@/lib/dateBE";
 
 interface Student { id: string; student_code: string; first_name: string; last_name: string; prefix: string | null; }
 interface ProbationRecord { id: string; student_id: string; academic_year: number; semester: number; gpax: number | null; status: string; notes: string | null; }
@@ -23,7 +25,7 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 };
 
 const now = new Date();
-const DEFAULT_YEAR = now.getMonth() < 4 ? now.getFullYear() - 1 : now.getFullYear();
+const DEFAULT_YEAR = (now.getMonth() < 4 ? now.getFullYear() - 1 : now.getFullYear()) + BE_OFFSET; // พ.ศ.
 const DEFAULT_SEMESTER = now.getMonth() < 4 ? 2 : 1;
 
 export default function AcademicProbationPage() {
@@ -46,7 +48,7 @@ export default function AcademicProbationPage() {
   const { data: scores = [], isLoading } = useQuery({
     queryKey: ["scores_prob", ay, sem],
     queryFn: async () => {
-      const { data } = await (supabase.from("student_scores" as any) as any).select("student_code, student_name, academic_year, semester, grade_point").eq("academic_year", ay).eq("semester", sem).not("grade_point" as any, "is", null);
+      const { data } = await (supabase.from("student_scores" as any) as any).select("student_code, student_name, academic_year, semester, grade_point").eq("academic_year", toCE(ay)).eq("semester", sem).not("grade_point" as any, "is", null);
       // Map grade_point to gpax and synthesize student_id from student_code for compatibility
       const mapped = ((data as any[]) || []).map((r: any) => ({ student_id: r.student_code, student_code: r.student_code, academic_year: r.academic_year, semester: r.semester, gpax: r.grade_point }));
       return mapped as StudentScore[];
@@ -56,7 +58,7 @@ export default function AcademicProbationPage() {
   const { data: probRecs = [] } = useQuery({
     queryKey: ["academic_probation", ay, sem],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("academic_probation").select("*").eq("academic_year", ay).eq("semester", sem);
+      const { data } = await (supabase as any).from("academic_probation").select("*").eq("academic_year", toCE(ay)).eq("semester", sem);
       return (data ?? []) as ProbationRecord[];
     },
   });
@@ -103,7 +105,7 @@ export default function AcademicProbationPage() {
 
   const saveEdit = () => {
     if (!editRec) return;
-    upsert.mutate({ student_id: editRec.student_id, academic_year: ay, semester: sem, gpax: editRec.gpax ?? 0, status: editForm.status, notes: editForm.notes });
+    upsert.mutate({ student_id: editRec.student_id, academic_year: toCE(ay), semester: sem, gpax: editRec.gpax ?? 0, status: editForm.status, notes: editForm.notes });
     setEditRec(null);
   };
 

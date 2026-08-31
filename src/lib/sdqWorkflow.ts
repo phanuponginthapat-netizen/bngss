@@ -1,5 +1,6 @@
 // SDQ Auto-flag workflow — flag at-risk students and trigger follow-up
 import { supabase } from "@/integrations/supabase/client";
+import { toCE } from "@/lib/utils";
 
 export interface SdqFlagResult {
   student_id: string;
@@ -17,7 +18,7 @@ export async function autoFlagSdqStudents(academicYear: number, semester: number
   void semester;
   const { data: scores, error } = await (supabase.from("sdq_records" as any) as any)
     .select("student_id, total_difficulty, assessment_type, students!inner(id, prefix, first_name, last_name)")
-    .eq("academic_year", academicYear);
+    .eq("academic_year", toCE(academicYear));
 
   if (error || !scores) return [];
 

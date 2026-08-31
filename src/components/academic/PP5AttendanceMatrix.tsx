@@ -11,7 +11,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon, Wand2, Save, Zap, Download, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, toCE } from "@/lib/utils";
 import { BE_OFFSET, bkkDateISO, formatDateBE, parseDateBE, toISODate } from "@/lib/dateBE";
 import { saveErrorMessage } from "@/lib/saveError";
 import { fetchHolidays, isHolidaySync, type Holiday } from "@/lib/holiday";
@@ -104,7 +104,7 @@ const PP5AttendanceMatrix = ({
       const { data } = await supabase.from("attendance")
         .select("id, student_id, attendance_date, status")
         .eq("subject_id", subjectId)
-        .eq("academic_year", academicYear)
+        .eq("academic_year", toCE(academicYear))
         .eq("semester", semester)
         .in("student_id", studentIds)
         .in("status", ["absent", "leave"]);

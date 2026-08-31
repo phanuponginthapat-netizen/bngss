@@ -3,6 +3,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { findAtRiskAttendance, type AttendanceExportRow } from "./attendanceExport";
+import { toCE } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Constants & Types
@@ -341,7 +342,7 @@ export async function checkCanAnnounceForClassroom(
     .from("attendance")
     .select("student_id, attendance_date, status")
     .in("student_id", studentIds)
-    .eq("academic_year", academicYear)
+    .eq("academic_year", toCE(academicYear))
     .eq("semester", semester);
 
   if (aErr) throw aErr;

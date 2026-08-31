@@ -1,5 +1,6 @@
 // Home visit workflow — auto-trigger for at-risk students + track minimum visits
 import { supabase } from "@/integrations/supabase/client";
+import { toCE } from "@/lib/utils";
 
 export interface HomeVisitCheck {
   student_id: string;
@@ -24,7 +25,7 @@ export async function checkHomeVisitNeeds(
   // Get students flagged in screening
   const { data: screened } = await (supabase.from("student_screenings" as any) as any)
     .select("student_id, screening_type, risk_level, students!inner(id, prefix, first_name, last_name)")
-    .eq("academic_year", academicYear)
+    .eq("academic_year", toCE(academicYear))
     .eq("semester", semester)
     .in("risk_level", ["medium", "high"]);
 
@@ -34,7 +35,7 @@ export async function checkHomeVisitNeeds(
   const { data: visits } = await supabase
     .from("home_visits")
     .select("student_id, visit_date")
-    .eq("academic_year", academicYear)
+    .eq("academic_year", toCE(academicYear))
     .eq("semester", semester);
 
   const visitCounts = new Map<string, { count: number; lastDate: string | null }>();

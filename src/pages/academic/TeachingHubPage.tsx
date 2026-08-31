@@ -6,6 +6,7 @@ import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useMyPersonnel } from "@/hooks/useMyPersonnel";
 import { formatDateBE, todayBangkok } from "@/lib/dateBE";
+import { toCE } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,7 +47,7 @@ export default function TeachingHubPage() {
     queryFn: async () => {
       let q = (supabase.from("lesson_plans" as any) as any)
         .select("id,unit_title,lesson_title,status,subject_id,teacher_id,hours,updated_at,submitted_at,reviewed_at,academic_year,semester")
-        .eq("academic_year", year)
+        .eq("academic_year", toCE(year))
         .eq("semester", semester);
       if (scope === "mine" && myPersonnel?.id) q = q.eq("teacher_id", myPersonnel.id);
       const { data } = await q.order("updated_at", { ascending: false });
@@ -60,7 +61,7 @@ export default function TeachingHubPage() {
     queryFn: async () => {
       let q = (supabase.from("teaching_logbook" as any) as any)
         .select("id,teaching_date,period,subject_id,teacher_id,topic,students_present,students_total,academic_year,semester")
-        .eq("academic_year", year)
+        .eq("academic_year", toCE(year))
         .eq("semester", semester);
       if (scope === "mine" && myPersonnel?.id) q = q.eq("teacher_id", myPersonnel.id);
       const { data } = await q.order("teaching_date", { ascending: false }).limit(500);
@@ -72,7 +73,7 @@ export default function TeachingHubPage() {
   const { data: pa = [] } = useQuery({
     queryKey: ["teaching-hub-pa", year, scope, myPersonnel?.id],
     queryFn: async () => {
-      let q = supabase.from("pa_agreements").select("id,status,total_score,result_level,personnel_id,academic_year,position_type").eq("academic_year", year);
+      let q = supabase.from("pa_agreements").select("id,status,total_score,result_level,personnel_id,academic_year,position_type").eq("academic_year", toCE(year));
       if (scope === "mine" && myPersonnel?.id) q = q.eq("personnel_id", myPersonnel.id);
       const { data } = await q;
       return data || [];
