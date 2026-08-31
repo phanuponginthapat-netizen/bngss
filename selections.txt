@@ -1,0 +1,303 @@
+src/hooks/useIdlePrefetch.ts:55:              .select("id, name, grade_level, homeroom_teacher")
+src/hooks/useMasterData.ts:19:        .select("id, grade_level, name, homeroom_teacher")
+src/lib/ppBooklet.ts:183:      ? supabase.from("attendance").select("student_id, status").in("student_id", ids).eq("semester", opts.semester)
+src/hooks/useStudentData.ts:31:        .select("*, classrooms!students_classroom_id_fkey(name, grade_level)")
+src/pages/student/StudentLeavePage.tsx:65:        .select("id, student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level)")
+src/pages/student/StudentLeavePage.tsx:77:          .select("id, student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level)")
+src/pages/student/ScreeningPage.tsx:99:      let q = supabase.from("student_screenings").select("*, students(student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level))").order("created_at", { ascending: false });
+src/pages/student/SDQPage.tsx:116:      let q = supabase.from("sdq_records").select("*, students(student_code, prefix, first_name, last_name, classroom_id, classrooms!students_classroom_id_fkey(name, grade_level))").order("created_at", { ascending: false });
+src/pages/student/OffsiteTripsPage.tsx:309:        .select("*, students(id, first_name, last_name, student_code, classrooms!students_classroom_id_fkey(grade_level, name))")
+src/pages/student/OffsiteTripsPage.tsx:499:        .select("id, first_name, last_name, student_code, classrooms(grade_level, name)")
+src/pages/student/MyFaceEnrollPage.tsx:108:        .select("id, status, request_type, created_at, review_notes")
+src/pages/student/MentalHealthPage.tsx:65:        .select("id, tool, total_score, risk_level, interpretation, recommendation, created_at, student_id")
+src/pages/ParentAppPage.tsx:283:      .select("id, attendance_date, status, notes")
+src/pages/ParentAppPage.tsx:292:          .select("id, student_code, subject_id, total_score, grade, grade_point, semester, academic_year, subjects(code, name_th)")
+src/pages/ParentAppPage.tsx:324:      .select("id, student_id, subject_code, subject_name, term, original_grade, status, fix_deadline, created_at")
+src/pages/student/HomeroomPage.tsx:83:        .select("*, classrooms(name, grade_level, homeroom_teacher)")
+src/hooks/useHomeroomClassrooms.ts:63:      const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
+src/hooks/useMyTeacherAssignments.ts:39:        .select("id, subject_id, classroom_id, subjects(name_th, code), classrooms(name, grade_level)")
+src/pages/student/HealthTrendPage.tsx:47:        .select("id, name, grade_level")
+src/pages/student/HealthTrendPage.tsx:59:        .select("id,first_name,last_name,student_code,classroom_id,gender,date_of_birth,classrooms!students_classroom_id_fkey(name,grade_level)")
+src/pages/student/HealthTrendPage.tsx:121:          .select("id,first_name,last_name,student_code,classroom_id,gender,date_of_birth,classrooms!students_classroom_id_fkey(name,grade_level)")
+src/pages/exam/ExamNewPage.tsx:56:        .select("id, subject_id, classroom_id, academic_year, semester, subjects(id,name_th,code), classrooms(id,name,grade_level)")
+src/pages/exam/ExamListPage.tsx:37:        .select("id,title,topic,level,question_count,status,created_at,subject_id,classroom_id, subjects(name_th), classrooms(name)")
+src/pages/student/BehaviorPage.tsx:80:      let q = supabase.from("behavior_records").select("*, students(student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level))").order("created_at", { ascending: false }).limit(500);
+src/pages/student/AttendancePage.tsx:71:          .select("*, students(student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level)), subjects(id, name_th, code)")
+src/lib/earlyWarning.ts:85:        .select("status, attendance_date")
+src/lib/earlyWarning.ts:92:        .select("id, original_grade, status")
+src/lib/earlyWarning.ts:117:          .select("gpax, grade_point, grade, academic_year, semester")
+src/lib/earlyWarning.ts:126:            .select("gpax, grade_point, grade, academic_year, semester")
+src/components/hr/SubstituteReport.tsx:47:        .select("*, subjects(name_th, name_en, code), classrooms(name, grade_level)")
+src/pages/HomeworkPage.tsx:154:          .select("id,name,grade_level,homeroom_teacher_id,homeroom_teacher_2_id,homeroom_teachers")
+src/pages/HomeworkPage.tsx:161:            ? await supabase.from("subjects").select("id,name_th,code,grade_level").in("grade_level", grades)
+src/pages/HomeworkPage.tsx:225:        .select("id,title,description,due_date,assigned_date,subject_id,classroom_id,assigned_by,replies,attachments,submissions,status,max_score,subjects(name_th,code),classrooms(name)")
+src/pages/FaceKioskPage.tsx:340:          .select("student_id, scan_time, scan_type, confidence, captured_face_url, students!inner(prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name))")
+src/pages/FaceKioskPage.tsx:543:        .select("student_id, descriptor, face_image, quality_score, students!inner(id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name))");
+src/pages/FaceKioskPage.tsx:1680:            .select("id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name)")
+src/pages/EFormInboxPage.tsx:148:        .select("*, eform_recipients(id, recipient_name, recipient_role, status, read_at, signed_at, replied_at, rejected_at)")
+src/pages/EFormInboxPage.tsx:215:      .select("status")
+src/pages/padlet/PadletListPage.tsx:54:      .select("*, subjects:subject_id(name_th, code), classrooms:classroom_id(name, grade_level)")
+src/pages/padlet/PadletBoardPage.tsx:154:    const { data, error } = await supabase.from("padlet_boards").select("*, subjects:subject_id(name_th, code), classrooms:classroom_id(name, grade_level)").eq("id", id).maybeSingle();
+src/pages/certificates/CertificatePrintPage.tsx:51:    queryFn: async () => (await supabase.from("classrooms").select("id,name,grade_level").order("name")).data || [],
+src/lib/aiTutor.ts:108:    .select("id, subject_id, grade, grade_point, total_score, semester, academic_year, subjects!inner(id, code, name_th, name_en, credits)")
+src/lib/aiTutor.ts:149:    .select("attendance_date, status")
+src/lib/aiTutor.ts:226:    .select("id, subject_code, subject_name, term, original_grade, status, fix_deadline")
+src/pages/PublicSDQPage.tsx:43:        .select("*, classrooms!students_classroom_id_fkey(name, grade_level)")
+src/pages/Dashboard.tsx:102:        supabase.from("students").select("id, status, gender, prefix, classroom_id", { count: "exact" }).eq("status", "active"),
+src/pages/Dashboard.tsx:106:        fetchAllRows((f, t) => supabase.from("attendance").select("id, status, attendance_date, student_id").eq("attendance_date", todayBangkok()).order("id").range(f, t)).then((data) => ({ data })),
+src/pages/Dashboard.tsx:117:        supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("status", "active"),
+src/lib/gradeLock.ts:343:    .select("student_id, attendance_date, status")
+src/lib/fetchAllRows.ts:9: *     supabase.from("attendance").select("id, status")
+src/pages/liff/LiffGradesPage.tsx:18:        .select("total_score,grade,subjects(name_th,code)")
+src/pages/iot/IoTDevicesPage.tsx:63:        .select("id,name,description,device_type,icon,unit,source_type,base_url,entity_id,request_path,json_path,poll_interval_seconds,location,dashboard_group,display_order,is_active,last_value,last_value_numeric,last_status,last_error,last_fetched_at,meta,system_category,color,created_at,updated_at")
+src/pages/ProfilePage.tsx:165:        .select("*, subjects(name_th, code), classrooms(name, grade_level)")
+src/pages/ProfilePage.tsx:355:        supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "active"),
+src/pages/ProfilePage.tsx:360:        supabase.from("attendance").select("id", { count: "exact", head: true }).eq("status", "present"),
+src/pages/admin/VaccinePage.tsx:56:      const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
+src/pages/admin/VaccinePage.tsx:63:      const { data } = await supabase.from("vaccine_records").select("*, students(student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level))").order("created_at", { ascending: false });
+src/pages/admin/DigitalTwinPage.tsx:183:          .select("grade_point, grade, total_score, academic_year")
+src/pages/admin/DigitalTwinPage.tsx:193:          .select("id, name, last_value_numeric, last_value, last_status, unit, location, system_category")
+src/pages/admin/DigitalTwinPage.tsx:212:          .select("id, device_id, status, last_seen_at, kiosk_mode")
+src/pages/admin/SystemHealthPage.tsx:68:        .select("provider_type,status,used_today");
+src/pages/admin/StaffTasksPage.tsx:50:        .select("id, user_id, prefix, first_name, last_name, position, department, status")
+src/pages/admin/BulkQrPrintPage.tsx:36:      const { data } = await supabase.from("classrooms").select("id, name, grade_level").order("name");
+src/pages/admin/BulkOperationsPage.tsx:60:      supabase.from("students").select("id, first_name, last_name, classroom_id, status, classrooms:classroom_id(grade_level, name)").limit(2000),
+src/pages/admin/BulkOperationsPage.tsx:61:      supabase.from("classrooms").select("id, name, grade_level").order("grade_level"),
+src/pages/admin/SmscCenterPage.tsx:77:    supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "active"),
+src/pages/admin/SmscCenterPage.tsx:83:    fetchAllRows((f, t) => supabase.from("attendance").select("status").gte("attendance_date", since).order("attendance_date").range(f, t)).then((data) => ({ data })),
+src/pages/admin/SmscCenterPage.tsx:90:    supabase.from("action_plans").select("title, budget_amount, status").order("created_at", { ascending: false }).limit(10),
+src/pages/admin/SmscCenterPage.tsx:92:    supabase.from("pa_agreements").select("academic_year, status, personnel:personnel_id(first_name, last_name)").order("created_at", { ascending: false }).limit(10),
+src/pages/admin/BulkIdCardPrintPage.tsx:39:        .select("*, classrooms!students_classroom_id_fkey(name, grade_level)")
+src/components/facescan/FaceScanTab.tsx:205:        .select("student_id, descriptor, students!inner(id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name))");
+src/components/facescan/FaceScanTab.tsx:226:      let q = supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "active");
+src/components/facescan/FaceScanTab.tsx:245:        .select("student_id, scan_time, scan_type, confidence, captured_face_url, entry_method, students!inner(student_code, classroom_id, prefix, first_name, last_name, photo_url, classrooms!students_classroom_id_fkey(grade_level, name))")
+src/lib/pp5ApplyToSystem.ts:101:    let subjQuery = supabase.from("subjects").select("id, code, name_th, grade_level, semester");
+src/pages/admin/AiUsageDashboardPage.tsx:61:          .select("id,provider_type,label,status,used_today,used_total,daily_limit,cooldown_until,last_used_at,priority")
+src/pages/admin/PrintCenterPage.tsx:582:  let q = supabase.from("students").select("*, classrooms!students_classroom_id_fkey(name, grade_level)").eq("status", "active").order("student_code").limit(50);
+src/pages/admin/AIKeyPoolPage.tsx:86:        .select("id,provider_type,label,status,used_today,used_total,last_error,cooldown_until,created_at,has_key")
+src/components/facescan/FaceReportTab.tsx:316:        .select("id, scan_date, scan_time, confidence, scan_type, captured_face_url, entry_method, scanned_by, students!inner(id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name, reference_grade_level))")
+src/components/facescan/FaceReportTab.tsx:379:        supabase.from("students").select("id, prefix, first_name, last_name, student_code, gender, classrooms!students_classroom_id_fkey(grade_level, name, reference_grade_level)").eq("status", "active"),
+src/components/facescan/FaceReportTab.tsx:381:        fetchAll((f, t) => supabase.from("attendance").select("student_id, attendance_date, status").gte("attendance_date", range.start).lte("attendance_date", range.end).order("attendance_date").range(f, t)),
+src/components/facescan/FaceReportTab.tsx:382:        fetchAll((f, t) => supabase.from("student_leaves").select("student_id, start_date, end_date, status").lte("start_date", range.end).gte("end_date", range.start).order("start_date").range(f, t)),
+src/components/facescan/FaceReportTab.tsx:579:        .select("id, prefix, first_name, last_name, student_code, gender, classrooms!students_classroom_id_fkey(grade_level, name, reference_grade_level)")
+src/pages/admin/AiAnalyticsPage.tsx:81:    supabase.from("classrooms").select("id,name,grade_level").then(({ data }) => {
+src/pages/admin/AiAnalyticsPage.tsx:123:        const { data: cls } = await supabase.from("classrooms").select("id,name,grade_level").in("id", cIds as string[]);
+src/pages/admin/PettyCashPage.tsx:68:        .select("amount, transaction_type, approval_status");
+src/components/student/StudentSpiderDialog.tsx:14:      const { data } = await supabase.from("students").select("*, classrooms!students_classroom_id_fkey(name, grade_level)").eq("id", studentId!).maybeSingle();
+src/components/facescan/FaceRegisterTab.tsx:60:        .select("id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name)")
+src/lib/notificationTriggers.ts:424:      const { data } = await supabase.from("students").select("auth_user_id").eq("classroom_id", opts.classroomId).eq("status", "active").not("auth_user_id", "is", null);
+src/pages/academic/TranscriptPage.tsx:27:      const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
+src/pages/hr/TimeClockPage.tsx:142:      const { data } = await supabase.from("personnel").select("*").eq("status", "active").order("first_name");
+src/components/facescan/FaceDatabaseTab.tsx:22:        .select("id, student_id, sample_index, source, created_at, face_image, quality_score, students!inner(id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name))");
+src/pages/hr/SubstitutePage.tsx:106:        .select("*, subjects(id, code, name_th, name_en), classrooms(id, name, grade_level)")
+src/pages/hr/SubstitutePage.tsx:130:        .select("*, subjects(id, code, name_th, name_en), classrooms(id, name, grade_level)")
+src/pages/admin/KioskDoorHealthPage.tsx:148:        .select("device_id,sampled_at,status,uptime_sec,battery_percent,battery_charging,battery_status,memory_used_mb,latency_ms")
+src/pages/hr/SubsidyPage.tsx:37:      const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level)").eq("status", "active").order("student_code");
+src/pages/hr/SubsidyPage.tsx:45:      const { data } = await supabase.from("classrooms").select("*").order("grade_level");
+src/pages/hr/StaffLeavePage.tsx:90:      const { data } = await supabase.from("personnel").select("*").eq("status", "active").order("first_name");
+src/pages/hr/SalaryPage.tsx:68:      const { data } = await supabase.from("personnel").select("*").eq("status", "active").order("first_name");
+src/pages/academic/Pp7Page.tsx:23:      const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
+src/pages/academic/LearningCenterPage.tsx:202:      const { data } = await supabase.from("classrooms").select("id, name, grade_level").order("grade_level").order("name");
+src/pages/academic/LearningCenterPage.tsx:257:      let q = supabase.from("learning_center_bookings").select("*").eq("status", "confirmed").eq("room_id", selectedRoomId);
+src/pages/admin/IctCatalogPage.tsx:53:        .select("id, asset_code, name, category, brand, model, status, notes, photo_url")
+src/pages/academic/GradeRemediationPage.tsx:90:        const { data } = await supabase.from(tbl as any).select("student_id, subject_code, subject_name, term, grade, academic_year").in("grade", ["0", "ร", "มส", "มผ"]).limit(500);
+src/pages/academic/GradeRemediationPage.tsx:95:        const { data } = await supabase.from("incomplete_grade_reports" as any).select("student_id, subject_code, term, grade").limit(200);
+src/pages/hr/OrgChartPage.tsx:98:        .select("id, employee_code, prefix, first_name, last_name, position, department, subject_group, user_id, email, phone, status")
+src/pages/academic/Pp6Page.tsx:48:      const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
+src/pages/academic/Pp6Page.tsx:88:      const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name").eq("classroom_id", classroomId).eq("status", "active").order("student_code");
+src/pages/admin/DutyTeachersPage.tsx:73:        supabase.from("personnel").select("id, prefix, first_name, last_name").eq("status", "active").order("first_name"),
+src/pages/academic/TeachingLogbookPage.tsx:57:    queryFn: async () => (await supabase.from("classrooms").select("id,name,grade_level").order("grade_level")).data || [],
+src/pages/admin/DocumentTemplatesPage.tsx:29:        .select("id, name, code, category, source_pdf_path, source_pdf_pages, field_map, analyze_status, analyze_error, analyzed_at, fill_count, last_used_at, updated_at, is_system_master, is_default_for_category, published_at")
+src/pages/academic/Pp5Page.tsx:320:      const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name, gender").eq("classroom_id", currentAssignment.classroom_id).eq("status", "active").order("student_code");
+src/pages/academic/Pp5Page.tsx:992:  const { data: allClassrooms = [] } = useQuery({ queryKey: ["classrooms"], queryFn: async () => { const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name"); return data || []; } });
+src/pages/academic/Pp5Page.tsx:1032:      const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name, gender").eq("classroom_id", classroomId).eq("status", "active").order("student_code");
+src/pages/academic/Pp5Page.tsx:1698:      const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name, gender").eq("classroom_id", currentAssignment.classroom_id).eq("status", "active").order("student_code");
+src/pages/academic/TeachingHubPage.tsx:49:        .select("id,unit_title,lesson_title,status,subject_id,teacher_id,hours,updated_at,submitted_at,reviewed_at,academic_year,semester")
+src/pages/academic/TeachingHubPage.tsx:76:      let q = supabase.from("pa_agreements").select("id,status,total_score,result_level,personnel_id,academic_year,position_type").eq("academic_year", toCE(year));
+src/pages/academic/LessonPlansPage.tsx:73:    queryFn: async () => (await supabase.from("subjects").select("id,code,name_th,grade_level").order("code")).data || [],
+src/pages/academic/LessonPlansPage.tsx:77:    queryFn: async () => (await supabase.from("classrooms").select("id,name,grade_level").order("grade_level").order("name")).data || [],
+src/pages/academic/ReportCardPage.tsx:28:      const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
+src/components/evaluation/PASystemTab.tsx:58:      const { data } = await supabase.from("personnel").select("*").eq("status", "active").order("employee_code");
+src/pages/admin/DocumentPage.tsx:80:      const { data } = await supabase.from("personnel").select("id, prefix, first_name, last_name, position, department, employee_code").eq("status", "active").order("first_name");
+src/pages/hr/IdPlanPage.tsx:141:      const { data } = await supabase.from("personnel").select("*").eq("status", "active").order("first_name");
+src/pages/academic/SchedulePage.tsx:221:      const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
+src/pages/admin/IctLoanHistoryPage.tsx:53:      .select("id,status,borrowed_at,expected_return_at,returned_at,borrow_photo_url,return_photo_url,borrow_notes,return_notes,student_id,personnel_id,ict_devices(name,asset_code,serial_number),students(student_code,prefix,first_name,last_name,classrooms!students_classroom_id_fkey(name)),personnel(employee_code,prefix,first_name,last_name,department)")
+src/pages/hr/AttendanceDashboardPage.tsx:44:      const { data } = await supabase.from("personnel").select("id, prefix, first_name, last_name, employee_code, position, department").eq("status", "active").order("first_name");
+src/pages/academic/EnrollmentPage.tsx:94:    const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
+src/pages/academic/EnrollmentPage.tsx:104:    const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name, classroom_id, status").eq("classroom_id", classroomId).order("student_code");
+src/pages/academic/EnrollmentPage.tsx:109:    const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name, classroom_id, status").eq("status", "active").order("student_code");
+src/pages/admin/IctLoanStationPage.tsx:88:    const { data: devs } = await supabase.from("ict_devices").select("id,asset_code,name,serial_number,status,brand,model");
+src/pages/admin/IctLoanStationPage.tsx:102:      supabase.from("personnel").select("id,employee_code,prefix,first_name,last_name,department").eq("status", "active").order("first_name"),
+src/pages/admin/IctLoanStationPage.tsx:195:        .select("id,status").in("id", picked.map((d) => d.id));
+src/pages/admin/IctLoanStationPage.tsx:344:      .select("id,asset_code,name,serial_number,status,brand,model")
+src/pages/admin/IctLoanStationPage.tsx:447:          .select("id,status").eq("id", device.id).maybeSingle();
+src/pages/admin/IctLoanStationPage.tsx:482:          .select("id,status,device_id,student_id,personnel_id")
+src/pages/academic/TeacherSubjectPage.tsx:19:      const { data } = await supabase.from("personnel").select("*").eq("status", "active").order("first_name");
+src/components/student/HomeVisitSummaryDialog.tsx:90:        supabase.from("students").select("id, gender, status").eq("status", "active"),
+src/components/student/HomeVisitSummaryDialog.tsx:91:        supabase.from("home_visits").select("student_id, family_status, students(gender)"),
+src/pages/academic/ClassroomManagementPage.tsx:46:      const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
+src/pages/academic/ClassroomManagementPage.tsx:54:      const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name, classroom_id, inclusion_classroom_id, is_special_needs, special_needs, special_needs_type").eq("status", "active").order("student_code");
+src/pages/academic/ClassroomManagementPage.tsx:62:      const { data } = await supabase.from("personnel").select("*").eq("status", "active").order("first_name");
+src/pages/games/GamesStorePage.tsx:26:        .select("id, classrooms!students_classroom_id_fkey(grade_level)")
+src/pages/games/GamesStorePage.tsx:39:        .select("id,title,description,cover_url,type,url,min_grade,max_grade,tags,play_count,is_active")
+src/pages/academic/CertificatePage.tsx:26:      const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
+src/pages/games/GameDetailPage.tsx:41:        .select("id, first_name, last_name, classrooms!students_classroom_id_fkey(grade_level)")
+src/pages/games/GameDetailPage.tsx:69:        .select("id, first_name, last_name, student_code, classrooms!students_classroom_id_fkey(grade_level, name)")
+src/pages/academic/AllStudentsPage.tsx:86:        .select("*, classrooms!students_classroom_id_fkey(name, grade_level)")
+src/pages/academic/AllStudentsPage.tsx:97:      const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
+src/pages/academic/AcademicProbationPage.tsx:43:      const { data } = await supabase.from("students").select("id, student_code, first_name, last_name, prefix").eq("status", "active").order("student_code");
+src/pages/academic/AcademicProbationPage.tsx:51:      const { data } = await (supabase.from("student_scores" as any) as any).select("student_code, student_name, academic_year, semester, grade_point").eq("academic_year", toCE(ay)).eq("semester", sem).not("grade_point" as any, "is", null);
+src/pages/academic/AcademicGradeLockPage.tsx:51:      const { data, error } = await supabase.from("classrooms").select("id, name, grade_level, academic_year, homeroom_teacher").order("grade_level").order("name");
+src/pages/academic/AcademicGradeLockPage.tsx:75:        .select("id, student_code, prefix, first_name, last_name, status")
+src/pages/academic/AcademicGradeLockPage.tsx:93:        .select("student_id, attendance_date, status")
+src/pages/academic/AcademicGradeLockPage.tsx:124:        .select("id, file_name, subject_name, subject_code, grade_level, semester, academic_year, announced_at, parsed_data")
+src/pages/academic/AcademicGradeLockPage.tsx:141:        .select("id, file_name, classroom_name, grade_level, semester, academic_year, announced_at, parsed_data")
+src/components/evaluation/LegacyEvaluationTab.tsx:54:      const { data } = await supabase.from("personnel").select("*").eq("status", "active").order("employee_code");
+src/components/academic/PP5AttendanceMatrix.tsx:105:        .select("id, student_id, attendance_date, status")
+src/pages/academic/Pp8Page.tsx:37:      .select("*, classrooms:classroom_id(name, grade_level)")
+src/pages/garbage/GarbageDashboardPage.tsx:32:    const { count: studentsTotal } = await supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "active");
+src/components/academic/ClassBookletDialog.tsx:31:      const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
+src/components/StudentActivityTimeline.tsx:45:        supabase.from("attendance").select("id,attendance_date,status,notes")
+src/components/StudentActivityTimeline.tsx:49:        supabase.from("student_leaves").select("id,start_date,end_date,leave_type,reason,status")
+src/components/StudentActivityTimeline.tsx:52:          ? supabase.from("student_scores").select("id,created_at,total_score,subject_id")
+src/components/dashboard/SchoolRadarWidget.tsx:62:          .select("subject_id,total_score,academic_year")
+src/pages/UserManagement.tsx:171:        .select("id, grade_level")
+src/pages/UserManagement.tsx:185:        .select("id, student_code, classroom_id, classrooms!students_classroom_id_fkey(grade_level)")
+src/pages/UserManagement.tsx:201:          ? supabase.from("student_scores").select("student_code, grade_point, subject_id").in("student_code", studentCodes)
+src/pages/UserManagement.tsx:597:        .from("classrooms").select("id, name, grade_level").order("grade_level").order("name");
+src/components/dashboard/MyRadarWidget.tsx:67:          .select("subject_id,total_score,academic_year")
+src/components/kiosk/KioskFaceRegisterDialog.tsx:77:      let { data: s } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name,grade_level)").eq("student_code", token).maybeSingle();
+src/components/kiosk/KioskFaceRegisterDialog.tsx:80:        const { data: s2 } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name,grade_level)").ilike("student_code", token).maybeSingle();
+src/components/kiosk/KioskDevicesLiveCard.tsx:45:      .select("id,device_id,user_id,hostname,status,kiosk_mode,config_updated_at,last_seen_at,extension_installed,screen_resolution,meta")
+src/components/attendance/SubjectPeriodCheckTab.tsx:77:        .select("id, subject_id, classroom_id, period, teacher_id, teacher_name, subjects(id, name_th, code, grade_level), classrooms(id, name, grade_level)")
+src/components/dashboard/widgets/MascotHeroWidget.tsx:80:        supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "active"),
+src/components/dashboard/widgets/MascotHeroWidget.tsx:82:        fetchAllRows((f, t) => supabase.from("attendance").select("student_id, status").eq("attendance_date", today).order("student_id").range(f, t)).then((data) => ({ data })),
+src/components/dashboard/widgets/MascotHeroWidget.tsx:210:          .select("subject_id,total_score,academic_year")
+src/components/dashboard/widgets/MascotHeroWidget.tsx:252:          .select("subject_id,total_score,academic_year")
+src/components/dashboard/IoTSummaryWidget.tsx:24:        .select("id, name, unit, last_value, last_status")
+src/components/dashboard/TeacherDailyBriefing.tsx:53:        .select("id, title, due_date, status, subject_id, classroom_id, subjects(name_th, code), classrooms(name)")
+src/components/dashboard/TeacherDailyBriefing.tsx:100:              .select("id, student_id, status, attendance_date")
+src/components/dashboard/TeacherDashboard.tsx:220:        .select("id, prefix, first_name, last_name, gender, status, student_code, photo_url")
+src/components/dashboard/TeacherDashboard.tsx:226:        supabase.from("attendance").select("id, status, student_id").in("student_id", studentIds).eq("attendance_date", today),
+src/components/dashboard/TeacherDashboard.tsx:229:        supabase.from("student_leaves").select("id, status").in("student_id", studentIds),
+src/components/dashboard/TeacherDashboard.tsx:326:          .select("subject_id").in("subject_id", subjectIds).eq("status", "active");
+src/components/dashboard/TeacherDashboard.tsx:368:      const { data: studs } = await supabase.from("students").select("id").in("classroom_id", ids).eq("status", "active").limit(200);
+src/components/dashboard/TeacherDashboard.tsx:386:      const { data: studs } = await supabase.from("students").select("id").in("classroom_id", ids).eq("status", "active").limit(200);
+src/components/dashboard/TeacherDashboard.tsx:392:        .select("attendance_date, status")
+src/components/dashboard/TeacherDashboard.tsx:1263:        .select("id, title, description, due_date, submission_text, submission_file_url, annotated_file_url, submitted_at, grade, feedback, status, assigned_to_student_id, replies, students:assigned_to_student_id(prefix, first_name, last_name, student_code)")
+src/components/dashboard/DirectorDashboard.tsx:61:        supabase.from("students").select("id, gender", { count: "exact" }).eq("status", "active"),
+src/components/dashboard/DirectorDashboard.tsx:62:        supabase.from("personnel").select("id, position", { count: "exact" }).eq("status", "active"),
+src/components/dashboard/DirectorDashboard.tsx:64:        fetchAllRows((f, t) => supabase.from("attendance").select("status, attendance_date").gte("attendance_date", bkkDateISO(new Date(Date.now() - 30 * 86400000))).order("attendance_date").range(f, t)).then((data) => ({ data })),
+src/components/dashboard/DirectorDashboard.tsx:65:        supabase.from("student_leaves").select("id, status"),
+src/components/dashboard/DirectorDashboard.tsx:66:        supabase.from("staff_leaves").select("id, status"),
+src/components/dashboard/DirectorDashboard.tsx:70:        supabase.from("pa_agreements").select("id, status"),
+src/components/dashboard/DirectorDashboard.tsx:72:        supabase.from("documents").select("id, status"),
+src/components/dashboard/DirectorDashboard.tsx:162:        supabase.from("student_scores").select("grade_point, total_score").not("grade_point", "is", null).limit(500),
+src/components/dashboard/DirectorDashboard.tsx:164:        (supabase as any).from("grade_remediation").select("id", { count: "exact", head: true }).neq("status", "ผ่าน").limit(1),
+src/components/dashboard/StudentDashboard.tsx:76:          ? supabase.from("classrooms").select("name, grade_level, homeroom_teacher").eq("id", student.classroom_id).maybeSingle()
+src/components/dashboard/StudentDashboard.tsx:78:        supabase.from("attendance").select("status, attendance_date").eq("student_id", student.id),
+src/components/dashboard/StudentDashboard.tsx:81:        supabase.from("student_leaves").select("id, status, start_date, end_date, reason")
+src/components/dashboard/StudentDashboard.tsx:84:          .select("id, title, description, due_date, status, submitted_at, grade, feedback, submission_text, submission_file_url, annotated_file_url, replies, subjects(name_th)")
+src/components/dashboard/StudentDashboard.tsx:146:        .select("grade_point, total_score, grade, updated_at")
+src/components/dashboard/StudentDashboard.tsx:190:        .select("id, grade, total_score, grade_point, subjects(name_th, code)")
+src/components/dashboard/AlumniDashboard.tsx:48:        supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "graduated"),
+src/lib/ppBooklet.ts:169:    .eq("status", "active")
+src/components/attendance/LateTrackingWidget.tsx:42:        .eq("status", "late")
+src/components/dashboard/widgets/MascotHeroWidget.tsx:80:        supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "active"),
+src/pages/student/OffsiteTripsPage.tsx:500:        .eq("status", "active")
+src/pages/EFormInboxPage.tsx:165:        .eq("status", "draft")
+src/pages/HomeworkPage.tsx:283:        .eq("status", "active")
+src/pages/HomeworkPage.tsx:338:        .eq("status", "active");
+src/hooks/useIdlePrefetch.ts:68:              .eq("status", "active")
+src/hooks/useUserRole.ts:87:        .eq("status", "active");
+src/components/dashboard/TeacherDashboard.tsx:221:        .in("classroom_id", classIds).eq("status", "active");
+src/components/dashboard/TeacherDashboard.tsx:326:          .select("subject_id").in("subject_id", subjectIds).eq("status", "active");
+src/components/dashboard/TeacherDashboard.tsx:368:      const { data: studs } = await supabase.from("students").select("id").in("classroom_id", ids).eq("status", "active").limit(200);
+src/components/dashboard/TeacherDashboard.tsx:386:      const { data: studs } = await supabase.from("students").select("id").in("classroom_id", ids).eq("status", "active").limit(200);
+src/components/dashboard/TeacherDashboard.tsx:1013:        .eq("status", "active")
+src/components/dashboard/DirectorDashboard.tsx:61:        supabase.from("students").select("id, gender", { count: "exact" }).eq("status", "active"),
+src/components/dashboard/DirectorDashboard.tsx:62:        supabase.from("personnel").select("id, position", { count: "exact" }).eq("status", "active"),
+src/components/dashboard/TeacherDailyBriefing.tsx:82:          .eq("status", "active");
+src/components/dashboard/AlumniDashboard.tsx:48:        supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "graduated"),
+src/pages/student/HealthTrendPage.tsx:60:        .eq("status", "active");
+src/pages/Dashboard.tsx:102:        supabase.from("students").select("id, status, gender, prefix, classroom_id", { count: "exact" }).eq("status", "active"),
+src/pages/Dashboard.tsx:117:        supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("status", "active"),
+src/components/homework/HomeworkSubmission.tsx:300:        .eq("status", "active")
+src/hooks/useStudentsWithClass.ts:17:        .eq("status", "active")
+src/hooks/useStudentData.ts:32:        .eq("status", "active")
+src/components/facescan/StaffFaceTab.tsx:56:        .eq("status", "active")
+src/components/facescan/FaceScanTab.tsx:226:      let q = supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "active");
+src/components/academic/TeacherScheduleImportDialog.tsx:62:        .eq("status", "active")
+src/components/facescan/FaceReportTab.tsx:379:        supabase.from("students").select("id, prefix, first_name, last_name, student_code, gender, classrooms!students_classroom_id_fkey(grade_level, name, reference_grade_level)").eq("status", "active"),
+src/components/facescan/FaceReportTab.tsx:580:        .eq("status", "active");
+src/components/facescan/FaceApprovalTab.tsx:82:        .eq("status", "pending")
+src/components/facescan/FaceRegisterTab.tsx:61:        .eq("status", "active")
+src/components/evaluation/PASystemTab.tsx:58:      const { data } = await supabase.from("personnel").select("*").eq("status", "active").order("employee_code");
+src/components/evaluation/LegacyEvaluationTab.tsx:54:      const { data } = await supabase.from("personnel").select("*").eq("status", "active").order("employee_code");
+src/pages/liff/LiffAttendancePage.tsx:43:        .eq("classroom_id", cls.id).eq("status", "active").order("student_code");
+src/components/student/HomeVisitSummaryDialog.tsx:90:        supabase.from("students").select("id, gender, status").eq("status", "active"),
+src/lib/earlyWarning.ts:287:    .eq("status", "active")
+src/pages/hr/TimeClockPage.tsx:142:      const { data } = await supabase.from("personnel").select("*").eq("status", "active").order("first_name");
+src/pages/hr/SubstitutePage.tsx:95:        .eq("status", "approved")
+src/pages/hr/SubstitutePage.tsx:119:        .eq("status", "active")
+src/pages/admin/DataQualityPage.tsx:65:        .eq("status", "active")
+src/pages/admin/DataQualityPage.tsx:91:      .eq("status", "active")
+src/pages/admin/DataQualityPage.tsx:115:      .eq("status", "active")
+src/pages/hr/SubsidyPage.tsx:37:      const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level)").eq("status", "active").order("student_code");
+src/lib/gradeLock.ts:327:    .eq("status", "active");
+src/pages/hr/StaffLeavePage.tsx:90:      const { data } = await supabase.from("personnel").select("*").eq("status", "active").order("first_name");
+src/pages/admin/BulkIdCardPrintPage.tsx:41:        .eq("status", "active")
+src/lib/notificationTriggers.ts:102:      .eq("status", "active");
+src/lib/notificationTriggers.ts:424:      const { data } = await supabase.from("students").select("auth_user_id").eq("classroom_id", opts.classroomId).eq("status", "active").not("auth_user_id", "is", null);
+src/pages/hr/SalaryPage.tsx:68:      const { data } = await supabase.from("personnel").select("*").eq("status", "active").order("first_name");
+src/pages/UserManagement.tsx:187:        .eq("status", "active");
+src/pages/ProfilePage.tsx:355:        supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "active"),
+src/pages/ProfilePage.tsx:360:        supabase.from("attendance").select("id", { count: "exact", head: true }).eq("status", "present"),
+src/pages/admin/DocumentPage.tsx:80:      const { data } = await supabase.from("personnel").select("id, prefix, first_name, last_name, position, department, employee_code").eq("status", "active").order("first_name");
+src/pages/admin/IctLoanStationPage.tsx:82:      .eq("status", "active").order("borrowed_at", { ascending: false }).limit(50);
+src/pages/admin/IctLoanStationPage.tsx:102:      supabase.from("personnel").select("id,employee_code,prefix,first_name,last_name,department").eq("status", "active").order("first_name"),
+src/pages/admin/IctLoanStationPage.tsx:235:      }).eq("batch_id", batchId).eq("status", "active");
+src/pages/admin/IctLoanStationPage.tsx:256:      }).eq("id", loanId).eq("status", "active");
+src/pages/admin/IctLoanStationPage.tsx:305:          .eq("status", "active")
+src/pages/admin/IctLoanStationPage.tsx:321:    let q = supabase.from("ict_loans").select(sel).eq("status", "active");
+src/pages/admin/IctLoanStationPage.tsx:362:        .eq("device_id", (data as any).id).eq("status", "active").maybeSingle();
+src/pages/admin/IctLoanStationPage.tsx:455:          .eq("device_id", device.id).eq("status", "active");
+src/pages/admin/IctLoanStationPage.tsx:462:          .eq(borrowerCol, borrowerId).eq("status", "active");
+src/pages/admin/IctLoanStationPage.tsx:501:        }).eq("id", activeLoan.id).eq("status", "active").select("id");
+src/pages/hr/OrgChartPage.tsx:99:        .eq("status", "active")
+src/pages/admin/IctLoanReportPage.tsx:42:    if (statusFilter === "active") q = q.eq("status", "active");
+src/pages/admin/IctLoanReportPage.tsx:43:    else if (statusFilter === "returned") q = q.eq("status", "returned");
+src/pages/admin/IctLoanReportPage.tsx:44:    else if (statusFilter === "overdue") q = q.eq("status", "active").lt("expected_return_at", new Date().toISOString());
+src/pages/admin/IctLoanHistoryPage.tsx:55:    if (filter === "active") query = query.eq("status", "active");
+src/pages/admin/IctLoanHistoryPage.tsx:56:    else if (filter === "returned") query = query.eq("status", "returned");
+src/pages/admin/IctLoanHistoryPage.tsx:57:    else if (filter === "overdue") query = query.eq("status", "active").lt("expected_return_at", new Date().toISOString());
+src/pages/academic/LessonPlansPage.tsx:63:      else if (tab === "review") q = q.eq("status", "submitted");
+src/pages/academic/LessonPlansPage.tsx:64:      else if (tab === "peer") q = q.eq("status", "approved").neq("user_id", userId);
+src/pages/admin/BulkQrPrintPage.tsx:49:        .eq("status", "active")
+src/pages/admin/BulkQrPrintPage.tsx:62:        .eq("status", "active")
+src/pages/hr/IdPlanPage.tsx:141:      const { data } = await supabase.from("personnel").select("*").eq("status", "active").order("first_name");
+src/pages/academic/LearningCenterPage.tsx:257:      let q = supabase.from("learning_center_bookings").select("*").eq("status", "confirmed").eq("room_id", selectedRoomId);
+src/pages/academic/LearningCenterPage.tsx:278:        .eq("status", "confirmed")
+src/pages/academic/LearningCenterPage.tsx:297:        .eq("status", "confirmed")
+src/pages/academic/GradeRemediationPage.tsx:64:    if (statusFilter !== "all") q = q.eq("status", statusFilter);
+src/pages/admin/SmscCenterPage.tsx:77:    supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "active"),
+src/pages/admin/PrintCenterPage.tsx:582:  let q = supabase.from("students").select("*, classrooms!students_classroom_id_fkey(name, grade_level)").eq("status", "active").order("student_code").limit(50);
+src/pages/academic/EnrollmentPage.tsx:109:    const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name, classroom_id, status").eq("status", "active").order("student_code");
+src/pages/admin/ObservationSessionPage.tsx:145:        .eq("status", "active").order("first_name");
+src/pages/admin/NotificationDeliveryDashboard.tsx:69:      if (status !== "all") q = q.eq("status", status);
+src/pages/hr/AttendanceDashboardPage.tsx:44:      const { data } = await supabase.from("personnel").select("id, prefix, first_name, last_name, employee_code, position, department").eq("status", "active").order("first_name");
+src/pages/academic/AcademicProbationPage.tsx:43:      const { data } = await supabase.from("students").select("id, student_code, first_name, last_name, prefix").eq("status", "active").order("student_code");
+src/pages/academic/AcademicGradeLockPage.tsx:77:        .eq("status", "active")
+src/pages/academic/ClassroomManagementPage.tsx:54:      const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name, classroom_id, inclusion_classroom_id, is_special_needs, special_needs, special_needs_type").eq("status", "active").order("student_code");
+src/pages/academic/ClassroomManagementPage.tsx:62:      const { data } = await supabase.from("personnel").select("*").eq("status", "active").order("first_name");
+src/pages/admin/DutyTeachersPage.tsx:73:        supabase.from("personnel").select("id, prefix, first_name, last_name").eq("status", "active").order("first_name"),
+src/pages/garbage/GarbageDashboardPage.tsx:32:    const { count: studentsTotal } = await supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "active");
+src/pages/academic/Pp6Page.tsx:88:      const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name").eq("classroom_id", classroomId).eq("status", "active").order("student_code");
+src/pages/academic/Pp5Page.tsx:320:      const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name, gender").eq("classroom_id", currentAssignment.classroom_id).eq("status", "active").order("student_code");
+src/pages/academic/Pp5Page.tsx:1032:      const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name, gender").eq("classroom_id", classroomId).eq("status", "active").order("student_code");
+src/pages/academic/Pp5Page.tsx:1698:      const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name, gender").eq("classroom_id", currentAssignment.classroom_id).eq("status", "active").order("student_code");
+src/pages/academic/SchedulePage.tsx:99:        .eq("status", "active")
+src/pages/academic/SchedulePage.tsx:277:        .eq("status", "confirmed")
+src/pages/academic/AlumniPage.tsx:31:        .eq("status", "graduated")
+src/pages/academic/Pp3Page.tsx:43:        .eq("status", "graduated")
+src/pages/academic/TeacherSubjectPage.tsx:19:      const { data } = await supabase.from("personnel").select("*").eq("status", "active").order("first_name");
