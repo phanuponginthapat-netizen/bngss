@@ -250,6 +250,8 @@ const ObecStandardsPage = lazy(() => import("./pages/admin/ObecStandardsPage"));
 const AuditLogPage = lazy(() => import("./pages/admin/AuditLogPage"));
 const SystemHealthPage = lazy(() => import("./pages/admin/SystemHealthPage"));
 const DataQualityPage = lazy(() => import("./pages/admin/DataQualityPage"));
+const DataArchivePage = lazy(() => import("./pages/admin/DataArchivePage"));
+
 const DistrictSyncPage = lazy(() => import("./pages/admin/DistrictSyncPage"));
 const RoleTroubleshootPage = lazy(() => import("./pages/admin/RoleTroubleshootPage"));
 const DatabaseSchemaPage = lazy(() => import("./pages/admin/DatabaseSchemaPage"));
