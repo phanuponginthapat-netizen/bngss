@@ -52,7 +52,7 @@ async function runChecks(): Promise<Issue[]> {
       count: missing.length,
       samples: missing
         .slice(0, 8)
-        .map((p: { first_name?: string | null; last_name?: string | null; email?: string | null }) => `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.email || "-"),
+        .map((p: { first_name?: string | null; last_name?: string | null; google_email?: string | null }) => `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.google_email || "-"),
     });
   } catch { /* ไม่มีสิทธิ์อ่าน — ข้ามการตรวจนี้ */ }
 
