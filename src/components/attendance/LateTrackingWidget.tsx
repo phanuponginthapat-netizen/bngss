@@ -31,7 +31,7 @@ export function LateTrackingWidget() {
         .select(`
           student_id,
           late_minutes,
-          scan_time,
+          created_at,
           students!inner (
             first_name,
             last_name,
@@ -52,7 +52,7 @@ export function LateTrackingWidget() {
         prefix: r.students.prefix || "",
         late_minutes: r.late_minutes,
         classroom_name: r.students.classrooms.name,
-        scan_time: r.scan_time,
+        scan_time: r.created_at,
       }));
 
       setLateStudents(records);
