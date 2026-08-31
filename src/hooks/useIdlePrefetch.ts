@@ -52,7 +52,7 @@ export function useIdlePrefetch() {
           queryFn: async () => {
             const { data } = await supabase
               .from("classrooms")
-              .select("id, name, grade_level, room_number, homeroom_teacher_id")
+              .select("id, name, grade_level, homeroom_teacher")
               .order("grade_level");
             return data || [];
           },
