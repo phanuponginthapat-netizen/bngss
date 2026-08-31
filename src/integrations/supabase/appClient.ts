@@ -3,6 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { getBackendConfig } from '@/lib/runtimeConfig';
+import { createFlowFetch } from '@/lib/requestFlow';
 
 const cfg = getBackendConfig();
 
@@ -14,6 +15,8 @@ function isNewSupabaseApiKey(value: string): boolean {
 }
 
 function createSupabaseFetch(supabaseKey: string): typeof fetch {
+  // ควบคุมการไหลของคำขอ: จำกัด concurrency + รวมคำขออ่านที่ซ้ำกัน + backoff เมื่อ 429/503
+  const flowFetch = createFlowFetch(fetch);
   return (input, init) => {
     const headers = new Headers(
       typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined,
@@ -28,9 +31,10 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
     }
 
     headers.set('apikey', supabaseKey);
-    return fetch(input, { ...init, headers });
+    return flowFetch(input, { ...init, headers });
   };
 }
+
 
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
   // ไม่ throw เพื่อให้หน้า /setup ยังเปิดได้และตั้งค่าใหม่ได้
