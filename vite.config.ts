@@ -42,6 +42,9 @@ export default defineConfig(({ mode }) => ({
           if (id.includes("/leaflet")) return "vendor-map";
           if (id.includes("/recharts") || id.includes("/d3-")) return "vendor-charts";
           if (id.includes("/@tanstack/")) return "vendor-query";
+          if (id.includes("/mind-ar") || id.includes("/aframe") || id.includes("/three")) return "vendor-ar";
+          if (id.includes("/@zxing/") || id.includes("/qrcode") || id.includes("/html5-qrcode")) return "vendor-qr";
+          if (id.includes("/tesseract")) return "vendor-ocr";
           if (id.includes("/@vladmandic/face-api")) return "vendor-face";
           if (id.includes("/@tensorflow/tfjs")) return "vendor-tfjs";
           if (id.includes("/face-api") || id.includes("/faceapi")) return "vendor-face";
