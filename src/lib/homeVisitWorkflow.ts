@@ -1,5 +1,6 @@
 // Home visit workflow — auto-trigger for at-risk students + track minimum visits
 import { supabase } from "@/integrations/supabase/client";
+import { toCE } from "@/lib/utils";
 
 export interface HomeVisitCheck {
   student_id: string;

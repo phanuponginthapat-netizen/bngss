@@ -1,5 +1,6 @@
 // SDQ Auto-flag workflow — flag at-risk students and trigger follow-up
 import { supabase } from "@/integrations/supabase/client";
+import { toCE } from "@/lib/utils";
 
 export interface SdqFlagResult {
   student_id: string;

@@ -3,6 +3,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { findAtRiskAttendance, type AttendanceExportRow } from "./attendanceExport";
+import { toCE } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Constants & Types

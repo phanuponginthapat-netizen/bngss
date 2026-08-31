@@ -12,6 +12,7 @@ import { checkAcademicYear, matchStudents, provisionAlumni, type YearCheck } fro
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { sanitizeStorageKey } from "@/lib/uploadFallback";
+import { toCE } from "@/lib/utils";
 
 
 export interface AutoImportResolvedTarget {
