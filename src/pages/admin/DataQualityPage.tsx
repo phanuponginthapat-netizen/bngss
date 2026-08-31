@@ -37,7 +37,7 @@ async function runChecks(): Promise<Issue[]> {
   // 1) ผู้ใช้ที่ยังไม่มีบทบาท (role)
   try {
     const [{ data: profiles }, { data: roles }]: any[] = await Promise.all([
-      (supabase as any).from("profiles").select("id, full_name, email").limit(5000),
+      (supabase as any).from("profiles").select("id, first_name, last_name, email").limit(5000),
       (supabase as any).from("user_roles").select("user_id").limit(20000),
     ]);
     const withRole = new Set((roles || []).map((r: { user_id: string }) => r.user_id));
@@ -52,7 +52,7 @@ async function runChecks(): Promise<Issue[]> {
       count: missing.length,
       samples: missing
         .slice(0, 8)
-        .map((p: { full_name?: string | null; email?: string | null }) => p.full_name || p.email || "-"),
+        .map((p: { first_name?: string | null; last_name?: string | null; email?: string | null }) => `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.email || "-"),
     });
   } catch { /* ไม่มีสิทธิ์อ่าน — ข้ามการตรวจนี้ */ }
 
@@ -61,7 +61,7 @@ async function runChecks(): Promise<Issue[]> {
     const [{ data: personnel }, { data: schedules }]: any[] = await Promise.all([
       supabase
         .from("personnel")
-        .select("id, full_name, position")
+        .select("id, prefix, first_name, last_name, position")
         .eq("status", "active")
         .limit(2000),
       (supabase as any).from("schedules").select("teacher_id").limit(20000),
@@ -79,7 +79,7 @@ async function runChecks(): Promise<Issue[]> {
       fixLabel: "จัดตารางสอน",
       severity: "medium",
       count: noSchedule.length,
-      samples: noSchedule.slice(0, 8).map((p: { full_name?: string | null }) => p.full_name || "-"),
+      samples: noSchedule.slice(0, 8).map((p: { prefix?: string | null; first_name?: string | null; last_name?: string | null }) => `${p.prefix || ""}${p.first_name || ""} ${p.last_name || ""}`.trim() || "-"),
     });
   } catch { /* ข้าม */ }
 
@@ -111,7 +111,7 @@ async function runChecks(): Promise<Issue[]> {
   try {
     const { data: personnel }: any = await supabase
       .from("personnel")
-      .select("id, full_name, user_id")
+      .select("id, prefix, first_name, last_name, user_id")
       .eq("status", "active")
       .is("user_id", null)
       .limit(2000);
@@ -123,7 +123,7 @@ async function runChecks(): Promise<Issue[]> {
       fixLabel: "ผูกบัญชี",
       severity: "high",
       count: (personnel || []).length,
-      samples: (personnel || []).slice(0, 8).map((p: { full_name?: string | null }) => p.full_name || "-"),
+      samples: (personnel || []).slice(0, 8).map((p: { prefix?: string | null; first_name?: string | null; last_name?: string | null }) => `${p.prefix || ""}${p.first_name || ""} ${p.last_name || ""}`.trim() || "-"),
     });
   } catch { /* ข้าม */ }
 
@@ -131,9 +131,12 @@ async function runChecks(): Promise<Issue[]> {
   try {
     const { data: rooms }: any = await supabase
       .from("classrooms")
-      .select("id, name, homeroom_teacher_id")
-      .is("homeroom_teacher_id", null)
+      .select("id, name, homeroom_teacher, homeroom_teacher_id")
       .limit(500);
+    const roomsMissing = (rooms || []).filter(
+      (r: { homeroom_teacher?: string | null; homeroom_teacher_id?: string | null }) =>
+        !r.homeroom_teacher && !r.homeroom_teacher_id,
+    );
     issues.push({
       key: "classroom-no-homeroom",
       title: "ห้องเรียนที่ยังไม่มีครูประจำชั้น",
@@ -141,8 +144,8 @@ async function runChecks(): Promise<Issue[]> {
       fixTo: "/dashboard/academic/management",
       fixLabel: "กำหนดครูประจำชั้น",
       severity: "medium",
-      count: (rooms || []).length,
-      samples: (rooms || []).slice(0, 8).map((r: { name?: string | null }) => r.name || "-"),
+      count: roomsMissing.length,
+      samples: roomsMissing.slice(0, 8).map((r: { name?: string | null }) => r.name || "-"),
     });
   } catch { /* ข้าม */ }
 
