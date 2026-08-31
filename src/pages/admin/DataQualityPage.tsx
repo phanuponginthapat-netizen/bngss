@@ -36,9 +36,9 @@ async function runChecks(): Promise<Issue[]> {
 
   // 1) ผู้ใช้ที่ยังไม่มีบทบาท (role)
   try {
-    const [{ data: profiles }, { data: roles }] = await Promise.all([
-      supabase.from("profiles").select("id, full_name, email").limit(5000),
-      supabase.from("user_roles").select("user_id").limit(20000),
+    const [{ data: profiles }, { data: roles }]: any[] = await Promise.all([
+      (supabase as any).from("profiles").select("id, full_name, email").limit(5000),
+      (supabase as any).from("user_roles").select("user_id").limit(20000),
     ]);
     const withRole = new Set((roles || []).map((r: { user_id: string }) => r.user_id));
     const missing = (profiles || []).filter((p: { id: string }) => !withRole.has(p.id));
@@ -58,13 +58,13 @@ async function runChecks(): Promise<Issue[]> {
 
   // 2) ครูที่ยังไม่มีคาบสอนในตารางสอน
   try {
-    const [{ data: personnel }, { data: schedules }] = await Promise.all([
+    const [{ data: personnel }, { data: schedules }]: any[] = await Promise.all([
       supabase
         .from("personnel")
         .select("id, full_name, position")
         .eq("status", "active")
         .limit(2000),
-      supabase.from("schedules").select("teacher_id").limit(20000),
+      (supabase as any).from("schedules").select("teacher_id").limit(20000),
     ]);
     const teaching = new Set((schedules || []).map((s: { teacher_id: string | null }) => s.teacher_id));
     const noSchedule = (personnel || []).filter(
@@ -85,7 +85,7 @@ async function runChecks(): Promise<Issue[]> {
 
   // 3) นักเรียนที่ยังไม่ได้อยู่ห้องเรียน
   try {
-    const { data: students } = await supabase
+    const { data: students }: any = await supabase
       .from("students")
       .select("id, student_code, first_name, last_name, classroom_id")
       .eq("status", "active")
@@ -109,7 +109,7 @@ async function runChecks(): Promise<Issue[]> {
 
   // 4) บุคลากรที่ยังไม่ผูกกับบัญชีผู้ใช้
   try {
-    const { data: personnel } = await supabase
+    const { data: personnel }: any = await supabase
       .from("personnel")
       .select("id, full_name, user_id")
       .eq("status", "active")
@@ -129,7 +129,7 @@ async function runChecks(): Promise<Issue[]> {
 
   // 5) ห้องเรียนที่ยังไม่มีครูประจำชั้น
   try {
-    const { data: rooms } = await supabase
+    const { data: rooms }: any = await supabase
       .from("classrooms")
       .select("id, name, homeroom_teacher_id")
       .is("homeroom_teacher_id", null)
