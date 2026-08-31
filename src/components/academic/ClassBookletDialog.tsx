@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Books, Printer, Loader2 } from "lucide-react";
+import { BookCopy, Printer, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { openPrintWindow } from "@/lib/printUtils";
 import { loadClassBookletData, buildTranscriptBooklet, buildReportCardBooklet, type BookletSchoolInfo } from "@/lib/ppBooklet";
@@ -69,7 +69,7 @@ export default function ClassBookletDialog({ kind, school, defaultSemester = "1"
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="default">
-          <Books className="w-4 h-4 mr-2" />
+          <BookCopy className="w-4 h-4 mr-2" />
           พิมพ์ทั้งห้อง (รวมเล่ม)
         </Button>
       </DialogTrigger>
