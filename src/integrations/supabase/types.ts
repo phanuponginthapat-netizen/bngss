@@ -3876,6 +3876,39 @@ export type Database = {
         }
         Relationships: []
       }
+      data_retention_policies: {
+        Row: {
+          code: string
+          created_at: string
+          label: string
+          legal_basis: string | null
+          retention_years: number | null
+          sort_order: number
+          tables: string[]
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          label: string
+          legal_basis?: string | null
+          retention_years?: number | null
+          sort_order?: number
+          tables?: string[]
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          label?: string
+          legal_basis?: string | null
+          retention_years?: number | null
+          sort_order?: number
+          tables?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       director_signatures: {
         Row: {
           created_at: string
@@ -4393,6 +4426,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      drive_archives: {
+        Row: {
+          academic_year_be: number
+          byte_size: number
+          created_at: string
+          created_by: string | null
+          file_id: string
+          file_name: string
+          folder_path: string | null
+          format: string
+          id: string
+          module_code: string
+          module_label: string | null
+          row_count: number
+          table_name: string
+          updated_at: string
+          web_link: string | null
+        }
+        Insert: {
+          academic_year_be: number
+          byte_size?: number
+          created_at?: string
+          created_by?: string | null
+          file_id: string
+          file_name: string
+          folder_path?: string | null
+          format?: string
+          id?: string
+          module_code: string
+          module_label?: string | null
+          row_count?: number
+          table_name: string
+          updated_at?: string
+          web_link?: string | null
+        }
+        Update: {
+          academic_year_be?: number
+          byte_size?: number
+          created_at?: string
+          created_by?: string | null
+          file_id?: string
+          file_name?: string
+          folder_path?: string | null
+          format?: string
+          id?: string
+          module_code?: string
+          module_label?: string | null
+          row_count?: number
+          table_name?: string
+          updated_at?: string
+          web_link?: string | null
+        }
+        Relationships: []
       }
       duty_assignments: {
         Row: {
@@ -16232,6 +16319,18 @@ export type Database = {
       fmt_time24: { Args: { _ts: string }; Returns: string }
       get_admin_dashboard_stats: { Args: never; Returns: Json }
       get_app_secret: { Args: { _key: string }; Returns: string }
+      get_archive_overview: {
+        Args: never
+        Returns: {
+          academic_year_be: number
+          bytes: number
+          files: number
+          last_archived_at: string
+          module_code: string
+          module_label: string
+          rows_archived: number
+        }[]
+      }
       get_available_academic_years: { Args: never; Returns: number[] }
       get_chat_user_profiles: {
         Args: { _ids: string[] }
@@ -16665,6 +16764,7 @@ export type Database = {
         Returns: boolean
       }
       is_template_public: { Args: { _tid: string }; Returns: boolean }
+      is_year_archived: { Args: { _year_be: number }; Returns: boolean }
       kiosk_clock_personnel: {
         Args: {
           _confidence?: number
