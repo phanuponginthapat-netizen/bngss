@@ -130,7 +130,7 @@ export function DailyCheckTab({
       // Fan-out: notify students marked absent/late (in-app + LINE)
       try {
         const { notify } = await import("@/lib/notify");
-        const absentees = classStudents.filter((s: any) => {
+        const absentees = targets.filter((s: any) => {
           const st = statusMap[s.id] || "absent";
           return (st === "absent" || st === "late") && s.auth_user_id;
         });
