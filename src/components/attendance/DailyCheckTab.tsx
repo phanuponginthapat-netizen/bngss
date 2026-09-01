@@ -94,13 +94,24 @@ export function DailyCheckTab({
   const handleSubmit = async (statusMap: Record<string, AttendanceStatus>) => {
     if (classStudents.length === 0) return;
     try {
-      const studentIds = classStudents.map((s: any) => s.id);
+      // นักเรียนที่สแกนเข้าโรงเรียนแล้ว (present/late) จะไม่ถูกเขียนทับเป็น "ขาด"
+      const keepIds = new Set(
+        classStudents
+          .filter((s: any) => prescanned[s.id] && (statusMap[s.id] || "absent") === "absent")
+          .map((s: any) => s.id),
+      );
+      const targets = classStudents.filter((s: any) => !keepIds.has(s.id));
+      if (targets.length === 0) {
+        toast.info(lang === "th" ? "ทุกคนมีบันทึกจากการสแกนแล้ว" : "All already recorded by scan");
+        return;
+      }
+      const studentIds = targets.map((s: any) => s.id);
       await supabase.from("attendance").delete()
         .in("student_id", studentIds)
         .eq("attendance_date", checkDate)
         .is("subject_id", null);
 
-      const inserts = classStudents.map((s: any) => ({
+      const inserts = targets.map((s: any) => ({
         student_id: s.id,
         subject_id: null,
         attendance_date: checkDate,
@@ -110,6 +121,7 @@ export function DailyCheckTab({
         academic_year: dbAcademicYear,
         semester: semester && semester > 0 ? semester : undefined,
       }));
+
       const { error } = await supabase.from("attendance").insert(inserts as any);
       if (error) throw error;
       toast.success(lang === "th" ? `บันทึกเช็คชื่อหน้าเสาธง ${inserts.length} คน` : `Saved ${inserts.length}`);
