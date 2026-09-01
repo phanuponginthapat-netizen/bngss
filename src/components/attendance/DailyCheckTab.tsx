@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { todayBangkok } from "@/lib/dateBE";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,6 +60,33 @@ export function DailyCheckTab({
       .sort((a: any, b: any) => (a.student_code || "").localeCompare(b.student_code || ""));
   }, [students, classroomFilter, gradeFilter, filteredClassrooms]);
 
+  const studentIds = useMemo(() => classStudents.map((s: any) => s.id), [classStudents]);
+
+  // ดึงบันทึกที่มีอยู่แล้วของวันนั้น (มาจากสแกน QR/ใบหน้าหน้าประตู) เพื่อไม่ให้ถูกนับเป็นขาดเรียน
+  const { data: existingToday } = useQuery({
+    queryKey: ["attendance", "daily-existing", checkDate, studentIds.length, classroomFilter],
+    enabled: studentIds.length > 0,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("attendance")
+        .select("student_id, status")
+        .eq("attendance_date", checkDate)
+        .is("subject_id", null)
+        .in("student_id", studentIds);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const prescanned = useMemo(() => {
+    const m: Record<string, AttendanceStatus> = {};
+    (existingToday || []).forEach((r: any) => {
+      if (r.status === "present" || r.status === "late") m[r.student_id] = r.status;
+    });
+    return m;
+  }, [existingToday]);
+
   const classroomName = classroomFilter === "all" && gradeFilter !== "all"
     ? `${gradeFilter} ${lang === "th" ? "ทุกห้อง" : "All rooms"}`
     : classrooms.find((c: any) => c.id === classroomFilter)?.name || "";
@@ -67,13 +94,24 @@ export function DailyCheckTab({
   const handleSubmit = async (statusMap: Record<string, AttendanceStatus>) => {
     if (classStudents.length === 0) return;
     try {
-      const studentIds = classStudents.map((s: any) => s.id);
+      // นักเรียนที่สแกนเข้าโรงเรียนแล้ว (present/late) จะไม่ถูกเขียนทับเป็น "ขาด"
+      const keepIds = new Set(
+        classStudents
+          .filter((s: any) => prescanned[s.id] && (statusMap[s.id] || "absent") === "absent")
+          .map((s: any) => s.id),
+      );
+      const targets = classStudents.filter((s: any) => !keepIds.has(s.id));
+      if (targets.length === 0) {
+        toast.info(lang === "th" ? "ทุกคนมีบันทึกจากการสแกนแล้ว" : "All already recorded by scan");
+        return;
+      }
+      const studentIds = targets.map((s: any) => s.id);
       await supabase.from("attendance").delete()
         .in("student_id", studentIds)
         .eq("attendance_date", checkDate)
         .is("subject_id", null);
 
-      const inserts = classStudents.map((s: any) => ({
+      const inserts = targets.map((s: any) => ({
         student_id: s.id,
         subject_id: null,
         attendance_date: checkDate,
@@ -83,6 +121,7 @@ export function DailyCheckTab({
         academic_year: dbAcademicYear,
         semester: semester && semester > 0 ? semester : undefined,
       }));
+
       const { error } = await supabase.from("attendance").insert(inserts as any);
       if (error) throw error;
       toast.success(lang === "th" ? `บันทึกเช็คชื่อหน้าเสาธง ${inserts.length} คน` : `Saved ${inserts.length}`);
@@ -91,7 +130,7 @@ export function DailyCheckTab({
       // Fan-out: notify students marked absent/late (in-app + LINE)
       try {
         const { notify } = await import("@/lib/notify");
-        const absentees = classStudents.filter((s: any) => {
+        const absentees = targets.filter((s: any) => {
           const st = statusMap[s.id] || "absent";
           return (st === "absent" || st === "late") && s.auth_user_id;
         });
@@ -154,9 +193,10 @@ export function DailyCheckTab({
 
       {classStudents.length > 0 ? (
         <ScanAttendanceFlow
-          key={`${classroomFilter}-${checkDate}`}
+          key={`${classroomFilter}-${checkDate}-${Object.keys(prescanned).length}`}
           students={classStudents}
           scanTitle={lang === "th" ? `แสกน QR หน้าเสาธง — ${classroomName}` : `Assembly Scan — ${classroomName}`}
+          prescanned={prescanned}
           contextLabel={lang === "th"
             ? `หน้าเสาธง • ${classroomName} • ${checkDate} • ${classStudents.length} คน`
             : `Assembly • ${classroomName} • ${checkDate}`}
