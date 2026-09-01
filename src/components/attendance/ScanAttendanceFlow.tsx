@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,6 +34,8 @@ interface Props {
   onSubmit: (statusMap: Record<string, AttendanceStatus>) => Promise<void> | void;
   /** Optional context label (e.g. "ป.5/1 — คาบ 2 วิชาคณิตศาสตร์") */
   contextLabel?: string;
+  /** นักเรียนที่มีบันทึกมาแล้ว (เช่น สแกนหน้าประตู/ใบหน้า) — ถือว่าแสกนแล้ว ไม่ต้องแสกนซ้ำ */
+  prescanned?: Record<string, AttendanceStatus>;
 }
 
 const STATUS_META: Record<AttendanceStatus, { th: string; en: string; cls: string }> = {
@@ -44,13 +46,18 @@ const STATUS_META: Record<AttendanceStatus, { th: string; en: string; cls: strin
   leave: { th: "ลา", en: "Leave", cls: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" },
 };
 
-export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSubmit, contextLabel }: Props) {
+export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSubmit, contextLabel, prescanned }: Props) {
   const { lang } = useLanguage();
   const [mode, setMode] = useState<"scan" | "manual">("scan");
   const [scanOpen, setScanOpen] = useState(autoOpen && students.length > 0);
-  const [scanned, setScanned] = useState<Record<string, AttendanceStatus>>({}); // present/late
+  const [scanned, setScanned] = useState<Record<string, AttendanceStatus>>(prescanned || {}); // present/late
   const [scanLog, setScanLog] = useState<{ id: string; name: string; at: number }[]>([]);
   const [reviewOpen, setReviewOpen] = useState(false);
+  // เติมสถานะจากการสแกนหน้าประตู/ใบหน้าที่บันทึกไว้แล้ววันนี้ (ไม่ทับสิ่งที่ครูเพิ่งแสกน)
+  useEffect(() => {
+    if (!prescanned || Object.keys(prescanned).length === 0) return;
+    setScanned(prev => ({ ...prescanned, ...prev }));
+  }, [prescanned]);
   const [unscannedStatus, setUnscannedStatus] = useState<Record<string, AttendanceStatus>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -153,7 +160,7 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
     try {
       await onSubmit(finalMap);
       // reset
-      setScanned({});
+      setScanned(prescanned || {});
       setScanLog([]);
       setUnscannedStatus({});
       setReviewOpen(false);
@@ -164,7 +171,7 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
   };
 
   const handleReset = () => {
-    setScanned({});
+    setScanned(prescanned || {});
     setScanLog([]);
     setUnscannedStatus({});
     setReviewOpen(false);
