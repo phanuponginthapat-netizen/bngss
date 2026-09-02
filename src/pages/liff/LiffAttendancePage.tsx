@@ -118,20 +118,27 @@ function CheckIn({ lineUserId }: { lineUserId: string }) {
 
   return (
     <div className="space-y-2 max-w-md mx-auto pb-24">
-      {students.map((s) => (
+      {students.map((s) => {
+        const locked = prescanned[s.id] === "present" || prescanned[s.id] === "late";
+        return (
         <div key={s.id} className="rounded-xl border bg-card p-3">
           <p className="font-medium text-sm">{s.prefix}{s.first_name} {s.last_name}</p>
-          <p className="text-xs text-muted-foreground mb-2">{s.student_code}</p>
+          <p className="text-xs text-muted-foreground mb-2">
+            {s.student_code}
+            {locked && <span className="ml-2 text-emerald-600">• สแกนเข้าโรงเรียนแล้ว ({prescanned[s.id] === "late" ? "สาย" : "มา"})</span>}
+          </p>
           <div className="grid grid-cols-4 gap-1">
             {(["present", "absent", "late", "leave"] as Status[]).map((st) => (
-              <button key={st} onClick={() => setMarks({ ...marks, [s.id]: st })}
-                className={`px-2 py-1.5 rounded-lg text-xs font-medium ${marks[s.id] === st ? colors[st] : "bg-muted text-muted-foreground"}`}>
+              <button key={st} disabled={locked} onClick={() => setMarks({ ...marks, [s.id]: st })}
+                className={`px-2 py-1.5 rounded-lg text-xs font-medium disabled:opacity-60 ${marks[s.id] === st ? colors[st] : "bg-muted text-muted-foreground"}`}>
                 {st === "present" ? "มา" : st === "absent" ? "ขาด" : st === "late" ? "สาย" : "ลา"}
               </button>
             ))}
           </div>
         </div>
-      ))}
+        );
+      })}
+
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t">
         <Button onClick={save} disabled={busy} className="w-full">
           {busy ? "กำลังบันทึก..." : `บันทึกเช็คชื่อ ${today}`}
