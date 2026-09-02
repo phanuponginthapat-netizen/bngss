@@ -69,19 +69,30 @@ function CheckIn({ lineUserId }: { lineUserId: string }) {
       const year = cur.getFullYear() + (cur.getMonth() >= 4 ? 0 : -1); // CE (DB convention)
       const sem = cur.getMonth() >= 4 && cur.getMonth() <= 9 ? 1 : 2;
       const { data: u } = await supabase.auth.getUser();
-      const rows = students.map((s) => ({
+      // ไม่เขียนทับผลสแกนเข้าโรงเรียน (มา/สาย)
+      const targets = students.filter((s) => {
+        const pre = prescanned[s.id];
+        if (pre === "present" || pre === "late") return false;
+        return true;
+      });
+      if (targets.length === 0) {
+        toast.info("ทุกคนมีผลสแกนเข้าโรงเรียนแล้ว");
+        setTimeout(() => (window as any).liff?.closeWindow?.(), 800);
+        return;
+      }
+      const rows = targets.map((s) => ({
         student_id: s.id,
         attendance_date: today,
         subject_id: null,
-        status: marks[s.id] ?? "present",
+        status: marks[s.id] ?? "absent",
         academic_year: year,
         semester: sem,
         recorded_by: u?.user?.id ?? null,
         notes: "liff",
       }));
       // NULL subject_id can't be matched by ON CONFLICT in PostgREST upsert —
-      // clear today's assembly rows for these students first, then insert fresh.
-      const ids = students.map((s) => s.id);
+      // clear rows only for students without a gate scan, then insert fresh.
+      const ids = targets.map((s) => s.id);
       await supabase.from("attendance")
         .delete()
         .in("student_id", ids)
