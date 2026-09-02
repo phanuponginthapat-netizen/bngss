@@ -138,30 +138,228 @@ export default function DataArchivePage() {
     }
   };
 
+  const [offloading, setOffloading] = useState(false);
+
+  // Storage usage metrics from storage-tier Edge Function
+  const { data: storageUsage, isLoading: loadingStorageUsage, refetch: refetchStorageUsage } = useQuery({
+    queryKey: ["storage_tier_usage"],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("storage-tier", {
+        body: { action: "usage" },
+      });
+      if (error) throw error;
+      return data as {
+        supabase_total_bytes: number;
+        supabase_total_files: number;
+        drive_total_bytes: number;
+        drive_total_files: number;
+        target_under_1gb: boolean;
+        buckets: Array<{
+          name: string;
+          public: boolean;
+          supabase_files: number;
+          supabase_bytes: number;
+          drive_files: number;
+          drive_bytes: number;
+        }>;
+      };
+    },
+  });
+
+  // Offloaded cold storage registry items
+  const { data: coldStorageFiles = [], refetch: refetchColdFiles } = useQuery({
+    queryKey: ["cold_storage_registry"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("cold_storage_registry")
+        .select("*")
+        .order("offloaded_at", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const runOffloadStorage = async () => {
+    const ok = await swal.confirm({
+      title: "ย้ายไฟล์ลง Google Drive (Offload Storage)?",
+      text: "ระบบจะดาวน์โหลดไฟล์จาก Supabase Storage แล้วนำขึ้นโฟลเดอร์ BNGSS Storage บน Drive ก่อนลบออกจาก Supabase เพื่อคืนพื้นที่",
+    });
+    if (!ok) return;
+
+    setOffloading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("storage-tier", {
+        body: { action: "offload", max_files: 100 },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const freed = (data as any)?.freed_bytes || 0;
+      const count = (data as any)?.offloaded_files_count || 0;
+      toast.success(`ย้ายไฟล์สำเร็จ ${count} รายการ (ประหยัดพื้นที่ ${fmtBytes(freed)})`);
+      refetchStorageUsage();
+      refetchColdFiles();
+    } catch (e: any) {
+      toast.error(`การย้ายไฟล์ไม่สำเร็จ: ${e?.message || e}`);
+    } finally {
+      setOffloading(false);
+    }
+  };
+
+  const restoreColdFile = async (row: any) => {
+    const ok = await swal.confirm({
+      title: "ดึงไฟล์กลับมา Supabase Storage?",
+      text: `ไฟล์ ${row.file_path} (Bucket: ${row.bucket_name})`,
+    });
+    if (!ok) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke("storage-tier", {
+        body: { action: "restore", id: row.id },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast.success("ดึงไฟล์กลับมา Supabase Storage เรียบร้อยแล้ว");
+      refetchStorageUsage();
+      refetchColdFiles();
+    } catch (e: any) {
+      toast.error(`การดึงไฟล์กลับไม่สำเร็จ: ${e?.message || e}`);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <HardDrive className="w-6 h-6 text-primary" />
-          จัดเก็บและสำรองข้อมูล (Data Archive)
+          จัดเก็บและสำรองข้อมูล (Data Archive & Storage Tier)
         </h1>
         <p className="text-sm text-muted-foreground">
-          เก็บข้อมูลย้อนหลังตามระเบียบกระทรวง และสำรองขึ้น Google Drive จัดโฟลเดอร์ตามปีการศึกษาและงาน
+          เก็บข้อมูลย้อนหลังตามระเบียบกระทรวง และจัดการพื้นที่จัดเก็บไฟล์ด้วย Google Drive เป็นหลัก
         </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">ไฟล์สำรองทั้งหมด</div><div className="text-2xl font-bold">{archives.length}</div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">รายการที่สำรองแล้ว</div><div className="text-2xl font-bold">{totalRows.toLocaleString()}</div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">ขนาดรวมบน Drive</div><div className="text-2xl font-bold">{fmtBytes(totalBytes)}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">ไฟล์สำรอง DB รวม</div><div className="text-2xl font-bold">{archives.length}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">รายการ DB ใน Drive</div><div className="text-2xl font-bold">{totalRows.toLocaleString()}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">ขนาดไฟล์ DB บน Drive</div><div className="text-2xl font-bold">{fmtBytes(totalBytes)}</div></CardContent></Card>
       </div>
 
-      <Tabs defaultValue="archive">
+      <Tabs defaultValue="storage-tier">
         <TabsList>
+          <TabsTrigger value="storage-tier"><HardDrive className="w-4 h-4 mr-1" />พื้นที่จัดเก็บ (Drive เป็นหลัก)</TabsTrigger>
           <TabsTrigger value="archive"><CloudUpload className="w-4 h-4 mr-1" />สำรองขึ้น Drive</TabsTrigger>
           <TabsTrigger value="policy"><ShieldCheck className="w-4 h-4 mr-1" />นโยบายเก็บข้อมูล</TabsTrigger>
-          <TabsTrigger value="files"><FolderTree className="w-4 h-4 mr-1" />ไฟล์สำรอง</TabsTrigger>
+          <TabsTrigger value="files"><FolderTree className="w-4 h-4 mr-1" />ไฟล์ DB สำรอง</TabsTrigger>
         </TabsList>
+
+        {/* ── พื้นที่จัดเก็บ (Drive เป็นหลัก) ── */}
+        <TabsContent value="storage-tier" className="mt-4 space-y-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-muted-foreground">พื้นที่ Supabase Storage</div>
+                  <Badge variant={storageUsage?.target_under_1gb ? "outline" : "destructive"}>
+                    {storageUsage?.target_under_1gb ? "เป้าหมาย < 1 GB (ปกติ)" : "เกินเป้าหมาย 1 GB"}
+                  </Badge>
+                </div>
+                <div className="text-2xl font-bold mt-1">
+                  {loadingStorageUsage ? "กำลังโหลด..." : fmtBytes(storageUsage?.supabase_total_bytes || 0)}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {storageUsage?.supabase_total_files || 0} ไฟล์ในระบบหลัก
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-xs text-muted-foreground">พื้นที่ย้ายไป Google Drive</div>
+                <div className="text-2xl font-bold mt-1">
+                  {loadingStorageUsage ? "กำลังโหลด..." : fmtBytes(storageUsage?.drive_total_bytes || 0)}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {storageUsage?.drive_total_files || 0} ไฟล์ใน Cold Storage
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-xs text-muted-foreground">ตั้งเวลาทำงานอัตโนมัติ</div>
+                <div className="text-sm font-semibold mt-1 flex items-center gap-1.5 text-emerald-600">
+                  <ShieldCheck className="w-4 h-4" /> ทุกวันอาทิตย์ 02:00 น.
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  ผ่าน pg_cron → offload
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CloudUpload className="w-4 h-4 text-primary" />
+                  จัดการพื้นที่จัดเก็บไฟล์ (Storage Tiering)
+                </CardTitle>
+                <CardDescription>
+                  ดาวน์โหลดไฟล์จาก Supabase Storage ไปเก็บโฟลเดอร์ <code>BNGSS Storage / &lt;bucket&gt;</code> บน Drive และลบออกจาก Supabase เพื่อควบคุมพื้นที่ให้ต่ำกว่า 1 GB
+                </CardDescription>
+              </div>
+              <Button onClick={runOffloadStorage} disabled={offloading}>
+                {offloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CloudUpload className="w-4 h-4 mr-2" />}
+                {offloading ? "กำลังย้ายไฟล์..." : "ย้ายไฟล์ลง Drive ทันที (Offload)"}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <h3 className="text-sm font-medium mb-3">รายการไฟล์ที่ย้ายไปอยู่บน Drive (Cold Storage Registry)</h3>
+              {coldStorageFiles.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-sm border rounded-lg bg-muted/20">
+                  ยังไม่มีไฟล์ที่ถูก Offload ไปยัง Drive (ระบบพร้อมใช้งาน)
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Bucket</TableHead>
+                      <TableHead>ตำแหน่งไฟล์</TableHead>
+                      <TableHead className="text-right">ขนาด</TableHead>
+                      <TableHead className="w-44 text-right">เวลาที่ย้าย</TableHead>
+                      <TableHead className="w-36 text-right">การจัดการ</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {coldStorageFiles.map((row: any) => (
+                      <TableRow key={row.id}>
+                        <TableCell><Badge variant="outline">{row.bucket_name}</Badge></TableCell>
+                        <TableCell className="text-xs font-mono truncate max-w-[280px]" title={row.file_path}>
+                          {row.file_path}
+                        </TableCell>
+                        <TableCell className="text-right">{fmtBytes(row.size_bytes)}</TableCell>
+                        <TableCell className="text-right text-xs text-muted-foreground">
+                          {new Date(row.offloaded_at).toLocaleString("th-TH")}
+                        </TableCell>
+                        <TableCell className="text-right space-x-1">
+                          {row.drive_web_link && (
+                            <Button size="sm" variant="ghost" asChild>
+                              <a href={row.drive_web_link} target="_blank" rel="noreferrer"><ExternalLink className="w-4 h-4" /></a>
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline" onClick={() => restoreColdFile(row)}>
+                            <RotateCcw className="w-3.5 h-3.5 mr-1" />ดึงกลับ
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* ── สำรองขึ้น Drive ── */}
         <TabsContent value="archive" className="mt-4 space-y-4">
