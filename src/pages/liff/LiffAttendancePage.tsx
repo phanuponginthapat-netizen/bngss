@@ -12,6 +12,8 @@ type Status = "present" | "absent" | "late" | "leave";
 function CheckIn({ lineUserId }: { lineUserId: string }) {
   const [students, setStudents] = useState<Student[]>([]);
   const [marks, setMarks] = useState<Record<string, Status>>({});
+  const [prescanned, setPrescanned] = useState<Record<string, Status>>({});
+
   const [classroomId, setClassroomId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
