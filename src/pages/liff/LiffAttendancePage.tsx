@@ -42,13 +42,22 @@ function CheckIn({ lineUserId }: { lineUserId: string }) {
       const { data: studs } = await supabase.from("students").select("id,prefix,first_name,last_name,student_code")
         .eq("classroom_id", cls.id).eq("status", "active").order("student_code");
       setStudents(studs ?? []);
-      // default to present
+      // ใช้ผลสแกนเข้าโรงเรียนเป็นค่าตั้งต้น (ไม่ใช่เช็คชื่อหน้าเสาธงใหม่)
+      const ids = (studs ?? []).map((s) => s.id);
+      const { data: scanned } = ids.length
+        ? await supabase.from("attendance").select("student_id,status")
+            .eq("attendance_date", today).is("subject_id", null).in("student_id", ids)
+        : { data: [] as any[] };
+      const scanMap: Record<string, Status> = {};
+      (scanned ?? []).forEach((r: any) => { scanMap[r.student_id] = r.status; });
+      setPrescanned(scanMap);
       const init: Record<string, Status> = {};
-      (studs ?? []).forEach((s) => { init[s.id] = "present"; });
+      (studs ?? []).forEach((s) => { init[s.id] = scanMap[s.id] ?? "absent"; });
       setMarks(init);
       setLoading(false);
     })();
   }, [lineUserId]);
+
 
   const save = async () => {
     if (!classroomId) return;
