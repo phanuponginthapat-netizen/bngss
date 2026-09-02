@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getFileUrlWithColdFallback } from "./coldStorage";
 
 /**
  * สำหรับ private buckets — สร้าง signed URL อายุ 1 ชั่วโมง (default)
@@ -11,20 +12,22 @@ export async function createStorageSignedUrl(
 ): Promise<string> {
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresInSeconds);
   if (error || !data?.signedUrl) {
-    console.warn(`[createStorageSignedUrl] ${bucket}/${path}:`, error);
-    return "";
+    // Fallback to cold storage stream if missing/offloaded
+    return getFileUrlWithColdFallback(bucket, path);
   }
   return data.signedUrl;
 }
 
 /**
- * Helper: คืนค่า signed URL จาก path เก็บใน DB (รองรับทั้ง path ตรงและ legacy public URL)
+ * Helper: คืนค่า URL พร้อม Cold Storage (Google Drive) Fallback โดยอัตโนมัติ
+ * รองรับทั้ง path ตรง, legacy public URL และไฟล์ที่ถูก offload ไปแล้ว
  */
 export async function resolveStorageUrl(bucket: string, pathOrUrl: string): Promise<string> {
   if (!pathOrUrl) return "";
   if (/^(data:|https?:\/\/)/i.test(pathOrUrl)) return pathOrUrl;
-  // ถ้าเป็น URL เก่าที่เก็บไว้ ลองดึง path ออกมา
+  
   const match = pathOrUrl.match(new RegExp(`/${bucket}/(.+?)(\\?|$)`));
   const path = match ? match[1] : pathOrUrl;
-  return createStorageSignedUrl(bucket, path);
+  
+  return await getFileUrlWithColdFallback(bucket, path);
 }
