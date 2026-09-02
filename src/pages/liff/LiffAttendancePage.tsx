@@ -12,6 +12,8 @@ type Status = "present" | "absent" | "late" | "leave";
 function CheckIn({ lineUserId }: { lineUserId: string }) {
   const [students, setStudents] = useState<Student[]>([]);
   const [marks, setMarks] = useState<Record<string, Status>>({});
+  const [prescanned, setPrescanned] = useState<Record<string, Status>>({});
+
   const [classroomId, setClassroomId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -42,13 +44,22 @@ function CheckIn({ lineUserId }: { lineUserId: string }) {
       const { data: studs } = await supabase.from("students").select("id,prefix,first_name,last_name,student_code")
         .eq("classroom_id", cls.id).eq("status", "active").order("student_code");
       setStudents(studs ?? []);
-      // default to present
+      // ใช้ผลสแกนเข้าโรงเรียนเป็นค่าตั้งต้น (ไม่ใช่เช็คชื่อหน้าเสาธงใหม่)
+      const ids = (studs ?? []).map((s) => s.id);
+      const { data: scanned } = ids.length
+        ? await supabase.from("attendance").select("student_id,status")
+            .eq("attendance_date", today).is("subject_id", null).in("student_id", ids)
+        : { data: [] as any[] };
+      const scanMap: Record<string, Status> = {};
+      (scanned ?? []).forEach((r: any) => { scanMap[r.student_id] = r.status; });
+      setPrescanned(scanMap);
       const init: Record<string, Status> = {};
-      (studs ?? []).forEach((s) => { init[s.id] = "present"; });
+      (studs ?? []).forEach((s) => { init[s.id] = scanMap[s.id] ?? "absent"; });
       setMarks(init);
       setLoading(false);
     })();
   }, [lineUserId]);
+
 
   const save = async () => {
     if (!classroomId) return;
@@ -58,19 +69,30 @@ function CheckIn({ lineUserId }: { lineUserId: string }) {
       const year = cur.getFullYear() + (cur.getMonth() >= 4 ? 0 : -1); // CE (DB convention)
       const sem = cur.getMonth() >= 4 && cur.getMonth() <= 9 ? 1 : 2;
       const { data: u } = await supabase.auth.getUser();
-      const rows = students.map((s) => ({
+      // ไม่เขียนทับผลสแกนเข้าโรงเรียน (มา/สาย)
+      const targets = students.filter((s) => {
+        const pre = prescanned[s.id];
+        if (pre === "present" || pre === "late") return false;
+        return true;
+      });
+      if (targets.length === 0) {
+        toast.info("ทุกคนมีผลสแกนเข้าโรงเรียนแล้ว");
+        setTimeout(() => (window as any).liff?.closeWindow?.(), 800);
+        return;
+      }
+      const rows = targets.map((s) => ({
         student_id: s.id,
         attendance_date: today,
         subject_id: null,
-        status: marks[s.id] ?? "present",
+        status: marks[s.id] ?? "absent",
         academic_year: year,
         semester: sem,
         recorded_by: u?.user?.id ?? null,
         notes: "liff",
       }));
       // NULL subject_id can't be matched by ON CONFLICT in PostgREST upsert —
-      // clear today's assembly rows for these students first, then insert fresh.
-      const ids = students.map((s) => s.id);
+      // clear rows only for students without a gate scan, then insert fresh.
+      const ids = targets.map((s) => s.id);
       await supabase.from("attendance")
         .delete()
         .in("student_id", ids)
@@ -96,20 +118,27 @@ function CheckIn({ lineUserId }: { lineUserId: string }) {
 
   return (
     <div className="space-y-2 max-w-md mx-auto pb-24">
-      {students.map((s) => (
+      {students.map((s) => {
+        const locked = prescanned[s.id] === "present" || prescanned[s.id] === "late";
+        return (
         <div key={s.id} className="rounded-xl border bg-card p-3">
           <p className="font-medium text-sm">{s.prefix}{s.first_name} {s.last_name}</p>
-          <p className="text-xs text-muted-foreground mb-2">{s.student_code}</p>
+          <p className="text-xs text-muted-foreground mb-2">
+            {s.student_code}
+            {locked && <span className="ml-2 text-emerald-600">• สแกนเข้าโรงเรียนแล้ว ({prescanned[s.id] === "late" ? "สาย" : "มา"})</span>}
+          </p>
           <div className="grid grid-cols-4 gap-1">
             {(["present", "absent", "late", "leave"] as Status[]).map((st) => (
-              <button key={st} onClick={() => setMarks({ ...marks, [s.id]: st })}
-                className={`px-2 py-1.5 rounded-lg text-xs font-medium ${marks[s.id] === st ? colors[st] : "bg-muted text-muted-foreground"}`}>
+              <button key={st} disabled={locked} onClick={() => setMarks({ ...marks, [s.id]: st })}
+                className={`px-2 py-1.5 rounded-lg text-xs font-medium disabled:opacity-60 ${marks[s.id] === st ? colors[st] : "bg-muted text-muted-foreground"}`}>
                 {st === "present" ? "มา" : st === "absent" ? "ขาด" : st === "late" ? "สาย" : "ลา"}
               </button>
             ))}
           </div>
         </div>
-      ))}
+        );
+      })}
+
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t">
         <Button onClick={save} disabled={busy} className="w-full">
           {busy ? "กำลังบันทึก..." : `บันทึกเช็คชื่อ ${today}`}

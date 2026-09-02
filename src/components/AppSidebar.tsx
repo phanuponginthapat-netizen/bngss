@@ -330,7 +330,7 @@ export function AppSidebar() {
     { title: L("กระดานโน้ต (Padlet)", "Padlet Boards"), url: "/dashboard/padlet", icon: StickyNote, color: "text-fuchsia-400", roles: ["admin", "director", "teacher", "student"], desc: L("แขวนใบงาน · แปะโน้ตในคาบเรียน", "Hang tasks · post sticky notes") },
     { title: L("การลาของนักเรียน", "Student Leave"), url: "/dashboard/student/leave", icon: FileText, color: "text-amber-400", roles: ["admin", "director", "teacher", "student"], desc: L("ยื่นและอนุมัติใบลานักเรียน", "Student leave requests") },
     { title: L("การลาของครู/บุคลากร", "Staff Leave"), url: "/dashboard/hr/leave", icon: FileText, color: "text-orange-400", roles: ["admin", "director", "teacher"], desc: L("ยื่นและอนุมัติใบลาของครูและบุคลากร", "Staff leave requests") },
-    { title: L("บันทึกการมาเรียน", "Attendance"), url: "/dashboard/student/attendance", icon: ClipboardList, color: "text-emerald-400", roles: ["admin", "director", "teacher"], desc: L("เช็คชื่อหน้าเสาธงและรายคาบ", "Assembly & per-period") },
+    { title: L("บันทึกการมาเรียน", "Attendance"), url: "/dashboard/student/attendance", icon: ClipboardList, color: "text-emerald-400", roles: ["admin", "director", "teacher"], desc: L("สแกนเข้าโรงเรียนและเช็คชื่อรายคาบ", "Gate scan & per-period") },
     { title: L("บันทึกพฤติกรรม", "Behavior"), url: "/dashboard/student/behavior", icon: Shield, color: "text-rose-400", roles: ["admin", "director", "teacher"], desc: L("บันทึกคะแนนความประพฤติ", "Conduct points") },
     // Game Hub hidden — backend deleted (quota)
     // { title: L("ศูนย์เกมการเรียนรู้", "Game Hub"), url: "/dashboard/hub/games", icon: Gamepad2, color: "text-fuchsia-400", roles: ["admin", "director", "teacher", "student"], desc: L("คลังเกม · จัดการเกม · API Keys", "Store · Manage · API keys") },
@@ -475,7 +475,7 @@ export function AppSidebar() {
       color: "text-emerald-400",
       roles: ["admin", "director", "teacher", "student", "parent"],
       items: [
-        { title: L("บันทึกการมาเรียน", "Attendance"), url: "/dashboard/student/attendance", icon: ClipboardList, color: "text-emerald-400", roles: ["admin", "director", "teacher"], desc: L("เช็คชื่อหน้าเสาธงและรายคาบ", "Assembly & per-period") },
+        { title: L("บันทึกการมาเรียน", "Attendance"), url: "/dashboard/student/attendance", icon: ClipboardList, color: "text-emerald-400", roles: ["admin", "director", "teacher"], desc: L("สแกนเข้าโรงเรียนและเช็คชื่อรายคาบ", "Gate scan & per-period") },
         { title: L("บันทึกพฤติกรรมนักเรียน", "Behavior"), url: "/dashboard/student/behavior", icon: Shield, color: "text-rose-400", roles: ["admin", "director", "teacher"], desc: L("บันทึกคะแนนความประพฤติ", "Conduct points") },
         { title: L("การลาของนักเรียน", "Student Leave"), url: "/dashboard/student/leave", icon: FileText, color: "text-amber-400", roles: ["admin", "director", "teacher", "student", "parent"], desc: L("ยื่นและอนุมัติใบลา", "Leave requests") },
         { title: L("บันทึกโฮมรูม", "Homeroom"), url: "/dashboard/student/homeroom", icon: Home, color: "text-sky-400", roles: ["admin", "director", "teacher"], desc: L("บันทึกกิจกรรมโฮมรูม", "Daily homeroom notes") },
