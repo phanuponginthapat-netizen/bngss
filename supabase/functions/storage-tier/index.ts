@@ -153,10 +153,34 @@ Deno.serve(async (req) => {
       const targetBuckets: string[] = params.buckets || [];
       const maxFiles: number = params.max_files || 50;
 
+      // บัคเก็ตที่ห้ามย้ายเด็ดขาด — เป็นรูป/ไฟล์ที่หน้าเว็บต้องแสดงตลอดเวลา
+      const NEVER_OFFLOAD = new Set([
+        "cms-images",
+        "cms-logos",
+        "profile-images",
+        "face-photos",
+        "signatures",
+        "line-richmenu",
+        "game-covers",
+        "certificate-assets",
+        "print-templates",
+        "pdf-templates",
+      ]);
+
+      // ย้ายได้เฉพาะบัคเก็ตที่มีนโยบายเปิดใช้งานเท่านั้น
+      const { data: policies = [] } = await supabaseAdmin
+        .from("storage_tier_policies")
+        .select("*")
+        .eq("enabled", true);
+      const policyMap = new Map<string, any>((policies || []).map((p: any) => [p.bucket, p]));
+
       const { data: buckets = [] } = await supabaseAdmin.storage.listBuckets();
-      const activeBuckets = targetBuckets.length
-        ? buckets.filter((b) => targetBuckets.includes(b.name))
-        : buckets;
+      const activeBuckets = (buckets || []).filter(
+        (b) =>
+          policyMap.has(b.name) &&
+          !NEVER_OFFLOAD.has(b.name) &&
+          (targetBuckets.length === 0 || targetBuckets.includes(b.name)),
+      );
 
       let totalFreedBytes = 0;
       let totalOffloadedCount = 0;
@@ -164,17 +188,29 @@ Deno.serve(async (req) => {
 
       for (const b of activeBuckets) {
         if (totalOffloadedCount >= maxFiles) break;
+        const policy = policyMap.get(b.name);
+        const olderThanDays = Number(policy?.older_than_days ?? 90);
+        const keepRecent = Number(policy?.keep_recent ?? 0);
+        const cutoff = Date.now() - olderThanDays * 86400000;
 
         // Recursive list or top level list
-        const { data: objects = [] } = await supabaseAdmin.storage.from(b.name).list("", { limit: 100 });
-        
-        for (const obj of objects || []) {
+        const { data: rawObjects = [] } = await supabaseAdmin.storage.from(b.name).list("", { limit: 1000 });
+
+        // เรียงใหม่→เก่า แล้วข้ามไฟล์ล่าสุดตามจำนวนที่ต้องเก็บไว้ และเก็บเฉพาะไฟล์ที่เก่ากว่ากำหนด
+        const sorted = (rawObjects || [])
+          .filter((o) => o.id && o.name && !o.name.endsWith("/"))
+          .sort((a, b2) => (b2.created_at || "").localeCompare(a.created_at || ""));
+        const objects = sorted
+          .slice(keepRecent)
+          .filter((o) => new Date(o.created_at || o.updated_at || 0).getTime() < cutoff);
+
+        for (const obj of objects) {
           if (totalOffloadedCount >= maxFiles) break;
           if (!obj.name || obj.name.endsWith("/")) continue;
 
           const filePath = obj.name;
-          const fileSize = obj.metadata?.size || 0;
           const mimeType = obj.metadata?.mimetype || "application/octet-stream";
+
 
           try {
             // 1. Download from Supabase Storage
