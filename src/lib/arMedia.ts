@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeStorageKey } from "@/lib/uploadFallback";
+import { getColdStorageFetchUrl } from "@/lib/coldStorage";
 import { useEffect, useState } from "react";
 
 export const AR_BUCKET = "ar-media";
