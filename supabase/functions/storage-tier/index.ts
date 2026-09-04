@@ -193,12 +193,22 @@ Deno.serve(async (req) => {
         const keepRecent = Number(policy?.keep_recent ?? 0);
         const cutoff = Date.now() - olderThanDays * 86400000;
 
-        // Recursive list or top level list
-        const { data: rawObjects = [] } = await supabaseAdmin.storage.from(b.name).list("", { limit: 1000 });
+        // ไล่ไฟล์แบบ recursive (รองรับไฟล์ที่อยู่ในโฟลเดอร์ย่อย)
+        const listRecursive = async (prefix = "", depth = 0): Promise<any[]> => {
+          if (depth > 4) return [];
+          const out: any[] = [];
+          const { data = [] } = await supabaseAdmin.storage.from(b.name).list(prefix, { limit: 1000 });
+          for (const o of data || []) {
+            if (o.id) out.push({ ...o, path: prefix ? `${prefix}/${o.name}` : o.name });
+            else if (o.name) out.push(...(await listRecursive(prefix ? `${prefix}/${o.name}` : o.name, depth + 1)));
+          }
+          return out;
+        };
+        const rawObjects = await listRecursive();
 
         // เรียงใหม่→เก่า แล้วข้ามไฟล์ล่าสุดตามจำนวนที่ต้องเก็บไว้ และเก็บเฉพาะไฟล์ที่เก่ากว่ากำหนด
         const sorted = (rawObjects || [])
-          .filter((o) => o.id && o.name && !o.name.endsWith("/"))
+          .filter((o) => o.id && o.path && !o.path.endsWith("/"))
           .sort((a, b2) => (b2.created_at || "").localeCompare(a.created_at || ""));
         const objects = sorted
           .slice(keepRecent)
@@ -206,10 +216,11 @@ Deno.serve(async (req) => {
 
         for (const obj of objects) {
           if (totalOffloadedCount >= maxFiles) break;
-          if (!obj.name || obj.name.endsWith("/")) continue;
+          if (!obj.path || obj.path.endsWith("/")) continue;
 
-          const filePath = obj.name;
+          const filePath = obj.path;
           const mimeType = obj.metadata?.mimetype || "application/octet-stream";
+
 
 
           try {
