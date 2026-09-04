@@ -23,10 +23,12 @@ export const resolveArUrl = async (value?: string | null): Promise<string> => {
   if (cached) return cached;
   const path = storagePathOf(value);
   const { data } = await supabase.storage.from(AR_BUCKET).createSignedUrl(path, SIGN_SECONDS);
-  const url = data?.signedUrl || "";
+  // ไฟล์ที่ถูกย้ายไปเก็บที่ Google Drive แล้ว → สตรีมผ่าน cold storage
+  const url = data?.signedUrl || getColdStorageFetchUrl(AR_BUCKET, path);
   if (url) cache.set(value, url);
   return url;
 };
+
 
 /** Hook สำหรับใช้งานใน component */
 export const useArUrl = (value?: string | null) => {
