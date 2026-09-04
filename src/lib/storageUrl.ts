@@ -61,9 +61,32 @@ export async function resolveStorageUrl(bucket: string, pathOrUrl: string): Prom
   const path = decodeURIComponent(match ? match[1] : pathOrUrl).replace(/^\/+/, "");
 
   if (PUBLIC_BUCKETS.has(bucket)) {
+    // ถ้าไฟล์ถูกย้ายไปเก็บที่ Google Drive แล้ว ให้สตรีมจาก cold storage แทน
+    if (await isOffloaded(bucket, path)) return getColdStorageFetchUrl(bucket, path);
     const { data } = supabase.storage.from(bucket).getPublicUrl(path);
     return data?.publicUrl || pathOrUrl;
   }
 
   return createStorageSignedUrl(bucket, path);
 }
+
+/** แคชรายชื่อไฟล์ที่ถูกย้ายไป Drive ต่อบัคเก็ต (5 นาที) */
+const offloadedCache = new Map<string, { paths: Set<string>; exp: number }>();
+
+async function isOffloaded(bucket: string, path: string): Promise<boolean> {
+  const hit = offloadedCache.get(bucket);
+  if (hit && hit.exp > Date.now()) return hit.paths.has(path);
+  try {
+    const { data } = await (supabase as any)
+      .from("cold_storage_registry")
+      .select("file_path")
+      .eq("bucket_name", bucket);
+    const paths = new Set<string>((data ?? []).map((r: any) => r.file_path));
+    offloadedCache.set(bucket, { paths, exp: Date.now() + 5 * 60_000 });
+    return paths.has(path);
+  } catch {
+    offloadedCache.set(bucket, { paths: new Set(), exp: Date.now() + 60_000 });
+    return false;
+  }
+}
+
