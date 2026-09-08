@@ -101,7 +101,9 @@ serve(async (req) => {
     const forceGroupId = body?.group_id as string | undefined;
     const customImageUrl = (body?.image_url as string | undefined)?.trim();
     const customSummary = (body?.summary_text as string | undefined)?.trim();
+    const includeChart = Boolean(body?.include_chart);
     const skipDedup = Boolean(body?.force);
+
     const isCron = cronSecret && header === cronSecret;
     if (!isCron && !forceGroupId) {
       // require auth otherwise
@@ -200,12 +202,15 @@ serve(async (req) => {
       totals.totalAll = totals.totalPresent + totals.totalAbsent + totals.totalLate + totals.totalLeave;
       attendedCount = totals.totalPresent + totals.totalLate;
 
-      if (!chartUrl) {
+      // ส่งเป็นข้อความอย่างเดียว (ไม่แนบกราฟ) เพื่อประหยัดโควต้า LINE
+      // ถ้าต้องการกราฟ ให้ส่ง body { include_chart: true }
+      if (!chartUrl && includeChart) {
         const chartConfig = labels.length > 0
           ? buildChartConfig(labels, present, absent, late, leave, totals, thDate(today))
           : { type: "bar", data: { labels: ["ไม่มีข้อมูล"], datasets: [{ label: "-", data: [0] }] }, options: { title: { display: true, text: "ยังไม่มีการสแกน" } } };
         chartUrl = await shortChartUrl(chartConfig);
       }
+
       if (!summary) {
         const pct = totals.totalAll > 0 ? Math.round((totals.totalPresent / totals.totalAll) * 1000) / 10 : 0;
         let s = `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${shortThDate(today)}\n\n✅ มา ${totals.totalPresent} คน\n⏰ สาย ${totals.totalLate} คน\n📝 ลา ${totals.totalLeave} คน\n❌ ขาด ${totals.totalAbsent} คน\n────────\nรวม ${totals.totalAll} คน • เข้าเรียน ${pct}%`;
@@ -225,17 +230,15 @@ serve(async (req) => {
 
 
     // 🏖️ Holiday auto-detection:
-    //  - ไม่มีนักเรียนมาเลย (สแกน 0 คน) → วันหยุด
-    //  - หรือขาดเกิน 50 คน → วันหยุด
-    // ข้ามการแจ้งเตือน LINE และบันทึกวันไว้ให้รายงานตัดออก
-    const HOLIDAY_ABSENT_THRESHOLD = 50;
+    //  - ตรวจเฉพาะกรณี "ไม่มีนักเรียนสแกนเลย" เท่านั้น (สแกน 0 คน) → วันหยุด
+    //  - ไม่ใช้เกณฑ์จำนวนขาด เพราะทำให้วันเรียนปกติถูกข้ามการแจ้งเตือน
     const isAutoRun = !customImageUrl && !customSummary && !forceGroupId;
     const noAttendance = attendedCount === 0;
-    if (isAutoRun && (noAttendance || totals.totalAbsent > HOLIDAY_ABSENT_THRESHOLD)) {
+    if (isAutoRun && noAttendance) {
       try {
         await sb.from("attendance_auto_holidays").upsert({
           holiday_date: today,
-          reason: noAttendance ? "auto_detected_no_attendance" : "auto_detected_high_absence",
+          reason: "auto_detected_no_attendance",
           absent_count: totals.totalAbsent,
           total_students: totals.totalAll,
           detected_by: "notify-attendance-digest",
@@ -245,10 +248,10 @@ serve(async (req) => {
       }
       return new Response(JSON.stringify({
         ok: true, date: today, skipped: true, reason: "holiday_detected",
-        absent_count: totals.totalAbsent, attended: attendedCount,
-        threshold: HOLIDAY_ABSENT_THRESHOLD, totals,
+        absent_count: totals.totalAbsent, attended: attendedCount, totals,
       }), { headers: { ...cors, "Content-Type": "application/json" } });
     }
+
 
 
     const token = await getVaultToken(sb);
