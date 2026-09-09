@@ -110,17 +110,31 @@ Deno.serve(async (req) => {
       let totalSupabaseFiles = 0;
 
       for (const b of buckets || []) {
-        // List top objects
-        const { data: objects = [] } = await supabaseAdmin.storage.from(b.name).list("", { limit: 1000 });
+        // นับไฟล์แบบ recursive (รวมโฟลเดอร์ย่อย) เพื่อให้ตัวเลขตรงกับที่ใช้จริง
         let bBytes = 0;
         let bFiles = 0;
 
-        for (const obj of objects || []) {
-          if (obj.id) {
-            bFiles += 1;
-            bBytes += obj.metadata?.size || 0;
+        const countRecursive = async (prefix = "", depth = 0): Promise<void> => {
+          if (depth > 5) return;
+          let offset = 0;
+          for (;;) {
+            const { data = [] } = await supabaseAdmin.storage
+              .from(b.name)
+              .list(prefix, { limit: 1000, offset, sortBy: { column: "name", order: "asc" } });
+            if (!data || data.length === 0) break;
+            for (const obj of data) {
+              if (obj.id) {
+                bFiles += 1;
+                bBytes += obj.metadata?.size || 0;
+              } else if (obj.name) {
+                await countRecursive(prefix ? `${prefix}/${obj.name}` : obj.name, depth + 1);
+              }
+            }
+            if (data.length < 1000) break;
+            offset += 1000;
           }
-        }
+        };
+        await countRecursive();
 
         totalSupabaseBytes += bBytes;
         totalSupabaseFiles += bFiles;
