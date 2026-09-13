@@ -1442,7 +1442,7 @@ const FaceKioskPage = () => {
                 }
                 if (confirmed && live) {
                   // Texture verification — เทียบพื้นผิวใบหน้าสดกับภาพลงทะเบียน กันคนหน้าคล้าย/รูปถ่าย
-                  if (useTexture && !isStaffHit && !strongHit) {
+                  if (useTexture && !isStaffHit && !strongHit && det.landmarks) {
 
                     const regSrc = await getRegisteredFaceImage(found.studentId, found.avatar || null);
                     const tv = await verifyScanTexture({
@@ -2066,6 +2066,19 @@ const FaceKioskPage = () => {
               {sidecarReady() ? ` • ตัวช่วย ${sidecarProvider()}` : ""}
               {agentOn ? ` • เนทีฟ ${faceAgentEngine()}` : ""}
             </p>
+          </div>
+
+          <div className="space-y-1.5 border-t pt-2">
+            <label className="text-xs font-semibold">ตัวประมวลผลใบหน้าบนเครื่อง</label>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] text-muted-foreground leading-snug flex-1">
+                {agentOn ? `กำลังใช้งาน (${faceAgentEngine()}) — แม่นกว่าการคำนวณในเบราว์เซอร์` : "ไม่พบตัวประมวลผลบนเครื่อง — ใช้การคำนวณในเบราว์เซอร์"}
+              </p>
+              <Switch
+                checked={agentEnabled}
+                onCheckedChange={(v) => { setFaceAgentEnabled(v); setAgentEnabledState(v); }}
+              />
+            </div>
           </div>
 
           <div className="space-y-1.5 border-t pt-2">
