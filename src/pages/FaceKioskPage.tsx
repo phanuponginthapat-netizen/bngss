@@ -23,6 +23,7 @@ import { faceGuideStatus } from "@/lib/faceGuide";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Camera, X, Maximize, ScanFace, Users, Wifi, WifiOff, Settings as SettingsIcon, MapPin, Cctv, QrCode, LogIn, LogOut, Clock, AlertTriangle, XCircle, Info } from "lucide-react";
 import { toast } from "sonner";
 import { useSchoolSetting } from "@/hooks/useSchoolSetting";
@@ -43,6 +44,7 @@ import { downloadFacesToCache, pickAndSaveFaceFolder, loadFaceCache, saveFaceCac
 import { useIsPortrait } from "@/hooks/useScreenOrientation";
 import { KIOSK_PERF_PROFILES, resolveLoopDelayMs, isIsolatedRuntime } from "@/lib/kioskPerf";
 import { probeSidecar, sidecarHasFace, sidecarReady, sidecarProvider } from "@/lib/faceSidecar";
+import { probeFaceAgent, faceAgentReady, faceAgentEngine, agentGetDescriptors, setFaceAgentEnabled } from "@/lib/faceAgent";
 
 import { saveErrorMessage } from "@/lib/saveError";
 import { notifyRole } from "@/lib/notify";
@@ -157,6 +159,12 @@ const FaceKioskPage = () => {
   const loopDelayMs = resolveLoopDelayMs(perf);
   // ตรวจหาตัวช่วยประมวลผลบนเครื่อง (face sidecar) ครั้งเดียวตอนเปิดหน้า
   useEffect(() => { void probeSidecar(true); }, []);
+  // ตัวประมวลผลใบหน้าเนทีฟบนเครื่อง (FaceGate agent) — แม่นกว่าเบราว์เซอร์ ถ้าไม่มีก็ใช้ของเดิม
+  const [agentOn, setAgentOn] = useState(false);
+  const [agentEnabled, setAgentEnabledState] = useState(() => {
+    try { return localStorage.getItem("kiosk_face_agent_disabled") !== "1"; } catch { return true; }
+  });
+  useEffect(() => { void probeFaceAgent(true).then((h) => setAgentOn(!!h?.ok)); }, [agentEnabled]);
 
   // ช่วงเว้นระยะเพิ่มเติมระหว่างรอบสแกน (มิลลิวินาที) — ปรับได้จากหน้าตั้งค่า
   const [scanGapMs, setScanGapMs] = useState<number>(() => {
@@ -1171,7 +1179,16 @@ const FaceKioskPage = () => {
         }
 
 
-        let rawDetections = await getAllDescriptors(pre as any, opts, {
+        // ── ตัวประมวลผลเนทีฟ (FaceGate agent): ตรวจจับ + embedding บนเครื่อง ─────
+        // ใช้โมเดล ArcFace ตัวเดียวกับเบราว์เซอร์ → เทียบกับใบหน้าที่ลงทะเบียนไว้ได้ทันที
+        // ถ้า agent ไม่พร้อม/ตอบไม่ทัน (null) จะกลับไปใช้เส้นทางเบราว์เซอร์เหมือนเดิม
+        let agentDetections: any[] | null = null;
+        if (faceAgentReady()) {
+          agentDetections = await agentGetDescriptors(video, { singleFace: true, maxWidth: 640, timeoutMs: 1500 });
+          if (agentDetections) { pre = video; roiOffsetX = 0; roiOffsetY = 0; }
+        }
+
+        let rawDetections: any[] = agentDetections ?? await getAllDescriptors(pre as any, opts, {
           minFaceSize: MIN_FACE_PX * 0.6,
           cacheTtlMs: 300,
         });
@@ -1344,10 +1361,12 @@ const FaceKioskPage = () => {
                   if (useLiveness) {
                     let track = livenessRef.current.get(found.studentId);
                     if (!track) { track = newLivenessTrack(); livenessRef.current.set(found.studentId, track); }
-                    live = recordLivenessSample(track, makeLivenessSample(tNow, det.landmarks, box)).live;
+                    live = det.landmarks
+                      ? recordLivenessSample(track, makeLivenessSample(tNow, det.landmarks, box)).live
+                      : (det as any).agentLive !== false;
                   }
                   if (!live) return; // ยังไม่มีหลักฐานใบหน้าสด (รูปถ่าย/จอภาพนิ่ง) — รอ
-                  if (useTexture && !isStaffHit) {
+                  if (useTexture && !isStaffHit && det.landmarks) {
                     const regSrc = await getRegisteredFaceImage(found.studentId, found.avatar || null);
                     const tv = await verifyScanTexture({
                       studentId: found.studentId,
@@ -1414,7 +1433,9 @@ const FaceKioskPage = () => {
                 if (useLiveness && !inGuide) {
                   let track = livenessRef.current.get(found.studentId);
                   if (!track) { track = newLivenessTrack(); livenessRef.current.set(found.studentId, track); }
-                  live = recordLivenessSample(track, makeLivenessSample(tNow, det.landmarks, box)).live;
+                  live = det.landmarks
+                      ? recordLivenessSample(track, makeLivenessSample(tNow, det.landmarks, box)).live
+                      : (det as any).agentLive !== false;
                   if (!live && strongHit) {
                     const firstSeen = (track.samples[0]?.t ?? tNow);
                     if (tNow - firstSeen > 400) live = true;
@@ -1422,7 +1443,7 @@ const FaceKioskPage = () => {
                 }
                 if (confirmed && live) {
                   // Texture verification — เทียบพื้นผิวใบหน้าสดกับภาพลงทะเบียน กันคนหน้าคล้าย/รูปถ่าย
-                  if (useTexture && !isStaffHit && !strongHit) {
+                  if (useTexture && !isStaffHit && !strongHit && det.landmarks) {
 
                     const regSrc = await getRegisteredFaceImage(found.studentId, found.avatar || null);
                     const tv = await verifyScanTexture({
@@ -2044,7 +2065,21 @@ const FaceKioskPage = () => {
               ตรวจทุก {loopDelayMs}ms • ArcFace ปกติ เหมือนครู
               {isIsolatedRuntime() ? " • โหมดหลายเธรด (Electron)" : ""}
               {sidecarReady() ? ` • ตัวช่วย ${sidecarProvider()}` : ""}
+              {agentOn ? ` • เนทีฟ ${faceAgentEngine()}` : ""}
             </p>
+          </div>
+
+          <div className="space-y-1.5 border-t pt-2">
+            <label className="text-xs font-semibold">ตัวประมวลผลใบหน้าบนเครื่อง</label>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] text-muted-foreground leading-snug flex-1">
+                {agentOn ? `กำลังใช้งาน (${faceAgentEngine()}) — แม่นกว่าการคำนวณในเบราว์เซอร์` : "ไม่พบตัวประมวลผลบนเครื่อง — ใช้การคำนวณในเบราว์เซอร์"}
+              </p>
+              <Switch
+                checked={agentEnabled}
+                onCheckedChange={(v) => { setFaceAgentEnabled(v); setAgentEnabledState(v); }}
+              />
+            </div>
           </div>
 
           <div className="space-y-1.5 border-t pt-2">

@@ -709,6 +709,8 @@ export async function getDescriptorFromImage(
 ): Promise<Float32Array | null> {
   const detected = await detectSingleFaceRobust(image);
   if (!detected) return null;
+  const native = await nativeEmbedding(image);
+  if (native) return native;
   const arc = await embedWithArcFace(image, detected.res.landmarks, detected.scaleX, detected.scaleY);
   return arc ?? null;
 }
@@ -738,6 +740,21 @@ export async function detectFaceBox(
  * ใช้สำหรับ Liveness Wizard: คำนวณ blink (EAR) และ head pose (yaw)
  * descriptor ที่คืน = 512-D ArcFace embedding (L2-normalized)
  */
+/** embedding จากตัวประมวลผลเนทีฟบนเครื่อง (ถ้ามี) — ใช้โมเดล ArcFace ตัวเดียวกับเบราว์เซอร์ */
+async function nativeEmbedding(
+  image: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement,
+): Promise<Float32Array | null> {
+  try {
+    const { probeFaceAgent, agentGetDescriptors } = await import("@/lib/faceAgent");
+    const h = await probeFaceAgent();
+    if (!h?.ok) return null;
+    const dets = await agentGetDescriptors(image, { singleFace: true, timeoutMs: 3000 });
+    return dets && dets.length > 0 ? dets[0].descriptor : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function detectFaceWithLandmarks(
   image: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement,
 ) {
@@ -752,7 +769,9 @@ export async function detectFaceWithLandmarks(
   const lm = (scaleX !== 1 || scaleY !== 1) && typeof (rawLm as any).forSize === "function"
     ? (rawLm as any).forSize(iw, ih)
     : rawLm;
-  const arc = await embedWithArcFace(image, lm, 1, 1);
+  // ถ้าเครื่องมีตัวประมวลผลเนทีฟ ให้ใช้ embedding ของมัน (จัดตำแหน่งจากจุดสังเกตจริง แม่นกว่า)
+  let arc = await nativeEmbedding(image);
+  if (!arc) arc = await embedWithArcFace(image, lm, 1, 1);
   return {
     descriptor: arc ?? null,
     box: {
