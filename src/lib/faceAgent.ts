@@ -75,12 +75,12 @@ export const faceAgentReady = () => !!health?.ok && !disabled();
 export const faceAgentEngine = () => health?.engine || "-";
 
 async function toJpegBlob(
-  source: HTMLCanvasElement | HTMLVideoElement,
+  source: HTMLCanvasElement | HTMLVideoElement | HTMLImageElement,
   maxWidth: number,
 ): Promise<{ blob: Blob; scale: number } | null> {
   try {
-    const sw = (source as HTMLVideoElement).videoWidth || (source as HTMLCanvasElement).width;
-    const sh = (source as HTMLVideoElement).videoHeight || (source as HTMLCanvasElement).height;
+    const sw = (source as HTMLVideoElement).videoWidth || (source as HTMLImageElement).naturalWidth || (source as HTMLCanvasElement).width;
+    const sh = (source as HTMLVideoElement).videoHeight || (source as HTMLImageElement).naturalHeight || (source as HTMLCanvasElement).height;
     if (!sw || !sh) return null;
     const scale = Math.min(1, maxWidth / sw);
     const c = document.createElement("canvas");
@@ -101,7 +101,7 @@ async function toJpegBlob(
  * คืน null = ใช้ agent ไม่ได้ → ผู้เรียกต้อง fallback ไปประมวลผลในเบราว์เซอร์
  */
 export async function agentScanFrame(
-  source: HTMLCanvasElement | HTMLVideoElement,
+  source: HTMLCanvasElement | HTMLVideoElement | HTMLImageElement,
   opts?: { maxWidth?: number; timeoutMs?: number },
 ): Promise<AgentFace[] | null> {
   if (!faceAgentReady()) return null;
@@ -173,7 +173,7 @@ export interface AgentDetection {
  * คืน null = ใช้ agent ไม่ได้ → ผู้เรียกต้องใช้เส้นทางเบราว์เซอร์ตามเดิม
  */
 export async function agentGetDescriptors(
-  source: HTMLCanvasElement | HTMLVideoElement,
+  source: HTMLCanvasElement | HTMLVideoElement | HTMLImageElement,
   opts?: { singleFace?: boolean; maxWidth?: number; timeoutMs?: number },
 ): Promise<AgentDetection[] | null> {
   const faces = await agentScanFrame(source, { maxWidth: opts?.maxWidth, timeoutMs: opts?.timeoutMs });
