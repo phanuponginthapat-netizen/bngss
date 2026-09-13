@@ -23,6 +23,7 @@ import { faceGuideStatus } from "@/lib/faceGuide";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Camera, X, Maximize, ScanFace, Users, Wifi, WifiOff, Settings as SettingsIcon, MapPin, Cctv, QrCode, LogIn, LogOut, Clock, AlertTriangle, XCircle, Info } from "lucide-react";
 import { toast } from "sonner";
 import { useSchoolSetting } from "@/hooks/useSchoolSetting";
