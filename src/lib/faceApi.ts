@@ -745,8 +745,9 @@ async function nativeEmbedding(
   image: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement,
 ): Promise<Float32Array | null> {
   try {
-    const { faceAgentReady, agentGetDescriptors } = await import("@/lib/faceAgent");
-    if (!faceAgentReady()) return null;
+    const { probeFaceAgent, agentGetDescriptors } = await import("@/lib/faceAgent");
+    const h = await probeFaceAgent();
+    if (!h?.ok) return null;
     const dets = await agentGetDescriptors(image, { singleFace: true, timeoutMs: 3000 });
     return dets && dets.length > 0 ? dets[0].descriptor : null;
   } catch {
