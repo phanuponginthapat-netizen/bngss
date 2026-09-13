@@ -156,3 +156,39 @@ export async function agentEmbedImage(
     return null;
   }
 }
+
+/** รูปแบบผลลัพธ์ให้เหมือนของ face-api เพื่อให้ลูปสแกนใช้ต่อได้ทันที (แต่ไม่มี landmarks 68 จุด) */
+export interface AgentDetection {
+  detection: { box: { x: number; y: number; width: number; height: number }; score: number };
+  landmarks: null;
+  descriptor: Float32Array;
+  agent: true;
+  agentLive: boolean;
+  agentSharpness: number;
+  keypoints: Array<[number, number]>;
+}
+
+/**
+ * ตรวจจับ+คำนวณ embedding ด้วย agent เนทีฟ แล้วคืนในรูปแบบเดียวกับ getAllDescriptors
+ * คืน null = ใช้ agent ไม่ได้ → ผู้เรียกต้องใช้เส้นทางเบราว์เซอร์ตามเดิม
+ */
+export async function agentGetDescriptors(
+  source: HTMLCanvasElement | HTMLVideoElement,
+  opts?: { singleFace?: boolean; maxWidth?: number; timeoutMs?: number },
+): Promise<AgentDetection[] | null> {
+  const faces = await agentScanFrame(source, { maxWidth: opts?.maxWidth, timeoutMs: opts?.timeoutMs });
+  if (!faces) return null;
+  let list = faces.filter((f) => Array.isArray(f.descriptor) && f.descriptor.length > 0);
+  if ((opts?.singleFace ?? true) && list.length > 1) {
+    list = [list.sort((a, b) => b.box.width * b.box.height - a.box.width * a.box.height)[0]];
+  }
+  return list.map((f) => ({
+    detection: { box: f.box, score: f.score },
+    landmarks: null,
+    descriptor: Float32Array.from(f.descriptor),
+    agent: true as const,
+    agentLive: f.live !== false,
+    agentSharpness: f.sharpness ?? 0,
+    keypoints: f.keypoints || [],
+  }));
+}
