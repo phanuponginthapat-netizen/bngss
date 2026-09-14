@@ -266,6 +266,24 @@ serve(async (req) => {
             s += `\n\n▪️ ${g} (${names.length} คน)\n  • ` + names.join("\n  • ");
           }
         }
+
+        // 📅 รวมปฏิทินกิจกรรมไว้ในข้อความเดียวกัน (ประหยัดโควต้า LINE = 1 ข้อความ/วัน)
+        if (settings.line_digest_include_calendar !== "false") {
+          try {
+            const in7 = bkkDate(7);
+            const { data: ev } = await sb.from("academic_events")
+              .select("title, event_date, location")
+              .gte("event_date", today).lte("event_date", in7)
+              .order("event_date").limit(6);
+            if ((ev as any[])?.length) {
+              s += `\n\n📅 กิจกรรม 7 วันข้างหน้า`;
+              for (const e of ev as any[]) {
+                s += `\n  • ${shortThDate(e.event_date)} ${e.title}${e.location ? ` @ ${e.location}` : ""}`;
+              }
+            }
+          } catch (e) { console.error("calendar section failed", e); }
+        }
+
         // LINE text limit is 5000 chars
         summary = s.length > 4900 ? s.slice(0, 4880) + "\n… (ตัดทอน)" : s;
       }
