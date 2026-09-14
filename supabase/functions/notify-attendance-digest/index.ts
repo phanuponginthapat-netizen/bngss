@@ -323,9 +323,13 @@ serve(async (req) => {
     if (forceGroupId) q = q.eq("id", forceGroupId);
     const { data: groups } = await q;
 
+    // ส่งเพียง 1 ข้อความต่อวัน (ยกเว้นสั่งแนบกราฟเองด้วย include_chart)
     const messages: any[] = [];
-    if (summary) messages.push({ type: "text", text: summary });
-    if (chartUrl) messages.push({ type: "image", originalContentUrl: chartUrl, previewImageUrl: chartUrl });
+    if (chartUrl && includeChart) {
+      messages.push({ type: "image", originalContentUrl: chartUrl, previewImageUrl: chartUrl });
+    } else if (summary) {
+      messages.push({ type: "text", text: summary });
+    }
 
     const results: any[] = [];
     for (const g of groups || []) {
