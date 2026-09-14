@@ -92,6 +92,27 @@ async function shortChartUrl(config: unknown): Promise<string> {
 }
 
 
+/** เวลา/วันปัจจุบันตามเวลาไทย */
+function bkkNow(): { minutes: number; dow: number } {
+  const now = new Date();
+  const bkk = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 7 * 3600 * 1000);
+  return { minutes: bkk.getHours() * 60 + bkk.getMinutes(), dow: bkk.getDay() };
+}
+
+async function getSettings(sb: any): Promise<Record<string, string>> {
+  const { data } = await sb.from("school_settings")
+    .select("setting_key, setting_value")
+    .in("setting_key", [
+      "line_digest_enabled",
+      "line_digest_time",
+      "line_digest_days",
+      "line_digest_include_calendar",
+    ]);
+  const map: Record<string, string> = {};
+  for (const r of (data as any[]) || []) if (r.setting_value != null) map[r.setting_key] = String(r.setting_value);
+  return map;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
@@ -111,6 +132,29 @@ serve(async (req) => {
 
     const sb = makeAdmin();
     const today = bkkDate(0);
+    const settings = await getSettings(sb);
+    const manualRun = Boolean(forceGroupId || customImageUrl || customSummary || skipDedup);
+
+    // ⏰ ตารางเวลา/วันที่ผู้ดูแลตั้งเอง — ใช้เฉพาะรอบอัตโนมัติ (cron ทุก 15 นาที)
+    if (!manualRun) {
+      if (settings.line_digest_enabled === "false") {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "disabled" }),
+          { headers: { ...cors, "Content-Type": "application/json" } });
+      }
+      const [hh, mm] = (settings.line_digest_time || "10:00").split(":").map((n) => parseInt(n, 10));
+      const target = (isNaN(hh) ? 10 : hh) * 60 + (isNaN(mm) ? 0 : mm);
+      const days = (settings.line_digest_days ?? "1,2,3,4,5")
+        .split(",").map((d) => parseInt(d.trim(), 10)).filter((d) => !isNaN(d));
+      const { minutes, dow } = bkkNow();
+      if (days.length > 0 && !days.includes(dow)) {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "day_not_selected", dow }),
+          { headers: { ...cors, "Content-Type": "application/json" } });
+      }
+      if (minutes < target || minutes >= target + 20) {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "outside_window", minutes, target }),
+          { headers: { ...cors, "Content-Type": "application/json" } });
+      }
+    }
 
     let chartUrl = customImageUrl || "";
     let summary = customSummary || "";
@@ -222,6 +266,24 @@ serve(async (req) => {
             s += `\n\n▪️ ${g} (${names.length} คน)\n  • ` + names.join("\n  • ");
           }
         }
+
+        // 📅 รวมปฏิทินกิจกรรมไว้ในข้อความเดียวกัน (ประหยัดโควต้า LINE = 1 ข้อความ/วัน)
+        if (settings.line_digest_include_calendar !== "false") {
+          try {
+            const in7 = bkkDate(7);
+            const { data: ev } = await sb.from("academic_events")
+              .select("title, event_date, location")
+              .gte("event_date", today).lte("event_date", in7)
+              .order("event_date").limit(6);
+            if ((ev as any[])?.length) {
+              s += `\n\n📅 กิจกรรม 7 วันข้างหน้า`;
+              for (const e of ev as any[]) {
+                s += `\n  • ${shortThDate(e.event_date)} ${e.title}${e.location ? ` @ ${e.location}` : ""}`;
+              }
+            }
+          } catch (e) { console.error("calendar section failed", e); }
+        }
+
         // LINE text limit is 5000 chars
         summary = s.length > 4900 ? s.slice(0, 4880) + "\n… (ตัดทอน)" : s;
       }
@@ -261,9 +323,13 @@ serve(async (req) => {
     if (forceGroupId) q = q.eq("id", forceGroupId);
     const { data: groups } = await q;
 
+    // ส่งเพียง 1 ข้อความต่อวัน (ยกเว้นสั่งแนบกราฟเองด้วย include_chart)
     const messages: any[] = [];
-    if (summary) messages.push({ type: "text", text: summary });
-    if (chartUrl) messages.push({ type: "image", originalContentUrl: chartUrl, previewImageUrl: chartUrl });
+    if (chartUrl && includeChart) {
+      messages.push({ type: "image", originalContentUrl: chartUrl, previewImageUrl: chartUrl });
+    } else if (summary) {
+      messages.push({ type: "text", text: summary });
+    }
 
     const results: any[] = [];
     for (const g of groups || []) {

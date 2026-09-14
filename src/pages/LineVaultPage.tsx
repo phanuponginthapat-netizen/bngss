@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DriveConnectCard from "@/components/drive/DriveConnectCard";
+import LineDigestScheduleCard from "@/components/line/LineDigestScheduleCard";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -595,6 +596,7 @@ export default function LineVaultPage() {
           {isAdmin && (
             <TabsContent value="settings" className="m-0 space-y-4">
               <DriveConnectCard />
+              <LineDigestScheduleCard />
               <StorageBackfillCard onDone={load} />
               <VaultSettings />
             </TabsContent>
@@ -1138,11 +1140,11 @@ function GroupsManager({ groups, onChange }: { groups: Group[]; onChange: () => 
                   <Switch checked={!!g.notify_substitute} onCheckedChange={(v) => update(g.id, { notify_substitute: v } as any)} />
                 </label>
                 <label className="flex items-center justify-between gap-2 border rounded-md px-2.5 py-1.5">
-                  <span>ปฏิทินรายวัน 07:00</span>
+                  <span>ปฏิทินกิจกรรม (รวมในข้อความเดียว)</span>
                   <Switch checked={!!g.notify_calendar} onCheckedChange={(v) => update(g.id, { notify_calendar: v } as any)} />
                 </label>
                 <label className="flex items-center justify-between gap-2 border rounded-md px-2.5 py-1.5">
-                  <span>รายงานการมาโรงเรียน (จ.–ศ. 10:00)</span>
+                  <span>สรุปรายวัน 1 ข้อความ (ตั้งเวลาในแท็บตั้งค่า)</span>
                   <Switch checked={!!g.notify_attendance} onCheckedChange={(v) => update(g.id, { notify_attendance: v } as any)} />
                 </label>
               </div>
