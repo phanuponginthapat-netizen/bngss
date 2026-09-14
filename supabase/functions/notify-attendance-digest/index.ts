@@ -92,6 +92,27 @@ async function shortChartUrl(config: unknown): Promise<string> {
 }
 
 
+/** เวลา/วันปัจจุบันตามเวลาไทย */
+function bkkNow(): { minutes: number; dow: number } {
+  const now = new Date();
+  const bkk = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 7 * 3600 * 1000);
+  return { minutes: bkk.getHours() * 60 + bkk.getMinutes(), dow: bkk.getDay() };
+}
+
+async function getSettings(sb: any): Promise<Record<string, string>> {
+  const { data } = await sb.from("school_settings")
+    .select("setting_key, setting_value")
+    .in("setting_key", [
+      "line_digest_enabled",
+      "line_digest_time",
+      "line_digest_days",
+      "line_digest_include_calendar",
+    ]);
+  const map: Record<string, string> = {};
+  for (const r of (data as any[]) || []) if (r.setting_value != null) map[r.setting_key] = String(r.setting_value);
+  return map;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
@@ -111,6 +132,29 @@ serve(async (req) => {
 
     const sb = makeAdmin();
     const today = bkkDate(0);
+    const settings = await getSettings(sb);
+    const manualRun = Boolean(forceGroupId || customImageUrl || customSummary || skipDedup);
+
+    // ⏰ ตารางเวลา/วันที่ผู้ดูแลตั้งเอง — ใช้เฉพาะรอบอัตโนมัติ (cron ทุก 15 นาที)
+    if (!manualRun) {
+      if (settings.line_digest_enabled === "false") {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "disabled" }),
+          { headers: { ...cors, "Content-Type": "application/json" } });
+      }
+      const [hh, mm] = (settings.line_digest_time || "10:00").split(":").map((n) => parseInt(n, 10));
+      const target = (isNaN(hh) ? 10 : hh) * 60 + (isNaN(mm) ? 0 : mm);
+      const days = (settings.line_digest_days ?? "1,2,3,4,5")
+        .split(",").map((d) => parseInt(d.trim(), 10)).filter((d) => !isNaN(d));
+      const { minutes, dow } = bkkNow();
+      if (days.length > 0 && !days.includes(dow)) {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "day_not_selected", dow }),
+          { headers: { ...cors, "Content-Type": "application/json" } });
+      }
+      if (minutes < target || minutes >= target + 20) {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "outside_window", minutes, target }),
+          { headers: { ...cors, "Content-Type": "application/json" } });
+      }
+    }
 
     let chartUrl = customImageUrl || "";
     let summary = customSummary || "";
