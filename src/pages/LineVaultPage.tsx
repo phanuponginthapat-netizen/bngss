@@ -595,6 +595,7 @@ export default function LineVaultPage() {
           {isAdmin && (
             <TabsContent value="settings" className="m-0 space-y-4">
               <DriveConnectCard />
+              <LineDigestScheduleCard />
               <StorageBackfillCard onDone={load} />
               <VaultSettings />
             </TabsContent>
