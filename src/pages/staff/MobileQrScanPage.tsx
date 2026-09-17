@@ -439,6 +439,35 @@ export default function MobileQrScanPage() {
           </div>
         )}
       </BarcodeScanner>
+
+      {/* ยืนยันตัวนักเรียนก่อนบันทึก — เฉพาะกรณีพิมพ์รหัสเอง */}
+      <AlertDialog open={!!confirmItem} onOpenChange={(o) => { if (!o) setConfirmItem(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ยืนยันการบันทึก{mode === "entry" ? "เข้า" : "ออก"}โรงเรียน</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-1">
+                <div className="text-base font-semibold text-foreground">{confirmItem?.name}</div>
+                <div>รหัส {confirmItem?.studentCode} • ชั้น {confirmItem?.classroom}</div>
+                <div className="text-[12px]">ตรวจสอบชื่อให้ตรงกับนักเรียนที่อยู่ตรงหน้าก่อนกดยืนยัน</div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const item = confirmItem;
+                setConfirmItem(null);
+                if (item) void commitScan(item, "manual");
+              }}
+            >
+              ยืนยันบันทึก
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+
   );
 }
