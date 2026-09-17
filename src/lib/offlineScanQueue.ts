@@ -87,10 +87,22 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
     const items = await getPending();
     for (const item of items) {
       try {
+        // กันเวลาเพี้ยน: ถ้าเวลาที่บันทึกไว้ในเครื่อง "อยู่ในอนาคต" หรือย้อนหลังเกิน 7 วัน
+        // ให้ถือว่านาฬิกาเครื่องผิด แล้วใช้เวลาปัจจุบันของเซิร์ฟเวอร์แทน
+        const localTs = new Date(item.scanned_at).getTime();
+        const nowTs = Date.now();
+        const sane =
+          Number.isFinite(localTs) &&
+          localTs <= nowTs + 60_000 &&
+          nowTs - localTs <= 7 * 24 * 3600_000;
+        const stamp = sane ? new Date(localTs) : null;
+
         const { error } = await supabase.from("face_scan_logs").insert({
           student_id: item.student_id,
-          scan_date: bkkDateISO(new Date(item.scanned_at)),
+          // ไม่ส่งวัน/เวลาเมื่อเวลาเครื่องไม่น่าเชื่อถือ → ฐานข้อมูลประทับเวลาไทยเอง
+          ...(stamp ? { scan_date: bkkDateISO(stamp), scan_time: stamp.toISOString() } : {}),
           scan_type: item.scan_type,
+
           confidence: 1,
           scanned_by: item.scanned_by ?? undefined,
           device_label: item.device_label,
