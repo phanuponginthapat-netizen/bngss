@@ -57,6 +57,13 @@ const extractStudentCode = (raw: string) => {
 };
 
 
+interface PendingConfirm {
+  studentId: string;
+  name: string;
+  studentCode: string;
+  classroom: string;
+}
+
 export default function MobileQrScanPage() {
   const [mode, setMode] = useState<"entry" | "exit">(guessMode());
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
@@ -66,7 +73,11 @@ export default function MobileQrScanPage() {
   const [manual, setManual] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [userId, setUserId] = useState<string | undefined>(undefined);
+  const [clockWarning, setClockWarning] = useState(false);
+  const [roster, setRoster] = useState(() => rosterInfo());
+  const [confirmItem, setConfirmItem] = useState<PendingConfirm | null>(null);
   const cooldownRef = useRef<Map<string, number>>(new Map());
+  const modeTouched = useRef(false);
 
   const refreshPending = useCallback(async () => {
     try { setPending(await countPending()); } catch {}
@@ -76,6 +87,14 @@ export default function MobileQrScanPage() {
     installAutoSync(refreshPending);
     refreshPending();
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id));
+
+    // เทียบนาฬิกาเครื่องกับเซิร์ฟเวอร์ + เตรียมรายชื่อไว้ใช้ตอนเน็ตหลุด
+    void syncServerClock(true).then(() => {
+      setClockWarning(isClockUnreliable());
+      if (!modeTouched.current) setMode(guessMode());
+    });
+    void ensureRosterFresh().then(() => setRoster(rosterInfo()));
+
     const on = () => setOnline(true);
     const off = () => setOnline(false);
     window.addEventListener("online", on);
@@ -91,6 +110,10 @@ export default function MobileQrScanPage() {
     try {
       const { synced, failed } = await flushQueue();
       await refreshPending();
+      await syncServerClock(true);
+      setClockWarning(isClockUnreliable());
+      await refreshRoster().catch(() => {});
+      setRoster(rosterInfo());
       if (synced) toast.success(`ส่งข้อมูลขึ้นระบบ ${synced} รายการ`);
       if (failed) toast.warning(`ยังเหลือ ${failed} รายการรอลองใหม่`);
       if (!synced && !failed) toast.info("ไม่มีรายการค้าง");
@@ -99,47 +122,16 @@ export default function MobileQrScanPage() {
     }
   }, [refreshPending]);
 
-  const processCode = useCallback(async (raw: string) => {
-    const code = extractStudentCode(raw);
-    if (!code || code.length < 3) return;
-    const key = `${code}:${mode}`;
-    const now = Date.now();
-    const last = cooldownRef.current.get(key) || 0;
-    if (now - last < 4000) return; // กันสแกนซ้ำภายใน 4 วิ
-    cooldownRef.current.set(key, now);
+  /** บันทึกจริง — เรียกหลังยืนยันตัวนักเรียนแล้วเท่านั้น */
+  const commitScan = useCallback(async (
+    target: PendingConfirm,
+    method: "qr" | "manual",
+  ) => {
+    const { studentId, name, studentCode, classroom } = target;
 
-    // ลอง resolve online ก่อน — ถ้าออฟไลน์ enqueue โดยใช้ code ที่สแกน
-    let studentId: string | null = null;
-    let name = code;
-    let studentCode = code;
-    let classroom = "-";
-
+    // เช็คร่วมกับการสแกนใบหน้า — วันนี้บันทึกโหมดนี้ไปแล้วหรือยัง (ทุกวิธีการสแกน)
     if (online) {
-      try {
-        const { data, error } = await (supabase as any).rpc("resolve_scanned_student", { _input: raw });
-        const row = Array.isArray(data) ? data[0] : data;
-        if (!error && row) {
-          studentId = row.id;
-          studentCode = row.student_code || code;
-          name = `${row.prefix || ""}${row.first_name || ""} ${row.last_name || ""}`.trim() || code;
-          classroom = row.grade_level ? `${row.grade_level}/${row.classroom_name || ""}` : "-";
-        }
-      } catch {}
-    }
-
-    if (!studentId) {
-      // ออฟไลน์หรือหาไม่เจอ — ยัง enqueue ไม่ได้ (ไม่มี student_id)
-      if (!online) {
-        toast.error("ออฟไลน์: ไม่พบรหัสในแคช", { description: `กด "ซิงค์" ตอนออนไลน์เพื่อรีเฟรชข้อมูลนักเรียน` });
-      } else {
-        toast.error(`ไม่พบนักเรียนรหัส ${code}`);
-      }
-      return;
-    }
-
-    // เช็คร่วมกับการสแกนใบหน้า — ถ้าวันนี้เคยบันทึกโหมดนี้แล้ว (ไม่ว่าจะสแกนด้วยวิธีใด) ไม่ต้องบันทึกซ้ำ
-    if (online) {
-      const st = await checkTodayScan(studentId);
+      const st = await checkTodayScan(studentId, true);
       if ((mode === "exit" && st.exit) || (mode === "entry" && st.entry)) {
         const via = methodLabel(mode === "exit" ? st.exitMethod : st.entryMethod);
         toast.info("สแกนซ้ำ", { description: `${name} บันทึก${mode === "entry" ? "เข้า" : "ออก"}วันนี้แล้ว (${via})` });
@@ -156,21 +148,21 @@ export default function MobileQrScanPage() {
       student_code: studentCode,
       student_name: name,
       scan_type: mode,
-      entry_method: "qr" as const,
-      device_label: `mobile-qr-${mode}`,
+      entry_method: method,
+      device_label: `mobile-${method}-${mode}`,
       scanned_by: userId,
-      scanned_at: new Date().toISOString(),
+      // เวลาที่แก้ส่วนต่างนาฬิกาเครื่องแล้ว (ใช้เฉพาะตอนต้องเข้าคิวออฟไลน์)
+      scanned_at: serverNow().toISOString(),
     };
 
-    // ลองยิงตรงก่อน — ถ้าไม่สำเร็จค่อย queue
     let queued = false;
     try {
+      // ⚠️ ออนไลน์: ไม่ส่ง scan_date / scan_time ขึ้นไป
+      // ให้ฐานข้อมูลประทับวัน-เวลาไทยของเซิร์ฟเวอร์เอง — ข้อมูลจึงตรงเสมอ
+      // แม้นาฬิกาหรือโซนเวลาของมือถือเครื่องที่ใช้สแกนจะตั้งผิด
       const { error } = await supabase.from("face_scan_logs").insert({
         student_id: scan.student_id,
         scan_type: scan.scan_type,
-        // ระบุวัน/เวลาไทยเสมอ กันกรณีสแกนก่อน 07:00 น. แล้วถูกบันทึกเป็นวันก่อนหน้า
-        scan_date: todayBangkok(),
-        scan_time: scan.scanned_at,
         confidence: 1,
         scanned_by: scan.scanned_by,
         device_label: scan.device_label,
@@ -178,16 +170,14 @@ export default function MobileQrScanPage() {
       } as any);
       if (error) {
         if (error.code === "23505") {
-          markScanned(studentId, mode, "qr");
+          markScanned(studentId, mode, method);
           toast.info("สแกนซ้ำ", { description: `${name} • บันทึกวันนี้แล้ว` });
           return;
         }
         throw error;
       }
-      markScanned(studentId, mode, "qr");
-
+      markScanned(studentId, mode, method);
     } catch (e: any) {
-      // เก็บลงคิว
       await enqueueScan(scan);
       queued = true;
       await refreshPending();
@@ -199,20 +189,82 @@ export default function MobileQrScanPage() {
       toast.success(`✓ ${mode === "entry" ? "เข้า" : "ออก"} • ${name}`, { description: `${studentCode} • ${classroom}` });
     }
     setRecent((r) => [{
-      key: `${key}:${now}`,
+      key: `${studentCode}:${mode}:${Date.now()}`,
       name, code: studentCode, classroom, scan_type: mode,
-      time: new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+      time: new Intl.DateTimeFormat("th-TH", {
+        timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+      }).format(serverNow()),
       queued,
     }, ...r].slice(0, 15));
   }, [mode, online, userId, refreshPending]);
+
+  const processCode = useCallback(async (raw: string, source: "qr" | "manual" = "qr") => {
+    const code = extractStudentCode(raw);
+    if (!code || code.length < 3) return;
+    const key = `${code}:${mode}`;
+    const now = Date.now();
+    const last = cooldownRef.current.get(key) || 0;
+    if (now - last < 4000) return; // กันสแกนซ้ำภายใน 4 วิ
+    cooldownRef.current.set(key, now);
+
+    let target: PendingConfirm | null = null;
+
+    if (online) {
+      try {
+        const { data, error } = await (supabase as any).rpc("resolve_scanned_student", { _input: raw });
+        const row = Array.isArray(data) ? data[0] : data;
+        if (!error && row) {
+          target = {
+            studentId: row.id,
+            studentCode: row.student_code || code,
+            name: `${row.prefix || ""}${row.first_name || ""} ${row.last_name || ""}`.trim() || code,
+            classroom: row.grade_level ? `${row.grade_level}/${row.classroom_name || ""}` : "-",
+          };
+        }
+      } catch {}
+    }
+
+    // เน็ตหลุด / RPC ล้มเหลว → ใช้สำเนารายชื่อในเครื่อง (ตรงรหัสเป๊ะเท่านั้น)
+    if (!target) {
+      const cached = findInRoster(code);
+      if (cached) {
+        target = {
+          studentId: cached.id,
+          studentCode: cached.student_code,
+          name: cached.name,
+          classroom: cached.classroom,
+        };
+      }
+    }
+
+    if (!target) {
+      if (!online) {
+        toast.error("ออฟไลน์: ไม่พบรหัสในรายชื่อที่เก็บไว้", {
+          description: 'กด "ซิงค์" ตอนออนไลน์เพื่ออัปเดตรายชื่อนักเรียน',
+        });
+      } else {
+        toast.error(`ไม่พบนักเรียนรหัส ${code}`);
+      }
+      return;
+    }
+
+    // พิมพ์รหัสเอง = เสี่ยงพิมพ์ผิดเป็นคนอื่น → ต้องยืนยันชื่อก่อนบันทึกเสมอ
+    if (source === "manual") {
+      setConfirmItem(target);
+      return;
+    }
+
+    await commitScan(target, "qr");
+  }, [mode, online, commitScan]);
 
   const submitManual = async (e: React.FormEvent) => {
     e.preventDefault();
     const v = manual.trim();
     if (!v) return;
-    await processCode(v);
+    await processCode(v, "manual");
     setManual("");
   };
+
 
   const todayCount = useMemo(() => recent.filter((r) => !r.queued || r.queued).length, [recent]);
 
