@@ -44,8 +44,11 @@ import { downloadFacesToCache, pickAndSaveFaceFolder, loadFaceCache, saveFaceCac
 import { useIsPortrait } from "@/hooks/useScreenOrientation";
 import { KIOSK_PERF_PROFILES, resolveLoopDelayMs, isIsolatedRuntime } from "@/lib/kioskPerf";
 import { probeSidecar, sidecarHasFace, sidecarReady, sidecarProvider } from "@/lib/faceSidecar";
-import { probeFaceAgent, faceAgentReady, faceAgentEngine, agentGetDescriptors, setFaceAgentEnabled, agentLastFaceCount, faceAgentEngine } from "@/lib/faceAgent";
+import { probeFaceAgent, faceAgentReady, faceAgentEngine, agentGetDescriptors, setFaceAgentEnabled, agentLastFaceCount } from "@/lib/faceAgent";
 import { geometryVerdict } from "@/lib/faceGeometry";
+
+/** เกณฑ์ความเหมือนของสัดส่วนโครงหน้า (0–1) — ต่ำกว่านี้ถือว่าคนละคน */
+const GEOMETRY_MIN_SCORE = 0.55;
 
 import { saveErrorMessage } from "@/lib/saveError";
 import { notifyRole } from "@/lib/notify";
