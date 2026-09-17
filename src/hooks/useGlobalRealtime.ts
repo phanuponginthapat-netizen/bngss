@@ -24,56 +24,34 @@ export function useGlobalRealtime() {
     if (!userId || !role) return;
 
 
-    // Tables every authenticated user needs (notifications/inbox/news/eforms/social wall)
+    // ⚡ ประสิทธิภาพ: การผูก realtime 1 ตาราง = ตัวกรอง WAL 1 ชุดต่อผู้ใช้ 1 คน
+    // เดิม admin ผูกเกือบ 100 ตาราง × ผู้ใช้ทุกคน → ฐานข้อมูลต้องกรอง WAL หนักมาก
+    // จนระบบหน่วง/ค้างเป็นช่วง ๆ  จึงเหลือเฉพาะตาราง "ร้อน" ที่ต้องเห็นสดจริง ๆ
+    // ตารางอื่นยังอัปเดตเมื่อเปิดหน้านั้น/สลับกลับมาที่แท็บ ผ่าน react-query ตามปกติ
+
+    // Tables every authenticated user needs (notifications/inbox/news/eforms)
     const baseTables = [
-      "notifications", "inbox_items", "news_posts", "academic_events",
-      "emergency_broadcasts", "profiles", "eforms", "eform_recipients",
-      "documents", "document_recipients", "face_scan_logs",
-      "social_posts", "wall_posts", "wall_post_comments", "wall_post_reactions",
+      "notifications", "inbox_items", "news_posts",
+      "emergency_broadcasts", "eform_recipients", "document_recipients",
+      "wall_post_comments", "wall_post_reactions",
     ];
 
-    // Admin/Director: full system view
+    // Admin/Director: เฉพาะงานที่ต้องเห็นสด (เช็คชื่อ/สแกนหน้า/ทะเบียนนักเรียน)
     const adminTables = [
-      // Core
-      "students", "classrooms", "personnel", "user_roles",
-      // Attendance & Student Affairs
-      "attendance", "behavior_records", "student_leaves", "student_screenings",
-      "sdq_records", "home_visits", "home_visit_summaries", "homeroom_records",
-      "health_records", "health_measurements", "vaccine_records",
-      // Academic
-      "enrollments", "student_scores", "student_column_scores", "subject_score_columns",
-      "subjects", "schedules", "homework_assignments", "task_assignments", "assessment_criteria",
-      "student_assessment_scores", "early_childhood_dev",
-      // Documents
-      "documents", "document_recipients",
-      // HR & Finance
-      "staff_leaves", "staff_evaluations", "salary_records", "personnel_assessments",
-      "id_plan_records", "pa_agreements", "pa_indicator_scores",
-      "budget_transactions", "account_balances", "assets", "asset_damage_reports",
-      "procurement_records", "student_subsidies",
-      // Admin
-      "admissions", "school_settings", "cms_settings", "cms_pages", "google_chat_webhooks",
-      // Misc
-      "school_lunch_records", "school_milk_records",
-      "action_plans", "pp5_files", "pp6_files",
-      "time_clock", "substitute_teaching", "inbox_items",
-      // Teaching Excellence
-      "lesson_plans", "teaching_logbook",
-      // Garbage / ICT / Learning center
-      "garbage_deposits", "garbage_redemptions", "ict_loans", "learning_center_bookings",
+      "students", "classrooms", "personnel",
+      "attendance", "face_scan_logs", "student_leaves", "behavior_records",
+      "student_scores", "schedules", "homework_assignments", "task_assignments",
+      "documents", "staff_leaves", "admissions",
     ];
 
-    // Teacher: classroom/academic/HR-self
+    // Teacher: ห้องเรียน/วิชาที่สอน
     const teacherTables = [
       "students", "classrooms", "attendance", "behavior_records", "student_leaves",
-      "sdq_records", "home_visits", "home_visit_summaries", "health_measurements", "vaccine_records",
-      "homeroom_records", "enrollments", "student_scores", "student_column_scores",
-      "subject_score_columns", "subjects", "schedules", "homework_assignments", "task_assignments",
-      "documents", "document_recipients", "staff_leaves", "pa_agreements",
-      "personnel", "asset_damage_reports", "time_clock", "substitute_teaching",
-      "lesson_plans", "teaching_logbook",
-      "garbage_deposits", "garbage_redemptions", "ict_loans", "learning_center_bookings",
+      "student_scores", "student_column_scores", "schedules",
+      "homework_assignments", "homework_submissions", "task_assignments",
+      "documents", "staff_leaves",
     ];
+
 
     // Student/Alumni: personal data
     const studentTables = [
