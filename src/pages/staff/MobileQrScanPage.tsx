@@ -289,7 +289,7 @@ export default function MobileQrScanPage() {
         </div>
 
         <div className="max-w-2xl mx-auto px-3 pb-2.5">
-          <Tabs value={mode} onValueChange={(v) => setMode(v as any)}>
+          <Tabs value={mode} onValueChange={(v) => { modeTouched.current = true; setMode(v as any); }}>
             <TabsList className="grid grid-cols-2 w-full h-11">
               <TabsTrigger value="entry" className="gap-1.5 data-[state=active]:bg-emerald-500 data-[state=active]:text-white">
                 <LogIn className="w-4 h-4" /> เข้าโรงเรียน
@@ -401,7 +401,7 @@ export default function MobileQrScanPage() {
       <BarcodeScanner
         open={scannerOpen}
         onClose={() => setScannerOpen(false)}
-        onScan={processCode}
+        onScan={(raw: string) => { void processCode(raw, "qr"); }}
         continuous
         title={`สแกน QR — ${mode === "entry" ? "เข้าโรงเรียน" : "ออกโรงเรียน"}`}
       >
