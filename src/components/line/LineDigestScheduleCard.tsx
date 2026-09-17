@@ -115,9 +115,14 @@ export default function LineDigestScheduleCard() {
           <Switch checked={withCalendar} onCheckedChange={setWithCalendar} disabled={loading} />
         </label>
 
-        <Button onClick={save} disabled={loading || saving} size="sm">
-          {saving ? "กำลังบันทึก…" : "บันทึกการตั้งเวลา"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={save} disabled={loading || saving} size="sm">
+            {saving ? "กำลังบันทึก…" : "บันทึกการตั้งเวลา"}
+          </Button>
+          <Button onClick={sendNow} disabled={loading || sending} size="sm" variant="outline">
+            {sending ? "กำลังส่ง…" : "ส่งรายงานตอนนี้"}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
