@@ -596,6 +596,29 @@ export default function KioskSetupPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>โปรแกรมสแกนใบหน้าสำหรับ PC</CardTitle>
+          <CardDescription>
+            ติดตั้งบนเครื่องประตู/คีออสเพื่อให้การจำใบหน้าแม่นยำขึ้น (Windows และ Linux)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <ol className="ml-5 list-decimal space-y-1 text-sm">
+            <li>กดปุ่มด้านล่างเพื่อดาวน์โหลดไฟล์ติดตั้ง</li>
+            <li>แตกไฟล์ แล้วอ่านคู่มือในโฟลเดอร์ (Windows: ดับเบิลคลิกไฟล์ติดตั้ง)</li>
+            <li>ติดตั้งครั้งเดียว โปรแกรมจะเปิดเองทุกครั้งที่เปิดเครื่อง</li>
+            <li>เปิดหน้าสแกนใบหน้า จะขึ้นว่า “กำลังใช้งาน (ตัวประมวลผลบนเครื่อง)”</li>
+          </ol>
+          <Button asChild>
+            <a href="/downloads/facegate-agent-installer.zip" download>
+              <Download className="mr-2 h-4 w-4" />
+              ดาวน์โหลดโปรแกรมสแกนใบหน้า (PC)
+            </a>
+          </Button>
+        </CardContent>
+      </Card>
+
 
       <Card>
         <CardHeader>
