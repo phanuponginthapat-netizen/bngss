@@ -85,6 +85,46 @@ def liveness(bgr: np.ndarray, bbox) -> dict:
     }
 
 
+
+# ── สัดส่วนโครงหน้า (จุดสังเกต 5 จุด) ───────────────────────────────────────
+# ทุกระยะหารด้วยระยะห่างระหว่างตาสองข้าง จึงไม่ขึ้นกับระยะยืน/ขนาดภาพ
+# ใช้เป็น "ความเห็นที่สอง" ของการจับคู่ กันจำผิดคนกับคนหน้าคล้าย
+GEOMETRY_KEYS = [
+    "nose_left_eye", "nose_right_eye", "nose_eye_mid", "mouth_width",
+    "nose_mouth_mid", "eye_mid_mouth_mid", "left_eye_mouth_left",
+    "right_eye_mouth_right", "face_width", "face_height", "eye_asymmetry",
+]
+
+
+def geometry_features(kps, bbox) -> dict | None:
+    if kps is None or len(kps) < 5:
+        return None
+    pts = np.array(kps, dtype=np.float32)
+    left_eye, right_eye, nose, mouth_l, mouth_r = pts[0], pts[1], pts[2], pts[3], pts[4]
+    eye_dist = float(np.linalg.norm(right_eye - left_eye))
+    if eye_dist < 1e-3:
+        return None
+    eye_mid = (left_eye + right_eye) / 2.0
+    mouth_mid = (mouth_l + mouth_r) / 2.0
+    x1, y1, x2, y2 = [float(v) for v in bbox]
+    d = lambda a, b: float(np.linalg.norm(a - b)) / eye_dist  # noqa: E731
+    nose_l, nose_r = d(nose, left_eye), d(nose, right_eye)
+    feats = {
+        "nose_left_eye": nose_l,
+        "nose_right_eye": nose_r,
+        "nose_eye_mid": d(nose, eye_mid),
+        "mouth_width": d(mouth_l, mouth_r),
+        "nose_mouth_mid": d(nose, mouth_mid),
+        "eye_mid_mouth_mid": d(eye_mid, mouth_mid),
+        "left_eye_mouth_left": d(left_eye, mouth_l),
+        "right_eye_mouth_right": d(right_eye, mouth_r),
+        "face_width": (x2 - x1) / eye_dist,
+        "face_height": (y2 - y1) / eye_dist,
+        "eye_asymmetry": abs(nose_l - nose_r) / max(nose_l + nose_r, 1e-3),
+    }
+    return {k: round(float(v), 5) for k, v in feats.items()}
+
+
 def faces_payload(img: np.ndarray, want_crop: bool = False) -> list[dict]:
     out: list[dict] = []
     for f in get_engine().get(img):
@@ -94,6 +134,7 @@ def faces_payload(img: np.ndarray, want_crop: bool = False) -> list[dict]:
             "keypoints": [[float(p[0]), float(p[1])] for p in f.kps],
             "score": float(f.det_score),
             "descriptor": [float(v) for v in f.normed_embedding],
+            "geometry": geometry_features(f.kps, f.bbox),
             **liveness(img, f.bbox),
         }
         if want_crop:
@@ -121,7 +162,7 @@ def crop_jpeg(bgr: np.ndarray, bbox, margin: float = 0.35) -> str | None:
 def health():
     try:
         get_engine()
-        return {"ok": True, "engine": "scrfd_500m+w600k_mbf", "dim": 512, "detSize": DET_SIZE}
+        return {"ok": True, "engine": "scrfd_500m+w600k_mbf", "version": "3.2", "geometry": True, "dim": 512, "detSize": DET_SIZE}
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "error": str(exc)[:300]}
 
@@ -134,7 +175,7 @@ async def scan(request: Request):
     if img is None:
         return {"faces": [], "error": "decode_failed"}
     faces = faces_payload(img)
-    return {"faces": faces, "ms": round((time.time() - t0) * 1000, 1)}
+    return {"faces": faces, "faceCount": len(faces), "ms": round((time.time() - t0) * 1000, 1)}
 
 
 class ImageRequest(BaseModel):

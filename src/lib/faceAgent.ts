@@ -21,10 +21,12 @@ export interface AgentFace {
   live: boolean;
   sharpness: number;
   colorSpread: number;
+  /** สัดส่วนโครงหน้าจากจุดสังเกต 5 จุด — ใช้เป็นความเห็นที่สองของการจับคู่ */
+  geometry?: Record<string, number> | null;
   crop?: string | null;
 }
 
-export interface AgentHealth { ok: boolean; engine?: string; dim?: number; detSize?: number }
+export interface AgentHealth { ok: boolean; engine?: string; version?: string; geometry?: boolean; dim?: number; detSize?: number }
 
 let health: AgentHealth | null = null;
 let probedAt = 0;
@@ -73,6 +75,11 @@ export async function probeFaceAgent(force = false): Promise<AgentHealth | null>
 
 export const faceAgentReady = () => !!health?.ok && !disabled();
 export const faceAgentEngine = () => health?.engine || "-";
+export const faceAgentHasGeometry = () => !!health?.geometry;
+
+/** จำนวนใบหน้าที่ agent เห็นในเฟรมล่าสุด (ใช้กันสแกนพร้อมกันหลายคน) */
+let lastFrameFaceCount = 0;
+export const agentLastFaceCount = () => lastFrameFaceCount;
 
 async function toJpegBlob(
   source: HTMLCanvasElement | HTMLVideoElement | HTMLImageElement,
@@ -119,6 +126,7 @@ export async function agentScanFrame(
     clearTimeout(t);
     if (!res.ok) return null;
     const data = (await res.json()) as { faces?: AgentFace[] };
+    lastFrameFaceCount = (data.faces || []).length;
     const inv = 1 / (jpeg.scale || 1);
     return (data.faces || []).map((f) => ({
       ...f,
@@ -165,6 +173,7 @@ export interface AgentDetection {
   agent: true;
   agentLive: boolean;
   agentSharpness: number;
+  agentGeometry: Record<string, number> | null;
   keypoints: Array<[number, number]>;
 }
 
@@ -189,6 +198,7 @@ export async function agentGetDescriptors(
     agent: true as const,
     agentLive: f.live !== false,
     agentSharpness: f.sharpness ?? 0,
+    agentGeometry: f.geometry || null,
     keypoints: f.keypoints || [],
   }));
 }

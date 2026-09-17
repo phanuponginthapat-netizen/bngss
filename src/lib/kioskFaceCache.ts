@@ -25,6 +25,8 @@ export interface CachedFace {
   images?: string[];
   /** embedding ที่คำนวณใหม่จากภาพด้านบนด้วยโมเดลของเครื่องนี้เอง — ช่วยให้จับคู่แม่นขึ้น */
   localDescriptors?: number[][];
+  /** สัดส่วนโครงหน้าที่คำนวณจากภาพลงทะเบียน — ใช้กันจำผิดคนกับคนหน้าคล้าย */
+  geometries?: Record<string, number>[];
   isStaff?: boolean;
 }
 
@@ -233,27 +235,40 @@ export async function augmentCacheWithLocalEmbeddings(
   const cached = await loadFaceCache();
   if (!cached?.faces?.length) return 0;
   const { embedFaceVariantsFromUrl } = await import("@/lib/faceApi");
-  const targets = cached.faces.filter((f) => (f.images?.length ?? 0) > 0 && !(f as any).localDescriptors?.length);
+  const { agentEmbedImage, faceAgentReady } = await import("@/lib/faceAgent");
+  const targets = cached.faces.filter(
+    (f) => (f.images?.length ?? 0) > 0 && (!(f as any).localDescriptors?.length || !(f as any).geometries?.length),
+  );
   let done = 0;
   let added = 0;
   for (const face of targets) {
     try {
       const local: number[][] = [];
+      const geoms: Record<string, number>[] = [];
       for (const img of (face.images || []).slice(0, 2)) {
-        const vs = await embedFaceVariantsFromUrl(img);
-        for (const v of vs) local.push(Array.from(v.descriptor));
+        if (!(face as any).localDescriptors?.length) {
+          const vs = await embedFaceVariantsFromUrl(img);
+          for (const v of vs) local.push(Array.from(v.descriptor));
+        }
+        // สัดส่วนโครงหน้าจากตัวประมวลผลเนทีฟ (ถ้าเครื่องนี้ติดตั้งไว้)
+        if (faceAgentReady() && !(face as any).geometries?.length) {
+          const faces = await agentEmbedImage(img, { timeoutMs: 6000 });
+          const g = faces?.[0]?.geometry;
+          if (g) geoms.push(g);
+        }
       }
       if (local.length) {
         (face as any).localDescriptors = local;
         added += local.length;
       }
+      if (geoms.length) (face as any).geometries = geoms;
     } catch { /* ข้ามภาพที่อ่านไม่ได้ */ }
     done += 1;
     onProgress?.(done, targets.length);
     // ปล่อยให้ UI/กล้องทำงานต่อระหว่างประมวลผล
     await new Promise((r) => setTimeout(r, 0));
   }
-  if (added) await saveFaceCache(cached.faces);
+  await saveFaceCache(cached.faces);
   return added;
 }
 
