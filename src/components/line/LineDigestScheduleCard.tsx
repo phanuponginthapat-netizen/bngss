@@ -28,6 +28,7 @@ const DAYS = [
 export default function LineDigestScheduleCard() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
   const [enabled, setEnabled] = useState(true);
   const [withCalendar, setWithCalendar] = useState(true);
   const [time, setTime] = useState("10:00");
