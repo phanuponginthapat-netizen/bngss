@@ -107,8 +107,8 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
           scanned_by: item.scanned_by ?? undefined,
           device_label: item.device_label,
           entry_method: item.entry_method,
-          scan_time: item.scanned_at,
         } as any);
+
         if (error) {
           // duplicate — ถือว่าสำเร็จ (ระบบกันซ้ำฝั่ง server ทำงานถูก)
           if (error.code === "23505") {
