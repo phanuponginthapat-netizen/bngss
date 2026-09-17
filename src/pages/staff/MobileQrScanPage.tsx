@@ -16,6 +16,7 @@ import {
   enqueueScan, flushQueue, countPending, installAutoSync,
 } from "@/lib/offlineScanQueue";
 import { checkTodayScan, markScanned, methodLabel } from "@/lib/scanDedup";
+import { todayBangkok } from "@/lib/dateBE";
 
 
 interface RecentEntry {
