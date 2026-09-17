@@ -1,6 +1,6 @@
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { notifyRole } from "../_shared/fanout.ts";
+import { fanout } from "../_shared/fanout.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -11,13 +11,14 @@ Deno.serve(async (req) => {
     if (offline && offline.length > 0) {
       for (const d of offline as any[]) {
         await admin.from("kiosk_devices").update({ status: "offline" }).eq("device_id", d.device_id);
-        notifyRole(admin, "admin", {
+        await fanout({
+          roles: ["admin"],
           title: "ตู้ Kiosk ออฟไลน์เกิน 10 นาที",
           body: `${d.device_id} • ${(d.meta as any)?.room || ""} • last ${d.last_heartbeat}`,
           type: "kiosk_offline",
           severity: "warning",
           url: "/dashboard/admin/kiosk-health",
-        }).catch(()=>{});
+        }, admin).catch(() => {});
       }
     }
     return new Response(JSON.stringify({ checked: offline?.length || 0 }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
