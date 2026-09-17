@@ -11,6 +11,9 @@
  * รัน:  KIOSK_URL="https://bngss.lovable.app/kiosk/door" electron electron/kiosk-main.cjs
  */
 const { app, BrowserWindow, session, screen } = require("electron");
+const { spawn } = require("node:child_process");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const KIOSK_URL = process.env.KIOSK_URL || "https://bngss.lovable.app/kiosk/door";
 const ALLOW_DEVTOOLS = process.env.KIOSK_DEVTOOLS === "1";
@@ -42,6 +45,37 @@ function applyIsolationHeaders(ses) {
     cb(["media", "audioCapture", "videoCapture", "fullscreen", "clipboard-read", "notifications"].includes(permission));
   });
   ses.setPermissionCheckHandler(() => true);
+}
+
+/**
+ * เปิด "ตัวประมวลผลใบหน้าในเครื่อง" (FaceGate agent) อัตโนมัติพร้อมคีออส
+ * ถ้าเครื่องไหนยังไม่ได้ติดตั้ง จะข้ามเงียบ ๆ แล้วหน้าเว็บกลับไปใช้การตรวจในเบราว์เซอร์เหมือนเดิม
+ */
+let agentProc = null;
+function startFaceAgent() {
+  if (process.env.KIOSK_FACE_AGENT === "0") return;
+  const candidates = [
+    process.env.FACEGATE_AGENT_DIR,
+    path.join(app.getPath("home"), "facegate-agent"),
+    "/opt/facegate-agent",
+    path.join(__dirname, "..", "scripts", "kiosk", "facegate-agent"),
+  ].filter(Boolean);
+  const dir = candidates.find((d) => fs.existsSync(path.join(d, "agent.py")));
+  if (!dir) return;
+  const venvPy = process.platform === "win32"
+    ? path.join(dir, ".venv", "Scripts", "python.exe")
+    : path.join(dir, ".venv", "bin", "python");
+  const py = fs.existsSync(venvPy) ? venvPy : (process.platform === "win32" ? "python" : "python3");
+  try {
+    agentProc = spawn(py, [path.join(dir, "agent.py")], {
+      cwd: dir,
+      stdio: "ignore",
+      detached: false,
+      env: { ...process.env, FACEGATE_PORT: process.env.FACEGATE_PORT || "8899" },
+    });
+    agentProc.on("exit", () => { agentProc = null; });
+    agentProc.on("error", () => { agentProc = null; });
+  } catch { /* ไม่มี python ในเครื่อง — ใช้การตรวจในเบราว์เซอร์แทน */ }
 }
 
 let win = null;
@@ -85,6 +119,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   applyIsolationHeaders(session.defaultSession);
+  startFaceAgent();
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -92,3 +127,4 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => app.quit());
+app.on("before-quit", () => { try { agentProc?.kill(); } catch { /* noop */ } });

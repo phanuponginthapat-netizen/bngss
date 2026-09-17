@@ -44,7 +44,11 @@ import { downloadFacesToCache, pickAndSaveFaceFolder, loadFaceCache, saveFaceCac
 import { useIsPortrait } from "@/hooks/useScreenOrientation";
 import { KIOSK_PERF_PROFILES, resolveLoopDelayMs, isIsolatedRuntime } from "@/lib/kioskPerf";
 import { probeSidecar, sidecarHasFace, sidecarReady, sidecarProvider } from "@/lib/faceSidecar";
-import { probeFaceAgent, faceAgentReady, faceAgentEngine, agentGetDescriptors, setFaceAgentEnabled } from "@/lib/faceAgent";
+import { probeFaceAgent, faceAgentReady, faceAgentEngine, agentGetDescriptors, setFaceAgentEnabled, agentLastFaceCount } from "@/lib/faceAgent";
+import { geometryVerdict } from "@/lib/faceGeometry";
+
+/** เกณฑ์ความเหมือนของสัดส่วนโครงหน้า (0–1) — ต่ำกว่านี้ถือว่าคนละคน */
+const GEOMETRY_MIN_SCORE = 0.55;
 
 import { saveErrorMessage } from "@/lib/saveError";
 import { notifyRole } from "@/lib/notify";
@@ -525,6 +529,7 @@ const FaceKioskPage = () => {
             descriptors: [...(f.descriptors || []), ...((f as any).localDescriptors || [])],
             name: f.name, classroom: f.classroom,
             avatar: (f as any).images?.[0] || null,
+            geometries: (f as any).geometries || null,
             studentCode: f.studentCode,
             registeredFace: (f as any).images?.[0] || null,
             isStaff: (f as any).isStaff || false,
@@ -595,6 +600,7 @@ const FaceKioskPage = () => {
             descriptors: [...(f.descriptors || []), ...(f.localDescriptors || [])],
             name: f.name, classroom: f.classroom,
             avatar: f.images?.[0] || null, registeredFace: f.images?.[0] || null,
+            geometries: f.geometries || null,
             studentCode: f.studentCode, isStaff: true,
           })) as any;
         }
@@ -781,10 +787,12 @@ const FaceKioskPage = () => {
     return () => clearInterval(t);
   }, [streaming, geofence.configured, verifyLocation, stopCamera]);
 
+  const multiFaceNoticeRef = useRef(0);
   const recordScan = useCallback(async (
     studentId: string, studentCode: string, name: string, classroom: string, avatar: string | null, confidence: number, capturedFace?: string,
     enrolledFace?: string | null,
     method: "face" | "qr" = "face",
+    quality?: { geometryScore?: number | null; engine?: string | null },
   ) => {
     const now = Date.now();
     const mode = scanModeRef.current;
@@ -903,6 +911,8 @@ const FaceKioskPage = () => {
       student_id: studentId, scan_date: todayBangkok(), scan_type: mode, confidence,
       scanned_by: user?.id, device_label: `tablet-kiosk-${mode}`, entry_method: method,
       captured_face_url: uploadedFaceUrl,
+      ...(quality?.geometryScore != null ? { geometry_score: quality.geometryScore } : {}),
+      ...(quality?.engine ? { match_engine: quality.engine } : {}),
       ...(scanTemp != null ? { temperature_c: scanTemp } : {}),
     } as any).select("id").maybeSingle();
     if (error) {
@@ -1186,6 +1196,14 @@ const FaceKioskPage = () => {
         if (faceAgentReady()) {
           agentDetections = await agentGetDescriptors(video, { singleFace: true, maxWidth: 640, timeoutMs: 1500 });
           if (agentDetections) { pre = video; roiOffsetX = 0; roiOffsetY = 0; }
+          // มีหลายคนอยู่ในเฟรมเดียวกัน → ไม่บันทึก กันสลับคน/บันทึกผิดคน
+          if (agentDetections && agentLastFaceCount() > 1) {
+            agentDetections = [];
+            if (Date.now() - multiFaceNoticeRef.current > 4000) {
+              multiFaceNoticeRef.current = Date.now();
+              showNotice("warning", "มีหลายคนในกล้อง", "กรุณาเข้าสแกนทีละคน", 2500);
+            }
+          }
         }
 
         let rawDetections: any[] = agentDetections ?? await getAllDescriptors(pre as any, opts, {
@@ -1288,6 +1306,11 @@ const FaceKioskPage = () => {
               const tier2 = !ZKTECO && m.studentId != null && m.distance > AUTO_DIST && m.distance <= MANUAL_DIST
                 && m.margin >= MANUAL_MIN_MARGIN && m.confidence >= 1 - MANUAL_DIST;
               let matchedId = inGuide && !tooSmall && !tooBlurry && (tier1 || tier2) ? m.studentId : null;
+              // ── ความเห็นที่สอง: สัดส่วนโครงหน้า (จากตัวประมวลผลเนทีฟ) ──
+              // ถ้าคนที่จับคู่ได้มีข้อมูลโครงหน้าไว้แล้วแต่ไม่ตรง → ไม่บันทึก กันจำผิดคนหน้าคล้าย
+              const geoCandidate: any = m.studentId ? matchKnown.find((k: any) => k.studentId === m.studentId) : null;
+              const geo = geometryVerdict((det as any).agentGeometry, geoCandidate?.geometries, GEOMETRY_MIN_SCORE);
+              if (matchedId && !geo.ok) matchedId = null;
               // Zkteco ไม่ใช้ sticky lock — ยืนยันทันทีเฟรมเดียว ไม่ล็อกค้าง
               const kLock = ZKTECO ? null : kioskLockRef.current;
               if (!ZKTECO && !matchedId && kLock && tNow < kLock.until && m.studentId === kLock.studentId
@@ -1499,7 +1522,7 @@ const FaceKioskPage = () => {
                       }, ...prev].slice(0, 20));
                     }
                   } else {
-                    await recordScan(found.studentId, found.studentCode, found.name, found.classroom, found.avatar, m.confidence, captured, (found as any).registeredFace);
+                    await recordScan(found.studentId, found.studentCode, found.name, found.classroom, found.avatar, m.confidence, captured, (found as any).registeredFace, "face", { geometryScore: geo.score, engine: (det as any).agent ? faceAgentEngine() : "browser" });
                     // เรียนรู้ใบหน้าอัตโนมัติจากการสแกนจริงหน้าคีออส
                     learnFromScan({
                       studentId: found.studentId,
