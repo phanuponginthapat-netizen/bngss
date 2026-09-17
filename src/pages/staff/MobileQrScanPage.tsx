@@ -5,10 +5,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import {
   ArrowLeft, ScanLine, WifiOff, Wifi, CloudUpload, LogIn, LogOut,
-  UserCheck, Keyboard, RefreshCw, CheckCircle2,
+  UserCheck, Keyboard, RefreshCw, CheckCircle2, AlertTriangle,
 } from "lucide-react";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,7 +20,10 @@ import {
   enqueueScan, flushQueue, countPending, installAutoSync,
 } from "@/lib/offlineScanQueue";
 import { checkTodayScan, markScanned, methodLabel } from "@/lib/scanDedup";
-import { todayBangkok } from "@/lib/dateBE";
+import {
+  syncServerClock, serverNow, serverBangkokHour, isClockUnreliable,
+} from "@/lib/serverClock";
+import { ensureRosterFresh, findInRoster, rosterInfo, refreshRoster } from "@/lib/scanRoster";
 
 
 interface RecentEntry {
@@ -29,11 +36,8 @@ interface RecentEntry {
   queued: boolean;
 }
 
-// เดา entry/exit อัตโนมัติจากเวลาเครื่อง (ก่อนเที่ยง = เข้า)
-const guessMode = (): "entry" | "exit" => {
-  const h = new Date().getHours();
-  return h < 12 ? "entry" : "exit";
-};
+// เดา entry/exit อัตโนมัติจากเวลาไทย (ก่อนเที่ยง = เข้า) — ใช้เวลาเซิร์ฟเวอร์เมื่อซิงค์แล้ว
+const guessMode = (): "entry" | "exit" => (serverBangkokHour() < 12 ? "entry" : "exit");
 
 const extractStudentCode = (raw: string) => {
   const s = (raw || "").trim();
@@ -51,6 +55,7 @@ const extractStudentCode = (raw: string) => {
   } catch {}
   return s;
 };
+
 
 export default function MobileQrScanPage() {
   const [mode, setMode] = useState<"entry" | "exit">(guessMode());
