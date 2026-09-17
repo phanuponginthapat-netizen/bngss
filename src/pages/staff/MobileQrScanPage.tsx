@@ -162,6 +162,9 @@ export default function MobileQrScanPage() {
       const { error } = await supabase.from("face_scan_logs").insert({
         student_id: scan.student_id,
         scan_type: scan.scan_type,
+        // ระบุวัน/เวลาไทยเสมอ กันกรณีสแกนก่อน 07:00 น. แล้วถูกบันทึกเป็นวันก่อนหน้า
+        scan_date: todayBangkok(),
+        scan_time: scan.scanned_at,
         confidence: 1,
         scanned_by: scan.scanned_by,
         device_label: scan.device_label,
