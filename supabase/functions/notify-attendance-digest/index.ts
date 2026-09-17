@@ -203,13 +203,29 @@ serve(async (req) => {
         .eq("attendance_date", today);
       if (attErr) throw attErr;
 
+      // ลำดับความสำคัญ: มา > สาย > ลา/ป่วย > ขาด (กันแถวรายคาบทับผลสแกนเข้าโรงเรียน)
+      const RANK: Record<string, number> = { present: 5, late: 4, leave: 3, sick: 3, absent: 1 };
       const statusByStudent = new Map<string, string>();
+      const setStatus = (id: string, s: string) => {
+        const prev = statusByStudent.get(id);
+        if (!prev || (RANK[s] ?? 2) > (RANK[prev] ?? 2)) statusByStudent.set(id, s);
+      };
       for (const r of (attRows as any[]) || []) {
         if (!r.student_id) continue;
-        const s = (r.status || "present").toLowerCase();
-        const prev = statusByStudent.get(r.student_id);
-        // present/late ชนะ absent (กันกรณีมีหลายแถว)
-        if (!prev || prev === "absent") statusByStudent.set(r.student_id, s);
+        setStatus(r.student_id, (r.status || "present").toLowerCase());
+      }
+
+      // 2.1) เผื่อบันทึกมาเรียนหาย — ใครสแกนเข้าโรงเรียนวันนี้ถือว่ามา/สายเสมอ
+      const { data: scanRows } = await sb
+        .from("face_scan_logs")
+        .select("student_id, scan_time, created_at, scan_type")
+        .eq("scan_date", today)
+        .in("scan_type", ["entry", "assembly"]);
+      for (const r of (scanRows as any[]) || []) {
+        if (!r.student_id) continue;
+        const t = new Date(r.scan_time || r.created_at || Date.now());
+        const hhmm = t.toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok", hour12: false });
+        setStatus(r.student_id, hhmm > "08:30:00" ? "late" : "present");
       }
 
       // 3) รวมผลรายชั้น — นักเรียนที่ไม่มีบันทึก = ขาด
