@@ -49,6 +49,16 @@ export default function LineDigestScheduleCard() {
     })();
   }, []);
 
+  const sendNow = async () => {
+    setSending(true);
+    const { data, error } = await supabase.functions.invoke("notify-attendance-digest", { body: { force: true } });
+    setSending(false);
+    if (error) return swal.error("ส่งไม่สำเร็จ", error.message);
+    const sent = (data as any)?.results?.filter((r: any) => r.ok).length ?? 0;
+    if (sent > 0) swal.success("ส่งแล้ว", `ส่งรายงานเข้ากลุ่ม LINE ${sent} กลุ่ม`);
+    else swal.error("ยังไม่ได้ส่ง", "ยังไม่มีกลุ่ม LINE ที่เปิดรับ \"รายงานการมาเรียน\" — เปิดสวิตช์ในรายการกลุ่มก่อน");
+  };
+
   const toggleDay = (v: number) =>
     setDays((prev) => (prev.includes(v) ? prev.filter((d) => d !== v) : [...prev, v].sort()));
 
