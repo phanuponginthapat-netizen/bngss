@@ -28,6 +28,7 @@ const DAYS = [
 export default function LineDigestScheduleCard() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
   const [enabled, setEnabled] = useState(true);
   const [withCalendar, setWithCalendar] = useState(true);
   const [time, setTime] = useState("10:00");
@@ -48,6 +49,16 @@ export default function LineDigestScheduleCard() {
       setLoading(false);
     })();
   }, []);
+
+  const sendNow = async () => {
+    setSending(true);
+    const { data, error } = await supabase.functions.invoke("notify-attendance-digest", { body: { force: true } });
+    setSending(false);
+    if (error) return swal.error("ส่งไม่สำเร็จ", error.message);
+    const sent = (data as any)?.results?.filter((r: any) => r.ok).length ?? 0;
+    if (sent > 0) swal.success("ส่งแล้ว", `ส่งรายงานเข้ากลุ่ม LINE ${sent} กลุ่ม`);
+    else swal.error("ยังไม่ได้ส่ง", "ยังไม่มีกลุ่ม LINE ที่เปิดรับ \"รายงานการมาเรียน\" — เปิดสวิตช์ในรายการกลุ่มก่อน");
+  };
 
   const toggleDay = (v: number) =>
     setDays((prev) => (prev.includes(v) ? prev.filter((d) => d !== v) : [...prev, v].sort()));
@@ -115,9 +126,14 @@ export default function LineDigestScheduleCard() {
           <Switch checked={withCalendar} onCheckedChange={setWithCalendar} disabled={loading} />
         </label>
 
-        <Button onClick={save} disabled={loading || saving} size="sm">
-          {saving ? "กำลังบันทึก…" : "บันทึกการตั้งเวลา"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={save} disabled={loading || saving} size="sm">
+            {saving ? "กำลังบันทึก…" : "บันทึกการตั้งเวลา"}
+          </Button>
+          <Button onClick={sendNow} disabled={loading || sending} size="sm" variant="outline">
+            {sending ? "กำลังส่ง…" : "ส่งรายงานตอนนี้"}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
