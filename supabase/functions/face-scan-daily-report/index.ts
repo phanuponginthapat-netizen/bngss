@@ -57,7 +57,7 @@ serve(async (req) => {
     // 2) บันทึกการสแกนของวันนี้
     const { data: logs, error: logErr } = await sb
       .from("face_scan_logs")
-      .select("student_id, scan_time")
+      .select("student_id, scan_time, match_engine, geometry_score")
       .eq("scan_date", targetDate);
     if (logErr) throw logErr;
 
@@ -110,6 +110,21 @@ serve(async (req) => {
       `   • สาย (หลัง ${threshold} น.): ${late} คน`,
       `❌ ขาด/ไม่ได้สแกน: ${absent} คน`,
     ];
+    // คุณภาพการตรวจใบหน้า — สแกนด้วยตัวประมวลผลเนทีฟ (แม่นกว่า) กี่เปอร์เซ็นต์
+    const scanRows = (logs || []) as any[];
+    const nativeScans = scanRows.filter((x) => x.match_engine && x.match_engine !== "browser").length;
+    const geomRows = scanRows.filter((x) => typeof x.geometry_score === "number");
+    if (scanRows.length > 0 && (nativeScans > 0 || geomRows.length > 0)) {
+      const nativePct = Math.round((nativeScans / scanRows.length) * 100);
+      const geomAvg = geomRows.length
+        ? Math.round((geomRows.reduce((a, b) => a + b.geometry_score, 0) / geomRows.length) * 100)
+        : null;
+      lines.push(
+        "",
+        `🎯 คุณภาพการตรวจใบหน้า: เนทีฟ ${nativePct}%` +
+          (geomAvg != null ? ` • ตรงโครงหน้าเฉลี่ย ${geomAvg}%` : ""),
+      );
+    }
     if (topAbsent.length > 0) {
       lines.push("", "🏫 ห้องที่ขาดมากที่สุด:");
       topAbsent.forEach(([c, v], i) => {
