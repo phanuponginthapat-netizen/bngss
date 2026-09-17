@@ -303,6 +303,24 @@ export default function MobileQrScanPage() {
       </div>
 
       <div className="max-w-2xl mx-auto p-3 space-y-3">
+        {clockWarning && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-[12px] text-amber-800 dark:text-amber-200">
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>
+              นาฬิกาของเครื่องนี้ไม่ตรงกับเวลาจริง — ระบบใช้เวลาของเซิร์ฟเวอร์บันทึกแทนแล้ว
+              แต่ควรตั้งเวลาเครื่องให้ถูกต้อง เพื่อให้รายการที่บันทึกตอนเน็ตหลุดตรงเวลา
+            </span>
+          </div>
+        )}
+        {!online && (
+          <div className="rounded-lg border border-sky-300 bg-sky-50 dark:bg-sky-950/30 px-3 py-2 text-[12px] text-sky-800 dark:text-sky-200">
+            โหมดออฟไลน์ — ใช้รายชื่อที่เก็บไว้ในเครื่อง {roster.count} คน
+            {roster.updatedAt
+              ? ` (อัปเดตล่าสุด ${new Date(roster.updatedAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })})`
+              : " — ยังไม่เคยอัปเดต กรุณาเชื่อมเน็ตหนึ่งครั้งก่อนออกเวร"}
+          </div>
+        )}
+
         {/* Big scan button */}
         <Card className="border-2 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">
           <CardContent className="p-4 space-y-3">
