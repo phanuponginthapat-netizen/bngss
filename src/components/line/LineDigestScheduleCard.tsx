@@ -61,10 +61,11 @@ export default function LineDigestScheduleCard() {
     const already = (data as any)?.already_sent ?? 0;
     if (sent > 0) return swal.success("ส่งแล้ว", `ส่งรายงานเข้ากลุ่ม LINE ${sent} กลุ่ม`);
     if (already > 0) {
-      const ok = await swal.confirm(
-        "วันนี้ส่งรายงานไปแล้ว",
-        "ระบบส่งรายงานเข้ากลุ่ม LINE ของวันนี้เรียบร้อยแล้ว ต้องการส่งซ้ำอีกครั้งหรือไม่ (จะนับโควต้าเพิ่ม 1 ข้อความ)",
-      );
+      const ok = await swal.confirm({
+        title: "วันนี้ส่งรายงานไปแล้ว",
+        text: "ระบบส่งรายงานเข้ากลุ่ม LINE ของวันนี้เรียบร้อยแล้ว ต้องการส่งซ้ำอีกครั้งหรือไม่ (นับโควต้าเพิ่ม 1 ข้อความ)",
+        confirmText: "ส่งซ้ำ",
+      });
       if (ok) await sendNow(true);
       return;
     }
