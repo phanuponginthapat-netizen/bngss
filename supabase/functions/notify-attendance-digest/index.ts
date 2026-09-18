@@ -123,7 +123,10 @@ serve(async (req) => {
     const customImageUrl = (body?.image_url as string | undefined)?.trim();
     const customSummary = (body?.summary_text as string | undefined)?.trim();
     const includeChart = Boolean(body?.include_chart);
-    const skipDedup = Boolean(body?.force);
+    // force = ข้ามการเช็ควัน/เวลาที่ตั้งไว้ (แต่ยังกันส่งซ้ำ 1 ครั้ง/วัน)
+    // allow_duplicate = ยืนยันส่งซ้ำจริง ๆ เท่านั้นจึงจะส่งรอบสอง
+    const skipSchedule = Boolean(body?.force);
+    const allowDuplicate = Boolean(body?.allow_duplicate);
 
     const isCron = cronSecret && header === cronSecret;
     if (!isCron && !forceGroupId) {
@@ -133,7 +136,7 @@ serve(async (req) => {
     const sb = makeAdmin();
     const today = bkkDate(0);
     const settings = await getSettings(sb);
-    const manualRun = Boolean(forceGroupId || customImageUrl || customSummary || skipDedup);
+    const manualRun = Boolean(forceGroupId || customImageUrl || customSummary || skipSchedule);
 
     // ⏰ ตารางเวลา/วันที่ผู้ดูแลตั้งเอง — ใช้เฉพาะรอบอัตโนมัติ (cron ทุก 15 นาที)
     if (!manualRun) {
@@ -348,19 +351,38 @@ serve(async (req) => {
     }
 
     const results: any[] = [];
+    let alreadySent = 0;
     for (const g of groups || []) {
-      if (!skipDedup && !forceGroupId && g.last_attendance_digest_date === today) { results.push({ id: g.id, skipped: true }); continue; }
+      // 🔒 จองสิทธิ์ส่งแบบอะตอมมิก — อัปเดตวันที่ก่อนส่ง เฉพาะแถวที่ยังไม่ถูกส่งวันนี้
+      // กันส่งซ้ำจากทุกช่องทาง (cron ซ้อน, ปุ่มทดสอบ, กดหลายครั้ง)
+      if (!allowDuplicate) {
+        const { data: claimed } = await sb
+          .from("line_vault_groups")
+          .update({ last_attendance_digest_date: today, last_notified_at: new Date().toISOString() })
+          .eq("id", g.id)
+          .or(`last_attendance_digest_date.is.null,last_attendance_digest_date.neq.${today}`)
+          .select("id");
+        if (!claimed || claimed.length === 0) {
+          alreadySent++;
+          results.push({ id: g.id, skipped: true, reason: "already_sent_today" });
+          continue;
+        }
+      }
       try {
         await pushMessage(token, g.line_group_id, messages);
         await sb.from("line_vault_groups").update({ last_attendance_digest_date: today, last_notified_at: new Date().toISOString() }).eq("id", g.id);
         results.push({ id: g.id, ok: true });
       } catch (e) {
         console.error("attendance push failed", g.group_name, e);
+        // ส่งไม่สำเร็จ — คืนสิทธิ์ให้รอบถัดไปลองใหม่ได้
+        if (!allowDuplicate) {
+          await sb.from("line_vault_groups").update({ last_attendance_digest_date: null }).eq("id", g.id);
+        }
         results.push({ id: g.id, ok: false, error: String(e).slice(0, 200) });
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, date: today, count: results.length, totals, results }), {
+    return new Response(JSON.stringify({ ok: true, date: today, count: results.length, sent: results.filter((r) => r.ok).length, already_sent: alreadySent, totals, results }), {
       headers: { ...cors, "Content-Type": "application/json" },
     });
   } catch (e) {

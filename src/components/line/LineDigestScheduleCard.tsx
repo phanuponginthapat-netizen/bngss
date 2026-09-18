@@ -50,14 +50,26 @@ export default function LineDigestScheduleCard() {
     })();
   }, []);
 
-  const sendNow = async () => {
+  const sendNow = async (allowDuplicate = false) => {
     setSending(true);
-    const { data, error } = await supabase.functions.invoke("notify-attendance-digest", { body: { force: true } });
+    const { data, error } = await supabase.functions.invoke("notify-attendance-digest", {
+      body: { force: true, ...(allowDuplicate ? { allow_duplicate: true } : {}) },
+    });
     setSending(false);
     if (error) return swal.error("ส่งไม่สำเร็จ", error.message);
     const sent = (data as any)?.results?.filter((r: any) => r.ok).length ?? 0;
-    if (sent > 0) swal.success("ส่งแล้ว", `ส่งรายงานเข้ากลุ่ม LINE ${sent} กลุ่ม`);
-    else swal.error("ยังไม่ได้ส่ง", "ยังไม่มีกลุ่ม LINE ที่เปิดรับ \"รายงานการมาเรียน\" — เปิดสวิตช์ในรายการกลุ่มก่อน");
+    const already = (data as any)?.already_sent ?? 0;
+    if (sent > 0) return swal.success("ส่งแล้ว", `ส่งรายงานเข้ากลุ่ม LINE ${sent} กลุ่ม`);
+    if (already > 0) {
+      const ok = await swal.confirm({
+        title: "วันนี้ส่งรายงานไปแล้ว",
+        text: "ระบบส่งรายงานเข้ากลุ่ม LINE ของวันนี้เรียบร้อยแล้ว ต้องการส่งซ้ำอีกครั้งหรือไม่ (นับโควต้าเพิ่ม 1 ข้อความ)",
+        confirmText: "ส่งซ้ำ",
+      });
+      if (ok) await sendNow(true);
+      return;
+    }
+    swal.error("ยังไม่ได้ส่ง", "ยังไม่มีกลุ่ม LINE ที่เปิดรับ \"รายงานการมาเรียน\" — เปิดสวิตช์ในรายการกลุ่มก่อน");
   };
 
   const toggleDay = (v: number) =>
@@ -130,7 +142,7 @@ export default function LineDigestScheduleCard() {
           <Button onClick={save} disabled={loading || saving} size="sm">
             {saving ? "กำลังบันทึก…" : "บันทึกการตั้งเวลา"}
           </Button>
-          <Button onClick={sendNow} disabled={loading || sending} size="sm" variant="outline">
+          <Button onClick={() => sendNow(false)} disabled={loading || sending} size="sm" variant="outline">
             {sending ? "กำลังส่ง…" : "ส่งรายงานตอนนี้"}
           </Button>
         </div>
