@@ -136,7 +136,7 @@ serve(async (req) => {
     const sb = makeAdmin();
     const today = bkkDate(0);
     const settings = await getSettings(sb);
-    const manualRun = Boolean(forceGroupId || customImageUrl || customSummary || skipDedup);
+    const manualRun = Boolean(forceGroupId || customImageUrl || customSummary || skipSchedule);
 
     // ⏰ ตารางเวลา/วันที่ผู้ดูแลตั้งเอง — ใช้เฉพาะรอบอัตโนมัติ (cron ทุก 15 นาที)
     if (!manualRun) {
