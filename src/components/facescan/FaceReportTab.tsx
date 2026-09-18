@@ -288,11 +288,13 @@ const FaceReportTab = () => {
     if (!previewChartUrl) return;
     setSendingLine(true);
     try {
-      const { error } = await supabase.functions.invoke("notify-attendance-digest", {
+      const { data, error } = await supabase.functions.invoke("notify-attendance-digest", {
         body: { image_url: previewChartUrl, summary_text: previewSummary, force: true },
       });
       if (error) throw error;
-      toast.success("ส่งรายงานเข้ากลุ่ม LINE เรียบร้อย");
+      const sent = (data as any)?.sent ?? 0;
+      if (sent > 0) toast.success("ส่งรายงานเข้ากลุ่ม LINE เรียบร้อย");
+      else toast.info("วันนี้ส่งรายงานเข้ากลุ่ม LINE ไปแล้ว — ระบบข้ามการส่งซ้ำ");
       setPreviewOpen(false);
       setPreviewChartUrl(null);
     } catch (e: any) {
