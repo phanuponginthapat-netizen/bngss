@@ -142,7 +142,7 @@ export default function LineDigestScheduleCard() {
           <Button onClick={save} disabled={loading || saving} size="sm">
             {saving ? "กำลังบันทึก…" : "บันทึกการตั้งเวลา"}
           </Button>
-          <Button onClick={sendNow} disabled={loading || sending} size="sm" variant="outline">
+          <Button onClick={() => sendNow(false)} disabled={loading || sending} size="sm" variant="outline">
             {sending ? "กำลังส่ง…" : "ส่งรายงานตอนนี้"}
           </Button>
         </div>
