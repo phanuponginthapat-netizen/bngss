@@ -123,7 +123,10 @@ serve(async (req) => {
     const customImageUrl = (body?.image_url as string | undefined)?.trim();
     const customSummary = (body?.summary_text as string | undefined)?.trim();
     const includeChart = Boolean(body?.include_chart);
-    const skipDedup = Boolean(body?.force);
+    // force = ข้ามการเช็ควัน/เวลาที่ตั้งไว้ (แต่ยังกันส่งซ้ำ 1 ครั้ง/วัน)
+    // allow_duplicate = ยืนยันส่งซ้ำจริง ๆ เท่านั้นจึงจะส่งรอบสอง
+    const skipSchedule = Boolean(body?.force);
+    const allowDuplicate = Boolean(body?.allow_duplicate);
 
     const isCron = cronSecret && header === cronSecret;
     if (!isCron && !forceGroupId) {
