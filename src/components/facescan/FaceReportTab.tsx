@@ -537,7 +537,10 @@ const FaceReportTab = () => {
       });
       return { effectiveDates: eff, lateThreshold, rows, totals, absentees };
     },
-    staleTime: 60_000,
+    // ข้อมูลเช็คชื่อเป็นข้อมูลอ่อนไหว — ระหว่างวันต้องสดเสมอ ไม่งั้นเด็กที่เพิ่งสแกนจะยังขึ้น "ขาด"
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   });
 
 
