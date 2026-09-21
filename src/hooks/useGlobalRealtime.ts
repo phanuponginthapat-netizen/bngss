@@ -84,11 +84,11 @@ export function useGlobalRealtime() {
     const extraKeys: Record<string, string[][]> = {
       students: [["active-students-with-class"], ["students_all"], ["students_with_class"]],
       classrooms: [["all-classrooms"]],
-      attendance: [["dashboard_stats_v2"], ["mascot_stats"]],
+      attendance: [["dashboard_stats_v2"], ["mascot_stats"], ["face-report-accurate"], ["face-logs-range"], ["face-chart"]],
       personnel: [["my_personnel"], ["dashboard_stats_v2"]],
       news_posts: [["dashboard_stats_v2"]],
       academic_events: [["dashboard_stats_v2"]],
-      face_scan_logs: [["dashboard_stats_v2"], ["mascot_stats"]],
+      face_scan_logs: [["dashboard_stats_v2"], ["mascot_stats"], ["face-report-accurate"], ["face-logs-range"], ["face-chart"]],
       notifications: [["notifications"]],
       profiles: [["dashboard_user_profile"]],
       student_scores: [["student_scores"]],
