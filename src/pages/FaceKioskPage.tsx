@@ -788,6 +788,8 @@ const FaceKioskPage = () => {
   }, [streaming, geofence.configured, verifyLocation, stopCamera]);
 
   const multiFaceNoticeRef = useRef(0);
+  const agentMissingNoticeRef = useRef(0);
+
   const recordScan = useCallback(async (
     studentId: string, studentCode: string, name: string, classroom: string, avatar: string | null, confidence: number, capturedFace?: string,
     enrolledFace?: string | null,
