@@ -361,7 +361,12 @@ const App = () => {
             <Suspense fallback={<SystemLoader />}>
               <AnimatedRoutesWrapper>
                 <Routes>
-              <Route path="/" element={<PublicLayout />} />
+              {/* แอปเวอร์ชันแท็บเล็ตสแกน (VITE_KIOSK_TABLET=1) เปิดมาที่หน้าสแกนทันที */}
+              <Route
+                path="/"
+                element={import.meta.env.VITE_KIOSK_TABLET === "1" ? <Navigate to="/kiosk-tablet" replace /> : <PublicLayout />}
+              />
+
               <Route path="/setup" element={<SetupGuard><SetupWizardPage /></SetupGuard>} />
               <Route path="/page/:slug" element={<PublicLayout />} />
               <Route path="/org-chart" element={<PublicOrgChartPage />} />
