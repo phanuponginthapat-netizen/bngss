@@ -325,14 +325,80 @@ export default function DataArchivePage() {
               <CardContent className="p-4">
                 <div className="text-xs text-muted-foreground">ตั้งเวลาทำงานอัตโนมัติ</div>
                 <div className="text-sm font-semibold mt-1 flex items-center gap-1.5 text-emerald-600">
-                  <ShieldCheck className="w-4 h-4" /> ทุกวันอาทิตย์ 02:00 น.
+                  <ShieldCheck className="w-4 h-4" /> จัดพื้นที่ทุกคืน 03:10 น.
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  ผ่าน pg_cron → offload
+                  ลบไฟล์ซ้ำกับ Drive + ย้ายส่วนที่เกินโควต้า
                 </div>
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader className="pb-3 flex flex-row items-center justify-between gap-3">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-primary" />
+                  โควต้าพื้นที่ตามลักษณะงานของโรงเรียน
+                </CardTitle>
+                <CardDescription>
+                  งานหลักฐานการศึกษาและงานดูแลช่วยเหลือนักเรียนได้พื้นที่มากกว่า ส่วนไฟล์ชั่วคราวและสื่อขนาดใหญ่จะถูกย้ายไป Google Drive อัตโนมัติ
+                </CardDescription>
+              </div>
+              <Button variant="secondary" onClick={runEnforceQuota} disabled={enforcing}>
+                {enforcing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
+                {enforcing ? "กำลังจัดพื้นที่..." : "จัดพื้นที่ตามโควต้าทันที"}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>งาน / Bucket</TableHead>
+                    <TableHead className="text-right">ใช้อยู่</TableHead>
+                    <TableHead className="text-right">โควต้า</TableHead>
+                    <TableHead className="w-40">สัดส่วน</TableHead>
+                    <TableHead className="text-right">อยู่บน Drive</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(storageUsage?.buckets || [])
+                    .slice()
+                    .sort((a, b) => b.supabase_bytes - a.supabase_bytes)
+                    .map((b) => {
+                      const quota = b.quota_bytes || 0;
+                      const pct = quota ? Math.min(100, Math.round((b.supabase_bytes / quota) * 100)) : null;
+                      return (
+                        <TableRow key={b.name}>
+                          <TableCell>
+                            <Badge variant="outline">{b.name}</Badge>
+                            {b.dedupe_drive && (
+                              <span className="ml-2 text-xs text-muted-foreground">Drive เป็นหลัก</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">{fmtBytes(b.supabase_bytes)}</TableCell>
+                          <TableCell className="text-right">{quota ? fmtBytes(quota) : "—"}</TableCell>
+                          <TableCell>
+                            {pct === null ? (
+                              <span className="text-xs text-muted-foreground">ไม่จำกัด</span>
+                            ) : (
+                              <div className="h-2 w-full rounded bg-muted overflow-hidden">
+                                <div
+                                  className={`h-full ${b.over_quota ? "bg-destructive" : "bg-primary"}`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">{fmtBytes(b.drive_bytes)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
 
           <Card>
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
