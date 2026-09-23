@@ -627,6 +627,41 @@ export default function KioskSetupPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>แอปสแกนสำหรับแท็บเล็ต (Android)</CardTitle>
+          <CardDescription>
+            ใช้แท็บเล็ตแทนจอคีออสได้ โดยแท็บเล็ตเป็นแค่จอและกล้อง ส่งภาพผ่าน Wi-Fi ให้เครื่อง PC แม่ข่ายประมวลผล
+            จึงแม่นยำเท่ากับการสแกนบน PC แม้เป็นแท็บเล็ตรุ่นเก่า และต่อกล้อง USB ภายนอกได้
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <ol className="ml-5 list-decimal space-y-1 text-sm">
+            <li>เปิดเครื่อง PC ที่ลงโปรแกรม FaceGate ไว้ 1 เครื่อง ให้อยู่ใน Wi-Fi วงเดียวกับแท็บเล็ต</li>
+            <li>ดูหมายเลขเครื่อง (IP) ของ PC ได้จากหน้าจอโปรแกรมตอนเปิด</li>
+            <li>ติดตั้งแอปสแกนบนแท็บเล็ต แล้วใส่หมายเลขเครื่องนั้นในหน้าตั้งค่าของแอป</li>
+            <li>แท็บเล็ตจะเริ่มสแกนทันที ผลการมาเรียนบันทึกขึ้นระบบจากเครื่อง PC ให้เอง</li>
+          </ol>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <a
+                href="https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-scanner-latest.apk"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                ดาวน์โหลดแอปสแกนสำหรับแท็บเล็ต (APK)
+              </a>
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            ถ้ายังดาวน์โหลดไม่ได้ แปลว่ายังไม่ได้สร้างไฟล์แอปรุ่นแรก — สั่งสร้างได้จากเมนู Actions ใน GitHub หัวข้อ “Build Tablet Scanner APK”
+          </p>
+        </CardContent>
+      </Card>
+
+
+
 
       <Card>
         <CardHeader>
