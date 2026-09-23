@@ -79,3 +79,7 @@ verify_jwt = false
 
 [functions.drive-archive]
 verify_jwt = false
+
+# ตู้สแกนใบหน้า ConnextedScan — ตรวจรหัสเครื่อง (x-device-key) เองในฟังก์ชัน
+[functions.kiosk-api]
+verify_jwt = false
