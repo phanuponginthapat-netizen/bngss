@@ -1040,6 +1040,12 @@ def health():
     stale = last_sync is None or (time.time() - float(last_sync)) > SYNC_SECONDS * 3
     return {
         "ok": True,
+        # --- web-compat fields (หน้าเว็บ /face-kiosk ใช้ตรวจว่ามี agent) ---
+        "engine": "scrfd_500m+w600k_mbf",
+        "version": AGENT_VERSION,
+        "geometry": True,
+        "dim": 512,
+        "detSize": 320,
         "known_faces": known_faces,
         "students": students,
         "last_sync": last_sync,
@@ -1051,6 +1057,7 @@ def health():
         "door": door.status(),
         "power": power.status(),
     }
+
 
 
 
