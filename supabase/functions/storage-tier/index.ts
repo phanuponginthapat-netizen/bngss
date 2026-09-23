@@ -150,13 +150,172 @@ Deno.serve(async (req) => {
         });
       }
 
+      // แนบโควต้าที่ตั้งไว้ต่อบัคเก็ต เพื่อให้หน้าเว็บแสดงสัดส่วนการใช้งานได้
+      const { data: quotaRows = [] } = await supabaseAdmin
+        .from("storage_tier_policies")
+        .select("bucket, quota_mb, enabled, dedupe_drive, older_than_days, keep_recent, priority");
+      const quotaMap = new Map<string, any>((quotaRows || []).map((p: any) => [p.bucket, p]));
+      const withQuota = bucketStats.map((b) => {
+        const p = quotaMap.get(b.name);
+        const quotaBytes = p?.quota_mb ? Number(p.quota_mb) * 1024 * 1024 : null;
+        return {
+          ...b,
+          quota_bytes: quotaBytes,
+          over_quota: quotaBytes != null && b.supabase_bytes > quotaBytes,
+          policy_enabled: !!p?.enabled,
+          dedupe_drive: !!p?.dedupe_drive,
+        };
+      });
+
+      const quotaTotalBytes = (quotaRows || []).reduce(
+        (s: number, p: any) => s + Number(p.quota_mb || 0) * 1024 * 1024,
+        0,
+      );
+
       return json({
         supabase_total_bytes: totalSupabaseBytes,
         supabase_total_files: totalSupabaseFiles,
         drive_total_bytes: offloadedBytes,
         drive_total_files: offloadedCount,
+        free_tier_bytes: 1024 * 1024 * 1024,
+        quota_total_bytes: quotaTotalBytes,
         target_under_1gb: totalSupabaseBytes < 1024 * 1024 * 1024,
-        buckets: bucketStats,
+        buckets: withQuota,
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 2b. ACTION: DEDUPE (ลบสำเนาไฟล์ใน Supabase ที่มีต้นฉบับบน Drive แล้ว)
+    // -------------------------------------------------------------
+    if (action === "dedupe" || action === "enforce") {
+      // (ทำงานต่อด้านล่างสำหรับ enforce — dedupe จะคืนผลทันที)
+      const olderThanDays = Number(params.older_than_days ?? 3);
+      const cutoffIso = new Date(Date.now() - olderThanDays * 86400000).toISOString();
+      const limit = Number(params.max_files ?? 300);
+
+      const { data: dupes = [] } = await supabaseAdmin
+        .from("line_vault_items")
+        .select("id, storage_path, thumbnail_path, size_bytes")
+        .not("drive_file_id", "is", null)
+        .not("storage_path", "is", null)
+        .lt("created_at", cutoffIso)
+        .order("created_at", { ascending: true })
+        .limit(limit);
+
+      let dedupedBytes = 0;
+      let dedupedCount = 0;
+      const chunk = 100;
+      for (let i = 0; i < (dupes || []).length; i += chunk) {
+        const slice = (dupes || []).slice(i, i + chunk);
+        const paths = slice.map((r: any) => r.storage_path).filter(Boolean);
+        if (paths.length === 0) continue;
+        const { error: rmErr } = await supabaseAdmin.storage.from("line-vault").remove(paths);
+        if (rmErr) {
+          console.warn("line-vault dedupe remove warning:", rmErr.message);
+          continue;
+        }
+        const ids = slice.map((r: any) => r.id);
+        await supabaseAdmin.from("line_vault_items").update({ storage_path: null }).in("id", ids);
+        dedupedCount += slice.length;
+        dedupedBytes += slice.reduce((s: number, r: any) => s + Number(r.size_bytes || 0), 0);
+      }
+
+      if (action === "dedupe") {
+        return json({ success: true, deduped_files: dedupedCount, freed_bytes: dedupedBytes });
+      }
+      params.__deduped = { count: dedupedCount, bytes: dedupedBytes };
+    }
+
+    // -------------------------------------------------------------
+    // 2c. ACTION: ENFORCE (ย้ายไฟล์ส่วนที่เกินโควต้าของแต่ละบัคเก็ตลง Drive)
+    // -------------------------------------------------------------
+    if (action === "enforce") {
+      const maxFiles = Number(params.max_files ?? 200);
+      const { data: policies = [] } = await supabaseAdmin
+        .from("storage_tier_policies")
+        .select("*")
+        .eq("enabled", true)
+        .not("quota_mb", "is", null)
+        .order("priority", { ascending: true });
+
+      let moved = 0;
+      let freed = 0;
+      const perBucket: Array<{ bucket: string; before: number; quota: number; moved: number; freed: number }> = [];
+
+      for (const p of policies || []) {
+        if (moved >= maxFiles) break;
+        const bucket = p.bucket as string;
+        const quotaBytes = Number(p.quota_mb) * 1024 * 1024;
+
+        const listRecursive = async (prefix = "", depth = 0): Promise<any[]> => {
+          if (depth > 4) return [];
+          const out: any[] = [];
+          const { data = [], error } = await supabaseAdmin.storage.from(bucket).list(prefix, { limit: 1000 });
+          if (error) return out;
+          for (const o of data || []) {
+            if (o.id) out.push({ ...o, path: prefix ? `${prefix}/${o.name}` : o.name });
+            else if (o.name) out.push(...(await listRecursive(prefix ? `${prefix}/${o.name}` : o.name, depth + 1)));
+          }
+          return out;
+        };
+
+        const objects = await listRecursive();
+        let bucketBytes = objects.reduce((s, o) => s + Number(o.metadata?.size || 0), 0);
+        const before = bucketBytes;
+        let bucketMoved = 0;
+        let bucketFreed = 0;
+
+        if (bucketBytes > quotaBytes) {
+          // ย้ายไฟล์เก่าสุดก่อน แต่คงไฟล์ล่าสุดตามที่นโยบายกำหนด
+          const sorted = objects
+            .filter((o) => o.path && !o.path.endsWith("/"))
+            .sort((a, b2) => (a.created_at || "").localeCompare(b2.created_at || ""));
+          const keepRecent = Number(p.keep_recent ?? 0);
+          const candidates = keepRecent > 0 ? sorted.slice(0, Math.max(0, sorted.length - keepRecent)) : sorted;
+
+          for (const obj of candidates) {
+            if (bucketBytes <= quotaBytes || moved >= maxFiles) break;
+            const mimeType = obj.metadata?.mimetype || "application/octet-stream";
+            try {
+              const { data: fileData, error: dlErr } = await supabaseAdmin.storage.from(bucket).download(obj.path);
+              if (dlErr || !fileData) throw new Error(dlErr?.message || "download failed");
+              const bytes = new Uint8Array(await fileData.arrayBuffer());
+              const folderId = await ensureFolderPath(["BNGSS Storage", bucket]);
+              const driveFile = await uploadFile(obj.path.split("/").pop() || obj.path, mimeType, bytes, folderId);
+              const { error: regErr } = await supabaseAdmin.from("cold_storage_registry").upsert(
+                {
+                  bucket_name: bucket,
+                  file_path: obj.path,
+                  drive_file_id: driveFile.id,
+                  drive_web_link: driveFile.webViewLink || `https://drive.google.com/file/d/${driveFile.id}/view`,
+                  mime_type: mimeType,
+                  size_bytes: bytes.length,
+                  offloaded_at: new Date().toISOString(),
+                },
+                { onConflict: "bucket_name,file_path" },
+              );
+              if (regErr) throw new Error(regErr.message);
+              await supabaseAdmin.storage.from(bucket).remove([obj.path]);
+              bucketBytes -= bytes.length;
+              bucketFreed += bytes.length;
+              bucketMoved += 1;
+              moved += 1;
+              freed += bytes.length;
+            } catch (e: any) {
+              console.error(`enforce offload failed ${bucket}/${obj.path}:`, e?.message || e);
+            }
+          }
+        }
+
+        perBucket.push({ bucket, before, quota: quotaBytes, moved: bucketMoved, freed: bucketFreed });
+      }
+
+      return json({
+        success: true,
+        deduped: params.__deduped || { count: 0, bytes: 0 },
+        moved_files: moved,
+        freed_bytes: freed,
+        buckets: perBucket,
       });
     }
 
