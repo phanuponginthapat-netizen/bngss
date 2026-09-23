@@ -277,7 +277,9 @@ Deno.serve(async (req) => {
           const candidates = keepRecent > 0 ? sorted.slice(0, Math.max(0, sorted.length - keepRecent)) : sorted;
 
           for (const obj of candidates) {
-            if (bucketBytes <= quotaBytes || moved >= maxFiles) break;
+            if (bucketBytes <= quotaBytes || moved >= maxFiles || freed >= maxBytesPerRun) break;
+            const objSize = Number(obj.metadata?.size || 0);
+            if (objSize > maxFileBytes) continue; // ไฟล์ใหญ่มาก ทำในรอบถัดไปด้วยพารามิเตอร์เฉพาะ
             const mimeType = obj.metadata?.mimetype || "application/octet-stream";
             try {
               const { data: fileData, error: dlErr } = await supabaseAdmin.storage.from(bucket).download(obj.path);
