@@ -788,6 +788,8 @@ const FaceKioskPage = () => {
   }, [streaming, geofence.configured, verifyLocation, stopCamera]);
 
   const multiFaceNoticeRef = useRef(0);
+  const agentMissingNoticeRef = useRef(0);
+
   const recordScan = useCallback(async (
     studentId: string, studentCode: string, name: string, classroom: string, avatar: string | null, confidence: number, capturedFace?: string,
     enrolledFace?: string | null,
@@ -1190,45 +1192,49 @@ const FaceKioskPage = () => {
 
 
         // ── ตัวประมวลผลเนทีฟ (FaceGate agent): ตรวจจับ + embedding บนเครื่อง ─────
-        // ใช้โมเดล ArcFace ตัวเดียวกับเบราว์เซอร์ → เทียบกับใบหน้าที่ลงทะเบียนไว้ได้ทันที
-        // ถ้า agent ไม่พร้อม/ตอบไม่ทัน (null) จะกลับไปใช้เส้นทางเบราว์เซอร์เหมือนเดิม
-        let agentDetections: any[] | null = null;
-        if (faceAgentReady()) {
-          agentDetections = await agentGetDescriptors(video, { singleFace: true, maxWidth: 640, timeoutMs: 1500 });
-          if (agentDetections) { pre = video; roiOffsetX = 0; roiOffsetY = 0; }
-          // มีหลายคนอยู่ในเฟรมเดียวกัน → ไม่บันทึก กันสลับคน/บันทึกผิดคน
-          if (agentDetections && agentLastFaceCount() > 1) {
-            agentDetections = [];
-            if (Date.now() - multiFaceNoticeRef.current > 4000) {
-              multiFaceNoticeRef.current = Date.now();
-              showNotice("warning", "มีหลายคนในกล้อง", "กรุณาเข้าสแกนทีละคน", 2500);
-            }
+        // นโยบายของโรงเรียน: การสแกนเข้าเรียนต้องประมวลผลด้วยโปรแกรมบน PC เท่านั้น
+        // ถ้าไม่พบโปรแกรม → หยุดสแกนและแจ้งเตือน (ไม่คำนวณในเบราว์เซอร์)
+        if (!faceAgentReady()) {
+          setFaceCount(0);
+          lastBox = null;
+          if (Date.now() - agentMissingNoticeRef.current > 15000) {
+            agentMissingNoticeRef.current = Date.now();
+            showNotice("warning", "ไม่พบโปรแกรมสแกนบนเครื่องนี้", "ต้องติดตั้งโปรแกรม FaceGate บน PC ก่อนจึงจะสแกนได้", 5000);
+          }
+          void probeFaceAgent(true).then((h) => setAgentOn(!!h?.ok));
+          if (!cancelled) {
+            detectionLoopRef.current = window.setTimeout(
+              () => requestAnimationFrame(() => { if (!cancelled) void loop(); }),
+              1500,
+            );
+          }
+          return;
+        }
+
+        let agentDetections: any[] | null =
+          await agentGetDescriptors(video, { singleFace: true, maxWidth: 640, timeoutMs: 1500 });
+        if (agentDetections) { pre = video; roiOffsetX = 0; roiOffsetY = 0; }
+        // มีหลายคนอยู่ในเฟรมเดียวกัน → ไม่บันทึก กันสลับคน/บันทึกผิดคน
+        if (agentDetections && agentLastFaceCount() > 1) {
+          agentDetections = [];
+          if (Date.now() - multiFaceNoticeRef.current > 4000) {
+            multiFaceNoticeRef.current = Date.now();
+            showNotice("warning", "มีหลายคนในกล้อง", "กรุณาเข้าสแกนทีละคน", 2500);
           }
         }
 
-        let rawDetections: any[] = agentDetections ?? await getAllDescriptors(pre as any, opts, {
-          minFaceSize: MIN_FACE_PX * 0.6,
-          cacheTtlMs: 300,
-        });
-        let usedRoi = pre !== video;
-        // ROI ติดตามหลุด (คนขยับเร็ว) → ถอยไปใช้ ROI วงรีก่อน แล้วค่อยทั้งเฟรมเป็นทางสุดท้าย
-        if (rawDetections.length === 0 && usedRoi && trackFresh) {
+        // agent ตอบไม่ทัน → ข้ามเฟรมนี้ ไม่ถอยไปคำนวณในเบราว์เซอร์
+        let rawDetections: any[] = agentDetections ?? [];
+
+        // agent ประมวลผลทั้งเฟรมเสมอ จึงไม่ต้องแปลงพิกัด ROI อีก
+        const usedRoi = false;
+        if (rawDetections.length === 0) {
           lastBox = null;
           missCount += 1;
-        } else if (rawDetections.length === 0 && usedRoi) {
-          missCount += 1;
-          // ทุก ๆ 6 เฟรมที่ว่างเปล่า ลองสแกนทั้งเฟรมหนึ่งครั้ง (กันกล้องเยื้อง/ติดตั้งเอียง)
-          if (missCount % 6 === 0) {
-            const full = await getAllDescriptors(video as any, opts, { minFaceSize: MIN_FACE_PX * 0.6, cacheTtlMs: 300 });
-            if (full.length > 0) {
-              rawDetections = full;
-              usedRoi = false;
-              roiOffsetX = 0; roiOffsetY = 0;
-            }
-          }
-        } else if (rawDetections.length > 0) {
+        } else {
           missCount = 0;
         }
+
 
         // แปลงพิกัดจาก ROI กลับเป็นพิกัดวิดีโอจริง
         const detections = usedRoi && (roiOffsetX !== 0 || roiOffsetY !== 0)
@@ -2093,17 +2099,23 @@ const FaceKioskPage = () => {
           </div>
 
           <div className="space-y-1.5 border-t pt-2">
-            <label className="text-xs font-semibold">ตัวประมวลผลใบหน้าบนเครื่อง</label>
+            <label className="text-xs font-semibold">ตัวประมวลผลใบหน้าบนเครื่อง (จำเป็น)</label>
             <div className="flex items-center justify-between gap-2">
               <p className="text-[10px] text-muted-foreground leading-snug flex-1">
-                {agentOn ? `กำลังใช้งาน (${faceAgentEngine()}) — แม่นกว่าการคำนวณในเบราว์เซอร์` : "ไม่พบตัวประมวลผลบนเครื่อง — ใช้การคำนวณในเบราว์เซอร์"}
+                {agentOn
+                  ? `กำลังใช้งาน (${faceAgentEngine()}) — ประมวลผลบนเครื่อง PC`
+                  : "ไม่พบโปรแกรมบนเครื่องนี้ — สแกนไม่ได้ ต้องติดตั้งโปรแกรม FaceGate ก่อน"}
               </p>
-              <Switch
-                checked={agentEnabled}
-                onCheckedChange={(v) => { setFaceAgentEnabled(v); setAgentEnabledState(v); }}
-              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setFaceAgentEnabled(true); setAgentEnabledState(true); void probeFaceAgent(true).then((h) => setAgentOn(!!h?.ok)); }}
+              >
+                ตรวจอีกครั้ง
+              </Button>
             </div>
           </div>
+
 
           <div className="space-y-1.5 border-t pt-2">
             <label className="text-xs font-semibold">ช่วงเว้นระยะระหว่างสแกน</label>
