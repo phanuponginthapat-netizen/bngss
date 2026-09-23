@@ -2097,17 +2097,23 @@ const FaceKioskPage = () => {
           </div>
 
           <div className="space-y-1.5 border-t pt-2">
-            <label className="text-xs font-semibold">ตัวประมวลผลใบหน้าบนเครื่อง</label>
+            <label className="text-xs font-semibold">ตัวประมวลผลใบหน้าบนเครื่อง (จำเป็น)</label>
             <div className="flex items-center justify-between gap-2">
               <p className="text-[10px] text-muted-foreground leading-snug flex-1">
-                {agentOn ? `กำลังใช้งาน (${faceAgentEngine()}) — แม่นกว่าการคำนวณในเบราว์เซอร์` : "ไม่พบตัวประมวลผลบนเครื่อง — ใช้การคำนวณในเบราว์เซอร์"}
+                {agentOn
+                  ? `กำลังใช้งาน (${faceAgentEngine()}) — ประมวลผลบนเครื่อง PC`
+                  : "ไม่พบโปรแกรมบนเครื่องนี้ — สแกนไม่ได้ ต้องติดตั้งโปรแกรม FaceGate ก่อน"}
               </p>
-              <Switch
-                checked={agentEnabled}
-                onCheckedChange={(v) => { setFaceAgentEnabled(v); setAgentEnabledState(v); }}
-              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setFaceAgentEnabled(true); setAgentEnabledState(true); void probeFaceAgent(true).then((h) => setAgentOn(!!h?.ok)); }}
+              >
+                ตรวจอีกครั้ง
+              </Button>
             </div>
           </div>
+
 
           <div className="space-y-1.5 border-t pt-2">
             <label className="text-xs font-semibold">ช่วงเว้นระยะระหว่างสแกน</label>
