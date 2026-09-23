@@ -118,6 +118,8 @@ const HomeVisitPage = lazy(() => import("./pages/student/HomeVisitPage"));
 const FaceScanPage = lazy(() => import("./pages/student/FaceScanPage"));
 const MyFaceEnrollPage = lazy(() => import("./pages/student/MyFaceEnrollPage"));
 const FaceKioskPage = lazy(() => import("./pages/FaceKioskPage"));
+const KioskTabletPage = lazy(() => import("./pages/KioskTabletPage"));
+
 const MobileQrScanPage = lazy(() => import("./pages/staff/MobileQrScanPage"));
 
 // General Admin
