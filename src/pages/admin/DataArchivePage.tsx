@@ -154,6 +154,8 @@ export default function DataArchivePage() {
         drive_total_bytes: number;
         drive_total_files: number;
         target_under_1gb: boolean;
+        free_tier_bytes?: number;
+        quota_total_bytes?: number;
         buckets: Array<{
           name: string;
           public: boolean;
@@ -161,6 +163,9 @@ export default function DataArchivePage() {
           supabase_bytes: number;
           drive_files: number;
           drive_bytes: number;
+          quota_bytes?: number | null;
+          over_quota?: boolean;
+          dedupe_drive?: boolean;
         }>;
       };
     },
