@@ -1190,26 +1190,40 @@ const FaceKioskPage = () => {
 
 
         // ── ตัวประมวลผลเนทีฟ (FaceGate agent): ตรวจจับ + embedding บนเครื่อง ─────
-        // ใช้โมเดล ArcFace ตัวเดียวกับเบราว์เซอร์ → เทียบกับใบหน้าที่ลงทะเบียนไว้ได้ทันที
-        // ถ้า agent ไม่พร้อม/ตอบไม่ทัน (null) จะกลับไปใช้เส้นทางเบราว์เซอร์เหมือนเดิม
-        let agentDetections: any[] | null = null;
-        if (faceAgentReady()) {
-          agentDetections = await agentGetDescriptors(video, { singleFace: true, maxWidth: 640, timeoutMs: 1500 });
-          if (agentDetections) { pre = video; roiOffsetX = 0; roiOffsetY = 0; }
-          // มีหลายคนอยู่ในเฟรมเดียวกัน → ไม่บันทึก กันสลับคน/บันทึกผิดคน
-          if (agentDetections && agentLastFaceCount() > 1) {
-            agentDetections = [];
-            if (Date.now() - multiFaceNoticeRef.current > 4000) {
-              multiFaceNoticeRef.current = Date.now();
-              showNotice("warning", "มีหลายคนในกล้อง", "กรุณาเข้าสแกนทีละคน", 2500);
-            }
+        // นโยบายของโรงเรียน: การสแกนเข้าเรียนต้องประมวลผลด้วยโปรแกรมบน PC เท่านั้น
+        // ถ้าไม่พบโปรแกรม → หยุดสแกนและแจ้งเตือน (ไม่คำนวณในเบราว์เซอร์)
+        if (!faceAgentReady()) {
+          setFaceCount(0);
+          lastBox = null;
+          if (Date.now() - agentMissingNoticeRef.current > 15000) {
+            agentMissingNoticeRef.current = Date.now();
+            showNotice("warning", "ไม่พบโปรแกรมสแกนบนเครื่องนี้", "ต้องติดตั้งโปรแกรม FaceGate บน PC ก่อนจึงจะสแกนได้", 5000);
+          }
+          void probeFaceAgent(true).then((h) => setAgentOn(!!h?.ok));
+          if (!cancelled) {
+            detectionLoopRef.current = window.setTimeout(
+              () => requestAnimationFrame(() => { if (!cancelled) void loop(); }),
+              1500,
+            );
+          }
+          return;
+        }
+
+        let agentDetections: any[] | null =
+          await agentGetDescriptors(video, { singleFace: true, maxWidth: 640, timeoutMs: 1500 });
+        if (agentDetections) { pre = video; roiOffsetX = 0; roiOffsetY = 0; }
+        // มีหลายคนอยู่ในเฟรมเดียวกัน → ไม่บันทึก กันสลับคน/บันทึกผิดคน
+        if (agentDetections && agentLastFaceCount() > 1) {
+          agentDetections = [];
+          if (Date.now() - multiFaceNoticeRef.current > 4000) {
+            multiFaceNoticeRef.current = Date.now();
+            showNotice("warning", "มีหลายคนในกล้อง", "กรุณาเข้าสแกนทีละคน", 2500);
           }
         }
 
-        let rawDetections: any[] = agentDetections ?? await getAllDescriptors(pre as any, opts, {
-          minFaceSize: MIN_FACE_PX * 0.6,
-          cacheTtlMs: 300,
-        });
+        // agent ตอบไม่ทัน → ข้ามเฟรมนี้ ไม่ถอยไปคำนวณในเบราว์เซอร์
+        let rawDetections: any[] = agentDetections ?? [];
+
         let usedRoi = pre !== video;
         // ROI ติดตามหลุด (คนขยับเร็ว) → ถอยไปใช้ ROI วงรีก่อน แล้วค่อยทั้งเฟรมเป็นทางสุดท้าย
         if (rawDetections.length === 0 && usedRoi && trackFresh) {
