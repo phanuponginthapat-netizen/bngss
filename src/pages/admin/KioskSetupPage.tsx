@@ -601,9 +601,9 @@ export default function KioskSetupPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>โปรแกรมสแกนใบหน้าสำหรับ PC</CardTitle>
+          <CardTitle>โปรแกรมสแกนใบหน้า FaceGate สำหรับ PC (รุ่นล่าสุด)</CardTitle>
           <CardDescription>
-            ติดตั้งบนเครื่องประตู/คีออสเพื่อให้การจำใบหน้าแม่นยำขึ้น ใช้งานได้ทั้งออนไลน์และออฟไลน์ (Windows และ Linux)
+            มีตัวเดียวใช้ได้ทุกเครื่อง ติดตั้งบนเครื่องประตู/คีออสเพื่อให้การจำใบหน้าแม่นยำขึ้น ใช้งานได้ทั้งออนไลน์และออฟไลน์ (Windows และ Linux)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -613,21 +613,17 @@ export default function KioskSetupPage() {
             <li>รันไฟล์ติดตั้ง (Windows: ดับเบิลคลิก install.bat / Linux: bash install.sh) แล้ววางรหัสเครื่องเมื่อถูกถาม</li>
             <li>ติดตั้งครั้งเดียว โปรแกรมจะเปิดเองทุกครั้งที่เปิดเครื่อง และดึงรายชื่อ–ใบหน้ามาเก็บไว้ในเครื่อง</li>
             <li>เมื่อเน็ตหลุด เครื่องยังสแกนได้ตามปกติ แล้วส่งผลขึ้นระบบให้เองเมื่อเน็ตกลับมา</li>
+            <li>เครื่องที่ติดตั้งรุ่นเดิมอยู่ ให้ติดตั้งทับด้วยไฟล์นี้ได้เลย ข้อมูลใบหน้าเดิมใช้ต่อได้</li>
           </ol>
           <div className="flex flex-wrap gap-2">
             <Button asChild>
-              <a href="/downloads/connexted-agent-installer.zip" download>
-                <Download className="mr-2 h-4 w-4" />
-                ดาวน์โหลดโปรแกรมสแกนใบหน้า (แนะนำ)
-              </a>
-            </Button>
-            <Button asChild variant="outline">
               <a href="/downloads/facegate-agent-installer.zip" download>
                 <Download className="mr-2 h-4 w-4" />
-                รุ่นเดิม (สำรอง)
+                ดาวน์โหลดโปรแกรมสแกนใบหน้า
               </a>
             </Button>
           </div>
+
         </CardContent>
       </Card>
 
