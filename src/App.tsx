@@ -393,6 +393,9 @@ const App = () => {
               {/* /kiosk = ทางลัดสำหรับตู้สแกนประตู — ต้อง login ด้วยบัญชี kiosk (role=teacher) ครั้งเดียว
                   Chromium ในโหมด door ไม่ล้าง profile → session ค้างถาวร ไม่ต้อง login ซ้ำหลังรีบูต */}
               <Route path="/kiosk" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><FaceKioskPage /></ProtectedRoute>} />
+              {/* แท็บเล็ต: จอ+กล้องเท่านั้น ส่งภาพให้ PC แม่ข่ายประมวลผล (ใช้ในแอป APK) */}
+              <Route path="/kiosk-tablet" element={<KioskTabletPage />} />
+
               <Route path="/liff" element={<LiffHomePage />} />
               <Route path="/liff/leave" element={<LiffLeavePage />} />
               <Route path="/liff/grades" element={<LiffGradesPage />} />
