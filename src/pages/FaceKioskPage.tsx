@@ -1224,25 +1224,15 @@ const FaceKioskPage = () => {
         // agent ตอบไม่ทัน → ข้ามเฟรมนี้ ไม่ถอยไปคำนวณในเบราว์เซอร์
         let rawDetections: any[] = agentDetections ?? [];
 
-        let usedRoi = pre !== video;
-        // ROI ติดตามหลุด (คนขยับเร็ว) → ถอยไปใช้ ROI วงรีก่อน แล้วค่อยทั้งเฟรมเป็นทางสุดท้าย
-        if (rawDetections.length === 0 && usedRoi && trackFresh) {
+        // agent ประมวลผลทั้งเฟรมเสมอ จึงไม่ต้องแปลงพิกัด ROI อีก
+        const usedRoi = false;
+        if (rawDetections.length === 0) {
           lastBox = null;
           missCount += 1;
-        } else if (rawDetections.length === 0 && usedRoi) {
-          missCount += 1;
-          // ทุก ๆ 6 เฟรมที่ว่างเปล่า ลองสแกนทั้งเฟรมหนึ่งครั้ง (กันกล้องเยื้อง/ติดตั้งเอียง)
-          if (missCount % 6 === 0) {
-            const full = await getAllDescriptors(video as any, opts, { minFaceSize: MIN_FACE_PX * 0.6, cacheTtlMs: 300 });
-            if (full.length > 0) {
-              rawDetections = full;
-              usedRoi = false;
-              roiOffsetX = 0; roiOffsetY = 0;
-            }
-          }
-        } else if (rawDetections.length > 0) {
+        } else {
           missCount = 0;
         }
+
 
         // แปลงพิกัดจาก ROI กลับเป็นพิกัดวิดีโอจริง
         const detections = usedRoi && (roiOffsetX !== 0 || roiOffsetY !== 0)
