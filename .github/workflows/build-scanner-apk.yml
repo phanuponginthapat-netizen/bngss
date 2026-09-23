@@ -1,0 +1,92 @@
+name: Build Tablet Scanner APK
+
+# แอปสำหรับแท็บเล็ตที่ใช้เป็นเครื่องสแกนหน้าประตู
+# แท็บเล็ตเป็นแค่จอ+กล้อง แล้วส่งภาพให้เครื่อง PC แม่ข่าย (FaceGate Agent) ประมวลผล
+# จึงได้ความแม่นยำเท่ากับการสแกนบน PC และใช้กับแท็บเล็ตรุ่นเก่าหรือกล้อง USB ต่อภายนอกได้
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-scanner-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+
+      - name: Build web assets (scanner mode)
+        run: npm run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+          VITE_KIOSK_TABLET: "1"
+
+      - name: Use a separate app id / name for the scanner build
+        run: |
+          sed -i 's/applicationId "com.bngss.app"/applicationId "com.bngss.scanner"/' android/app/build.gradle
+          sed -i "s/appId: 'com.bngss.app'/appId: 'com.bngss.scanner'/" capacitor.config.ts
+          sed -i "s/appName: 'BNG Smart'/appName: 'BNG Scanner'/" capacitor.config.ts
+          grep -n applicationId android/app/build.gradle
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Bump version
+        working-directory: android
+        run: |
+          BASE_VC="$(grep -m1 'versionCode' app/build.gradle | tr -dc '0-9')"
+          NEW_VC=$(( BASE_VC + GITHUB_RUN_NUMBER ))
+          sed -i "s/^versionCode .*/versionCode ${NEW_VC}/" app/build.gradle
+          echo "APP_VERSION_CODE=${NEW_VC}" >> "$GITHUB_ENV"
+
+      - name: Make gradlew executable
+        working-directory: android
+        run: chmod +x gradlew
+
+      - name: Build APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bngss-scanner-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Publish scanner APK to storage
+        env:
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::warning::SUPABASE_ANON_KEY missing — skipping upload"
+            exit 0
+          fi
+          BASE="https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object"
+          curl -sS -X POST \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/octet-stream" \
+            -H "x-upsert: true" \
+            --data-binary "@android/app/build/outputs/apk/debug/app-debug.apk" \
+            "${BASE}/app-downloads/bngss-scanner-latest.apk" -w '\nHTTP %{http_code}\n'
