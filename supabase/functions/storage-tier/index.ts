@@ -230,16 +230,18 @@ Deno.serve(async (req) => {
     // 2c. ACTION: ENFORCE (ย้ายไฟล์ส่วนที่เกินโควต้าของแต่ละบัคเก็ตลง Drive)
     // -------------------------------------------------------------
     if (action === "enforce") {
-      const maxFiles = Number(params.max_files ?? 200);
+      const maxFiles = Number(params.max_files ?? 12);
       // ขีดจำกัดต่อรอบ กันฟังก์ชันใช้หน่วยความจำเกิน (ไฟล์ใหญ่มากจะทยอยทำรอบถัดไป)
       const maxFileBytes = Number(params.max_file_bytes ?? 24 * 1024 * 1024);
-      const maxBytesPerRun = Number(params.max_bytes_per_run ?? 120 * 1024 * 1024);
-      const { data: policies = [] } = await supabaseAdmin
+      const maxBytesPerRun = Number(params.max_bytes_per_run ?? 40 * 1024 * 1024);
+      const onlyBuckets: string[] = Array.isArray(params.buckets) ? params.buckets : [];
+      let query = supabaseAdmin
         .from("storage_tier_policies")
         .select("*")
         .eq("enabled", true)
-        .not("quota_mb", "is", null)
-        .order("priority", { ascending: true });
+        .not("quota_mb", "is", null);
+      if (onlyBuckets.length > 0) query = query.in("bucket", onlyBuckets);
+      const { data: policies = [] } = await query.order("priority", { ascending: true });
 
       let moved = 0;
       let freed = 0;
