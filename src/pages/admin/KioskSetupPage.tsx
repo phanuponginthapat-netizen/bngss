@@ -35,6 +35,7 @@ import {
 import { useCmsValue } from "@/hooks/useCmsSettings";
 import { guessPublicOrigin } from "@/lib/publicOrigin";
 import { Time24Input } from "@/components/ui/time24-input";
+import KioskDeviceManager from "@/components/kiosk/KioskDeviceManager";
 
 export default function KioskSetupPage() {
   const schoolName = useCmsValue("school_name") || "โรงเรียน";
@@ -596,26 +597,37 @@ export default function KioskSetupPage() {
         </CardContent>
       </Card>
 
+      <KioskDeviceManager />
+
       <Card>
         <CardHeader>
           <CardTitle>โปรแกรมสแกนใบหน้าสำหรับ PC</CardTitle>
           <CardDescription>
-            ติดตั้งบนเครื่องประตู/คีออสเพื่อให้การจำใบหน้าแม่นยำขึ้น (Windows และ Linux)
+            ติดตั้งบนเครื่องประตู/คีออสเพื่อให้การจำใบหน้าแม่นยำขึ้น ใช้งานได้ทั้งออนไลน์และออฟไลน์ (Windows และ Linux)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <ol className="ml-5 list-decimal space-y-1 text-sm">
-            <li>กดปุ่มด้านล่างเพื่อดาวน์โหลดไฟล์ติดตั้ง</li>
-            <li>แตกไฟล์ แล้วอ่านคู่มือในโฟลเดอร์ (Windows: ดับเบิลคลิกไฟล์ติดตั้ง)</li>
-            <li>ติดตั้งครั้งเดียว โปรแกรมจะเปิดเองทุกครั้งที่เปิดเครื่อง</li>
-            <li>เปิดหน้าสแกนใบหน้า จะขึ้นว่า “กำลังใช้งาน (ตัวประมวลผลบนเครื่อง)”</li>
+            <li>สร้างเครื่องในหัวข้อด้านบน แล้วคัดลอก “รหัสเครื่อง”</li>
+            <li>กดปุ่มด้านล่างเพื่อดาวน์โหลดไฟล์ติดตั้ง แล้วแตกไฟล์</li>
+            <li>รันไฟล์ติดตั้ง (Windows: ดับเบิลคลิก install.bat / Linux: bash install.sh) แล้ววางรหัสเครื่องเมื่อถูกถาม</li>
+            <li>ติดตั้งครั้งเดียว โปรแกรมจะเปิดเองทุกครั้งที่เปิดเครื่อง และดึงรายชื่อ–ใบหน้ามาเก็บไว้ในเครื่อง</li>
+            <li>เมื่อเน็ตหลุด เครื่องยังสแกนได้ตามปกติ แล้วส่งผลขึ้นระบบให้เองเมื่อเน็ตกลับมา</li>
           </ol>
-          <Button asChild>
-            <a href="/downloads/facegate-agent-installer.zip" download>
-              <Download className="mr-2 h-4 w-4" />
-              ดาวน์โหลดโปรแกรมสแกนใบหน้า (PC)
-            </a>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild>
+              <a href="/downloads/connexted-agent-installer.zip" download>
+                <Download className="mr-2 h-4 w-4" />
+                ดาวน์โหลดโปรแกรมสแกนใบหน้า (แนะนำ)
+              </a>
+            </Button>
+            <Button asChild variant="outline">
+              <a href="/downloads/facegate-agent-installer.zip" download>
+                <Download className="mr-2 h-4 w-4" />
+                รุ่นเดิม (สำรอง)
+              </a>
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
