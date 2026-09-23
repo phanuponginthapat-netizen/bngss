@@ -1139,10 +1139,71 @@ def detect_adaptive(bgr: np.ndarray, det_min: float) -> tuple[np.ndarray, np.nda
     return dets2 if dets2.shape[0] else dets, kpss2 if dets2.shape[0] else kpss, fixed
 
 
+def web_faces_payload(bgr: np.ndarray, want_crop: bool = False) -> list[dict]:
+    """ผลลัพธ์รูปแบบเดียวกับ FaceGate Agent รุ่นเดิม (หน้าเว็บ /face-kiosk ใช้)."""
+    out: list[dict] = []
+    for f in face_app.get(bgr):
+        x1, y1, x2, y2 = [float(v) for v in f.bbox]
+        crop = bgr[max(int(y1), 0):max(int(y2), 0), max(int(x1), 0):max(int(x2), 0)]
+        sharp = laplacian_sharpness(crop) if crop.size else 0.0
+        spread = float(np.std(crop.reshape(-1, 3), axis=0).mean()) if crop.size else 0.0
+        item = {
+            "box": {"x": max(0.0, x1), "y": max(0.0, y1), "width": x2 - x1, "height": y2 - y1},
+            "keypoints": [[float(p[0]), float(p[1])] for p in f.kps],
+            "score": float(f.det_score),
+            "descriptor": [float(v) for v in f.normed_embedding],
+            "geometry": geometry_features(f),
+            "live": bool(sharp > 45 and spread > 18),
+            "sharpness": round(sharp, 2),
+            "colorSpread": round(spread, 2),
+        }
+        if want_crop:
+            item["crop"] = crop_face_jpeg(bgr, f)
+        out.append(item)
+    out.sort(key=lambda i: i["box"]["width"] * i["box"]["height"], reverse=True)
+    return out
+
+
+def decode_image(raw: bytes) -> np.ndarray | None:
+    return cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
+
+
 @app.post("/scan")
-def scan(req: ScanRequest):
-    push_live_frame(req.image)
-    return run_scan(req.image)
+async def scan(request: Request):
+    """คีออส (JSON {image}) = สแกน+บันทึกเวลา / หน้าเว็บ (raw JPEG) = ตรวจจับ+embedding."""
+    ctype = (request.headers.get("content-type") or "").lower()
+    body = await request.body()
+    if "application/json" in ctype:
+        image = (json.loads(body or b"{}") or {}).get("image") or ""
+        push_live_frame(image)
+        return run_scan(image)
+    # เส้นทางเข้ากันได้กับรุ่นเดิม: รับ JPEG ดิบ คืนใบหน้าพร้อม embedding
+    t0 = time.time()
+    img = decode_image(body)
+    if img is None:
+        return {"faces": [], "error": "decode_failed"}
+    faces = web_faces_payload(img)
+    return {"faces": faces, "faceCount": len(faces), "ms": round((time.time() - t0) * 1000, 1)}
+
+
+class EmbedRequest(BaseModel):
+    image: str
+    crop: bool = False
+
+
+@app.post("/embed")
+def embed(req: EmbedRequest):
+    """ใช้ตอนลงทะเบียนใบหน้าบนหน้าเว็บ — คืน embedding 512 มิติ + รูปครอป."""
+    t0 = time.time()
+    raw = (req.image or "").split(",", 1)[-1]
+    try:
+        img = decode_image(base64.b64decode(raw))
+    except Exception:  # noqa: BLE001
+        img = None
+    if img is None:
+        return {"faces": [], "error": "decode_failed"}
+    return {"faces": web_faces_payload(img, want_crop=req.crop), "ms": round((time.time() - t0) * 1000, 1)}
+
 
 
 @app.post("/test/scan")
