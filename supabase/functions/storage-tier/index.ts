@@ -231,6 +231,9 @@ Deno.serve(async (req) => {
     // -------------------------------------------------------------
     if (action === "enforce") {
       const maxFiles = Number(params.max_files ?? 200);
+      // ขีดจำกัดต่อรอบ กันฟังก์ชันใช้หน่วยความจำเกิน (ไฟล์ใหญ่มากจะทยอยทำรอบถัดไป)
+      const maxFileBytes = Number(params.max_file_bytes ?? 24 * 1024 * 1024);
+      const maxBytesPerRun = Number(params.max_bytes_per_run ?? 120 * 1024 * 1024);
       const { data: policies = [] } = await supabaseAdmin
         .from("storage_tier_policies")
         .select("*")
