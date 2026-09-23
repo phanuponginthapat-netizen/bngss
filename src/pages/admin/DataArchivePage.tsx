@@ -211,6 +211,37 @@ export default function DataArchivePage() {
     }
   };
 
+  const [enforcing, setEnforcing] = useState(false);
+
+  const runEnforceQuota = async () => {
+    const ok = await swal.confirm({
+      title: "จัดพื้นที่ตามโควต้าของแต่ละงาน?",
+      text: "ระบบจะลบไฟล์ที่ซ้ำกับ Google Drive และย้ายไฟล์ส่วนที่เกินโควต้าของแต่ละงานลง Drive (ยังเปิดดูได้ตามปกติ)",
+    });
+    if (!ok) return;
+
+    setEnforcing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("storage-tier", {
+        body: { action: "enforce", max_files: 200 },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const freed = (data as any)?.freed_bytes || 0;
+      const dedupedBytes = (data as any)?.deduped?.bytes || 0;
+      const dedupedCount = (data as any)?.deduped?.count || 0;
+      toast.success(
+        `จัดพื้นที่เรียบร้อย — ลบไฟล์ซ้ำ ${dedupedCount} รายการ (${fmtBytes(dedupedBytes)}) และย้ายลง Drive ${(data as any)?.moved_files || 0} รายการ (${fmtBytes(freed)})`,
+      );
+      refetchStorageUsage();
+      refetchColdFiles();
+    } catch (e: any) {
+      toast.error(`จัดพื้นที่ไม่สำเร็จ: ${e?.message || e}`);
+    } finally {
+      setEnforcing(false);
+    }
+  };
+
   const restoreColdFile = async (row: any) => {
     const ok = await swal.confirm({
       title: "ดึงไฟล์กลับมา Supabase Storage?",
