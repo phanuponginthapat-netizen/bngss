@@ -296,7 +296,7 @@ Deno.serve(async (req) => {
         direction,
         confidence,
         message: direction === "out" ? `${name} บันทึกเวลาออกแล้ว` : `${name} บันทึกเวลาเข้าเรียบร้อย`,
-        speak: `${settings.voice_welcome_text} ${name}`,
+        speak: direction === "out" ? `เดินทางปลอดภัย ${name}` : `${settings.voice_welcome_text} ${name}`,
         next_delay_seconds: delay,
       });
     }
