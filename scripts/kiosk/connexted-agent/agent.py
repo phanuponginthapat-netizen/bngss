@@ -26,7 +26,7 @@ from typing import Any
 import cv2
 import numpy as np
 import requests
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import clock
 import door
