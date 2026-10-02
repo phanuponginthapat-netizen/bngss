@@ -252,7 +252,7 @@ export default function ObecHubPage(){
           <CardHeader><CardTitle className="flex items-center gap-2"><Printer className="h-5 w-5 text-amber-600" />ปพ.5</CardTitle><CardDescription>{isTh ? "พิมพ์ ปพ.1-6" : "Print Por 1-6"}</CardDescription></CardHeader>
           <CardContent className="space-y-3">
             <p className="text-xs text-muted-foreground">{isTh ? "ดูตัวอย่างก่อนพิมพ์เอกสารราชการ" : "Preview before printing official docs"}</p>
-            <Button variant="outline" className="w-full" onClick={()=> window.location.href="/preview-gov"}>{isTh ? "พิมพ์ ปพ.1-6 (ดู /preview-gov)" : "Print Por 1-6 (see /preview-gov)"}</Button>
+            <Button variant="outline" className="w-full" onClick={()=> window.location.href="/dashboard/academic/pp-docs"}>{isTh ? "พิมพ์เอกสาร ปพ." : "Print Por documents"}</Button>
           </CardContent>
         </Card>
       </div>

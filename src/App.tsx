@@ -63,7 +63,6 @@ const LiffAttendancePage = lazy(() => import("./pages/liff/LiffAttendancePage"))
 const LiffHomePage = lazy(() => import("./pages/liff/LiffHomePage"));
 const InstallPage = lazy(() => import("./pages/InstallPage"));
 const HelpCenterPage = lazy(() => import("./pages/HelpCenterPage"));
-const HelpCenterAI = lazy(() => import("./pages/HelpCenterAI"));
 const ParentAppPage = lazy(() => import("./pages/ParentAppPage"));
 
 // Academic
@@ -200,7 +199,6 @@ const AttendanceDashboardPage = lazy(() => import("./pages/hr/AttendanceDashboar
 const LeaveBalancePage = lazy(() => import("./pages/hr/LeaveBalancePage"));
 const SchoolLunchPage = lazy(() => import("./pages/admin/SchoolLunchPage"));
 const ObecHubPage = lazy(() => import("./pages/admin/ObecHubPage"));
-const DebugFcmPage = lazy(() => import("./pages/DebugFcmPage"));
 const BusPage = lazy(() => import("./pages/admin/BusPage"));
 const WpaPage = lazy(() => import("./pages/admin/WpaPage"));
 const DirectorRealtimePage = lazy(() => import("./pages/admin/DirectorRealtimePage"));
@@ -273,7 +271,6 @@ const SisSyncPage = lazy(() => import("./pages/admin/SisSyncPage"));
 const ObservationSessionPage = lazy(() => import("./pages/admin/ObservationSessionPage"));
 const PObecExportPage = lazy(() => import("./pages/admin/PObecExportPage"));
 const GradeRemediationPage = lazy(() => import("./pages/academic/GradeRemediationPage"));
-const PreviewGovPage = lazy(() => import("./pages/PreviewGovPage"));
 const HomeworkPage = lazy(() => import("./pages/HomeworkPage"));
 const AiTutorPage = lazy(() => import("./pages/ai/AiTutorPage"));
 const DigitalTwinPage = lazy(() => import("./pages/admin/DigitalTwinPage"));
@@ -407,12 +404,9 @@ const App = () => {
               <Route path="/liff/attendance" element={<LiffAttendancePage />} />
               <Route path="/install" element={<InstallPage />} />
               <Route path="/help" element={<HelpCenterPage />} />
-              <Route path="/help-ai" element={<HelpCenterAI />} />
+              <Route path="/help-ai" element={<Navigate to="/help" replace />} />
               <Route path="/parent-app" element={<ParentAppPage />} />
-              <Route path="/debug-fcm" element={<DebugFcmPage />} />
-              <Route path="/fcm-debug" element={<DebugFcmPage />} />
-              <Route path="/debug" element={<DebugFcmPage />} />
-              <Route path="/preview-gov" element={<PreviewGovPage />} />
+              <Route path="/preview-gov" element={<Navigate to="/dashboard/academic/pp-docs" replace />} />
               
               
               
