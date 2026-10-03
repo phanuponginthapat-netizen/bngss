@@ -422,8 +422,6 @@ export function AppSidebar() {
         { title: L("จัดการงานวิชาการ", "Academic Setup"), url: "/dashboard/academic/management", icon: BookOpen, color: "text-blue-400", roles: ["admin", "director", "teacher"], desc: L("ห้องเรียน รายวิชา ครูประจำชั้น ตัวชี้วัด", "Classes, subjects, homeroom & indicators") },
         { title: L("ทะเบียนนักเรียน (DMC)", "Students (DMC)"), url: "/dashboard/academic/all-students", icon: Users, color: "text-sky-400", roles: ["admin", "director", "teacher"], desc: L("ข้อมูลนักเรียนทั้งหมดตามมาตรฐาน DMC", "All student records (DMC)") },
         { title: L("ทะเบียนศิษย์เก่า", "Alumni"), url: "/dashboard/academic/alumni", icon: GraduationCap, color: "text-violet-400", roles: ["admin", "director", "teacher"], desc: L("ข้อมูลศิษย์เก่าที่จบการศึกษาแล้ว", "Alumni database") },
-        { title: L("ตารางเรียนและตารางสอน", "Schedule"), url: "/dashboard/academic/schedule", icon: Calendar, color: "text-orange-400", roles: ["admin", "director", "teacher", "student"], desc: L("ตารางเรียนนักเรียนและตารางสอนครู", "Class & teaching schedules") },
-        { title: L("ปฏิทินวิชาการ", "Calendar"), url: "/dashboard/academic/calendar", icon: CalendarDays, color: "text-teal-400", roles: ["admin", "director", "teacher", "student"], desc: L("กิจกรรม สอบ และวันสำคัญ", "Events, exams & key dates") },
       ],
     },
     {
@@ -449,7 +447,6 @@ export function AppSidebar() {
       color: "text-emerald-400",
       roles: ["admin", "director", "teacher", "student"],
       items: [
-        { title: L("งานที่มอบหมาย", "Homework"), url: "/dashboard/homework", icon: BookOpenCheck, color: "text-emerald-400", roles: ["admin", "director", "teacher", "student"], desc: L("มอบหมายและตรวจการบ้านออนไลน์", "Assign & grade homework") },
         { title: L("คลังข้อสอบและวัดผล", "Exams"), url: "/dashboard/exam", icon: ClipboardList, color: "text-cyan-400", roles: ["admin", "director", "teacher"], desc: L("สร้าง พิมพ์ สแกน ตรวจข้อสอบอัตโนมัติ", "Create, print, scan & auto-grade") },
         { title: L("ออกแบบกระดาษคำตอบ", "Design Answer Sheet"), url: "/dashboard/exam/:id/design-sheet", icon: Settings2, color: "text-emerald-400", roles: ["admin", "director", "teacher"], desc: L("ออกแบบรูปแบบกระดาษคำตอบ (เลือกช้อย, โลโก้, หลักรหัส)", "Choice format, school logo, student code digits") },
       ],
@@ -475,9 +472,6 @@ export function AppSidebar() {
       color: "text-emerald-400",
       roles: ["admin", "director", "teacher", "student", "parent"],
       items: [
-        { title: L("บันทึกการมาเรียน", "Attendance"), url: "/dashboard/student/attendance", icon: ClipboardList, color: "text-emerald-400", roles: ["admin", "director", "teacher"], desc: L("สแกนเข้าโรงเรียนและเช็คชื่อรายคาบ", "Gate scan & per-period") },
-        { title: L("บันทึกพฤติกรรมนักเรียน", "Behavior"), url: "/dashboard/student/behavior", icon: Shield, color: "text-rose-400", roles: ["admin", "director", "teacher"], desc: L("บันทึกคะแนนความประพฤติ", "Conduct points") },
-        { title: L("การลาของนักเรียน", "Student Leave"), url: "/dashboard/student/leave", icon: FileText, color: "text-amber-400", roles: ["admin", "director", "teacher", "student", "parent"], desc: L("ยื่นและอนุมัติใบลา", "Leave requests") },
         { title: L("บันทึกโฮมรูม", "Homeroom"), url: "/dashboard/student/homeroom", icon: Home, color: "text-sky-400", roles: ["admin", "director", "teacher"], desc: L("บันทึกกิจกรรมโฮมรูม", "Daily homeroom notes") },
         { title: L("พานักเรียนออกนอกพื้นที่", "Off-site Trips"), url: "/dashboard/student/offsite-trips", icon: MapPin, color: "text-amber-400", roles: ["admin", "director", "teacher"], desc: L("ทริป/อบรม · เช็คชื่อนอกพื้นที่", "Trips · off-site attendance") },
       ],
