@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
         const payload = snaps?.[0]?.payload;
         if (payload) {
           await supabase.from("district_feed_outbox").insert({
-            endpoint: `${String(cfg.hub_url).replace(/\/+$/, "")}/functions/v1/district-ingest`,
+            endpoint: `${String(cfg.hub_url).replace(/\/+$/, "")}/functions/v1/district-feed-api/hub/ingest`,
             method: "POST",
             payload: { action: "snapshot", snapshot_date: today, payload },
             status: "pending", attempts: 0, max_attempts: 10, next_attempt_at: new Date().toISOString(),

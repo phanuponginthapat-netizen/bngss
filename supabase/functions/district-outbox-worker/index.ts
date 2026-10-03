@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
         for (const [k, v] of Object.entries(item.headers)) headers[k] = String(v);
       }
       // ระบบหลักของเขต: ใส่กุญแจโรงเรียนตอนส่ง (ไม่เก็บกุญแจในคิว)
-      if (String(item.endpoint).endsWith("/functions/v1/district-ingest")) {
+      if (String(item.endpoint).endsWith("/functions/v1/district-feed-api/hub/ingest")) {
         const { data: link } = await supabase.from("app_secrets").select("value").eq("key", "district_hub_link").maybeSingle();
         const cfg = link?.value ? JSON.parse(link.value) : null;
         if (cfg?.ingest_key) headers["x-school-key"] = cfg.ingest_key;

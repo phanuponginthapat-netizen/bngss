@@ -18,7 +18,7 @@ export default function DistrictHubLinkCard() {
   const deployMode = ((window as any).__BNG_CONFIG__?.DEPLOY_MODE as string) || "cloud";
 
   const call = async (body: any) => {
-    const { data, error } = await supabase.functions.invoke("district-hub-link", { body });
+    const { data, error } = await supabase.functions.invoke("district-feed-api/hub/link", { body });
     if (error) throw error;
     return data;
   };

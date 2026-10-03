@@ -55,7 +55,7 @@ export default function DistrictHubPage() {
   useEffect(() => { load(); }, []);
 
   const call = async (body: any) => {
-    const { data, error } = await supabase.functions.invoke("district-hub-admin", { body });
+    const { data, error } = await supabase.functions.invoke("district-feed-api/hub/admin", { body });
     if (error) throw error;
     return data;
   };

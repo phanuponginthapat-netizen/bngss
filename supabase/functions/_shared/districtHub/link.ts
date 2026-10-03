@@ -2,16 +2,16 @@
 //  { action:"status" } | { action:"link", hub_url, school_code, enrollment_code, deploy_type }
 //  { action:"test" } | { action:"unlink" }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { requireCronOrAdmin } from "../_shared/requireCron.ts";
-import { corsHeadersWithCron as corsHeaders } from "../_shared/cors.ts";
-import { invalidateSecretCache } from "../_shared/getSecret.ts";
+import { requireCronOrAdmin } from "../requireCron.ts";
+import { corsHeadersWithCron as corsHeaders } from "../cors.ts";
+import { invalidateSecretCache } from "../getSecret.ts";
 
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-export const HUB_SETTING = "district_hub_link";
+const HUB_SETTING = "district_hub_link";
 
-Deno.serve(async (req) => {
+export async function handle_link(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const denied = await requireCronOrAdmin(req, corsHeaders);
   if (denied) return denied;
@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     try { return data?.value ? JSON.parse(data.value) : null; } catch { return null; }
   };
   const call = async (hubUrl: string, payload: unknown, key?: string) => {
-    const r = await fetch(`${hubUrl.replace(/\/+$/, "")}/functions/v1/district-ingest`, {
+    const r = await fetch(`${hubUrl.replace(/\/+$/, "")}/functions/v1/district-feed-api/hub/ingest`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(key ? { "x-school-key": key } : {}) },
       body: JSON.stringify(payload), signal: AbortSignal.timeout(15_000),
@@ -66,4 +66,4 @@ Deno.serve(async (req) => {
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : String(e) }, 500);
   }
-});
+}
