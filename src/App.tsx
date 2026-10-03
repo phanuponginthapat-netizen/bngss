@@ -253,6 +253,7 @@ const DataQualityPage = lazy(() => import("./pages/admin/DataQualityPage"));
 const DataArchivePage = lazy(() => import("./pages/admin/DataArchivePage"));
 
 const DistrictSyncPage = lazy(() => import("./pages/admin/DistrictSyncPage"));
+const DistrictHubPage = lazy(() => import("./pages/admin/DistrictHubPage"));
 const RoleTroubleshootPage = lazy(() => import("./pages/admin/RoleTroubleshootPage"));
 const DatabaseSchemaPage = lazy(() => import("./pages/admin/DatabaseSchemaPage"));
 const RlsAuditPage = lazy(() => import("./pages/admin/RlsAuditPage"));
@@ -618,6 +619,7 @@ const App = () => {
                 <Route path="admin/data-quality" element={<ProtectedRoute allowedRoles={["admin","director"]}><DataQualityPage /></ProtectedRoute>} />
                 <Route path="admin/data-archive" element={<ProtectedRoute allowedRoles={["admin","director"]}><DataArchivePage /></ProtectedRoute>} />
 
+                <Route path="admin/district-hub" element={<ProtectedRoute allowedRoles={["admin","director"]}><DistrictHubPage /></ProtectedRoute>} />
                 <Route path="admin/district-sync" element={<ProtectedRoute allowedRoles={["admin","director"]}><DistrictSyncPage /></ProtectedRoute>} />
                 <Route path="admin/role-troubleshoot" element={<ProtectedRoute allowedRoles={["admin","director","teacher","student"]}><RoleTroubleshootPage /></ProtectedRoute>} />
                 <Route path="admin/rls-audit" element={<ProtectedRoute allowedRoles={["admin"]}><RlsAuditPage /></ProtectedRoute>} />

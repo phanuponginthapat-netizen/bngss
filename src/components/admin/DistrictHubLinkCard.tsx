@@ -49,7 +49,7 @@ export default function DistrictHubLinkCard() {
                 <Wifi className="mr-1 h-4 w-4" />ทดสอบ
               </Button>
               <Button variant="ghost" disabled={busy} onClick={() => run(async () => {
-                const ok = await swal.confirm?.("ยกเลิกการเชื่อมระบบเขต?") ?? window.confirm("ยกเลิกการเชื่อมระบบเขต?");
+                const ok = await swal.confirm({ title: "ยกเลิกการเชื่อมระบบเขต?", danger: true });
                 if (!ok) return;
                 await call({ action: "unlink" }); load();
               })}><Unlink className="mr-1 h-4 w-4" />ยกเลิกการเชื่อม</Button>

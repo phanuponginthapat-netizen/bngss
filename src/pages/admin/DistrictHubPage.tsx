@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import Swal from "sweetalert2";
 import { swal } from "@/lib/swal";
 import { formatThaiLongTime } from "@/lib/dateBE";
 import { Download, KeyRound, Plus, RefreshCw } from "lucide-react";
@@ -71,7 +72,7 @@ export default function DistrictHubPage() {
   const issue = async (s: School) => {
     try {
       const r = await call({ action: "issue_code", school_id: s.id });
-      await swal.fire({
+      await Swal.fire({
         title: "รหัสลงทะเบียน",
         html: `<p>ให้โรงเรียน <b>${s.school_name}</b> ใส่ในหน้า "เชื่อมระบบเขต"</p>
           <p style="font-size:1.6rem;font-family:monospace;margin:12px 0">${r.enrollment_code}</p>
