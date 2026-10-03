@@ -414,7 +414,11 @@ const ScoreEntryTab = () => {
       return;
     }
     const parsed = parseFloat(trimmed);
-    if (!Number.isFinite(parsed)) return;
+    if (!Number.isFinite(parsed)) { toast.error("กรอกได้เฉพาะตัวเลข หรือ ร"); return; }
+    const col = (scoreColumns as any[]).find((c) => c.id === columnId);
+    const max = col?.max_score != null ? Number(col.max_score) : null;
+    if (parsed < 0) { toast.error("คะแนนติดลบไม่ได้"); return; }
+    if (max != null && parsed > max) { toast.error(`คะแนน ${parsed} เกินคะแนนเต็ม ${max}`); return; }
     const { error } = await supabase.from("student_column_scores").upsert({
       student_id: studentId,
       column_id: columnId,
