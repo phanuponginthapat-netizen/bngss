@@ -382,6 +382,8 @@ export function AppSidebar() {
       items: [
         { title: L("ตรวจความสมบูรณ์ข้อมูล", "Data Quality"), url: "/dashboard/admin/data-quality", icon: Activity, color: "text-amber-400", roles: ["admin", "director"], desc: L("ผู้ใช้ไม่มีบทบาท · นักเรียนไม่มีห้อง · ครูไม่มีตารางสอน", "Missing roles, classrooms & schedules") },
         { title: L("จัดเก็บ/สำรองข้อมูล (Drive)", "Data Archive"), url: "/dashboard/admin/data-archive", icon: Database, color: "text-sky-400", roles: ["admin", "director"], desc: L("เก็บย้อนหลังตามระเบียบ · สำรองขึ้น Google Drive ตามปีการศึกษา", "Retention policy & Google Drive backup") },
+        { title: L("เชื่อมระบบเขต", "District link"), url: "/dashboard/admin/district-sync", icon: Database, color: "text-emerald-400", roles: ["admin", "director"], desc: L("ส่งตัวเลขสรุปให้เขตทุกคืน", "Send nightly summary to district") },
+        { title: L("ภาพรวมเขตพื้นที่", "District overview"), url: "/dashboard/admin/district-hub", icon: Database, color: "text-emerald-400", roles: ["admin", "director"], desc: L("ระบบหลัก: ดูทุกโรงเรียนในหน้าเดียว", "Hub: all schools at a glance") },
 
         { title: L("สุขภาพระบบ (Health)", "System Health"), url: "/dashboard/admin/system-health", icon: Activity, color: "text-emerald-400", roles: ["admin", "director"], desc: L("สถานะ Realtime · Edge · Cron · Live Feed", "Realtime, edge, cron & live feed status") },
         { title: L("ตรวจสอบ RLS Policy", "RLS Audit"), url: "/dashboard/admin/rls-audit", icon: Shield, color: "text-rose-400", roles: ["admin"], desc: L("สรุปสถานะสิทธิ์ INSERT/UPDATE/DELETE ทุกตาราง", "Policy coverage per table") },
