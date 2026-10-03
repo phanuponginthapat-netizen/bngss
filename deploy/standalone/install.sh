@@ -44,11 +44,14 @@ set -a; . ./.env; set +a
 # edge functions ของระบบ
 rm -rf volumes/functions/* && cp -r "$ROOT/supabase/functions/." volumes/functions/
 # บอก edge functions ว่าติดตั้งในโรงเรียน → เก็บไฟล์บน HDD ไม่ย้ายขึ้น Google Drive
+[ -f "$STACK/cron-secret" ] || openssl rand -hex 24 > "$STACK/cron-secret"; chmod 600 "$STACK/cron-secret"
+CRON_SECRET=$(cat "$STACK/cron-secret")
 cat > docker-compose.override.yml <<YAML
 services:
   functions:
     environment:
       DEPLOY_MODE: "$MODE"
+      CRON_SECRET: "$CRON_SECRET"
 YAML
 docker compose up -d
 echo "-> รอฐานข้อมูลพร้อม"; for i in $(seq 1 60); do docker compose exec -T db pg_isready -U postgres >/dev/null 2>&1 && break; sleep 3; done
@@ -81,8 +84,8 @@ install -m 755 "$ROOT/deploy/standalone/update.sh" /usr/local/bin/school-update
 echo "$ROOT" > "$STACK/repo-path"
 # งานส่งข้อมูลให้เขต + ส่งคิวค้าง (ใช้ service key ภายในเครื่อง)
 ( crontab -l 2>/dev/null | grep -v school-district; \
-  echo "30 1 * * * curl -s -X POST -H 'Authorization: Bearer $SERVICE_ROLE_KEY' http://localhost:8000/functions/v1/district-nightly-snapshot >/dev/null # school-district"; \
-  echo "*/10 * * * * curl -s -X POST -H 'Authorization: Bearer $SERVICE_ROLE_KEY' http://localhost:8000/functions/v1/district-outbox-worker >/dev/null # school-district" ) | crontab -
+  echo "30 1 * * * curl -s -X POST -H 'x-cron-secret: $CRON_SECRET' -H 'apikey: $ANON_KEY' http://localhost:8000/functions/v1/district-nightly-snapshot >/dev/null # school-district"; \
+  echo "*/10 * * * * curl -s -X POST -H 'x-cron-secret: $CRON_SECRET' -H 'apikey: $ANON_KEY' http://localhost:8000/functions/v1/district-outbox-worker >/dev/null # school-district" ) | crontab -
 echo "MODE=$MODE" > "$STACK/backup.env"
 ( crontab -l 2>/dev/null | grep -v school-backup; echo "0 2 * * * /usr/local/bin/school-backup >> $STACK/backup.log 2>&1" ) | crontab -
 
