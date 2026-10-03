@@ -6,7 +6,7 @@
 #endif
 
 [Setup]
-AppId={{B6F7C1E2-6D3A-4E8B-9C1A-5BNGSS0001}
+AppId={{B6F7C1E2-6D3A-4E8B-9C1A-5B0C55000001}
 AppName={#AppName}
 AppVersion={#AppVersion}
 DefaultDirName={autopf}\SchoolSystem
