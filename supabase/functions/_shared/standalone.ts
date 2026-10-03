@@ -18,3 +18,16 @@ export const NO_LOVABLE_AI_MSG =
 
 export const NO_LOVABLE_DRIVE_MSG =
   "ระบบทำงานแบบ Standalone (ไม่ใช้ Lovable Connector) — กรุณาตั้งค่า Google OAuth ของคุณเอง: GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET (และ GOOGLE_DRIVE_REFRESH_TOKEN หรือ GOOGLE_SERVICE_ACCOUNT_JSON สำหรับงานระบบ)";
+
+/**
+ * โหมดติดตั้งในโรงเรียน (Standalone/Hybrid) — Storage อยู่บน HDD ของเครื่องแม่ข่ายอยู่แล้ว
+ * จึงไม่ต้องย้ายไฟล์ขึ้น Google Drive และไม่ต้องบังคับโควต้า free tier
+ * ตั้งโดยตัวติดตั้ง: DEPLOY_MODE=standalone|hybrid ใน env ของ edge functions
+ */
+export function isLocalHddMode(): boolean {
+  const m = (Deno.env.get("DEPLOY_MODE") || "").toLowerCase();
+  return m === "standalone" || m === "hybrid";
+}
+
+export const LOCAL_HDD_MSG =
+  "ระบบติดตั้งในโรงเรียน: ไฟล์ทั้งหมดเก็บบน HDD ของเครื่องแม่ข่ายและสำรองทุกคืน ไม่ต้องย้ายขึ้น Google Drive";
