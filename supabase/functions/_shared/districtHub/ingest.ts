@@ -73,7 +73,9 @@ export async function handle_ingest(req: Request): Promise<Response> {
 
     if (action === "snapshot") {
       // จำกัดอัตรา: ไม่เกิน 1 ครั้ง / 20 วินาที
-      if (school.last_seen_at && Date.now() - new Date(school.last_seen_at).getTime() < 20_000)
+      const { data: recent } = await db.from("district_hub_snapshots").select("received_at")
+        .eq("school_id", school.id).order("received_at", { ascending: false }).limit(1);
+      if (recent?.[0] && Date.now() - new Date(recent[0].received_at).getTime() < 20_000)
         return json({ error: "ส่งถี่เกินไป" }, 429);
       const date = String(body.snapshot_date || "").slice(0, 10);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: "snapshot_date ไม่ถูกต้อง" }, 400);
