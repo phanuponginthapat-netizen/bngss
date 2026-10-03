@@ -7,6 +7,9 @@ export function saveErrorMessage(err: any, fallback = "บันทึกไม�
     typeof err === "string" ? err : err?.message || err?.error_description || err?.error || ""
   );
   if (!m) return fallback;
+  // ข้อความภาษาไทยจากตัวตรวจในฐานข้อมูล (เช่น เกินคะแนนเต็ม / ล็อกเกรดแล้ว) — แสดงตรงๆ
+  if (/[\u0E00-\u0E7F]/.test(m) && m.length < 200) return m;
+
 
   // สิทธิ์ / RLS
   if (/row-level security|violates row-level|permission denied|not authorized|insufficient_privilege/i.test(m))
