@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # สำรองฐานข้อมูล + ไฟล์ทุกคืน เก็บ 14 ชุดล่าสุด; แบบผสมจะส่งขึ้น Cloud ด้วย (ถ้ามีเน็ต)
 set -euo pipefail
-STACK=/opt/school-stack; . "$STACK/backup.env" 2>/dev/null || true
+. /etc/school-stack.env 2>/dev/null || true; STACK="${STACK:-/opt/school-stack}"; . "$STACK/backup.env" 2>/dev/null || true
 DEST="${BACKUP_DIR:-$STACK/backups}"; mkdir -p "$DEST"
 TS=$(date +%Y%m%d-%H%M)
 cd "$STACK/supabase"

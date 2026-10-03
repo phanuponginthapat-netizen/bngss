@@ -10,6 +10,7 @@ import { swal } from "@/lib/swal";
 const showError = (m: string) => swal.error("ผิดพลาด", m);
 const showSuccess = (m: string) => swal.success(m);
 const formatThaiDateTime = formatThaiLongTime;
+import DistrictHubLinkCard from "@/components/admin/DistrictHubLinkCard";
 import { RefreshCw, Play, Eye, RotateCw } from "lucide-react";
 
 type Run = {
@@ -74,6 +75,7 @@ export default function DistrictSyncPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-4">
+      <DistrictHubLinkCard />
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold">District Sync Dashboard</h1>

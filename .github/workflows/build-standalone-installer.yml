@@ -1,0 +1,37 @@
+name: Build Standalone Installer (setup.exe)
+on:
+  workflow_dispatch:
+  push:
+    tags: ["standalone-v*"]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stage source (ไม่รวม android/ios/node_modules)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force stage | Out-Null
+          robocopy . stage /E /XD .git node_modules android ios dist stage vendor\capacitor-apk-updater\android /XF *.apk *.zip
+          if ($LASTEXITCODE -ge 8) { exit 1 } else { exit 0 }
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+      - name: Build setup.exe
+        shell: pwsh
+        run: |
+          $v = if ("${{ github.ref_name }}" -like "standalone-v*") { "${{ github.ref_name }}".Replace("standalone-v","") } else { "1.0.${{ github.run_number }}" }
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" "/Odist-installer" deploy\standalone\windows\SchoolSystem.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: school-system-setup
+          path: deploy/standalone/windows/dist-installer/school-system-setup.exe
+      - name: Upload to app-downloads (ถ้าตั้ง secret ไว้)
+        if: ${{ env.SUPABASE_SERVICE_ROLE_KEY != '' }}
+        shell: pwsh
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          curl.exe -sf -X POST "$env:SUPABASE_URL/storage/v1/object/app-downloads/school-system-setup.exe" `
+            -H "Authorization: Bearer $env:SUPABASE_SERVICE_ROLE_KEY" -H "x-upsert: true" `
+            -H "Content-Type: application/octet-stream" --data-binary "@deploy/standalone/windows/dist-installer/school-system-setup.exe"

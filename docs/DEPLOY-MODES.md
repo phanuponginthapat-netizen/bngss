@@ -20,7 +20,13 @@
 sudo bash deploy/standalone/install.sh            # ในโรงเรียนอย่างเดียว
 sudo bash deploy/standalone/install.sh --hybrid   # แบบผสม
 ```
-**Windows 10/11:** คลิกขวา `deploy/standalone/install-windows.ps1` → Run with PowerShell (Administrator)
+**Windows 10/11 (แนะนำ):** ดาวน์โหลด `school-system-setup.exe` → กด Next → เลือกรูปแบบ และโฟลเดอร์บน HDD ที่เก็บข้อมูล (เช่น `D:\SchoolData`)
+- Start Menu "ระบบโรงเรียน" มี: เปิดระบบ / สำรองข้อมูล / กู้คืน / อัปเดต / ตั้งผู้ดูแลระบบ / ถอนการติดตั้ง
+- ไฟล์ .exe สร้างจาก GitHub Actions → workflow "Build Standalone Installer (setup.exe)"
+- ยังไม่มีลายเซ็นดิจิทัล Windows อาจเตือน ให้กด "More info → Run anyway"
+- สำรอง: ตั้งตัวแปร (ไม่ใช้ .exe) คลิกขวา `deploy/standalone/install-windows.ps1` → Run with PowerShell
+
+**เก็บบน HDD ทั้งระบบ:** ฐานข้อมูล ไฟล์ทุกชนิด และไฟล์สำรอง อยู่ในโฟลเดอร์ที่เลือก ระบบจะไม่ย้ายไฟล์ขึ้น Google Drive และไม่บังคับโควต้า free tier
 
 หลังติดตั้ง:
 1. เปิด `http://<IP เครื่องแม่ข่าย>` สมัครบัญชีแรก
@@ -29,7 +35,20 @@ sudo bash deploy/standalone/install.sh --hybrid   # แบบผสม
 4. FaceGate agent / แท็บเล็ตสแกน: ใช้ URL `http://<IP>:8000/functions/v1/kiosk-api`
 
 ### ย้ายข้อมูลจาก Cloud มาเครื่องในโรงเรียน
-หน้า Backup Center → "สำรองทั้งระบบ" ได้ไฟล์ ZIP → เปิด `http://<IP>/setup` → กู้คืนจาก ZIP
+```bash
+sudo CLOUD_DB_URL=postgresql://... CLOUD_URL=https://xxx.supabase.co CLOUD_SERVICE_KEY=... \
+     bash deploy/standalone/migrate-from-cloud.sh
+```
+ย้ายบัญชีผู้ใช้ ข้อมูลทั้งหมด และไฟล์ใน Storage (ไฟล์ที่เคยย้ายไป Google Drive ให้ดึงกลับก่อนย้าย)
+
+### สำรอง / กู้คืน / อัปเดต (Linux)
+`sudo school-backup` · `sudo school-restore [ไฟล์]` · `sudo school-update`
+
+## เชื่อมกับระบบหลักของเขต (ใช้ได้ทั้ง Cloud และ Standalone)
+1. ผู้ดูแลระบบหลักเปิด **ภาพรวมเขตพื้นที่** → เพิ่มโรงเรียน → กด "ออกรหัส" (ใช้ครั้งเดียว 7 วัน)
+2. โรงเรียนเปิด **เชื่อมระบบเขต** → ใส่ URL ระบบหลัก + รหัสโรงเรียน + รหัสลงทะเบียน
+3. ทุกคืน 01:30 โรงเรียนส่งตัวเลขสรุป (ไม่มีข้อมูลรายคน) ถ้าเน็ตหลุดจะเก็บในคิวและส่งเองทุก 10 นาที
+4. ระบบหลักแสดงทุกโรงเรียนในหน้าเดียว โรงเรียนที่ไม่ส่งเกิน 2 วันจะขึ้นสีแดง ดาวน์โหลด Excel ได้
 
 ### แบบผสม
 ใส่ `CLOUD_DB_URL=postgresql://...` ใน `/opt/school-stack/backup.env` ระบบจะส่งข้อมูลขึ้น Cloud ทุกคืนเมื่อมีเน็ต

@@ -7,8 +7,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-STACK=/opt/school-stack
+# เก็บข้อมูลทั้งหมด (ฐานข้อมูล + ไฟล์ + สำรอง) ไว้ที่ DATA_DIR บน HDD
+STACK="${DATA_DIR:-/opt/school-stack}"
 MODE="standalone"; [ "${1:-}" = "--hybrid" ] && MODE="hybrid"
+echo "STACK=$STACK" > /etc/school-stack.env
 LAN_IP="${LAN_IP:-$(hostname -I 2>/dev/null | awk '{print $1}')}"
 [ -n "$LAN_IP" ] || LAN_IP=127.0.0.1
 echo "== ติดตั้งแบบ $MODE ที่ IP $LAN_IP =="
@@ -41,6 +43,16 @@ fi
 set -a; . ./.env; set +a
 # edge functions ของระบบ
 rm -rf volumes/functions/* && cp -r "$ROOT/supabase/functions/." volumes/functions/
+# บอก edge functions ว่าติดตั้งในโรงเรียน → เก็บไฟล์บน HDD ไม่ย้ายขึ้น Google Drive
+[ -f "$STACK/cron-secret" ] || openssl rand -hex 24 > "$STACK/cron-secret"; chmod 600 "$STACK/cron-secret"
+CRON_SECRET=$(cat "$STACK/cron-secret")
+cat > docker-compose.override.yml <<YAML
+services:
+  functions:
+    environment:
+      DEPLOY_MODE: "$MODE"
+      CRON_SECRET: "$CRON_SECRET"
+YAML
 docker compose up -d
 echo "-> รอฐานข้อมูลพร้อม"; for i in $(seq 1 60); do docker compose exec -T db pg_isready -U postgres >/dev/null 2>&1 && break; sleep 3; done
 
@@ -67,6 +79,13 @@ docker run -d --name school-web --restart unless-stopped -p 80:80 \
 
 # 5) สำรองข้อมูลอัตโนมัติทุกคืน 02:00 (+ ส่งขึ้น Cloud ถ้าแบบผสม)
 install -m 755 "$ROOT/deploy/standalone/backup.sh" /usr/local/bin/school-backup
+install -m 755 "$ROOT/deploy/standalone/restore.sh" /usr/local/bin/school-restore
+install -m 755 "$ROOT/deploy/standalone/update.sh" /usr/local/bin/school-update
+echo "$ROOT" > "$STACK/repo-path"
+# งานส่งข้อมูลให้เขต + ส่งคิวค้าง (ใช้ service key ภายในเครื่อง)
+( crontab -l 2>/dev/null | grep -v school-district; \
+  echo "30 1 * * * curl -s -X POST -H 'x-cron-secret: $CRON_SECRET' -H 'apikey: $ANON_KEY' http://localhost:8000/functions/v1/district-nightly-snapshot >/dev/null # school-district"; \
+  echo "*/10 * * * * curl -s -X POST -H 'x-cron-secret: $CRON_SECRET' -H 'apikey: $ANON_KEY' http://localhost:8000/functions/v1/district-outbox-worker >/dev/null # school-district" ) | crontab -
 echo "MODE=$MODE" > "$STACK/backup.env"
 ( crontab -l 2>/dev/null | grep -v school-backup; echo "0 2 * * * /usr/local/bin/school-backup >> $STACK/backup.log 2>&1" ) | crontab -
 

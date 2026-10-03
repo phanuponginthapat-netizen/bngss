@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders, preflight } from "../_shared/cors.ts";
+import { isLocalHddMode, LOCAL_HDD_MSG } from "../_shared/standalone.ts";
 import { downloadFile, ensureFolderPath, uploadFile, deleteFile as deleteDriveFile } from "../_shared/googleDrive.ts";
 
 const json = (body: unknown, status = 200) =>
@@ -31,6 +32,11 @@ Deno.serve(async (req) => {
       const body = await req.json().catch(() => ({}));
       action = body.action || "usage";
       params = body;
+    }
+
+    // โหมดติดตั้งในโรงเรียน: ไม่ย้ายไฟล์ขึ้น Drive / ไม่บังคับโควต้า
+    if (isLocalHddMode() && ["offload", "enforce", "dedupe"].includes(action)) {
+      return json({ ok: true, skipped: true, local_hdd: true, message: LOCAL_HDD_MSG });
     }
 
     // -------------------------------------------------------------

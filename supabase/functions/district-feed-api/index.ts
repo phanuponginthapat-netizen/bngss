@@ -26,6 +26,9 @@ import {
 } from "../_shared/aggregates.ts";
 
 import { buildCorsHeaders } from "../_shared/cors.ts";
+import { handle_ingest } from "../_shared/districtHub/ingest.ts";
+import { handle_link } from "../_shared/districtHub/link.ts";
+import { handle_admin } from "../_shared/districtHub/admin.ts";
 const corsHeaders = buildCorsHeaders(['x-api-key'], "GET, OPTIONS");
 
 const json = (body: unknown, status = 200, cacheSeconds = 0) =>
@@ -142,6 +145,11 @@ const OPENAPI_SPEC = {
 };
 
 Deno.serve(async (req) => {
+  // ระบบหลักของเขต: /hub/ingest (โรงเรียนส่งข้อมูล), /hub/link (ฝั่งโรงเรียน), /hub/admin (ผู้ดูแลกลาง)
+  const hubPath = new URL(req.url).pathname.replace(/^.*\/district-feed-api/, "");
+  if (hubPath === "/hub/ingest") return handle_ingest(req);
+  if (hubPath === "/hub/link") return handle_link(req);
+  if (hubPath === "/hub/admin") return handle_admin(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "GET") return json({ error: "method_not_allowed" }, 405);
 

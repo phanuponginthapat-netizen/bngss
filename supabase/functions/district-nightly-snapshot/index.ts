@@ -163,8 +163,23 @@ Deno.serve(async (req) => {
       }).eq("id", runId);
     }
 
-    // Enqueue outbox delivery to district hub for each successful snapshot
+    // ส่งข้อมูลสรุปขึ้นระบบหลักของเขต (ถ้าเชื่อมไว้) — เข้าคิว ส่งซ้ำเองเมื่อเน็ตหลุด
     try {
+      const { data: link } = await supabase.from("app_secrets").select("value").eq("key", "district_hub_link").maybeSingle();
+      const cfg = link?.value ? JSON.parse(link.value) : null;
+      if (cfg?.hub_url && cfg?.ingest_key) {
+        const { data: snaps } = await supabase.from("district_snapshots")
+          .select("payload").eq("snapshot_date", today).eq("snapshot_type", "nightly").limit(1);
+        const payload = snaps?.[0]?.payload;
+        if (payload) {
+          await supabase.from("district_feed_outbox").insert({
+            endpoint: `${String(cfg.hub_url).replace(/\/+$/, "")}/functions/v1/district-feed-api/hub/ingest`,
+            method: "POST",
+            payload: { action: "snapshot", snapshot_date: today, payload },
+            status: "pending", attempts: 0, max_attempts: 10, next_attempt_at: new Date().toISOString(),
+          });
+        }
+      }
       const hubUrl = Deno.env.get("DISTRICT_HUB_URL");
       if (hubUrl) {
         for (const r of results.filter((x) => x.ok)) {
