@@ -46,9 +46,17 @@ rm -rf volumes/functions/* && cp -r "$ROOT/supabase/functions/." volumes/functio
 # บอก edge functions ว่าติดตั้งในโรงเรียน → เก็บไฟล์บน HDD ไม่ย้ายขึ้น Google Drive
 [ -f "$STACK/cron-secret" ] || openssl rand -hex 24 > "$STACK/cron-secret"; chmod 600 "$STACK/cron-secret"
 CRON_SECRET=$(cat "$STACK/cron-secret")
+# กุญแจบริการภายนอก (จากหน้า setup.exe หรือ KEYS_FILE) — ใช้ตอนต่อเน็ตเท่านั้น
+touch "$STACK/keys.env"; chmod 600 "$STACK/keys.env"
+if [ -n "${KEYS_FILE:-}" ] && [ -f "$KEYS_FILE" ] && [ "$KEYS_FILE" != "$STACK/keys.env" ]; then
+  tr -d '\r' < "$KEYS_FILE" | grep -E '^[A-Z0-9_]+=.+' >> "$STACK/keys.env" || true
+  sort -t= -k1,1 -u -r "$STACK/keys.env" -o "$STACK/keys.env"; rm -f "$KEYS_FILE"
+fi
 cat > docker-compose.override.yml <<YAML
 services:
   functions:
+    env_file:
+      - $STACK/keys.env
     environment:
       DEPLOY_MODE: "$MODE"
       CRON_SECRET: "$CRON_SECRET"
@@ -59,10 +67,24 @@ echo "-> รอฐานข้อมูลพร้อม"; for i in $(seq 1 60)
 # 3) ตาราง/สิทธิ์/ฟังก์ชันทั้งหมด
 cd "$ROOT"; bash scripts/build-migration-bundle.sh
 docker compose -f "$STACK/supabase/docker-compose.yml" exec -T db psql -U postgres -d postgres -v ON_ERROR_STOP=0 < dist/bundle/schema-bundle.sql >"$STACK/schema-install.log" 2>&1 || true
+# ค่าภายในที่งานตั้งเวลา (cron) ในฐานข้อมูลใช้เรียก functions ของเครื่องนี้เอง
+docker compose -f "$STACK/supabase/docker-compose.yml" exec -T db psql -q -U postgres -d postgres >/dev/null 2>&1 <<SQL || true
+INSERT INTO public.app_secrets(key,value,category) VALUES
+ ('SUPABASE_URL','http://kong:8000','system'),
+ ('SUPABASE_SERVICE_ROLE_KEY','$SERVICE_ROLE_KEY','system'),
+ ('CRON_SECRET','$CRON_SECRET','system')
+ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now();
+SQL
 
-# 4) หน้าเว็บ (ชี้ไปเครื่องนี้ผ่าน app-config.js ไม่ต้องแก้โค้ด)
-npm ci --no-audit --no-fund && npm run build
-mkdir -p "$STACK/web" && rm -rf "$STACK/web/"* && cp -r dist/. "$STACK/web/"
+# 4) หน้าเว็บ — build ใน container Node 20 (ไม่ขึ้นกับ Node ของเครื่อง)
+#    VITE_STANDALONE=1 + ไม่ส่งค่า Cloud เข้าไป → หน้าเว็บชุดนี้ไม่มีทางต่อไประบบหลัก
+mkdir -p "$STACK/web-build"
+docker run --rm -v "$ROOT:/src:ro" -v "$STACK/web-build:/out" -w /work node:20-bookworm-slim bash -c '
+  set -e; cp -a /src/. /work/; rm -rf /work/node_modules /work/dist /work/.env
+  export VITE_STANDALONE=1 VITE_SUPABASE_URL= VITE_SUPABASE_PUBLISHABLE_KEY= VITE_SUPABASE_PROJECT_ID=
+  npm ci --no-audit --no-fund >/dev/null && npm run build >/dev/null
+  rm -rf /out/* && cp -r dist/. /out/'
+mkdir -p "$STACK/web" && rm -rf "$STACK/web/"* && cp -r "$STACK/web-build/." "$STACK/web/"
 cat > "$STACK/web/app-config.js" <<EOF
 window.__BNG_CONFIG__ = {
   SUPABASE_URL: "http://$LAN_IP:8000",
@@ -81,6 +103,14 @@ docker run -d --name school-web --restart unless-stopped -p 80:80 \
 install -m 755 "$ROOT/deploy/standalone/backup.sh" /usr/local/bin/school-backup
 install -m 755 "$ROOT/deploy/standalone/restore.sh" /usr/local/bin/school-restore
 install -m 755 "$ROOT/deploy/standalone/update.sh" /usr/local/bin/school-update
+install -m 755 "$ROOT/deploy/standalone/set-keys.sh" /usr/local/bin/school-set-keys
+/usr/local/bin/school-set-keys </dev/null || true
+# ผู้ดูแลคนแรก (จาก setup.exe)
+if [ -n "${ADMIN_EMAIL:-}" ] && [ -n "${ADMIN_PASSWORD:-}" ]; then
+  curl -s -X POST "http://localhost:8000/auth/v1/admin/users" -H "apikey: $SERVICE_ROLE_KEY" -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
+    -H "Content-Type: application/json" -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\",\"email_confirm\":true}" >/dev/null || true
+  bash "$ROOT/deploy/standalone/make-admin.sh" "$ADMIN_EMAIL" || true
+fi
 echo "$ROOT" > "$STACK/repo-path"
 # งานส่งข้อมูลให้เขต + ส่งคิวค้าง (ใช้ service key ภายในเครื่อง)
 ( crontab -l 2>/dev/null | grep -v school-district; \
