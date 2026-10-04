@@ -94,15 +94,32 @@ function readEnv(): Partial<BackendConfig> {
   }
 }
 
+/**
+ * ชุดติดตั้งในโรงเรียน (standalone/hybrid): ห้ามแตะ backend ของระบบหลักเด็ดขาด
+ * ใช้เฉพาะค่าจาก /app-config.js ที่ตัวติดตั้งเขียนให้ (ชี้ไปเครื่องแม่ข่ายบน HDD)
+ */
+export function isLocalInstall(): boolean {
+  const env: any = (import.meta as any)?.env ?? {};
+  if (env.VITE_STANDALONE === "1") return true;
+  const g = typeof window !== "undefined" ? (window as any).__BNG_CONFIG__ : undefined;
+  const m = String(g?.DEPLOY_MODE || "").toLowerCase();
+  return m === "standalone" || m === "hybrid";
+}
+
 export function getBackendConfig(): BackendConfig {
-  const local = readLocal();
+  const localInstall = isLocalInstall();
+  const local = localInstall ? {} : readLocal();
   const global = readGlobal();
-  const env = readEnv();
+  const env = localInstall ? {} : readEnv();
   const pick = (k: keyof BackendConfig) =>
     (local as any)[k] || (global as any)[k] || (env as any)[k] || "";
   let url = String(pick("url") || "").replace(/\/+$/, "");
   let anonKey = String(pick("anonKey") || "");
   let projectId = String(pick("projectId") || "");
+
+  if (localInstall) {
+    return { url, anonKey, projectId, storageProvider: "supabase" };
+  }
 
   // Fallback สุดท้าย: backend เริ่มต้น (โรงเรียนต้นทาง) — กันกรณียังไม่ได้ตั้งค่า
   if (!url || !anonKey || isBlockedBackendUrl(url)) {
