@@ -41,6 +41,7 @@ if [ ! -f .env ]; then
   chmod 600 .env
 fi
 set -a; . ./.env; set +a
+export SCHOOL_NAME="${SCHOOL_NAME:-}" SCHOOL_NAME_EN="${SCHOOL_NAME_EN:-}" SCHOOL_ADDRESS="${SCHOOL_ADDRESS:-}" SCHOOL_PHONE="${SCHOOL_PHONE:-}"
 # edge functions ของระบบ
 rm -rf volumes/functions/* && cp -r "$ROOT/supabase/functions/." volumes/functions/
 # บอก edge functions ว่าติดตั้งในโรงเรียน → เก็บไฟล์บน HDD ไม่ย้ายขึ้น Google Drive
@@ -69,6 +70,24 @@ cd "$ROOT"; bash scripts/build-migration-bundle.sh
 docker compose -f "$STACK/supabase/docker-compose.yml" exec -T db psql -U postgres -d postgres -v ON_ERROR_STOP=0 < dist/bundle/schema-bundle.sql >"$STACK/schema-install.log" 2>&1 || true
 # หน้าตา/สีเริ่มต้นเหมือนระบบหลัก (ไม่ทับค่าที่ตั้งเองแล้ว)
 docker compose -f "$STACK/supabase/docker-compose.yml" exec -T db psql -q -U postgres -d postgres < "$ROOT/deploy/standalone/seed/cms-defaults.sql" >/dev/null 2>&1 || true
+# ข้อมูลโรงเรียน + โลโก้จากหน้าติดตั้ง (ทับเฉพาะค่าที่กรอกมา)
+mkdir -p "$STACK/branding"
+if [ -n "${LOGO_FILE:-}" ] && [ -f "$LOGO_FILE" ]; then cp "$LOGO_FILE" "$STACK/branding/logo.${LOGO_FILE##*.}"; fi
+export LOGO_URL=""; for f in "$STACK"/branding/logo.*; do [ -f "$f" ] && export LOGO_URL="/branding/$(basename "$f")"; done
+python3 - <<'PY' | docker compose -f "$STACK/supabase/docker-compose.yml" exec -T db psql -q -U postgres -d postgres >/dev/null 2>&1 || true
+import os
+q=lambda s:"'"+s.replace("'","''")+"'"
+n=os.environ.get("SCHOOL_NAME","").strip(); en=os.environ.get("SCHOOL_NAME_EN","").strip()
+addr=os.environ.get("SCHOOL_ADDRESS","").strip(); ph=os.environ.get("SCHOOL_PHONE","").strip(); logo=os.environ.get("LOGO_URL","")
+kv={}
+if n: kv.update(school_name=n, app_name=n, app_short_name=n[:12], id_card_school_name=n, hero_title=n)
+if en: kv.update(id_card_school_name_en=en)
+if addr: kv.update(school_address=addr, id_card_school_address=addr)
+if ph: kv.update(school_phone=ph, id_card_school_phone=ph)
+if logo: kv.update(school_logo=logo, app_favicon_url=logo, id_card_logo_url=logo, school_seal=logo)
+for k,v in kv.items():
+    print(f"INSERT INTO public.cms_settings(key,value) VALUES ({q(k)},{q(v)}) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value;")
+PY
 # ค่าภายในที่งานตั้งเวลา (cron) ในฐานข้อมูลใช้เรียก functions ของเครื่องนี้เอง
 docker compose -f "$STACK/supabase/docker-compose.yml" exec -T db psql -q -U postgres -d postgres >/dev/null 2>&1 <<SQL || true
 INSERT INTO public.app_secrets(key,value,category) VALUES
@@ -96,6 +115,7 @@ window.__BNG_CONFIG__ = {
   DEPLOY_MODE: "$MODE"
 };
 EOF
+mkdir -p "$STACK/web/branding" && cp -r "$STACK/branding/." "$STACK/web/branding/" 2>/dev/null || true
 # โปรแกรมสแกนใบหน้า + แอปแท็บเล็ต: ปรับให้ชี้มาเครื่องแม่ข่ายนี้ แล้ววางให้ดาวน์โหลดจากหน้าตั้งค่าคีออส
 mkdir -p "$STACK/web/downloads"
 python3 - "$ROOT/public/downloads/facegate-agent-installer.zip" "$STACK/web/downloads/facegate-agent-installer.zip" "http://$LAN_IP:8000" <<'PY' || echo "!! สร้างไฟล์โปรแกรมสแกนไม่สำเร็จ"
