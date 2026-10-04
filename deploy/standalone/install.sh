@@ -140,7 +140,8 @@ curl -sfL --max-time 600 -o "$STACK/web/downloads/bngss-scanner-latest.apk" \
   "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-scanner-latest.apk" \
   || { rm -f "$STACK/web/downloads/bngss-scanner-latest.apk"; echo "!! ยังดาวน์โหลดแอปแท็บเล็ตไม่ได้ (ไม่มีเน็ต/ยังไม่ได้สร้าง) — รัน school-update ภายหลัง"; }
 # เว็บเซิร์ฟเวอร์ Caddy: หน้าเว็บ + ส่งต่อ API ไปฐานข้อมูลในที่อยู่เดียวกัน + HTTPS อัตโนมัติเมื่อมีโดเมน
-SITES=":80"; [ -n "$DOMAIN" ] && SITES="$DOMAIN"
+TUNNEL_TOKEN="${TUNNEL_TOKEN:-$(cat "$STACK/tunnel-token" 2>/dev/null || true)}"; TUNNEL_TOKEN="$(echo "$TUNNEL_TOKEN" | sed 's/.*--token[ =]*//;s/[[:space:]]//g')"
+SITES=":80"; [ -n "$DOMAIN" ] && [ -z "$TUNNEL_TOKEN" ] && SITES="$DOMAIN"
 cat > "$STACK/Caddyfile" <<CADDY
 (app) {
 	encode gzip
@@ -163,12 +164,22 @@ $SITES {
 	import app
 }
 CADDY
-[ -n "$DOMAIN" ] && printf ':80 {\n\timport app\n}\n' >> "$STACK/Caddyfile"
+[ "$SITES" != ":80" ] && printf ':80 {\n\timport app\n}\n' >> "$STACK/Caddyfile"
 mkdir -p "$STACK/caddy-data"
 docker rm -f school-web >/dev/null 2>&1 || true
 docker run -d --name school-web --restart unless-stopped -p 80:80 -p 443:443 \
   --add-host host.docker.internal:host-gateway \
   -v "$STACK/web:/srv:ro" -v "$STACK/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$STACK/caddy-data:/data" caddy:2-alpine
+
+# Cloudflare Tunnel: เข้าจากนอกโรงเรียนได้โดยไม่ต้องเปิดพอร์ต/ไม่ต้องมี IP สาธารณะ
+# (ใน Cloudflare ตั้ง Public Hostname ของ tunnel ให้ชี้ไปที่ http://localhost:80)
+docker rm -f school-tunnel >/dev/null 2>&1 || true
+if [ -n "$TUNNEL_TOKEN" ]; then
+  umask 077; echo "$TUNNEL_TOKEN" > "$STACK/tunnel-token"; umask 022
+  docker run -d --name school-tunnel --restart unless-stopped --network host \
+    cloudflare/cloudflared:latest tunnel --no-autoupdate run --token "$TUNNEL_TOKEN" \
+    && echo "เปิด Cloudflare Tunnel แล้ว" || echo "!! เปิด Cloudflare Tunnel ไม่สำเร็จ ตรวจรหัส Tunnel"
+fi
 
 # 5) สำรองข้อมูลอัตโนมัติทุกคืน 02:00 (+ ส่งขึ้น Cloud ถ้าแบบผสม)
 install -m 755 "$ROOT/deploy/standalone/backup.sh" /usr/local/bin/school-backup
