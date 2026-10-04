@@ -9,7 +9,7 @@ param(
   [string]$KeysFile = "",      # ไฟล์ KEY=VALUE จากหน้า setup.exe (ลบทิ้งหลังนำเข้า)
   [string]$SchoolName = "", [string]$SchoolNameEn = "", [string]$SchoolAddress = "", [string]$SchoolPhone = "",
   [string]$LogoFile = "",
-  [string]$StaticIp = "", [string]$Prefix = "24", [string]$Gateway = "", [string]$Dns = "8.8.8.8"
+  [string]$Domain = "", [string]$StaticIp = "", [string]$Prefix = "24", [string]$Gateway = "", [string]$Dns = "8.8.8.8"
 )
 $ErrorActionPreference = "Stop"
 $log = "$env:ProgramData\SchoolSystem\install.log"
@@ -17,7 +17,7 @@ New-Item -ItemType Directory -Force -Path (Split-Path $log) | Out-Null
 Start-Transcript -Path $log -Append | Out-Null
 
 function Resume-AfterReboot([string]$why) {
-  $args = "-ExecutionPolicy Bypass -File `"$PSCommandPath`" -Mode $Mode -DataDir `"$DataDir`" -AdminEmail `"$AdminEmail`" -AdminPassword `"$AdminPassword`" -KeysFile `"$KeysFile`" -SchoolName `"$SchoolName`" -SchoolNameEn `"$SchoolNameEn`" -SchoolAddress `"$SchoolAddress`" -SchoolPhone `"$SchoolPhone`" -LogoFile `"$LogoFile`" -StaticIp `"$StaticIp`" -Prefix `"$Prefix`" -Gateway `"$Gateway`" -Dns `"$Dns`""
+  $args = "-ExecutionPolicy Bypass -File `"$PSCommandPath`" -Mode $Mode -DataDir `"$DataDir`" -AdminEmail `"$AdminEmail`" -AdminPassword `"$AdminPassword`" -KeysFile `"$KeysFile`" -SchoolName `"$SchoolName`" -SchoolNameEn `"$SchoolNameEn`" -SchoolAddress `"$SchoolAddress`" -SchoolPhone `"$SchoolPhone`" -LogoFile `"$LogoFile`" -Domain `"$Domain`" -StaticIp `"$StaticIp`" -Prefix `"$Prefix`" -Gateway `"$Gateway`" -Dns `"$Dns`""
   New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce" -Name "SchoolSystemSetup" -Value "powershell.exe $args" -Force | Out-Null
   Write-Host "$why`nกรุณารีสตาร์ทเครื่อง — การติดตั้งจะทำต่อเองหลังล็อกอิน"
   Stop-Transcript | Out-Null; exit 3010
@@ -80,11 +80,11 @@ $wslRepo = & $toWsl $repo
 $wslKeys = if ($KeysFile -and (Test-Path $KeysFile)) { & $toWsl $KeysFile } else { "" }
 $env:SCHOOL_ADMIN_PASSWORD = $AdminPassword
 $env:WSLENV = "SCHOOL_ADMIN_PASSWORD/u:SCHOOL_NAME/u:SCHOOL_NAME_EN/u:SCHOOL_ADDRESS/u:SCHOOL_PHONE/u"
-wsl -d Ubuntu -u root -- bash -c "ADMIN_PASSWORD=`"`$SCHOOL_ADMIN_PASSWORD`" ADMIN_EMAIL='$AdminEmail' KEYS_FILE='$wslKeys' LOGO_FILE='$wslLogo' LAN_IP=$ip DATA_DIR='$wslData/stack' bash '$wslRepo/deploy/standalone/install.sh' $flag"
+wsl -d Ubuntu -u root -- bash -c "ADMIN_PASSWORD=`"`$SCHOOL_ADMIN_PASSWORD`" ADMIN_EMAIL='$AdminEmail' DOMAIN='$Domain' KEYS_FILE='$wslKeys' LOGO_FILE='$wslLogo' LAN_IP=$ip DATA_DIR='$wslData/stack' bash '$wslRepo/deploy/standalone/install.sh' $flag"
 Remove-Item Env:SCHOOL_ADMIN_PASSWORD -ErrorAction SilentlyContinue
 if ($KeysFile -and (Test-Path $KeysFile)) { Remove-Item $KeysFile -Force }
 
-New-NetFirewallRule -DisplayName "School System" -Direction Inbound -Protocol TCP -LocalPort 80,8000,8899 -Action Allow -ErrorAction SilentlyContinue | Out-Null
+New-NetFirewallRule -DisplayName "School System" -Direction Inbound -Protocol TCP -LocalPort 80,443,8000,8899 -Action Allow -ErrorAction SilentlyContinue | Out-Null
 Set-Content -Path "$DataDir\server-ip.txt" -Value $ip
 Copy-Item "$DataDir\server-ip.txt" "$env:ProgramData\SchoolSystem\server-ip.txt" -Force
 Write-Host "เสร็จแล้ว เปิด http://$ip จากเครื่องใดก็ได้ในโรงเรียน"

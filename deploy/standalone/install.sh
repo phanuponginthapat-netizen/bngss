@@ -40,6 +40,11 @@ if [ ! -f .env ]; then
   sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$PG|;s|^JWT_SECRET=.*|JWT_SECRET=$JWT|;s|^ANON_KEY=.*|ANON_KEY=$ANON|;s|^SERVICE_ROLE_KEY=.*|SERVICE_ROLE_KEY=$SRV|;s|^DASHBOARD_PASSWORD=.*|DASHBOARD_PASSWORD=$DASH|;s|^SITE_URL=.*|SITE_URL=http://$LAN_IP|;s|^API_EXTERNAL_URL=.*|API_EXTERNAL_URL=http://$LAN_IP:8000|;s|^SUPABASE_PUBLIC_URL=.*|SUPABASE_PUBLIC_URL=http://$LAN_IP:8000|;s|^ENABLE_EMAIL_AUTOCONFIRM=.*|ENABLE_EMAIL_AUTOCONFIRM=true|" .env
   chmod 600 .env
 fi
+# โดเมน (ไม่บังคับ): ให้คนนอกโรงเรียนเข้าผ่าน https://โดเมน — ในวง LAN ยังใช้ http://IP ได้เหมือนเดิม
+DOMAIN="${DOMAIN:-$(cat "$STACK/domain" 2>/dev/null || true)}"; DOMAIN="$(echo "$DOMAIN" | sed 's#^https\?://##;s#/.*##' | tr 'A-Z' 'a-z')"
+echo "$DOMAIN" > "$STACK/domain"
+PUBLIC_URL="http://$LAN_IP"; [ -n "$DOMAIN" ] && PUBLIC_URL="https://$DOMAIN"
+sed -i "s|^SITE_URL=.*|SITE_URL=$PUBLIC_URL|;s|^API_EXTERNAL_URL=.*|API_EXTERNAL_URL=$PUBLIC_URL|;s|^SUPABASE_PUBLIC_URL=.*|SUPABASE_PUBLIC_URL=$PUBLIC_URL|;s|^ADDITIONAL_REDIRECT_URLS=.*|ADDITIONAL_REDIRECT_URLS=http://$LAN_IP/**,$PUBLIC_URL/**|" .env
 set -a; . ./.env; set +a
 export SCHOOL_NAME="${SCHOOL_NAME:-}" SCHOOL_NAME_EN="${SCHOOL_NAME_EN:-}" SCHOOL_ADDRESS="${SCHOOL_ADDRESS:-}" SCHOOL_PHONE="${SCHOOL_PHONE:-}"
 # edge functions ของระบบ
@@ -108,7 +113,8 @@ docker run --rm -v "$ROOT:/src:ro" -v "$STACK/web-build:/out" -w /work node:20-b
 mkdir -p "$STACK/web" && rm -rf "$STACK/web/"* && cp -r "$STACK/web-build/." "$STACK/web/"
 cat > "$STACK/web/app-config.js" <<EOF
 window.__BNG_CONFIG__ = {
-  SUPABASE_URL: "http://$LAN_IP:8000",
+  // ใช้ที่อยู่เดียวกับหน้าเว็บ → เข้าผ่าน IP ในวง LAN หรือโดเมนจากข้างนอกก็ได้
+  SUPABASE_URL: window.location.origin,
   SUPABASE_ANON_KEY: "$ANON_KEY",
   SUPABASE_PROJECT_ID: "local",
   STORAGE_PROVIDER: "supabase",
@@ -133,10 +139,36 @@ PY
 curl -sfL --max-time 600 -o "$STACK/web/downloads/bngss-scanner-latest.apk" \
   "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-scanner-latest.apk" \
   || { rm -f "$STACK/web/downloads/bngss-scanner-latest.apk"; echo "!! ยังดาวน์โหลดแอปแท็บเล็ตไม่ได้ (ไม่มีเน็ต/ยังไม่ได้สร้าง) — รัน school-update ภายหลัง"; }
-cp "$ROOT/deploy/standalone/nginx.conf" "$STACK/nginx.conf"
+# เว็บเซิร์ฟเวอร์ Caddy: หน้าเว็บ + ส่งต่อ API ไปฐานข้อมูลในที่อยู่เดียวกัน + HTTPS อัตโนมัติเมื่อมีโดเมน
+SITES=":80"; [ -n "$DOMAIN" ] && SITES="$DOMAIN"
+cat > "$STACK/Caddyfile" <<CADDY
+(app) {
+	encode gzip
+	@api path /rest/v1/* /auth/v1/* /storage/v1/* /functions/v1/* /realtime/v1/* /graphql/v1/*
+	handle @api {
+		reverse_proxy host.docker.internal:8000
+	}
+	handle {
+		root * /srv
+		header /app-config.js Cache-Control "no-store"
+		header /assets/* Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		file_server
+	}
+	request_body {
+		max_size 200MB
+	}
+}
+$SITES {
+	import app
+}
+CADDY
+[ -n "$DOMAIN" ] && printf ':80 {\n\timport app\n}\n' >> "$STACK/Caddyfile"
+mkdir -p "$STACK/caddy-data"
 docker rm -f school-web >/dev/null 2>&1 || true
-docker run -d --name school-web --restart unless-stopped -p 80:80 \
-  -v "$STACK/web:/usr/share/nginx/html:ro" -v "$STACK/nginx.conf:/etc/nginx/conf.d/default.conf:ro" nginx:alpine
+docker run -d --name school-web --restart unless-stopped -p 80:80 -p 443:443 \
+  --add-host host.docker.internal:host-gateway \
+  -v "$STACK/web:/srv:ro" -v "$STACK/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$STACK/caddy-data:/data" caddy:2-alpine
 
 # 5) สำรองข้อมูลอัตโนมัติทุกคืน 02:00 (+ ส่งขึ้น Cloud ถ้าแบบผสม)
 install -m 755 "$ROOT/deploy/standalone/backup.sh" /usr/local/bin/school-backup
@@ -162,7 +194,7 @@ cat <<EOF
 
 ========================================================
  ติดตั้งเสร็จ ($MODE)
- เปิดระบบ:          http://$LAN_IP
+ เปิดระบบ:          http://$LAN_IP  ${DOMAIN:+(จากข้างนอก: https://$DOMAIN — ต้องชี้ DNS และเปิดพอร์ต 80/443 ที่เราเตอร์)}
  ระบบจัดการฐานข้อมูล: http://$LAN_IP:8000  (user: supabase / pass: ดูใน $STACK/supabase/.env)
  FaceGate agent:    ใส่ URL http://$LAN_IP:8000/functions/v1/kiosk-api
  ขั้นต่อไป: สมัครผู้ใช้คนแรก แล้วรัน
