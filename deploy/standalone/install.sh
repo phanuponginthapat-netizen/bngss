@@ -96,6 +96,23 @@ window.__BNG_CONFIG__ = {
   DEPLOY_MODE: "$MODE"
 };
 EOF
+# โปรแกรมสแกนใบหน้า + แอปแท็บเล็ต: ปรับให้ชี้มาเครื่องแม่ข่ายนี้ แล้ววางให้ดาวน์โหลดจากหน้าตั้งค่าคีออส
+mkdir -p "$STACK/web/downloads"
+python3 - "$ROOT/public/downloads/facegate-agent-installer.zip" "$STACK/web/downloads/facegate-agent-installer.zip" "http://$LAN_IP:8000" <<'PY' || echo "!! สร้างไฟล์โปรแกรมสแกนไม่สำเร็จ"
+import sys, zipfile
+src, dst, base = sys.argv[1:4]
+cloud = "https://gwmszzoqqxmejefhayqf.supabase.co"
+with zipfile.ZipFile(src) as zi, zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED) as zo:
+    for it in zi.infolist():
+        data = zi.read(it)
+        if it.filename.endswith((".py", ".sh", ".ps1", ".bat", ".md")):
+            data = data.decode("utf-8").replace(cloud, base).encode("utf-8")
+        zo.writestr(it, data)
+    zo.writestr("facegate-agent/SERVER.txt", f"เครื่องแม่ข่ายของโรงเรียน: {base}\n")
+PY
+curl -sfL --max-time 600 -o "$STACK/web/downloads/bngss-scanner-latest.apk" \
+  "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-scanner-latest.apk" \
+  || { rm -f "$STACK/web/downloads/bngss-scanner-latest.apk"; echo "!! ยังดาวน์โหลดแอปแท็บเล็ตไม่ได้ (ไม่มีเน็ต/ยังไม่ได้สร้าง) — รัน school-update ภายหลัง"; }
 cp "$ROOT/deploy/standalone/nginx.conf" "$STACK/nginx.conf"
 docker rm -f school-web >/dev/null 2>&1 || true
 docker run -d --name school-web --restart unless-stopped -p 80:80 \
