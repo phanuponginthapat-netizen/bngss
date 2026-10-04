@@ -3,9 +3,18 @@ on:
   workflow_dispatch:
   push:
     tags: ["standalone-v*"]
+    branches: [main]
+    paths:
+      - "deploy/standalone/**"
+      - ".github/workflows/build-standalone-installer.yml"
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - name: Stage source (ไม่รวม android/ios/node_modules)
@@ -21,16 +30,22 @@ jobs:
         run: |
           $v = if ("${{ github.ref_name }}" -like "standalone-v*") { "${{ github.ref_name }}".Replace("standalone-v","") } else { "1.0.${{ github.run_number }}" }
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" "/Odist-installer" deploy\standalone\windows\SchoolSystem.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:
           name: school-system-setup
           path: deploy/standalone/windows/dist-installer/school-system-setup.exe
+      - name: Publish GitHub Release (latest setup.exe)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: standalone-latest
+          name: School System setup.exe (latest)
+          prerelease: false
+          make_latest: false
+          files: deploy/standalone/windows/dist-installer/school-system-setup.exe
       - name: Upload to app-downloads (ถ้าตั้ง secret ไว้)
         if: ${{ env.SUPABASE_SERVICE_ROLE_KEY != '' }}
         shell: pwsh
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           curl.exe -sf -X POST "$env:SUPABASE_URL/storage/v1/object/app-downloads/school-system-setup.exe" `
             -H "Authorization: Bearer $env:SUPABASE_SERVICE_ROLE_KEY" -H "x-upsert: true" `
