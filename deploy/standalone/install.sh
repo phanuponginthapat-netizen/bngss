@@ -140,7 +140,7 @@ curl -sfL --max-time 600 -o "$STACK/web/downloads/bngss-scanner-latest.apk" \
   "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-scanner-latest.apk" \
   || { rm -f "$STACK/web/downloads/bngss-scanner-latest.apk"; echo "!! ยังดาวน์โหลดแอปแท็บเล็ตไม่ได้ (ไม่มีเน็ต/ยังไม่ได้สร้าง) — รัน school-update ภายหลัง"; }
 # เว็บเซิร์ฟเวอร์ Caddy: หน้าเว็บ + ส่งต่อ API ไปฐานข้อมูลในที่อยู่เดียวกัน + HTTPS อัตโนมัติเมื่อมีโดเมน
-TUNNEL_TOKEN="${TUNNEL_TOKEN:-$(cat "$STACK/tunnel-token" 2>/dev/null || true)}"; TUNNEL_TOKEN="$(echo "$TUNNEL_TOKEN" | sed 's/.*--token[ =]*//;s/[[:space:]]//g')"
+TUNNEL_TOKEN="${TUNNEL_TOKEN:-$(cat "$STACK/tunnel-token" 2>/dev/null || true)}"; _t="$(echo "$TUNNEL_TOKEN" | grep -oE 'eyJ[A-Za-z0-9_=-]+' | tail -1)"; [ -n "$_t" ] && TUNNEL_TOKEN="$_t"; TUNNEL_TOKEN="$(echo "$TUNNEL_TOKEN" | tr -d '[:space:]')"
 SITES=":80"; [ -n "$DOMAIN" ] && [ -z "$TUNNEL_TOKEN" ] && SITES="$DOMAIN"
 cat > "$STACK/Caddyfile" <<CADDY
 (app) {
