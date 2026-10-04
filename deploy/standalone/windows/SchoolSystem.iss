@@ -36,7 +36,7 @@ Name: "{group}\ถอนการติดตั้ง"; Filename: "{uninstallex
 Name: "{commondesktop}\ระบบโรงเรียน"; Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\src\deploy\standalone\windows\tools.ps1"" -Action open"
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\src\deploy\standalone\install-windows.ps1"" -Mode {code:GetMode} -DataDir ""{code:GetDataDir}"" -AdminEmail ""{code:GetAdminEmail}"" -AdminPassword ""{code:GetAdminPass}"" -KeysFile ""{code:GetKeysFile}"""; StatusMsg: "กำลังติดตั้งฐานข้อมูลและระบบ (10–30 นาที)..."; Flags: waituntilterminated
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\src\deploy\standalone\install-windows.ps1"" -Mode {code:GetMode} -DataDir ""{code:GetDataDir}"" -AdminEmail ""{code:GetAdminEmail}"" -AdminPassword ""{code:GetAdminPass}"" -KeysFile ""{code:GetKeysFile}"" -SchoolName ""{code:GetSchoolName}"" -SchoolNameEn ""{code:GetSchoolNameEn}"" -SchoolAddress ""{code:GetSchoolAddr}"" -SchoolPhone ""{code:GetSchoolPhone}"" -LogoFile ""{code:GetLogo}"" -StaticIp ""{code:GetStaticIp}"" -Prefix ""{code:GetPrefix}"" -Gateway ""{code:GetGateway}"" -Dns ""{code:GetDns}"""; StatusMsg: "กำลังติดตั้งฐานข้อมูลและระบบ (10–30 นาที)..."; Flags: waituntilterminated
 
 [Code]
 var
@@ -44,6 +44,10 @@ var
   DirPage: TInputDirWizardPage;
   AdminPage: TInputQueryWizardPage;
   KeysPage: TInputQueryWizardPage;
+  SchoolPage: TInputQueryWizardPage;
+  LogoPage: TInputFileWizardPage;
+  NetModePage: TInputOptionWizardPage;
+  NetPage: TInputQueryWizardPage;
 
 procedure InitializeWizard;
 begin
@@ -56,7 +60,31 @@ begin
   DirPage.Values[0] := 'D:\SchoolData';
   if not DirExists('D:\') then DirPage.Values[0] := 'C:\SchoolData';
 
-  AdminPage := CreateInputQueryPage(DirPage.ID, 'ผู้ดูแลระบบคนแรก', 'บัญชีนี้ใช้เข้าระบบครั้งแรกและตั้งค่าทั้งหมด', '');
+  SchoolPage := CreateInputQueryPage(DirPage.ID, 'ข้อมูลโรงเรียน', 'ชื่อนี้จะแสดงบนหน้าเว็บ แดชบอร์ด และบัตรนักเรียน', '');
+  SchoolPage.Add('ชื่อโรงเรียน (ภาษาไทย):', False);
+  SchoolPage.Add('ชื่อโรงเรียน (ภาษาอังกฤษ ไม่บังคับ):', False);
+  SchoolPage.Add('ที่อยู่ (ไม่บังคับ):', False);
+  SchoolPage.Add('เบอร์โทร (ไม่บังคับ):', False);
+
+  LogoPage := CreateInputFilePage(SchoolPage.ID, 'โลโก้โรงเรียน', 'เลือกไฟล์โลโก้ (PNG/JPG แนะนำพื้นโปร่งใส ขนาด 512x512)', 'เว้นว่างได้ เปลี่ยนภายหลังได้ในเมนูตั้งค่าหน้าเว็บ');
+  LogoPage.Add('ไฟล์โลโก้:', 'รูปภาพ|*.png;*.jpg;*.jpeg|ทุกไฟล์|*.*', '.png');
+
+  NetModePage := CreateInputOptionPage(LogoPage.ID, 'ที่อยู่เครื่องในวง LAN', 'เครื่องแม่ข่ายควรมี IP คงที่ เพื่อให้ทุกเครื่องในโรงเรียนชี้มาได้ตลอด', '', True, False);
+  NetModePage.Add('ตั้ง IP คงที่ให้เครื่องนี้ (แนะนำ)');
+  NetModePage.Add('ใช้ IP ที่ได้อยู่ตอนนี้ (ตั้งจองที่เราเตอร์เอง)');
+  NetModePage.SelectedValueIndex := 0;
+
+  NetPage := CreateInputQueryPage(NetModePage.ID, 'ตั้งค่า IP คงที่', 'ถามค่าจากผู้ดูแลเครือข่าย ถ้าไม่แน่ใจใช้ค่าที่เติมไว้ให้', 'ตัวอย่าง: IP 192.168.1.10, Gateway 192.168.1.1');
+  NetPage.Add('IP ของเครื่องนี้:', False);
+  NetPage.Add('Subnet prefix (24 = 255.255.255.0):', False);
+  NetPage.Add('Gateway (เราเตอร์):', False);
+  NetPage.Add('DNS:', False);
+  NetPage.Values[0] := '192.168.1.10';
+  NetPage.Values[1] := '24';
+  NetPage.Values[2] := '192.168.1.1';
+  NetPage.Values[3] := '8.8.8.8';
+
+  AdminPage := CreateInputQueryPage(NetPage.ID, 'ผู้ดูแลระบบคนแรก', 'บัญชีนี้ใช้เข้าระบบครั้งแรกและตั้งค่าทั้งหมด', '');
   AdminPage.Add('อีเมล:', False);
   AdminPage.Add('รหัสผ่าน (อย่างน้อย 10 ตัว):', True);
 
@@ -71,9 +99,22 @@ begin
   KeysPage.Add('Google OAuth Client Secret:', False);
 end;
 
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := (PageID = NetPage.ID) and (NetModePage.SelectedValueIndex = 1);
+end;
+
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
+  if (CurPageID = SchoolPage.ID) and (Trim(SchoolPage.Values[0]) = '') then
+  begin
+    MsgBox('กรุณาใส่ชื่อโรงเรียน', mbError, MB_OK); Result := False;
+  end;
+  if (CurPageID = NetPage.ID) and ((Trim(NetPage.Values[0]) = '') or (Trim(NetPage.Values[2]) = '')) then
+  begin
+    MsgBox('กรุณาใส่ IP และ Gateway', mbError, MB_OK); Result := False;
+  end;
   if (CurPageID = AdminPage.ID) and ((Pos('@', AdminPage.Values[0]) = 0) or (Length(AdminPage.Values[1]) < 10)) then
   begin
     MsgBox('กรุณาใส่อีเมลให้ถูกต้อง และรหัสผ่านอย่างน้อย 10 ตัวอักษร', mbError, MB_OK);
@@ -81,6 +122,23 @@ begin
   end;
 end;
 
+function Q(S: String): String;
+begin
+  StringChangeEx(S, '"', '', True);
+  Result := Trim(S);
+end;
+function GetSchoolName(Param: String): String; begin Result := Q(SchoolPage.Values[0]); end;
+function GetSchoolNameEn(Param: String): String; begin Result := Q(SchoolPage.Values[1]); end;
+function GetSchoolAddr(Param: String): String; begin Result := Q(SchoolPage.Values[2]); end;
+function GetSchoolPhone(Param: String): String; begin Result := Q(SchoolPage.Values[3]); end;
+function GetLogo(Param: String): String; begin Result := Q(LogoPage.Values[0]); end;
+function GetStaticIp(Param: String): String;
+begin
+  if NetModePage.SelectedValueIndex = 0 then Result := Q(NetPage.Values[0]) else Result := '';
+end;
+function GetPrefix(Param: String): String; begin Result := Q(NetPage.Values[1]); end;
+function GetGateway(Param: String): String; begin Result := Q(NetPage.Values[2]); end;
+function GetDns(Param: String): String; begin Result := Q(NetPage.Values[3]); end;
 function GetAdminEmail(Param: String): String; begin Result := AdminPage.Values[0]; end;
 function GetAdminPass(Param: String): String; begin Result := AdminPage.Values[1]; end;
 
