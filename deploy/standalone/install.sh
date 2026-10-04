@@ -67,6 +67,8 @@ echo "-> รอฐานข้อมูลพร้อม"; for i in $(seq 1 60)
 # 3) ตาราง/สิทธิ์/ฟังก์ชันทั้งหมด
 cd "$ROOT"; bash scripts/build-migration-bundle.sh
 docker compose -f "$STACK/supabase/docker-compose.yml" exec -T db psql -U postgres -d postgres -v ON_ERROR_STOP=0 < dist/bundle/schema-bundle.sql >"$STACK/schema-install.log" 2>&1 || true
+# หน้าตา/สีเริ่มต้นเหมือนระบบหลัก (ไม่ทับค่าที่ตั้งเองแล้ว)
+docker compose -f "$STACK/supabase/docker-compose.yml" exec -T db psql -q -U postgres -d postgres < "$ROOT/deploy/standalone/seed/cms-defaults.sql" >/dev/null 2>&1 || true
 # ค่าภายในที่งานตั้งเวลา (cron) ในฐานข้อมูลใช้เรียก functions ของเครื่องนี้เอง
 docker compose -f "$STACK/supabase/docker-compose.yml" exec -T db psql -q -U postgres -d postgres >/dev/null 2>&1 <<SQL || true
 INSERT INTO public.app_secrets(key,value,category) VALUES
