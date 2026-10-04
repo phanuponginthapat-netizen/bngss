@@ -36,7 +36,7 @@ Name: "{group}\ถอนการติดตั้ง"; Filename: "{uninstallex
 Name: "{commondesktop}\ระบบโรงเรียน"; Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\src\deploy\standalone\windows\tools.ps1"" -Action open"
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\src\deploy\standalone\install-windows.ps1"" -Mode {code:GetMode} -DataDir ""{code:GetDataDir}"" -AdminEmail ""{code:GetAdminEmail}"" -AdminPassword ""{code:GetAdminPass}"" -KeysFile ""{code:GetKeysFile}"" -SchoolName ""{code:GetSchoolName}"" -SchoolNameEn ""{code:GetSchoolNameEn}"" -SchoolAddress ""{code:GetSchoolAddr}"" -SchoolPhone ""{code:GetSchoolPhone}"" -LogoFile ""{code:GetLogo}"" -StaticIp ""{code:GetStaticIp}"" -Prefix ""{code:GetPrefix}"" -Gateway ""{code:GetGateway}"" -Dns ""{code:GetDns}"""; StatusMsg: "กำลังติดตั้งฐานข้อมูลและระบบ (10–30 นาที)..."; Flags: waituntilterminated
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\src\deploy\standalone\install-windows.ps1"" -Mode {code:GetMode} -DataDir ""{code:GetDataDir}"" -AdminEmail ""{code:GetAdminEmail}"" -AdminPassword ""{code:GetAdminPass}"" -KeysFile ""{code:GetKeysFile}"" -SchoolName ""{code:GetSchoolName}"" -SchoolNameEn ""{code:GetSchoolNameEn}"" -SchoolAddress ""{code:GetSchoolAddr}"" -SchoolPhone ""{code:GetSchoolPhone}"" -LogoFile ""{code:GetLogo}"" -Domain ""{code:GetDomain}"" -StaticIp ""{code:GetStaticIp}"" -Prefix ""{code:GetPrefix}"" -Gateway ""{code:GetGateway}"" -Dns ""{code:GetDns}"""; StatusMsg: "กำลังติดตั้งฐานข้อมูลและระบบ (10–30 นาที)..."; Flags: waituntilterminated
 
 [Code]
 var
@@ -48,6 +48,7 @@ var
   LogoPage: TInputFileWizardPage;
   NetModePage: TInputOptionWizardPage;
   NetPage: TInputQueryWizardPage;
+  DomainPage: TInputQueryWizardPage;
 
 procedure InitializeWizard;
 begin
@@ -84,7 +85,10 @@ begin
   NetPage.Values[2] := '192.168.1.1';
   NetPage.Values[3] := '8.8.8.8';
 
-  AdminPage := CreateInputQueryPage(NetPage.ID, 'ผู้ดูแลระบบคนแรก', 'บัญชีนี้ใช้เข้าระบบครั้งแรกและตั้งค่าทั้งหมด', '');
+  DomainPage := CreateInputQueryPage(NetPage.ID, 'โดเมน (ไม่บังคับ)', 'ให้ผู้ปกครอง/ครูเข้าจากนอกโรงเรียนผ่านโดเมน เช่น school.ac.th', 'ต้องชี้ DNS (A record) ของโดเมนมาที่ IP สาธารณะของโรงเรียน และเปิดพอร์ต 80, 443 ที่เราเตอร์มาที่เครื่องนี้ ระบบจะขอ HTTPS ให้อัตโนมัติ เว้นว่างได้');
+  DomainPage.Add('โดเมน:', False);
+
+  AdminPage := CreateInputQueryPage(DomainPage.ID, 'ผู้ดูแลระบบคนแรก', 'บัญชีนี้ใช้เข้าระบบครั้งแรกและตั้งค่าทั้งหมด', '');
   AdminPage.Add('อีเมล:', False);
   AdminPage.Add('รหัสผ่าน (อย่างน้อย 10 ตัว):', True);
 
@@ -136,6 +140,7 @@ function GetStaticIp(Param: String): String;
 begin
   if NetModePage.SelectedValueIndex = 0 then Result := Q(NetPage.Values[0]) else Result := '';
 end;
+function GetDomain(Param: String): String; begin Result := Q(DomainPage.Values[0]); end;
 function GetPrefix(Param: String): String; begin Result := Q(NetPage.Values[1]); end;
 function GetGateway(Param: String): String; begin Result := Q(NetPage.Values[2]); end;
 function GetDns(Param: String): String; begin Result := Q(NetPage.Values[3]); end;
