@@ -1,29 +1,64 @@
 # ติดตั้งแบบ Standalone บน Windows 10/11 (เรียกจาก setup.exe หรือคลิกขวา > Run with PowerShell ในฐานะ Administrator)
-# ใช้ WSL2 + Docker Desktop แล้วเรียก install.sh ตัวเดียวกับ Linux
+# ใช้ WSL2 + Docker Desktop แล้วเรียก install.sh ตัวเดียวกับ Linux — ข้อมูลทั้งหมดอยู่ใน DataDir บน HDD
+# ถ้าต้องรีสตาร์ทเครื่องระหว่างติดตั้ง จะทำต่อเองอัตโนมัติหลังล็อกอินครั้งถัดไป
 param(
   [string]$Mode = "",          # standalone | hybrid
   [string]$DataDir = "",       # โฟลเดอร์บน HDD เช่น D:\SchoolData
-  [string]$AdminEmail = ""
+  [string]$AdminEmail = "",
+  [string]$AdminPassword = "",
+  [string]$KeysFile = ""       # ไฟล์ KEY=VALUE จากหน้า setup.exe (ลบทิ้งหลังนำเข้า)
 )
 $ErrorActionPreference = "Stop"
-if (-not (wsl -l -q 2>$null)) { wsl --install -d Ubuntu; Write-Host "รีสตาร์ทเครื่องแล้วรันตัวติดตั้งอีกครั้ง"; exit 3010 }
-if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-  winget install -e --id Docker.DockerDesktop --accept-source-agreements --accept-package-agreements
-  Write-Host "เปิด Docker Desktop (เปิด WSL integration) แล้วรันตัวติดตั้งอีกครั้ง"; exit 3010
+$log = "$env:ProgramData\SchoolSystem\install.log"
+New-Item -ItemType Directory -Force -Path (Split-Path $log) | Out-Null
+Start-Transcript -Path $log -Append | Out-Null
+
+function Resume-AfterReboot([string]$why) {
+  $args = "-ExecutionPolicy Bypass -File `"$PSCommandPath`" -Mode $Mode -DataDir `"$DataDir`" -AdminEmail `"$AdminEmail`" -AdminPassword `"$AdminPassword`" -KeysFile `"$KeysFile`""
+  New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce" -Name "SchoolSystemSetup" -Value "powershell.exe $args" -Force | Out-Null
+  Write-Host "$why`nกรุณารีสตาร์ทเครื่อง — การติดตั้งจะทำต่อเองหลังล็อกอิน"
+  Stop-Transcript | Out-Null; exit 3010
 }
-$ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.PrefixOrigin -eq "Dhcp" -or $_.PrefixOrigin -eq "Manual" } | Where-Object { $_.IPAddress -notlike "169.*" -and $_.IPAddress -ne "127.0.0.1" } | Select-Object -First 1).IPAddress
+
 if (-not $Mode) { $m = Read-Host "เลือกแบบ: 1 = ใช้ในโรงเรียนอย่างเดียว, 2 = แบบผสม (สำรองขึ้น Cloud)"; $Mode = if ($m -eq "2") { "hybrid" } else { "standalone" } }
-$flag = if ($Mode -eq "hybrid") { "--hybrid" } else { "" }
 if (-not $DataDir) { $DataDir = "C:\SchoolData" }
 New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
-$wslData = (wsl wslpath -a ($DataDir -replace '\\','/')).Trim()
-$repo = (Resolve-Path "$PSScriptRoot\..\..").Path
-$wslRepo = (wsl wslpath -a ($repo -replace '\\','/')).Trim()
-wsl -u root -- bash -c "LAN_IP=$ip DATA_DIR='$wslData/stack' bash '$wslRepo/deploy/standalone/install.sh' $flag"
-New-NetFirewallRule -DisplayName "School System" -Direction Inbound -Protocol TCP -LocalPort 80,8000,8899 -Action Allow -ErrorAction SilentlyContinue | Out-Null
-# เปิดเครื่องแล้วให้ Docker Desktop เริ่มเอง (ระบบตั้ง restart=unless-stopped ไว้แล้ว)
+
+# 1) WSL2 + Ubuntu
+$distros = (wsl -l -q 2>$null) -replace "`0","" | Where-Object { $_ -match "Ubuntu" }
+if (-not $distros) {
+  wsl --install -d Ubuntu --no-launch
+  Resume-AfterReboot "ติดตั้ง WSL2 แล้ว"
+}
+# 2) Docker Desktop
 $dd = "$env:ProgramFiles\Docker\Docker\Docker Desktop.exe"
-if (Test-Path $dd) { New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "DockerDesktop" -Value "`"$dd`"" -Force | Out-Null }
+if (-not (Test-Path $dd)) {
+  winget install -e --id Docker.DockerDesktop --accept-source-agreements --accept-package-agreements
+  Resume-AfterReboot "ติดตั้ง Docker Desktop แล้ว"
+}
+New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "DockerDesktop" -Value "`"$dd`"" -Force | Out-Null
+Start-Process $dd -ErrorAction SilentlyContinue
+Write-Host "รอ Docker พร้อม..."
+$ok = $false; for ($i=0; $i -lt 90; $i++) { wsl -d Ubuntu -u root -- docker info *> $null; if ($LASTEXITCODE -eq 0) { $ok = $true; break }; Start-Sleep 5 }
+if (-not $ok) { Write-Host "Docker ยังไม่พร้อม: เปิด Docker Desktop > Settings > Resources > WSL integration > เปิด Ubuntu แล้วรันอีกครั้ง"; Stop-Transcript | Out-Null; exit 1 }
+
+# 3) ติดตั้งระบบ
+$ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.PrefixOrigin -in "Dhcp","Manual" -and $_.IPAddress -notlike "169.*" -and $_.IPAddress -ne "127.0.0.1" } | Select-Object -First 1).IPAddress
+$flag = if ($Mode -eq "hybrid") { "--hybrid" } else { "" }
+$toWsl = { param($p) (wsl -d Ubuntu wslpath -a ($p -replace '\\','/')).Trim() }
+$wslData = & $toWsl $DataDir
+$repo = (Resolve-Path "$PSScriptRoot\..\..").Path
+$wslRepo = & $toWsl $repo
+$wslKeys = if ($KeysFile -and (Test-Path $KeysFile)) { & $toWsl $KeysFile } else { "" }
+$env:SCHOOL_ADMIN_PASSWORD = $AdminPassword
+$env:WSLENV = "SCHOOL_ADMIN_PASSWORD/u"
+wsl -d Ubuntu -u root -- bash -c "ADMIN_PASSWORD=`"`$SCHOOL_ADMIN_PASSWORD`" ADMIN_EMAIL='$AdminEmail' KEYS_FILE='$wslKeys' LAN_IP=$ip DATA_DIR='$wslData/stack' bash '$wslRepo/deploy/standalone/install.sh' $flag"
+Remove-Item Env:SCHOOL_ADMIN_PASSWORD -ErrorAction SilentlyContinue
+if ($KeysFile -and (Test-Path $KeysFile)) { Remove-Item $KeysFile -Force }
+
+New-NetFirewallRule -DisplayName "School System" -Direction Inbound -Protocol TCP -LocalPort 80,8000,8899 -Action Allow -ErrorAction SilentlyContinue | Out-Null
 Set-Content -Path "$DataDir\server-ip.txt" -Value $ip
-if ($AdminEmail) { Write-Host "สมัครผู้ใช้ $AdminEmail ที่ http://$ip แล้วกดไอคอน 'ตั้งผู้ดูแลระบบ' ใน Start Menu" }
+Copy-Item "$DataDir\server-ip.txt" "$env:ProgramData\SchoolSystem\server-ip.txt" -Force
 Write-Host "เสร็จแล้ว เปิด http://$ip จากเครื่องใดก็ได้ในโรงเรียน"
+Stop-Transcript | Out-Null
+Start-Process "http://$ip"
