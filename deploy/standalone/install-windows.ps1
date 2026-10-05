@@ -1,4 +1,4 @@
-# ติดตั้งแบบ Standalone บน Windows 10/11 (เรียกจาก setup.exe หรือคลิกขวา > Run with PowerShell ในฐานะ Administrator)
+﻿# ติดตั้งแบบ Standalone บน Windows 10/11 (เรียกจาก setup.exe หรือคลิกขวา > Run with PowerShell ในฐานะ Administrator)
 # ใช้ WSL2 + Docker Desktop แล้วเรียก install.sh ตัวเดียวกับ Linux — ข้อมูลทั้งหมดอยู่ใน DataDir บน HDD
 # ถ้าต้องรีสตาร์ทเครื่องระหว่างติดตั้ง จะทำต่อเองอัตโนมัติหลังล็อกอินครั้งถัดไป
 param(
