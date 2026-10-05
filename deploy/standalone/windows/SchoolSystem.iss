@@ -44,6 +44,7 @@ var
   DirPage: TInputDirWizardPage;
   AdminPage: TInputQueryWizardPage;
   KeysPage: TInputQueryWizardPage;
+  GooglePage: TInputQueryWizardPage;
   SchoolPage: TInputQueryWizardPage;
   LogoPage: TInputFileWizardPage;
   NetModePage: TInputOptionWizardPage;
