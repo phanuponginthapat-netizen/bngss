@@ -58,4 +58,4 @@ jobs:
         run: |
           curl.exe -sf -X POST "$env:SUPABASE_URL/storage/v1/object/app-downloads/school-system-setup.exe" `
             -H "Authorization: Bearer $env:SUPABASE_SERVICE_ROLE_KEY" -H "x-upsert: true" `
-            -H "Content-Type: application/octet-stream" --data-binary "@deploy/standalone/windows/dist-installer/school-system-setup.exe"
+            -H "Content-Type: application/octet-stream" --data-binary "@dist-installer/school-system-setup.exe"
