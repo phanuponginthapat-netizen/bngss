@@ -96,15 +96,18 @@ begin
   AdminPage.Add('อีเมล:', False);
   AdminPage.Add('รหัสผ่าน (อย่างน้อย 10 ตัว):', True);
 
-  KeysPage := CreateInputQueryPage(AdminPage.ID, 'กุญแจบริการที่ต้องต่อเน็ต (ไม่บังคับ)',
-    'ใส่เฉพาะที่มี เว้นว่างได้ — แก้ภายหลังได้ที่เมนู Start > ใส่กุญแจบริการ หรือในระบบ ตั้งค่า > API Keys',
-    'กุญแจเก็บในฐานข้อมูลบน HDD ของเครื่องนี้ ใช้เฉพาะตอนส่ง LINE / เรียก AI / สำรองขึ้น Google เท่านั้น');
+  KeysPage := CreateInputQueryPage(AdminPage.ID, 'กุญแจ LINE และ AI (ไม่บังคับ)',
+    'ใส่เฉพาะที่มี เว้นว่างได้ แก้ภายหลังได้ที่เมนู Start > ใส่กุญแจบริการ',
+    'กุญแจเก็บบน HDD ของเครื่องนี้ ใช้เฉพาะตอนส่ง LINE / เรียก AI');
   KeysPage.Add('LINE Channel Access Token:', False);
   KeysPage.Add('LINE Channel Secret:', False);
   KeysPage.Add('Gemini API Key (ผู้ช่วย AI):', False);
   KeysPage.Add('OpenAI API Key (สำรอง):', False);
-  KeysPage.Add('Google OAuth Client ID:', False);
-  KeysPage.Add('Google OAuth Client Secret:', False);
+  GooglePage := CreateInputQueryPage(KeysPage.ID, 'กุญแจ Google (ไม่บังคับ)',
+    'ใช้สำหรับเข้าสู่ระบบด้วย Google และสำรองขึ้น Google Drive',
+    'เว้นว่างได้ แก้ภายหลังได้ที่เมนู Start > ใส่กุญแจบริการ');
+  GooglePage.Add('Google OAuth Client ID:', False);
+  GooglePage.Add('Google OAuth Client Secret:', False);
 end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
