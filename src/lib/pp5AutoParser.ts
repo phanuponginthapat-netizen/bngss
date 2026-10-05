@@ -564,9 +564,9 @@ export async function parsePP5Workbook(file: File | ArrayBuffer): Promise<PP5Par
     if (SKIP_SHEET_RE.test(name.trim())) { console.debug("[pp5-debug] skip", name); continue; }
     try {
       const parsed = parseSheet(name, wb.Sheets[name]);
-      if (!parsed) continue;
+      if (!parsed) { console.debug("[pp5-debug] parseSheet null:", name); continue; }
       const realStudents = parsed.students.filter((s) => looksLikeStudentCode(s.studentCode));
-      if (realStudents.length === 0) continue;
+      if (realStudents.length === 0) { console.debug("[pp5-debug] no students:", name, parsed.students.length, parsed.kind); continue; }
       parsed.students = realStudents;
       if (parsed.kind === "other" && parsed.subjects.length === 0) continue;
       sheets.push(parsed);
