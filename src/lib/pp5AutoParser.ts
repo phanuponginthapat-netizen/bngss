@@ -10,6 +10,8 @@ export interface PP5ParsedStudentRow {
   studentName: string;
   seq?: number;
   subjects: Record<string, { columns: { header: string; value: number | string | null }[] }>;
+  /** แบบบันทึกเวลาเรียนที่ใช้เครื่องหมายรายวัน (X/ข = ขาด, ล/ป/ก = ลา, ส = สาย, ว่าง หรือ / = มา) */
+  attendanceMarks?: { days: number; present: number; absent: number; leave: number; late: number };
   directTotal?: number;
   directGrade?: string;
 }
@@ -45,6 +47,11 @@ export interface PP5ParsedWorkbook {
         competencyLevel?: number;
         readingLevel?: number;
         attendanceHours?: number;
+        attendanceDays?: number;
+        attendanceAbsent?: number;
+        attendanceLeave?: number;
+        attendanceLate?: number;
+        attendancePercent?: number;
         totalScore?: number;
         grade?: string;
         gradeFromFile?: boolean;
@@ -145,6 +152,57 @@ function findDataStartRow(grid: Grid, header: { rowIdx: number; codeCol: number;
 }
 
 /** Classify each column: numeric score, total, grade, or skip. */
+// ─── เวลาเรียนแบบกากบาทรายวัน ────────────────────────────────────────────────
+const ABSENT_RE = /^(x|×|✗|✘|ข|ขาด|0)$/i;
+const LEAVE_RE = /^(ล|ลา|ป|ลป|ก|ลก|ลากิจ|ลาป่วย)$/;
+const LATE_RE = /^(ส|สาย)$/;
+const PRESENT_RE = /^(\/|✓|✔|1|ม|มา|\.)$/;
+const isMark = (v: unknown) => {
+  const t = nz(v).replace(/\s+/g, "");
+  return !!t && (ABSENT_RE.test(t) || LEAVE_RE.test(t) || LATE_RE.test(t) || PRESENT_RE.test(t));
+};
+const isDayHeader = (h: string) =>
+  /^([1-9]|[12]\d|3[01])$/.test(h) || /^\d{1,2}[\/\-.]\d{1,2}([\/\-.]\d{2,4})?$/.test(h) || /^\d{4}-\d{2}-\d{2}/.test(h);
+
+function findMarkColumns(
+  grid: Grid, topRow: string[], subHeaders: string[],
+  header: { codeCol: number; nameCol: number; seqCol: number }, dataStart: number, totalCol: number, gradeCol: number,
+): number[] {
+  const width = Math.max(topRow.length, ...grid.slice(dataStart, dataStart + 40).map((r) => r?.length || 0));
+  const out: number[] = [];
+  for (let c = 0; c < width; c++) {
+    if ([header.codeCol, header.nameCol, header.seqCol, totalCol, gradeCol].includes(c)) continue;
+    const h = nz(subHeaders[c] || topRow[c] || "");
+    if (isAggregated(h) || isTotalHeader(h) || isGradeHeader(h)) continue;
+    let marks = 0, other = 0;
+    for (let r = dataStart; r < Math.min(dataStart + 60, grid.length); r++) {
+      const v = grid[r]?.[c];
+      if (v === null || v === undefined || v === "") continue;
+      if (isMark(v)) marks++; else other++;
+    }
+    // คอลัมน์วันที่: มีเครื่องหมายอย่างน้อย 1 ช่อง หรือหัวเป็นวันที่ และไม่มีค่าอื่นปน
+    if (other === 0 && (marks > 0 || isDayHeader(h))) {
+      // ตัด "ลำดับ"/คะแนนตัวเลขล้วน: ต้องเป็นหัววันที่ หรือมีอักขระที่ไม่ใช่ 0/1
+      const hasSymbol = grid.slice(dataStart, dataStart + 60).some((row) => isMark(row?.[c]) && !/^[01]$/.test(nz(row?.[c])));
+      if (isDayHeader(h) || hasSymbol) out.push(c);
+    }
+  }
+  return out;
+}
+
+function countMarks(row: unknown[], cols: number[]) {
+  let absent = 0, leave = 0, late = 0;
+  for (const c of cols) {
+    const t = nz(row[c]).replace(/\s+/g, "");
+    if (!t) continue;
+    if (ABSENT_RE.test(t)) absent++;
+    else if (LEAVE_RE.test(t)) leave++;
+    else if (LATE_RE.test(t)) late++;
+  }
+  const days = cols.length;
+  return { days, present: days - absent - leave, absent, leave, late };
+}
+
 function classifyColumns(
   grid: Grid,
   topRow: string[],
@@ -201,6 +259,7 @@ function parseSheet(sheetName: string, ws: XLSX.WorkSheet): PP5ParsedSheet | nul
   const subjectSet = new Set<string>();
   for (const c of numericCols) if (topRow[c]) subjectSet.add(topRow[c]);
 
+  const markCols = kind === "attendance" ? findMarkColumns(grid, topRow, subHeaders, header, dataStart, totalCol, gradeCol) : [];
   const students: PP5ParsedStudentRow[] = [];
   for (let r = dataStart; r < grid.length; r++) {
     const code = nz(grid[r]?.[header.codeCol]);
@@ -219,7 +278,8 @@ function parseSheet(sheetName: string, ws: XLSX.WorkSheet): PP5ParsedSheet | nul
     }
     const directTotal = totalCol >= 0 && isNum(grid[r]?.[totalCol]) ? Number(grid[r]?.[totalCol]) : undefined;
     const directGrade = gradeCol >= 0 ? nz(grid[r]?.[gradeCol]) || undefined : undefined;
-    students.push({ studentCode: code, studentName: name, seq, subjects, directTotal, directGrade });
+    const attendanceMarks = kind === "attendance" && markCols.length ? countMarks(grid[r] || [], markCols) : undefined;
+    students.push({ studentCode: code, studentName: name, seq, subjects, directTotal, directGrade, attendanceMarks });
   }
 
   return {
@@ -383,7 +443,14 @@ function applyToBucket(
   } else if (sh.kind === "reading_thinking") {
     bucket.readingLevel = Math.max(bucket.readingLevel || 0, value);
   } else if (sh.kind === "attendance") {
-    const hrs = st.directTotal !== undefined ? st.directTotal : sum;
+    const hrs = st.directTotal !== undefined ? st.directTotal : st.attendanceMarks ? st.attendanceMarks.present : sum;
+    if (st.attendanceMarks) {
+      bucket.attendanceDays = st.attendanceMarks.days;
+      bucket.attendanceAbsent = st.attendanceMarks.absent;
+      bucket.attendanceLeave = st.attendanceMarks.leave;
+      bucket.attendanceLate = st.attendanceMarks.late;
+      bucket.attendancePercent = st.attendanceMarks.days ? Math.round((st.attendanceMarks.present / st.attendanceMarks.days) * 1000) / 10 : undefined;
+    }
     if (hrs > 0) bucket.attendanceHours = Math.max(bucket.attendanceHours || 0, Math.round(hrs));
   }
 }
@@ -477,7 +544,7 @@ function consolidate(sheets: PP5ParsedSheet[], meta: PP5ParsedWorkbook["meta"]):
       if (!rec.perSubject[canonicalSubject]) rec.perSubject[canonicalSubject] = {};
       const bucket = rec.perSubject[canonicalSubject];
       const { sum, count, max } = sumNonAggregated(st);
-      if (count === 0 && st.directTotal === undefined && !st.directGrade) continue;
+      if (count === 0 && st.directTotal === undefined && !st.directGrade && !st.attendanceMarks) continue;
       applyToBucket(bucket, sh, st, sum, count, max);
     }
   }
