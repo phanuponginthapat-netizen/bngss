@@ -71,7 +71,8 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   if (!role) {
     // Allow link-account page even without role
     if (location.pathname === "/link-account") return <>{children}</>;
-    return <Navigate to="/login" replace />;
+    // ส่ง reason ไปด้วย เพื่อให้หน้า login ออกจากระบบและแจ้งเตือน แทนการวนกลับมาที่นี่ไม่รู้จบ
+    return <Navigate to="/login?reason=no_role" replace />;
   }
 
   if (allowedRoles && !allowedRoles.includes(role) && !(realRole && allowedRoles.includes(realRole))) {
