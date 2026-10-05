@@ -43,16 +43,10 @@ verify_jwt = false
 [functions.manifest]
 verify_jwt = false
 
-[functions.district-feed-api]
-verify_jwt = false
-
 [functions.gdrive-connect-finish]
 verify_jwt = false
 
 [functions.get-vapid-key]
-verify_jwt = false
-
-[functions.iot-fetch]
 verify_jwt = false
 
 [functions.setup-create-buckets]

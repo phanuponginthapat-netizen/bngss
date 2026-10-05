@@ -1,4 +1,3 @@
-import { isLocalHddMode, LOCAL_HDD_MSG } from "../_shared/standalone.ts";
 // drive-archive — สำรอง/จัดเก็บข้อมูลย้อนหลังขึ้น Google Drive
 // โครงโฟลเดอร์:  <ROOT>/ปีการศึกษา 2569/<ชื่องาน>/<table>_<ปี>_<timestamp>.json
 // ใช้ Service Account หรือ OAuth refresh token ของโรงเรียน (เหมือน LINE Vault)
@@ -68,9 +67,6 @@ Deno.serve(async (req) => {
     const admin = makeAdmin();
     const body = await req.json().catch(() => ({}));
     const action = body?.action || "policies";
-    if (isLocalHddMode() && action !== "policies" && action !== "list") {
-      return json({ ok: true, skipped: true, local_hdd: true, message: LOCAL_HDD_MSG });
-    }
 
     // ── นโยบาย + สถานะสำรอง ────────────────────────────────
     if (action === "policies") {

@@ -42,7 +42,6 @@ const TeacherDashboard = lazy(() => import("@/components/dashboard/TeacherDashbo
 const StudentDashboard = lazy(() => import("@/components/dashboard/StudentDashboard"));
 const AlumniDashboard = lazy(() => import("@/components/dashboard/AlumniDashboard"));
 const DirectorDashboard = lazy(() => import("@/components/dashboard/DirectorDashboard"));
-const IoTSummaryWidget = lazy(() => import("@/components/dashboard/IoTSummaryWidget"));
 const SchoolRadarWidget = lazy(() => import("@/components/dashboard/SchoolRadarWidget"));
 const DynamicHeroBackground = lazy(() => import("@/components/dashboard/DynamicHeroBackground"));
 const SocialWallWidget = lazy(() => import("@/components/social/SocialWallWidget"));
@@ -599,11 +598,7 @@ const Dashboard = () => {
       </Suspense>
     ),
     departments: () => null,
-    iot_summary: () => (
-      <Suspense fallback={<Skeleton className="h-32 rounded-2xl" />}>
-        <IoTSummaryWidget />
-      </Suspense>
-    ),
+    iot_summary: () => null,
     school_radar: () => (
       <Suspense fallback={<Skeleton className="h-72 rounded-2xl" />}>
         <SchoolRadarWidget />
