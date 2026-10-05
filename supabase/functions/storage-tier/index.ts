@@ -1,6 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders, preflight } from "../_shared/cors.ts";
-import { isLocalHddMode } from "../_shared/standalone.ts";
 import { downloadFile, ensureFolderPath, uploadFile, deleteFile as deleteDriveFile } from "../_shared/googleDrive.ts";
 
 const json = (body: unknown, status = 200) =>
