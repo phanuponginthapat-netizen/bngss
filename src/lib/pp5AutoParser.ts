@@ -327,9 +327,9 @@ function extractMeta(wb: XLSX.WorkBook): PP5ParsedWorkbook["meta"] {
 function sumNonAggregated(st: PP5ParsedStudentRow): { sum: number; count: number; max: number } {
   let sum = 0, count = 0, max = 0;
   for (const subj of Object.keys(st.subjects)) {
-    if (isAggregated(subj)) continue;
+    if (isAggregated(subj) || isGradeHeader(subj)) continue;
     for (const col of st.subjects[subj].columns) {
-      if (isAggregated(col.header)) continue;
+      if (isAggregated(col.header) || isGradeHeader(col.header)) continue;
       if (typeof col.value === "number" && !isNaN(col.value)) {
         sum += col.value; count++;
         // the sub-header row of OBEC sheets holds "คะแนนเต็ม" of each column

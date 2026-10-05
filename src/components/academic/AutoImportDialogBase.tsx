@@ -134,12 +134,13 @@ export function AutoImportDialogBase<T>({
           alumniCreated = res.created;
         }
 
-        // Dedup check
+        // Dedup check — ต้องใช้ปีรูปแบบเดียวกับที่บันทึก (insert ใช้ `year`) ไม่งั้นจะไม่เจอไฟล์ซ้ำ
         let dupQuery = (supabase.from(tableName) as any)
           .select("id, file_name, file_path")
-          .eq("grade_level", gradeLevel).eq("semester", semester).eq("academic_year", toCE(year));
+          .eq("grade_level", gradeLevel).eq("semester", semester).in("academic_year", Array.from(new Set([year, toCE(year)])));
         for (const [k, v] of Object.entries(dedupWhere)) dupQuery = dupQuery.eq(k, v);
-        const { data: dupe } = await dupQuery.maybeSingle();
+        const { data: dupeRows } = await dupQuery.order("created_at", { ascending: false }).limit(1);
+        const dupe = dupeRows?.[0];
 
         if (dupe && !it.confirmedDuplicate) {
           updateItem(it.file, {

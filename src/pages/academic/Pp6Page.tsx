@@ -612,9 +612,19 @@ const FileTab = () => {
                                       onClick={async () => {
                                         if (!(await swal.confirm({ title: "ประกาศผลการเรียนให้นักเรียน?", text: "ระบบจะแจ้งเตือนนักเรียนทุกคนในรายงานนี้" }))) return;
                                         const t = toast.loading("กำลังประกาศ...");
+                                        if (!f.applied_at) {
+                                          try {
+                                            const { applyPpFileToSystem } = await import("@/lib/pp5ApplyToSystem");
+                                            await applyPpFileToSystem(f, "pp6");
+                                          } catch (e: any) { toast.dismiss(t); toast.error(e?.message || "บันทึกเข้าระบบไม่สำเร็จ"); return; }
+                                        }
                                         const { data, error } = await supabase.functions.invoke("announce-pp6-scores", { body: { file_id: f.id } });
                                         toast.dismiss(t);
-                                        if (error || (data as any)?.error) { toast.error((data as any)?.error || error?.message || "ประกาศไม่สำเร็จ"); return; }
+                                        if (error || (data as any)?.error) {
+                                          let msg = (data as any)?.error || error?.message;
+                                          try { msg = (await (error as any)?.context?.json())?.error || msg; } catch { /* ignore */ }
+                                          toast.error(msg || "ประกาศไม่สำเร็จ"); qc.invalidateQueries({ queryKey: ["pp6_files"] }); return;
+                                        }
                                         const d = data as any;
                                         toast.success(`ประกาศให้นักเรียน ${d?.notified_students ?? d?.notified ?? 0} คน (ผู้ปกครอง ${d?.notified_parents ?? 0}) จากทั้งหมด ${d?.total || 0} คน`);
                                         qc.invalidateQueries({ queryKey: ["pp6_files"] });

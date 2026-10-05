@@ -1448,10 +1448,24 @@ const FileTab = () => {
       return;
     }
     if (file.announced_at && !(await swal.confirm({ title: "ประกาศซ้ำอีกครั้ง?", text: "ระบบจะส่งการแจ้งเตือนใหม่ให้นักเรียนทุกคน" }))) return;
-    const { data, error } = await supabase.functions.invoke("announce-pp5-scores", { body: { file_id: file.id } });
-    if (error) { toast.error(saveErrorMessage(error)); return; }
-    toast.success(`ประกาศสำเร็จ — แจ้งเตือน ${data?.notified || 0}/${data?.total || 0} คน`);
-    qc.invalidateQueries({ queryKey: ["pp5_files"] });
+    const t = toast.loading("กำลังประกาศ...");
+    try {
+      // ต้องบันทึกคะแนนเข้าระบบก่อน นักเรียนจึงเห็นผลในหน้าโปรไฟล์ตรงกับที่ประกาศ
+      if (!file.applied_at) await applyPp5FileToSystem(file);
+      const { data, error } = await supabase.functions.invoke("announce-pp5-scores", { body: { file_id: file.id } });
+      if (error) {
+        const ctx: any = (error as any).context;
+        let msg = error.message;
+        try { msg = (await ctx?.json())?.error || msg; } catch { /* ignore */ }
+        throw new Error(msg);
+      }
+      toast.success(`ประกาศสำเร็จ — นักเรียน ${data?.notified_students ?? 0} คน · ผู้ปกครอง ${data?.notified_parents ?? 0} คน (ทั้งหมด ${data?.total || 0})`);
+    } catch (e: any) {
+      toast.error(e?.message || "ประกาศไม่สำเร็จ");
+    } finally {
+      toast.dismiss(t);
+      qc.invalidateQueries({ queryKey: ["pp5_files"] });
+    }
   };
 
   const handleApplyToSystem = async (file: any) => {

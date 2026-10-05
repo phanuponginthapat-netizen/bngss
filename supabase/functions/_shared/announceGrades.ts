@@ -28,13 +28,23 @@ export async function announceGrades(opts: AnnounceGradesOptions) {
   if (userErr || !userData?.user) throw new Error("Unauthorized");
   const caller = userData.user;
 
-  const { data: role } = await admin.from("user_roles").select("role").eq("user_id", caller.id).in("role", ["admin", "director", "teacher"]).limit(1).maybeSingle();
-  if (!role) {
-    throw new Error("Only teacher/director/admin can announce");
+  const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", caller.id).in("role", ["admin", "director", "teacher"]);
+  const roleSet = new Set((roles || []).map((r: any) => r.role));
+  if (roleSet.size === 0) {
+    throw new Error("เฉพาะครู/ผู้บริหาร/ผู้ดูแลระบบเท่านั้นที่ประกาศผลได้");
   }
 
   const { data: file, error: fileErr } = await admin.from(opts.table).select("*").eq("id", opts.file_id).maybeSingle();
-  if (fileErr || !file) throw new Error("File not found");
+  if (fileErr || !file) throw new Error("ไม่พบไฟล์");
+
+  // ครูประกาศได้เฉพาะไฟล์ที่ตนอัปโหลด — ผู้บริหาร/แอดมินประกาศได้ทุกไฟล์
+  const isPrivileged = roleSet.has("admin") || roleSet.has("director");
+  if (!isPrivileged && (file as any).uploaded_by && (file as any).uploaded_by !== caller.id) {
+    throw new Error("ประกาศได้เฉพาะไฟล์ที่ท่านอัปโหลดเอง");
+  }
+  if (!(file as any).applied_at) {
+    throw new Error("ยังไม่ได้บันทึกคะแนนจากไฟล์นี้เข้าระบบ — กด 'บันทึกเข้าระบบ' ก่อนประกาศ");
+  }
 
   const parsed = (file as any).parsed_data || {};
   const consolidated: any[] = parsed.consolidated || [];
@@ -184,6 +194,7 @@ export async function announceGrades(opts: AnnounceGradesOptions) {
 
   return {
     success: true,
+    notified: notifiedStudents,
     notified_students: notifiedStudents,
     notified_parents: notifiedParents,
     total: consolidated.length,

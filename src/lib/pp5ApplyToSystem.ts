@@ -23,11 +23,15 @@ const GRADE_POINT: Record<string, number> = {
   "4": 4, "3.5": 3.5, "3": 3, "2.5": 2.5, "2": 2, "1.5": 1.5, "1": 1, "0": 0,
 };
 
+// ผลการเรียนแบบไม่ใช่ตัวเลข (ร / มส / มผ / ผ) — ห้ามคำนวณเกรดจากคะแนนทับ
+const NON_NUMERIC_GRADE = /^(ร|มส|มผ|ผ|ผ่าน|ไม่ผ่าน|ดีเยี่ยม|ดี)$/;
+
 function toGradePoint(grade: any, score: any): number | null {
   const g = String(grade ?? "").trim();
   if (g && GRADE_POINT[g] !== undefined) return GRADE_POINT[g];
+  if (g && (NON_NUMERIC_GRADE.test(g) || isNaN(Number(g)))) return null;
   const s = typeof score === "number" ? score : Number(score);
-  if (!Number.isFinite(s)) return null;
+  if (score === null || score === undefined || !Number.isFinite(s)) return null;
   if (s >= 80) return 4;
   if (s >= 75) return 3.5;
   if (s >= 70) return 3;
@@ -46,6 +50,16 @@ function toGrade(grade: any, score: any): string | null {
 }
 
 const norm = (s: any) => String(s ?? "").toLowerCase().replace(/\s+/g, "").trim();
+// "ท21101 ภาษาไทย 1" → ["ท21101", "ภาษาไทย1"]
+const subjectKeys = (raw: string): string[] => {
+  const s = String(raw ?? "").trim();
+  const keys = new Set<string>([norm(s)]);
+  const code = s.match(/[ก-ฮA-Za-z]{1,3}\s*\d{4,6}/);
+  if (code) keys.add(norm(code[0]));
+  const rest = s.replace(/[ก-ฮA-Za-z]{1,3}\s*\d{4,6}/, "").replace(/[()]/g, "");
+  if (rest.trim()) keys.add(norm(rest));
+  return Array.from(keys).filter(Boolean);
+};
 
 export async function applyPpFileToSystem(
   fileRow: any,
@@ -101,11 +115,22 @@ export async function applyPpFileToSystem(
     let subjQuery = supabase.from("subjects").select("id, code, name_th, grade_level, semester");
     if (gradeLevel) subjQuery = subjQuery.eq("grade_level", gradeLevel);
     const { data: subs } = await subjQuery;
-    for (const s of subs || []) {
+    // วิชาภาคเรียนเดียวกันมาทีหลัง → ชนะเมื่อชื่อซ้ำกันข้ามภาค
+    const ordered = [...(subs || [])].sort(
+      (a: any, b: any) => Number(a.semester === semester) - Number(b.semester === semester),
+    );
+    for (const s of ordered) {
       if ((s as any).name_th) subjectByName.set(norm((s as any).name_th), (s as any).id);
       if ((s as any).code) subjectByName.set(norm((s as any).code), (s as any).id);
     }
   }
+  const resolveSubject = (name: string): string | null => {
+    for (const k of subjectKeys(name)) {
+      const id = subjectByName.get(k);
+      if (id) return id;
+    }
+    return null;
+  };
 
   // ── 3. ปพ.5 score column (aggregate import column) ──────────────────────
   let targetId: string | null = null;
@@ -171,7 +196,7 @@ export async function applyPpFileToSystem(
 
     // Distribution → student_scores (per subject)
     for (const [subjName, v] of entries) {
-      const sIdForRow = kind === "pp5" ? subjectId : subjectByName.get(norm(subjName)) || null;
+      const sIdForRow = kind === "pp5" ? subjectId : resolveSubject(subjName);
       if (!sIdForRow) { unmatchedSubjects.add(subjName); continue; }
       const total = typeof v?.totalScore === "number" ? v.totalScore : Number(v?.totalScore);
       const hasTotal = Number.isFinite(total);
