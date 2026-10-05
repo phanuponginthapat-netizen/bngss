@@ -559,8 +559,9 @@ export async function parsePP5Workbook(file: File | ArrayBuffer): Promise<PP5Par
   const buf = file instanceof ArrayBuffer ? file : await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: "array", cellDates: false });
   const sheets: PP5ParsedSheet[] = [];
+  console.debug("[pp5-debug] sheets:", wb.SheetNames);
   for (const name of wb.SheetNames) {
-    if (SKIP_SHEET_RE.test(name.trim())) continue;
+    if (SKIP_SHEET_RE.test(name.trim())) { console.debug("[pp5-debug] skip", name); continue; }
     try {
       const parsed = parseSheet(name, wb.Sheets[name]);
       if (!parsed) continue;
