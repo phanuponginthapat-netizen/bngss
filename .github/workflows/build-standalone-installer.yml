@@ -29,20 +29,29 @@ jobs:
         shell: pwsh
         run: |
           $v = if ("${{ github.ref_name }}" -like "standalone-v*") { "${{ github.ref_name }}".Replace("standalone-v","") } else { "1.0.${{ github.run_number }}" }
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" "/Odist-installer" deploy\standalone\windows\SchoolSystem.iss
+          $iss = "deploy\standalone\windows\SchoolSystem.iss"
+          # ใส่ BOM ให้ Inno Setup อ่านภาษาไทยถูกต้อง
+          $txt = [IO.File]::ReadAllText($iss); [IO.File]::WriteAllText($iss, $txt, (New-Object System.Text.UTF8Encoding $true))
+          $out = Join-Path $env:GITHUB_WORKSPACE "dist-installer"
+          New-Item -ItemType Directory -Force $out | Out-Null
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" "/O$out" $iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-ChildItem $out
+          if (-not (Test-Path "$out\school-system-setup.exe")) { Write-Error "ไม่พบ setup.exe"; exit 1 }
       - uses: actions/upload-artifact@v4
         with:
           name: school-system-setup
-          path: deploy/standalone/windows/dist-installer/school-system-setup.exe
+          path: dist-installer/school-system-setup.exe
+          if-no-files-found: error
       - name: Publish GitHub Release (latest setup.exe)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: standalone-latest
           name: School System setup.exe (latest)
           prerelease: false
-          make_latest: false
-          files: deploy/standalone/windows/dist-installer/school-system-setup.exe
+          make_latest: true
+          fail_on_unmatched_files: true
+          files: dist-installer/school-system-setup.exe
       - name: Upload to app-downloads (ถ้าตั้ง secret ไว้)
         if: ${{ env.SUPABASE_SERVICE_ROLE_KEY != '' }}
         shell: pwsh
