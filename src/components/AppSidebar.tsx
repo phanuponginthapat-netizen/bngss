@@ -613,15 +613,6 @@ export function AppSidebar() {
         { title: L("จัดการอุปกรณ์ ICT", "Manage Devices"), url: "/dashboard/admin/ict-devices", icon: SettingsIcon, color: "text-amber-400", roles: ["admin", "director"], desc: L("เพิ่ม/แก้ไขอุปกรณ์ ICT", "Add or edit devices") },
       ],
     },
-    {
-      key: "services_iot",
-      label: L("อุปกรณ์อัจฉริยะ (IoT)", "IoT / Smart Devices"),
-      icon: Cpu,
-      color: "text-cyan-400",
-      roles: ["admin", "director", "teacher"],
-      items: [
-      ],
-    },
   ];
 
 
@@ -651,7 +642,7 @@ export function AppSidebar() {
   const OFFICE_KEYS   = ["office_docs", "office_ops"];
   const HR_KEYS       = ["hr_records"];
   const ADMIN_KEYS    = ["admin_content", "admin_system", "admin_kiosk"];
-  const SERVICES_KEYS = ["services_garbage", "services_rooms", "services_ict", "services_iot"];
+  const SERVICES_KEYS = ["services_garbage", "services_rooms", "services_ict"];
   const TOOLS_KEYS    = ["tools_kit"];
 
   const roleConfig: Record<string, { order: string[]; hide?: string[] }> = {
@@ -684,7 +675,7 @@ export function AppSidebar() {
   type SuperSec = { key: string; label: string; icon: any; depts: string[]; color: string; dot: string; adminOnly?: boolean };
   const DIV_ACADEMIC = [...ACADEMIC_KEYS, "student_games"];
   const DIV_STUDENT  = ["student_daily", "student_health", "services_garbage"];
-  const DIV_GENERAL  = ["office_docs", "office_ops", "services_rooms", "services_ict", "services_iot"];
+  const DIV_GENERAL  = ["office_docs", "office_ops", "services_rooms", "services_ict"];
   const DIV_BUDGET   = ["hr_records", "finance"];
   const DIV_TOOLS    = [...TOOLS_KEYS];
   const DIV_ADMIN    = [...ADMIN_KEYS];
