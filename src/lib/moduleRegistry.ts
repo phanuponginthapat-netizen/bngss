@@ -84,8 +84,6 @@ export const MODULES: ModuleDef[] = [
   { key: "cms", label: "เว็บไซต์ (CMS)", labelEn: "Website CMS", desc: "จัดการเนื้อหาเว็บไซต์โรงเรียน", group: "integrations", urlPrefixes: ["/dashboard/admin/cms"] },
   { key: "line", label: "LINE OA", labelEn: "LINE OA", desc: "แจ้งเตือน/แชทบอทผ่าน LINE OA", group: "integrations", urlPrefixes: ["/dashboard/admin/line-settings"] },
   { key: "google_chat", label: "Google Chat", labelEn: "Google Chat", desc: "Webhook แจ้งเตือน Google Chat", group: "integrations", urlPrefixes: ["/dashboard/admin/webhooks"] },
-  { key: "district_feed", label: "District Feed API", labelEn: "District Feed", desc: "ส่งข้อมูลไปเขตพื้นที่การศึกษา", group: "integrations", urlPrefixes: ["/dashboard/admin/district-feed"] },
-  { key: "district_sync", label: "District Sync", labelEn: "District Sync", desc: "สถานะ snapshot รายคืน + คิวส่งข้อมูล (retry/DLQ)", group: "integrations", urlPrefixes: ["/dashboard/admin/district-sync"] },
   { key: "analytics", label: "วิเคราะห์ข้อมูล", labelEn: "Analytics", desc: "วิเคราะห์ข้อมูลภาพรวมโรงเรียน", group: "integrations", urlPrefixes: ["/dashboard/admin/analytics"] },
   { key: "audit_log", label: "Audit Log", labelEn: "Audit Log", desc: "บันทึกการใช้งานระบบ", group: "integrations", urlPrefixes: ["/dashboard/admin/audit-log"] },
   { key: "system_health", label: "สุขภาพระบบ", labelEn: "System Health", desc: "สถานะ AI, ผู้ใช้ออนไลน์, error logs", group: "integrations", urlPrefixes: ["/dashboard/admin/system-health"] },
@@ -105,7 +103,6 @@ export const MODULES: ModuleDef[] = [
   // โมดูลเสริม
   { key: "help", label: "ศูนย์ช่วยเหลือ", labelEn: "Help Center", desc: "คู่มือ FAQ และวิธีใช้งาน", group: "extras", urlPrefixes: ["/dashboard/help", "/help"] },
   { key: "garbage", label: "ธนาคารขยะ", labelEn: "Garbage Bank", desc: "สะสมแต้มขยะรีไซเคิลและของรางวัล", group: "extras", urlPrefixes: ["/dashboard/garbage"] },
-  { key: "iot", label: "IoT อุปกรณ์อัจฉริยะ", labelEn: "IoT Smart Devices", desc: "อุปกรณ์ IoT ในโรงเรียน", group: "extras", urlPrefixes: ["/dashboard/iot"] },
   { key: "ict_loans", label: "ยืม-คืน ICT", labelEn: "ICT Loans", desc: "ยืม-คืนอุปกรณ์ ICT", group: "extras", urlPrefixes: ["/dashboard/admin/ict-loans", "/dashboard/admin/ict-loan-history", "/dashboard/admin/ict-devices", "/dashboard/admin/ict-loan-report"] },
 ];
 

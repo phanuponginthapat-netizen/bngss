@@ -199,7 +199,6 @@ const AttendanceDashboardPage = lazy(() => import("./pages/hr/AttendanceDashboar
 const LeaveBalancePage = lazy(() => import("./pages/hr/LeaveBalancePage"));
 const SchoolLunchPage = lazy(() => import("./pages/admin/SchoolLunchPage"));
 const ObecHubPage = lazy(() => import("./pages/admin/ObecHubPage"));
-const BusPage = lazy(() => import("./pages/admin/BusPage"));
 const WpaPage = lazy(() => import("./pages/admin/WpaPage"));
 const DirectorRealtimePage = lazy(() => import("./pages/admin/DirectorRealtimePage"));
 const SchoolMilkPage = lazy(() => import("./pages/admin/SchoolMilkPage"));
@@ -217,8 +216,6 @@ const GarbageMyPage = lazy(() => import("./pages/garbage/GarbageMyPage"));
 const GarbageAchievementsPage = lazy(() => import("./pages/garbage/GarbageAchievementsPage"));
 
 // IoT
-const IoTDashboardPage = lazy(() => import("./pages/iot/IoTDashboardPage"));
-const IoTDevicesPage = lazy(() => import("./pages/iot/IoTDevicesPage"));
 
 // ICT Loans
 const IctDevicesPage = lazy(() => import("./pages/admin/IctDevicesPage"));
@@ -243,7 +240,6 @@ const ClassroomMonitorPage = lazy(() => import("./pages/admin/ClassroomMonitorPa
 const StudentAgentPage = lazy(() => import("./pages/monitor/StudentAgentPage"));
 
 // District Feed (API + Export)
-const DistrictFeedPage = lazy(() => import("./pages/admin/DistrictFeedPage"));
 const TestScoresPage = lazy(() => import("./pages/admin/TestScoresPage"));
 const SmscCenterPage = lazy(() => import("./pages/admin/SmscCenterPage"));
 const ObecStandardsPage = lazy(() => import("./pages/admin/ObecStandardsPage"));
@@ -252,8 +248,6 @@ const SystemHealthPage = lazy(() => import("./pages/admin/SystemHealthPage"));
 const DataQualityPage = lazy(() => import("./pages/admin/DataQualityPage"));
 const DataArchivePage = lazy(() => import("./pages/admin/DataArchivePage"));
 
-const DistrictSyncPage = lazy(() => import("./pages/admin/DistrictSyncPage"));
-const DistrictHubPage = lazy(() => import("./pages/admin/DistrictHubPage"));
 const RoleTroubleshootPage = lazy(() => import("./pages/admin/RoleTroubleshootPage"));
 const DatabaseSchemaPage = lazy(() => import("./pages/admin/DatabaseSchemaPage"));
 const RlsAuditPage = lazy(() => import("./pages/admin/RlsAuditPage"));
@@ -274,7 +268,6 @@ const PObecExportPage = lazy(() => import("./pages/admin/PObecExportPage"));
 const GradeRemediationPage = lazy(() => import("./pages/academic/GradeRemediationPage"));
 const HomeworkPage = lazy(() => import("./pages/HomeworkPage"));
 const AiTutorPage = lazy(() => import("./pages/ai/AiTutorPage"));
-const DigitalTwinPage = lazy(() => import("./pages/admin/DigitalTwinPage"));
 const EarlyWarningPage = lazy(() => import("./pages/admin/EarlyWarningPage"));
 const PadletListPage = lazy(() => import("./pages/padlet/PadletListPage"));
 const PadletBoardPage = lazy(() => import("./pages/padlet/PadletBoardPage"));
@@ -549,7 +542,6 @@ const App = () => {
                 <Route path="admin/school-lunch" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["general_admin"]}><SchoolLunchPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="admin/obec-hub" element={<ProtectedRoute allowedRoles={["admin", "director"]}><ObecHubPage /></ProtectedRoute>} />
                 <Route path="admin/p-obec" element={<ProtectedRoute allowedRoles={["admin", "director"]}><PObecExportPage /></ProtectedRoute>} />
-                <Route path="admin/bus" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><BusPage /></ProtectedRoute>} />
                 <Route path="admin/wpa" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><WpaPage /></ProtectedRoute>} />
                 <Route path="admin/director-realtime" element={<ProtectedRoute allowedRoles={["admin","director"]}><DirectorRealtimePage /></ProtectedRoute>} />
                 <Route path="admin/school-milk" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["general_admin"]}><SchoolMilkPage /></DepartmentRoute></ProtectedRoute>} />
@@ -564,8 +556,6 @@ const App = () => {
                 <Route path="garbage/reports" element={<ProtectedRoute allowedRoles={["admin", "director"]}><GarbageReportsPage /></ProtectedRoute>} />
                 <Route path="garbage/achievements" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student"]}><GarbageAchievementsPage /></ProtectedRoute>} />
                 {/* IoT */}
-                <Route path="iot" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><IoTDashboardPage /></ProtectedRoute>} />
-                <Route path="iot/devices" element={<ProtectedRoute allowedRoles={["admin", "director"]}><IoTDevicesPage /></ProtectedRoute>} />
                 {/* ICT Loans */}
                 <Route path="admin/ict-devices" element={<ProtectedRoute allowedRoles={["admin", "director"]}><IctDevicesPage /></ProtectedRoute>} />
                 <Route path="admin/ict-catalog" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student"]}><IctCatalogPage /></ProtectedRoute>} />
@@ -610,7 +600,6 @@ const App = () => {
                 <Route path="hr/assessment" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["finance_personnel"]} bypassRoles={["teacher"]}><EvaluationPage /></DepartmentRoute></ProtectedRoute>} />
 
                 {/* District Feed (External integration) */}
-                <Route path="admin/district-feed" element={<ProtectedRoute allowedRoles={["admin", "director"]}><DistrictFeedPage /></ProtectedRoute>} />
                 <Route path="admin/test-scores" element={<ProtectedRoute allowedRoles={["admin", "director"]}><TestScoresPage /></ProtectedRoute>} />
                 <Route path="admin/smsc" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SmscCenterPage /></ProtectedRoute>} />
                 <Route path="admin/obec-standards" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><ObecStandardsPage /></ProtectedRoute>} />
@@ -619,8 +608,6 @@ const App = () => {
                 <Route path="admin/data-quality" element={<ProtectedRoute allowedRoles={["admin","director"]}><DataQualityPage /></ProtectedRoute>} />
                 <Route path="admin/data-archive" element={<ProtectedRoute allowedRoles={["admin","director"]}><DataArchivePage /></ProtectedRoute>} />
 
-                <Route path="admin/district-hub" element={<ProtectedRoute allowedRoles={["admin","director"]}><DistrictHubPage /></ProtectedRoute>} />
-                <Route path="admin/district-sync" element={<ProtectedRoute allowedRoles={["admin","director"]}><DistrictSyncPage /></ProtectedRoute>} />
                 <Route path="admin/role-troubleshoot" element={<ProtectedRoute allowedRoles={["admin","director","teacher","student"]}><RoleTroubleshootPage /></ProtectedRoute>} />
                 <Route path="admin/rls-audit" element={<ProtectedRoute allowedRoles={["admin"]}><RlsAuditPage /></ProtectedRoute>} />
 
@@ -651,7 +638,6 @@ const App = () => {
                 {/* AI Tutor personalized — weak subjects, remediation, attendance (task spec) */}
                 <Route path="ai-tutor" element={<ProtectedRoute allowedRoles={["admin","director","teacher","student","parent"]}><AiTutorPage /></ProtectedRoute>} />
                 <Route path="ai/tutor" element={<ProtectedRoute allowedRoles={["admin","director","teacher","student","parent"]}><AiTutorPage /></ProtectedRoute>} />
-                <Route path="admin/digital-twin" element={<ProtectedRoute allowedRoles={["admin","director"]}><DigitalTwinPage /></ProtectedRoute>} />
                 <Route path="admin/early-warning" element={<ProtectedRoute allowedRoles={["admin","director","teacher"]}><EarlyWarningPage /></ProtectedRoute>} />
                 {/* Homework & AI Chat — available to teachers and students */}
                 <Route path="homework" element={<ProtectedRoute allowedRoles={["admin","director","teacher","student","parent"]}><HomeworkPage /></ProtectedRoute>} />

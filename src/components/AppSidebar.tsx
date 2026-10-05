@@ -368,7 +368,6 @@ export function AppSidebar() {
         { title: L("บัญชีผู้สังเกตการณ์ (ศน.)", "Observer Access"), url: "/dashboard/admin/observation", icon: Eye, color: "text-cyan-400", roles: ["admin", "director"], desc: L("QR + Username/Password สำหรับแชร์ให้ผู้ตรวจ · PDPA", "QR + credentials for external reviewers · PDPA") },
         { title: L("สังเกตการสอน", "Observation Sessions"), url: "/dashboard/admin/observation-sessions", icon: Eye, color: "text-teal-400", roles: ["admin", "director"], desc: L("ตารางสังเกตการสอน · บันทึกผล · รายงาน", "Observation schedule & reports") },
         { title: L("BigData", "BigData"), url: "/dashboard/admin/bigdata", icon: Database, color: "text-indigo-400", roles: ["admin", "director"], desc: L("คลังข้อมูลขนาดใหญ่ · วิเคราะห์เชิงลึก", "BigData analytics dashboard") },
-        { title: L("Digital Twin", "Digital Twin"), url: "/dashboard/admin/digital-twin", icon: Cpu, color: "text-sky-400", roles: ["admin", "director"], desc: L("แบบจำลองดิจิทัลโรงเรียน · จำลองสถานการณ์", "School digital twin simulation") },
         { title: L("แจ้งเตือนเสี่ยง", "Early Warning"), url: "/dashboard/admin/early-warning", icon: Bell, color: "text-amber-400", roles: ["admin", "director", "teacher"], desc: L("แจ้งเตือนนักเรียนเสี่ยง · ขาดเรียน ผลตก", "At-risk student alerts") },
         { title: L("ระบบและรายงานผู้ดูแล", "System & Reports (Admin)"), url: "/dashboard/hub/admin-reports", icon: BarChart3, color: "text-teal-400", roles: ["admin", "director"], desc: L("อัปเดต · Log · วิเคราะห์ · Audit · O-NET/NT/PISA · สมศ.", "Updates, logs, analytics, audit, tests") },
       ],
@@ -382,8 +381,6 @@ export function AppSidebar() {
       items: [
         { title: L("ตรวจความสมบูรณ์ข้อมูล", "Data Quality"), url: "/dashboard/admin/data-quality", icon: Activity, color: "text-amber-400", roles: ["admin", "director"], desc: L("ผู้ใช้ไม่มีบทบาท · นักเรียนไม่มีห้อง · ครูไม่มีตารางสอน", "Missing roles, classrooms & schedules") },
         { title: L("จัดเก็บ/สำรองข้อมูล (Drive)", "Data Archive"), url: "/dashboard/admin/data-archive", icon: Database, color: "text-sky-400", roles: ["admin", "director"], desc: L("เก็บย้อนหลังตามระเบียบ · สำรองขึ้น Google Drive ตามปีการศึกษา", "Retention policy & Google Drive backup") },
-        { title: L("เชื่อมระบบเขต", "District link"), url: "/dashboard/admin/district-sync", icon: Database, color: "text-emerald-400", roles: ["admin", "director"], desc: L("ส่งตัวเลขสรุปให้เขตทุกคืน", "Send nightly summary to district") },
-        { title: L("ภาพรวมเขตพื้นที่", "District overview"), url: "/dashboard/admin/district-hub", icon: Database, color: "text-emerald-400", roles: ["admin", "director"], desc: L("ระบบหลัก: ดูทุกโรงเรียนในหน้าเดียว", "Hub: all schools at a glance") },
 
         { title: L("สุขภาพระบบ (Health)", "System Health"), url: "/dashboard/admin/system-health", icon: Activity, color: "text-emerald-400", roles: ["admin", "director"], desc: L("สถานะ Realtime · Edge · Cron · Live Feed", "Realtime, edge, cron & live feed status") },
         { title: L("ตรวจสอบ RLS Policy", "RLS Audit"), url: "/dashboard/admin/rls-audit", icon: Shield, color: "text-rose-400", roles: ["admin"], desc: L("สรุปสถานะสิทธิ์ INSERT/UPDATE/DELETE ทุกตาราง", "Policy coverage per table") },
@@ -623,8 +620,6 @@ export function AppSidebar() {
       color: "text-cyan-400",
       roles: ["admin", "director", "teacher"],
       items: [
-        { title: L("ภาพรวมอุปกรณ์ IoT", "IoT Dashboard"), url: "/dashboard/iot", icon: Wifi, color: "text-cyan-400", roles: ["admin", "director", "teacher"], desc: L("ข้อมูลเรียลไทม์จากเซ็นเซอร์", "Live sensor data") },
-        { title: L("จัดการอุปกรณ์ IoT", "Manage Devices"), url: "/dashboard/iot/devices", icon: SettingsIcon, color: "text-amber-400", roles: ["admin", "director"], desc: L("ลงทะเบียนและตั้งค่าอุปกรณ์ IoT", "Register & configure IoT") },
       ],
     },
   ];

@@ -1,4 +1,3 @@
-import { isLocalInstall } from "@/lib/runtimeConfig";
 import { useState, useMemo, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -646,7 +645,7 @@ export default function KioskSetupPage() {
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
               <a
-                href={isLocalInstall() ? "/downloads/bngss-scanner-latest.apk" : "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-scanner-latest.apk"}
+                href="https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-scanner-latest.apk"
                 target="_blank"
                 rel="noreferrer"
               >

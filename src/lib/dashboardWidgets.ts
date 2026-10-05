@@ -46,7 +46,6 @@ export const DASHBOARD_WIDGETS: WidgetDef[] = [
 
   { key: "mini_apps", titleTh: "มินิแอป (ทางลัด)", titleEn: "Mini Apps", group: "shortcut", defaultSize: "xl", defaultColor: "primary", allowedSizes: ["lg", "xl"], defaultEnabled: true },
   
-  { key: "iot_summary", titleTh: "IoT", titleEn: "IoT", group: "shortcut", defaultSize: "md", defaultColor: "info", allowedSizes: ["md", "lg"], defaultEnabled: true },
   { key: "module_hub", titleTh: "Hub โมดูล", titleEn: "Module Hub", group: "shortcut", defaultSize: "md", defaultColor: "violet", allowedSizes: ["md", "lg"], defaultEnabled: true },
   { key: "social_wall", titleTh: "Social Wall", titleEn: "Social Wall", group: "info", defaultSize: "lg", defaultColor: "info", allowedSizes: ["md", "lg", "xl"], defaultEnabled: true },
 ];
