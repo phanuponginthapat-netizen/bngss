@@ -112,6 +112,18 @@ Deno.serve(async (req) => {
       return respond({ error: "invalid_credentials" }, 401);
     }
 
+    // 3) ซ่อมสิทธิ์อัตโนมัติ: บัญชีที่ผูกกับนักเรียน/บุคลากรแต่ไม่มี role → ใส่ให้ (กัน login วน)
+    try {
+      const uid = data.session.user.id;
+      const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", uid);
+      if (!roles || roles.length === 0) {
+        const { data: st } = await admin.from("students").select("id").eq("auth_user_id", uid).maybeSingle();
+        const { data: pe } = st ? { data: null } : await admin.from("personnel").select("id").eq("user_id", uid).eq("status", "active").maybeSingle();
+        const role = st ? "student" : pe ? "teacher" : null;
+        if (role) await admin.from("user_roles").insert({ user_id: uid, role });
+      }
+    } catch (_) { /* ไม่ขวางการเข้าระบบ */ }
+
     return respond({
       success: true,
       access_token: data.session.access_token,
