@@ -112,15 +112,18 @@ Deno.serve(async (req) => {
       return respond({ error: "invalid_credentials" }, 401);
     }
 
-    // 3) ซ่อมสิทธิ์อัตโนมัติ: บัญชีที่ผูกกับนักเรียน/บุคลากรแต่ไม่มี role → ใส่ให้ (กัน login วน)
+    // 3) ซ่อมสิทธิ์อัตโนมัติ — เฉพาะ "นักเรียน" เท่านั้น (สิทธิ์ต่ำสุด)
+    // ห้ามให้สิทธิ์ครู/แอดมินอัตโนมัติเด็ดขาด เพื่อกันการยกระดับสิทธิ์ผิดคน
+    // เงื่อนไข: ไม่มี role ใดๆ เลย + ผูกกับนักเรียนที่ active + ไม่ได้ผูกกับบุคลากร
     try {
       const uid = data.session.user.id;
       const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", uid);
       if (!roles || roles.length === 0) {
-        const { data: st } = await admin.from("students").select("id").eq("auth_user_id", uid).maybeSingle();
-        const { data: pe } = st ? { data: null } : await admin.from("personnel").select("id").eq("user_id", uid).eq("status", "active").maybeSingle();
-        const role = st ? "student" : pe ? "teacher" : null;
-        if (role) await admin.from("user_roles").insert({ user_id: uid, role });
+        const [{ data: st }, { data: pe }] = await Promise.all([
+          admin.from("students").select("id").eq("auth_user_id", uid).eq("status", "active").maybeSingle(),
+          admin.from("personnel").select("id").eq("user_id", uid).maybeSingle(),
+        ]);
+        if (st && !pe) await admin.from("user_roles").insert({ user_id: uid, role: "student" });
       }
     } catch (_) { /* ไม่ขวางการเข้าระบบ */ }
 
