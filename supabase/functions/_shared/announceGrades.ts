@@ -88,24 +88,24 @@ export async function announceGrades(opts: AnnounceGradesOptions) {
       const distinctDates = new Set(rows.map((r) => r.attendance_date));
       const total = distinctDates.size;
 
-      // If we have attendance data for this term, enforce threshold
-      if (total > 0) {
+      // เวลาเรียนจากแผ่น "เวลาเรียน" ในไฟล์ที่อัปโหลด (X = มา, ข = ขาด, ล = ลา, ส = สาย)
+      // ไฟล์เป็นแหล่งข้อมูลหลักสำหรับนักเรียนที่มีเครื่องหมายรายวัน — ไม่มีจึงใช้ตาราง attendance แทน
+      const fileMarks = new Map<string, { days: number; present: number; absent: number; leave: number; late: number }>();
+      for (const sh of (parsed.sheets || []) as any[]) {
+        for (const s of sh.students || []) {
+          const m = s.attendanceMarks;
+          if (m && m.days > 0) fileMarks.set(String(s.studentCode), m);
+        }
+      }
+
+      // ตรวจเกณฑ์เมื่อมีข้อมูลเวลาเรียนจากตาราง หรือจากไฟล์ที่อัปโหลด
+      if (total > 0 || fileMarks.size > 0) {
         const absentMap = new Map<string, { absent: number; leave: number }>();
         for (const r of rows) {
           const cur = absentMap.get(r.student_id) ?? { absent: 0, leave: 0 };
           if (r.status === "absent") cur.absent += 1;
           else if (r.status === "leave" || r.status === "sick") cur.leave += 1;
           absentMap.set(r.student_id, cur);
-        }
-
-        // เวลาเรียนจากแผ่น "เวลาเรียน" ในไฟล์ที่อัปโหลด (X = มา, ข = ขาด, ล = ลา, ส = สาย)
-        // ไฟล์เป็นแหล่งข้อมูลหลักสำหรับนักเรียนที่มีเครื่องหมายรายวัน — ไม่มีจึงใช้ตาราง attendance แทน
-        const fileMarks = new Map<string, { days: number; present: number; absent: number; leave: number; late: number }>();
-        for (const sh of (parsed.sheets || []) as any[]) {
-          for (const s of sh.students || []) {
-            const m = s.attendanceMarks;
-            if (m && m.days > 0) fileMarks.set(String(s.studentCode), m);
-          }
         }
 
         const atRisk: string[] = [];
