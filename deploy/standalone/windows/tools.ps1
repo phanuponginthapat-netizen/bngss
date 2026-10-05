@@ -1,9 +1,9 @@
-# เครื่องมือใน Start Menu: open | backup | restore | update | make-admin | keys
+﻿# เครื่องมือใน Start Menu: open | backup | restore | update | make-admin | keys
 param([Parameter(Mandatory=$true)][string]$Action)
 Add-Type -AssemblyName System.Windows.Forms
 function Msg($t) { [System.Windows.Forms.MessageBox]::Show($t, "ระบบโรงเรียน") | Out-Null }
 $repo = (Resolve-Path "$PSScriptRoot\..\..\..").Path
-function WslRepo { (wsl -d Ubuntu wslpath -a ($repo -replace '\\','/')).Trim() }
+function WslRepo { (wsl -d SchoolSystem wslpath -a ($repo -replace '\\','/')).Trim() }
 
 function Open-School {
   $ip = Get-Content "$env:ProgramData\SchoolSystem\server-ip.txt" -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -17,22 +17,21 @@ function Open-School {
   $ok = $false
   try { Invoke-WebRequest $url -UseBasicParsing -TimeoutSec 3 | Out-Null; $ok = $true } catch {}
   if (-not $ok) {
-    $dd = "$env:ProgramFiles\Docker\Docker\Docker Desktop.exe"
-    if (Test-Path $dd) { Start-Process $dd -ErrorAction SilentlyContinue }
+    Start-ScheduledTask -TaskName 'SchoolSystem Start' -ErrorAction SilentlyContinue
     for ($i=0; $i -lt 36 -and -not $ok; $i++) {
       Start-Sleep 5
       try { Invoke-WebRequest $url -UseBasicParsing -TimeoutSec 3 | Out-Null; $ok = $true } catch {}
     }
   }
   if ($ok) { Start-Process $url }
-  else { Msg "ระบบยังไม่พร้อมที่ $url`n`nตรวจว่า Docker Desktop เปิดอยู่ แล้วลองใหม่อีกครั้งใน 1-2 นาที" }
+  else { Msg "ระบบยังไม่พร้อมที่ $url`n`nลองรีสตาร์ทเครื่อง หรือลองใหม่อีกครั้งใน 1-2 นาที" }
 }
 
 switch ($Action) {
   "open"    { Open-School }
-  "backup"  { wsl -d Ubuntu -u root -- /usr/local/bin/school-backup; Read-Host "สำรองข้อมูลเสร็จ กด Enter" }
-  "restore" { wsl -d Ubuntu -u root -- /usr/local/bin/school-restore; Read-Host "กด Enter" }
-  "update"  { wsl -d Ubuntu -u root -- /usr/local/bin/school-update; Read-Host "กด Enter" }
-  "keys"    { Write-Host "ใส่กุญแจบริการ (LINE / AI / Google) - กด Enter เพื่อข้าม"; wsl -d Ubuntu -u root -- /usr/local/bin/school-set-keys; Read-Host "กด Enter" }
-  "make-admin" { $e = Read-Host "อีเมลผู้ดูแลระบบ"; $r = WslRepo; wsl -d Ubuntu -u root -- bash "$r/deploy/standalone/make-admin.sh" $e; Read-Host "กด Enter" }
+  "backup"  { wsl -d SchoolSystem -u root -- /usr/local/bin/school-backup; Read-Host "สำรองข้อมูลเสร็จ กด Enter" }
+  "restore" { wsl -d SchoolSystem -u root -- /usr/local/bin/school-restore; Read-Host "กด Enter" }
+  "update"  { wsl -d SchoolSystem -u root -- /usr/local/bin/school-update; Read-Host "กด Enter" }
+  "keys"    { Write-Host "ใส่กุญแจบริการ (LINE / AI / Google) - กด Enter เพื่อข้าม"; wsl -d SchoolSystem -u root -- /usr/local/bin/school-set-keys; Read-Host "กด Enter" }
+  "make-admin" { $e = Read-Host "อีเมลผู้ดูแลระบบ"; $r = WslRepo; wsl -d SchoolSystem -u root -- bash "$r/deploy/standalone/make-admin.sh" $e; Read-Host "กด Enter" }
 }

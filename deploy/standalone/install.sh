@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ติดตั้งระบบโรงเรียนแบบ Standalone (ใช้ใน LAN ไม่ต้องใช้ Cloud)
-# รองรับ Ubuntu/Debian/MX Linux และ Windows (ผ่าน WSL2 + Docker Desktop)
+# รองรับ Ubuntu/Debian/MX Linux และ Windows (ผ่าน WSL2 ติดตั้งอัตโนมัติ)
 #
 #   sudo bash deploy/standalone/install.sh            # ติดตั้งใหม่
 #   sudo bash deploy/standalone/install.sh --hybrid   # แบบผสม: สำรองขึ้น Cloud เมื่อมีเน็ต
@@ -10,7 +10,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # เก็บข้อมูลทั้งหมด (ฐานข้อมูล + ไฟล์ + สำรอง) ไว้ที่ DATA_DIR บน HDD
 STACK="${DATA_DIR:-/opt/school-stack}"
 MODE="standalone"; [ "${1:-}" = "--hybrid" ] && MODE="hybrid"
-echo "STACK=$STACK" > /etc/school-stack.env
+echo "STACK=$STACK" > /etc/school-stack.env; [ -n "${BACKUP_DIR:-}" ] && echo "BACKUP_DIR=$BACKUP_DIR" >> /etc/school-stack.env
 LAN_IP="${LAN_IP:-$(hostname -I 2>/dev/null | awk '{print $1}')}"
 [ -n "$LAN_IP" ] || LAN_IP=127.0.0.1
 echo "== ติดตั้งแบบ $MODE ที่ IP $LAN_IP =="
