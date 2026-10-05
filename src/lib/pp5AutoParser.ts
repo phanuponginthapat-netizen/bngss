@@ -544,7 +544,7 @@ function consolidate(sheets: PP5ParsedSheet[], meta: PP5ParsedWorkbook["meta"]):
       if (!rec.perSubject[canonicalSubject]) rec.perSubject[canonicalSubject] = {};
       const bucket = rec.perSubject[canonicalSubject];
       const { sum, count, max } = sumNonAggregated(st);
-      if (count === 0 && st.directTotal === undefined && !st.directGrade) continue;
+      if (count === 0 && st.directTotal === undefined && !st.directGrade && !st.attendanceMarks) continue;
       applyToBucket(bucket, sh, st, sum, count, max);
     }
   }
