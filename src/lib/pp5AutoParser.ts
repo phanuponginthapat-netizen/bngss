@@ -10,7 +10,7 @@ export interface PP5ParsedStudentRow {
   studentName: string;
   seq?: number;
   subjects: Record<string, { columns: { header: string; value: number | string | null }[] }>;
-  /** แบบบันทึกเวลาเรียนที่ใช้เครื่องหมายรายวัน (X/ข = ขาด, ล/ป/ก = ลา, ส = สาย, ว่าง หรือ / = มา) */
+  /** แบบบันทึกเวลาเรียนที่ใช้เครื่องหมายรายวัน (X/×/✓ = มา, ข/ขาด = ขาด, ล/ป/ก = ลา, ส = สาย, ว่าง = มา) */
   attendanceMarks?: { days: number; present: number; absent: number; leave: number; late: number };
   directTotal?: number;
   directGrade?: string;
@@ -153,10 +153,11 @@ function findDataStartRow(grid: Grid, header: { rowIdx: number; codeCol: number;
 
 /** Classify each column: numeric score, total, grade, or skip. */
 // ─── เวลาเรียนแบบกากบาทรายวัน ────────────────────────────────────────────────
-const ABSENT_RE = /^(x|×|✗|✘|ข|ขาด|0)$/i;
+// สัญลักษณ์ของโรงเรียน: X (กากบาท) = มาเรียน, ข/ขาด = ขาด, ล/ป/ก = ลา, ส = สาย
+const ABSENT_RE = /^(ข|ขาด|0)$/;
 const LEAVE_RE = /^(ล|ลา|ป|ลป|ก|ลก|ลากิจ|ลาป่วย)$/;
 const LATE_RE = /^(ส|สาย)$/;
-const PRESENT_RE = /^(\/|✓|✔|1|ม|มา|\.)$/;
+const PRESENT_RE = /^(x|×|✗|✘|\/|✓|✔|v|o|1|ม|มา|\.)$/i;
 const isMark = (v: unknown) => {
   const t = nz(v).replace(/\s+/g, "");
   return !!t && (ABSENT_RE.test(t) || LEAVE_RE.test(t) || LATE_RE.test(t) || PRESENT_RE.test(t));
