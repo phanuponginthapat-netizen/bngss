@@ -22,14 +22,31 @@ const Login = () => {
   const safeNext = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : null;
   const postLoginTarget = safeNext ?? "/dashboard";
 
-  // If already signed in, skip the login form entirely.
+  // If already signed in, skip the login form entirely —
+  // but only when the account actually has a role, otherwise we'd bounce
+  // between /login and /dashboard forever (login loop).
   useEffect(() => {
+    let busy = false;
     const go = async () => {
-      const t = await resolvePostLoginRedirect(postLoginTarget);
-      navigateEarly(t, { replace: true });
+      if (busy) return;
+      busy = true;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data: roles, error } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+        if (error || !roles || roles.length === 0) {
+          await supabase.auth.signOut().catch(() => {});
+          toast.error("บัญชีนี้ยังไม่ได้กำหนดสิทธิ์ผู้ใช้ (นักเรียน/ครู) — กรุณาแจ้งผู้ดูแลระบบ", { duration: 8000 });
+          return;
+        }
+        const t = await resolvePostLoginRedirect(postLoginTarget);
+        navigateEarly(t, { replace: true });
+      } finally {
+        busy = false;
+      }
     };
     supabase.auth.getSession().then(({ data: { session } }) => { if (session) go(); });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => { if (session) go(); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((e, session) => { if (session && e === "SIGNED_IN") go(); });
     return () => subscription.unsubscribe();
   }, [navigateEarly, postLoginTarget]);
 
