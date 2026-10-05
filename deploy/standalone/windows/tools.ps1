@@ -1,4 +1,4 @@
-# เครื่องมือใน Start Menu: open | backup | restore | update | make-admin | keys
+﻿# เครื่องมือใน Start Menu: open | backup | restore | update | make-admin | keys
 param([Parameter(Mandatory=$true)][string]$Action)
 Add-Type -AssemblyName System.Windows.Forms
 function Msg($t) { [System.Windows.Forms.MessageBox]::Show($t, "ระบบโรงเรียน") | Out-Null }
@@ -17,6 +17,7 @@ function Open-School {
   $ok = $false
   try { Invoke-WebRequest $url -UseBasicParsing -TimeoutSec 3 | Out-Null; $ok = $true } catch {}
   if (-not $ok) {
+    Start-ScheduledTask -TaskName 'SchoolSystem Start' -ErrorAction SilentlyContinue
     for ($i=0; $i -lt 36 -and -not $ok; $i++) {
       Start-Sleep 5
       try { Invoke-WebRequest $url -UseBasicParsing -TimeoutSec 3 | Out-Null; $ok = $true } catch {}
