@@ -58,6 +58,12 @@ const Pp7Page = () => {
   });
 
   const assessmentPassed = assessmentScores.length > 0 && assessmentScores.every((a: any) => a.level !== "needs_improvement");
+  // แยกผลแต่ละด้าน — ด้านที่ไม่มีข้อมูลแสดง "-"
+  const catResult = (cats: string[]) => {
+    const rows = assessmentScores.filter((a: any) => cats.includes(a.assessment_criteria?.category));
+    if (!rows.length) return "-";
+    return rows.every((a: any) => a.level !== "needs_improvement") ? "ผ่าน" : "ไม่ผ่าน";
+  };
 
   const handlePrint = async () => {
     if (!student) return;
@@ -96,9 +102,9 @@ const Pp7Page = () => {
         ${assessmentScores.length > 0 ? `
           <p class="obec-indent" style="margin-top:10px;">ผลการประเมินคุณลักษณะและสมรรถนะ:</p>
           <div style="margin-left:64px; margin-top:8px; line-height:2;">
-            <p>• สมรรถนะสำคัญของผู้เรียน: <span class="obec-grade">${assessmentPassed ? "ผ่าน" : "ไม่ผ่าน"}</span></p>
-            <p>• คุณลักษณะอันพึงประสงค์: <span class="obec-grade">${assessmentPassed ? "ผ่าน" : "ไม่ผ่าน"}</span></p>
-            <p>• การอ่าน คิดวิเคราะห์ และเขียน: <span class="obec-grade">${assessmentPassed ? "ผ่าน" : "ไม่ผ่าน"}</span></p>
+            <p>• สมรรถนะสำคัญของผู้เรียน: <span class="obec-grade">${catResult(["competency"])}</span></p>
+            <p>• คุณลักษณะอันพึงประสงค์: <span class="obec-grade">${catResult(["desirable"])}</span></p>
+            <p>• การอ่าน คิดวิเคราะห์ และเขียน: <span class="obec-grade">${catResult(["reading_writing", "reading"])}</span></p>
           </div>
         ` : ""}
 
