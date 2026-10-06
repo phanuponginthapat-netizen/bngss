@@ -1,3 +1,4 @@
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -533,9 +534,9 @@ export default function GarbageCounterPage() {
       <BarcodeScanner open={scanOpen} onClose={() => setScanOpen(false)} onScan={(code) => { setScanOpen(false); lookupCode(code); }} title="สแกน QR บัตร — นักเรียน หรือ บุคลากร" />
 
       {/* ยืนยันผลการแสกนก่อนเลือก */}
-      <Dialog open={!!pendingHolder} onOpenChange={(o) => { if (!o) { setPendingHolder(null); setPendingPoints(null); } }}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>ยืนยันผลการแสกน</DialogTitle></DialogHeader>
+      <AlertDialog open={!!pendingHolder} onOpenChange={(o) => { if (!o) { setPendingHolder(null); setPendingPoints(null); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader><AlertDialogTitle>ยืนยันผลการแสกน</AlertDialogTitle></AlertDialogHeader>
           {pendingHolder && (
             <div className="space-y-3">
               <div className="flex items-center gap-3 p-4 rounded-lg border bg-muted/30">
@@ -563,7 +564,7 @@ export default function GarbageCounterPage() {
               </div>
             </div>
           )}
-          <DialogFooter className="gap-2">
+          <AlertDialogFooter className="gap-2">
             <Button variant="outline" onClick={() => { setPendingHolder(null); setPendingPoints(null); }}>
               ยกเลิก / แสกนใหม่
             </Button>
@@ -574,9 +575,9 @@ export default function GarbageCounterPage() {
                 selectHolder(h);
               }
             }}>ยืนยัน</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

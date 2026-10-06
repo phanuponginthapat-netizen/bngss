@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -144,7 +145,7 @@ export default function GameHubAdminPage() {
               </div>
               {!g.is_active && <Badge variant="outline">ปิด</Badge>}
               <Button variant="ghost" size="icon" onClick={() => { setForm({ ...g, tags: g.tags || [] }); setOpen(true); }}><Pencil className="w-4 h-4" /></Button>
-              <Button variant="ghost" size="icon" onClick={() => { if (confirm("ลบเกมนี้?")) del.mutate(g.id); }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+              <Button variant="ghost" size="icon" onClick={async () => { if ((await swal.confirm({ title: "ลบเกมนี้?" }))) del.mutate(g.id); }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
             </div>
           ))}
         </CardContent>

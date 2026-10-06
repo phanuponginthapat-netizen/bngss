@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -260,7 +261,7 @@ const EFormTemplateDesigner = ({ initialHtml, initialFields, onChange, headerExt
 
   const insertImageFromUrl = async () => {
     if (!editor) return;
-    const url = prompt("วาง URL รูปภาพ");
+    const url = await swal.prompt("วาง URL รูปภาพ");
     if (!url) return;
     const { width: pwMm } = getEFormPaperMm(paperSize, orientation);
     const maxPx = paperContentMaxPx(pwMm, margins.left, margins.right);

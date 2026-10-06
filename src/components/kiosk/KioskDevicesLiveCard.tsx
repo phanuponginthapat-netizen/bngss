@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -123,7 +124,7 @@ export function KioskDevicesLiveCard({ configUpdatedAt, onViewDevice }: { config
 
 
   const removeDevice = async (id: string) => {
-    if (!confirm("ลบเครื่องนี้ออกจากรายการ?")) return;
+    if (!(await swal.confirm({ title: "ลบเครื่องนี้ออกจากรายการ?" }))) return;
     const { error } = await supabase.from("kiosk_devices").delete().eq("id", id);
     if (error) toast.error(saveErrorMessage(error)); else { toast.success("ลบแล้ว"); load(); }
   };

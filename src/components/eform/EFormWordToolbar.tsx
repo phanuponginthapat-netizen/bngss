@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import type { Editor } from "@tiptap/react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -330,9 +331,9 @@ const EFormWordToolbar = ({
         <input type="color" className="absolute inset-0 opacity-0 cursor-pointer"
           onChange={(e) => (editor.chain().focus() as any).toggleHighlight({ color: e.target.value }).run()} />
       </label>
-      <Btn title="แทรกลิงก์" active={editor.isActive("link")} onClick={() => {
+      <Btn title="แทรกลิงก์" active={editor.isActive("link")} onClick={async () => {
         const prev = editor.getAttributes("link").href || "";
-        const url = prompt("ใส่ URL ลิงก์ (เว้นว่าง = ลบลิงก์)", prev);
+        const url = await swal.prompt("ใส่ URL ลิงก์ (เว้นว่าง = ลบลิงก์)", { defaultValue: prev });
         if (url === null) return;
         if (url === "") (editor.chain().focus().extendMarkRange("link") as any).unsetLink().run();
         else (editor.chain().focus().extendMarkRange("link") as any).setLink({ href: url }).run();

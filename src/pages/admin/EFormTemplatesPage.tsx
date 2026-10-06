@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -203,7 +204,7 @@ const EFormTemplatesPage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("ลบต้นแบบนี้?")) return;
+    if (!(await swal.confirm({ title: "ลบต้นแบบนี้?" }))) return;
     const { error } = await supabase.from("eform_templates" as any).delete().eq("id", id);
     if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบแล้ว");

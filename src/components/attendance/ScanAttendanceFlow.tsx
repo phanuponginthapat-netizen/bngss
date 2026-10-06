@@ -1,3 +1,4 @@
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
@@ -436,14 +437,14 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
 
 
       {/* Confirm dialog (mode-aware) */}
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{lang === "th" ? "ยืนยันการส่งข้อมูลเช็คชื่อ" : "Confirm submission"}</DialogTitle>
-            <DialogDescription>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{lang === "th" ? "ยืนยันการส่งข้อมูลเช็คชื่อ" : "Confirm submission"}</AlertDialogTitle>
+            <AlertDialogDescription>
               {contextLabel || (lang === "th" ? "ตรวจสอบสรุปก่อนส่ง" : "Review summary")}
-            </DialogDescription>
-          </DialogHeader>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
           <div className="space-y-2">
             {(Object.keys(STATUS_META) as AttendanceStatus[]).map(k => (
               <div key={k} className="flex justify-between items-center text-sm">
@@ -458,7 +459,7 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
               <span>{students.length}</span>
             </div>
           </div>
-          <DialogFooter>
+          <AlertDialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={submitting}>
               {lang === "th" ? "ยกเลิก" : "Cancel"}
             </Button>
@@ -466,9 +467,9 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
               <Send className="w-4 h-4 mr-1" />
               {submitting ? (lang === "th" ? "กำลังส่ง..." : "Sending...") : (lang === "th" ? "ส่งข้อมูล" : "Submit")}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

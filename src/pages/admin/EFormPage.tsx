@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useMemo, useState } from "react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -90,7 +91,7 @@ const EFormPage = () => {
   }, [templates]);
 
   const deleteTemplate = async (id: string, name: string) => {
-    if (!confirm(`ลบต้นแบบ "${name}" ?`)) return;
+    if (!(await swal.confirm({ title: `ลบต้นแบบ "${name}" ?` }))) return;
     const { error } = await supabase.from("eform_templates" as any).delete().eq("id", id);
     if (error) { toast.error("ลบไม่สำเร็จ: " + error.message); return; }
     toast.success("ลบต้นแบบแล้ว");

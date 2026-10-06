@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -236,8 +237,8 @@ export default function PASystemTab() {
                       </Button>
                     )}
                     {a.status === "draft" && (
-                      <Button variant="ghost" size="sm" onClick={() => {
-                        if (confirm(`ยืนยันลบข้อตกลง PA ของ ${pName}?`)) handleDelete(a.id);
+                      <Button variant="ghost" size="sm" onClick={async () => {
+                        if ((await swal.confirm({ title: `ยืนยันลบข้อตกลง PA ของ ${pName}?` }))) handleDelete(a.id);
                       }}>
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>

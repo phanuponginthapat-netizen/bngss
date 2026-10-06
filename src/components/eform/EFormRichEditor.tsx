@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import { Node } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
@@ -896,7 +897,7 @@ const EFormRichEditor = ({ html, onChange, fontFamily = 'Sarabun', fontSizePt: i
   };
   const insertImageFromUrl = async () => {
     if (!editor) return;
-    const url = prompt("วาง URL รูปภาพ");
+    const url = await swal.prompt("วาง URL รูปภาพ");
     if (!url) return;
     const { width: pwMm } = getEFormPaperMm(paperSize, orientation);
     const maxPx = paperContentMaxPx(pwMm, margins.left, margins.right);

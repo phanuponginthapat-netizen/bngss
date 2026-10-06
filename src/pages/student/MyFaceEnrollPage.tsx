@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -173,7 +174,7 @@ const MyFaceEnrollPage = () => {
               const { data } = await (supabase as any).rpc("link_my_identity");
               qc.invalidateQueries();
               if (!data || data === "none") {
-                alert("ระบบยังหาข้อมูลของบัญชีนี้ไม่พบ กรุณาแจ้งผู้ดูแลระบบให้เชื่อมรหัสนักเรียนกับบัญชีนี้");
+                void swal.warning("ระบบยังหาข้อมูลของบัญชีนี้ไม่พบ กรุณาแจ้งผู้ดูแลระบบให้เชื่อมรหัสนักเรียนกับบัญชีนี้");
               }
             }}
           >
