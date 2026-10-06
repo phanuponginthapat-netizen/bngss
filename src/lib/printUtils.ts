@@ -600,18 +600,16 @@ export const openPrintWindow = (htmlContent: string, options: PrintOptions = {})
     `
     : "";
   // ปพ.3 / ปพ.7 / ปพ.8 — กรอบเอกสารทางการแบบเดียวกับเล่ม ปพ.1/ปพ.6
+  // ปพ.3 / ปพ.7 / ปพ.8 — รูปแบบเอกสารราชการ (ระเบียบงานสารบรรณ): A4, ขอบบน 2.5 ซม. ซ้าย 3 ซม. ขวา/ล่าง 2 ซม.,
+  // TH Sarabun New 16pt, ขาว-ดำ ไม่มีสีตกแต่ง
   const officialCss = /^ปพ\.[378]/.test(title)
     ? `
-      body { font-family: "TH Sarabun New","Sarabun",sans-serif; }
-      body > * { box-sizing: border-box; }
-      body { border: 3px double #1f3a5f; padding: 10mm 12mm; margin: 0; min-height: 270mm; }
-      .obec-header { border-bottom: 2px solid #1f3a5f; padding-bottom: 4mm; margin-bottom: 4mm; }
-      .obec-header .school-name { color: #1f3a5f; font-weight: 700; }
-      .obec-header .doc-title { display:inline-block; margin-top:2mm; padding: 1mm 6mm; border: 1.5px solid #1f3a5f; border-radius: 2mm; color:#1f3a5f; font-weight:700; }
-      table th { background: #e8eef5 !important; color:#1f3a5f; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      table tr:nth-child(even) td { background: #f7f9fb; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .obec-info-box { border: 1px solid #c9d2dc; border-radius: 2mm; padding: 3mm 5mm; }
-      @media print { body { min-height: auto; } }
+      @page { size: ${landscape ? "A4 landscape" : "A4"}; margin: 25mm 20mm 20mm 30mm; }
+      body { font-family: 'Sarabun', sans-serif; font-size: 16pt; color: #000; }
+      .obec-header { border-bottom: 1px solid #000; }
+      .obec-header .school-name, .obec-header .doc-title { color: #000; font-weight: 700; }
+      table { border-collapse: collapse; }
+      table th, table td { border: 1px solid #000; color: #000; background: #fff !important; }
     `
     : "";
   const printCss = `${OBEC_PRINT_CSS}${landscapeCss}${eFormPrintCss}${officialCss}`.replace(/__LOVABLE_ORIGIN__/g, window.location.origin);

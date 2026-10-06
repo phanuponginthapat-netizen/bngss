@@ -30,43 +30,43 @@ const BOOKLET_CSS = `
   .bk-page:last-child { page-break-after:auto; break-after:auto; }
   .bk-pageno { position:absolute; bottom:8mm; left:20mm; right:16mm; display:flex; justify-content:space-between; border-top:1px solid #9aa3ad; padding-top:2mm; font-size:15px; color:#555; }
   /* ปก */
-  .bk-cover { text-align:center; padding-top:22mm; height:240mm; box-sizing:border-box; border:3px double #1f3a5f; padding-left:10mm; padding-right:10mm; }
+  .bk-cover { text-align:center; padding-top:22mm; height:240mm; box-sizing:border-box; border:3px double #000; padding-left:10mm; padding-right:10mm; }
   .bk-cover img.logo { width:32mm; height:32mm; object-fit:contain; margin:0 auto 6mm; display:block; }
-  .bk-cover .t1 { font-size:32px; font-weight:700; color:#1f3a5f; }
+  .bk-cover .t1 { font-size:32px; font-weight:700; color:#000; }
   .bk-cover .t3 { font-size:22px; color:#333; }
-  .bk-cover .t2 { font-size:42px; font-weight:700; margin:14mm 0 2mm; color:#1f3a5f; }
-  .bk-cover .rule { width:50%; margin:6mm auto; border-top:2px solid #1f3a5f; }
+  .bk-cover .t2 { font-size:42px; font-weight:700; margin:14mm 0 2mm; color:#000; }
+  .bk-cover .rule { width:50%; margin:6mm auto; border-top:2px solid #000; }
   .bk-cover .meta { margin:18mm auto 0; width:70%; font-size:22px; border:1px solid #c9d2dc; border-radius:3mm; padding:5mm 8mm; text-align:left; line-height:1.9; }
-  .bk-cover .meta b { display:inline-block; width:38%; color:#1f3a5f; }
+  .bk-cover .meta b { display:inline-block; width:38%; color:#000; }
   /* หัวกระดาษรายบุคคล */
-  .bk-head { display:flex; align-items:center; gap:5mm; border-bottom:2px solid #1f3a5f; padding-bottom:3mm; margin-bottom:4mm; }
+  .bk-head { display:flex; align-items:center; gap:5mm; border-bottom:2px solid #000; padding-bottom:3mm; margin-bottom:4mm; }
   .bk-head img { width:18mm; height:18mm; object-fit:contain; }
   .bk-head .h-mid { flex:1; text-align:center; }
   .bk-head .h-school { font-size:22px; font-weight:700; }
-  .bk-head .h-title { font-size:20px; font-weight:700; color:#1f3a5f; }
+  .bk-head .h-title { font-size:20px; font-weight:700; color:#000; }
   .bk-head .h-sub { font-size:16px; color:#444; }
-  .bk-head .h-code { border:1px solid #1f3a5f; padding:1mm 3mm; font-size:15px; color:#1f3a5f; white-space:nowrap; }
+  .bk-head .h-code { border:1px solid #000; padding:1mm 3mm; font-size:15px; color:#000; white-space:nowrap; }
   .bk-info { display:grid; grid-template-columns:2fr 1fr 1fr; border:1px solid #9aa3ad; margin-bottom:4mm; }
   .bk-info > div { padding:1.5mm 3mm; border-right:1px solid #9aa3ad; }
   .bk-info > div:last-child { border-right:none; }
   .bk-info span { color:#555; font-size:15px; display:block; }
   .bk-info b { font-size:19px; }
-  .bk-sec { background:#1f3a5f; color:#fff; font-weight:700; padding:1mm 3mm; margin:4mm 0 0; font-size:17px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  .bk-subsec { font-weight:700; color:#1f3a5f; margin:3mm 0 1mm; border-left:3px solid #1f3a5f; padding-left:2mm; }
+  .bk-sec { background:#000; color:#fff; font-weight:700; padding:1mm 3mm; margin:4mm 0 0; font-size:17px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .bk-subsec { font-weight:700; color:#000; margin:3mm 0 1mm; border-left:3px solid #000; padding-left:2mm; }
   table.bk-t { width:100%; border-collapse:collapse; font-size:16px; }
   table.bk-t th, table.bk-t td { border:1px solid #7d8791; padding:1px 5px; }
-  table.bk-t thead th { background:#e8eef5; font-weight:700; text-align:center; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  table.bk-t tbody tr:nth-child(even) td { background:#f7f9fb; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  table.bk-t thead th { background:#fff; font-weight:700; text-align:center; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  table.bk-t tbody tr:nth-child(even) td { background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   table.bk-t tfoot td { background:#eef2f6; font-weight:700; }
   table.bk-t .c { text-align:center; } table.bk-t .r { text-align:right; } table.bk-t .m { white-space:nowrap; }
-  .bk-sum { display:grid; grid-template-columns:repeat(4,1fr); border:1px solid #1f3a5f; margin-top:3mm; text-align:center; }
+  .bk-sum { display:grid; grid-template-columns:repeat(4,1fr); border:1px solid #000; margin-top:3mm; text-align:center; }
   .bk-sum > div { padding:1.5mm; border-right:1px solid #c9d2dc; }
   .bk-sum > div:last-child { border-right:none; }
-  .bk-sum span { display:block; font-size:14px; color:#555; } .bk-sum b { font-size:22px; color:#1f3a5f; }
+  .bk-sum span { display:block; font-size:14px; color:#555; } .bk-sum b { font-size:22px; color:#000; }
   .bk-comment { border:1px solid #9aa3ad; min-height:16mm; padding:2mm 3mm; color:#999; }
   .bk-sigs { display:grid; gap:4mm; margin-top:10mm; text-align:center; font-size:16px; }
   .bk-sigs .ln { border-bottom:1px dotted #000; width:80%; margin:0 auto 1mm; height:8mm; }
-  .bk-toc-title { text-align:center; font-size:28px; font-weight:700; color:#1f3a5f; margin-bottom:6mm; }
+  .bk-toc-title { text-align:center; font-size:28px; font-weight:700; color:#000; margin-bottom:6mm; }
   .bk-sig-page { padding-top:20mm; }
   @media print { .bk-page { min-height:0; } }
 </style>
