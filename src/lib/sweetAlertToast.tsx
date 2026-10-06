@@ -150,6 +150,6 @@ export const toast = Object.assign(
 export function legacyToast(props: {
   title?: ReactNode; description?: ReactNode; action?: ReactNode; variant?: string; duration?: number;
 }) {
-  const id = show(props.variant === "destructive" ? "error" : "info", props.title, props);
+  const id = show(props.variant === "destructive" ? "error" : "info", props.title, { ...props, id: String(++sequence) });
   return { id: String(id), dismiss: () => dismiss(id), update: (next: typeof props) => show(next.variant === "destructive" ? "error" : "info", next.title, { ...next, id }) };
 }
