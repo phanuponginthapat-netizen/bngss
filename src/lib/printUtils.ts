@@ -554,6 +554,13 @@ export const openPrintWindow = (htmlContent: string, options: PrintOptions = {})
   const { title = "เอกสาร", landscape = false } = options;
   const isEFormDocument = htmlContent.includes("eform-print-page");
 
+  // PDPA: บันทึกทุกครั้งที่พิมพ์เอกสาร ปพ. (มีข้อมูลส่วนบุคคลนักเรียน)
+  if (/^ปพ\.\d/.test(title)) {
+    import("@/lib/auditLog").then(({ logAudit }) =>
+      logAudit({ action: "print_pp_document", details: { title } }),
+    ).catch(() => {});
+  }
+
   const w = window.open("", "_blank");
   if (!w) {
     swal.info("กรุณาอนุญาตให้เปิด Popup เพื่อพิมพ์เอกสาร");
