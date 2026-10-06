@@ -972,6 +972,21 @@ const UserManagement = () => {
             if (parts.length > 0 && !mapped.guardian_name) mapped.guardian_name = parts.join(" ");
           }
 
+          // DMC แยกที่อยู่เป็นหลายช่อง → รวมเป็นที่อยู่เดียว
+          if (!mapped.address && (mapped._addr_no || mapped._addr_tambon)) {
+            const clean = (v: any) => { const t = String(v ?? "").trim(); return t && t !== "-" ? t : ""; };
+            const parts = [
+              clean(mapped._addr_no),
+              clean(mapped._addr_moo) && `หมู่ ${clean(mapped._addr_moo)}`,
+              clean(mapped._addr_road),
+              clean(mapped._addr_tambon) && `ต.${clean(mapped._addr_tambon)}`,
+              clean(mapped._addr_amphoe) && `อ.${clean(mapped._addr_amphoe)}`,
+              clean(mapped._addr_province) && `จ.${clean(mapped._addr_province)}`,
+            ].filter(Boolean);
+            if (parts.length) mapped.address = parts.join(" ");
+          }
+          if (mapped.blood_type === "-") mapped.blood_type = "";
+
           // Normalize all date-like fields (BE→CE auto when enabled)
           const DATE_FIELDS = [
             "date_of_birth", "hire_date", "start_date", "end_date",
