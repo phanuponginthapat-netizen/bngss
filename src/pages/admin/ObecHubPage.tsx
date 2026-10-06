@@ -253,6 +253,7 @@ export default function ObecHubPage(){
           <CardContent className="space-y-3">
             <p className="text-xs text-muted-foreground">{isTh ? "ดูตัวอย่างก่อนพิมพ์เอกสารราชการ" : "Preview before printing official docs"}</p>
             <Button variant="outline" className="w-full" onClick={()=> window.location.href="/dashboard/academic/pp-docs"}>{isTh ? "พิมพ์เอกสาร ปพ." : "Print Por documents"}</Button>
+            <Button variant="outline" className="w-full" onClick={()=> window.location.href="/dashboard/admin/sar"}>{isTh ? "รายงาน SAR" : "SAR report"}</Button>
           </CardContent>
         </Card>
       </div>
