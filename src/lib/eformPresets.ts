@@ -163,7 +163,7 @@ const regulationHtml = `
   <div style="text-align:center;margin-top:8px;line-height:1.4;">
     <p style="margin:0;font-weight:bold;font-size:29.3px;">ระเบียบ<span data-eform-field="school_name" style="border-bottom:1px dotted #888;padding:0 8px;">[ชื่อส่วนราชการ]</span></p>
     <p style="margin:0;">ว่าด้วย ${tk("subject", "เรื่อง")}</p>
-    <p style="margin:0;font-size:18.7px;color:#666;">(ฉบับที่ ${tk("issue_no", "เลขที่ฉบับ (ถ้ามี)")})</p>
+    <p style="margin:0;font-size:18.7px;color:#000;">(ฉบับที่ ${tk("issue_no", "เลขที่ฉบับ (ถ้ามี)")})</p>
     <p style="margin:0;">พ.ศ. ${tk("year", "พ.ศ.")}</p>
     <p style="margin:8px 0;">---------------------------------</p>
   </div>
@@ -191,7 +191,7 @@ const rulesHtml = `
   <div style="text-align:center;margin-top:8px;line-height:1.4;">
     <p style="margin:0;font-weight:bold;font-size:29.3px;">ข้อบังคับ<span data-eform-field="school_name" style="border-bottom:1px dotted #888;padding:0 8px;">[ชื่อส่วนราชการ]</span></p>
     <p style="margin:0;">ว่าด้วย ${tk("subject", "เรื่อง")}</p>
-    <p style="margin:0;font-size:18.7px;color:#666;">(ฉบับที่ ${tk("issue_no", "เลขที่ฉบับ (ถ้ามี)")})</p>
+    <p style="margin:0;font-size:18.7px;color:#000;">(ฉบับที่ ${tk("issue_no", "เลขที่ฉบับ (ถ้ามี)")})</p>
     <p style="margin:0;">พ.ศ. ${tk("year", "พ.ศ.")}</p>
     <p style="margin:8px 0;">---------------------------------</p>
   </div>
@@ -241,7 +241,7 @@ const statementHtml = `
   <div style="text-align:center;margin-top:8px;line-height:1.4;">
     <p style="margin:0;font-weight:bold;font-size:29.3px;">แถลงการณ์<span data-eform-field="school_name" style="border-bottom:1px dotted #888;padding:0 8px;">[ชื่อส่วนราชการ]</span></p>
     <p style="margin:0;font-weight:bold;">เรื่อง ${tk("subject", "เรื่อง")}</p>
-    <p style="margin:0;font-size:18.7px;color:#666;">ฉบับที่ ${tk("issue_no", "ฉบับที่ (ถ้ามี)")}</p>
+    <p style="margin:0;font-size:18.7px;color:#000;">ฉบับที่ ${tk("issue_no", "ฉบับที่ (ถ้ามี)")}</p>
     <p style="margin:8px 0;">---------------------------------</p>
   </div>
   <p style="margin:0 0 18.7px 0;text-indent:2.5cm;">${tk("body", "ข้อความแถลงการณ์")}</p>
@@ -262,7 +262,7 @@ const newsRoyalHtml = `
   <div style="text-align:center;margin-top:8px;line-height:1.4;">
     <p style="margin:0;font-weight:bold;font-size:29.3px;">ข่าว<span data-eform-field="school_name" style="border-bottom:1px dotted #888;padding:0 8px;">[ชื่อส่วนราชการ]</span></p>
     <p style="margin:0;font-weight:bold;">เรื่อง ${tk("subject", "เรื่อง")}</p>
-    <p style="margin:0;font-size:18.7px;color:#666;">ฉบับที่ ${tk("issue_no", "ฉบับที่ (ถ้ามี)")}</p>
+    <p style="margin:0;font-size:18.7px;color:#000;">ฉบับที่ ${tk("issue_no", "ฉบับที่ (ถ้ามี)")}</p>
     <p style="margin:8px 0;">---------------------------------</p>
   </div>
   <p style="margin:0 0 18.7px 0;text-indent:2.5cm;">${tk("body", "ข้อความข่าว")}</p>

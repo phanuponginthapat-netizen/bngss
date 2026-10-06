@@ -15,7 +15,7 @@ export const EFORM_CONTENT_WIDTH_MM = EFORM_PAGE_MM.width - EFORM_PAGE_MM.margin
 export const EFORM_PAGE_STYLE: CSSProperties = {
   width: "210mm",
   minHeight: "297mm",
-  padding: "25mm 20mm 20mm 30mm",
+  padding: "15mm 20mm 20mm 30mm",
   boxSizing: "border-box",
   background: "#fff",
   color: "#000",

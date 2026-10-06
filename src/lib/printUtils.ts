@@ -75,7 +75,7 @@ const OBEC_PRINT_CSS = `
     width: 210mm;
     min-height: 297mm;
     max-width: 210mm;
-    padding: 25mm 20mm 20mm 30mm;
+    padding: 15mm 20mm 20mm 30mm;
     box-sizing: border-box;
     margin: 0 auto;
     color: #000;
