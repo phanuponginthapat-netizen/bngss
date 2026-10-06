@@ -9,7 +9,11 @@ export interface GradeResult {
 
 // Thai grading scale (standard 8 levels)
 export function calculateGrade(totalScore: number, maxScore: number = 100): GradeResult {
-  const percentage = (totalScore / maxScore) * 100;
+  if (!Number.isFinite(totalScore) || !Number.isFinite(maxScore) || maxScore <= 0) {
+    return { grade: "0", gradePoint: 0 };
+  }
+  // ปัดคะแนนรวมเป็นจำนวนเต็มก่อนตัดเกรด (79.5 -> 80) ตามแนวปฏิบัติการวัดผล สพฐ.
+  const percentage = Math.round(Math.min(Math.max((totalScore / maxScore) * 100, 0), 100));
 
   if (percentage >= 80) return { grade: "4", gradePoint: 4.0 };
   if (percentage >= 75) return { grade: "3.5", gradePoint: 3.5 };
@@ -21,17 +25,19 @@ export function calculateGrade(totalScore: number, maxScore: number = 100): Grad
   return { grade: "0", gradePoint: 0.0 };
 }
 
-// Calculate GPA from multiple subjects
+// Calculate GPA from multiple subjects.
+// ตามระเบียบการวัดผล สพฐ.: คิดทศนิยม 2 ตำแหน่ง "ไม่ปัดเศษ" และไม่นำวิชาที่ยังเป็น ร/มส
+// (gradePoint ไม่ใช่ตัวเลข) มาคิด จนกว่าจะแก้ผลการเรียนแล้ว
 export function calculateGPA(
-  grades: { gradePoint: number; credits: number }[]
+  grades: { gradePoint: number | null | undefined; credits: number }[]
 ): number {
-  if (grades.length === 0) return 0;
-
-  const totalWeighted = grades.reduce((sum, g) => sum + g.gradePoint * g.credits, 0);
-  const totalCredits = grades.reduce((sum, g) => sum + g.credits, 0);
-
+  const valid = grades.filter(
+    (g) => typeof g.gradePoint === "number" && Number.isFinite(g.gradePoint) && Number.isFinite(g.credits) && g.credits > 0,
+  ) as { gradePoint: number; credits: number }[];
+  const totalCredits = valid.reduce((sum, g) => sum + g.credits, 0);
   if (totalCredits === 0) return 0;
-  return Math.round((totalWeighted / totalCredits) * 100) / 100;
+  const totalWeighted = valid.reduce((sum, g) => sum + g.gradePoint * g.credits, 0);
+  return Math.floor((totalWeighted / totalCredits) * 100 + 1e-9) / 100;
 }
 
 export function gradeColor(grade: string): string {
@@ -69,4 +75,10 @@ export function calculateGradeWithProportion(
   const weighted = (duringPct * p.duringTerm + midPct * p.midterm + finalPct * p.final) / totalP;
   const pct = weighted * 100;
   return calculateGrade(pct, 100);
+}
+
+/** แสดง GPA ทศนิยม 2 ตำแหน่งแบบไม่ปัดเศษ (ระเบียบการวัดผล สพฐ.) */
+export function formatGPA(totalGradePoints: number, totalCredits: number, empty = "0.00"): string {
+  if (!Number.isFinite(totalGradePoints) || !Number.isFinite(totalCredits) || totalCredits <= 0) return empty;
+  return (Math.floor((totalGradePoints / totalCredits) * 100 + 1e-9) / 100).toFixed(2);
 }
