@@ -17,6 +17,7 @@ import {
 import { isNativeFcmSupported } from "@/lib/fcmPush";
 
 import { fetchUpdateManifest, type AppUpdateManifest } from "@/lib/appUpdater";
+import { useCmsValue } from "@/hooks/useCmsSettings";
 
 const APK_DOWNLOAD_URL = "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-app-latest.apk";
 
@@ -41,6 +42,7 @@ export default function InstallPage() {
   const inPreview = isInIframe() || isPreviewHost();
 
   const [apkManifest, setApkManifest] = useState<AppUpdateManifest | null>(null);
+  const apkLink = useCmsValue("apk_app_url");
   useEffect(() => {
     fetchUpdateManifest().then(setApkManifest).catch(() => {});
   }, []);
