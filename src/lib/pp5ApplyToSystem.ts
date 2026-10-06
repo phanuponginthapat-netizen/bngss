@@ -17,6 +17,7 @@ export interface PpApplyResult {
   columnName: string | null;
   unmatched: string[];      // student codes not found
   unmatchedSubjects: string[];
+  assessments?: number;     // rows written to student_assessment_scores
 }
 
 const GRADE_POINT: Record<string, number> = {
@@ -200,17 +201,22 @@ export async function applyPpFileToSystem(
       if (!sIdForRow) { unmatchedSubjects.add(subjName); continue; }
       const total = typeof v?.totalScore === "number" ? v.totalScore : Number(v?.totalScore);
       const hasTotal = Number.isFinite(total);
-      const grade = toGrade(v?.grade, hasTotal ? total : null);
+      let grade = toGrade(v?.grade, hasTotal ? total : null);
+      // ระเบียบ สพฐ.: เวลาเรียนไม่ถึง 80% → "มส" (ไม่มีสิทธิ์สอบ) ไม่คิดเกรดจากคะแนน
+      const attPct = Number(v?.attendancePercent);
+      if (Number.isFinite(attPct) && attPct < 80 && (!grade || GRADE_POINT[grade] !== undefined)) grade = "มส";
       if (!hasTotal && !grade) continue;
       scoreRows.push({
         student_code: code,
+        student_id: sid,
         student_name: c.studentName || null,
         subject_id: sIdForRow,
         total_score: hasTotal ? Math.round(total * 100) / 100 : null,
-        midterm_score: typeof v?.midtermScore === "number" ? v.midtermScore : null,
-        final_score: typeof v?.examScore === "number" ? v.examScore : null,
+        // คะแนนระหว่างเรียน / ปลายภาค (จากแผ่นสรุปตัดสินผลการเรียน)
+        midterm_score: typeof v?.midScore === "number" ? v.midScore : typeof v?.midtermScore === "number" ? v.midtermScore : null,
+        final_score: typeof v?.finalScore === "number" ? v.finalScore : null,
         grade,
-        grade_point: toGradePoint(v?.grade, hasTotal ? total : null),
+        grade_point: grade === "มส" ? null : toGradePoint(grade, hasTotal ? total : null),
         semester,
         academic_year: academicYear,
       });
@@ -235,6 +241,11 @@ export async function applyPpFileToSystem(
     }
   }
 
+  // ── 6. ผลประเมินอ่านคิดเขียน / คุณลักษณะ / สมรรถนะ → ปพ.6, ปพ.7, เล่ม ปพ. ──
+  let assessments = 0;
+  try { assessments = await writeAssessments(consolidated, codeToId, semester, academicYear, parsed?.meta?.subjectName); }
+  catch (e) { console.warn("[pp5] write assessments failed", e); }
+
   if (fileRow?.id) {
     await (supabase.from(kind === "pp5" ? "pp5_files" : "pp6_files") as any)
       .update({ applied_at: new Date().toISOString() })
@@ -249,7 +260,59 @@ export async function applyPpFileToSystem(
     columnName: targetName,
     unmatched,
     unmatchedSubjects: Array.from(unmatchedSubjects),
+    assessments,
   };
+}
+
+const LEVEL_KEY: Record<string, string> = { "ดีเยี่ยม": "excellent", "ดี": "good", "ผ่าน": "moderate", "ไม่ผ่าน": "needs_improvement" };
+const LEVEL_NUM: Record<number, string> = { 3: "excellent", 2: "good", 1: "moderate", 0: "needs_improvement" };
+const ASSESS_CATS: Array<{ cat: string; title: string; text: string; num: string }> = [
+  { cat: "reading_writing", title: "การอ่าน คิดวิเคราะห์ และเขียน (สรุปจาก ปพ.5)", text: "readingResult", num: "readingLevel" },
+  { cat: "desirable", title: "คุณลักษณะอันพึงประสงค์ (สรุปจาก ปพ.5)", text: "characterResult", num: "characterLevel" },
+  { cat: "competency", title: "สมรรถนะสำคัญของผู้เรียน (สรุปจาก ปพ.5)", text: "competencyResult", num: "competencyLevel" },
+];
+
+async function writeAssessments(
+  consolidated: Array<{ studentCode: string; perSubject: Record<string, any> }>,
+  codeToId: Map<string, string>, semester: number, academicYear: number | null, subjectName?: string,
+): Promise<number> {
+  const rows: any[] = [];
+  const criteriaId: Record<string, string> = {};
+  for (const def of ASSESS_CATS) {
+    const has = consolidated.some((c) => Object.values(c.perSubject || {}).some((v: any) => v?.[def.text] || [0, 1, 2, 3].includes(v?.[def.num])));
+    if (!has) continue;
+    const { data: found } = await (supabase as any).from("assessment_criteria").select("id").eq("category", def.cat).eq("title", def.title).maybeSingle();
+    let id = found?.id;
+    if (!id) {
+      const { data: created, error } = await (supabase as any).from("assessment_criteria")
+        .insert({ category: def.cat, title: def.title, sort_order: 999, is_active: true }).select("id").single();
+      if (error) throw error;
+      id = created.id;
+    }
+    criteriaId[def.cat] = id;
+  }
+  for (const c of consolidated) {
+    const sid = codeToId.get(String(c.studentCode).trim());
+    if (!sid) continue;
+    const v: any = Object.values(c.perSubject || {})[0] || {};
+    for (const def of ASSESS_CATS) {
+      if (!criteriaId[def.cat]) continue;
+      const level = LEVEL_KEY[String(v[def.text] ?? "").trim()] ?? LEVEL_NUM[v[def.num] as number];
+      if (!level) continue;
+      rows.push({
+        student_id: sid, criteria_id: criteriaId[def.cat], level,
+        score: ({ excellent: 3, good: 2, moderate: 1, needs_improvement: 0 } as any)[level],
+        semester, academic_year: academicYear,
+        notes: subjectName ? `นำเข้าจาก ปพ.5 วิชา${subjectName}` : "นำเข้าจาก ปพ.5",
+      });
+    }
+  }
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await (supabase as any).from("student_assessment_scores")
+      .upsert(rows.slice(i, i + 500), { onConflict: "student_id,criteria_id,semester,academic_year" });
+    if (error) throw error;
+  }
+  return rows.length;
 }
 
 /** Backwards-compatible alias used by the ปพ.5 page. */
