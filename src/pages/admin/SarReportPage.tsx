@@ -33,13 +33,22 @@ export default function SarReportPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["sar_report", yearCE],
     queryFn: async () => {
-      const [students, scores, screenings, attendance, personnel] = await Promise.all([
+      const [students, scores, screenings, attendance, personnel, consents, roles, plans] = await Promise.all([
         fetchAll("students", "id, gender, status, classrooms!students_classroom_id_fkey(grade_level)"),
         fetchAll("student_scores", "student_code, grade, academic_year"),
         fetchAll("student_screenings", "student_id, category"),
         fetchAll("attendance", "status, date").then((r: any[]) => r.filter((a) => String(a.date || "").startsWith(String(yearCE)) || String(a.date || "").startsWith(String(yearCE + 1)))),
         fetchAll("personnel", "id, status"),
+        fetchAll("pdpa_consents", "user_id, accepted"),
+        fetchAll("user_roles", "user_id, role"),
+        fetchAll("lesson_plans", "id, status, academic_year"),
       ]);
+      const consented = new Set((consents as any[]).filter((c) => c.accepted).map((c) => c.user_id));
+      const pdpa: Record<string, { total: number; ok: number }> = {};
+      for (const r of roles as any[]) {
+        const row = (pdpa[r.role] ||= { total: 0, ok: 0 });
+        row.total++; if (consented.has(r.user_id)) row.ok++;
+      }
       const active = students.filter((s: any) => s.status === "active");
       const byGrade = new Map<string, { m: number; f: number }>();
       for (const s of active as any[]) {
@@ -68,6 +77,9 @@ export default function SarReportPage() {
         attendancePct: attendance.length ? (present / attendance.length) * 100 : 0,
         attendanceN: attendance.length,
         scr,
+        pdpa,
+        plans: plans.length,
+        plansApproved: (plans as any[]).filter((p) => /approve|อนุมัติ/i.test(p.status || "")).length,
         teachers: personnel.filter((p: any) => !p.status || p.status === "active").length,
       };
     },
@@ -91,7 +103,9 @@ export default function SarReportPage() {
       <h3>มาตรฐานที่ 2 กระบวนการบริหารและการจัดการ</h3>
       <p>ระบบดูแลช่วยเหลือนักเรียน: คัดกรองแล้ว ปกติ ${data.scr.normal} / กลุ่มเสี่ยง ${data.scr.risk} / มีปัญหา ${data.scr.problem}</p>
       <h3>มาตรฐานที่ 3 กระบวนการจัดการเรียนการสอนที่เน้นผู้เรียนเป็นสำคัญ</h3>
-      <p style="min-height:30mm">........................................................................................................</p>`;
+      <p>แผนการจัดการเรียนรู้ในระบบ ${data.plans} แผน (ผ่านการตรวจ/อนุมัติ ${data.plansApproved} แผน)</p>
+      <p>ผลสัมฤทธิ์: ร้อยละผู้เรียนได้ระดับ 3 ขึ้นไป ${data.goodPct.toFixed(2)} ร้อยละการมาเรียน ${data.attendancePct.toFixed(2)}</p>
+      <p style="min-height:25mm">จุดเด่น / จุดที่ควรพัฒนา: ........................................................................................</p>`;
     printReport(body, { documentTitle: `รายงานการประเมินตนเองของสถานศึกษา (SAR) ปีการศึกษา ${yearBE}` });
   };
 
@@ -126,6 +140,22 @@ export default function SarReportPage() {
                 <TableBody>
                   {data.byGrade.map(([g, r]) => (
                     <TableRow key={g}><TableCell>{g}</TableCell><TableCell>{r.m}</TableCell><TableCell>{r.f}</TableCell><TableCell>{r.m + r.f}</TableCell></TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">ความยินยอม PDPA แยกตามกลุ่มผู้ใช้</CardTitle>
+              <CardDescription>ผู้ที่ยังไม่ยอมรับจะถูกขอความยินยอมเมื่อเข้าสู่ระบบครั้งถัดไป — ข้อมูลนักเรียนที่จบ/ย้ายออกยังเก็บไว้ตามอายุเอกสารทางการศึกษา</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader><TableRow><TableHead>กลุ่ม</TableHead><TableHead>ทั้งหมด</TableHead><TableHead>ยินยอมแล้ว</TableHead><TableHead>ร้อยละ</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {Object.entries(data.pdpa).map(([role, r]) => (
+                    <TableRow key={role}><TableCell>{({ admin: "ผู้ดูแลระบบ", director: "ผู้บริหาร", teacher: "ครู", staff: "เจ้าหน้าที่", student: "นักเรียน", parent: "ผู้ปกครอง" } as Record<string, string>)[role] || role}</TableCell><TableCell>{r.total}</TableCell><TableCell>{r.ok}</TableCell><TableCell>{r.total ? ((r.ok / r.total) * 100).toFixed(1) : "0"}%</TableCell></TableRow>
                   ))}
                 </TableBody>
               </Table>
