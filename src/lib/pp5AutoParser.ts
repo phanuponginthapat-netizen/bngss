@@ -619,6 +619,8 @@ function applyDecisionSummary(wb: XLSX.WorkBook, consolidated: PP5ParsedWorkbook
     if (!rec) { rec = { studentCode: code, studentName, perSubject: {} }; consolidated.push(rec); }
     const key = Object.keys(rec.perSubject)[0] || subject;
     const b = (rec.perSubject[key] ||= {});
+    const hrs = num(row[base]);
+    if (hrs !== undefined) b.attendanceHours = hrs;
     const pct = num(row[base + 1]);
     if (pct !== undefined) b.attendancePercent = pct;
     const ind = num(row[base + 3]);
