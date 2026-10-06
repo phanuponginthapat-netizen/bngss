@@ -164,6 +164,12 @@ export default function GradeRemediationPage() {
   };
   const submitFix = async () => {
     if (!fixItem) return;
+    // ระเบียบ สพฐ.: แก้ 0/ร/มส แล้วได้เกรดสูงสุดไม่เกิน 1
+    const num = Number(fixGrade);
+    if (fixItem.original_grade !== "มผ" && fixGrade !== "" && Number.isFinite(num) && num > 1) {
+      toast.error(L("ผลการเรียนหลังแก้ตัวได้สูงสุดไม่เกิน 1 ตามระเบียบ สพฐ.", "Remediated grade cannot exceed 1"));
+      return;
+    }
     const isPass = fixGrade && !GRADE_REMEDIATION_TYPES.includes(fixGrade as any);
     const status = isPass ? "ผ่าน" : fixGrade === "" ? "กำลังแก้" : "ไม่ผ่าน";
     const { error } = await (supabase as any).from("grade_remediation").update({
