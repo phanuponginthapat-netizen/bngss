@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -119,7 +120,7 @@ function BulkStudents() {
   };
 
   const bulkSendNotification = async () => {
-    const message = window.prompt("ข้อความที่จะส่งให้นักเรียนที่เลือก:");
+    const message = await swal.prompt("ข้อความที่จะส่งให้นักเรียนที่เลือก:");
     if (!message || selected.size === 0) return;
     setBusy(true);
     // หา auth_user_id
@@ -265,7 +266,7 @@ function BulkPersonnel() {
   };
 
   const sendNotify = async () => {
-    const message = window.prompt("ข้อความที่จะส่งให้บุคลากรที่เลือก:");
+    const message = await swal.prompt("ข้อความที่จะส่งให้บุคลากรที่เลือก:");
     if (!message || selected.size === 0) return;
     setBusy(true);
     const ids = Array.from(selected);

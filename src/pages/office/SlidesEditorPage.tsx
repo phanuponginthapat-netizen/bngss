@@ -144,7 +144,7 @@ export default function SlidesEditorPage() {
   };
   const addText = () => addEl({ id: uid(), type: "text", text: "ข้อความ", x: 200, y: 300, w: 500, h: 80, fontSize: 32, color: "#111827" });
   const addImageUrl = async () => {
-    const src = prompt("URL รูปภาพ"); if (!src) return;
+    const src = await swal.prompt("URL รูปภาพ"); if (!src) return;
     addEl({ id: uid(), type: "image", src, x: 200, y: 200, w: 400, h: 300 });
   };
   const addImageFile = async (file: File) => {
@@ -459,7 +459,7 @@ function renderEl(
         fontStyle: el.italic ? "italic" : undefined, color: el.color, padding: 4, whiteSpace: "pre-wrap",
         textAlign: el.align, fontFamily: el.fontFamily ?? "Sarabun, sans-serif", lineHeight: 1.3, overflow: "hidden" }}
         onPointerDown={e => { onSelect(); onDrag(e, "move"); }}
-        onDoubleClick={() => onEditText && onEditText(prompt("แก้ไขข้อความ", el.text) ?? el.text)}>
+        onDoubleClick={async () => onEditText && onEditText((await swal.prompt("แก้ไขข้อความ", { defaultValue: el.text })) ?? el.text)}>
         {el.text}
         {handles}
       </div>

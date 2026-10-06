@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -156,7 +157,7 @@ const PP5AttendanceMatrix = ({
     if (isHoliday(dateIso)) { toast.error("วันหยุด ไม่ต้องบันทึก"); return; }
     if (!canEdit) return;
     if (!dateIso) { toast.error("กรุณากำหนดวันที่ของคาบนี้ก่อน"); return; }
-    if (!confirm(`ยืนยันตั้งสถานะ "${status === "present" ? "มาเรียน" : status === "absent" ? "ขาด" : "ลา"}" ให้นักเรียนทุกคนของคาบนี้?`)) return;
+    if (!(await swal.confirm({ title: `ยืนยันตั้งสถานะ "${status === "present" ? "มาเรียน" : status === "absent" ? "ขาด" : "ลา"}" ให้นักเรียนทุกคนของคาบนี้?` }))) return;
     for (const s of students) {
        
       await setStatus(s.id, dateIso, status);
@@ -168,7 +169,7 @@ const PP5AttendanceMatrix = ({
     if (!canEdit) return;
     const valid = dates.filter(Boolean);
     if (valid.length === 0) { toast.error("ยังไม่มีวันที่กำกับคาบ"); return; }
-    if (!confirm(`ยืนยันตั้งสถานะ "${status === "present" ? "มาเรียน" : status === "absent" ? "ขาด" : "ลา"}" ทุกคาบให้นักเรียนคนนี้?`)) return;
+    if (!(await swal.confirm({ title: `ยืนยันตั้งสถานะ "${status === "present" ? "มาเรียน" : status === "absent" ? "ขาด" : "ลา"}" ทุกคาบให้นักเรียนคนนี้?` }))) return;
     for (const d of valid) {
        
       await setStatus(studentId, d, status);
@@ -186,7 +187,7 @@ const PP5AttendanceMatrix = ({
     const targets = rangeStudent === "__all__" ? students : students.filter(s => s.id === rangeStudent);
     if (targets.length === 0) { toast.error("ไม่พบนักเรียนที่เลือก"); return; }
     const label = rangeStatus === "present" ? "มาเรียน" : rangeStatus === "absent" ? "ขาด" : "ลา";
-    if (!confirm(`ยืนยันตั้งสถานะ "${label}" — ${periods.length} คาบ × ${targets.length} คน = ${periods.length * targets.length} รายการ?`)) return;
+    if (!(await swal.confirm({ title: `ยืนยันตั้งสถานะ "${label}" — ${periods.length} คาบ × ${targets.length} คน = ${periods.length * targets.length} รายการ?` }))) return;
     let done = 0;
     for (const s of targets) {
       for (const d of periods) {

@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -202,16 +203,16 @@ export default function ClassroomMonitorPage() {
     toast.success(`${label}${filtered.length} เครื่อง`);
   }
 
-  function shutdownAll() {
-    if (!confirm(`ยืนยันปิดเครื่องนักเรียนทั้งหมด ${filtered.length} เครื่อง?`)) return;
+  async function shutdownAll() {
+    if (!(await swal.confirm({ title: `ยืนยันปิดเครื่องนักเรียนทั้งหมด ${filtered.length} เครื่อง?` }))) return;
     bulk("shutdown", { sec: 15 }, "สั่งปิดเครื่อง ");
   }
-  function rebootAll() {
-    if (!confirm(`ยืนยันรีสตาร์ทเครื่องนักเรียนทั้งหมด ${filtered.length} เครื่อง?`)) return;
+  async function rebootAll() {
+    if (!(await swal.confirm({ title: `ยืนยันรีสตาร์ทเครื่องนักเรียนทั้งหมด ${filtered.length} เครื่อง?` }))) return;
     bulk("reboot", { sec: 15 }, "สั่งรีสตาร์ท ");
   }
   async function logoutAll() {
-    if (!confirm(`ยืนยัน logout นักเรียนทั้งหมด${classFilter !== "all" ? ` ห้อง ${classFilter}` : ""}?\n(ครอบคลุมทั้งนักเรียนที่เปิดหน้า Agent และที่ค้าง session อยู่)`)) return;
+    if (!(await swal.confirm({ title: `ยืนยัน logout นักเรียนทั้งหมด${classFilter !== "all" ? ` ห้อง ${classFilter}` : ""}?\n(ครอบคลุมทั้งนักเรียนที่เปิดหน้า Agent และที่ค้าง session อยู่)` }))) return;
     // 1) สั่งผ่าน monitor channel — สำหรับเครื่องที่เปิดหน้า Agent
     bulk("logout", null, "สั่ง logout ");
     // 2) Broadcast ช่องกลาง — สำหรับนักเรียนคนอื่นที่ login ค้างไว้แต่ไม่ได้เปิดหน้า Agent
@@ -443,7 +444,7 @@ export default function ClassroomMonitorPage() {
                   <Button size="sm" variant="outline" onClick={() => setMsgTarget(a)} className="gap-1"><MessageSquare className="w-3.5 h-3.5" /></Button>
                   <Button size="sm" variant="destructive" onClick={() => cmd(a.user_id, "lock", { message: "อยู่ในโหมดตั้งใจฟังครู" })} className="gap-1"><Lock className="w-3.5 h-3.5" /></Button>
                   <Button size="sm" variant="outline" onClick={() => cmd(a.user_id, "unlock")} className="gap-1"><Unlock className="w-3.5 h-3.5" /></Button>
-                  <Button size="sm" variant="destructive" onClick={() => { if (confirm(`ปิดเครื่อง ${a.name}?`)) cmd(a.user_id, "shutdown", { sec: 15 }); }} className="gap-1"><Power className="w-3.5 h-3.5" /></Button>
+                  <Button size="sm" variant="destructive" onClick={async () => { if ((await swal.confirm({ title: `ปิดเครื่อง ${a.name}?` }))) cmd(a.user_id, "shutdown", { sec: 15 }); }} className="gap-1"><Power className="w-3.5 h-3.5" /></Button>
                 </div>
               </CardContent>
             </Card>

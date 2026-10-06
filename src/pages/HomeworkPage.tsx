@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useState, useMemo } from "react";
 import { useParentChildren } from "@/hooks/useParentChildren";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -309,7 +310,7 @@ const HomeworkPage = () => {
   const fullName = useMemo(() => [me?.first_name, me?.last_name].filter(Boolean).join(" ") || "ไม่ระบุ", [me]);
 
   const handleDelete = async (hw: any) => {
-    if (!confirm(`ลบการบ้าน "${hw.title}" ?`)) return;
+    if (!(await swal.confirm({ title: `ลบการบ้าน "${hw.title}" ?` }))) return;
     const tid = toast.loading("กำลังลบ...");
     const { error } = await supabase.from("task_assignments").delete().eq("id", hw.id);
     toast.dismiss(tid);

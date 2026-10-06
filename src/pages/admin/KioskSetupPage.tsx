@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useState, useMemo, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -210,8 +211,8 @@ export default function KioskSetupPage() {
   };
 
 
-  const handleReset = () => {
-    if (!confirm("รีเซ็ตค่าทั้งหมดกลับเป็นค่าเริ่มต้น?")) return;
+  const handleReset = async () => {
+    if (!(await swal.confirm({ title: "รีเซ็ตค่าทั้งหมดกลับเป็นค่าเริ่มต้น?" }))) return;
     handleModeChange(mode);
     toast({ title: "รีเซ็ตแล้ว", description: "ค่าถูกตั้งกลับเป็นค่าเริ่มต้นของโหมด (ยังไม่ได้บันทึก)" });
   };

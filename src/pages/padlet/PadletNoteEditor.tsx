@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useEditor, EditorContent, Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -55,8 +56,8 @@ export default function PadletNoteEditor({
 
   if (!editor) return null;
 
-  const addLink = () => {
-    const url = window.prompt("URL");
+  const addLink = async () => {
+    const url = await swal.prompt("URL");
     if (!url) return;
     editor.chain().focus().extendMarkRange("link").setLink({ href: url, target: "_blank" }).run();
   };

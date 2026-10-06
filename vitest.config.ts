@@ -11,6 +11,6 @@ export default defineConfig({
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
   },
   resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
+    alias: { sonner: path.resolve(__dirname, "./src/lib/sweetAlertToast.tsx"), "@": path.resolve(__dirname, "./src") },
   },
 });

@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -62,7 +63,7 @@ export default function PortfolioGrid({
     await supabase.from("portfolio_items").update({ is_pinned: !it.is_pinned }).eq("id", it.id);
   };
   const remove = async (it: Portfolio) => {
-    if (!confirm("ลบผลงานนี้?")) return;
+    if (!(await swal.confirm({ title: "ลบผลงานนี้?" }))) return;
     await supabase.from("portfolio_items").delete().eq("id", it.id);
   };
 

@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -106,7 +107,7 @@ export default function GameHubApiKeysPage() {
               </div>
               {!k.is_active && <Badge variant="outline">ปิด</Badge>}
               <div className="text-xs text-muted-foreground">{k.last_used_at ? `ล่าสุด ${new Date(k.last_used_at).toLocaleString("th-TH")}` : "ยังไม่ถูกใช้"}</div>
-              <Button variant="ghost" size="icon" onClick={() => { if (confirm("ลบ key นี้?")) del.mutate(k.id); }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+              <Button variant="ghost" size="icon" onClick={async () => { if ((await swal.confirm({ title: "ลบ key นี้?" }))) del.mutate(k.id); }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
             </div>
           ))}
         </CardContent>

@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useEffect, useState } from "react";
 import { supabase as supabaseClient } from "@/integrations/supabase/client";
 
@@ -83,7 +84,7 @@ export default function KioskDeviceManager() {
   };
 
   const remove = async (d: KioskDevice) => {
-    if (!confirm(`ลบเครื่อง "${d.name || d.device_id}" ?`)) return;
+    if (!(await swal.confirm({ title: `ลบเครื่อง "${d.name || d.device_id}" ?` }))) return;
     const { error } = await supabase.from("kiosk_devices").delete().eq("id", d.id);
     if (error) return toast.error(error.message);
     toast.success("ลบแล้ว");

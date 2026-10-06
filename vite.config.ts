@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => ({
   },
   resolve: {
     alias: [
+      { find: /^sonner$/, replacement: path.resolve(__dirname, "./src/lib/sweetAlertToast.tsx") },
       // ใช้ client แบบ runtime config (รองรับ Supabase self-hosted / เปลี่ยน backend หลัง deploy)
       {
         find: /^@\/integrations\/supabase\/client$/,

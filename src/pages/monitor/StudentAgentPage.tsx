@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -491,7 +492,7 @@ export default function StudentAgentPage() {
   }
 
   async function selfShutdown() {
-    if (!confirm("ปิดเครื่องเลย?")) return;
+    if (!(await swal.confirm({ title: "ปิดเครื่องเลย?" }))) return;
     const ok = await callLocalCtl("/shutdown");
     if (!ok) toast.error("ไม่พบ local daemon (เครื่องนี้อาจไม่ใช่ Kiosk)");
   }

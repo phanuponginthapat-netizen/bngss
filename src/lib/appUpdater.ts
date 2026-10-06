@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { Capacitor } from "@capacitor/core";
 import { ApkUpdater } from "capacitor-apk-updater";
 import { AppUpdate, AppUpdateAvailability } from "@capawesome/capacitor-app-update";
@@ -85,13 +86,13 @@ export async function checkAndPromptUpdate(): Promise<void> {
     }\n\n${mandatory ? "จำเป็นต้องอัปเดตก่อนใช้งานต่อ" : "ต้องการดาวน์โหลดและติดตั้งเลยหรือไม่?"}`;
 
     if (!mandatory) {
-      if (window.confirm(message)) await performSideloadUpdate(manifest.url);
+      if ((await swal.confirm({ title: message }))) await performSideloadUpdate(manifest.url);
       return;
     }
     // บังคับอัปเดต: ถามซ้ำแต่จำกัด 3 ครั้ง กันบล็อก UI ถ้า download ล้ม
     let attempts = 0;
     while (attempts < 3) {
-      if (window.confirm(message)) {
+      if ((await swal.confirm({ title: message }))) {
         try { await performSideloadUpdate(manifest.url); return; }
         catch (e) { console.warn("sideload update failed", e); attempts++; await new Promise(r=>setTimeout(r,1500)); continue; }
       } else {

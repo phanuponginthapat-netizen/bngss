@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -137,7 +138,7 @@ export default function RichMenuUploader() {
   };
 
   const revertToAuto = async (r: Role) => {
-    if (!confirm(`คืนค่า Rich Menu ของ ${r} เป็นแบบ SVG อัตโนมัติ? (ต้องกด "สร้าง/อัปเดต Rich Menu" อีกครั้งเพื่อให้ generate ใหม่)`)) return;
+    if (!(await swal.confirm({ title: `คืนค่า Rich Menu ของ ${r} เป็นแบบ SVG อัตโนมัติ? (ต้องกด "สร้าง/อัปเดต Rich Menu" อีกครั้งเพื่อให้ generate ใหม่)` }))) return;
     setBusy(true);
     try {
       // Just delete the state row — next setup run will re-create as auto-svg.
