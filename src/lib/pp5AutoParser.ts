@@ -55,6 +55,14 @@ export interface PP5ParsedWorkbook {
         totalScore?: number;
         grade?: string;
         gradeFromFile?: boolean;
+        /** จากแผ่น "สรุปตัดสินผลการเรียน" (โปรแกรม ปพ.5 อิเล็กทรอนิกส์) */
+        midScore?: number;
+        finalScore?: number;
+        readingResult?: string;
+        characterResult?: string;
+        competencyResult?: string;
+        indicatorsPassed?: number;
+        finalDecision?: string;
       }
     >;
   }[];
@@ -574,5 +582,62 @@ export async function parsePP5Workbook(file: File | ArrayBuffer): Promise<PP5Par
     }
   }
   const meta = extractMeta(wb);
-  return { meta, sheets, consolidated: consolidate(sheets, meta) };
+  const consolidated = consolidate(sheets, meta);
+  applyDecisionSummary(wb, consolidated, meta);
+  return { meta, sheets, consolidated };
+}
+
+
+// ─── แผ่น "สรุปตัดสินผลการเรียน" (ปพ.5 อิเล็กทรอนิกส์ แบบ สพฐ.) ───────────────────
+// เป็นผลที่ครูยืนยันแล้ว จึงใช้แทนค่าที่ระบบเดาจากแผ่นอื่น
+// คอลัมน์: มาเรียน | ร้อยละ | สรุปผล | ตัวชี้วัดที่ผ่าน | ร้อยละ | สรุปผล | ระหว่างเรียน | ปลายภาค | รวม | ระดับผลการเรียน | อ่านคิดฯ | คุณลักษณะ | สมรรถนะ | สรุป
+function applyDecisionSummary(wb: XLSX.WorkBook, consolidated: PP5ParsedWorkbook["consolidated"], meta: PP5ParsedWorkbook["meta"]) {
+  const name = wb.SheetNames.find((n) => /สรุป.*ตัดสิน/.test(n));
+  if (!name) return;
+  const grid = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[name], { header: 1, defval: null, raw: true }) as Grid;
+  const txt = (v: any) => String(v ?? "").replace(/\u00a0/g, " ").trim();
+  let hdr = -1, codeCol = -1, nameCol = -1;
+  for (let r = 0; r < Math.min(grid.length, 20) && hdr < 0; r++) {
+    const row = grid[r] || [];
+    row.forEach((v, c) => {
+      const t = txt(v);
+      if (codeCol < 0 && /เลขประจำตัว/.test(t)) codeCol = c;
+      if (nameCol < 0 && /ชื่อ/.test(t)) nameCol = c;
+    });
+    if (codeCol >= 0 && nameCol >= 0) hdr = r; else { codeCol = -1; nameCol = -1; }
+  }
+  if (hdr < 0) return;
+  const base = nameCol + 1; // คอลัมน์ "มาเรียน"
+  const subject = meta.subjectName?.trim() || "รายวิชา";
+  const num = (v: any) => { const n = Number(v); return v === null || v === "" || !Number.isFinite(n) ? undefined : n; };
+  for (let r = hdr + 1; r < grid.length; r++) {
+    const row = grid[r] || [];
+    const code = txt(row[codeCol]).replace(/\.0$/, "");
+    if (!/^\d{3,10}$/.test(code)) continue;
+    const studentName = txt(row[nameCol]).replace(/\s+/g, " ");
+    let rec = consolidated.find((c) => c.studentCode === code);
+    if (!rec) { rec = { studentCode: code, studentName, perSubject: {} }; consolidated.push(rec); }
+    const key = Object.keys(rec.perSubject)[0] || subject;
+    const b = (rec.perSubject[key] ||= {});
+    const pct = num(row[base + 1]);
+    if (pct !== undefined) b.attendancePercent = pct;
+    const ind = num(row[base + 3]);
+    if (ind !== undefined) b.indicatorsPassed = ind;
+    const mid = num(row[base + 6]), fin = num(row[base + 7]), tot = num(row[base + 8]);
+    if (mid !== undefined) b.midScore = mid;
+    if (fin !== undefined) b.finalScore = fin;
+    if (tot !== undefined) { b.totalScore = tot; b.examScore = tot; }
+    const g = txt(row[base + 9]);
+    if (g) { b.grade = g; b.gradeFromFile = true; }
+    const rd = txt(row[base + 10]), ch = txt(row[base + 11]), cp = txt(row[base + 12]), dec = txt(row[base + 13]);
+    if (rd) b.readingResult = rd;
+    if (ch) b.characterResult = ch;
+    if (cp) b.competencyResult = cp;
+    if (dec) b.finalDecision = dec;
+    // ระดับ 0–3 ตามเกณฑ์ สพฐ. (ดีเยี่ยม=3 ดี=2 ผ่าน=1 ไม่ผ่าน=0)
+    const lvl = (t: string) => t === "ดีเยี่ยม" ? 3 : t === "ดี" ? 2 : t === "ผ่าน" ? 1 : t === "ไม่ผ่าน" ? 0 : undefined;
+    if (lvl(rd) !== undefined) b.readingLevel = lvl(rd);
+    if (lvl(ch) !== undefined) b.characterLevel = lvl(ch);
+    if (lvl(cp) !== undefined) b.competencyLevel = lvl(cp);
+  }
 }
