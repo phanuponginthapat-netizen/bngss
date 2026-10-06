@@ -63,6 +63,8 @@ export interface PP5ParsedWorkbook {
         competencyResult?: string;
         indicatorsPassed?: number;
         finalDecision?: string;
+        /** กิจกรรมพัฒนาผู้เรียน ผ่าน/ไม่ผ่าน */
+        activityResult?: string;
       }
     >;
   }[];
@@ -582,8 +584,9 @@ export async function parsePP5Workbook(file: File | ArrayBuffer): Promise<PP5Par
     }
   }
   const meta = extractMeta(wb);
-  const consolidated = consolidate(sheets, meta);
-  applyDecisionSummary(wb, consolidated, meta);
+  const primary = parsePrimaryAnnual(wb);
+  const consolidated = primary ?? consolidate(sheets, meta);
+  if (!primary) applyDecisionSummary(wb, consolidated, meta);
   return { meta, sheets, consolidated };
 }
 
@@ -642,4 +645,112 @@ function applyDecisionSummary(wb: XLSX.WorkBook, consolidated: PP5ParsedWorkbook
     if (lvl(ch) !== undefined) b.characterLevel = lvl(ch);
     if (lvl(cp) !== undefined) b.competencyLevel = lvl(cp);
   }
+}
+
+
+// ─── ปพ.6 ประถม (โปรแกรม ปพ.6 อิเล็กทรอนิกส์ สพฐ.) ──────────────────────────────
+// แผ่น "คะแนนสอบ" (ชื่อวิชาที่หัวตาราง แต่ละวิชามีหลายช่องคะแนน → เฉลี่ยช่องที่กรอก),
+// แผ่นรายงาน รศ.1 (ระดับผลการเรียนที่โปรแกรมคิดแล้ว) และ "ข้อมูลกิจกรรม" (กิจกรรม/คุณลักษณะ/อ่านคิดเขียน/สมรรถนะ)
+function parsePrimaryAnnual(wb: XLSX.WorkBook): PP5ParsedWorkbook["consolidated"] | null {
+  const examName = wb.SheetNames.find((n) => n.trim() === "คะแนนสอบ");
+  const actName = wb.SheetNames.find((n) => n.trim() === "ข้อมูลกิจกรรม");
+  if (!examName || !actName) return null;
+  const grid = (n: string) => XLSX.utils.sheet_to_json<any[]>(wb.Sheets[n], { header: 1, defval: null, raw: true }) as Grid;
+  const txt = (v: any) => String(v ?? "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+  const num = (v: any) => { if (v === null || v === "") return undefined; const n = Number(v); return Number.isFinite(n) ? n : undefined; };
+  const isCode = (v: any) => /^\d{3,10}$/.test(txt(v).replace(/\.0$/, ""));
+  const findHeader = (g: Grid) => {
+    for (let r = 0; r < Math.min(g.length, 15); r++) {
+      const row = g[r] || [];
+      const c = row.findIndex((v) => /เลขประจำตัว/.test(txt(v)));
+      if (c >= 0) return { r, codeCol: c, nameCol: c + 1 };
+    }
+    return null;
+  };
+
+  // 1) คะแนน
+  const eg = grid(examName);
+  const eh = findHeader(eg);
+  if (!eh) return null;
+  const hdr = eg[eh.r] || [];
+  const subjects: { name: string; from: number; to: number }[] = [];
+  for (let c = eh.nameCol + 1; c < hdr.length; c++) {
+    const t = txt(hdr[c]);
+    if (!t || t === "0" || /^=/.test(t)) continue;
+    if (subjects.length) subjects[subjects.length - 1].to = c - 1;
+    subjects.push({ name: t, from: c, to: c });
+  }
+  if (!subjects.length) return null;
+  const last = subjects[subjects.length - 1];
+  last.to = last.from + (subjects.length > 1 ? subjects[1].from - subjects[0].from - 1 : 2);
+
+  const out = new Map<string, PP5ParsedWorkbook["consolidated"][number]>();
+  for (let r = eh.r + 1; r < eg.length; r++) {
+    const row = eg[r] || [];
+    if (!isCode(row[eh.codeCol])) continue;
+    const code = txt(row[eh.codeCol]).replace(/\.0$/, "");
+    const rec = { studentCode: code, studentName: txt(row[eh.nameCol]), perSubject: {} as Record<string, any> };
+    for (const s of subjects) {
+      const vals: number[] = [];
+      for (let c = s.from; c <= s.to; c++) { const n = num(row[c]); if (n !== undefined) vals.push(n); }
+      if (!vals.length) continue;
+      const avg = Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 100) / 100;
+      rec.perSubject[s.name] = { examScore: avg, totalScore: avg };
+    }
+    out.set(code, rec);
+  }
+  if (!out.size) return null;
+
+  // 2) ระดับผลการเรียนจากแผ่น รศ.1 (เรียงวิชาตามลำดับเดียวกับแผ่นคะแนนสอบ)
+  for (const n of wb.SheetNames) {
+    const g = grid(n);
+    const top = txt((g[0] || []).join(" "));
+    if (!/รศ\.?\s*1/.test(top)) continue;
+    const h = findHeader(g);
+    if (!h) continue;
+    const gradeCol = (g[h.r] || []).findIndex((v) => /ระดับผลการเรียน/.test(txt(v)));
+    if (gradeCol < 0) continue;
+    for (let r = h.r + 1; r < g.length; r++) {
+      const row = g[r] || [];
+      const rec = out.get(txt(row[h.codeCol]).replace(/\.0$/, ""));
+      if (!rec) continue;
+      subjects.forEach((s, i) => {
+        const gr = txt(row[gradeCol + i]);
+        if (!gr) return;
+        const b = (rec.perSubject[s.name] ||= {});
+        b.grade = gr; b.gradeFromFile = true;
+      });
+    }
+    break;
+  }
+
+  // 3) กิจกรรม / คุณลักษณะ / อ่านคิดเขียน / สมรรถนะ
+  const ag = grid(actName);
+  const ah = findHeader(ag);
+  if (ah) {
+    const top = ag[ah.r] || [];
+    const col = (re: RegExp) => top.findIndex((v) => re.test(txt(v)));
+    const actC = col(/กิจกรรมพัฒนาผู้เรียน/), chC = col(/คุณลักษณะ/), rdC = col(/การอ่าน/), cpC = col(/สมรรถนะ/);
+    const lvlText = (n: number) => n >= 2.5 ? "ดีเยี่ยม" : n >= 1.5 ? "ดี" : n >= 1 ? "ผ่าน" : "ไม่ผ่าน";
+    const avgOf = (row: any[], a: number, b: number) => {
+      const v: number[] = []; for (let c = a; c < b; c++) { const n = num(row[c]); if (n !== undefined) v.push(n); }
+      return v.length ? v.reduce((x, y) => x + y, 0) / v.length : undefined;
+    };
+    for (let r = ah.r + 1; r < ag.length; r++) {
+      const row = ag[r] || [];
+      const rec = out.get(txt(row[ah.codeCol]).replace(/\.0$/, ""));
+      if (!rec) continue;
+      const ch = chC >= 0 ? avgOf(row, chC, rdC > chC ? rdC : chC + 10) : undefined;
+      const rd = rdC >= 0 ? num(row[rdC]) : undefined;
+      const cp = cpC >= 0 ? avgOf(row, cpC, cpC + 5) : undefined;
+      const acts = actC >= 0 ? [0, 1, 2, 3].map((i) => txt(row[actC + i])).filter(Boolean) : [];
+      for (const b of Object.values(rec.perSubject) as any[]) {
+        if (ch !== undefined) { b.characterResult = lvlText(ch); b.characterLevel = Math.round(ch); }
+        if (rd !== undefined) { b.readingResult = lvlText(rd); b.readingLevel = rd; }
+        if (cp !== undefined) { b.competencyResult = lvlText(cp); b.competencyLevel = Math.round(cp); }
+        if (acts.length) b.activityResult = acts.every((a) => a === "ผ่าน" || a === "ผ") ? "ผ่าน" : "ไม่ผ่าน";
+      }
+    }
+  }
+  return Array.from(out.values());
 }
