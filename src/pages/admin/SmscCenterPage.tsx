@@ -100,7 +100,7 @@ const fetchData = async (): Promise<SmscData> => {
   ]);
 
   const att = attendance.data || [];
-  const present = att.filter((a: any) => a.status === "present").length;
+  const present = att.filter((a: any) => a.status === "present" || a.status === "late").length;
   const rate = att.length ? Math.round((present / att.length) * 1000) / 10 : 0;
 
   const beh = behavior.data || [];

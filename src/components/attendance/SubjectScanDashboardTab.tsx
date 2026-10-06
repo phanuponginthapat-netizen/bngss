@@ -65,7 +65,7 @@ export function SubjectScanDashboardTab({ records, students }: Props) {
       .slice(-30)
       .map(d => ({
         ...d,
-        rate: d.total ? Math.round((d.present / d.total) * 100) : 0,
+        rate: d.total ? Math.round(((d.present + d.late) / d.total) * 100) : 0,
         label: d.date.slice(5),
       }));
   }, [subjectRecords]);
@@ -77,7 +77,7 @@ export function SubjectScanDashboardTab({ records, students }: Props) {
       const name = r.subjects?.name_th || r.subjects?.code || (lang === "th" ? "ไม่ระบุ" : "Unknown");
       if (!bySub[r.subject_id]) bySub[r.subject_id] = { name, total: 0, present: 0, absent: 0 };
       bySub[r.subject_id].total++;
-      if (r.status === "present") bySub[r.subject_id].present++;
+      if (r.status === "present" || r.status === "late") bySub[r.subject_id].present++;
       else bySub[r.subject_id].absent++;
     });
     return Object.values(bySub)
