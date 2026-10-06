@@ -51,13 +51,13 @@ const BOOKLET_CSS = `
   .bk-info > div:last-child { border-right:none; }
   .bk-info span { color:#000; font-size:15px; display:block; }
   .bk-info b { font-size:19px; }
-  .bk-sec { background:#000; color:#fff; font-weight:700; padding:1mm 3mm; margin:4mm 0 0; font-size:17px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .bk-sec { background:#fff; color:#000; border-bottom:1px solid #000; font-weight:700; padding:1mm 3mm; margin:4mm 0 0; font-size:17px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   .bk-subsec { font-weight:700; color:#000; margin:3mm 0 1mm; border-left:3px solid #000; padding-left:2mm; }
   table.bk-t { width:100%; border-collapse:collapse; font-size:16px; }
   table.bk-t th, table.bk-t td { border:1px solid #7d8791; padding:1px 5px; }
   table.bk-t thead th { background:#fff; font-weight:700; text-align:center; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   table.bk-t tbody tr:nth-child(even) td { background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  table.bk-t tfoot td { background:#eef2f6; font-weight:700; }
+  table.bk-t tfoot td { background:#fff; font-weight:700; }
   table.bk-t .c { text-align:center; } table.bk-t .r { text-align:right; } table.bk-t .m { white-space:nowrap; }
   .bk-sum { display:grid; grid-template-columns:repeat(4,1fr); border:1px solid #000; margin-top:3mm; text-align:center; }
   .bk-sum > div { padding:1.5mm; border-right:1px solid #000; }
