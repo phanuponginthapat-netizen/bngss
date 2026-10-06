@@ -37,7 +37,36 @@ import { guessPublicOrigin } from "@/lib/publicOrigin";
 import { Time24Input } from "@/components/ui/time24-input";
 import KioskDeviceManager from "@/components/kiosk/KioskDeviceManager";
 
+/** ลิงก์ดาวน์โหลด APK (เช่นลิงก์ Google Drive) — เก็บใน cms_settings ให้หน้า /install และหน้านี้ใช้ร่วมกัน */
+function ApkLinkSettings() {
+  const app = useCmsValue("apk_app_url");
+  const scanner = useCmsValue("apk_scanner_url");
+  const [a, setA] = useState(app);
+  const [b, setB] = useState(scanner);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { setA(app); setB(scanner); }, [app, scanner]);
+  const save = async () => {
+    for (const u of [a, b]) if (u && !/^https:\/\//i.test(u.trim())) { toast({ title: "ลิงก์ต้องขึ้นต้นด้วย https://", variant: "destructive" }); return; }
+    setSaving(true);
+    const { error } = await supabase.from("cms_settings").upsert(
+      [{ key: "apk_app_url", value: a.trim() }, { key: "apk_scanner_url", value: b.trim() }] as any,
+      { onConflict: "key" },
+    );
+    setSaving(false);
+    toast(error ? { title: "บันทึกไม่สำเร็จ", description: error.message, variant: "destructive" } : { title: "บันทึกลิงก์ดาวน์โหลดแล้ว" });
+  };
+  return (
+    <div className="space-y-2 rounded-md border p-3">
+      <Label className="text-sm">ลิงก์ดาวน์โหลดแอป (เช่นลิงก์ไฟล์ใน Google Drive)</Label>
+      <Input placeholder="แอปโรงเรียน (มือถือ) https://..." value={a} onChange={(e) => setA(e.target.value)} />
+      <Input placeholder="แอปสแกนสำหรับแท็บเล็ต https://..." value={b} onChange={(e) => setB(e.target.value)} />
+      <Button size="sm" onClick={save} disabled={saving}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}บันทึกลิงก์</Button>
+    </div>
+  );
+}
+
 export default function KioskSetupPage() {
+  const scannerApkUrl = useCmsValue("apk_scanner_url");
   const schoolName = useCmsValue("school_name") || "โรงเรียน";
   const cmsOrigin = useCmsValue("public_origin");
 
@@ -645,7 +674,7 @@ export default function KioskSetupPage() {
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
               <a
-                href="https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-scanner-latest.apk"
+                href={scannerApkUrl || "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-scanner-latest.apk"}
                 target="_blank"
                 rel="noreferrer"
               >
@@ -654,6 +683,7 @@ export default function KioskSetupPage() {
               </a>
             </Button>
           </div>
+          <ApkLinkSettings />
           <p className="text-xs text-muted-foreground">
             ถ้ายังดาวน์โหลดไม่ได้ แปลว่ายังไม่ได้สร้างไฟล์แอปรุ่นแรก — สั่งสร้างได้จากเมนู Actions ใน GitHub หัวข้อ “Build Tablet Scanner APK”
           </p>
