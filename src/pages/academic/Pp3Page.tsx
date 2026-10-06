@@ -61,7 +61,7 @@ const Pp3Page = () => {
       s.date_of_birth ? formatThaiDate(s.date_of_birth) : "-",
       genderTh(s.gender),
       s.graduation_date ? formatThaiDate(s.graduation_date) : (s.graduation_year ? `${s.graduation_year}` : "-"),
-      s.graduation_gpa ? Number(s.graduation_gpa).toFixed(2) : "-",
+      s.graduation_gpa ? (Math.floor(Number(s.graduation_gpa) * 100 + 1e-9) / 100).toFixed(2) : "-",
       "",
     ]);
     const tableHtml = buildTable(

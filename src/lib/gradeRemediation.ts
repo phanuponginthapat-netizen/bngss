@@ -26,3 +26,14 @@ export function isPassingGrade(g: string | null | undefined): boolean {
 
 export function canAnnounce(status: string): boolean { return status === "ติด"; }
 export function canFix(status: string): boolean { return ["ประกาศแล้ว", "กำลังแก้", "รอสอบแก้", "ไม่ผ่าน"].includes(status); }
+
+/**
+ * ระเบียบการวัดผล สพฐ.: ผลการเรียนหลังสอบแก้ตัว (0 / ร / มส) ได้ระดับผลการเรียนสูงสุดไม่เกิน "1"
+ * คืนค่าเกรดที่บันทึกได้ (string) หรือ null ถ้าไม่ผ่านอีกครั้ง
+ */
+export function remediatedGrade(original: string, newGradePoint: number | null | undefined): string | null {
+  if (newGradePoint === null || newGradePoint === undefined || !Number.isFinite(newGradePoint)) return null;
+  if (original === "มผ") return newGradePoint > 0 ? "ผ" : null;
+  if (newGradePoint <= 0) return "0";
+  return "1";
+}
