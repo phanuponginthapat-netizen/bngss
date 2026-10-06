@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { todayBangkok } from "@/lib/dateBE";
+import { classifyChildBmi, ageInYears, isFemale, NUTRITION_CLS } from "@/lib/childNutrition";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -212,11 +213,15 @@ export default function HealthTrendChart({ studentId, student }: { studentId: st
             <span className="px-2 py-1 rounded bg-muted">บันทึกล่าสุด: {new Date(latest.measured_at).toLocaleDateString("th-TH")}</span>
             {latest.weight_kg && <span className="px-2 py-1 rounded bg-muted">น้ำหนัก {latest.weight_kg} kg</span>}
             {latest.height_cm && <span className="px-2 py-1 rounded bg-muted">ส่วนสูง {latest.height_cm} cm</span>}
-            {latest.bmi && (
-              <span className={`px-2 py-1 rounded ${latest.bmi < BMI_NORMAL_MIN ? "bg-orange-100 text-orange-800" : latest.bmi > BMI_NORMAL_MAX ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
-                BMI {latest.bmi} {latest.bmi < BMI_NORMAL_MIN ? "ผอม" : latest.bmi > BMI_NORMAL_MAX ? "เกินเกณฑ์" : "เกณฑ์ปกติ"}
-              </span>
-            )}
+            {latest.bmi && (() => {
+              const c = classifyChildBmi(Number(latest.bmi), ageInYears(student?.date_of_birth, new Date((latest as any).measured_at || Date.now())), isFemale(student?.gender));
+              if (c) return <span className={`px-2 py-1 rounded ${NUTRITION_CLS[c]}`}>BMI {latest.bmi} {c}</span>;
+              return (
+                <span className={`px-2 py-1 rounded ${latest.bmi < BMI_NORMAL_MIN ? "bg-orange-100 text-orange-800" : latest.bmi > BMI_NORMAL_MAX ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
+                  BMI {latest.bmi} {latest.bmi < BMI_NORMAL_MIN ? "ผอม" : latest.bmi > BMI_NORMAL_MAX ? "เกินเกณฑ์" : "เกณฑ์ปกติ"}
+                </span>
+              );
+            })()}
             <Button size="sm" variant="outline" onClick={assessAi} disabled={assessing} className="ml-auto">
               {assessing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
               ประเมินด้วย AI
