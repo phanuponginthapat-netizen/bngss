@@ -1,6 +1,7 @@
 import * as React from "react";
 
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
+import { legacyToast, toast as sweetToast } from "@/lib/sweetAlertToast";
 
 const TOAST_LIMIT = 1;
 const TOAST_REMOVE_DELAY = 1000000;
@@ -135,6 +136,8 @@ function dispatch(action: Action) {
 type Toast = Omit<ToasterToast, "id">;
 
 function toast({ ...props }: Toast) {
+  return legacyToast(props);
+  /* Legacy state is retained for reducer compatibility; rendering is handled by SweetAlert.
   const id = genId();
 
   const update = (props: ToasterToast) =>
@@ -161,6 +164,7 @@ function toast({ ...props }: Toast) {
     dismiss,
     update,
   };
+  */
 }
 
 function useToast() {
@@ -179,7 +183,7 @@ function useToast() {
   return {
     ...state,
     toast,
-    dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
+    dismiss: (toastId?: string) => sweetToast.dismiss(toastId),
   };
 }
 

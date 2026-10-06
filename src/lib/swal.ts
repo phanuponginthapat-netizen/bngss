@@ -27,16 +27,20 @@ const baseClass = {
   timerProgressBar: "!bg-primary",
 };
 
-const base = (opts: SweetAlertOptions = {}): SweetAlertOptions => ({
+export const swalOptions = (opts: SweetAlertOptions = {}): SweetAlertOptions => ({
   buttonsStyling: false,
   customClass: baseClass,
   reverseButtons: true,
   heightAuto: false,
-  target: "body",
+  // Keep popups inside an existing modal's focus trap when one is open.
+  target: document.querySelector<HTMLElement>('[role="dialog"][data-state="open"]') ?? "body",
+  keydownListenerCapture: true,
   focusConfirm: true,
   returnFocus: false,
   ...opts,
 });
+
+const base = swalOptions;
 
 const toast = Swal.mixin({
   toast: true,
