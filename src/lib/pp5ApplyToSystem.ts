@@ -130,6 +130,13 @@ export async function applyPpFileToSystem(
       const id = subjectByName.get(k);
       if (id) return id;
     }
+    // ชื่อวิชาในไฟล์สั้นกว่าในระบบ เช่น "ภาษาไทย" ↔ "ภาษาไทย 2" — รับเมื่อพบตรงตัวเดียวเท่านั้น
+    const key = norm(String(name).replace(/[๐-๙0-9\s]+$/, ""));
+    if (key.length >= 3) {
+      const hits = new Set<string>();
+      for (const [k, id] of subjectByName) if (k.startsWith(key) && /^[๐-๙0-9]*$/.test(k.slice(key.length))) hits.add(id);
+      if (hits.size === 1) return [...hits][0];
+    }
     return null;
   };
 
