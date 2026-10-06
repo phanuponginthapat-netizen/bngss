@@ -58,7 +58,7 @@ const BOOKLET_CSS = `
   table.bk-t thead th { background:#e8eef5; font-weight:700; text-align:center; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   table.bk-t tbody tr:nth-child(even) td { background:#f7f9fb; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   table.bk-t tfoot td { background:#eef2f6; font-weight:700; }
-  table.bk-t .c { text-align:center; } table.bk-t .r { text-align:right; } table.bk-t .m { font-family:monospace; font-size:14px; }
+  table.bk-t .c { text-align:center; } table.bk-t .r { text-align:right; } table.bk-t .m { white-space:nowrap; }
   .bk-sum { display:grid; grid-template-columns:repeat(4,1fr); border:1px solid #1f3a5f; margin-top:3mm; text-align:center; }
   .bk-sum > div { padding:1.5mm; border-right:1px solid #c9d2dc; }
   .bk-sum > div:last-child { border-right:none; }
