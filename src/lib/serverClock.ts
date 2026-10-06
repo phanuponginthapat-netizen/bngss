@@ -8,14 +8,13 @@
  * แล้วเก็บ "ส่วนต่าง" ไว้ใช้แก้เวลาทุกครั้งที่บันทึก
  */
 import { BKK_TZ } from "@/lib/dateBE";
+import { getBackendConfig } from "@/lib/runtimeConfig";
 
 let skewMs = 0;
 let syncedAt = 0;
 let syncing: Promise<number> | null = null;
 
-const SUPABASE_URL =
-  (typeof window !== "undefined" && (window as any).__BNG_CONFIG__?.SUPABASE_URL) ||
-  import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_URL = getBackendConfig().url;
 
 /** ขอเวลาเซิร์ฟเวอร์และคำนวณส่วนต่าง (เงียบ ๆ — ล้มเหลวก็ใช้เวลาเครื่อง) */
 export async function syncServerClock(force = false): Promise<number> {

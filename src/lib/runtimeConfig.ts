@@ -29,12 +29,20 @@ export const CANONICAL_BACKEND = {
   projectId: "gwmszzoqqxmejefhayqf",
 } as const;
 
-/** single backend — gwmszzoqqxmejefhayqf เท่านั้น */
-const BLOCKED_PROJECT_REFS: string[] = [];
+/** single backend — gwmszzoqqxmejefhayqf เท่านั้น (ห้ามชี้ backend อัตโนมัติของ Lovable) */
+const BLOCKED_PROJECT_REFS: string[] = ["dlkyxvhnnffblerwedjz"];
 
 /** true ถ้า URL ชี้ไป backend ที่ห้ามใช้ */
-export function isBlockedBackendUrl(_url?: string): boolean {
-  return false;
+export function isBlockedBackendUrl(url?: string): boolean {
+  if (!url) return false;
+  try {
+    const host = new URL(url).hostname;
+    return BLOCKED_PROJECT_REFS.some(
+      (ref) => host === `${ref}.supabase.co` || host.endsWith(`.${ref}.supabase.co`),
+    );
+  } catch {
+    return false;
+  }
 }
 
 type GlobalConfig = {
