@@ -51,7 +51,11 @@ export default function HealthTrendChart({ studentId, student }: { studentId: st
     const hm = h / 100;
     return +(w / (hm * hm)).toFixed(2);
   })();
+  // เด็ก 5–18 ปี ใช้เกณฑ์ BMI ตามอายุและเพศ (กรมอนามัย/WHO); ถ้าไม่มีวันเกิดใช้เกณฑ์ผู้ใหญ่
+  const childCat = liveBmi == null ? null
+    : classifyChildBmi(liveBmi, ageInYears(student?.date_of_birth), isFemale(student?.gender));
   const liveCat = liveBmi == null ? null
+    : childCat ? { label: `${childCat} (ตามเกณฑ์อายุ/เพศ)`, cls: NUTRITION_CLS[childCat] }
     : liveBmi < 18.5 ? { label: "ต่ำกว่าเกณฑ์ (ผอม)", cls: "bg-orange-100 text-orange-800" }
     : liveBmi < 23 ? { label: "ตรงเกณฑ์ (ปกติ)", cls: "bg-green-100 text-green-800" }
     : liveBmi < 25 ? { label: "ท้วม", cls: "bg-yellow-100 text-yellow-800" }
