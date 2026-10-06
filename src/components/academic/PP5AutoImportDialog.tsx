@@ -115,9 +115,9 @@ export default function PP5AutoImportDialog({ onImportSuccess }: Props) {
                   <td className="p-1 truncate max-w-[140px]">{c.studentName}</td>
                   <td className="p-1 text-right">{first?.totalScore ?? "-"}</td>
                   <td className="p-1 text-center font-medium">{first?.grade ?? "-"}</td>
-                  <td className="p-1 text-center">{first?.characterLevel ?? "-"}</td>
-                  <td className="p-1 text-center">{first?.competencyLevel ?? "-"}</td>
-                  <td className="p-1 text-center">{first?.readingLevel ?? "-"}</td>
+                  <td className="p-1 text-center">{first?.characterResult ?? first?.characterLevel ?? "-"}</td>
+                  <td className="p-1 text-center">{first?.competencyResult ?? first?.competencyLevel ?? "-"}</td>
+                  <td className="p-1 text-center">{first?.readingResult ?? first?.readingLevel ?? "-"}</td>
                 </tr>
               );
             })}
