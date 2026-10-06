@@ -67,7 +67,8 @@ function options(notice: Notice) {
 }
 
 function flush() {
-  if (active !== undefined || Swal.isVisible()) { schedule(); return; }
+  const popup = Swal.getPopup();
+  if (active !== undefined || (popup && !popup.classList.contains("swal2-hide"))) { schedule(); return; }
   const notice = pending.values().next().value as Notice | undefined;
   if (!notice) return;
   pending.delete(notice.id);
