@@ -38,6 +38,8 @@ import { resolveProfileImageUrl } from "@/lib/profileImageUrl";
 import HeaderClock from "@/components/HeaderClock";
 import DarkModeToggle from "@/components/DarkModeToggle";
 import SystemLoader from "@/components/SystemLoader";
+import ModuleLoader from "@/components/ModuleLoader";
+import { Suspense } from "react";
 
 /** ปุ่ม avatar ที่ toggle sidebar (แทน dropdown เดิม) */
 function AvatarSidebarToggle({ avatarUrl, fullName, userEmail }: { avatarUrl: string | null; fullName: string; userEmail: string }) {
@@ -347,7 +349,9 @@ const DashboardLayout = () => {
               <ModuleGuard />
               <NotificationHighlightScroller />
               <div key={location.pathname} className="animate-fade-in-up">
-                <Outlet />
+                <Suspense fallback={<ModuleLoader />}>
+                  <Outlet />
+                </Suspense>
               </div>
             </ErrorBoundary>
 
