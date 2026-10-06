@@ -673,3 +673,18 @@ html.standalone .only-browser { display: none !important; }
 .only-standalone { display: none; }
 html.standalone .only-standalone { display: initial; }
 
+/* Status notices must not cover, blur, or block the page behind them. */
+.swal2-container.swal2-top-end:has(.swal2-toast) {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  pointer-events: none !important;
+  width: min(420px, 100vw) !important;
+}
+.swal2-popup.swal2-toast {
+  pointer-events: auto !important;
+  max-width: calc(100vw - 1.5rem);
+}
+.swal2-toast .swal2-title, .swal2-toast .swal2-html-container {
+  overflow-wrap: anywhere;
+}
+

@@ -1,5 +1,6 @@
 import Swal, { SweetAlertOptions, SweetAlertResult } from "sweetalert2";
 import { toThaiErrorDetailed, toThaiErrorDetailedSync } from "./errorMessage";
+import { toast as sweetToast } from "./sweetAlertToast";
 
 const escapeHtml = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
@@ -41,16 +42,6 @@ export const swalOptions = (opts: SweetAlertOptions = {}): SweetAlertOptions => 
 });
 
 const base = swalOptions;
-
-const toast = Swal.mixin({
-  toast: true,
-  position: "top-end",
-  showConfirmButton: false,
-  timer: 3000,
-  timerProgressBar: true,
-  buttonsStyling: false,
-  customClass: { ...baseClass, popup: baseClass.popup + " !p-3" },
-});
 
 export const swal = {
   success: (title: string, text?: string) =>
@@ -120,10 +111,10 @@ export const swal = {
 
   /** Toast แบบมุมขวาบน (สำหรับ notice สั้นๆ ไม่บล็อก UI) */
   toast: {
-    success: (title: string) => toast.fire({ icon: "success", title }),
-    error: (title: string) => toast.fire({ icon: "error", title }),
-    info: (title: string) => toast.fire({ icon: "info", title }),
-    warning: (title: string) => toast.fire({ icon: "warning", title }),
+    success: (title: string) => sweetToast.success(title),
+    error: (title: string) => sweetToast.error(title),
+    info: (title: string) => sweetToast.info(title),
+    warning: (title: string) => sweetToast.warning(title),
   },
 
   /** ช่อง input prompt — return ค่าที่กรอก หรือ null ถ้ายกเลิก */
