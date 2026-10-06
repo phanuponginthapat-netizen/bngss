@@ -1477,7 +1477,7 @@ const FileTab = () => {
     try {
       const res = await applyPp5FileToSystem(file);
       toast.dismiss(t);
-      toast.success(`บันทึกสำเร็จ — ${res.applied} คน (ข้าม ${res.skipped} คน)${res.unmatched.length ? ` · ไม่พบรหัส: ${res.unmatched.slice(0, 5).join(", ")}${res.unmatched.length > 5 ? "..." : ""}` : ""}`);
+      toast.success(`บันทึกสำเร็จ — ${res.applied} คน · ผลการเรียน ${res.distributed} รายการ${res.assessments ? ` · ผลประเมิน 3 ด้าน ${res.assessments} รายการ` : ""} (ข้าม ${res.skipped} คน)${res.unmatched.length ? ` · ไม่พบรหัส: ${res.unmatched.slice(0, 5).join(", ")}${res.unmatched.length > 5 ? "..." : ""}` : ""}`);
       qc.invalidateQueries({ queryKey: ["student_column_scores"] });
       qc.invalidateQueries({ queryKey: ["subject_score_columns"] });
     } catch (e: any) {

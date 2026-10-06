@@ -337,7 +337,7 @@ export function buildReportCardBooklet(data: ClassBookletData, school: BookletSc
 
     const mineAssess = assessments.filter((a: any) => a.student_id === st.id && Number(a.semester) === opts.semester);
     const section = (title: string, cat: string) => {
-      const rows = mineAssess.filter((a: any) => a.assessment_criteria?.category === cat);
+      const rows = mineAssess.filter((a: any) => (a.assessment_criteria?.category === cat || (cat === "reading" && a.assessment_criteria?.category === "reading_writing")));
       if (!rows.length) return "";
       return `<div class="bk-subsec">${title}</div>
         <table class="bk-t"><thead><tr><th>รายการประเมิน</th><th class="c" style="width:110px">ระดับ</th></tr></thead>
