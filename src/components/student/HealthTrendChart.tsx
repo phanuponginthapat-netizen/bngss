@@ -63,6 +63,12 @@ export default function HealthTrendChart({ studentId, student }: { studentId: st
     : liveBmi < 30 ? { label: "เกินเกณฑ์ (อ้วน)", cls: "bg-red-100 text-red-800" }
     : { label: "อ้วนมาก", cls: "bg-red-200 text-red-900" };
 
+  // PDPA: บันทึกว่าใครเปิดดูข้อมูลสุขภาพนักเรียน
+  useEffect(() => {
+    if (!studentId) return;
+    import("@/lib/auditLog").then(({ logAudit }) => logAudit({ action: "view_student_health", target_table: "students", target_id: studentId }));
+  }, [studentId]);
+
   const load = async () => {
     const { data, error } = await supabase
       .from("health_measurements")

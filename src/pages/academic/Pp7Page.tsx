@@ -61,6 +61,7 @@ const Pp7Page = () => {
 
   const handlePrint = async () => {
     if (!student) return;
+    import("@/lib/auditLog").then(({ logAudit }) => logAudit({ action: "print_pp7", target_table: "students", target_id: student.id, details: { purpose } }));
     const { printByCode } = await import("@/lib/printTemplate");
     const cls = (student as any).classrooms;
 
