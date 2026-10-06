@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Printer, Download, Trash2, FileSpreadsheet, FolderOpen, Calendar, ClipboardList, Search, User } from "lucide-react";
 import { useSchoolInfo } from "@/components/documents/DocumentHeader";
-import { gradeColor, calculateGrade } from "@/lib/gradeUtils";
+import { gradeColor, calculateGrade, formatGPA } from "@/lib/gradeUtils";
 import { openPrintWindow, toThaiDigits } from "@/lib/printUtils";
 import { exportSchoolMisExcel, printPor5 } from "@/lib/schoolMisExport";
 import { formatFullName, formatFullNameHtml } from "@/lib/nameFormat";
@@ -128,10 +128,17 @@ const ScoreOverviewTab = () => {
       gradesBySubject[sc.subject_id] = { grade: sc.grade || "-", gradePoint: sc.grade_point || 0 };
     });
 
-    const validPoints = Object.values(gradesBySubject).filter(g => g.gradePoint > 0);
-    const gpa = validPoints.length > 0
-      ? (validPoints.reduce((sum, g) => sum + g.gradePoint, 0) / validPoints.length).toFixed(2)
-      : "-";
+    // GPA ถ่วงน้ำหนักหน่วยกิต นับเกรด 0 ด้วย แต่ไม่นับ ร/มส (ยังไม่มีผลเป็นตัวเลข)
+    let gpSum = 0, crSum = 0;
+    studentScores.forEach((sc: any) => {
+      const g = String(sc.grade ?? "").trim();
+      if (!/^(4|3\.5|3|2\.5|2|1\.5|1|0)$/.test(g)) return;
+      const subj = subjects.find((x: any) => x.id === sc.subject_id);
+      const cr = Number(subj?.credits) || 0;
+      if (cr <= 0) return;
+      gpSum += Number(g) * cr; crSum += cr;
+    });
+    const gpa = formatGPA(gpSum, crSum, "-");
 
     return {
       id: s.id,

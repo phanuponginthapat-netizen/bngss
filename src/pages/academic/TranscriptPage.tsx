@@ -1,3 +1,4 @@
+import { formatGPA } from "@/lib/gradeUtils";
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,7 +58,7 @@ const TranscriptPage = () => {
   const getSubject = (sid: string) => subjects.find((s: any) => s.id === sid);
   const totalCredits = scores.reduce((a: number, s: any) => { const sub = getSubject(s.subject_id); return a + (sub?.credits || 0); }, 0);
   const totalGradePoints = scores.reduce((a: number, s: any) => { const sub = getSubject(s.subject_id); return a + (s.grade_point || 0) * (sub?.credits || 0); }, 0);
-  const gpa = totalCredits > 0 ? (totalGradePoints / totalCredits).toFixed(2) : "0.00";
+  const gpa = formatGPA(totalGradePoints, totalCredits);
 
   const groupedScores: Record<string, any[]> = {};
   scores.forEach((s: any) => {
@@ -85,7 +86,7 @@ const TranscriptPage = () => {
     Object.entries(groupedScores).forEach(([key, semScores]) => {
       const semCredits = semScores.reduce((a: number, s: any) => { const sub = getSubject(s.subject_id); return a + (sub?.credits || 0); }, 0);
       const semGP = semScores.reduce((a: number, s: any) => { const sub = getSubject(s.subject_id); return a + (s.grade_point || 0) * (sub?.credits || 0); }, 0);
-      const semGPA = semCredits > 0 ? (semGP / semCredits).toFixed(2) : "0.00";
+      const semGPA = formatGPA(semGP, semCredits);
 
       semesterTablesHtml += `
         <div class="obec-subsection-title">ปีการศึกษา ${key.replace("/", " ภาคเรียนที่ ")}</div>
@@ -218,7 +219,7 @@ const TranscriptPage = () => {
             {Object.entries(groupedScores).map(([key, semScores]) => {
               const semCredits = semScores.reduce((a: number, s: any) => { const sub = getSubject(s.subject_id); return a + (sub?.credits || 0); }, 0);
               const semGP = semScores.reduce((a: number, s: any) => { const sub = getSubject(s.subject_id); return a + (s.grade_point || 0) * (sub?.credits || 0); }, 0);
-              const semGPA = semCredits > 0 ? (semGP / semCredits).toFixed(2) : "0.00";
+              const semGPA = formatGPA(semGP, semCredits);
               return (
                 <div key={key} className="mt-6">
                   <h3 className="font-bold text-sm mb-2 text-primary">ปีการศึกษา {key.replace("/", " ภาคเรียนที่ ")}</h3>

@@ -76,3 +76,9 @@ export function calculateGradeWithProportion(
   const pct = weighted * 100;
   return calculateGrade(pct, 100);
 }
+
+/** แสดง GPA ทศนิยม 2 ตำแหน่งแบบไม่ปัดเศษ (ระเบียบการวัดผล สพฐ.) */
+export function formatGPA(totalGradePoints: number, totalCredits: number, empty = "0.00"): string {
+  if (!Number.isFinite(totalGradePoints) || !Number.isFinite(totalCredits) || totalCredits <= 0) return empty;
+  return (Math.floor((totalGradePoints / totalCredits) * 100 + 1e-9) / 100).toFixed(2);
+}

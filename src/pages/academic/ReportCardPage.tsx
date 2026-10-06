@@ -1,3 +1,4 @@
+import { formatGPA } from "@/lib/gradeUtils";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -71,7 +72,7 @@ const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
   const getSubject = (sid: string) => subjects.find((s: any) => s.id === sid);
   const totalCredits = scores.reduce((a: number, s: any) => { const sub = getSubject(s.subject_id); return a + (sub?.credits || 0); }, 0);
   const totalGP = scores.reduce((a: number, s: any) => { const sub = getSubject(s.subject_id); return a + (s.grade_point || 0) * (sub?.credits || 0); }, 0);
-  const gpa = totalCredits > 0 ? (totalGP / totalCredits).toFixed(2) : "0.00";
+  const gpa = formatGPA(totalGP, totalCredits);
 
   const presentDays = attendance.filter((a: any) => a.status === "present").length;
   const totalDays = attendance.length;

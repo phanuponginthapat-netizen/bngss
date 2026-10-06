@@ -1,3 +1,4 @@
+import { formatGPA } from "@/lib/gradeUtils";
 /**
  * ppBooklet — พิมพ์เอกสาร ปพ. แบบ "รวมเล่ม" ทั้งห้องเรียน
  * โครงเล่มตามระเบียบ สพฐ.: ปก → สารบัญ → เอกสารรายบุคคล (คนละหน้า มีเลขหน้าต่อเนื่อง) → หน้าลงนามรับรอง
@@ -249,7 +250,7 @@ export function buildTranscriptBooklet(data: ClassBookletData, school: BookletSc
               })
               .join("")}
           </tbody>
-          <tfoot><tr><td colspan="2" class="right">รวม</td><td class="center bold">${cr}</td><td class="center bold">GPA: ${cr > 0 ? (gp / cr).toFixed(2) : "0.00"}</td></tr></tfoot>
+          <tfoot><tr><td colspan="2" class="right">รวม</td><td class="center bold">${cr}</td><td class="center bold">GPA: ${formatGPA(gp, cr)}</td></tr></tfoot>
         </table>`;
       })
       .join("");
@@ -271,7 +272,7 @@ export function buildTranscriptBooklet(data: ClassBookletData, school: BookletSc
       ${assessHtml}
       <div class="obec-summary-box">
         <div><span class="summary-label">หน่วยกิตรวม: </span><span class="summary-value">${totalCredits}</span></div>
-        <div><span class="summary-label">GPAX: </span><span class="summary-value">${totalCredits > 0 ? (totalGP / totalCredits).toFixed(2) : "0.00"}</span></div>
+        <div><span class="summary-label">GPAX: </span><span class="summary-value">${formatGPA(totalGP, totalCredits)}</span></div>
       </div>
       <div class="obec-signatures">
         <div class="obec-sig-row">
@@ -335,7 +336,7 @@ export function buildReportCardBooklet(data: ClassBookletData, school: BookletSc
       </table>
       <div class="obec-summary-box">
         <div><span class="summary-label">หน่วยกิตรวม: </span><span class="summary-value">${credits}</span></div>
-        <div><span class="summary-label">GPA ภาคเรียนนี้: </span><span class="summary-value">${credits > 0 ? (gp / credits).toFixed(2) : "0.00"}</span></div>
+        <div><span class="summary-label">GPA ภาคเรียนนี้: </span><span class="summary-value">${formatGPA(gp, credits)}</span></div>
       </div>
       ${section("ส่วนที่ 2: สมรรถนะสำคัญของผู้เรียน", "competency")}
       ${section("ส่วนที่ 3: คุณลักษณะอันพึงประสงค์", "desirable")}
