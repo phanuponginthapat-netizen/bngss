@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { todayBangkok } from "@/lib/dateBE";
+import { classifyChildBmi, ageInYears, isFemale, NUTRITION_CLS } from "@/lib/childNutrition";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,7 +52,11 @@ export default function HealthTrendChart({ studentId, student }: { studentId: st
     const hm = h / 100;
     return +(w / (hm * hm)).toFixed(2);
   })();
+  // เด็ก 5–18 ปี ใช้เกณฑ์ BMI ตามอายุและเพศ (กรมอนามัย/WHO); ถ้าไม่มีวันเกิดใช้เกณฑ์ผู้ใหญ่
+  const childCat = liveBmi == null ? null
+    : classifyChildBmi(liveBmi, ageInYears(student?.date_of_birth), isFemale(student?.gender));
   const liveCat = liveBmi == null ? null
+    : childCat ? { label: `${childCat} (ตามเกณฑ์อายุ/เพศ)`, cls: NUTRITION_CLS[childCat] }
     : liveBmi < 18.5 ? { label: "ต่ำกว่าเกณฑ์ (ผอม)", cls: "bg-orange-100 text-orange-800" }
     : liveBmi < 23 ? { label: "ตรงเกณฑ์ (ปกติ)", cls: "bg-green-100 text-green-800" }
     : liveBmi < 25 ? { label: "ท้วม", cls: "bg-yellow-100 text-yellow-800" }
@@ -208,11 +213,15 @@ export default function HealthTrendChart({ studentId, student }: { studentId: st
             <span className="px-2 py-1 rounded bg-muted">บันทึกล่าสุด: {new Date(latest.measured_at).toLocaleDateString("th-TH")}</span>
             {latest.weight_kg && <span className="px-2 py-1 rounded bg-muted">น้ำหนัก {latest.weight_kg} kg</span>}
             {latest.height_cm && <span className="px-2 py-1 rounded bg-muted">ส่วนสูง {latest.height_cm} cm</span>}
-            {latest.bmi && (
-              <span className={`px-2 py-1 rounded ${latest.bmi < BMI_NORMAL_MIN ? "bg-orange-100 text-orange-800" : latest.bmi > BMI_NORMAL_MAX ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
-                BMI {latest.bmi} {latest.bmi < BMI_NORMAL_MIN ? "ผอม" : latest.bmi > BMI_NORMAL_MAX ? "เกินเกณฑ์" : "เกณฑ์ปกติ"}
-              </span>
-            )}
+            {latest.bmi && (() => {
+              const c = classifyChildBmi(Number(latest.bmi), ageInYears(student?.date_of_birth, new Date((latest as any).measured_at || Date.now())), isFemale(student?.gender));
+              if (c) return <span className={`px-2 py-1 rounded ${NUTRITION_CLS[c]}`}>BMI {latest.bmi} {c}</span>;
+              return (
+                <span className={`px-2 py-1 rounded ${latest.bmi < BMI_NORMAL_MIN ? "bg-orange-100 text-orange-800" : latest.bmi > BMI_NORMAL_MAX ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
+                  BMI {latest.bmi} {latest.bmi < BMI_NORMAL_MIN ? "ผอม" : latest.bmi > BMI_NORMAL_MAX ? "เกินเกณฑ์" : "เกณฑ์ปกติ"}
+                </span>
+              );
+            })()}
             <Button size="sm" variant="outline" onClick={assessAi} disabled={assessing} className="ml-auto">
               {assessing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
               ประเมินด้วย AI
