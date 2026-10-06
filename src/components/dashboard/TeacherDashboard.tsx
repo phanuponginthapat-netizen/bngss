@@ -399,7 +399,7 @@ const TeacherDashboard = () => {
         if (!k) return;
         if (!byDate[k]) byDate[k] = { p: 0, t: 0 };
         byDate[k].t += 1;
-        if (r.status === "present") byDate[k].p += 1;
+        if (r.status === "present" || r.status === "late") byDate[k].p += 1;
       });
       const out: { date: string; rate: number }[] = [];
       for (let i = 6; i >= 0; i--) {

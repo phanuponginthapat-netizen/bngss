@@ -74,7 +74,7 @@ const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
   const totalGP = scores.reduce((a: number, s: any) => { const sub = getSubject(s.subject_id); return a + (s.grade_point || 0) * (sub?.credits || 0); }, 0);
   const gpa = formatGPA(totalGP, totalCredits);
 
-  const presentDays = attendance.filter((a: any) => a.status === "present").length;
+  const presentDays = attendance.filter((a: any) => a.status === "present" || a.status === "late").length;
   const totalDays = attendance.length;
 
   const competencyScores = assessmentScores.filter((a: any) => a.assessment_criteria?.category === "competency");

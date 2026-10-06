@@ -78,7 +78,7 @@ const DirectorDashboard = () => {
       const present = todayRows.filter(a => a.status === "present").length;
       const absent = todayRows.filter(a => a.status === "absent").length;
       const late = todayRows.filter(a => a.status === "late").length;
-      const rate = totalAtt > 0 ? (present / totalAtt) * 100 : 0;
+      const rate = totalAtt > 0 ? ((present + late) / totalAtt) * 100 : 0; // มาสายนับเป็นมาเรียน
 
       // 14-day attendance trend (context)
       const dayMap: Record<string, { p: number; t: number }> = {};
@@ -87,7 +87,7 @@ const DirectorDashboard = () => {
         if (!k) return;
         if (!dayMap[k]) dayMap[k] = { p: 0, t: 0 };
         dayMap[k].t += 1;
-        if (a.status === "present") dayMap[k].p += 1;
+        if (a.status === "present" || a.status === "late") dayMap[k].p += 1;
       });
       const trend = Object.entries(dayMap)
         .sort(([a], [b]) => a.localeCompare(b))
