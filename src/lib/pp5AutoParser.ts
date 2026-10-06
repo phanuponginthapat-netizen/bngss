@@ -564,7 +564,7 @@ function consolidate(sheets: PP5ParsedSheet[], meta: PP5ParsedWorkbook["meta"]):
 
 // ─── Entry point ──────────────────────────────────────────────────────────────
 export async function parsePP5Workbook(file: File | ArrayBuffer): Promise<PP5ParsedWorkbook> {
-  const buf = file instanceof ArrayBuffer ? file : await file.arrayBuffer();
+  const buf = typeof (file as File).arrayBuffer === "function" ? await (file as File).arrayBuffer() : (file as ArrayBuffer);
   const wb = XLSX.read(buf, { type: "array", cellDates: false });
   const sheets: PP5ParsedSheet[] = [];
   for (const name of wb.SheetNames) {
