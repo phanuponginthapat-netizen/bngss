@@ -274,6 +274,24 @@ const AllStudentsPage = () => {
     URL.revokeObjectURL(url);
   };
 
+  /** ส่งออก Excel เรียงคอลัมน์ตามแบบนำเข้า DMC สพฐ. */
+  const handleExportDMC = async () => {
+    const XLSX = await import("xlsx");
+    const header = ["เลขประจำตัวประชาชน", "รหัสนักเรียน", "คำนำหน้าชื่อ", "ชื่อ", "นามสกุล", "เพศ", "วันเกิด", "สัญชาติ", "ศาสนา", "ชั้น", "ห้อง", "ชื่อบิดา", "ชื่อมารดา", "ชื่อผู้ปกครอง", "เบอร์โทรผู้ปกครอง", "ที่อยู่"];
+    const rows = filtered.map((s: any) => [
+      s.national_id || "", s.student_code || "", s.prefix || "", s.first_name || "", s.last_name || "",
+      s.gender || "", s.date_of_birth || "", s.nationality || "", s.religion || "",
+      s.classrooms?.grade_level || "", s.classrooms?.name || "",
+      s.father_name || "", s.mother_name || "", s.guardian_name || "", s.guardian_phone || "", s.address || "",
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    ws["!cols"] = header.map((h, i) => ({ wch: i === 0 ? 16 : i === 15 ? 40 : Math.max(10, h.length + 2) }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "DMC");
+    XLSX.writeFile(wb, `DMC_students_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    import("@/lib/auditLog").then(({ logAudit }) => logAudit({ action: "export_dmc_students", details: { count: rows.length } }));
+  };
+
   const updateEdit = (field: string, value: any) => {
     if (editStudent) setEditStudent({ ...editStudent, [field]: value });
   };
@@ -293,6 +311,9 @@ const AllStudentsPage = () => {
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={handleExportCSV}>
             <Download className="w-4 h-4 mr-1" /> ส่งออก CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportDMC}>
+            <Download className="w-4 h-4 mr-1" /> ส่งออก DMC (Excel)
           </Button>
           <Button variant="outline" size="sm" onClick={() => window.print()}>
             <Printer className="w-4 h-4 mr-1" /> พิมพ์
