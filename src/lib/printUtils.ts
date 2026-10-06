@@ -575,6 +575,7 @@ export const openPrintWindow = (htmlContent: string, options: PrintOptions = {})
       /* E-Form ต้องใช้ @page margin ตอนพิมพ์ เพื่อให้หัว/ท้ายกระดาษถูกกันไว้ซ้ำทุกหน้า
          ไม่ใช่ padding บน wrapper ซึ่งมีผลแค่หน้าแรกและทำให้เนื้อหาล้นเข้า footer/header ในหน้าถัดไป */
       @page { size: ${landscape ? "A4 landscape" : "A4"}; margin: 25mm 20mm 20mm 30mm; }
+      @page :first { margin-top: 15mm; } /* ครุฑห่างขอบบน 1.5 ซม. ตามระเบียบงานสารบรรณ; หน้าถัดไปขอบบน 2.5 ซม. */
       @media print {
         html, body { width: auto; min-height: auto; background: #fff; }
         .eform-print-page {
