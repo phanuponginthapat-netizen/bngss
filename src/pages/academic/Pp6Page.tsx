@@ -321,6 +321,18 @@ const ScoreOverviewTab = () => {
           </SelectContent>
         </Select>
         {classroomId && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์</Button>}
+        {classroomId && selectedClassroom && <Button variant="outline" onClick={async () => {
+          try {
+            const { printClassBooklet } = await import("@/lib/ppBooklet");
+            await printClassBooklet("pp6", classroomId, { semester: parseInt(semester), academicYearBE: String(toBE((selectedClassroom as any).academic_year)) });
+          } catch (e: any) { toast.error(e?.message || "พิมพ์เล่มไม่สำเร็จ"); }
+        }}><Printer className="w-4 h-4 mr-2" />พิมพ์รวมเล่ม ปพ.6</Button>}
+        {classroomId && <Button variant="outline" onClick={async () => {
+          try {
+            const { printClassBooklet } = await import("@/lib/ppBooklet");
+            await printClassBooklet("pp1", classroomId);
+          } catch (e: any) { toast.error(e?.message || "พิมพ์เล่มไม่สำเร็จ"); }
+        }}><Printer className="w-4 h-4 mr-2" />พิมพ์รวมเล่ม ปพ.1</Button>}
         {classroomId && <Button variant="outline" onClick={() => {
           if (!selectedClassroom) return;
           const rows = mergedData.map((s: any) => {

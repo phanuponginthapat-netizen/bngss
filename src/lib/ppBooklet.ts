@@ -385,3 +385,35 @@ export function buildReportCardBooklet(data: ClassBookletData, school: BookletSc
     parts,
   });
 }
+
+// ───────────────────────── school info from CMS ─────────────────────────
+
+const CMS_SCHOOL_KEYS = ["school_name", "school_address", "school_logo", "garuda_emblem", "director_name", "director_title"] as const;
+
+/** ดึงข้อมูลโรงเรียนจากหน้าตั้งค่า (cms_settings) — fallback school_settings */
+export async function loadBookletSchoolInfo(): Promise<BookletSchoolInfo> {
+  const info: Record<string, string> = {};
+  const { data: cms } = await supabase.from("cms_settings").select("key, value").in("key", CMS_SCHOOL_KEYS as unknown as string[]);
+  for (const r of (cms as any[]) || []) if (r.value) info[r.key] = String(r.value);
+  const missing = CMS_SCHOOL_KEYS.filter((k) => !info[k]);
+  if (missing.length) {
+    const { data: ss } = await supabase.from("school_settings").select("setting_key, setting_value").in("setting_key", missing as unknown as string[]);
+    for (const r of (ss as any[]) || []) if (r.setting_value) info[r.setting_key] = String(r.setting_value);
+  }
+  return info as BookletSchoolInfo;
+}
+
+/** พิมพ์รวมเล่มทั้งห้อง (ปพ.1 หรือ ปพ.6) โดยใช้ข้อมูลโรงเรียนจาก CMS */
+export async function printClassBooklet(kind: BookletKind, classroomId: string, opts: { semester?: number; academicYearBE?: string } = {}) {
+  const [{ openPrintWindow }, { logAudit }] = await Promise.all([import("@/lib/printUtils"), import("@/lib/auditLog")]);
+  const [school, data] = await Promise.all([
+    loadBookletSchoolInfo(),
+    loadClassBookletData(classroomId, kind === "pp6" ? { semester: opts.semester } : {}),
+  ]);
+  if (!data.students.length) throw new Error("ไม่พบนักเรียนในห้องนี้");
+  const html = kind === "pp1"
+    ? buildTranscriptBooklet(data, school)
+    : buildReportCardBooklet(data, school, { semester: opts.semester || 1, academicYearBE: opts.academicYearBE || "" });
+  void logAudit({ action: `print_${kind}_booklet`, target_table: "classrooms", target_id: classroomId, details: { students: data.students.length, semester: opts.semester ?? null } });
+  openPrintWindow(html, { title: `${kind === "pp1" ? "ปพ.1" : "ปพ.6"} รวมเล่ม` });
+}

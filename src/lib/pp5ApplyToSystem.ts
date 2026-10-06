@@ -50,7 +50,15 @@ function toGrade(grade: any, score: any): string | null {
   return gp === null ? null : String(gp);
 }
 
-const norm = (s: any) => String(s ?? "").toLowerCase().replace(/\s+/g, "").trim();
+const THAI_DIGITS = "๐๑๒๓๔๕๖๗๘๙";
+/** ทำชื่อ/รหัสวิชาให้เทียบกันได้: เลขไทย→อารบิก, ตัดคำนำหน้า "รายวิชา/วิชา", ป้าย (พื้นฐาน)/(เพิ่มเติม), ช่องว่างและเครื่องหมาย */
+const norm = (s: any) => String(s ?? "")
+  .replace(/[๐-๙]/g, (d) => String(THAI_DIGITS.indexOf(d)))
+  .toLowerCase()
+  .replace(/\((พื้นฐาน|เพิ่มเติม|พ|ม)\)/g, "")
+  .replace(/^(รายวิชา|วิชา)/, "")
+  .replace(/[\s.\-_/:,]+/g, "")
+  .trim();
 // "ท21101 ภาษาไทย 1" → ["ท21101", "ภาษาไทย1"]
 const subjectKeys = (raw: string): string[] => {
   const s = String(raw ?? "").trim();
