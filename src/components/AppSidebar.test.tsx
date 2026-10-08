@@ -6,7 +6,10 @@ import { AppSidebar } from "./AppSidebar";
 
 vi.mock("@/hooks/useUserRole", () => ({ useUserRole: () => ({ role: "teacher" }) }));
 vi.mock("@/contexts/LanguageContext", () => ({ useLanguage: () => ({ lang: "th" }) }));
-vi.mock("@/hooks/useSystemSettings", () => ({ useSystemSettings: () => ({ appName: "โรงเรียนทดสอบ", schoolName: "โรงเรียนทดสอบ", schoolLogo: null }) }));
+const branding = vi.hoisted(() => ({
+  current: { appName: "โรงเรียนทดสอบ", appShortName: "", schoolName: "โรงเรียนทดสอบ", schoolLogo: null },
+}));
+vi.mock("@/hooks/useSystemSettings", () => ({ useSystemSettings: () => branding.current }));
 vi.mock("@/hooks/useModuleToggles", () => ({ useModuleToggles: () => ({ isModuleEnabled: () => true }) }));
 vi.mock("./SidebarAccountFooter", () => ({ SidebarAccountFooter: () => null }));
 vi.mock("./ViewModeSwitcher", () => ({ ViewModeSwitcher: () => null }));
@@ -42,5 +45,18 @@ describe("sidebar presentation", () => {
     const toggle = screen.getByRole("button", { name: /ฝ่ายงานและบริการ/ });
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("shows only the short brand name in the header", () => {
+    branding.current = {
+      appName: "BNG Smart School ระบบโรงเรียนอัจฉริยะ โรงเรียนบ้านหนองเงือก",
+      appShortName: "",
+      schoolName: "โรงเรียนบ้านหนองเงือก",
+      schoolLogo: null,
+    };
+    openSidebar();
+    expect(screen.getByText("BNG Smart School")).toBeInTheDocument();
+    expect(screen.queryByText(/โรงเรียนบ้านหนองเงือก/)).toBeNull();
+    branding.current = { appName: "โรงเรียนทดสอบ", appShortName: "", schoolName: "โรงเรียนทดสอบ", schoolLogo: null };
   });
 });
