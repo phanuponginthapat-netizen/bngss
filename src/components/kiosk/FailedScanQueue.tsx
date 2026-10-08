@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { swal, sweetToast } from "@/lib/swal";
+import { swal } from "@/lib/swal";
 import { RefreshCw, Send, Trash2 } from "lucide-react";
 
 type Row = { id: string; payload: any; error: string | null; attempts: number | null; created_at: string };
@@ -33,12 +33,12 @@ export default function FailedScanQueue() {
       return;
     }
     await (supabase.from("offline_failed_queue" as any) as any).delete().eq("id", r.id);
-    sweetToast?.success?.(error ? "รายการนี้บันทึกไว้แล้ว" : "ส่งขึ้นระบบแล้ว");
+    void swal.success(error ? "รายการนี้บันทึกไว้แล้ว" : "ส่งขึ้นระบบแล้ว");
     void load();
   };
 
   const discard = async (r: Row) => {
-    const ok = await swal.confirm({ title: "ลบรายการนี้?", text: "เวลามาเรียนรายการนี้จะไม่ถูกบันทึก" } as any);
+    const ok = await swal.confirm({ title: "ลบรายการนี้?", text: "เวลามาเรียนรายการนี้จะไม่ถูกบันทึก", danger: true } as any);
     if (!ok) return;
     await (supabase.from("offline_failed_queue" as any) as any).delete().eq("id", r.id);
     void load();
