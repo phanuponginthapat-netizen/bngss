@@ -159,15 +159,12 @@ export async function subscribeToPush(): Promise<{ success: boolean; error?: str
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) return { success: false, error: "ยังไม่ได้เข้าสู่ระบบ" };
 
-  const { error } = await supabase.from("push_subscriptions").upsert(
-    {
-      user_id: u.user.id,
-      endpoint: sub.endpoint,
-      p256dh: json.keys?.p256dh || "",
-      auth: json.keys?.auth || "",
-    },
-    { onConflict: "user_id,endpoint" },
-  );
+  const { error } = await savePushRegistration(u.user.id, {
+    endpoint: sub.endpoint,
+    p256dh: json.keys?.p256dh || "",
+    auth: json.keys?.auth || "",
+    provider: "webpush",
+  });
   if (error) return { success: false, error: error.message };
   return { success: true };
 }

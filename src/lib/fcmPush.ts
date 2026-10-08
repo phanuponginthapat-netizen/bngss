@@ -42,18 +42,12 @@ async function saveDeviceToken(token: string): Promise<void> {
       setPendingToken(token);
       return;
     }
-    const { error } = await supabase.from("push_subscriptions").upsert(
-      {
-        user_id: data.user.id,
-        endpoint: `fcm:${token}`,
-        p256dh: "",
-        auth: "",
-        device_token: token,
-        provider: "fcm",
-        platform: Capacitor.getPlatform(),
-      },
-      { onConflict: "user_id,endpoint" },
-    );
+    const { error } = await savePushRegistration(data.user.id, {
+      endpoint: `fcm:${token}`,
+      device_token: token,
+      provider: "fcm",
+      platform: Capacitor.getPlatform(),
+    });
     if (error) throw error;
     if (pendingToken === token) setPendingToken(null);
   } catch (e) {
