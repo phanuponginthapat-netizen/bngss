@@ -21,7 +21,7 @@ const A = {
   homeroom: { label: "ห้องประจำชั้น", desc: "ดูแลนักเรียน", to: "/dashboard/student/homeroom", icon: Users },
   lesson: { label: "แผนการสอน", desc: "ส่ง/ตรวจแผน", to: "/dashboard/academic/lesson-plans", icon: ClipboardList },
   leave: { label: "ใบลา", desc: "ลา/อนุมัติลา", to: "/dashboard/student/leave", icon: FileText },
-  sar: { label: "รายงาน SAR", desc: "ประเมินตนเอง", to: "/dashboard/academic/sar", icon: BarChart3 },
+  sar: { label: "รายงาน SAR", desc: "ประเมินตนเอง", to: "/dashboard/admin/sar", icon: BarChart3 },
   students: { label: "นักเรียนทั้งหมด", desc: "ข้อมูล/DMC", to: "/dashboard/academic/all-students", icon: Users },
   calendar: { label: "ปฏิทินวิชาการ", desc: "กำหนดการ", to: "/dashboard/academic/calendar", icon: CalendarDays },
   screening: { label: "คัดกรองนักเรียน", desc: "ระบบดูแลช่วยเหลือ", to: "/dashboard/student/screening", icon: HeartPulse },

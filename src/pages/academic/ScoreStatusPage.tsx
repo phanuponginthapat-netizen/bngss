@@ -147,7 +147,7 @@ export default function ScoreStatusPage() {
     let href = f.file_url;
     if (path) {
       const { data, error } = await supabase.storage.from("pp5-files").createSignedUrl(path, 600, mode === "download" ? { download: f.file_name } : undefined);
-      if (error || !data?.signedUrl) { swal.error("เปิดไฟล์ไม่ได้", "ไม่พบไฟล์ หรือไม่มีสิทธิ์เข้าถึงไฟล์นี้"); return; }
+      if (error || !data?.signedUrl) { swal.error("เปิดไฟล์ไม่ได้ ไม่พบไฟล์หรือไม่มีสิทธิ์เข้าถึง"); return; }
       href = data.signedUrl;
     }
     if (mode === "download") {
@@ -158,7 +158,7 @@ export default function ScoreStatusPage() {
     // เปิดผ่านตัวแสดงเอกสารของ Microsoft เพื่อดู/สั่งพิมพ์ Excel ได้ทันทีในเบราว์เซอร์
     const viewer = `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(href)}`;
     window.open(viewer, "_blank", "noopener,noreferrer");
-    if (mode === "print") swal.info("สั่งพิมพ์", "เมื่อไฟล์เปิดแล้ว กดปุ่มพิมพ์ (Print) ที่แถบด้านบนของหน้าต่างไฟล์");
+    if (mode === "print") swal.info("เมื่อไฟล์เปิดแล้ว กดปุ่ม Print ที่แถบด้านบน");
   };
 
   return (
