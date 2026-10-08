@@ -1,7 +1,7 @@
-# AGENTS.md
 - The system is cloud-only (single hosted backend); standalone/self-hosted installers and the district hub were removed to keep the codebase focused on day-to-day school use.
 - Database tables of removed modules (IoT, bus, district hub) are kept, only UI/functions removed — avoids data loss and lets features be restored later.
 - Resolve existing Sonner imports to the shared SweetAlert adapter in Vite and Vitest, and render shared AlertDialogs with SweetAlert; preserve async decisions and queue background notices behind active confirmations.
 - Share the work-area navigation catalog between the sidebar, department pages, and return links; keep existing protected routes and module toggles authoritative so regrouping never changes access or stored data.
 - Store student_scores per (student, subject, semester, academic_year) with academic_year in CE; normalize BE input at write time and never default a missing term — scores must never land in or overwrite another term.
 - Imported ปพ.5/ปพ.6 totals are authoritative; never recompute them from the system's weighting ratios.
+- FaceGate agent packages are built by the Build FaceGate Agent workflow via scripts/kiosk/package-facegate.sh and published to the app-downloads bucket with a version manifest; download links in pages must resolve through useFacegateRelease instead of a fixed bundled zip — keeps the school's download identical to the packaged program.

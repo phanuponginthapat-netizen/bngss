@@ -6,7 +6,8 @@
 #  - เปิดหน้าสแกนแบบเต็มจอ
 #
 #  วิธีใช้ (Command Prompt / PowerShell):
-#    powershell -ExecutionPolicy Bypass -c "irm <URL>/api/public/agent/install.ps1?key=DEVICEKEY | iex"
+#    แตก zip แลว ้ รัน:  powershell -ExecutionPolicy Bypass -File .\install.ps1
+#    หร ือโหลดจากเว็บบ้าน:  Invoke-WebRequest "<เว็บบ้าน>/downloads/facegate-agent-installer.zip" -OutFile fg.zip; Expand-Archive fg.zip .
 # =====================================================================
 
 $ErrorActionPreference = "Stop"
@@ -45,11 +46,32 @@ if (-not $py) {
   if (-not $py) { throw "ติดตั้ง Python ไม่สำเร็จ กรุณาติดตั้งเองจาก python.org แล้วรันคำสั่งนี้ใหม่" }
 }
 
-Write-Host "[2/5] ดาวน์โหลดโปรแกรมตรวจใบหน้า..." -ForegroundColor Cyan
-Invoke-WebRequest "$($env:FACEGATE_CLOUD_URL)/api/public/agent/agent.py"        -OutFile (Join-Path $root "agent.py")
-Invoke-WebRequest "$($env:FACEGATE_CLOUD_URL)/api/public/agent/face_engine.py"  -OutFile (Join-Path $root "face_engine.py")
-Invoke-WebRequest "$($env:FACEGATE_CLOUD_URL)/api/public/agent/door.py"         -OutFile (Join-Path $root "door.py")
-Invoke-WebRequest "$($env:FACEGATE_CLOUD_URL)/api/public/agent/requirements.txt" -OutFile (Join-Path $root "requirements.txt")
+Write-Host "[2/5] เตรี ่ยมไฟล์โปรแกรมตรวจใบหน ้า..." -ForegroundColor Cyan
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+if ($scriptDir -and (Test-Path (Join-Path $scriptDir "agent.py")) -and (Test-Path (Join-Path $scriptDir "local_api.py"))) {
+  Write-Host "      คัดลอกโปรแกรมจากไฟล์ต ิดต ั้ งในเครื่อง..." -ForegroundColor Gray
+  Copy-Item (Join-Path $scriptDir "*.py") $root -Force
+  Copy-Item (Join-Path $scriptDir "requirements.txt") $root -Force
+  if (Test-Path (Join-Path $scriptDir "README.md")) { Copy-Item (Join-Path $scriptDir "README.md") $root -Force }
+} else {
+  $zip = Join-Path $env:TEMP "facegate-agent.zip"
+  $zipUrl = if ($env:FACEGATE_ZIP_URL) { $env:FACEGATE_ZIP_URL } else { "$($env:FACEGATE_CLOUD_URL)/downloads/facegate-agent-installer.zip" }
+  Invoke-WebRequest $zipUrl -OutFile $zip
+  $tmp = Join-Path $env:TEMP ("facegate-agent-" + [Guid]::NewGuid().ToString("N"))
+  Expand-Archive -Path $zip -DestinationPath $tmp -Force
+  $src = Join-Path $tmp "facegate-agent"
+  if (-not (Test-Path (Join-Path $src "agent.py"))) {
+    $found = Get-ChildItem $tmp -Recurse -Filter "agent.py" | Select-Object -First 1
+    if ($found) { $src = $found.DirectoryName }
+  }
+  if (-not (Test-Path (Join-Path $src "local_api.py"))) {
+    throw "ดาวน ์โหลดไฟล์โปรแกรมไม่ได้ — ตรวจว่ าเครื่องต ่อข่ ายและเว็บบ้ านอยู่ท ี่ $($env:FACEGATE_CLOUD_URL)"
+  }
+  Copy-Item (Join-Path $src "*.py") $root -Force
+  Copy-Item (Join-Path $src "requirements.txt") $root -Force
+  Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+}
+if (-not (Test-Path (Join-Path $root "agent.py"))) { throw "ไฟล์โปรแกรมไม่ครบ" }
 
 Write-Host "[3/5] ติดตั้งไลบรารี (ครั้งแรกใช้เวลา 5-15 นาที ประมาณ 300 MB)..." -ForegroundColor Cyan
 $venv = Join-Path $root ".venv"

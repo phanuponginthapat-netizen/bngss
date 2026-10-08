@@ -14,7 +14,9 @@ Start with:  python agent.py
 """
 
 import base64
+import hashlib
 import io
+import zipfile
 from datetime import datetime, timezone
 import json
 import os
@@ -818,38 +820,70 @@ def command_loop() -> None:
         time.sleep(6)
 
 
+# โปรแกรมรุ ่ นใหม ่ถู กแพ็กลงพ ื้ นท ี่เก ็บของโรงเร ียนทุกคร ั้ งท ี่เข ียนโปรแกรมเล ียน (GitHub Actions
+# ห ัวข ้อ "Build FaceGate Agent") — หน ้าต ่ ากันน ี้เพ ื่ อให ้เคร ื่ องต ู้สแกนอัปเดตรุ ่ นใหม ่เอง
+def _storage_object_base() -> str:
+    origin = CLOUD_URL.split("/functions/")[0] if "/functions/" in CLOUD_URL else CLOUD_URL
+    return origin.rstrip("/") + "/storage/v1/object"
+
+
+UPDATE_MANIFEST_URL = os.environ.get(
+    "FACEGATE_UPDATE_URL",
+    f"{_storage_object_base()}/public/app-downloads/facegate-version.json",
+)
+UPDATE_MARKER = os.path.join(CACHE_DIR, "update.sha256")
+UPDATE_KEEP = (".py", ".txt", ".md", ".sh", ".bat", ".ps1")
+
+
 def self_update_once() -> bool:
-    """Download newer program files from the school server when they change."""
+    """Pull newer program files from the school's packaged installer (zip + checksum)."""
     with lock:
         if not state["settings"].get("auto_update_enabled", True):
             return False
-    res = requests.get(f"{CLOUD_URL}/kiosk-api/agent/manifest.json", timeout=20)
+    res = requests.get(UPDATE_MANIFEST_URL, timeout=20)
     res.raise_for_status()
     manifest = res.json()
+    url = str(manifest.get("url") or "").strip()
+    sha = str(manifest.get("sha256") or "").strip().lower()
+    if not url.startswith("http") or len(sha) != 64:
+        return False
+    try:
+        with open(UPDATE_MARKER, encoding="utf-8") as fh:
+            if fh.read().strip().lower() == sha:
+                return False  # this build is already installed here
+    except OSError:
+        pass
+
+    body = requests.get(url, timeout=120).content
+    if hashlib.sha256(body).hexdigest() != sha:
+        raise RuntimeError("update checksum mismatch")
+
     here = os.path.dirname(os.path.abspath(__file__))
-    changed = False
-    for name, remote_hash in (manifest.get("files") or {}).items():
-        if not name or not remote_hash:
-            continue
-        target = os.path.join(here, name)
-        local_hash = None
-        if os.path.exists(target):
-            import hashlib
-
-            with open(target, "rb") as fh:
-                local_hash = hashlib.sha256(fh.read()).hexdigest()
-        if local_hash == remote_hash:
-            continue
-        body = requests.get(f"{CLOUD_URL}/kiosk-api/agent/{name}", timeout=60).content
-        import hashlib as _h
-
-        if _h.sha256(body).hexdigest() != remote_hash:
-            continue
-        with open(target, "wb") as fh:
-            fh.write(body)
-        changed = True
-        print(f"[agent] updated {name}")
-    return changed
+    changed = 0
+    with zipfile.ZipFile(io.BytesIO(body)) as zf:
+        for info in zf.infolist():
+            name = info.filename.replace("\\", "/")
+            if name.endswith("/") or name.count("/") != 1:
+                continue  # facegate-agent/agent.py -> agent.py
+            base = name.split("/", 1)[1]
+            if base.startswith((".", "__")) or not base.endswith(UPDATE_KEEP):
+                continue
+            data = zf.read(info)
+            target = os.path.join(here, base)
+            try:
+                with open(target, "rb") as fh:
+                    if hashlib.sha256(fh.read()).hexdigest() == hashlib.sha256(data).hexdigest():
+                        continue
+            except OSError:
+                pass
+            with open(target, "wb") as fh:
+                fh.write(data)
+            changed += 1
+            print(f"[agent] updated {base}")
+    if changed:
+        with open(UPDATE_MARKER, "w", encoding="utf-8") as fh:
+            fh.write(sha)
+    return changed > 0
 
 
 def update_loop() -> None:
