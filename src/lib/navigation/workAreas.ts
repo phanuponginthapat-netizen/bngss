@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import type { AppRole } from "@/hooks/useUserRole";
-import { GraduationCap, BookOpen, Users, ClipboardList, Calendar, CalendarDays, FileText, BarChart3, Shield, ShieldCheck, IdCard, Lock, Wrench, UserX, Bell, Bot, Megaphone, Activity, Home, LayoutDashboard, UserCog, Award, Globe, User, MessageSquare, DollarSign, Package, Heart, Clock, BookOpenCheck, UtensilsCrossed, ClipboardCheck, FolderOpen, Database, Inbox, Settings as SettingsIcon, Sparkles, ScanLine, ScanFace, MapPin, History, Trophy, DoorOpen, Layers, CloudDownload, MonitorPlay, StickyNote, Eye, Boxes, Settings2 } from "lucide-react";
+import { GraduationCap, BookOpen, Users, ClipboardList, Calendar, CalendarDays, FileText, BarChart3, Shield, ShieldCheck, IdCard, Lock, Wrench, UserX, Bell, Bot, Megaphone, Activity, Home, LayoutDashboard, UserCog, Award, Globe, User, MessageSquare, DollarSign, Package, Heart, Clock, BookOpenCheck, UtensilsCrossed, ClipboardCheck, FolderOpen, Database, Inbox, Settings as SettingsIcon, Sparkles, ScanLine, ScanFace, MapPin, History, Trophy, DoorOpen, Layers, CloudDownload, MonitorPlay, StickyNote, Eye, Boxes, Settings2, Recycle } from "lucide-react";
 import { getModuleKeyForPath } from "@/lib/moduleRegistry";
 export type NavigationItem = { title: string; url: string; icon: ComponentType<{ className?: string }>; roles?: AppRole[]; desc?: string; moduleKey?: string };
 export type NavigationGroup = { key: string; label: string; icon: NavigationItem["icon"]; roles?: AppRole[]; items: NavigationItem[] };
@@ -339,7 +339,7 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
       group("activities", L("กิจกรรมและเกียรติบัตร", "Activities & certificates"), Trophy, ["/dashboard/activities", "/dashboard/certificates"]),
       ...groups("services_garbage"),
     ] },
-    { key: "general", label: L("ฝ่ายบริหารทั่วไป", "General administration"), icon: BuildingIcon(), groups: groups("office_docs", "office_ops", "services_rooms", "services_ict") },
+    { key: "general", label: L("ฝ่ายบริหารทั่วไป", "General administration"), icon: Megaphone, groups: groups("office_docs", "office_ops", "services_rooms", "services_ict") },
     { key: "hr", label: L("ฝ่ายบริหารงานบุคคล", "Personnel"), icon: Users, groups: [
       group("staff_daily", L("งานบุคลากรประจำวัน", "Daily staff work"), Clock, ["/dashboard/hr/time-clock", "/dashboard/hr/leave", "/dashboard/admin/staff-tasks"]), ...groups("hr_records"),
     ] },
@@ -357,7 +357,6 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
     }) })) };
   });
 }
-function BuildingIcon() { return Megaphone; }
 export function visibleWorkAreas(areas: WorkArea[], role: AppRole | null, isEnabled: (key?: string | null) => boolean): WorkArea[] {
   if (!role) return [];
   return areas.map(area => ({ ...area, groups: area.groups.filter(g => !g.roles || g.roles.includes(role)).map(g => ({ ...g, items: g.items.filter(i => (!i.roles || i.roles.includes(role)) && isEnabled(i.moduleKey ?? getModuleKeyForPath(i.url.split("?")[0]))) })).filter(g => g.items.length) })).filter(a => a.groups.length);
