@@ -103,8 +103,14 @@ async function applyPpFileToSystemInner(
 
   const classroomId: string | null = parsed.classroom_id || fileRow?.classroom_id || null;
   const subjectId: string | null = parsed.subject_id || fileRow?.subject_id || null;
-  const semester: number = Number(fileRow?.semester ?? parsed?.meta?.semester ?? 1);
-  const academicYear: number = Number(fileRow?.academic_year ?? parsed?.meta?.academicYear ?? 0) || null as any;
+  // ภาคเรียน/ปีการศึกษาต้องชัดเจน — ห้ามเดา เพราะคะแนนจะไปลงผิดเทอม
+  const semester: number = Number(fileRow?.semester ?? parsed?.meta?.semester);
+  // ผลการเรียนเก็บปีเป็น ค.ศ. (หน้าอื่นแปลงเป็น พ.ศ. ตอนแสดง) — ไฟล์อาจระบุเป็น พ.ศ. จึงแปลงให้ตรงกัน
+  const rawYear = Number(fileRow?.academic_year ?? parsed?.meta?.academicYear);
+  const academicYear: number = rawYear > 2400 ? rawYear - 543 : rawYear;
+  if (![1, 2, 3].includes(semester)) throw new Error("ไม่ทราบภาคเรียนของไฟล์นี้ — โปรดระบุภาคเรียนตอนอัปโหลด");
+  if (!Number.isFinite(academicYear) || academicYear < 1990 || academicYear > 2150)
+    throw new Error("ไม่ทราบปีการศึกษาของไฟล์นี้ — โปรดระบุตอนอัปโหลด");
   const gradeLevel: string | null = fileRow?.grade_level || parsed?.meta?.gradeLevel || null;
 
   if (kind === "pp5" && !subjectId) {
@@ -141,9 +147,10 @@ async function applyPpFileToSystemInner(
     if (gradeLevel) subjQuery = subjQuery.eq("grade_level", gradeLevel);
     const { data: subs } = await subjQuery;
     // วิชาภาคเรียนเดียวกันมาทีหลัง → ชนะเมื่อชื่อซ้ำกันข้ามภาค
-    const ordered = [...(subs || [])].sort(
-      (a: any, b: any) => Number(a.semester === semester) - Number(b.semester === semester),
-    );
+    // ใช้เฉพาะวิชาของภาคเรียนนี้ (หรือวิชาที่ไม่ระบุภาค เช่น รายปี) — ไม่ข้ามไปจับวิชาเทอมอื่น
+    const ordered = [...(subs || [])]
+      .filter((s: any) => s.semester == null || Number(s.semester) === semester)
+      .sort((a: any, b: any) => Number(Number(a.semester) === semester) - Number(Number(b.semester) === semester));
     for (const s of ordered) {
       if ((s as any).name_th) subjectByName.set(norm((s as any).name_th), (s as any).id);
       if ((s as any).code) subjectByName.set(norm((s as any).code), (s as any).id);
@@ -237,8 +244,11 @@ async function applyPpFileToSystemInner(
       const attPct = Number(v?.attendancePercent);
       if (Number.isFinite(attPct) && attPct < 80 && (!grade || GRADE_POINT[grade] !== undefined)) grade = "มส";
       if (!hasTotal && !grade) continue;
-      const midS: number | null = typeof v?.midScore === "number" ? v.midScore : typeof v?.midtermScore === "number" ? v.midtermScore : null;
-      const finS: number | null = typeof v?.finalScore === "number" ? v.finalScore : null;
+      // ยึดคะแนนรวมจากไฟล์เป็นหลัก — ไม่ใช้อัตราส่วน 80:20 / 70:30 ของระบบ
+      // ถ้าไฟล์ไม่ได้แยกคะแนนย่อย หรือคะแนนย่อยรวมเกินคะแนนรวม → ไม่เก็บคะแนนย่อย
+      let midS: number | null = typeof v?.midScore === "number" ? v.midScore : typeof v?.midtermScore === "number" ? v.midtermScore : null;
+      let finS: number | null = typeof v?.finalScore === "number" ? v.finalScore : null;
+      if (hasTotal && (midS ?? 0) + (finS ?? 0) > total + 0.001) { midS = null; finS = null; }
       scoreRows.push({
         student_code: code,
         student_id: sid,
@@ -270,9 +280,7 @@ async function applyPpFileToSystemInner(
   if (scoreRows.length > 0) {
     // chunk to keep payloads reasonable for large classrooms
     for (let i = 0; i < scoreRows.length; i += 500) {
-      const { error: sErr } = await supabase
-        .from("student_scores")
-        .upsert(scoreRows.slice(i, i + 500), { onConflict: "student_code,subject_id" });
+      const sErr = await upsertStudentScoresForTerm(scoreRows.slice(i, i + 500), semester, academicYear);
       if (sErr) throw new Error(`กระจายผลการเรียนไม่สำเร็จ: ${sErr.message}`);
     }
   }
@@ -358,3 +366,34 @@ async function writeAssessments(
 /** Backwards-compatible alias used by the ปพ.5 page. */
 export const applyPp5FileToSystem = (fileRow: any) => applyPpFileToSystem(fileRow, "pp5");
 export type Pp5ApplyResult = PpApplyResult;
+
+/**
+ * บันทึกผลการเรียนแยกตามภาคเรียน/ปี (ปี ค.ศ.)
+ * ถ้าฐานข้อมูลยังไม่ได้อัปเดตให้แยกเทอม → ใช้แบบเดิม แต่ไม่ยอมเขียนทับผลของเทอมอื่น
+ */
+export async function upsertStudentScoresForTerm(rows: any[], semester: number, academicYear: number) {
+  if (rows.length === 0) return null;
+  const withTerm = rows.map((r) => ({ ...r, semester, academic_year: academicYear }));
+  let { error } = await supabase
+    .from("student_scores")
+    .upsert(withTerm, { onConflict: "student_code,subject_id,semester,academic_year" });
+  if (error && /no unique|ON CONFLICT|42P10/i.test(`${error.code} ${error.message}`)) {
+    const subjectIds = [...new Set(withTerm.map((r) => r.subject_id))];
+    const { data: prev } = await supabase
+      .from("student_scores")
+      .select("student_code, semester, academic_year")
+      .in("subject_id", subjectIds)
+      .in("student_code", withTerm.map((r) => r.student_code));
+    const norm = (y: any) => (Number(y) > 2400 ? Number(y) - 543 : Number(y));
+    const clash = (prev || []).find((p: any) =>
+      p.semester != null && p.academic_year != null &&
+      (Number(p.semester) !== semester || norm(p.academic_year) !== academicYear));
+    if (clash) {
+      return new Error(
+        `วิชานี้มีผลการเรียนของภาคเรียน ${(clash as any).semester}/${norm((clash as any).academic_year) + 543} อยู่แล้ว — ` +
+        "ต้องให้ผู้ดูแลอัปเดตฐานข้อมูลให้แยกคะแนนตามภาคเรียนก่อน จึงจะบันทึกได้โดยไม่ทับข้อมูลเดิม");
+    }
+    ({ error } = await supabase.from("student_scores").upsert(withTerm, { onConflict: "student_code,subject_id" }));
+  }
+  return error ? new Error(error.message) : null;
+}

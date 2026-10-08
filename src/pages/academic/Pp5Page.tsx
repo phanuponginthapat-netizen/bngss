@@ -27,7 +27,7 @@ import { swal } from "@/lib/swal";
 import { CalendarClock, Sparkles } from "lucide-react";
 import { KEY_COMPETENCIES, DESIRABLE_CHARACTERISTICS, READ_THINK_WRITE_STANDARDS } from "@/lib/obecStandards";
 import { BE_OFFSET } from "@/lib/dateBE";
-import { applyPp5FileToSystem } from "@/lib/pp5ApplyToSystem";
+import { applyPp5FileToSystem, upsertStudentScoresForTerm } from "@/lib/pp5ApplyToSystem";
 import { saveErrorMessage, safeNum } from "@/lib/saveError";
 
 const OBEC_PRESETS: Record<string, { title: string; description?: string }[]> = {
@@ -582,7 +582,10 @@ const ScoreEntryTab = () => {
       const midtermTotal = sumGroup(s.id, midtermColumns);
       const finalTotal = sumGroup(s.id, finalColumns);
       const attendanceTotal = sumGroup(s.id, attendanceColumns);
-      const { error } = await supabase.from("student_scores").upsert({
+      const sem = Number((subject as any)?.semester);
+      const yr = Number((subject as any)?.academic_year);
+      if (![1, 2, 3].includes(sem) || !yr) { toast.error("วิชานี้ยังไม่ได้กำหนดภาคเรียน/ปีการศึกษา — กำหนดก่อนตัดเกรด"); return; }
+      const error = await upsertStudentScoresForTerm([{
         student_name: studentName,
         student_code: (s as any).student_code,
         subject_id: currentAssignment!.subject_id,
@@ -593,8 +596,8 @@ const ScoreEntryTab = () => {
         total_score: pct,
         grade,
         grade_point: gradePoint,
-      }, { onConflict: "student_code,subject_id" });
-      if (error) { toast.error(saveErrorMessage(error)); return; }
+      }], sem, yr > 2400 ? yr - 543 : yr);
+      if (error) { toast.error(error.message); return; }
       count++;
     }
     toast.success(`ตัดเกรดอัตโนมัติสำเร็จ ${count} คน (ถ่วงน้ำหนัก ${WEIGHTS.assignment}/${WEIGHTS.midterm}/${WEIGHTS.final}${attendanceColumns.length ? "+จิตพิสัย" : ""})`);
