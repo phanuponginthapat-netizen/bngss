@@ -8,9 +8,9 @@
 #  - ตั้งให้เปิดเองทุกครั้งที่เปิดเครื่อง แล้วเปิดหน้าสแกนแบบเต็มจอ
 #
 #  วิธีใช้:
-#    bash FaceGate-Setup-linux-x64.sh
+#    bash facegate-agent/install.sh   (หลังกแตก zip)
+#    หรือโหลดจากเว็บบ้าน: curl -fsSL "<เว็บบ้าน>/downloads/facegate-agent-installer.zip" -o fg.zip && unzip fg.zip
 #  หรือ:
-#    curl -fsSL "<URL>/api/public/agent/install.sh?key=DEVICEKEY" | bash
 # =====================================================================
 set -euo pipefail
 
@@ -69,11 +69,39 @@ else
 fi
 
 # ---------- 2) โปรแกรม ----------
-echo "[2/5] ดาวน์โหลดโปรแกรมตรวจใบหน้า..."
-curl -fsSL "$CLOUD_URL/api/public/agent/agent.py" -o "$ROOT/agent.py"
-curl -fsSL "$CLOUD_URL/api/public/agent/face_engine.py" -o "$ROOT/face_engine.py"
-curl -fsSL "$CLOUD_URL/api/public/agent/door.py" -o "$ROOT/door.py"
-curl -fsSL "$CLOUD_URL/api/public/agent/requirements.txt" -o "$ROOT/requirements.txt"
+# ไฟลต์ัวโปรแกรมต้องมากับไฟล์ติดตั้งเสมอ (zip ที่ดาวน์โหลดจากหน้าเว็บบ้าน)
+# รันจากโฟลเดอร์ที่แตก zip แล้ว → คัดลอกทันที   รันจากที่อื่น → ดาวน์โหลด zip ทั้งหมดแล้วแตกออก
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+install_program() {
+  local src="$1" n=0
+  cp -f "$src"/*.py "$src"/requirements.txt "$ROOT"/ 2>/dev/null || true
+  [ -f "$src/README.md" ] && cp -f "$src/README.md" "$ROOT"/ || true
+  for f in "$ROOT"/*.py; do n=$((n + 1)); done
+  if [ ! -f "$ROOT/agent.py" ] || [ ! -f "$ROOT/local_api.py" ]; then
+    echo "ไฟล์โปรแกรมไม่ครบ — ดาวน์โหลดใหม่ได้ที่ $CLOUD_URL/install"; exit 1
+  fi
+  echo "      คัดลอก $n ไฟล์เข้า $ROOT"
+}
+
+if [ -f "$SCRIPT_DIR/agent.py" ] && [ -f "$SCRIPT_DIR/local_api.py" ]; then
+  echo "[2/5] คัดลอกโปรแกรมจากไฟล์ติดตั้งในเครื่อง..."
+  install_program "$SCRIPT_DIR"
+else
+  echo "[2/5] ดาวน์โหลดโปรแกรมตรวจใบหน้า..."
+  TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+  curl -fsSL "${FACEGATE_ZIP_URL:-$CLOUD_URL/downloads/facegate-agent-installer.zip}" -o "$TMP/facegate.zip"
+  if command -v unzip >/dev/null 2>&1; then
+    unzip -q -o "$TMP/facegate.zip" -d "$TMP"
+  else
+    "$PY" -m zipfile -e "$TMP/facegate.zip" "$TMP"
+  fi
+  SRC="$(dirname "$(find "$TMP" -name agent.py -print | head -1)")"
+  if [ -z "$SRC" ] || [ ! -f "$SRC/local_api.py" ]; then
+    echo "ดาวน์โหลดไฟล์โปรแกรมไม่ได้ — ตรวจว่าเครื่องต่อข่ายและเว็บบ้านอยู่ที่ $CLOUD_URL"; exit 1
+  fi
+  install_program "$SRC"
+fi
 
 # ---------- 3) ไลบรารี ----------
 echo "[3/5] ติดตั้งไลบรารี (ครั้งแรกใช้เวลา 5-15 นาที ประมาณ 300 MB)..."
