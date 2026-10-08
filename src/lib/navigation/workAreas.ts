@@ -396,8 +396,11 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
       { key: "curriculum", label: L("หลักสูตรและห้องเรียน", "Curriculum & classrooms"), icon: SettingsIcon, items: groups("academic_manage").flatMap(g => g.items).filter(i => i.url === "/dashboard/academic/management") },
     ] },
     { key: "student", label: L("ฝ่ายกิจการนักเรียน", "Student affairs"), icon: Heart, groups: [
-      group("attendance", L("การมาเรียนและพฤติกรรม", "Attendance & behavior"), ClipboardList, ["/dashboard/student/face-scan", "/dashboard/student/face-scan?tab=staff", "/dashboard/student/my-face", "/dashboard/student/attendance", "/dashboard/student/behavior", "/dashboard/student/leave"]),
-      { key: "mobile-scan", label: L("งานสแกน", "Scanning"), icon: ScanLine, items: [task(L("สแกน QR นักเรียนด้วยมือถือ", "Mobile student QR scanner"), "staff/mobile-qr-scan", ScanLine)] },
+      (() => {
+        const g = group("attendance", L("การมาเรียนและพฤติกรรม", "Attendance & behavior"), ClipboardList, ["/dashboard/student/face-scan", "/dashboard/student/face-scan?tab=staff", "/dashboard/student/my-face", "/dashboard/student/attendance", "/dashboard/student/behavior", "/dashboard/student/leave"]);
+        // รวมสแกน QR มือถือไว้ในหมวดการมาเรียน แทนหมวด "งานสแกน" ที่มีเมนูเดียว
+        return { ...g, items: [...g.items, task(L("สแกน QR นักเรียนด้วยมือถือ", "Mobile student QR scanner"), "staff/mobile-qr-scan", ScanLine)] };
+      })(),
       ...groups("student_daily", "student_health", "wellbeing"),
       group("activities", L("กิจกรรมและเกียรติบัตร", "Activities & certificates"), Trophy, ["/dashboard/activities", "/dashboard/certificates"]),
       ...groups("services_garbage"),
