@@ -364,6 +364,15 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
     task(L("รายงานประเมินตนเอง SAR", "SAR report"), "admin/sar", BarChart3, management),
     task(L("มาตรฐาน สมศ. / สพฐ.", "School quality standards"), "admin/smsc", ShieldCheck, management),
     task(L("คะแนน O-NET / NT / PISA", "National test results"), "admin/test-scores", BarChart3, management),
+    task(L("สร้างรายงาน", "Report builder"), "admin/report-builder", FileText, management),
+    task(L("วิเคราะห์แนวโน้มโรงเรียน", "School trends"), "admin/trend-analytics", BarChart3, management),
+  );
+  const systemTasks = departments.find(d => d.key === "admin_system");
+  if (systemTasks) systemTasks.items.push(
+    task(L("จัดการฝ่ายงาน", "Department management"), "admin/department-management", Users, management),
+    task(L("จัดการสิทธิ์การใช้งาน", "Permission management"), "admin/permissions", ShieldCheck, management),
+    task(L("จัดการการแจ้งเตือน", "Notification management"), "admin/notifications", Bell, management),
+    task(L("ประวัติการใช้งานระบบ", "Audit log"), "admin/audit-log", History, management),
   );
   const group = (key: string, label: string, icon: NavigationItem["icon"], urls: string[]): NavigationGroup => ({ key, label, icon, items: urls.flatMap(url => mainItems.filter(i => i.url === url)) });
   const groups = (...keys: string[]) => departments.filter(d => keys.includes(d.key));
@@ -384,6 +393,7 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
     ] },
     { key: "student", label: L("ฝ่ายกิจการนักเรียน", "Student affairs"), icon: Heart, groups: [
       group("attendance", L("การมาเรียนและพฤติกรรม", "Attendance & behavior"), ClipboardList, ["/dashboard/student/face-scan", "/dashboard/student/face-scan?tab=staff", "/dashboard/student/my-face", "/dashboard/student/attendance", "/dashboard/student/behavior", "/dashboard/student/leave"]),
+      { key: "mobile-scan", label: L("งานสแกน", "Scanning"), icon: ScanLine, items: [task(L("สแกน QR นักเรียนด้วยมือถือ", "Mobile student QR scanner"), "staff/mobile-qr-scan", ScanLine)] },
       ...groups("student_daily", "student_health", "wellbeing"),
       group("activities", L("กิจกรรมและเกียรติบัตร", "Activities & certificates"), Trophy, ["/dashboard/activities", "/dashboard/certificates"]),
       ...groups("services_garbage"),
