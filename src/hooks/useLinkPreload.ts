@@ -5,7 +5,8 @@ import { preloadRoute } from "@/lib/routePreload";
 export function useLinkPreload() {
   useEffect(() => {
     const handler = (e: Event) => {
-      const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      const t = e.target;
+      const a = t instanceof Element ? (t.closest("a[href]") as HTMLAnchorElement | null) : null;
       if (!a || a.origin !== window.location.origin) return;
       preloadRoute(a.pathname);
     };

@@ -47,6 +47,20 @@ export default function InstallPage() {
 
   const [apkManifest, setApkManifest] = useState<AppUpdateManifest | null>(null);
   const apkLink = useCmsValue("apk_app_url");
+  const [scannerUrl, setScannerUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const base = "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads";
+    (async () => {
+      try {
+        const r = await fetch(`${base}/release-scanner.json?t=${Date.now()}`, { cache: "no-store" });
+        if (r.ok) { const j = await r.json(); const f = j?.files?.[0]?.url; if (f) return setScannerUrl(f); }
+      } catch { /* ignore */ }
+      try {
+        const h = await fetch(`${base}/bngss-scanner-latest.apk`, { method: "HEAD", cache: "no-store" });
+        if (h.ok) setScannerUrl(`${base}/bngss-scanner-latest.apk`);
+      } catch { /* ignore */ }
+    })();
+  }, []);
   const facegate = useFacegateRelease();
   useEffect(() => {
     fetchUpdateManifest().then(setApkManifest).catch(() => {});
@@ -348,9 +362,13 @@ export default function InstallPage() {
           <Button asChild>
             <a href={facegate.url} download={facegate.fileName}>โปรแกรมสแกนหน้าบนคอมพิวเตอร์ (FaceGate)</a>
           </Button>
-          <Button asChild variant="outline">
-            <a href="https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-scanner-latest.apk" target="_blank" rel="noreferrer">แอปสแกนหน้าสำหรับแท็บเล็ต (APK)</a>
-          </Button>
+          {scannerUrl ? (
+            <Button asChild variant="outline">
+              <a href={scannerUrl} rel="noreferrer">แอปสแกนหน้าสำหรับแท็บเล็ต (APK)</a>
+            </Button>
+          ) : (
+            <Button variant="outline" disabled>แอปแท็บเล็ต: ยังไม่มีไฟล์ให้ดาวน์โหลด</Button>
+          )}
         </CardContent>
       </Card>
 
