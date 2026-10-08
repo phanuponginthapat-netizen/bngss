@@ -27,7 +27,7 @@ function setPendingToken(t: string | null) {
 
 export function isNativeFcmSupported(): boolean {
   try {
-    return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+    return Capacitor.isNativePlatform() && ["android", "ios"].includes(Capacitor.getPlatform());
   } catch {
     return false;
   }
@@ -48,7 +48,7 @@ async function saveDeviceToken(token: string): Promise<void> {
         auth: "",
         device_token: token,
         provider: "fcm",
-        platform: "android",
+        platform: Capacitor.getPlatform(),
       },
       { onConflict: "user_id,device_token" },
     );

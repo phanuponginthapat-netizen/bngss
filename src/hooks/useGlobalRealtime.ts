@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +17,8 @@ export function useGlobalRealtime() {
   const qc = useQueryClient();
   const { role, userId } = useUserRole();
   const navigate = useNavigate();
+  // เพิ่มค่าเพื่อสร้างช่องสัญญาณใหม่เมื่อหลุด (มือถือพักแอป/เน็ตหลุด)
+  const [reconnectKey, setReconnectKey] = useState(0);
 
   useEffect(() => {
     // Wait for both userId and role to resolve before subscribing.
@@ -251,6 +254,8 @@ export function useGlobalRealtime() {
     }
 
     let didFirstSubscribe = false;
+    let disposed = false;
+    let reconnectTimer: number | null = null;
     channel.subscribe((status) => {
       // On reconnect only: invalidate the hot user-scoped queries, not the whole cache.
       // (Blanket invalidateQueries() with 500+ users online = refetch storm)
@@ -258,6 +263,13 @@ export function useGlobalRealtime() {
         scheduleInvalidate([["notifications"], ["inbox_items"], ["dashboard_stats_v2"]]);
       }
       if (status === "SUBSCRIBED") didFirstSubscribe = true;
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+        if (disposed || reconnectTimer !== null) return;
+        reconnectTimer = window.setTimeout(() => {
+          reconnectTimer = null;
+          if (!disposed) setReconnectKey((k) => k + 1);
+        }, 3000);
+      }
     });
 
     // Force resync when tab becomes visible or network restored — throttled
@@ -274,11 +286,25 @@ export function useGlobalRealtime() {
     window.addEventListener("online", resync);
     document.addEventListener("visibilitychange", onVisible);
 
+    // แอป APK/IPA: เมื่อกลับมาเปิดแอป ให้ดึงแจ้งเตือนล่าสุด และต่อสัญญาณใหม่ถ้าหลุด
+    let removeResume: (() => void) | null = null;
+    if (Capacitor.isNativePlatform()) {
+      import("@capacitor/app").then(({ App }) =>
+        App.addListener("resume", () => {
+          resync();
+          if (channel.state !== "joined" && !disposed) setReconnectKey((k) => k + 1);
+        }),
+      ).then((h) => { if (disposed) h.remove(); else removeResume = () => h.remove(); }).catch(() => {});
+    }
+
     return () => {
+      disposed = true;
+      removeResume?.();
+      if (reconnectTimer !== null) clearTimeout(reconnectTimer);
       window.removeEventListener("online", resync);
       document.removeEventListener("visibilitychange", onVisible);
       if (invalidationTimer !== null) clearTimeout(invalidationTimer);
       supabase.removeChannel(channel);
     };
-  }, [qc, role, userId, navigate]);
+  }, [qc, role, userId, navigate, reconnectKey]);
 }
