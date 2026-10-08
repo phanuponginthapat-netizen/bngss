@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -39,7 +40,10 @@ const ScoreOverviewTab = () => {
   const [academicYear, setAcademicYear] = useState(String(currentYear));
   const [gradeLevel, setGradeLevel] = useState("");
   const [classroomId, setClassroomId] = useState("");
-  const [semester, setSemester] = useState("1");
+  const { currentSemester: _curSem } = useAcademicYear();
+  const [semester, setSemester] = useState(String(_curSem || 1));
+  const _semSynced = useRef(false);
+  useEffect(() => { if (!_semSynced.current && _curSem) { _semSynced.current = true; setSemester(String(_curSem)); } }, [_curSem]);
   const schoolInfo = useSchoolInfo();
 
   const { data: allClassroomsRaw = [] } = useQuery({

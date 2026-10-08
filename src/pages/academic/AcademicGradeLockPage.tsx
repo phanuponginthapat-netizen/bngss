@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
