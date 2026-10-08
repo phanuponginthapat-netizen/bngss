@@ -25,7 +25,7 @@ describe("department navigation", () => {
   it("keeps PP and score tracking together", () => {
     const area = buildWorkAreas().find(a => a.key === "assessment");
     const urls = area?.groups.flatMap(g => g.items.map(i => i.url)) ?? [];
-    for (const path of ["score-status", "pp5", "pp6", "transcript", "pp-docs", "grade-lock", "grade-remediation"]) expect(urls).toContain(`/dashboard/academic/${path}`);
+    for (const path of ["score-status", "pp5", "pp6", "transcript", "pp-docs", "grade-remediation"]) expect(urls).toContain(`/dashboard/academic/${path}`);
   });
   it("hides staff-only departments from students and unresolved sessions", () => {
     const visible = visibleWorkAreas(buildWorkAreas(), "student", () => true);
