@@ -241,7 +241,6 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
         { title: L("คลังไฟล์ LINE Vault", "LINE Vault"), url: "/dashboard/line-vault", icon: StickyNote, roles: ["admin", "director", "teacher"], desc: L("รูป · ไฟล์ · โน้ตจาก LINE OA ไม่หมดอายุ", "Photos, files & notes from LINE OA — never expire") },
         { title: L("ตั้งค่าแจ้งเตือน", "Notification Settings"), url: "/dashboard/settings/notifications", icon: Bell, roles: ["admin", "director", "teacher", "student", "parent", "alumni"], desc: L("ตั้งค่าการรับแจ้งเตือน · LINE · อีเมล", "Notification preferences · LINE · email") },
         
-        { title: L("AI ติวเตอร์", "AI Tutor"), url: "/dashboard/ai-tutor", icon: Bot, roles: ["admin", "director", "teacher", "student", "parent"], desc: L("ติวเตอร์ส่วนตัว วิเคราะห์จุดอ่อน · แนะนำบทเรียน", "Personal AI tutor · weak spots & lessons") },
       ],
     },
 

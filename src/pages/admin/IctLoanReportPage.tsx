@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useEffect, useMemo, useState } from "react";
 import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,13 +39,15 @@ export default function IctLoanReportPage() {
     let q = supabase.from("ict_loans").select(sel)
       .gte("borrowed_at", from + "T00:00:00")
       .lte("borrowed_at", to + "T23:59:59")
-      .order("borrowed_at", { ascending: false }).limit(1000);
+      .order("borrowed_at", { ascending: false }).limit(5000);
     if (statusFilter === "active") q = q.eq("status", "active");
     else if (statusFilter === "returned") q = q.eq("status", "returned");
     else if (statusFilter === "overdue") q = q.eq("status", "active").lt("expected_return_at", new Date().toISOString());
     if (borrowerType === "student") q = q.not("student_id", "is", null);
     else if (borrowerType === "personnel") q = q.not("personnel_id", "is", null);
-    const { data } = await q;
+    const { data, error } = await q;
+    if (error) toast.error(error.message);
+    else if ((data?.length || 0) >= 5000) toast.warning("แสดงได้สูงสุด 5,000 รายการ กรุณาเลือกช่วงวันที่ให้แคบลง");
     setLoans((data as any) || []);
     setLoading(false);
   };

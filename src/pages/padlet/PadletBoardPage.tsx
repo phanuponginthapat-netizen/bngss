@@ -258,6 +258,7 @@ export default function PadletBoardPage() {
   };
 
   const removeAttachment = async (a: Attachment) => {
+    if (saving) return;
     await supabase.storage.from("padlet").remove([a.path]);
     setAttachments(prev => prev.filter(x => x.path !== a.path));
   };
@@ -324,6 +325,7 @@ export default function PadletBoardPage() {
       setSaving(false);
       if (error) { toast.error(saveErrorMessage(error)); return; }
       toast.success("บันทึกแล้ว");
+      loadNotes();
     } else {
       const { error } = await supabase.from("padlet_notes").insert({
         board_id: id, author_id: user.id, author_name: authorName,
@@ -333,6 +335,7 @@ export default function PadletBoardPage() {
       setSaving(false);
       if (error) { toast.error(saveErrorMessage(error)); return; }
       toast.success("แปะโน้ตแล้ว");
+      loadNotes();
     }
     setOpen(false);
     resetForm();
@@ -358,6 +361,7 @@ export default function PadletBoardPage() {
     const { error } = await supabase.from("padlet_notes").delete().eq("id", n.id);
     if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบแล้ว");
+    loadNotes();
   };
 
   const likeNote = async (n: any) => {
