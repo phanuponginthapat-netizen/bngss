@@ -369,7 +369,7 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
   );
   const systemTasks = departments.find(d => d.key === "admin_system");
   if (systemTasks) systemTasks.items.push(
-    task(L("จัดการฝ่ายงาน", "Department management"), "admin/department-management", Users, management),
+    task(L("จัดการฝ่ายงาน", "Department management"), "admin/departments", Users, management),
     task(L("จัดการสิทธิ์การใช้งาน", "Permission management"), "admin/permissions", ShieldCheck, management),
     task(L("จัดการการแจ้งเตือน", "Notification management"), "admin/notifications", Bell, management),
     task(L("ประวัติการใช้งานระบบ", "Audit log"), "admin/audit-log", History, management),
