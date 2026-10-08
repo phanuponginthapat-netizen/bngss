@@ -70,9 +70,25 @@ const subjectKeys = (raw: string): string[] => {
   return Array.from(keys).filter(Boolean);
 };
 
-export async function applyPpFileToSystem(
+// กันกดซ้ำ/สองแท็บพร้อมกัน — ไฟล์เดียวกันจะใช้งานบันทึกรอบเดียวกัน (ไม่สร้างคอลัมน์/เกณฑ์ซ้ำ)
+const inFlight = new Map<string, Promise<PpApplyResult>>();
+
+export function applyPpFileToSystem(
   fileRow: any,
   kind: "pp5" | "pp6" = "pp5",
+): Promise<PpApplyResult> {
+  const key = fileRow?.id ? `${kind}:${fileRow.id}` : null;
+  if (!key) return applyPpFileToSystemInner(fileRow, kind);
+  const running = inFlight.get(key);
+  if (running) return running;
+  const p = applyPpFileToSystemInner(fileRow, kind).finally(() => inFlight.delete(key));
+  inFlight.set(key, p);
+  return p;
+}
+
+async function applyPpFileToSystemInner(
+  fileRow: any,
+  kind: "pp5" | "pp6",
 ): Promise<PpApplyResult> {
   const parsed = fileRow?.parsed_data;
   if (!parsed) {
@@ -221,6 +237,8 @@ export async function applyPpFileToSystem(
       const attPct = Number(v?.attendancePercent);
       if (Number.isFinite(attPct) && attPct < 80 && (!grade || GRADE_POINT[grade] !== undefined)) grade = "มส";
       if (!hasTotal && !grade) continue;
+      const midS: number | null = typeof v?.midScore === "number" ? v.midScore : typeof v?.midtermScore === "number" ? v.midtermScore : null;
+      const finS: number | null = typeof v?.finalScore === "number" ? v.finalScore : null;
       scoreRows.push({
         student_code: code,
         student_id: sid,
@@ -228,8 +246,11 @@ export async function applyPpFileToSystem(
         subject_id: sIdForRow,
         total_score: hasTotal ? Math.round(total * 100) / 100 : null,
         // คะแนนระหว่างเรียน / ปลายภาค (จากแผ่นสรุปตัดสินผลการเรียน)
-        midterm_score: typeof v?.midScore === "number" ? v.midScore : typeof v?.midtermScore === "number" ? v.midtermScore : null,
-        final_score: typeof v?.finalScore === "number" ? v.finalScore : null,
+        midterm_score: midS,
+        final_score: finS,
+        // ฐานข้อมูลคำนวณคะแนนรวม = เก็บ + กลางภาค + ปลายภาค จึงต้องส่งส่วนที่เหลือเป็นคะแนนเก็บ
+        // มิฉะนั้นคะแนนรวมจากไฟล์จะถูกคำนวณทับเป็น 0
+        assignment_score: hasTotal ? Math.round((total - (midS ?? 0) - (finS ?? 0)) * 100) / 100 : null,
         grade,
         grade_point: grade === "มส" ? null : toGradePoint(grade, hasTotal ? total : null),
         semester,

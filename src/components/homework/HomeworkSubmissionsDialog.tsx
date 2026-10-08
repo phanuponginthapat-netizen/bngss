@@ -83,7 +83,8 @@ export function HomeworkSubmissionsDialog({ open, onOpenChange, assignmentId }: 
     const score = d.score === "" ? null : Number(d.score);
     if (score !== null && Number.isNaN(score)) { toast.error("คะแนนต้องเป็นตัวเลข"); return; }
     const { error } = await supabase.from("homework_submissions" as any).update({
-      score, feedback: d.feedback, status: "graded", graded_at: new Date().toISOString(),
+      score, final_score: score, feedback: d.feedback, status: "graded", graded_at: new Date().toISOString(),
+      graded_by: (await supabase.auth.getUser()).data.user?.id ?? null,
     }).eq("id", s.id);
     if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกคะแนนแล้ว");
@@ -171,7 +172,7 @@ export function HomeworkSubmissionsDialog({ open, onOpenChange, assignmentId }: 
                     {s.attachments.map((a: any, i: number) => (
                       <SubmissionAttachmentPreview
                         key={i}
-                        bucket={a.id ? "homework-files" : "homework"}
+                        bucket="homework-files"
                         path={a.path}
                         name={a.name}
                         size={a.size}
