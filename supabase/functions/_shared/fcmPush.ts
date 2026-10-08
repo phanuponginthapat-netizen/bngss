@@ -23,6 +23,8 @@ export type FcmResult = {
 };
 
 let accessTokenPromise: Promise<string | null> | null = null;
+let accessTokenExpiresAt = 0;
+let cachedProjectId: string | null = null;
 
 function b64url(input: string | Uint8Array): string {
   const bytes = typeof input === "string" ? new TextEncoder().encode(input) : input;
@@ -53,12 +55,15 @@ async function signJwt(privateKeyPem: string, headerB64: string, payloadB64: str
 }
 
 async function getAccessToken(): Promise<string | null> {
-  if (accessTokenPromise) return accessTokenPromise;
+  // Token อายุ 1 ชม. — ต่ออายุก่อนหมด 5 นาที เพื่อไม่ให้ instance ที่อุ่นอยู่ส่งไม่ได้
+  if (accessTokenPromise && Date.now() < accessTokenExpiresAt) return accessTokenPromise;
+  accessTokenExpiresAt = Date.now() + 55 * 60_000;
   accessTokenPromise = (async () => {
     try {
       const raw = await getSecret("FCM_SERVICE_ACCOUNT_JSON");
       if (!raw) return null;
       const sa = JSON.parse(raw);
+      cachedProjectId = sa.project_id;
       const now = Math.floor(Date.now() / 1000);
       const header = b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
       const payload = b64url(
@@ -84,6 +89,7 @@ async function getAccessToken(): Promise<string | null> {
       return j.access_token as string;
     } catch (e: any) {
       console.error("FCM access token error", e?.message || e);
+      accessTokenExpiresAt = 0; // ลองใหม่ครั้งถัดไป ไม่จำค่าล้มเหลว
       return null;
     }
   })();
@@ -96,18 +102,24 @@ export async function sendFcm(token: string, payload: FcmPayload): Promise<FcmRe
     if (!accessToken) {
       return { ok: false, skipped: true, error: "FCM_SERVICE_ACCOUNT_JSON not configured" };
     }
-    const raw = await getSecret("FCM_SERVICE_ACCOUNT_JSON");
-    const projectId = JSON.parse(raw!).project_id;
+    const projectId = cachedProjectId;
+    if (!projectId) return { ok: false, error: "FCM project_id missing" };
+    const tag = (payload.tag ?? "general").slice(0, 64);
     const msg = {
       message: {
         token,
         notification: { title: payload.title, body: payload.body ?? "" },
         android: {
           priority: "high",
-          notification: { channel_id: "default", sound: "default", visibility: "PUBLIC", notification_priority: "PRIORITY_MAX", default_sound: true, default_vibrate_timings: true },
+          ttl: "3600s",
+          collapse_key: tag,
+          notification: { tag, channel_id: "default", sound: "default", visibility: "PUBLIC", notification_priority: "PRIORITY_MAX", default_sound: true, default_vibrate_timings: true },
         },
-        apns: { payload: { aps: { sound: "default", badge: 1 } } },
-        data: { url: payload.url ?? "/dashboard", tag: payload.tag ?? "general" },
+        apns: {
+          headers: { "apns-priority": "10", "apns-push-type": "alert", "apns-collapse-id": tag, "apns-expiration": String(Math.floor(Date.now() / 1000) + 3600) },
+          payload: { aps: { sound: "default", badge: 1, "thread-id": tag, "interruption-level": "time-sensitive" } },
+        },
+        data: { url: payload.url ?? "/dashboard", tag },
       },
     };
     const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {

@@ -96,7 +96,7 @@ export async function pushOne(sub: StoredSub, payload: PushPayload): Promise<Pus
       tag: payload.tag ?? "general",
     });
 
-    await subscriber.pushTextMessage(body, { urgency: "high", ttl: 86400 });
+    await subscriber.pushTextMessage(body, { urgency: "high", ttl: 3600, topic: (payload.tag ?? "general").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32) || undefined } as any);
     return { ok: true, gone: false };
   } catch (e: any) {
     const msg = String(e?.message || e || "");
