@@ -103,7 +103,7 @@ const NewsPage = () => {
             channels: ["in_app"],
           });
         }
-      } catch {/* non-blocking */}
+      } catch (e) { console.warn("notify failed", e); toast.warning("บันทึกแล้ว แต่ส่งแจ้งเตือนไม่สำเร็จบางส่วน"); }
     }
     } finally {
       setNewsSaving(false);
@@ -136,7 +136,7 @@ const NewsPage = () => {
             dedup_key: `news-publish-${id}`,
           });
         }
-      } catch {/* non-blocking */}
+      } catch (e) { console.warn("notify failed", e); toast.warning("บันทึกแล้ว แต่ส่งแจ้งเตือนไม่สำเร็จบางส่วน"); }
     }
   };
 
@@ -198,7 +198,7 @@ const NewsPage = () => {
           dedup_key: `emergency-${inserted.id}`,
         });
       }
-    } catch {/* non-blocking */}
+    } catch (e) { console.warn("notify failed", e); toast.warning("บันทึกแล้ว แต่ส่งแจ้งเตือนไม่สำเร็จบางส่วน"); }
     } finally {
       setEmerSaving(false);
     }

@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Calendar, User } from "lucide-react";
 import DOMPurify from "dompurify";
 import BackButton from "@/components/BackButton";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const NewsDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -16,15 +17,15 @@ const NewsDetailPage = () => {
   const { lang } = useLanguage();
   const L = (th: string, en: string) => (lang === "th" ? th : en);
 
+  const { hasAdminPower, hasDirectorPower, loading: roleLoading } = useUserRole();
+  const canSeeDraft = hasAdminPower || hasDirectorPower;
   const { data, isLoading } = useQuery({
-    queryKey: ["news_post", id],
-    enabled: !!id,
+    queryKey: ["news_post", id, canSeeDraft],
+    enabled: !!id && !roleLoading,
     queryFn: async () => {
-      const { data } = await supabase
-        .from("news_posts")
-        .select("*")
-        .eq("id", id!)
-        .maybeSingle();
+      let q = supabase.from("news_posts").select("*").eq("id", id!);
+      if (!canSeeDraft) q = q.eq("is_published", true);
+      const { data } = await q.maybeSingle();
       return data;
     },
   });
