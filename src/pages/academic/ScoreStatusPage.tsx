@@ -146,7 +146,7 @@ export default function ScoreStatusPage() {
       user_ids: ids, type: "grade", severity: "warning",
       title: "เตือนส่งคะแนน ปพ.5",
       body: `ชั้น ${room} ภาคเรียน ${semester}/${year} ยังมีวิชาที่ยังไม่ส่งคะแนน กรุณาอัปโหลดไฟล์ ปพ.5`,
-      link: "/dashboard/academic/pp5",
+      url: "/dashboard/academic/pp5",
     } });
     if (error) swal.error("ส่งแจ้งเตือนไม่สำเร็จ", error.message);
     else swal.success("ส่งแจ้งเตือนแล้ว", `ส่งถึงครู ${ids.length} คน`);
