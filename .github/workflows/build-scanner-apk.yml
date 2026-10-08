@@ -57,38 +57,7 @@ jobs:
 
       - name: Set and verify scanner Android identity
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          import xml.etree.ElementTree as ET
-
-          # Android reads the launcher/activity names from resources, not appName.
-          path = Path('android/app/src/main/res/values/strings.xml')
-          tree = ET.parse(path)
-          values = {
-              'app_name': 'BNG Scanner',
-              'title_activity_main': 'BNG Scanner',
-              'package_name': 'com.bngss.scanner',
-              'custom_url_scheme': 'com.bngss.scanner',
-          }
-          resources = tree.getroot()
-          for name, value in values.items():
-              node = resources.find(f"string[@name='{name}']")
-              if node is None:
-                  raise SystemExit(f'Missing Android resource: {name}')
-              node.text = value
-          tree.write(path, encoding='utf-8', xml_declaration=True)
-
-          gradle = Path('android/app/build.gradle').read_text()
-          if not re.search(r'applicationId\s+"com\.bngss\.scanner"', gradle):
-              raise SystemExit('Scanner applicationId is incorrect; refusing to build')
-          saved = ET.parse(path).getroot()
-          for name, value in values.items():
-              node = saved.find(f"string[@name='{name}']")
-              if node is None or node.text != value:
-                  raise SystemExit(f'Incorrect scanner resource: {name}')
-          print('Verified: BNG Scanner / com.bngss.scanner')
-          PY
+          python3 scripts/ci/scanner-identity.py
 
       - name: Bump version
         working-directory: android
@@ -106,11 +75,18 @@ jobs:
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
 
+      - name: Verify final APK identity and stage versioned file
+        run: |
+          AAPT=$(ls "$ANDROID_SDK_ROOT"/build-tools/*/aapt | sort -V | tail -1)
+          mkdir -p /tmp/rel
+          python3 scripts/ci/verify-scanner-apk.py "$AAPT" android/app/build/outputs/apk/debug/app-debug.apk /tmp/scanner-identity.json
+          cp android/app/build/outputs/apk/debug/app-debug.apk "/tmp/rel/bngss-scanner-build-${APP_VERSION_CODE}.apk"
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: bngss-scanner-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: /tmp/rel/*.apk
           if-no-files-found: error
 
       - name: Publish scanner APK to storage
@@ -122,19 +98,16 @@ jobs:
             exit 0
           fi
           BASE="https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object"
-          curl -sS -X POST \
+          curl --fail-with-body -sS -X POST \
             -H "apikey: $SUPABASE_ANON_KEY" \
             -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
             -H "Content-Type: application/octet-stream" \
             -H "x-upsert: true" \
-            --data-binary "@android/app/build/outputs/apk/debug/app-debug.apk" \
-            "${BASE}/app-downloads/bngss-scanner-latest.apk" -w '\nHTTP %{http_code}\n'
-
-      - name: Stage release file
-        run: mkdir -p /tmp/rel && cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/rel/bngss-scanner.apk
+            --data-binary "@/tmp/rel/bngss-scanner-build-${APP_VERSION_CODE}.apk" \
+            "${BASE}/app-downloads/bngss-scanner-build-${APP_VERSION_CODE}.apk" -w '\nHTTP %{http_code}\n'
 
       - name: Publish to GitHub Release (scanner)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: bash scripts/ci/publish-release.sh scanner "BNG Scanner (แท็บเล็ต)" "build-${APP_VERSION_CODE}" /tmp/rel/bngss-scanner.apk
+        run: SCANNER_IDENTITY_FILE=/tmp/scanner-identity.json bash scripts/ci/publish-release.sh scanner "BNG Scanner (แท็บเล็ต)" "build-${APP_VERSION_CODE}" "/tmp/rel/bngss-scanner-build-${APP_VERSION_CODE}.apk"
