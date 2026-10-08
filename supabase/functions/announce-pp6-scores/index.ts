@@ -5,11 +5,11 @@ import { corsHeaders } from "../_shared/cors.ts";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    const { file_id } = await req.json();
+    const { file_id, applied } = await req.json();
     if (!file_id) throw new Error("file_id required");
     const result = await announceGrades({
       authHeader: req.headers.get("authorization") || "",
-      file_id,
+      file_id, applied: applied === true,
       table: "pp6_files",
       buildMessage: (file) => ({
         subjectLabel: file.classroom_name || file.grade_level || "รายงานผลการเรียน",

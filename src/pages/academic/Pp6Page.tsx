@@ -631,13 +631,15 @@ const FileTab = () => {
                                       onClick={async () => {
                                         if (!(await swal.confirm({ title: "ประกาศผลการเรียนให้นักเรียน?", text: "ระบบจะแจ้งเตือนนักเรียนทุกคนในรายงานนี้" }))) return;
                                         const t = toast.loading("กำลังประกาศ...");
+                                        let justApplied = false;
                                         if (!f.applied_at) {
                                           try {
                                             const { applyPpFileToSystem } = await import("@/lib/pp5ApplyToSystem");
                                             await applyPpFileToSystem(f, "pp6");
+                                            justApplied = true;
                                           } catch (e: any) { toast.dismiss(t); toast.error(e?.message || "บันทึกเข้าระบบไม่สำเร็จ"); return; }
                                         }
-                                        const { data, error } = await supabase.functions.invoke("announce-pp6-scores", { body: { file_id: f.id } });
+                                        const { data, error } = await supabase.functions.invoke("announce-pp6-scores", { body: { file_id: f.id, applied: justApplied } });
                                         toast.dismiss(t);
                                         if (error || (data as any)?.error) {
                                           let msg = (data as any)?.error || error?.message;

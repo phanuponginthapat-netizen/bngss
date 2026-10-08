@@ -262,9 +262,13 @@ export async function applyPpFileToSystem(
   catch (e) { console.warn("[pp5] write assessments failed", e); }
 
   if (fileRow?.id) {
-    await (supabase.from(kind === "pp5" ? "pp5_files" : "pp6_files") as any)
-      .update({ applied_at: new Date().toISOString() })
+    const appliedAt = new Date().toISOString();
+    const { error: markErr } = await (supabase.from(kind === "pp5" ? "pp5_files" : "pp6_files") as any)
+      .update({ applied_at: appliedAt })
       .eq("id", fileRow.id);
+    // ไม่ให้ล้มทั้งงาน — ตอนประกาศจะส่งสัญญาณ applied ให้เซิร์ฟเวอร์บันทึกสถานะแทน
+    if (markErr) console.warn("[pp] mark applied_at failed", markErr);
+    else fileRow.applied_at = appliedAt;
   }
 
   return {
