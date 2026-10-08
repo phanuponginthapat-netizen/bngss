@@ -55,6 +55,41 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      - name: Set and verify scanner Android identity
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import xml.etree.ElementTree as ET
+
+          # Android reads the launcher/activity names from resources, not appName.
+          path = Path('android/app/src/main/res/values/strings.xml')
+          tree = ET.parse(path)
+          values = {
+              'app_name': 'BNG Scanner',
+              'title_activity_main': 'BNG Scanner',
+              'package_name': 'com.bngss.scanner',
+              'custom_url_scheme': 'com.bngss.scanner',
+          }
+          resources = tree.getroot()
+          for name, value in values.items():
+              node = resources.find(f"string[@name='{name}']")
+              if node is None:
+                  raise SystemExit(f'Missing Android resource: {name}')
+              node.text = value
+          tree.write(path, encoding='utf-8', xml_declaration=True)
+
+          gradle = Path('android/app/build.gradle').read_text()
+          if not re.search(r'applicationId\s+"com\.bngss\.scanner"', gradle):
+              raise SystemExit('Scanner applicationId is incorrect; refusing to build')
+          saved = ET.parse(path).getroot()
+          for name, value in values.items():
+              node = saved.find(f"string[@name='{name}']")
+              if node is None or node.text != value:
+                  raise SystemExit(f'Incorrect scanner resource: {name}')
+          print('Verified: BNG Scanner / com.bngss.scanner')
+          PY
+
       - name: Bump version
         working-directory: android
         run: |

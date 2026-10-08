@@ -5,3 +5,4 @@
 - Store student_scores per (student, subject, semester, academic_year) with academic_year in CE; normalize BE input at write time and never default a missing term — scores must never land in or overwrite another term.
 - Imported ปพ.5/ปพ.6 totals are authoritative; never recompute them from the system's weighting ratios.
 - FaceGate agent packages are built by the Build FaceGate Agent workflow via scripts/kiosk/package-facegate.sh and published to the app-downloads bucket with a version manifest; download links in pages must resolve through useFacegateRelease instead of a fixed bundled zip — keeps the school's download identical to the packaged program.
+- The tablet scanner workflow must set and verify its distinct Android application ID and launcher/activity string resources after Capacitor sync, without changing the main app resources — prevents indistinguishable installed apps and package replacement.
