@@ -110,3 +110,12 @@ jobs:
           fi
           git commit -m "build(facegate): refresh installer zip [skip ci]"
           git push origin HEAD:"${GITHUB_REF_NAME}" || echo "::warning::push ล ้มเหลว (สาข าอ ่ืน/สิทธิ์) — ไฟล ์ยังอย ู่ใน Actions artifact"
+
+      - name: Stage release file
+        run: mkdir -p /tmp/rel && cp /tmp/facegate-build/facegate-agent-installer.zip /tmp/rel/facegate-agent-installer.zip
+
+      - name: Publish to GitHub Release (facegate)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: bash scripts/ci/publish-release.sh facegate "FaceGate Agent (PC Windows/Linux)" "v${{ steps.ver.outputs.version }}" /tmp/rel/facegate-agent-installer.zip

@@ -94,3 +94,12 @@ jobs:
             -H "x-upsert: true" \
             --data-binary "@android/app/build/outputs/apk/debug/app-debug.apk" \
             "${BASE}/app-downloads/bngss-scanner-latest.apk" -w '\nHTTP %{http_code}\n'
+
+      - name: Stage release file
+        run: mkdir -p /tmp/rel && cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/rel/bngss-scanner.apk
+
+      - name: Publish to GitHub Release (scanner)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: bash scripts/ci/publish-release.sh scanner "BNG Scanner (แท็บเล็ต)" "build-${APP_VERSION_CODE}" /tmp/rel/bngss-scanner.apk

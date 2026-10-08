@@ -70,6 +70,17 @@ jobs:
           path: ios/App/build/ipa/*.ipa
           if-no-files-found: error
 
+      - name: Stage release file
+        if: inputs.export == true
+        run: mkdir -p /tmp/rel && cp ios/App/build/ipa/*.ipa /tmp/rel/bngss-app.ipa
+
+      - name: Publish to GitHub Release (ios)
+        if: inputs.export == true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: bash scripts/ci/publish-release.sh ios "BNG Smart (iPhone)" "${{ github.run_number }}" /tmp/rel/bngss-app.ipa
+
       - name: Instructions
         run: |
           echo "iOS project พร้อมแล้วที่ ios/App"
