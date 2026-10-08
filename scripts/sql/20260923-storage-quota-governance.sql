@@ -23,7 +23,7 @@ INSERT INTO public.storage_tier_policies (bucket, enabled, older_than_days, keep
   ('line-vault',         true,   7,  0,  60,  20, true,  'คลัง LINE — Drive เป็นหลัก ลบสำเนาซ้ำใน Supabase'),
   ('padlet',             true, 120,  0,  40,  70, false, 'สื่อกระดาน Padlet'),
   ('padlet-media',       true, 120,  0,  40,  70, false, 'สื่อกระดาน Padlet (สาธารณะ)'),
-  ('app-downloads',      true,  14,  2,  20,  10, false, 'ไฟล์ติดตั้งโปรแกรม เก็บล่าสุด 2 รุ่น'),
+  ('app-downloads',      true,  14,  2, 400,  10, false, 'ไฟล์ติดตั้งโปรแกรม เก็บล่าสุด 2 รุ่น'),
   ('attendance-photos',  true, 180,  0,  40,  40, false, 'ภาพประกอบการมาเรียน — ข้อมูลหลักอยู่ในตาราง attendance'),
   ('camera-events',      true,  30,  0,  20,  15, false, 'ภาพเหตุการณ์กล้อง — ชั่วคราว'),
   ('exam-scans',         true, 365,  0,  50,  80, false, 'ใบคำตอบสแกน — อ้างอิงงานวัดผล'),
