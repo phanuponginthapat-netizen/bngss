@@ -94,7 +94,8 @@ export default function AcademicGradeLockPage() {
         .select("student_id, attendance_date, status")
         .in("student_id", studentIds)
         .eq("academic_year", parseInt(academicYear, 10))
-        .eq("semester", parseInt(semester, 10));
+        .eq("semester", parseInt(semester, 10))
+        .not("subject_id", "is", null);
       if (error) throw error;
       return (data || []) as { student_id: string; attendance_date: string; status: string }[];
     },

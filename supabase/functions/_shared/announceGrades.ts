@@ -89,7 +89,9 @@ export async function announceGrades(opts: AnnounceGradesOptions) {
         .select("student_id, attendance_date, status")
         .in("student_id", studentIds)
         .eq("academic_year", yearNum)
-        .eq("semester", semNum);
+        .eq("semester", semNum)
+        // นับเฉพาะการเช็คชื่อรายคาบของวิชานี้ — ไม่ใช่การสแกนหน้าเข้าโรงเรียน
+        .eq("subject_id", parsed?.subject_id || (file as any).subject_id || "00000000-0000-0000-0000-000000000000");
 
       const rows = (attRows || []) as { student_id: string; attendance_date: string; status: string }[];
       const distinctDates = new Set(rows.map((r) => r.attendance_date));

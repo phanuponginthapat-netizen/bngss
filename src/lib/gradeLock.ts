@@ -314,7 +314,7 @@ export async function checkCanAnnounceForClassroom(
   classroomId: string,
   academicYear: number,
   semester: number,
-  opts: { threshold?: number; expectedTotalDays?: number } = {}
+  opts: { threshold?: number; expectedTotalDays?: number; subjectId?: string | null } = {}
 ): Promise<ClassroomAnnounceCheck & { rates: StudentAttendanceRate[]; lock: GradeLock | null }> {
   const threshold = opts.threshold ?? GRADE_LOCK_THRESHOLD;
   const term = buildTermString(academicYear, semester);
@@ -343,7 +343,10 @@ export async function checkCanAnnounceForClassroom(
     .select("student_id, attendance_date, status")
     .in("student_id", studentIds)
     .eq("academic_year", toCE(academicYear))
-    .eq("semester", semester);
+    .eq("semester", semester)
+    // เวลาเรียนนับรายวิชา (เช็คชื่อรายคาบ) — ไม่ใช่การสแกนหน้าเข้าโรงเรียน
+    .match(opts.subjectId ? { subject_id: opts.subjectId } : {})
+    .not("subject_id", "is", null);
 
   if (aErr) throw aErr;
 
@@ -405,31 +408,61 @@ export async function confirmAttendanceBeforeAnnounce(file: {
   classroom_id?: string | null;
   academic_year?: number | null;
   semester?: number | null;
+  subject_id?: string | null;
+  parsed_data?: any;
 }): Promise<boolean> {
   const { swal } = await import("@/lib/swal");
-  if (!file.classroom_id || !file.academic_year || !file.semester) return true;
-  let res: Awaited<ReturnType<typeof checkCanAnnounceForClassroom>>;
-  try {
-    res = await checkCanAnnounceForClassroom(file.classroom_id, Number(file.academic_year), Number(file.semester));
-  } catch {
-    return await swal.confirm({
-      title: "ตรวจเวลาเรียนไม่สำเร็จ",
-      text: "ไม่สามารถตรวจเวลาเรียน 80% ได้ ต้องการประกาศผลต่อหรือไม่?",
-    });
+  if (!file.academic_year || !file.semester) return true;
+
+  // 1) เวลาเรียนจากไฟล์ ปพ.5 (แผ่นเวลาเรียน) เป็นแหล่งหลัก
+  const parsed = file.parsed_data || {};
+  const fileRisk: { label: string; rate: number }[] = [];
+  let fileCount = 0;
+  for (const sh of (parsed.sheets || []) as any[]) {
+    for (const st of sh.students || []) {
+      const m = st.attendanceMarks;
+      if (!m || !(m.days > 0)) continue;
+      fileCount++;
+      const rate = Math.round((Math.max(0, m.days - m.absent - m.leave) / m.days) * 1000) / 10;
+      if (rate < GRADE_LOCK_THRESHOLD) fileRisk.push({ label: st.studentName || st.studentCode || "-", rate });
+    }
   }
-  if (res.canAnnounce) return true;
-  const { data: names } = await supabase
-    .from("students")
-    .select("id, first_name, last_name")
-    .in("id", res.atRisk.slice(0, 15).map((r) => r.studentId));
-  const nameOf = new Map((names ?? []).map((s: any) => [s.id, `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim()]));
-  const list = res.atRisk
-    .slice(0, 15)
-    .map((r) => `• ${nameOf.get(r.studentId) || r.studentCode || "-"} — ${r.attendanceRate.toFixed(1)}%`)
-    .join("\n");
-  const more = res.atRisk.length > 15 ? `\nและอีก ${res.atRisk.length - 15} คน` : "";
+
+  let risk: { label: string; rate: number }[] = fileRisk;
+  if (fileCount === 0) {
+    // 2) ไม่มีในไฟล์ → ใช้การเช็คชื่อรายคาบของวิชานี้
+    const subjectId = file.subject_id || parsed.subject_id || null;
+    if (!file.classroom_id || !subjectId) {
+      return await swal.confirm({
+        title: "ไม่มีข้อมูลเวลาเรียนรายวิชา",
+        text: "ไฟล์นี้ไม่มีแผ่นเวลาเรียน และระบบไม่พบวิชา/ห้องสำหรับตรวจการเช็คชื่อรายคาบ จึงตรวจเวลาเรียน 80% ไม่ได้ ต้องการประกาศผลต่อหรือไม่?",
+        confirmText: "ประกาศต่อ",
+      });
+    }
+    let res: Awaited<ReturnType<typeof checkCanAnnounceForClassroom>>;
+    try {
+      res = await checkCanAnnounceForClassroom(file.classroom_id, Number(file.academic_year), Number(file.semester), { subjectId });
+    } catch {
+      return await swal.confirm({ title: "ตรวจเวลาเรียนไม่สำเร็จ", text: "ไม่สามารถตรวจเวลาเรียน 80% ได้ ต้องการประกาศผลต่อหรือไม่?" });
+    }
+    const hasRows = res.rates.some((r: any) => (r.totalDays ?? r.total ?? 0) > 0);
+    if (!hasRows) {
+      return await swal.confirm({
+        title: "ยังไม่มีการเช็คชื่อรายคาบของวิชานี้",
+        text: "ไฟล์ ปพ.5 ไม่มีจำนวนวันเข้าเรียน และครูยังไม่ได้เช็คชื่อรายคาบ จึงตรวจเวลาเรียน 80% ไม่ได้ ต้องการประกาศผลต่อหรือไม่?",
+        confirmText: "ประกาศต่อ",
+      });
+    }
+    if (res.canAnnounce) return true;
+    const { data: names } = await supabase.from("students").select("id, first_name, last_name").in("id", res.atRisk.map((r) => r.studentId));
+    const nameOf = new Map((names ?? []).map((s: any) => [s.id, `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim()]));
+    risk = res.atRisk.map((r) => ({ label: nameOf.get(r.studentId) || r.studentCode || "-", rate: r.attendanceRate }));
+  }
+  if (risk.length === 0) return true;
+  const list = risk.slice(0, 15).map((r) => `• ${r.label} — ${r.rate.toFixed(1)}%`).join("\n");
+  const more = risk.length > 15 ? `\nและอีก ${risk.length - 15} คน` : "";
   return await swal.confirm({
-    title: `มีนักเรียน ${res.failedCount} คน เวลาเรียนต่ำกว่า ${GRADE_LOCK_THRESHOLD}%`,
+    title: `มีนักเรียน ${risk.length} คน เวลาเรียนวิชานี้ต่ำกว่า ${GRADE_LOCK_THRESHOLD}%`,
     text: `ตามระเบียบ สพฐ. นักเรียนกลุ่มนี้จะได้ผล "มส"\n\n${list}${more}\n\nต้องการประกาศผลต่อหรือไม่?`,
     confirmText: "ประกาศต่อ",
   });
