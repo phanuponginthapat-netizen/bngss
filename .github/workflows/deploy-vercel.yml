@@ -42,4 +42,4 @@ jobs:
           VERCEL_SCOPE: phanuponginthapat-netizens-projects
         run: |
           set -o pipefail
-          npx --yes vercel@latest deploy --prebuilt --prod --token "$VERCEL_TOKEN" --scope "$VERCEL_SCOPE" --name bngss --yes 2>&1 | tail -10
+          npx --yes vercel@latest deploy --prebuilt --prod --archive=tgz --token "$VERCEL_TOKEN" --scope "$VERCEL_SCOPE" --yes 2>&1 | tail -10
