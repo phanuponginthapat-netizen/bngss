@@ -70,9 +70,25 @@ const subjectKeys = (raw: string): string[] => {
   return Array.from(keys).filter(Boolean);
 };
 
-export async function applyPpFileToSystem(
+// กันกดซ้ำ/สองแท็บพร้อมกัน — ไฟล์เดียวกันจะใช้งานบันทึกรอบเดียวกัน (ไม่สร้างคอลัมน์/เกณฑ์ซ้ำ)
+const inFlight = new Map<string, Promise<PpApplyResult>>();
+
+export function applyPpFileToSystem(
   fileRow: any,
   kind: "pp5" | "pp6" = "pp5",
+): Promise<PpApplyResult> {
+  const key = fileRow?.id ? `${kind}:${fileRow.id}` : null;
+  if (!key) return applyPpFileToSystemInner(fileRow, kind);
+  const running = inFlight.get(key);
+  if (running) return running;
+  const p = applyPpFileToSystemInner(fileRow, kind).finally(() => inFlight.delete(key));
+  inFlight.set(key, p);
+  return p;
+}
+
+async function applyPpFileToSystemInner(
+  fileRow: any,
+  kind: "pp5" | "pp6",
 ): Promise<PpApplyResult> {
   const parsed = fileRow?.parsed_data;
   if (!parsed) {
