@@ -73,8 +73,8 @@ export function initNativeShell() {
   document.addEventListener(
     "dblclick",
     (e) => {
-      const t = e.target as HTMLElement;
-      if (t.closest("input, textarea, [contenteditable]")) return;
+      const t = e.target;
+      if (!(t instanceof Element) || t.closest("input, textarea, [contenteditable]")) return;
       e.preventDefault();
     },
     { passive: false }
@@ -82,15 +82,15 @@ export function initNativeShell() {
 
   // 2. กัน context menu (long-press เมนู) — ยกเว้นในช่องข้อความและรูป
   document.addEventListener("contextmenu", (e) => {
-    const t = e.target as HTMLElement;
-    if (t.closest("input, textarea, [contenteditable], .allow-select, img, a[href]")) return;
+    const t = e.target;
+    if (!(t instanceof Element) || t.closest("input, textarea, [contenteditable], .allow-select, img, a[href]")) return;
     e.preventDefault();
   });
 
   // 3. กันการลาก (drag) องค์ประกอบ UI
   document.addEventListener("dragstart", (e) => {
-    const t = e.target as HTMLElement;
-    if (t.tagName === "IMG" || t.closest(".allow-select")) return;
+    const t = e.target;
+    if (!(t instanceof Element) || t.tagName === "IMG" || t.closest(".allow-select")) return;
     e.preventDefault();
   });
 
