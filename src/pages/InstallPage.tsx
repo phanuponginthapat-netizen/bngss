@@ -332,6 +332,20 @@ export default function InstallPage() {
         </Card>
       )}
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg"><Download className="h-5 w-5" /> โปรแกรมสำหรับตู้สแกนหน้า</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2 sm:flex-row">
+          <Button asChild>
+            <a href="/downloads/facegate-agent-installer.zip" download>โปรแกรมสแกนหน้าบนคอมพิวเตอร์ (FaceGate)</a>
+          </Button>
+          <Button asChild variant="outline">
+            <a href="https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-scanner-latest.apk" target="_blank" rel="noreferrer">แอปสแกนหน้าสำหรับแท็บเล็ต (APK)</a>
+          </Button>
+        </CardContent>
+      </Card>
+
       <Card className="bg-muted/30">
         <CardContent className="pt-6 text-sm space-y-2 text-muted-foreground">
           <p className="font-medium text-foreground">📌 ข้อดีของการแจ้งเตือนผ่านแอป</p>
