@@ -70,6 +70,7 @@ const SchedulePage = lazy(() => import("./pages/academic/SchedulePage"));
 const LearningCenterPage = lazy(() => import("./pages/academic/LearningCenterPage"));
 const TranscriptPage = lazy(() => import("./pages/academic/TranscriptPage"));
 const CertificatePage = lazy(() => import("./pages/academic/CertificatePage"));
+const ScoreStatusPage = lazy(() => import("./pages/academic/ScoreStatusPage"));
 const Pp5Page = lazy(() => import("./pages/academic/Pp5Page"));
 const Pp6Page = lazy(() => import("./pages/academic/Pp6Page"));
 const Pp7Page = lazy(() => import("./pages/academic/Pp7Page"));
@@ -449,6 +450,7 @@ const App = () => {
                 <Route path="admin/special-rooms" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SpecialRoomsPage /></ProtectedRoute>} />
                 <Route path="academic/transcript" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["academic"]}><TranscriptPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="academic/certificate" element={<Navigate to="/dashboard/academic/pp-docs?tab=pp2" replace />} />
+                <Route path="academic/score-status" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><ScoreStatusPage /></ProtectedRoute>} />
                 <Route path="academic/pp5" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["academic"]}><Pp5Page /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="academic/pp6" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["academic"]}><Pp6Page /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="academic/pp7" element={<Navigate to="/dashboard/academic/pp-docs?tab=pp7" replace />} />
