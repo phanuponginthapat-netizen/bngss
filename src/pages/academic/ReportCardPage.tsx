@@ -1,5 +1,6 @@
+import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { formatGPA } from "@/lib/gradeUtils";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,7 +20,10 @@ import ClassBookletDialog from "@/components/academic/ClassBookletDialog";
 
 const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
   const [studentCode, setStudentCode] = useState("");
-  const [semester, setSemester] = useState("1");
+  const { currentSemester: _curSem } = useAcademicYear();
+  const [semester, setSemester] = useState(String(_curSem || 1));
+  const _semSynced = useRef(false);
+  useEffect(() => { if (!_semSynced.current && _curSem) { _semSynced.current = true; setSemester(String(_curSem)); } }, [_curSem]);
   const [academicYear] = useState(String(new Date().getFullYear() + BE_OFFSET));
   const schoolInfo = useSchoolInfo();
 
