@@ -329,6 +329,7 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
     task(L("สรุปการมาปฏิบัติงาน", "Staff attendance report"), "hr/attendance-dashboard", BarChart3, management),
     task(L("สอนแทน", "Substitute teaching"), "hr/substitute", UserCog),
     task(L("ประเมิน วPA / DPA", "PA / DPA evaluation"), "hr/evaluation", Award),
+    task(L("ประเมินบุคลากร (DISC/สุขภาพจิต)", "Personnel assessment"), "hr/assessment", Heart),
     task(L("แผนพัฒนาตนเอง ID Plan", "ID Plan"), "hr/id-plan", BookOpenCheck),
     task(L("เงินเดือนและสวัสดิการ", "Salary & benefits"), "hr/salary", DollarSign, management),
     task(L("สิทธิ์และยอดวันลา", "Leave balance"), "hr/leave-balance", CalendarDays),

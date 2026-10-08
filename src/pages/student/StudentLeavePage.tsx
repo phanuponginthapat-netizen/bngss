@@ -314,7 +314,8 @@ const AdminLeaveView = () => {
         if (scopedStudentIds.length === 0) return [];
         q = q.in("student_id", scopedStudentIds);
       }
-      const { data } = await q;
+      const { data, error } = await q;
+      if (error) throw error;
       return data || [];
     },
   });

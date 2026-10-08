@@ -61,7 +61,8 @@ const DocumentPage = () => {
   const { data: records = [] } = useQuery({
     queryKey: ["documents"],
     queryFn: async () => {
-      const { data } = await supabase.from("documents").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("documents").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
       return data || [];
     },
   });
@@ -69,7 +70,8 @@ const DocumentPage = () => {
   const { data: recipients = [] } = useQuery({
     queryKey: ["document_recipients_all"],
     queryFn: async () => {
-      const { data } = await supabase.from("document_recipients" as any).select("*");
+      const { data, error } = await supabase.from("document_recipients" as any).select("*");
+      if (error) throw error;
       return (data || []) as any[];
     },
   });

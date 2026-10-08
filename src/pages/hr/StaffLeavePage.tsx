@@ -160,7 +160,8 @@ const StaffLeavePage = () => {
       if (!canApprove && myPersonnel?.id) {
         q = q.eq("personnel_id", myPersonnel.id);
       }
-      const { data } = await q;
+      const { data, error } = await q;
+      if (error) throw error;
       return data || [];
     },
   });

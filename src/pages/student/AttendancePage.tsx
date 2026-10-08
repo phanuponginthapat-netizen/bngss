@@ -77,7 +77,7 @@ const AttendancePage = () => {
         if (scopedStudentIds) query = query.in("student_id", scopedStudentIds);
 
         const { data, error } = await query;
-        if (error) break;
+        if (error) throw error;
         all.push(...(data || []));
         if (!data || data.length < PAGE) break;
       }

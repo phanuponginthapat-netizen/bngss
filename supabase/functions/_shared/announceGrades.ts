@@ -209,7 +209,9 @@ export async function announceGrades(opts: AnnounceGradesOptions) {
     );
   }
 
-  await Promise.all(fanoutCalls);
+  const settled = await Promise.allSettled(fanoutCalls);
+  const failed = settled.filter((r) => r.status === "rejected").length;
+  if (failed > 0) console.warn(`announce: ${failed}/${settled.length} notification batches failed`);
 
   await admin
     .from(opts.table)
@@ -222,5 +224,6 @@ export async function announceGrades(opts: AnnounceGradesOptions) {
     notified_students: notifiedStudents,
     notified_parents: notifiedParents,
     total: consolidated.length,
+    failed_batches: failed,
   };
 }

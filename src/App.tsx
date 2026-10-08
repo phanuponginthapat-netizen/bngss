@@ -293,6 +293,13 @@ const WorkAreaPage = lazy(() => import("./pages/hub/WorkAreaPage"));
 import DepartmentRoute from "./components/DepartmentRoute";
 
 const queryClient = new QueryClient({
+  // โหลดข้อมูลไม่สำเร็จ (สิทธิ์/เครือข่าย) → แจ้งผู้ใช้ แทนการแสดงว่า "ไม่มีข้อมูล" เงียบ ๆ
+  queryCache: new QueryCache({
+    onError: (error: any, query) => {
+      if ((query.meta as any)?.silent || query.state.data !== undefined) return;
+      toast.error(`โหลดข้อมูลไม่สำเร็จ: ${error?.message || "กรุณาลองใหม่"}`, { id: `q-err-${error?.message || ""}` });
+    },
+  }),
   defaultOptions: {
     queries: {
       staleTime: 3 * 60 * 1000, // 3 นาที — ลดการยิง API ซ้ำเวลาสลับหน้า
@@ -603,7 +610,7 @@ const App = () => {
                 <Route path="hr/org-chart" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><OrgChartPage /></ProtectedRoute>} />
                 <Route path="hr/leave-balance" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><LeaveBalancePage /></ProtectedRoute>} />
                 {/* assessment merged into evaluation */}
-                <Route path="hr/assessment" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["finance_personnel"]} bypassRoles={["teacher"]}><EvaluationPage /></DepartmentRoute></ProtectedRoute>} />
+                <Route path="hr/assessment" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["finance_personnel"]} bypassRoles={["teacher"]}><PersonnelAssessmentPage /></DepartmentRoute></ProtectedRoute>} />
 
                 {/* District Feed (External integration) */}
                 <Route path="admin/test-scores" element={<ProtectedRoute allowedRoles={["admin", "director"]}><TestScoresPage /></ProtectedRoute>} />
