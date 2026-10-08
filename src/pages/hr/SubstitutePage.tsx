@@ -1,3 +1,4 @@
+import { swal } from "@/lib/swal";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -803,7 +804,7 @@ const SubstitutePage = () => {
                                       )}
                                       {!isPastDate(selectedDate) && (
                                         <button
-                                          onClick={() => handleRemoveSub(assignedSub.id)}
+                                          onClick={async () => { if (await swal.confirm({ title: lang === "th" ? "ยกเลิกการสอนแทน?" : "Remove substitute?", danger: true })) handleRemoveSub(assignedSub.id); }}
                                           className="ml-1 w-5 h-5 rounded-full hover:bg-red-100 text-red-600 flex items-center justify-center"
                                           title={lang === "th" ? "ยกเลิก" : "Remove"}
                                         >
