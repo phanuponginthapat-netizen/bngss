@@ -32,7 +32,11 @@ supabase/.temp
 # Extension signing key (private)
 *.pem
 scripts/*.pem
+# Firebase private service accounts
+*firebase-adminsdk*.json
+firebase-service-account.json
 
 .env
 .env.*
 !.env.example
+

@@ -27,6 +27,15 @@ jobs:
         run: |
           : "${SUPABASE_ACCESS_TOKEN:?SUPABASE_ACCESS_TOKEN secret is not set}"
           : "${PROJECT_REF:?PROJECT_REF is not set}"
+
+      - name: Sync Edge Function secrets
+        env:
+          FCM_SERVICE_ACCOUNT_JSON: ${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -n "$FCM_SERVICE_ACCOUNT_JSON" ]; then
+            echo "Setting FCM_SERVICE_ACCOUNT_JSON in Supabase..."
+            supabase secrets set FCM_SERVICE_ACCOUNT_JSON="$FCM_SERVICE_ACCOUNT_JSON" --project-ref "$PROJECT_REF"
+          fi
       - name: Deploy all edge functions
         run: |
           set -uo pipefail
