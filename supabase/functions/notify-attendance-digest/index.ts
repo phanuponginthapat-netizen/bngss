@@ -4,6 +4,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeadersWithCronAndMethods } from "../_shared/cors.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { pushMessage } from "../_shared/lineApi.ts";
+import { requireCronOrAdmin } from "../_shared/requireCron.ts";
 
 const cors = corsHeadersWithCronAndMethods;
 
@@ -133,10 +134,17 @@ serve(async (req) => {
       // require auth otherwise
     }
 
+    const manualRun = Boolean(forceGroupId || customImageUrl || customSummary || skipSchedule);
+    // รอบอัตโนมัติไม่ต้องใช้ token (ถูกจำกัดด้วยเวลาที่ตั้งไว้ + ส่งได้วันละครั้ง)
+    // ส่งด้วยมือ/บังคับส่ง ต้องเป็น cron secret หรือแอดมิน/ผู้บริหารเท่านั้น
+    if (manualRun && !isCron) {
+      const denied = await requireCronOrAdmin(req, cors);
+      if (denied) return denied;
+    }
+
     const sb = makeAdmin();
     const today = bkkDate(0);
     const settings = await getSettings(sb);
-    const manualRun = Boolean(forceGroupId || customImageUrl || customSummary || skipSchedule);
 
     // ⏰ ตารางเวลา/วันที่ผู้ดูแลตั้งเอง — ใช้เฉพาะรอบอัตโนมัติ (cron ทุก 15 นาที)
     if (!manualRun) {
