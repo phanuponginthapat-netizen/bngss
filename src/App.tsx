@@ -287,6 +287,7 @@ const FinanceHubPage = lazy(() => import("./pages/hub/FinanceHubPage"));
 const StudentHealthHubPage = lazy(() => import("./pages/hub/StudentHealthHubPage"));
 const WellbeingHubPage = lazy(() => import("./pages/hub/WellbeingHubPage"));
 const AdminReportsHubPage = lazy(() => import("./pages/hub/AdminReportsHubPage"));
+const WorkAreaPage = lazy(() => import("./pages/hub/WorkAreaPage"));
 
 
 import DepartmentRoute from "./components/DepartmentRoute";
@@ -411,6 +412,7 @@ const App = () => {
 
 
                 {/* Consolidated hubs — group related menus into tabbed pages */}
+                <Route path="work/:area" element={<ProtectedRoute><WorkAreaPage /></ProtectedRoute>} />
                 <Route path="hub/documents" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DocumentsHubPage /></ProtectedRoute>} />
                 <Route path="hub/communications" element={<ProtectedRoute allowedRoles={["admin", "director"]}><CommunicationsHubPage /></ProtectedRoute>} />
                 <Route path="hub/garbage" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "alumni"]}><GarbageHubPage /></ProtectedRoute>} />
