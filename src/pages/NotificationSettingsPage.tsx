@@ -187,7 +187,7 @@ export default function NotificationSettingsPage() {
               {pushStatus === "subscribed" && <span className="text-green-600">✅ พร้อมรับแจ้งเตือน</span>}
               {pushStatus === "denied" && <span className="text-destructive">❌ ผู้ใช้/เบราว์เซอร์ปฏิเสธ</span>}
               {pushStatus === "default" && <span className="text-amber-600">⚠️ ยังไม่ได้เปิด — กดปุ่มเปิดด้านล่าง</span>}
-              {pushStatus === "unsupported" && isNativeFcmSupported() && <span className="text-green-600">📱 แอป Android ใช้การแจ้งเตือนเนทีฟ (FCM) อัตโนมัติ</span>}
+              {pushStatus === "unsupported" && isNativeFcmSupported() && <span className="text-green-600">📱 แอปมือถือ (Android/iPhone) ใช้การแจ้งเตือนเนทีฟอัตโนมัติ</span>}
               {pushStatus === "unsupported" && !isNativeFcmSupported() && <span className="text-muted-foreground">เบราว์เซอร์นี้ไม่รองรับ</span>}
               {pushStatus === "checking" && <span className="text-muted-foreground">กำลังตรวจ...</span>}
             </span>
