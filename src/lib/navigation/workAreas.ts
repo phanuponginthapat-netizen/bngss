@@ -132,7 +132,6 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
         { title: L("ปพ.5 บันทึกผลการพัฒนาผู้เรียน", "PP.5 Grade Book"), url: "/dashboard/academic/pp5", icon: ClipboardList, roles: ["admin", "director", "teacher"], desc: L("ลงคะแนน คุณลักษณะ อ่าน-คิด-เขียน รายวิชา", "Per-subject grading") },
         { title: L("ปพ.6 รายงานผลการพัฒนาผู้เรียน", "PP.6 Report"), url: "/dashboard/academic/pp6", icon: FileText, roles: ["admin", "director", "teacher"], desc: L("รายงานผลการพัฒนาผู้เรียนรายภาคเรียน", "Per-semester report") },
         { title: L("เอกสาร ปพ.3 / 7 / 8", "PP.2/3/4/7/8"), url: "/dashboard/academic/pp-docs", icon: FolderOpen, roles: ["admin", "director", "teacher"], desc: L("รวมเอกสาร ปพ.2 3 4 7 8", "Combined PP.2/3/4/7/8") },
-        { title: L("ตรวจเวลาเรียน 80% ก่อนประกาศ", "80% attendance check"), url: "/dashboard/academic/grade-lock", icon: Lock, roles: ["admin", "director", "teacher"], desc: L("นักเรียนเวลาเรียนไม่ถึง 80% = มส · ตรวจก่อนประกาศผล", "Students under 80% attendance get มส before announcing") },
         { title: L("แก้ 0 ร มส", "Grade Remediation"), url: "/dashboard/academic/grade-remediation", icon: Wrench, roles: ["admin", "director", "teacher"], desc: L("แก้ผลการเรียน 0 ร มส · ลงทะเบียนซ้ำ", "Remediate 0/R/MS grades") },
         { title: L("พักการเรียน", "Probation"), url: "/dashboard/academic/probation", icon: UserX, roles: ["admin", "director", "teacher"], desc: L("พักการเรียน · ติดตามสถานะนักเรียน", "Academic probation tracking") },
       ],
