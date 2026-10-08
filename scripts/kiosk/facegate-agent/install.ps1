@@ -6,7 +6,8 @@
 #  - เปิดหน้าสแกนแบบเต็มจอ
 #
 #  วิธีใช้ (Command Prompt / PowerShell):
-#    powershell -ExecutionPolicy Bypass -c "irm <URL>/api/public/agent/install.ps1?key=DEVICEKEY | iex"
+#    แตก zip แลว ้ รัน:  powershell -ExecutionPolicy Bypass -File .\install.ps1
+#    หร ือโหลดจากเว็บบ้าน:  Invoke-WebRequest "<เว็บบ้าน>/downloads/facegate-agent-installer.zip" -OutFile fg.zip; Expand-Archive fg.zip .
 # =====================================================================
 
 $ErrorActionPreference = "Stop"
