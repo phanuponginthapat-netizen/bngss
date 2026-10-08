@@ -5,6 +5,7 @@ import { openCamera, stopStream } from "@/lib/cameraStream";
 
 import { attachNetworkCamera, validateStreamUrl, describeStreamKind, classifyStreamUrl, testStreamUrl, type NetworkCameraHandle } from "@/lib/networkCamera";
 import { supabase } from "@/integrations/supabase/client";
+import { enqueue as enqueueOfflineWrite, installOfflineSync, uninstallOfflineSync } from "@/lib/offlineQueue";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   loadFaceModels, getAllDescriptors, matchDescriptor, drawFaceFrame,
@@ -58,6 +59,9 @@ import {
 } from "@/lib/wizmindEvents";
 
 // ===== Helper: hex → rgba with alpha (สำหรับใช้ theme สีจาก CMS) =====
+const enqueueOfflineScan = (payload: Record<string, any>) =>
+  enqueueOfflineWrite({ table: "face_scan_logs", op: "insert", payload });
+
 const hexA = (hex: string, a: number): string => {
   const m = /^#?([a-f\d]{3}|[a-f\d]{6})$/i.exec(hex || "");
   if (!m) return `rgba(0,0,0,${a})`;
@@ -156,6 +160,11 @@ const FaceKioskPage = () => {
   // โหมด QR เท่านั้น — ไม่โหลด/รันโมเดลใบหน้า ประหยัด CPU สำหรับเครื่องสเปกต่ำ (Pavilion x2 / Atom / Celeron)
   const [qrOnly, setQrOnly] = useState<boolean>(() => localStorage.getItem("face_kiosk_qr_only") === "1");
   useEffect(() => { localStorage.setItem("face_kiosk_qr_only", qrOnly ? "1" : "0"); }, [qrOnly]);
+  // เปิดระบบ sync คิวออฟไลน์ของหน้าคีออสนี้ (หน้านี้ไม่ได้อยู่ใต้ DashboardLayout ซึ่งเป็นที่ติดตั้งปกติ)
+  useEffect(() => {
+    installOfflineSync();
+    return () => uninstallOfflineSync();
+  }, []);
   const { selection: scanModeSelection, setSelection: setScanModeSelection, effective: scanMode, effectiveRef: scanModeRef, cutoff: modeCutoff, checkWindow, entryWindow, exitWindow } = useAutoScanMode();
   const [camMode, setCamMode] = useState<CamMode>("standard");
   const perf = KIOSK_PERF_PROFILES.balanced;
@@ -906,17 +915,38 @@ const FaceKioskPage = () => {
     if (!seenSet.has(studentId)) { seenSet.add(studentId); setTodayCounts(c => ({ ...c, [mode]: c[mode] + 1 })); }
 
     const { data: { user } } = await supabase.auth.getUser();
-    const uploadedFaceUrl = await uploadFaceScanSnapshot(capturedFace, studentId);
     // อุณหภูมิจาก micro:bit (null เมื่อไม่ได้เชื่อมต่อ → ใช้กฎเดิมของระบบ)
     const scanTemp = gateRef.current.getLiveTemp();
-    const { data, error } = await supabase.from("face_scan_logs").insert({
+    const attendancePayload = {
       student_id: studentId, scan_date: todayBangkok(), scan_type: mode, confidence,
       scanned_by: user?.id, device_label: `tablet-kiosk-${mode}`, entry_method: method,
-      captured_face_url: uploadedFaceUrl,
       ...(quality?.geometryScore != null ? { geometry_score: quality.geometryScore } : {}),
       ...(quality?.engine ? { match_engine: quality.engine } : {}),
       ...(scanTemp != null ? { temperature_c: scanTemp } : {}),
-    } as any).select("id").maybeSingle();
+    } as any;
+    // ออฟไลน์: อย่าพยายามอัปโหลดรูป/เขียนลง DB ทันที (จะ hang/ล้มเหลว) — เข้าคิวไว้ sync ทีหลังทันที
+    if (!navigator.onLine) {
+      await enqueueOfflineScan({ ...attendancePayload, captured_face_url: null });
+      showNotice("info", "บันทึกแบบออฟไลน์", `${name} บันทึก${modeLabel}ไว้ในเครื่อง จะส่งขึ้นระบบเมื่อมีสัญญาณอินเทอร์เน็ต`, 4000);
+      return;
+    }
+    let uploadedFaceUrl: string | null = null;
+    let data: { id: string } | null | undefined;
+    let error: any = null;
+    try {
+      uploadedFaceUrl = await uploadFaceScanSnapshot(capturedFace, studentId);
+      const res = await supabase.from("face_scan_logs").insert({
+        ...attendancePayload,
+        captured_face_url: uploadedFaceUrl,
+      }).select("id").maybeSingle();
+      data = res.data as any;
+      error = res.error;
+    } catch (networkErr) {
+      // เครือข่ายล่ม/ขัดข้องกลางทาง — อย่าทิ้งข้อมูลการสแกน เก็บเข้าคิวไว้ sync ทีหลัง
+      await enqueueOfflineScan({ ...attendancePayload, captured_face_url: null });
+      showNotice("warning", "ออฟไลน์ชั่วคราว", `${name} บันทึก${modeLabel}ไว้ในเครื่อง จะส่งขึ้นระบบอัตโนมัติเมื่อเชื่อมต่อได้`, 4000);
+      return;
+    }
     if (error) {
       if (error.code === "23505") {
         seenSet.add(studentId);
@@ -924,7 +954,9 @@ const FaceKioskPage = () => {
         showNotice("info", "สแกนซ้ำ", `${name} ถูกบันทึก${modeLabel}โรงเรียนวันนี้แล้ว`, 2500);
         return;
       }
-      showNotice("error", "บันทึกไม่สำเร็จ", saveErrorMessage(error), 5000); return;
+      // ข้อผิดพลาดอื่นที่อาจเกิดจากการเชื่อมต่อไม่เสถียร — เข้าคิวไว้ ดีกว่าทิ้งข้อมูลไปเลย
+      await enqueueOfflineScan({ ...attendancePayload, captured_face_url: null });
+      showNotice("error", "บันทึกไม่สำเร็จ ส่งเข้าคิวไว้แล้ว", saveErrorMessage(error), 5000); return;
     }
     if (!data) {
       seenSet.add(studentId);
