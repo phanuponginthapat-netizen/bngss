@@ -19,6 +19,8 @@ import { isNativeFcmSupported } from "@/lib/fcmPush";
 import { fetchUpdateManifest, type AppUpdateManifest } from "@/lib/appUpdater";
 import { useCmsValue } from "@/hooks/useCmsSettings";
 
+import { useFacegateRelease } from "@/lib/facegateRelease";
+
 const APK_DOWNLOAD_URL = "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-app-latest.apk";
 
 export default function InstallPage() {
@@ -43,6 +45,7 @@ export default function InstallPage() {
 
   const [apkManifest, setApkManifest] = useState<AppUpdateManifest | null>(null);
   const apkLink = useCmsValue("apk_app_url");
+  const facegate = useFacegateRelease();
   useEffect(() => {
     fetchUpdateManifest().then(setApkManifest).catch(() => {});
   }, []);
@@ -338,7 +341,7 @@ export default function InstallPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-2 sm:flex-row">
           <Button asChild>
-            <a href="/downloads/facegate-agent-installer.zip" download>โปรแกรมสแกนหน้าบนคอมพิวเตอร์ (FaceGate)</a>
+            <a href={facegate.url} download={facegate.fileName}>โปรแกรมสแกนหน้าบนคอมพิวเตอร์ (FaceGate)</a>
           </Button>
           <Button asChild variant="outline">
             <a href="https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-scanner-latest.apk" target="_blank" rel="noreferrer">แอปสแกนหน้าสำหรับแท็บเล็ต (APK)</a>

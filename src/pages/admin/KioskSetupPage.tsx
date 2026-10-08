@@ -38,20 +38,23 @@ import { guessPublicOrigin } from "@/lib/publicOrigin";
 import { Time24Input } from "@/components/ui/time24-input";
 import KioskDeviceManager from "@/components/kiosk/KioskDeviceManager";
 import FailedScanQueue from "@/components/kiosk/FailedScanQueue";
+import { useFacegateRelease } from "@/lib/facegateRelease";
 
 /** ลิงก์ดาวน์โหลด APK (เช่นลิงก์ Google Drive) — เก็บใน cms_settings ให้หน้า /install และหน้านี้ใช้ร่วมกัน */
 function ApkLinkSettings() {
   const app = useCmsValue("apk_app_url");
   const scanner = useCmsValue("apk_scanner_url");
+  const facegate = useCmsValue("facegate_agent_url");
   const [a, setA] = useState(app);
   const [b, setB] = useState(scanner);
+  const [c, setC] = useState(facegate);
   const [saving, setSaving] = useState(false);
-  useEffect(() => { setA(app); setB(scanner); }, [app, scanner]);
+  useEffect(() => { setA(app); setB(scanner); setC(facegate); }, [app, scanner, facegate]);
   const save = async () => {
-    for (const u of [a, b]) if (u && !/^https:\/\//i.test(u.trim())) { toast({ title: "ลิงก์ต้องขึ้นต้นด้วย https://", variant: "destructive" }); return; }
+    for (const u of [a, b, c]) if (u && !/^https:\/\//i.test(u.trim())) { toast({ title: "ลิงก์ต้องขึ้นต้นด้วย https://", variant: "destructive" }); return; }
     setSaving(true);
     const { error } = await supabase.from("cms_settings").upsert(
-      [{ key: "apk_app_url", value: a.trim() }, { key: "apk_scanner_url", value: b.trim() }] as any,
+      [{ key: "apk_app_url", value: a.trim() }, { key: "apk_scanner_url", value: b.trim() }, { key: "facegate_agent_url", value: c.trim() }] as any,
       { onConflict: "key" },
     );
     setSaving(false);
@@ -62,6 +65,7 @@ function ApkLinkSettings() {
       <Label className="text-sm">ลิงก์ดาวน์โหลดแอป (เช่นลิงก์ไฟล์ใน Google Drive)</Label>
       <Input placeholder="แอปโรงเรียน (มือถือ) https://..." value={a} onChange={(e) => setA(e.target.value)} />
       <Input placeholder="แอปสแกนสำหรับแท็บเล็ต https://..." value={b} onChange={(e) => setB(e.target.value)} />
+      <Input placeholder="โปคระมันสแกนหน้าสำหรับ PC (zip) https://..." value={c} onChange={(e) => setC(e.target.value)} />
       <Button size="sm" onClick={save} disabled={saving}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}บันทึกลิงก์</Button>
     </div>
   );
@@ -69,6 +73,7 @@ function ApkLinkSettings() {
 
 export default function KioskSetupPage() {
   const scannerApkUrl = useCmsValue("apk_scanner_url");
+  const facegateRelease = useFacegateRelease();
   const schoolName = useCmsValue("school_name") || "โรงเรียน";
   const cmsOrigin = useCmsValue("public_origin");
 
@@ -648,12 +653,18 @@ export default function KioskSetupPage() {
           </ol>
           <div className="flex flex-wrap gap-2">
             <Button asChild>
-              <a href="/downloads/facegate-agent-installer.zip" download>
+              <a href={facegateRelease.url} download={facegateRelease.fileName}>
                 <Download className="mr-2 h-4 w-4" />
                 ดาวน์โหลดโปรแกรมสแกนใบหน้า
               </a>
             </Button>
           </div>
+          {facegateRelease.version && (
+            <p className="text-xs text-muted-foreground">
+              รุ่น {facegateRelease.version}{facegateRelease.release?.releasedAt ? ` มีวันสร้าง ${facegateRelease.release.releasedAt.slice(0, 10)}` : ""}
+              {facegateRelease.isBuilt ? " — กร็นสร้างอัตโนเมาติกรั้งตลาดแคลนกระคโดตัวปรับเปลี่ยน" : " — ยังไม่ได้กางจาก Actions จึงใช้ฟาล์ที่พร้อยมานในโปรเจกต์"}
+            </p>
+          )}
 
         </CardContent>
       </Card>
