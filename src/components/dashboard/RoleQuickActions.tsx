@@ -5,6 +5,10 @@ import {
   UserCheck, FileText, Users, BarChart3, Award, ClipboardList, Megaphone, HeartPulse, Settings,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useModuleToggles } from "@/hooks/useModuleToggles";
+import { areaUrl, buildWorkAreas, visibleWorkAreas } from "@/lib/navigation/workAreas";
 
 type Action = { label: string; desc: string; to: string; icon: LucideIcon };
 type Group = { title: string; actions: Action[] };
@@ -51,28 +55,32 @@ GROUPS.parent = GROUPS.student;
 
 export default function RoleQuickActions({ role }: { role: string | null }) {
   const navigate = useNavigate();
+  const { role: currentRole } = useUserRole();
+  const { isModuleEnabled } = useModuleToggles();
+  const areas = visibleWorkAreas(buildWorkAreas(), currentRole, isModuleEnabled);
   const groups = role ? GROUPS[role] : undefined;
   if (!groups) return null;
   return (
     <div className="space-y-3 px-3 pt-4 sm:px-6">
+      {["admin", "director", "teacher"].includes(role ?? "") && <section className="space-y-3 border-b border-border pb-5"><h2 className="font-semibold">ฝ่ายงานของโรงเรียน</h2><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">{areas.filter(a => a.key !== "personal" && a.key !== "tools").map(a => <Button key={a.key} variant="outline" className="h-auto min-h-14 justify-start whitespace-normal text-left" onClick={() => navigate(areaUrl(a.key))}><a.icon /><span>{a.label}</span></Button>)}</div></section>}
       {groups.map((g) => (
         <Card key={g.title} className="border-border/60">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-muted-foreground">{g.title}</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
             {g.actions.map((a) => (
-              <button
+              <Button variant="outline"
                 key={a.to + a.label}
                 onClick={() => navigate(a.to)}
-                className="group flex items-center gap-3 rounded-xl border border-border/60 bg-card p-3 text-left transition hover:border-primary/50 hover:bg-primary/5"
+                className="group flex h-auto items-center justify-start gap-3 whitespace-normal rounded-lg border-border/60 bg-card p-3 text-left transition hover:border-primary/50 hover:bg-primary/5"
               >
                 <span className="rounded-lg bg-primary/10 p-2 text-primary transition group-hover:bg-primary group-hover:text-primary-foreground">
                   <a.icon className="h-5 w-5" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium">{a.label}</span>
-                  <span className="block truncate text-xs text-muted-foreground">{a.desc}</span>
+                  <span className="block break-words text-sm font-medium">{a.label}</span>
+                  <span className="block break-words text-xs text-muted-foreground">{a.desc}</span>
                 </span>
-              </button>
+              </Button>
             ))}
           </CardContent>
         </Card>
