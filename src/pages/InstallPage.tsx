@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import IosIpaDownload from "@/components/install/IosIpaDownload";
 import GithubReleaseDownloads from "@/components/install/GithubReleaseDownloads";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -127,6 +128,7 @@ export default function InstallPage() {
       )}
 
       {/* Step 1: Install */}
+      {!isAndroid && <IosIpaDownload />}
       {!isIOS && (
         <Card>
           <CardHeader>
@@ -176,7 +178,7 @@ export default function InstallPage() {
             ) : (
               <Alert>
                 <AlertDescription className="text-xs">
-                  💡 APK ใช้ได้เฉพาะเครื่อง Android — สำหรับ iPhone/iPad ใช้วิธีติดตั้ง PWA ด้านล่าง
+                  💡 APK ใช้ได้เฉพาะเครื่อง Android — สำหรับ iPhone/iPad ใช้ไฟล์ IPA หรือวิธีติดตั้งลงหน้าจอด้านล่าง
                 </AlertDescription>
               </Alert>
             )}
