@@ -83,7 +83,7 @@ const fetchData = async (): Promise<SmscData> => {
     fetchAllRows((f, t) => supabase.from("attendance").select("status").is("subject_id", null).gte("attendance_date", since).order("attendance_date").range(f, t)).then((data) => ({ data })),
     supabase.from("school_test_scores").select("*").order("academic_year", { ascending: false }).limit(200),
     supabase.from("behavior_records").select("behavior_type, student_id").gte("record_date", since),
-    supabase.from("behavior_records").select("behavior_type, student_id, students(first_name, last_name)").gte("record_date", since).limit(500),
+    supabase.from("behavior_records").select("behavior_type, student_id, students(first_name, last_name)").gte("record_date", since).limit(5000),
     supabase.from("sdq_records").select("id", { count: "exact", head: true }),
     supabase.from("health_measurements").select("id", { count: "exact", head: true }),
     supabase.from("action_plans").select("id", { count: "exact", head: true }),

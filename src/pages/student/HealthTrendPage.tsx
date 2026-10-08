@@ -66,7 +66,7 @@ export default function HealthTrendPage() {
         );
       }
 
-      const { data, error } = await query.order("first_name").limit(500);
+      const { data, error } = await query.order("first_name").limit(5000);
       if (cancelled) return;
       if (error) console.error("[HealthTrend] students fetch", error);
       setStudents((data as any) ?? []);

@@ -77,7 +77,7 @@ const BehaviorPage = () => {
     queryKey: ["behavior_records", academicYear, scopedStudentIds?.join(",") || "all"],
     enabled: scopedStudentIds === null || scopedStudentIds.length >= 0,
     queryFn: async () => {
-      let q = supabase.from("behavior_records").select("*, students(student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level))").order("created_at", { ascending: false }).limit(500);
+      let q = supabase.from("behavior_records").select("*, students(student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level))").order("created_at", { ascending: false }).limit(5000);
       if (scopedStudentIds) {
         if (scopedStudentIds.length === 0) return [];
         q = q.in("student_id", scopedStudentIds);
