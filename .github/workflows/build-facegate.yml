@@ -60,12 +60,13 @@ jobs:
       - name: Publish to storage (app-downloads)
         env:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          FACEGATE_FILE: ${{ env.file }}
         run: |
           if [ -z "$SUPABASE_ANON_KEY" ]; then
             echo "::warning::SUPABASE_ANON_KEY missing — skipping publish"
             exit 0
           fi
+          FACEGATE_FILE="$(python3 -c 'import json;print(json.load(open("/tmp/facegate-build/facegate-version.json"))["fileName"])')"
+          export FACEGATE_FILE
           BASE="https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object"
           PUB="https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads"
           upload() {
