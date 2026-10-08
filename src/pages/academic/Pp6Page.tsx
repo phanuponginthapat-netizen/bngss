@@ -630,6 +630,7 @@ const FileTab = () => {
                                       title={f.announced_at ? "ประกาศแล้ว — กดเพื่อประกาศซ้ำ" : "ประกาศให้นักเรียน"}
                                       onClick={async () => {
                                         if (!(await swal.confirm({ title: "ประกาศผลการเรียนให้นักเรียน?", text: "ระบบจะแจ้งเตือนนักเรียนทุกคนในรายงานนี้" }))) return;
+                                        { const { confirmAttendanceBeforeAnnounce } = await import("@/lib/gradeLock"); if (!(await confirmAttendanceBeforeAnnounce(f))) return; }
                                         const t = toast.loading("กำลังประกาศ...");
                                         let justApplied = false;
                                         if (!f.applied_at) {

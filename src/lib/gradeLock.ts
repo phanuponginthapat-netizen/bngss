@@ -395,3 +395,42 @@ export async function announcePP6Scores(fileId: string): Promise<{ success: bool
   if ((data as any)?.error) throw new Error((data as any).error);
   return data as any;
 }
+
+/**
+ * Attendance 80% gate used directly by the ปพ.5/ปพ.6 announce buttons.
+ * Returns true to continue announcing. Students under 80% already get "มส"
+ * when the file is applied; the teacher must explicitly acknowledge them.
+ */
+export async function confirmAttendanceBeforeAnnounce(file: {
+  classroom_id?: string | null;
+  academic_year?: number | null;
+  semester?: number | null;
+}): Promise<boolean> {
+  const { swal } = await import("@/lib/swal");
+  if (!file.classroom_id || !file.academic_year || !file.semester) return true;
+  let res: Awaited<ReturnType<typeof checkCanAnnounceForClassroom>>;
+  try {
+    res = await checkCanAnnounceForClassroom(file.classroom_id, Number(file.academic_year), Number(file.semester));
+  } catch {
+    return await swal.confirm({
+      title: "ตรวจเวลาเรียนไม่สำเร็จ",
+      text: "ไม่สามารถตรวจเวลาเรียน 80% ได้ ต้องการประกาศผลต่อหรือไม่?",
+    });
+  }
+  if (res.canAnnounce) return true;
+  const { data: names } = await supabase
+    .from("students")
+    .select("id, first_name, last_name")
+    .in("id", res.atRisk.slice(0, 15).map((r) => r.studentId));
+  const nameOf = new Map((names ?? []).map((s: any) => [s.id, `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim()]));
+  const list = res.atRisk
+    .slice(0, 15)
+    .map((r) => `• ${nameOf.get(r.studentId) || r.studentCode || "-"} — ${r.attendanceRate.toFixed(1)}%`)
+    .join("\n");
+  const more = res.atRisk.length > 15 ? `\nและอีก ${res.atRisk.length - 15} คน` : "";
+  return await swal.confirm({
+    title: `มีนักเรียน ${res.failedCount} คน เวลาเรียนต่ำกว่า ${GRADE_LOCK_THRESHOLD}%`,
+    text: `ตามระเบียบ สพฐ. นักเรียนกลุ่มนี้จะได้ผล "มส"\n\n${list}${more}\n\nต้องการประกาศผลต่อหรือไม่?`,
+    confirmText: "ประกาศต่อ",
+  });
+}
