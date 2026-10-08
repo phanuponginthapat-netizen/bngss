@@ -34,13 +34,15 @@ export function isNativeFcmSupported(): boolean {
 }
 
 async function saveDeviceToken(token: string): Promise<void> {
+  setPendingToken(token);
   try {
-    const { data } = await supabase.auth.getUser();
+    const { data, error: authError } = await supabase.auth.getUser();
+    if (authError) throw authError;
     if (!data.user) {
       setPendingToken(token);
       return;
     }
-    await supabase.from("push_subscriptions").upsert(
+    const { error } = await supabase.from("push_subscriptions").upsert(
       {
         user_id: data.user.id,
         endpoint: `fcm:${token}`,
@@ -50,10 +52,12 @@ async function saveDeviceToken(token: string): Promise<void> {
         provider: "fcm",
         platform: Capacitor.getPlatform(),
       },
-      { onConflict: "user_id,device_token" },
+      { onConflict: "user_id,endpoint" },
     );
+    if (error) throw error;
+    if (pendingToken === token) setPendingToken(null);
   } catch (e) {
-    console.warn("FCM token save failed", e);
+    console.warn("FCM device registration failed; retained for retry");
   }
 }
 
@@ -61,7 +65,6 @@ async function saveDeviceToken(token: string): Promise<void> {
 export async function flushPendingFcmToken(): Promise<void> {
   const t = pendingToken || (() => { try { return localStorage.getItem(PENDING_KEY); } catch { return null; } })();
   if (!t) return;
-  setPendingToken(null);
   await saveDeviceToken(t);
 }
 
@@ -93,6 +96,7 @@ export async function initFcmPush(): Promise<void> {
     });
 
     PushNotifications.addListener("registrationError", (err) => {
+      initialized = false;
       console.error("FCM registration error", err);
     });
 

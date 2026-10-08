@@ -92,7 +92,8 @@ export function useGlobalRealtime() {
       news_posts: [["dashboard_stats_v2"]],
       academic_events: [["dashboard_stats_v2"]],
       face_scan_logs: [["dashboard_stats_v2"], ["mascot_stats"], ["face-report-accurate"], ["face-logs-range"], ["face-chart"]],
-      notifications: [["notifications"]],
+       notifications: [["notifications"], ["my_notifications", userId]],
+       inbox_items: [["my_inbox_items", userId]],
       profiles: [["dashboard_user_profile"]],
       student_scores: [["student_scores"]],
       student_column_scores: [["student_column_scores"]],
@@ -260,7 +261,7 @@ export function useGlobalRealtime() {
       // On reconnect only: invalidate the hot user-scoped queries, not the whole cache.
       // (Blanket invalidateQueries() with 500+ users online = refetch storm)
       if (status === "SUBSCRIBED" && didFirstSubscribe) {
-        scheduleInvalidate([["notifications"], ["inbox_items"], ["dashboard_stats_v2"]]);
+         scheduleInvalidate([["notifications"], ["inbox_items"], ["my_notifications", userId], ["my_inbox_items", userId], ["dashboard_stats_v2"]]);
       }
       if (status === "SUBSCRIBED") didFirstSubscribe = true;
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
@@ -278,7 +279,8 @@ export function useGlobalRealtime() {
       const now = Date.now();
       if (now - lastResync < 5000) return; // ≤ 1 resync ต่อ 5 วิ
       lastResync = now;
-      scheduleInvalidate([["notifications"], ["inbox_items"]]);
+       scheduleInvalidate([["notifications"], ["inbox_items"], ["my_notifications", userId], ["my_inbox_items", userId]]);
+       void import("@/lib/fcmPush").then(({ flushPendingFcmToken }) => flushPendingFcmToken()).catch(() => {});
     };
     const onVisible = () => {
       if (document.visibilityState === "visible") resync();
