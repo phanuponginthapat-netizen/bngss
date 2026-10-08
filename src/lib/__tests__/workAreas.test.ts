@@ -31,4 +31,31 @@ describe("department navigation", () => {
     expect(findWorkArea(buildWorkAreas(), "/dashboard/academic/pp5")?.key).toBe("assessment");
     expect(findWorkArea(buildWorkAreas(), areaUrl("hr"))?.key).toBe("hr");
   });
+  it("opens jobs directly for every non-academic department", () => {
+    const required: Record<string, string[]> = {
+      hr: ["hr/personnel", "hr/org-chart", "hr/time-clock", "hr/leave", "hr/substitute", "hr/salary", "hr/id-plan", "hr/evaluation", "hr/leave-balance"],
+      finance: ["finance/budget", "finance/procurement", "finance/assets", "finance/assets/reports", "finance/subsidy"],
+      general: ["admin/document", "admin/eform", "admin/news", "admin/school-milk", "projects/hub", "admin/print-center", "admin/smsc"],
+      student: ["student/screening", "student/home-visit", "student/sdq", "student/health-trend", "admin/vaccine"],
+    };
+    for (const [key, paths] of Object.entries(required)) {
+      const urls = buildWorkAreas().find(a => a.key === key)?.groups.flatMap(g => g.items.map(i => i.url));
+      for (const path of paths) expect(urls).toContain(`/dashboard/${path}`);
+    }
+  });
+  it("does not expose restricted personnel and finance jobs to teachers", () => {
+    const areas = visibleWorkAreas(buildWorkAreas(), "teacher", () => true);
+    const urls = areas.flatMap(a => a.groups.flatMap(g => g.items.map(i => i.url)));
+    expect(urls).toContain("/dashboard/hr/substitute");
+    expect(urls).toContain("/dashboard/admin/document");
+    expect(urls).not.toContain("/dashboard/hr/salary");
+    expect(urls).not.toContain("/dashboard/hr/personnel");
+    expect(urls).not.toContain("/dashboard/finance/budget");
+    expect(urls).not.toContain("/dashboard/admin/eform-templates");
+  });
+  it("honors switches on direct departmental jobs", () => {
+    const areas = visibleWorkAreas(buildWorkAreas(), "admin", key => !["salary", "documents", "screening", "procurement"].includes(key ?? ""));
+    const urls = areas.flatMap(a => a.groups.flatMap(g => g.items.map(i => i.url)));
+    for (const path of ["hr/salary", "admin/document", "student/screening", "finance/procurement"]) expect(urls).not.toContain(`/dashboard/${path}`);
+  });
 });

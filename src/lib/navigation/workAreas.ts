@@ -316,6 +316,55 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
 
 
 
+  const staff: AppRole[] = ["admin", "director", "teacher"];
+  const management: AppRole[] = ["admin", "director"];
+  const task = (title: string, path: string, icon: NavigationItem["icon"], roles = staff): NavigationItem => ({ title, url: `/dashboard/${path}`, icon, roles });
+  const replaceTasks = (key: string, items: NavigationItem[]) => {
+    const department = departments.find(d => d.key === key);
+    if (department) department.items = items;
+  };
+  replaceTasks("hr_records", [
+    task(L("ทะเบียนบุคลากร", "Personnel records"), "hr/personnel", Users, management),
+    task(L("โครงสร้างองค์กร", "Organization chart"), "hr/org-chart", Users),
+    task(L("สรุปการมาปฏิบัติงาน", "Staff attendance report"), "hr/attendance-dashboard", BarChart3, management),
+    task(L("สอนแทน", "Substitute teaching"), "hr/substitute", UserCog),
+    task(L("ประเมิน วPA / DPA", "PA / DPA evaluation"), "hr/evaluation", Award),
+    task(L("แผนพัฒนาตนเอง ID Plan", "ID Plan"), "hr/id-plan", BookOpenCheck),
+    task(L("เงินเดือนและสวัสดิการ", "Salary & benefits"), "hr/salary", DollarSign, management),
+    task(L("สิทธิ์และยอดวันลา", "Leave balance"), "hr/leave-balance", CalendarDays),
+    task(L("ครูเวรประจำวัน", "Teacher duty"), "admin/duty-teachers", ShieldCheck, management),
+  ]);
+  replaceTasks("finance", [
+    task(L("งบประมาณและบัญชี", "Budget & accounting"), "finance/budget", DollarSign, management),
+    task(L("จัดซื้อจัดจ้าง", "Procurement"), "finance/procurement", ClipboardCheck, management),
+    task(L("ทะเบียนพัสดุและครุภัณฑ์", "Asset register"), "finance/assets", Package, management),
+    task(L("รายงานพัสดุ", "Asset reports"), "finance/assets/reports", BarChart3, management),
+    task(L("เงินอุดหนุนนักเรียน", "Student subsidies"), "finance/subsidy", Heart, management),
+  ]);
+  replaceTasks("office_docs", [
+    task(L("หนังสือราชการรับ–ส่ง", "Official correspondence"), "admin/document", FileText),
+    task(L("แบบฟอร์มอิเล็กทรอนิกส์", "Electronic forms"), "admin/eform", ClipboardList),
+    task(L("แม่แบบแบบฟอร์ม", "Form templates"), "admin/eform-templates", Layers, management),
+    task(L("แม่แบบและกรอกเอกสาร PDF", "PDF documents"), "admin/document-templates", FileText, management),
+    task(L("ข่าวและประกาศโรงเรียน", "School announcements"), "admin/news", Megaphone),
+    task(L("แจ้งเหตุฉุกเฉิน", "Emergency broadcast"), "admin/emergency", Bell),
+    task(L("ศูนย์งานพิมพ์", "Print center"), "admin/print-center", IdCard),
+  ]);
+  replaceTasks("student_health", [
+    task(L("น้ำหนัก ส่วนสูง และสุขภาพ", "Growth & health"), "student/health-trend", Heart),
+    task(L("บันทึกวัคซีน", "Vaccinations"), "admin/vaccine", ClipboardCheck),
+    task(L("คัดกรองนักเรียน", "Student screening"), "student/screening", Activity),
+    task(L("แบบประเมิน SDQ", "SDQ assessment"), "student/sdq", ClipboardList),
+    task(L("เยี่ยมบ้านนักเรียน", "Home visits"), "student/home-visit", Home),
+  ]);
+  const operations = departments.find(d => d.key === "office_ops");
+  if (operations) operations.items.push(
+    task(L("นมโรงเรียน", "School milk"), "admin/school-milk", Package),
+    task(L("โครงการและติดตามงบโครงการ", "Projects & project budgets"), "projects/hub", FolderOpen),
+    task(L("รายงานประเมินตนเอง SAR", "SAR report"), "admin/sar", BarChart3, management),
+    task(L("มาตรฐาน สมศ. / สพฐ.", "School quality standards"), "admin/smsc", ShieldCheck, management),
+    task(L("คะแนน O-NET / NT / PISA", "National test results"), "admin/test-scores", BarChart3, management),
+  );
   const group = (key: string, label: string, icon: NavigationItem["icon"], urls: string[]): NavigationGroup => ({ key, label, icon, items: urls.flatMap(url => mainItems.filter(i => i.url === url)) });
   const groups = (...keys: string[]) => departments.filter(d => keys.includes(d.key));
   const records = departments.find(d => d.key === "academic_records");
