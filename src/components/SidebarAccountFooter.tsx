@@ -71,7 +71,7 @@ export function SidebarAccountFooter() {
   return (
     <SidebarFooter className="border-t border-sidebar-border/70 bg-gradient-to-t from-sidebar-accent/25 to-transparent p-1.5 gap-1">
       {!collapsed ? (
-        <div className="flex items-center gap-1.5 min-w-0 px-1 py-0.5 pr-[4.5rem] md:pr-[4.5rem] rounded-lg hover:bg-sidebar-accent/40 transition-colors">
+        <div className="flex items-center gap-1.5 min-w-0 px-1 py-0.5 rounded-lg hover:bg-sidebar-accent/40 transition-colors md:pr-[4.5rem]">
           {avatarUrl ? (
             <img src={avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover ring-2 ring-primary/30 flex-shrink-0" />
           ) : (
