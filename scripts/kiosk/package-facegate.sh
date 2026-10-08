@@ -95,11 +95,19 @@ PY
 
 # ---------- 4) ห ่อ zip ----------
 python3 - "$STAGE" "$BUILD_DIR" "$VERSION" "$BUILD_NO" <<'PY'
-import os, sys
+import os, sys, zipfile
 stage, out, version, build = sys.argv[1:5]
-os.system(f'cd "{stage}" && zip -q -r -X "{out}/facegate-agent-installer.zip" facegate-agent')
-os.system(f'cp "{out}/facegate-agent-installer.zip" "{out}/facegate-agent-latest.zip"')
-os.system(f'cp "{out}/facegate-agent-installer.zip" "{out}/facegate-agent-v{version}-{build}.zip"')
+zipsrc = os.path.join(stage, "facegate-agent")
+names = sorted(f for f in os.listdir(zipsrc) if os.path.isfile(os.path.join(zipsrc, f)))
+target = os.path.join(out, "facegate-agent-installer.zip")
+with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as zf:
+    zf.writestr("facegate-agent/", "")
+    for n in names:
+        zf.write(os.path.join(zipsrc, n), f"facegate-agent/{n}")
+    print(f"[facegate] แพ็ก {len(names)} ไฟล ์ลง zip")
+for suffix in ("facegate-agent-latest.zip", f"facegate-agent-v{version}-{build}.zip"):
+    with open(target, "rb") as src, open(os.path.join(out, suffix), "wb") as dst:
+        dst.write(src.read())
 PY
 
 # ---------- 5) manifest ----------
