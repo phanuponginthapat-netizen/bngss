@@ -333,9 +333,12 @@ const ScoreEntryTab = () => {
       for (let i = 0; i < colIds.length; i += 50) chunks.push(colIds.slice(i, i + 50));
       const results: any[] = [];
       for (const chunk of chunks) {
-        const { data, error } = await supabase.from("student_column_scores").select("*").in("column_id", chunk).limit(5000);
-        if (error) throw error;
-        if (data) results.push(...data);
+        for (let from = 0; ; from += 1000) {
+          const { data, error } = await supabase.from("student_column_scores").select("*").in("column_id", chunk).order("id", { ascending: true }).range(from, from + 999);
+          if (error) throw error;
+          if (data) results.push(...data);
+          if (!data || data.length < 1000) break;
+        }
       }
       return results;
     },
