@@ -424,7 +424,6 @@ const App = () => {
                 <Route path="profile" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "alumni", "parent"]}><ProfilePage /></ProtectedRoute>} />
                 <Route path="settings/notifications" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "alumni", "parent"]}><NotificationSettingsPage /></ProtectedRoute>} />
                 <Route path="admin/notifications" element={<ProtectedRoute allowedRoles={["admin", "director"]}><NotificationDeliveryDashboard /></ProtectedRoute>} />
-                <Route path="admin/notification-matrix" element={<ProtectedRoute allowedRoles={["admin", "director"]}><NotificationMatrixPage /></ProtectedRoute>} />
                 <Route path="admin/permissions" element={<ProtectedRoute allowedRoles={["admin", "director"]}><PermissionsHubPage /></ProtectedRoute>} />
                 <Route path="admin/observation" element={<ProtectedRoute allowedRoles={["admin", "director"]}><ObservationAccessPage /></ProtectedRoute>} />
                 <Route path="admin/teacher-credentials" element={<ProtectedRoute allowedRoles={["admin", "director"]}><TeacherCredentialsPage /></ProtectedRoute>} />
@@ -515,7 +514,6 @@ const App = () => {
                 <Route path="admin/backup-center" element={<ProtectedRoute allowedRoles={["admin", "director"]}><BackupMigrationCenterPage /></ProtectedRoute>} />
                 <Route path="admin/secrets" element={<ProtectedRoute allowedRoles={["admin", "director"]}><Navigate to="/dashboard/admin/api-keys?tab=secrets" replace /></ProtectedRoute>} />
                 <Route path="admin/ai-analytics" element={<ProtectedRoute allowedRoles={["admin", "director"]}><AiAnalyticsPage /></ProtectedRoute>} />
-                <Route path="admin/system-update" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SystemUpdatePage /></ProtectedRoute>} />
                 <Route path="admin/kiosk-setup" element={<ProtectedRoute allowedRoles={["admin", "director"]}><KioskSetupPage /></ProtectedRoute>} />
                 <Route path="admin/ar" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><ARManagerPage /></ProtectedRoute>} />
                 <Route path="admin/kiosk-health" element={<ProtectedRoute allowedRoles={["admin", "director"]}><KioskDoorHealthPage /></ProtectedRoute>} />
@@ -524,12 +522,10 @@ const App = () => {
                 <Route path="admin/field-visibility" element={<ProtectedRoute allowedRoles={["admin", "director"]}><FieldVisibilityPage /></ProtectedRoute>} />
                 <Route path="admin/line-settings" element={<ProtectedRoute allowedRoles={["admin", "director"]}><LineSettingsPage /></ProtectedRoute>} />
                 <Route path="admin/social-feed" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SocialFeedPage /></ProtectedRoute>} />
-                <Route path="admin/semester-settings" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SemesterSettingsPage /></ProtectedRoute>} />
                 <Route path="admin/system-settings" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SystemSettingsPage /></ProtectedRoute>} />
                 <Route path="admin/dashboard-shortcuts" element={<ProtectedRoute allowedRoles={["admin", "director"]}><DashboardShortcutsAdminPage /></ProtectedRoute>} />
                 <Route path="admin/browser-shortcuts" element={<ProtectedRoute allowedRoles={["admin", "director"]}><BrowserShortcutsAdminPage /></ProtectedRoute>} />
                 <Route path="admin/browser-policy" element={<ProtectedRoute allowedRoles={["admin", "director"]}><BrowserPolicyPage /></ProtectedRoute>} />
-                <Route path="admin/module-toggles" element={<ProtectedRoute allowedRoles={["admin", "director"]}><ModuleTogglesPage /></ProtectedRoute>} />
                 <Route path="admin/school-location" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SchoolLocationPage /></ProtectedRoute>} />
                 <Route path="admin/school-settings" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SchoolSettingsPage /></ProtectedRoute>} />
                 <Route path="admin/eform" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["general_admin"]}><EFormPage /></DepartmentRoute></ProtectedRoute>} />

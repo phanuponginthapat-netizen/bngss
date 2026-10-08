@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { ClipboardCheck, Eye, Download, Printer, FileSpreadsheet, RefreshCw } from "lucide-react";
+import { ClipboardCheck, Eye, Download, Printer, FileSpreadsheet, RefreshCw, BellRing } from "lucide-react";
 import { getCurrentPeriod } from "@/lib/ppImportChecks";
 import { useUserRole } from "@/hooks/useUserRole";
 import { swal } from "@/lib/swal";
@@ -28,7 +28,7 @@ const StatusDot = ({ s }: { s: Status }) => (
 const yearsMatch = (be: number) => [be, be - 543];
 
 export default function ScoreStatusPage() {
-  const { userId } = useUserRole();
+  const { userId, isAdmin, isDirector } = useUserRole();
   const [year, setYear] = useState<number | null>(null);
   const [semester, setSemester] = useState<string>("1");
   const [classroomId, setClassroomId] = useState<string>("");
@@ -81,7 +81,7 @@ export default function ScoreStatusPage() {
       const yrs = yearsMatch(year!);
       const [assignRes, studentRes, fileRes] = await Promise.all([
         supabase.from("teacher_assignments")
-          .select("subject_id, personnel_id, semester, academic_year, subjects(id, code, name_th, credits, subject_type), personnel(prefix, first_name, last_name)")
+          .select("subject_id, personnel_id, semester, academic_year, subjects(id, code, name_th, credits, subject_type), personnel(prefix, first_name, last_name, user_id)")
           .eq("classroom_id", classroomId),
         supabase.from("students").select("student_code").eq("classroom_id", classroomId).eq("status", "active"),
         supabase.from("pp5_files")
@@ -119,8 +119,9 @@ export default function ScoreStatusPage() {
       assigns.forEach((a: any) => {
         const cur = bySubject.get(a.subject_id);
         const tName = a.personnel ? `${a.personnel.prefix || ""}${a.personnel.first_name} ${a.personnel.last_name}` : "";
-        if (cur) { if (tName && !cur.teachers.includes(tName)) cur.teachers.push(tName); return; }
-        bySubject.set(a.subject_id, { subject: a.subjects, teachers: tName ? [tName] : [] });
+        const uid = a.personnel?.user_id as string | undefined;
+        if (cur) { if (tName && !cur.teachers.includes(tName)) cur.teachers.push(tName); if (uid && !cur.userIds.includes(uid)) cur.userIds.push(uid); return; }
+        bySubject.set(a.subject_id, { subject: a.subjects, teachers: tName ? [tName] : [], userIds: uid ? [uid] : [] });
       });
 
       const total = codes.length;
@@ -134,6 +135,22 @@ export default function ScoreStatusPage() {
       }).sort((a, b) => (a.subject?.code || "").localeCompare(b.subject?.code || "", "th"));
     },
   });
+
+  const remindTeachers = async () => {
+    const pending = (rows || []).filter((r: any) => r.status !== "complete");
+    const ids = [...new Set(pending.flatMap((r: any) => r.userIds || []))];
+    if (!ids.length) { swal.info("ไม่มีครูที่ต้องเตือน", "ทุกวิชาในชั้นนี้ส่งคะแนนครบแล้ว หรือครูยังไม่ได้ผูกบัญชีผู้ใช้"); return; }
+    const room = (classrooms as any[]).find((c) => c.id === classroomId)?.name || "";
+    if (!(await swal.confirm({ title: `ส่งการแจ้งเตือนถึงครู ${ids.length} คน?`, text: `วิชาที่ยังไม่ส่งคะแนน ${pending.length} วิชา ชั้น ${room} ภาคเรียน ${semester}`, confirmText: "ส่งแจ้งเตือน" }))) return;
+    const { error } = await supabase.functions.invoke("notify-fanout", { body: {
+      user_ids: ids, type: "grade", severity: "warning",
+      title: "เตือนส่งคะแนน ปพ.5",
+      body: `ชั้น ${room} ภาคเรียน ${semester}/${year} ยังมีวิชาที่ยังไม่ส่งคะแนน กรุณาอัปโหลดไฟล์ ปพ.5`,
+      url: "/dashboard/academic/pp5",
+    } });
+    if (error) swal.error("ส่งแจ้งเตือนไม่สำเร็จ", error.message);
+    else swal.success("ส่งแจ้งเตือนแล้ว", `ส่งถึงครู ${ids.length} คน`);
+  };
 
   const summary = useMemo(() => {
     const s = { complete: 0, partial: 0, none: 0 } as Record<Status, number>;
@@ -171,9 +188,16 @@ export default function ScoreStatusPage() {
             <p className="text-sm text-muted-foreground">ติดตามว่าแต่ละวิชาในชั้นเรียนมีผลคะแนนครบหรือยัง</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={`mr-1.5 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> รีเฟรช
-        </Button>
+        <div className="flex gap-2">
+          {(isAdmin || isDirector) && (
+            <Button variant="outline" size="sm" onClick={remindTeachers} disabled={!rows?.length}>
+              <BellRing className="mr-1.5 h-4 w-4" /> เตือนครูที่ยังไม่ส่ง
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={`mr-1.5 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> รีเฟรช
+          </Button>
+        </div>
       </div>
 
       <Card>

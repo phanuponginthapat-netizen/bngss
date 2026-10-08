@@ -44,6 +44,27 @@ self.addEventListener("fetch", (event) => {
   })());
 });
 
+// Public storage images (logo, avatars, CMS images): stale-while-revalidate
+// แสดงจากเครื่องทันที แล้วค่อยอัปเดตเบื้องหลัง — ลดเวลาโหลดโลโก้ ~1.5s
+const PUBLIC_IMG_CACHE = "public-images-v1";
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
+  if (req.method !== "GET") return;
+  let url;
+  try { url = new URL(req.url); } catch { return; }
+  if (!url.pathname.includes("/storage/v1/object/public/")) return;
+  if (!/\.(png|jpe?g|webp|svg|gif|ico)$/i.test(url.pathname)) return;
+  event.respondWith((async () => {
+    const cache = await caches.open(PUBLIC_IMG_CACHE);
+    const hit = await cache.match(req);
+    const net = fetch(req).then((res) => {
+      if (res.ok) cache.put(req, res.clone()).catch(() => {});
+      return res;
+    }).catch(() => hit);
+    return hit || net;
+  })());
+});
+
 
 // Dedup: จำ tag ที่เพิ่งแสดงไปในหน้าต่างสั้น ๆ เพื่อกันแจ้งเตือนซ้ำ
 // (กรณี server ยิงซ้ำ / realtime + push มาพร้อมกัน)
