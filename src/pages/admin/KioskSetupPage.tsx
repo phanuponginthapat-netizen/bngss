@@ -661,8 +661,11 @@ export default function KioskSetupPage() {
           </div>
           {facegateRelease.version && (
             <p className="text-xs text-muted-foreground">
-              รุ่น {facegateRelease.version}{facegateRelease.release?.releasedAt ? ` มีวันสร้าง ${facegateRelease.release.releasedAt.slice(0, 10)}` : ""}
-              {facegateRelease.isBuilt ? " — กร็นสร้างอัตโนเมาติกรั้งตลาดแคลนกระคโดตัวปรับเปลี่ยน" : " — ยังไม่ได้กางจาก Actions จึงใช้ฟาล์ที่พร้อยมานในโปรเจกต์"}
+              รุ ่ น {facegateRelease.version}
+              {facegateRelease.release?.releasedAt ? ` · สร ้างเมื่ อ ${facegateRelease.release.releasedAt.slice(0, 10)}` : ""}
+              {facegateRelease.isBuilt
+                ? " · เป ็ นร ุ ่ นล ่ าสุดท ี่ Actions สร ้างอ ั ตโนม ั ติ"
+                : " · ย ังไม ่ เคย สร ้างจาก Actions จ ึงใช ้ไฟล ์ท ี่ แนบไว ้ในโปรเจกต ์"}
             </p>
           )}
 
