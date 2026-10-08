@@ -273,7 +273,7 @@ const StaffLeavePage = () => {
   const handleApprove = async (id: string) => {
     console.log("[StaffLeave] approve clicked", { id, role, canApprove });
     const record = records.find((r: any) => r.id === id);
-    if (!userId) { swal.error?.("กรุณาเข้าสู่ระบบใหม่"); return; }
+    if (!userId) { swal.error("กรุณาเข้าสู่ระบบใหม่"); return; }
     const { data: updated, error: updErr } = await supabase
       .from("staff_leaves")
       .update({
