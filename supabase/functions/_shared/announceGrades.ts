@@ -5,6 +5,8 @@ import { fanout } from "./fanout.ts";
 export interface AnnounceGradesOptions {
   authHeader: string;
   file_id: string;
+  /** ผู้เรียกเพิ่งบันทึกคะแนนเข้าระบบสำเร็จ (แต่อาจอัปเดตสถานะไฟล์ไม่ได้) */
+  applied?: boolean;
   table: "pp5_files" | "pp6_files";
   /** Compose the title/body per student. */
   buildMessage: (file: any) => {
@@ -41,6 +43,11 @@ export async function announceGrades(opts: AnnounceGradesOptions) {
   const isPrivileged = roleSet.has("admin") || roleSet.has("director");
   if (!isPrivileged && (file as any).uploaded_by && (file as any).uploaded_by !== caller.id) {
     throw new Error("ประกาศได้เฉพาะไฟล์ที่ท่านอัปโหลดเอง");
+  }
+  if (!(file as any).applied_at && opts.applied) {
+    const now = new Date().toISOString();
+    await admin.from(opts.table).update({ applied_at: now }).eq("id", opts.file_id);
+    (file as any).applied_at = now;
   }
   if (!(file as any).applied_at) {
     throw new Error("ยังไม่ได้บันทึกคะแนนจากไฟล์นี้เข้าระบบ — กด 'บันทึกเข้าระบบ' ก่อนประกาศ");

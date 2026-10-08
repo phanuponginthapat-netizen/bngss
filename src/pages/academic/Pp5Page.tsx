@@ -1451,8 +1451,9 @@ const FileTab = () => {
     const t = toast.loading("กำลังประกาศ...");
     try {
       // ต้องบันทึกคะแนนเข้าระบบก่อน นักเรียนจึงเห็นผลในหน้าโปรไฟล์ตรงกับที่ประกาศ
-      if (!file.applied_at) await applyPp5FileToSystem(file);
-      const { data, error } = await supabase.functions.invoke("announce-pp5-scores", { body: { file_id: file.id } });
+      let justApplied = false;
+      if (!file.applied_at) { await applyPp5FileToSystem(file); justApplied = true; }
+      const { data, error } = await supabase.functions.invoke("announce-pp5-scores", { body: { file_id: file.id, applied: justApplied } });
       if (error) {
         const ctx: any = (error as any).context;
         let msg = error.message;
