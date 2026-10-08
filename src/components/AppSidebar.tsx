@@ -22,6 +22,12 @@ export function AppSidebar() {
   const [search, setSearch] = useState("");
   const [closedSections, setClosedSections] = useState<string[]>([]);
   const L = (th: string, en: string) => lang === "th" ? th : en;
+  // แสดงชื่อบรืการสั้น ๆ บรรทัดเดียว (เช่น "BNG Smart School") โดยไม่แสดงชื่โรงเรียนยาวซ้ำ
+  const brandTitle = (() => {
+    const base = ((appName || appShortName || schoolName) || "").replace(/\s+/g, " ").trim();
+    const latin = (base.match(/^[A-Za-z0-9][A-Za-z0-9&.,'’+\- ]*/) ?? [""])[0].trim();
+    return latin.length >= 3 ? latin : base || "BNG Smart School";
+  })();
   const areas = visibleWorkAreas(buildWorkAreas(lang), role, isModuleEnabled);
   const activeArea = findWorkArea(areas, pathname);
   type CompactSection = { label: string; icon?: NavigationItem["icon"]; items: { to: string; icon: NavigationItem["icon"]; label: string }[] };
