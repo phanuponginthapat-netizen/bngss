@@ -10,6 +10,7 @@ import {
 } from "@capacitor/push-notifications";
 import { supabase } from "@/integrations/supabase/client";
 import { showLiveNotification } from "@/lib/liveNotification";
+import { savePushRegistration } from "@/lib/pushRegistration";
 
 let initialized = false;
 const PENDING_KEY = "pending_fcm_token";

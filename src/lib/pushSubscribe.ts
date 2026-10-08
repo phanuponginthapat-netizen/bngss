@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { savePushRegistration } from "@/lib/pushRegistration";
 
 // VAPID public key — fetched from backend so it always matches the server-side VAPID_PRIVATE_KEY.
 export const VAPID_PUBLIC_KEY_FALLBACK =
@@ -165,7 +166,7 @@ export async function subscribeToPush(): Promise<{ success: boolean; error?: str
     auth: json.keys?.auth || "",
     provider: "webpush",
   });
-  if (error) return { success: false, error: error.message };
+  if (error) return { success: false, error: error.message || "บันทึกอุปกรณ์ไม่สำเร็จ" };
   return { success: true };
 }
 
