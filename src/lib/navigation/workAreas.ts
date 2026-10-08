@@ -387,8 +387,12 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
       ] },
     ] },
     { key: "academic", label: L("ฝ่ายวิชาการ", "Academic affairs"), icon: BookOpen, groups: [
+      { key: "academic_submissions", label: L("งานส่งฝ่ายวิชาการ", "Academic submissions"), icon: ClipboardCheck, roles: ["admin", "director", "teacher"], items: groups("academic_teaching").flatMap(g => g.items).filter(i => ["/dashboard/academic/lesson-plans", "/dashboard/academic/logbook"].includes(i.url)) },
+    ] },
+    { key: "teaching", label: L("งานเรียนและการสอน", "Learning & teaching"), icon: BookOpenCheck, groups: [
       group("learning", L("งานเรียนและงานสอน", "Learning & teaching"), BookOpen, ["/dashboard/academic/schedule", "/dashboard/academic/calendar", "/dashboard/homework", "/dashboard/padlet"]),
-      ...groups("academic_teaching", "academic_learn", "services_ar"),
+      { key: "teaching_overview", label: L("งานสอน", "Teaching"), icon: Sparkles, roles: ["admin", "director", "teacher"], items: groups("academic_teaching").flatMap(g => g.items).filter(i => i.url === "/dashboard/academic/teaching-hub") },
+      ...groups("academic_learn", "services_ar"),
       { key: "curriculum", label: L("หลักสูตรและห้องเรียน", "Curriculum & classrooms"), icon: SettingsIcon, items: groups("academic_manage").flatMap(g => g.items).filter(i => i.url === "/dashboard/academic/management") },
     ] },
     { key: "student", label: L("ฝ่ายกิจการนักเรียน", "Student affairs"), icon: Heart, groups: [

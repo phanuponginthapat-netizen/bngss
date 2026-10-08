@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { buildWorkAreas, visibleWorkAreas, dailyNavigationItems, findWorkArea, areaUrl } from "../navigation/workAreas";
 
 describe("department navigation", () => {
+  it("limits academic affairs to submissions and preserves learning tools elsewhere", () => {
+    const areas = buildWorkAreas();
+    const academic = areas.find(a => a.key === "academic")?.groups.flatMap(g => g.items.map(i => i.url));
+    expect(academic).toEqual(["/dashboard/academic/lesson-plans", "/dashboard/academic/logbook"]);
+    const teaching = areas.find(a => a.key === "teaching")?.groups.flatMap(g => g.items.map(i => i.url));
+    for (const url of ["/dashboard/homework", "/dashboard/padlet", "/dashboard/exam", "/dashboard/academic/schedule", "/dashboard/academic/management", "/dashboard/academic/teaching-hub"]) expect(teaching).toContain(url);
+    expect(findWorkArea(areas, "/dashboard/homework")?.key).toBe("teaching");
+    expect(visibleWorkAreas(areas, "student", () => true).map(a => a.key)).not.toContain("academic");
+    expect(dailyNavigationItems(visibleWorkAreas(areas, "teacher", () => true)).map(i => i.url)).toContain("/dashboard/academic/schedule");
+  });
   it("restores daily shortcuts using the same role and module filters", () => {
     const urls = (role: "teacher" | "student", enabled = (_key?: string | null) => true) => dailyNavigationItems(visibleWorkAreas(buildWorkAreas(), role, enabled)).map(i => i.url);
     expect(urls("teacher")).toContain("/dashboard/hr/time-clock");
