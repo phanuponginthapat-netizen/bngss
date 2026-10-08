@@ -14,7 +14,9 @@ Start with:  python agent.py
 """
 
 import base64
+import hashlib
 import io
+import zipfile
 from datetime import datetime, timezone
 import json
 import os
