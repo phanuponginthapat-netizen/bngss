@@ -22,6 +22,23 @@ BEGIN
   END LOOP;
 END $$;
 
+-- 1.5) ปีการศึกษาเก็บเป็น ค.ศ. — แปลงแถวที่บันทึกเป็น พ.ศ. (>2400)
+--      ถ้ามีแถว ค.ศ. ของเทอมเดียวกันอยู่แล้ว เก็บแถวที่อัปเดตล่าสุดไว้
+DELETE FROM public.student_scores b
+USING public.student_scores c
+WHERE b.academic_year > 2400
+  AND c.academic_year = b.academic_year - 543
+  AND c.student_code = b.student_code AND c.subject_id = b.subject_id
+  AND c.semester IS NOT DISTINCT FROM b.semester
+  AND COALESCE(c.updated_at, c.created_at) >= COALESCE(b.updated_at, b.created_at);
+DELETE FROM public.student_scores c
+USING public.student_scores b
+WHERE b.academic_year > 2400
+  AND c.academic_year = b.academic_year - 543
+  AND c.student_code = b.student_code AND c.subject_id = b.subject_id
+  AND c.semester IS NOT DISTINCT FROM b.semester;
+UPDATE public.student_scores SET academic_year = academic_year - 543 WHERE academic_year > 2400;
+
 -- 2) เงื่อนไขใหม่: แยกตามภาคเรียนและปีการศึกษา
 DO $$
 BEGIN

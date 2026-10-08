@@ -27,7 +27,7 @@ import { swal } from "@/lib/swal";
 import { CalendarClock, Sparkles } from "lucide-react";
 import { KEY_COMPETENCIES, DESIRABLE_CHARACTERISTICS, READ_THINK_WRITE_STANDARDS } from "@/lib/obecStandards";
 import { BE_OFFSET } from "@/lib/dateBE";
-import { applyPp5FileToSystem } from "@/lib/pp5ApplyToSystem";
+import { applyPp5FileToSystem, upsertStudentScoresForTerm } from "@/lib/pp5ApplyToSystem";
 import { saveErrorMessage, safeNum } from "@/lib/saveError";
 
 const OBEC_PRESETS: Record<string, { title: string; description?: string }[]> = {
