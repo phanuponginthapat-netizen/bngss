@@ -423,3 +423,18 @@ export function visibleWorkAreas(areas: WorkArea[], role: AppRole | null, isEnab
 export function findWorkArea(areas: WorkArea[], pathname: string): WorkArea | undefined {
   return areas.find(a => areaUrl(a.key) === pathname) ?? areas.find(a => a.groups.some(g => g.items.some(i => i.url.split("?")[0] === pathname))) ?? areas.find(a => a.groups.some(g => g.items.some(i => pathname.startsWith(i.url.split("?")[0] + "/"))));
 }
+export function dailyNavigationItems(visibleAreas: WorkArea[]): NavigationItem[] {
+  const urls = [
+    "/dashboard/hr/time-clock", "/dashboard/student/face-scan",
+    "/dashboard/student/attendance", "/dashboard/academic/schedule",
+    "/dashboard/homework", "/dashboard/padlet", "/dashboard/student/behavior",
+    "/dashboard/student/leave", "/dashboard/hr/leave",
+    "/dashboard/admin/staff-tasks", "/dashboard/academic/calendar",
+    "/dashboard/feed",
+  ];
+  const items = visibleAreas.flatMap(a => a.groups.flatMap(g => g.items));
+  return urls.flatMap(url => {
+    const item = items.find(i => i.url === url);
+    return item ? [item] : [];
+  });
+}
