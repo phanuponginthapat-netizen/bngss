@@ -70,6 +70,26 @@ export const MODULES: ModuleDef[] = [
   { key: "assets", label: "ทะเบียนพัสดุ", labelEn: "Assets", desc: "ทะเบียนพัสดุและครุภัณฑ์", group: "finance", urlPrefixes: ["/dashboard/finance/assets"] },
   { key: "subsidy", label: "เงินอุดหนุน", labelEn: "Subsidies", desc: "เงินอุดหนุนรายหัวนักเรียน", group: "finance", urlPrefixes: ["/dashboard/finance/subsidy"] },
 
+  { key: "pp_docs", label: "เอกสาร ปพ.3/7/8", labelEn: "PP Docs", desc: "รวมเอกสาร ปพ.3 ปพ.7 ปพ.8", group: "academic", urlPrefixes: ["/dashboard/academic/pp-docs"] },
+  { key: "grade_remediation", label: "แก้ 0 ร มส", labelEn: "Grade Remediation", desc: "ติดตามแก้ผลการเรียน 0 ร มส", group: "academic", urlPrefixes: ["/dashboard/academic/grade-remediation"] },
+  { key: "probation", label: "พักการเรียน", labelEn: "Probation", desc: "บันทึกนักเรียนพักการเรียน", group: "academic", urlPrefixes: ["/dashboard/academic/probation"] },
+  { key: "lesson_plans", label: "แผนการจัดการเรียนรู้", labelEn: "Lesson Plans", desc: "แผนการสอนรายวิชา", group: "academic", urlPrefixes: ["/dashboard/academic/lesson-plans"] },
+  { key: "logbook", label: "บันทึกหลังการสอน", labelEn: "Teaching Log", desc: "บันทึกหลังการสอนของครู", group: "academic", urlPrefixes: ["/dashboard/academic/logbook"] },
+  { key: "teaching_hub", label: "ศูนย์งานสอน", labelEn: "Teaching Hub", desc: "รวมงานสอนของครู", group: "academic", urlPrefixes: ["/dashboard/academic/teaching-hub"] },
+  { key: "alumni", label: "ทะเบียนศิษย์เก่า", labelEn: "Alumni", desc: "ข้อมูลศิษย์เก่า", group: "academic", urlPrefixes: ["/dashboard/academic/alumni"] },
+  { key: "learning_center", label: "จองห้อง/ศูนย์การเรียนรู้", labelEn: "Room Booking", desc: "จองห้องและตารางการใช้งาน", group: "academic", urlPrefixes: ["/dashboard/academic/learning-center", "/dashboard/admin/special-rooms"] },
+  { key: "sar", label: "รายงาน SAR", labelEn: "SAR", desc: "รายงานการประเมินตนเอง", group: "academic", urlPrefixes: ["/dashboard/admin/sar"] },
+  { key: "offsite_trips", label: "พานักเรียนออกนอกพื้นที่", labelEn: "Offsite Trips", desc: "ขออนุญาตพานักเรียนออกนอกสถานที่", group: "student", urlPrefixes: ["/dashboard/student/offsite-trips"] },
+  { key: "student_health", label: "งานอนามัย", labelEn: "Student Health", desc: "อนามัยและคัดกรองนักเรียน", group: "student", urlPrefixes: ["/dashboard/hub/student-health"] },
+  { key: "wellbeing", label: "เช็คใจ & แววอาชีพ", labelEn: "Wellbeing", desc: "สุขภาพจิตและแววอาชีพ", group: "student", urlPrefixes: ["/dashboard/hub/wellbeing"] },
+  { key: "my_face", label: "ลงทะเบียนใบหน้าของฉัน", labelEn: "My Face", desc: "นักเรียนลงทะเบียนใบหน้าเอง", group: "student", urlPrefixes: ["/dashboard/student/my-face"] },
+  { key: "early_warning", label: "แจ้งเตือนเสี่ยง", labelEn: "Early Warning", desc: "นักเรียนกลุ่มเสี่ยง", group: "student", urlPrefixes: ["/dashboard/admin/early-warning"] },
+  { key: "feed", label: "ประชาสัมพันธ์ออนไลน์", labelEn: "Feed", desc: "ฟีดประชาสัมพันธ์ภายใน", group: "general", urlPrefixes: ["/dashboard/feed"] },
+  { key: "inbox", label: "กล่องข้อความ", labelEn: "Inbox", desc: "กล่องงาน/ข้อความ", group: "general", urlPrefixes: ["/dashboard/inbox"] },
+  { key: "staff_tasks", label: "สั่งงานบุคลากร", labelEn: "Staff Tasks", desc: "มอบหมายงานบุคลากร", group: "general", urlPrefixes: ["/dashboard/admin/staff-tasks"] },
+  { key: "duty", label: "ครูเวรประจำวัน", labelEn: "Duty", desc: "ตารางและบันทึกครูเวร", group: "general", urlPrefixes: ["/dashboard/admin/duty-teachers"] },
+  { key: "observation", label: "สังเกตการสอน / ศน.", labelEn: "Observation", desc: "บัญชีผู้สังเกตการณ์และสังเกตการสอน", group: "general", urlPrefixes: ["/dashboard/admin/observation", "/dashboard/admin/observation-sessions"] },
+
   // บุคลากร (HR)
   { key: "hr_attendance", label: "การมาทำงานครู", labelEn: "Staff Attendance", desc: "สรุปการมาปฏิบัติงานของบุคลากร", group: "hr", urlPrefixes: ["/dashboard/hr/attendance-dashboard"] },
   { key: "time_clock", label: "ลงเวลาทำงาน", labelEn: "Time Clock", desc: "บันทึกเวลาเข้า-ออกงาน", group: "hr", urlPrefixes: ["/dashboard/hr/time-clock"] },
@@ -100,10 +120,24 @@ export const MODULES: ModuleDef[] = [
   { key: "backup_external", label: "สำรองข้อมูลภายนอก", labelEn: "External Backup", desc: "Backup ไป Google Drive/S3", group: "integrations", urlPrefixes: ["/dashboard/admin/backup-external"] },
   { key: "backup_center", label: "Backup & Migration Center", labelEn: "Backup & Migration", desc: "สำรอง/กู้คืน/ย้ายระบบทั้งหมด — 1 คลิก", group: "integrations", urlPrefixes: ["/dashboard/admin/backup-center"] },
 
+  { key: "kiosk", label: "ตู้ Kiosk / Smart Gate", labelEn: "Kiosk", desc: "ติดตั้งและสถานะตู้สแกนหน้าประตู", group: "integrations", urlPrefixes: ["/dashboard/admin/kiosk-setup", "/dashboard/admin/kiosk-health", "/dashboard/admin/smart-gate"] },
+  { key: "safe_browser", label: "Safe Browser & เฝ้าจอ", labelEn: "Safe Browser", desc: "เบราว์เซอร์ปลอดภัย นโยบาย และเฝ้าดูหน้าจอ", group: "integrations", urlPrefixes: ["/dashboard/browser", "/dashboard/admin/browser-shortcuts", "/dashboard/admin/browser-policy", "/dashboard/admin/monitor", "/dashboard/monitor"] },
+  { key: "google_drive", label: "Google Drive / Office", labelEn: "Drive & Office", desc: "Drive ส่วนตัวและชุดเอกสาร Office", group: "integrations", urlPrefixes: ["/dashboard/my-drive", "/dashboard/office"] },
+  { key: "line_vault", label: "LINE Vault", labelEn: "LINE Vault", desc: "คลังไฟล์จาก LINE OA", group: "integrations", urlPrefixes: ["/dashboard/line-vault"] },
+  { key: "bigdata", label: "BigData / คุณภาพข้อมูล", labelEn: "BigData", desc: "วิเคราะห์และตรวจความสมบูรณ์ข้อมูล", group: "integrations", urlPrefixes: ["/dashboard/admin/bigdata", "/dashboard/admin/data-quality"] },
+  { key: "data_archive", label: "จัดเก็บ/สำรองข้อมูล (Drive)", labelEn: "Data Archive", desc: "ย้ายข้อมูลเก่าไป Google Drive", group: "integrations", urlPrefixes: ["/dashboard/admin/data-archive"] },
+
   // โมดูลเสริม
   { key: "help", label: "ศูนย์ช่วยเหลือ", labelEn: "Help Center", desc: "คู่มือ FAQ และวิธีใช้งาน", group: "extras", urlPrefixes: ["/dashboard/help", "/help"] },
-  { key: "garbage", label: "ธนาคารขยะ", labelEn: "Garbage Bank", desc: "สะสมแต้มขยะรีไซเคิลและของรางวัล", group: "extras", urlPrefixes: ["/dashboard/garbage"] },
-  { key: "ict_loans", label: "ยืม-คืน ICT", labelEn: "ICT Loans", desc: "ยืม-คืนอุปกรณ์ ICT", group: "extras", urlPrefixes: ["/dashboard/admin/ict-loans", "/dashboard/admin/ict-loan-history", "/dashboard/admin/ict-devices", "/dashboard/admin/ict-loan-report"] },
+  { key: "garbage", label: "ธนาคารขยะ", labelEn: "Garbage Bank", desc: "สะสมแต้มขยะรีไซเคิลและของรางวัล", group: "extras", urlPrefixes: ["/dashboard/garbage", "/dashboard/hub/garbage"] },
+  { key: "ict_loans", label: "ยืม-คืน ICT", labelEn: "ICT Loans", desc: "ยืม-คืนอุปกรณ์ ICT", group: "extras", urlPrefixes: ["/dashboard/admin/ict-catalog", "/dashboard/admin/ict-loans", "/dashboard/admin/ict-loan-history", "/dashboard/admin/ict-devices", "/dashboard/admin/ict-loan-report"] },
+  { key: "portfolio", label: "แฟ้มสะสมผลงาน", labelEn: "Portfolio", desc: "แฟ้มผลงานนักเรียน/ครู", group: "extras", urlPrefixes: ["/dashboard/portfolio"] },
+  { key: "members", label: "ทำเนียบสมาชิก", labelEn: "Members", desc: "รายชื่อบุคลากรและนักเรียน", group: "extras", urlPrefixes: ["/dashboard/members"] },
+  { key: "padlet", label: "กระดานโน้ต (Padlet)", labelEn: "Padlet", desc: "กระดานแปะโน้ตร่วมกัน", group: "extras", urlPrefixes: ["/dashboard/padlet"] },
+  { key: "games", label: "ศูนย์เกมการเรียนรู้", labelEn: "Games", desc: "เกมการเรียนรู้", group: "extras", urlPrefixes: ["/dashboard/hub/games"] },
+  { key: "activities", label: "กิจกรรมและการแข่งขัน", labelEn: "Activities", desc: "กิจกรรม แข่งขัน จัดสาย", group: "extras", urlPrefixes: ["/dashboard/activities"] },
+  { key: "certificates", label: "เกียรติบัตร", labelEn: "Certificates", desc: "ออกเกียรติบัตร", group: "extras", urlPrefixes: ["/dashboard/certificates"] },
+  { key: "ar", label: "งาน AR", labelEn: "AR", desc: "สื่อการเรียนรู้ AR", group: "extras", urlPrefixes: ["/dashboard/admin/ar"] },
 ];
 
 export const GROUP_LABELS: Record<ModuleGroup, { th: string; en: string }> = {
