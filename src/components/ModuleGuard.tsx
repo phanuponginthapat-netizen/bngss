@@ -1,32 +1,33 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 import { useModuleToggles } from "@/hooks/useModuleToggles";
 import { getModuleKeyForPath, MODULES } from "@/lib/moduleRegistry";
 
 /**
- * Redirects users away from pages that belong to disabled modules.
- * Mounted once inside DashboardLayout — does not render anything.
+ * Disabled modules are fully hidden: any direct link to them is redirected
+ * silently, and every in-page link pointing at them is hidden via CSS.
+ * Mounted once inside DashboardLayout.
  */
 export function ModuleGuard() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { isModuleEnabled } = useModuleToggles();
-  const lastBlocked = useRef<string | null>(null);
+  const { isModuleEnabled, disabledKeys } = useModuleToggles();
 
   useEffect(() => {
     const key = getModuleKeyForPath(pathname);
-    if (key && !isModuleEnabled(key)) {
-      if (lastBlocked.current !== pathname) {
-        lastBlocked.current = pathname;
-        const m = MODULES.find((x) => x.key === key);
-        toast.error("โมดูลนี้ถูกปิดใช้งาน", {
-          description: m ? `"${m.label}" ถูกผู้ดูแลปิดไว้` : undefined,
-        });
-      }
-      navigate("/dashboard", { replace: true });
-    }
+    if (key && !isModuleEnabled(key)) navigate("/dashboard", { replace: true });
   }, [pathname, isModuleEnabled, navigate]);
 
-  return null;
+  const css = useMemo(() => {
+    const sel: string[] = [];
+    for (const m of MODULES) {
+      if (!disabledKeys.has(m.key)) continue;
+      for (const p of m.urlPrefixes) {
+        sel.push(`a[href="${p}"]`, `a[href^="${p}/"]`, `a[href^="${p}?"]`);
+      }
+    }
+    return sel.length ? `${sel.join(",")}{display:none!important}` : "";
+  }, [disabledKeys]);
+
+  return css ? <style data-module-guard>{css}</style> : null;
 }
