@@ -70,6 +70,8 @@ const AttendancePage = () => {
           .from("attendance")
           .select("*, students(student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level)), subjects(id, name_th, code)")
           .order("created_at", { ascending: false })
+          // หน้านี้คือเช็คชื่อรายคาบวิชาเท่านั้น — ไม่รวมการสแกนหน้าเข้าโรงเรียน (ไม่มีวิชา)
+          .not("subject_id", "is", null)
           .range(from, from + PAGE - 1);
 
         if (dbAcademicYear) query = query.eq("academic_year", dbAcademicYear);
