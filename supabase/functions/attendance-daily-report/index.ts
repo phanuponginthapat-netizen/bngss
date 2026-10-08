@@ -51,7 +51,8 @@ serve(async (req) => {
     const { data: atts, error: attErr } = await sb
       .from("attendance")
       .select("student_id, status")
-      .eq("attendance_date", targetDate);
+      .eq("attendance_date", targetDate)
+      .is("subject_id", null);
     if (attErr) throw attErr;
 
     // map: latest status per student (priority: present > late > leave > absent — present wins)

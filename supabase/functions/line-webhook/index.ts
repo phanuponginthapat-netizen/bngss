@@ -744,7 +744,7 @@ async function handleRoomSummary(sb: any, token: string, rt: string, classroomId
   const monthStart = today.slice(0,7) + "-01";
 
   const [att, beh, lv] = await Promise.all([
-    sb.from("attendance").select("status").in("student_id", ids).eq("attendance_date", today),
+    sb.from("attendance").select("status").in("student_id", ids).eq("attendance_date", today).is("subject_id", null),
     sb.from("behavior_records").select("behavior_type").in("student_id", ids).gte("record_date", monthStart),
     sb.from("student_leaves").select("status").in("student_id", ids).gte("start_date", monthStart),
   ]);
@@ -1010,7 +1010,7 @@ async function handleSchoolOverview(sb: any, token: string, rt: string, lineUser
   const [students, staff, attToday, pendingS, pendingT, news] = await Promise.all([
     sb.from("students").select("id", { count: "exact", head: true }).eq("status", "active"),
     sb.from("personnel").select("id", { count: "exact", head: true }).eq("status", "active"),
-    sb.from("attendance").select("status").eq("attendance_date", today),
+    sb.from("attendance").select("status").eq("attendance_date", today).is("subject_id", null),
     sb.from("student_leaves").select("id", { count: "exact", head: true }).eq("status", "pending"),
     sb.from("staff_leaves").select("id", { count: "exact", head: true }).eq("status", "pending"),
     sb.from("news_posts").select("id", { count: "exact", head: true }).eq("is_published", false),
@@ -1383,7 +1383,7 @@ async function handleSmartQuery(sb: any, token: string, rt: string, lineUserId: 
     }
     if (/(ขาด|สาย|ป่วย).*(วันนี้|กี่คน|บ้าง)/.test(t)) {
       const today = todayBangkokISO();
-      const { data: att } = await sb.from("attendance").select("status").eq("attendance_date", today);
+      const { data: att } = await sb.from("attendance").select("status").eq("attendance_date", today).is("subject_id", null);
       const c = { absent: 0, late: 0, sick: 0, present: 0 } as any;
       (att || []).forEach((r: any) => { c[r.status] = (c[r.status] || 0) + 1; });
       await replyFlex(token, rt, "สรุปวันนี้", buildListCard("📊 การมาเรียนทั้งโรงเรียน วันนี้", [
