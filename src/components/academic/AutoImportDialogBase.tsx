@@ -118,6 +118,7 @@ export function AutoImportDialogBase<T>({
     const uid = userData?.user?.id;
 
 
+    let replacedApplied = 0;
     for (const it of ready) {
       updateItem(it.file, { status: "uploading" });
       try {
@@ -149,10 +150,6 @@ export function AutoImportDialogBase<T>({
             duplicateOf: (dupe as any).id,
           });
           continue;
-        }
-        if (dupe && it.confirmedDuplicate) {
-          if ((dupe as any).file_path) await supabase.storage.from(bucket).remove([(dupe as any).file_path]);
-          await (supabase.from(tableName) as any).delete().eq("id", (dupe as any).id);
         }
 
         // Supabase Storage รับเฉพาะ key แบบ ASCII — ชื่อไฟล์/ระดับชั้นภาษาไทยทำให้ "Invalid key"
@@ -187,7 +184,7 @@ export function AutoImportDialogBase<T>({
         if ((parsedExtra as any).classroom_id) fkCols.classroom_id = (parsedExtra as any).classroom_id;
         if ((parsedExtra as any).personnel_id) fkCols.personnel_id = (parsedExtra as any).personnel_id;
 
-        const { error: insErr } = await (supabase.from(tableName) as any).insert({
+        const { data: inserted, error: insErr } = await (supabase.from(tableName) as any).insert({
           file_name: it.file.name,
           file_url: pub.publicUrl,
           file_path: path,
@@ -200,8 +197,22 @@ export function AutoImportDialogBase<T>({
           parse_status: "parsed",
           ...fkCols,
           ...insertExtra,
-        });
+        }).select("*").single();
         if (insErr) throw insErr;
+
+        // อัปโหลดทับ: ลบไฟล์เดิมหลังบันทึกไฟล์ใหม่สำเร็จ แล้วดึงคะแนนจากไฟล์ใหม่ทับทันที
+        if (dupe && it.confirmedDuplicate) {
+          if ((dupe as any).file_path) await supabase.storage.from(bucket).remove([(dupe as any).file_path]);
+          const { error: delErr } = await (supabase.from(tableName) as any).delete().eq("id", (dupe as any).id);
+          if (delErr) console.warn("[import] remove old file row failed", delErr);
+          const kind = tableName === "pp6_files" ? "pp6" : "pp5";
+          try {
+            await applyPpFileToSystem(inserted, kind);
+            replacedApplied += 1;
+          } catch (e: any) {
+            throw new Error(`อัปโหลดไฟล์ใหม่แล้ว แต่อัปเดตคะแนนไม่สำเร็จ: ${e?.message || e} — กด "บันทึกเข้าระบบ" ในรายการไฟล์อีกครั้ง`);
+          }
+        }
 
         okCount += 1;
         updateItem(it.file, { status: "done", alumniCreated, error: undefined });
@@ -211,7 +222,11 @@ export function AutoImportDialogBase<T>({
     }
     setBusy(false);
     if (okCount > 0) {
-      toast.success(`นำเข้าสำเร็จ ${okCount} ไฟล์ — กดปุ่ม 'ประกาศ' ในหน้าไฟล์เพื่อแจ้งนักเรียน`);
+      toast.success(
+        replacedApplied > 0
+          ? `นำเข้าสำเร็จ ${okCount} ไฟล์ — อัปเดตคะแนนจากไฟล์ใหม่แทนไฟล์เดิมแล้ว ${replacedApplied} ไฟล์ (กด 'ประกาศ' อีกครั้งถ้าต้องแจ้งนักเรียน)`
+          : `นำเข้าสำเร็จ ${okCount} ไฟล์ — กดปุ่ม 'ประกาศ' ในหน้าไฟล์เพื่อแจ้งนักเรียน`,
+      );
       onImportSuccess?.();
     } else {
       toast.error("นำเข้าไม่สำเร็จ — ตรวจข้อความผิดพลาดในแต่ละไฟล์");
@@ -273,7 +288,7 @@ export function AutoImportDialogBase<T>({
                               {it.duplicateOf && !it.confirmedDuplicate && (
                                 <Button size="sm" variant="outline" className="h-7 text-xs"
                                   onClick={() => updateItem(it.file, { status: "ready", error: undefined, confirmedDuplicate: true })}>
-                                  อัปโหลดทับ (ไฟล์เก่าจะถูกลบ)
+                                  อัปโหลดทับ (ลบไฟล์เก่า + อัปเดตคะแนนทันที)
                                 </Button>
                               )}
                               {it.parsed && !it.duplicateOf && (
