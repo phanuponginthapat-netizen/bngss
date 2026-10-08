@@ -1,7 +1,7 @@
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookOpen, Users, ClipboardList, GraduationCap, ShieldAlert } from "lucide-react";
+import { BookOpen, Users, ClipboardList, GraduationCap } from "lucide-react";
 import TeacherSubjectPage from "./TeacherSubjectPage";
 import ClassroomManagementPage from "./ClassroomManagementPage";
 import EnrollmentPage from "./EnrollmentPage";
