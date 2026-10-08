@@ -239,7 +239,7 @@ function classifyColumns(
       const v = grid[r]?.[c];
       if (v === null || v === undefined || v === "") continue;
       sampleCount++;
-      if (isNum(v) || /^(ดีเยี่ยม|ดี|ผ่าน|ไม่ผ่าน|มส|ร|มผ|[0-4](\.[05])?)$/i.test(String(v).trim())) numCount++;
+      if (isNum(v) || /^(ดีเยี่ยม|ดี|ผ่าน|ไม่ผ่าน|มส|ร|มผ|ผ|[0-4](\.[05])?)$/i.test(String(v).trim())) numCount++;
       if (isNum(v)) {
         const n = Number(v);
         if (r === dataStart) prev = n;
@@ -251,6 +251,31 @@ function classifyColumns(
     if (sampleCount > 0 && numCount / sampleCount >= 0.6) numericCols.push(c);
   }
   return { numericCols, totalCol, gradeCol };
+}
+
+/** ผลวิชากิจกรรม (แนะแนว ลูกเสือ ฯลฯ) — ไม่มีคะแนน มีแค่ ผ / มผ */
+const PASS_FAIL_RE = /^(ผ|มผ|ผ่าน|ไม่ผ่าน)$/;
+export function normalizePassFail(v: unknown): "ผ" | "มผ" | undefined {
+  const t = String(v ?? "").replace(/\s+/g, "").replace(/\./g, "");
+  if (t === "ผ" || t === "ผ่าน") return "ผ";
+  if (t === "มผ" || t === "ไม่ผ่าน") return "มผ";
+  return undefined;
+}
+
+function findPassFailCol(grid: any[][], header: { codeCol: number; nameCol: number; seqCol: number }, dataStart: number): number {
+  const cols = Math.max(0, ...grid.slice(dataStart, dataStart + 20).map((r) => (r || []).length));
+  for (let c = cols - 1; c >= 0; c--) {
+    if (c === header.codeCol || c === header.nameCol || c === header.seqCol) continue;
+    let n = 0, pf = 0;
+    for (let r = dataStart; r < Math.min(dataStart + 40, grid.length); r++) {
+      const v = nz(grid[r]?.[c]);
+      if (!v) continue;
+      n++;
+      if (normalizePassFail(v)) pf++;
+    }
+    if (n >= 1 && pf / n >= 0.8) return c;
+  }
+  return -1;
 }
 
 function parseSheet(sheetName: string, ws: XLSX.WorkSheet): PP5ParsedSheet | null {
@@ -265,7 +290,16 @@ function parseSheet(sheetName: string, ws: XLSX.WorkSheet): PP5ParsedSheet | nul
   const topText = grid.slice(0, Math.min(6, grid.length)).flat().map(nz).join(" ");
   const kind = classifySheet(sheetName, topText);
   const dataStart = findDataStartRow(grid, header);
-  const { numericCols, totalCol, gradeCol } = classifyColumns(grid, topRow, subHeaders, header, dataStart);
+  const cls = classifyColumns(grid, topRow, subHeaders, header, dataStart);
+  const { totalCol } = cls;
+  let { numericCols, gradeCol } = cls;
+  // วิชากิจกรรม: ไม่มีช่องเกรดแต่มีคอลัมน์ ผ/มผ → ใช้เป็นผลการเรียนจากไฟล์
+  const pfCol = findPassFailCol(grid, header, dataStart);
+  if (pfCol >= 0) {
+    const gradeHasValues = gradeCol >= 0 && grid.slice(dataStart).some((r) => nz(r?.[gradeCol]));
+    if (!gradeHasValues) gradeCol = pfCol;
+    numericCols = numericCols.filter((c) => c !== pfCol);
+  }
 
   const subjectSet = new Set<string>();
   for (const c of numericCols) if (topRow[c]) subjectSet.add(topRow[c]);
@@ -288,7 +322,8 @@ function parseSheet(sheetName: string, ws: XLSX.WorkSheet): PP5ParsedSheet | nul
       subjects[subjHeader].columns.push({ header: String(subHeader), value });
     }
     const directTotal = totalCol >= 0 && isNum(grid[r]?.[totalCol]) ? Number(grid[r]?.[totalCol]) : undefined;
-    const directGrade = gradeCol >= 0 ? nz(grid[r]?.[gradeCol]) || undefined : undefined;
+    const rawGrade = gradeCol >= 0 ? nz(grid[r]?.[gradeCol]) || undefined : undefined;
+    const directGrade = rawGrade ? normalizePassFail(rawGrade) ?? rawGrade : undefined;
     const attendanceMarks = kind === "attendance" && markCols.length ? countMarks(grid[r] || [], markCols) : undefined;
     students.push({ studentCode: code, studentName: name, seq, subjects, directTotal, directGrade, attendanceMarks });
   }
@@ -439,6 +474,10 @@ function applyToBucket(
           ? pct
           : Math.round(avg * 100) / 100;
 
+  if (sh.kind === "exam_scores" && count === 0 && st.directTotal === undefined && st.directGrade && normalizePassFail(st.directGrade)) {
+    bucket.grade = st.directGrade; bucket.gradeFromFile = true; bucket.passFail = true;
+    return;
+  }
   if (sh.kind === "exam_scores") {
     if (isMainScoreSheet(sh.sheetName)) {
       bucket.examScore = Math.max(bucket.examScore ?? 0, Math.round(value * 100) / 100);
@@ -505,6 +544,8 @@ function consolidateMulti(sheets: PP5ParsedSheet[]): PP5ParsedWorkbook["consolid
             if (g) grade = g;
             continue;
           }
+          const pfv = typeof col.value === "string" ? normalizePassFail(col.value) : undefined;
+          if (pfv) { grade = pfv; continue; }
           if (typeof col.value === "number" && !isNaN(col.value)) {
             sum += col.value;
             count++;
@@ -519,7 +560,7 @@ function consolidateMulti(sheets: PP5ParsedSheet[]): PP5ParsedWorkbook["consolid
         if (sh.kind === "reading_thinking") { if (pct !== undefined) bucket.readingLevel = pct; continue; }
         if (sh.kind === "attendance") { if (count > 0) bucket.attendanceHours = Math.round(sum); continue; }
         // exam / score sheets
-        if (grade) { bucket.grade = grade; bucket.gradeFromFile = true; }
+        if (grade) { bucket.grade = normalizePassFail(grade) ?? grade; bucket.gradeFromFile = true; if (normalizePassFail(grade) && pct === undefined) bucket.passFail = true; }
         if (pct !== undefined) {
           bucket.examScore = pct;
           bucket.totalScore = pct;
