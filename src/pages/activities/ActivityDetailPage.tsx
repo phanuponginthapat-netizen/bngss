@@ -93,11 +93,20 @@ export default function ActivityDetailPage() {
     } else generated = singleElimination(entries);
 
     if (!generated.length) return toast.error("สร้างสายไม่สำเร็จ");
-    await db.from("activity_matches").delete().eq("activity_id", id);
+    const { data: oldRows } = await db.from("activity_matches").select("id").eq("activity_id", id);
+    const oldIds = (oldRows || []).map((r: any) => r.id);
+    if (oldIds.length) {
+      const ok = await swal.confirm({ title: "จัดสายใหม่?", text: `ผลการแข่งขันเดิม ${oldIds.length} คู่จะถูกแทนที่`, danger: true });
+      if (!ok) return;
+    }
     const { error } = await db.from("activity_matches").insert(
       generated.map((m) => ({ ...m, activity_id: id, status: "pending" })),
     );
     if (error) return toast.error(saveErrorMessage(error));
+    if (oldIds.length) {
+      const { error: delErr } = await db.from("activity_matches").delete().in("id", oldIds);
+      if (delErr) toast.error(saveErrorMessage(delErr));
+    }
     for (const g of groupAssign) {
       await db.from("activity_participants").update({ group_name: `สาย ${g.group}` }).eq("id", g.id);
     }
