@@ -102,7 +102,7 @@ const Dashboard = () => {
         supabase.from("personnel").select("id, department, status, position, user_id", { count: "exact" }),
         supabase.from("classrooms").select("id, grade_level, name, homeroom_teacher", { count: "exact" }),
         supabase.from("subjects").select("id", { count: "exact", head: true }),
-        fetchAllRows((f, t) => supabase.from("attendance").select("id, status, attendance_date, student_id").eq("attendance_date", todayBangkok()).order("id").range(f, t)).then((data) => ({ data })),
+        fetchAllRows((f, t) => supabase.from("attendance").select("id, status, attendance_date, student_id").eq("attendance_date", todayBangkok()).is("subject_id", null).order("id").range(f, t)).then((data) => ({ data })),
         supabase.from("health_records").select("id", { count: "exact", head: true }),
         supabase.from("student_leaves").select("id, status", { count: "exact" }),
         supabase.from("staff_leaves").select("id, status", { count: "exact" }),

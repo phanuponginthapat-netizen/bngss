@@ -39,7 +39,8 @@ async function buildParentDigest(studentIds: string[], date: string) {
     .from("attendance")
     .select("student_id,status,students(prefix,first_name,last_name)")
     .in("student_id", studentIds)
-    .eq("attendance_date", date);
+    .eq("attendance_date", date)
+    .is("subject_id", null);
   if (att?.length) {
     lines.push("", "🏫 การมาเรียน:");
     for (const a of att) {

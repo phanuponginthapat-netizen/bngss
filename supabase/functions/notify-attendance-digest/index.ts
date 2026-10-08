@@ -211,6 +211,7 @@ serve(async (req) => {
       const { data: attRows, error: attErr } = await sb
         .from("attendance")
         .select("status, student_id")
+        .is("subject_id", null)
         .eq("attendance_date", today);
       if (attErr) throw attErr;
 

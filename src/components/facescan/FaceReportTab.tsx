@@ -383,7 +383,7 @@ const FaceReportTab = () => {
         supabase.from("school_settings").select("setting_value").eq("setting_key", "clock_late_threshold").maybeSingle(),
         supabase.from("students").select("id, prefix, first_name, last_name, student_code, gender, classrooms!students_classroom_id_fkey(grade_level, name, reference_grade_level)").eq("status", "active"),
         fetchAll((f, t) => supabase.from("face_scan_logs").select("student_id, scan_date, scan_time").gte("scan_date", range.start).lte("scan_date", range.end).order("scan_date").range(f, t)),
-        fetchAll((f, t) => supabase.from("attendance").select("student_id, attendance_date, status").gte("attendance_date", range.start).lte("attendance_date", range.end).order("attendance_date").range(f, t)),
+        fetchAll((f, t) => supabase.from("attendance").select("student_id, attendance_date, status").is("subject_id", null).gte("attendance_date", range.start).lte("attendance_date", range.end).order("attendance_date").range(f, t)),
         fetchAll((f, t) => supabase.from("student_leaves").select("student_id, start_date, end_date, status").lte("start_date", range.end).gte("end_date", range.start).order("start_date").range(f, t)),
         supabase.from("academic_events").select("event_date, end_date, event_type").eq("event_type", "holiday").lte("event_date", range.end),
       ]);
