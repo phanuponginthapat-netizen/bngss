@@ -27,7 +27,14 @@ if [ -n "${SUPABASE_ANON_KEY:-}" ]; then
   python3 - "$PRODUCT" "$TITLE" "$VERSION" "$GITHUB_REPOSITORY" "$TAG" "$@" > /tmp/release-$PRODUCT.json <<'PY'
 import json, os, sys, datetime
 product, title, version, repo, tag, *files = sys.argv[1:]
+identity = {}
+if product == "scanner":
+  with open(os.environ["SCANNER_IDENTITY_FILE"]) as f:
+    identity = json.load(f)
+  if identity.get("appId") != "com.bngss.scanner" or identity.get("appName") != "BNG Scanner" or identity.get("identityVerified") is not True:
+    raise SystemExit("Scanner APK identity has not been verified")
 print(json.dumps({
+  **identity,
   "product": product, "title": title, "version": version,
   "releasedAt": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
   "pageUrl": f"https://github.com/{repo}/releases/tag/{tag}",
@@ -35,7 +42,7 @@ print(json.dumps({
              "url": f"https://github.com/{repo}/releases/download/{tag}/{os.path.basename(f)}"} for f in files],
 }, ensure_ascii=False))
 PY
-  curl -sS -X POST -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+  curl --fail-with-body -sS -X POST -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
     -H "Content-Type: application/json" -H "x-upsert: true" --data-binary "@/tmp/release-$PRODUCT.json" \
     "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/app-downloads/release-$PRODUCT.json" -w '\nHTTP %{http_code}\n'
 fi
