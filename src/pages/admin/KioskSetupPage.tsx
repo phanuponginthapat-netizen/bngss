@@ -37,6 +37,7 @@ import { useCmsValue } from "@/hooks/useCmsSettings";
 import { guessPublicOrigin } from "@/lib/publicOrigin";
 import { Time24Input } from "@/components/ui/time24-input";
 import KioskDeviceManager from "@/components/kiosk/KioskDeviceManager";
+import FailedScanQueue from "@/components/kiosk/FailedScanQueue";
 
 /** ลิงก์ดาวน์โหลด APK (เช่นลิงก์ Google Drive) — เก็บใน cms_settings ให้หน้า /install และหน้านี้ใช้ร่วมกัน */
 function ApkLinkSettings() {
@@ -656,6 +657,8 @@ export default function KioskSetupPage() {
 
         </CardContent>
       </Card>
+
+      <FailedScanQueue />
 
       <Card>
         <CardHeader>

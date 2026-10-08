@@ -106,7 +106,22 @@ export async function flush(): Promise<{ ok: number; failed: number }> {
       try {
         let res: any;
         if (it.op === "insert") {
-          res = await (supabase.from(it.table as any) as any).insert(it.payload);
+          let payload = it.payload;
+          // รูปหน้าที่ถ่ายตอนออฟไลน์: อัปโหลดก่อน แล้วเก็บเฉพาะลิงก์ (ไม่เก็บรูปดิบลงฐานข้อมูล)
+          if (payload && typeof payload === "object" && "__face_data" in payload) {
+            const { __face_data, ...rest } = payload;
+            payload = rest;
+            if (__face_data && payload.student_id) {
+              try {
+                const { uploadFaceScanSnapshot } = await import("@/lib/faceScanUpload");
+                const url = await uploadFaceScanSnapshot(__face_data, payload.student_id);
+                if (url && /^https?:\/\//i.test(url)) payload = { ...payload, captured_face_url: url };
+              } catch { /* ไม่มีรูปก็ยังบันทึกเวลาได้ */ }
+            }
+          }
+          res = await (supabase.from(it.table as any) as any).insert(payload);
+          // บันทึกไปแล้ว (เช่น สแกนซ้ำวันเดียวกัน) ถือว่าสำเร็จ ไม่ต้องลองใหม่
+          if (res.error?.code === "23505") res = { error: null };
         } else if (it.op === "upsert") {
           res = await (supabase.from(it.table as any) as any).upsert(it.payload);
         } else {
