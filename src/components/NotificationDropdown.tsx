@@ -70,33 +70,35 @@ const NotificationDropdown = () => {
 
 
 
-  const { data: notifications = [] } = useQuery({
+  const { data: notifications = [], error: notificationError, isPending: notificationsLoading, refetch: reloadNotifications } = useQuery({
     queryKey: ["my_notifications", userId],
     queryFn: async () => {
       if (!userId) return [];
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("notifications")
         .select("*")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(50);
+      if (error) throw error;
       return (data || []) as any[];
     },
     enabled: !!userId,
     refetchInterval: 3 * 60_000, // realtime ครอบอยู่แล้ว — poll เป็น fallback
   });
 
-  const { data: inboxItems = [] } = useQuery({
+  const { data: inboxItems = [], error: inboxError, isPending: inboxLoading, refetch: reloadInbox } = useQuery({
     queryKey: ["my_inbox_items", userId],
     queryFn: async () => {
       if (!userId) return [];
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("inbox_items")
         .select("*")
         .eq("user_id", userId)
         .eq("is_archived", false)
         .order("created_at", { ascending: false })
         .limit(50);
+      if (error) throw error;
       return (data || []) as any[];
     },
     enabled: !!userId,
@@ -224,11 +226,23 @@ const NotificationDropdown = () => {
           className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
           style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
         >
-          {visible.length === 0 ? (
+           {(notificationError || inboxError) && (
+             <div role="alert" className="p-3 border-b text-sm text-destructive">
+               {lang === "th" ? "ดึงการแจ้งเตือนไม่สำเร็จ กรุณาลองอีกครั้ง" : "Unable to load notifications. Please retry."}
+               <Button variant="ghost" size="sm" onClick={() => { void reloadNotifications(); void reloadInbox(); }}>
+                 {lang === "th" ? "ลองอีกครั้ง" : "Retry"}
+               </Button>
+             </div>
+           )}
+           {visible.length === 0 ? (
             <div className="py-12 text-center">
               <Bell className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">
-                {lang === "th" ? "ไม่มีการแจ้งเตือน" : "No notifications"}
+                 {notificationsLoading || inboxLoading
+                   ? (lang === "th" ? "กำลังโหลดการแจ้งเตือน" : "Loading notifications")
+                   : notificationError || inboxError
+                     ? (lang === "th" ? "ยังตรวจสอบรายการไม่ได้" : "Notifications unavailable")
+                     : (lang === "th" ? "ไม่มีการแจ้งเตือน" : "No notifications")}
               </p>
             </div>
           ) : (
