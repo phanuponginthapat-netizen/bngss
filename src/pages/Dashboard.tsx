@@ -49,7 +49,6 @@ const SuperAppShortcuts = lazy(() => import("@/components/dashboard/SuperAppShor
 const MascotHeroWidget = lazy(() => import("@/components/dashboard/widgets/MascotHeroWidget"));
 import SuperAppSearchBar from "@/components/dashboard/SuperAppSearchBar";
 import BrowserShortcutsCard from "@/components/dashboard/BrowserShortcutsCard";
-import RoleQuickActions from "@/components/dashboard/RoleQuickActions";
 
 const COLORS = [
   "hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--warning))",
@@ -305,7 +304,6 @@ const Dashboard = () => {
   // role อื่นๆ (director/teacher/student/alumni/parent) กลับไปใช้ dashboard ตาม role เหมือนเดิม
   const RoleDashboardWithShortcuts = ({ children }: { children: React.ReactNode }) => (
     <Suspense fallback={<PageSkeleton />}>
-      <RoleQuickActions role={role} />
       {children}
       <div className="px-3 sm:px-6 pt-4 sm:pt-6 pb-[calc(env(safe-area-inset-bottom)+7rem)] sm:pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-10">
         <BrowserShortcutsCard />
@@ -653,7 +651,6 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] sm:pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-10 [scrollbar-gutter:stable]">
-      <div className="-mx-3 sm:-mx-6"><RoleQuickActions role="admin" /></div>
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground truncate">
 
