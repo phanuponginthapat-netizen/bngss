@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { parseScannerRelease } from "@/lib/scannerRelease";
 
 const BASE = "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads";
 const PRODUCTS = ["android", "scanner", "facegate", "ios"] as const;
@@ -17,7 +18,10 @@ export default function GithubReleaseDownloads() {
       const all = await Promise.all(PRODUCTS.map(async (p) => {
         try {
           const r = await fetch(`${BASE}/release-${p}.json?t=${Date.now()}`, { cache: "no-store" });
-          return r.ok ? ((await r.json()) as Release) : null;
+          if (!r.ok) return null;
+          const release = await r.json();
+          if (p === "scanner" && !parseScannerRelease(release)) return null;
+          return release as Release;
         } catch { return null; }
       }));
       return all.filter(Boolean) as Release[];
