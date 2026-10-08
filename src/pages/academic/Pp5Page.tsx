@@ -1451,6 +1451,7 @@ const FileTab = () => {
       return;
     }
     if (file.announced_at && !(await swal.confirm({ title: "ประกาศซ้ำอีกครั้ง?", text: "ระบบจะส่งการแจ้งเตือนใหม่ให้นักเรียนทุกคน" }))) return;
+    { const { confirmAttendanceBeforeAnnounce } = await import("@/lib/gradeLock"); if (!(await confirmAttendanceBeforeAnnounce(file))) return; }
     const t = toast.loading("กำลังประกาศ...");
     try {
       // ต้องบันทึกคะแนนเข้าระบบก่อน นักเรียนจึงเห็นผลในหน้าโปรไฟล์ตรงกับที่ประกาศ
