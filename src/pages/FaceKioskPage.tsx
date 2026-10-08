@@ -926,7 +926,7 @@ const FaceKioskPage = () => {
     } as any;
     // ออฟไลน์: อย่าพยายามอัปโหลดรูป/เขียนลง DB ทันที (จะ hang/ล้มเหลว) — เข้าคิวไว้ sync ทีหลังทันที
     if (!navigator.onLine) {
-      await enqueueOfflineScan({ ...attendancePayload, captured_face_url: null });
+      await enqueueOfflineScan({ ...attendancePayload, captured_face_url: null, __face_data: capturedFace || null });
       showNotice("info", "บันทึกแบบออฟไลน์", `${name} บันทึก${modeLabel}ไว้ในเครื่อง จะส่งขึ้นระบบเมื่อมีสัญญาณอินเทอร์เน็ต`, 4000);
       return;
     }
@@ -943,7 +943,7 @@ const FaceKioskPage = () => {
       error = res.error;
     } catch (networkErr) {
       // เครือข่ายล่ม/ขัดข้องกลางทาง — อย่าทิ้งข้อมูลการสแกน เก็บเข้าคิวไว้ sync ทีหลัง
-      await enqueueOfflineScan({ ...attendancePayload, captured_face_url: null });
+      await enqueueOfflineScan({ ...attendancePayload, captured_face_url: null, __face_data: capturedFace || null });
       showNotice("warning", "ออฟไลน์ชั่วคราว", `${name} บันทึก${modeLabel}ไว้ในเครื่อง จะส่งขึ้นระบบอัตโนมัติเมื่อเชื่อมต่อได้`, 4000);
       return;
     }
@@ -955,7 +955,7 @@ const FaceKioskPage = () => {
         return;
       }
       // ข้อผิดพลาดอื่นที่อาจเกิดจากการเชื่อมต่อไม่เสถียร — เข้าคิวไว้ ดีกว่าทิ้งข้อมูลไปเลย
-      await enqueueOfflineScan({ ...attendancePayload, captured_face_url: null });
+      await enqueueOfflineScan({ ...attendancePayload, captured_face_url: null, __face_data: capturedFace || null });
       showNotice("error", "บันทึกไม่สำเร็จ ส่งเข้าคิวไว้แล้ว", saveErrorMessage(error), 5000); return;
     }
     if (!data) {
