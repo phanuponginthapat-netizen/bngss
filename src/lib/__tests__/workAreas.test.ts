@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { buildWorkAreas, visibleWorkAreas, findWorkArea, areaUrl } from "../navigation/workAreas";
+import { buildWorkAreas, visibleWorkAreas, dailyNavigationItems, findWorkArea, areaUrl } from "../navigation/workAreas";
 
 describe("department navigation", () => {
+  it("restores daily shortcuts using the same role and module filters", () => {
+    const urls = (role: "teacher" | "student", enabled = (_key?: string | null) => true) => dailyNavigationItems(visibleWorkAreas(buildWorkAreas(), role, enabled)).map(i => i.url);
+    expect(urls("teacher")).toContain("/dashboard/hr/time-clock");
+    expect(urls("teacher")).toContain("/dashboard/student/attendance");
+    expect(urls("student")).toContain("/dashboard/homework");
+    expect(urls("student")).not.toContain("/dashboard/hr/time-clock");
+    expect(urls("teacher", key => key !== "homework")).not.toContain("/dashboard/homework");
+    expect(dailyNavigationItems([])).toEqual([]);
+    expect(new Set(urls("teacher")).size).toBe(urls("teacher").length);
+  });
   it("keeps PP and score tracking together", () => {
     const area = buildWorkAreas().find(a => a.key === "assessment");
     const urls = area?.groups.flatMap(g => g.items.map(i => i.url)) ?? [];

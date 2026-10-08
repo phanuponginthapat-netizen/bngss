@@ -10,7 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { useModuleToggles } from "@/hooks/useModuleToggles";
-import { areaUrl, buildWorkAreas, findWorkArea, visibleWorkAreas, type NavigationItem } from "@/lib/navigation/workAreas";
+import { areaUrl, buildWorkAreas, dailyNavigationItems, findWorkArea, visibleWorkAreas, type NavigationItem } from "@/lib/navigation/workAreas";
 
 export function AppSidebar() {
   const { toggleSidebar, setOpenMobile, isMobile } = useSidebar();
@@ -105,6 +105,7 @@ export function AppSidebar() {
   const compact = role === "parent" ? parentSidebar : role === "alumni" ? alumniSidebar : null;
   const q = search.trim().toLowerCase();
   const shownAreas = areas.filter(a => `${a.label} ${a.groups.flatMap(g => g.items.map(i => i.title)).join(" ")}`.toLowerCase().includes(q));
+  const dailyItems = dailyNavigationItems(areas).filter(i => i.title.toLowerCase().includes(q));
   const onNavigate = () => { if (isMobile) setOpenMobile(false); };
   const menuItem = (item: { to: string; icon: NavigationItem["icon"]; label: string }, active = pathname === item.to) => (
     <SidebarMenuItem key={item.to}><SidebarMenuButton asChild isActive={active} tooltip={item.label} className="h-auto min-h-10 py-2">
@@ -119,6 +120,7 @@ export function AppSidebar() {
     <SidebarContent className="gap-1 p-2"><ViewModeSwitcher collapsed={false} />
       {compact ? compact.map(section => <SidebarGroup key={section.label} className="p-0"><SidebarGroupLabel>{section.label}</SidebarGroupLabel><SidebarGroupContent><SidebarMenu>{section.items.filter(i => i.label.toLowerCase().includes(q)).map(i => menuItem(i))}</SidebarMenu></SidebarGroupContent></SidebarGroup>) : <>
         <SidebarGroup className="p-0"><SidebarGroupContent><SidebarMenu>{[{ to: "/dashboard", label: L("หน้าหลัก", "Dashboard"), icon: LayoutDashboard }, { to: "/dashboard/inbox", label: L("กล่องข้อความ", "Inbox"), icon: Inbox }].filter(i => i.label.toLowerCase().includes(q)).map(i => menuItem(i))}</SidebarMenu></SidebarGroupContent></SidebarGroup>
+        {dailyItems.length > 0 && <SidebarGroup className="p-0"><SidebarGroupLabel>{L("ใช้งานประจำวัน", "Daily work")}</SidebarGroupLabel><SidebarGroupContent><SidebarMenu>{dailyItems.map(i => menuItem({ to: i.url, label: i.title, icon: i.icon }))}</SidebarMenu></SidebarGroupContent></SidebarGroup>}
         <SidebarGroup className="p-0"><SidebarGroupLabel>{L("ฝ่ายงานและบริการ", "Departments & services")}</SidebarGroupLabel><SidebarGroupContent><SidebarMenu>{shownAreas.map(a => menuItem({ to: areaUrl(a.key), label: a.label, icon: a.icon }, activeArea?.key === a.key))}</SidebarMenu></SidebarGroupContent></SidebarGroup>
         {!shownAreas.length && <p className="p-4 text-sm text-sidebar-foreground/70">{L("ไม่พบเมนูที่ตรงกับคำค้น", "No matching menus")}</p>}
       </>}
