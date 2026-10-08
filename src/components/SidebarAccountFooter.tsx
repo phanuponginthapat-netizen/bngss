@@ -69,20 +69,20 @@ export function SidebarAccountFooter() {
   const badge = role ? roleBadgeMap[role] : null;
 
   return (
-    <SidebarFooter className="border-t border-sidebar-border/70 bg-gradient-to-t from-sidebar-accent/25 to-transparent p-2 gap-1.5">
+    <SidebarFooter className="border-t border-sidebar-border/70 bg-gradient-to-t from-sidebar-accent/25 to-transparent p-1.5 gap-1">
       {!collapsed ? (
-        <div className="flex items-center gap-2 min-w-0 px-1.5 py-1 rounded-lg hover:bg-sidebar-accent/40 transition-colors">
+        <div className="flex items-center gap-1.5 min-w-0 px-1 py-0.5 rounded-lg hover:bg-sidebar-accent/40 transition-colors">
           {avatarUrl ? (
-            <img src={avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-primary/30 flex-shrink-0" />
+            <img src={avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover ring-2 ring-primary/30 flex-shrink-0" />
           ) : (
-            <span className="w-8 h-8 rounded-full bg-primary/10 ring-2 ring-primary/30 flex items-center justify-center flex-shrink-0">
-              <User className="w-4 h-4 text-primary" />
+            <span className="w-7 h-7 rounded-full bg-primary/10 ring-2 ring-primary/30 flex items-center justify-center flex-shrink-0">
+              <User className="w-3.5 h-3.5 text-primary" />
             </span>
           )}
           <div className="min-w-0 flex-1">
-            <div className="text-xs font-semibold text-sidebar-foreground truncate leading-tight">{fullName || userEmail.split("@")[0]}</div>
+            <div className="text-[11px] font-semibold text-sidebar-foreground truncate leading-tight">{fullName || userEmail.split("@")[0]}</div>
             {badge && (
-              <Badge variant={badge.variant} className="mt-0.5 text-[9px] h-3.5 px-1 leading-none font-medium">
+              <Badge variant={badge.variant} className="mt-0.5 text-[8px] h-3 px-1 leading-none font-medium">
                 {badge.label}
               </Badge>
             )}
@@ -91,7 +91,7 @@ export function SidebarAccountFooter() {
             onClick={handleLogout}
             title={t("logout")}
             aria-label={t("logout")}
-            className="flex-shrink-0 w-7 h-7 rounded-md inline-flex items-center justify-center text-destructive/80 hover:text-destructive hover:bg-destructive/10 transition-colors"
+            className="flex-shrink-0 w-6 h-6 rounded-md inline-flex items-center justify-center text-destructive/80 hover:text-destructive hover:bg-destructive/10 transition-colors"
           >
             <LogOut className="w-3.5 h-3.5" />
           </button>
