@@ -33,6 +33,9 @@ function weekRange(offset: number) {
 }
 const iso = (d: Date) => bkkDateISO(d);
 
+const _ce = (y: any) => { const n = Number(y); return n > 2400 ? n - 543 : (n || null); };
+const _be = (y: any) => { const n = Number(y); return n && n < 2400 ? n + 543 : (n || ""); };
+
 export default function TeachingLogbookPage() {
   const { session } = useAuthSession();
   const userId = session?.user?.id;
@@ -85,12 +88,13 @@ export default function TeachingLogbookPage() {
 
   const upsert = useMutation({
     mutationFn: async (payload: any) => {
-      const { id, ...rest } = payload;
+      const { id, ...rest0 } = payload;
+      const rest = { ...rest0, ...(rest0.academic_year ? { academic_year: _ce(rest0.academic_year) } : {}) };
       if (id) {
         const { error } = await (supabase.from("teaching_logbook" as any) as any).update(rest).eq("id", id);
         if (error) throw error;
       } else {
-        const { error } = await (supabase.from("teaching_logbook" as any) as any).insert({ ...rest, user_id: userId, school_id: myPersonnel?.school_id, academic_year: rest.academic_year || currentAcademicYear, semester: rest.semester || currentSemester });
+        const { error } = await (supabase.from("teaching_logbook" as any) as any).insert({ ...rest, user_id: userId, school_id: myPersonnel?.school_id, academic_year: rest.academic_year || _ce(currentAcademicYear), semester: rest.semester || currentSemester });
         if (error) throw error;
       }
     },
@@ -285,7 +289,7 @@ function LogFormDialog({ editing, setEditing, subjects, classrooms, plans, onSav
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <Field label="วันที่ *"><BEDatePicker value={editing.teaching_date || ""} onChange={(v) => set("teaching_date", v)} /></Field>
           <Field label="คาบ"><Input type="number" value={editing.period ?? ""} onChange={(e) => set("period", Number(e.target.value))} /></Field>
-          <Field label="ปีการศึกษา"><Input type="number" value={editing.academic_year || ""} onChange={(e) => set("academic_year", Number(e.target.value))} /></Field>
+          <Field label="ปีการศึกษา"><Input type="number" value={_be(editing.academic_year)} onChange={(e) => set("academic_year", Number(e.target.value))} /></Field>
           <Field label="ภาคเรียน">
             <Select value={String(editing.semester || 1)} onValueChange={(v) => set("semester", Number(v))}>
               <SelectTrigger><SelectValue /></SelectTrigger>

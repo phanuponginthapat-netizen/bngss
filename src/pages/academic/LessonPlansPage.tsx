@@ -32,6 +32,9 @@ const STATUS_STYLES: Record<string, { label: string; className: string; icon: an
 
 type Plan = any;
 
+const _ce = (y: any) => { const n = Number(y); return n > 2400 ? n - 543 : (n || null); };
+const _be = (y: any) => { const n = Number(y); return n && n < 2400 ? n + 543 : (n || ""); };
+
 export default function LessonPlansPage() {
   const { session } = useAuthSession();
   const userId = session?.user?.id;
@@ -92,7 +95,8 @@ export default function LessonPlansPage() {
 
   const upsertMutation = useMutation({
     mutationFn: async (payload: Plan) => {
-      const { id, ...rest } = payload;
+      const { id, ...rest0 } = payload as any;
+      const rest = { ...rest0, academic_year: _ce(rest0.academic_year) };
       if (id) {
         const { error } = await (supabase.from("lesson_plans" as any) as any).update(rest).eq("id", id);
         if (error) throw error;
@@ -369,7 +373,7 @@ export default function LessonPlansPage() {
                 <Info label="หัวข้อบทเรียน">{viewing.lesson_title || "-"}</Info>
                 <Info label="วิชา">{subjectName(viewing.subject_id)}</Info>
                 <Info label="ห้อง">{classroomName(viewing.classroom_id)}</Info>
-                <Info label="ปีการศึกษา / ภาค">{viewing.academic_year} / {viewing.semester}</Info>
+                <Info label="ปีการศึกษา / ภาค">{_be(viewing.academic_year)} / {viewing.semester}</Info>
                 <Info label="จำนวนคาบ">{viewing.hours}</Info>
               </div>
               <Section title="มาตรฐาน / ตัวชี้วัด">
@@ -507,7 +511,7 @@ function PlanFormDialog({ editing, setEditing, subjects, classrooms, onSave, sav
       </DialogHeader>
       <div className="space-y-3">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <Field label="ปีการศึกษา"><Input type="number" value={editing.academic_year || ""} onChange={(e) => set("academic_year", Number(e.target.value))} /></Field>
+          <Field label="ปีการศึกษา"><Input type="number" value={_be(editing.academic_year)} onChange={(e) => set("academic_year", Number(e.target.value))} /></Field>
           <Field label="ภาคเรียน">
             <Select value={String(editing.semester || 1)} onValueChange={(v) => set("semester", Number(v))}>
               <SelectTrigger><SelectValue /></SelectTrigger>

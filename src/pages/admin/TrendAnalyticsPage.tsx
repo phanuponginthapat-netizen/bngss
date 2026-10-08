@@ -69,8 +69,13 @@ export default function TrendAnalyticsPage() {
       const { data, error } = await supabase.rpc("get_trend_analytics" as any);
       if (!error && data) return (data as any[]) as TrendRow[];
       // Fallback: client grouping with limit to avoid OOM (old path, now with limit 5000)
-      const { data: raw, error: e2 } = await supabase.from("student_scores" as any).select("academic_year, subject, score").limit(5000).order("academic_year", { ascending: true });
-      if (e2) throw e2;
+      const raw: any[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data: page, error: e2 } = await supabase.from("student_scores" as any).select("academic_year, subject, score").order("id", { ascending: true }).range(from, from + 999);
+        if (e2) throw e2;
+        raw.push(...((page as any[]) || []));
+        if (!page || page.length < 1000) break;
+      }
       const grouped: Record<string, TrendRow> = {};
       for (const r of (raw as any[]) || []) {
         const key = `${r.academic_year}-${r.subject}`;
