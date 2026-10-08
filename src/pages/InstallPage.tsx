@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import GithubReleaseDownloads from "@/components/install/GithubReleaseDownloads";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -334,6 +335,8 @@ export default function InstallPage() {
           </CardContent>
         </Card>
       )}
+
+      <GithubReleaseDownloads />
 
       <Card>
         <CardHeader>
