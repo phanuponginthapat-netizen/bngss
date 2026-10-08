@@ -1,0 +1,111 @@
+name: Build FaceGate Agent
+
+# โปรแกรมต ู้สแกนหน ้าสำหร ับ PC (scripts/kiosk/facegate-agent)
+# เด ิมหน ้าเว็บดาวน ์โหลดไฟล ์ท ี่เก ็บท ั้ งแต ่ร ุ่ นเด ิมในโปรเจกต ์ — ส ่วนท ี่แก ้ทีหลังเข ้าไปไม ่ได ้
+# งานน ี ้แพ็กโปรแกรมร ุ่ นล ่ าสุด ตรวจว ่ าคอ ้ดคอมไพล ์ผ ่านและโมด ูลครบ แล ้วให ้ลิงก ์ดาวน ์โหลดเพ ิม
+#
+# เมือ ่เข ้าส ู่ระบบแล ้ว โปรแกรมท ี่ต ิดต ั้ งไว ้จะตรวจร ุ่ นใหม ่เองจาก facegate-version.json
+# (หน ้าต ั้ งเวลาของเคร ื่ องต ู้สแกน ต ้ องเป ิด "อ ัปเดตร ุ่ นใหม ่อ ัตโนมัติ" ด ้วย)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/kiosk/facegate-agent/**'
+      - 'scripts/kiosk/package-facegate.sh'
+      - '.github/workflows/build-facegate.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build-facegate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Package FaceGate agent
+        env:
+          FACEGATE_SITE_URL: https://bngss.lovable.app
+          FACEGATE_BUILD_DIR: /tmp/facegate-build
+        run: bash scripts/kiosk/package-facegate.sh
+
+      - name: Read version
+        id: ver
+        run: |
+          python3 - <<'PY' > /tmp/fg-env
+          import json
+          m = json.load(open("/tmp/facegate-build/facegate-version.json"))
+          print(f"version={m['version']}")
+          print(f"file={m['fileName']}")
+          PY
+          cat /tmp/fg-env >> "$GITHUB_ENV"
+          echo "version=$(grep -m1 '^version=' /tmp/fg-env | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload packaging artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: facegate-agent-v${{ steps.ver.outputs.version }}
+          path: |
+            /tmp/facegate-build/facegate-agent-installer.zip
+            /tmp/facegate-build/facegate-version.json
+          if-no-files-found: error
+
+      - name: Publish to storage (app-downloads)
+        env:
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          FACEGATE_FILE: ${{ env.file }}
+        run: |
+          if [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::warning::SUPABASE_ANON_KEY missing — skipping publish"
+            exit 0
+          fi
+          BASE="https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object"
+          PUB="https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads"
+          upload() {
+            local path="$1" ctype="$2" target="$3" body code
+            body="$(mktemp)"
+            code="$(curl -sS -o "$body" -w "%{http_code}" -X POST \
+              -H "apikey: $SUPABASE_ANON_KEY" \
+              -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+              -H "Content-Type: $ctype" \
+              -H "x-upsert: true" \
+              --data-binary "@${path}" \
+              "${BASE}/app-downloads/${target}")"
+            echo "upload ${target} -> HTTP ${code}: $(cat "$body")"
+            [ "$code" = "200" ]
+          }
+
+          # ไฟล ์แปะเวอร ์ชนั (เก ่าผ ู้ใช ้ย ังดาวน ์โหลดต ่ อได ้) + ไฟล ์ latest (ล ิงก ์คงท ี่)
+          upload "/tmp/facegate-build/facegate-agent-installer.zip" "application/zip" "$FACEGATE_FILE" || exit 1
+          upload "/tmp/facegate-build/facegate-agent-latest.zip" "application/zip" "facegate-agent-latest.zip" || exit 1
+
+          # manifest ให ้หน ้าเว็บ + ต ู้สแกนตรวจร ุ่ นใหม ่ — ช ี้ url ไปย ังไฟล ์แปะเวอร ์ชนั
+          python3 - "$PUB" <<'PY'
+          import json, sys
+          pub = sys.argv[1].rstrip("/")
+          m = json.load(open("/tmp/facegate-build/facegate-version.json"))
+          m["url"] = f"{pub}/{m['fileName']}"
+          json.dump(m, open("/tmp/facegate-build/facegate-version.json", "w", encoding="utf-8"), ensure_ascii=False)
+          print("manifest url ->", m["url"])
+          PY
+          upload "/tmp/facegate-build/facegate-version.json" "application/json" "facegate-version.json" || exit 1
+
+      - name: Commit fresh installer into public/downloads
+        # ให ้ล ิงก ์ /downloads/facegate-agent-installer.zip ของหน ้าเว็บเป ็นร ุ่ นล ่ าสุดเสมอ
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f public/downloads/facegate-agent-installer.zip
+          if git diff --cached --quiet; then
+            echo "ไฟล ์ในโปรเจกต ์เป ็นร ุ่ นล ่ าสุดอย ู่แล ้ว — ไม ่ต ้ องเข ียนซ ้้ำ"
+            exit 0
+          fi
+          git commit -m "build(facegate): refresh installer zip [skip ci]"
+          git push origin HEAD:"${GITHUB_REF_NAME}" || echo "::warning::push ล ้มเหลว (สาข าอ ่ืน/สิทธิ์) — ไฟล ์ยังอย ู่ใน Actions artifact"
