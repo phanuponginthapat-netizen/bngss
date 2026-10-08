@@ -71,7 +71,7 @@ export function SidebarAccountFooter() {
   return (
     <SidebarFooter className="border-t border-sidebar-border/70 bg-gradient-to-t from-sidebar-accent/25 to-transparent p-1.5 gap-1">
       {!collapsed ? (
-        <div className="flex items-center gap-1.5 min-w-0 px-1 py-0.5 rounded-lg hover:bg-sidebar-accent/40 transition-colors">
+        <div className="flex items-center gap-1.5 min-w-0 px-1 py-0.5 pr-[4.5rem] md:pr-[4.5rem] rounded-lg hover:bg-sidebar-accent/40 transition-colors">
           {avatarUrl ? (
             <img src={avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover ring-2 ring-primary/30 flex-shrink-0" />
           ) : (
@@ -81,27 +81,30 @@ export function SidebarAccountFooter() {
           )}
           <div className="min-w-0 flex-1">
             <div className="text-[11px] font-semibold text-sidebar-foreground truncate leading-tight">{fullName || userEmail.split("@")[0]}</div>
-            {badge && (
-              <Badge variant={badge.variant} className="mt-0.5 text-[8px] h-3 px-1 leading-none font-medium">
-                {badge.label}
-              </Badge>
-            )}
+            {/* ปุ่ ม ออกจากระบบวางข ้าง ๆ ป ้ายสถานะบทบาท (ม ุมขวาล ่างท ี่เด ิมซ ้อนก ับฟอง AI) */}
+            <div className="mt-0.5 flex items-center gap-1">
+              {badge && (
+                <Badge variant={badge.variant} className="text-[8px] h-3 px-1 leading-none font-medium">
+                  {badge.label}
+                </Badge>
+              )}
+              <button
+                onClick={handleLogout}
+                title={t("logout")}
+                aria-label={t("logout")}
+                className="flex-shrink-0 w-6 h-4 rounded-[5px] border border-destructive/25 bg-destructive/5 inline-flex items-center justify-center text-destructive/80 hover:bg-destructive/15 hover:text-destructive transition-colors"
+              >
+                <LogOut className="w-3 h-3" />
+              </button>
+            </div>
           </div>
-          <button
-            onClick={handleLogout}
-            title={t("logout")}
-            aria-label={t("logout")}
-            className="flex-shrink-0 w-6 h-6 rounded-md inline-flex items-center justify-center text-destructive/80 hover:text-destructive hover:bg-destructive/10 transition-colors"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-          </button>
         </div>
       ) : (
         <button
           onClick={handleLogout}
           title={t("logout")}
           aria-label={t("logout")}
-          className="mx-auto w-9 h-9 rounded-lg inline-flex items-center justify-center text-destructive/80 hover:text-destructive hover:bg-destructive/10 transition-colors"
+          className="mx-auto mb-[4.5rem] w-9 h-9 rounded-lg inline-flex items-center justify-center text-destructive/80 hover:text-destructive hover:bg-destructive/10 transition-colors"
         >
           <LogOut className="w-4 h-4" />
         </button>
