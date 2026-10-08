@@ -30,7 +30,11 @@ jobs:
           java-version: 21
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        # ใช้ Android SDK ที่ติดตั้งมากับเครื่อง GitHub อยู่แล้ว (setup-android@v3 ล้มเหลวที่ sdkmanager)
+        run: |
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          SDKM=$(ls -d "$ANDROID_SDK_ROOT"/cmdline-tools/latest/bin/sdkmanager 2>/dev/null || ls "$ANDROID_SDK_ROOT"/cmdline-tools/*/bin/sdkmanager | tail -1)
+          yes | "$SDKM" --licenses > /dev/null || true
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps --no-audit --no-fund
