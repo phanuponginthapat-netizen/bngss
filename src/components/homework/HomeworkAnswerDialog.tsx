@@ -172,7 +172,8 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
 
   const removeAttachment = async (i: number) => {
     const a = attachments[i];
-    await supabase.storage.from("homework-files").remove([a.path]).catch(() => {});
+    const { error: rmErr } = await supabase.storage.from("homework-files").remove([a.path]);
+    if (rmErr) { toast.error("ลบไฟล์แนบไม่สำเร็จ ลองใหม่อีกครั้ง"); return; }
     setAttachments((prev) => prev.filter((_, idx) => idx !== i));
   };
 
