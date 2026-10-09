@@ -32,14 +32,17 @@ export function initNativeShell() {
     ).catch(() => {});
   } catch (_) {}
 
+  // แอปแท็บเล็ตสแกน (BNG Scanner) ไม่มี Firebase config — ห้ามเรียก push เนทีฟ (แอปเด้งปิดทันที)
+  // และห้ามเสนออัปเดตเป็นแอปหลัก BNG Smart
+  const isScannerBuild = import.meta.env.VITE_KIOSK_TABLET === "1";
+
   // FCM push สำหรับ APK Android — ลงทะเบียน token เนทีฟ (ปลอดภัย: ออกจากระบบ/ไม่ใช่แอป = ข้าม)
-  try {
+  if (!isScannerBuild) try {
     import("./fcmPush").then(({ initFcmPush }) => initFcmPush()).catch(() => {});
   } catch (_) {}
 
-
   // ตรวจเวอร์ชันใหม่บน APK Android — โชว์ป๊อปอัปให้อัปเดตในแอป (ข้ามถ้าเป็นเวอร์ชันจาก Play Store)
-  try {
+  if (!isScannerBuild) try {
     import("./appUpdater").then(({ checkAndPromptUpdate }) => checkAndPromptUpdate()).catch(() => {});
   } catch (_) {}
 
