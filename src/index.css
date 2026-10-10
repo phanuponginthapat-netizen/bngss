@@ -688,3 +688,5 @@ html.standalone .only-standalone { display: initial; }
   overflow-wrap: anywhere;
 }
 
+
+@keyframes marquee { to { transform: translateX(-50%); } }
