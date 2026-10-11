@@ -151,7 +151,9 @@ const StaffLeavePage = () => {
         classroom: s.classroom_id ? classroomMap[s.classroom_id] || "" : "",
       }));
   });
-  const selectedSlots = leaveSlots.filter((sl) => !!pickedPeriods[sl.key]);
+  const genericSlots = leaveDates.filter((d) => { const w = new Date(d + "T00:00:00").getDay(); return w !== 0 && w !== 6; }).flatMap((date) => Array.from({ length: 8 }, (_, i) => ({ key: `${date}|${i + 1}`, date, period: i + 1, subject: "", classroom: "" })));
+  const displaySlots = leaveSlots.length > 0 ? leaveSlots : (leaveScope === "periods" ? genericSlots : []);
+  const selectedSlots = displaySlots.filter((sl) => !!pickedPeriods[sl.key]);
 
 
 
@@ -210,7 +212,7 @@ const StaffLeavePage = () => {
       toast.error(lang === "th" ? "กรุณากรอกข้อมูลให้ครบถ้วน" : "Please fill in all required fields");
       return;
     }
-    if (leaveScope === "periods" && leaveSlots.length > 0 && selectedSlots.length === 0) {
+    if (leaveScope === "periods" && leaveDates.length > 0 && selectedSlots.length === 0) {
       toast.error(lang === "th" ? "กรุณาติ๊กเลือกคาบที่ต้องการลาอย่างน้อย 1 คาบ" : "Select at least one period");
       return;
     }
@@ -243,7 +245,7 @@ const StaffLeavePage = () => {
         return;
       }
       const normalizedActingTeacher = actingTeacher && actingTeacher !== "none" ? actingTeacher : "";
-      const byPeriod = leaveScope === "periods" && leaveSlots.length > 0;
+      const byPeriod = leaveScope === "periods" && leaveDates.length > 0;
       const plan = byPeriod
         ? selectedSlots.map((sl) => ({
             date: sl.date, period: sl.period,
@@ -553,7 +555,7 @@ const StaffLeavePage = () => {
               </div>
 
               {/* Per-period substitute selection */}
-              {leaveSlots.length > 0 && (
+              {leaveDates.length > 0 && (
                 <div className="rounded-lg border p-3 space-y-3 bg-muted/30">
                   <div>
                     <Label className="text-sm font-medium">{lang === "th" ? "ลาแบบ" : "Leave scope"}</Label>
@@ -574,7 +576,7 @@ const StaffLeavePage = () => {
                   <div>
                     <Label className="text-sm font-medium">
                       {leaveScope === "periods"
-                        ? (lang === "th" ? `ติ๊กคาบที่ลา (เลือก ${selectedSlots.length}/${leaveSlots.length} คาบ)` : `Tick periods on leave (${selectedSlots.length}/${leaveSlots.length})`)
+                        ? (lang === "th" ? `ติ๊กคาบที่ลา (เลือก ${selectedSlots.length}/${displaySlots.length} คาบ)` : `Tick periods on leave (${selectedSlots.length}/${displaySlots.length})`)
                         : (lang === "th" ? `เลือกครูสอนแทนรายคาบ (${leaveSlots.length} คาบ)` : `Substitute per period (${leaveSlots.length})`)}
                     </Label>
                     <p className="text-xs text-muted-foreground mt-0.5">
@@ -584,7 +586,7 @@ const StaffLeavePage = () => {
                     </p>
                   </div>
                   <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
-                    {leaveSlots.map((slot) => {
+                    {displaySlots.map((slot) => {
                       const on = leaveScope === "full_day" || !!pickedPeriods[slot.key];
                       return (
                       <div key={slot.key} className="grid grid-cols-1 sm:grid-cols-[1fr_1.2fr] gap-2 items-center">
