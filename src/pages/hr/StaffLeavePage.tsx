@@ -244,8 +244,8 @@ const StaffLeavePage = () => {
         toast.error((lang === "th" ? "อัปโหลดไฟล์แนบล้มเหลว: " : "Attachment upload failed: ") + e.message);
         return;
       }
-      const normalizedActingTeacher = actingTeacher && actingTeacher !== "none" ? actingTeacher : "";
       const byPeriod = leaveScope === "periods" && leaveDates.length > 0;
+      const normalizedActingTeacher = !byPeriod && actingTeacher && actingTeacher !== "none" ? actingTeacher : "";
       const plan = byPeriod
         ? selectedSlots.map((sl) => ({
             date: sl.date, period: sl.period,
@@ -539,21 +539,6 @@ const StaffLeavePage = () => {
                 <Input className="mt-1" value={contactPhone} onChange={e => setContactPhone(e.target.value)} placeholder="08x-xxx-xxxx" />
               </div>
 
-              <div>
-                <Label className="text-sm font-medium">{lang === "th" ? "ครูผู้สอนแทน (ทุกคาบ)" : "Acting Teacher (all periods)"}</Label>
-                <Select value={actingTeacher} onValueChange={setActingTeacher}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder={lang === "th" ? "ไม่ระบุ = ระบบจัดให้อัตโนมัติ" : "None = auto-assign"} /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">{lang === "th" ? "ไม่ระบุ (ระบบจัดอัตโนมัติ)" : "None (auto-assign)"}</SelectItem>
-                    {personnel.filter((p: any) => p.id !== applicantId).map((p: any) => (
-                      <SelectItem key={p.id} value={`${p.prefix || ""}${p.first_name} ${p.last_name}`}>
-                        {p.prefix || ""}{p.first_name} {p.last_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               {/* Per-period substitute selection */}
               {leaveDates.length > 0 && (
                 <div className="rounded-lg border p-3 space-y-3 bg-muted/30">
@@ -573,6 +558,7 @@ const StaffLeavePage = () => {
                       ))}
                     </div>
                   </div>
+                  {leaveScope === "periods" && (<>
                   <div>
                     <Label className="text-sm font-medium">
                       {leaveScope === "periods"
@@ -626,8 +612,25 @@ const StaffLeavePage = () => {
                       );
                     })}
                   </div>
+                  </>)}
                 </div>
               )}
+
+              {leaveScope === "full_day" && (<div>
+                <Label className="text-sm font-medium">{lang === "th" ? "ครูผู้สอนแทน" : "Acting Teacher (all periods)"}</Label>
+                <Select value={actingTeacher} onValueChange={setActingTeacher}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder={lang === "th" ? "ไม่ระบุ = ระบบจัดให้อัตโนมัติ" : "None = auto-assign"} /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{lang === "th" ? "ไม่ระบุ (ระบบจัดอัตโนมัติ)" : "None (auto-assign)"}</SelectItem>
+                    {personnel.filter((p: any) => p.id !== applicantId).map((p: any) => (
+                      <SelectItem key={p.id} value={`${p.prefix || ""}${p.first_name} ${p.last_name}`}>
+                        {p.prefix || ""}{p.first_name} {p.last_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>)}
+
 
 
               <div>
