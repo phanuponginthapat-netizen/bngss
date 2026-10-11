@@ -573,7 +573,7 @@ const StaffLeavePage = () => {
                   </div>
                   <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
                     {displaySlots.map((slot) => {
-                      const on = leaveScope === "full_day" || !!pickedPeriods[slot.key];
+                      const on = !!pickedPeriods[slot.key];
                       return (
                       <div key={slot.key} className="grid grid-cols-1 sm:grid-cols-[1fr_1.2fr] gap-2 items-center">
                         <label className="text-xs flex items-center gap-2">
