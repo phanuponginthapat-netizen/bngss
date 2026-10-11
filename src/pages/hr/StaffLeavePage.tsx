@@ -7,6 +7,7 @@ import { notifyLeaveApproved, notifyLeaveRejected } from "@/lib/notificationTrig
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -58,6 +59,8 @@ const StaffLeavePage = () => {
   const [contactPhone, setContactPhone] = useState("");
   const [actingTeacher, setActingTeacher] = useState("");
   const [substitutePlan, setSubstitutePlan] = useState<Record<string, string>>({});
+  const [leaveScope, setLeaveScope] = useState<"full_day" | "periods">("full_day");
+  const [pickedPeriods, setPickedPeriods] = useState<Record<string, boolean>>({});
   const [attachment, setAttachment] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -148,6 +151,7 @@ const StaffLeavePage = () => {
         classroom: s.classroom_id ? classroomMap[s.classroom_id] || "" : "",
       }));
   });
+  const selectedSlots = leaveSlots.filter((sl) => !!pickedPeriods[sl.key]);
 
 
 
@@ -185,6 +189,7 @@ const StaffLeavePage = () => {
     setLeaveType("sick"); setStartDate(""); setEndDate("");
     setReason(""); setContactPhone((myPersonnel as any)?.profile_phone || ""); setActingTeacher("");
     setSubstitutePlan({});
+    setLeaveScope("full_day"); setPickedPeriods({});
     setAttachment(null);
   };
 
@@ -203,6 +208,10 @@ const StaffLeavePage = () => {
     const targetPersonnelId = canApprove ? personnelId : myPersonnel?.id;
     if (!targetPersonnelId || !startDate || !endDate || !reason) {
       toast.error(lang === "th" ? "กรุณากรอกข้อมูลให้ครบถ้วน" : "Please fill in all required fields");
+      return;
+    }
+    if (leaveScope === "periods" && leaveSlots.length > 0 && selectedSlots.length === 0) {
+      toast.error(lang === "th" ? "กรุณาติ๊กเลือกคาบที่ต้องการลาอย่างน้อย 1 คาบ" : "Select at least one period");
       return;
     }
 
@@ -234,7 +243,16 @@ const StaffLeavePage = () => {
         return;
       }
       const normalizedActingTeacher = actingTeacher && actingTeacher !== "none" ? actingTeacher : "";
-      const { error } = await supabase.from("staff_leaves").insert({
+      const byPeriod = leaveScope === "periods" && leaveSlots.length > 0;
+      const plan = byPeriod
+        ? selectedSlots.map((sl) => ({
+            date: sl.date, period: sl.period,
+            teacher: substitutePlan[sl.key] && substitutePlan[sl.key] !== "auto" ? substitutePlan[sl.key] : "",
+          }))
+        : leaveSlots
+            .filter((sl) => substitutePlan[sl.key] && substitutePlan[sl.key] !== "auto")
+            .map((sl) => ({ date: sl.date, period: sl.period, teacher: substitutePlan[sl.key] }));
+      const row: Record<string, unknown> = {
         personnel_id: targetPersonnelId,
         leave_type: leaveType,
         start_date: startDate,
@@ -242,15 +260,18 @@ const StaffLeavePage = () => {
         reason,
         contact_phone: contactPhone,
         acting_teacher: normalizedActingTeacher,
-        substitute_plan: leaveSlots
-          .filter((sl) => substitutePlan[sl.key] && substitutePlan[sl.key] !== "auto")
-          .map((sl) => ({ date: sl.date, period: sl.period, teacher: substitutePlan[sl.key] })),
+        substitute_plan: plan,
         attachment_url: attachmentPath,
-      } as any);
+      };
+      if (byPeriod) row.leave_scope = "periods";
+      const { error } = await supabase.from("staff_leaves").insert(row as any);
 
       if (error) {
         const dup = /duplicate|unique|uniq_staff_leaves_pending/i.test(error.message);
-        toast.error(dup
+        const noScope = byPeriod && (error.code === "PGRST204" || error.code === "42703" || /leave_scope/i.test(error.message));
+        toast.error(noScope
+          ? (lang === "th" ? "ฐานข้อมูลยังไม่รองรับการลารายคาบ — ผู้ดูแลต้องรันชุดคำสั่ง 20261013-staff-leave-by-period.sql ก่อน (ตอนนี้ลาแบบทั้งวันได้ตามปกติ)" : "By-period leave needs a database update first")
+          : dup
           ? (lang === "th" ? "มีใบลาซ้ำในช่วงวันเดียวกันอยู่แล้ว (รออนุมัติ)" : "A pending leave for the same dates already exists")
           : error.message);
         return;
@@ -535,26 +556,55 @@ const StaffLeavePage = () => {
               {leaveSlots.length > 0 && (
                 <div className="rounded-lg border p-3 space-y-3 bg-muted/30">
                   <div>
+                    <Label className="text-sm font-medium">{lang === "th" ? "ลาแบบ" : "Leave scope"}</Label>
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      {(["full_day", "periods"] as const).map((m) => (
+                        <Button
+                          key={m}
+                          type="button"
+                          size="sm"
+                          variant={leaveScope === m ? "default" : "outline"}
+                          onClick={() => setLeaveScope(m)}
+                        >
+                          {m === "full_day" ? (lang === "th" ? "ทั้งวัน" : "Full day") : (lang === "th" ? "เลือกรายคาบ" : "By period")}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
                     <Label className="text-sm font-medium">
-                      {lang === "th" ? `เลือกครูสอนแทนรายคาบ (${leaveSlots.length} คาบ)` : `Substitute per period (${leaveSlots.length})`}
+                      {leaveScope === "periods"
+                        ? (lang === "th" ? `ติ๊กคาบที่ลา (เลือก ${selectedSlots.length}/${leaveSlots.length} คาบ)` : `Tick periods on leave (${selectedSlots.length}/${leaveSlots.length})`)
+                        : (lang === "th" ? `เลือกครูสอนแทนรายคาบ (${leaveSlots.length} คาบ)` : `Substitute per period (${leaveSlots.length})`)}
                     </Label>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {lang === "th"
-                        ? "คาบที่ไม่ได้เลือก ระบบจะจัดครูที่ว่างให้อัตโนมัติเมื่อใบลาได้รับอนุมัติ"
+                        ? "คาบที่ไม่ได้เลือกครู ระบบจะจัดครูที่ว่างให้อัตโนมัติเมื่อใบลาได้รับอนุมัติ"
                         : "Periods left blank will be auto-assigned to a free teacher on approval."}
                     </p>
                   </div>
                   <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
-                    {leaveSlots.map((slot) => (
+                    {leaveSlots.map((slot) => {
+                      const on = leaveScope === "full_day" || !!pickedPeriods[slot.key];
+                      return (
                       <div key={slot.key} className="grid grid-cols-1 sm:grid-cols-[1fr_1.2fr] gap-2 items-center">
-                        <div className="text-xs">
-                          <span className="font-medium">{slot.date}</span>{" "}
-                          <span className="text-muted-foreground">
-                            {lang === "th" ? `คาบ ${slot.period}` : `P.${slot.period}`}
-                            {slot.classroom ? ` • ${slot.classroom}` : ""}
-                            {slot.subject ? ` • ${slot.subject}` : ""}
+                        <label className="text-xs flex items-center gap-2">
+                          {leaveScope === "periods" && (
+                            <Checkbox
+                              checked={on}
+                              onCheckedChange={(v) => setPickedPeriods((p) => ({ ...p, [slot.key]: !!v }))}
+                            />
+                          )}
+                          <span>
+                            <span className="font-medium">{slot.date}</span>{" "}
+                            <span className="text-muted-foreground">
+                              {lang === "th" ? `คาบ ${slot.period}` : `P.${slot.period}`}
+                              {slot.classroom ? ` • ${slot.classroom}` : ""}
+                              {slot.subject ? ` • ${slot.subject}` : ""}
+                            </span>
                           </span>
-                        </div>
+                        </label>
+                        {on && (
                         <Select
                           value={substitutePlan[slot.key] || "auto"}
                           onValueChange={(v) => setSubstitutePlan((prev) => ({ ...prev, [slot.key]: v }))}
@@ -569,8 +619,10 @@ const StaffLeavePage = () => {
                             ))}
                           </SelectContent>
                         </Select>
+                        )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

@@ -5,3 +5,4 @@
 4. 20261011-student-scores-audit.sql — เก็บประวัติการแก้คะแนน
 5. 20261012-push-subscriptions-rls-upsert.sql — แก้บันทึกอุปกรณ์รับแจ้งเตือนซ้ำไม่ได้ (error 42501)
 จากนั้น deploy ฟังก์ชัน announce-pp5-scores และ announce-pp6-scores รุ่นล่าสุด
+6. 20261013-staff-leave-by-period.sql — ลาครูแบบเลือกรายคาบ
