@@ -7,14 +7,14 @@ Deno.serve(async (req) => {
   try {
     const admin = makeAdmin();
     const threshold = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    const { data: offline } = await admin.from("kiosk_devices").select("device_id, meta, last_heartbeat").lt("last_heartbeat", threshold).eq("status", "online");
+    const { data: offline } = await admin.from("kiosk_devices").select("device_id, meta, last_seen_at").lt("last_seen_at", threshold).eq("status", "online");
     if (offline && offline.length > 0) {
       for (const d of offline as any[]) {
         await admin.from("kiosk_devices").update({ status: "offline" }).eq("device_id", d.device_id);
         await fanout({
           roles: ["admin"],
           title: "ตู้ Kiosk ออฟไลน์เกิน 10 นาที",
-          body: `${d.device_id} • ${(d.meta as any)?.room || ""} • last ${d.last_heartbeat}`,
+          body: `${d.device_id} • ${(d.meta as any)?.room || ""} • last ${d.last_seen_at}`,
           type: "kiosk_offline",
           severity: "warning",
           url: "/dashboard/admin/kiosk-health",
