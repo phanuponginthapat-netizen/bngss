@@ -9,6 +9,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -19,7 +20,7 @@ export function SidebarAccountFooter() {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed" && !isMobile;
   const { session } = useAuthSession();
-  const { role } = useUserRole();
+  const { role, realRole, isTeacherAdmin } = useUserRole();
   const { t, lang } = useLanguage();
   const navigate = useNavigate();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -66,7 +67,18 @@ export function SidebarAccountFooter() {
     student: { label: lang === "th" ? "นักเรียน" : "Student", variant: "outline" },
     alumni: { label: lang === "th" ? "ศิษย์เก่า" : "Alumni", variant: "outline" },
   };
-  const badge = role ? roleBadgeMap[role] : null;
+
+  // ครูที่เป็น admin: แสดงป้ายทั้งสองบทบาท — มุมมองที่กำลังใช้เต็มสี อีกมุมมองจาง
+  const shownBadges: { label: string; variant: "default" | "secondary" | "outline" | "destructive"; active: boolean }[] = [];
+  if (isTeacherAdmin && (realRole === "admin" || realRole === "teacher")) {
+    shownBadges.push(
+      { ...roleBadgeMap.admin, active: role === "admin" },
+      { ...roleBadgeMap.teacher, active: role === "teacher" }
+    );
+  } else {
+    const b = role ? roleBadgeMap[role] : null;
+    if (b) shownBadges.push({ ...b, active: true });
+  }
 
   return (
     <SidebarFooter className="border-t border-sidebar-border/70 bg-gradient-to-t from-sidebar-accent/25 to-transparent p-1.5 gap-1">
@@ -83,11 +95,25 @@ export function SidebarAccountFooter() {
             <div className="text-[11px] font-semibold text-sidebar-foreground truncate leading-tight">{fullName || userEmail.split("@")[0]}</div>
             {/* ปุ่ ม ออกจากระบบวางข ้าง ๆ ป ้ายสถานะบทบาท (ม ุมขวาล ่างท ี่เด ิมซ ้อนก ับฟอง AI) */}
             <div className="mt-0.5 flex items-center gap-1">
-              {badge && (
-                <Badge variant={badge.variant} className="text-[8px] h-3 px-1 leading-none font-medium">
-                  {badge.label}
+              {shownBadges.map((b, i) => (
+                <Badge
+                  key={`${b.label}-${i}`}
+                  variant={b.variant}
+                  title={
+                    isTeacherAdmin
+                      ? b.active
+                        ? `กำลังใช้งานมุมมอง${b.label === "ครู" ? "ครู" : "ผู้ดูแลระบบ"}`
+                        : `สลับเป็นมุมมอง${b.label === "ครู" ? "ครู" : "ผู้ดูแลระบบ"}ด้วยปุ่มด้านบน`
+                      : undefined
+                  }
+                  className={cn(
+                    "text-[8px] h-3 px-1 leading-none font-medium transition-opacity",
+                    !b.active && "opacity-45"
+                  )}
+                >
+                  {b.label}
                 </Badge>
-              )}
+              ))}
               <button
                 onClick={handleLogout}
                 title={t("logout")}

@@ -74,7 +74,9 @@ export function useUserRole() {
   const primary = priority.find((r) => roles.includes(r)) ?? null;
   const realRole: AppRole | null = isObserver ? "director" : primary;
 
-  // Detect "teacher who is also admin" for view-mode toggle
+  // Detect "teacher who is also admin" for view-mode toggle.
+  // Only real teaching positions (ครู/ครูผู้สอน) count — เจ้าหน้าที่/ICT/อุปกรณ์ระบบ
+  // with an admin role must not be shown the teacher view toggle.
   const teacherAdminQuery = useQuery({
     queryKey: ["is-teacher-admin", userId],
     enabled: isReady && !!userId && realRole === "admin",
@@ -84,7 +86,8 @@ export function useUserRole() {
         .from("personnel")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId!)
-        .eq("status", "active");
+        .eq("status", "active")
+        .in("position", ["ครู", "ครูผู้สอน"]);
       return (count || 0) > 0;
     },
   });
