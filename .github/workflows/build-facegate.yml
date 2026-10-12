@@ -188,4 +188,4 @@ jobs:
         run: |
           mkdir -p "$HOME/bin" && printf '#!/bin/sh\nexec python "$@"\n' > "$HOME/bin/python3" && chmod +x "$HOME/bin/python3"
           export PATH="$HOME/bin:$PATH" PYTHONUTF8=1 PYTHONIOENCODING=utf-8
-          bash scripts/ci/publish-release.sh facegate-windows "FaceGate สำหรับ Windows (ตัวติดตั้ง .exe)" "v${{ steps.ver.outputs.version }}" dist-facegate/FaceGateSetup.exe
+          bash scripts/ci/publish-release.sh facegate-windows "FaceGate for Windows (Setup.exe)" "v${{ steps.ver.outputs.version }}" dist-facegate/FaceGateSetup.exe
