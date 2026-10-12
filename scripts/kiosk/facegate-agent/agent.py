@@ -1234,6 +1234,73 @@ def web_faces_payload(bgr: np.ndarray, want_crop: bool = False) -> list[dict]:
     return out
 
 
+# Cloud mode (normal school install): the program opens its own scan screen,
+# so nobody has to sign in to the website just to run the scanner.
+RECENT_SCANS: list[dict] = []
+if not STANDALONE and not SATELLITE:
+    import local_ui
+    from fastapi.responses import HTMLResponse as _CHTML, RedirectResponse as _CRedirect
+
+    @app.get("/kiosk")
+    def kiosk_screen_cloud():
+        return _CHTML(local_ui.KIOSK_HTML)
+
+    @app.get("/")
+    def home_screen_cloud():
+        return _CRedirect("/kiosk")
+
+    @app.get("/local/kiosk-api/content")
+    def cloud_content():
+        with lock:
+            st = dict(state.get("settings") or {})
+        out = {k: v for k, v in st.items() if isinstance(v, (str, int, float, bool)) or v is None}
+        if not DEVICE_KEY:
+            out["kiosk_subtitle"] = "ยังไม่ได้ใส่ Device Key — สแกนได้แต่ยังไม่ส่งข้อมูลเข้าระบบ"
+        return out
+
+    @app.get("/local/kiosk-api/recent")
+    def cloud_recent():
+        with lock:
+            st = dict(state.get("settings") or {})
+        display = {"show_recent": True, "news_enabled": bool(st.get("news_text")), "news_text": st.get("news_text") or ""}
+        today = time.strftime("%Y-%m-%d")
+        return {"display": display, "items": [r for r in RECENT_SCANS if r["scanned_at"].startswith(today)][:12]}
+
+    @app.get("/local/kiosk-api/today-stats")
+    def cloud_today_stats():
+        today = time.strftime("%Y-%m-%d")
+        seen = {r["id"] for r in RECENT_SCANS if r["scanned_at"].startswith(today) and r["direction"] != "out"}
+        return {"students_present": len(seen), "staff_present": 0, "server_time": None,
+                "visitor_register_enabled": False}
+
+    @app.post("/local/kiosk-api/live")
+    async def cloud_live(request: Request):
+        try:
+            body = await request.json()
+            res = requests.post(f"{CLOUD_URL}/kiosk-api/live", headers=HEADERS, json=body, timeout=8)
+            return res.json()
+        except Exception:  # noqa: BLE001
+            return {"ok": False, "watch": False, "interval_ms": 2000}
+
+
+def remember_scan(result: dict) -> None:
+    """Keep the last scans in memory for the program's own scan screen."""
+    if not isinstance(result, dict) or result.get("result") != "ok" or result.get("test"):
+        return
+    sid = result.get("student_id") or result.get("name") or ""
+    with lock:
+        person = state["students"].get(sid) or {}
+    RECENT_SCANS.insert(0, {
+        "id": sid,
+        "name": result.get("name") or person.get("full_name") or "ผู้ใช้งาน",
+        "detail": result.get("detail") or person.get("class_name") or "",
+        "avatar_url": person.get("avatar_url") or "",
+        "direction": result.get("direction") or "in",
+        "scanned_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+    })
+    del RECENT_SCANS[50:]
+
+
 def decode_image(raw: bytes) -> np.ndarray | None:
     return cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
 
@@ -1246,7 +1313,9 @@ async def scan(request: Request):
     if "application/json" in ctype:
         image = (json.loads(body or b"{}") or {}).get("image") or ""
         push_live_frame(image)
-        return run_scan(image)
+        result = run_scan(image)
+        remember_scan(result)
+        return result
     # เส้นทางเข้ากันได้กับรุ่นเดิม: รับ JPEG ดิบ คืนใบหน้าพร้อม embedding
     t0 = time.time()
     img = decode_image(body)
@@ -1577,7 +1646,8 @@ def open_kiosk_browser() -> None:
     import subprocess
     time.sleep(5)
     site = os.environ.get("FACEGATE_SITE_URL", "https://bngss.lovable.app").rstrip("/")
-    url = f"http://127.0.0.1:{PORT}/kiosk" if STANDALONE else f"{site}/kiosk"
+    # Always the program's own scan screen — no website sign-in needed.
+    url = f"http://127.0.0.1:{PORT}/kiosk"
     candidates = [
         os.path.join(os.environ.get("PROGRAMFILES(X86)", ""), "Microsoft", "Edge", "Application", "msedge.exe"),
         os.path.join(os.environ.get("PROGRAMFILES", ""), "Microsoft", "Edge", "Application", "msedge.exe"),
@@ -1596,7 +1666,7 @@ if __name__ == "__main__":
     import uvicorn
 
     if not DEVICE_KEY and not STANDALONE:
-        raise SystemExit("ตั้งค่า FACEGATE_DEVICE_KEY ก่อนเริ่มโปรแกรม (ดูรหัสได้ในหน้าตั้งค่าระบบ)")
+        print("ตั้งค่า FACEGATE_DEVICE_KEY ก่อนเริ่มโปรแกรม (ดูรหัสได้ในหน้าตั้งค่าระบบ)")
     if SATELLITE:
         print(f"[agent] LAN kiosk mode — hub: {HUB_URL}")
     if STANDALONE:
