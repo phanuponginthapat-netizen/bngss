@@ -201,6 +201,7 @@ import {
   buildListCard,
   buildProfileCard,
   buildSectionCard,
+  getAppBaseUrl,
   buildCarousel,
 } from "../_shared/lineFlex.ts";
 
@@ -1596,6 +1597,34 @@ async function handleTextMessage(sb: any, token: string, rt: string, text: strin
           { label: "📞 ติดต่อ", text: "ติดต่อ" },
           { label: "📅 ปฏิทิน", text: "ปฏิทิน" },
         ],
+      }));
+    }
+
+    // Open-in-system bubble — every task the web offers, opened right inside LINE
+    const base = await getAppBaseUrl(sb);
+    const web = (path: string) => `${base}${path}`;
+    if (user) {
+      const webCtas = isAdmin
+        ? [
+            { label: "🏫 แดชบอร์ดผู้บริหาร", uri: web("/dashboard") },
+            { label: "💰 งบประมาณ/อนุมัติ", uri: web("/dashboard/finance/budget") },
+            { label: "📈 สถานะส่งคะแนน", uri: web("/dashboard/academic/score-status") },
+          ]
+        : isTeacher
+        ? [
+            { label: "🏠 หน้าหลักครู", uri: web("/dashboard") },
+            { label: "📝 ใบลา/สอนแทน", uri: web("/dashboard/hr/leave") },
+            { label: "📚 การบ้าน", uri: web("/dashboard/homework") },
+          ]
+        : [
+            { label: "🏠 หน้าหลัก", uri: web("/dashboard") },
+            { label: "📊 ผลการเรียน", uri: web("/liff/grades") },
+            { label: "✅ การมาเรียน", uri: web("/liff/attendance") },
+          ];
+      bubbles.push(buildSectionCard({
+        icon: "🌐", title: "เปิดระบบเต็ม", color: "#0EA5E9",
+        lines: ["ทำงานได้ครบเหมือนบนเว็บ", "เปิดในหน้าต่าง LINE ได้ทันที", "ใช้บัญชีเดียวกับระบบโรงเรียน"],
+        ctas: webCtas,
       }));
     }
 

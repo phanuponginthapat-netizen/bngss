@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders } from "../_shared/cors.ts";
 import { generateImage } from "../_shared/imageGen.ts";
+import { getAppBaseUrl } from "../_shared/lineFlex.ts";
 
 const SIZE = { width: 2500, height: 1686 };
 // 4 คอลัมน์ × 2 แถว = 8 เซลล์ต่อเมนู (LINE รองรับได้ถึง 20 areas)
@@ -11,7 +12,8 @@ const ROWS = 2;
 const cellW = SIZE.width / COLS;
 const cellH = SIZE.height / ROWS;
 
-type Cell = { label: string; sub: string; icon: string; gradient: [string, string]; text: string };
+type Cell = { label: string; sub: string; icon: string; gradient: [string, string]; text: string; path?: string };
+let BASE_URL = "https://bngss.lovable.app";
 
 // Modern palette aligned to school system (indigo/violet primary + accents)
 const G = {
@@ -40,7 +42,7 @@ const MENUS: Record<string, { name: string; chatBarText: string; cells: Cell[] }
       { label: "สุขภาพ",        sub: "บันทึกพยาบาล",       icon: "🏥", gradient: G.rose,    text: "สุขภาพ" },
       { label: "ส่งใบลา",       sub: "แจ้งลาออนไลน์",      icon: "📝", gradient: G.pink,    text: "ลา" },
       { label: "ตารางเรียน",    sub: "ตารางสัปดาห์",        icon: "📅", gradient: G.teal,    text: "ตารางสอน" },
-      { label: "เมนูทั้งหมด",   sub: "เปิดเมนูหลัก",         icon: "📋", gradient: G.indigo,  text: "เมนู" },
+      { label: "เปิดระบบ", sub: "ใช้งานเต็มเหมือนเว็บ", icon: "🌐", gradient: G.indigo, text: "เมนู", path: "/dashboard" },
     ],
   },
   // ครู / บุคลากร — เน้นงานสอนและงานประจำวัน
@@ -55,7 +57,7 @@ const MENUS: Record<string, { name: string; chatBarText: string; cells: Cell[] }
       { label: "การบ้านฉัน",   sub: "งานที่มอบหมาย",       icon: "📝", gradient: G.amber,   text: "การบ้านฉัน" },
       { label: "สอนแทน",       sub: "งานสอนแทน",           icon: "🔁", gradient: G.rose,    text: "สอนแทน" },
       { label: "ส่งใบลา",      sub: "ลาราชการ/ลาป่วย",    icon: "📋", gradient: G.pink,    text: "ลา" },
-      { label: "เมนูทั้งหมด",  sub: "เปิดเมนูหลัก",         icon: "📋", gradient: G.indigo,  text: "เมนู" },
+      { label: "เปิดระบบ", sub: "ใช้งานเต็มเหมือนเว็บ", icon: "🌐", gradient: G.indigo, text: "เมนู", path: "/dashboard" },
     ],
   },
   // ผู้อำนวยการ — ภาพรวมและการอนุมัติ + ประเมิน
@@ -70,7 +72,7 @@ const MENUS: Record<string, { name: string; chatBarText: string; cells: Cell[] }
       { label: "ประกาศ",        sub: "แจ้งฉุกเฉิน",           icon: "📣", gradient: G.amber,   text: "ประกาศ" },
       { label: "ปฏิทิน",        sub: "กิจกรรมโรงเรียน",     icon: "📅", gradient: G.teal,    text: "ปฏิทิน" },
       { label: "สรุปวันนี้",     sub: "ภาพรวมประจำวัน",     icon: "🗓", gradient: G.orange,  text: "สรุปวันนี้" },
-      { label: "เมนูทั้งหมด",   sub: "เปิดเมนูหลัก",          icon: "📋", gradient: G.indigo,  text: "เมนู" },
+      { label: "เปิดระบบ", sub: "ใช้งานเต็มเหมือนเว็บ", icon: "🌐", gradient: G.indigo, text: "เมนู", path: "/dashboard" },
     ],
   },
   // แอดมิน — เน้นดูแลระบบ ผู้ใช้ ประกาศ
@@ -85,7 +87,7 @@ const MENUS: Record<string, { name: string; chatBarText: string; cells: Cell[] }
       { label: "ประกาศ",         sub: "Broadcast ระบบ",      icon: "📣", gradient: G.amber,   text: "ประกาศ" },
       { label: "ปฏิทิน",         sub: "กิจกรรมโรงเรียน",     icon: "📅", gradient: G.teal,    text: "ปฏิทิน" },
       { label: "ติดต่อ",         sub: "ข้อมูลโรงเรียน",       icon: "📞", gradient: G.emerald, text: "ติดต่อ" },
-      { label: "เมนูทั้งหมด",    sub: "เปิดเมนูหลัก",          icon: "📋", gradient: G.indigo,  text: "เมนู" },
+      { label: "เปิดระบบ", sub: "ใช้งานเต็มเหมือนเว็บ", icon: "🌐", gradient: G.indigo, text: "เมนู", path: "/dashboard" },
     ],
   },
   // ยังไม่เชื่อมบัญชี
@@ -113,7 +115,7 @@ function buildAreas(cells: Cell[]) {
       width: Math.round(cellW),
       height: Math.round(cellH),
     },
-    action: { type: "message", text: c.text },
+    action: c.path ? { type: "uri", uri: `${BASE_URL}${c.path}` } : { type: "message", text: c.text },
   }));
 }
 
@@ -256,6 +258,7 @@ async function runSetup(force = false) {
   const { data: tok } = await sb.from("school_settings").select("setting_value").eq("setting_key", "line_channel_access_token").maybeSingle();
   const token = tok?.setting_value;
   if (!token) throw new Error("LINE token not configured");
+  BASE_URL = await getAppBaseUrl(sb);
 
   await sb.from("school_settings").upsert(
     { setting_key: "line_richmenu_status", setting_value: JSON.stringify({ status: "processing", started_at: new Date().toISOString() }) },
@@ -271,7 +274,7 @@ async function runSetup(force = false) {
   // Compute new hash per role
   const nextHash = new Map<string, string>();
   for (const r of roles) {
-    nextHash.set(r, await sha256Hex(`auto-svg:v2:${r}:${JSON.stringify(MENUS[r])}`));
+    nextHash.set(r, await sha256Hex(`auto-svg:v3:${BASE_URL}:${r}:${JSON.stringify(MENUS[r])}`));
   }
 
   // Keep-list: richmenu IDs that must not be deleted (uploaded menus + unchanged auto ones)
