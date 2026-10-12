@@ -645,8 +645,17 @@ export default function KioskSetupPage() {
         <CardContent className="space-y-3">
           <ol className="ml-5 list-decimal space-y-1 text-sm">
             <li>สร้างเครื่องในหัวข้อด้านบน แล้วคัดลอก “รหัสเครื่อง”</li>
-            <li>กดปุ่มด้านล่างเพื่อดาวน์โหลดไฟล์ติดตั้ง แล้วแตกไฟล์</li>
-            <li>รันไฟล์ติดตั้ง (Windows: ดับเบิลคลิก install.bat / Linux: bash install.sh) แล้ววางรหัสเครื่องเมื่อถูกถาม</li>
+            {facegateRelease.isExe ? (
+              <>
+                <li>กดปุ่มด้านล่างเพื่อดาวน์โหลด FaceGateSetup.exe</li>
+                <li>ดับเบิลคลิกไฟล์ กด ถัดไป แล้ววางรหัสเครื่องในหน้าที่ถาม (ถ้า Windows เตือน ให้กด “ข้อมูลเพิ่มเติม” → “เรียกใช้ต่อ”)</li>
+              </>
+            ) : (
+              <>
+                <li>กดปุ่มด้านล่างเพื่อดาวน์โหลดไฟล์ติดตั้ง แล้วแตกไฟล์</li>
+                <li>รันไฟล์ติดตั้ง (Windows: ดับเบิลคลิก install.bat / Linux: bash install.sh) แล้ววางรหัสเครื่องเมื่อถูกถาม</li>
+              </>
+            )}
             <li>ติดตั้งครั้งเดียว โปรแกรมจะเปิดเองทุกครั้งที่เปิดเครื่อง และดึงรายชื่อ–ใบหน้ามาเก็บไว้ในเครื่อง</li>
             <li>เมื่อเน็ตหลุด เครื่องยังสแกนได้ตามปกติ แล้วส่งผลขึ้นระบบให้เองเมื่อเน็ตกลับมา</li>
             <li>เครื่องที่ติดตั้งรุ่นเดิมอยู่ ให้ติดตั้งทับด้วยไฟล์นี้ได้เลย ข้อมูลใบหน้าเดิมใช้ต่อได้</li>
@@ -655,7 +664,7 @@ export default function KioskSetupPage() {
             <Button asChild>
               <a href={facegateRelease.url} download={facegateRelease.fileName}>
                 <Download className="mr-2 h-4 w-4" />
-                ดาวน์โหลดโปรแกรมสแกนใบหน้า
+                {facegateRelease.isExe ? "ดาวน์โหลดตัวติดตั้ง Windows (.exe)" : "ดาวน์โหลดโปรแกรมสแกนใบหน้า"}
               </a>
             </Button>
           </div>
