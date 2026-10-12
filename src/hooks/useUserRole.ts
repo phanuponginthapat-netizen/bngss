@@ -82,12 +82,31 @@ export function useUserRole() {
     enabled: isReady && !!userId && realRole === "admin",
     staleTime: 10 * 60 * 1000,
     queryFn: async () => {
-      const { count } = await supabase
+      const { data: personnel } = await supabase
         .from("personnel")
-        .select("id", { count: "exact", head: true })
+        .select("id, position")
         .eq("user_id", userId!)
         .eq("status", "active")
-        .in("position", ["ครู", "ครูผู้สอน"]);
+        .maybeSingle();
+      if (!personnel) return false;
+      // Real teaching positions always count
+      if (["ครู", "ครูผู้สอน"].includes(personnel.position ?? "")) return true;
+      // Anyone (e.g. ICT Talent, เจ้าหน้าที่) who actually has teaching
+      // periods in the timetable counts as a teacher too
+      const { data: latest } = await supabase
+        .from("schedules")
+        .select("academic_year, semester")
+        .eq("teacher_id", personnel.id)
+        .order("academic_year", { ascending: false })
+        .limit(1);
+      const term = latest?.[0];
+      if (!term) return false;
+      const { count } = await supabase
+        .from("schedules")
+        .select("id", { count: "exact", head: true })
+        .eq("teacher_id", personnel.id)
+        .eq("academic_year", term.academic_year)
+        .eq("semester", term.semester);
       return (count || 0) > 0;
     },
   });
