@@ -105,7 +105,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.7.0"
+AGENT_VERSION = "1.7.1"
 
 
 def default_cache_dir() -> str:
@@ -1645,7 +1645,6 @@ def open_kiosk_browser() -> None:
     """Open the scan page full screen once the local service answers (exe build)."""
     import subprocess
     time.sleep(5)
-    site = os.environ.get("FACEGATE_SITE_URL", "https://bngss.lovable.app").rstrip("/")
     # Always the program's own scan screen — no website sign-in needed.
     url = f"http://127.0.0.1:{PORT}/kiosk"
     candidates = [
