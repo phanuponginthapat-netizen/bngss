@@ -9,3 +9,4 @@
 - Save web and native push devices only through src/lib/pushRegistration.ts (register_push_subscription function, insert-and-accept-duplicate fallback, never client upsert) and retain pending native registrations until the database confirms; refresh user-scoped notification caches on resume/reconnect — client upserts hit RLS 42501 loops and silently drop devices.
 
 - Ship schema/function fixes as files in supabase/migrations (auto-deploy.yml pushes them to the school backend on every main push) and verify only via the AI_READONLY_DB_URL read-only role — never hand the agent write credentials.
+- The Windows FaceGate installer (FaceGateSetup.exe) is built in build-facegate.yml with PyInstaller + Inno Setup, bundles the ONNX face models, reads settings from facegate.env, and is published as the facegate-windows release that download links prefer over the ZIP — schools get a no-Python, no-.bat install.
