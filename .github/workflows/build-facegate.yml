@@ -185,4 +185,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: bash scripts/ci/publish-release.sh facegate-windows "FaceGate สำหรับ Windows (ตัวติดตั้ง .exe)" "v${{ steps.ver.outputs.version }}" dist-facegate/FaceGateSetup.exe
+        run: |
+          mkdir -p "$HOME/bin" && printf '#!/bin/sh\nexec python "$@"\n' > "$HOME/bin/python3" && chmod +x "$HOME/bin/python3"
+          export PATH="$HOME/bin:$PATH"
+          bash scripts/ci/publish-release.sh facegate-windows "FaceGate สำหรับ Windows (ตัวติดตั้ง .exe)" "v${{ steps.ver.outputs.version }}" dist-facegate/FaceGateSetup.exe
