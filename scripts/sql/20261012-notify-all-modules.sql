@@ -236,3 +236,187 @@ END $$;
 DROP TRIGGER IF EXISTS trg_notify_sender_eform_progress ON public.eform_recipients;
 CREATE TRIGGER trg_notify_sender_eform_progress AFTER UPDATE OF signed_at
 ON public.eform_recipients FOR EACH ROW EXECUTE FUNCTION public.notify_sender_eform_progress();
+
+-- helper: นักเรียน + ผู้ปกครอง
+CREATE OR REPLACE FUNCTION public._notif_student(_sid uuid,_title text,_msg text,_type text,_ref_type text,_ref uuid,_parents boolean DEFAULT true)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE s record;
+BEGIN
+  SELECT auth_user_id,parent_user_id,parent_user_id_2 INTO s FROM public.students WHERE id=_sid;
+  PERFORM public._notif_add(s.auth_user_id,_title,_msg,_type,_ref_type,_ref);
+  IF _parents THEN
+    PERFORM public._notif_add(s.parent_user_id,_title,_msg,_type,_ref_type,_ref);
+    PERFORM public._notif_add(s.parent_user_id_2,_title,_msg,_type,_ref_type,_ref);
+  END IF;
+END $$;
+
+-- พฤติกรรม → นักเรียน ผู้ปกครอง ครูประจำชั้น
+CREATE OR REPLACE FUNCTION public.notify_app_on_behavior()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE t text; m text; c record; sname text;
+BEGIN
+  t := CASE WHEN NEW.behavior_type='positive' THEN '⭐ บันทึกพฤติกรรมดี' ELSE '⚠️ บันทึกพฤติกรรมที่ควรปรับปรุง' END;
+  m := coalesce(NEW.description,'-')||coalesce(' ('||NEW.points||' คะแนน)','');
+  PERFORM public._notif_student(NEW.student_id,t,m,'behavior','behavior',NEW.id);
+  SELECT concat(s.prefix,s.first_name,' ',s.last_name) AS n, cl.homeroom_teacher_id h1, cl.homeroom_teacher_2_id h2
+    INTO c FROM public.students s LEFT JOIN public.classrooms cl ON cl.id=s.classroom_id WHERE s.id=NEW.student_id;
+  PERFORM public._notif_add(public._notif_uid(c.h1),t||': '||coalesce(c.n,''),m,'behavior','behavior_homeroom',NEW.id);
+  PERFORM public._notif_add(public._notif_uid(c.h2),t||': '||coalesce(c.n,''),m,'behavior','behavior_homeroom',NEW.id);
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_notify_app_behavior ON public.behavior_records;
+CREATE TRIGGER trg_notify_app_behavior AFTER INSERT ON public.behavior_records
+FOR EACH ROW EXECUTE FUNCTION public.notify_app_on_behavior();
+
+-- Padlet: โพสต์ใหม่ → เจ้าของบอร์ด
+CREATE OR REPLACE FUNCTION public.notify_padlet_note()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE b record;
+BEGIN
+  SELECT owner_id,title INTO b FROM public.padlet_boards WHERE id=NEW.board_id;
+  IF b.owner_id IS NULL OR b.owner_id=NEW.author_id THEN RETURN NEW; END IF;
+  PERFORM public._notif_add(b.owner_id,'🧷 โพสต์ใหม่ใน '||coalesce(b.title,'Padlet'),
+    coalesce(NEW.author_name,'มีผู้')||': '||left(coalesce(NEW.content,''),80),'padlet','padlet_note',NEW.id);
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_notify_padlet_note ON public.padlet_notes;
+CREATE TRIGGER trg_notify_padlet_note AFTER INSERT ON public.padlet_notes
+FOR EACH ROW EXECUTE FUNCTION public.notify_padlet_note();
+
+-- สั่งงาน: มอบหมาย → ผู้รับ, ส่งงาน → ผู้สั่ง, ตรวจแล้ว → ผู้รับ
+CREATE OR REPLACE FUNCTION public.notify_task_assignment()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE who text;
+BEGIN
+  IF TG_OP='INSERT' THEN
+    PERFORM public._notif_add(public._notif_uid(NEW.assigned_to_user_id),'📌 งานที่ได้รับมอบหมาย: '||coalesce(NEW.title,'-'),
+      coalesce('กำหนดส่ง '||to_char(NEW.due_date,'DD/MM/YYYY'),'ดูรายละเอียดในระบบ'),'task','task_assignment',NEW.id);
+    IF NEW.assigned_to_student_id IS NOT NULL THEN
+      PERFORM public._notif_student(NEW.assigned_to_student_id,'📌 งานใหม่: '||coalesce(NEW.title,'-'),
+        coalesce('กำหนดส่ง '||to_char(NEW.due_date,'DD/MM/YYYY'),''),'task','task_assignment',NEW.id);
+    END IF;
+  ELSIF NEW.submitted_at IS NOT NULL AND OLD.submitted_at IS NULL THEN
+    SELECT coalesce((SELECT concat(prefix,first_name,' ',last_name) FROM public.students WHERE id=NEW.assigned_to_student_id),
+                    (SELECT concat(prefix,first_name,' ',last_name) FROM public.personnel WHERE user_id=NEW.assigned_to_user_id),'ผู้รับงาน') INTO who;
+    PERFORM public._notif_add(public._notif_uid(NEW.assigned_by),'📥 ส่งงานแล้ว: '||coalesce(NEW.title,'-'),
+      who||' ส่งงานแล้ว','task','task_submitted',NEW.id);
+  ELSIF (NEW.grade IS DISTINCT FROM OLD.grade AND NEW.grade IS NOT NULL) OR (NEW.feedback IS DISTINCT FROM OLD.feedback AND NEW.feedback IS NOT NULL) THEN
+    PERFORM public._notif_add(public._notif_uid(NEW.assigned_to_user_id),'📝 ตรวจงานแล้ว: '||coalesce(NEW.title,'-'),
+      coalesce('ผล: '||NEW.grade||' ','')||coalesce(left(NEW.feedback,80),''),'task','task_graded',NEW.id);
+    IF NEW.assigned_to_student_id IS NOT NULL THEN
+      PERFORM public._notif_student(NEW.assigned_to_student_id,'📝 ตรวจงานแล้ว: '||coalesce(NEW.title,'-'),
+        coalesce('ผล: '||NEW.grade||' ','')||coalesce(left(NEW.feedback,80),''),'task','task_graded',NEW.id,false);
+    END IF;
+  END IF;
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_notify_task_assignment ON public.task_assignments;
+CREATE TRIGGER trg_notify_task_assignment AFTER INSERT OR UPDATE ON public.task_assignments
+FOR EACH ROW EXECUTE FUNCTION public.notify_task_assignment();
+
+-- คะแนน: ประกาศผล ปพ.5 → นักเรียนในห้อง + ผู้ปกครอง (แจ้งเมื่อประกาศเท่านั้น)
+CREATE OR REPLACE FUNCTION public.notify_pp5_announced()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE s record; t text; m text;
+BEGIN
+  IF NEW.announced_at IS NULL OR OLD.announced_at IS NOT NULL OR NEW.classroom_id IS NULL THEN RETURN NEW; END IF;
+  t := '📊 ประกาศผลคะแนน: '||coalesce(NEW.subject_name,NEW.subject_code,'-');
+  m := 'ภาคเรียน '||coalesce(NEW.semester::text,'-')||'/'||coalesce(NEW.academic_year::text,'-')||' ดูคะแนนรวมและเกรดได้ในระบบ';
+  FOR s IN SELECT id FROM public.students WHERE classroom_id=NEW.classroom_id AND coalesce(status,'active')='active' LOOP
+    PERFORM public._notif_student(s.id,t,m,'score','pp5_announce',NEW.id);
+  END LOOP;
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_notify_pp5_announced ON public.pp5_files;
+CREATE TRIGGER trg_notify_pp5_announced AFTER UPDATE OF announced_at ON public.pp5_files
+FOR EACH ROW EXECUTE FUNCTION public.notify_pp5_announced();
+
+-- คะแนนสอบ (ตรวจกระดาษคำตอบ) → นักเรียน
+CREATE OR REPLACE FUNCTION public.notify_exam_graded()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE ttl text;
+BEGIN
+  IF NEW.student_id IS NULL OR NEW.score IS NULL OR (TG_OP='UPDATE' AND OLD.score IS NOT DISTINCT FROM NEW.score) THEN RETURN NEW; END IF;
+  SELECT title INTO ttl FROM public.exams WHERE id=NEW.exam_id;
+  PERFORM public._notif_student(NEW.student_id,'🧾 ผลสอบ: '||coalesce(ttl,'-'),
+    'ได้ '||NEW.score||coalesce('/'||NEW.total,'')||' คะแนน','score','exam_submission',NEW.id,false);
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_notify_exam_graded ON public.exam_submissions;
+CREATE TRIGGER trg_notify_exam_graded AFTER INSERT OR UPDATE OF score ON public.exam_submissions
+FOR EACH ROW EXECUTE FUNCTION public.notify_exam_graded();
+
+-- แก้ 0/ร/มส: คำร้องใหม่ → ครูวิชา, ครูตอบ/เสร็จ → นักเรียน
+CREATE OR REPLACE FUNCTION public.notify_incomplete_fix()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE subj text; sname text;
+BEGIN
+  SELECT name_th INTO subj FROM public.subjects WHERE id=NEW.subject_id;
+  IF TG_OP='INSERT' THEN
+    SELECT concat(prefix,first_name,' ',last_name) INTO sname FROM public.students WHERE id=NEW.student_id;
+    PERFORM public._notif_add(public._notif_uid(NEW.teacher_id),'🛠️ คำร้องแก้ '||coalesce(NEW.grade_type::text,'ผลการเรียน'),
+      coalesce(sname,'นักเรียน')||' วิชา '||coalesce(subj,'-'),'grade_fix','incomplete_fix',NEW.id);
+  ELSIF NEW.status IS DISTINCT FROM OLD.status THEN
+    PERFORM public._notif_student(NEW.student_id,'🛠️ คำร้องแก้ '||coalesce(NEW.grade_type::text,'')||': '||NEW.status::text,
+      'วิชา '||coalesce(subj,'-')||coalesce(' • งาน: '||NEW.assigned_task,'')||coalesce(' • สอบ '||NEW.exam_date,''),'grade_fix','incomplete_fix',NEW.id);
+  END IF;
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_notify_incomplete_fix ON public.incomplete_grade_fix_requests;
+CREATE TRIGGER trg_notify_incomplete_fix AFTER INSERT OR UPDATE OF status ON public.incomplete_grade_fix_requests
+FOR EACH ROW EXECUTE FUNCTION public.notify_incomplete_fix();
+
+-- งานฝ่ายบริหารทั่วไป: เวรประจำวัน → ครูเวร
+CREATE OR REPLACE FUNCTION public.notify_duty_assignment()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE loc text;
+BEGIN
+  SELECT name INTO loc FROM public.duty_locations WHERE id=NEW.location_id;
+  PERFORM public._notif_add(public._notif_uid(NEW.teacher_id),'🧭 ได้รับมอบหมายเวร',
+    coalesce(loc,'-')||coalesce(' วันที่ '||to_char(NEW.duty_date,'DD/MM/YYYY'),'')||coalesce(' '||NEW.start_time||'-'||NEW.end_time,''),
+    'duty','duty_assignment',NEW.id);
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_notify_duty_assignment ON public.duty_assignments;
+CREATE TRIGGER trg_notify_duty_assignment AFTER INSERT ON public.duty_assignments
+FOR EACH ROW EXECUTE FUNCTION public.notify_duty_assignment();
+
+-- ฝ่ายแผนงาน: สถานะโครงการ → ผู้รับผิดชอบ
+CREATE OR REPLACE FUNCTION public.notify_project_status()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+BEGIN
+  IF NEW.workflow_status IS NOT DISTINCT FROM OLD.workflow_status THEN RETURN NEW; END IF;
+  PERFORM public._notif_add(public._notif_uid(coalesce(NEW.responsible_user_id,NEW.created_by)),
+    '📋 โครงการ: '||coalesce(NEW.name,'-'),'สถานะเปลี่ยนเป็น '||coalesce(NEW.workflow_status,'-'),'project','hub_project_'||coalesce(NEW.workflow_status,''),NEW.id);
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_notify_project_status ON public.hub_projects;
+CREATE TRIGGER trg_notify_project_status AFTER UPDATE OF workflow_status ON public.hub_projects
+FOR EACH ROW EXECUTE FUNCTION public.notify_project_status();
+
+-- ฝ่ายงบประมาณ: พัสดุ/จัดซื้อ — คำขอใหม่ → ผอ./ผู้ดูแล, เปลี่ยนสถานะ → ผู้ขอ
+CREATE OR REPLACE FUNCTION public.notify_procurement()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE m text;
+BEGIN
+  m := coalesce(NEW.project_name,NEW.description,'-')||' '||to_char(coalesce(NEW.amount,0),'FM999,999,990.00')||' บาท';
+  IF TG_OP='INSERT' THEN
+    PERFORM public._notif_roles(ARRAY['director','admin','school_admin'],'🛒 คำขอจัดซื้อ/จัดจ้างใหม่',m,'procurement','procurement_new',NEW.id);
+  ELSIF NEW.status IS DISTINCT FROM OLD.status THEN
+    PERFORM public._notif_add(public._notif_uid(NEW.requested_by),'🛒 จัดซื้อ/จัดจ้าง: '||coalesce(NEW.status,'-'),m,
+      'procurement','procurement_'||coalesce(NEW.status,''),NEW.id);
+  END IF;
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_notify_procurement ON public.procurement_records;
+CREATE TRIGGER trg_notify_procurement AFTER INSERT OR UPDATE OF status ON public.procurement_records
+FOR EACH ROW EXECUTE FUNCTION public.notify_procurement();
