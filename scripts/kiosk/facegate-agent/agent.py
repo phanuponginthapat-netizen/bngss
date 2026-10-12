@@ -1654,7 +1654,11 @@ def open_kiosk_browser() -> None:
     ]
     for exe in candidates:
         if exe and os.path.exists(exe):
-            subprocess.Popen([exe, "--kiosk", url, "--autoplay-policy=no-user-gesture-required",
+            # Own browser profile, like the original FaceGate window: opens
+            # straight to the scan screen even if Edge is already running.
+            profile = os.path.join(CACHE_DIR, "kiosk-browser")
+            subprocess.Popen([exe, "--kiosk", url, f"--user-data-dir={profile}",
+                              "--no-first-run", "--edge-kiosk-type=fullscreen", "--autoplay-policy=no-user-gesture-required",
                               "--use-fake-ui-for-media-stream", "--disable-background-timer-throttling"])
             return
     import webbrowser
