@@ -79,7 +79,7 @@ BEGIN
   t := '📘 การบ้านใหม่: '||coalesce(NEW.title,'-');
   m := coalesce('วิชา '||subj||' ','')||coalesce('ส่งภายใน '||to_char(NEW.due_date,'DD/MM/YYYY'),'');
   FOR s IN SELECT auth_user_id,parent_user_id,parent_user_id_2 FROM public.students
-           WHERE classroom_id=NEW.classroom_id AND coalesce(status,'active') IN ('active','studying','กำลังศึกษา') LOOP
+           WHERE classroom_id=NEW.classroom_id AND coalesce(status,'active') NOT IN ('graduated','transferred','dropped','inactive','จบการศึกษา','ย้าย','ลาออก') LOOP
     PERFORM public._notif_add(s.auth_user_id,t,m,'homework','homework',NEW.id);
     PERFORM public._notif_add(s.parent_user_id,t,m,'homework','homework',NEW.id);
     PERFORM public._notif_add(s.parent_user_id_2,t,m,'homework','homework',NEW.id);
@@ -158,3 +158,81 @@ END $$;
 DROP TRIGGER IF EXISTS trg_notify_budget_request_result ON public.budget_requests;
 CREATE TRIGGER trg_notify_budget_request_result AFTER UPDATE OF status
 ON public.budget_requests FOR EACH ROW EXECUTE FUNCTION public.notify_budget_request_result();
+
+-- ===== ส่งต่อตาม role: ผู้อนุมัติ/ครูผู้สั่ง =====
+CREATE OR REPLACE FUNCTION public._notif_roles(_roles text[],_title text,_msg text,_type text,_ref_type text,_ref uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE u uuid;
+BEGIN
+  FOR u IN SELECT DISTINCT user_id FROM public.user_roles WHERE role::text = ANY(_roles) AND user_id IS NOT NULL LOOP
+    PERFORM public._notif_add(u,_title,_msg,_type,_ref_type,_ref);
+  END LOOP;
+END $$;
+
+-- นักเรียนส่งการบ้าน → ครูผู้สั่ง
+CREATE OR REPLACE FUNCTION public.notify_teacher_on_homework_submit()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE a record; sname text;
+BEGIN
+  IF NEW.status <> 'submitted' OR (TG_OP='UPDATE' AND OLD.status IS NOT DISTINCT FROM NEW.status) THEN RETURN NEW; END IF;
+  SELECT title, coalesce(created_by,assigned_by) AS t INTO a FROM public.homework_assignments WHERE id=NEW.assignment_id;
+  SELECT concat(prefix,first_name,' ',last_name) INTO sname FROM public.students WHERE id=NEW.student_id;
+  PERFORM public._notif_add(public._notif_uid(a.t),'📥 ส่งการบ้าน: '||coalesce(a.title,'-'),
+    coalesce(sname,'นักเรียน')||' ส่งงานแล้ว รอตรวจ','homework','homework_submission',NEW.id);
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_notify_teacher_homework_submit ON public.homework_submissions;
+CREATE TRIGGER trg_notify_teacher_homework_submit AFTER INSERT OR UPDATE OF status
+ON public.homework_submissions FOR EACH ROW EXECUTE FUNCTION public.notify_teacher_on_homework_submit();
+
+-- จองห้องใหม่ → ผู้ดูแล/ผู้อำนวยการ
+CREATE OR REPLACE FUNCTION public.notify_approvers_room_booking()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+BEGIN
+  IF coalesce(NEW.status,'pending') <> 'pending' THEN RETURN NEW; END IF;
+  PERFORM public._notif_roles(ARRAY['admin','school_admin','director'],'🏫 คำขอจองห้องใหม่',
+    coalesce(NEW.room_name,'ห้อง')||' '||to_char(NEW.start_time AT TIME ZONE 'Asia/Bangkok','DD/MM/YYYY HH24:MI')
+    ||coalesce(' — '||NEW.purpose,''),'booking','room_booking_request',NEW.id);
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_notify_approvers_room_booking ON public.room_bookings;
+CREATE TRIGGER trg_notify_approvers_room_booking AFTER INSERT
+ON public.room_bookings FOR EACH ROW EXECUTE FUNCTION public.notify_approvers_room_booking();
+
+-- ส่งคำขอใช้งบ → ผู้อำนวยการ/ผู้ดูแล
+CREATE OR REPLACE FUNCTION public.notify_approvers_budget_request()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+BEGIN
+  IF NEW.status NOT IN ('submitted','pending') OR (TG_OP='UPDATE' AND OLD.status IS NOT DISTINCT FROM NEW.status) THEN RETURN NEW; END IF;
+  PERFORM public._notif_roles(ARRAY['director','admin','school_admin'],'💰 คำขอใช้งบรออนุมัติ',
+    coalesce(NEW.request_no||' ','')||coalesce(NEW.title,'-')||' จำนวน '||to_char(coalesce(NEW.amount,0),'FM999,999,990.00')||' บาท'
+    ||coalesce(' ('||NEW.department||')',''),'budget','budget_request_pending',NEW.id);
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_notify_approvers_budget_request ON public.budget_requests;
+CREATE TRIGGER trg_notify_approvers_budget_request AFTER INSERT OR UPDATE OF status
+ON public.budget_requests FOR EACH ROW EXECUTE FUNCTION public.notify_approvers_budget_request();
+
+-- e-Form ถูกปฏิเสธ / ลงนามครบ → ผู้ส่ง
+CREATE OR REPLACE FUNCTION public.notify_sender_eform_progress()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE e record; total int; signed int;
+BEGIN
+  SELECT title, sender_id INTO e FROM public.eforms WHERE id=NEW.eform_id;
+  IF NEW.signed_at IS NOT NULL AND OLD.signed_at IS NULL THEN
+    SELECT count(*), count(*) FILTER (WHERE signed_at IS NOT NULL) INTO total, signed
+      FROM public.eform_recipients WHERE eform_id=NEW.eform_id;
+    IF total>0 AND signed=total THEN
+      PERFORM public._notif_add(e.sender_id,'✅ e-Form ลงนามครบ: '||coalesce(e.title,'-'),
+        'ผู้รับทั้งหมด '||total||' คน ลงนามครบแล้ว','eform','eform_done',NEW.eform_id);
+    END IF;
+  END IF;
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_notify_sender_eform_progress ON public.eform_recipients;
+CREATE TRIGGER trg_notify_sender_eform_progress AFTER UPDATE OF signed_at
+ON public.eform_recipients FOR EACH ROW EXECUTE FUNCTION public.notify_sender_eform_progress();
