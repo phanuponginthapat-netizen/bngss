@@ -45,22 +45,32 @@
 
 ---
 
+## 🆕 อัปเดตระบบล่าสุด (ต.ค. 2569)
+
+- **แจ้งเตือนในแอปครบทุกโมดูล** — สอนแทน, e-Form, พฤติกรรม, Padlet, การบ้าน, คะแนน ปพ.5, ใบลา, จองห้อง, งบประมาณ, พัสดุ, เวร, โครงการ, สุขภาพ/วัคซีน; LINE ส่งเฉพาะคนที่ไม่มีแอป
+- **ครูประจำชั้น** ไม่ได้รับแจ้งทุกครั้งที่นักเรียนสแกน แต่ได้ **สรุปการมาเรียนของห้องวันละครั้ง 09:00 น. (จ.–ศ.)**
+- **ผู้ปกครอง** เข้าระบบด้วยหัวข้อ "ผู้ปกครอง" + สแกน QR บัตรนักเรียน (ผูกได้ 2 บัญชีต่อนักเรียน)
+- **ใบลาครู** เลือกทั้งวัน/รายคาบ พร้อมจัดครูสอนแทนอัตโนมัติ
+- **FaceGate** — ตัวติดตั้ง Windows (FaceGateSetup.exe) เปิดแล้วสแกนทันที, แท็บเล็ต BNG Scanner เชื่อมคอมผ่าน Wi-Fi พอร์ต 8899, ดึงโลโก้/ชื่อโรงเรียนจาก CMS
+- **งานวัดผล** — คะแนนรวมจากไฟล์ ปพ.5 เป็นหลัก, ประกาศเฉพาะคะแนนรวม+เกรด, ตรวจเวลาเรียน 80% รายวิชาก่อนประกาศ, รองรับ ผ/มผ
+- **ปรับฐานข้อมูล** — ทำผ่านไฟล์ใน `scripts/sql/` แล้วรันในช่อง SQL ของฐานข้อมูลโรงเรียน
+
 ## 🆘 ติดปัญหา?
 
-- **ระบบล่ม / RLS error** → เข้า `/dashboard/admin/rls-audit` ตรวจ policy
+- **แจ้งเตือนไม่มา** → ติดตั้งแอป/PWA แล้วกดอนุญาตแจ้งเตือน, ตรวจ `/dashboard/admin/system-health`
+- **ไม่มีการสแกนหน้า** → ตรวจว่าคอม FaceGate เปิดอยู่และใส่ Device Key ถูกต้อง
 - **สแกน QR ไม่ได้** → `/dashboard/admin/role-troubleshoot` เช็คสิทธิ์ role
 - **Upload ไม่ได้** → เช็ค Storage bucket + role (ดู ADMIN-PLAYBOOK ข้อ "Upload debug")
 - **ข้อมูลหาย** → กู้จาก Backup ล่าสุด (ดู BACKUP-MIGRATION-GUIDE)
-- **Kiosk 404 / ไม่ boot** → รัน `bash scripts/kiosk/uninstall-mxlinux-kiosk.sh` แล้วติดตั้งใหม่
 
 ## 🔗 ลิงก์ในระบบ (ใช้บ่อย)
 
+- ศูนย์ช่วยเหลือ → `/dashboard/help`
 - Backup Center → `/dashboard/admin/backup-center`
 - System Health → `/dashboard/admin/system-health`
-- RLS Audit → `/dashboard/admin/rls-audit`
 - Role Troubleshoot → `/dashboard/admin/role-troubleshoot`
 - CMS Settings → `/dashboard/admin/cms-settings`
 
 ---
 
-_Last updated: 2026-07-23 — โปรเจกต์นี้สร้างและดูแลด้วย Lovable_
+_Last updated: 2026-10-12 — โปรเจกต์นี้สร้างและดูแลด้วย Lovable_
