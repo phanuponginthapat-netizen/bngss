@@ -1736,6 +1736,7 @@ if __name__ == "__main__":
         print(f"[agent] LAN ready — open http://<this-pc-ip>:{PORT}/admin")
 
     want_window = FROZEN and os.environ.get("FACEGATE_OPEN_KIOSK", "1") not in ("0", "false", "off", "no")
+    server = None
     if want_window:
         # Native full-screen window (like the original FaceGate program) — no
         # web browser. Face recognition itself always runs in this program.
@@ -1766,5 +1767,8 @@ if __name__ == "__main__":
         except Exception as exc:  # noqa: BLE001
             print(f"[agent] native window unavailable, using browser: {exc}")
             threading.Thread(target=open_kiosk_browser, daemon=True).start()
+            if server is not None and server.is_alive():
+                server.join()
+                raise SystemExit(0)
 
     uvicorn.run(app, host=host, port=PORT)
