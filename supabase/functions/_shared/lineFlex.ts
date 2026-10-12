@@ -134,7 +134,7 @@ export function buildProfileCard(opts: { name: string; roleLabel: string; roleCo
 }
 
 /** Section bubble used inside menu carousel — icon + heading + short line list + CTA row. */
-export function buildSectionCard(opts: { icon: string; title: string; color: string; lines: string[]; ctas: { label: string; text: string }[] }): any {
+export function buildSectionCard(opts: { icon: string; title: string; color: string; lines: string[]; ctas: { label: string; text?: string; uri?: string }[] }): any {
   return {
     type: "bubble", size: "kilo",
     body: {
@@ -152,8 +152,8 @@ export function buildSectionCard(opts: { icon: string; title: string; color: str
     footer: {
       type: "box", layout: "vertical", spacing: "xs", paddingAll: "12px", backgroundColor: BRAND.soft,
       contents: opts.ctas.slice(0, 3).map((c) => ({
-        type: "button", height: "sm", style: "secondary",
-        action: { type: "message", label: c.label, text: c.text },
+        type: "button", height: "sm", style: c.uri ? "primary" : "secondary", ...(c.uri ? { color: opts.color } : {}),
+        action: c.uri ? { type: "uri", label: c.label, uri: c.uri } : { type: "message", label: c.label, text: c.text || c.label },
       })),
     },
   };
@@ -161,4 +161,14 @@ export function buildSectionCard(opts: { icon: string; title: string; color: str
 
 export function buildCarousel(bubbles: any[]) {
   return { type: "carousel", contents: bubbles.slice(0, 10) };
+}
+
+/** Public web address of the school system (used for "open in system" buttons). */
+export async function getAppBaseUrl(sb: any): Promise<string> {
+  try {
+    const { data } = await sb.rpc("app_base_url");
+    if (typeof data === "string" && /^https?:\/\//.test(data)) return data.replace(/\/+$/, "");
+  } catch { /* ignore */ }
+  const env = Deno.env.get("APP_BASE_URL");
+  return (env || "https://bngss.lovable.app").replace(/\/+$/, "");
 }
