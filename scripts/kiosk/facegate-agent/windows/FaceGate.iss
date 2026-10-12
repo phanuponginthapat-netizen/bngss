@@ -1,4 +1,4 @@
-; FaceGate Windows installer — built by .github/workflows/build-facegate.yml
+﻿; FaceGate Windows installer — built by .github/workflows/build-facegate.yml
 ; One FaceGateSetup.exe: no Python, no .bat. Asks the Device Key once and writes facegate.env.
 #ifndef AppVersion
   #define AppVersion "0.0.0"
@@ -75,9 +75,10 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Key, Body: String;
+  RC: Integer;
 begin
   if CurStep = ssInstall then
-    Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM FaceGate.exe', '', SW_HIDE, ewWaitUntilTerminated, Body);
+    Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM FaceGate.exe', '', SW_HIDE, ewWaitUntilTerminated, RC);
   if CurStep = ssPostInstall then
   begin
     Key := Trim(KeyPage.Values[0]);
