@@ -94,11 +94,25 @@ export function SidebarAccountFooter() {
             <div className="text-[11px] font-semibold text-sidebar-foreground truncate leading-tight">{fullName || userEmail.split("@")[0]}</div>
             {/* ปุ่ ม ออกจากระบบวางข ้าง ๆ ป ้ายสถานะบทบาท (ม ุมขวาล ่างท ี่เด ิมซ ้อนก ับฟอง AI) */}
             <div className="mt-0.5 flex items-center gap-1">
-              {badge && (
-                <Badge variant={badge.variant} className="text-[8px] h-3 px-1 leading-none font-medium">
-                  {badge.label}
+              {shownBadges.map((b, i) => (
+                <Badge
+                  key={`${b.label}-${i}`}
+                  variant={b.variant}
+                  title={
+                    isTeacherAdmin
+                      ? b.active
+                        ? `กำลังใช้งานมุมมอง${b.label === "ครู" ? "ครู" : "ผู้ดูแลระบบ"}`
+                        : `สลับเป็นมุมมอง${b.label === "ครู" ? "ครู" : "ผู้ดูแลระบบ"}ด้วยปุ่มด้านบน`
+                      : undefined
+                  }
+                  className={cn(
+                    "text-[8px] h-3 px-1 leading-none font-medium transition-opacity",
+                    !b.active && "opacity-45"
+                  )}
+                >
+                  {b.label}
                 </Badge>
-              )}
+              ))}
               <button
                 onClick={handleLogout}
                 title={t("logout")}
