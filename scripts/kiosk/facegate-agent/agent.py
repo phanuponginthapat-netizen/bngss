@@ -105,7 +105,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.8.1"
+AGENT_VERSION = "1.9.0"
 
 
 def default_cache_dir() -> str:
@@ -1249,8 +1249,21 @@ if not STANDALONE and not SATELLITE:
     def home_screen_cloud():
         return _CRedirect("/kiosk")
 
-    @app.get("/local/kiosk-api/content")
-    def cloud_content():
+    _cloud_cache: dict[str, Any] = {}
+
+    def _cloud_get(route: str, fallback):
+        """Screen data from the school backend (CMS + settings); last good copy offline."""
+        if DEVICE_KEY:
+            try:
+                res = requests.get(f"{CLOUD_URL}/kiosk-api/{route}", headers=HEADERS, timeout=6)
+                if res.ok:
+                    _cloud_cache[route] = res.json()
+                    return _cloud_cache[route]
+            except Exception:  # noqa: BLE001
+                pass
+        return _cloud_cache.get(route) or fallback()
+
+    def _local_content():
         with lock:
             st = dict(state.get("settings") or {})
         out = {k: v for k, v in st.items() if isinstance(v, (str, int, float, bool)) or v is None}
@@ -1258,20 +1271,27 @@ if not STANDALONE and not SATELLITE:
             out["kiosk_subtitle"] = "ยังไม่ได้ใส่ Device Key — สแกนได้แต่ยังไม่ส่งข้อมูลเข้าระบบ"
         return out
 
-    @app.get("/local/kiosk-api/recent")
-    def cloud_recent():
-        with lock:
-            st = dict(state.get("settings") or {})
-        display = {"show_recent": True, "news_enabled": bool(st.get("news_text")), "news_text": st.get("news_text") or ""}
+    def _local_recent():
         today = time.strftime("%Y-%m-%d")
-        return {"display": display, "items": [r for r in RECENT_SCANS if r["scanned_at"].startswith(today)][:12]}
+        return {"display": {"show_recent": True}, "items": [r for r in RECENT_SCANS if r["scanned_at"].startswith(today)][:12]}
 
-    @app.get("/local/kiosk-api/today-stats")
-    def cloud_today_stats():
+    def _local_stats():
         today = time.strftime("%Y-%m-%d")
         seen = {r["id"] for r in RECENT_SCANS if r["scanned_at"].startswith(today) and r["direction"] != "out"}
         return {"students_present": len(seen), "staff_present": 0, "server_time": None,
                 "visitor_register_enabled": False}
+
+    @app.get("/local/kiosk-api/content")
+    def cloud_content():
+        return _cloud_get("content", _local_content)
+
+    @app.get("/local/kiosk-api/recent")
+    def cloud_recent():
+        return _cloud_get("recent", _local_recent)
+
+    @app.get("/local/kiosk-api/today-stats")
+    def cloud_today_stats():
+        return _cloud_get("today-stats", _local_stats)
 
     @app.post("/local/kiosk-api/live")
     async def cloud_live(request: Request):

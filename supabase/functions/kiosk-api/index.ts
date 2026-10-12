@@ -1,6 +1,7 @@
 // ConnextedScan kiosk agent API — จุดเชื่อมระหว่างโปรแกรมสแกนหน้าในเครื่องกับระบบ BNGSS
 // เส้นทางย่อย (ต่อท้าย /kiosk-api): /sync /attendance /embeddings /alert /visitor
 //                                   /door-command /power-command /live /ping
+//                                   /content /recent /today-stats (หน้าจอสแกนดึง CMS/หลังบ้าน)
 // รับรองเครื่องด้วย header: x-device-key  (ดูรหัสเครื่องได้ที่หน้า "ตั้งค่าคีออส")
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -110,6 +111,65 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({} as any));
     const settings = await loadSettings(db);
+
+    // ── หน้าจอสแกน (PC FaceGate + แท็บเล็ต): แบรนด์/ข้อความจาก CMS และหลังบ้าน ──
+    if (route === "content") {
+      const keys = ["app_name", "school_name", "school_short_name", "school_logo", "school_logo_512",
+        "theme_primary_color", "theme_accent_color", "primary_color", "theme_color"];
+      const [{ data: cms }, { data: school }] = await Promise.all([
+        db.from("cms_settings").select("key, value").in("key", keys),
+        db.from("schools").select("school_name, short_name, logo_url").eq("is_active", true).limit(1).maybeSingle(),
+      ]);
+      const m: Record<string, string> = {};
+      ((cms as any[]) ?? []).forEach((r) => { if (r?.value) m[r.key] = String(r.value); });
+      const sc: any = school ?? {};
+      const kioskText = Object.fromEntries(
+        Object.entries(settings).filter(([k, v]) => /^(kiosk_|news_|theme_)/.test(k) && (typeof v === "string" || typeof v === "boolean")),
+      );
+      return json({
+        ...kioskText,
+        school_name: m.school_name || sc.school_name || "",
+        brand_name: m.app_name || m.school_short_name || sc.short_name || "",
+        logo_url: m.school_logo_512 || m.school_logo || sc.logo_url || "",
+        theme_primary: (settings as any).theme_primary || m.theme_primary_color || m.primary_color || m.theme_color || undefined,
+        theme_accent: (settings as any).theme_accent || m.theme_accent_color || undefined,
+        device_name: device.name,
+        server_time: new Date().toISOString(),
+      });
+    }
+
+    if (route === "recent" || route === "today-stats") {
+      const today = bkkDate();
+      if (route === "today-stats") {
+        const startUtc = new Date(`${today}T00:00:00+07:00`).toISOString();
+        const [{ count: students }, { count: staff }] = await Promise.all([
+          db.from("face_scan_logs").select("student_id", { count: "exact", head: true })
+            .eq("scan_date", today).eq("scan_type", "entry"),
+          db.from("kiosk_agent_alerts").select("id", { count: "exact", head: true })
+            .eq("kind", "staff_pass").gte("created_at", startUtc),
+        ]);
+        return json({ students_present: students ?? 0, staff_present: staff ?? 0,
+          server_time: new Date().toISOString(), visitor_register_enabled: false });
+      }
+      const { data: logs } = await db.from("face_scan_logs")
+        .select("scan_time, scan_type, captured_face_url, students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name))")
+        .eq("scan_date", today).order("scan_time", { ascending: false }).limit(12);
+      const items = ((logs as any[]) ?? []).map((l) => ({
+        name: `${l.students?.prefix ?? ""}${l.students?.first_name ?? ""} ${l.students?.last_name ?? ""}`.trim() || "นักเรียน",
+        detail: l.students?.classrooms?.name ?? "",
+        scanned_at: l.scan_time,
+        direction: l.scan_type === "exit" ? "out" : "in",
+        snapshot_url: l.captured_face_url ?? "",
+      }));
+      return json({
+        display: {
+          show_recent: (settings as any).kiosk_show_recent !== false,
+          news_enabled: Boolean((settings as any).news_text ?? (settings as any).kiosk_news),
+          news_text: String((settings as any).news_text ?? (settings as any).kiosk_news ?? ""),
+        },
+        items,
+      });
+    }
 
     // ── ดึงข้อมูลลงเครื่อง (รายชื่อ + ใบหน้า + ค่าตั้งค่า) ────────────────
     if (route === "sync") {
