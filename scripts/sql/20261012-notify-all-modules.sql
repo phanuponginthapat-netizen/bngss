@@ -466,3 +466,84 @@ BEGIN
       'use_flex',true,'severity','info'));
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
+
+-- ===== ผู้ปกครอง: ปรับให้ครบทั้ง 2 บัญชี และแก้บัค =====
+
+-- ขาด/สาย → ผู้ปกครองทั้ง 2 บัญชี (+ นักเรียน); LINE เฉพาะเมื่อผู้ปกครองยังไม่มีแอป
+CREATE OR REPLACE FUNCTION public.notify_parent_on_absence()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE s record; t text; m text; u text; c text;
+BEGIN
+  IF NEW.status NOT IN ('absent','late') THEN RETURN NEW; END IF;
+  IF TG_OP='UPDATE' AND OLD.status IS NOT DISTINCT FROM NEW.status THEN RETURN NEW; END IF;
+  SELECT concat(prefix,first_name,' ',last_name) n, parent_user_id p1, parent_user_id_2 p2 INTO s FROM public.students WHERE id=NEW.student_id;
+  t := CASE WHEN NEW.status='late' THEN '⏰ มาสาย' ELSE '📌 ขาดเรียน' END;
+  m := coalesce(s.n,'')||' — '||CASE WHEN NEW.status='late' THEN 'มาสาย' ELSE 'ขาดเรียน' END||' วันที่ '||to_char(NEW.attendance_date,'DD/MM/YYYY');
+  PERFORM public._notif_student(NEW.student_id,t,m,'attendance','attendance',NEW.id);
+  IF NOT (public._has_app_device(s.p1) OR public._has_app_device(s.p2)) THEN
+    BEGIN
+      u := public.svc_url(); c := public.svc_cron();
+      IF coalesce(u,'')<>'' AND coalesce(c,'')<>'' THEN
+        PERFORM net.http_post(url := rtrim(u,'/')||'/functions/v1/notify-parent-absence',
+          headers := jsonb_build_object('Content-Type','application/json','x-cron-secret',c),
+          body := jsonb_build_object('attendance_date',NEW.attendance_date::text,'absent_students',
+            jsonb_build_array(jsonb_build_object('student_id',NEW.student_id::text,'student_name',s.n,'status',NEW.status))),
+          timeout_milliseconds := 5000);
+      END IF;
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+  END IF;
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
+
+-- LINE ขาดเรียนแบบเดิม (ซ้ำกับด้านบน) → ปิด
+DROP TRIGGER IF EXISTS trg_notify_parents_on_absence ON public.attendance;
+
+-- ตรวจการบ้านแล้ว: แก้บัค (คอลัมน์ link ไม่มีจริง ทำให้บันทึกคะแนนการบ้านล้ม) → นักเรียน + ผู้ปกครอง
+CREATE OR REPLACE FUNCTION public.notify_parents_on_homework_graded()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE v_title text; v_max numeric; m text;
+BEGIN
+  IF NEW.final_score IS NULL OR coalesce(NEW.status,'')<>'graded' THEN RETURN NEW; END IF;
+  IF TG_OP='UPDATE' AND OLD.status='graded' AND OLD.final_score IS NOT DISTINCT FROM NEW.final_score THEN RETURN NEW; END IF;
+  SELECT title,total_score INTO v_title,v_max FROM public.homework_assignments WHERE id=NEW.assignment_id;
+  m := 'การบ้าน "'||coalesce(v_title,'-')||'" ได้ '||NEW.final_score||'/'||coalesce(v_max::text,'-')||' คะแนน';
+  PERFORM public._notif_student(NEW.student_id,'📝 ครูตรวจการบ้านแล้ว',m,'homework','homework_graded',NEW.id);
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
+
+-- สุขภาพ/วัคซีน → นักเรียน + ผู้ปกครอง
+CREATE OR REPLACE FUNCTION public.notify_health_measurement()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+BEGIN
+  PERFORM public._notif_student(NEW.student_id,'📏 บันทึกสุขภาพใหม่','มีการบันทึกน้ำหนัก/ส่วนสูง ดูได้ในเมนูสุขภาพ','health','health_measurement',NEW.id);
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.notify_vaccine_record()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+BEGIN
+  PERFORM public._notif_student(NEW.student_id,'💉 บันทึกการฉีดวัคซีน',
+    coalesce('วัคซีน: '||NEW.vaccine_name,'มีการบันทึกวัคซีนใหม่')||coalesce(' เข็มที่ '||NEW.dose_number,''),'vaccine','vaccine_record',NEW.id);
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
+
+-- การบ้านใหม่: ผู้ปกครองไม่ต้องได้รับทุกชิ้น (ลดแจ้งเตือนเกิน) → แจ้งเฉพาะนักเรียน
+CREATE OR REPLACE FUNCTION public.notify_on_homework_assigned()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE s record; subj text; t text; m text;
+BEGIN
+  IF NEW.classroom_id IS NULL OR coalesce(NEW.status,'') IN ('draft','archived') THEN RETURN NEW; END IF;
+  IF TG_OP='UPDATE' AND coalesce(OLD.status,'') <> 'draft' THEN RETURN NEW; END IF;
+  SELECT name_th INTO subj FROM public.subjects WHERE id=NEW.subject_id;
+  t := '📘 การบ้านใหม่: '||coalesce(NEW.title,'-');
+  m := coalesce('วิชา '||subj||' ','')||coalesce('ส่งภายใน '||to_char(NEW.due_date,'DD/MM/YYYY'),'');
+  FOR s IN SELECT id FROM public.students WHERE classroom_id=NEW.classroom_id AND coalesce(status,'active')='active' LOOP
+    PERFORM public._notif_student(s.id,t,m,'homework','homework',NEW.id,false);
+  END LOOP;
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
