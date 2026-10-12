@@ -66,7 +66,18 @@ export function SidebarAccountFooter() {
     student: { label: lang === "th" ? "นักเรียน" : "Student", variant: "outline" },
     alumni: { label: lang === "th" ? "ศิษย์เก่า" : "Alumni", variant: "outline" },
   };
-  const badge = role ? roleBadgeMap[role] : null;
+
+  // ครูที่เป็น admin: แสดงป้ายทั้งสองบทบาท — มุมมองที่กำลังใช้เต็มสี อีกมุมมองจาง
+  const shownBadges: { label: string; variant: "default" | "secondary" | "outline" | "destructive"; active: boolean }[] = [];
+  if (isTeacherAdmin && (realRole === "admin" || realRole === "teacher")) {
+    shownBadges.push(
+      { ...roleBadgeMap.admin, active: role === "admin" },
+      { ...roleBadgeMap.teacher, active: role === "teacher" }
+    );
+  } else {
+    const b = role ? roleBadgeMap[role] : null;
+    if (b) shownBadges.push({ ...b, active: true });
+  }
 
   return (
     <SidebarFooter className="border-t border-sidebar-border/70 bg-gradient-to-t from-sidebar-accent/25 to-transparent p-1.5 gap-1">
