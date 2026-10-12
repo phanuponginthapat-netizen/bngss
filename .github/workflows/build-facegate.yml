@@ -134,7 +134,7 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r scripts/kiosk/facegate-agent/requirements.txt pyinstaller==6.11.1
+          python -m pip install -r scripts/kiosk/facegate-agent/requirements.txt pyinstaller==6.11.1 "pywebview==5.3.2"
 
       - name: Download face models (InsightFace buffalo_sc)
         shell: bash
@@ -157,7 +157,7 @@ jobs:
             --add-data "models;models" \
             --hidden-import local_api --hidden-import local_ui --hidden-import local_admin_ui \
             --hidden-import local_voice --hidden-import localdb --hidden-import local_rules \
-            --collect-submodules uvicorn --collect-data onnxruntime
+            --collect-submodules uvicorn --collect-data onnxruntime --collect-all webview --hidden-import clr
           test -f ../../../dist-facegate/FaceGate/FaceGate.exe
 
       - name: Read version

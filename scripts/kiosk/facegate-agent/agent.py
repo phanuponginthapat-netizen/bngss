@@ -105,7 +105,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.7.1"
+AGENT_VERSION = "1.8.0"
 
 
 def default_cache_dir() -> str:
@@ -1735,7 +1735,40 @@ if __name__ == "__main__":
                 print(f"[agent] saving the LAN port failed: {exc}")
         print(f"[agent] LAN ready — open http://<this-pc-ip>:{PORT}/admin")
 
-    if FROZEN and os.environ.get("FACEGATE_OPEN_KIOSK", "1") not in ("0", "false", "off", "no"):
-        threading.Thread(target=open_kiosk_browser, daemon=True).start()
+    want_window = FROZEN and os.environ.get("FACEGATE_OPEN_KIOSK", "1") not in ("0", "false", "off", "no")
+    server = None
+    if want_window:
+        # Native full-screen window (like the original FaceGate program) — no
+        # web browser. Face recognition itself always runs in this program.
+        try:
+            import webview  # pywebview → Windows WebView2
+
+            os.environ.setdefault(
+                "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+                "--use-fake-ui-for-media-stream --autoplay-policy=no-user-gesture-required "
+                "--disable-background-timer-throttling --disable-renderer-backgrounding",
+            )
+            server = threading.Thread(
+                target=lambda: uvicorn.run(app, host=host, port=PORT), daemon=True
+            )
+            server.start()
+            for _ in range(60):  # wait until the scan page answers
+                try:
+                    if requests.get(f"http://127.0.0.1:{PORT}/health", timeout=1).ok:
+                        break
+                except Exception:  # noqa: BLE001
+                    time.sleep(0.5)
+            webview.create_window(
+                "BNG FaceGate", f"http://127.0.0.1:{PORT}/kiosk",
+                fullscreen=True, frameless=True, background_color="#000000",
+            )
+            webview.start(private_mode=False, storage_path=os.path.join(CACHE_DIR, "window"))
+            os._exit(0)  # window closed → stop the program
+        except Exception as exc:  # noqa: BLE001
+            print(f"[agent] native window unavailable, using browser: {exc}")
+            threading.Thread(target=open_kiosk_browser, daemon=True).start()
+            if server is not None and server.is_alive():
+                server.join()
+                raise SystemExit(0)
 
     uvicorn.run(app, host=host, port=PORT)
