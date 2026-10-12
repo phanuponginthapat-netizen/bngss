@@ -545,5 +545,18 @@ BEGIN
     PERFORM public._notif_student(s.id,t,m,'homework','homework',NEW.id,false);
   END LOOP;
   RETURN NEW;
-EXCEPTION WHEN OTHERS THEN RETURN NEW;
+  EXCEPTION WHEN OTHERS THEN RETURN NEW;
 END $$;
+
+-- ===== ทริกเกอร์ของกลุ่มผู้ปกครอง/สุขภาพ (แก้ไฟล์ตัดขาด) =====
+DROP TRIGGER IF EXISTS trg_notify_parents_homework_graded ON public.homework_submissions;
+CREATE TRIGGER trg_notify_parents_homework_graded AFTER INSERT OR UPDATE OF final_score, status
+ON public.homework_submissions FOR EACH ROW EXECUTE FUNCTION public.notify_parents_on_homework_graded();
+
+DROP TRIGGER IF EXISTS trg_notify_health_measurement ON public.health_measurements;
+CREATE TRIGGER trg_notify_health_measurement AFTER INSERT ON public.health_measurements
+FOR EACH ROW EXECUTE FUNCTION public.notify_health_measurement();
+
+DROP TRIGGER IF EXISTS trg_notify_vaccine_record ON public.vaccine_records;
+CREATE TRIGGER trg_notify_vaccine_record AFTER INSERT ON public.vaccine_records
+FOR EACH ROW EXECUTE FUNCTION public.notify_vaccine_record();
