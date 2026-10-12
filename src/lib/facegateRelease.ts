@@ -26,6 +26,23 @@ export interface FacegateRelease {
 
 const MANIFEST_URL = `${getBackendConfig().url}/storage/v1/object/public/app-downloads/facegate-version.json`;
 
+const WINDOWS_MANIFEST_URL = `${getBackendConfig().url}/storage/v1/object/public/app-downloads/release-facegate-windows.json`;
+
+/** ตัวติดตั้ง Windows (FaceGateSetup.exe) จาก GitHub Releases — ใช้ก่อน zip ถ้ามี */
+let cachedExe: { url: string; version?: string; releasedAt?: string } | null | undefined;
+async function fetchWindowsInstaller() {
+  if (cachedExe !== undefined) return cachedExe;
+  try {
+    const res = await fetch(`${WINDOWS_MANIFEST_URL}?t=${Date.now()}`, { cache: "no-store" });
+    const m = res.ok ? await res.json() : null;
+    const file = Array.isArray(m?.files) ? m.files.find((f: any) => /\.exe$/i.test(f?.name || "")) : null;
+    cachedExe = file?.url ? { url: file.url, version: String(m.version || "").replace(/^v/, ""), releasedAt: m.releasedAt } : null;
+  } catch {
+    cachedExe = null;
+  }
+  return cachedExe;
+}
+
 let cached: FacegateRelease | null | undefined;
 let pending: Promise<FacegateRelease | null> | null = null;
 
@@ -53,6 +70,7 @@ export async function fetchFacegateRelease(): Promise<FacegateRelease | null> {
 export function useFacegateRelease() {
   const override = useCmsValue("facegate_agent_url");
   const [release, setRelease] = useState<FacegateRelease | null>(cached ?? null);
+  const [exe, setExe] = useState(cachedExe ?? null);
 
   useEffect(() => {
     let alive = true;
@@ -61,6 +79,9 @@ export function useFacegateRelease() {
         if (alive) setRelease(m);
       });
     }
+    fetchWindowsInstaller().then((m) => {
+      if (alive) setExe(m);
+    });
     return () => {
       alive = false;
     };
@@ -69,11 +90,13 @@ export function useFacegateRelease() {
   const custom = override.trim();
   return {
     /** ลิงก ์ท ี่ ควรใช ้ (ผ ู้ด ูแลใส ่เอ งบ ้ านก ่ อน แล ้วค ่ วยล ั งก ์จ าก Actions แล ้วจ ึ งไฟล ์ในโปรเจกต ์) */
-    url: custom || release?.url || FACEGATE_BUNDLED_URL,
-    release,
-    fileName: release?.fileName || "facegate-agent-installer.zip",
-    version: release?.version ?? "",
+    url: custom || exe?.url || release?.url || FACEGATE_BUNDLED_URL,
+    release: exe && !custom ? { ...release, version: exe.version, releasedAt: exe.releasedAt } : release,
+    fileName: exe && !custom ? "FaceGateSetup.exe" : release?.fileName || "facegate-agent-installer.zip",
+    version: (exe && !custom ? exe.version : release?.version) ?? "",
+    /** เป็นตัวติดตั้ง .exe สำหรับ Windows */
+    isExe: Boolean(!custom && exe?.url),
     /** เป ็ นรุ ่ นท ี่ Actions สร ้ างล ่ าสุด (ไม ่ ใช ่ไฟล ์ต ้ างในโปรเจกต ์) */
-    isBuilt: Boolean(!custom && release?.url),
+    isBuilt: Boolean(!custom && (exe?.url || release?.url)),
   };
 }

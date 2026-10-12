@@ -24,6 +24,40 @@ import platform
 import threading
 import time
 from typing import Any
+import sys
+
+# Windows installer (FaceGateSetup.exe): settings live in a config file instead of a .bat launcher.
+FROZEN = bool(getattr(sys, "frozen", False))
+
+
+def _load_config_file() -> None:
+    paths = []
+    if FROZEN:
+        paths.append(os.path.join(os.path.dirname(sys.executable), "facegate.env"))
+    paths.append(os.path.join(os.environ.get("PROGRAMDATA", ""), "FaceGate", "facegate.env"))
+    for path in paths:
+        try:
+            with open(path, encoding="utf-8-sig") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    if k.strip() and v.strip():
+                        os.environ.setdefault(k.strip(), v.strip())
+        except OSError:
+            continue
+
+
+_load_config_file()
+
+if FROZEN and sys.stdout is None:
+    try:
+        _log_dir = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "FaceGate")
+        os.makedirs(_log_dir, exist_ok=True)
+        sys.stdout = sys.stderr = open(os.path.join(_log_dir, "agent.log"), "a", encoding="utf-8", buffering=1)
+    except OSError:
+        pass
 
 import cv2
 import numpy as np
@@ -71,7 +105,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.6.0"
+AGENT_VERSION = "1.7.0"
 
 
 def default_cache_dir() -> str:
@@ -837,6 +871,8 @@ UPDATE_KEEP = (".py", ".txt", ".md", ".sh", ".bat", ".ps1")
 
 def self_update_once() -> bool:
     """Pull newer program files from the school's packaged installer (zip + checksum)."""
+    if FROZEN:
+        return False  # the .exe build is updated by running the new FaceGateSetup.exe
     with lock:
         if not state["settings"].get("auto_update_enabled", True):
             return False
@@ -1536,6 +1572,26 @@ def open_firewall(port: int) -> None:
         print(f"[agent] firewall rule skipped: {exc}")
 
 
+def open_kiosk_browser() -> None:
+    """Open the scan page full screen once the local service answers (exe build)."""
+    import subprocess
+    time.sleep(5)
+    site = os.environ.get("FACEGATE_SITE_URL", "https://bngss.lovable.app").rstrip("/")
+    url = f"http://127.0.0.1:{PORT}/kiosk" if STANDALONE else f"{site}/kiosk"
+    candidates = [
+        os.path.join(os.environ.get("PROGRAMFILES(X86)", ""), "Microsoft", "Edge", "Application", "msedge.exe"),
+        os.path.join(os.environ.get("PROGRAMFILES", ""), "Microsoft", "Edge", "Application", "msedge.exe"),
+        os.path.join(os.environ.get("PROGRAMFILES", ""), "Google", "Chrome", "Application", "chrome.exe"),
+    ]
+    for exe in candidates:
+        if exe and os.path.exists(exe):
+            subprocess.Popen([exe, "--kiosk", url, "--autoplay-policy=no-user-gesture-required",
+                              "--use-fake-ui-for-media-stream", "--disable-background-timer-throttling"])
+            return
+    import webbrowser
+    webbrowser.open(url)
+
+
 if __name__ == "__main__":
     import uvicorn
 
@@ -1605,5 +1661,8 @@ if __name__ == "__main__":
             except Exception as exc:  # noqa: BLE001
                 print(f"[agent] saving the LAN port failed: {exc}")
         print(f"[agent] LAN ready — open http://<this-pc-ip>:{PORT}/admin")
+
+    if FROZEN and os.environ.get("FACEGATE_OPEN_KIOSK", "1") not in ("0", "false", "off", "no"):
+        threading.Thread(target=open_kiosk_browser, daemon=True).start()
 
     uvicorn.run(app, host=host, port=PORT)
