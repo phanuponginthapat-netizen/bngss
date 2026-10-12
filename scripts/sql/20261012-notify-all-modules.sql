@@ -420,3 +420,49 @@ END $$;
 DROP TRIGGER IF EXISTS trg_notify_procurement ON public.procurement_records;
 CREATE TRIGGER trg_notify_procurement AFTER INSERT OR UPDATE OF status ON public.procurement_records
 FOR EACH ROW EXECUTE FUNCTION public.notify_procurement();
+
+-- ===== แอปก่อน LINE เป็นทางสำรอง (ประหยัดโควต้า LINE) =====
+CREATE OR REPLACE FUNCTION public._has_app_device(_uid uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public' AS $$
+  SELECT _uid IS NOT NULL AND EXISTS (SELECT 1 FROM public.push_subscriptions WHERE user_id=_uid)
+$$;
+
+-- แจ้งเตือนทั่วไป: ส่ง LINE เฉพาะคนที่ยังไม่มีแอป/ยังไม่เปิดรับแจ้งเตือน
+CREATE OR REPLACE FUNCTION public.notify_line_on_notification()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE u text; k text;
+BEGIN
+  IF public._has_app_device(NEW.user_id) THEN RETURN NEW; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id=NEW.user_id AND line_user_id IS NOT NULL) THEN RETURN NEW; END IF;
+  IF (SELECT setting_value FROM public.school_settings WHERE setting_key='line_notify_enabled' LIMIT 1) IS DISTINCT FROM 'true' THEN RETURN NEW; END IF;
+  u := public.svc_url(); k := public.svc_key();
+  IF u IS NULL OR k IS NULL THEN RETURN NEW; END IF;
+  PERFORM net.http_post(
+    url := rtrim(u,'/')||'/functions/v1/notify-line',
+    headers := jsonb_build_object('Content-Type','application/json','Authorization','Bearer '||k),
+    body := jsonb_build_object('message',coalesce(NEW.title,'')||coalesce(E'\n'||NEW.message,''),'title',NEW.title,
+      'user_ids',jsonb_build_array(NEW.user_id),'use_flex',true,'severity','info','notification_type',coalesce(NEW.type,'general')));
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RETURN NEW;
+END $$;
+
+-- LINE ถึงผู้ปกครอง (ขาดเรียน/พฤติกรรม/คะแนน): ข้ามถ้าผู้ปกครองรับแจ้งเตือนในแอปได้แล้ว
+CREATE OR REPLACE FUNCTION public.send_line_to_student_parents(_student_id uuid, _title text, _message text, _image_url text DEFAULT NULL::text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE ids text[]; u text; k text; s record;
+BEGIN
+  IF (SELECT setting_value FROM public.school_settings WHERE setting_key='line_auto_push_enabled' LIMIT 1) IS DISTINCT FROM 'true' THEN RETURN; END IF;
+  SELECT line_user_id,line_user_id_2,line_user_id_3,parent_user_id,parent_user_id_2 INTO s FROM public.students WHERE id=_student_id;
+  IF public._has_app_device(s.parent_user_id) OR public._has_app_device(s.parent_user_id_2) THEN RETURN; END IF;
+  ids := ARRAY(SELECT x FROM unnest(ARRAY[s.line_user_id,s.line_user_id_2,s.line_user_id_3]) x WHERE x IS NOT NULL AND x<>'');
+  IF array_length(ids,1) IS NULL THEN RETURN; END IF;
+  u := public.svc_url(); k := public.svc_key();
+  IF u IS NULL OR k IS NULL THEN RETURN; END IF;
+  PERFORM net.http_post(
+    url := rtrim(u,'/')||'/functions/v1/notify-line',
+    headers := jsonb_build_object('Content-Type','application/json','Authorization','Bearer '||k),
+    body := jsonb_build_object('message',coalesce(_title,'')||E'\n'||coalesce(_message,''),'title',_title,
+      'line_user_ids',to_jsonb(ids),'image_url',CASE WHEN _image_url LIKE 'https://%' THEN _image_url END,
+      'use_flex',true,'severity','info'));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
