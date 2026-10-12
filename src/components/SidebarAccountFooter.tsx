@@ -19,7 +19,7 @@ export function SidebarAccountFooter() {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed" && !isMobile;
   const { session } = useAuthSession();
-  const { role } = useUserRole();
+  const { role, realRole, isTeacherAdmin } = useUserRole();
   const { t, lang } = useLanguage();
   const navigate = useNavigate();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
