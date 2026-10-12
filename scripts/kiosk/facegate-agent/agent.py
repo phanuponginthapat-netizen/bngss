@@ -51,6 +51,14 @@ def _load_config_file() -> None:
 
 _load_config_file()
 
+if FROZEN and sys.stdout is None:
+    try:
+        _log_dir = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "FaceGate")
+        os.makedirs(_log_dir, exist_ok=True)
+        sys.stdout = sys.stderr = open(os.path.join(_log_dir, "agent.log"), "a", encoding="utf-8", buffering=1)
+    except OSError:
+        pass
+
 import cv2
 import numpy as np
 import requests
@@ -1657,4 +1665,4 @@ if __name__ == "__main__":
     if FROZEN and os.environ.get("FACEGATE_OPEN_KIOSK", "1") not in ("0", "false", "off", "no"):
         threading.Thread(target=open_kiosk_browser, daemon=True).start()
 
-    uvicorn.run(app, host=host, port=PORT, log_config=None if FROZEN else uvicorn.config.LOGGING_CONFIG)
+    uvicorn.run(app, host=host, port=PORT)
