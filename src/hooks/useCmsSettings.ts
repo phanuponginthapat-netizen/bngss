@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
  * ทุก hook ที่อ่าน cms_settings ต้องใช้ผ่าน selector นี้
  */
 
-const LS_KEY = "cms_settings_bulk_v1";
+const LS_KEY = "cms_settings_bulk_v2";
 const LS_TTL_MS = 24 * 60 * 60 * 1000; // 24 ชั่วโมง (invalidate อัตโนมัติผ่าน useGlobalRealtime)
 const CHANNEL_NAME = "cms_settings_sync_v1";
 
