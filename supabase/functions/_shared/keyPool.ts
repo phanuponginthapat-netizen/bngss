@@ -193,6 +193,8 @@ export interface PoolCallOpts {
   json?: boolean;
   vision?: boolean;
   model?: string; // optional override
+  functionName?: string; // ใช้บันทึกสถิติการใช้งาน
+
 }
 
 export interface PoolCallResult {
@@ -216,8 +218,26 @@ export async function callWithPool(provider: PoolProvider, opts: PoolCallOpts): 
   const candidates = modelCandidates(provider, primary);
   const errors: string[] = [];
 
+  const logPool = async (model: string, ok: boolean, started: number, usage?: any, err?: string) => {
+    try {
+      await sb().from("ai_usage_logs").insert({
+        provider_id: null,
+        provider_name: `pool:${provider}`,
+        model,
+        function_name: opts.functionName || null,
+        tokens_input: usage?.prompt_tokens ?? usage?.input_tokens ?? 0,
+        tokens_output: usage?.completion_tokens ?? usage?.output_tokens ?? 0,
+        estimated_cost: 0,
+        success: ok,
+        error_message: err?.slice(0, 500) || null,
+        latency_ms: Date.now() - started,
+      });
+    } catch { /* บันทึกไม่ได้ไม่ควรทำให้งาน AI ล้ม */ }
+  };
+
   for (const model of candidates) {
     for (const k of keys) {
+      const started = Date.now();
       try {
         const r = await fetch(cfg.url, {
           method: "POST",
@@ -245,6 +265,7 @@ export async function callWithPool(provider: PoolProvider, opts: PoolCallOpts): 
           continue;
         }
         await markUsed(k.id);
+        await logPool(model, true, started, data?.usage);
         return { content, provider, model, keyLabel: k.label || "key" };
       } catch (e: any) {
         errors.push(`${k.label || k.id.slice(0, 8)}/${model}: ${e?.message || e}`);
