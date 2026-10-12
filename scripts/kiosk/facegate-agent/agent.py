@@ -105,7 +105,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.8.0"
+AGENT_VERSION = "1.8.1"
 
 
 def default_cache_dir() -> str:
@@ -1718,7 +1718,10 @@ if __name__ == "__main__":
     host = "127.0.0.1"
     if os.environ.get("FACEGATE_BIND"):
         host = os.environ["FACEGATE_BIND"]
-    elif STANDALONE or SATELLITE:
+    else:
+        # Every install answers the school LAN so tablets (BNG Scanner) can use
+        # this PC's face engine; the normal school install used to listen only
+        # on itself, which made tablets show "cannot reach FaceGate".
         host = "0.0.0.0"  # noqa: S104 — school LAN only
         try:
             open_firewall(PORT)
