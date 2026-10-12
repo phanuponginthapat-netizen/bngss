@@ -40,3 +40,4 @@ firebase-service-account.json
 .env.*
 !.env.example
 
+scripts/kiosk/facegate-agent/models/
