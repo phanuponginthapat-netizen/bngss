@@ -46,7 +46,7 @@ export default function AcademicPeriodDates({ currentYear }: { currentYear: numb
       const { error } = await supabase.rpc("save_academic_period_dates" as any, { _year_be: year, _terms: terms });
       if (error) throw error;
       clearCurrentPeriodCache(); setDirty(false);
-      await Promise.all([qc.invalidateQueries({ queryKey: ["academic-periods"] }), qc.invalidateQueries({ queryKey: ["academic-calendar-term-dates"] }), qc.invalidateQueries({ queryKey: ["semester-config"] }), qc.invalidateQueries({ queryKey: ["academic_events"] }), qc.invalidateQueries({ queryKey: ["dashboard_stats_v2"] }), refetch()]);
+      await Promise.all([qc.invalidateQueries({ queryKey: ["academic-periods"] }), qc.invalidateQueries({ queryKey: ["academic-period-date-editor"] }), qc.invalidateQueries({ queryKey: ["academic-calendar-term-dates"] }), qc.invalidateQueries({ queryKey: ["semester-config"] }), qc.invalidateQueries({ queryKey: ["academic_events"] }), qc.invalidateQueries({ queryKey: ["dashboard_stats_v2"] })]);
       swal.success("บันทึกวันเปิด–ปิดภาคเรียนแล้ว");
     } catch { swal.error("บันทึกไม่สำเร็จ", "ตรวจสิทธิ์ผู้ดูแลและการติดตั้งคำสั่งปรับปรุงบนฐานข้อมูลโรงเรียน แล้วลองอีกครั้ง"); }
     finally { setSaving(false); }

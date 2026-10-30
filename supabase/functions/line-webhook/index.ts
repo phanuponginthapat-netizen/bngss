@@ -635,18 +635,11 @@ async function handleAttendanceList(sb: any, token: string, rt: string, classroo
 async function handleMarkAttendance(sb: any, token: string, rt: string, lineUserId: string, status: string, studentId: string, date: string, subjectId?: string, period?: string) {
   const user = await findLinkedUser(sb, lineUserId);
   if (!user || user.type !== "teacher") return replyText(token, rt, `❌ ไม่ได้รับอนุญาต`);
-  const { data: termRows, error: termError } = await sb.from("academic_periods")
-    .select("academic_year_be, semester, start_date, end_date").lte("start_date", date)
-    .order("start_date", { ascending: false }).limit(1);
+  const { data: termRows, error: termError } = await sb.rpc("resolve_school_term", { _date: date });
   const term = Array.isArray(termRows) ? termRows[0] : null;
   if (termError || !term) return replyText(token, rt, "❌ ไม่พบภาคเรียนสำหรับวันนี้ กรุณาตรวจวันเปิด–ปิดในระบบ", qrTeacher);
-  const { data: overrides, error: overrideError } = await sb.from("school_settings")
-    .select("setting_key, setting_value").in("setting_key", ["academic_year_override", "semester_override"]);
-  if (overrideError) return replyText(token, rt, "❌ โหลดภาคเรียนไม่สำเร็จ กรุณาลองอีกครั้ง", qrTeacher);
-  const overrideYear = Number(overrides?.find((s: any) => s.setting_key === "academic_year_override")?.setting_value);
-  const overrideSemester = Number(overrides?.find((s: any) => s.setting_key === "semester_override")?.setting_value);
-  const year = (overrideYear > 2000 ? overrideYear : term.academic_year_be) - 543;
-  const semester = overrideSemester === 1 || overrideSemester === 2 ? overrideSemester : term.semester;
+  const year = term.academic_year_be - 543;
+  const semester = term.semester;
   const sid = subjectId && subjectId !== "-" ? subjectId : null;
   const row: any = {
     student_id: studentId, attendance_date: date, status,

@@ -38,7 +38,7 @@ CREATE OR REPLACE FUNCTION public.save_academic_period_dates(_year_be integer,_t
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE t record; v_start date; v_end date;
 BEGIN
- IF NOT public.has_role(auth.uid(),'admin') THEN RAISE EXCEPTION 'admin required' USING ERRCODE='42501'; END IF;
+ IF auth.uid() IS NULL OR NOT COALESCE(public.has_role(auth.uid(),'admin'),false) THEN RAISE EXCEPTION 'admin required' USING ERRCODE='42501'; END IF;
  IF _year_be IS NULL OR _year_be NOT BETWEEN 2400 AND 3000 OR _terms IS NULL OR jsonb_typeof(_terms)<>'array' THEN RAISE EXCEPTION 'invalid input'; END IF;
  IF jsonb_array_length(_terms)<>2 THEN RAISE EXCEPTION 'both semesters required'; END IF;
  PERFORM pg_advisory_xact_lock(6103015);
@@ -63,10 +63,13 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 BEGIN PERFORM public.sync_current_academic_period(); RETURN NULL; END; $$;
 REVOKE ALL ON FUNCTION public.calendar_sync_after_change() FROM PUBLIC,anon,authenticated;
 DROP TRIGGER IF EXISTS academic_dates_sync ON public.academic_periods;
-CREATE TRIGGER academic_dates_sync AFTER INSERT OR UPDATE OF start_date,end_date ON public.academic_periods FOR EACH STATEMENT EXECUTE FUNCTION public.calendar_sync_after_change();
+CREATE TRIGGER academic_dates_sync AFTER INSERT OR DELETE OR UPDATE OF start_date,end_date ON public.academic_periods FOR EACH STATEMENT EXECUTE FUNCTION public.calendar_sync_after_change();
 DROP TRIGGER IF EXISTS academic_override_sync ON public.school_settings;
 CREATE TRIGGER academic_override_sync AFTER INSERT OR UPDATE ON public.school_settings FOR EACH ROW
  WHEN(NEW.setting_key IN('academic_year_override','semester_override')) EXECUTE FUNCTION public.calendar_sync_after_change();
+DROP TRIGGER IF EXISTS academic_override_delete_sync ON public.school_settings;
+CREATE TRIGGER academic_override_delete_sync AFTER DELETE ON public.school_settings FOR EACH ROW
+ WHEN(OLD.setting_key IN('academic_year_override','semester_override')) EXECUTE FUNCTION public.calendar_sync_after_change();
 
 -- Derive NEW attendance from its actual date, rather than a month guess.
 CREATE OR REPLACE FUNCTION public.attendance_shared_term()
@@ -74,6 +77,9 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE r record;
 BEGIN
  SELECT * INTO r FROM public.resolve_school_term(NEW.attendance_date);
+ IF r.academic_year_be IS NULL AND (NEW.academic_year IS NULL OR NEW.semester IS NULL OR NEW.notes IN('face-scan','qr-scan')) THEN
+  RAISE EXCEPTION 'No registered academic term for attendance date %', NEW.attendance_date;
+ END IF;
  IF r.academic_year_be IS NOT NULL AND (NEW.academic_year IS NULL OR NEW.semester IS NULL OR NEW.notes IN('face-scan','qr-scan')) THEN
   NEW.academic_year:=r.academic_year_be-543;
   NEW.semester:=r.semester;
@@ -91,5 +97,16 @@ BEGIN
  PERFORM public.sync_current_academic_period();
  RETURN QUERY SELECT ap.academic_year_be,ap.semester FROM public.academic_periods ap WHERE ap.is_current;
 END; $$;
+REVOKE ALL ON FUNCTION public.auto_set_current_period() FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.auto_set_current_period() TO authenticated;
+
+-- The older maintenance job must not undo manual overrides or use UTC dates.
+CREATE OR REPLACE FUNCTION public.auto_period_maintenance()
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+BEGIN
+ RETURN jsonb_build_object('calendar_sync',public.sync_current_academic_period());
+END; $$;
+REVOKE ALL ON FUNCTION public.auto_period_maintenance() FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.auto_period_maintenance() TO service_role;
 SELECT public.sync_current_academic_period();
 COMMIT;
