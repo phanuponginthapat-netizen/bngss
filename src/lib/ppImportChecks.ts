@@ -37,8 +37,8 @@ export async function getCurrentPeriod(): Promise<{ year: number; semester?: num
     const resolved = resolveAcademicPeriod(data ?? [], day);
     const overrideYear = Number(settings?.find(s => s.setting_key === "academic_year_override")?.setting_value);
     const overrideSemester = Number(settings?.find(s => s.setting_key === "semester_override")?.setting_value);
-    if (resolved) {
-      const period = { year: overrideYear > 2000 ? overrideYear : resolved.yearBE, semester: overrideSemester === 1 || overrideSemester === 2 ? overrideSemester : resolved.semester };
+    if (resolved || (overrideYear > 2000 && (overrideSemester === 1 || overrideSemester === 2))) {
+      const period = { year: overrideYear > 2000 ? overrideYear : resolved?.yearBE ?? currentAcademicYearBE(), semester: overrideSemester === 1 || overrideSemester === 2 ? overrideSemester : resolved?.semester };
       periodCache = { day, expiresAt: Date.now() + 60_000, period };
       return period;
     }

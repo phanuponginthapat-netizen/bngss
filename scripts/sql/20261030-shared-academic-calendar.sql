@@ -12,9 +12,10 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$
   SELECT max(setting_value) FILTER(WHERE setting_key='academic_year_override') yr,
    max(setting_value) FILTER(WHERE setting_key='semester_override') sem FROM public.school_settings
  )
- SELECT CASE WHEN s.yr ~ '^[0-9]{4}$' THEN s.yr::int ELSE c.academic_year_be END,
+ SELECT CASE WHEN s.yr ~ '^[0-9]{4}$' AND s.yr::int>2000 THEN s.yr::int ELSE c.academic_year_be END,
   CASE WHEN s.sem IN ('1','2') THEN s.sem::smallint ELSE c.semester END
- FROM candidate c CROSS JOIN settings s;
+ FROM settings s LEFT JOIN candidate c ON true
+ WHERE c.academic_year_be IS NOT NULL OR (s.yr ~ '^[0-9]{4}$' AND s.sem IN('1','2'));
 $$;
 REVOKE ALL ON FUNCTION public.resolve_school_term(date) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.resolve_school_term(date) TO authenticated,service_role;
@@ -73,7 +74,10 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE r record;
 BEGIN
  SELECT * INTO r FROM public.resolve_school_term(NEW.attendance_date);
- IF r.academic_year_be IS NOT NULL THEN NEW.academic_year:=r.academic_year_be-543; NEW.semester:=r.semester; END IF;
+ IF r.academic_year_be IS NOT NULL AND (NEW.academic_year IS NULL OR NEW.semester IS NULL) THEN
+  NEW.academic_year:=COALESCE(NEW.academic_year,r.academic_year_be-543);
+  NEW.semester:=COALESCE(NEW.semester,r.semester);
+ END IF;
  RETURN NEW;
 END; $$;
 REVOKE ALL ON FUNCTION public.attendance_shared_term() FROM PUBLIC,anon,authenticated;
