@@ -18,7 +18,7 @@ describe("resolveAcademicPeriod — ภาคเรียนที่ 2 เป�
     });
   });
 
-  it("1 พฤศจิกายน (ก่อนเปิด 1 วัน) ต้องยังไม่跳到ภาคเรียนที่ 2", () => {
+  it("1 พฤศจิกายน (ก่อนเปิด 1 วัน) ต้องยังไม่เข้าภาคเรียนที่ 2", () => {
     expect(resolveAcademicPeriod(SCHOOL_PERIODS, "2026-11-01")).toMatchObject({
       yearBE: 2569,
       semester: 1,
