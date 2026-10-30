@@ -36,30 +36,32 @@ const SETTING_KEYS = [
 /**
  * Hook ที่จัดการปีการศึกษาและภาคเรียน
  * - อ่านค่าจาก school_settings
- * - รองรับโหมด "อัตโนมัติ" (คำนวณจากเดือน) และ "กำหนดเอง" (override)
+ * - รองรับโหมด "อัตโนมัติ" ตามปฏิทินโรงเรียน และ "กำหนดเอง" (override)
  * - ค่าปีการศึกษาเป็น พ.ศ.
  */
 export function useAcademicYear() {
-  const { data: settings = [], isLoading } = useQuery({
+  const { data: settings = [], isLoading: settingsLoading } = useQuery({
     queryKey: ["semester-config"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("school_settings")
         .select("setting_key, setting_value")
         .in("setting_key", SETTING_KEYS as unknown as string[]);
+      if (error) throw error;
       return data || [];
     },
     staleTime: 60_000,
   });
 
   // Registered term dates: the school calendar is the source of truth.
-  const { data: periods = [] } = useQuery({
+  const { data: periods = [], isLoading: periodsLoading } = useQuery({
     queryKey: ["academic-periods"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("academic_periods")
         .select("academic_year_be, semester, start_date, end_date")
         .order("start_date", { ascending: true });
+      if (error) throw error;
       return (data || []) as AcademicPeriodRow[];
     },
     staleTime: 300_000,
@@ -86,10 +88,9 @@ export function useAcademicYear() {
   const hasSemOverride = semOverride === 1 || semOverride === 2;
   const isManualMode = hasYearOverride || hasSemOverride;
 
+  const today = todayBangkok();
   const { autoAcademicYear, autoSemester } = useMemo(() => {
-    const now = new Date();
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
+    const [year, month] = today.split("-").map(Number);
     const ceYear = month >= config.academicYearStartMonth ? year : year - 1;
     const academicYear = ceYear + BE_OFFSET;
 
@@ -100,12 +101,12 @@ export function useAcademicYear() {
       semester = 2;
     }
     return { autoAcademicYear: academicYear, autoSemester: semester };
-  }, [config]);
+  }, [config, today]);
 
   // Registered term dates (academic_periods) win over the month-based guess.
   const periodMatch = useMemo(
-    () => resolveAcademicPeriod(periods, todayBangkok()),
-    [periods]
+    () => resolveAcademicPeriod(periods, today),
+    [periods, today]
   );
   const periodBasis = periodMatch?.basis ?? null;
 
@@ -137,6 +138,6 @@ export function useAcademicYear() {
     hasYearOverride,
     hasSemOverride,
     academicYearOptions,
-    isLoading,
+    isLoading: settingsLoading || periodsLoading,
   };
 }

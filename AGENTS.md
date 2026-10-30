@@ -10,3 +10,4 @@
 
 - Ship schema/function fixes as files in supabase/migrations (auto-deploy.yml pushes them to the school backend on every main push) and verify only via the AI_READONLY_DB_URL read-only role — never hand the agent write credentials.
 - The Windows FaceGate installer (FaceGateSetup.exe) is built in build-facegate.yml with PyInstaller + Inno Setup, bundles the ONNX face models, reads settings from facegate.env, and is published as the facegate-windows release that download links prefer over the ZIP — schools get a no-Python, no-.bat install.
+- Resolve automatic academic terms from academic_periods using the Bangkok date and synchronize is_current daily; preserve manual overrides and wait for both settings and period queries before reporting loaded values, preventing early term changes.
