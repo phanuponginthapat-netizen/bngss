@@ -1,10 +1,11 @@
 -- ============================================================================
--- Academic year 2569 (2026 CE), semester 2 opens on 2 November 2026
+-- Academic year 2569 (2026 CE): semester 2 opens on 2 November 2026
 -- ----------------------------------------------------------------------------
--- 1) Register the real term dates in academic_periods (open 2026-11-02,
---    close 2027-03-31) and store the opening note.
--- 2) Add the opening / closing days to the school calendar (academic_events).
--- 3) Create sync_current_academic_period() + a daily job so the flag
+-- 1) Register the real term dates in academic_periods
+--    (semester 2: opens 2026-11-02, ends 2027-03-31).
+-- 2) Put the opening / closing days on the school calendar (academic_events).
+--    Titles are in English here - rename them in Thai on the calendar page.
+-- 3) Create sync_current_academic_period() plus a daily job so the flag
 --    is_current always follows the real date. This matters because the
 --    face / QR scan trigger reads is_current to decide which semester an
 --    attendance row belongs to.
@@ -13,10 +14,10 @@
 -- nothing is duplicated and no existing data is deleted.
 -- ============================================================================
 
--- 1) Semester 2 of 2569: opens 2 Nov 2026, ends 31 Mar 2027
+-- 1) Semester 2 of academic year 2569
 INSERT INTO public.academic_periods (academic_year_be, semester, start_date, end_date, note)
 VALUES (2569, 2, DATE '2026-11-02', DATE '2027-03-31',
-        'เปิดพาคภเรูยนทู่ 2 เริ่ม 2 พ.ย. 2569')
+        'Semester 2 opens 2 November 2026 (2 Nov 2569 BE)')
 ON CONFLICT (academic_year_be, semester)
 DO UPDATE SET start_date = EXCLUDED.start_date,
               end_date   = EXCLUDED.end_date,
@@ -32,13 +33,13 @@ WITH target_school AS (
 )
 INSERT INTO public.academic_events
        (title, description, event_date, end_date, event_type, academic_year, semester, school_id)
-SELECT 'เปิดพาคภเรูยนทู่ 2 ปู 2569',
-       'โรงเรูยน เปิดพาคภเรูยนทู่ 2 ปูการศืกฎา 2569 (2 พรุจสกายน 2569)',
+SELECT 'Semester 2 opens',
+       'Academic year 2569, semester 2 opens on 2 November 2026',
        DATE '2026-11-02', DATE '2026-11-02', 'ceremony', 2026, 2, target_school.school_id
   FROM target_school
  WHERE NOT EXISTS (
    SELECT 1 FROM public.academic_events
-    WHERE event_date = DATE '2026-11-02' AND title = 'เปิดพาคภเรูยนทู่ 2 ปู 2569'
+    WHERE event_date = DATE '2026-11-02' AND title = 'Semester 2 opens'
  );
 
 WITH target_school AS (
@@ -50,13 +51,13 @@ WITH target_school AS (
 )
 INSERT INTO public.academic_events
        (title, description, event_date, end_date, event_type, academic_year, semester, school_id)
-SELECT 'สิ่นสุดพาคภเรูยนทู่ 2 ปู 2569',
-       'สิ่นสุดพาคภเรูยนทู่ 2 ปูการศืกฎา 2569 (31 มูนาคม 2570)',
+SELECT 'Semester 2 ends',
+       'Academic year 2569, semester 2 ends on 31 March 2027',
        DATE '2027-03-31', DATE '2027-03-31', 'holiday', 2026, 2, target_school.school_id
   FROM target_school
  WHERE NOT EXISTS (
    SELECT 1 FROM public.academic_events
-    WHERE event_date = DATE '2027-03-31' AND title = 'สิ่นสุดพาคภเรูยนทู่ 2 ปู 2569'
+    WHERE event_date = DATE '2027-03-31' AND title = 'Semester 2 ends'
  );
 
 -- 3) Keep is_current in step with the real date ----------------------------
@@ -71,15 +72,15 @@ DECLARE
   v_id    uuid;
   v_rows  int := 0;
 BEGIN
-  -- 3.1) today falls inside a registered term (newest one wins)
+  -- 3.1) today falls inside a registered term (the newest one wins)
   SELECT id INTO v_id
     FROM public.academic_periods
    WHERE v_today BETWEEN start_date AND end_date
    ORDER BY start_date DESC, semester DESC
    LIMIT 1;
 
-  -- 3.2) in the gap between terms (e.g. term closed): keep the term that
-  --      just ended as the current one, up to 180 days
+  -- 3.2) in the gap between terms (e.g. after a term closed): keep the term
+  --      that just ended as the current one, for up to 180 days
   IF v_id IS NULL THEN
     SELECT id INTO v_id
       FROM public.academic_periods
