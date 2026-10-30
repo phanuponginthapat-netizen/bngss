@@ -635,9 +635,11 @@ async function handleAttendanceList(sb: any, token: string, rt: string, classroo
 async function handleMarkAttendance(sb: any, token: string, rt: string, lineUserId: string, status: string, studentId: string, date: string, subjectId?: string, period?: string) {
   const user = await findLinkedUser(sb, lineUserId);
   if (!user || user.type !== "teacher") return replyText(token, rt, `❌ ไม่ได้รับอนุญาต`);
-  const year = new Date(date).getFullYear();
-  const month = new Date(date).getMonth() + 1;
-  const semester = month >= 5 && month <= 10 ? 1 : 2;
+  const { data: termRows, error: termError } = await sb.rpc("resolve_school_term", { _date: date });
+  const term = Array.isArray(termRows) ? termRows[0] : null;
+  if (termError || !term) return replyText(token, rt, "❌ ไม่พบภาคเรียนสำหรับวันนี้ กรุณาตรวจวันเปิด–ปิดในระบบ", qrTeacher);
+  const year = term.academic_year_be - 543;
+  const semester = term.semester;
   const sid = subjectId && subjectId !== "-" ? subjectId : null;
   const row: any = {
     student_id: studentId, attendance_date: date, status,
