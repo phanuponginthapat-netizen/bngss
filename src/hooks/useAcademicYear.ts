@@ -1,7 +1,11 @@
 import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { BE_OFFSET } from "@/lib/dateBE";
+import { BE_OFFSET, todayBangkok } from "@/lib/dateBE";
+import {
+  resolveAcademicPeriod,
+  type AcademicPeriodRow,
+} from "@/lib/academicPeriod";
 
 interface SemesterConfig {
   semester1StartMonth: number;
@@ -48,6 +52,20 @@ export function useAcademicYear() {
     staleTime: 60_000,
   });
 
+  // Registered term dates: the school calendar is the source of truth.
+  const { data: periods = [] } = useQuery({
+    queryKey: ["academic-periods"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("academic_periods")
+        .select("academic_year_be, semester, start_date, end_date")
+        .order("start_date", { ascending: true });
+      return (data || []) as AcademicPeriodRow[];
+    },
+    staleTime: 300_000,
+  });
+
+
   const rawMap = useMemo(() => {
     const map: Record<string, string> = {};
     settings.forEach((s: any) => { map[s.setting_key] = s.setting_value; });
@@ -84,8 +102,23 @@ export function useAcademicYear() {
     return { autoAcademicYear: academicYear, autoSemester: semester };
   }, [config]);
 
-  const currentAcademicYear = hasYearOverride ? yearOverride : autoAcademicYear;
-  const currentSemester = hasSemOverride ? semOverride : autoSemester;
+  // Registered term dates (academic_periods) win over the month-based guess.
+  const periodMatch = useMemo(
+    () => resolveAcademicPeriod(periods, todayBangkok()),
+    [periods]
+  );
+  const periodBasis = periodMatch?.basis ?? null;
+
+  const currentAcademicYear = hasYearOverride
+    ? yearOverride
+    : periodMatch
+      ? periodMatch.yearBE
+      : autoAcademicYear;
+  const currentSemester = hasSemOverride
+    ? semOverride
+    : periodMatch
+      ? periodMatch.semester
+      : autoSemester;
 
   const academicYearOptions = useMemo(() => {
     const years: number[] = [];
@@ -97,6 +130,7 @@ export function useAcademicYear() {
     config,
     currentAcademicYear,
     currentSemester,
+    periodBasis,
     autoAcademicYear,
     autoSemester,
     isManualMode,
