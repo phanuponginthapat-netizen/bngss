@@ -41,6 +41,8 @@ import { checkTodayScan, markScanned, methodLabel, clearScanDedupCache } from "@
 import { useKioskHeartbeat } from "@/hooks/useKioskHeartbeat";
 import { useKioskLockdown } from "@/hooks/useKioskLockdown";
 import KioskFaceRegisterDialog from "@/components/kiosk/KioskFaceRegisterDialog";
+import KioskCredentialSettings from "@/components/kiosk/KioskCredentialSettings";
+import { kioskCredentialHeaders } from "@/lib/kioskDeviceCredential";
 import { downloadFacesToCache, pickAndSaveFaceFolder, loadFaceCache, saveFaceCache, getSavedDirName, hasFileSystemAccess, refreshFaceCacheIfStale, augmentCacheWithLocalEmbeddings } from "@/lib/kioskFaceCache";
 import { useIsPortrait } from "@/hooks/useScreenOrientation";
 import { KIOSK_PERF_PROFILES, resolveLoopDelayMs, isIsolatedRuntime } from "@/lib/kioskPerf";
@@ -547,7 +549,7 @@ const FaceKioskPage = () => {
       } catch {}
       // ลอง edge ก่อน (bypass RLS สำหรับตู้ anon)
       try {
-        const { data: edgeData, error: edgeErr } = await supabase.functions.invoke("kiosk-face-download");
+        const { data: edgeData, error: edgeErr } = await supabase.functions.invoke("kiosk-face-download", { headers: kioskCredentialHeaders() });
         if (!edgeErr && (edgeData as any)?.faces && Array.isArray((edgeData as any).faces) && (edgeData as any).faces.length > 0) {
           const faces = (edgeData as any).faces as any[];
           const arr = faces.map(f => ({
@@ -2110,6 +2112,7 @@ const FaceKioskPage = () => {
       {showSettings && (
         <div className="absolute top-12 right-2 z-40 bg-card text-foreground rounded-xl p-4 w-80 shadow-2xl space-y-3 max-h-[calc(100vh-4.5rem)] overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]" onClick={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
           <h3 className="font-semibold text-sm">ตั้งค่ากล้อง</h3>
+          <KioskCredentialSettings onConnected={() => { void qc.invalidateQueries({ queryKey: ["face-known-kiosk"] }); }} />
           <div className="flex gap-1">
             <Button size="sm" variant={camMode === "standard" ? "default" : "outline"} onClick={() => switchCamMode("standard")} className="flex-1">มาตรฐาน</Button>
             <Button size="sm" variant={camMode === "wide" ? "default" : "outline"} onClick={() => switchCamMode("wide")} className="flex-1">มุมกว้าง</Button>

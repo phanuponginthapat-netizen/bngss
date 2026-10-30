@@ -13,3 +13,4 @@
 - Resolve automatic academic terms from academic_periods using the Bangkok date and synchronize is_current daily; preserve manual overrides and wait for both settings and period queries before reporting loaded values, preventing early term changes.
 - Scope persistent CMS settings and cross-tab broadcasts to the active backend, reject empty caches, and propagate fetch errors instead of caching them as empty success; stale branding must recover on mount/reconnect.
 - Keep score-status records strictly scoped to an explicit academic year and semester, surface fetch failures, and expire import-period caches at Bangkok date changes; unscoped legacy rows must not appear as current-term results.
+- Protect kiosk face endpoints with server-validated active device keys or authenticated admin/director roles; provision browser credentials once per backend and send them only in headers so daily scanning remains login-free.

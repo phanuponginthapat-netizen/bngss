@@ -13,6 +13,7 @@ import FaceGuideOverlay from "@/components/facescan/FaceGuideOverlay";
 import { openCamera, stopStream } from "@/lib/cameraStream";
 import { attachStreamToVideo } from "@/lib/cameraIos";
 import { loadFaceCache, saveFaceCache } from "@/lib/kioskFaceCache";
+import { kioskCredentialHeaders } from "@/lib/kioskDeviceCredential";
 
 interface Props {
   open: boolean;
@@ -121,7 +122,7 @@ export default function KioskFaceRegisterDialog({ open, onOpenChange, onRegister
         descriptors: [Array.from(desc as Float32Array)],
         face_image: thumb,
       };
-      const { data, error } = await supabase.functions.invoke("kiosk-face-register", { body: payload });
+      const { data, error } = await supabase.functions.invoke("kiosk-face-register", { headers: kioskCredentialHeaders(), body: payload });
       if (error) throw new Error(error.message || "kiosk-face-register failed");
       if ((data as any)?.error) {
         const err = (data as any).error;
