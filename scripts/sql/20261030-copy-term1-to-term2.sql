@@ -7,9 +7,8 @@
 --
 -- The schedules trigger also creates the matching teacher_assignments rows.
 --
--- To undo a copy:
---   DELETE FROM public.schedules           WHERE academic_year = 2026 AND semester = 2;
---   DELETE FROM public.teacher_assignments WHERE academic_year = 2026 AND semester = 2;
+-- Review semester 1 first; do not run if semester 2 uses a different timetable.
+-- Existing semester 2 timetable/assignment rows are never deleted.
 -- ============================================================================
 
 -- 1) Timetable (schedules)

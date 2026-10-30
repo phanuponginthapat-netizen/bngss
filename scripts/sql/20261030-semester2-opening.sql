@@ -1,10 +1,8 @@
 -- ============================================================================
 -- Academic year 2569 (2026 CE): semester 2 opens on 2 November 2026
 -- ----------------------------------------------------------------------------
--- 1) Register the real term dates in academic_periods
---    (semester 2: opens 2026-11-02, ends 2027-03-31).
--- 2) Put the opening / closing days on the school calendar (academic_events).
---    Titles are in English here - rename them in Thai on the calendar page.
+-- 1) Correct the opening day without changing the registered closing day.
+-- 2) Put the opening day on the school calendar in Thai.
 -- 3) Create sync_current_academic_period() plus a daily job so the flag
 --    is_current always follows the real date. This matters because the
 --    face / QR scan trigger reads is_current to decide which semester an
@@ -17,10 +15,9 @@
 -- 1) Semester 2 of academic year 2569
 INSERT INTO public.academic_periods (academic_year_be, semester, start_date, end_date, note)
 VALUES (2569, 2, DATE '2026-11-02', DATE '2027-03-31',
-        'Semester 2 opens 2 November 2026 (2 Nov 2569 BE)')
+        'เปิดภาคเรียนที่ 2 วันที่ 2 พฤศจิกายน 2569')
 ON CONFLICT (academic_year_be, semester)
 DO UPDATE SET start_date = EXCLUDED.start_date,
-              end_date   = EXCLUDED.end_date,
               note       = EXCLUDED.note;
 
 -- 2) Calendar entries (inserted only when missing)
@@ -33,32 +30,22 @@ WITH target_school AS (
 )
 INSERT INTO public.academic_events
        (title, description, event_date, end_date, event_type, academic_year, semester, school_id)
-SELECT 'Semester 2 opens',
-       'Academic year 2569, semester 2 opens on 2 November 2026',
+SELECT 'เปิดภาคเรียนที่ 2 ปี 2569',
+       'เปิดเรียนภาคเรียนที่ 2 ปีการศึกษา 2569 วันที่ 2 พฤศจิกายน 2569',
        DATE '2026-11-02', DATE '2026-11-02', 'ceremony', 2026, 2, target_school.school_id
   FROM target_school
  WHERE NOT EXISTS (
    SELECT 1 FROM public.academic_events
-    WHERE event_date = DATE '2026-11-02' AND title = 'Semester 2 opens'
+    WHERE event_date = DATE '2026-11-02'
+      AND academic_year = 2026 AND semester = 2
+      AND title IN ('Semester 2 opens', 'เปิดภาคเรียนที่ 2 ปี 2569')
  );
 
-WITH target_school AS (
-  SELECT COALESCE(
-    (SELECT school_id FROM public.academic_events
-      WHERE school_id IS NOT NULL ORDER BY created_at DESC LIMIT 1),
-    (SELECT id FROM public.schools ORDER BY created_at LIMIT 1)
-  ) AS school_id
-)
-INSERT INTO public.academic_events
-       (title, description, event_date, end_date, event_type, academic_year, semester, school_id)
-SELECT 'Semester 2 ends',
-       'Academic year 2569, semester 2 ends on 31 March 2027',
-       DATE '2027-03-31', DATE '2027-03-31', 'holiday', 2026, 2, target_school.school_id
-  FROM target_school
- WHERE NOT EXISTS (
-   SELECT 1 FROM public.academic_events
-    WHERE event_date = DATE '2027-03-31' AND title = 'Semester 2 ends'
- );
+UPDATE public.academic_events
+   SET title = 'เปิดภาคเรียนที่ 2 ปี 2569',
+       description = 'เปิดเรียนภาคเรียนที่ 2 ปีการศึกษา 2569 วันที่ 2 พฤศจิกายน 2569'
+ WHERE title = 'Semester 2 opens' AND event_date = DATE '2026-11-02'
+   AND academic_year = 2026 AND semester = 2;
 
 -- 3) Keep is_current in step with the real date ----------------------------
 CREATE OR REPLACE FUNCTION public.sync_current_academic_period()
@@ -94,9 +81,11 @@ BEGIN
     RETURN format('no-period on %s', v_today);
   END IF;
 
+  -- Clear first: the existing single-current trigger updates sibling rows.
   UPDATE public.academic_periods
-     SET is_current = (id = v_id)
-   WHERE is_current IS DISTINCT FROM (id = v_id);
+     SET is_current = false WHERE id <> v_id AND is_current = true;
+  UPDATE public.academic_periods
+     SET is_current = true WHERE id = v_id AND is_current IS DISTINCT FROM true;
   GET DIAGNOSTICS v_rows = ROW_COUNT;
 
   RETURN format('%s current=%s updated=%s', v_today, v_id, v_rows);
@@ -105,9 +94,10 @@ $fn$;
 
 COMMENT ON FUNCTION public.sync_current_academic_period() IS
   'Point academic_periods.is_current at the term that matches today (Asia/Bangkok).';
+REVOKE ALL ON FUNCTION public.sync_current_academic_period() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.sync_current_academic_period() TO service_role;
 
--- 3.3) daily job at 00:05 Thailand time (17:05 UTC); skipped when pg_cron
---      is not installed on this server
+-- 3.3) daily job at 00:00 Thailand time (17:00 UTC).
 DO $do$
 BEGIN
   IF EXISTS (
@@ -119,12 +109,12 @@ BEGIN
     END IF;
     PERFORM cron.schedule(
       'academic-period-sync',
-      '5 17 * * *',
+      '0 17 * * *',
       $cron$SELECT public.sync_current_academic_period()$cron$
     );
+  ELSE
+    RAISE EXCEPTION 'pg_cron is required for automatic term changes';
   END IF;
-EXCEPTION WHEN OTHERS THEN
-  RAISE NOTICE 'skip academic-period-sync cron: %', SQLERRM;
 END
 $do$;
 
