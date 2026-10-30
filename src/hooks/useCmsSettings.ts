@@ -1,6 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getBackendConfig } from "@/lib/runtimeConfig";
+import { CMS_CACHE_KEY, parseCmsCache, type CmsMap } from "@/lib/cmsSettingsCache";
 
 /**
  * Bulk loader — โหลด cms_settings ทั้งหมดครั้งเดียวต่อ session แล้ว cache ไว้
@@ -15,11 +17,10 @@ import { supabase } from "@/integrations/supabase/client";
  * ทุก hook ที่อ่าน cms_settings ต้องใช้ผ่าน selector นี้
  */
 
-const LS_KEY = "cms_settings_bulk_v2";
-const LS_TTL_MS = 24 * 60 * 60 * 1000; // 24 ชั่วโมง (invalidate อัตโนมัติผ่าน useGlobalRealtime)
+const LS_KEY = CMS_CACHE_KEY;
+const BACKEND = getBackendConfig().url;
 const CHANNEL_NAME = "cms_settings_sync_v1";
 
-type CmsMap = Record<string, string>;
 
 /**
  * Keys ที่เก็บ base64 image / ก้อน HTML ใหญ่ (>10KB) — ห้ามดึงตอน bulk
@@ -45,11 +46,12 @@ export function useCmsHeavyValue(key: string) {
   return useQuery({
     queryKey: ["cms_settings_heavy", key],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("cms_settings")
         .select("value")
         .eq("key", key)
         .maybeSingle();
+      if (error) throw error;
       return (data?.value as string) ?? "";
     },
     staleTime: 24 * 60 * 60 * 1000,
@@ -62,16 +64,13 @@ export function useCmsHeavyValue(key: string) {
 
 function readLocal(): CmsMap | null {
   try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { at: number; data: CmsMap };
-    if (!parsed?.data || Date.now() - parsed.at > LS_TTL_MS) return null;
-    return parsed.data;
+    return parseCmsCache(localStorage.getItem(LS_KEY), BACKEND, Date.now())?.data ?? null;
   } catch { return null; }
 }
 
 function writeLocal(data: CmsMap) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify({ at: Date.now(), data })); } catch { /* quota */ }
+  if (!Object.keys(data).length) return;
+  try { localStorage.setItem(LS_KEY, JSON.stringify({ at: Date.now(), backend: BACKEND, data })); } catch { /* quota */ }
 }
 
 let broadcast: BroadcastChannel | null = null;
@@ -91,7 +90,8 @@ export function useCmsSettingsBulk() {
     const ch = getChannel();
     if (!ch) return;
     const onMsg = (ev: MessageEvent) => {
-      if (ev.data?.type === "cms_settings" && ev.data.data) {
+      if (ev.data?.type === "cms_settings" && ev.data.backend === BACKEND &&
+          parseCmsCache(JSON.stringify({ backend: BACKEND, at: Date.now(), data: ev.data.data }), BACKEND, Date.now())) {
         qc.setQueryData(["cms_settings_bulk"], ev.data.data as CmsMap);
         writeLocal(ev.data.data as CmsMap);
       }
@@ -105,30 +105,28 @@ export function useCmsSettingsBulk() {
     queryFn: async (): Promise<CmsMap> => {
       // รูปทั้งหมดถูกย้ายไป Storage bucket cms-assets แล้ว → value ใน DB เป็น URL สั้น
       // ปลอดภัยที่จะดึงทุก key พร้อมกัน (~2 KB total)
-      const { data } = await supabase.from("cms_settings").select("key, value");
+      const { data, error } = await supabase.from("cms_settings").select("key, value");
+      if (error) throw error;
       const map: CmsMap = {};
       (data || []).forEach((s: any) => {
         if (s?.key) map[s.key] = s.value ?? "";
       });
       writeLocal(map);
       // broadcast ให้แท็บอื่นในเครื่องเดียวกัน ไม่ต้องยิง DB ซ้ำ
-      try { getChannel()?.postMessage({ type: "cms_settings", data: map }); } catch { /* noop */ }
+      try { getChannel()?.postMessage({ type: "cms_settings", backend: BACKEND, data: map }); } catch { /* noop */ }
       return map;
     },
     initialData: () => readLocal() ?? undefined,
     initialDataUpdatedAt: () => {
       try {
-        const raw = localStorage.getItem(LS_KEY);
-        if (!raw) return undefined;
-        const parsed = JSON.parse(raw);
-        return parsed?.at;
+        return parseCmsCache(localStorage.getItem(LS_KEY), BACKEND, Date.now())?.at;
       } catch { return undefined; }
     },
     staleTime: 30 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
   });
 }
 
