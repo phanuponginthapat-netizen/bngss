@@ -3,7 +3,7 @@
 //  2. ตรวจรายชื่อนักเรียนกับตาราง students → ถ้าไม่พบ = ศิษย์เก่า (ต้องบรรจุเข้าระบบ)
 
 import { supabase } from "@/integrations/supabase/client";
-import { BE_OFFSET } from "@/lib/dateBE";
+import { BE_OFFSET, todayBangkok } from "@/lib/dateBE";
 
 export type YearStatus = "past" | "current" | "future";
 
@@ -20,26 +20,30 @@ export function currentAcademicYearBE(now = new Date()): number {
   return now.getMonth() + 1 >= 5 ? be : be - 1;
 }
 
-let periodCache: { year: number; semester?: number } | null = null;
+let periodCache: { day: string; expiresAt: number; period: { year: number; semester?: number } } | null = null;
 
 /** ใช้ academic_periods เป็นหลัก ถ้าไม่มีค่อยคำนวณจากวันที่ */
 export async function getCurrentPeriod(): Promise<{ year: number; semester?: number }> {
-  if (periodCache) return periodCache;
+  const day = todayBangkok();
+  if (periodCache?.day === day && Date.now() < periodCache.expiresAt) return periodCache.period;
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("academic_periods")
       .select("academic_year_be, semester")
       .eq("is_current", true)
       .maybeSingle();
+    if (error) throw error;
     if (data?.academic_year_be) {
-      periodCache = { year: Number(data.academic_year_be), semester: (data as any).semester ?? undefined };
-      return periodCache;
+      const period = { year: Number(data.academic_year_be), semester: data.semester === 1 || data.semester === 2 ? data.semester : undefined };
+      periodCache = { day, expiresAt: Date.now() + 60_000, period };
+      return period;
     }
   } catch {
     /* ตารางอาจยังไม่มีข้อมูล */
   }
-  periodCache = { year: currentAcademicYearBE() };
-  return periodCache;
+  // Never retain a failed/empty lookup: retry when the database recovers.
+  const [year, month] = day.split("-").map(Number);
+  return { year: year + BE_OFFSET - (month < 5 ? 1 : 0) };
 }
 
 export async function checkAcademicYear(year: number, semester?: number): Promise<YearCheck> {

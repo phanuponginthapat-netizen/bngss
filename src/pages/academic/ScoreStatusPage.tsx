@@ -48,7 +48,7 @@ export default function ScoreStatusPage() {
     return () => { active = false; };
   }, []);
 
-  const { data: classrooms = [], isLoading: loadingRooms } = useQuery({
+  const { data: classrooms = [], isLoading: loadingRooms, error: roomsError } = useQuery({
     queryKey: ["score-status-rooms", year],
     enabled: !!year,
     queryFn: async () => {
@@ -82,7 +82,7 @@ export default function ScoreStatusPage() {
 
   const room = classrooms.find((c: any) => c.id === classroomId);
 
-  const { data: rows, isLoading, refetch, isFetching } = useQuery({
+  const { data: rows, isLoading, refetch, isFetching, error: scoresError } = useQuery({
     queryKey: ["score-status", classroomId, year, semester],
     enabled: !!classroomId && !!year && (semester === "1" || semester === "2"),
     queryFn: async () => {
@@ -266,6 +266,8 @@ export default function ScoreStatusPage() {
             <div className="space-y-2">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
           ) : periodError ? (
             <p className="py-10 text-center text-sm text-destructive">{periodError}</p>
+          ) : roomsError || scoresError ? (
+            <p role="alert" className="py-10 text-center text-sm text-destructive">โหลดสถานะคะแนนไม่สำเร็จ กรุณารีเฟรชอีกครั้ง</p>
           ) : !semester ? (
             <p className="py-10 text-center text-sm text-muted-foreground">กรุณาเลือกภาคเรียน</p>
           ) : !rows?.length ? (
