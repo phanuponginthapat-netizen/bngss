@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { BE_OFFSET, todayBangkok } from "@/lib/dateBE";
@@ -40,6 +40,18 @@ const SETTING_KEYS = [
  * - ค่าปีการศึกษาเป็น พ.ศ.
  */
 export function useAcademicYear() {
+  const [today, setToday] = useState(todayBangkok);
+  useEffect(() => {
+    const refreshDay = () => setToday(todayBangkok());
+    const timer = window.setInterval(refreshDay, 30_000);
+    window.addEventListener("focus", refreshDay);
+    document.addEventListener("visibilitychange", refreshDay);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshDay);
+      document.removeEventListener("visibilitychange", refreshDay);
+    };
+  }, []);
   const { data: settings = [], isLoading: settingsLoading } = useQuery({
     queryKey: ["semester-config"],
     queryFn: async () => {
@@ -88,7 +100,6 @@ export function useAcademicYear() {
   const hasSemOverride = semOverride === 1 || semOverride === 2;
   const isManualMode = hasYearOverride || hasSemOverride;
 
-  const today = todayBangkok();
   const { autoAcademicYear, autoSemester } = useMemo(() => {
     const [year, month] = today.split("-").map(Number);
     const ceYear = month >= config.academicYearStartMonth ? year : year - 1;
