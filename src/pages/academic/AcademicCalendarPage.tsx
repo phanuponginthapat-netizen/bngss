@@ -18,6 +18,7 @@ import { BE_OFFSET } from "@/lib/dateBE";
 import { getBackendConfig } from "@/lib/runtimeConfig";
 import { saveErrorMessage } from "@/lib/saveError";
 import { notifyExamScheduled } from "@/lib/notificationTriggers";
+import { formatDateBE } from "@/lib/dateBE";
 
 const ICS_FEED_URL = `${getBackendConfig().url}/functions/v1/calendar-ics`;
 
@@ -60,6 +61,15 @@ const AcademicCalendarPage = () => {
       const { data } = await supabase.from("academic_events").select("*").order("event_date");
       return data || [];
     },
+  });
+  const { data: termDates = [] } = useQuery({
+    queryKey: ["academic-calendar-term-dates"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("academic_periods").select("academic_year_be, semester, start_date, end_date").order("start_date");
+      if (error) throw error;
+      return data;
+    },
+    refetchInterval: 60_000,
   });
 
   const resetForm = () => {
@@ -312,6 +322,15 @@ const AcademicCalendarPage = () => {
 
         {/* Side panel */}
         <div className="space-y-4">
+          <section className="space-y-3 border-b pb-4">
+            <h2 className="font-semibold">วันเปิด–ปิดภาคเรียน</h2>
+            {termDates.filter(t => t.academic_year_be - BE_OFFSET === viewYear || t.academic_year_be - BE_OFFSET + 1 === viewYear).map(t => (
+              <div key={`${t.academic_year_be}-${t.semester}`} className="text-sm">
+                <p className="font-medium">ภาคเรียนที่ {t.semester} / {t.academic_year_be}</p>
+                <p className="text-muted-foreground">{formatDateBE(t.start_date)} – {formatDateBE(t.end_date)}</p>
+              </div>
+            ))}
+          </section>
           {/* Selected date events */}
           {selectedDate && (
             <Card>

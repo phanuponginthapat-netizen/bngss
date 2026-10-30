@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { toBE, currentBEYear } from "@/lib/utils";
+import { toBE } from "@/lib/utils";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { BE_OFFSET } from "@/lib/dateBE";
 
 const RETENTION_YEARS = 3;
@@ -10,7 +11,8 @@ const RETENTION_YEARS = 3;
  */
 export function useAcademicYearFilter() {
   // Anchor on Bangkok-timezone BE year, then convert to CE for the numeric filter axis.
-  const currentYearCE = currentBEYear() - BE_OFFSET;
+  const { currentAcademicYear } = useAcademicYear();
+  const currentYearCE = currentAcademicYear - BE_OFFSET;
   const availableYears = useMemo(() => {
     const years: number[] = [];
     for (let i = 0; i <= RETENTION_YEARS; i++) years.push(currentYearCE - i);
