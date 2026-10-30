@@ -322,6 +322,15 @@ const AcademicCalendarPage = () => {
 
         {/* Side panel */}
         <div className="space-y-4">
+          <section className="space-y-3 border-b pb-4">
+            <h2 className="font-semibold">วันเปิด–ปิดภาคเรียน</h2>
+            {termDates.filter(t => t.academic_year_be - BE_OFFSET === viewYear || t.academic_year_be - BE_OFFSET + 1 === viewYear).map(t => (
+              <div key={`${t.academic_year_be}-${t.semester}`} className="text-sm">
+                <p className="font-medium">ภาคเรียนที่ {t.semester} / {t.academic_year_be}</p>
+                <p className="text-muted-foreground">{formatDateBE(t.start_date)} – {formatDateBE(t.end_date)}</p>
+              </div>
+            ))}
+          </section>
           {/* Selected date events */}
           {selectedDate && (
             <Card>

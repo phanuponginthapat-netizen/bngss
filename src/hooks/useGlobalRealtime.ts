@@ -131,7 +131,7 @@ export function useGlobalRealtime() {
       action_plans: [["action_plans"]],
       cms_settings: [["cms_settings_bulk"]],
       school_settings: [["school_settings_bulk"], ["semester-config"], ["academic-periods"]],
-      academic_periods: [["academic-periods"], ["academic-period-date-editor"], ["semester-config"], ["academic_events"], ["dashboard_stats_v2"]],
+      academic_periods: [["academic-periods"], ["academic-period-date-editor"], ["academic-calendar-term-dates"], ["semester-config"], ["academic_events"], ["dashboard_stats_v2"]],
     };
 
     let channel = supabase.channel(`role-rt-${role}-${userId}`);
