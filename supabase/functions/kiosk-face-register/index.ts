@@ -2,7 +2,9 @@
 // รับ qr หรือ student_code + descriptors แล้วบันทึกทันทีด้วย service_role (bypass RLS)
 // ใช้ที่ตู้หน้าประตู: สแกนบัตร/กรอกรหัส → ถ่ายใบหน้า → บันทึก → สแกนได้ทันที
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { corsHeaders } from "../_shared/cors.ts";
+import { buildCorsHeaders } from "../_shared/cors.ts";
+import { authorizeKioskFace } from "../_shared/kioskFaceAuth.ts";
+const corsHeaders = buildCorsHeaders(["x-device-key"]);
 
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX = 20;
@@ -41,6 +43,11 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   };
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !serviceKey) return respond({ error: "server_not_configured" }, 503);
+    const admin = createClient(supabaseUrl, serviceKey);
+    if (!(await authorizeKioskFace(req, admin))) return respond({ error: "unauthorized_device" }, 401);
     const ip = clientIp(req);
     if (!rateOk(ip)) return respond({ error: "rate_limited" }, 429);
 
@@ -51,12 +58,8 @@ Deno.serve(async (req) => {
       return respond({ error: "invalid_descriptors" }, 400);
     }
     for (const d of descriptors) {
-      if (!Array.isArray(d) || d.length !== 512) return respond({ error: "invalid_descriptor_dim" }, 400);
+      if (!Array.isArray(d) || d.length !== 512 || !d.every((v) => typeof v === "number" && Number.isFinite(v))) return respond({ error: "invalid_descriptor_dim" }, 400);
     }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const admin = createClient(supabaseUrl, serviceKey);
 
     // หา student_id จากหลายทาง
     let sid: string | null = student_id || null;
@@ -83,18 +86,22 @@ Deno.serve(async (req) => {
       if (s?.id) { sid = s.id; studentCode = s.student_code; if (s.status !== "active") return respond({ error: "inactive" }, 403); }
     }
     if (!sid) return respond({ error: "not_found" }, 404);
+    const { data: target, error: targetError } = await admin.from("students")
+      .select("id, student_code, status").eq("id", sid).maybeSingle();
+    if (targetError) return respond({ error: "lookup_failed" }, 503);
+    if (!target) return respond({ error: "not_found" }, 404);
+    if (target.status !== "active") return respond({ error: "inactive" }, 403);
+    studentCode = target.student_code;
 
     // กันใบหน้าซ้ำกับคนอื่น (check_face_duplicate)
     try {
-      const { data: dup } = await admin.rpc("check_face_duplicate", { _student_id: sid, _descriptors: descriptors as any, _threshold: 0.42 });
+      const { data: dup, error: dupError } = await admin.rpc("check_face_duplicate", { _student_id: sid, _descriptors: descriptors as any, _threshold: 0.42 });
+      if (dupError) return respond({ error: "duplicate_check_failed" }, 503);
       const hit = Array.isArray(dup) ? (dup as any[])[0] : null;
       if (hit) {
         return respond({ error: "duplicate", match_name: hit.match_name, match_code: hit.match_code, min_distance: hit.min_distance }, 409);
       }
-    } catch { /* ignore duplicate check failure */ }
-
-    // ลบของเดิมแล้วใส่ใหม่ (kiosk ลงทะเบียนแบบแทนที่)
-    await admin.from("student_face_descriptors").delete().eq("student_id", sid);
+    } catch { return respond({ error: "duplicate_check_failed" }, 503); }
 
     const rows = descriptors.map((desc: number[], i: number) => ({
       student_id: sid,
@@ -106,7 +113,11 @@ Deno.serve(async (req) => {
     }));
 
     const { error: insErr } = await admin.from("student_face_descriptors").upsert(rows, { onConflict: "student_id,sample_index" });
-    if (insErr) return respond({ error: "db_error", detail: insErr.message }, 500);
+    if (insErr) return respond({ error: "db_error" }, 500);
+    // Persist replacement first: a failed save must never erase the old face.
+    const { error: cleanupError } = await admin.from("student_face_descriptors")
+      .delete().eq("student_id", sid).gte("sample_index", rows.length);
+    if (cleanupError) return respond({ error: "cleanup_failed" }, 500);
 
     // บันทึก history (best effort) — ใช้ direct_add ที่ผ่าน check constraint
     try {

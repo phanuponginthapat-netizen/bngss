@@ -6,6 +6,7 @@
  * - เจอหน้าแล้วค่อยยิงผล (face_scan_logs) ไป server
  */
 import { supabase } from "@/integrations/supabase/client";
+import { kioskCredentialHeaders } from "@/lib/kioskDeviceCredential";
 
 const DB_NAME = "kiosk-face-cache";
 const STORE = "store";
@@ -132,6 +133,7 @@ export async function downloadFacesToCache(
   let viaEdge = false;
   try {
     const { data, error } = await supabase.functions.invoke("kiosk-face-download", {
+      headers: kioskCredentialHeaders(),
       body: { images: withImages ? "1" : "0", staff: withStaff ? "1" : "0" },
     });
     if (!error && (data as any)?.faces && Array.isArray((data as any).faces)) {
@@ -194,7 +196,7 @@ export async function downloadFacesToCache(
 /** เวอร์ชันข้อมูลบน server (เบามาก) — ใช้เช็คว่าต้องโหลดใหม่ไหม */
 export async function fetchServerFaceVersion(): Promise<string | null> {
   try {
-    const { data, error } = await supabase.functions.invoke("kiosk-face-download", { body: { meta: "1" } });
+    const { data, error } = await supabase.functions.invoke("kiosk-face-download", { headers: kioskCredentialHeaders(), body: { meta: "1" } });
     if (error) return null;
     return (data as any)?.version ?? null;
   } catch {

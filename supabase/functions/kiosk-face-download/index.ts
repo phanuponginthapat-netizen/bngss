@@ -4,7 +4,9 @@
 //   ?images=1   → แนบภาพใบหน้าที่ลงทะเบียน (face_image) มาด้วย เพื่อเก็บลงเครื่องและใช้ประมวลผลในเครื่อง
 //   ?staff=0    → ไม่ต้องเอาบุคลากร (ค่าเริ่มต้นคือเอามาด้วย)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { corsHeaders } from "../_shared/cors.ts";
+import { buildCorsHeaders } from "../_shared/cors.ts";
+import { authorizeKioskFace } from "../_shared/kioskFaceAuth.ts";
+const corsHeaders = buildCorsHeaders(["x-device-key"]);
 
 const MAX_IMAGES_PER_PERSON = 2; // จำกัดขนาด payload — ใช้ภาพตัวแทนพอ
 
@@ -24,9 +26,20 @@ Deno.serve(async (req) => {
     const withImages = flag("images");
     const withStaff = flag("staff", true);
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !serviceKey) throw new Error("server_not_configured");
     const admin = createClient(supabaseUrl, serviceKey);
+    if (!(await authorizeKioskFace(req, admin))) {
+      return new Response(JSON.stringify({ error: "unauthorized_device" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (body.auth_only === true) {
+      return new Response(JSON.stringify({ authorized: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // ── เวอร์ชันข้อมูล: จำนวนแถว + เวลาล่าสุด ให้ตู้เทียบว่าข้อมูลเปลี่ยนหรือยัง ──
     const buildVersion = async () => {
@@ -127,7 +140,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || "internal_error" }), {
+    return new Response(JSON.stringify({ error: "internal_error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
