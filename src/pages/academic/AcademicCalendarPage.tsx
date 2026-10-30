@@ -18,6 +18,7 @@ import { BE_OFFSET } from "@/lib/dateBE";
 import { getBackendConfig } from "@/lib/runtimeConfig";
 import { saveErrorMessage } from "@/lib/saveError";
 import { notifyExamScheduled } from "@/lib/notificationTriggers";
+import { formatDateBE } from "@/lib/dateBE";
 
 const ICS_FEED_URL = `${getBackendConfig().url}/functions/v1/calendar-ics`;
 
@@ -60,6 +61,15 @@ const AcademicCalendarPage = () => {
       const { data } = await supabase.from("academic_events").select("*").order("event_date");
       return data || [];
     },
+  });
+  const { data: termDates = [] } = useQuery({
+    queryKey: ["academic-calendar-term-dates"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("academic_periods").select("academic_year_be, semester, start_date, end_date").order("start_date");
+      if (error) throw error;
+      return data;
+    },
+    refetchInterval: 60_000,
   });
 
   const resetForm = () => {

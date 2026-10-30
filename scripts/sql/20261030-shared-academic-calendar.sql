@@ -74,9 +74,9 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE r record;
 BEGIN
  SELECT * INTO r FROM public.resolve_school_term(NEW.attendance_date);
- IF r.academic_year_be IS NOT NULL AND (NEW.academic_year IS NULL OR NEW.semester IS NULL) THEN
-  NEW.academic_year:=COALESCE(NEW.academic_year,r.academic_year_be-543);
-  NEW.semester:=COALESCE(NEW.semester,r.semester);
+ IF r.academic_year_be IS NOT NULL AND (NEW.academic_year IS NULL OR NEW.semester IS NULL OR NEW.notes IN('face-scan','qr-scan')) THEN
+  NEW.academic_year:=r.academic_year_be-543;
+  NEW.semester:=r.semester;
  END IF;
  RETURN NEW;
 END; $$;
