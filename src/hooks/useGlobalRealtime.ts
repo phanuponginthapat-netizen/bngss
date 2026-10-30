@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "./useUserRole";
 import { routeForNotification } from "@/lib/notificationRoute";
 import { showLiveNotification } from "@/lib/liveNotification";
+import { clearCurrentPeriodCache } from "@/lib/ppImportChecks";
 
 
 /**
@@ -37,6 +38,7 @@ export function useGlobalRealtime() {
       "notifications", "inbox_items", "news_posts",
       "emergency_broadcasts", "eform_recipients", "document_recipients",
       "wall_post_comments", "wall_post_reactions",
+      "academic_periods", "school_settings",
     ];
 
     // Admin/Director: เฉพาะงานที่ต้องเห็นสด (เช็คชื่อ/สแกนหน้า/ทะเบียนนักเรียน)
@@ -128,7 +130,8 @@ export function useGlobalRealtime() {
       school_milk_records: [["school_milk_records"]],
       action_plans: [["action_plans"]],
       cms_settings: [["cms_settings_bulk"]],
-      school_settings: [["school_settings_bulk"]],
+      school_settings: [["school_settings_bulk"], ["semester-config"], ["academic-periods"]],
+      academic_periods: [["academic-periods"], ["academic-period-date-editor"], ["semester-config"], ["academic_events"], ["dashboard_stats_v2"]],
     };
 
     let channel = supabase.channel(`role-rt-${role}-${userId}`);
@@ -168,6 +171,7 @@ export function useGlobalRealtime() {
         "postgres_changes" as any,
         filter,
         (payload: any) => {
+          if (table === "academic_periods" || table === "school_settings") clearCurrentPeriodCache();
           const keys: string[][] = [[table]];
           const extra = extraKeys[table];
           if (extra) keys.push(...extra);

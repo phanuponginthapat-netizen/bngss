@@ -63,6 +63,7 @@ export function useAcademicYear() {
       return data || [];
     },
     staleTime: 60_000,
+    refetchInterval: 60_000,
   });
 
   // Registered term dates: the school calendar is the source of truth.
@@ -77,6 +78,7 @@ export function useAcademicYear() {
       return (data || []) as AcademicPeriodRow[];
     },
     staleTime: 300_000,
+    refetchInterval: 60_000,
   });
 
 
@@ -143,8 +145,8 @@ export function useAcademicYear() {
     currentAcademicYear,
     currentSemester,
     periodBasis,
-    autoAcademicYear,
-    autoSemester,
+    autoAcademicYear: periodMatch?.yearBE ?? autoAcademicYear,
+    autoSemester: periodMatch?.semester ?? autoSemester,
     isManualMode,
     hasYearOverride,
     hasSemOverride,

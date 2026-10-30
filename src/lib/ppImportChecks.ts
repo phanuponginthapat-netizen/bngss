@@ -4,6 +4,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { BE_OFFSET, todayBangkok } from "@/lib/dateBE";
+import { resolveAcademicPeriod } from "@/lib/academicPeriod";
 
 export type YearStatus = "past" | "current" | "future";
 
@@ -21,20 +22,23 @@ export function currentAcademicYearBE(now = new Date()): number {
 }
 
 let periodCache: { day: string; expiresAt: number; period: { year: number; semester?: number } } | null = null;
+export function clearCurrentPeriodCache() { periodCache = null; }
 
 /** ใช้ academic_periods เป็นหลัก ถ้าไม่มีค่อยคำนวณจากวันที่ */
 export async function getCurrentPeriod(): Promise<{ year: number; semester?: number }> {
   const day = todayBangkok();
   if (periodCache?.day === day && Date.now() < periodCache.expiresAt) return periodCache.period;
   try {
-    const { data, error } = await supabase
+    const [{ data, error }, { data: settings, error: settingsError }] = await Promise.all([supabase
       .from("academic_periods")
-      .select("academic_year_be, semester")
-      .eq("is_current", true)
-      .maybeSingle();
-    if (error) throw error;
-    if (data?.academic_year_be) {
-      const period = { year: Number(data.academic_year_be), semester: data.semester === 1 || data.semester === 2 ? data.semester : undefined };
+      .select("academic_year_be, semester, start_date, end_date"),
+      supabase.from("school_settings").select("setting_key, setting_value").in("setting_key", ["academic_year_override", "semester_override"])]);
+    if (error || settingsError) throw error || settingsError;
+    const resolved = resolveAcademicPeriod(data ?? [], day);
+    const overrideYear = Number(settings?.find(s => s.setting_key === "academic_year_override")?.setting_value);
+    const overrideSemester = Number(settings?.find(s => s.setting_key === "semester_override")?.setting_value);
+    if (resolved) {
+      const period = { year: overrideYear > 2000 ? overrideYear : resolved.yearBE, semester: overrideSemester === 1 || overrideSemester === 2 ? overrideSemester : resolved.semester };
       periodCache = { day, expiresAt: Date.now() + 60_000, period };
       return period;
     }

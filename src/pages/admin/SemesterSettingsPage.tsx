@@ -16,6 +16,8 @@ import { saveErrorMessage } from "@/lib/saveError";
 import { swal } from "@/lib/swal";
 import { logAudit } from "@/lib/auditLog";
 import { BE_OFFSET } from "@/lib/dateBE";
+import AcademicPeriodDates from "@/components/admin/AcademicPeriodDates";
+import { clearCurrentPeriodCache } from "@/lib/ppImportChecks";
 
 const MONTHS = [
   { value: 1, th: "มกราคม", en: "January" },
@@ -46,7 +48,7 @@ const SemesterSettingsPage = () => {
   const qc = useQueryClient();
   const {
     config, currentAcademicYear, currentSemester,
-    autoAcademicYear, autoSemester, isManualMode, academicYearOptions,
+    autoAcademicYear, autoSemester, isManualMode, academicYearOptions, isLoading,
   } = useAcademicYear();
 
   const [sem1Start, setSem1Start] = useState("5");
@@ -74,7 +76,11 @@ const SemesterSettingsPage = () => {
     setManualSem(currentSemester as 1 | 2);
   }, [isManualMode, currentAcademicYear, currentSemester]);
 
-  const refresh = () => qc.invalidateQueries({ queryKey: ["semester-config"] });
+  const refresh = () => {
+    clearCurrentPeriodCache();
+    void qc.invalidateQueries({ queryKey: ["academic-periods"] });
+    return qc.invalidateQueries({ queryKey: ["semester-config"] });
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -148,7 +154,7 @@ const SemesterSettingsPage = () => {
   const backToAuto = async () => {
     if (!(await swal.confirm({
       title: L("กลับสู่โหมดอัตโนมัติ?", "Switch to auto mode?"),
-      text: L("ระบบจะคำนวณปีการศึกษาและภาคเรียนจากเดือนตามค่าที่ตั้งไว้", "System will calculate from months"),
+      text: L("ระบบจะอ้างอิงวันเปิด–ปิดภาคเรียนที่ตั้งไว้", "System will use the registered term dates"),
     }))) return;
     try {
       await upsert("academic_year_override", "");
@@ -177,11 +183,13 @@ const SemesterSettingsPage = () => {
         </h1>
         <p className="text-sm text-muted-foreground">
           {L(
-            "กำหนดเดือนของแต่ละภาคเรียน หรือกำหนดปี/ภาคเรียนปัจจุบันเอง เพื่อคุมช่วงเวลาของทั้งระบบ",
-            "Configure months, or override the current year/semester manually"
+            "ปีการศึกษาและภาคเรียนของโรงเรียน",
+            "School academic year and semesters"
           )}
         </p>
       </div>
+
+      {!isLoading && <AcademicPeriodDates currentYear={currentAcademicYear} />}
 
       {/* Current status + quick actions */}
       <Card className="border-primary/25 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent overflow-hidden">
