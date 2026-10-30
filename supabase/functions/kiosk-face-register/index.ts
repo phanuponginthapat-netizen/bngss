@@ -43,8 +43,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   };
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !serviceKey) return respond({ error: "server_not_configured" }, 503);
     const admin = createClient(supabaseUrl, serviceKey);
     if (!(await authorizeKioskFace(req, admin))) return respond({ error: "unauthorized_device" }, 401);
     const ip = clientIp(req);

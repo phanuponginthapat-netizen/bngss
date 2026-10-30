@@ -26,8 +26,9 @@ Deno.serve(async (req) => {
     const withImages = flag("images");
     const withStaff = flag("staff", true);
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !serviceKey) throw new Error("server_not_configured");
     const admin = createClient(supabaseUrl, serviceKey);
     if (!(await authorizeKioskFace(req, admin))) {
       return new Response(JSON.stringify({ error: "unauthorized_device" }), {
