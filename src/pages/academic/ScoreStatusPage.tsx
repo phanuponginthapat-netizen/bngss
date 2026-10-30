@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { ClipboardCheck, Eye, Download, Printer, FileSpreadsheet, RefreshCw, BellRing } from "lucide-react";
 import { getCurrentPeriod } from "@/lib/ppImportChecks";
+import { matchesAcademicTerm } from "@/lib/scoreStatusTerm";
 import { useUserRole } from "@/hooks/useUserRole";
 import { swal } from "@/lib/swal";
 
@@ -30,24 +31,32 @@ const yearsMatch = (be: number) => [be, be - 543];
 export default function ScoreStatusPage() {
   const { userId, isAdmin, isDirector } = useUserRole();
   const [year, setYear] = useState<number | null>(null);
-  const [semester, setSemester] = useState<string>("1");
+  const [semester, setSemester] = useState<string>("");
+  const [periodLoading, setPeriodLoading] = useState(true);
+  const [periodError, setPeriodError] = useState<string | null>(null);
   const [classroomId, setClassroomId] = useState<string>("");
 
   useEffect(() => {
+    let active = true;
     getCurrentPeriod().then((p) => {
+      if (!active) return;
       setYear(p.year);
-      if (p.semester) setSemester(String(p.semester));
-    });
+      if (p.semester === 1 || p.semester === 2) setSemester(String(p.semester));
+    }).catch(() => {
+      if (active) setPeriodError("โหลดภาคเรียนไม่สำเร็จ กรุณารีเฟรชหน้า");
+    }).finally(() => { if (active) setPeriodLoading(false); });
+    return () => { active = false; };
   }, []);
 
   const { data: classrooms = [], isLoading: loadingRooms } = useQuery({
     queryKey: ["score-status-rooms", year],
     enabled: !!year,
     queryFn: async () => {
+      if (year === null) throw new Error("ยังไม่ได้เลือกปีการศึกษา");
       const { data, error } = await supabase
         .from("classrooms")
         .select("id, name, grade_level, academic_year, homeroom_teacher_id, homeroom_teacher_2_id")
-        .in("academic_year", yearsMatch(year!))
+        .in("academic_year", yearsMatch(year))
         .order("grade_level")
         .order("name");
       if (error) throw error;
@@ -75,10 +84,11 @@ export default function ScoreStatusPage() {
 
   const { data: rows, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["score-status", classroomId, year, semester],
-    enabled: !!classroomId && !!year,
+    enabled: !!classroomId && !!year && (semester === "1" || semester === "2"),
     queryFn: async () => {
+      if (year === null || (semester !== "1" && semester !== "2")) throw new Error("กรุณาเลือกปีการศึกษาและภาคเรียน");
       const sem = Number(semester);
-      const yrs = yearsMatch(year!);
+      const yrs = yearsMatch(year);
       const [assignRes, studentRes, fileRes] = await Promise.all([
         supabase.from("teacher_assignments")
           .select("subject_id, personnel_id, semester, academic_year, subjects(id, code, name_th, credits, subject_type), personnel(prefix, first_name, last_name, user_id)")
@@ -91,26 +101,28 @@ export default function ScoreStatusPage() {
           .order("created_at", { ascending: false }),
       ]);
       if (assignRes.error) throw assignRes.error;
-      const assigns = (assignRes.data || []).filter((a: any) =>
-        (a.semester == null || a.semester === sem) && (a.academic_year == null || yrs.includes(a.academic_year)));
+      if (studentRes.error) throw studentRes.error;
+      if (fileRes.error) throw fileRes.error;
+      const assigns = (assignRes.data || []).filter((a: any) => matchesAcademicTerm(a, year, sem));
       const codes = (studentRes.data || []).map((s: any) => s.student_code).filter(Boolean);
-      const files = (fileRes.data || []).filter((f: any) => f.semester == null || f.semester === sem);
+      const files = (fileRes.data || []).filter((f: any) => matchesAcademicTerm(f, year, sem));
 
       const subjectIds = Array.from(new Set(assigns.map((a: any) => a.subject_id)));
       const scored = new Map<string, Set<string>>();
       if (subjectIds.length && codes.length) {
         // แบ่งชุดรหัสเพื่อไม่ให้ URL ยาวเกิน
         for (let i = 0; i < codes.length; i += 200) {
-          const { data } = await supabase.from("student_scores")
+          const { data, error } = await supabase.from("student_scores")
             .select("subject_id, student_code, total_score, grade, semester, academic_year")
             .in("subject_id", subjectIds)
             .in("student_code", codes.slice(i, i + 200));
+          if (error) throw error;
           (data || []).forEach((r: any) => {
-            if (r.semester != null && r.semester !== sem) return;
-            if (r.academic_year != null && !yrs.includes(r.academic_year)) return;
+            if (!matchesAcademicTerm(r, year, sem)) return;
             if (r.total_score == null && !r.grade) return;
-            if (!scored.has(r.subject_id)) scored.set(r.subject_id, new Set());
-            scored.get(r.subject_id)!.add(r.student_code);
+            const studentCodes = scored.get(r.subject_id) ?? new Set<string>();
+            studentCodes.add(r.student_code);
+            scored.set(r.subject_id, studentCodes);
           });
         }
       }
@@ -194,7 +206,7 @@ export default function ScoreStatusPage() {
               <BellRing className="mr-1.5 h-4 w-4" /> เตือนครูที่ยังไม่ส่ง
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching || !year || !classroomId || !semester}>
             <RefreshCw className={`mr-1.5 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> รีเฟรช
           </Button>
         </div>
@@ -214,7 +226,7 @@ export default function ScoreStatusPage() {
           <div>
             <p className="mb-1 text-xs text-muted-foreground">ภาคเรียน</p>
             <Select value={semester} onValueChange={setSemester}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="เลือกภาคเรียน" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="1">ภาคเรียนที่ 1</SelectItem>
                 <SelectItem value="2">ภาคเรียนที่ 2</SelectItem>
@@ -250,8 +262,12 @@ export default function ScoreStatusPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          {isLoading ? (
+          {periodLoading || isLoading ? (
             <div className="space-y-2">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
+          ) : periodError ? (
+            <p className="py-10 text-center text-sm text-destructive">{periodError}</p>
+          ) : !semester ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">กรุณาเลือกภาคเรียน</p>
           ) : !rows?.length ? (
             <p className="py-10 text-center text-sm text-muted-foreground">ยังไม่มีการมอบหมายวิชาให้ชั้นนี้ในภาคเรียนที่เลือก</p>
           ) : (

@@ -35,6 +35,7 @@ import { useWeatherData } from "@/hooks/useWeatherData";
 import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import { useDashboardWidgets } from "@/hooks/useDashboardWidgets";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { COLOR_THEMES, SIZE_CLASSES, type WidgetColor } from "@/lib/dashboardWidgets";
 import WidgetCustomizer from "@/components/dashboard/WidgetCustomizer";
 
@@ -59,7 +60,7 @@ const Dashboard = () => {
   const { t, lang } = useLanguage();
   const navigate = useNavigate();
   const { role, userId } = useUserRole();
-  const currentBE = toBE(new Date().getFullYear());
+  const { currentAcademicYear: currentBE } = useAcademicYear();
   const weather = useWeatherData();
   const { appName } = useSystemSettings();
 
