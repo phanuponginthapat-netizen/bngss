@@ -1,4 +1,5 @@
 import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { reliableQueryDefaults } from "@/lib/dataReliability";
 import { toast } from "sonner";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -285,21 +286,13 @@ const queryClient = new QueryClient({
   // โหลดข้อมูลไม่สำเร็จ (สิทธิ์/เครือข่าย) → แจ้งผู้ใช้ แทนการแสดงว่า "ไม่มีข้อมูล" เงียบ ๆ
   queryCache: new QueryCache({
     onError: (error: any, query) => {
-      if ((query.meta as any)?.silent || query.state.data !== undefined) return;
+      if ((query.meta as any)?.silent) return;
       toast.error(`โหลดข้อมูลไม่สำเร็จ: ${error?.message || "กรุณาลองใหม่"}`, { id: `q-err-${error?.message || ""}` });
     },
   }),
   defaultOptions: {
     queries: {
-      staleTime: 3 * 60 * 1000, // 3 นาที — ลดการยิง API ซ้ำเวลาสลับหน้า
-      gcTime: 15 * 60 * 1000, // เก็บ cache ไว้นานขึ้น ทำให้กลับหน้าเดิมไวขึ้น
-      // Realtime + invalidate ครอบคลุมอยู่แล้ว จึงไม่ต้อง refetch ทุกครั้งที่ mount/โฟกัส
-      refetchOnWindowFocus: false,
-      // ใช้ cache ที่ยังไม่หมดอายุทันที (ไม่ยิงซ้ำตอน mount) → สลับหน้าไหลลื่น
-      refetchOnMount: false,
-      refetchOnReconnect: "always",
-      // เปลี่ยนฟิลเตอร์/หน้าเพจแล้วยังเห็นข้อมูลเดิมระหว่างโหลด (ไม่กระพริบ)
-      placeholderData: (prev: unknown) => prev,
+      ...reliableQueryDefaults,
       // อย่ารีทรายคำขอที่ผิดพลาดถาวร (401/403/404/409) — เปลืองคอนเนกชัน
       retry: (failureCount, error: any) => {
         const status = error?.status ?? error?.code;
