@@ -1,5 +1,6 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { aiCall } from "../_shared/aiCall.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const VALID_LETTERS = ["A", "B", "C", "D"];
 const CHOICE_FORMATS: Record<string, string[]> = {
@@ -34,6 +35,14 @@ Use null when no bubble (or multiple bubbles) is clearly marked. Do not emit any
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
+    // เฉพาะบุคลากรที่ล็อกอิน — กันคนนอกเรียกใช้ AI ฟรี
+    const auth = req.headers.get("Authorization") ?? "";
+    const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: auth } } });
+    const { data: u } = await sb.auth.getUser(auth.replace(/^Bearer\s+/i, ""));
+    if (!u?.user) return j({ error: "กรุณาเข้าสู่ระบบ" }, 401);
+    const { data: staff } = await sb.rpc("is_staff_any", { _uid: u.user.id });
+    if (!staff) return j({ error: "เฉพาะครู/บุคลากร" }, 403);
+
     const { image_base64, question_count, student_code_digits, choice_format } = await req.json();
     if (!image_base64) return j({ error: "image_base64 required" }, 400);
 
@@ -100,8 +109,9 @@ Detect the student code and the answer for each question using the printed label
     }
 
     // student_code: keep only digits, exactly `digits` long (pad or truncate)
+    // ไม่เติม 0 เอง: รหัสที่อ่านไม่ครบต้องให้ครูตรวจ ไม่ใช่จับคู่ผิดคน
     const rawCode = String(parsed.student_code ?? "").replace(/[^0-9]/g, "");
-    const student_code = (rawCode || "").padStart(digits, "0").slice(-digits);
+    const student_code = rawCode.length === digits ? rawCode : null;
 
     const confidence = typeof parsed.confidence === "number"
       ? Math.max(0, Math.min(1, parsed.confidence))
