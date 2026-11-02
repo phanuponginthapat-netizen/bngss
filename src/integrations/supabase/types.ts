@@ -1108,6 +1108,27 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          created_at: string | null
+          key: string
+          updated_at: string | null
+          value: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          key: string
+          updated_at?: string | null
+          value?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          key?: string
+          updated_at?: string | null
+          value?: Json | null
+        }
+        Relationships: []
+      }
       app_user_connections: {
         Row: {
           access_token: string | null
@@ -1554,6 +1575,7 @@ export type Database = {
           attendance_date: string
           created_at: string
           id: string
+          late_minutes: number | null
           notes: string | null
           recorded_by: string | null
           school_id: string | null
@@ -1567,6 +1589,7 @@ export type Database = {
           attendance_date?: string
           created_at?: string
           id?: string
+          late_minutes?: number | null
           notes?: string | null
           recorded_by?: string | null
           school_id?: string | null
@@ -1580,6 +1603,7 @@ export type Database = {
           attendance_date?: string
           created_at?: string
           id?: string
+          late_minutes?: number | null
           notes?: string | null
           recorded_by?: string | null
           school_id?: string | null
@@ -3677,21 +3701,63 @@ export type Database = {
       cms_settings: {
         Row: {
           id: string
+          is_public: boolean
           key: string
           updated_at: string
           value: string | null
         }
         Insert: {
           id?: string
+          is_public?: boolean
           key: string
           updated_at?: string
           value?: string | null
         }
         Update: {
           id?: string
+          is_public?: boolean
           key?: string
           updated_at?: string
           value?: string | null
+        }
+        Relationships: []
+      }
+      cold_storage_registry: {
+        Row: {
+          bucket_name: string
+          created_at: string | null
+          drive_file_id: string
+          drive_web_link: string | null
+          file_path: string
+          id: string
+          mime_type: string | null
+          offloaded_at: string | null
+          size_bytes: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          bucket_name: string
+          created_at?: string | null
+          drive_file_id: string
+          drive_web_link?: string | null
+          file_path: string
+          id?: string
+          mime_type?: string | null
+          offloaded_at?: string | null
+          size_bytes?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          bucket_name?: string
+          created_at?: string | null
+          drive_file_id?: string
+          drive_web_link?: string | null
+          file_path?: string
+          id?: string
+          mime_type?: string | null
+          offloaded_at?: string | null
+          size_bytes?: number | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -3906,6 +3972,36 @@ export type Database = {
           sort_order?: number
           tables?: string[]
           updated_at?: string
+        }
+        Relationships: []
+      }
+      dim_date: {
+        Row: {
+          academic_year: string | null
+          date: string
+          day: number
+          is_holiday: boolean
+          month: number
+          quarter: number
+          semester: number | null
+        }
+        Insert: {
+          academic_year?: string | null
+          date: string
+          day: number
+          is_holiday?: boolean
+          month: number
+          quarter: number
+          semester?: number | null
+        }
+        Update: {
+          academic_year?: string | null
+          date?: string
+          day?: number
+          is_holiday?: boolean
+          month?: number
+          quarter?: number
+          semester?: number | null
         }
         Relationships: []
       }
@@ -5564,7 +5660,9 @@ export type Database = {
           created_at: string
           device_label: string | null
           entry_method: string
+          geometry_score: number | null
           id: string
+          match_engine: string | null
           scan_date: string
           scan_time: string
           scan_type: string
@@ -5579,7 +5677,9 @@ export type Database = {
           created_at?: string
           device_label?: string | null
           entry_method?: string
+          geometry_score?: number | null
           id?: string
+          match_engine?: string | null
           scan_date?: string
           scan_time?: string
           scan_type?: string
@@ -5594,7 +5694,9 @@ export type Database = {
           created_at?: string
           device_label?: string | null
           entry_method?: string
+          geometry_score?: number | null
           id?: string
+          match_engine?: string | null
           scan_date?: string
           scan_time?: string
           scan_type?: string
@@ -8461,18 +8563,58 @@ export type Database = {
           },
         ]
       }
+      kiosk_agent_alerts: {
+        Row: {
+          created_at: string
+          device_id: string | null
+          device_name: string | null
+          id: string
+          kind: string
+          note: string | null
+          snapshot_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          device_id?: string | null
+          device_name?: string | null
+          id?: string
+          kind?: string
+          note?: string | null
+          snapshot_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          device_id?: string | null
+          device_name?: string | null
+          id?: string
+          kind?: string
+          note?: string | null
+          snapshot_url?: string | null
+        }
+        Relationships: []
+      }
       kiosk_devices: {
         Row: {
+          agent_version: string | null
+          camera_ok: boolean | null
           config_updated_at: string | null
           created_at: string
+          default_direction: string
           device_id: string
+          device_key: string | null
+          disk_free_mb: number | null
+          door_ok: boolean | null
           extension_installed: boolean
+          health_note: string | null
           hostname: string | null
           id: string
           ip_address: string | null
+          is_active: boolean
           kiosk_mode: string | null
           last_seen_at: string
           meta: Json
+          name: string | null
+          platform: string | null
           screen_resolution: string | null
           status: string
           updated_at: string
@@ -8481,16 +8623,26 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          agent_version?: string | null
+          camera_ok?: boolean | null
           config_updated_at?: string | null
           created_at?: string
+          default_direction?: string
           device_id: string
+          device_key?: string | null
+          disk_free_mb?: number | null
+          door_ok?: boolean | null
           extension_installed?: boolean
+          health_note?: string | null
           hostname?: string | null
           id?: string
           ip_address?: string | null
+          is_active?: boolean
           kiosk_mode?: string | null
           last_seen_at?: string
           meta?: Json
+          name?: string | null
+          platform?: string | null
           screen_resolution?: string | null
           status?: string
           updated_at?: string
@@ -8499,16 +8651,26 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          agent_version?: string | null
+          camera_ok?: boolean | null
           config_updated_at?: string | null
           created_at?: string
+          default_direction?: string
           device_id?: string
+          device_key?: string | null
+          disk_free_mb?: number | null
+          door_ok?: boolean | null
           extension_installed?: boolean
+          health_note?: string | null
           hostname?: string | null
           id?: string
           ip_address?: string | null
+          is_active?: boolean
           kiosk_mode?: string | null
           last_seen_at?: string
           meta?: Json
+          name?: string | null
+          platform?: string | null
           screen_resolution?: string | null
           status?: string
           updated_at?: string
@@ -8560,6 +8722,24 @@ export type Database = {
           sampled_at?: string
           status?: string | null
           uptime_sec?: number | null
+        }
+        Relationships: []
+      }
+      kiosk_live_frames: {
+        Row: {
+          device_id: string
+          image: string | null
+          updated_at: string
+        }
+        Insert: {
+          device_id: string
+          image?: string | null
+          updated_at?: string
+        }
+        Update: {
+          device_id?: string
+          image?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -9702,6 +9882,7 @@ export type Database = {
           id: string
           is_read: boolean
           message: string | null
+          push_sent: boolean
           reference_id: string | null
           reference_type: string | null
           title: string
@@ -9713,6 +9894,7 @@ export type Database = {
           id?: string
           is_read?: boolean
           message?: string | null
+          push_sent?: boolean
           reference_id?: string | null
           reference_type?: string | null
           title: string
@@ -9724,11 +9906,39 @@ export type Database = {
           id?: string
           is_read?: boolean
           message?: string | null
+          push_sent?: boolean
           reference_id?: string | null
           reference_type?: string | null
           title?: string
           type?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      observation_rubrics: {
+        Row: {
+          created_at: string | null
+          criteria: Json
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          criteria?: Json
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+        }
+        Update: {
+          created_at?: string | null
+          criteria?: Json
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
         }
         Relationships: []
       }
@@ -10322,6 +10532,7 @@ export type Database = {
           quality_score: number | null
           sample_index: number
           source: string | null
+          texture: number[] | null
         }
         Insert: {
           captured_by?: string | null
@@ -10335,6 +10546,7 @@ export type Database = {
           quality_score?: number | null
           sample_index?: number
           source?: string | null
+          texture?: number[] | null
         }
         Update: {
           captured_by?: string | null
@@ -10348,6 +10560,7 @@ export type Database = {
           quality_score?: number | null
           sample_index?: number
           source?: string | null
+          texture?: number[] | null
         }
         Relationships: [
           {
@@ -11076,6 +11289,7 @@ export type Database = {
           phone: string | null
           position_title: string | null
           school_id: string | null
+          signature_url: string | null
           student_code: string | null
           updated_at: string
           work_history: Json | null
@@ -11116,6 +11330,7 @@ export type Database = {
           phone?: string | null
           position_title?: string | null
           school_id?: string | null
+          signature_url?: string | null
           student_code?: string | null
           updated_at?: string
           work_history?: Json | null
@@ -11156,6 +11371,7 @@ export type Database = {
           phone?: string | null
           position_title?: string | null
           school_id?: string | null
+          signature_url?: string | null
           student_code?: string | null
           updated_at?: string
           work_history?: Json | null
@@ -12796,6 +13012,7 @@ export type Database = {
           created_at: string
           end_date: string
           id: string
+          leave_scope: string
           leave_type: string
           personnel_id: string | null
           reason: string | null
@@ -12813,6 +13030,7 @@ export type Database = {
           created_at?: string
           end_date: string
           id?: string
+          leave_scope?: string
           leave_type?: string
           personnel_id?: string | null
           reason?: string | null
@@ -12830,6 +13048,7 @@ export type Database = {
           created_at?: string
           end_date?: string
           id?: string
+          leave_scope?: string
           leave_type?: string
           personnel_id?: string | null
           reason?: string | null
@@ -12847,6 +13066,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      storage_tier_policies: {
+        Row: {
+          bucket: string
+          dedupe_drive: boolean
+          enabled: boolean
+          keep_recent: number
+          note: string | null
+          older_than_days: number
+          priority: number
+          quota_mb: number | null
+          updated_at: string
+        }
+        Insert: {
+          bucket: string
+          dedupe_drive?: boolean
+          enabled?: boolean
+          keep_recent?: number
+          note?: string | null
+          older_than_days?: number
+          priority?: number
+          quota_mb?: number | null
+          updated_at?: string
+        }
+        Update: {
+          bucket?: string
+          dedupe_drive?: boolean
+          enabled?: boolean
+          keep_recent?: number
+          note?: string | null
+          older_than_days?: number
+          priority?: number
+          quota_mb?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       strategic_plans: {
         Row: {
@@ -13626,6 +13881,8 @@ export type Database = {
           previous_school: string | null
           religion: string | null
           school_id: string | null
+          sis_last_synced_at: string | null
+          sis_sync_version: number | null
           special_needs: string | null
           special_needs_type: string | null
           status: string
@@ -13692,6 +13949,8 @@ export type Database = {
           previous_school?: string | null
           religion?: string | null
           school_id?: string | null
+          sis_last_synced_at?: string | null
+          sis_sync_version?: number | null
           special_needs?: string | null
           special_needs_type?: string | null
           status?: string
@@ -13758,6 +14017,8 @@ export type Database = {
           previous_school?: string | null
           religion?: string | null
           school_id?: string | null
+          sis_last_synced_at?: string | null
+          sis_sync_version?: number | null
           special_needs?: string | null
           special_needs_type?: string | null
           status?: string
@@ -13916,6 +14177,7 @@ export type Database = {
           column_type: string
           created_at: string
           half: string
+          homework_assignment_id: string | null
           id: string
           indicator_id: string | null
           is_enabled: boolean
@@ -13929,6 +14191,7 @@ export type Database = {
           column_type?: string
           created_at?: string
           half?: string
+          homework_assignment_id?: string | null
           id?: string
           indicator_id?: string | null
           is_enabled?: boolean
@@ -13942,6 +14205,7 @@ export type Database = {
           column_type?: string
           created_at?: string
           half?: string
+          homework_assignment_id?: string | null
           id?: string
           indicator_id?: string | null
           is_enabled?: boolean
@@ -14120,6 +14384,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      system_credentials: {
+        Row: {
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
       }
       task_assignments: {
         Row: {
@@ -16471,6 +16753,8 @@ export type Database = {
           previous_school: string | null
           religion: string | null
           school_id: string | null
+          sis_last_synced_at: string | null
+          sis_sync_version: number | null
           special_needs: string | null
           special_needs_type: string | null
           status: string
