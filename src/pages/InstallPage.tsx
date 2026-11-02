@@ -165,7 +165,7 @@ export default function InstallPage() {
               <p className="text-xs text-muted-foreground">อัปเดตล่าสุด: {apkManifest.notes}</p>
             )}
             <a
-              href={apkLink || `${apkManifest?.url || APK_DOWNLOAD_URL}?v=${apkManifest?.versionCode ?? Date.now()}`}
+              href={apkDownloadUrl || undefined}
               download={apkManifest?.fileName || "bngss-app.apk"}
               className="block"
             >
