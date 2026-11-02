@@ -532,7 +532,13 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
     }
 
     // เช็คร่วมกันระหว่างสแกนใบหน้า/QR — ยืนยันจากฐานข้อมูลว่ายังไม่เคยสแกนวันนี้
-    const todayState = await checkTodayScan(studentId);
+    let todayState;
+    try {
+      todayState = await checkTodayScan(studentId);
+    } catch {
+      toast.error("ตรวจสอบรายการสแกนไม่สำเร็จ กรุณาลองใหม่");
+      return;
+    }
     if ((mode === "exit" && todayState.exit) || (mode === "entry" && todayState.entry)) {
       seenSet.add(studentId);
       const lastNotice = duplicateNoticeRef.current.get(cdKey) || 0;
@@ -587,6 +593,8 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
         return;
       }
       toast.error("บันทึกล้มเหลว: " + error.message);
+      cooldownRef.current.delete(cdKey);
+      cooldownRef.current.delete(studentId);
       return;
     }
     if (!data) {

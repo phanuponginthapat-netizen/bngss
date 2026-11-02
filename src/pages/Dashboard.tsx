@@ -656,7 +656,7 @@ const Dashboard = () => {
 
           {L(`${enabledWidgets.length} วิดเจ็ตที่แสดงอยู่ · กดค้างเพื่อจัดเรียง`, `${enabledWidgets.length} widgets · long-press to rearrange`)}
         </p>
-        <WidgetCustomizer />
+        <Suspense fallback={null}><WidgetCustomizer /></Suspense>
       </div>
 
       {widgetsLoading ? (

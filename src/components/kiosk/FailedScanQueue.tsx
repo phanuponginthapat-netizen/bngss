@@ -11,15 +11,17 @@ type Row = { id: string; payload: any; error: string | null; attempts: number | 
 export default function FailedScanQueue() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
-    const { data } = await (supabase.from("offline_failed_queue" as any) as any)
+    const { data, error } = await supabase.from("offline_failed_queue")
       .select("id,payload,error,attempts,created_at")
       .eq("queue_name", "face_scan_logs")
       .order("created_at", { ascending: false })
       .limit(200);
-    setRows((data as Row[]) || []);
+    setLoadError(error ? "โหลดรายการสแกนค้างไม่สำเร็จ กรุณาลองใหม่" : null);
+    if (!error) setRows((data as Row[]) || []);
     setLoading(false);
   };
   useEffect(() => { void load(); }, []);
@@ -32,7 +34,11 @@ export default function FailedScanQueue() {
       swal.error("ส่งไม่สำเร็จ", error.message);
       return;
     }
-    await (supabase.from("offline_failed_queue" as any) as any).delete().eq("id", r.id);
+    const { error: deleteError } = await supabase.from("offline_failed_queue").delete().eq("id", r.id);
+    if (deleteError) {
+      void swal.error("บันทึกแล้ว แต่ล้างรายการค้างไม่สำเร็จ", deleteError.message);
+      return;
+    }
     void swal.success(error ? "รายการนี้บันทึกไว้แล้ว" : "ส่งขึ้นระบบแล้ว");
     void load();
   };
@@ -40,7 +46,8 @@ export default function FailedScanQueue() {
   const discard = async (r: Row) => {
     const ok = await swal.confirm({ title: "ลบรายการนี้?", text: "เวลามาเรียนรายการนี้จะไม่ถูกบันทึก", danger: true } as any);
     if (!ok) return;
-    await (supabase.from("offline_failed_queue" as any) as any).delete().eq("id", r.id);
+    const { error } = await supabase.from("offline_failed_queue").delete().eq("id", r.id);
+    if (error) { void swal.error("ลบไม่สำเร็จ", error.message); return; }
     void load();
   };
 
@@ -56,7 +63,9 @@ export default function FailedScanQueue() {
         </Button>
       </CardHeader>
       <CardContent>
-        {rows.length === 0 ? (
+        {loadError ? (
+          <p role="alert" className="text-sm text-destructive">{loadError}</p>
+        ) : rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">ไม่มีรายการค้าง</p>
         ) : (
           <ul className="divide-y text-sm">

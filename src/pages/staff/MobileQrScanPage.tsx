@@ -131,7 +131,13 @@ export default function MobileQrScanPage() {
 
     // เช็คร่วมกับการสแกนใบหน้า — วันนี้บันทึกโหมดนี้ไปแล้วหรือยัง (ทุกวิธีการสแกน)
     if (online) {
-      const st = await checkTodayScan(studentId, true);
+      let st;
+      try {
+        st = await checkTodayScan(studentId, true);
+      } catch {
+        toast.error("ตรวจสอบรายการสแกนไม่สำเร็จ กรุณาลองใหม่");
+        return;
+      }
       if ((mode === "exit" && st.exit) || (mode === "entry" && st.entry)) {
         const via = methodLabel(mode === "exit" ? st.exitMethod : st.entryMethod);
         toast.info("สแกนซ้ำ", { description: `${name} บันทึก${mode === "entry" ? "เข้า" : "ออก"}วันนี้แล้ว (${via})` });
