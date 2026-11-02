@@ -48,19 +48,21 @@ export default function InstallPage() {
   const [apkManifest, setApkManifest] = useState<AppUpdateManifest | null>(null);
   const apkLink = useCmsValue("apk_app_url");
   const [scannerUrl, setScannerUrl] = useState<string | null>(null);
+  // bucket app-downloads เป็น private — ลิงก์ดาวน์โหลดต้องเป็น signed URL
+  const [apkDownloadUrl, setApkDownloadUrl] = useState<string>("");
   useEffect(() => {
-    const base = `${getBackendConfig().url}/storage/v1/object/public/app-downloads`;
     (async () => {
-      try {
-        const r = await fetch(`${base}/release-scanner.json?t=${Date.now()}`, { cache: "no-store" });
-        if (r.ok) {
-          const release = parseScannerRelease(await r.json());
-          const file = release?.files[0];
-          if (file) setScannerUrl(file.url);
-        }
-      } catch { /* ignore */ }
+      const release = parseScannerRelease(await fetchAppDownloadsJson("release-scanner.json"));
+      const file = release?.files[0];
+      if (file) setScannerUrl(file.url);
     })();
   }, []);
+  useEffect(() => {
+    const target = apkLink || apkManifest?.url || "bngss-app-latest.apk";
+    let alive = true;
+    resolveStorageUrl("app-downloads", target).then((u) => { if (alive) setApkDownloadUrl(u); });
+    return () => { alive = false; };
+  }, [apkLink, apkManifest?.url]);
   const facegate = useFacegateRelease();
   useEffect(() => {
     fetchUpdateManifest().then(setApkManifest).catch(() => {});
