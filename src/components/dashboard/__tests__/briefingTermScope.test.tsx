@@ -73,9 +73,8 @@ async function renderBriefing() {
         homeroomClassroomIds: [],
       }),
     );
-  });
-  await act(async () => {
-    await new Promise((r) => setTimeout(r, 0));
+    // ให ้คำสั่ งท ี่ก ำลั งร อเข ้าคิ วจ รง ๆ ส ิ้ นส ุ ดก่ อนปิ ดการเร นเดอร์
+    await new Promise((r) => setTimeout(r, 50));
   });
   root.unmount();
   container.remove();
