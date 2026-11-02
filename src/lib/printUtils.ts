@@ -64,7 +64,7 @@ const OBEC_PRINT_CSS = `
     margin: 0;
     font-family: 'Sarabun', 'Sarabun', 'Sarabun', 'Sarabun', sans-serif;
     color: #000;
-    font-size: 21px;
+    font-size: 16pt;
     line-height: 1.4;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -550,6 +550,9 @@ export interface PrintOptions {
   watermarkText?: string;
 }
 
+export const escapePrintTitle = (t: string) =>
+  t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+
 export const openPrintWindow = (htmlContent: string, options: PrintOptions = {}) => {
   const { title = "เอกสาร", landscape = false } = options;
   const isEFormDocument = htmlContent.includes("eform-print-page");
@@ -575,6 +578,10 @@ export const openPrintWindow = (htmlContent: string, options: PrintOptions = {})
       /* E-Form ต้องใช้ @page margin ตอนพิมพ์ เพื่อให้หัว/ท้ายกระดาษถูกกันไว้ซ้ำทุกหน้า
          ไม่ใช่ padding บน wrapper ซึ่งมีผลแค่หน้าแรกและทำให้เนื้อหาล้นเข้า footer/header ในหน้าถัดไป */
       @page { size: ${landscape ? "A4 landscape" : "A4"}; margin: 25mm 20mm 20mm 30mm; }
+
+      /* เลขหน้าแบบหนังสือราชการ: หน้า ๒ เป็นต้นไป กึ่งกลางบน "- ๒ -" */
+      @page { @top-center { content: "- " counter(page, thai) " -"; font-family: 'Sarabun', sans-serif; font-size: 16pt; vertical-align: bottom; padding-bottom: 4mm; } }
+      @page :first { @top-center { content: none; } }
       @page :first { margin-top: 15mm; } /* ครุฑห่างขอบบน 1.5 ซม. ตามระเบียบงานสารบรรณ; หน้าถัดไปขอบบน 2.5 ซม. */
       @media print {
         html, body { width: auto; min-height: auto; background: #fff; }
@@ -606,6 +613,9 @@ export const openPrintWindow = (htmlContent: string, options: PrintOptions = {})
   const officialCss = /^ปพ\.[378]/.test(title)
     ? `
       @page { size: ${landscape ? "A4 landscape" : "A4"}; margin: 25mm 20mm 20mm 30mm; }
+      /* เลขหน้าแบบหนังสือราชการ: หน้า ๒ เป็นต้นไป กึ่งกลางบน "- ๒ -" */
+      @page { @top-center { content: "- " counter(page, thai) " -"; font-family: 'Sarabun', sans-serif; font-size: 16pt; vertical-align: bottom; padding-bottom: 4mm; } }
+      @page :first { @top-center { content: none; } }
       body { font-family: 'Sarabun', sans-serif; font-size: 16pt; color: #000; }
       .obec-header { border-bottom: 1px solid #000; }
       .obec-header .school-name, .obec-header .doc-title { color: #000; font-weight: 700; }
@@ -634,7 +644,7 @@ export const openPrintWindow = (htmlContent: string, options: PrintOptions = {})
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <title>${title}</title>
+  <title>${escapePrintTitle(title)}</title>
   <base href="${window.location.origin}/">
   <style>${printCss}</style>
 </head>
