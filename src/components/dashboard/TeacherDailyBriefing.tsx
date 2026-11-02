@@ -159,7 +159,7 @@ export const TeacherDailyBriefing = ({ userId, personnelId, personnelFullName, h
           </div>
           สรุปภาระงานวันนี้
           <span className="text-xs font-normal text-muted-foreground ml-1">
-            · วัน{DAY_NAMES[dow]}ที่ {today.toLocaleDateString("th-TH", { day: "numeric", month: "long" })}
+            · วัน{DAY_NAMES[dow]}ที่ {today.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok", day: "numeric", month: "long" })}
           </span>
         </CardTitle>
       </CardHeader>

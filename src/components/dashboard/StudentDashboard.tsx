@@ -52,7 +52,7 @@ const StudentDashboard = () => {
     return L("สวัสดีตอนเย็น", "Good Evening");
   })();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error: dashboardError } = useQuery({
     queryKey: ["student_dashboard", userId, currentAcademicYear, currentSemester, schoolDate],
     enabled: !!userId && termReady,
     queryFn: async () => {
@@ -210,6 +210,7 @@ const StudentDashboard = () => {
 
   return (
     <div className="space-y-6">
+      {dashboardError && <p role="alert" className="text-sm text-destructive">โหลดข้อมูลนักเรียนไม่สำเร็จ กรุณาลองใหม่</p>}
       <Suspense fallback={<Skeleton className="h-72 rounded-2xl" />}>
         <MascotHeroWidget />
       </Suspense>

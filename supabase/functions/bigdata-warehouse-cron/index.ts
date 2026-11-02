@@ -107,10 +107,14 @@ Deno.serve(async (req) => {
     async function upsertFact(table: string, rows: any[]) {
       if (rows.length === 0) return { table, inserted: 0, skipped: true };
       try {
-        const { error, count } = await admin.from(table as any).upsert(rows, { onConflict: "id" } as any).select("id", { count: "exact", head: true });
-        // Some Supabase versions return count null on upsert; fallback to rows.length on success
-        if (error) throw error;
-        return { table, inserted: count ?? rows.length, error: null };
+        let inserted = 0;
+        for (let offset = 0; offset < rows.length; offset += 500) {
+          const batch = rows.slice(offset, offset + 500);
+          const { error } = await admin.from(table as any).upsert(batch, { onConflict: "id" });
+          if (error) throw error;
+          inserted += batch.length;
+        }
+        return { table, inserted, error: null };
       } catch (e: any) {
         // Table may not exist yet — return 0 but don't throw
         const msg = e?.message ?? String(e);
