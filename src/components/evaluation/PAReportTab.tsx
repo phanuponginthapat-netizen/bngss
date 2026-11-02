@@ -1,3 +1,4 @@
+import { openPrintWindow } from "@/lib/printUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,18 +50,10 @@ export default function PAReportTab() {
   const handlePrint = () => {
     const el = reportRef.current;
     if (!el) return;
-    const win = window.open("", "_blank");
-    if (!win) return;
-    win.document.write(`<html><head><title>รายงาน PA ผู้อำนวยการ</title>
-      <style>body{font-family:'IBM Plex Sans Thai',sans-serif;padding:40px;color:#1a1a1a}
-      table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid #ddd;padding:8px;text-align:left;font-size:13px}
-      th{background:#f5f5f5;font-weight:600}h1{font-size:20px}h2{font-size:16px;margin-top:24px;border-bottom:2px solid #3b82f6;padding-bottom:4px}
-      .badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}
-      @media print{body{padding:20px}}</style></head><body>`);
-    win.document.write(el.innerHTML);
-    win.document.write("</body></html>");
-    win.document.close();
-    win.print();
+    openPrintWindow(
+      `<style>@page{size:A4;margin:25mm 20mm 20mm 30mm}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border:1px solid #000;padding:4px 6px;text-align:left}th{font-weight:700}h1{font-size:20pt;text-align:center}h2{font-size:16pt;margin-top:16px;font-weight:700}.badge{font-weight:700}</style>${el.innerHTML}`,
+      { title: "รายงาน PA ผู้อำนวยการ" },
+    );
   };
 
   return (
