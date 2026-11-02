@@ -6,7 +6,11 @@ import { AppUpdate, AppUpdateAvailability } from "@capawesome/capacitor-app-upda
 import { getBackendConfig } from "@/lib/runtimeConfig";
 
 const SUPABASE_URL = getBackendConfig().url;
-const VERSION_URL = `${SUPABASE_URL}/storage/v1/object/public/app-downloads/version.json`;
+const SUPABASE_ANON_KEY = getBackendConfig().anonKey;
+const STORAGE_BASE = `${SUPABASE_URL}/storage/v1/object`;
+// bucket app-downloads เป็น private — อ่านด้วย anon key ใน header (มี read policy สำหรับ anon)
+const VERSION_URL = `${STORAGE_BASE}/app-downloads/version.json`;
+const AUTH_HEADERS = { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` };
 
 export interface AppUpdateManifest {
   versionCode: number;
