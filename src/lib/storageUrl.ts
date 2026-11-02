@@ -1,9 +1,30 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getBackendConfig } from "@/lib/runtimeConfig";
 import { getColdStorageFetchUrl, getPrivateColdStorageUrl } from "./coldStorage";
+
+/** base สำหรับอ่านไฟล์จาก bucket app-downloads (private) — ต้องแนบ anon key ใน header */
+export const APP_DOWNLOADS_BASE = `${getBackendConfig().url}/storage/v1/object/app-downloads`;
+const APP_DOWNLOADS_HEADERS = {
+  apikey: getBackendConfig().anonKey,
+  Authorization: `Bearer ${getBackendConfig().anonKey}`,
+};
+
+/** อ่านไฟล์ JSON (manifest รุ่นล่าสุด) จาก app-downloads — คืน null ถ้าอ่านไม่ได้ */
+export async function fetchAppDownloadsJson<T = unknown>(path: string): Promise<T | null> {
+  try {
+    const res = await fetch(`${APP_DOWNLOADS_BASE}/${path}?t=${Date.now()}`, {
+      cache: "no-store",
+      headers: APP_DOWNLOADS_HEADERS,
+    });
+    return res.ok ? ((await res.json()) as T) : null;
+  } catch {
+    return null;
+  }
+}
 
 /** บัคเก็ตที่เปิดสาธารณะ — ใช้ public URL ได้ทันที (ไม่ต้อง sign) */
 const PUBLIC_BUCKETS = new Set([
-  "app-downloads",
+  // "app-downloads" เป็น private บน Lovable Cloud — ใช้ signed URL เสมอ
   "certificate-assets",
   "cms-images",
   "cms-logos",

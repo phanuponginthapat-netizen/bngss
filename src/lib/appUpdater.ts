@@ -1,4 +1,5 @@
 import { swal } from "@/lib/swal";
+import { supabase } from "@/integrations/supabase/client";
 import { Capacitor } from "@capacitor/core";
 import { ApkUpdater } from "capacitor-apk-updater";
 import { AppUpdate, AppUpdateAvailability } from "@capawesome/capacitor-app-update";
@@ -6,7 +7,11 @@ import { AppUpdate, AppUpdateAvailability } from "@capawesome/capacitor-app-upda
 import { getBackendConfig } from "@/lib/runtimeConfig";
 
 const SUPABASE_URL = getBackendConfig().url;
-const VERSION_URL = `${SUPABASE_URL}/storage/v1/object/public/app-downloads/version.json`;
+const SUPABASE_ANON_KEY = getBackendConfig().anonKey;
+const STORAGE_BASE = `${SUPABASE_URL}/storage/v1/object`;
+// bucket app-downloads เป็น private — อ่านด้วย anon key ใน header (มี read policy สำหรับ anon)
+const VERSION_URL = `${STORAGE_BASE}/app-downloads/version.json`;
+const AUTH_HEADERS = { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` };
 
 export interface AppUpdateManifest {
   versionCode: number;
@@ -23,21 +28,22 @@ export function isNativeAndroid(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
 }
 
-const STORAGE_BASE = `${SUPABASE_URL}/storage/v1/object`;
-
 /** ทำให้ url ในไฟล์ manifest เป็น absolute เสมอ (กันกรณี CI เขียน path แบบสัมพัทธ์) */
 function normalizeManifest(m: AppUpdateManifest): AppUpdateManifest {
   let url = (m.url || "").trim();
   if (!/^https?:\/\//i.test(url)) {
     const file = m.fileName || url.split("/").pop() || "bngss-app-latest.apk";
-    url = `${STORAGE_BASE}/public/app-downloads/${file}`;
+    url = `${STORAGE_BASE}/app-downloads/${file}`;
+  } else {
+    // manifest เก่าอาจชี้ไป public path — แปลงเป็น authenticated path
+    url = url.replace("/storage/v1/object/public/app-downloads/", "/storage/v1/object/app-downloads/");
   }
   return { ...m, url };
 }
 
 export async function fetchUpdateManifest(): Promise<AppUpdateManifest | null> {
   try {
-    const res = await fetch(`${VERSION_URL}?t=${Date.now()}`, { cache: "no-store" });
+    const res = await fetch(`${VERSION_URL}?t=${Date.now()}`, { cache: "no-store", headers: AUTH_HEADERS });
     if (!res.ok) return null;
     return normalizeManifest((await res.json()) as AppUpdateManifest);
   } catch {
@@ -55,8 +61,15 @@ export async function checkForAppUpdate(): Promise<AppUpdateManifest | null> {
 }
 
 export async function performSideloadUpdate(url: string): Promise<void> {
+  // ดาวน์โหลดผ่าน native downloader แนบ header ไม่ได้ → ขอ signed URL ก่อน
+  const match = url.match(/\/app-downloads\/(.+?)(\?|$)/);
+  let downloadUrl = url;
+  if (match) {
+    const { data } = await supabase.storage.from("app-downloads").createSignedUrl(decodeURIComponent(match[1]), 1800);
+    if (data?.signedUrl) downloadUrl = data.signedUrl;
+  }
   // ใส่ query กัน cache เพื่อให้ได้ไฟล์ล่าสุดเสมอ
-  const fresh = `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`;
+  const fresh = `${downloadUrl}${downloadUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
   const { filePath } = await ApkUpdater.downloadApk({
     url: fresh,
     title: "กำลังดาวน์โหลดอัปเดต BNGSS...",

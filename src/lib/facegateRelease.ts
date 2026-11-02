@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getBackendConfig } from "@/lib/runtimeConfig";
 import { useCmsValue } from "@/hooks/useCmsSettings";
+import { resolveStorageUrl } from "@/lib/storageUrl";
 
 /**
  * ไฟลต์ ดิ ตั้ งโปรแกรมตู้ สแกนหน ้ า (FaceGate)
@@ -24,16 +25,21 @@ export interface FacegateRelease {
   notes?: string;
 }
 
-const MANIFEST_URL = `${getBackendConfig().url}/storage/v1/object/public/app-downloads/facegate-version.json`;
+// bucket app-downloads เป็น private บน Lovable Cloud — อ่านด้วย anon key ใน header
+const AUTH_HEADERS = {
+  apikey: getBackendConfig().anonKey,
+  Authorization: `Bearer ${getBackendConfig().anonKey}`,
+};
+const MANIFEST_URL = `${getBackendConfig().url}/storage/v1/object/app-downloads/facegate-version.json`;
 
-const WINDOWS_MANIFEST_URL = `${getBackendConfig().url}/storage/v1/object/public/app-downloads/release-facegate-windows.json`;
+const WINDOWS_MANIFEST_URL = `${getBackendConfig().url}/storage/v1/object/app-downloads/release-facegate-windows.json`;
 
 /** ตัวติดตั้ง Windows (FaceGateSetup.exe) จาก GitHub Releases — ใช้ก่อน zip ถ้ามี */
 let cachedExe: { url: string; version?: string; releasedAt?: string } | null | undefined;
 async function fetchWindowsInstaller() {
   if (cachedExe !== undefined) return cachedExe;
   try {
-    const res = await fetch(`${WINDOWS_MANIFEST_URL}?t=${Date.now()}`, { cache: "no-store" });
+    const res = await fetch(`${WINDOWS_MANIFEST_URL}?t=${Date.now()}`, { cache: "no-store", headers: AUTH_HEADERS });
     const m = res.ok ? await res.json() : null;
     const file = Array.isArray(m?.files) ? m.files.find((f: any) => /\.exe$/i.test(f?.name || "")) : null;
     cachedExe = file?.url ? { url: file.url, version: String(m.version || "").replace(/^v/, ""), releasedAt: m.releasedAt } : null;
@@ -51,10 +57,14 @@ export async function fetchFacegateRelease(): Promise<FacegateRelease | null> {
   if (pending) return pending;
   pending = (async () => {
     try {
-      const res = await fetch(`${MANIFEST_URL}?t=${Date.now()}`, { cache: "no-store" });
+      const res = await fetch(`${MANIFEST_URL}?t=${Date.now()}`, { cache: "no-store", headers: AUTH_HEADERS });
       if (!res.ok) return null;
       const m = (await res.json()) as FacegateRelease;
-      return m && typeof m.url === "string" && m.url.startsWith("http") ? m : null;
+      if (m && typeof m.url === "string" && m.url.startsWith("http")) {
+        // ลิงก์ใน manifest อาจเป็น public path ของ bucket private → แปลงเป็น signed URL
+        return { ...m, url: await resolveStorageUrl("app-downloads", m.url) };
+      }
+      return null;
     } catch {
       return null;
     }

@@ -3,8 +3,8 @@ import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { parseScannerRelease } from "@/lib/scannerRelease";
+import { fetchAppDownloadsJson } from "@/lib/storageUrl";
 
-const BASE = "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads";
 const PRODUCTS = ["android", "scanner", "facegate", "ios"] as const;
 
 type Release = { product: string; title: string; version: string; releasedAt: string; files: { name: string; url: string; sizeBytes: number }[] };
@@ -16,13 +16,10 @@ export default function GithubReleaseDownloads() {
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const all = await Promise.all(PRODUCTS.map(async (p) => {
-        try {
-          const r = await fetch(`${BASE}/release-${p}.json?t=${Date.now()}`, { cache: "no-store" });
-          if (!r.ok) return null;
-          const release = await r.json();
-          if (p === "scanner" && !parseScannerRelease(release)) return null;
-          return release as Release;
-        } catch { return null; }
+        const release = await fetchAppDownloadsJson<Release>(`release-${p}.json`);
+        if (!release) return null;
+        if (p === "scanner" && !parseScannerRelease(release)) return null;
+        return release;
       }));
       return all.filter(Boolean) as Release[];
     },
