@@ -50,10 +50,11 @@ export function useIdlePrefetch() {
         void qc.prefetchQuery({
           queryKey: ["classrooms"],
           queryFn: async () => {
-            const { data } = await supabase
+            const { data, error } = await supabase
               .from("classrooms")
               .select("id, name, grade_level, homeroom_teacher")
               .order("grade_level");
+            if (error) throw error;
             return data || [];
           },
           staleTime: 10 * 60_000,
@@ -62,11 +63,12 @@ export function useIdlePrefetch() {
         void qc.prefetchQuery({
           queryKey: ["students_with_class"],
           queryFn: async () => {
-            const { data } = await supabase
+            const { data, error } = await supabase
               .from("students")
               .select("*, classrooms!students_classroom_id_fkey(*)")
               .eq("status", "active")
               .order("student_code");
+            if (error) throw error;
             return data || [];
           },
           staleTime: 10 * 60_000,
@@ -77,15 +79,16 @@ export function useIdlePrefetch() {
       void qc.prefetchQuery({
         queryKey: ["schedules", "prefetch"],
         queryFn: async () => {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from("schedules")
             .select("id, day_of_week, period, subject_id, classroom_id, teacher_id, start_time, end_time")
             .limit(1000);
+          if (error) throw error;
           return data || [];
         },
         staleTime: 10 * 60_000,
       });
-    }, 5000);
+    }, 15000);
 
     return () => cancelIdle(handle);
   }, [qc, role, userId, loading]);
