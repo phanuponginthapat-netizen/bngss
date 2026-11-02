@@ -29,13 +29,12 @@ export async function checkTodayScan(studentId: string, force = false): Promise<
   const today = todayBangkok();
   const hit = cache.get(studentId);
   if (!force && hit && hit.date === today && Date.now() - hit.at < TTL) return hit.state;
-  try {
     const { data, error } = await supabase
       .from("face_scan_logs")
       .select("scan_type, entry_method, scan_time")
       .eq("student_id", studentId)
       .eq("scan_date", today);
-    if (error) return hit?.state ?? EMPTY;
+    if (error) throw new Error("ตรวจสอบรายการสแกนวันนี้ไม่สำเร็จ กรุณาลองใหม่");
     const state: TodayScanState = { entry: false, exit: false };
     (data || []).forEach((r: any) => {
       if (r.scan_type === "exit") {
@@ -50,9 +49,6 @@ export async function checkTodayScan(studentId: string, force = false): Promise<
     });
     cache.set(studentId, { at: Date.now(), date: today, state });
     return state;
-  } catch {
-    return hit?.state ?? EMPTY;
-  }
 }
 
 /** บันทึกลง cache ทันทีหลังสแกนสำเร็จ เพื่อให้หน้าจออื่นในเครื่องเดียวกันเห็นผลทันที */

@@ -91,6 +91,18 @@ export async function remove(id: string) {
 
 let flushing = false;
 
+/** Never remove a local scan unless the failed-write archive confirms receipt. */
+export async function archiveFailedItem(it: QueuedItem, error: unknown): Promise<boolean> {
+  try {
+    const { error: archiveError } = await supabase.from("offline_failed_queue").insert({
+      queue_name: it.table, payload: it, error: String(error), attempts: it.attempts,
+    });
+    return !archiveError;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Flush pending queue against Supabase.
  * Dispatches window event "offline-queue:synced" with { ok, failed }.
@@ -134,8 +146,7 @@ export async function flush(): Promise<{ ok: number; failed: number }> {
         ok++;
       } catch (e: any) {
         it.attempts++;
-        if (it.attempts > MAX_ATTEMPTS) {
-          try { await (supabase.from("offline_failed_queue" as any) as any).insert({ queue_name: it.table, payload: it as any, error: String(e?.message || e), attempts: it.attempts }); } catch {}
+        if (it.attempts > MAX_ATTEMPTS && await archiveFailedItem(it, e?.message || e)) {
           await remove(it.id);
         } else {
           await withStore("readwrite", (s) => {

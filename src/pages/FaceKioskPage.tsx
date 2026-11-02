@@ -847,7 +847,13 @@ const FaceKioskPage = () => {
     }
 
     // ===== เช็คร่วมกับ "สแกน QR" — ดูจากฐานข้อมูลว่าวันนี้เคยสแกน (ทุกวิธี) แล้วหรือยัง =====
-    const todayState = await checkTodayScan(studentId);
+    let todayState;
+    try {
+      todayState = await checkTodayScan(studentId);
+    } catch {
+      showNotice("error", "ตรวจสอบรายการสแกนไม่สำเร็จ", "กรุณาลองใหม่เมื่อเชื่อมต่อระบบได้", 4000);
+      return;
+    }
     if ((mode === "exit" && todayState.exit) || (mode === "entry" && todayState.entry)) {
       seenSet.add(studentId);
       const lastNotice = duplicateNoticeRef.current.get(cdKey) || 0;
