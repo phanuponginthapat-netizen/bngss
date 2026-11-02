@@ -3,7 +3,7 @@ import { getColdStorageFetchUrl, getPrivateColdStorageUrl } from "./coldStorage"
 
 /** บัคเก็ตที่เปิดสาธารณะ — ใช้ public URL ได้ทันที (ไม่ต้อง sign) */
 const PUBLIC_BUCKETS = new Set([
-  "app-downloads",
+  // "app-downloads" เป็น private บน Lovable Cloud — ใช้ signed URL เสมอ
   "certificate-assets",
   "cms-images",
   "cms-logos",
