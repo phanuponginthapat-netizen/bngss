@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { subscribeToPush, getCurrentPushStatus } from "@/lib/pushSubscribe";
 import { isNativeFcmSupported } from "@/lib/fcmPush";
 import { saveErrorMessage } from "@/lib/saveError";
+import { canTestNotification } from "@/lib/notificationTest";
 
 const TYPES: Array<{ key: string; label: string }> = [
   { key: "homework", label: "การบ้าน" },
@@ -198,9 +199,9 @@ export default function NotificationSettingsPage() {
                 <Bell className="w-4 h-4 mr-2" /> เปิดการแจ้งเตือนบนเครื่องนี้
               </Button>
             )}
-            <Button onClick={sendTest} disabled={busy || pushStatus !== "subscribed"}>
+            <Button onClick={sendTest} disabled={!canTestNotification(userId, busy, isNativeFcmSupported(), pushStatus)}>
               {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
-              ส่งแจ้งเตือนทดสอบไปทุกเครื่อง
+              ส่งทดสอบไปเครื่องของฉัน
             </Button>
           </div>
         </CardContent>

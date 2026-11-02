@@ -11,6 +11,9 @@
 - Use the managed Cloud backend for recovery; discard restricted school overrides, apply schema fixes through the migration tool, and access the school source only through AI_READONLY_DB_URL to preserve original data.
 - Treat Drive copies as authoritative after byte-level verification and a saved registry; never count space as freed until Storage deletion succeeds, never auto-restore mirrors, and prune APKs only after verifying the manifest's current file.
 - Preserve local failed writes until the server archive confirms receipt; scan dedup lookup failures must surface and block online writes rather than imply no scan exists.
+- Authorize direct push sends server-side for service callers, privileged roles, or the recipient themselves; only explicit FCM UNREGISTERED errors may remove device tokens.
+- Key-pool AI usage is logged once by keyPool with caller/function metadata; aiCall must not duplicate successful pool records.
+- Check AI chat quotas on Bangkok day boundaries and fail closed on unavailable counts; keep chat logs awaited and run optional memory synthesis in EdgeRuntime.waitUntil so replies are not blocked.
 - The Windows FaceGate installer (FaceGateSetup.exe) is built in build-facegate.yml with PyInstaller + Inno Setup, bundles the ONNX face models, reads settings from facegate.env, and is published as the facegate-windows release that download links prefer over the ZIP — schools get a no-Python, no-.bat install.
 - Resolve automatic academic terms from academic_periods using the Bangkok date and synchronize is_current daily; preserve manual overrides and wait for both settings and period queries before reporting loaded values, preventing early term changes.
 - Scope persistent CMS settings and cross-tab broadcasts to the active backend, reject empty caches, and propagate fetch errors instead of caching them as empty success; stale branding must recover on mount/reconnect.

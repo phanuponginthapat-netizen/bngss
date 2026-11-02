@@ -4,6 +4,7 @@
 // When the secret is missing, sendFcm() returns { ok:false, skipped:true } so
 // existing Web Push flows keep working untouched.
 import { getSecret } from "./getSecret.ts";
+import { isExpiredFcmToken } from "./fcmErrors.ts";
 
 const SCOPES = "https://www.googleapis.com/auth/firebase.messaging";
 
@@ -129,10 +130,7 @@ export async function sendFcm(token: string, payload: FcmPayload): Promise<FcmRe
     });
     if (!res.ok) {
       const txt = await res.text();
-      const gone =
-        res.status === 404 ||
-        (res.status === 400 && txt.includes("UNREGISTERED")) ||
-        (res.status === 400 && txt.includes("NOT_FOUND"));
+      const gone = isExpiredFcmToken(txt);
       return { ok: false, status: res.status, error: txt.slice(0, 300), gone };
     }
     return { ok: true };

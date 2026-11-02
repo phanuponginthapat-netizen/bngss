@@ -2,10 +2,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { aiCall, aiCouncil } from "../_shared/aiCall.ts";
 import { rateLimit } from "../_shared/rateLimit.ts";
 import { generateImage } from "../_shared/imageGen.ts";
+import { checkDailyChatQuota } from "../_shared/aiDailyQuota.ts";
 
 import { corsHeadersPost as corsHeaders } from "../_shared/cors.ts";
 
 interface ChatMsg { role: "user" | "assistant" | "system"; content: string }
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 
 const DEFAULT_PERSONA = `คุณคือ "น้องโรงเรียน" — **ติวเตอร์ AI** ของโรงเรียน ที่ฉลาด ใจดี อดทน และเชี่ยวชาญการ "สอนให้คิด" มากกว่าการ "ป้อนคำตอบ"
 หน้าที่หลัก: (1) เป็นติวเตอร์ช่วยนักเรียนเข้าใจบทเรียน/การบ้าน โดยเน้นกระบวนการคิดและตัวอย่าง (2) ช่วยครู/ผู้ปกครอง/ผอ. เรื่องระบบและข้อมูลโรงเรียน (3) ทำหน้าที่เป็นมัคคุเทศและตัวแทนต้อนรับคณะเยี่ยมชม
@@ -142,19 +144,22 @@ Deno.serve(async (req) => {
           Deno.env.get("SUPABASE_URL")!,
           Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
         );
-        const startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
-        const { count } = await sb.from("ai_chat_logs")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", identifier)
-          .eq("role", "user")
-          .gte("created_at", startOfDay.toISOString());
-        if ((count ?? 0) >= DAILY_LIMIT) {
+        const quota = await checkDailyChatQuota(sb, identifier, DAILY_LIMIT);
+        if (quota === "unavailable") {
+          return new Response(JSON.stringify({ error: "ตรวจสอบสิทธิ์ใช้งาน AI ไม่สำเร็จ กรุณาลองใหม่" }), {
+            status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (quota === "limited") {
           return new Response(JSON.stringify({
             error: `คุณใช้ AI ครบ ${DAILY_LIMIT} ข้อความสำหรับวันนี้แล้ว กรุณากลับมาใหม่พรุ่งนี้`,
           }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
-      } catch (_) { /* ignore quota check errors */ }
+      } catch (_) {
+        return new Response(JSON.stringify({ error: "ตรวจสอบสิทธิ์ใช้งาน AI ไม่สำเร็จ กรุณาลองใหม่" }), {
+          status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Enrich with school info, persona, knowledge base, latest news (cached + parallel)
@@ -224,7 +229,10 @@ Deno.serve(async (req) => {
     let studentTutorContext = "";
     if (rawStudentId) {
       try {
-        const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+        // Student context must honor row-level access, not a client-supplied student ID.
+        const sb = createClient(supaUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
+          global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false },
+        });
         let stu: any = null;
         let r = await sb.from("students").select("id, student_code, first_name, last_name, classroom_id").eq("id", rawStudentId).maybeSingle();
         if (r.data) stu = r.data;
@@ -513,7 +521,8 @@ ${strictNoAnswer ? `🚫 ผู้ใช้คนนี้เป็น **นั�
         ];
         await sb.from("ai_chat_logs").insert(rows);
 
-        // ---- Update user memory (every 3 user messages, async, best-effort) ----
+        // Keep the quota-relevant chat log awaited, but don't delay the answer for memory synthesis.
+        const updateMemory = async () => {
         const { data: memRow } = await sb.from("ai_user_memory")
           .select("message_count,summary,facts,preferences").eq("user_id", identifier).maybeSingle();
         const newCount = ((memRow as any)?.message_count ?? 0) + 1;
@@ -535,7 +544,7 @@ AI ตอบ: ${String(result.content || "").slice(0, 400)}
 ห้ามใส่ข้อมูลละเอียดอ่อน (เลขบัตร เบอร์โทร รหัสผ่าน) ใน facts`;
             const memRes = await aiCall({
               messages: [{ role: "user", content: memPrompt }],
-              temperature: 0.2, max_tokens: 300, functionName: "ai-memory",
+              temperature: 0.2, max_tokens: 300, functionName: "ai-memory", userId: identifier,
             });
             const txt = String(memRes.content || "").replace(/```json|```/g, "").trim();
             const parsed = JSON.parse(txt);
@@ -547,10 +556,12 @@ AI ตอบ: ${String(result.content || "").slice(0, 400)}
           } catch (_) {}
         }
         await sb.from("ai_user_memory").upsert(payload, { onConflict: "user_id" });
+        };
+        EdgeRuntime.waitUntil(updateMemory().catch(() => { console.warn("AI memory update unavailable"); }));
       } catch (_) { /* ignore logging errors */ }
     }
 
-    return new Response(JSON.stringify({ reply: result.content, provider: result.provider }), {
+    return new Response(JSON.stringify({ reply: result.content, provider: result.provider, model: result.model }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {

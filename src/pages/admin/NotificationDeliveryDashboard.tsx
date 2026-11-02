@@ -56,7 +56,7 @@ export default function NotificationDeliveryDashboard() {
   const hours = RANGE_OPTIONS.find((r) => r.value === range)?.hours ?? 24;
   const since = useMemo(() => new Date(Date.now() - hours * 3600_000).toISOString(), [hours]);
 
-  const { data: rows = [], isLoading, refetch } = useQuery({
+  const { data: rows = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["notif_delivery_log", since, channel, status, type],
     queryFn: async () => {
       let q = supabase
@@ -122,6 +122,7 @@ export default function NotificationDeliveryDashboard() {
 
   return (
     <div className="space-y-6">
+      {isError && <p role="alert" className="text-sm text-destructive">โหลดผลการส่งแจ้งเตือนไม่สำเร็จ กรุณากดรีเฟรช</p>}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">

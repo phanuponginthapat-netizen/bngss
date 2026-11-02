@@ -194,6 +194,7 @@ export interface PoolCallOpts {
   vision?: boolean;
   model?: string; // optional override
   functionName?: string; // ใช้บันทึกสถิติการใช้งาน
+  userId?: string;
 
 }
 
@@ -225,6 +226,7 @@ export async function callWithPool(provider: PoolProvider, opts: PoolCallOpts): 
         provider_name: `pool:${provider}`,
         model,
         function_name: opts.functionName || null,
+        called_by: opts.userId || null,
         tokens_input: usage?.prompt_tokens ?? usage?.input_tokens ?? 0,
         tokens_output: usage?.completion_tokens ?? usage?.output_tokens ?? 0,
         estimated_cost: 0,
@@ -248,11 +250,13 @@ export async function callWithPool(provider: PoolProvider, opts: PoolCallOpts): 
           const t = await r.text();
           await markCooldown(k.id, `${r.status}: ${t.slice(0, 200)}`);
           errors.push(`${k.label || k.id.slice(0, 8)}/${model}: ${r.status}`);
+          await logPool(model, false, started, undefined, `HTTP ${r.status}`);
           continue;
         }
         if (!r.ok) {
           const t = await r.text();
           errors.push(`${k.label || k.id.slice(0, 8)}/${model}: ${r.status} ${t.slice(0, 100)}`);
+          await logPool(model, false, started, undefined, `HTTP ${r.status}`);
           if (isModelNotFound(r.status, t)) break; // โมเดลนี้ใช้ไม่ได้ทุก key -> ข้ามไปโมเดลถัดไป
           continue;
         }
@@ -262,6 +266,7 @@ export async function callWithPool(provider: PoolProvider, opts: PoolCallOpts): 
           : data?.choices?.[0]?.message?.content;
         if (!content) {
           errors.push(`${k.label || k.id.slice(0, 8)}/${model}: empty`);
+          await logPool(model, false, started, undefined, "empty response");
           continue;
         }
         await markUsed(k.id);
@@ -269,6 +274,7 @@ export async function callWithPool(provider: PoolProvider, opts: PoolCallOpts): 
         return { content, provider, model, keyLabel: k.label || "key" };
       } catch (e: any) {
         errors.push(`${k.label || k.id.slice(0, 8)}/${model}: ${e?.message || e}`);
+        await logPool(model, false, started, undefined, "provider connection failed");
         continue;
       }
     }
