@@ -14,7 +14,7 @@ log() { echo -e "$*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 KIOSK_ORIGIN="${KIOSK_ORIGIN:-https://bngss.lovable.app}"
-CMS_SUPABASE_URL="${CMS_SUPABASE_URL:-https://gwmszzoqqxmejefhayqf.supabase.co}"
+CMS_SUPABASE_URL="${CMS_SUPABASE_URL:-https://dlkyxvhnnffblerwedjz.supabase.co}"
 CMS_SUPABASE_ANON="${CMS_SUPABASE_ANON:-sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v}"
 
 log "▶ ดึง branding จาก CMS ..."

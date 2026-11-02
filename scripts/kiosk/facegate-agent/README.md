@@ -14,7 +14,7 @@ pip install -r requirements.txt
 
 ```bash
 export FACEGATE_DEVICE_KEY=รหัสเครื่องที่คัดลอกมา
-export FACEGATE_CLOUD_URL=https://gwmszzoqqxmejefhayqf.supabase.co/functions/v1
+export FACEGATE_CLOUD_URL=https://dlkyxvhnnffblerwedjz.supabase.co/functions/v1
 python agent.py
 ```
 

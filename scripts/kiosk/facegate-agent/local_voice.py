@@ -34,7 +34,7 @@ import localdb as db
 
 VOICE_DIR = os.path.join(db.DATA_DIR, "voice")
 CLOUD_TTS_URL = os.environ.get(
-    "FACEGATE_TTS_URL", "https://gwmszzoqqxmejefhayqf.supabase.co/functions/v1/tts-th"
+    "FACEGATE_TTS_URL", "https://dlkyxvhnnffblerwedjz.supabase.co/functions/v1/tts-th"
 )
 MIME = {".mp3": "audio/mpeg", ".wav": "audio/wav"}
 

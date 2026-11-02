@@ -1,7 +1,7 @@
 // Safe Browser — background service worker
 try { importScripts("keywords.js"); } catch (e) { /* ignore */ }
 // backend ถูกกำหนดตอน runtime (ระบบเว็บส่งมาให้ผ่าน SET_SESSION) — ค่าด้านล่างเป็นค่าเริ่มต้นเท่านั้น
-const DEFAULT_SUPABASE_URL = "https://gwmszzoqqxmejefhayqf.supabase.co";
+const DEFAULT_SUPABASE_URL = "https://dlkyxvhnnffblerwedjz.supabase.co";
 const DEFAULT_ANON_KEY = "sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v";
 let SUPABASE_URL = DEFAULT_SUPABASE_URL;
 let ANON_KEY = DEFAULT_ANON_KEY;
