@@ -17281,6 +17281,13 @@ export type Database = {
           student_code: string
         }[]
       }
+      resolve_school_term: {
+        Args: { _date: string }
+        Returns: {
+          academic_year_be: number
+          semester: number
+        }[]
+      }
       resync_all_budget_usage: { Args: never; Returns: undefined }
       rls_policy_audit: {
         Args: never
@@ -17296,6 +17303,10 @@ export type Database = {
         }[]
       }
       same_school_as_owner: { Args: { _owner: string }; Returns: boolean }
+      save_academic_period_dates: {
+        Args: { _terms: Json; _year_be: number }
+        Returns: undefined
+      }
       search_chat_users: {
         Args: { _term: string }
         Returns: {
@@ -17352,6 +17363,7 @@ export type Database = {
         Args: { _student_id: string }
         Returns: boolean
       }
+      sync_current_academic_period: { Args: never; Returns: string }
       to_time24: { Args: { _txt: string }; Returns: string }
       user_can_view_news_audience: {
         Args: { _audience: string }
