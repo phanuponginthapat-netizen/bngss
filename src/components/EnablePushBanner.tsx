@@ -36,7 +36,7 @@ export default function EnablePushBanner() {
   };
 
   return (
-    <div className="md:hidden sticky top-14 z-20 mx-2 mt-2 rounded-xl border border-primary/30 bg-gradient-to-r from-primary/10 to-primary/5 backdrop-blur-sm shadow-elevated">
+    <div className="md:hidden relative mx-2 mt-2 rounded-xl border border-primary/30 bg-card shadow-sm">
       <div className="flex items-center gap-2 p-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
           <Bell className="h-4 w-4" />
