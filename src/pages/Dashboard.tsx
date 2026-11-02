@@ -303,7 +303,6 @@ const Dashboard = () => {
   // role อื่นๆ (director/teacher/student/alumni/parent) กลับไปใช้ dashboard ตาม role เหมือนเดิม
   const RoleDashboardWithShortcuts = ({ children }: { children: React.ReactNode }) => (
     <Suspense fallback={<PageSkeleton />}>
-      <div className="px-3 pb-4 sm:px-6"><DailyTaskBar /></div>
       {children}
     </Suspense>
   );

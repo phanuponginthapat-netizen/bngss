@@ -288,6 +288,9 @@ const DirectorDashboard = () => {
         </div>
       </div>
 
+      {/* ทางลัดงานประจำวัน — วางไว้ก่่อนส่วนสรุปภาระงาน */}
+      <DailyTaskBar />
+
       {/* Strategic KPIs — modern gradient cards with sparkline, stagger 0.1s, skeleton + empty states */}
       {(isLoading || extrasLoading) ? (
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">

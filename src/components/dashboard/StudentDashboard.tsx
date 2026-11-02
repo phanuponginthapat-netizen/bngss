@@ -296,6 +296,9 @@ const StudentDashboard = () => {
         </Card>
       )}
 
+      {/* ทางลัดงานประจำวัน — วางไว้ก่่อนส่วนสรุปภาระงาน */}
+      <DailyTaskBar />
+
       {/* ── Modern KPI: GPA, Attendance %, Homework, Exams, Recent Grades ── */}
       {data?.student && (
         <div className="space-y-2">

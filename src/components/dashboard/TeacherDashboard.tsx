@@ -517,6 +517,9 @@ const TeacherDashboard = () => {
         <MascotHeroWidget />
       </Suspense>
 
+      {/* ทางลัดงานประจำวัน — วางไว้ก่่อนส่วนสรุปภาระงาน */}
+      <DailyTaskBar />
+
       {/* Daily Briefing */}
       <TeacherDailyBriefing
         userId={userId}
