@@ -52,6 +52,8 @@ export default function OnboardingTour() {
 
     let raf = 0;
     const findAndSet = () => {
+      const guard = document.querySelector('[data-tour="taskbar"]') as HTMLElement | null;
+      setGuardRect(guard ? guard.getBoundingClientRect() : null);
       const el = document.querySelector(step.selector) as HTMLElement | null;
       if (el) {
         el.scrollIntoView({ block: "center", behavior: "smooth" });
