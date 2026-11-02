@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { toCE } from "@/lib/utils";
+import { bangkokWeekday } from "@/lib/dataReliability";
 import {
   Clock, ListTodo, AlertTriangle, ArrowRight, BookOpen, MapPin, CalendarDays,
 } from "lucide-react";
@@ -24,14 +25,15 @@ export const TeacherDailyBriefing = ({ userId, personnelId, personnelFullName, h
   const navigate = useNavigate();
   const today = new Date();
   const todayISO = bkkDateISO(today);
-  const dow = today.getDay();
+  const dow = bangkokWeekday(todayISO);
   // ตารางสอนตองจัดใหอยู่ในภาคเรียนปัจจุบันเทานั้ น เพือไมใหขอมูลเทอมเกาโผลมาแสดงซ้ำ
-  const { currentAcademicYear, currentSemester } = useAcademicYear();
+  const { currentAcademicYear, currentSemester, isReady: termReady } = useAcademicYear();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["teacher_daily_briefing", userId, personnelId, personnelFullName, homeroomClassroomIds, currentAcademicYear, currentSemester],
-    enabled: !!userId,
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["teacher_daily_briefing", userId, personnelId, personnelFullName, homeroomClassroomIds, currentAcademicYear, currentSemester, todayISO],
+    enabled: !!userId && termReady,
     queryFn: async () => {
+      if (!userId || !termReady) throw new Error("ยังยืนยันภาคเรียนไม่ได้");
       // Today's schedule — ใช้ teacher_id เป็นหลัก, fallback teacher_name
       let todaySchedules: any[] = [];
       if (personnelId || personnelFullName) {
@@ -43,24 +45,26 @@ export const TeacherDailyBriefing = ({ userId, personnelId, personnelFullName, h
           .eq("semester", currentSemester)
           .order("period", { ascending: true });
         if (personnelId && personnelFullName) {
-          q = q.or(`teacher_id.eq.${personnelId},teacher_name.eq.${personnelFullName}`);
+          q = q.or(`teacher_id.eq.${personnelId},and(teacher_id.is.null,teacher_name.eq.${personnelFullName})`);
         } else if (personnelId) {
           q = q.eq("teacher_id", personnelId);
         } else if (personnelFullName) {
           q = q.eq("teacher_name", personnelFullName);
         }
-        const { data: sched } = await q;
+        const { data: sched, error } = await q;
+        if (error) throw error;
         todaySchedules = sched || [];
       }
 
       // Homework that needs review (pending & due on/before today)
-      const { data: hwAll } = await supabase
+      const { data: hwAll, error: homeworkError } = await supabase
         .from("task_assignments")
         .select("id, title, due_date, status, subject_id, classroom_id, subjects(name_th, code), classrooms(name)")
-        .eq("assigned_by", userId!)
+        .eq("assigned_by", userId)
         .eq("task_type", "homework")
         .order("due_date", { ascending: true })
         .limit(200);
+      if (homeworkError) throw homeworkError;
 
       // Group by title+subject+due_date so 1 row per assignment, count students pending
       const groups = new Map<string, any>();
@@ -157,6 +161,8 @@ export const TeacherDailyBriefing = ({ userId, personnelId, personnelFullName, h
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
+        {error && <p role="alert" className="p-4 text-sm text-destructive">โหลดสรุปภาระงานไม่สำเร็จ กรุณาลองใหม่</p>}
+        {!error && (
         <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-border/60">
           {/* Today's schedule */}
           <Section

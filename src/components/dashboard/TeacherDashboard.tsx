@@ -3,6 +3,7 @@ import DailyTaskBar from "./DailyTaskBar";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { toCE } from "@/lib/utils";
 import { todayBangkok } from "@/lib/dateBE";
+import { bangkokWeekday, requireSuccessfulReads } from "@/lib/dataReliability";
 const DynamicHeroBackground = lazy(() => import("./DynamicHeroBackground"));
 const MascotHeroWidget = lazy(() => import("./widgets/MascotHeroWidget"));
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -198,8 +199,8 @@ const TeacherDashboard = () => {
   const { userId } = useUserRole();
   const { homeroomClassroomIds, homeroomClassrooms, hasHomeroom } = useHomeroomClassrooms();
   // ตารางสอนตองจัดใหอยู่ในภาคเรียนปัจจุบันเทานั้ น เพือไมใหขอมูลเทอมเกาโผลมาแสดงซ้ำ
-  const { currentAcademicYear, currentSemester } = useAcademicYear();
-  const currentBE = toBE(new Date().getFullYear());
+  const { currentAcademicYear, currentSemester, today: schoolDate, isReady: termReady, error: termError } = useAcademicYear();
+  const currentBE = currentAcademicYear;
   const weather = useWeatherData();
 
   const { data: myPersonnel } = useQuery({
@@ -293,15 +294,18 @@ const TeacherDashboard = () => {
   });
 
   // Subject assignments
-  const { data: subjectData, isLoading: subjectLoading } = useQuery({
-    queryKey: ["subject_dashboard", myPersonnel?.id, currentAcademicYear, currentSemester],
-    enabled: !!myPersonnel,
+  const { data: subjectData, isLoading: subjectLoading, error: subjectError } = useQuery({
+    queryKey: ["subject_dashboard", myPersonnel?.id, currentAcademicYear, currentSemester, schoolDate],
+    enabled: !!myPersonnel && termReady,
     queryFn: async () => {
-      const fullName = `${myPersonnel!.prefix || ""}${myPersonnel!.first_name} ${myPersonnel!.last_name}`;
-      const { data: assignments } = await supabase
+      if (!myPersonnel || !termReady) throw new Error("ยังยืนยันภาคเรียนไม่ได้");
+      const fullName = `${myPersonnel.prefix || ""}${myPersonnel.first_name} ${myPersonnel.last_name}`;
+      const { data: assignments, error: assignmentError } = await supabase
         .from("teacher_assignments")
         .select("subject_id, classroom_id, subjects(*), classrooms(*)")
-        .eq("personnel_id", myPersonnel!.id);
+        .eq("personnel_id", myPersonnel.id)
+        .eq("academic_year", toCE(currentAcademicYear)).eq("semester", currentSemester);
+      if (assignmentError) throw assignmentError;
 
       const uniqueSubjects = new Map<string, any>();
       (assignments || []).forEach(a => {
@@ -317,19 +321,22 @@ const TeacherDashboard = () => {
         // ★ ใช้ teacher_id เป็นหลัก, fallback ด้วย teacher_name สำหรับแถวเก่า
         supabase.from("schedules").select("id, day_of_week, period, start_time, end_time, classroom_id, subject_id, teacher_id, teacher_name")
           .eq("academic_year", toCE(currentAcademicYear)).eq("semester", currentSemester)
-          .or(`teacher_id.eq.${myPersonnel!.id},teacher_name.eq.${fullName}`),
+          .or(`teacher_id.eq.${myPersonnel.id},and(teacher_id.is.null,teacher_name.eq.${fullName})`),
         supabase.from("news_posts").select("id, title, category, published_at")
           .eq("is_published", true).order("created_at", { ascending: false }).limit(5),
         supabase.from("academic_events").select("id, title, event_date, event_type")
           .gte("event_date", todayBangkok()).order("event_date").limit(5),
       ]);
+      requireSuccessfulReads([schedules, news, events]);
 
       // Get enrollment counts per subject
       const subjectIds = [...uniqueSubjects.keys()];
       const enrollmentMap: Record<string, number> = {};
       if (subjectIds.length) {
-        const { data: enrollments } = await supabase.from("enrollments")
-          .select("subject_id").in("subject_id", subjectIds).eq("status", "active");
+        const { data: enrollments, error } = await supabase.from("enrollments")
+          .select("subject_id").in("subject_id", subjectIds).eq("status", "active")
+          .eq("academic_year", toCE(currentAcademicYear)).eq("semester", currentSemester);
+        if (error) throw error;
         (enrollments || []).forEach(e => {
           enrollmentMap[e.subject_id] = (enrollmentMap[e.subject_id] || 0) + 1;
         });
@@ -338,7 +345,7 @@ const TeacherDashboard = () => {
       return {
         subjects: [...uniqueSubjects.values()],
         enrollmentMap,
-        todaySchedules: (schedules.data || []).filter(s => s.day_of_week === new Date().getDay()),
+        todaySchedules: (schedules.data || []).filter(s => s.day_of_week === bangkokWeekday(schoolDate)),
         allSchedules: schedules.data || [],
         news: news.data || [],
         events: events.data || [],
@@ -540,7 +547,9 @@ const TeacherDashboard = () => {
           <Activity className="w-4 h-4 text-primary" /> ภาพรวมงานสอนวันนี้
           <span className="text-[11px] font-normal text-muted-foreground">Today overview · อัปเดตเรียลไทม์</span>
         </h2>
-        {isLoading ? (
+        {subjectError || termError ? (
+          <p role="alert" className="text-sm text-destructive">โหลดข้อมูลวิชาและภาคเรียนไม่สำเร็จ กรุณาลองใหม่</p>
+        ) : isLoading || !termReady ? (
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             {Array.from({ length: 5 }).map((_, i) => (
               <Card key={i} className="rounded-2xl border border-border/40">
@@ -581,7 +590,7 @@ const TeacherDashboard = () => {
                   <div className="mt-2 h-[28px]">
                     {(subjectData?.subjects?.length || 0) > 0 ? (
                       <ResponsiveContainer width="100%" height={28}>
-                        <AreaChart data={(subjectData?.subjects || []).slice(0, 7).map((_: any, i: number) => ({ v: 2 + (i % 3) }))}>
+                        <AreaChart data={(subjectData?.subjects || []).map((subject: any) => ({ v: subjectData?.allSchedules.filter(s => s.subject_id === subject.id).length || 0 }))}>
                           <Area type="monotone" dataKey="v" stroke="hsl(var(--primary))" strokeWidth={1.5} fill="hsl(var(--primary) / 0.15)" />
                         </AreaChart>
                       </ResponsiveContainer>
@@ -698,11 +707,8 @@ const TeacherDashboard = () => {
                   <div className="mt-2 h-[28px]">
                     {(subjectData?.todaySchedules?.length || 0) > 0 ? (
                       <div className="flex gap-1 h-full items-end">
-                        {subjectData?.todaySchedules?.slice(0, 5).map((s: any, i: number) => (
-                          <div key={i} className="flex-1 bg-primary/20 rounded-t-sm" style={{ height: `${30 + (s.period % 4) * 18}%` }} />
-                        ))}
-                        {Array.from({ length: Math.max(0, 5 - (subjectData?.todaySchedules?.length || 0)) }).map((_, i) => (
-                          <div key={`e-${i}`} className="flex-1 bg-muted rounded-t-sm h-[20%]" />
+                        {subjectData?.todaySchedules?.map((s: any) => (
+                          <span key={s.id} className="flex-1 text-center text-[10px] text-primary bg-primary/10 rounded-sm">{s.period}</span>
                         ))}
                       </div>
                     ) : (

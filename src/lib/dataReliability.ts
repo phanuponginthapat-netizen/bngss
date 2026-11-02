@@ -12,6 +12,5 @@ export function requireSuccessfulReads(results: readonly { error?: unknown }[]):
 }
 
 export function bangkokWeekday(dateISO: string): number {
-  return new Date(`${dateISO}T00:00:00+07:00`).getUTCDay() === 6
-    ? 0 : new Date(`${dateISO}T00:00:00Z`).getUTCDay();
+  return new Date(`${dateISO}T00:00:00Z`).getUTCDay();
 }
