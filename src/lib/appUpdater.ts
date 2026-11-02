@@ -1,4 +1,5 @@
 import { swal } from "@/lib/swal";
+import { supabase } from "@/integrations/supabase/client";
 import { Capacitor } from "@capacitor/core";
 import { ApkUpdater } from "capacitor-apk-updater";
 import { AppUpdate, AppUpdateAvailability } from "@capawesome/capacitor-app-update";
