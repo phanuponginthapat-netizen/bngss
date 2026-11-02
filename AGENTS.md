@@ -24,3 +24,6 @@
 - Keep score-status records strictly scoped to an explicit academic year and semester, surface fetch failures, and expire import-period caches at Bangkok date changes; unscoped legacy rows must not appear as current-term results.
 - Protect kiosk face endpoints with server-validated active device keys or authenticated admin/director roles; provision browser credentials once per backend and send them only in headers so daily scanning remains login-free.
 - Save admin term dates atomically through save_academic_period_dates; resolve school terms (including LINE attendance and legacy maintenance jobs) from the same academic_periods calendar and manual overrides, synchronize current flags on changes, and never rewrite historical academic records. Future term dates must be registered by admins rather than invented by maintenance jobs.
+
+- CI writes to the private app-downloads bucket only through the ci-storage function (CI_UPLOAD_TOKEN, scripts/ci/storage.sh); client roles have no write/delete policy there — stops any signed-in user replacing APKs.
+- Rebuild public/extension.zip, school-safe-browser.zip and safe-browser-extension.zip from extension/ whenever extension files or the backend change — installers download these zips.
