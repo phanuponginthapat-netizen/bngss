@@ -23,12 +23,35 @@ export async function resolveProfileImageUrl(url: string | null | undefined): Pr
   if (!path) return url;
   // Already a live signed URL
   if (url.includes("/object/sign/") && url.includes("token=")) return url;
-  const cached = cache.get(path);
-  if (cached) return cached;
-  const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, LONG_EXPIRY_SEC);
-  const signed = data?.signedUrl || url;
-  cache.set(path, signed);
-  return signed;
+  const cached = cache.get(path) || readStored(path);
+  if (cached) { cache.set(path, cached); return cached; }
+  const pending = inflight.get(path);
+  if (pending) return pending;
+  const p = (async () => {
+    const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, LONG_EXPIRY_SEC);
+    const signed = data?.signedUrl || url;
+    cache.set(path, signed);
+    if (data?.signedUrl) writeStored(path, data.signedUrl);
+    return signed;
+  })().finally(() => inflight.delete(path));
+  inflight.set(path, p);
+  return p;
+}
+
+// Concurrent mounts share one request; signed URLs persist for a week across reloads.
+const inflight = new Map<string, Promise<string>>();
+const STORE_KEY = "profile-img-signed:";
+const STORE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+function readStored(path: string): string | null {
+  try {
+    const raw = localStorage.getItem(STORE_KEY + path);
+    if (!raw) return null;
+    const { u, t } = JSON.parse(raw);
+    return Date.now() - t < STORE_TTL_MS ? u : null;
+  } catch { return null; }
+}
+function writeStored(path: string, u: string) {
+  try { localStorage.setItem(STORE_KEY + path, JSON.stringify({ u, t: Date.now() })); } catch { /* quota */ }
 }
 
 export function useProfileImageUrl(url: string | null | undefined): string | null {
