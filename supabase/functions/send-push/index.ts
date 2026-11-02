@@ -2,6 +2,7 @@ import { pushOne } from "../_shared/webPush.ts";
 import { sendFcm } from "../_shared/fcmPush.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
+import { authorizePushRecipient } from "../_shared/pushAuthorization.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -22,6 +23,11 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (!(await authorizePushRecipient(req, admin, user_id, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""))) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const { data: subs, error } = await admin
       .from("push_subscriptions")
       .select("id,endpoint,p256dh,auth,provider,device_token")

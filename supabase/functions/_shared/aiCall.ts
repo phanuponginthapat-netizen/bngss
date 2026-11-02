@@ -264,7 +264,6 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
   // === Final fallback: Key Pool (openai → gemini → groq → openrouter) ===
   const poolOrder: PoolProvider[] = ["openai", "gemini", "groq", "openrouter"];
   for (const p of poolOrder) {
-    const started = Date.now();
     try {
       const r = await callWithPool(p, {
         messages: opts.messages,
@@ -272,17 +271,8 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
         max_tokens: opts.max_tokens,
         json: opts.json,
         vision: opts.vision,
-      });
-      await logUsage({
-        provider_id: null,
-        provider_name: `pool:${p}/${r.keyLabel}`,
-        model: r.model,
-        function_name: opts.functionName,
-        tokens_input: 0,
-        tokens_output: 0,
-        success: true,
-        latency_ms: Date.now() - started,
-        called_by: opts.userId,
+        functionName: opts.functionName,
+        userId: opts.userId,
       });
       return { content: r.content, provider: `pool:${p}`, model: r.model };
     } catch (e: any) {
@@ -308,7 +298,7 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
   } else {
     reason = "AI ใช้งานไม่ได้ชั่วคราว โปรดลองใหม่อีกครั้ง";
   }
-  const hint = errors.length === 0 ? reason : `${reason} [detail: ${joined.slice(0, 800)}]`;
+  const hint = reason;
   if (errors.length === 0) console.warn(NO_LOVABLE_AI_MSG);
   console.error("aiCall failed:", joined);
   throw new Error(hint);

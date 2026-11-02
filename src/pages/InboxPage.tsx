@@ -63,31 +63,35 @@ export default function InboxPage() {
   }, [searchParams]);
 
 
-  const { data: inboxRows = [], isLoading: l1 } = useQuery({
+  const { data: inboxRows = [], isLoading: l1, isError: e1, refetch: reloadInbox } = useQuery({
     queryKey: ["inbox_items_all", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { data } = await supabase
+      if (!userId) return [];
+      const { data, error } = await supabase
         .from("inbox_items")
         .select("*")
-        .eq("user_id", userId!)
+        .eq("user_id", userId)
         .eq("is_archived", false)
         .order("created_at", { ascending: false })
         .limit(200);
+      if (error) throw error;
       return data || [];
     },
   });
 
-  const { data: notifRows = [], isLoading: l2 } = useQuery({
+  const { data: notifRows = [], isLoading: l2, isError: e2, refetch: reloadNotifications } = useQuery({
     queryKey: ["notifications_all", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { data } = await supabase
+      if (!userId) return [];
+      const { data, error } = await supabase
         .from("notifications")
         .select("*")
-        .eq("user_id", userId!)
+        .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(200);
+      if (error) throw error;
       return data || [];
     },
   });
@@ -144,9 +148,11 @@ export default function InboxPage() {
   const markRead = useMutation({
     mutationFn: async (it: UnifiedItem) => {
       if (it.source === "inbox") {
-        await supabase.from("inbox_items").update({ is_read: true }).eq("id", it.id);
+        const { error } = await supabase.from("inbox_items").update({ is_read: true }).eq("id", it.id);
+        if (error) throw error;
       } else {
-        await supabase.from("notifications").update({ is_read: true }).eq("id", it.id);
+        const { error } = await supabase.from("notifications").update({ is_read: true }).eq("id", it.id);
+        if (error) throw error;
       }
     },
     onSuccess: () => {
@@ -157,9 +163,12 @@ export default function InboxPage() {
 
   const markAllRead = useMutation({
     mutationFn: async () => {
+      if (!userId) throw new Error("กรุณาเข้าสู่ระบบ");
       // ลำดับคงที่ (notifications ก่อน inbox_items) เพื่อกัน deadlock เวลาอัปเดตพร้อมกัน
-      await supabase.from("notifications").update({ is_read: true }).eq("user_id", userId!).eq("is_read", false);
-      await supabase.from("inbox_items").update({ is_read: true }).eq("user_id", userId!).eq("is_read", false);
+      const { error: notifError } = await supabase.from("notifications").update({ is_read: true }).eq("user_id", userId).eq("is_read", false);
+      if (notifError) throw notifError;
+      const { error: inboxError } = await supabase.from("inbox_items").update({ is_read: true }).eq("user_id", userId).eq("is_read", false);
+      if (inboxError) throw inboxError;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["inbox_items_all"] });
@@ -171,7 +180,8 @@ export default function InboxPage() {
   const remove = useMutation({
     mutationFn: async (it: UnifiedItem) => {
       const table = it.source === "inbox" ? "inbox_items" : "notifications";
-      await supabase.from(table).delete().eq("id", it.id);
+      const { error } = await supabase.from(table).delete().eq("id", it.id);
+      if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["inbox_items_all"] });
@@ -243,6 +253,10 @@ export default function InboxPage() {
 
 
         <TabsContent value="messages" className="mt-4">
+          {(e1 || e2) && <div role="alert" className="mb-3 flex flex-wrap items-center gap-2 text-sm text-destructive">
+            โหลดข้อความบางส่วนไม่สำเร็จ
+            <Button variant="outline" size="sm" onClick={() => { void reloadInbox(); void reloadNotifications(); }}>ลองใหม่</Button>
+          </div>}
           <Card>
             <CardHeader className="pb-3">
               <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
