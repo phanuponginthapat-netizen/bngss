@@ -23,9 +23,7 @@ import { useCmsValue } from "@/hooks/useCmsSettings";
 
 import { useFacegateRelease } from "@/lib/facegateRelease";
 import { parseScannerRelease } from "@/lib/scannerRelease";
-import { getBackendConfig } from "@/lib/runtimeConfig";
-
-const APK_DOWNLOAD_URL = `${getBackendConfig().url}/storage/v1/object/public/app-downloads/bngss-app-latest.apk`;
+import { fetchAppDownloadsJson, resolveStorageUrl } from "@/lib/storageUrl";
 
 export default function InstallPage() {
   const navigate = useNavigate();
