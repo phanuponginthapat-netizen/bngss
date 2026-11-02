@@ -58,7 +58,7 @@ export function useProfileImageUrl(url: string | null | undefined): string | nul
   const [resolved, setResolved] = useState<string | null>(() => {
     if (!url) return null;
     const path = extractProfileImagePath(url);
-    return (path && cache.get(path)) || (url.includes("token=") ? url : null);
+    return (path && (cache.get(path) || readStored(path))) || (url.includes("token=") ? url : null);
   });
   useEffect(() => {
     let alive = true;
