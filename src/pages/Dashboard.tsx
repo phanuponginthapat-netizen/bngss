@@ -46,10 +46,8 @@ const DirectorDashboard = lazy(() => import("@/components/dashboard/DirectorDash
 const SchoolRadarWidget = lazy(() => import("@/components/dashboard/SchoolRadarWidget"));
 const DynamicHeroBackground = lazy(() => import("@/components/dashboard/DynamicHeroBackground"));
 const SocialWallWidget = lazy(() => import("@/components/social/SocialWallWidget"));
-const SuperAppShortcuts = lazy(() => import("@/components/dashboard/SuperAppShortcuts"));
 const MascotHeroWidget = lazy(() => import("@/components/dashboard/widgets/MascotHeroWidget"));
 import SuperAppSearchBar from "@/components/dashboard/SuperAppSearchBar";
-import BrowserShortcutsCard from "@/components/dashboard/BrowserShortcutsCard";
 import DailyTaskBar from "@/components/dashboard/DailyTaskBar";
 
 const COLORS = [
@@ -307,9 +305,6 @@ const Dashboard = () => {
     <Suspense fallback={<PageSkeleton />}>
       <div className="px-3 pb-4 sm:px-6"><DailyTaskBar /></div>
       {children}
-      <div className="px-3 sm:px-6 pt-4 sm:pt-6 pb-[calc(env(safe-area-inset-bottom)+7rem)] sm:pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-10">
-        <BrowserShortcutsCard />
-      </div>
     </Suspense>
   );
 
@@ -594,11 +589,7 @@ const Dashboard = () => {
 
       );
     },
-    mini_apps: () => (
-      <Suspense fallback={<Skeleton className="h-44 rounded-2xl" />}>
-        <SuperAppShortcuts alerts={((stats as any)?.studentLeavesPending || 0) + ((stats as any)?.staffLeavesPending || 0)} />
-      </Suspense>
-    ),
+    mini_apps: () => null,
     departments: () => null,
     iot_summary: () => null,
     school_radar: () => (
@@ -630,7 +621,8 @@ const Dashboard = () => {
     ),
   };
 
-  const enabledWidgets = widgets.filter(w => w.enabled);
+  // Legacy shortcut widgets remain stored, but the single task bar owns navigation.
+  const enabledWidgets = widgets.filter(w => w.enabled && !["mini_apps", "departments", "iot_summary", "module_hub"].includes(w.key));
   // (draggingId/sensors/reorder/upsert ถูก declare ไว้ด้านบนแล้ว)
 
   const handleDragStart = (e: DragStartEvent) => setDraggingId(String(e.active.id));
@@ -714,7 +706,6 @@ const Dashboard = () => {
           <TrashDropZone visible={!!draggingId} lang={lang} />
         </DndContext>
       )}
-      <BrowserShortcutsCard />
     </div>
 
   );

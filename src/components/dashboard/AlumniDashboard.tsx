@@ -161,27 +161,6 @@ const AlumniDashboard = () => {
         </Card>
       </div>
 
-      <div>
-        <h2 className="text-sm font-semibold text-foreground mb-3">{L("ทางลัด", "Quick Actions")}</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {[
-            { name: L("โปรไฟล์", "Profile"), icon: UserIcon, gradient: "gradient-primary", link: "/dashboard/profile" },
-            { name: L("ขอใบรับรอง", "Certificates"), icon: FileText, gradient: "gradient-warning", link: "/dashboard/academic/certificate" },
-            { name: L("รายชื่อศิษย์เก่า", "Alumni Directory"), icon: Heart, gradient: "gradient-accent", link: "/dashboard/academic/alumni" },
-          ].map(item => (
-            <Card key={item.name} className="border border-border/50 shadow-elevated rounded-2xl hover:shadow-card-hover transition-all hover:-translate-y-0.5 cursor-pointer overflow-hidden group" onClick={() => navigate(item.link)}>
-              <div className={`h-1 ${item.gradient}`} />
-              <CardContent className="p-3 flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-xl ${item.gradient} flex items-center justify-center shrink-0`}>
-                  <item.icon className="w-4 h-4 text-primary-foreground" />
-                </div>
-                <p className="text-xs font-semibold text-foreground">{item.name}</p>
-                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground ml-auto group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
     </div>
   );
 };
