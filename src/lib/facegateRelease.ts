@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getBackendConfig } from "@/lib/runtimeConfig";
 import { useCmsValue } from "@/hooks/useCmsSettings";
+import { resolveStorageUrl } from "@/lib/storageUrl";
 
 /**
  * ไฟลต์ ดิ ตั้ งโปรแกรมตู้ สแกนหน ้ า (FaceGate)
@@ -24,9 +25,14 @@ export interface FacegateRelease {
   notes?: string;
 }
 
-const MANIFEST_URL = `${getBackendConfig().url}/storage/v1/object/public/app-downloads/facegate-version.json`;
+// bucket app-downloads เป็น private บน Lovable Cloud — อ่านด้วย anon key ใน header
+const AUTH_HEADERS = {
+  apikey: getBackendConfig().anonKey,
+  Authorization: `Bearer ${getBackendConfig().anonKey}`,
+};
+const MANIFEST_URL = `${getBackendConfig().url}/storage/v1/object/app-downloads/facegate-version.json`;
 
-const WINDOWS_MANIFEST_URL = `${getBackendConfig().url}/storage/v1/object/public/app-downloads/release-facegate-windows.json`;
+const WINDOWS_MANIFEST_URL = `${getBackendConfig().url}/storage/v1/object/app-downloads/release-facegate-windows.json`;
 
 /** ตัวติดตั้ง Windows (FaceGateSetup.exe) จาก GitHub Releases — ใช้ก่อน zip ถ้ามี */
 let cachedExe: { url: string; version?: string; releasedAt?: string } | null | undefined;
