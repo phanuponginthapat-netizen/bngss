@@ -37,7 +37,7 @@ import { useDashboardWidgets } from "@/hooks/useDashboardWidgets";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { COLOR_THEMES, SIZE_CLASSES, type WidgetColor } from "@/lib/dashboardWidgets";
-import WidgetCustomizer from "@/components/dashboard/WidgetCustomizer";
+const WidgetCustomizer = lazy(() => import("@/components/dashboard/WidgetCustomizer"));
 
 const TeacherDashboard = lazy(() => import("@/components/dashboard/TeacherDashboard"));
 const StudentDashboard = lazy(() => import("@/components/dashboard/StudentDashboard"));
@@ -97,7 +97,7 @@ const Dashboard = () => {
         students, personnel, classrooms, subjects, attendance, healthRecords,
         studentLeaves, staffLeaves, news, events, damageReports,
         budgetTx, assets, behaviorRecords, sdqRecords,
-        enrollments, homeroomRecords, homeVisits, documents,
+        enrollments, homeroomRecords, homeVisits, documents, lateThresholdSetting, faceLogRows,
       ] = await Promise.all([
         supabase.from("students").select("id, status, gender, prefix, classroom_id", { count: "exact" }).eq("status", "active"),
         supabase.from("personnel").select("id, department, status, position, user_id", { count: "exact" }),
@@ -118,16 +118,15 @@ const Dashboard = () => {
         supabase.from("homeroom_records").select("id", { count: "exact", head: true }),
         supabase.from("home_visits").select("id", { count: "exact", head: true }),
         supabase.from("documents").select("id, status", { count: "exact" }),
+        supabase.from("school_settings").select("setting_value")
+          .eq("setting_key", "face_scan_late_threshold").maybeSingle(),
+        fetchAllRows((f, t) => supabase.from("face_scan_logs")
+          .select("student_id, scan_time").eq("scan_date", todayBangkok()).order("student_id").range(f, t)),
       ]);
 
       // รวมการแสกนหน้าของวันนี้เข้ากับการเช็คชื่อ
-      const todayISO = todayBangkok();
-      const lateThresholdSetting = await supabase
-        .from("school_settings").select("setting_value")
-        .eq("setting_key", "face_scan_late_threshold").maybeSingle();
       const lateThreshold = (lateThresholdSetting.data?.setting_value as string) || "08:00";
-      const faceLogs = { data: await fetchAllRows((f, t) => supabase
-        .from("face_scan_logs").select("student_id, scan_time").eq("scan_date", todayISO).order("student_id").range(f, t)) };
+      const faceLogs = { data: faceLogRows };
 
       const statusByStudent = new Map<string, "present" | "late" | "absent">();
       attendance.data?.forEach(a => {

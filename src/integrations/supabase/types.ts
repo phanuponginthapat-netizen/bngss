@@ -9942,6 +9942,36 @@ export type Database = {
         }
         Relationships: []
       }
+      offline_failed_queue: {
+        Row: {
+          attempts: number | null
+          created_at: string | null
+          created_by: string | null
+          error: string | null
+          id: string
+          payload: Json
+          queue_name: string
+        }
+        Insert: {
+          attempts?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          payload: Json
+          queue_name: string
+        }
+        Update: {
+          attempts?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          payload?: Json
+          queue_name?: string
+        }
+        Relationships: []
+      }
       offsite_requests: {
         Row: {
           acting_teacher: string | null
