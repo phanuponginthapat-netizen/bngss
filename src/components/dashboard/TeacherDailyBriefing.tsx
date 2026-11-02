@@ -85,18 +85,19 @@ export const TeacherDailyBriefing = ({ userId, personnelId, personnelFullName, h
       // Recent student issues (homeroom only)
       let issues: any[] = [];
       if (homeroomClassroomIds?.length) {
-        const { data: studs } = await supabase
+        const { data: studs, error: studentError } = await supabase
           .from("students")
           .select("id, prefix, first_name, last_name, classroom_id")
           .in("classroom_id", homeroomClassroomIds)
           .eq("status", "active");
+        if (studentError) throw studentError;
         const studentIds = (studs || []).map((s) => s.id);
         const studMap = new Map((studs || []).map((s) => [s.id, s]));
 
         if (studentIds.length) {
           const sevenDaysAgo = bkkDateISO(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
 
-          const [{ data: behaviors }, { data: absences }] = await Promise.all([
+          const [{ data: behaviors, error: behaviorError }, { data: absences, error: absenceError }] = await Promise.all([
             supabase
               .from("behavior_records")
               .select("id, student_id, description, record_date, behavior_type")
@@ -114,6 +115,8 @@ export const TeacherDailyBriefing = ({ userId, personnelId, personnelFullName, h
               .order("attendance_date", { ascending: false })
               .limit(20),
           ]);
+          if (behaviorError) throw behaviorError;
+          if (absenceError) throw absenceError;
 
           (behaviors || []).forEach((b) => {
             const s: any = studMap.get(b.student_id);

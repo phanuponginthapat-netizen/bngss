@@ -3,7 +3,7 @@ import DailyTaskBar from "./DailyTaskBar";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { toCE } from "@/lib/utils";
 import { todayBangkok } from "@/lib/dateBE";
-import { bangkokWeekday, requireSuccessfulReads } from "@/lib/dataReliability";
+import { bangkokWeekday, requireSuccessfulReads, unrecordedAttendance } from "@/lib/dataReliability";
 const DynamicHeroBackground = lazy(() => import("./DynamicHeroBackground"));
 const MascotHeroWidget = lazy(() => import("./widgets/MascotHeroWidget"));
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -218,7 +218,7 @@ const TeacherDashboard = () => {
   });
 
   // Homeroom data
-  const { data: homeroomData, isLoading: homeroomLoading } = useQuery({
+  const { data: homeroomData, isLoading: homeroomLoading, error: homeroomError } = useQuery({
     queryKey: ["homeroom_dashboard", userId, homeroomClassroomIds, schoolDate],
     enabled: hasHomeroom && !!homeroomClassroomIds?.length,
     queryFn: async () => {
@@ -282,7 +282,7 @@ const TeacherDashboard = () => {
           { name: "มาเรียน", value: present, fill: "hsl(var(--success))" },
           { name: "ขาดเรียน", value: absent, fill: "hsl(var(--destructive))" },
           { name: "มาสาย", value: late, fill: "hsl(var(--warning))" },
-          { name: "ยังไม่บันทึก", value: Math.max(0, totalStu - present - late - absent), fill: "hsl(var(--muted-foreground))" },
+          { name: "ยังไม่บันทึก", value: unrecordedAttendance(totalStu, present, late, absent), fill: "hsl(var(--muted-foreground))" },
         ].filter(d => d.value > 0),
         pendingLeaves: leaves.data?.filter(l => l.status === "pending").length || 0,
         positiveB: behavior.data?.filter(b => b.behavior_type === "positive").length || 0,
@@ -360,7 +360,7 @@ const TeacherDashboard = () => {
   const isLoading = homeroomLoading || subjectLoading;
 
   // ── Enhanced KPIs: pending grading, remediation (0 ร มส), attendance trend 7d  ──
-  const { data: pendingGradingCount } = useQuery({
+  const { data: pendingGradingCount, error: gradingError, isLoading: gradingLoading } = useQuery({
     queryKey: ["teacher_pending_grading", userId],
     enabled: !!userId,
     queryFn: async () => {
@@ -377,40 +377,45 @@ const TeacherDashboard = () => {
     },
   });
 
-  const { data: remediationData } = useQuery({
+  const { data: remediationData, error: remediationError, isLoading: remediationLoading } = useQuery({
     queryKey: ["teacher_remediation", homeroomClassroomIds],
     enabled: hasHomeroom && !!homeroomClassroomIds?.length,
     queryFn: async () => {
       const ids = homeroomClassroomIds!;
       // get student ids in homeroom
-      const { data: studs } = await supabase.from("students").select("id").in("classroom_id", ids).eq("status", "active").limit(200);
+      const { data: studs, error: studentError } = await supabase.from("students").select("id").in("classroom_id", ids).eq("status", "active");
+      if (studentError) throw studentError;
       const sids = (studs || []).map(s => s.id);
       if (sids.length === 0) return { count: 0, list: [] as any[] };
-      const { data, count } = await (supabase as any)
+      const { data, count, error } = await (supabase as any)
         .from("grade_remediation")
         .select("id, original_grade, status", { count: "exact" })
         .in("student_id", sids)
         .neq("status", "ผ่าน")
         .limit(5);
+      if (error) throw error;
       return { count: count || 0, list: data || [] };
     },
   });
 
-  const { data: attendanceTrend } = useQuery({
-    queryKey: ["teacher_attendance_trend", homeroomClassroomIds],
+  const { data: attendanceTrend, error: trendError } = useQuery({
+    queryKey: ["teacher_attendance_trend", userId, homeroomClassroomIds, schoolDate],
     enabled: hasHomeroom && !!homeroomClassroomIds?.length,
     queryFn: async () => {
       const ids = homeroomClassroomIds!;
-      const { data: studs } = await supabase.from("students").select("id").in("classroom_id", ids).eq("status", "active").limit(200);
+      const { data: studs, error: studentError } = await supabase.from("students").select("id").in("classroom_id", ids).eq("status", "active");
+      if (studentError) throw studentError;
       const sids = (studs || []).map(s => s.id);
       if (sids.length === 0) return [] as { date: string; rate: number }[];
       const since = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
-      const { data: rows } = await supabase
+      const { data: rows, error } = await supabase
         .from("attendance")
         .select("attendance_date, status")
         .in("student_id", sids)
         .gte("attendance_date", since)
         .limit(500);
+      if (error) throw error;
+      if (rows?.length === 500) throw new Error("ข้อมูลการมาเรียนเกินขอบเขตที่โหลด ไม่สามารถยืนยันสรุปได้");
       const byDate: Record<string, { p: number; t: number }> = {};
       (rows || []).forEach((r: any) => {
         const k = r.attendance_date;
@@ -423,7 +428,7 @@ const TeacherDashboard = () => {
       for (let i = 6; i >= 0; i--) {
         const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
         const v = byDate[d];
-        out.push({ date: d.slice(5), rate: v && v.t ? Math.round((v.p / v.t) * 100) : 0 });
+        if (v?.t) out.push({ date: d.slice(5), rate: Math.round((v.p / v.t) * 100) });
       }
       return out;
     },
@@ -552,9 +557,9 @@ const TeacherDashboard = () => {
           <Activity className="w-4 h-4 text-primary" /> ภาพรวมงานสอนวันนี้
           <span className="text-[11px] font-normal text-muted-foreground">Today overview · อัปเดตเรียลไทม์</span>
         </h2>
-        {subjectError || termError ? (
+        {subjectError || termError || homeroomError || gradingError || remediationError || trendError ? (
           <p role="alert" className="text-sm text-destructive">โหลดข้อมูลวิชาและภาคเรียนไม่สำเร็จ กรุณาลองใหม่</p>
-        ) : isLoading || !termReady ? (
+        ) : isLoading || !termReady || gradingLoading || remediationLoading ? (
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             {Array.from({ length: 5 }).map((_, i) => (
               <Card key={i} className="rounded-2xl border border-border/40">

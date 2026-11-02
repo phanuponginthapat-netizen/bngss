@@ -14,3 +14,7 @@ export function requireSuccessfulReads(results: readonly { error?: unknown }[]):
 export function bangkokWeekday(dateISO: string): number {
   return new Date(`${dateISO}T00:00:00Z`).getUTCDay();
 }
+
+export function unrecordedAttendance(total: number, present: number, late: number, absent: number): number {
+  return Math.max(0, total - present - late - absent);
+}

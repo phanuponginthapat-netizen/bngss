@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import { createFlowFetch } from "../requestFlow";
-import { bangkokWeekday, reliableQueryDefaults, requireSuccessfulReads } from "../dataReliability";
+import { bangkokWeekday, reliableQueryDefaults, requireSuccessfulReads, unrecordedAttendance } from "../dataReliability";
 import { readAllRows } from "../../../supabase/functions/bigdata-warehouse-cron/readSources";
 
 describe("real data only", () => {
+  it("keeps ten unrecorded students separate from two recorded absences", () => {
+    expect(unrecordedAttendance(20, 7, 1, 2)).toBe(10);
+  });
   it("does not reuse a response across caller identities", async () => {
     const base = vi.fn(async (_input: unknown, init?: RequestInit) => {
       await Promise.resolve();
