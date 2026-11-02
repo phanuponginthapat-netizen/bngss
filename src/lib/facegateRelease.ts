@@ -39,7 +39,7 @@ let cachedExe: { url: string; version?: string; releasedAt?: string } | null | u
 async function fetchWindowsInstaller() {
   if (cachedExe !== undefined) return cachedExe;
   try {
-    const res = await fetch(`${WINDOWS_MANIFEST_URL}?t=${Date.now()}`, { cache: "no-store" });
+    const res = await fetch(`${WINDOWS_MANIFEST_URL}?t=${Date.now()}`, { cache: "no-store", headers: AUTH_HEADERS });
     const m = res.ok ? await res.json() : null;
     const file = Array.isArray(m?.files) ? m.files.find((f: any) => /\.exe$/i.test(f?.name || "")) : null;
     cachedExe = file?.url ? { url: file.url, version: String(m.version || "").replace(/^v/, ""), releasedAt: m.releasedAt } : null;
@@ -57,10 +57,14 @@ export async function fetchFacegateRelease(): Promise<FacegateRelease | null> {
   if (pending) return pending;
   pending = (async () => {
     try {
-      const res = await fetch(`${MANIFEST_URL}?t=${Date.now()}`, { cache: "no-store" });
+      const res = await fetch(`${MANIFEST_URL}?t=${Date.now()}`, { cache: "no-store", headers: AUTH_HEADERS });
       if (!res.ok) return null;
       const m = (await res.json()) as FacegateRelease;
-      return m && typeof m.url === "string" && m.url.startsWith("http") ? m : null;
+      if (m && typeof m.url === "string" && m.url.startsWith("http")) {
+        // ลิงก์ใน manifest อาจเป็น public path ของ bucket private → แปลงเป็น signed URL
+        return { ...m, url: await resolveStorageUrl("app-downloads", m.url) };
+      }
+      return null;
     } catch {
       return null;
     }
