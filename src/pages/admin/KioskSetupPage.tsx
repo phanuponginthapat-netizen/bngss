@@ -39,6 +39,7 @@ import { Time24Input } from "@/components/ui/time24-input";
 import KioskDeviceManager from "@/components/kiosk/KioskDeviceManager";
 import FailedScanQueue from "@/components/kiosk/FailedScanQueue";
 import { useFacegateRelease } from "@/lib/facegateRelease";
+import { resolveStorageUrl } from "@/lib/storageUrl";
 
 /** ลิงก์ดาวน์โหลด APK (เช่นลิงก์ Google Drive) — เก็บใน cms_settings ให้หน้า /install และหน้านี้ใช้ร่วมกัน */
 function ApkLinkSettings() {
@@ -73,6 +74,13 @@ function ApkLinkSettings() {
 
 export default function KioskSetupPage() {
   const scannerApkUrl = useCmsValue("apk_scanner_url");
+  // fallback: ไฟล์ล่าสุดใน bucket app-downloads (private → ใช้ signed URL)
+  const [scannerFallbackUrl, setScannerFallbackUrl] = useState<string>("");
+  useEffect(() => {
+    let alive = true;
+    resolveStorageUrl("app-downloads", "bngss-scanner-latest.apk").then((u) => { if (alive) setScannerFallbackUrl(u); });
+    return () => { alive = false; };
+  }, []);
   const facegateRelease = useFacegateRelease();
   const schoolName = useCmsValue("school_name") || "โรงเรียน";
   const cmsOrigin = useCmsValue("public_origin");
