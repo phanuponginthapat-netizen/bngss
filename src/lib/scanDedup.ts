@@ -34,7 +34,7 @@ export async function checkTodayScan(studentId: string, force = false): Promise<
       .select("scan_type, entry_method, scan_time")
       .eq("student_id", studentId)
       .eq("scan_date", today);
-    if (error) throw new Error("ตรวจสอบรายการสแกนวันนี้ไม่สำเร็จ กรุณาลองใหม่", { cause: error });
+    if (error) throw new Error("ตรวจสอบรายการสแกนวันนี้ไม่สำเร็จ กรุณาลองใหม่");
     const state: TodayScanState = { entry: false, exit: false };
     (data || []).forEach((r: any) => {
       if (r.scan_type === "exit") {
