@@ -5,6 +5,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useModuleToggles } from "@/hooks/useModuleToggles";
 import { priorityTasks } from "@/lib/navigation/taskEntry";
 import { Calendar, BookOpenCheck, ClipboardList, Heart, FileText, Inbox } from "lucide-react";
+import { getModuleKeyForPath } from "@/lib/moduleRegistry";
 
 export default function DailyTaskBar() {
   const { role } = useUserRole();
@@ -17,7 +18,7 @@ export default function DailyTaskBar() {
     { title: "ยื่นใบลา", url: "/dashboard/student/leave", icon: FileText },
     { title: "สุขภาพ", url: "/dashboard/student/health-trend", icon: Heart },
     { title: "กล่องข้อความ", url: "/dashboard/inbox", icon: Inbox },
-  ] : priorityTasks(role, lang, isModuleEnabled);
+  ].filter(item => isModuleEnabled(getModuleKeyForPath(item.url))) : priorityTasks(role, lang, isModuleEnabled);
   if (!items.length) return null;
   return <section className="border-b border-border pb-4">
     <h2 className="mb-3 text-sm font-semibold">{lang === "th" ? role === "parent" ? "ลูกของฉัน" : "งานของฉัน" : "My work"}</h2>
