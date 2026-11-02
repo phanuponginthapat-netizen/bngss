@@ -50,6 +50,7 @@ const SuperAppShortcuts = lazy(() => import("@/components/dashboard/SuperAppShor
 const MascotHeroWidget = lazy(() => import("@/components/dashboard/widgets/MascotHeroWidget"));
 import SuperAppSearchBar from "@/components/dashboard/SuperAppSearchBar";
 import BrowserShortcutsCard from "@/components/dashboard/BrowserShortcutsCard";
+import DailyTaskBar from "@/components/dashboard/DailyTaskBar";
 
 const COLORS = [
   "hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--warning))",
@@ -304,6 +305,7 @@ const Dashboard = () => {
   // role อื่นๆ (director/teacher/student/alumni/parent) กลับไปใช้ dashboard ตาม role เหมือนเดิม
   const RoleDashboardWithShortcuts = ({ children }: { children: React.ReactNode }) => (
     <Suspense fallback={<PageSkeleton />}>
+      <div className="px-3 pb-4 sm:px-6"><DailyTaskBar /></div>
       {children}
       <div className="px-3 sm:px-6 pt-4 sm:pt-6 pb-[calc(env(safe-area-inset-bottom)+7rem)] sm:pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-10">
         <BrowserShortcutsCard />
@@ -651,10 +653,11 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] sm:pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-10 [scrollbar-gutter:stable]">
+      <DailyTaskBar />
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground truncate">
 
-          {L(`${enabledWidgets.length} วิดเจ็ตที่แสดงอยู่ · กดค้างเพื่อจัดเรียง`, `${enabledWidgets.length} widgets · long-press to rearrange`)}
+          {L("ภาพรวมโรงเรียน", "School overview")}
         </p>
         <Suspense fallback={null}><WidgetCustomizer /></Suspense>
       </div>

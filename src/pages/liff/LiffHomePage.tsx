@@ -7,6 +7,7 @@ import {
   Heart, Sparkles, Newspaper, MessageCircle, LogIn, ExternalLink,
 } from "lucide-react";
 import LiffShell from "./LiffShell";
+import { taskLoginUrl } from "@/lib/navigation/taskEntry";
 
 type Ctx = {
   profile: { id: string; first_name: string; last_name: string; role?: string } | null;
@@ -42,7 +43,7 @@ function Hub({ lineUserId }: { lineUserId: string }) {
 
   const openApp = (path: string) => {
     // เปิดในเบราว์เซอร์ภายนอก LINE เพื่อใช้งานเต็มระบบ (มีเซสชัน Supabase, PWA, etc.)
-    const url = `${window.location.origin}${path}`;
+    const url = `${window.location.origin}${taskLoginUrl(path)}`;
     if ((window as any).liff?.openWindow) {
       (window as any).liff.openWindow({ url, external: true });
     } else {
@@ -61,26 +62,26 @@ function Hub({ lineUserId }: { lineUserId: string }) {
 
   // เมนู "ในไลน์" (LIFF) — ใช้งานเร็ว ไม่ต้องล็อกอินซ้ำ
   const liffTiles: Array<{ icon: any; label: string; path: string; show: boolean; color: string }> = [
-    { icon: FileText, label: "ยื่นใบลา", path: "/liff/leave", show: !!ctx.student, color: "text-sky-500" },
-    { icon: GraduationCap, label: "คะแนน/เกรด", path: "/liff/grades", show: !!ctx.student, color: "text-violet-500" },
-    { icon: CheckSquare, label: "เช็คชื่อ (ครู)", path: "/liff/attendance", show: ctx.isTeacher, color: "text-emerald-500" },
+    { icon: FileText, label: "ยื่นใบลา", path: "/liff/leave", show: !!ctx.student, color: "text-primary" },
+    { icon: GraduationCap, label: "คะแนน/เกรด", path: "/liff/grades", show: !!ctx.student, color: "text-primary" },
+    { icon: CheckSquare, label: "เช็คชื่อ (ครู)", path: "/liff/attendance", show: ctx.isTeacher, color: "text-primary" },
   ];
 
   // เมนู "เปิดระบบเต็ม" — เปิดในเบราว์เซอร์ (ต้องล็อกอินครั้งแรก)
   const appTiles: Array<{ icon: any; label: string; path: string; show: boolean; color: string }> = [
-    { icon: CalendarDays, label: "ตารางสอน/ตารางเรียน", path: "/academic/schedule", show: true, color: "text-blue-500" },
-    { icon: BookOpen, label: "การบ้าน", path: "/student/homework", show: true, color: "text-orange-500" },
-    { icon: Heart, label: "พฤติกรรม", path: "/student/behavior", show: true, color: "text-rose-500" },
-    { icon: Sparkles, label: "สุขภาพ", path: "/hub/student-health", show: true, color: "text-pink-500" },
-    { icon: Newspaper, label: "ข่าวสาร/ประกาศ", path: "/feed", show: true, color: "text-amber-500" },
-    { icon: MessageCircle, label: "กล่องข้อความ", path: "/inbox", show: linked, color: "text-cyan-500" },
-    { icon: FileText, label: "เอกสาร/แบบฟอร์ม", path: "/hub/documents", show: linked, color: "text-indigo-500" },
-    { icon: GraduationCap, label: "หน้าหลักระบบ", path: "/", show: true, color: "text-primary" },
+    { icon: CalendarDays, label: "ตารางสอน/ตารางเรียน", path: "/dashboard/academic/schedule", show: true, color: "text-primary" },
+    { icon: BookOpen, label: "การบ้าน", path: "/dashboard/homework", show: true, color: "text-primary" },
+    { icon: Heart, label: "พฤติกรรม", path: "/dashboard/student/behavior", show: linked, color: "text-primary" },
+    { icon: Sparkles, label: "สุขภาพ", path: "/dashboard/student/health-trend", show: !!ctx.student, color: "text-primary" },
+    { icon: Newspaper, label: "ข่าวสาร/ประกาศ", path: "/dashboard/feed", show: true, color: "text-primary" },
+    { icon: MessageCircle, label: "กล่องข้อความ", path: "/dashboard/inbox", show: linked, color: "text-primary" },
+    { icon: FileText, label: "เอกสาร/แบบฟอร์ม", path: "/dashboard/hub/documents", show: ctx.isTeacher, color: "text-primary" },
+    { icon: GraduationCap, label: "หน้าหลักระบบ", path: "/dashboard", show: true, color: "text-primary" },
   ];
 
   return (
     <div className="max-w-md mx-auto space-y-4 pb-8">
-      <Card className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+      <header className="border-b border-border pb-4">
         {linked ? (
           <>
             <p className="text-xs text-muted-foreground">ยินดีต้อนรับ</p>
@@ -93,41 +94,41 @@ function Hub({ lineUserId }: { lineUserId: string }) {
           <>
             <p className="font-semibold mb-1">ยังไม่ได้ผูกบัญชี</p>
             <p className="text-xs text-muted-foreground mb-3">พิมพ์ "ผูกบัญชี" ในแชท LINE OA หรือกดปุ่มด้านล่างเพื่อเข้าระบบผ่านเว็บ</p>
-            <Button size="sm" onClick={() => openApp("/login")} className="w-full">
+            <Button size="sm" onClick={() => openApp("/dashboard")} className="w-full">
               <LogIn className="w-4 h-4 mr-2" /> เข้าสู่ระบบ
             </Button>
           </>
         )}
-      </Card>
+      </header>
 
-      <div>
-        <p className="text-xs font-semibold text-muted-foreground mb-2 px-1">⚡ ใช้งานเร็วในไลน์</p>
+      {liffTiles.some(t => t.show) && <div>
+        <p className="text-xs font-semibold text-muted-foreground mb-2 px-1">ทำรายการใน LINE</p>
         <div className="grid grid-cols-3 gap-2">
           {liffTiles.filter(t => t.show).map((t) => (
-            <button key={t.path} onClick={() => openLiff(t.path)}
-              className="rounded-xl border bg-card p-3 flex flex-col items-center gap-1.5 hover:bg-muted/50 active:scale-95 transition">
+            <Button variant="outline" key={t.path} onClick={() => openLiff(t.path)}
+              className="h-auto min-h-24 rounded-lg bg-card p-3 flex flex-col items-center gap-1.5 whitespace-normal">
               <t.icon className={`w-6 h-6 ${t.color}`} />
               <span className="text-[11px] text-center leading-tight">{t.label}</span>
-            </button>
+            </Button>
           ))}
         </div>
-      </div>
+      </div>}
 
       <div>
         <p className="text-xs font-semibold text-muted-foreground mb-2 px-1 flex items-center gap-1">
-          <ExternalLink className="w-3 h-3" /> เปิดระบบเต็ม (ทุกฟีเจอร์)
+          <ExternalLink className="w-3 h-3" /> งานในระบบโรงเรียน
         </p>
         <div className="grid grid-cols-3 gap-2">
           {appTiles.filter(t => t.show).map((t) => (
-            <button key={t.path} onClick={() => openApp(t.path)}
-              className="rounded-xl border bg-card p-3 flex flex-col items-center gap-1.5 hover:bg-muted/50 active:scale-95 transition">
+            <Button variant="outline" key={t.path} onClick={() => openApp(t.path)}
+              className="h-auto min-h-24 rounded-lg bg-card p-3 flex flex-col items-center gap-1.5 whitespace-normal">
               <t.icon className={`w-6 h-6 ${t.color}`} />
               <span className="text-[11px] text-center leading-tight">{t.label}</span>
-            </button>
+            </Button>
           ))}
         </div>
         <p className="text-[10px] text-muted-foreground mt-2 px-1">
-          * เมนูเปิดระบบเต็มจะเปิดในเบราว์เซอร์ ครั้งแรกต้องล็อกอินด้วยรหัสของโรงเรียน (จำได้ครั้งเดียว)
+          
         </p>
       </div>
     </div>
@@ -135,5 +136,5 @@ function Hub({ lineUserId }: { lineUserId: string }) {
 }
 
 export default function LiffHomePage() {
-  return <LiffShell title="🏫 ระบบโรงเรียน">{(uid) => <Hub lineUserId={uid} />}</LiffShell>;
+  return <LiffShell title="ระบบโรงเรียน">{(uid) => <Hub lineUserId={uid} />}</LiffShell>;
 }

@@ -32,9 +32,8 @@ describe("sidebar presentation", () => {
 
   it("opens matching sections during search and clears the search", () => {
     openSidebar();
-    fireEvent.click(screen.getByRole("button", { name: /ฝ่ายงานและบริการ/ }));
     fireEvent.change(screen.getByRole("textbox", { name: "ค้นหาเมนู" }), { target: { value: "วัดผล" } });
-    expect(screen.getByRole("button", { name: /ฝ่ายงานและบริการ/ })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /ผลการค้นหา/ })).toHaveAttribute("aria-expanded", "true");
     fireEvent.click(screen.getByRole("button", { name: "ล้างคำค้น" }));
     expect(screen.getByRole("textbox", { name: "ค้นหาเมนู" })).toHaveValue("");
   });
