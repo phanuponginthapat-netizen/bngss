@@ -32,31 +32,8 @@ export async function getPrivateColdStorageUrl(bucket: string, path: string): Pr
 export async function getFileUrlWithColdFallback(bucket: string, path: string): Promise<string> {
   if (!path) return "";
   const cleanPath = path.replace(/^\/+/, "");
-
-  const { data: pubData } = supabase.storage.from(bucket).getPublicUrl(cleanPath);
-  const publicUrl = pubData?.publicUrl;
-  if (!publicUrl) return getColdStorageFetchUrl(bucket, cleanPath);
-
-  try {
-    const res = await fetch(publicUrl, { method: "HEAD" });
-    if (res.ok) return publicUrl;
-  } catch {
-    // ignore network error on HEAD check
-  }
-
-  try {
-    const { data: reg } = await (supabase as any)
-      .from("cold_storage_registry")
-      .select("id")
-      .eq("bucket_name", bucket)
-      .eq("file_path", cleanPath)
-      .maybeSingle();
-    if (reg) return getColdStorageFetchUrl(bucket, cleanPath);
-  } catch (e) {
-    console.warn("Cold storage registry check error:", e);
-  }
-
-  return publicUrl;
+  const { resolveStorageUrl } = await import("./storageUrl");
+  return resolveStorageUrl(bucket, cleanPath);
 }
 
 /**

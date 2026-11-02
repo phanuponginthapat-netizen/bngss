@@ -4,18 +4,14 @@ import { getColdStorageFetchUrl, getPrivateColdStorageUrl } from "./coldStorage"
 /** บัคเก็ตที่เปิดสาธารณะ — ใช้ public URL ได้ทันที (ไม่ต้อง sign) */
 const PUBLIC_BUCKETS = new Set([
   "app-downloads",
-  "ar-media",
   "certificate-assets",
   "cms-images",
   "cms-logos",
-  "exam-scans",
-  "game-covers",
   "garbage-images",
   "line-richmenu",
   "padlet-media",
   "pdf-templates",
   "print-templates",
-  "profile-images",
 ]);
 
 const signedCache = new Map<string, { url: string; exp: number }>();
