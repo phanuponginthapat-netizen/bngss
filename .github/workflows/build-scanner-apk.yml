@@ -94,6 +94,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish scanner APK to storage
+        continue-on-error: true
         env:
           CI_UPLOAD_TOKEN: ${{ secrets.CI_UPLOAD_TOKEN }}
           SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://dlkyxvhnnffblerwedjz.supabase.co' }}
@@ -113,6 +114,7 @@ jobs:
         run: SCANNER_IDENTITY_FILE=/tmp/scanner-identity.json bash scripts/ci/publish-release.sh scanner "BNG Scanner (แท็บเล็ต)" "build-${APP_VERSION_CODE}" "/tmp/rel/bngss-scanner-build-${APP_VERSION_CODE}.apk"
 
       - name: Retain current scanner APK only
+        continue-on-error: true
         env:
           CI_UPLOAD_TOKEN: ${{ secrets.CI_UPLOAD_TOKEN }}
           SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://dlkyxvhnnffblerwedjz.supabase.co' }}
