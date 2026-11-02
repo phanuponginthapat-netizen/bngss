@@ -34,7 +34,7 @@ function requestKey(input: RequestInfo | URL, init?: RequestInit): string | null
   // A caller's cancellation must not cancel another caller's request.
   if (method !== "GET" || init?.signal || input instanceof Request) return null;
   const url =
-    typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    typeof input === "string" ? input : input.toString();
   const headers = [...new Headers(init?.headers).entries()].sort(([a], [b]) => a.localeCompare(b));
   // All response-affecting headers (identity, range, accept, prefer) are part of identity.
   // This ephemeral key is never logged or persisted.

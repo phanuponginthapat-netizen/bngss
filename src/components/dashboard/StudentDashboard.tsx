@@ -38,9 +38,9 @@ const StudentDashboard = () => {
   const { lang } = useLanguage();
   const { userId } = useUserRole();
   const navigate = useNavigate();
-  const currentBE = toBE(new Date().getFullYear());
   // ตารางสอนของนั กเรียนตองจัดใหอยู่ในภาคเรียนปัจจุบันเทานั้ น
-  const { currentAcademicYear, currentSemester } = useAcademicYear();
+  const { currentAcademicYear, currentSemester, today: schoolDate, isReady: termReady } = useAcademicYear();
+  const currentBE = currentAcademicYear;
   const L = (th: string, en: string) => (lang === "th" ? th : en);
   const weather = useWeatherData();
 
@@ -52,14 +52,15 @@ const StudentDashboard = () => {
   })();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["student_dashboard", userId, currentAcademicYear, currentSemester],
-    enabled: !!userId,
+    queryKey: ["student_dashboard", userId, currentAcademicYear, currentSemester, schoolDate],
+    enabled: !!userId && termReady,
     queryFn: async () => {
-      const { data: student } = await supabase
+      const { data: student, error: studentError } = await supabase
         .from("students")
         .select("id, prefix, first_name, last_name, student_code, classroom_id, photo_url")
         .eq("auth_user_id", userId!)
         .maybeSingle();
+      if (studentError) throw studentError;
 
       if (!student) {
         const [news, events] = await Promise.all([
@@ -73,7 +74,7 @@ const StudentDashboard = () => {
       }
 
       const today = new Date();
-      const todayDow = today.getDay();
+      const todayDow = new Date(`${schoolDate}T00:00:00Z`).getUTCDay();
       const todayStr = bkkDateISO(today);
 
       const [classroom, attendance, behavior, leaves, homework, schedule, news, events] = await Promise.all([

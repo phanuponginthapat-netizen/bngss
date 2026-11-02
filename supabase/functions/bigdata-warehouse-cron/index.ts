@@ -3,6 +3,7 @@
 // Runs nightly via pg_cron or manual admin trigger. Uses upsert for idempotency.
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import { readAllRows } from "./readSources.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -48,19 +49,13 @@ Deno.serve(async (req) => {
     // ETL window: last 2 days to catch late inserts; limit to keep cron fast
     const since = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
 
-    // Fetch sources in parallel — use .limit as requested
-    const [faceRes, gradesRes, pettyRes, budgetRes] = await Promise.all([
-      admin.from("face_scan_logs").select("id, student_id, scan_date, scan_time, created_at").gte("scan_date", since).limit(5000),
-      admin.from("student_scores").select("id, student_id, subject_id, total_score, grade, academic_year, semester, updated_at").gte("updated_at", since + "T00:00:00").limit(5000),
-      admin.from("petty_cash").select("id, amount, type, date, description, created_at").gte("date", since).limit(5000),
-      admin.from("budget_transactions").select("id, amount, transaction_type, category, transaction_date, created_at").gte("transaction_date", since).limit(5000),
+    // Deterministic paging; a failed source aborts before any fact writes.
+    const [faceRows, gradeRows, pettyRows, budgetRows] = await Promise.all([
+      readAllRows<any>((from, to) => admin.from("face_scan_logs").select("id, student_id, scan_date, scan_time, created_at").gte("scan_date", since).order("id").range(from, to)),
+      readAllRows<any>((from, to) => admin.from("student_scores").select("id, student_id, subject_id, total_score, grade, academic_year, semester, updated_at").gte("updated_at", since + "T00:00:00").order("id").range(from, to)),
+      readAllRows<any>((from, to) => admin.from("petty_cash").select("id, amount, type, date, description, created_at").gte("date", since).order("id").range(from, to)),
+      readAllRows<any>((from, to) => admin.from("budget_transactions").select("id, amount, transaction_type, category, transaction_date, created_at").gte("transaction_date", since).order("id").range(from, to)),
     ]);
-
-    // Prepare fact rows
-    const faceRows: any[] = (faceRes as any).data ?? [];
-    const gradeRows: any[] = (gradesRes as any).data ?? [];
-    const pettyRows: any[] = (pettyRes as any).data ?? [];
-    const budgetRows: any[] = (budgetRes as any).data ?? [];
 
     // face_scan_logs -> fact_attendance
     const factAttendance = faceRows.map((r: any) => ({
@@ -145,8 +140,9 @@ Deno.serve(async (req) => {
       fact_finance: results[2].status === "fulfilled" ? results[2].value : { error: String((results[2] as any).reason) },
     };
 
+    const ok = Object.values(etl).every(result => !result.error);
     return json({
-      ok: true,
+      ok,
       generated_at,
       window: { since, today },
       counts,
@@ -156,7 +152,7 @@ Deno.serve(async (req) => {
         fact_grades: (etl.fact_grades as any)?.inserted ?? 0,
         fact_finance: (etl.fact_finance as any)?.inserted ?? 0,
       },
-    });
+    }, ok ? 200 : 500);
   } catch (e: any) {
     console.error("bigdata-warehouse-cron error:", e);
     return json({ error: e?.message ?? String(e) }, 500);

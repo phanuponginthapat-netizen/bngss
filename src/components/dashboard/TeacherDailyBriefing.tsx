@@ -284,6 +284,7 @@ export const TeacherDailyBriefing = ({ userId, personnelId, personnelFullName, h
             )}
           </Section>
         </div>
+        )}
       </CardContent>
     </Card>
   );
