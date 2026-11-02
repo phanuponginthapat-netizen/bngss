@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { getColdStorageFetchUrl } from "./coldStorage";
+import { getColdStorageFetchUrl, getPrivateColdStorageUrl } from "./coldStorage";
 
 /** บัคเก็ตที่เปิดสาธารณะ — ใช้ public URL ได้ทันที (ไม่ต้อง sign) */
 const PUBLIC_BUCKETS = new Set([
@@ -39,7 +39,7 @@ export async function createStorageSignedUrl(
     return data.signedUrl;
   }
   // ไม่พบไฟล์ / ถูก offload → ลองสตรีมจาก cold storage
-  return getColdStorageFetchUrl(bucket, path);
+  return getPrivateColdStorageUrl(bucket, path);
 }
 
 /**
@@ -55,14 +55,14 @@ export async function resolveStorageUrl(bucket: string, pathOrUrl: string): Prom
   const match = pathOrUrl.match(new RegExp(`/${bucket}/(.+?)(\\?|$)`));
   if (/^https?:\/\//i.test(pathOrUrl) && !match) return pathOrUrl;
 
-  // signed URL ที่ยังมี token อยู่แล้ว → ใช้ได้เลย
-  if (pathOrUrl.includes("/object/sign/") && pathOrUrl.includes("token=")) return pathOrUrl;
-
   const path = decodeURIComponent(match ? match[1] : pathOrUrl).replace(/^\/+/, "");
+
+  if (await isOffloaded(bucket, path)) {
+    return PUBLIC_BUCKETS.has(bucket) ? getColdStorageFetchUrl(bucket, path) : getPrivateColdStorageUrl(bucket, path);
+  }
 
   if (PUBLIC_BUCKETS.has(bucket)) {
     // ถ้าไฟล์ถูกย้ายไปเก็บที่ Google Drive แล้ว ให้สตรีมจาก cold storage แทน
-    if (await isOffloaded(bucket, path)) return getColdStorageFetchUrl(bucket, path);
     const { data } = supabase.storage.from(bucket).getPublicUrl(path);
     return data?.publicUrl || pathOrUrl;
   }
@@ -77,15 +77,15 @@ async function isOffloaded(bucket: string, path: string): Promise<boolean> {
   const hit = offloadedCache.get(bucket);
   if (hit && hit.exp > Date.now()) return hit.paths.has(path);
   try {
-    const { data } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from("cold_storage_registry")
       .select("file_path")
       .eq("bucket_name", bucket);
+    if (error) throw error;
     const paths = new Set<string>((data ?? []).map((r: any) => r.file_path));
     offloadedCache.set(bucket, { paths, exp: Date.now() + 5 * 60_000 });
     return paths.has(path);
   } catch {
-    offloadedCache.set(bucket, { paths: new Set(), exp: Date.now() + 60_000 });
     return false;
   }
 }

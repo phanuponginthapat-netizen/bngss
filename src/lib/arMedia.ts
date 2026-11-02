@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeStorageKey } from "@/lib/uploadFallback";
-import { getColdStorageFetchUrl } from "@/lib/coldStorage";
+import { getPrivateColdStorageUrl } from "@/lib/coldStorage";
 import { useEffect, useState } from "react";
 
 export const AR_BUCKET = "ar-media";
@@ -25,7 +25,7 @@ export const resolveArUrl = async (value?: string | null): Promise<string> => {
   const path = storagePathOf(value);
   const { data } = await supabase.storage.from(AR_BUCKET).createSignedUrl(path, SIGN_SECONDS);
   // ไฟล์ที่ถูกย้ายไปเก็บที่ Google Drive แล้ว → สตรีมผ่าน cold storage
-  const url = data?.signedUrl || getColdStorageFetchUrl(AR_BUCKET, path);
+  const url = data?.signedUrl || await getPrivateColdStorageUrl(AR_BUCKET, path);
   if (url) cache.set(value, url);
   return url;
 };
