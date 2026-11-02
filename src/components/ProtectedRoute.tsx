@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import SystemLoader from "@/components/SystemLoader";
+import { taskLoginUrl } from "@/lib/navigation/taskEntry";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -53,7 +54,7 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   }
 
   if (!session || !userId) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={taskLoginUrl(location.pathname + location.search)} replace />;
   }
 
   // Admin-level roles bypass account linking requirement

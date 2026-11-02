@@ -20,7 +20,7 @@ export function AppSidebar() {
   const { isModuleEnabled } = useModuleToggles();
   const { pathname } = useLocation();
   const [search, setSearch] = useState("");
-  const [closedSections, setClosedSections] = useState<string[]>([]);
+  const [closedSections, setClosedSections] = useState<string[]>(["departments"]);
   const L = (th: string, en: string) => lang === "th" ? th : en;
   // แสดงชื่อบรืการสั้น ๆ บรรทัดเดียว (เช่น "BNG Smart School") โดยไม่แสดงชื่โรงเรียนยาวซ้ำ
   const brandTitle = (() => {
@@ -113,6 +113,9 @@ export function AppSidebar() {
   const q = search.trim().toLowerCase();
   const shownAreas = areas.filter(a => `${a.label} ${a.groups.flatMap(g => g.items.map(i => i.title)).join(" ")}`.toLowerCase().includes(q));
   const dailyItems = dailyNavigationItems(areas).filter(i => i.title.toLowerCase().includes(q));
+  const searchResults = areas.flatMap(a => a.groups.flatMap(g => g.items))
+    .filter((item, index, all) => all.findIndex(i => i.url === item.url) === index)
+    .filter(item => `${item.title} ${item.desc ?? ""}`.toLowerCase().includes(q));
   const onNavigate = () => { if (isMobile) setOpenMobile(false); };
   const menuItem = (item: { to: string; icon: NavigationItem["icon"]; label: string }, active = pathname === item.to) => (
     <SidebarMenuItem key={item.to}><SidebarMenuButton asChild isActive={active} tooltip={item.label} className="group/nav relative h-auto min-h-7 gap-2 rounded-md px-1.5 py-[3px] text-sidebar-foreground/80 transition-colors hover:text-sidebar-foreground data-[active=true]:bg-sidebar-primary/15 data-[active=true]:text-sidebar-primary data-[active=true]:before:absolute data-[active=true]:before:inset-y-1 data-[active=true]:before:left-0 data-[active=true]:before:w-0.5 data-[active=true]:before:rounded-full data-[active=true]:before:bg-sidebar-primary">
@@ -142,8 +145,10 @@ export function AppSidebar() {
     <SidebarContent className="gap-0.5 px-2 py-2"><ViewModeSwitcher collapsed={false} />
       {compact ? compact.map((group, index) => section(`compact-${index}`, group.label, group.icon ?? FolderOpen, group.items.filter(i => i.label.toLowerCase().includes(q)))) : <>
         <SidebarGroup className="px-0 pb-1 pt-0"><SidebarGroupContent><SidebarMenu className="gap-0.5">{[{ to: "/dashboard", label: L("หน้าหลัก", "Dashboard"), icon: LayoutDashboard }, { to: "/dashboard/inbox", label: L("กล่องข้อความ", "Inbox"), icon: Inbox }].filter(i => i.label.toLowerCase().includes(q)).map(i => menuItem(i))}</SidebarMenu></SidebarGroupContent></SidebarGroup>
-        {section("daily", L("ใช้งานประจำวัน", "Daily work"), Sun, dailyItems.map(i => ({ to: i.url, label: i.title, icon: i.icon })))}
-        {section("departments", L("ฝ่ายงานและบริการ", "Departments & services"), BriefcaseBusiness, shownAreas.map(a => ({ to: areaUrl(a.key), label: a.label, icon: a.icon, active: activeArea?.key === a.key })))}
+        {q ? section("search", L("ผลการค้นหา", "Search results"), Search, searchResults.map(i => ({ to: i.url, label: i.title, icon: i.icon }))) : <>
+          {section("daily", L("ใช้งานประจำวัน", "Daily work"), Sun, dailyItems.map(i => ({ to: i.url, label: i.title, icon: i.icon })))}
+          {section("departments", L("ฝ่ายงานและบริการ", "Departments & services"), BriefcaseBusiness, shownAreas.map(a => ({ to: areaUrl(a.key), label: a.label, icon: a.icon, active: activeArea?.key === a.key })))}
+        </>}
         {!shownAreas.length && !dailyItems.length && q && ![L("หน้าหลัก", "Dashboard"), L("กล่องข้อความ", "Inbox")].some(label => label.toLowerCase().includes(q)) && <p role="status" className="p-3 text-center text-[11px] leading-4 text-sidebar-foreground/60">{L("ไม่พบเมนูที่ตรงกับคำค้น", "No matching menus")}</p>}
       </>}
     </SidebarContent><SidebarAccountFooter />
