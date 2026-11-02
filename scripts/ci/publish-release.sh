@@ -43,5 +43,6 @@ print(json.dumps({
 }, ensure_ascii=False))
 PY
   source "$(dirname "$0")/storage.sh"
-  ci_upload "/tmp/release-$PRODUCT.json" application/json "release-$PRODUCT.json"
+  ci_upload "/tmp/release-$PRODUCT.json" application/json "release-$PRODUCT.json" \
+    || echo "::warning::อัปโหลด release-$PRODUCT.json ไม่สำเร็จ — GitHub Release สร้างเรียบร้อยแล้ว"
 fi
