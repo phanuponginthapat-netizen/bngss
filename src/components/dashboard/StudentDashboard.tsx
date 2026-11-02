@@ -1,6 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from "react";
 import DailyTaskBar from "./DailyTaskBar";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { requireSuccessfulReads } from "@/lib/dataReliability";
 import { toCE } from "@/lib/utils";
 import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { useWeatherData } from "@/hooks/useWeatherData";
@@ -38,9 +39,9 @@ const StudentDashboard = () => {
   const { lang } = useLanguage();
   const { userId } = useUserRole();
   const navigate = useNavigate();
-  const currentBE = toBE(new Date().getFullYear());
   // ตารางสอนของนั กเรียนตองจัดใหอยู่ในภาคเรียนปัจจุบันเทานั้ น
-  const { currentAcademicYear, currentSemester } = useAcademicYear();
+  const { currentAcademicYear, currentSemester, today: schoolDate, isReady: termReady } = useAcademicYear();
+  const currentBE = currentAcademicYear;
   const L = (th: string, en: string) => (lang === "th" ? th : en);
   const weather = useWeatherData();
 
@@ -51,15 +52,16 @@ const StudentDashboard = () => {
     return L("สวัสดีตอนเย็น", "Good Evening");
   })();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["student_dashboard", userId, currentAcademicYear, currentSemester],
-    enabled: !!userId,
+  const { data, isLoading, error: dashboardError } = useQuery({
+    queryKey: ["student_dashboard", userId, currentAcademicYear, currentSemester, schoolDate],
+    enabled: !!userId && termReady,
     queryFn: async () => {
-      const { data: student } = await supabase
+      const { data: student, error: studentError } = await supabase
         .from("students")
         .select("id, prefix, first_name, last_name, student_code, classroom_id, photo_url")
         .eq("auth_user_id", userId!)
         .maybeSingle();
+      if (studentError) throw studentError;
 
       if (!student) {
         const [news, events] = await Promise.all([
@@ -69,11 +71,12 @@ const StudentDashboard = () => {
             .gte("event_date", todayBangkok())
             .order("event_date").limit(5),
         ]);
+        requireSuccessfulReads([news, events]);
         return { student: null, news: news.data || [], events: events.data || [] } as any;
       }
 
       const today = new Date();
-      const todayDow = today.getDay();
+      const todayDow = new Date(`${schoolDate}T00:00:00Z`).getUTCDay();
       const todayStr = bkkDateISO(today);
 
       const [classroom, attendance, behavior, leaves, homework, schedule, news, events] = await Promise.all([
@@ -102,6 +105,7 @@ const StudentDashboard = () => {
         supabase.from("academic_events").select("id, title, event_date, event_type")
           .gte("event_date", todayStr).order("event_date").limit(5),
       ]);
+      requireSuccessfulReads([classroom, attendance, behavior, leaves, homework, schedule, news, events]);
 
       // นับเป็น "วัน" จริง — วันเดียวกันหลายคาบนับครั้งเดียว (มา > สาย > ลา > ป่วย > ขาด)
       const PRIORITY: Record<string, number> = { present: 5, late: 4, leave: 3, sick: 2, absent: 1 };
@@ -206,6 +210,7 @@ const StudentDashboard = () => {
 
   return (
     <div className="space-y-6">
+      {dashboardError && <p role="alert" className="text-sm text-destructive">โหลดข้อมูลนักเรียนไม่สำเร็จ กรุณาลองใหม่</p>}
       <Suspense fallback={<Skeleton className="h-72 rounded-2xl" />}>
         <MascotHeroWidget />
       </Suspense>

@@ -52,7 +52,7 @@ export function useAcademicYear() {
       document.removeEventListener("visibilitychange", refreshDay);
     };
   }, []);
-  const { data: settings = [], isLoading: settingsLoading } = useQuery({
+  const { data: settings = [], isLoading: settingsLoading, error: settingsError } = useQuery({
     queryKey: ["semester-config"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -67,7 +67,7 @@ export function useAcademicYear() {
   });
 
   // Registered term dates: the school calendar is the source of truth.
-  const { data: periods = [], isLoading: periodsLoading } = useQuery({
+  const { data: periods = [], isLoading: periodsLoading, error: periodsError } = useQuery({
     queryKey: ["academic-periods"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -151,6 +151,10 @@ export function useAcademicYear() {
     hasYearOverride,
     hasSemOverride,
     academicYearOptions,
+    today,
+    error: settingsError || periodsError || null,
+    isError: Boolean(settingsError || periodsError),
+    isReady: !settingsLoading && !periodsLoading && !settingsError && !periodsError,
     isLoading: settingsLoading || periodsLoading,
   };
 }

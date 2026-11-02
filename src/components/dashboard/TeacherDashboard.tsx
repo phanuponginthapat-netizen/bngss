@@ -3,6 +3,7 @@ import DailyTaskBar from "./DailyTaskBar";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { toCE } from "@/lib/utils";
 import { todayBangkok } from "@/lib/dateBE";
+import { bangkokWeekday, requireSuccessfulReads, unrecordedAttendance } from "@/lib/dataReliability";
 const DynamicHeroBackground = lazy(() => import("./DynamicHeroBackground"));
 const MascotHeroWidget = lazy(() => import("./widgets/MascotHeroWidget"));
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -198,32 +199,34 @@ const TeacherDashboard = () => {
   const { userId } = useUserRole();
   const { homeroomClassroomIds, homeroomClassrooms, hasHomeroom } = useHomeroomClassrooms();
   // ตารางสอนตองจัดใหอยู่ในภาคเรียนปัจจุบันเทานั้ น เพือไมใหขอมูลเทอมเกาโผลมาแสดงซ้ำ
-  const { currentAcademicYear, currentSemester } = useAcademicYear();
-  const currentBE = toBE(new Date().getFullYear());
+  const { currentAcademicYear, currentSemester, today: schoolDate, isReady: termReady, error: termError } = useAcademicYear();
+  const currentBE = currentAcademicYear;
   const weather = useWeatherData();
 
   const { data: myPersonnel } = useQuery({
     queryKey: ["my_personnel_dashboard", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("personnel")
         .select("id, prefix, first_name, last_name, department, position")
         .eq("user_id", userId!)
         .maybeSingle();
+      if (error) throw error;
       return data;
     },
   });
 
   // Homeroom data
-  const { data: homeroomData, isLoading: homeroomLoading } = useQuery({
-    queryKey: ["homeroom_dashboard", homeroomClassroomIds],
+  const { data: homeroomData, isLoading: homeroomLoading, error: homeroomError } = useQuery({
+    queryKey: ["homeroom_dashboard", userId, homeroomClassroomIds, schoolDate],
     enabled: hasHomeroom && !!homeroomClassroomIds?.length,
     queryFn: async () => {
       const classIds = homeroomClassroomIds!;
-      const { data: studentList } = await supabase.from("students")
+      const { data: studentList, error: studentError } = await supabase.from("students")
         .select("id, prefix, first_name, last_name, gender, status, student_code, photo_url")
         .in("classroom_id", classIds).eq("status", "active");
+      if (studentError) throw studentError;
       const studentIds = (studentList || []).map(s => s.id);
 
       const today = todayBangkok();
@@ -239,6 +242,7 @@ const TeacherDashboard = () => {
       ]);
 
       const lateThreshold = (lateSetting.data?.setting_value as string) || "08:00";
+      requireSuccessfulReads([attendance, behavior, leaves, homeVisits, sdq, faceLogs, lateSetting]);
       const statusByStudent = new Map<string, "present" | "late" | "absent">();
       attendance.data?.forEach((a: any) => {
         if (a.student_id && (a.status === "present" || a.status === "late" || a.status === "absent")) {
@@ -263,7 +267,7 @@ const TeacherDashboard = () => {
       const present = Array.from(statusByStudent.values()).filter(s => s === "present").length;
       const late = Array.from(statusByStudent.values()).filter(s => s === "late").length;
       const explicitAbsent = Array.from(statusByStudent.values()).filter(s => s === "absent").length;
-      const absent = Math.max(explicitAbsent, totalStu - present - late);
+      const absent = explicitAbsent;
       const totalAtt = Math.max(totalStu, present + late + explicitAbsent);
       const rate = totalAtt > 0 ? ((present / totalAtt) * 100) : 0;
       const maleCount = studentList?.filter(s => s.gender === "ช" || s.gender === "ชาย" || s.gender === "male").length || 0;
@@ -278,6 +282,7 @@ const TeacherDashboard = () => {
           { name: "มาเรียน", value: present, fill: "hsl(var(--success))" },
           { name: "ขาดเรียน", value: absent, fill: "hsl(var(--destructive))" },
           { name: "มาสาย", value: late, fill: "hsl(var(--warning))" },
+          { name: "ยังไม่บันทึก", value: unrecordedAttendance(totalStu, present, late, absent), fill: "hsl(var(--muted-foreground))" },
         ].filter(d => d.value > 0),
         pendingLeaves: leaves.data?.filter(l => l.status === "pending").length || 0,
         positiveB: behavior.data?.filter(b => b.behavior_type === "positive").length || 0,
@@ -288,20 +293,23 @@ const TeacherDashboard = () => {
     },
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   // Subject assignments
-  const { data: subjectData, isLoading: subjectLoading } = useQuery({
-    queryKey: ["subject_dashboard", myPersonnel?.id, currentAcademicYear, currentSemester],
-    enabled: !!myPersonnel,
+  const { data: subjectData, isLoading: subjectLoading, error: subjectError } = useQuery({
+    queryKey: ["subject_dashboard", myPersonnel?.id, currentAcademicYear, currentSemester, schoolDate],
+    enabled: !!myPersonnel && termReady,
     queryFn: async () => {
-      const fullName = `${myPersonnel!.prefix || ""}${myPersonnel!.first_name} ${myPersonnel!.last_name}`;
-      const { data: assignments } = await supabase
+      if (!myPersonnel || !termReady) throw new Error("ยังยืนยันภาคเรียนไม่ได้");
+      const fullName = `${myPersonnel.prefix || ""}${myPersonnel.first_name} ${myPersonnel.last_name}`;
+      const { data: assignments, error: assignmentError } = await supabase
         .from("teacher_assignments")
         .select("subject_id, classroom_id, subjects(*), classrooms(*)")
-        .eq("personnel_id", myPersonnel!.id);
+        .eq("personnel_id", myPersonnel.id)
+        .eq("academic_year", toCE(currentAcademicYear)).eq("semester", currentSemester);
+      if (assignmentError) throw assignmentError;
 
       const uniqueSubjects = new Map<string, any>();
       (assignments || []).forEach(a => {
@@ -317,19 +325,22 @@ const TeacherDashboard = () => {
         // ★ ใช้ teacher_id เป็นหลัก, fallback ด้วย teacher_name สำหรับแถวเก่า
         supabase.from("schedules").select("id, day_of_week, period, start_time, end_time, classroom_id, subject_id, teacher_id, teacher_name")
           .eq("academic_year", toCE(currentAcademicYear)).eq("semester", currentSemester)
-          .or(`teacher_id.eq.${myPersonnel!.id},teacher_name.eq.${fullName}`),
+          .or(`teacher_id.eq.${myPersonnel.id},and(teacher_id.is.null,teacher_name.eq.${fullName})`),
         supabase.from("news_posts").select("id, title, category, published_at")
           .eq("is_published", true).order("created_at", { ascending: false }).limit(5),
         supabase.from("academic_events").select("id, title, event_date, event_type")
           .gte("event_date", todayBangkok()).order("event_date").limit(5),
       ]);
+      requireSuccessfulReads([schedules, news, events]);
 
       // Get enrollment counts per subject
       const subjectIds = [...uniqueSubjects.keys()];
       const enrollmentMap: Record<string, number> = {};
       if (subjectIds.length) {
-        const { data: enrollments } = await supabase.from("enrollments")
-          .select("subject_id").in("subject_id", subjectIds).eq("status", "active");
+        const { data: enrollments, error } = await supabase.from("enrollments")
+          .select("subject_id").in("subject_id", subjectIds).eq("status", "active")
+          .eq("academic_year", toCE(currentAcademicYear)).eq("semester", currentSemester);
+        if (error) throw error;
         (enrollments || []).forEach(e => {
           enrollmentMap[e.subject_id] = (enrollmentMap[e.subject_id] || 0) + 1;
         });
@@ -338,7 +349,7 @@ const TeacherDashboard = () => {
       return {
         subjects: [...uniqueSubjects.values()],
         enrollmentMap,
-        todaySchedules: (schedules.data || []).filter(s => s.day_of_week === new Date().getDay()),
+        todaySchedules: (schedules.data || []).filter(s => s.day_of_week === bangkokWeekday(schoolDate)),
         allSchedules: schedules.data || [],
         news: news.data || [],
         events: events.data || [],
@@ -349,11 +360,11 @@ const TeacherDashboard = () => {
   const isLoading = homeroomLoading || subjectLoading;
 
   // ── Enhanced KPIs: pending grading, remediation (0 ร มส), attendance trend 7d  ──
-  const { data: pendingGradingCount } = useQuery({
+  const { data: pendingGradingCount, error: gradingError, isLoading: gradingLoading } = useQuery({
     queryKey: ["teacher_pending_grading", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { count } = await supabase
+      const { count, error } = await supabase
         .from("task_assignments")
         .select("id", { count: "exact", head: true })
         .eq("assigned_by", userId!)
@@ -361,44 +372,50 @@ const TeacherDashboard = () => {
         .not("submitted_at", "is", null)
         .is("grade", null)
         .limit(1);
+      if (error) throw error;
       return count || 0;
     },
   });
 
-  const { data: remediationData } = useQuery({
+  const { data: remediationData, error: remediationError, isLoading: remediationLoading } = useQuery({
     queryKey: ["teacher_remediation", homeroomClassroomIds],
     enabled: hasHomeroom && !!homeroomClassroomIds?.length,
     queryFn: async () => {
       const ids = homeroomClassroomIds!;
       // get student ids in homeroom
-      const { data: studs } = await supabase.from("students").select("id").in("classroom_id", ids).eq("status", "active").limit(200);
+      const { data: studs, error: studentError } = await supabase.from("students").select("id").in("classroom_id", ids).eq("status", "active");
+      if (studentError) throw studentError;
       const sids = (studs || []).map(s => s.id);
       if (sids.length === 0) return { count: 0, list: [] as any[] };
-      const { data, count } = await (supabase as any)
+      const { data, count, error } = await (supabase as any)
         .from("grade_remediation")
         .select("id, original_grade, status", { count: "exact" })
         .in("student_id", sids)
         .neq("status", "ผ่าน")
         .limit(5);
+      if (error) throw error;
       return { count: count || 0, list: data || [] };
     },
   });
 
-  const { data: attendanceTrend } = useQuery({
-    queryKey: ["teacher_attendance_trend", homeroomClassroomIds],
+  const { data: attendanceTrend, error: trendError } = useQuery({
+    queryKey: ["teacher_attendance_trend", userId, homeroomClassroomIds, schoolDate],
     enabled: hasHomeroom && !!homeroomClassroomIds?.length,
     queryFn: async () => {
       const ids = homeroomClassroomIds!;
-      const { data: studs } = await supabase.from("students").select("id").in("classroom_id", ids).eq("status", "active").limit(200);
+      const { data: studs, error: studentError } = await supabase.from("students").select("id").in("classroom_id", ids).eq("status", "active");
+      if (studentError) throw studentError;
       const sids = (studs || []).map(s => s.id);
       if (sids.length === 0) return [] as { date: string; rate: number }[];
       const since = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
-      const { data: rows } = await supabase
+      const { data: rows, error } = await supabase
         .from("attendance")
         .select("attendance_date, status")
         .in("student_id", sids)
         .gte("attendance_date", since)
         .limit(500);
+      if (error) throw error;
+      if (rows?.length === 500) throw new Error("ข้อมูลการมาเรียนเกินขอบเขตที่โหลด ไม่สามารถยืนยันสรุปได้");
       const byDate: Record<string, { p: number; t: number }> = {};
       (rows || []).forEach((r: any) => {
         const k = r.attendance_date;
@@ -411,7 +428,7 @@ const TeacherDashboard = () => {
       for (let i = 6; i >= 0; i--) {
         const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
         const v = byDate[d];
-        out.push({ date: d.slice(5), rate: v && v.t ? Math.round((v.p / v.t) * 100) : 0 });
+        if (v?.t) out.push({ date: d.slice(5), rate: Math.round((v.p / v.t) * 100) });
       }
       return out;
     },
@@ -540,7 +557,9 @@ const TeacherDashboard = () => {
           <Activity className="w-4 h-4 text-primary" /> ภาพรวมงานสอนวันนี้
           <span className="text-[11px] font-normal text-muted-foreground">Today overview · อัปเดตเรียลไทม์</span>
         </h2>
-        {isLoading ? (
+        {subjectError || termError || homeroomError || gradingError || remediationError || trendError ? (
+          <p role="alert" className="text-sm text-destructive">โหลดข้อมูลวิชาและภาคเรียนไม่สำเร็จ กรุณาลองใหม่</p>
+        ) : isLoading || !termReady || gradingLoading || remediationLoading ? (
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             {Array.from({ length: 5 }).map((_, i) => (
               <Card key={i} className="rounded-2xl border border-border/40">
@@ -581,7 +600,7 @@ const TeacherDashboard = () => {
                   <div className="mt-2 h-[28px]">
                     {(subjectData?.subjects?.length || 0) > 0 ? (
                       <ResponsiveContainer width="100%" height={28}>
-                        <AreaChart data={(subjectData?.subjects || []).slice(0, 7).map((_: any, i: number) => ({ v: 2 + (i % 3) }))}>
+                        <AreaChart data={(subjectData?.subjects || []).map((subject: any) => ({ v: subjectData?.allSchedules.filter(s => s.subject_id === subject.id).length || 0 }))}>
                           <Area type="monotone" dataKey="v" stroke="hsl(var(--primary))" strokeWidth={1.5} fill="hsl(var(--primary) / 0.15)" />
                         </AreaChart>
                       </ResponsiveContainer>
@@ -635,7 +654,7 @@ const TeacherDashboard = () => {
                   <p className="text-2xl font-extrabold tabular-nums">{homeroomData?.attendanceRate || "0"}%</p>
                   <Progress value={parseFloat(homeroomData?.attendanceRate || "0")} className="h-1.5 mt-2" />
                   <p className="text-[10px] text-muted-foreground mt-1 truncate">
-                    {homeroomData ? `มา ${homeroomData.attChart.find((d: any) => d.name.includes("มา"))?.value || 0} · ขาด ${homeroomData.attChart.find((d: any) => d.name.includes("ขาด"))?.value || homeroomData.studentCount - (homeroomData.attChart.reduce((s: number, d: any) => s + d.value, 0))} คน` : "ไม่มีข้อมูลห้องประจำชั้น"}
+                    {homeroomData ? `มา ${homeroomData.attChart.find((d: any) => d.name === "มาเรียน")?.value || 0} · สาย ${homeroomData.attChart.find((d: any) => d.name === "มาสาย")?.value || 0} · ขาด ${homeroomData.attChart.find((d: any) => d.name === "ขาดเรียน")?.value || 0} · ยังไม่บันทึก ${homeroomData.attChart.find((d: any) => d.name === "ยังไม่บันทึก")?.value || 0}` : "ไม่มีข้อมูลห้องประจำชั้น"}
                   </p>
                   <div className="mt-2 h-[28px]">
                     {attendanceTrend && attendanceTrend.length > 0 ? (
@@ -698,11 +717,8 @@ const TeacherDashboard = () => {
                   <div className="mt-2 h-[28px]">
                     {(subjectData?.todaySchedules?.length || 0) > 0 ? (
                       <div className="flex gap-1 h-full items-end">
-                        {subjectData?.todaySchedules?.slice(0, 5).map((s: any, i: number) => (
-                          <div key={i} className="flex-1 bg-primary/20 rounded-t-sm" style={{ height: `${30 + (s.period % 4) * 18}%` }} />
-                        ))}
-                        {Array.from({ length: Math.max(0, 5 - (subjectData?.todaySchedules?.length || 0)) }).map((_, i) => (
-                          <div key={`e-${i}`} className="flex-1 bg-muted rounded-t-sm h-[20%]" />
+                        {subjectData?.todaySchedules?.map((s: any) => (
+                          <span key={s.id} className="flex-1 text-center text-[10px] text-primary bg-primary/10 rounded-sm">{s.period}</span>
                         ))}
                       </div>
                     ) : (

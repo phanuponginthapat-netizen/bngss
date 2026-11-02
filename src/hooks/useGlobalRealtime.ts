@@ -38,7 +38,7 @@ export function useGlobalRealtime() {
       "notifications", "inbox_items", "news_posts",
       "emergency_broadcasts", "eform_recipients", "document_recipients",
       "wall_post_comments", "wall_post_reactions",
-      "academic_periods", "school_settings",
+      "academic_periods", "school_settings", "cms_settings",
     ];
 
     // Admin/Director: เฉพาะงานที่ต้องเห็นสด (เช็คชื่อ/สแกนหน้า/ทะเบียนนักเรียน)
@@ -46,7 +46,7 @@ export function useGlobalRealtime() {
       "students", "classrooms", "personnel",
       "attendance", "face_scan_logs", "student_leaves", "behavior_records",
       "student_scores", "schedules", "homework_assignments", "task_assignments",
-      "documents", "staff_leaves", "admissions",
+      "documents", "staff_leaves", "admissions", "teacher_assignments", "enrollments", "subjects",
     ];
 
     // Teacher: ห้องเรียน/วิชาที่สอน
@@ -54,7 +54,7 @@ export function useGlobalRealtime() {
       "students", "classrooms", "attendance", "behavior_records", "student_leaves",
       "student_scores", "student_column_scores", "schedules",
       "homework_assignments", "homework_submissions", "task_assignments",
-      "documents", "staff_leaves",
+      "documents", "staff_leaves", "teacher_assignments", "enrollments", "subjects", "face_scan_logs",
     ];
 
 
@@ -112,7 +112,8 @@ export function useGlobalRealtime() {
       sdq_records: [["sdq_records"]],
       enrollments: [["enrollments"]],
       subjects: [["subjects"]],
-      schedules: [["schedules"]],
+      schedules: [["schedules"], ["subject_dashboard"], ["teacher_daily_briefing"], ["student_dashboard"]],
+      teacher_assignments: [["subject_dashboard"], ["teacher_daily_briefing"]],
       task_assignments: [["homework-list"], ["teacher-tasks"], ["student-tasks"]],
       homework_assignments: [["homework-list"], ["homework_assignments"], ["subject_score_columns"], ["student_column_scores"]],
       homework_submissions: [["hw-submissions"], ["homework_submissions"], ["student_column_scores"]],
@@ -175,6 +176,9 @@ export function useGlobalRealtime() {
           const keys: string[][] = [[table]];
           const extra = extraKeys[table];
           if (extra) keys.push(...extra);
+          if (["students", "classrooms", "attendance", "face_scan_logs", "behavior_records", "student_leaves", "task_assignments", "homework_assignments", "homework_submissions", "enrollments", "subjects"].includes(table)) {
+            keys.push(["homeroom_dashboard"], ["subject_dashboard"], ["teacher_daily_briefing"], ["student_dashboard"], ["teacher_attendance_trend"], ["teacher_pending_grading"]);
+          }
           scheduleInvalidate(keys);
 
           // ===== Live toast + sound for incoming items =====

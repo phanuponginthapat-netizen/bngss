@@ -29,21 +29,23 @@ function release() {
   else active = Math.max(0, active - 1);
 }
 
-const inflight = new Map<string, Promise<Response>>();
-
 function requestKey(input: RequestInfo | URL, init?: RequestInit): string | null {
   const method = (init?.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
-  if (method !== "GET") return null;
+  // A caller's cancellation must not cancel another caller's request.
+  if (method !== "GET" || init?.signal || input instanceof Request) return null;
   const url =
-    typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-  // อ่านอย่างเดียวและไม่มี body → ปลอดภัยที่จะแชร์ผล
-  return `${url}`;
+    typeof input === "string" ? input : input.toString();
+  const headers = [...new Headers(init?.headers).entries()].sort(([a], [b]) => a.localeCompare(b));
+  // All response-affecting headers (identity, range, accept, prefer) are part of identity.
+  // This ephemeral key is never logged or persisted.
+  return JSON.stringify([url, headers, init?.credentials, init?.cache]);
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** ครอบ fetch ด้วยคิว + dedup + backoff */
 export function createFlowFetch(baseFetch: typeof fetch): typeof fetch {
+  const inflight = new Map<string, Promise<Response>>();
   const run = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     await acquire();
     try {
@@ -51,10 +53,11 @@ export function createFlowFetch(baseFetch: typeof fetch): typeof fetch {
       for (;;) {
         const res = await baseFetch(input as any, init);
         // pooler/rate limit เต็ม → รอแล้วลองใหม่ (มีขอบเขต)
-        if ((res.status === 429 || res.status === 503) && attempt < MAX_RETRIES) {
+        const method = (init?.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
+        if ((method === "GET" || method === "HEAD") && (res.status === 429 || res.status === 503) && attempt < MAX_RETRIES) {
           const retryAfter = Number(res.headers.get("Retry-After"));
           const waitMs = Number.isFinite(retryAfter) && retryAfter > 0
-            ? retryAfter * 1000
+            ? Math.min(retryAfter * 1000, 8000)
             : 300 * Math.pow(2, attempt) + Math.random() * 200;
           attempt++;
           await sleep(waitMs);

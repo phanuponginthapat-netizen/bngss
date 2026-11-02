@@ -1,4 +1,6 @@
 - The system is cloud-only (single hosted backend); standalone/self-hosted installers and the district hub were removed to keep the codebase focused on day-to-day school use.
+- Shared query defaults never retain placeholder results across changed keys, and refetch stale data on mount/focus; fetch dedup is scoped to a client and all headers, with retries limited to reads, to avoid cross-context results and duplicate writes.
+- Term-sensitive dashboard queries wait for calendar readiness and scope schedules, assignments and enrollments together; warehouse reads page deterministically and fail on source errors rather than publish incomplete success.
 - Database tables of removed modules (IoT, bus, district hub) are kept, only UI/functions removed — avoids data loss and lets features be restored later.
 - Resolve existing Sonner imports to the shared SweetAlert adapter in Vite and Vitest, and render shared AlertDialogs with SweetAlert; preserve async decisions and queue background notices behind active confirmations.
 - Share the work-area navigation catalog between the sidebar, department pages, and return links; keep existing protected routes and module toggles authoritative so regrouping never changes access or stored data.
