@@ -9,7 +9,7 @@ import { useWeatherData } from "@/hooks/useWeatherData";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles } from "lucide-react";
-import { useMascotSettings } from "@/hooks/useMascotSettings";
+import { useMascotSettings, MASCOT_DEFAULTS } from "@/hooks/useMascotSettings";
 import { useAiBotSettings } from "@/hooks/useAiBotSettings";
 import {
   ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Tooltip, Legend,
@@ -43,9 +43,12 @@ const moodColor: Record<Mood, string> = {
 };
 
 function AnimatedMascot({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
   return (
     <div className="relative pointer-events-none select-none">
-      <img src={src} alt={alt} width={160} height={160}
+      <img src={failed ? MASCOT_DEFAULTS.happy : src} alt={alt} width={160} height={160}
+        decoding="async" onError={() => setFailed(true)}
         className="w-28 h-28 md:w-36 md:h-36 object-contain drop-shadow-2xl relative z-10" />
       <div className="absolute left-1/2 -translate-x-1/2 bottom-[-10px] w-32 h-3 rounded-full bg-black/40 blur-md opacity-30" />
     </div>
