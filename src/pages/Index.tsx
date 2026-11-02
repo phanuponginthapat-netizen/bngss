@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import DOMPurify from "dompurify";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthSession } from "@/hooks/useAuthSession";
@@ -335,17 +336,12 @@ const Index = () => {
             {session ? (
               <div className="flex items-center gap-1.5">
                 <Link to="/dashboard/profile" className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full bg-muted/60 hover:bg-muted border border-border/50 transition-colors">
-                  {profile?.avatar_url ? (
-                    <img
-                      src={profile.avatar_url}
-                      alt={profile.full_name || "profile"}
-                      className="w-7 h-7 rounded-full object-cover ring-1 ring-border/60"
-                    />
-                  ) : (
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/20 flex items-center justify-center">
-                      <User className="w-3.5 h-3.5 text-primary" />
-                    </div>
-                  )}
+                  <Avatar className="h-7 w-7 ring-1 ring-border/60">
+                    <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || "โปรไฟล์"} className="object-cover" />
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      <User className="h-3.5 w-3.5" />
+                    </AvatarFallback>
+                  </Avatar>
                   <span className="hidden lg:inline text-sm font-medium text-foreground max-w-[120px] truncate">
                     {profile?.full_name || session.user?.email}
                   </span>
