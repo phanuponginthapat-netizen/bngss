@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import DailyTaskBar from "./DailyTaskBar";
 import { todayBangkok } from "@/lib/dateBE";
 import { useWeatherData } from "@/hooks/useWeatherData";
 const DynamicHeroBackground = lazy(() => import("./DynamicHeroBackground"));
@@ -95,6 +96,9 @@ const AlumniDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* ทางลัดงานประจำวัน — วางไว้ก่่อนส่วนสรุปภาระงาน */}
+      <DailyTaskBar />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="border border-border/50 shadow-elevated rounded-2xl">

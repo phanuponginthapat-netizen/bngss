@@ -31,6 +31,8 @@ export default function OnboardingTour() {
   const [active, setActive] = useState(false);
   const [idx, setIdx] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
+  // ตำแหน่งช่องทางลัดงานประจำวัน – ห้ามนำการ์ดคำแนะนำไปบัง
+  const [guardRect, setGuardRect] = useState<DOMRect | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -50,6 +52,8 @@ export default function OnboardingTour() {
 
     let raf = 0;
     const findAndSet = () => {
+      const guard = document.querySelector('[data-tour="taskbar"]') as HTMLElement | null;
+      setGuardRect(guard ? guard.getBoundingClientRect() : null);
       const el = document.querySelector(step.selector) as HTMLElement | null;
       if (el) {
         el.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -119,6 +123,17 @@ export default function OnboardingTour() {
     tipLeft = Math.min(Math.max(spot.left + spot.width / 2 - tipW / 2, 12), vw - tipW - 12);
     const centerX = spot.left + spot.width / 2;
     arrowLeft = Math.min(Math.max(centerX - tipLeft - 8, 16), tipW - 32);
+
+    // อย่านำการ์ดคำแนะนำไปทับช่องทางลัดงานประจำวัน
+    const tipH = 180;
+    if (guardRect && guardRect.height > 0 && tipTop < guardRect.bottom + 8 && tipTop + tipH > guardRect.top - 8) {
+      const below = guardRect.bottom + 16;
+      const above = guardRect.top - tipH - 16;
+      if (below + tipH < vh) tipTop = below;
+      else if (above > 8) tipTop = above;
+      else tipTop = Math.max(12, Math.min(vh - tipH - 12, below));
+      arrow = null;
+    }
   }
 
   return (

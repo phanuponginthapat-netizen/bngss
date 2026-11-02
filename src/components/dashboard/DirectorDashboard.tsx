@@ -1,4 +1,5 @@
 import React, { lazy, Suspense } from "react";
+import DailyTaskBar from "./DailyTaskBar";
 import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -287,6 +288,9 @@ const DirectorDashboard = () => {
           )}
         </div>
       </div>
+
+      {/* ทางลัดงานประจำวัน — วางไว้ก่่อนส่วนสรุปภาระงาน */}
+      <DailyTaskBar />
 
       {/* Strategic KPIs — modern gradient cards with sparkline, stagger 0.1s, skeleton + empty states */}
       {(isLoading || extrasLoading) ? (

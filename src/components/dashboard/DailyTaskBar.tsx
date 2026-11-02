@@ -26,7 +26,7 @@ export default function DailyTaskBar() {
     { title: "กล่องข้อความ", url: "/dashboard/inbox", icon: Inbox },
   ].filter(item => isModuleEnabled(getModuleKeyForPath(item.url))) : priorityTasks(role, lang, isModuleEnabled);
   if (!items.length) return null;
-  return <section className="border-b border-border pb-4">
+  return <section data-tour="taskbar" className="border-b border-border pb-4">
     <div className="mb-3 flex items-center justify-between gap-2">
       <h2 className="text-sm font-semibold">{lang === "th" ? role === "parent" ? "ลูกของฉัน" : "งานของฉัน" : "My work"}</h2>
       <Collapsible open={moreOpen} onOpenChange={setMoreOpen}>

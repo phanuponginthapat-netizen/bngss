@@ -1,4 +1,7 @@
 import { useState, lazy, Suspense } from "react";
+import DailyTaskBar from "./DailyTaskBar";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { toCE } from "@/lib/utils";
 import { todayBangkok } from "@/lib/dateBE";
 const DynamicHeroBackground = lazy(() => import("./DynamicHeroBackground"));
 const MascotHeroWidget = lazy(() => import("./widgets/MascotHeroWidget"));
@@ -194,6 +197,8 @@ const TeacherDashboard = () => {
   const navigate = useNavigate();
   const { userId } = useUserRole();
   const { homeroomClassroomIds, homeroomClassrooms, hasHomeroom } = useHomeroomClassrooms();
+  // ตารางสอนตองจัดใหอยู่ในภาคเรียนปัจจุบันเทานั้ น เพือไมใหขอมูลเทอมเกาโผลมาแสดงซ้ำ
+  const { currentAcademicYear, currentSemester } = useAcademicYear();
   const currentBE = toBE(new Date().getFullYear());
   const weather = useWeatherData();
 
@@ -289,7 +294,7 @@ const TeacherDashboard = () => {
 
   // Subject assignments
   const { data: subjectData, isLoading: subjectLoading } = useQuery({
-    queryKey: ["subject_dashboard", myPersonnel?.id],
+    queryKey: ["subject_dashboard", myPersonnel?.id, currentAcademicYear, currentSemester],
     enabled: !!myPersonnel,
     queryFn: async () => {
       const fullName = `${myPersonnel!.prefix || ""}${myPersonnel!.first_name} ${myPersonnel!.last_name}`;
@@ -311,6 +316,7 @@ const TeacherDashboard = () => {
       const [schedules, news, events] = await Promise.all([
         // ★ ใช้ teacher_id เป็นหลัก, fallback ด้วย teacher_name สำหรับแถวเก่า
         supabase.from("schedules").select("id, day_of_week, period, start_time, end_time, classroom_id, subject_id, teacher_id, teacher_name")
+          .eq("academic_year", toCE(currentAcademicYear)).eq("semester", currentSemester)
           .or(`teacher_id.eq.${myPersonnel!.id},teacher_name.eq.${fullName}`),
         supabase.from("news_posts").select("id, title, category, published_at")
           .eq("is_published", true).order("created_at", { ascending: false }).limit(5),
@@ -516,6 +522,9 @@ const TeacherDashboard = () => {
       <Suspense fallback={<Skeleton className="h-72 rounded-2xl" />}>
         <MascotHeroWidget />
       </Suspense>
+
+      {/* ทางลัดงานประจำวัน — วางไว้ก่่อนส่วนสรุปภาระงาน */}
+      <DailyTaskBar />
 
       {/* Daily Briefing */}
       <TeacherDailyBriefing

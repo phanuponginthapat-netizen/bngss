@@ -1,4 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from "react";
+import DailyTaskBar from "./DailyTaskBar";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { toCE } from "@/lib/utils";
 import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { useWeatherData } from "@/hooks/useWeatherData";
 const DynamicHeroBackground = lazy(() => import("./DynamicHeroBackground"));
@@ -36,6 +39,8 @@ const StudentDashboard = () => {
   const { userId } = useUserRole();
   const navigate = useNavigate();
   const currentBE = toBE(new Date().getFullYear());
+  // ตารางสอนของนั กเรียนตองจัดใหอยู่ในภาคเรียนปัจจุบันเทานั้ น
+  const { currentAcademicYear, currentSemester } = useAcademicYear();
   const L = (th: string, en: string) => (lang === "th" ? th : en);
   const weather = useWeatherData();
 
@@ -47,7 +52,7 @@ const StudentDashboard = () => {
   })();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["student_dashboard", userId],
+    queryKey: ["student_dashboard", userId, currentAcademicYear, currentSemester],
     enabled: !!userId,
     queryFn: async () => {
       const { data: student } = await supabase
@@ -89,6 +94,7 @@ const StudentDashboard = () => {
         student.classroom_id
           ? supabase.from("schedules").select("period, start_time, end_time, day_of_week, teacher_name, subjects(name_th, code)")
               .eq("classroom_id", student.classroom_id).eq("day_of_week", todayDow)
+              .eq("academic_year", toCE(currentAcademicYear)).eq("semester", currentSemester)
               .order("period")
           : Promise.resolve({ data: [] } as any),
         supabase.from("news_posts").select("id, title, category, published_at")
@@ -295,6 +301,9 @@ const StudentDashboard = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* ทางลัดงานประจำวัน — วางไว้ก่่อนส่วนสรุปภาระงาน */}
+      <DailyTaskBar />
 
       {/* ── Modern KPI: GPA, Attendance %, Homework, Exams, Recent Grades ── */}
       {data?.student && (

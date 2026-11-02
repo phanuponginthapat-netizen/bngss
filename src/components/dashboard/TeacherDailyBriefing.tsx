@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { toCE } from "@/lib/utils";
 import {
   Clock, ListTodo, AlertTriangle, ArrowRight, BookOpen, MapPin, CalendarDays,
 } from "lucide-react";
@@ -23,9 +25,11 @@ export const TeacherDailyBriefing = ({ userId, personnelId, personnelFullName, h
   const today = new Date();
   const todayISO = bkkDateISO(today);
   const dow = today.getDay();
+  // ตารางสอนตองจัดใหอยู่ในภาคเรียนปัจจุบันเทานั้ น เพือไมใหขอมูลเทอมเกาโผลมาแสดงซ้ำ
+  const { currentAcademicYear, currentSemester } = useAcademicYear();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["teacher_daily_briefing", userId, personnelId, personnelFullName, homeroomClassroomIds],
+    queryKey: ["teacher_daily_briefing", userId, personnelId, personnelFullName, homeroomClassroomIds, currentAcademicYear, currentSemester],
     enabled: !!userId,
     queryFn: async () => {
       // Today's schedule — ใช้ teacher_id เป็นหลัก, fallback teacher_name
@@ -35,6 +39,8 @@ export const TeacherDailyBriefing = ({ userId, personnelId, personnelFullName, h
           .from("schedules")
           .select("id, period, start_time, end_time, classroom_id, subject_id, teacher_id, teacher_name, classrooms(name), subjects(name_th, code)")
           .eq("day_of_week", dow)
+          .eq("academic_year", toCE(currentAcademicYear))
+          .eq("semester", currentSemester)
           .order("period", { ascending: true });
         if (personnelId && personnelFullName) {
           q = q.or(`teacher_id.eq.${personnelId},teacher_name.eq.${personnelFullName}`);
