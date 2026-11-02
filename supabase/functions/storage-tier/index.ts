@@ -1,6 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { corsHeaders, preflight } from "../_shared/cors.ts";
-import { downloadFile, ensureFolderPath, uploadFile, deleteFile as deleteDriveFile } from "../_shared/googleDrive.ts";
+import { corsHeadersWithCron as corsHeaders, preflight } from "../_shared/cors.ts";
+import { downloadFile, ensureFolderPath, uploadFile } from "../_shared/googleDrive.ts";
+
+import { requireCronOrAdmin } from "../_shared/requireCron.ts";
+import { NEVER_OFFLOAD, verifyCopy } from "../_shared/storageSafety.ts";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -12,8 +15,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return preflight(corsHeaders);
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     let action = "usage";
@@ -33,7 +36,16 @@ Deno.serve(async (req) => {
       params = body;
     }
 
-    // โหมดติดตั้งในโรงเรียน: ไม่ย้ายไฟล์ขึ้น Drive / ไม่บังคับโควต้า
+    const publicBuckets = new Set(["app-downloads", "cms-images", "cms-logos", "garbage-images", "line-richmenu", "padlet-media", "pdf-templates", "print-templates", "certificate-assets"]);
+    if (action !== "fetch" || !publicBuckets.has(String(params.bucket || "")) || params.id) {
+      const denied = await requireCronOrAdmin(req, corsHeaders);
+      if (denied) return denied;
+    }
+    const verifyDrive = async (id: string, source: Uint8Array) => {
+      const response = await downloadFile(id);
+      if (!response.ok) throw new Error(`Drive verification failed [${response.status}]`);
+      await verifyCopy(source, new Uint8Array(await response.arrayBuffer()));
+    };
 
     // -------------------------------------------------------------
     // 1. ACTION: FETCH (Stream file directly from Drive)
@@ -70,7 +82,7 @@ Deno.serve(async (req) => {
         headers: {
           ...corsHeaders,
           "Content-Type": contentType,
-          "Cache-Control": "public, max-age=86400",
+          "Cache-Control": publicBuckets.has(registryRow.bucket_name) ? "public, max-age=300" : "private, no-store",
           "Content-Disposition": `inline; filename="${encodeURIComponent(registryRow.file_path.split("/").pop() || "file")}"`,
         },
       });
@@ -206,20 +218,24 @@ Deno.serve(async (req) => {
 
       let dedupedBytes = 0;
       let dedupedCount = 0;
-      const chunk = 100;
-      for (let i = 0; i < (dupes || []).length; i += chunk) {
-        const slice = (dupes || []).slice(i, i + chunk);
-        const paths = slice.map((r: any) => r.storage_path).filter(Boolean);
-        if (paths.length === 0) continue;
-        const { error: rmErr } = await supabaseAdmin.storage.from("line-vault").remove(paths);
-        if (rmErr) {
-          console.warn("line-vault dedupe remove warning:", rmErr.message);
-          continue;
-        }
-        const ids = slice.map((r: any) => r.id);
-        await supabaseAdmin.from("line_vault_items").update({ storage_path: null }).in("id", ids);
-        dedupedCount += slice.length;
-        dedupedBytes += slice.reduce((s: number, r: any) => s + Number(r.size_bytes || 0), 0);
+      for (const row of dupes || []) {
+        try {
+          const { data: full, error: rowError } = await supabaseAdmin.from("line_vault_items").select("drive_file_id").eq("id", row.id).single();
+          if (rowError || !full?.drive_file_id) throw new Error("Drive reference unavailable");
+          const { data: original, error: downloadError } = await supabaseAdmin.storage.from("line-vault").download(row.storage_path);
+          if (downloadError || !original) throw new Error("Cloud original unavailable");
+          const bytes = new Uint8Array(await original.arrayBuffer());
+          await verifyDrive(full.drive_file_id, bytes);
+          const { error: updateError } = await supabaseAdmin.from("line_vault_items").update({ storage_path: null }).eq("id", row.id);
+          if (updateError) throw updateError;
+          const { error: removeError } = await supabaseAdmin.storage.from("line-vault").remove([row.storage_path]);
+          if (removeError) {
+            await supabaseAdmin.from("line_vault_items").update({ storage_path: row.storage_path }).eq("id", row.id);
+            throw removeError;
+          }
+          dedupedCount++;
+          dedupedBytes += bytes.length;
+        } catch (error) { console.warn("Dedupe retained original:", String(error)); }
       }
 
       if (action === "dedupe") {
@@ -252,13 +268,14 @@ Deno.serve(async (req) => {
       for (const p of policies || []) {
         if (moved >= maxFiles) break;
         const bucket = p.bucket as string;
+        if (NEVER_OFFLOAD.has(bucket)) continue;
         const quotaBytes = Number(p.quota_mb) * 1024 * 1024;
 
         const listRecursive = async (prefix = "", depth = 0): Promise<any[]> => {
           if (depth > 4) return [];
           const out: any[] = [];
           const { data = [], error } = await supabaseAdmin.storage.from(bucket).list(prefix, { limit: 1000 });
-          if (error) return out;
+          if (error || (data?.length ?? 0) >= 1000) throw new Error("Incomplete listing; no files removed");
           for (const o of data || []) {
             if (o.id) out.push({ ...o, path: prefix ? `${prefix}/${o.name}` : o.name });
             else if (o.name) out.push(...(await listRecursive(prefix ? `${prefix}/${o.name}` : o.name, depth + 1)));
@@ -291,6 +308,7 @@ Deno.serve(async (req) => {
               const bytes = new Uint8Array(await fileData.arrayBuffer());
               const folderId = await ensureFolderPath(["BNGSS Storage", bucket]);
               const driveFile = await uploadFile(obj.path.split("/").pop() || obj.path, mimeType, bytes, folderId);
+              await verifyDrive(driveFile.id, bytes);
               const { error: regErr } = await supabaseAdmin.from("cold_storage_registry").upsert(
                 {
                   bucket_name: bucket,
@@ -304,7 +322,8 @@ Deno.serve(async (req) => {
                 { onConflict: "bucket_name,file_path" },
               );
               if (regErr) throw new Error(regErr.message);
-              await supabaseAdmin.storage.from(bucket).remove([obj.path]);
+              const { error: removeError } = await supabaseAdmin.storage.from(bucket).remove([obj.path]);
+              if (removeError) throw removeError;
               bucketBytes -= bytes.length;
               bucketFreed += bytes.length;
               bucketMoved += 1;
@@ -334,20 +353,6 @@ Deno.serve(async (req) => {
     if (action === "offload") {
       const targetBuckets: string[] = params.buckets || [];
       const maxFiles: number = params.max_files || 50;
-
-      // บัคเก็ตที่ห้ามย้ายเด็ดขาด — เป็นรูป/ไฟล์ที่หน้าเว็บต้องแสดงตลอดเวลา
-      const NEVER_OFFLOAD = new Set([
-        "cms-images",
-        "cms-logos",
-        "profile-images",
-        "face-photos",
-        "signatures",
-        "line-richmenu",
-        "game-covers",
-        "certificate-assets",
-        "print-templates",
-        "pdf-templates",
-      ]);
 
       // ย้ายได้เฉพาะบัคเก็ตที่มีนโยบายเปิดใช้งานเท่านั้น
       const { data: policies = [] } = await supabaseAdmin
@@ -379,7 +384,8 @@ Deno.serve(async (req) => {
         const listRecursive = async (prefix = "", depth = 0): Promise<any[]> => {
           if (depth > 4) return [];
           const out: any[] = [];
-          const { data = [] } = await supabaseAdmin.storage.from(b.name).list(prefix, { limit: 1000 });
+          const { data = [], error } = await supabaseAdmin.storage.from(b.name).list(prefix, { limit: 1000 });
+          if (error || (data?.length ?? 0) >= 1000) throw new Error("Incomplete listing; no files removed");
           for (const o of data || []) {
             if (o.id) out.push({ ...o, path: prefix ? `${prefix}/${o.name}` : o.name });
             else if (o.name) out.push(...(await listRecursive(prefix ? `${prefix}/${o.name}` : o.name, depth + 1)));
@@ -421,6 +427,7 @@ Deno.serve(async (req) => {
 
             // 3. Upload to Google Drive
             const driveFile = await uploadFile(fileName, mimeType, bytes, folderId);
+            await verifyDrive(driveFile.id, bytes);
 
             // 4. Save entry to cold_storage_registry
             const { error: regErr } = await supabaseAdmin.from("cold_storage_registry").upsert(
@@ -443,7 +450,7 @@ Deno.serve(async (req) => {
             // 5. Purge from Supabase Storage
             const { error: rmErr } = await supabaseAdmin.storage.from(b.name).remove([filePath]);
             if (rmErr) {
-              console.warn(`Removed from Drive but Supabase purge warning: ${rmErr.message}`);
+              throw new Error(`Cloud deletion failed: ${rmErr.message}`);
             }
 
             totalFreedBytes += bytes.length;
@@ -510,15 +517,10 @@ Deno.serve(async (req) => {
         return json({ error: `Failed to restore to Supabase Storage: ${upErr.message}` }, 500);
       }
 
-      // 3. Delete registry entry
-      await supabaseAdmin.from("cold_storage_registry").delete().eq("id", registryRow.id);
-
-      // Optional: Delete from drive
-      try {
-        await deleteDriveFile(registryRow.drive_file_id);
-      } catch (e) {
-        console.warn("Drive delete after restore failed (non-fatal):", e);
-      }
+      // Verify restored bytes; retain Drive backup even on explicit restore.
+      const { data: restoredCopy, error: restoredError } = await supabaseAdmin.storage.from(registryRow.bucket_name).download(registryRow.file_path);
+      if (restoredError || !restoredCopy) throw new Error("Restored copy unreadable; Drive retained");
+      await verifyCopy(new Uint8Array(fileBuffer), new Uint8Array(await restoredCopy.arrayBuffer()));
 
       return json({
         success: true,

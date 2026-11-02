@@ -44,5 +44,5 @@ print(json.dumps({
 PY
   curl --fail-with-body -sS -X POST -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
     -H "Content-Type: application/json" -H "x-upsert: true" --data-binary "@/tmp/release-$PRODUCT.json" \
-    "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/app-downloads/release-$PRODUCT.json" -w '\nHTTP %{http_code}\n'
+    "${SUPABASE_URL:-https://dlkyxvhnnffblerwedjz.supabase.co}/storage/v1/object/app-downloads/release-$PRODUCT.json" -w '\nHTTP %{http_code}\n'
 fi

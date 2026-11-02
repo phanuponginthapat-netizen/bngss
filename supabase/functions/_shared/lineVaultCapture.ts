@@ -178,7 +178,7 @@ export async function captureLineGroupEvent(
         return { captured: false, reason: "placeholder_failed" };
       }
       if (!placeholder?.id) return { captured: false, reason: "duplicate_message" };
-      const rowId = placeholder!.id as string;
+      const rowId = placeholder.id as string;
 
       const content = await deps.downloadLineContent(token, msg.id);
       if (!content) {
@@ -217,17 +217,10 @@ export async function captureLineGroupEvent(
         return path;
       };
 
-      // Keep a storage copy for reliable authenticated previews even when Drive
-      // is connected. Drive links/tokens can expire and must not blank thumbnails.
-      storagePath = await saveToBucket();
-      if (!storagePath) {
-        await sb.from("line_vault_items").delete().eq("id", rowId);
-        return { captured: false, reason: "upload_failed" };
-      }
-
       if (driveReady) {
         try {
-          const { ensureFolderPath, ensureFolder, uploadFile } = await import("./googleDrive.ts");
+          const { ensureFolderPath, ensureFolder, uploadFile, downloadFile } = await import("./googleDrive.ts");
+          const { verifyCopy } = await import("./storageSafety.ts");
           const folderName = (grp.group_name || `group-${groupId.slice(0, 8)}`).replace(/[\\/]/g, "-");
           let parent: string;
           if (grp.drive_root_folder_id) {
@@ -237,6 +230,9 @@ export async function captureLineGroupEvent(
             parent = await ensureFolderPath(["LineVault", String(y), folderName, m]);
           }
           const uploaded = await uploadFile(`${msg.id}.${ext}`, contentMime, content.data, parent);
+          const verified = await downloadFile(uploaded.id);
+          if (!verified.ok) throw new Error(`Drive verification failed [${verified.status}]`);
+          await verifyCopy(content.data, new Uint8Array(await verified.arrayBuffer()));
           driveFileId = uploaded.id;
           driveWebViewLink = uploaded.webViewLink || null;
           if (!grp.drive_folder_id) {
@@ -244,6 +240,15 @@ export async function captureLineGroupEvent(
           }
         } catch (driveErr) {
           console.error("[vault drive upload failed, fallback to bucket]", (driveErr as any)?.message || driveErr);
+        }
+      }
+
+      // Keep a Cloud copy only when Drive upload/verification is unavailable.
+      if (!driveFileId) {
+        storagePath = await saveToBucket();
+        if (!storagePath) {
+          await sb.from("line_vault_items").delete().eq("id", rowId);
+          return { captured: false, reason: "upload_failed" };
         }
       }
 

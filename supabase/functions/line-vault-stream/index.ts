@@ -28,9 +28,9 @@ Deno.serve(async (req) => {
     const itemId = url.searchParams.get("id") || url.searchParams.get("item_id");
     if (!itemId) return new Response("id required", { status: 400, headers: corsHeaders });
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+    const ANON = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
     const userClient = createClient(SUPABASE_URL, ANON, {
       global: { headers: { Authorization: authHeader } },
@@ -50,21 +50,6 @@ Deno.serve(async (req) => {
       : `inline; filename*=UTF-8''${encodeURIComponent(filename)}`;
 
     const admin = createClient(SUPABASE_URL, SERVICE);
-
-    // Prefer the storage mirror: it remains previewable if Drive OAuth expires.
-    if (item.storage_path) {
-      const { data: blob, error: dlErr } = await admin.storage
-        .from("line-vault")
-        .download(item.storage_path);
-      if (!dlErr && blob) {
-        const headers = new Headers(corsHeaders);
-        headers.set("Content-Type", item.mime_type || blob.type || "application/octet-stream");
-        headers.set("Content-Disposition", disposition);
-        headers.set("Cache-Control", "private, max-age=3600");
-        return new Response(blob.stream(), { status: 200, headers });
-      }
-      console.error("[line-vault-stream storage]", dlErr);
-    }
 
     // ---- Google Drive fallback for legacy Drive-only rows ----
     if (item.drive_file_id) {
@@ -87,7 +72,22 @@ Deno.serve(async (req) => {
         const text = await driveRes.text().catch(() => "");
         console.error("[line-vault-stream drive]", driveRes.status, text);
       }
-      return new Response("drive_unavailable", { status: 502, headers: corsHeaders });
+      if (!item.storage_path) return new Response("drive_unavailable", { status: 502, headers: corsHeaders });
+    }
+
+    // Cloud is a fallback only; verified Drive files are read without re-uploading.
+    if (item.storage_path) {
+      const { data: blob, error: dlErr } = await admin.storage
+        .from("line-vault")
+        .download(item.storage_path);
+      if (!dlErr && blob) {
+        const headers = new Headers(corsHeaders);
+        headers.set("Content-Type", item.mime_type || blob.type || "application/octet-stream");
+        headers.set("Content-Disposition", disposition);
+        headers.set("Cache-Control", "private, max-age=3600");
+        return new Response(blob.stream(), { status: 200, headers });
+      }
+      console.error("[line-vault-stream storage]", dlErr);
     }
 
     return new Response("no_file", { status: 404, headers: corsHeaders });

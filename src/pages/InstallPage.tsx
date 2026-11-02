@@ -23,8 +23,9 @@ import { useCmsValue } from "@/hooks/useCmsSettings";
 
 import { useFacegateRelease } from "@/lib/facegateRelease";
 import { parseScannerRelease } from "@/lib/scannerRelease";
+import { getBackendConfig } from "@/lib/runtimeConfig";
 
-const APK_DOWNLOAD_URL = "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-app-latest.apk";
+const APK_DOWNLOAD_URL = `${getBackendConfig().url}/storage/v1/object/public/app-downloads/bngss-app-latest.apk`;
 
 export default function InstallPage() {
   const navigate = useNavigate();
@@ -50,7 +51,7 @@ export default function InstallPage() {
   const apkLink = useCmsValue("apk_app_url");
   const [scannerUrl, setScannerUrl] = useState<string | null>(null);
   useEffect(() => {
-    const base = "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads";
+    const base = `${getBackendConfig().url}/storage/v1/object/public/app-downloads`;
     (async () => {
       try {
         const r = await fetch(`${base}/release-scanner.json?t=${Date.now()}`, { cache: "no-store" });

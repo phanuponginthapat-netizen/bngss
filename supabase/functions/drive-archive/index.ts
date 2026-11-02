@@ -10,6 +10,7 @@ import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { corsHeadersWithCron } from "../_shared/cors.ts";
 import { requireCronOrAdmin } from "../_shared/requireCron.ts";
 import { ensureFolderPath, uploadFile, downloadFile } from "../_shared/googleDrive.ts";
+import { verifyCopy } from "../_shared/storageSafety.ts";
 
 const corsHeaders = corsHeadersWithCron;
 const ROOT_FOLDER = Deno.env.get("DRIVE_ARCHIVE_ROOT") || "BNGSS Archive";
@@ -33,7 +34,7 @@ type Policy = {
 /** ดึงข้อมูลของตารางเฉพาะปีการศึกษาที่ต้องการ (CE year) แบบแบ่งหน้า */
 async function fetchYearRows(admin: any, table: string, ceYear: number): Promise<any[]> {
   const attempts: Array<() => any> = [
-    ...YEAR_COLUMNS.map((col) => () => admin.from(table).select("*").eq(col, ceYear)),
+    ...YEAR_COLUMNS.map((col) => () => admin.from(table).select("*").eq(col, col === "academic_year_be" ? ceYear + 543 : ceYear)),
     ...DATE_COLUMNS.map((col) => () =>
       admin.from(table).select("*").gte(col, `${ceYear}-01-01`).lt(col, `${ceYear + 1}-01-01`)
     ),
@@ -51,6 +52,7 @@ async function fetchYearRows(admin: any, table: string, ceYear: number): Promise
       }
       rows.push(...(data || []));
       if ((data || []).length < PAGE) break;
+      if (from + PAGE >= MAX_ROWS) throw new Error(`Backup limit reached for ${table}; partial copy rejected`);
     }
     if (!failed) return rows;
   }
@@ -112,14 +114,17 @@ Deno.serve(async (req) => {
     }
 
     // ── สำรองข้อมูลขึ้น Drive ──────────────────────────────
-    if (action === "archive") {
+    if (action === "archive" || action === "settings_backup") {
       const yearBE = Number(body.year_be);
       if (!yearBE || yearBE < 2500) return json({ error: "ต้องระบุปีการศึกษา (พ.ศ.)" }, 400);
       const ceYear = yearBE - 543;
 
-      const { data: allPolicies } = await admin.from("data_retention_policies").select("*").order("sort_order");
+      const { data: allPolicies, error: policyError } = await admin.from("data_retention_policies").select("*").order("sort_order");
+      if (policyError) throw policyError;
       const wanted: string[] | undefined = Array.isArray(body.modules) && body.modules.length ? body.modules : undefined;
-      const policies: Policy[] = (allPolicies || []).filter((p: Policy) => !wanted || wanted.includes(p.code));
+      const policies: Policy[] = action === "settings_backup"
+        ? [{ code: "school_configuration", label: "CMS และปฏิทินโรงเรียน", tables: ["cms_settings", "cms_pages", "cms_menu_items", "cms_nav_menu", "academic_periods", "school_settings"], retention_years: null }]
+        : (allPolicies || []).filter((p: Policy) => !wanted || wanted.includes(p.code));
       if (!policies.length) return json({ error: "ไม่พบงานที่ต้องการสำรอง" }, 400);
 
       const results: any[] = [];
@@ -131,7 +136,13 @@ Deno.serve(async (req) => {
 
         for (const table of p.tables) {
           try {
-            const rows = await fetchYearRows(admin, table, ceYear);
+            let rows: any[];
+            if (action === "settings_backup") {
+              const result = await admin.from(table).select("*").limit(1000);
+              if (result.error) throw result.error;
+              if (result.data?.length === 1000) throw new Error("Configuration limit reached; partial backup rejected");
+              rows = result.data || [];
+            } else rows = await fetchYearRows(admin, table, ceYear);
             if (!rows.length) {
               results.push({ module: p.code, table, rows: 0, skipped: "ไม่มีข้อมูลในปีนี้" });
               continue;
@@ -141,8 +152,10 @@ Deno.serve(async (req) => {
             const fileName = `${table}_${yearBE}_${stamp}.json`;
             const bytes = new TextEncoder().encode(JSON.stringify(rows, null, 0));
             const uploaded = await uploadFile(fileName, "application/json", bytes, folderId);
-
-            await admin.from("drive_archives").insert({
+            const verified = await downloadFile(uploaded.id);
+            if (!verified.ok) throw new Error(`Drive backup unreadable [${verified.status}]`);
+            await verifyCopy(bytes, new Uint8Array(await verified.arrayBuffer()));
+            const { error: registryError } = await admin.from("drive_archives").insert({
               academic_year_be: yearBE,
               module_code: p.code,
               module_label: p.label,
@@ -155,6 +168,7 @@ Deno.serve(async (req) => {
               byte_size: bytes.length,
               format: "json",
             });
+            if (registryError) throw registryError;
 
             totalRows += rows.length;
             totalBytes += bytes.length;
@@ -165,7 +179,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      return json({ success: true, year_be: yearBE, total_rows: totalRows, total_bytes: totalBytes, results });
+      return json({ success: !results.some(r => r.error), year_be: yearBE, total_rows: totalRows, total_bytes: totalBytes, results });
     }
 
     return json({ error: `ไม่รู้จัก action: ${action}` }, 400);
