@@ -6,6 +6,9 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   android: {
     allowMixedContent: true,
+    // ปิดโหมดดีบักในแอปจริง (เร็วขึ้นและปลอดภัยขึ้น)
+    webContentsDebuggingEnabled: false,
+    backgroundColor: '#ffffff',
   },
   plugins: {
     Camera: {
