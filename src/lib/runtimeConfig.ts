@@ -20,17 +20,16 @@ export type BackendConfig = {
 const LS_KEY = "bng.backend.config";
 
 /**
- * Backend หลักของโรงเรียน (canonical) — ใช้เป็นค่าสำรองเสมอ
- * ป้องกันกรณี remix แล้วระบบไปผูกกับ Lovable Cloud โดยอัตโนมัติ
+ * Active hosted backend. Legacy per-browser school settings must not override recovery.
  */
 export const CANONICAL_BACKEND = {
-  url: "https://gwmszzoqqxmejefhayqf.supabase.co",
-  anonKey: "sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v",
-  projectId: "gwmszzoqqxmejefhayqf",
+  url: "https://dlkyxvhnnffblerwedjz.supabase.co",
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4",
+  projectId: "dlkyxvhnnffblerwedjz",
 } as const;
 
-/** single backend — gwmszzoqqxmejefhayqf เท่านั้น (ห้ามชี้ backend อัตโนมัติของ Lovable) */
-const BLOCKED_PROJECT_REFS: string[] = ["dlkyxvhnnffblerwedjz"];
+/** Reject the restricted source backend during Cloud recovery. */
+const BLOCKED_PROJECT_REFS: string[] = ["gwmszzoqqxmejefhayqf"];
 
 /** true ถ้า URL ชี้ไป backend ที่ห้ามใช้ */
 export function isBlockedBackendUrl(url?: string): boolean {
@@ -59,9 +58,9 @@ function readLocal(): Partial<BackendConfig> {
     const parsed = JSON.parse(raw);
     if (typeof parsed !== "object" || !parsed) return {};
     if (isBlockedBackendUrl(parsed.url)) {
-      // ล้างค่าที่ชี้ไป Lovable Cloud ทิ้งทันที
+      // Discard the restricted school override, preserving the original backend data.
       localStorage.removeItem(LS_KEY);
-      console.warn("[backend] พบค่า backend ที่ชี้ไป Lovable Cloud — ล้างและใช้ backend หลักแทน");
+      console.warn("[backend] ล้างการเชื่อมต่อเดิมและใช้ Lovable Cloud");
       return {};
     }
     return parsed;
@@ -86,7 +85,7 @@ function readGlobal(): Partial<BackendConfig> {
 
 /**
  * ค่าจาก build env (VITE_SUPABASE_*) — รองรับผู้ที่นำระบบไปใช้กับ Supabase ของตัวเอง
- * ค่าที่ชี้ไป Lovable Cloud จะถูกกรองทิ้งเสมอ
+ * ค่าที่ชี้ไปบริการโรงเรียนที่ถูกระงับจะถูกกรองทิ้ง
  */
 function readEnv(): Partial<BackendConfig> {
   try {
@@ -115,32 +114,15 @@ export function isLocalInstall(): boolean {
 }
 
 export function getBackendConfig(): BackendConfig {
-  const localInstall = isLocalInstall();
-  const local = localInstall ? {} : readLocal();
-  const global = readGlobal();
-  const env = localInstall ? {} : readEnv();
-  const pick = (k: keyof BackendConfig) =>
-    (local as any)[k] || (global as any)[k] || (env as any)[k] || "";
-  let url = String(pick("url") || "").replace(/\/+$/, "");
-  let anonKey = String(pick("anonKey") || "");
-  let projectId = String(pick("projectId") || "");
-
-  if (localInstall) {
-    return { url, anonKey, projectId, storageProvider: "supabase" };
-  }
-
-  // Fallback สุดท้าย: backend เริ่มต้น (โรงเรียนต้นทาง) — กันกรณียังไม่ได้ตั้งค่า
-  if (!url || !anonKey || isBlockedBackendUrl(url)) {
-    url = CANONICAL_BACKEND.url;
-    anonKey = CANONICAL_BACKEND.anonKey;
-    projectId = CANONICAL_BACKEND.projectId;
-  }
-
+  // Recovery uses a single hosted backend; stale installer/browser settings cannot
+  // split authentication, CMS and school records across projects.
+  readLocal();
+  const env = readEnv();
   return {
-    url,
-    anonKey,
-    projectId,
-    storageProvider: (pick("storageProvider") as BackendConfig["storageProvider"]) || "supabase",
+    ...CANONICAL_BACKEND,
+    anonKey: env.url?.replace(/\/+$/, "") === CANONICAL_BACKEND.url && env.anonKey
+      ? env.anonKey : CANONICAL_BACKEND.anonKey,
+    storageProvider: "supabase",
   };
 }
 
@@ -159,7 +141,7 @@ export function getConfigSource(): "localStorage" | "app-config.js" | "build env
 
 export function saveBackendConfig(cfg: Partial<BackendConfig>) {
   if (isBlockedBackendUrl(cfg.url)) {
-    throw new Error("ไม่อนุญาตให้ตั้ง backend เป็น Lovable Cloud — กรุณาใช้ Supabase ของโรงเรียน");
+    throw new Error("ระบบกำลังใช้ Lovable Cloud; ไม่สามารถสลับกลับบริการโรงเรียนที่ถูกระงับได้");
   }
   const merged = { ...readLocal(), ...cfg };
   localStorage.setItem(LS_KEY, JSON.stringify(merged));
@@ -171,7 +153,7 @@ export function clearBackendConfig() {
 
 /** ทดสอบว่า URL + anon key ใช้งานได้จริง (ใช้ได้กับ self-hosted ด้วย) */
 export async function testBackendConnection(url: string, anonKey: string) {
-  if (isBlockedBackendUrl(url)) throw new Error("ไม่อนุญาตให้เชื่อมต่อ Lovable Cloud");
+  if (isBlockedBackendUrl(url)) throw new Error("บริการโรงเรียนเดิมถูกระงับ กรุณาใช้ Lovable Cloud");
   const base = url.replace(/\/+$/, "");
   const res = await fetch(`${base}/rest/v1/?apikey=${encodeURIComponent(anonKey)}`, {
     headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
