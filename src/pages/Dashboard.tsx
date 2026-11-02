@@ -92,49 +92,22 @@ const Dashboard = () => {
     enabled: role === "admin",
     queryKey: ["dashboard_stats_v2"],
     queryFn: async () => {
-      const [
-        students, personnel, classrooms, subjects, attendance, healthRecords,
-        studentLeaves, staffLeaves, news, events, damageReports,
-        budgetTx, assets, behaviorRecords, sdqRecords,
-        enrollments, homeroomRecords, homeVisits, documents, lateThresholdSetting, faceLogRows,
-      ] = await Promise.all([
-        supabase.from("students").select("id, status, gender, prefix, classroom_id", { count: "exact" }).eq("status", "active"),
-        supabase.from("personnel").select("id, department, status, position, user_id", { count: "exact" }),
-        supabase.from("classrooms").select("id, grade_level, name, homeroom_teacher", { count: "exact" }),
-        supabase.from("subjects").select("id", { count: "exact", head: true }),
-        fetchAllRows((f, t) => supabase.from("attendance").select("id, status, attendance_date, student_id").eq("attendance_date", todayBangkok()).is("subject_id", null).order("id").range(f, t)).then((data) => ({ data })),
-        supabase.from("health_records").select("id", { count: "exact", head: true }),
-        supabase.from("student_leaves").select("id, status", { count: "exact" }),
-        supabase.from("staff_leaves").select("id, status", { count: "exact" }),
-        supabase.from("news_posts").select("id, title, category, published_at, is_published").order("created_at", { ascending: false }).limit(5),
-        supabase.from("academic_events").select("*").gte("event_date", todayBangkok()).order("event_date", { ascending: true }).limit(5),
-        supabase.from("asset_damage_reports").select("id, status", { count: "exact" }),
-        supabase.from("budget_transactions").select("id, transaction_type, amount, transaction_date"),
-        supabase.from("assets").select("id, condition, current_value", { count: "exact" }),
-        supabase.from("behavior_records").select("id, behavior_type", { count: "exact" }),
-        supabase.from("sdq_records").select("id", { count: "exact", head: true }),
-        supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("status", "active"),
-        supabase.from("homeroom_records").select("id", { count: "exact", head: true }),
-        supabase.from("home_visits").select("id", { count: "exact", head: true }),
-        supabase.from("documents").select("id, status", { count: "exact" }),
-        supabase.from("school_settings").select("setting_value")
-          .eq("setting_key", "face_scan_late_threshold").maybeSingle(),
-        fetchAllRows((f, t) => supabase.from("face_scan_logs")
-          .select("student_id, scan_time").eq("scan_date", todayBangkok()).order("student_id").range(f, t)),
-      ]);
-
-      // รวมการแสกนหน้าของวันนี้เข้ากับการเช็คชื่อ
-      const lateThreshold = (lateThresholdSetting.data?.setting_value as string) || "08:00";
-      const faceLogs = { data: faceLogRows };
+      // One server-side aggregation instead of ~20 separate reads.
+      const { data: raw, error } = await supabase.rpc("get_admin_dashboard_stats");
+      if (error) throw error;
+      const s = (raw || {}) as Record<string, any>;
+      const num = (v: unknown) => Number(v || 0);
+      const rawThreshold = s.late_threshold;
+      const lateThreshold = (typeof rawThreshold === "string" ? rawThreshold : String(rawThreshold ?? "08:00")).replace(/"/g, "") || "08:00";
 
       const statusByStudent = new Map<string, "present" | "late" | "absent">();
-      attendance.data?.forEach(a => {
+      (s.today_attendance || []).forEach((a: any) => {
         if (a.student_id && (a.status === "present" || a.status === "late" || a.status === "absent")) {
-          statusByStudent.set(a.student_id, a.status as any);
+          statusByStudent.set(a.student_id, a.status);
         }
       });
       const firstScan = new Map<string, Date>();
-      (faceLogs.data || []).forEach((x: any) => {
+      (s.today_face_scans || []).forEach((x: any) => {
         const t = new Date(x.scan_time);
         const prev = firstScan.get(x.student_id);
         if (!prev || t < prev) firstScan.set(x.student_id, t);
@@ -143,18 +116,17 @@ const Dashboard = () => {
         timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hour12: false,
       }).format(d);
       firstScan.forEach((t, sid) => {
-        // ถ้ามีเช็คชื่อแล้วไม่ทับ
         if (statusByStudent.has(sid)) return;
         statusByStudent.set(sid, fmtHHMM(t) > lateThreshold ? "late" : "present");
       });
 
-      const presentCount = Array.from(statusByStudent.values()).filter(s => s === "present").length;
-      const lateCount = Array.from(statusByStudent.values()).filter(s => s === "late").length;
-      const explicitAbsent = Array.from(statusByStudent.values()).filter(s => s === "absent").length;
-      // ใช้จำนวนนักเรียนจริงเป็นฐาน — คนที่ยังไม่เช็คชื่อ/แสกน นับเป็นขาด
-      const totalStudentsForAtt = students.count || 0;
-      const absentCount = Math.max(explicitAbsent, totalStudentsForAtt - presentCount - lateCount);
-      const totalAtt = Math.max(totalStudentsForAtt, presentCount + lateCount + explicitAbsent);
+      const vals = Array.from(statusByStudent.values());
+      const presentCount = vals.filter(v => v === "present").length;
+      const lateCount = vals.filter(v => v === "late").length;
+      const explicitAbsent = vals.filter(v => v === "absent").length;
+      const activeStudents = num(s.students_total);
+      const absentCount = Math.max(explicitAbsent, activeStudents - presentCount - lateCount);
+      const totalAtt = Math.max(activeStudents, presentCount + lateCount + explicitAbsent);
       const attendanceRate = totalAtt > 0 ? ((presentCount / totalAtt) * 100) : 0;
 
       const attData = [
@@ -163,105 +135,53 @@ const Dashboard = () => {
         { name: lang === "th" ? "มาสาย" : "Late", value: lateCount, fill: "hsl(var(--warning))" },
       ].filter(d => d.value > 0);
 
-      const deptMap: Record<string, number> = {};
-      personnel.data?.forEach(p => { deptMap[p.department] = (deptMap[p.department] || 0) + 1; });
-      const deptData = Object.entries(deptMap).map(([name, value]) => ({ name, value }));
-
-      const malePrefixes = ["ด.ช.", "เด็กชาย", "นาย", "ดช", "ดช."];
-      const femalePrefixes = ["ด.ญ.", "เด็กหญิง", "นาง", "นางสาว", "น.ส.", "ดญ", "ดญ."];
-      const genderOf = (s: any): "male" | "female" | "unknown" => {
-        const g = s.gender;
-        if (g === "ช" || g === "ชาย" || g === "male") return "male";
-        if (g === "ญ" || g === "หญิง" || g === "female") return "female";
-        const p = (s.prefix || "").replace(/\s+/g, "");
-        if (malePrefixes.includes(p)) return "male";
-        if (femalePrefixes.includes(p)) return "female";
-        return "unknown";
-      };
-      const maleStudents = students.data?.filter(s => genderOf(s) === "male").length || 0;
-      const femaleStudents = students.data?.filter(s => genderOf(s) === "female").length || 0;
-      const activeStudents = students.count || 0;
-
-      const totalIncome = budgetTx.data?.filter(t => t.transaction_type === "income").reduce((s, t) => s + Number(t.amount), 0) || 0;
-      const totalExpense = budgetTx.data?.filter(t => t.transaction_type === "expense").reduce((s, t) => s + Number(t.amount), 0) || 0;
-
-      const monthlyData: Record<string, { income: number; expense: number }> = {};
-      const now = new Date();
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        monthlyData[key] = { income: 0, expense: 0 };
-      }
-      budgetTx.data?.forEach(tx => {
-        const key = tx.transaction_date?.substring(0, 7);
-        if (key && monthlyData[key]) {
-          if (tx.transaction_type === "income") monthlyData[key].income += Number(tx.amount);
-          else monthlyData[key].expense += Number(tx.amount);
-        }
-      });
       const MONTHS_TH = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
       const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       const monthNames = lang === "th" ? MONTHS_TH : MONTHS_EN;
-      const budgetTrend = Object.entries(monthlyData).map(([key, val]) => ({
-        name: monthNames[parseInt(key.split("-")[1]) - 1],
-        income: val.income,
-        expense: val.expense,
-      }));
-
-      const pendingStudentLeaves = studentLeaves.data?.filter(l => l.status === "pending").length || 0;
-      const pendingStaffLeaves = staffLeaves.data?.filter(l => l.status === "pending").length || 0;
-      const pendingDamage = damageReports.data?.filter(r => r.status === "pending").length || 0;
-      const totalAssetValue = assets.data?.reduce((s, a) => s + Number(a.current_value || 0), 0) || 0;
-      const damagedAssets = assets.data?.filter(a => a.condition === "ชำรุด").length || 0;
-      const positiveB = behaviorRecords.data?.filter(b => b.behavior_type === "positive").length || 0;
-      const negativeB = behaviorRecords.data?.filter(b => b.behavior_type === "negative").length || 0;
-      const pendingDocs = documents.data?.filter((d: any) => d.status === "pending").length || 0;
-
-      // Personnel linked to auth users
-      const linkedPersonnel = personnel.data?.filter((p: any) => p.user_id).length || 0;
-      
-      // Classrooms with homeroom teachers assigned
-      const classroomsWithTeacher = classrooms.data?.filter((c: any) => c.homeroom_teacher).length || 0;
-
-      const gradeMap: Record<string, number> = {};
-      classrooms.data?.forEach(c => { gradeMap[c.grade_level] = (gradeMap[c.grade_level] || 0) + 1; });
-      const gradeData = Object.entries(gradeMap).map(([name, value]) => ({ name, value }));
+      const trendByMonth = new Map<string, any>((s.budget_trend || []).map((r: any) => [r.month, r]));
+      const now = new Date();
+      const budgetTrend = Array.from({ length: 6 }, (_, idx) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - (5 - idx), 1);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        const r = trendByMonth.get(key);
+        return { name: monthNames[d.getMonth()], income: num(r?.income), expense: num(r?.expense) };
+      });
 
       return {
-        students: students.count || 0,
+        students: activeStudents,
         activeStudents,
-        maleStudents,
-        femaleStudents,
-        personnel: personnel.count || 0,
-        linkedPersonnel,
-        classrooms: classrooms.count || 0,
-        classroomsWithTeacher,
-        subjects: subjects.count || 0,
+        maleStudents: num(s.students_male),
+        femaleStudents: num(s.students_female),
+        personnel: num(s.personnel_total),
+        linkedPersonnel: num(s.personnel_linked),
+        classrooms: num(s.classrooms_total),
+        classroomsWithTeacher: num(s.classrooms_with_teacher),
+        subjects: num(s.subjects_total),
         attendanceRate: attendanceRate.toFixed(1),
         scannedToday: firstScan.size,
         attData,
-        deptData,
-        gradeData,
-        healthRecords: healthRecords.count || 0,
-        pendingStudentLeaves,
-        pendingStaffLeaves,
-        totalIncome,
-        totalExpense,
+        deptData: (s.dept_data || []) as { name: string; value: number }[],
+        gradeData: (s.grade_data || []) as { name: string; value: number }[],
+        healthRecords: num(s.health_records_total),
+        pendingStudentLeaves: num(s.pending_student_leaves),
+        pendingStaffLeaves: num(s.pending_staff_leaves),
+        totalIncome: num(s.income_total),
+        totalExpense: num(s.expense_total),
         budgetTrend,
-        pendingDamage,
-        pendingDocs,
-        totalAssetValue,
-        damagedAssets,
-        totalAssets: assets.count || 0,
-        positiveB,
-        negativeB,
-        sdqCount: sdqRecords.count || 0,
-        enrollments: enrollments.count || 0,
-        homeroomRecords: homeroomRecords.count || 0,
-        homeVisits: homeVisits.count || 0,
-        totalDocuments: documents.count || 0,
-        recentNews: news.data || [],
-        upcomingEvents: events.data || [],
+        pendingDamage: num(s.pending_damage),
+        pendingDocs: num(s.pending_docs),
+        totalAssetValue: num(s.total_asset_value),
+        damagedAssets: num(s.damaged_assets),
+        totalAssets: num(s.total_assets),
+        positiveB: num(s.positive_b),
+        negativeB: num(s.negative_b),
+        sdqCount: num(s.sdq_count),
+        enrollments: num(s.enrollments_active),
+        homeroomRecords: num(s.homeroom_records_total),
+        homeVisits: num(s.home_visits_total),
+        totalDocuments: num(s.total_documents),
+        recentNews: (s.recent_news || []) as any[],
+        upcomingEvents: (s.upcoming_events || []) as any[],
       };
     },
     // realtime invalidate ผ่าน useGlobalRealtime แล้ว — ไม่ต้อง poll ถี่
