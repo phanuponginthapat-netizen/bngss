@@ -1,6 +1,7 @@
 // Reports Google Drive App User Connector health for admin settings UI.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { invalidateSecretCache } from "../_shared/getSecret.ts";
+import { driveFetch, downloadFile } from "../_shared/googleDrive.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,6 +50,20 @@ Deno.serve(async (req) => {
     if (!roleRow) return json({ error: "forbidden" }, 403);
 
     const requestBody = await req.json().catch(() => ({}));
+    if (requestBody?.action === "probe") {
+      const response = await driveFetch("/drive/v3/about?fields=user(displayName),storageQuota");
+      if (!response.ok) return json({ error: "Drive connection failed", status: response.status, details: await response.text() }, response.status);
+      const about = await response.json();
+      const { data: sample, error } = await admin.from("cold_storage_registry").select("drive_file_id,size_bytes").limit(1).maybeSingle();
+      if (error) throw error;
+      let sampleReadable: boolean | null = null;
+      if (sample?.drive_file_id) {
+        const file = await downloadFile(sample.drive_file_id);
+        sampleReadable = file.ok;
+        await file.body?.cancel();
+      }
+      return json({ connected: true, accountName: about.user?.displayName, quota: about.storageQuota, sampleReadable, checkedAt: new Date().toISOString() });
+    }
     if (requestBody?.action === "save_credentials") {
       const clientId = typeof requestBody.clientId === "string" ? requestBody.clientId.trim() : "";
       const clientSecret = typeof requestBody.clientSecret === "string" ? requestBody.clientSecret.trim() : "";
