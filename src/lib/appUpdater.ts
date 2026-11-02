@@ -60,8 +60,15 @@ export async function checkForAppUpdate(): Promise<AppUpdateManifest | null> {
 }
 
 export async function performSideloadUpdate(url: string): Promise<void> {
+  // ดาวน์โหลดผ่าน native downloader แนบ header ไม่ได้ → ขอ signed URL ก่อน
+  const match = url.match(/\/app-downloads\/(.+?)(\?|$)/);
+  let downloadUrl = url;
+  if (match) {
+    const { data } = await supabase.storage.from("app-downloads").createSignedUrl(decodeURIComponent(match[1]), 1800);
+    if (data?.signedUrl) downloadUrl = data.signedUrl;
+  }
   // ใส่ query กัน cache เพื่อให้ได้ไฟล์ล่าสุดเสมอ
-  const fresh = `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`;
+  const fresh = `${downloadUrl}${downloadUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
   const { filePath } = await ApkUpdater.downloadApk({
     url: fresh,
     title: "กำลังดาวน์โหลดอัปเดต BNGSS...",
