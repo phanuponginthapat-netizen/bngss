@@ -16,13 +16,10 @@ export default function GithubReleaseDownloads() {
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const all = await Promise.all(PRODUCTS.map(async (p) => {
-        try {
-          const r = await fetch(`${BASE}/release-${p}.json?t=${Date.now()}`, { cache: "no-store" });
-          if (!r.ok) return null;
-          const release = await r.json();
-          if (p === "scanner" && !parseScannerRelease(release)) return null;
-          return release as Release;
-        } catch { return null; }
+        const release = await fetchAppDownloadsJson<Release>(`release-${p}.json`);
+        if (!release) return null;
+        if (p === "scanner" && !parseScannerRelease(release)) return null;
+        return release;
       }));
       return all.filter(Boolean) as Release[];
     },
