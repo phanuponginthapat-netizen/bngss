@@ -1,9 +1,13 @@
-// @vitest-environment jsdom
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CANONICAL_BACKEND, getBackendConfig, isBlockedBackendUrl } from "../runtimeConfig";
 
 describe("Cloud recovery backend", () => {
-  beforeEach(() => { localStorage.clear(); vi.unstubAllEnvs(); });
+  beforeEach(() => {
+    const storage = new Map<string, string>();
+    vi.stubGlobal("localStorage", {getItem: (k: string) => storage.get(k) ?? null, setItem: (k: string, v: string) => storage.set(k, v), removeItem: (k: string) => storage.delete(k)});
+    vi.unstubAllEnvs();
+  });
   it("uses Cloud instead of a saved restricted school backend", () => {
     localStorage.setItem("bng.backend.config", JSON.stringify({url: "https://gwmszzoqqxmejefhayqf.supabase.co", anonKey: "old"}));
     expect(getBackendConfig().projectId).toBe("dlkyxvhnnffblerwedjz");
