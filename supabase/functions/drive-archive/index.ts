@@ -114,14 +114,17 @@ Deno.serve(async (req) => {
     }
 
     // ── สำรองข้อมูลขึ้น Drive ──────────────────────────────
-    if (action === "archive") {
+    if (action === "archive" || action === "settings_backup") {
       const yearBE = Number(body.year_be);
       if (!yearBE || yearBE < 2500) return json({ error: "ต้องระบุปีการศึกษา (พ.ศ.)" }, 400);
       const ceYear = yearBE - 543;
 
-      const { data: allPolicies } = await admin.from("data_retention_policies").select("*").order("sort_order");
+      const { data: allPolicies, error: policyError } = await admin.from("data_retention_policies").select("*").order("sort_order");
+      if (policyError) throw policyError;
       const wanted: string[] | undefined = Array.isArray(body.modules) && body.modules.length ? body.modules : undefined;
-      const policies: Policy[] = (allPolicies || []).filter((p: Policy) => !wanted || wanted.includes(p.code));
+      const policies: Policy[] = action === "settings_backup"
+        ? [{ code: "school_configuration", label: "CMS และปฏิทินโรงเรียน", tables: ["cms_settings", "cms_pages", "cms_menu_items", "cms_nav_menu", "academic_periods", "school_settings"], retention_years: null }]
+        : (allPolicies || []).filter((p: Policy) => !wanted || wanted.includes(p.code));
       if (!policies.length) return json({ error: "ไม่พบงานที่ต้องการสำรอง" }, 400);
 
       const results: any[] = [];
@@ -133,7 +136,13 @@ Deno.serve(async (req) => {
 
         for (const table of p.tables) {
           try {
-            const rows = await fetchYearRows(admin, table, ceYear);
+            let rows: any[];
+            if (action === "settings_backup") {
+              const result = await admin.from(table).select("*").limit(1000);
+              if (result.error) throw result.error;
+              if (result.data?.length === 1000) throw new Error("Configuration limit reached; partial backup rejected");
+              rows = result.data || [];
+            } else rows = await fetchYearRows(admin, table, ceYear);
             if (!rows.length) {
               results.push({ module: p.code, table, rows: 0, skipped: "ไม่มีข้อมูลในปีนี้" });
               continue;

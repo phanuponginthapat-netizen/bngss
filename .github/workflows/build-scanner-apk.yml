@@ -95,7 +95,7 @@ jobs:
 
       - name: Publish scanner APK to storage
         env:
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_STORAGE_TOKEN || secrets.SUPABASE_ANON_KEY }}
           SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://dlkyxvhnnffblerwedjz.supabase.co' }}
         run: |
           if [ -z "$SUPABASE_ANON_KEY" ]; then
@@ -114,12 +114,12 @@ jobs:
       - name: Publish to GitHub Release (scanner)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_STORAGE_TOKEN || secrets.SUPABASE_ANON_KEY }}
           SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://dlkyxvhnnffblerwedjz.supabase.co' }}
         run: SCANNER_IDENTITY_FILE=/tmp/scanner-identity.json bash scripts/ci/publish-release.sh scanner "BNG Scanner (แท็บเล็ต)" "build-${APP_VERSION_CODE}" "/tmp/rel/bngss-scanner-build-${APP_VERSION_CODE}.apk"
 
       - name: Retain current scanner APK only
         env:
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_STORAGE_TOKEN || secrets.SUPABASE_ANON_KEY }}
           SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://dlkyxvhnnffblerwedjz.supabase.co' }}
         run: python3 scripts/ci/prune-apks.py scanner "bngss-scanner-build-${APP_VERSION_CODE}.apk"

@@ -148,7 +148,7 @@ jobs:
         if: github.event_name == 'push' || github.event.inputs.release == 'true'
         working-directory: android
         env:
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_STORAGE_TOKEN || secrets.SUPABASE_ANON_KEY }}
           SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://dlkyxvhnnffblerwedjz.supabase.co' }}
         run: |
           if [ -z "$SUPABASE_ANON_KEY" ]; then
@@ -195,6 +195,6 @@ jobs:
         if: github.event_name == 'push' || github.event.inputs.release == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_STORAGE_TOKEN || secrets.SUPABASE_ANON_KEY }}
           SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://dlkyxvhnnffblerwedjz.supabase.co' }}
         run: bash scripts/ci/publish-release.sh android "BNG Smart (Android)" "${APP_VERSION_NAME}-${APP_VERSION_CODE}" /tmp/rel/bngss-app.apk
