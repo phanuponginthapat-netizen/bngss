@@ -76,7 +76,9 @@ async function renderBriefing() {
     // ให ้คำสั่ งท ี่ก ำลั งร อเข ้าคิ วจ รง ๆ ส ิ้ นส ุ ดก่ อนปิ ดการเร นเดอร์
     await new Promise((r) => setTimeout(r, 50));
   });
-  root.unmount();
+  await act(async () => {
+    root.unmount();
+  });
   container.remove();
   return h.filters.filter((f) => f.table === "schedules");
 }
