@@ -31,6 +31,8 @@ export default function OnboardingTour() {
   const [active, setActive] = useState(false);
   const [idx, setIdx] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
+  // ตำแหน่งช่องทางลัดงานประจำวัน – ห้ามนำการ์ดคำแนะนำไปบัง
+  const [guardRect, setGuardRect] = useState<DOMRect | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
