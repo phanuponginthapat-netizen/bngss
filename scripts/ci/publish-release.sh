@@ -23,7 +23,7 @@ git push origin ":refs/tags/$TAG" 2>/dev/null || true
 gh release create "$TAG" "$@" --title "$TITLE ($VERSION)" \
   --notes "รุ่นล่าสุด $VERSION — สร้างอัตโนมัติจาก ${GITHUB_SHA:-local}" --target "${GITHUB_SHA:-main}"
 
-if [ -n "${SUPABASE_ANON_KEY:-}" ]; then
+if [ -n "${CI_UPLOAD_TOKEN:-}" ]; then
   python3 - "$PRODUCT" "$TITLE" "$VERSION" "$GITHUB_REPOSITORY" "$TAG" "$@" > /tmp/release-$PRODUCT.json <<'PY'
 import json, os, sys, datetime
 product, title, version, repo, tag, *files = sys.argv[1:]
@@ -42,7 +42,6 @@ print(json.dumps({
              "url": f"https://github.com/{repo}/releases/download/{tag}/{os.path.basename(f)}"} for f in files],
 }, ensure_ascii=False))
 PY
-  curl --fail-with-body -sS -X POST -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-    -H "Content-Type: application/json" -H "x-upsert: true" --data-binary "@/tmp/release-$PRODUCT.json" \
-    "${SUPABASE_URL:-https://dlkyxvhnnffblerwedjz.supabase.co}/storage/v1/object/app-downloads/release-$PRODUCT.json" -w '\nHTTP %{http_code}\n'
+  source "$(dirname "$0")/storage.sh"
+  ci_upload "/tmp/release-$PRODUCT.json" application/json "release-$PRODUCT.json"
 fi
