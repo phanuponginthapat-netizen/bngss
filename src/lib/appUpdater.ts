@@ -27,21 +27,22 @@ export function isNativeAndroid(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
 }
 
-const STORAGE_BASE = `${SUPABASE_URL}/storage/v1/object`;
-
 /** ทำให้ url ในไฟล์ manifest เป็น absolute เสมอ (กันกรณี CI เขียน path แบบสัมพัทธ์) */
 function normalizeManifest(m: AppUpdateManifest): AppUpdateManifest {
   let url = (m.url || "").trim();
   if (!/^https?:\/\//i.test(url)) {
     const file = m.fileName || url.split("/").pop() || "bngss-app-latest.apk";
-    url = `${STORAGE_BASE}/public/app-downloads/${file}`;
+    url = `${STORAGE_BASE}/app-downloads/${file}`;
+  } else {
+    // manifest เก่าอาจชี้ไป public path — แปลงเป็น authenticated path
+    url = url.replace("/storage/v1/object/public/app-downloads/", "/storage/v1/object/app-downloads/");
   }
   return { ...m, url };
 }
 
 export async function fetchUpdateManifest(): Promise<AppUpdateManifest | null> {
   try {
-    const res = await fetch(`${VERSION_URL}?t=${Date.now()}`, { cache: "no-store" });
+    const res = await fetch(`${VERSION_URL}?t=${Date.now()}`, { cache: "no-store", headers: AUTH_HEADERS });
     if (!res.ok) return null;
     return normalizeManifest((await res.json()) as AppUpdateManifest);
   } catch {
