@@ -1,6 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from "react";
 import DailyTaskBar from "./DailyTaskBar";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { requireSuccessfulReads } from "@/lib/dataReliability";
 import { toCE } from "@/lib/utils";
 import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { useWeatherData } from "@/hooks/useWeatherData";
@@ -70,6 +71,7 @@ const StudentDashboard = () => {
             .gte("event_date", todayBangkok())
             .order("event_date").limit(5),
         ]);
+        requireSuccessfulReads([news, events]);
         return { student: null, news: news.data || [], events: events.data || [] } as any;
       }
 
@@ -103,6 +105,7 @@ const StudentDashboard = () => {
         supabase.from("academic_events").select("id, title, event_date, event_type")
           .gte("event_date", todayStr).order("event_date").limit(5),
       ]);
+      requireSuccessfulReads([classroom, attendance, behavior, leaves, homework, schedule, news, events]);
 
       // นับเป็น "วัน" จริง — วันเดียวกันหลายคาบนับครั้งเดียว (มา > สาย > ลา > ป่วย > ขาด)
       const PRIORITY: Record<string, number> = { present: 5, late: 4, leave: 3, sick: 2, absent: 1 };

@@ -8,6 +8,7 @@ const state = vi.hoisted(() => ({
   today: "2026-11-01",
   settingsLoading: false,
   periodsLoading: false,
+  periodsError: null as Error | null,
   settings: [] as { setting_key: string; setting_value: string }[],
 }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
@@ -18,7 +19,7 @@ vi.mock("@tanstack/react-query", () => ({
     : { data: [
       { academic_year_be: 2569, semester: 1, start_date: "2026-05-16", end_date: "2026-10-10" },
       { academic_year_be: 2569, semester: 2, start_date: "2026-11-02", end_date: "2027-03-31" },
-    ], isLoading: state.periodsLoading },
+    ], isLoading: state.periodsLoading, error: state.periodsError },
 }));
 
 function readHook() {
@@ -34,9 +35,16 @@ beforeEach(() => {
   state.settings = [];
   state.settingsLoading = false;
   state.periodsLoading = false;
+  state.periodsError = null;
 });
 
 describe("school term selection", () => {
+  it("does not mark an unavailable calendar ready", () => {
+    state.periodsError = new Error("calendar unavailable");
+    const result = readHook();
+    expect(result.isReady).toBe(false);
+    expect(result.isError).toBe(true);
+  });
   it("keeps semester 1 on 1 November 2569 despite the month fallback", () => {
     expect(readHook().currentSemester).toBe(1);
   });

@@ -207,24 +207,26 @@ const TeacherDashboard = () => {
     queryKey: ["my_personnel_dashboard", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("personnel")
         .select("id, prefix, first_name, last_name, department, position")
         .eq("user_id", userId!)
         .maybeSingle();
+      if (error) throw error;
       return data;
     },
   });
 
   // Homeroom data
   const { data: homeroomData, isLoading: homeroomLoading } = useQuery({
-    queryKey: ["homeroom_dashboard", homeroomClassroomIds],
+    queryKey: ["homeroom_dashboard", userId, homeroomClassroomIds, schoolDate],
     enabled: hasHomeroom && !!homeroomClassroomIds?.length,
     queryFn: async () => {
       const classIds = homeroomClassroomIds!;
-      const { data: studentList } = await supabase.from("students")
+      const { data: studentList, error: studentError } = await supabase.from("students")
         .select("id, prefix, first_name, last_name, gender, status, student_code, photo_url")
         .in("classroom_id", classIds).eq("status", "active");
+      if (studentError) throw studentError;
       const studentIds = (studentList || []).map(s => s.id);
 
       const today = todayBangkok();
@@ -240,6 +242,7 @@ const TeacherDashboard = () => {
       ]);
 
       const lateThreshold = (lateSetting.data?.setting_value as string) || "08:00";
+      requireSuccessfulReads([attendance, behavior, leaves, homeVisits, sdq, faceLogs, lateSetting]);
       const statusByStudent = new Map<string, "present" | "late" | "absent">();
       attendance.data?.forEach((a: any) => {
         if (a.student_id && (a.status === "present" || a.status === "late" || a.status === "absent")) {
@@ -264,7 +267,7 @@ const TeacherDashboard = () => {
       const present = Array.from(statusByStudent.values()).filter(s => s === "present").length;
       const late = Array.from(statusByStudent.values()).filter(s => s === "late").length;
       const explicitAbsent = Array.from(statusByStudent.values()).filter(s => s === "absent").length;
-      const absent = Math.max(explicitAbsent, totalStu - present - late);
+      const absent = explicitAbsent;
       const totalAtt = Math.max(totalStu, present + late + explicitAbsent);
       const rate = totalAtt > 0 ? ((present / totalAtt) * 100) : 0;
       const maleCount = studentList?.filter(s => s.gender === "ช" || s.gender === "ชาย" || s.gender === "male").length || 0;
@@ -279,6 +282,7 @@ const TeacherDashboard = () => {
           { name: "มาเรียน", value: present, fill: "hsl(var(--success))" },
           { name: "ขาดเรียน", value: absent, fill: "hsl(var(--destructive))" },
           { name: "มาสาย", value: late, fill: "hsl(var(--warning))" },
+          { name: "ยังไม่บันทึก", value: Math.max(0, totalStu - present - late - absent), fill: "hsl(var(--muted-foreground))" },
         ].filter(d => d.value > 0),
         pendingLeaves: leaves.data?.filter(l => l.status === "pending").length || 0,
         positiveB: behavior.data?.filter(b => b.behavior_type === "positive").length || 0,
@@ -289,8 +293,8 @@ const TeacherDashboard = () => {
     },
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   // Subject assignments
@@ -360,7 +364,7 @@ const TeacherDashboard = () => {
     queryKey: ["teacher_pending_grading", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { count } = await supabase
+      const { count, error } = await supabase
         .from("task_assignments")
         .select("id", { count: "exact", head: true })
         .eq("assigned_by", userId!)
@@ -368,6 +372,7 @@ const TeacherDashboard = () => {
         .not("submitted_at", "is", null)
         .is("grade", null)
         .limit(1);
+      if (error) throw error;
       return count || 0;
     },
   });
@@ -644,7 +649,7 @@ const TeacherDashboard = () => {
                   <p className="text-2xl font-extrabold tabular-nums">{homeroomData?.attendanceRate || "0"}%</p>
                   <Progress value={parseFloat(homeroomData?.attendanceRate || "0")} className="h-1.5 mt-2" />
                   <p className="text-[10px] text-muted-foreground mt-1 truncate">
-                    {homeroomData ? `มา ${homeroomData.attChart.find((d: any) => d.name.includes("มา"))?.value || 0} · ขาด ${homeroomData.attChart.find((d: any) => d.name.includes("ขาด"))?.value || homeroomData.studentCount - (homeroomData.attChart.reduce((s: number, d: any) => s + d.value, 0))} คน` : "ไม่มีข้อมูลห้องประจำชั้น"}
+                    {homeroomData ? `มา ${homeroomData.attChart.find((d: any) => d.name === "มาเรียน")?.value || 0} · สาย ${homeroomData.attChart.find((d: any) => d.name === "มาสาย")?.value || 0} · ขาด ${homeroomData.attChart.find((d: any) => d.name === "ขาดเรียน")?.value || 0} · ยังไม่บันทึก ${homeroomData.attChart.find((d: any) => d.name === "ยังไม่บันทึก")?.value || 0}` : "ไม่มีข้อมูลห้องประจำชั้น"}
                   </p>
                   <div className="mt-2 h-[28px]">
                     {attendanceTrend && attendanceTrend.length > 0 ? (
