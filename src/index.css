@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Figtree:wght@300;400;500;600;700&family=Sarabun:wght@400;700&family=Kanit:wght@400;700&family=Prompt:wght@400;700&family=Noto+Sans+Thai:wght@400;700&display=swap');
 
 /* Hide Lovable badge — keeps it out of layout and interaction */
 #lovable-badge,
@@ -25,7 +24,7 @@ a[href*="lovable.dev"][href*="utm"] {
   src: url('/fonts/thsarabunnew-webfont.woff') format('woff');
   font-weight: 400;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
 }
 
 @font-face {
@@ -33,7 +32,7 @@ a[href*="lovable.dev"][href*="utm"] {
   src: url('/fonts/thsarabunnew_bold-webfont.woff') format('woff');
   font-weight: 700;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
 }
 
 @font-face {
@@ -41,7 +40,7 @@ a[href*="lovable.dev"][href*="utm"] {
   src: url('/fonts/thsarabunnew_italic-webfont.woff') format('woff');
   font-weight: 400;
   font-style: italic;
-  font-display: block;
+  font-display: swap;
 }
 
 @font-face {
@@ -49,7 +48,7 @@ a[href*="lovable.dev"][href*="utm"] {
   src: url('/fonts/thsarabunnew_bolditalic-webfont.woff') format('woff');
   font-weight: 700;
   font-style: italic;
-  font-display: block;
+  font-display: swap;
 }
 
 @tailwind base;
@@ -58,7 +57,7 @@ a[href*="lovable.dev"][href*="utm"] {
 
 @layer base {
   :root {
-    --background: 205 100% 97%;
+    --background: 210 40% 98%;
     --foreground: 215 40% 18%;
 
     --card: 0 0% 100%;
@@ -67,15 +66,15 @@ a[href*="lovable.dev"][href*="utm"] {
     --popover: 0 0% 100%;
     --popover-foreground: 215 40% 18%;
 
-    --primary: 199 89% 58%;
+    --primary: 199 89% 46%;
     --primary-foreground: 0 0% 100%;
     --primary-glow: 199 100% 78%;
 
     --secondary: 12 100% 92%;
     --secondary-foreground: 12 45% 30%;
 
-    --muted: 205 60% 94%;
-    --muted-foreground: 215 20% 45%;
+    --muted: 210 40% 95%;
+    --muted-foreground: 215 19% 40%;
 
     --accent: 10 90% 82%;
     --accent-foreground: 10 55% 28%;
@@ -83,11 +82,11 @@ a[href*="lovable.dev"][href*="utm"] {
     --destructive: 0 84% 62%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 205 50% 88%;
-    --input: 205 50% 90%;
-    --ring: 199 89% 58%;
+    --border: 214 32% 90%;
+    --input: 214 32% 88%;
+    --ring: 199 89% 46%;
 
-    --radius: 1rem;
+    --radius: 0.875rem;
 
     --sidebar-background: 214 55% 14%;
     --sidebar-foreground: 205 40% 92%;
@@ -98,11 +97,11 @@ a[href*="lovable.dev"][href*="utm"] {
     --sidebar-border: 214 40% 22%;
     --sidebar-ring: 199 89% 62%;
 
-    --success: 152 65% 48%;
+    --success: 152 68% 38%;
     --success-foreground: 0 0% 100%;
-    --warning: 32 95% 62%;
+    --warning: 32 95% 48%;
     --warning-foreground: 0 0% 100%;
-    --info: 199 89% 58%;
+    --info: 199 89% 46%;
     --info-foreground: 0 0% 100%;
   }
 
@@ -124,7 +123,9 @@ a[href*="lovable.dev"][href*="utm"] {
       radial-gradient(ellipse 600px 800px at 100% 0%, hsl(var(--accent) / 0.08), transparent 50%),
       radial-gradient(ellipse 700px 500px at 50% 100%, hsl(var(--primary) / 0.06), transparent 60%),
       hsl(var(--background));
-    background-attachment: fixed;
+  }
+  @media (min-width: 1024px) and (hover: hover) {
+    body { background-attachment: fixed; }
   }
 
   h1, h2, h3, h4, h5, h6 {
