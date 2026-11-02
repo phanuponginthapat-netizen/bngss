@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-const BASE = "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads";
+import { fetchAppDownloadsJson, resolveStorageUrl } from "@/lib/storageUrl";
 
 type Release = { version: string; releasedAt: string; files: { name: string; url: string; sizeBytes: number }[] };
 
@@ -15,10 +14,13 @@ export default function IosIpaDownload() {
     queryKey: ["release-ios"],
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      try {
-        const r = await fetch(`${BASE}/release-ios.json?t=${Date.now()}`, { cache: "no-store" });
-        return r.ok ? ((await r.json()) as Release) : null;
-      } catch { return null; }
+      const release = await fetchAppDownloadsJson<Release>("release-ios.json");
+      if (!release) return null;
+      // ไฟล์อยู่ใน bucket private — แปลงลิงก์เป็น signed URL
+      const files = await Promise.all(
+        release.files.map(async (f) => ({ ...f, url: await resolveStorageUrl("app-downloads", f.url) }))
+      );
+      return { ...release, files };
     },
   });
   const ipa = data?.files.find((f) => f.name.toLowerCase().endsWith(".ipa"));

@@ -3,8 +3,8 @@ import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { parseScannerRelease } from "@/lib/scannerRelease";
+import { fetchAppDownloadsJson } from "@/lib/storageUrl";
 
-const BASE = "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads";
 const PRODUCTS = ["android", "scanner", "facegate", "ios"] as const;
 
 type Release = { product: string; title: string; version: string; releasedAt: string; files: { name: string; url: string; sizeBytes: number }[] };
