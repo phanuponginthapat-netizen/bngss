@@ -67,8 +67,8 @@ jobs:
           fi
           FACEGATE_FILE="$(python3 -c 'import json;print(json.load(open("/tmp/facegate-build/facegate-version.json"))["fileName"])')"
           export FACEGATE_FILE
-          BASE="https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object"
-          PUB="https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads"
+          BASE="https://dlkyxvhnnffblerwedjz.supabase.co/storage/v1/object"
+          PUB="https://dlkyxvhnnffblerwedjz.supabase.co/storage/v1/object/public/app-downloads"
           upload() {
             local path="$1" ctype="$2" target="$3" body code
             body="$(mktemp)"

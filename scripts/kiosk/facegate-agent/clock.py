@@ -23,7 +23,7 @@ import urllib.request
 # Public endpoints that return an accurate HTTP `Date` header.
 _SOURCES = [
     os.environ.get("FACEGATE_TIME_URL") or "",
-    (os.environ.get("FACEGATE_CLOUD_URL") or "https://gwmszzoqqxmejefhayqf.supabase.co/functions/v1/kiosk-api/ping").rstrip("/") + "/",
+    (os.environ.get("FACEGATE_CLOUD_URL") or "https://dlkyxvhnnffblerwedjz.supabase.co/functions/v1/kiosk-api/ping").rstrip("/") + "/",
     "https://www.google.com/generate_204",
     "https://cloudflare.com/cdn-cgi/trace",
 ]
