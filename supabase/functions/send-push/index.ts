@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
       else {
         failed++;
         if (r.gone) await admin.from("push_subscriptions").delete().eq("id", s.id);
-        if (!r.skipped && r.error && errors.length < 5) errors.push(`${r.status ?? "?"}: ${r.error}`);
+        if (!("skipped" in r && r.skipped) && r.error && errors.length < 5) errors.push(`${r.status ?? "?"}: ${r.error}`);
       }
     }));
 

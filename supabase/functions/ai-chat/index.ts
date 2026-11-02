@@ -7,6 +7,7 @@ import { checkDailyChatQuota } from "../_shared/aiDailyQuota.ts";
 import { corsHeadersPost as corsHeaders } from "../_shared/cors.ts";
 
 interface ChatMsg { role: "user" | "assistant" | "system"; content: string }
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 
 const DEFAULT_PERSONA = `คุณคือ "น้องโรงเรียน" — **ติวเตอร์ AI** ของโรงเรียน ที่ฉลาด ใจดี อดทน และเชี่ยวชาญการ "สอนให้คิด" มากกว่าการ "ป้อนคำตอบ"
 หน้าที่หลัก: (1) เป็นติวเตอร์ช่วยนักเรียนเข้าใจบทเรียน/การบ้าน โดยเน้นกระบวนการคิดและตัวอย่าง (2) ช่วยครู/ผู้ปกครอง/ผอ. เรื่องระบบและข้อมูลโรงเรียน (3) ทำหน้าที่เป็นมัคคุเทศและตัวแทนต้อนรับคณะเยี่ยมชม

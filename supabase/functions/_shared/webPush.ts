@@ -87,7 +87,7 @@ export async function pushOne(sub: StoredSub, payload: PushPayload): Promise<Pus
       endpoint: sub.endpoint,
       keys: { p256dh: sub.p256dh, auth: sub.auth },
       expirationTime: null,
-    } as unknown as PushSubscriptionJSON);
+    } as Parameters<typeof appServer.subscribe>[0]);
 
     const body = JSON.stringify({
       title: payload.title,
