@@ -3,7 +3,7 @@
 #   - ลบ release/tag เดิมของโปรแกรมนี้ (รวม tag เวอร์ชันเก่า v*) แล้วสร้างใหม่ด้วยไฟล์ล่าสุด
 #   - เขียน release-<product>.json ขึ้น app-downloads ให้หน้าเว็บอ่านลิงก์ดาวน์โหลด
 # ใช้: publish-release.sh <product> <title> <version> <file>...
-# ต้องมี env: GH_TOKEN, GITHUB_REPOSITORY  (SUPABASE_ANON_KEY ถ้ามีจะอัปโหลด manifest)
+# ต้องมี env: GH_TOKEN, GITHUB_REPOSITORY  (CI_UPLOAD_TOKEN ถ้ามีจะอัปโหลด manifest)
 set -euo pipefail
 PRODUCT="$1"; TITLE="$2"; VERSION="$3"; shift 3
 TAG="${PRODUCT}-latest"
