@@ -1,4 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from "react";
+import DailyTaskBar from "./DailyTaskBar";
 import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { useWeatherData } from "@/hooks/useWeatherData";
 const DynamicHeroBackground = lazy(() => import("./DynamicHeroBackground"));

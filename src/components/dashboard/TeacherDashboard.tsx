@@ -1,4 +1,5 @@
 import { useState, lazy, Suspense } from "react";
+import DailyTaskBar from "./DailyTaskBar";
 import { todayBangkok } from "@/lib/dateBE";
 const DynamicHeroBackground = lazy(() => import("./DynamicHeroBackground"));
 const MascotHeroWidget = lazy(() => import("./widgets/MascotHeroWidget"));

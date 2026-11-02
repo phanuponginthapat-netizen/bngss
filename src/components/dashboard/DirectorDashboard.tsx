@@ -1,4 +1,5 @@
 import React, { lazy, Suspense } from "react";
+import DailyTaskBar from "./DailyTaskBar";
 import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
