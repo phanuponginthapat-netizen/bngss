@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
-import { act } from "react-dom/test-utils";
+import { act } from "react";
 
 // บันทึคการกรองทักทายของคำสั่งที่ส่งไปฐานขอมูล แยกตามตาราง
 const h = vi.hoisted(() => {
@@ -56,6 +56,8 @@ vi.mock("@tanstack/react-query", () => ({
 }));
 
 const { default: TeacherDailyBriefing } = await import("../TeacherDailyBriefing");
+
+(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
 async function renderBriefing() {
   h.filters.length = 0;
