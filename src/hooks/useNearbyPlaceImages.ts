@@ -152,10 +152,21 @@ export function useNearbyPlaceImages() {
   const { data: images } = useQuery({
     queryKey: ["nearby_place_images", coords?.lat, coords?.lng],
     enabled: hasCoords,
-    queryFn: () => fetchAllImages(coords!.lat, coords!.lng),
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnMount: "always",
+    queryFn: async () => {
+      const key = `bng.heroImages.${coords!.lat.toFixed(3)}_${coords!.lng.toFixed(3)}`;
+      try {
+        const cached = JSON.parse(localStorage.getItem(key) || "null");
+        if (cached && Date.now() - cached.at < 24 * 60 * 60 * 1000 && cached.images?.length) {
+          return shuffle(cached.images as string[]);
+        }
+      } catch { /* ignore */ }
+      const imgs = await fetchAllImages(coords!.lat, coords!.lng);
+      try { localStorage.setItem(key, JSON.stringify({ at: Date.now(), images: imgs })); } catch { /* quota */ }
+      return imgs;
+    },
+    staleTime: 60 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   return { images: images ?? [], hasCoords };
