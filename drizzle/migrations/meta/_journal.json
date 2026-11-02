@@ -29,6 +29,13 @@
       "when": 1793597542510,
       "tag": "0003_cloud_failed_scan_queue_recovery",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793603035555,
+      "tag": "0004_faster_enrollments_policies",
+      "breakpoints": true
     }
   ]
 }
