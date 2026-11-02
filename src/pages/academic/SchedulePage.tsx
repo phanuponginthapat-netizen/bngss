@@ -20,6 +20,7 @@ import { generateAutoSchedule, buildSubjectEntries } from "@/lib/autoScheduler";
 import type { ActivityLock } from "@/lib/autoScheduler";
 import { buildPeriodSlots } from "@/lib/periodSchedule";
 import { saveErrorMessage } from "@/lib/saveError";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
 
 const days = [
   { th: "จันทร์", en: "Mon", val: 1 },
@@ -43,6 +44,9 @@ const SchedulePage = () => {
   const { isAdmin: _rawAdmin, isDirector, isTeacher, isStudent, isParent, userId } = useUserRole();
   const isAdmin = _rawAdmin || isDirector;
   const qc = useQueryClient();
+  const { currentSemester, currentAcademicYear, isLoading: calendarLoading } = useAcademicYear();
+  const scheduleYear = currentAcademicYear - 543;
+  const semesterChosen = useRef(false);
   const [viewMode, setViewMode] = useState<"classroom" | "mySchedule">(isTeacher ? "mySchedule" : "classroom");
   const [filterClass, setFilterClass] = useState("");
 
@@ -134,7 +138,10 @@ const SchedulePage = () => {
 
 
 
-  const [filterSemester, setFilterSemester] = useState<number>(1);
+  const [filterSemester, setFilterSemester] = useState<number>(currentSemester);
+  useEffect(() => {
+    if (!calendarLoading && !semesterChosen.current) setFilterSemester(currentSemester);
+  }, [calendarLoading, currentSemester]);
   const [cellDialog, setCellDialog] = useState<{ day: number; period: number } | null>(null);
   const [savingCell, setSavingCell] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -232,23 +239,28 @@ const SchedulePage = () => {
   });
 
   const { data: assignments = [] } = useQuery({
-    queryKey: ["teacher_assignments"],
+    queryKey: ["teacher_assignments", scheduleYear, filterSemester],
+    enabled: !calendarLoading,
     queryFn: async () => {
       const { data } = await supabase
         .from("teacher_assignments")
         .select("*, personnel(*), subjects(*), classrooms(*)")
+        .eq("academic_year", scheduleYear)
+        .eq("semester", filterSemester)
         .order("created_at");
       return data || [];
     },
   });
 
   const { data: schedules = [] } = useQuery({
-    queryKey: ["schedules", filterSemester],
+    queryKey: ["schedules", scheduleYear, filterSemester],
+    enabled: !calendarLoading,
     queryFn: async () => {
       const { data } = await supabase
         .from("schedules")
         .select("*")
         .eq("semester", filterSemester)
+        .eq("academic_year", scheduleYear)
         .order("day_of_week")
         .order("period");
       return data || [];
@@ -541,6 +553,7 @@ const SchedulePage = () => {
     if (!classroom) return [];
     return subjects.filter((s: any) =>
       s.grade_level === classroom.grade_level &&
+      s.academic_year === scheduleYear &&
       (s.semester === 0 || s.semester === filterSemester || s.semester == null)
     );
   };
@@ -563,6 +576,7 @@ const SchedulePage = () => {
         teacher_name: teacherName || null,
         teacher_id: assignment?.personnel?.id || null,
         semester: filterSemester,
+        academic_year: scheduleYear,
         room: selectedRoom.trim() || null,
         duration_periods: Math.max(1, Math.min(maxSpanFrom(cellDialog.day, cellDialog.period), parseInt(selectedDuration) || 1)),
 
@@ -610,7 +624,7 @@ const SchedulePage = () => {
     setAutoScheduling(true);
     try {
       for (const cid of targetClassroomIds) {
-        const { error: delErr } = await supabase.from("schedules").delete().eq("classroom_id", cid).eq("semester", filterSemester);
+        const { error: delErr } = await supabase.from("schedules").delete().eq("classroom_id", cid).eq("semester", filterSemester).eq("academic_year", scheduleYear);
         if (delErr) throw delErr;
       }
 
@@ -645,7 +659,7 @@ const SchedulePage = () => {
       }
 
       for (let i = 0; i < newSlots.length; i += 50) {
-        const batch = newSlots.slice(i, i + 50).map((slot) => ({ ...slot, semester: filterSemester }));
+        const batch = newSlots.slice(i, i + 50).map((slot) => ({ ...slot, semester: filterSemester, academic_year: scheduleYear }));
         const { error } = await supabase.from("schedules").insert(batch);
         if (error) throw error;
       }
@@ -809,7 +823,7 @@ const SchedulePage = () => {
               </Button>
             </>
           )}
-          <Select value={String(filterSemester)} onValueChange={(v) => setFilterSemester(Number(v))}>
+          <Select value={String(filterSemester)} onValueChange={(v) => { semesterChosen.current = true; setFilterSemester(Number(v)); }}>
             <SelectTrigger className="w-[130px]">
               <SelectValue />
             </SelectTrigger>
