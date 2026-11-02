@@ -5,6 +5,7 @@ import { Network } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
 export type DashboardShortcut = {
@@ -32,7 +33,7 @@ function IconFor({ name, className }: { name?: string | null; className?: string
  * Dashboard shortcut tiles — admin-configurable via /dashboard/admin/dashboard-shortcuts
  * Labels, icons, logos, colors, target URLs, visible roles all stored in `dashboard_shortcuts`.
  */
-export default function SuperAppShortcuts({ alerts = 0 }: { alerts?: number }) {
+export default function SuperAppShortcuts({ alerts = 0, unframed = false, excludeUrls = [] }: { alerts?: number; unframed?: boolean; excludeUrls?: string[] }) {
   const { lang } = useLanguage();
   const { role } = useUserRole();
   const navigate = useNavigate();
@@ -51,8 +52,8 @@ export default function SuperAppShortcuts({ alerts = 0 }: { alerts?: number }) {
   });
 
   const visible = tiles.filter((t) =>
-    role ? t.visible_roles.includes(role) : t.visible_roles.length === 0 || t.visible_roles.includes("student"),
-  );
+    !excludeUrls.includes(t.target_url) && (role ? t.visible_roles.includes(role) : t.visible_roles.length === 0 || t.visible_roles.includes("student")),
+  ).filter((t, index, all) => all.findIndex(other => other.target_url === t.target_url) === index);
 
   const handleClick = (t: DashboardShortcut) => {
     if (t.open_in_new_tab || /^https?:\/\//i.test(t.target_url)) {
@@ -64,18 +65,18 @@ export default function SuperAppShortcuts({ alerts = 0 }: { alerts?: number }) {
 
   if (visible.length === 0) return null;
 
-  return (
-    <Card className="border border-border/50 shadow-elevated rounded-2xl p-3 sm:p-4 bg-gradient-to-b from-background to-muted/30">
+  const content = (
       <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-7 gap-3 sm:gap-4">
         {visible.map((t) => {
           const isInbox = t.target_url.includes("/inbox");
           const badge = isInbox ? alerts : 0;
           return (
-            <button
+            <Button
               key={t.id}
+              variant="ghost"
               type="button"
               onClick={() => handleClick(t)}
-              className="group flex flex-col items-center gap-1.5 p-1 rounded-xl active:scale-95 transition-transform"
+              className="group flex h-auto min-w-0 flex-col items-center gap-1.5 whitespace-normal p-1 rounded-lg active:scale-95 transition-transform"
             >
               <div className="relative">
                 {/* Neumorphic squircle — soft outer shadow + inner top highlight + subtle bottom shade,
@@ -109,10 +110,10 @@ export default function SuperAppShortcuts({ alerts = 0 }: { alerts?: number }) {
               <span className="text-[11px] sm:text-xs text-foreground/85 text-center leading-tight line-clamp-2 w-full font-medium">
                 {lang === "th" ? t.label_th : t.label_en}
               </span>
-            </button>
+            </Button>
           );
         })}
       </div>
-    </Card>
   );
+  return unframed ? content : <Card className="border border-border/50 shadow-elevated rounded-2xl p-3 sm:p-4">{content}</Card>;
 }
