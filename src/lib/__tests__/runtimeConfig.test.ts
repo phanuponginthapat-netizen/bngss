@@ -17,4 +17,10 @@ describe("Cloud recovery backend", () => {
     expect(isBlockedBackendUrl("https://dlkyxvhnnffblerwedjz.supabase.co")).toBe(false);
     expect(isBlockedBackendUrl("https://gwmszzoqqxmejefhayqf.supabase.co")).toBe(true);
   });
+  it("ignores stale standalone configuration during hosted recovery", () => {
+    vi.stubGlobal("window", { __BNG_CONFIG__: { DEPLOY_MODE: "standalone", SUPABASE_URL: "https://old.example", SUPABASE_ANON_KEY: "old" } });
+    vi.stubEnv("VITE_STANDALONE", "1");
+    expect(getBackendConfig().url).toBe(CANONICAL_BACKEND.url);
+    expect(getBackendConfig().storageProvider).toBe("supabase");
+  });
 });

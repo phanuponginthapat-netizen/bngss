@@ -28,7 +28,7 @@ export const CANONICAL_BACKEND = {
   projectId: "dlkyxvhnnffblerwedjz",
 } as const;
 
-/** single backend — gwmszzoqqxmejefhayqf เท่านั้น (ห้ามชี้ backend อัตโนมัติของ Lovable) */
+/** Reject the restricted source backend during Cloud recovery. */
 const BLOCKED_PROJECT_REFS: string[] = ["gwmszzoqqxmejefhayqf"];
 
 /** true ถ้า URL ชี้ไป backend ที่ห้ามใช้ */
@@ -58,7 +58,7 @@ function readLocal(): Partial<BackendConfig> {
     const parsed = JSON.parse(raw);
     if (typeof parsed !== "object" || !parsed) return {};
     if (isBlockedBackendUrl(parsed.url)) {
-      // ล้างค่าที่ชี้ไป Lovable Cloud ทิ้งทันที
+      // Discard the restricted school override, preserving the original backend data.
       localStorage.removeItem(LS_KEY);
       console.warn("[backend] ล้างการเชื่อมต่อเดิมและใช้ Lovable Cloud");
       return {};
@@ -85,7 +85,7 @@ function readGlobal(): Partial<BackendConfig> {
 
 /**
  * ค่าจาก build env (VITE_SUPABASE_*) — รองรับผู้ที่นำระบบไปใช้กับ Supabase ของตัวเอง
- * ค่าที่ชี้ไป Lovable Cloud จะถูกกรองทิ้งเสมอ
+ * ค่าที่ชี้ไปบริการโรงเรียนที่ถูกระงับจะถูกกรองทิ้ง
  */
 function readEnv(): Partial<BackendConfig> {
   try {
@@ -114,32 +114,15 @@ export function isLocalInstall(): boolean {
 }
 
 export function getBackendConfig(): BackendConfig {
-  const localInstall = isLocalInstall();
-  const local = localInstall ? {} : readLocal();
-  const global = readGlobal();
-  const env = localInstall ? {} : readEnv();
-  const pick = (k: keyof BackendConfig) =>
-    (local as any)[k] || (global as any)[k] || (env as any)[k] || "";
-  let url = String(pick("url") || "").replace(/\/+$/, "");
-  let anonKey = String(pick("anonKey") || "");
-  let projectId = String(pick("projectId") || "");
-
-  if (localInstall) {
-    return { url, anonKey, projectId, storageProvider: "supabase" };
-  }
-
-  // Fallback สุดท้าย: backend เริ่มต้น (โรงเรียนต้นทาง) — กันกรณียังไม่ได้ตั้งค่า
-  if (!url || !anonKey || isBlockedBackendUrl(url)) {
-    url = CANONICAL_BACKEND.url;
-    anonKey = CANONICAL_BACKEND.anonKey;
-    projectId = CANONICAL_BACKEND.projectId;
-  }
-
+  // Recovery uses a single hosted backend; stale installer/browser settings cannot
+  // split authentication, CMS and school records across projects.
+  readLocal();
+  const env = readEnv();
   return {
-    url,
-    anonKey,
-    projectId,
-    storageProvider: (pick("storageProvider") as BackendConfig["storageProvider"]) || "supabase",
+    ...CANONICAL_BACKEND,
+    anonKey: env.url?.replace(/\/+$/, "") === CANONICAL_BACKEND.url && env.anonKey
+      ? env.anonKey : CANONICAL_BACKEND.anonKey,
+    storageProvider: "supabase",
   };
 }
 
