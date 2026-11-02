@@ -65,6 +65,9 @@ Deno.serve(async (req) => {
       .not("drive_file_id", "is", null);
 
     if (dryRun) return json({ ok: true, pending: pending ?? 0, dryRun: true });
+    // Drive remains authoritative; an explicit recovery request is required to
+    // recreate cloud mirrors, preventing scheduled duplicate storage.
+    if (body?.restoreToCloud !== true) return json({ ok: true, pending: pending ?? 0, migrated: 0, mode: "drive_only" });
 
     const { data: rows, error: rowsErr } = await admin
       .from("line_vault_items")

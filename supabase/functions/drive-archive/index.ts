@@ -10,6 +10,7 @@ import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { corsHeadersWithCron } from "../_shared/cors.ts";
 import { requireCronOrAdmin } from "../_shared/requireCron.ts";
 import { ensureFolderPath, uploadFile, downloadFile } from "../_shared/googleDrive.ts";
+import { verifyCopy } from "../_shared/storageSafety.ts";
 
 const corsHeaders = corsHeadersWithCron;
 const ROOT_FOLDER = Deno.env.get("DRIVE_ARCHIVE_ROOT") || "BNGSS Archive";
@@ -33,7 +34,7 @@ type Policy = {
 /** ดึงข้อมูลของตารางเฉพาะปีการศึกษาที่ต้องการ (CE year) แบบแบ่งหน้า */
 async function fetchYearRows(admin: any, table: string, ceYear: number): Promise<any[]> {
   const attempts: Array<() => any> = [
-    ...YEAR_COLUMNS.map((col) => () => admin.from(table).select("*").eq(col, ceYear)),
+    ...YEAR_COLUMNS.map((col) => () => admin.from(table).select("*").eq(col, col === "academic_year_be" ? ceYear + 543 : ceYear)),
     ...DATE_COLUMNS.map((col) => () =>
       admin.from(table).select("*").gte(col, `${ceYear}-01-01`).lt(col, `${ceYear + 1}-01-01`)
     ),
@@ -51,6 +52,7 @@ async function fetchYearRows(admin: any, table: string, ceYear: number): Promise
       }
       rows.push(...(data || []));
       if ((data || []).length < PAGE) break;
+      if (from + PAGE >= MAX_ROWS) throw new Error(`Backup limit reached for ${table}; partial copy rejected`);
     }
     if (!failed) return rows;
   }
@@ -141,8 +143,10 @@ Deno.serve(async (req) => {
             const fileName = `${table}_${yearBE}_${stamp}.json`;
             const bytes = new TextEncoder().encode(JSON.stringify(rows, null, 0));
             const uploaded = await uploadFile(fileName, "application/json", bytes, folderId);
-
-            await admin.from("drive_archives").insert({
+            const verified = await downloadFile(uploaded.id);
+            if (!verified.ok) throw new Error(`Drive backup unreadable [${verified.status}]`);
+            await verifyCopy(bytes, new Uint8Array(await verified.arrayBuffer()));
+            const { error: registryError } = await admin.from("drive_archives").insert({
               academic_year_be: yearBE,
               module_code: p.code,
               module_label: p.label,
@@ -155,6 +159,7 @@ Deno.serve(async (req) => {
               byte_size: bytes.length,
               format: "json",
             });
+            if (registryError) throw registryError;
 
             totalRows += rows.length;
             totalBytes += bytes.length;
@@ -165,7 +170,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      return json({ success: true, year_be: yearBE, total_rows: totalRows, total_bytes: totalBytes, results });
+      return json({ success: !results.some(r => r.error), year_be: yearBE, total_rows: totalRows, total_bytes: totalBytes, results });
     }
 
     return json({ error: `ไม่รู้จัก action: ${action}` }, 400);
