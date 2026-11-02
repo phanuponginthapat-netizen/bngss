@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { saveErrorMessage } from "@/lib/saveError";
 import { Camera, Upload, Loader2, CheckCircle2, X } from "lucide-react";
 import { useAuthSession } from "@/hooks/useAuthSession";
+import { gradeAnswers, answerKeyProblem, cleanStudentCode } from "@/lib/examGrading";
+import { resolveStorageUrl } from "@/lib/storageUrl";
 
 export default function ExamScanPage() {
   const { id } = useParams();
@@ -23,122 +25,101 @@ export default function ExamScanPage() {
   const { data: exam } = useQuery({
     queryKey: ["exam", id],
     enabled: !!id,
-    queryFn: async () => (await supabase.from("exams").select("*").eq("id", id).maybeSingle()).data,
+    queryFn: async () => { const r = await supabase.from("exams").select("*").eq("id", id).maybeSingle(); if (r.error) throw r.error; return r.data; },
   });
   const { data: questions = [] } = useQuery({
     queryKey: ["exam-q", id],
     enabled: !!id,
-    queryFn: async () => (await supabase.from("exam_questions").select("question_no,correct_answer").eq("exam_id", id).order("question_no")).data || [],
+    queryFn: async () => { const r = await supabase.from("exam_questions").select("question_no,correct_answer").eq("exam_id", id).order("question_no"); if (r.error) throw r.error; return r.data || []; },
   });
   const { data: sheet } = useQuery({
     queryKey: ["exam-sheet", id],
     enabled: !!id,
-    queryFn: async () => (await supabase.from("exam_sheets").select("*").eq("exam_id", id).maybeSingle()).data,
+    queryFn: async () => { const r = await supabase.from("exam_sheets").select("*").eq("exam_id", id).maybeSingle(); if (r.error) throw r.error; return r.data; },
   });
 
   async function handleFile(file: File) {
     if (!exam || !user) return;
+    const keyProblem = answerKeyProblem(questions as any[], Number(exam.question_count) || 0);
+    if (keyProblem) { toast.error(`ตรวจไม่ได้: ${keyProblem}`); return; }
     setBusy(true);
     setResult(null);
     try {
-      const dataUrl = await fileToDataUrl(file);
+      // ย่อรูปก่อนส่ง (เร็วขึ้น และไม่เกินขนาดที่ AI รับได้)
+      const dataUrl = await downscaleImage(file, 1800);
+      const digits = sheet?.student_code_digits || 5;
 
-      // Upload original to storage
-      const path = sanitizeStorageKey(`${exam.id}/${Date.now()}-${file.name}`);
-      const up = await supabase.storage.from("exam-scans").upload(path, file, { upsert: false });
+      const stamp = Date.now();
+      const scanPath = sanitizeStorageKey(`${exam.id}/${stamp}-scan.jpg`);
+      const scanBlob = await (await fetch(dataUrl)).blob();
+      const up = await supabase.storage.from("exam-scans").upload(scanPath, scanBlob, { upsert: false, contentType: "image/jpeg" });
       if (up.error) throw up.error;
-      const scanUrl = supabase.storage.from("exam-scans").getPublicUrl(path).data.publicUrl;
 
-      // Call OCR
       const layout = (sheet?.layout_config as any) || {};
       const choiceFormat = (["abcd", "1234", "thai"] as const).includes(layout.choice_format)
         ? layout.choice_format as "abcd" | "1234" | "thai"
         : "abcd";
       const { data, error } = await supabase.functions.invoke("exam-grade", {
-        body: {
-          image_base64: dataUrl,
-          question_count: exam.question_count,
-          student_code_digits: sheet?.student_code_digits || 5,
-          choice_format: choiceFormat,
-        },
+        body: { image_base64: dataUrl, question_count: exam.question_count, student_code_digits: digits, choice_format: choiceFormat },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
       const answers: Record<string, string | null> = data.answers || {};
-      const correctMap: Record<string, boolean> = {};
-      let score = 0;
-      (questions as any[]).forEach((q) => {
-        const ans = answers[String(q.question_no)];
-        const ok = ans && ans.toUpperCase() === q.correct_answer.toUpperCase();
-        correctMap[q.question_no] = !!ok;
-        if (ok) score++;
-      });
-      const total = (questions as any[]).length;
+      const g = gradeAnswers(questions as any[], answers);
+      const { score, total, correctMap } = g;
 
-      // Generate graded overlay image
-      const graded = await renderGradedOverlay(dataUrl, answers, correctMap, questions as any[]);
+      const labels = choiceFormat === "1234" ? ["1","2","3","4"] : choiceFormat === "thai" ? ["ก","ข","ค","ง"] : ["A","B","C","D"];
+      const graded = await renderGradedOverlay(dataUrl, answers, correctMap, questions as any[], labels);
       const gradedBlob = await (await fetch(graded)).blob();
-      const gradedPath = `${exam.id}/${Date.now()}-graded.png`;
-      const gradedUp = await supabase.storage.from("exam-scans").upload(gradedPath, gradedBlob, { upsert: false, contentType: "image/png" });
+      const gradedPath = `${exam.id}/${stamp}-graded.jpg`;
+      const gradedUp = await supabase.storage.from("exam-scans").upload(gradedPath, gradedBlob, { upsert: false, contentType: "image/jpeg" });
       if (gradedUp.error) throw gradedUp.error;
-      const gradedUrl = supabase.storage.from("exam-scans").getPublicUrl(gradedPath).data.publicUrl;
 
-      // Sanitize student code (digits only, keep as-is — DB stores text)
-      const rawCode = String(data.student_code ?? "").replace(/[^0-9]/g, "");
-      const studentCode = rawCode || null;
+      const studentCode = cleanStudentCode(data.student_code, digits);
 
-      // Lookup student by code
       let studentId: string | null = null;
       let studentName = "";
       if (studentCode) {
-        const { data: stu } = await supabase.from("students").select("id,prefix,first_name,last_name")
-          .eq("student_code", studentCode).maybeSingle();
-        if (stu) {
-          studentId = stu.id;
-          studentName = `${stu.prefix || ""}${stu.first_name} ${stu.last_name}`;
+        const { data: stu, error: stuErr } = await supabase.from("students").select("id,prefix,first_name,last_name")
+          .eq("student_code", studentCode).limit(2);
+        if (stuErr) throw stuErr;
+        if (stu && stu.length === 1) {
+          studentId = stu[0].id;
+          studentName = `${stu[0].prefix || ""}${stu[0].first_name} ${stu[0].last_name}`;
         }
       }
 
-      const pct = total > 0 ? (score / total) * 100 : 0;
-
-      // Dedupe: ถ้าสแกนซ้ำสำหรับ code + exam เดียวกัน ให้ update แทน insert
       const subPayload: any = {
         exam_id: exam.id,
         student_id: studentId,
         student_code_detected: studentCode,
         student_name_snapshot: studentName,
-        scan_image_url: scanUrl,
-        graded_image_url: gradedUrl,
+        scan_image_url: scanPath,
+        graded_image_url: gradedPath,
         answers,
         correct_map: correctMap,
-        score, total, percentage: pct,
+        score, total, percentage: g.percentage,
         graded_by: user.id,
       };
-      const { data: existing, error: dupErr } = await supabase
-        .from("exam_submissions")
-        .select("id")
-        .eq("exam_id", exam.id)
-        .eq("student_code_detected", studentCode ?? "__none__")
-        .maybeSingle();
-      if (dupErr && !studentCode) {
-        // no code → nothing to dedupe on
+      // สแกนซ้ำรหัสเดิมในข้อสอบเดิม → อัปเดตแทนเพิ่มแถวใหม่ (ไม่มีรหัส = เพิ่มใหม่ให้ครูตรวจเอง)
+      let existingId: string | null = null;
+      if (studentCode) {
+        const { data: existing, error: dupErr } = await supabase.from("exam_submissions").select("id")
+          .eq("exam_id", exam.id).eq("student_code_detected", studentCode).limit(1);
+        if (dupErr) throw dupErr;
+        existingId = existing?.[0]?.id ?? null;
       }
-      let subErr: any = null;
-      if (existing?.id) {
-        const { error: uErr } = await supabase.from("exam_submissions").update(subPayload).eq("id", existing.id);
-        subErr = uErr;
-      } else {
-        const { error: iErr } = await supabase.from("exam_submissions").insert(subPayload);
-        subErr = iErr;
-      }
-      if (subErr) {
-        toast.error(saveErrorMessage(subErr));
-        return;
-      }
+      const { error: subErr } = existingId
+        ? await supabase.from("exam_submissions").update(subPayload).eq("id", existingId)
+        : await supabase.from("exam_submissions").insert(subPayload);
+      if (subErr) { toast.error(saveErrorMessage(subErr)); return; }
 
-      setResult({ score, total, pct, studentCode, studentName, gradedUrl, confidence: data.confidence ?? null });
-      toast.success(`ตรวจเสร็จ: ${score}/${total} (${pct.toFixed(1)}%)`);
+      const gradedUrl = await resolveStorageUrl("exam-scans", gradedPath);
+      setResult({ score, total, pct: g.percentage, blank: g.blank, studentCode, studentName, gradedUrl, confidence: data.confidence ?? null, updated: !!existingId });
+      if (!studentCode) toast.warning(`ตรวจแล้ว ${score}/${total} แต่อ่านรหัสนักเรียนไม่ครบ — โปรดตรวจสอบในหน้าผลคะแนน`);
+      else if (!studentId) toast.warning(`ตรวจแล้ว ${score}/${total} แต่ไม่พบนักเรียนรหัส ${studentCode}`);
+      else toast.success(`ตรวจเสร็จ: ${score}/${total} (${g.percentage.toFixed(1)}%)${existingId ? " — แทนผลเดิม" : ""}`);
     } catch (e: any) {
       toast.error(saveErrorMessage(e));
     } finally { setBusy(false); }
@@ -180,6 +161,7 @@ export default function ExamScanPage() {
               </span>
             )}
           </p>
+          {result.blank > 0 && <p className="text-sm text-warning">มี {result.blank} ข้อที่ไม่ได้ฝนหรือฝนมากกว่า 1 ช่อง (นับเป็นผิด)</p>}
           {result.gradedUrl && <img src={result.gradedUrl} alt="ผลการตรวจ" className="w-full rounded border" />}
         </Card>
       )}
@@ -308,7 +290,9 @@ async function renderGradedOverlay(
   answers: Record<string, string | null>,
   correctMap: Record<string, boolean>,
   questions: any[],
+  labels: string[] = ["A", "B", "C", "D"],
 ): Promise<string> {
+  const show = (v: string | null | undefined) => { const i = ["A","B","C","D"].indexOf(String(v ?? "").toUpperCase()); return i >= 0 ? labels[i] : "-"; };
   const img = new Image();
   await new Promise((r, j) => { img.onload = r; img.onerror = j; img.src = dataUrl; });
   const canvas = document.createElement("canvas");
@@ -333,9 +317,9 @@ async function renderGradedOverlay(
   const lineH = Math.max(18, Math.floor(canvas.height * 0.018));
   ctx.font = `${Math.floor(lineH * 0.7)}px monospace`;
   const rowLabels = questions.map((q) => {
-    const ok = correctMap[q.question_no];
-    const ans = answers[String(q.question_no)] || "-";
-    const label = `${ok ? "✓" : "✗"} ${q.question_no}. ${ans}${ok ? "" : ` (${q.correct_answer})`}`;
+    const ok = correctMap[String(q.question_no)];
+    const ans = show(answers[String(q.question_no)]);
+    const label = `${ok ? "✓" : "✗"} ${q.question_no}. ${ans}${ok ? "" : ` (${show(q.correct_answer)})`}`;
     const lw = ctx.measureText(label).width;
     return { ok, label, lw };
   });
@@ -355,5 +339,17 @@ async function renderGradedOverlay(
     ctx.fillText(row.label, x + padCol, y + lineH * 0.75);
   });
 
-  return canvas.toDataURL("image/png");
+  return canvas.toDataURL("image/jpeg", 0.85);
+}
+
+async function downscaleImage(file: File, maxSide: number): Promise<string> {
+  const src = await fileToDataUrl(file);
+  const img = new Image();
+  await new Promise((r, j) => { img.onload = r; img.onerror = j; img.src = src; });
+  const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.naturalWidth * scale);
+  c.height = Math.round(img.naturalHeight * scale);
+  c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", 0.9);
 }
