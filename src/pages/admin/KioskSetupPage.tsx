@@ -709,7 +709,7 @@ export default function KioskSetupPage() {
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
               <a
-                href={scannerApkUrl || "https://gwmszzoqqxmejefhayqf.supabase.co/storage/v1/object/public/app-downloads/bngss-scanner-latest.apk"}
+                href={scannerApkUrl || scannerFallbackUrl || undefined}
                 target="_blank"
                 rel="noreferrer"
               >
