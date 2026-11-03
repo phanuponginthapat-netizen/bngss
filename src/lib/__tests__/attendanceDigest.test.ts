@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { readDigestRows, resolveDigestStatuses } from "../../../supabase/functions/_shared/attendanceDigest";
 
