@@ -1,3 +1,4 @@
+- LINE attendance digests resolve saved school attendance plus earliest entry evidence through the shared attendanceDigest helper; missing evidence stays unrecorded, reads fail closed, and zero scans never create a holiday.
 - The system is cloud-only (single hosted backend); standalone/self-hosted installers and the district hub were removed to keep the codebase focused on day-to-day school use.
 - Shared query defaults never retain placeholder results across changed keys, and refetch stale data on mount/focus; fetch dedup is scoped to a client and all headers, with retries limited to reads, to avoid cross-context results and duplicate writes.
 - Term-sensitive dashboard queries wait for calendar readiness and scope schedules, assignments and enrollments together; warehouse reads page deterministically and fail on source errors rather than publish incomplete success.

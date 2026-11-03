@@ -292,9 +292,11 @@ const FaceReportTab = () => {
         body: { image_url: previewChartUrl, summary_text: previewSummary, force: true },
       });
       if (error) throw error;
+      if (data?.ok === false || data?.results?.some((r: any) => r.ok === false)) throw new Error(`ส่งรายงานไม่ครบ: สำเร็จ ${data?.sent ?? 0} กลุ่ม กรุณาตรวจการเชื่อมต่อ LINE`);
       const sent = (data as any)?.sent ?? 0;
       if (sent > 0) toast.success("ส่งรายงานเข้ากลุ่ม LINE เรียบร้อย");
-      else toast.info("วันนี้ส่งรายงานเข้ากลุ่ม LINE ไปแล้ว — ระบบข้ามการส่งซ้ำ");
+      else if (data?.already_sent > 0) toast.info("วันนี้ส่งรายงานเข้ากลุ่ม LINE ไปแล้ว — ระบบข้ามการส่งซ้ำ");
+      else toast.error("ยังไม่ได้ส่งรายงาน กรุณาตรวจว่ามีกลุ่มที่เปิดรับรายงาน");
       setPreviewOpen(false);
       setPreviewChartUrl(null);
     } catch (e: any) {

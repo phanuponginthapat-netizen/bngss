@@ -57,6 +57,9 @@ export default function LineDigestScheduleCard() {
     });
     setSending(false);
     if (error) return swal.error("ส่งไม่สำเร็จ", error.message);
+    const failed = data?.results?.filter((r: any) => r.ok === false) ?? [];
+    if (failed.length || data?.ok === false) return swal.error("ส่งรายงานไม่ครบ", `ส่งสำเร็จ ${data?.sent ?? 0} กลุ่ม ส่งไม่สำเร็จ ${failed.length} กลุ่ม กรุณาตรวจการเชื่อมต่อ LINE`);
+    if (data?.skipped) return swal.error("ยังไม่ได้ส่ง", "รายงานถูกข้าม กรุณาตรวจวันและเวลาที่ตั้งไว้");
     const sent = (data as any)?.results?.filter((r: any) => r.ok).length ?? 0;
     const already = (data as any)?.already_sent ?? 0;
     if (sent > 0) return swal.success("ส่งแล้ว", `ส่งรายงานเข้ากลุ่ม LINE ${sent} กลุ่ม`);
