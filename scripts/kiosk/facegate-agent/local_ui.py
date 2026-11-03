@@ -119,7 +119,7 @@ function showResult(d, captured) {
   $('scanTime').textContent = serverNow().toLocaleTimeString('th-TH-u-ca-buddhist-nu-latn',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}) + ' น.';
   $('resultBar').className = 'resultBar' + (ok ? '' : ' bad');
   $('resultBar').textContent = ok ? (content.kiosk_success_label || 'บันทึกสำเร็จ') : d.message;
-  setTimeout(() => { $('profile').className = 'profile'; $('waiting').style.display = ''; }, (d.next_delay_seconds || 5) * 1000);
+  setTimeout(() => { $('profile').className = 'profile'; $('waiting').style.display = ''; }, Math.min(d.next_delay_seconds || 2, 2.5) * 1000);
 }
 let audioReady = false, thaiVoice = null, browserVoiceOk = false;
 const clipCache = new Map();
@@ -272,9 +272,9 @@ async function tick() {
     if (d.result !== 'no_face') bumpActivity();
     if (d.result === 'ok') {
       say(d.message, 'ok'); showResult(d, 'data:image/jpeg;base64,' + image); speak(d.speak); loadRecent(); loadStats();
-      pausedUntil = Date.now() + (d.next_delay_seconds || 5) * 1000;
+      pausedUntil = Date.now() + Math.min(d.next_delay_seconds || 1.5, 1.5) * 1000;  // next student may step up right away
     } else if (d.result === 'duplicate' || d.result === 'denied') {
-      say(d.message, 'bad'); showResult(d, 'data:image/jpeg;base64,' + image); speak(d.speak); pausedUntil = Date.now() + 3000;
+      say(d.message, 'bad'); showResult(d, 'data:image/jpeg;base64,' + image); speak(d.speak); pausedUntil = Date.now() + 1200;
     } else if (d.message && d.result !== 'no_face') { say(d.message); }
     else { say($('subtitle').textContent); }
   } catch (e) {}
@@ -378,7 +378,7 @@ function clock() {
   $('date').textContent = now.toLocaleDateString('th-TH-u-ca-buddhist-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 loadBrand(); startCamera(); loadRecent(); loadStats(); clock();
-setInterval(tick, 900); setInterval(loadRecent, 15000); setInterval(loadStats, 60000);
+setInterval(tick, 300); setInterval(loadRecent, 15000); setInterval(loadStats, 60000);
 setInterval(applySaver, 5000);
 setInterval(clock, 1000); setInterval(loadBrand, 120000);
 </script>

@@ -69,7 +69,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "min_face_coverage": 0.04,
     "require_liveness": True,
     "duplicate_cooldown_minutes": 300,
-    "next_person_delay_seconds": 5,
+    "next_person_delay_seconds": 2,
     "save_snapshots": True,
     "snapshot_retention_days": 90,
     "retention_days": 365,

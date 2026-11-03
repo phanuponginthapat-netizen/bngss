@@ -107,7 +107,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.10.0"
+AGENT_VERSION = "1.11.0"
 
 
 def default_cache_dir() -> str:
@@ -356,6 +356,53 @@ def outbox_append(payload: dict) -> None:
                 fh.write(json.dumps(payload, ensure_ascii=False) + "\n")
         except Exception as exc:  # noqa: BLE001
             print(f"[agent] outbox write failed: {exc}")
+
+
+# Fast queue: greet the student from local data at once and send the record in
+# the background, so the line never waits on the internet (target < 3 s/person).
+_recent_ok: dict[str, float] = {}
+
+
+def _post_attendance_bg(payload: dict) -> None:
+    for attempt in range(2):
+        try:
+            res = requests.post(f"{CLOUD_URL}/kiosk-api/attendance", headers=HEADERS, json=payload, timeout=15)
+            res.raise_for_status()
+            _fails["count"] = 0
+            return
+        except Exception as exc:  # noqa: BLE001
+            last = exc
+            if attempt == 0:
+                time.sleep(0.6)
+    print(f"[agent] upload failed, queued offline: {last}")
+    outbox_append(payload)
+
+
+def submit_attendance_fast(payload: dict, settings: dict, delay: int, extra: dict | None = None) -> dict:
+    """Answer the kiosk instantly; duplicates are caught locally within the cooldown."""
+    sid = payload["student_id"]
+    with lock:
+        person = state["students"].get(sid) or {}
+    name = person.get("full_name") or "ผู้ใช้งาน"
+    is_staff = person.get("person_type") == "staff"
+    cooldown_s = float(settings.get("duplicate_cooldown_minutes") or 0) * 60
+    now = time.time()
+    last = _recent_ok.get(sid)
+    if not is_staff and last is not None and cooldown_s > 0 and now - last < cooldown_s:
+        return {**(extra or {}), "result": "duplicate", "student_id": sid, "name": name,
+                "message": f"{name} บันทึกเวลาไปแล้ววันนี้",
+                "speak": settings.get("voice_duplicate_text") or "บันทึกไปแล้ว",
+                "next_delay_seconds": 1}
+    _recent_ok[sid] = now
+    threading.Thread(target=_post_attendance_bg, args=(payload,), daemon=True).start()
+    out = payload.get("direction") == "out"
+    welcome = settings.get("voice_welcome_text") or "ยินดีต้อนรับ"
+    return door_react({**(extra or {}), "result": "ok", "student_id": sid, "name": name,
+                       "message": f"{name} บันทึกเวลาออกแล้ว" if out else f"{name} บันทึกเวลาเข้าเรียบร้อย",
+                       "speak": f"เดินทางปลอดภัย {name}" if out else f"{welcome} {name}",
+                       "next_delay_seconds": delay})
+
+
 
 
 def outbox_flush() -> None:
@@ -1441,20 +1488,9 @@ def scan_card_qr(arr: np.ndarray, direction: str | None, dry_run: bool, delay: i
     photo = qr_reader.frame_evidence_jpeg(arr)
     if photo:
         payload["snapshot"] = base64.b64encode(photo).decode()
-    try:
-        res = requests.post(f"{CLOUD_URL}/kiosk-api/attendance", headers=HEADERS, json=payload, timeout=15)
-        res.raise_for_status()
-        _fails["count"] = 0
-        return door_react(res.json())
-    except Exception as exc:  # noqa: BLE001
-        print(f"[agent] QR upload failed, queued offline: {exc}")
-        outbox_append(payload)
-        return door_react({
-            "result": "ok", "offline": True,
-            "message": f"บันทึกเวลาด้วยบัตรแบบออฟไลน์ให้ {name} แล้ว",
-            "speak": f"สแกนบัตรสำเร็จ {name}",
-            "next_delay_seconds": delay,
-        })
+    with lock:
+        settings = dict(state["settings"])
+    return submit_attendance_fast(payload, settings, delay)
 
 
 def run_scan(image: str, direction: str | None = None, dry_run: bool = False):
@@ -1475,7 +1511,7 @@ def run_scan(image: str, direction: str | None = None, dry_run: bool = False):
         settings = dict(state["settings"])
 
     threshold = float(settings.get("match_threshold") or 0.45)
-    delay = int(settings.get("next_person_delay_seconds") or 5)
+    delay = int(settings.get("next_person_delay_seconds") or 2)
     det_min = float(settings.get("detector_min_score") or 0.5)
     min_coverage = float(settings.get("min_face_coverage") or 0.0)
 
@@ -1687,38 +1723,11 @@ def run_scan(image: str, direction: str | None = None, dry_run: bool = False):
     if snapshot:
         payload["snapshot"] = snapshot
 
-    last_error = None
-    for attempt in range(2):
-        try:
-            res = requests.post(
-                f"{CLOUD_URL}/kiosk-api/attendance",
-                headers=HEADERS,
-                json=payload,
-                timeout=15,
-            )
-            res.raise_for_status()
-            _fails["count"] = 0
-            return door_react({**res.json(), "face_detection": visual})
-        except Exception as exc:  # noqa: BLE001
-            last_error = exc
-            if attempt == 0:
-                time.sleep(0.6)
-
-    # Offline: keep the scan on disk and retry in the background so the
-    # kiosk can still greet the person straight away.
-    print(f"[agent] upload failed, queued offline: {last_error}")
-    outbox_append(payload)
-    with lock:
-        person = state["students"].get(student_id) or {}
-    name = person.get("full_name") or "ผู้ใช้งาน"
-    return door_react({
-        "result": "ok",
-        "offline": True,
-        "message": f"บันทึกเวลาแบบออฟไลน์ให้ {name} แล้ว",
-        "speak": f"สแกนสำเร็จ {name}",
-        "next_delay_seconds": delay,
-        "face_detection": visual,
-    })
+    geo_min = float(settings.get("geometry_min_score") or 0)
+    if geometry_score is not None and geo_min > 0 and geometry_score < geo_min:
+        return {"result": "denied", "message": "สัดส่วนใบหน้าไม่ตรงกับข้อมูลที่ลงทะเบียนไว้ กรุณาสแกนอีกครั้ง",
+                "speak": "กรุณาสแกนอีกครั้ง", "next_delay_seconds": 1, "face_detection": visual}
+    return submit_attendance_fast(payload, settings, delay, {"face_detection": visual})
 
 
 def open_firewall(port: int) -> None:
