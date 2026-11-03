@@ -1488,20 +1488,9 @@ def scan_card_qr(arr: np.ndarray, direction: str | None, dry_run: bool, delay: i
     photo = qr_reader.frame_evidence_jpeg(arr)
     if photo:
         payload["snapshot"] = base64.b64encode(photo).decode()
-    try:
-        res = requests.post(f"{CLOUD_URL}/kiosk-api/attendance", headers=HEADERS, json=payload, timeout=15)
-        res.raise_for_status()
-        _fails["count"] = 0
-        return door_react(res.json())
-    except Exception as exc:  # noqa: BLE001
-        print(f"[agent] QR upload failed, queued offline: {exc}")
-        outbox_append(payload)
-        return door_react({
-            "result": "ok", "offline": True,
-            "message": f"บันทึกเวลาด้วยบัตรแบบออฟไลน์ให้ {name} แล้ว",
-            "speak": f"สแกนบัตรสำเร็จ {name}",
-            "next_delay_seconds": delay,
-        })
+    with lock:
+        settings = dict(state["settings"])
+    return submit_attendance_fast(payload, settings, delay)
 
 
 def run_scan(image: str, direction: str | None = None, dry_run: bool = False):
@@ -1522,7 +1511,7 @@ def run_scan(image: str, direction: str | None = None, dry_run: bool = False):
         settings = dict(state["settings"])
 
     threshold = float(settings.get("match_threshold") or 0.45)
-    delay = int(settings.get("next_person_delay_seconds") or 5)
+    delay = int(settings.get("next_person_delay_seconds") or 2)
     det_min = float(settings.get("detector_min_score") or 0.5)
     min_coverage = float(settings.get("min_face_coverage") or 0.0)
 
@@ -1734,38 +1723,11 @@ def run_scan(image: str, direction: str | None = None, dry_run: bool = False):
     if snapshot:
         payload["snapshot"] = snapshot
 
-    last_error = None
-    for attempt in range(2):
-        try:
-            res = requests.post(
-                f"{CLOUD_URL}/kiosk-api/attendance",
-                headers=HEADERS,
-                json=payload,
-                timeout=15,
-            )
-            res.raise_for_status()
-            _fails["count"] = 0
-            return door_react({**res.json(), "face_detection": visual})
-        except Exception as exc:  # noqa: BLE001
-            last_error = exc
-            if attempt == 0:
-                time.sleep(0.6)
-
-    # Offline: keep the scan on disk and retry in the background so the
-    # kiosk can still greet the person straight away.
-    print(f"[agent] upload failed, queued offline: {last_error}")
-    outbox_append(payload)
-    with lock:
-        person = state["students"].get(student_id) or {}
-    name = person.get("full_name") or "ผู้ใช้งาน"
-    return door_react({
-        "result": "ok",
-        "offline": True,
-        "message": f"บันทึกเวลาแบบออฟไลน์ให้ {name} แล้ว",
-        "speak": f"สแกนสำเร็จ {name}",
-        "next_delay_seconds": delay,
-        "face_detection": visual,
-    })
+    geo_min = float(settings.get("geometry_min_score") or 0)
+    if geometry_score is not None and geo_min > 0 and geometry_score < geo_min:
+        return {"result": "denied", "message": "สัดส่วนใบหน้าไม่ตรงกับข้อมูลที่ลงทะเบียนไว้ กรุณาสแกนอีกครั้ง",
+                "speak": "กรุณาสแกนอีกครั้ง", "next_delay_seconds": 1, "face_detection": visual}
+    return submit_attendance_fast(payload, settings, delay, {"face_detection": visual})
 
 
 def open_firewall(port: int) -> None:
