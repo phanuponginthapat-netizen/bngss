@@ -152,6 +152,32 @@ export function SubjectPeriodCheckTab({ students, classrooms, academicYear, seme
   const classroomName = classrooms.find((c: any) => c.id === classroomId)?.name || "";
   const subjectName = subjectsForClass.find((s: any) => s.id === subjectId)?.name_th || "";
 
+  // ผลที่บันทึกแล้ววันนี้: สแกนหน้า/ประตู (รายวัน) และผลเช็ครายวิชาเดิม — ถือว่ามาแล้ว ไม่ตั้งเป็น "ขาด"
+  const classIdsKey = classStudents.map((s: any) => s.id).join(",");
+  const { data: prescanned, isSuccess: prescannedReady, isError: prescannedError } = useQuery({
+    queryKey: ["attendance", "subject-prescanned", checkDate, subjectId, classIdsKey],
+    enabled: !!subjectId && classStudents.length > 0,
+    queryFn: async () => {
+      const ids = classStudents.map((s: any) => s.id);
+      const { data, error } = await supabase.from("attendance")
+        .select("student_id, subject_id, status")
+        .eq("attendance_date", checkDate)
+        .in("student_id", ids)
+        .or(`subject_id.is.null,subject_id.eq.${subjectId}`);
+      if (error) throw error;
+      const map: Record<string, AttendanceStatus> = {};
+      // รายวัน (สแกนเข้าโรงเรียน) ก่อน: เฉพาะ มา/สาย
+      (data ?? []).forEach((r: any) => {
+        if (r.subject_id === null && (r.status === "present" || r.status === "late")) map[r.student_id] = r.status;
+      });
+      // ผลรายวิชาที่ครูบันทึกไว้แล้วชนะ (ยกเว้นขาด เพื่อให้สแกนใหม่ได้)
+      (data ?? []).forEach((r: any) => {
+        if (r.subject_id === subjectId && r.status !== "absent") map[r.student_id] = r.status;
+      });
+      return map;
+    },
+  });
+
   const handleSubmit = async (statusMap: Record<string, AttendanceStatus>) => {
     if (!classroomId || !subjectId || classStudents.length === 0) return;
     try {
@@ -239,10 +265,19 @@ export function SubjectPeriodCheckTab({ students, classrooms, academicYear, seme
         </CardContent>
       </Card>
 
-      {classroomId && subjectId && classStudents.length > 0 ? (
+      {classroomId && subjectId && classStudents.length > 0 && prescannedError ? (
+        <Card><CardContent className="py-8 text-center text-destructive">
+          {lang === "th" ? "โหลดผลสแกนวันนี้ไม่สำเร็จ กรุณารีเฟรชก่อนเช็คชื่อ เพื่อไม่ให้นักเรียนที่สแกนแล้วถูกบันทึกว่าขาด" : "Could not load today's scans. Refresh before checking."}
+        </CardContent></Card>
+      ) : classroomId && subjectId && classStudents.length > 0 && !prescannedReady ? (
+        <Card><CardContent className="py-8 text-center text-muted-foreground">
+          {lang === "th" ? "กำลังโหลดผลสแกนวันนี้…" : "Loading today's scans…"}
+        </CardContent></Card>
+      ) : classroomId && subjectId && classStudents.length > 0 ? (
         <ScanAttendanceFlow
           key={`${classroomId}-${subjectId}-${checkDate}`}
           students={classStudents}
+          prescanned={prescanned}
           scanTitle={lang === "th" ? `แสกน QR — ${subjectName} • ${classroomName}` : `Scan — ${subjectName}`}
           contextLabel={lang === "th"
             ? `${subjectName} • ${classroomName}${periodForSelected ? ` • คาบ ${periodForSelected}` : ""} • ${checkDate} • ${classStudents.length} คน`
