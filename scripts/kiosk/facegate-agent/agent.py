@@ -358,6 +358,53 @@ def outbox_append(payload: dict) -> None:
             print(f"[agent] outbox write failed: {exc}")
 
 
+# Fast queue: greet the student from local data at once and send the record in
+# the background, so the line never waits on the internet (target < 3 s/person).
+_recent_ok: dict[str, float] = {}
+
+
+def _post_attendance_bg(payload: dict) -> None:
+    for attempt in range(2):
+        try:
+            res = requests.post(f"{CLOUD_URL}/kiosk-api/attendance", headers=HEADERS, json=payload, timeout=15)
+            res.raise_for_status()
+            _fails["count"] = 0
+            return
+        except Exception as exc:  # noqa: BLE001
+            last = exc
+            if attempt == 0:
+                time.sleep(0.6)
+    print(f"[agent] upload failed, queued offline: {last}")
+    outbox_append(payload)
+
+
+def submit_attendance_fast(payload: dict, settings: dict, delay: int, extra: dict | None = None) -> dict:
+    """Answer the kiosk instantly; duplicates are caught locally within the cooldown."""
+    sid = payload["student_id"]
+    with lock:
+        person = state["students"].get(sid) or {}
+    name = person.get("full_name") or "ผู้ใช้งาน"
+    is_staff = person.get("person_type") == "staff"
+    cooldown_s = float(settings.get("duplicate_cooldown_minutes") or 0) * 60
+    now = time.time()
+    last = _recent_ok.get(sid)
+    if not is_staff and last is not None and cooldown_s > 0 and now - last < cooldown_s:
+        return {**(extra or {}), "result": "duplicate", "student_id": sid, "name": name,
+                "message": f"{name} บันทึกเวลาไปแล้ววันนี้",
+                "speak": settings.get("voice_duplicate_text") or "บันทึกไปแล้ว",
+                "next_delay_seconds": 1}
+    _recent_ok[sid] = now
+    threading.Thread(target=_post_attendance_bg, args=(payload,), daemon=True).start()
+    out = payload.get("direction") == "out"
+    welcome = settings.get("voice_welcome_text") or "ยินดีต้อนรับ"
+    return door_react({**(extra or {}), "result": "ok", "student_id": sid, "name": name,
+                       "message": f"{name} บันทึกเวลาออกแล้ว" if out else f"{name} บันทึกเวลาเข้าเรียบร้อย",
+                       "speak": f"เดินทางปลอดภัย {name}" if out else f"{welcome} {name}",
+                       "next_delay_seconds": delay})
+
+
+
+
 def outbox_flush() -> None:
     with outbox_lock:
         try:
