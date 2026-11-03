@@ -31,3 +31,4 @@
 - CI writes to the private app-downloads bucket only through the ci-storage function (CI_UPLOAD_TOKEN, scripts/ci/storage.sh); client roles have no write/delete policy there — stops any signed-in user replacing APKs.
 - Rebuild public/extension.zip, school-safe-browser.zip and safe-browser-extension.zip from extension/ whenever extension files or the backend change — installers download these zips.
 - FaceGate student-card QR fallback lives in scripts/kiosk/facegate-agent/qr_reader.py: accept only QR text exactly equal to a synced student code (LINE/URL QRs ignored), always send a whole-frame snapshot, and record via kiosk-api attendance with method=qr — keeps card scans reviewable and blocks foreign QRs.
+- FaceGate answers each scan from local synced data and uploads attendance in a background thread (failed uploads go to the outbox); the kiosk UI caps post-scan pauses so one student takes under 3 s even on slow internet.
