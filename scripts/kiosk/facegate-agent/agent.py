@@ -68,6 +68,7 @@ import clock
 import door
 import power
 import power_profile
+import qr_reader
 from face_engine import Face, FaceEngine
 from pydantic import BaseModel
 
@@ -1410,6 +1411,52 @@ def test_scan(req: ScanRequest):
     return run_scan(req.image, dry_run=True)
 
 
+_qr_guard = qr_reader.RepeatGuard(hold_s=6.0)
+
+
+def scan_card_qr(arr: np.ndarray, direction: str | None, dry_run: bool, delay: int) -> dict | None:
+    """Record attendance from the QR on a student card; None when no card QR."""
+    text = qr_reader.read_qr(arr)
+    if not text:
+        return None
+    with lock:
+        people = dict(state["students"])
+    person_id = qr_reader.match_card(text, qr_reader.build_code_index(people))
+    if not person_id:
+        return {
+            "result": "denied",
+            "message": "QR นี้ไม่ใช่บัตรนักเรียนของโรงเรียน",
+            "speak": "ไม่พบข้อมูลบัตรนี้",
+            "next_delay_seconds": 2,
+        }
+    if not _qr_guard.allow(person_id):
+        return {"result": "no_face", "message": ""}
+    name = (people.get(person_id) or {}).get("full_name") or "ผู้ใช้งาน"
+    if dry_run:
+        return {"result": "ok", "test": True, "student_id": person_id, "name": name,
+                "message": f"อ่านบัตรได้: {name} (ไม่บันทึกประวัติ)", "next_delay_seconds": 0}
+    payload: dict[str, Any] = {"student_id": person_id, "method": "qr"}
+    if direction in ("in", "out"):
+        payload["direction"] = direction
+    photo = qr_reader.frame_evidence_jpeg(arr)
+    if photo:
+        payload["snapshot"] = base64.b64encode(photo).decode()
+    try:
+        res = requests.post(f"{CLOUD_URL}/kiosk-api/attendance", headers=HEADERS, json=payload, timeout=15)
+        res.raise_for_status()
+        _fails["count"] = 0
+        return door_react(res.json())
+    except Exception as exc:  # noqa: BLE001
+        print(f"[agent] QR upload failed, queued offline: {exc}")
+        outbox_append(payload)
+        return door_react({
+            "result": "ok", "offline": True,
+            "message": f"บันทึกเวลาด้วยบัตรแบบออฟไลน์ให้ {name} แล้ว",
+            "speak": f"สแกนบัตรสำเร็จ {name}",
+            "next_delay_seconds": delay,
+        })
+
+
 def run_scan(image: str, direction: str | None = None, dry_run: bool = False):
     with lock:
         state["last_activity"] = time.time()
@@ -1438,6 +1485,12 @@ def run_scan(image: str, direction: str | None = None, dry_run: bool = False):
             "message": "",
             "face_detection": _motion.get("visual"),
         }
+
+    # Student-card QR fallback for faces that are hard to recognise.
+    if settings.get("qr_card_enabled", True):
+        card = scan_card_qr(arr, direction, dry_run, delay)
+        if card is not None:
+            return card
 
     # Detect only (cheap); the expensive embedding runs for one face at most.
     dets, kpss, arr = detect_adaptive(arr, det_min)

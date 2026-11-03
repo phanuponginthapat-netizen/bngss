@@ -252,6 +252,7 @@ Deno.serve(async (req) => {
     if (route === "attendance") {
       const personId = String(body?.student_id ?? "");
       const confidence = Number(body?.confidence ?? 0);
+      const isQr = body?.method === "qr";
       if (!/^[0-9a-f-]{36}$/i.test(personId)) return json({ error: "invalid body" }, 400);
 
       const direction = (body?.direction === "out" ? "out" : body?.direction === "in" ? "in" : device.default_direction) as "in" | "out";
@@ -328,11 +329,11 @@ Deno.serve(async (req) => {
           scan_date: bkkDate(now),
           scan_time: now.toISOString(),
           scan_type: direction === "out" ? "exit" : "entry",
-          confidence: Number.isFinite(confidence) ? confidence : null,
+          confidence: isQr ? null : Number.isFinite(confidence) ? confidence : null,
           device_label: device.name,
-          entry_method: "face",
-          geometry_score: geometryScore,
-          match_engine: "connexted-arcface",
+          entry_method: isQr ? "qr" : "face",
+          geometry_score: isQr ? null : geometryScore,
+          match_engine: isQr ? "student-card-qr" : "connexted-arcface",
           captured_face_url: snapshotUrl,
         });
         if (error) {
