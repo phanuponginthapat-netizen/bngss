@@ -23,7 +23,11 @@ export async function syncServerClock(force = false): Promise<number> {
   syncing = (async () => {
     try {
       const t0 = Date.now();
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/health`, { method: "HEAD", cache: "no-store" });
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/health`, {
+        method: "HEAD",
+        cache: "no-store",
+        headers: { apikey: getBackendConfig().anonKey },
+      });
       const t1 = Date.now();
       const header = res.headers.get("date");
       if (header) {
