@@ -41,7 +41,7 @@ class SceneGateTests(unittest.TestCase):
             if not gate.is_static(2.4, now):  # empty lobby, constant flicker
                 checked += 1
             now += 0.9
-        self.assertLessEqual(checked, 35)
+        self.assertLess(checked, 40)
         self.assertGreater(gate.baseline, 1.0)
 
     def test_person_walking_up_is_never_missed(self):
@@ -55,9 +55,26 @@ class SceneGateTests(unittest.TestCase):
     def test_still_person_is_rechecked(self):
         """Nobody may be waited out just because they are not moving."""
         gate = module.SceneGate(force_check_s=1.2)
-        self.assertFalse(gate.is_static(0.1, 100.0))
-        self.assertTrue(gate.is_static(0.1, 100.9))
-        self.assertFalse(gate.is_static(0.1, 102.3))  # forced check after 1.2s
+        now = 100.0
+        for _ in range(12):  # warm-up: the floor is still unknown, so keep scanning
+            gate.is_static(0.1, now)
+            now += 0.9
+        self.assertTrue(gate.is_static(0.1, now))   # quiet -> rest
+        now += 1.3
+        self.assertFalse(gate.is_static(0.1, now))  # but never longer than 1.2s
+
+    def test_one_person_passing_does_not_hide_the_next(self):
+        """The floor is a low percentile, so a walk-through cannot lift it."""
+        gate = module.SceneGate(force_check_s=1.2)
+        now = 100.0
+        for _ in range(18):
+            gate.is_static(0.3, now)
+            now += 0.9
+        for _ in range(6):  # somebody walks past
+            gate.is_static(20.0, now)
+            now += 0.9
+        self.assertLess(gate.threshold(), 5.0)
+        self.assertFalse(gate.is_static(22.0, now))
 
 
 class PassPlanTests(unittest.TestCase):
