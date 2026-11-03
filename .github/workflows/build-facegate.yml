@@ -147,6 +147,7 @@ jobs:
             --hidden-import local_api --hidden-import local_ui --hidden-import local_admin_ui \
             --hidden-import local_voice --hidden-import localdb --hidden-import local_rules \
             --hidden-import power_profile \
+            --hidden-import qr_reader \
             --collect-submodules uvicorn --collect-data onnxruntime --collect-all webview --hidden-import clr
           test -f ../../../dist-facegate/FaceGate/FaceGate.exe
 

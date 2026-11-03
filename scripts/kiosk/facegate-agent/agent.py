@@ -68,6 +68,7 @@ import clock
 import door
 import power
 import power_profile
+import qr_reader
 from face_engine import Face, FaceEngine
 from pydantic import BaseModel
 
