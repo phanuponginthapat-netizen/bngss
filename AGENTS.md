@@ -16,6 +16,8 @@
 - Use the managed Cloud backend for recovery; discard restricted school overrides, apply schema fixes through the migration tool, and access the school source only through AI_READONLY_DB_URL to preserve original data.
 - Treat Drive copies as authoritative after byte-level verification and a saved registry; never count space as freed until Storage deletion succeeds, never auto-restore mirrors, and prune APKs only after verifying the manifest's current file.
 - Preserve local failed writes until the server archive confirms receipt; scan dedup lookup failures must surface and block online writes rather than imply no scan exists.
+- FaceGate scanner work budgets live in scripts/kiosk/facegate-agent/power_profile.py (CPU profile, camera-noise scene gate, detector pass budget); agent.py reads its budgets from there and exposes measured scan ms through /health, so one-at-a-time scanning keeps up on Celeron/Atom kiosks without weakening detection on stronger PCs.
+
 - Authorize direct push sends server-side for service callers, privileged roles, or the recipient themselves; only explicit FCM UNREGISTERED errors may remove device tokens.
 - Key-pool AI usage is logged once by keyPool with caller/function metadata; aiCall must not duplicate successful pool records.
 - Check AI chat quotas on Bangkok day boundaries and fail closed on unavailable counts; keep chat logs awaited and run optional memory synthesis in EdgeRuntime.waitUntil so replies are not blocked.
