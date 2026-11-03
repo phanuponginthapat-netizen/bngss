@@ -127,6 +127,60 @@ export type Database = {
         }
         Relationships: []
       }
+      academic_probation: {
+        Row: {
+          academic_year: number
+          created_at: string | null
+          gpax: number | null
+          id: string
+          notes: string | null
+          reviewed_by: string | null
+          semester: number
+          status: string | null
+          student_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          academic_year: number
+          created_at?: string | null
+          gpax?: number | null
+          id?: string
+          notes?: string | null
+          reviewed_by?: string | null
+          semester: number
+          status?: string | null
+          student_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          academic_year?: number
+          created_at?: string | null
+          gpax?: number | null
+          id?: string
+          notes?: string | null
+          reviewed_by?: string | null
+          semester?: number
+          status?: string | null
+          student_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academic_probation_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academic_probation_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       account_balances: {
         Row: {
           account_name: string
@@ -2776,6 +2830,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      certificate_templates: {
+        Row: {
+          background_url: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          fields: Json
+          font_family: string
+          id: string
+          is_default: boolean
+          name: string
+          orientation: string
+          paper: string
+          updated_at: string
+        }
+        Insert: {
+          background_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          fields?: Json
+          font_family?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          orientation?: string
+          paper?: string
+          updated_at?: string
+        }
+        Update: {
+          background_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          fields?: Json
+          font_family?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          orientation?: string
+          paper?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       chat_blocks: {
         Row: {
@@ -6849,6 +6948,90 @@ export type Database = {
         }
         Relationships: []
       }
+      grade_remediation: {
+        Row: {
+          academic_year: string | null
+          announced_at: string | null
+          announcement_id: string | null
+          created_at: string
+          fix_deadline: string | null
+          fix_method: string | null
+          fix_score: number | null
+          id: string
+          new_grade: string | null
+          notes: string | null
+          original_grade: string
+          reason: string | null
+          reviewed_by: string | null
+          status: string
+          student_id: string
+          subject_code: string
+          subject_name: string | null
+          teacher_id: string | null
+          term: string
+          updated_at: string
+        }
+        Insert: {
+          academic_year?: string | null
+          announced_at?: string | null
+          announcement_id?: string | null
+          created_at?: string
+          fix_deadline?: string | null
+          fix_method?: string | null
+          fix_score?: number | null
+          id?: string
+          new_grade?: string | null
+          notes?: string | null
+          original_grade: string
+          reason?: string | null
+          reviewed_by?: string | null
+          status?: string
+          student_id: string
+          subject_code: string
+          subject_name?: string | null
+          teacher_id?: string | null
+          term: string
+          updated_at?: string
+        }
+        Update: {
+          academic_year?: string | null
+          announced_at?: string | null
+          announcement_id?: string | null
+          created_at?: string
+          fix_deadline?: string | null
+          fix_method?: string | null
+          fix_score?: number | null
+          id?: string
+          new_grade?: string | null
+          notes?: string | null
+          original_grade?: string
+          reason?: string | null
+          reviewed_by?: string | null
+          status?: string
+          student_id?: string
+          subject_code?: string
+          subject_name?: string | null
+          teacher_id?: string | null
+          term?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grade_remediation_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_remediation_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guidance_records: {
         Row: {
           counselor_id: string | null
@@ -8951,6 +9134,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      leave_balances: {
+        Row: {
+          created_at: string | null
+          id: string
+          leave_type: string
+          remaining_days: number | null
+          total_days: number | null
+          updated_at: string | null
+          used_days: number | null
+          user_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          leave_type: string
+          remaining_days?: number | null
+          total_days?: number | null
+          updated_at?: string | null
+          used_days?: number | null
+          user_id: string
+          year?: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          leave_type?: string
+          remaining_days?: number | null
+          total_days?: number | null
+          updated_at?: string | null
+          used_days?: number | null
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
       }
       lesson_plans: {
         Row: {
@@ -11671,6 +11890,44 @@ export type Database = {
           request_count?: number
         }
         Relationships: []
+      }
+      remediation_sessions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          remediation_id: string
+          result: string | null
+          score: number | null
+          session_date: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          remediation_id: string
+          result?: string | null
+          score?: number | null
+          session_date: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          remediation_id?: string
+          result?: string | null
+          score?: number | null
+          session_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "remediation_sessions_remediation_id_fkey"
+            columns: ["remediation_id"]
+            isOneToOne: false
+            referencedRelation: "grade_remediation"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       role_notification_defaults: {
         Row: {
@@ -17229,6 +17486,7 @@ export type Database = {
           weight: number
         }[]
       }
+      mark_overdue_homework_columns: { Args: never; Returns: number }
       mig_dump_auth: { Args: { _table: string }; Returns: Json }
       normalize_thai_teacher_name: { Args: { input: string }; Returns: string }
       notify_activity_participants_tomorrow: { Args: never; Returns: undefined }
