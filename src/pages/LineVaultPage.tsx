@@ -1162,6 +1162,8 @@ function GroupsManager({ groups, onChange }: { groups: Group[]; onChange: () => 
                   onClick={async () => {
                     const { data, error } = await supabase.functions.invoke("notify-attendance-digest", { body: { group_id: g.id } });
                     if (error) return swal.error("ทดสอบไม่สำเร็จ", error.message);
+                    if (data?.ok === false || data?.results?.some((r: any) => r.ok === false)) return swal.error("ส่งไม่สำเร็จ", "LINE ไม่รับรายงาน กรุณาตรวจการเชื่อมต่อของกลุ่ม");
+                    if (!data?.sent) return swal.error("ยังไม่ได้ส่ง", data?.already_sent ? "วันนี้ส่งให้กลุ่มนี้แล้ว ระบบป้องกันการส่งซ้ำ" : "กลุ่มนี้ยังไม่ได้เปิดรับรายงาน หรือรายงานถูกข้าม");
                     swal.success("ส่งทดสอบสำเร็จ", `รวม ${data?.totals?.totalAll ?? 0} คน`);
                   }}
                 >ทดสอบรายงานการมาโรงเรียน</Button>
