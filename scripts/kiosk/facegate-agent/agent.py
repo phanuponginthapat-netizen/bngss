@@ -1148,27 +1148,24 @@ _clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
 def scene_is_static(bgr: np.ndarray) -> bool:
     """True when the frame looks the same as the previous one (nobody there).
 
-    Detection + recognition are by far the heaviest part on a low-power CPU,
-    so an unchanged frame is skipped before any model runs. A full detection is
-    forced every few skipped frames so a person standing perfectly still (or a
-    slow/dim camera with little frame-to-frame noise) is never missed.
+    Detection + recognition are by far the heaviest part on a low-power CPU, so
+    an unchanged frame is skipped before any model runs. The cut-off comes from
+    the camera's own noise floor instead of one fixed number: the cheap USB
+    cameras schools use flicker with auto-exposure, and a fixed cut-off makes
+    the scanner read every one of those frames as somebody arriving. A full
+    detection is still forced about once a second, so a person standing
+    perfectly still is never missed.
     """
     small = cv2.resize(cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY), (64, 48))
     prev = _motion.get("prev")
     _motion["prev"] = small
     if prev is None:
-        _motion["skips"] = 0
         return False
     diff = float(np.mean(cv2.absdiff(prev, small)))
-    if diff >= 1.0:
-        _motion["skips"] = 0
-        return False
-    skips = int(_motion.get("skips") or 0) + 1
-    if skips >= 6:  # roughly once a second: re-check even a frozen scene
-        _motion["skips"] = 0
-        return False
-    _motion["skips"] = skips
-    return True
+    static = _scene_gate.is_static(diff)
+    if static:
+        PERF.note_skipped()
+    return static
 
 
 def normalize_lighting(bgr: np.ndarray) -> np.ndarray:
@@ -1194,26 +1191,56 @@ def normalize_lighting(bgr: np.ndarray) -> np.ndarray:
     return cv2.cvtColor(cv2.merge((light, a_ch, b_ch)), cv2.COLOR_LAB2BGR)
 
 
+_big_pass_at = 0.0
+
+
+def lighting_off(bgr: np.ndarray) -> bool:
+    """True when the frame is too dark, too bright or too flat to trust as is."""
+    lab = cv2.cvtColor(cv2.resize(bgr, (80, 60)), cv2.COLOR_BGR2LAB)
+    light = lab[..., 0].astype(np.float32)
+    mean = float(light.mean())
+    spread = float(light.std())
+    return mean < 70.0 or mean > 190.0 or spread < 28.0
+
+
 def detect_adaptive(bgr: np.ndarray, det_min: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Detect faces, retrying with light correction and a larger input.
 
-    Pass 1 is the cheap everyday path. Only when nothing usable is found do the
-    heavier passes run, so an Intel Atom keeps its speed in good light and still
-    finds faces in poor light.
+    Pass 1 is the cheap everyday path. The heavier passes run only when there is
+    a reason to expect a face — the frame is badly lit, or the cheap pass found
+    a weak hit — so an empty lobby costs one detection instead of three, and
+    the student standing at the camera is not queued behind work wasted on
+    nobody. The cost of every frame is measured so the real speed on the
+    school's own PC can be read from /health.
     """
+    global _big_pass_at
+    t0 = time.perf_counter()
     dets, kpss = face_app.detect(bgr)
-    if any(float(dets[i, 4]) >= det_min for i in range(dets.shape[0])):
+    top = max((float(dets[i, 4]) for i in range(dets.shape[0])), default=0.0)
+    if top >= det_min:
+        PERF.note((time.perf_counter() - t0) * 1000.0)
         return dets, kpss, bgr
 
+    now = time.time()
+    light, big = power_profile.pass_plan(POWER_MODE, top, lighting_off(bgr), now, _big_pass_at)
     fixed = normalize_lighting(bgr)
-    dets2, kpss2 = face_app.detect(fixed)
-    if any(float(dets2[i, 4]) >= det_min for i in range(dets2.shape[0])):
-        return dets2, kpss2, fixed
+    dets2, kpss2 = dets, kpss
+    if light:
+        dets2, kpss2 = face_app.detect(fixed)
+        top = max(top, max((float(dets2[i, 4]) for i in range(dets2.shape[0])), default=0.0))
+        if any(float(dets2[i, 4]) >= det_min for i in range(dets2.shape[0])):
+            PERF.note((time.perf_counter() - t0) * 1000.0)
+            return dets2, kpss2, fixed
 
     # Last resort: bigger detector input finds smaller / farther faces.
-    dets3, kpss3 = face_app.detect(fixed, det_size=(512, 512))
-    if dets3.shape[0]:
-        return dets3, kpss3, fixed
+    if big:
+        _big_pass_at = now
+        dets3, kpss3 = face_app.detect(fixed, det_size=(512, 512))
+        if dets3.shape[0]:
+            PERF.note((time.perf_counter() - t0) * 1000.0)
+            return dets3, kpss3, fixed
+
+    PERF.note((time.perf_counter() - t0) * 1000.0)
     return dets2 if dets2.shape[0] else dets, kpss2 if dets2.shape[0] else kpss, fixed
 
 
