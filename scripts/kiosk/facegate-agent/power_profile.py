@@ -1,27 +1,10 @@
-"""Hardware-aware tuning for the FaceGate scanner.
-
-The kiosk PCs in service are low-power (Celeron J1900, Atom, N-series). Face
-detection costs a few hundred milliseconds there, so a frame that runs three
-detector passes in a row holds up the person standing at the camera — and in an
-empty lobby it does it over and over again for nobody.
-
-This module decides how much work one frame may cost, from the machine the
-program actually runs on:
-
-  * mode()       -> eco / balanced / full, read from the CPU
-  * SceneGate    -> is anybody at the camera? judged against the camera's own
-                    noise floor instead of one fixed threshold
-  * pass_plan()  -> which of the detector's extra passes this frame may run
-
-Pure standard library, so it can be checked on any machine.
-"""
-
 from __future__ import annotations
 
 import os
 import platform
-import re
 import time
+from collections import deque
+from functools import lru_cache
 
 MODES = ("eco", "balanced", "full")
 
