@@ -79,54 +79,19 @@ const AllStudentsPage = () => {
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 50;
 
-  const { isAdmin, isDirector, userId, loading: roleLoading } = useUserRole();
-  const seesAll = isAdmin || isDirector;
-
-  // ครู: เห็นเฉพาะนักเรียนในห้องที่ตนสอน (teacher_assignments) หรือเป็นครูประจำชั้น
-  const { data: myClassroomIds, isLoading: scopeLoading, isError: scopeError, error: scopeErr } = useQuery({
-    queryKey: ["dmc_teacher_classrooms", userId],
-    enabled: !roleLoading && !seesAll && !!userId,
-    queryFn: async (): Promise<string[]> => {
-      const { data: p, error: pErr } = await supabase.from("personnel").select("id").eq("user_id", userId!).maybeSingle();
-      if (pErr) throw pErr;
-      if (!p?.id) return [];
-      const [ta, hr, sc] = await Promise.all([
-        supabase.from("teacher_assignments").select("classroom_id").eq("personnel_id", p.id),
-        supabase.from("classrooms").select("id").or(`homeroom_teacher_id.eq.${p.id},homeroom_teacher_2_id.eq.${p.id}`),
-        supabase.from("schedules").select("classroom_id").eq("teacher_id", p.id),
-      ]);
-      if (ta.error) throw ta.error;
-      if (hr.error) throw hr.error;
-      if (sc.error) throw sc.error;
-      const ids = new Set<string>();
-      (ta.data || []).forEach((r: any) => r.classroom_id && ids.add(r.classroom_id));
-      (hr.data || []).forEach((r: any) => ids.add(r.id));
-      (sc.data || []).forEach((r: any) => r.classroom_id && ids.add(r.classroom_id));
-      return [...ids].sort();
-    },
-  });
-
-  const scopeReady = !roleLoading && (seesAll || myClassroomIds !== undefined);
-  const { data: studentsData = [], isLoading: studentsLoading, isError: studentsError, error: studentsErr } = useQuery({
-    queryKey: ["all_students_dmc", page, seesAll ? "all" : myClassroomIds?.join(",")],
-    enabled: scopeReady,
+  // ครู ผู้บริหาร และผู้ดูแล เห็นนักเรียนทุกคนในทะเบียน DMC
+  const { data: students = [], isLoading, isError, error } = useQuery({
+    queryKey: ["all_students_dmc", page],
     queryFn: async () => {
-      if (!seesAll && (!myClassroomIds || myClassroomIds.length === 0)) return [];
-      let q = supabase
+      const { data, error } = await supabase
         .from("students")
-        .select("*, classrooms!students_classroom_id_fkey(name, grade_level)");
-      if (!seesAll) q = q.in("classroom_id", myClassroomIds!);
-      const { data, error } = await q
+        .select("*, classrooms!students_classroom_id_fkey(name, grade_level)")
         .order("student_code")
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
       if (error) throw error;
       return data || [];
     },
   });
-  const students = studentsData;
-  const isLoading = roleLoading || scopeLoading || studentsLoading;
-  const isError = scopeError || studentsError;
-  const error = scopeErr || studentsErr;
 
   const { data: classrooms = [] } = useQuery({
     queryKey: ["classrooms"],
