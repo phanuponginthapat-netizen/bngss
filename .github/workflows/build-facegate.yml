@@ -86,6 +86,8 @@ jobs:
           print("manifest url ->", m["url"])
           PY
           upload "/tmp/facegate-build/facegate-version.json" "application/json" "facegate-version.json" || exit 1
+          # ลบ ZIP รุ่นเก่า เก็บเฉพาะรุ่นที่ manifest ชี้ + latest
+          python3 "$GITHUB_WORKSPACE/scripts/ci/prune-apks.py" facegate "$FACEGATE_FILE" || echo "::warning::prune old FaceGate zips failed"
 
       - name: Commit fresh installer into public/downloads
         # ให ้ล ิงก ์ /downloads/facegate-agent-installer.zip ของหน ้าเว็บเป ็นร ุ่ นล ่ าสุดเสมอ

@@ -3,14 +3,19 @@
 import json, os, re, sys, urllib.request
 
 def candidates(names, current, product):
-    pattern = re.compile(r"^bngss-app-(?:v[\d.]+(?:-\d+)?|latest)\.apk$" if product == "android" else r"^bngss-scanner-(?:build-\d+|latest)\.apk$")
+    pattern = re.compile({
+        "android": r"^bngss-app-(?:v[\d.]+(?:-\d+)?|latest)\.apk$",
+        "scanner": r"^bngss-scanner-(?:build-\d+|latest)\.apk$",
+        # FaceGate: only versioned ZIPs; facegate-agent-latest.zip and the manifest are never touched.
+        "facegate": r"^facegate-agent-v[\d.]+(?:-\d+)?\.zip$",
+    }[product])
     if not pattern.fullmatch(current) or current not in names:
         raise ValueError("Current APK missing; no files removed")
     return [n for n in names if pattern.fullmatch(n) and n != current]
 
 def main():
     product, current = sys.argv[1:3]
-    if product not in ("android", "scanner"):
+    if product not in ("android", "scanner", "facegate"):
         raise ValueError("Invalid product")
     base = os.environ.get("SUPABASE_URL", "https://dlkyxvhnnffblerwedjz.supabase.co").rstrip("/")
     token = os.environ["CI_UPLOAD_TOKEN"]
@@ -34,7 +39,7 @@ def main():
     obsolete = candidates(names, current, product)
     for i in range(0, len(obsolete), 100):
         call({"action": "delete", "paths": obsolete[i:i+100]})
-    print("Removed old APKs:", len(obsolete), "Retained:", current)
+    print("Removed old files:", len(obsolete), "Retained:", current)
 
 if __name__ == "__main__":
     main()
