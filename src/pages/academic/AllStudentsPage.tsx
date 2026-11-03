@@ -89,8 +89,15 @@ const AllStudentsPage = () => {
       const { data: p, error: pErr } = await supabase.from("personnel").select("id").eq("user_id", userId!).maybeSingle();
       if (pErr) throw pErr;
       if (!p?.id) return [];
-      const [ta, hr] = await Promise.all([
+      const [ta, hr, sc] = await Promise.all([
         supabase.from("teacher_assignments").select("classroom_id").eq("personnel_id", p.id),
+        supabase.from("classrooms").select("id").or(`homeroom_teacher_id.eq.${p.id},homeroom_teacher_2_id.eq.${p.id}`),
+        supabase.from("schedules").select("classroom_id").eq("teacher_id", p.id),
+      ]);
+      if (sc.error) throw sc.error;
+      (sc.data || []).forEach((r: any) => r.classroom_id && extra.add(r.classroom_id));
+      void hr;
+      const __skip = [
         supabase.from("classrooms").select("id").or(`homeroom_teacher_id.eq.${p.id},homeroom_teacher_2_id.eq.${p.id}`),
       ]);
       if (ta.error) throw ta.error;
