@@ -119,6 +119,17 @@ export async function agentScanFrame(
   opts?: { maxWidth?: number; timeoutMs?: number },
 ): Promise<AgentFace[] | null> {
   if (!faceAgentReady()) return null;
+  if (isOnDevice()) {
+    try {
+      const { onDeviceScan } = await import("@/lib/onDeviceFace");
+      const r = await onDeviceScan(source);
+      if (!r) return null;
+      lastFrameFaceCount = r.count;
+      return r.faces.map((f) => ({ ...f, live: true, sharpness: 100, colorSpread: 30, geometry: null, crop: null }));
+    } catch {
+      return null;
+    }
+  }
   const jpeg = await toJpegBlob(source, opts?.maxWidth ?? 640);
   if (!jpeg) return null;
   try {
@@ -153,7 +164,7 @@ export async function agentEmbedImage(
   dataUrl: string,
   opts?: { crop?: boolean; timeoutMs?: number },
 ): Promise<AgentFace[] | null> {
-  if (!faceAgentReady()) return null;
+  if (!faceAgentReady() || isOnDevice()) return null;
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), opts?.timeoutMs ?? 8000);
