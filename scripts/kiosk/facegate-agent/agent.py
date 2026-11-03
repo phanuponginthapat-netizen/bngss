@@ -107,7 +107,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.11.0"
+AGENT_VERSION = "1.12.0"
 
 
 def default_cache_dir() -> str:
@@ -1564,30 +1564,11 @@ def run_scan(image: str, direction: str | None = None, dry_run: bool = False):
             "result": "no_face",
             "message": "กรุณาจัดใบหน้าให้อยู่ในกรอบ",
         }
-    if len(present) > 1:
-        visual_index = max(present, key=lambda i: areas[i])
-        return {
-            "result": "multiple_faces",
-            "message": "พบหลายใบหน้าในกรอบ กรุณาแสกนทีละคน",
-            "speak": "พบหลายใบหน้า กรุณาเข้ามาคนเดียว",
-            "next_delay_seconds": 3,
-            "face_detection": detection_payload(dets, kpss, visual_index, frame_w, frame_h),
-        }
-    # A second person inside the frame but outside the oval is fine; someone
-    # crowding right at the edge of the oval is not.
-    idx_main = max(present, key=lambda i: areas[i])
-    for i in big:
-        if i == idx_main:
-            continue
-        if areas[i] >= areas[idx_main] * 0.6 and inside_guide_margin(dets, i, cx, cy, rx, ry):
-            return {
-                "result": "multiple_faces",
-                "message": "มีคนอื่นอยู่ใกล้กรอบเกินไป กรุณาแสกนทีละคน",
-                "speak": "กรุณาเข้ามาคนเดียว",
-                "next_delay_seconds": 3,
-            }
-
-    idx = present[0]
+    # Queue scanning: when several faces are inside the guide, scan the
+    # largest one — that is the person who stepped up to the camera. People
+    # waiting behind are ignored instead of blocking the queue, so each
+    # student takes seconds even when the next in line is already in view.
+    idx = max(present, key=lambda i: areas[i])
     visual = detection_payload(dets, kpss, idx, frame_w, frame_h)
     _motion["visual"] = visual
     face = Face(

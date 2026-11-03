@@ -47,7 +47,7 @@ import { downloadFacesToCache, pickAndSaveFaceFolder, loadFaceCache, saveFaceCac
 import { useIsPortrait } from "@/hooks/useScreenOrientation";
 import { KIOSK_PERF_PROFILES, resolveLoopDelayMs, isIsolatedRuntime } from "@/lib/kioskPerf";
 import { probeSidecar, sidecarHasFace, sidecarReady, sidecarProvider } from "@/lib/faceSidecar";
-import { probeFaceAgent, faceAgentReady, faceAgentEngine, agentGetDescriptors, setFaceAgentEnabled, agentLastFaceCount } from "@/lib/faceAgent";
+import { probeFaceAgent, faceAgentReady, faceAgentEngine, agentGetDescriptors, setFaceAgentEnabled } from "@/lib/faceAgent";
 import { geometryVerdict } from "@/lib/faceGeometry";
 
 /** เกณฑ์ความเหมือนของสัดส่วนโครงหน้า (0–1) — ต่ำกว่านี้ถือว่าคนละคน */
@@ -798,7 +798,6 @@ const FaceKioskPage = () => {
     return () => clearInterval(t);
   }, [streaming, geofence.configured, verifyLocation, stopCamera]);
 
-  const multiFaceNoticeRef = useRef(0);
   const agentMissingNoticeRef = useRef(0);
 
   const recordScan = useCallback(async (
@@ -1254,14 +1253,9 @@ const FaceKioskPage = () => {
         let agentDetections: any[] | null =
           await agentGetDescriptors(video, { singleFace: true, maxWidth: 640, timeoutMs: 1500 });
         if (agentDetections) { pre = video; roiOffsetX = 0; roiOffsetY = 0; }
-        // มีหลายคนอยู่ในเฟรมเดียวกัน → ไม่บันทึก กันสลับคน/บันทึกผิดคน
-        if (agentDetections && agentLastFaceCount() > 1) {
-          agentDetections = [];
-          if (Date.now() - multiFaceNoticeRef.current > 4000) {
-            multiFaceNoticeRef.current = Date.now();
-            showNotice("warning", "มีหลายคนในกล้อง", "กรุณาเข้าสแกนทีละคน", 2500);
-          }
-        }
+        // มีหลายคนในเฟรม → สแกนใบหน้าที่ใหญ่สุด (คนที่เดินเข้ามาใกล้กล้อง) ทันที
+        // agentGetDescriptors(singleFace:true) คัดเหลือใบหน้าใหญ่สุดไว้แล้ว
+        // คนที่ยืนรอด้านหลังจะถูกเมินแทนที่จะบล็อกคิว
 
         // agent ตอบไม่ทัน → ข้ามเฟรมนี้ ไม่ถอยไปคำนวณในเบราว์เซอร์
         let rawDetections: any[] = agentDetections ?? [];
