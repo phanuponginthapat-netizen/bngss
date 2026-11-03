@@ -67,6 +67,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import clock
 import door
 import power
+import power_profile
 from face_engine import Face, FaceEngine
 from pydantic import BaseModel
 
@@ -209,9 +210,14 @@ if SATELLITE:
         )
 
 
-# ArcFace. det_size kept small so an Intel Atom can keep up.
+# ArcFace. The detector input stays small so an Intel Atom can keep up; how
+# small, and how much extra work a frame may do, is chosen by power_profile
+# from the CPU the program is actually running on.
 # The models are loaded in the background so the kiosk page can connect to the
 # program straight away instead of waiting for onnxruntime to warm up.
+POWER_MODE = power_profile.mode()
+TUNING = power_profile.tuning(POWER_MODE)
+PERF = power_profile.Timer()
 _engine: FaceEngine | None = None
 _engine_lock = threading.Lock()
 
@@ -220,7 +226,7 @@ def get_engine() -> FaceEngine:
     global _engine
     with _engine_lock:
         if _engine is None:
-            _engine = FaceEngine(det_size=(320, 320))
+            _engine = FaceEngine(det_size=(power_profile.DET_SIZE, power_profile.DET_SIZE))
         return _engine
 
 
@@ -1126,13 +1132,15 @@ def health():
         "engine_ready": _engine is not None,
         "door": door.status(),
         "power": power.status(),
+        "perf": PERF.status(),
     }
 
 
 
 
 
-_motion: dict[str, Any] = {"prev": None, "visual": None, "skips": 0}
+_motion: dict[str, Any] = {"prev": None, "visual": None}
+_scene_gate = power_profile.SceneGate(force_check_s=TUNING["force_check_s"])
 
 _clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
 
