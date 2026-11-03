@@ -1,3 +1,21 @@
+"""Hardware-aware tuning for the FaceGate scanner.
+
+The kiosk PCs in service are low-power (Celeron J1900, Atom, N-series). Face
+detection costs a few hundred milliseconds there, so a frame that runs three
+detector passes in a row holds up the person standing at the camera — and in an
+empty lobby it does it over and over again for nobody.
+
+This module decides how much work one frame may cost, from the machine the
+program actually runs on:
+
+  * mode()       -> eco / balanced / full, read from the CPU
+  * SceneGate    -> is anybody at the camera? judged against the camera's own
+                    noise floor instead of one fixed threshold
+  * pass_plan()  -> which of the detector's extra passes this frame may run
+
+Pure standard library, so it can be checked on any machine.
+"""
+
 from __future__ import annotations
 
 import os
@@ -12,12 +30,12 @@ MODES = ("eco", "balanced", "full")
 ECO_MARKERS = (
     "celeron", "atom", "pentium", "quark", "emount", "bay trail", "apollolake",
     "apollo lake", "gemini lake", "elkhart lake", "jinian", "tremont",
-    "j1900", "j1800", "j1900", "j6412", "j5040", "n3050", "n3350", "n3160",
+    "j1900", "j1800", "j6412", "j5040", "n3050", "n3350", "n3160",
     "n2840", "n2930", "e3825", "e3845", "n100", "n95", "n97", "core 2 duo",
     "core2 duo", "amd e1", "amd e2", "amd a4", "a6-9220", "fx-6300",
 )
 
-# Detectors: one small SCRFD pass at 320x320 is what every profile starts from.
+# One small SCRFD pass at 320x320 is what every profile starts from.
 DET_SIZE = int(os.environ.get("FACEGATE_DET_SIZE", "320") or 320)
 
 # How much extra work a frame may do when the cheap pass found nothing usable.
@@ -45,6 +63,7 @@ PROFILES: dict[str, dict[str, float]] = {
 }
 
 
+@lru_cache(maxsize=1)
 def cpu_name() -> str:
     """Human CPU name, best effort across Windows / Linux / macOS."""
     name = ""
@@ -103,34 +122,46 @@ class SceneGate:
     A fixed difference threshold fails on the cheap USB cameras schools use:
     auto-exposure flicker keeps every frame "moving", so the scanner burns a
     full detection on an empty lobby. Instead the camera's own noise floor is
-    learned, and only a jump clearly above it counts as somebody arriving. A
-    full check is forced at least every `force_check_s` seconds so a person
-    standing perfectly still is never waited out.
+    learned from the quiet part of recent frames, and only a jump clearly above
+    it counts as somebody arriving.
+
+    Two things keep this safe for a queue of students:
+      * the floor is a low percentile of recent frames, so one person walking
+        through cannot lift it and hide the next person;
+      * a full check is forced at least every `force_check_s` seconds, so a
+        person standing perfectly still is never waited out.
     """
 
-    def __init__(self, min_thresh: float = 1.0, learn: float = 0.05, margin: float = 3.0,
-                 floor: float = 0.25, force_check_s: float = 1.2) -> None:
+    def __init__(self, min_thresh: float = 1.0, margin: float = 3.0, floor: float = 0.25,
+                 max_thresh: float = 12.0, force_check_s: float = 1.2,
+                 window: int = 24, warm: int = 12, percentile: float = 0.30) -> None:
         self.min_thresh = float(min_thresh)
-        self.learn = float(learn)
         self.margin = float(margin)
         self.floor = float(floor)
+        self.max_thresh = float(max_thresh)
         self.force_check_s = float(force_check_s)
+        self.percentile = float(percentile)
+        self._seen: deque[float] = deque(maxlen=int(window))
+        self._warm = int(warm)
         self.baseline = 0.0
         self.skips = 0
         self._checked_at = 0.0
 
     def threshold(self) -> float:
-        return max(self.min_thresh, self.baseline * self.margin + self.floor)
+        if len(self._seen) < self._warm:
+            return self.min_thresh
+        ordered = sorted(self._seen)
+        self.baseline = ordered[min(len(ordered) - 1, int(len(ordered) * self.percentile))]
+        return max(self.min_thresh, min(self.max_thresh, self.baseline * self.margin + self.floor))
 
     def is_static(self, diff: float, now: float | None = None) -> bool:
         now = time.time() if now is None else float(now)
-        if diff >= self.threshold():
-            # Somebody moved: run the models and do not teach the floor from it.
+        self._seen.append(float(diff))
+        # Until the floor is known, or when something really moved, always scan.
+        if len(self._seen) < self._warm or float(diff) >= self.threshold():
             self.skips = 0
             self._checked_at = now
             return False
-        # Quiet frame: pull the noise floor towards what the camera really does.
-        self.baseline += self.learn * (float(diff) - self.baseline)
         if now - self._checked_at >= self.force_check_s:
             self.skips = 0
             self._checked_at = now
@@ -184,11 +215,5 @@ class Timer:
         }
 
 
-def sleep_until(next_at: float) -> None:
-    left = next_at - time.time()
-    if left > 0:
-        time.sleep(min(left, 0.5))
-
-
 __all__ = ["MODES", "DET_SIZE", "PROFILES", "cpu_name", "mode", "tuning",
-           "SceneGate", "pass_plan", "Timer", "sleep_until"]
+           "SceneGate", "pass_plan", "Timer"]
