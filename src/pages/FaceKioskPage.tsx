@@ -2144,7 +2144,9 @@ const FaceKioskPage = () => {
             <div className="flex items-center justify-between gap-2">
               <p className="text-[10px] text-muted-foreground leading-snug flex-1">
                 {agentOn
-                  ? `กำลังใช้งาน (${faceAgentEngine()}) — ประมวลผลบนเครื่อง PC`
+                  ? faceAgentEngine() === "tablet"
+                    ? "กำลังใช้งาน — สแกนบนแท็บเล็ตนี้โดยตรง ไม่ต้องใช้ PC"
+                    : `กำลังใช้งาน (${faceAgentEngine()}) — ประมวลผลบนเครื่อง PC`
                   : "ไม่พบโปรแกรมบนเครื่องนี้ — สแกนไม่ได้ ต้องติดตั้งโปรแกรม FaceGate ก่อน"}
               </p>
               <Button
