@@ -94,17 +94,13 @@ const AllStudentsPage = () => {
         supabase.from("classrooms").select("id").or(`homeroom_teacher_id.eq.${p.id},homeroom_teacher_2_id.eq.${p.id}`),
         supabase.from("schedules").select("classroom_id").eq("teacher_id", p.id),
       ]);
-      if (sc.error) throw sc.error;
-      (sc.data || []).forEach((r: any) => r.classroom_id && extra.add(r.classroom_id));
-      void hr;
-      const __skip = [
-        supabase.from("classrooms").select("id").or(`homeroom_teacher_id.eq.${p.id},homeroom_teacher_2_id.eq.${p.id}`),
-      ]);
       if (ta.error) throw ta.error;
       if (hr.error) throw hr.error;
+      if (sc.error) throw sc.error;
       const ids = new Set<string>();
       (ta.data || []).forEach((r: any) => r.classroom_id && ids.add(r.classroom_id));
       (hr.data || []).forEach((r: any) => ids.add(r.id));
+      (sc.data || []).forEach((r: any) => r.classroom_id && ids.add(r.classroom_id));
       return [...ids].sort();
     },
   });
