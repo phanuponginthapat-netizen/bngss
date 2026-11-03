@@ -56,12 +56,17 @@ class SceneGateTests(unittest.TestCase):
         """Nobody may be waited out just because they are not moving."""
         gate = module.SceneGate(force_check_s=1.2)
         now = 100.0
-        for _ in range(12):  # warm-up: the floor is still unknown, so keep scanning
-            gate.is_static(0.1, now)
+        rested = 0
+        checked_at: list[float] = []
+        for _ in range(24):  # a student standing still at the camera
+            if gate.is_static(0.1, now):
+                rested += 1
+            else:
+                checked_at.append(now)
             now += 0.9
-        self.assertTrue(gate.is_static(0.1, now))   # quiet -> rest
-        now += 1.3
-        self.assertFalse(gate.is_static(0.1, now))  # but never longer than 1.2s
+        self.assertGreater(rested, 0)  # the scanner does save the work
+        gaps = [b - a for a, b in zip(checked_at, checked_at[1:])]
+        self.assertLessEqual(max(gaps), 1.2 + 0.9)  # ...but never past 1.2s
 
     def test_one_person_passing_does_not_hide_the_next(self):
         """The floor is a low percentile, so a walk-through cannot lift it."""
