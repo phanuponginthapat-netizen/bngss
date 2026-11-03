@@ -48,7 +48,10 @@ export function setFaceAgentEnabled(enabled: boolean) {
   probedAt = 0;
 }
 
-/** ตรวจว่ามี agent หรือไม่ (แคช 60 วินาที) */
+const ON_DEVICE: AgentHealth = { ok: true, engine: "tablet", version: "on-device", geometry: false, dim: 512, detSize: 320 };
+const isOnDevice = () => health === ON_DEVICE;
+
+/** ตรวจว่ามี agent หรือไม่ (แคช 60 วินาที) — ไม่มี PC แต่เป็นแอปแท็บเล็ต → ประมวลผลบนแท็บเล็ตเอง */
 export async function probeFaceAgent(force = false): Promise<AgentHealth | null> {
   if (disabled()) return null;
   const now = Date.now();
@@ -64,10 +67,13 @@ export async function probeFaceAgent(force = false): Promise<AgentHealth | null>
       health = data?.ok ? data : null;
     } catch {
       health = null;
-    } finally {
-      probedAt = Date.now();
-      probing = null;
     }
+    if (!health) {
+      const { onDeviceFaceAllowed, loadOnDeviceFace } = await import("@/lib/onDeviceFace");
+      if (onDeviceFaceAllowed() && (await loadOnDeviceFace())) health = ON_DEVICE;
+    }
+    probedAt = Date.now();
+    probing = null;
     return health;
   })();
   return probing;
@@ -75,6 +81,7 @@ export async function probeFaceAgent(force = false): Promise<AgentHealth | null>
 
 export const faceAgentReady = () => !!health?.ok && !disabled();
 export const faceAgentEngine = () => health?.engine || "-";
+export const faceAgentOnDevice = () => isOnDevice();
 export const faceAgentHasGeometry = () => !!health?.geometry;
 
 /** จำนวนใบหน้าที่ agent เห็นในเฟรมล่าสุด (ใช้กันสแกนพร้อมกันหลายคน) */
@@ -112,6 +119,17 @@ export async function agentScanFrame(
   opts?: { maxWidth?: number; timeoutMs?: number },
 ): Promise<AgentFace[] | null> {
   if (!faceAgentReady()) return null;
+  if (isOnDevice()) {
+    try {
+      const { onDeviceScan } = await import("@/lib/onDeviceFace");
+      const r = await onDeviceScan(source);
+      if (!r) return null;
+      lastFrameFaceCount = r.count;
+      return r.faces.map((f) => ({ ...f, live: true, sharpness: 100, colorSpread: 30, geometry: null, crop: null }));
+    } catch {
+      return null;
+    }
+  }
   const jpeg = await toJpegBlob(source, opts?.maxWidth ?? 640);
   if (!jpeg) return null;
   try {
@@ -146,7 +164,7 @@ export async function agentEmbedImage(
   dataUrl: string,
   opts?: { crop?: boolean; timeoutMs?: number },
 ): Promise<AgentFace[] | null> {
-  if (!faceAgentReady()) return null;
+  if (!faceAgentReady() || isOnDevice()) return null;
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), opts?.timeoutMs ?? 8000);
