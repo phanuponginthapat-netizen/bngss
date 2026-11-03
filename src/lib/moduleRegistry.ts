@@ -39,6 +39,9 @@ export const MODULES: ModuleDef[] = [
   { key: "schedule", label: "ตารางเรียน-ตารางสอน", labelEn: "Schedule", desc: "ตารางเรียนรายห้องและตารางสอนรายครู", group: "academic", urlPrefixes: ["/dashboard/academic/schedule"] },
   { key: "homework", label: "การบ้าน", labelEn: "Homework", desc: "มอบหมายและตรวจการบ้านออนไลน์", group: "academic", urlPrefixes: ["/dashboard/homework"] },
   { key: "exam_ocr", label: "ข้อสอบ (OCR)", labelEn: "Exam System", desc: "สแกนและตรวจข้อสอบอัตโนมัติ", group: "academic", urlPrefixes: ["/dashboard/exam"] },
+  { key: "score_status", label: "สถานะส่งคะแนน", labelEn: "Score Status", desc: "ติดตามการส่งคะแนนรายวิชาตามภาคเรียน", group: "academic", urlPrefixes: ["/dashboard/academic/score-status"] },
+  { key: "grade_lock", label: "ล็อกผลการเรียน", labelEn: "Grade Lock", desc: "เปิด-ปิดการแก้ไขคะแนนรายภาคเรียน", group: "academic", urlPrefixes: ["/dashboard/academic/grade-lock"] },
+  { key: "test_scores", label: "ผลสอบระดับชาติ", labelEn: "Test Scores", desc: "ผลสอบ O-NET/NT/RT", group: "academic", urlPrefixes: ["/dashboard/admin/test-scores"] },
   { key: "calendar", label: "ปฏิทินวิชาการ", labelEn: "Academic Calendar", desc: "ปฏิทินกิจกรรมและกำหนดการวิชาการ", group: "academic", urlPrefixes: ["/dashboard/academic/calendar"] },
 
   // กิจการนักเรียน
@@ -56,13 +59,13 @@ export const MODULES: ModuleDef[] = [
 
   // บริหารทั่วไป
   { key: "news", label: "ข่าวสาร", labelEn: "News", desc: "ข่าวและประกาศประชาสัมพันธ์", group: "general", urlPrefixes: ["/dashboard/admin/news"] },
-  { key: "documents", label: "สารบรรณ", labelEn: "Documents", desc: "หนังสือราชการรับ-ส่ง", group: "general", urlPrefixes: ["/dashboard/admin/document"] },
-  { key: "eform", label: "E-Form", labelEn: "E-Form", desc: "แบบฟอร์มอิเล็กทรอนิกส์", group: "general", urlPrefixes: ["/dashboard/admin/eform"] },
+  { key: "documents", label: "สารบรรณ", labelEn: "Documents", desc: "หนังสือราชการรับ-ส่ง", group: "general", urlPrefixes: ["/dashboard/admin/document", "/dashboard/admin/document-templates", "/dashboard/documents/fill", "/dashboard/documents/masters"] },
+  { key: "eform", label: "E-Form", labelEn: "E-Form", desc: "แบบฟอร์มอิเล็กทรอนิกส์", group: "general", urlPrefixes: ["/dashboard/admin/eform", "/dashboard/admin/eform-templates"] },
   { key: "vaccine", label: "วัคซีน", labelEn: "Vaccine", desc: "บันทึกการรับวัคซีน", group: "general", urlPrefixes: ["/dashboard/admin/vaccine"] },
   { key: "lunch", label: "อาหารกลางวัน", labelEn: "Lunch", desc: "เมนูและงบอาหารกลางวัน", group: "general", urlPrefixes: ["/dashboard/admin/school-lunch"] },
   { key: "milk", label: "นมโรงเรียน", labelEn: "School Milk", desc: "โครงการอาหารเสริม (นม)", group: "general", urlPrefixes: ["/dashboard/admin/school-milk"] },
   { key: "pdca", label: "แผนปฏิบัติการ PDCA", labelEn: "Action Plan", desc: "วงจร Plan-Do-Check-Act", group: "general", urlPrefixes: ["/dashboard/admin/action-plan"] },
-  { key: "emergency", label: "แจ้งเหตุฉุกเฉิน", labelEn: "Emergency", desc: "ประกาศเหตุฉุกเฉิน", group: "general", urlPrefixes: ["/dashboard/admin/emergency"] },
+  { key: "emergency", label: "แจ้งเหตุฉุกเฉิน", labelEn: "Emergency", desc: "ประกาศเหตุฉุกเฉิน", group: "general", urlPrefixes: ["/dashboard/admin/emergency", "/dashboard/emergency"] },
 
   // งบประมาณและพัสดุ
   { key: "budget", label: "งบประมาณและบัญชี", labelEn: "Budget", desc: "บริหารงบประมาณและบัญชี", group: "finance", urlPrefixes: ["/dashboard/finance/budget"] },
@@ -87,6 +90,9 @@ export const MODULES: ModuleDef[] = [
   { key: "feed", label: "ประชาสัมพันธ์ออนไลน์", labelEn: "Feed", desc: "ฟีดประชาสัมพันธ์ภายใน", group: "general", urlPrefixes: ["/dashboard/feed"] },
   { key: "inbox", label: "กล่องข้อความ", labelEn: "Inbox", desc: "กล่องงาน/ข้อความ", group: "general", urlPrefixes: ["/dashboard/inbox"] },
   { key: "staff_tasks", label: "สั่งงานบุคลากร", labelEn: "Staff Tasks", desc: "มอบหมายงานบุคลากร", group: "general", urlPrefixes: ["/dashboard/admin/staff-tasks"] },
+  { key: "projects", label: "โครงการ", labelEn: "Projects", desc: "ศูนย์รวมโครงการของโรงเรียน", group: "general", urlPrefixes: ["/dashboard/projects/hub"] },
+  { key: "smsc", label: "SMSC", labelEn: "SMSC", desc: "ระบบข้อมูลโรงเรียน SMSC", group: "integrations", urlPrefixes: ["/dashboard/admin/smsc"] },
+  { key: "reports", label: "สร้างรายงาน & แนวโน้ม", labelEn: "Reports & Trends", desc: "ตัวสร้างรายงานและวิเคราะห์แนวโน้ม", group: "integrations", urlPrefixes: ["/dashboard/admin/report-builder", "/dashboard/admin/trend-analytics"] },
   { key: "duty", label: "ครูเวรประจำวัน", labelEn: "Duty", desc: "ตารางและบันทึกครูเวร", group: "general", urlPrefixes: ["/dashboard/admin/duty-teachers"] },
   { key: "observation", label: "สังเกตการสอน / ศน.", labelEn: "Observation", desc: "บัญชีผู้สังเกตการณ์และสังเกตการสอน", group: "general", urlPrefixes: ["/dashboard/admin/observation", "/dashboard/admin/observation-sessions"] },
 
@@ -97,7 +103,7 @@ export const MODULES: ModuleDef[] = [
   { key: "salary", label: "เงินเดือน", labelEn: "Salary", desc: "เงินเดือนและสวัสดิการบุคลากร", group: "hr", urlPrefixes: ["/dashboard/hr/salary"] },
   { key: "id_plan", label: "ID Plan", labelEn: "ID Plan", desc: "แผนพัฒนาตนเองรายบุคคล", group: "hr", urlPrefixes: ["/dashboard/hr/id-plan"] },
   { key: "disc", label: "DISC", labelEn: "DISC", desc: "ประเมินบุคลิกภาพแบบ DISC", group: "hr", urlPrefixes: ["/dashboard/hr/assessment"] },
-  { key: "staff_leave", label: "ใบลาบุคลากร", labelEn: "Staff Leave", desc: "ยื่นและอนุมัติใบลาบุคลากร", group: "hr", urlPrefixes: ["/dashboard/hr/leave"] },
+  { key: "staff_leave", label: "ใบลาบุคลากร", labelEn: "Staff Leave", desc: "ยื่นและอนุมัติใบลาบุคลากร", group: "hr", urlPrefixes: ["/dashboard/hr/leave", "/dashboard/hr/leave-balance"] },
   { key: "substitute", label: "สอนแทน", labelEn: "Substitute", desc: "มอบหมายและติดตามการสอนแทน", group: "hr", urlPrefixes: ["/dashboard/hr/substitute"] },
 
   // การเชื่อมต่อและเครื่องมือ
@@ -111,12 +117,12 @@ export const MODULES: ModuleDef[] = [
   { key: "rls_audit", label: "ตรวจสถานะ RLS", labelEn: "RLS Audit", desc: "สรุปว่าตารางไหนมี policy อ่าน/เพิ่ม/แก้/ลบครบ", group: "integrations", urlPrefixes: ["/dashboard/admin/rls-audit"] },
   { key: "database_schema", label: "คู่มือ & โครงสร้าง DB", labelEn: "Database Schema", desc: "ดูตาราง/คอลัมน์ พร้อมคู่มือเรียกใช้ API จากภายนอก", group: "integrations", urlPrefixes: ["/dashboard/admin/database-schema"] },
   { key: "bulk_ops", label: "ทำทีละหลายคน (Bulk)", labelEn: "Bulk Ops", desc: "นำเข้า/แก้ไขข้อมูลทีละมาก", group: "integrations", urlPrefixes: ["/dashboard/admin/bulk-operations"] },
-  { key: "id_cards", label: "บัตรประจำตัว", labelEn: "ID Cards", desc: "พิมพ์บัตรนักเรียนและบุคลากร", group: "integrations", urlPrefixes: ["/dashboard/admin/id-card", "/dashboard/admin/bulk-id", "/dashboard/admin/bulk-qr", "/dashboard/admin/qr"] },
-  { key: "print_center", label: "ศูนย์งานพิมพ์", labelEn: "Print Center", desc: "พิมพ์เอกสารและบัตรรวมศูนย์", group: "integrations", urlPrefixes: ["/dashboard/admin/print-center"] },
+  { key: "id_cards", label: "บัตรประจำตัว", labelEn: "ID Cards", desc: "พิมพ์บัตรนักเรียนและบุคลากร", group: "integrations", urlPrefixes: ["/dashboard/admin/id-card", "/dashboard/admin/qr"] },
+  { key: "print_center", label: "ศูนย์งานพิมพ์", labelEn: "Print Center", desc: "พิมพ์เอกสารและบัตรรวมศูนย์", group: "integrations", urlPrefixes: ["/dashboard/admin/print-center", "/dashboard/admin/print-templates", "/dashboard/admin/print-preview"] },
   { key: "field_visibility", label: "การแสดงข้อมูลโปรไฟล์", labelEn: "Field Visibility", desc: "ควบคุมการแสดงฟิลด์โปรไฟล์", group: "integrations", urlPrefixes: ["/dashboard/admin/field-visibility"] },
   { key: "school_location", label: "ตำแหน่งโรงเรียน", labelEn: "School Location", desc: "พิกัด GPS สำหรับลงเวลา", group: "integrations", urlPrefixes: ["/dashboard/admin/school-location"] },
   { key: "social_feed", label: "Social Wall (Facebook)", labelEn: "Social Wall", desc: "ดึงโพสต์จาก Facebook Page", group: "integrations", urlPrefixes: ["/dashboard/admin/social-feed"] },
-  { key: "ai_integrations", label: "API & AI", labelEn: "API & AI", desc: "Secrets ผู้ให้บริการ AI และคีย์พูล", group: "integrations", urlPrefixes: ["/dashboard/admin/api-keys", "/dashboard/admin/ai-providers", "/dashboard/admin/ai-key-pool", "/dashboard/admin/secrets", "/dashboard/admin/ai-import", "/dashboard/admin/ai-analytics"] },
+  { key: "ai_integrations", label: "API & AI", labelEn: "API & AI", desc: "Secrets ผู้ให้บริการ AI และคีย์พูล", group: "integrations", urlPrefixes: ["/dashboard/admin/api-keys", "/dashboard/admin/ai-integrations", "/dashboard/admin/ai-providers", "/dashboard/admin/ai-key-pool", "/dashboard/admin/secrets", "/dashboard/admin/ai-import", "/dashboard/admin/ai-analytics"] },
   { key: "backup_external", label: "สำรองข้อมูลภายนอก", labelEn: "External Backup", desc: "Backup ไป Google Drive/S3", group: "integrations", urlPrefixes: ["/dashboard/admin/backup-external"] },
   { key: "backup_center", label: "Backup & Migration Center", labelEn: "Backup & Migration", desc: "สำรอง/กู้คืน/ย้ายระบบทั้งหมด — 1 คลิก", group: "integrations", urlPrefixes: ["/dashboard/admin/backup-center"] },
 
@@ -134,7 +140,7 @@ export const MODULES: ModuleDef[] = [
   { key: "portfolio", label: "แฟ้มสะสมผลงาน", labelEn: "Portfolio", desc: "แฟ้มผลงานนักเรียน/ครู", group: "extras", urlPrefixes: ["/dashboard/portfolio"] },
   { key: "members", label: "ทำเนียบสมาชิก", labelEn: "Members", desc: "รายชื่อบุคลากรและนักเรียน", group: "extras", urlPrefixes: ["/dashboard/members"] },
   { key: "padlet", label: "กระดานโน้ต (Padlet)", labelEn: "Padlet", desc: "กระดานแปะโน้ตร่วมกัน", group: "extras", urlPrefixes: ["/dashboard/padlet"] },
-  { key: "games", label: "ศูนย์เกมการเรียนรู้", labelEn: "Games", desc: "เกมการเรียนรู้", group: "extras", urlPrefixes: ["/dashboard/hub/games"] },
+  { key: "games", label: "ศูนย์เกมการเรียนรู้", labelEn: "Games", desc: "เกมการเรียนรู้", group: "extras", urlPrefixes: ["/dashboard/hub/games", "/dashboard/games"] },
   { key: "activities", label: "กิจกรรมและการแข่งขัน", labelEn: "Activities", desc: "กิจกรรม แข่งขัน จัดสาย", group: "extras", urlPrefixes: ["/dashboard/activities"] },
   { key: "certificates", label: "เกียรติบัตร", labelEn: "Certificates", desc: "ออกเกียรติบัตร", group: "extras", urlPrefixes: ["/dashboard/certificates"] },
   { key: "ar", label: "งาน AR", labelEn: "AR", desc: "สื่อการเรียนรู้ AR", group: "extras", urlPrefixes: ["/dashboard/admin/ar"] },
@@ -153,7 +159,8 @@ export const GROUP_LABELS: Record<ModuleGroup, { th: string; en: string }> = {
 const URL_TO_KEY_CACHE = new Map<string, string | null>();
 
 /** Find which module key (if any) owns this pathname. Returns null for core/uncovered routes. */
-export function getModuleKeyForPath(pathname: string): string | null {
+export function getModuleKeyForPath(rawPath: string): string | null {
+  const pathname = rawPath.split(/[?#]/)[0].replace(/\/+$/, "") || "/";
   if (URL_TO_KEY_CACHE.has(pathname)) return URL_TO_KEY_CACHE.get(pathname)!;
   let best: { key: string; len: number } | null = null;
   for (const m of MODULES) {
