@@ -5,6 +5,7 @@ import { corsHeadersWithCronAndMethods } from "../_shared/cors.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { pushMessage } from "../_shared/lineApi.ts";
 import { requireCronOrAdmin } from "../_shared/requireCron.ts";
+import { readDigestRows, resolveDigestStatuses } from "../_shared/attendanceDigest.ts";
 
 const cors = corsHeadersWithCronAndMethods;
 
@@ -37,11 +38,12 @@ function buildChartConfig(
   absent: number[],
   late: number[],
   leave: number[],
-  totals: { totalPresent: number; totalAbsent: number; totalLate: number; totalLeave: number; totalAll: number },
+  totals: { totalPresent: number; totalAbsent: number; totalLate: number; totalLeave: number; totalUnrecorded: number; totalAll: number },
   dateLabel: string,
+  unrecorded: number[],
 ) {
-  const pct = totals.totalAll > 0 ? Math.round((totals.totalPresent / totals.totalAll) * 1000) / 10 : 0;
-  const subtitle = `📅 ${dateLabel}   |   รวม ${totals.totalAll} คน   |   มา ${totals.totalPresent} (${pct}%)  •  สาย ${totals.totalLate}  •  ลา ${totals.totalLeave}  •  ขาด ${totals.totalAbsent}`;
+  const pct = totals.totalAll > 0 ? Math.round(((totals.totalPresent + totals.totalLate) / totals.totalAll) * 1000) / 10 : 0;
+  const subtitle = `📅 ${dateLabel}   |   รวม ${totals.totalAll} คน   |   มา ${totals.totalPresent} (${pct}%)  •  สาย ${totals.totalLate}  •  ลา ${totals.totalLeave}  •  ขาด ${totals.totalAbsent}  •  ยังไม่มีบันทึก ${totals.totalUnrecorded}`;
   return {
     type: "bar",
     data: {
@@ -50,6 +52,7 @@ function buildChartConfig(
         { label: "มา",  backgroundColor: "#10B981", data: present, stack: "a", borderRadius: 4 },
         { label: "สาย", backgroundColor: "#F59E0B", data: late,    stack: "a", borderRadius: 4 },
         { label: "ลา",  backgroundColor: "#6366F1", data: leave,   stack: "a", borderRadius: 4 },
+        { label: "ยังไม่มีบันทึก", backgroundColor: "#94A3B8", data: unrecorded, stack: "a", borderRadius: 4 },
         { label: "ขาด", backgroundColor: "#EF4444", data: absent,  stack: "a", borderRadius: 4 },
       ],
     },
@@ -101,14 +104,16 @@ function bkkNow(): { minutes: number; dow: number } {
 }
 
 async function getSettings(sb: any): Promise<Record<string, string>> {
-  const { data } = await sb.from("school_settings")
+  const { data, error } = await sb.from("school_settings")
     .select("setting_key, setting_value")
     .in("setting_key", [
       "line_digest_enabled",
       "line_digest_time",
       "line_digest_days",
       "line_digest_include_calendar",
+      "clock_late_threshold",
     ]);
+  if (error) throw error;
   const map: Record<string, string> = {};
   for (const r of (data as any[]) || []) if (r.setting_value != null) map[r.setting_key] = String(r.setting_value);
   return map;
@@ -117,30 +122,17 @@ async function getSettings(sb: any): Promise<Record<string, string>> {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
-    const cronSecret = Deno.env.get("CRON_SECRET") || "";
-    const header = req.headers.get("x-cron-secret") || "";
+    const denied = await requireCronOrAdmin(req, cors);
+    if (denied) return denied;
     const body = await req.json().catch(() => ({}));
     const forceGroupId = body?.group_id as string | undefined;
     const customImageUrl = (body?.image_url as string | undefined)?.trim();
     const customSummary = (body?.summary_text as string | undefined)?.trim();
     const includeChart = Boolean(body?.include_chart);
-    // force = ข้ามการเช็ควัน/เวลาที่ตั้งไว้ (แต่ยังกันส่งซ้ำ 1 ครั้ง/วัน)
-    // allow_duplicate = ยืนยันส่งซ้ำจริง ๆ เท่านั้นจึงจะส่งรอบสอง
     const skipSchedule = Boolean(body?.force);
     const allowDuplicate = Boolean(body?.allow_duplicate);
-
-    const isCron = cronSecret && header === cronSecret;
-    if (!isCron && !forceGroupId) {
-      // require auth otherwise
-    }
-
-    const manualRun = Boolean(forceGroupId || customImageUrl || customSummary || skipSchedule);
-    // รอบอัตโนมัติไม่ต้องใช้ token (ถูกจำกัดด้วยเวลาที่ตั้งไว้ + ส่งได้วันละครั้ง)
-    // ส่งด้วยมือ/บังคับส่ง ต้องเป็น cron secret หรือแอดมิน/ผู้บริหารเท่านั้น
-    if (manualRun && !isCron) {
-      const denied = await requireCronOrAdmin(req, cors);
-      if (denied) return denied;
-    }
+    const dryRun = body?.dry_run === true;
+    const manualRun = Boolean(forceGroupId || customImageUrl || customSummary || skipSchedule || dryRun);
 
     const sb = makeAdmin();
     const today = bkkDate(0);
@@ -169,16 +161,13 @@ serve(async (req) => {
 
     let chartUrl = customImageUrl || "";
     let summary = customSummary || "";
-    let totals = { totalPresent: 0, totalAbsent: 0, totalLate: 0, totalLeave: 0, totalAll: 0 };
+    let totals = { totalPresent: 0, totalAbsent: 0, totalLate: 0, totalLeave: 0, totalUnrecorded: 0, totalAll: 0 };
 
-    let attendedCount = 0;
     if (!customImageUrl || !customSummary) {
       // 1) ฐานนักเรียนทั้งหมด (active) — ใช้เป็นตัวหารเปอร์เซ็นต์
-      const { data: studs, error: sErr } = await sb
-        .from("students")
-        .select("id, classroom_id, prefix, first_name, last_name")
-        .eq("status", "active");
-      if (sErr) { console.error("students fetch", sErr); throw sErr; }
+      const studs = await readDigestRows<any>((start, end) => sb.from("students")
+        .select("id, classroom_id, prefix, first_name, last_name").eq("status", "active")
+        .order("id").range(start, end));
 
       const classroomIds = Array.from(new Set(((studs as any[]) || []).map((s) => s.classroom_id).filter(Boolean)));
       const gradeByClassroom = new Map<string, string>();
@@ -207,53 +196,29 @@ serve(async (req) => {
       }
 
 
-      // 2) บันทึกการมาเรียนของวันนี้
-      const { data: attRows, error: attErr } = await sb
-        .from("attendance")
-        .select("status, student_id")
-        .is("subject_id", null)
-        .eq("attendance_date", today);
-      if (attErr) throw attErr;
+      const attRows = await readDigestRows<any>((start, end) => sb.from("attendance")
+        .select("status, student_id").is("subject_id", null).eq("attendance_date", today)
+        .order("id").range(start, end));
+      const scanRows = await readDigestRows<any>((start, end) => sb.from("face_scan_logs")
+        .select("student_id, scan_time, created_at, scan_type").eq("scan_date", today)
+        .in("scan_type", ["entry", "assembly"]).order("id").range(start, end));
+      const statusByStudent = resolveDigestStatuses(attRows, scanRows, settings.clock_late_threshold || "08:30");
 
-      // ลำดับความสำคัญ: มา > สาย > ลา/ป่วย > ขาด (กันแถวรายคาบทับผลสแกนเข้าโรงเรียน)
-      const RANK: Record<string, number> = { present: 5, late: 4, leave: 3, sick: 3, absent: 1 };
-      const statusByStudent = new Map<string, string>();
-      const setStatus = (id: string, s: string) => {
-        const prev = statusByStudent.get(id);
-        if (!prev || (RANK[s] ?? 2) > (RANK[prev] ?? 2)) statusByStudent.set(id, s);
-      };
-      for (const r of (attRows as any[]) || []) {
-        if (!r.student_id) continue;
-        setStatus(r.student_id, (r.status || "present").toLowerCase());
-      }
-
-      // 2.1) เผื่อบันทึกมาเรียนหาย — ใครสแกนเข้าโรงเรียนวันนี้ถือว่ามา/สายเสมอ
-      const { data: scanRows } = await sb
-        .from("face_scan_logs")
-        .select("student_id, scan_time, created_at, scan_type")
-        .eq("scan_date", today)
-        .in("scan_type", ["entry", "assembly"]);
-      for (const r of (scanRows as any[]) || []) {
-        if (!r.student_id) continue;
-        const t = new Date(r.scan_time || r.created_at || Date.now());
-        const hhmm = t.toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok", hour12: false });
-        setStatus(r.student_id, hhmm > "08:30:00" ? "late" : "present");
-      }
-
-      // 3) รวมผลรายชั้น — นักเรียนที่ไม่มีบันทึก = ขาด
-      const byGrade: Record<string, { present: number; absent: number; late: number; leave: number }> = {};
+      // Missing evidence is unrecorded, never a confirmed absence.
+      const byGrade: Record<string, { present: number; absent: number; late: number; leave: number; unrecorded: number }> = {};
       const absentByGrade: Record<string, string[]> = {};
       for (const s of (studs as any[]) || []) {
         const g = gradeByStudent.get(s.id) || "ไม่ระบุ";
-        if (!byGrade[g]) byGrade[g] = { present: 0, absent: 0, late: 0, leave: 0 };
+        if (!byGrade[g]) byGrade[g] = { present: 0, absent: 0, late: 0, leave: 0, unrecorded: 0 };
         const st = statusByStudent.get(s.id);
         if (st === "present") byGrade[g].present++;
         else if (st === "late") byGrade[g].late++;
-        else if (st && st !== "absent") byGrade[g].leave++;
-        else {
+        else if (st === "leave" || st === "sick") byGrade[g].leave++;
+        else if (st === "absent") {
           byGrade[g].absent++;
           (absentByGrade[g] ||= []).push(`${nameByStudent.get(s.id) || "ไม่ทราบชื่อ"} (${clsByStudent.get(s.id) || g})`);
         }
+        else byGrade[g].unrecorded++;
       }
       const gradeOrder = ["อ.1","อ.2","อ.3","ป.1","ป.2","ป.3","ป.4","ป.5","ป.6","ม.1","ม.2","ม.3","ม.4","ม.5","ม.6"];
       const sortGrade = (a: string, b: string) => {
@@ -271,21 +236,21 @@ serve(async (req) => {
       totals.totalAbsent = absent.reduce((a,b)=>a+b,0);
       totals.totalLate = late.reduce((a,b)=>a+b,0);
       totals.totalLeave = leave.reduce((a,b)=>a+b,0);
-      totals.totalAll = totals.totalPresent + totals.totalAbsent + totals.totalLate + totals.totalLeave;
-      attendedCount = totals.totalPresent + totals.totalLate;
+      totals.totalUnrecorded = labels.reduce((sum, label) => sum + byGrade[label].unrecorded, 0);
+      totals.totalAll = studs.length;
 
       // ส่งเป็นข้อความอย่างเดียว (ไม่แนบกราฟ) เพื่อประหยัดโควต้า LINE
       // ถ้าต้องการกราฟ ให้ส่ง body { include_chart: true }
       if (!chartUrl && includeChart) {
         const chartConfig = labels.length > 0
-          ? buildChartConfig(labels, present, absent, late, leave, totals, thDate(today))
+          ? buildChartConfig(labels, present, absent, late, leave, totals, thDate(today), labels.map(l => byGrade[l].unrecorded))
           : { type: "bar", data: { labels: ["ไม่มีข้อมูล"], datasets: [{ label: "-", data: [0] }] }, options: { title: { display: true, text: "ยังไม่มีการสแกน" } } };
         chartUrl = await shortChartUrl(chartConfig);
       }
 
       if (!summary) {
-        const pct = totals.totalAll > 0 ? Math.round((totals.totalPresent / totals.totalAll) * 1000) / 10 : 0;
-        let s = `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${shortThDate(today)}\n\n✅ มา ${totals.totalPresent} คน\n⏰ สาย ${totals.totalLate} คน\n📝 ลา ${totals.totalLeave} คน\n❌ ขาด ${totals.totalAbsent} คน\n────────\nรวม ${totals.totalAll} คน • เข้าเรียน ${pct}%`;
+        const pct = totals.totalAll > 0 ? Math.round(((totals.totalPresent + totals.totalLate) / totals.totalAll) * 1000) / 10 : 0;
+        let s = `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${shortThDate(today)}\n\n✅ มา ${totals.totalPresent} คน\n⏰ สาย ${totals.totalLate} คน\n📝 ลา ${totals.totalLeave} คน\n❌ ขาด (มีบันทึกยืนยัน) ${totals.totalAbsent} คน\n❔ ยังไม่มีบันทึก ${totals.totalUnrecorded} คน\n────────\nรวม ${totals.totalAll} คน • เข้าเรียน ${pct}%`;
         const absentGrades = Object.keys(absentByGrade).sort(sortGrade);
         if (absentGrades.length > 0) {
           s += `\n\n🚨 รายชื่อนักเรียนที่ขาด (${totals.totalAbsent} คน)`;
@@ -319,37 +284,25 @@ serve(async (req) => {
 
 
 
-    // 🏖️ Holiday auto-detection:
-    //  - ตรวจเฉพาะกรณี "ไม่มีนักเรียนสแกนเลย" เท่านั้น (สแกน 0 คน) → วันหยุด
-    //  - ไม่ใช้เกณฑ์จำนวนขาด เพราะทำให้วันเรียนปกติถูกข้ามการแจ้งเตือน
-    const isAutoRun = !customImageUrl && !customSummary && !forceGroupId;
-    const noAttendance = attendedCount === 0;
-    if (isAutoRun && noAttendance) {
-      try {
-        await sb.from("attendance_auto_holidays").upsert({
-          holiday_date: today,
-          reason: "auto_detected_no_attendance",
-          absent_count: totals.totalAbsent,
-          total_students: totals.totalAll,
-          detected_by: "notify-attendance-digest",
-        }, { onConflict: "holiday_date" });
-      } catch (e) {
-        console.error("holiday upsert failed", e);
-      }
-      return new Response(JSON.stringify({
-        ok: true, date: today, skipped: true, reason: "holiday_detected",
-        absent_count: totals.totalAbsent, attended: attendedCount, totals,
-      }), { headers: { ...cors, "Content-Type": "application/json" } });
+    // A lack of scans is not evidence of a holiday. Never create holidays from this report.
+    if (!manualRun) {
+      const { data: holidays, error: holidayError } = await sb.from("academic_events")
+        .select("id").eq("event_type", "holiday").lte("event_date", today)
+        .or(`end_date.gte.${today},and(end_date.is.null,event_date.eq.${today})`).limit(1);
+      if (holidayError) throw holidayError;
+      if (holidays?.length) return new Response(JSON.stringify({ ok: true, skipped: true, reason: "calendar_holiday", date: today }),
+        { headers: { ...cors, "Content-Type": "application/json" } });
     }
-
-
+    if (dryRun) return new Response(JSON.stringify({ ok: true, dry_run: true, date: today, totals, summary }),
+      { headers: { ...cors, "Content-Type": "application/json" } });
 
     const token = await getVaultToken(sb);
     if (!token) return new Response(JSON.stringify({ error: "LINE_VAULT_CHANNEL_ACCESS_TOKEN not set" }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
 
     let q = sb.from("line_vault_groups").select("id, line_group_id, group_name, last_attendance_digest_date").eq("notify_attendance", true);
     if (forceGroupId) q = q.eq("id", forceGroupId);
-    const { data: groups } = await q;
+    const { data: groups, error: groupError } = await q;
+    if (groupError) throw groupError;
 
     // ส่งเพียง 1 ข้อความต่อวัน (ยกเว้นสั่งแนบกราฟเองด้วย include_chart)
     const messages: any[] = [];
@@ -365,12 +318,13 @@ serve(async (req) => {
       // 🔒 จองสิทธิ์ส่งแบบอะตอมมิก — อัปเดตวันที่ก่อนส่ง เฉพาะแถวที่ยังไม่ถูกส่งวันนี้
       // กันส่งซ้ำจากทุกช่องทาง (cron ซ้อน, ปุ่มทดสอบ, กดหลายครั้ง)
       if (!allowDuplicate) {
-        const { data: claimed } = await sb
+        const { data: claimed, error: claimError } = await sb
           .from("line_vault_groups")
           .update({ last_attendance_digest_date: today, last_notified_at: new Date().toISOString() })
           .eq("id", g.id)
           .or(`last_attendance_digest_date.is.null,last_attendance_digest_date.neq.${today}`)
           .select("id");
+        if (claimError) throw claimError;
         if (!claimed || claimed.length === 0) {
           alreadySent++;
           results.push({ id: g.id, skipped: true, reason: "already_sent_today" });
@@ -379,19 +333,25 @@ serve(async (req) => {
       }
       try {
         await pushMessage(token, g.line_group_id, messages);
-        await sb.from("line_vault_groups").update({ last_attendance_digest_date: today, last_notified_at: new Date().toISOString() }).eq("id", g.id);
+        const { error: saveError } = await sb.from("line_vault_groups").update({ last_attendance_digest_date: today, last_notified_at: new Date().toISOString() }).eq("id", g.id);
+        if (saveError) {
+          results.push({ id: g.id, ok: true, warning: "Delivery accepted but final timestamp was not saved" });
+          console.error("attendance delivery timestamp", saveError);
+          continue;
+        }
         results.push({ id: g.id, ok: true });
       } catch (e) {
         console.error("attendance push failed", g.group_name, e);
         // ส่งไม่สำเร็จ — คืนสิทธิ์ให้รอบถัดไปลองใหม่ได้
         if (!allowDuplicate) {
-          await sb.from("line_vault_groups").update({ last_attendance_digest_date: null }).eq("id", g.id);
+          const { error: releaseError } = await sb.from("line_vault_groups").update({ last_attendance_digest_date: null }).eq("id", g.id).eq("last_attendance_digest_date", today);
+          if (releaseError) console.error("attendance retry reservation failed", releaseError);
         }
         results.push({ id: g.id, ok: false, error: String(e).slice(0, 200) });
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, date: today, count: results.length, sent: results.filter((r) => r.ok).length, already_sent: alreadySent, totals, results }), {
+    return new Response(JSON.stringify({ ok: results.every((r) => r.ok !== false), date: today, count: results.length, sent: results.filter((r) => r.ok).length, already_sent: alreadySent, totals, results }), {
       headers: { ...cors, "Content-Type": "application/json" },
     });
   } catch (e) {
