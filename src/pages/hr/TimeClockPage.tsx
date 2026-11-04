@@ -473,7 +473,7 @@ const TimeClockPage = () => {
   const saveClockRecord = async (target: any, userLat: number, userLng: number) => {
     const now = new Date();
     // เวลาไทยเสมอ แม้เครื่องตั้งเขตเวลาผิด
-    const currentTimeStr = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hour12: false }).format(now);
+    const currentTimeStr = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(now);
     const threshold = gpsSettings?.clock_late_threshold || "08:30";
     const clockStatus = currentTimeStr > threshold ? "late" : "normal";
 
