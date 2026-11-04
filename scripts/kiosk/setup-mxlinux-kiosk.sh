@@ -1341,6 +1341,7 @@ for DEV in /dev/video*; do
   has_ctl exposure_auto_priority && set_ctl exposure_auto_priority 0   # 0 = ห้ามลด fps ตอนแสงน้อย (สำคัญมาก!)
   has_ctl white_balance_temperature_auto && set_ctl white_balance_temperature_auto 1
   has_ctl white_balance_automatic && set_ctl white_balance_automatic 1
+
   has_ctl gain_automatic && set_ctl gain_automatic 1
 
   # 2) คืนค่าภาพเป็นค่าเริ่มต้นของกล้อง แล้วบังคับปิดการชดเชยย้อนแสง
