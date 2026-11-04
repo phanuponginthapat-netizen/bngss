@@ -83,6 +83,8 @@ type HomeworkRow = {
   classroom_id: string | null;
   subjects?: { name_th: string; code: string } | null;
   classrooms?: { name: string } | null;
+  total_score?: number | null;
+  submission?: { status: string | null; score: number | null; submitted_at: string | null; graded_at: string | null } | null;
 };
 
 type RemediationRow = {
@@ -308,14 +310,15 @@ export default function ParentAppPage() {
           .limit(5)
       : Promise.resolve({ data: [], error: null } as unknown as { data: HomeworkRow[] | null });
 
+    const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
     const homeworkAssignPromise = child.classroom_id
       ? supabase
           .from("homework_assignments")
-          .select("id, title, description, due_date, subject_id, classroom_id")
+          .select("id, title, description, due_date, subject_id, classroom_id, total_score, subjects(name_th, code)")
           .eq("classroom_id", child.classroom_id)
-          .gte("due_date", today)
-          .order("due_date", { ascending: true })
-          .limit(5)
+          .gte("due_date", since)
+          .order("due_date", { ascending: false })
+          .limit(15)
       : Promise.resolve({ data: [], error: null } as unknown as { data: HomeworkRow[] | null });
 
     // 0 ร มส status — grade_remediation where student_id = child.id and status != 'ผ่าน'
@@ -325,31 +328,68 @@ export default function ParentAppPage() {
       .eq("student_id", child.id)
       .neq("status", "ผ่าน")
       .order("created_at", { ascending: false })
-      .limit(5);
+      .limit(10);
 
-    const [faceRes, attRes, scoresRes, hwTaskRes, hwAssignRes, remRes] = await Promise.allSettled([
+    const incompletePromise = supabase
+      .from("incomplete_grade_reports")
+      .select("id, student_id, subject_name_text, grade_type, semester, academic_year, status, fix_deadline, created_at, subjects(code, name_th)")
+      .eq("student_id", child.id)
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    const [faceRes, attRes, scoresRes, hwTaskRes, hwAssignRes, remRes, incRes] = await Promise.allSettled([
       facePromise,
       attendancePromise,
       scoresPromise,
       homeworkTaskPromise,
       homeworkAssignPromise,
       remediationPromise,
+      incompletePromise,
     ]);
 
     const faceLogs = faceRes.status === "fulfilled" ? ((faceRes.value.data as unknown as FaceLog[]) ?? []) : [];
     const attendance = attRes.status === "fulfilled" ? ((attRes.value.data as unknown as AttendanceRow[]) ?? []) : [];
     const scores = scoresRes.status === "fulfilled" ? ((scoresRes.value.data as unknown as ScoreRow[]) ?? []) : [];
     let homework: HomeworkRow[] = [];
-    if (hwTaskRes.status === "fulfilled" && hwTaskRes.value.data && (hwTaskRes.value.data as unknown[]).length > 0) {
+    if (hwAssignRes.status === "fulfilled" && hwAssignRes.value.data && (hwAssignRes.value.data as unknown[]).length > 0) {
+      homework = (hwAssignRes.value.data as unknown as HomeworkRow[]).map((h) => ({ ...h, title: h.title || "การบ้าน" }));
+      // Read-only submission status + score for this child (parents can view, never submit)
+      const { data: subs, error: subErr } = await supabase
+        .from("homework_submissions")
+        .select("assignment_id, status, score, final_score, submitted_at, graded_at")
+        .eq("student_id", child.id)
+        .in("assignment_id", homework.map((h) => h.id));
+      if (subErr) throw subErr;
+      const byId = new Map((subs ?? []).map((s) => [s.assignment_id, s]));
+      homework = homework.map((h) => {
+        const s = byId.get(h.id);
+        return {
+          ...h,
+          submission: s
+            ? { status: s.status, score: (s.final_score ?? s.score) as number | null, submitted_at: s.submitted_at, graded_at: s.graded_at }
+            : null,
+        };
+      });
+    } else if (hwTaskRes.status === "fulfilled" && hwTaskRes.value.data) {
       homework = hwTaskRes.value.data as unknown as HomeworkRow[];
-    } else if (hwAssignRes.status === "fulfilled" && hwAssignRes.value.data) {
-      // map homework_assignments to same shape
-      homework = (hwAssignRes.value.data as unknown as HomeworkRow[]).map((h) => ({
-        ...h,
-        title: (h as unknown as { title: string }).title || "การบ้าน",
-      }));
     }
-    const remediation = remRes.status === "fulfilled" ? ((remRes.value.data as unknown as RemediationRow[]) ?? []) : [];
+    const remediation: RemediationRow[] = remRes.status === "fulfilled" ? ((remRes.value.data as unknown as RemediationRow[]) ?? []) : [];
+    if (incRes.status === "fulfilled" && incRes.value.data) {
+      for (const r of incRes.value.data as Array<{ id: string; student_id: string; subject_name_text: string | null; grade_type: string; semester: number | null; academic_year: number | null; status: string; fix_deadline: string | null; created_at: string; subjects?: { code: string; name_th: string } | null }>) {
+        remediation.push({
+          id: r.id,
+          student_id: r.student_id,
+          subject_code: r.subjects?.code ?? "",
+          subject_name: r.subjects?.name_th ?? r.subject_name_text,
+          term: `${r.semester ?? "-"}/${r.academic_year ?? "-"}`,
+          original_grade: r.grade_type,
+          status: r.status === "pending" ? "รอแก้" : r.status === "resolved" ? "แก้แล้ว" : r.status,
+          fix_deadline: r.fix_deadline,
+          created_at: r.created_at,
+        });
+      }
+    }
 
     return { faceLogs, attendance, scores, homework, remediation };
   }, []);
