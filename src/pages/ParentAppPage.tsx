@@ -558,8 +558,8 @@ export default function ParentAppPage() {
       return (
         <div className="text-center py-6 space-y-2">
           <BookOpen className="w-8 h-8 mx-auto text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">{L("ไม่มีการบ้านที่ใกล้กำหนด", "No upcoming homework")}</p>
-          <p className="text-xs text-muted-foreground">{L("ดึงจาก homework_assignments / task_assignments ตามห้องเรียน", "From homework_assignments / task_assignments by classroom")}</p>
+          <p className="text-sm text-muted-foreground">{L("ไม่มีการบ้านใน 30 วันล่าสุด", "No homework in the last 30 days")}</p>
+          
         </div>
       );
     }
@@ -604,7 +604,7 @@ export default function ParentAppPage() {
         <div className="text-center py-6 space-y-2">
           <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto"><ClipboardCheck className="w-5 h-5" /></div>
           <p className="text-sm font-medium text-emerald-700">{L("ไม่มีรายการติด 0 ร มส", "No pending remediation")}</p>
-          <p className="text-xs text-muted-foreground">grade_remediation · status != &#39;ผ่าน&#39; · .limit(5)</p>
+          
         </div>
       );
     }
