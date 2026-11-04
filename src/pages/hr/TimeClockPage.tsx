@@ -157,7 +157,8 @@ const TimeClockPage = () => {
         query = query.eq("personnel_id", myPersonnel.id);
       }
 
-      const { data } = await query.limit(100);
+      const { data, error } = await query.limit(100);
+      if (error) throw error;
       return data || [];
     },
   });
@@ -471,9 +472,8 @@ const TimeClockPage = () => {
 
   const saveClockRecord = async (target: any, userLat: number, userLng: number) => {
     const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const currentTimeStr = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+    // เวลาไทยเสมอ แม้เครื่องตั้งเขตเวลาผิด
+    const currentTimeStr = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(now);
     const threshold = gpsSettings?.clock_late_threshold || "08:30";
     const clockStatus = currentTimeStr > threshold ? "late" : "normal";
 
@@ -583,7 +583,10 @@ const TimeClockPage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("time_clock").delete().eq("id", id);
+    const ok = await swal.confirm({ title: "ยืนยันการลบบันทึกเวลา", danger: true, confirmText: "ลบ" });
+    if (!ok) return;
+    const { error } = await supabase.from("time_clock").delete().eq("id", id);
+    if (error) { swal.error("ลบไม่สำเร็จ: " + error.message); return; }
     qc.invalidateQueries({ queryKey: ["time_clock"] });
   };
 

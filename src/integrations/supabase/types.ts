@@ -17602,6 +17602,15 @@ export type Database = {
         }
         Returns: string
       }
+      pick_auto_substitute_on: {
+        Args: {
+          _date: string
+          _exclude_personnel: string
+          _period: number
+          _subject_id?: string
+        }
+        Returns: string
+      }
       recompute_budget_usage: {
         Args: {
           p_category_id: string
@@ -17723,6 +17732,13 @@ export type Database = {
         Returns: boolean
       }
       sync_current_academic_period: { Args: never; Returns: string }
+      term_for_date: {
+        Args: { _d: string }
+        Returns: {
+          semester: number
+          year_ce: number
+        }[]
+      }
       to_time24: { Args: { _txt: string }; Returns: string }
       user_can_view_news_audience: {
         Args: { _audience: string }
