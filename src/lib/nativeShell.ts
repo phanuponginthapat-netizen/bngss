@@ -43,7 +43,7 @@ export function initNativeShell() {
 
   // ตรวจเวอร์ชันใหม่บน APK Android — โชว์ป๊อปอัปให้อัปเดตในแอป (ข้ามถ้าเป็นเวอร์ชันจาก Play Store)
   if (!isScannerBuild) try {
-    import("./appUpdater").then(({ checkAndPromptUpdate }) => checkAndPromptUpdate()).catch(() => {});
+    import("./appUpdater").then(({ startUpdateWatcher }) => startUpdateWatcher()).catch(() => {});
   } catch (_) {}
 
   const root = document.documentElement;
