@@ -178,7 +178,7 @@ export default function ParentAppPage() {
     try {
       const { data, error } = await supabase
         .from("students")
-        .select("id, student_code, prefix, first_name, last_name, classroom_id, guardian_phone, photo_url, classrooms(name)")
+        .select("id, student_code, prefix, first_name, last_name, classroom_id, guardian_phone, photo_url, classrooms!students_classroom_id_fkey(name)")
         .or(`parent_user_id.eq.${uid},parent_user_id_2.eq.${uid}`)
         .limit(20);
       if (!error && data && data.length > 0) return data as unknown as Child[];
@@ -201,7 +201,7 @@ export default function ParentAppPage() {
           const ids = rows.map((r) => r.student_id);
           const { data: studs } = await supabase
             .from("students")
-            .select("id, student_code, prefix, first_name, last_name, classroom_id, guardian_phone, photo_url, classrooms(name)")
+            .select("id, student_code, prefix, first_name, last_name, classroom_id, guardian_phone, photo_url, classrooms!students_classroom_id_fkey(name)")
             .in("id", ids);
           if (studs && (studs as unknown[]).length > 0) return studs as unknown as Child[];
         }
@@ -216,7 +216,7 @@ export default function ParentAppPage() {
           const ids = rows2.map((r) => r.student_id);
           const { data: studs } = await supabase
             .from("students")
-            .select("id, student_code, prefix, first_name, last_name, classroom_id, guardian_phone, photo_url, classrooms(name)")
+            .select("id, student_code, prefix, first_name, last_name, classroom_id, guardian_phone, photo_url, classrooms!students_classroom_id_fkey(name)")
             .in("id", ids);
           if (studs && (studs as unknown[]).length > 0) return studs as unknown as Child[];
         }
@@ -255,7 +255,7 @@ export default function ParentAppPage() {
           .join(",");
         const { data: byPhone } = await supabase
           .from("students")
-          .select("id, student_code, prefix, first_name, last_name, classroom_id, guardian_phone, photo_url, classrooms(name)")
+          .select("id, student_code, prefix, first_name, last_name, classroom_id, guardian_phone, photo_url, classrooms!students_classroom_id_fkey(name)")
           .or(orFilter)
           .limit(20);
         if (byPhone && (byPhone as unknown[]).length > 0) return byPhone as unknown as Child[];
