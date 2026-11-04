@@ -648,7 +648,7 @@ export default function AiChatBubble() {
           });
         } catch (e) {
           console.warn("[AiChat] save image failed", e);
-          swal.toast.info("สร้างภาพแล้ว แต่บันทึกลงประวัติไม่สำเร็จ — แตะที่ภาพแล้วกด "บันทึกภาพ" เก็บไว้");
+          swal.toast.info("สร้างภาพแล้ว แต่บันทึกลงประวัติไม่สำเร็จ — แตะที่ภาพแล้วกดบันทึกภาพเก็บไว้");
         }
       }
     } catch (error) {
