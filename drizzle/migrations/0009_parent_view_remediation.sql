@@ -1,0 +1,2 @@
+CREATE POLICY "Parents view child grade_remediation" ON public.grade_remediation FOR SELECT TO authenticated USING (public.is_parent_of(auth.uid(), student_id));
+CREATE POLICY "Parents view child incomplete grade reports" ON public.incomplete_grade_reports FOR SELECT TO authenticated USING (public.is_parent_of(auth.uid(), student_id));
