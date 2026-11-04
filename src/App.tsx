@@ -193,6 +193,7 @@ const SalaryPage = lazy(() => import("./pages/hr/SalaryPage"));
 const IdPlanPage = lazy(() => import("./pages/hr/IdPlanPage"));
 const PersonnelAssessmentPage = lazy(() => import("./pages/hr/PersonnelAssessmentPage"));
 const TimeClockPage = lazy(() => import("./pages/hr/TimeClockPage"));
+const DailyWorkLogPage = lazy(() => import("./pages/hr/DailyWorkLogPage"));
 const OffsiteTripsPage = lazy(() => import("./pages/student/OffsiteTripsPage"));
 
 
@@ -574,6 +575,7 @@ const App = () => {
                 <Route path="hr" element={<Navigate to="/dashboard/hr/personnel" replace />} />
                 <Route path="hr/personnel" element={<ProtectedRoute allowedRoles={["admin", "director"]}><DepartmentRoute departments={["finance_personnel"]}><PersonnelPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="hr/time-clock" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><TimeClockPage /></ProtectedRoute>} />
+                <Route path="hr/daily-work-log" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DailyWorkLogPage /></ProtectedRoute>} />
                 <Route path="hr/attendance-dashboard" element={<ProtectedRoute allowedRoles={["admin", "director"]}><DepartmentRoute departments={["finance_personnel"]}><AttendanceDashboardPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="hr/leave" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["finance_personnel"]} bypassRoles={["teacher"]}><StaffLeavePage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="hr/evaluation" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["finance_personnel"]} bypassRoles={["teacher"]}><EvaluationPage /></DepartmentRoute></ProtectedRoute>} />

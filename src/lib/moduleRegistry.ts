@@ -99,6 +99,7 @@ export const MODULES: ModuleDef[] = [
   // บุคลากร (HR)
   { key: "hr_attendance", label: "การมาทำงานครู", labelEn: "Staff Attendance", desc: "สรุปการมาปฏิบัติงานของบุคลากร", group: "hr", urlPrefixes: ["/dashboard/hr/attendance-dashboard"] },
   { key: "time_clock", label: "ลงเวลาทำงาน", labelEn: "Time Clock", desc: "บันทึกเวลาเข้า-ออกงาน", group: "hr", urlPrefixes: ["/dashboard/hr/time-clock"] },
+  { key: "daily_work_log", label: "รายงานการปฏิบัติหน้าที่", labelEn: "Daily Work Reports", desc: "ขอบเขตงานส่วนตัว บันทึกรายวันและรายงานรายเดือน", group: "hr", urlPrefixes: ["/dashboard/hr/daily-work-log"] },
   { key: "dpa", label: "วPA / DPA", labelEn: "vPA / DPA", desc: "ประเมินวิทยฐานะข้าราชการครู", group: "hr", urlPrefixes: ["/dashboard/hr/evaluation"] },
   { key: "salary", label: "เงินเดือน", labelEn: "Salary", desc: "เงินเดือนและสวัสดิการบุคลากร", group: "hr", urlPrefixes: ["/dashboard/hr/salary"] },
   { key: "id_plan", label: "ID Plan", labelEn: "ID Plan", desc: "แผนพัฒนาตนเองรายบุคคล", group: "hr", urlPrefixes: ["/dashboard/hr/id-plan"] },

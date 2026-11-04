@@ -19,6 +19,7 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
     { title: L("แฟ้มสะสมผลงาน", "Portfolio"), url: "/dashboard/portfolio", icon: Award, desc: L("แสดงผลงาน เอกสาร วิดีโอ ในโปรไฟล์", "Showcase your work") },
     { title: L("ทำเนียบสมาชิก", "Members"), url: "/dashboard/members", icon: Users, desc: L("ค้นหาสมาชิกและดูผลงาน", "Browse members & portfolios") },
     { title: L("บันทึกเวลาปฏิบัติงาน", "Time Clock"), url: "/dashboard/hr/time-clock", icon: Clock, roles: ["admin", "director", "teacher"], desc: L("บันทึกเวลาเข้า-ออกงาน", "Staff check-in / check-out") },
+    { title: L("รายงานปฏิบัติหน้าที่", "Daily Work Reports"), url: "/dashboard/hr/daily-work-log", icon: ClipboardList, roles: ["admin", "director", "teacher"], desc: L("ขอบเขตงานส่วนตัวและรายงานรายเดือน", "Private scopes and monthly work reports") },
     { title: L("เช็คชื่อนักเรียน", "Student Check-in"), url: "/dashboard/student/face-scan", icon: ScanFace, roles: ["admin", "director", "teacher"], desc: L("เช็คชื่อด้วยใบหน้า/QR แจ้ง LINE ผู้ปกครอง", "Face/QR check-in + LINE notify") },
     { title: L("ลงทะเบียนใบหน้าบุคลากร", "Staff Face Enrollment"), url: "/dashboard/student/face-scan?tab=staff", icon: ScanFace, roles: ["admin", "director", "teacher"], desc: L("ลงทะเบียนใบหน้าครูและบุคลากรเพื่อทดสอบ/สแกนเข้าโรงเรียน", "Enroll staff faces for test/check-in") },
     { title: L("ลงทะเบียนใบหน้าของฉัน", "My Face Enrollment"), url: "/dashboard/student/my-face", icon: ScanFace, roles: ["student"], desc: L("ลงทะเบียนใบหน้าเพื่อสแกนเข้าโรงเรียน", "Enroll your face for check-in") },
@@ -406,7 +407,7 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
     ] },
     { key: "general", label: L("ฝ่ายบริหารทั่วไป", "General administration"), icon: Megaphone, groups: groups("office_docs", "office_ops", "services_rooms", "services_ict") },
     { key: "hr", label: L("ฝ่ายบริหารงานบุคคล", "Personnel"), icon: Users, groups: [
-      group("staff_daily", L("งานบุคลากรประจำวัน", "Daily staff work"), Clock, ["/dashboard/hr/time-clock", "/dashboard/hr/leave", "/dashboard/admin/staff-tasks"]), ...groups("hr_records"),
+      group("staff_daily", L("งานบุคลากรประจำวัน", "Daily staff work"), Clock, ["/dashboard/hr/time-clock", "/dashboard/hr/daily-work-log", "/dashboard/hr/leave", "/dashboard/admin/staff-tasks"]), ...groups("hr_records"),
     ] },
     { key: "finance", label: L("ฝ่ายงบประมาณและพัสดุ", "Budget & assets"), icon: DollarSign, groups: groups("finance") },
     { key: "tools", label: L("เครื่องมือและไฟล์", "Tools & files"), icon: FolderOpen, groups: groups("tools_kit") },
@@ -431,7 +432,7 @@ export function findWorkArea(areas: WorkArea[], pathname: string): WorkArea | un
 }
 export function dailyNavigationItems(visibleAreas: WorkArea[]): NavigationItem[] {
   const urls = [
-    "/dashboard/hr/time-clock", "/dashboard/student/face-scan",
+    "/dashboard/hr/time-clock", "/dashboard/hr/daily-work-log", "/dashboard/student/face-scan",
     "/dashboard/student/attendance", "/dashboard/academic/schedule",
     "/dashboard/homework", "/dashboard/padlet", "/dashboard/student/behavior",
     "/dashboard/student/leave", "/dashboard/hr/leave",
