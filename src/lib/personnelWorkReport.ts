@@ -2,8 +2,8 @@ import type { AppRole } from '@/hooks/useUserRole';
 
 export type WorkItem = { scope: string; detail: string };
 export type WorkLog = { id: string; work_date: string; template_id: string; position_title: string; items: WorkItem[] };
-export type CalendarHoliday = { title: string; event_date: string; end_date: string | null };
-export type WorkDay = { date: string; kind: 'work' | 'weekend' | 'holiday'; label: string; log?: WorkLog };
+export type CalendarHoliday = { title: string; event_date: string; end_date: string | null; publicHoliday?: boolean };
+export type WorkDay = { date: string; kind: 'work' | 'weekend' | 'holiday'; label: string; loggable: boolean; publicHoliday: boolean; log?: WorkLog };
 
 export function canUsePersonnelWorkReport(role: AppRole | null, observer = false) {
   return !observer && (role === 'teacher' || role === 'admin' || role === 'director');
@@ -19,9 +19,16 @@ export function workMonthRows(month: string, holidays: CalendarHoliday[], logs: 
     const date = `${month}-${String(index + 1).padStart(2, '0')}`;
     const holiday = holidays.find(h => h.event_date <= date && (h.end_date ?? h.event_date) >= date);
     const day = new Date(`${date}T00:00:00Z`).getUTCDay();
-    if (holiday) return { date, kind: 'holiday', label: `วันหยุด — ${holiday.title}` };
-    if (day === 0 || day === 6) return { date, kind: 'weekend', label: day === 6 ? '— วันเสาร์ —' : '— วันอาทิตย์ —' };
-    return { date, kind: 'work', label: '', log: logs.find(l => l.work_date === date) };
+    if (holiday) {
+      const publicHoliday = !!holiday.publicHoliday;
+      return {
+        date, kind: 'holiday', loggable: publicHoliday, publicHoliday,
+        label: `วันหยุด${publicHoliday ? 'นักขัตฤกษ์' : ''} — ${holiday.title}`,
+        log: publicHoliday ? logs.find(l => l.work_date === date) : undefined,
+      };
+    }
+    if (day === 0 || day === 6) return { date, kind: 'weekend', label: day === 6 ? '— วันเสาร์ —' : '— วันอาทิตย์ —', loggable: false, publicHoliday: false };
+    return { date, kind: 'work', label: '', loggable: true, publicHoliday: false, log: logs.find(l => l.work_date === date) };
   });
 }
 export function validWorkItems(items: WorkItem[], scopes: string[]) {
