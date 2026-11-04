@@ -19,6 +19,9 @@ import { useUserRole } from "@/hooks/useUserRole";
 import SubstituteReport from "@/components/hr/SubstituteReport";
 import { BE_OFFSET, bkkDateISO } from "@/lib/dateBE";
 import { saveErrorMessage } from "@/lib/saveError";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
+
+const periodKey = (v: unknown) => String(v ?? "").replace(/\D/g, "");
 
 const dayNames = {
   th: ["", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"],
@@ -57,6 +60,8 @@ const SubstitutePage = () => {
   const { lang } = useLanguage();
   const { isAdmin, isDirector } = useUserRole();
   const qc = useQueryClient();
+  const { currentAcademicYear, currentSemester, isReady: termReady } = useAcademicYear();
+  const termYearCE = currentAcademicYear - BE_OFFSET;
   const [selectedDate, setSelectedDate] = useState("");
   const [pendingPicks, setPendingPicks] = useState<Record<string, { gap: any; teacher: any; originalName: string }>>({});
   const [confirming, setConfirming] = useState(false);
@@ -90,23 +95,28 @@ const SubstitutePage = () => {
   const { data: approvedLeaves = [] } = useQuery({
     queryKey: ["staff_leaves_approved"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("staff_leaves")
         .select("*, personnel(id, prefix, first_name, last_name, employee_code)")
         .eq("status", "approved")
         .order("start_date", { ascending: false });
+      if (error) throw error;
       return data || [];
     },
   });
 
   const { data: allSchedules = [] } = useQuery({
-    queryKey: ["schedules_all"],
+    queryKey: ["schedules_all", termYearCE, currentSemester],
+    enabled: termReady,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("schedules")
         .select("*, subjects(id, code, name_th, name_en), classrooms(id, name, grade_level)")
+        .eq("academic_year", termYearCE)
+        .eq("semester", currentSemester)
         .order("day_of_week")
         .order("period");
+      if (error) throw error;
       return data || [];
     },
   });
@@ -373,18 +383,26 @@ const SubstitutePage = () => {
   // Commit a single pick to DB + send notifications
   const commitOne = async ({ originalName, gap, teacher }: { originalName: string; gap: any; teacher: any }) => {
     const teacherName = fullName(teacher);
-    const { error } = await (supabase.from("substitute_teaching") as any).upsert(
-      {
-        original_teacher: originalName,
-        substitute_teacher: teacherName,
-        teaching_date: selectedDate,
-        period: String(gap.period),
-        subject_id: gap.subject_id,
-        classroom_id: gap.classroom_id,
-        status: "confirmed",
-      },
-      { onConflict: "teaching_date,period,classroom_id" }
-    );
+    const payload = {
+      original_teacher: originalName,
+      substitute_teacher: teacherName,
+      teaching_date: selectedDate,
+      period: String(gap.period),
+      subject_id: gap.subject_id,
+      classroom_id: gap.classroom_id,
+      status: "confirmed",
+    };
+    // No unique index on (date, period, classroom): update the existing slot, else insert.
+    const { data: slotRows, error: findErr } = await supabase
+      .from("substitute_teaching")
+      .select("id, period")
+      .eq("teaching_date", selectedDate)
+      .eq("classroom_id", gap.classroom_id);
+    if (findErr) throw findErr;
+    const existingSlot = (slotRows || []).find((r: any) => periodKey(r.period) === periodKey(gap.period));
+    const { error } = existingSlot
+      ? await (supabase.from("substitute_teaching") as any).update(payload).eq("id", existingSlot.id)
+      : await (supabase.from("substitute_teaching") as any).insert(payload);
     if (error) throw error;
 
     const sched = allSchedules.find(
@@ -448,7 +466,7 @@ const SubstitutePage = () => {
     existingSubs.some(
       (s: any) =>
         s.teaching_date === selectedDate &&
-        String(s.period) === String(gap.period) &&
+        periodKey(s.period) === periodKey(gap.period) &&
         s.classroom_id === gap.classroom_id
     );
 
@@ -456,7 +474,7 @@ const SubstitutePage = () => {
     existingSubs.find(
       (s: any) =>
         s.teaching_date === selectedDate &&
-        String(s.period) === String(gap.period) &&
+        periodKey(s.period) === periodKey(gap.period) &&
         s.classroom_id === gap.classroom_id
     );
 

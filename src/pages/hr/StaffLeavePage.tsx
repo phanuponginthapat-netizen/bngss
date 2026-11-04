@@ -25,7 +25,8 @@ import { Plus, Trash2, Check, X, Clock, FileText, Send, CalendarDays, Paperclip 
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { uploadLeaveAttachment, openLeaveAttachment } from "@/lib/leaveAttachment";
 import NotificationHighlightScroller from "@/components/NotificationHighlightScroller";
-import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
+import { todayBangkok, bkkDateISO, BE_OFFSET } from "@/lib/dateBE";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
 
 const LEAVE_TYPES = [
   { value: "sick", th: "ลาป่วย", en: "Sick Leave" },
@@ -40,6 +41,7 @@ const LEAVE_TYPES = [
 const StaffLeavePage = () => {
   const { lang } = useLanguage();
   const qc = useQueryClient();
+  const { currentAcademicYear, currentSemester, isReady: termReady } = useAcademicYear();
   const { role, userId, isAdmin, isDirector, isTeacher } = useUserRole();
   const canApprove = isAdmin || isDirector;
 
@@ -71,9 +73,13 @@ const StaffLeavePage = () => {
     enabled: !!userId,
     queryFn: async () => {
       const { data: profile } = await supabase.from("profiles").select("employee_code, phone").eq("id", userId!).maybeSingle();
-      if (!profile?.employee_code) return null;
-      const { data } = await supabase.from("personnel").select("*").eq("employee_code", profile.employee_code).maybeSingle();
-      return data ? { ...data, profile_phone: profile.phone } : null;
+      // Prefer the account link (user_id); fall back to employee code for older records.
+      const { data: linked } = await supabase.rpc("get_my_personnel" as any);
+      let data: any = Array.isArray(linked) ? linked[0] : linked;
+      if (!data && profile?.employee_code) {
+        ({ data } = await supabase.from("personnel").select("*").eq("employee_code", profile.employee_code).maybeSingle());
+      }
+      return data ? { ...data, profile_phone: profile?.phone } : null;
     },
   });
 
@@ -116,13 +122,15 @@ const StaffLeavePage = () => {
   })();
 
   const { data: mySchedule = [] } = useQuery({
-    queryKey: ["my-teaching-schedule", applicantFullName],
-    enabled: !!applicantFullName,
+    queryKey: ["my-teaching-schedule", applicantFullName, currentAcademicYear, currentSemester],
+    enabled: !!applicantFullName && termReady,
     queryFn: async () => {
       const { data } = await supabase
         .from("schedules")
         .select("id, day_of_week, period, room, subject_name_raw, classroom_id, subject_id")
         .eq("teacher_name", applicantFullName)
+        .eq("academic_year", currentAcademicYear - BE_OFFSET)
+        .eq("semester", currentSemester)
         .order("period");
       return data || [];
     },
@@ -229,6 +237,7 @@ const StaffLeavePage = () => {
         .eq("leave_type", leaveType)
         .eq("start_date", startDate)
         .eq("end_date", endDate)
+        .in("status", ["pending", "approved"])
         .limit(1);
       if (existing && existing.length > 0) {
         toast.error(lang === "th" ? "มีใบลาซ้ำในช่วงวันเดียวกันอยู่แล้ว" : "A leave for the same dates already exists");
