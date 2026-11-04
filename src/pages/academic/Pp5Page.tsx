@@ -673,7 +673,7 @@ const ScoreEntryTab = () => {
                 </SelectContent>
               </Select>
             </div>
-            {currentAssignment && (
+            {currentAssignment && !computingReadOnly && (
               <div className="flex gap-2 mt-5">
                 <Button variant="outline" onClick={handleAutoGrade}>
                   <Calculator className="w-4 h-4 mr-1" /> ตัดเกรดอัตโนมัติ
@@ -696,13 +696,13 @@ const ScoreEntryTab = () => {
           </CardContent></Card>
         )}
         {(!computingReadOnly || linkedScience) && (
-        <fieldset disabled={computingReadOnly} className="min-w-0">
         <Tabs defaultValue="scores" className="space-y-4">
           <TabsList className="w-full justify-start overflow-x-auto flex-nowrap whitespace-nowrap max-w-full">
             <TabsTrigger value="scores" className="gap-1.5"><BookOpen className="w-3.5 h-3.5" /> บันทึกคะแนน</TabsTrigger>
             <TabsTrigger value="attendance" className="gap-1.5"><CalendarClock className="w-3.5 h-3.5" /> เวลาเรียน</TabsTrigger>
             <TabsTrigger value="summary" className="gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> สรุปผล</TabsTrigger>
           </TabsList>
+          <fieldset disabled={computingReadOnly} className="min-w-0 space-y-4">
 
           {/* Score entry tab — รวมการตั้งค่าทั้งหมดไว้หน้าเดียวกัน */}
           <TabsContent value="scores" className="space-y-4">
@@ -1030,8 +1030,8 @@ const ScoreEntryTab = () => {
               </CardContent>
             </Card>
           </TabsContent>
+          </fieldset>
         </Tabs>
-        </fieldset>
         )}
         </div>
       )}
