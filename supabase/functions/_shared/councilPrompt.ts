@@ -1,6 +1,6 @@
-type CouncilMessage = { role: string; content: unknown };
+type CouncilMessage = { role: "system" | "user" | "assistant"; content: unknown };
 
-export function buildCouncilMessages(messages: CouncilMessage[], answers: Array<{ provider: string; content: string }>) {
+export function buildCouncilMessages(messages: CouncilMessage[], answers: Array<{ provider: string; content: string }>): CouncilMessage[] {
   const system = messages.filter((m) => m.role === "system" && typeof m.content === "string")
     .map((m) => String(m.content)).join("\n\n");
   return [
