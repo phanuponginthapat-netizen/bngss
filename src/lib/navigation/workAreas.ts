@@ -415,7 +415,9 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
       // Plain-language, task-first grouping; every destination keeps its original route/roles.
       const all = groups("admin_content", "admin_system", "admin_cloud", "admin_kiosk", "academic_manage", "academic_records", "academic_teaching").flatMap(g => g.items).concat(mainItems);
       const pick = (url: string, title: string, desc: string): NavigationItem[] => { const it = all.find(i => i.url === url); return it ? [{ ...it, title, desc }] : []; };
-      const mk = (key: string, label: string, icon: NavigationItem["icon"], items: NavigationItem[][], advanced = false): NavigationGroup => ({ key, label, icon, advanced, items: items.flat() });
+      // หมวดผู้ดูแลระบบตองเป็ นของผ้บูริหารเทา่ นั้ น: รายชอื่ บางอยา่ ง (เชน่ ตารางสอน) เปิ ดให ้นั กเรี ย นเห็ นได ้
+      // ถ ้าไม ่ระบ ุบทบาทไว ้ท ี่หมวด นั กเรี ย นจะเห็ นเมนู "ผ ู้ด ูแลระบบ" ท ั้ งหมวดตามมาด ้วย
+      const mk = (key: string, label: string, icon: NavigationItem["icon"], items: NavigationItem[][], advanced = false): NavigationGroup => ({ key, label, icon, advanced, roles: ["admin", "director"], items: items.flat() });
       return [
         mk("sys_school", L("1. ข้อมูลโรงเรียนและภาคเรียน", "1. School & terms"), SettingsIcon, [
           pick("/dashboard/admin/school-settings", L("ตั้งค่าโรงเรียน ปีการศึกษา และวันเปิด-ปิดภาคเรียน", "School, year & term dates"), L("ชื่อโรงเรียน ระดับชั้น ภาคเรียน และเปิด/ปิดเมนู", "Name, grades, terms, menus")),
