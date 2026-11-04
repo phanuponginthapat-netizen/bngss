@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ClipboardList, Plus, Printer, Save, Trash2, Pencil, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,7 +34,9 @@ export default function DailyWorkLogPage() {
   const [scopes, setScopes] = useState(['']);
   const [workDate, setWorkDate] = useState<string | null>(null);
   const [items, setItems] = useState<WorkItem[]>([]);
+  const [addScope, setAddScope] = useState('');
   const [saving, setSaving] = useState(false);
+  const itemRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const bounds = monthBounds(month);
   const identity = useQuery({ queryKey:['work-report-identity', userId], enabled: !!userId && allowed, queryFn: async () => {
     if (!userId) throw new Error('กรุณาเข้าสู่ระบบ');
@@ -107,16 +109,33 @@ export default function DailyWorkLogPage() {
     if (!ready || !row?.loggable || date > today) return;
     const log = row.log;
     if (log) {
-      setTemplateId(log.template_id); setItems(log.items.map(i => ({...i})));
+      setTemplateId(log.template_id); setItems(log.items.map(i => ({...i}))); setAddScope(log.items[0]?.scope ?? selected?.scopes[0] ?? '');
     } else {
       if (!selected) { setTab('templates'); return; }
-      setItems(selected.scopes.map(scope => ({scope,detail:''})));
+      setItems(selected.scopes.map(scope => ({scope,detail:''}))); setAddScope(selected.scopes[0] ?? '');
     }
     setWorkDate(date);
   };
   // Show alerts only after the dialog has closed, then release any leftover scroll lock.
   const releaseScroll = () => { const b=document.body; b.style.removeProperty('overflow'); b.style.removeProperty('pointer-events'); b.removeAttribute('data-scroll-locked'); document.documentElement.style.removeProperty('overflow'); };
   const noticeAfterClose = async (show: () => Promise<unknown>) => { await new Promise(r=>setTimeout(r,250)); releaseScroll(); try { await show(); } finally { releaseScroll(); } };
+  // ขอบเขตที่เลือกได้ในวันน้ัน = ของเทมเพลตปัจจุบน + ที่เคยบันทึกไว้ (เพื่ อไม่ให้งานเก่าหายเมื่ อเทมเพลตเปลี่ยน)
+  const dayScopes = useMemo(() => {
+    const log = rows.find(r => r.date === workDate)?.log;
+    return [...new Set([...(selected?.scopes ?? []), ...(log?.items.map(i => i.scope) ?? [])].filter(Boolean))];
+  }, [rows, workDate, selected]);
+  useEffect(() => { if (dayScopes.length && !dayScopes.includes(addScope)) setAddScope(dayScopes[0]); }, [dayScopes, addScope]);
+  const addWorkItem = () => {
+    const scope = dayScopes.includes(addScope) ? addScope : dayScopes[0];
+    if (!scope) return;
+    const next = [...items, { scope, detail:'' }];
+    setItems(next);
+    setTimeout(() => { const el = itemRefs.current[next.length - 1]; el?.focus(); el?.scrollIntoView({ block:'center' }); }, 0);
+  };
+  const removeItem = async (index: number) => {
+    if (items[index].detail.trim() && !await swal.confirm({ title:'ลบห้วข้อน้ี?', danger:true })) return;
+    setItems(items.filter((_,n)=>n!==index));
+  };
   const saveDay = async () => {
     if (!userId || !workDate || !selected || !ready) return;
     const clean = items.filter(i => i.detail.trim()).map(i => ({scope:i.scope,detail:i.detail.trim()}));
@@ -160,9 +179,13 @@ export default function DailyWorkLogPage() {
         <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={()=>setScopes([...scopes,''])}><Plus className="mr-2 h-4 w-4"/>เพิ่มขอบเขตงาน</Button><Button disabled={saving || !ready} onClick={saveTemplate}><Save className="mr-2 h-4 w-4"/>บันทึกเทมเพลต</Button></div></div>
       </TabsContent>
       <TabsContent value="daily" className="space-y-4 pt-3"><div className="flex flex-wrap items-end gap-4"><div className="space-y-2"><Label htmlFor="work-month">เดือนรายงาน</Label><Select value={month.slice(5)} onValueChange={value=>{setMonth(`${month.slice(0,4)}-${value}`);setWorkDate(null);}}><SelectTrigger id="work-month" className="w-44"><SelectValue/></SelectTrigger><SelectContent>{Array.from({length:12},(_,i)=>{const value=String(i+1).padStart(2,'0');return <SelectItem key={value} value={value}>{new Intl.DateTimeFormat('th-TH',{month:'long',timeZone:'Asia/Bangkok'}).format(new Date(`2000-${value}-01T00:00:00+07:00`))}</SelectItem>;})}</SelectContent></Select></div><div className="space-y-2"><Label htmlFor="work-year">ปี พ.ศ.</Label><Input id="work-year" type="number" className="w-28" min={544} max={10542} value={Number(month.slice(0,4))+543} onChange={e=>{const year=Number(e.target.value)-543;if(Number.isInteger(year)&&year>=1&&year<=9999){setMonth(`${String(year).padStart(4,'0')}-${month.slice(5)}`);setWorkDate(null);}}}/></div><div className="min-w-0 w-72 space-y-2"><Label>ขอบเขตงาน</Label><Select value={templateId} onValueChange={setTemplateId}><SelectTrigger><SelectValue placeholder="เลือกเทมเพลต"/></SelectTrigger><SelectContent>{templates.data?.map(t=><SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent></Select></div></div>
-      {loading ? <p role="status" className="py-8 text-muted-foreground">กำลังโหลดรายงานและปฏิทิน…</p> : !error && !templates.data?.length ? <div className="border-y py-8"><h2 className="mb-3 font-medium">ยังไม่ได้กำหนดขอบเขตงาน</h2><Button onClick={()=>setTab('templates')}><Plus className="mr-2 h-4 w-4"/>กำหนดขอบเขตงานก่อน</Button></div> : ready && <><div className="flex flex-wrap gap-5 text-sm text-muted-foreground"><span>{thaiWorkMonth(month)}</span><span>บันทึกแล้ว {rows.filter(r=>r.log).length} วัน</span><span>วันทำงาน {rows.filter(r=>r.kind==='work').length} วัน</span><span>วันหยุดนักขัตฤกษ์ {rows.filter(r=>r.publicHoliday).length} วัน</span></div><Table><TableHeader><TableRow><TableHead className="w-32">วันเดือนปี</TableHead><TableHead>รายการปฏิบัติงาน</TableHead><TableHead className="w-24 text-right">บันทึก</TableHead></TableRow></TableHeader><TableBody>{rows.map(row=><TableRow key={row.date} className={row.kind!=='work' && !row.log?'bg-muted':''}><TableCell className="whitespace-nowrap align-top">{thaiWorkDate(row.date)}</TableCell><TableCell className="max-w-xl whitespace-pre-wrap break-words">{row.log?row.log.items.map((item,i)=><div key={i} className="mb-3"><p className="font-bold">{i+1}. {item.detail}</p><span className="font-normal">- {item.scope}</span></div>):row.kind!=='work'?<span className="font-medium">{row.label}</span>:<span className="text-muted-foreground">{row.date>today?'—':'ยังไม่ได้บันทึก'}</span>}</TableCell><TableCell className="text-right align-top">{row.loggable && row.date<=today && <Button size="icon" variant="ghost" title={row.log?'แก้ไขบันทึก':'บันทึกงาน'} aria-label={`${row.log?'แก้ไข':'บันทึก'} ${row.date}`} onClick={()=>openDay(row.date)}>{row.log?<Pencil className="h-4 w-4"/>:<Plus className="h-4 w-4"/>}</Button>}</TableCell></TableRow>)}</TableBody></Table></>}
+      {loading ? <p role="status" className="py-8 text-muted-foreground">กำลังโหลดรายงานและปฏิทิน…</p> : !error && !templates.data?.length ? <div className="border-y py-8"><h2 className="mb-3 font-medium">ยังไม่ได้กำหนดขอบเขตงาน</h2><Button onClick={()=>setTab('templates')}><Plus className="mr-2 h-4 w-4"/>กำหนดขอบเขตงานก่อน</Button></div> : ready && <><div className="flex flex-wrap gap-5 text-sm text-muted-foreground"><span>{thaiWorkMonth(month)}</span><span>บันทึกแล้ว {rows.filter(r=>r.log).length} วัน</span><span>วันทำงาน {rows.filter(r=>r.kind==='work').length} วัน</span><span>วันหยุดนักขัตฤกษ์ {rows.filter(r=>r.publicHoliday).length} วัน</span></div><Table><TableHeader><TableRow><TableHead className="w-32">วันเดือนปี</TableHead><TableHead>รายการปฏิบัติงาน</TableHead><TableHead className="w-24 text-right">บันทึก</TableHead></TableRow></TableHeader><TableBody>{rows.map(row=><TableRow key={row.date} className={row.kind!=='work' && !row.log?'bg-muted':''}><TableCell className="whitespace-nowrap align-top">{thaiWorkDate(row.date)}</TableCell><TableCell className="max-w-xl whitespace-pre-wrap break-words">{row.log?row.log.items.map((item,i)=><div key={i} className="mb-3"><p className="font-bold">{i+1}. {item.detail}</p><span className="font-normal">- {item.scope}</span></div>):row.kind!=='work'?<span className="font-medium">{row.label}</span>:<span className="text-muted-foreground">{row.date>today?'—':'ยังไม่ได้บันทึก'}</span>}</TableCell><TableCell className="text-right align-top">{row.loggable && row.date<=today && <span className="inline-flex gap-1">{row.log?<><Button size="icon" variant="ghost" title="แก้ไขบันทึก" aria-label={`แก้ไข ${row.date}`} onClick={()=>openDay(row.date)}><Pencil className="h-4 w-4"/></Button><Button size="icon" variant="ghost" title="เพิ่ มงานในวันที่บันทึกแล้ว" aria-label={`เพิ่ มงาน ${row.date}`} onClick={()=>openDay(row.date)}><Plus className="h-4 w-4"/></Button></>:<Button size="icon" variant="ghost" title="บันทึกงาน" aria-label={`บันทึก ${row.date}`} onClick={()=>openDay(row.date)}><Plus className="h-4 w-4"/></Button>}</span>}</TableCell></TableRow>)}</TableBody></Table></>}
       </TabsContent>
     </Tabs>
-    <Dialog open={!!workDate} onOpenChange={open=>{if(!open&&!saving)setWorkDate(null);}}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle>บันทึกงาน {workDate?thaiWorkDate(workDate):''}</DialogTitle></DialogHeader><p className="text-sm text-muted-foreground">{selected?.title}</p>{items.map((item,i)=><div key={i} className="space-y-2"><Textarea id={`work-item-${i}`} className="font-bold" value={item.detail} onChange={e=>setItems(items.map((v,n)=>n===i?{...v,detail:e.target.value}:v))}/><Label htmlFor={`work-item-${i}`} className="font-normal">- {item.scope}</Label></div>)}<div className="flex justify-between gap-3">{rows.find(r=>r.date===workDate)?.log?<Button variant="outline" disabled={saving} onClick={removeDay}><Trash2 className="mr-2 h-4 w-4"/>ลบบันทึก</Button>:<span/>}<Button disabled={saving||!ready} onClick={saveDay}><Save className="mr-2 h-4 w-4"/>{saving?'กำลังบันทึก…':'บันทึกงาน'}</Button></div></DialogContent></Dialog>
+    <Dialog open={!!workDate} onOpenChange={open=>{if(!open&&!saving)setWorkDate(null);}}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle>บันทึกงาน {workDate?thaiWorkDate(workDate):''}</DialogTitle></DialogHeader>
+      <p className="text-sm text-muted-foreground">{selected?.title}{rows.find(r=>r.date===workDate)?.log?` · บันทึกแล้ว ${items.length} ห้วข้อ เพิ่ มงานใหม่อีกได`:' · ยังหว้งได'}</p>
+      {items.map((item,i)=><div key={i} className="flex items-start gap-2"><div className="min-w-0 flex-1 space-y-2"><Textarea id={`work-item-${i}`} ref={el=>{itemRefs.current[i]=el;}} className="font-bold" value={item.detail} onChange={e=>setItems(items.map((v,n)=>n===i?{...v,detail:e.target.value}:v))}/><Label htmlFor={`work-item-${i}`} className="font-normal">- {item.scope}</Label></div><Button aria-label={`ลบห้วข้อ ${i+1}`} title="ลบห้วข้อ" variant="ghost" size="icon" className="mt-1 shrink-0" disabled={saving||items.length===1} onClick={()=>void removeItem(i)}><Trash2 className="h-4 w-4"/></Button></div>)}
+      <div className="flex flex-wrap items-end gap-2 border-t pt-3"><div className="min-w-0 flex-1 space-y-2"><Label htmlFor="work-add-scope">ขอบเขตงานที่จะเพิ่ ม</Label><Select value={addScope} onValueChange={setAddScope}><SelectTrigger id="work-add-scope"><SelectValue placeholder="เลือกขอบเขตงาน"/></SelectTrigger><SelectContent>{dayScopes.map(s=><SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div><Button variant="outline" disabled={saving||!dayScopes.length} onClick={addWorkItem}><Plus className="mr-2 h-4 w-4"/>เพิ่ มงาน</Button></div>
+      <div className="flex justify-between gap-3">{rows.find(r=>r.date===workDate)?.log?<Button variant="outline" disabled={saving} onClick={removeDay}><Trash2 className="mr-2 h-4 w-4"/>ลบบันทึก</Button>:<span/>}<Button disabled={saving||!ready} onClick={saveDay}><Save className="mr-2 h-4 w-4"/>{saving?'กำลังบันทึก…':'บันทึกงาน'}</Button></div></DialogContent></Dialog>
   </div>;
 }
