@@ -14,7 +14,7 @@ interface SchoolInfo {
 }
 
 export const useSchoolReport = () => {
-  const { data: map } = useCmsSettingsBulk();
+  const { data: map, isPending, error, refetch } = useCmsSettingsBulk();
   const info = useMemo<SchoolInfo>(() => ({
     school_name: map?.school_name || "โรงเรียน",
     school_address: map?.school_address || "",
@@ -55,5 +55,8 @@ export const useSchoolReport = () => {
     });
   };
 
-  return { info, getHeader, getDirectorSignature, printReport };
+  return { info, getHeader, getDirectorSignature, printReport,
+    isLoading: isPending, error, refetch,
+    isReady: !isPending && !error && typeof map?.school_name === 'string' && !!map.school_name.trim(),
+  };
 };
