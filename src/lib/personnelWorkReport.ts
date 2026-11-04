@@ -54,3 +54,20 @@ export function buildWorkReportHtml(rows: WorkDay[], heading: { name: string; po
   <article class="work-report"><header><div class="title">รายงานการปฏิบัติงาน ตำแหน่ง ${e(positions.join(' / ') || heading.position)}</div><div class="meta">${e(heading.school)}<br>${e(heading.name)}<br>ประจำเดือน ${e(thaiWorkMonth(heading.month))}</div></header>
   <table><colgroup><col width="13%"><col width="57%"><col width="15%"><col width="15%"></colgroup><thead><tr><th>วันเดือนปี</th><th>รายการปฏิบัติงาน</th><th>ลายมือชื่อ<br>ผู้ปฏิบัติ</th><th>ลายมือชื่อ<br>ผู้ควบคุม</th></tr></thead><tbody>${rows.map(r => { const rest = r.kind !== 'work' && !r.log; const dateCell = `<td class="date">${e(printWorkDate(r.date))}</td>`; const items = r.log ? r.log.items.map((item, i) => `<div class="entry"><span class="activity">${i + 1}. ${e(item.detail).replace(/\n/g, '<br>')}</span><br><span class="scope">- ${e(item.scope)}</span></div>`).join('') : '<span class="empty">ยังไม่ได้บันทึก</span>'; return rest ? `<tr class="rest">${dateCell}<td class="rest" colspan="3">${e(r.label)}</td></tr>` : `<tr>${dateCell}<td>${items}</td><td></td><td></td></tr>`; }).join('')}</tbody></table></article>`;
 }
+/** ปีการศึกษา (พ.ศ.) ของเดือนนั้น: ปีการศึกษาเริ่มเดือนพฤษภาคม */
+export const academicYearBE = (month: string) => { const [y, m] = month.split('-').map(Number); return (m >= 5 ? y : y - 1) + 543; };
+
+export function buildTimeSheetHtml(rows: WorkDay[], heading: { name: string; position: string; school: string; month: string; directorName: string; directorTitle: string }) {
+  const e = escapeWorkHtml;
+  const monthName = thaiWorkMonth(heading.month);
+  const shortMonth = monthName.replace(/\s*พ\.ศ\.\s*/, '').replace(/\s+/g, '').replace(/(\d{2})(\d{2})$/, '$2');
+  const body = rows.map(r => {
+    const day = Number(r.date.slice(-2));
+    if (r.kind !== 'work') return `<tr class="rest"><td class="c">${day}</td><td class="c">${e(shortMonth)}</td><td class="rest" colspan="6">${e(r.label.replace(/^—\s*|\s*—$/g, ''))}</td></tr>`;
+    return `<tr><td class="c">${day}</td><td class="c">${e(shortMonth)}</td><td>${e(heading.name)}</td><td></td><td></td><td></td><td></td><td></td></tr>`;
+  }).join('');
+  return `<style>@page{size:A4;margin:12mm 15mm} .ts{font-family:Sarabun,sans-serif;font-size:12pt;line-height:1.3} .ts header{text-align:center;margin-bottom:4mm;line-height:1.45} .ts .title{font-size:16pt;font-weight:bold} .ts table{width:100%;border-collapse:collapse;table-layout:fixed} .ts th,.ts td{border:1px solid currentColor;padding:1.2mm 1.5mm;vertical-align:middle;overflow-wrap:anywhere} .ts th{font-weight:bold;text-align:center} .ts .c{text-align:center} .ts tr{break-inside:avoid} .ts thead{display:table-header-group} .ts tr.rest td{background:#e2e2e2} .ts td.rest{text-align:center;font-weight:bold} .ts footer{margin-top:10mm;margin-left:45%;text-align:center;line-height:1.8;break-inside:avoid}</style>
+  <article class="ts"><header><div class="title">บัญชีลงเวลามาปฏิบัติงาน ตำแหน่ง ${e(heading.position)}</div><div>${e(heading.school)} ปีการศึกษา ${academicYearBE(heading.month)}</div><div>ประจำเดือน ${e(monthName)}</div></header>
+  <table><colgroup><col width="6%"><col width="14%"><col width="26%"><col width="11%"><col width="10%"><col width="11%"><col width="10%"><col width="12%"></colgroup><thead><tr><th>วันที่</th><th>เดือน ปี</th><th>ชื่อ-สกุล</th><th>ลายมือชื่อ</th><th>เวลามา</th><th>ลายมือชื่อ</th><th>เวลากลับ</th><th>หมายเหตุ</th></tr></thead><tbody>${body}</tbody></table>
+  <footer>ลงชื่อ.......................................ผู้ตรวจ/รับรอง<br>(${e(heading.directorName || '.......................................')})<br>ตำแหน่ง ${e(heading.directorTitle)}</footer></article>`;
+}
