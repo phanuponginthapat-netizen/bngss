@@ -206,7 +206,8 @@ function CardTab() {
   const { data: classrooms = [] } = useQuery({
     queryKey: ["classrooms_for_cards"],
     queryFn: async () => {
-      const { data } = await supabase.from("classrooms").select("*").order("name");
+      const { data, error } = await supabase.from("classrooms").select("*").order("name");
+      if (error) throw error;
       return ((data || []) as ClassroomForCard[]).sort((a, b) => gradeRank(a.grade_level) - gradeRank(b.grade_level) || String(a.name).localeCompare(String(b.name)));
     },
   });
@@ -343,9 +344,10 @@ function CardTab() {
       pdf.save(`id-cards-${fname}.pdf`);
       toast.success(`สร้าง PDF สำเร็จ (${students.length} ใบ · ${totalPages} หน้า · ${layout === "a4" ? `A4 ${A4_PER_PAGE} ใบ/แผ่น · ${CARD_WIDTH_MM}×${CARD_HEIGHT_MM}mm` : `${CARD_WIDTH_MM}×${CARD_HEIGHT_MM}mm`})`);
     } catch (e) {
-      console.error(e); toast.error("เกิดข้อผิดพลาด");
+      console.error(e); toast.error("สร้าง PDF บัตรไม่สำเร็จ กรุณาลองใหม่");
+    } finally {
+      setGenerating(false);
     }
-    setGenerating(false);
   };
 
   return (
@@ -579,16 +581,23 @@ function CardTab() {
 }
 
 async function loadStudents({ classroomId, search }: { classroomId?: string; search?: string }) {
-  let q = supabase.from("students").select("*, classrooms!students_classroom_id_fkey(name, grade_level)").eq("status", "active").order("student_code").limit(50);
-  if (classroomId) q = q.eq("classroom_id", classroomId);
-  if (search) q = q.or(`student_code.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%`);
-  const { data } = await q;
+  let q = supabase.from("students").select("*, classrooms!students_classroom_id_fkey(name, grade_level)").eq("status", "active").order("student_code");
+  // ทั้งห้องต้องได้ครบทุกคน — จำกัดจำนวนเฉพาะผลค้นหา
+  if (classroomId) q = q.eq("classroom_id", classroomId).limit(1000);
+  if (search) {
+    const term = search.replace(/[%,()*\\]/g, " ").trim();
+    if (!term) return [];
+    q = q.or(`student_code.ilike.%${term}%,first_name.ilike.%${term}%,last_name.ilike.%${term}%`).limit(50);
+  }
+  const { data, error } = await q;
+  if (error) throw error;
   if (!data) return [];
   const students = data as StudentForCard[];
   const codes = students.map((s) => s.student_code).filter((code): code is string => Boolean(code));
   const avatarMap: Record<string, string> = {};
   if (codes.length > 0) {
-    const { data: profiles } = await supabase.from("profiles").select("student_code, avatar_url").in("student_code", codes);
+    const { data: profiles, error: profileError } = await supabase.from("profiles").select("student_code, avatar_url").in("student_code", codes);
+    if (profileError) throw profileError;
     (profiles || []).forEach((p) => { if (p.student_code && p.avatar_url) avatarMap[p.student_code] = p.avatar_url; });
   }
   return students.map((s) => ({ ...s, avatar_url: s.photo_url || (s.student_code ? avatarMap[s.student_code] : null) || null }));
