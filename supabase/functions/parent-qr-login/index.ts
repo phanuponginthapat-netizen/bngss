@@ -3,6 +3,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from "../_shared/cors.ts";
+import { dobMatches, normalizeDob } from "../_shared/lineSession.ts";
 
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX = 10;
@@ -55,7 +56,7 @@ Deno.serve(async (req) => {
     const ip = clientIp(req);
     if (!rateOk(ip)) return respond({ error: "rate_limited" }, 429);
 
-    const { qr } = await req.json().catch(() => ({}));
+    const { qr, dob } = await req.json().catch(() => ({}));
     if (!qr || typeof qr !== "string" || qr.length > 500) return respond({ error: "invalid_input" }, 400);
 
     const { uuid, code } = extractIdentifier(qr);
@@ -67,7 +68,7 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceKey);
 
     const SELECT =
-      "id, student_code, prefix, first_name, last_name, status, school_id, classroom_id, auth_user_id, parent_user_id, parent_user_id_2";
+      "id, student_code, prefix, first_name, last_name, status, school_id, classroom_id, auth_user_id, parent_user_id, parent_user_id_2, date_of_birth";
 
     let student: any = null;
     if (uuid) {
@@ -84,6 +85,13 @@ Deno.serve(async (req) => {
     }
     if (!student) return respond({ error: "not_found" }, 404);
     if (student.status && student.status !== "active") return respond({ error: "inactive" }, 403);
+
+    // รหัสนักเรียนเดาได้ง่าย → ต้องยืนยันวันเกิดเสมอ (QR แบบ UUID เดาไม่ได้ จึงสแกนเข้าได้ทันที)
+    if (!uuid) {
+      if (!dob || typeof dob !== "string") return respond({ error: "dob_required" }, 401);
+      if (!normalizeDob(dob)) return respond({ error: "invalid_dob_format" }, 400);
+      if (!dobMatches(student.date_of_birth, dob)) return respond({ error: "dob_mismatch" }, 401);
+    }
 
     // 1) หาบัญชีผู้ปกครองที่ผูกไว้แล้ว (ต้องมี role = parent จริง)
     let parentUserId: string | null = null;
@@ -136,7 +144,7 @@ Deno.serve(async (req) => {
           id: parentUserId,
           first_name: "ผู้ปกครองของ",
           last_name: `${student.first_name ?? ""} ${student.last_name ?? ""}`.trim(),
-          student_code: student.student_code,
+          // ห้ามใส่ student_code: trigger จะผูกบัญชีผู้ปกครองเป็นบัญชีนักเรียนเอง
           school_id: student.school_id ?? null,
           account_linked: true,
         },
@@ -153,7 +161,11 @@ Deno.serve(async (req) => {
       const patch = student.parent_user_id
         ? { parent_user_id_2: parentUserId }
         : { parent_user_id: parentUserId };
-      await admin.from("students").update(patch).eq("id", student.id);
+      const { error: linkErr } = await admin.from("students").update(patch).eq("id", student.id);
+      if (linkErr) {
+        console.error("parent link failed", linkErr);
+        return respond({ error: "link_failed" }, 500);
+      }
     }
 
     // 3) ป้องกันการยกระดับสิทธิ์: บัญชีผู้ปกครองต้องไม่มี role อื่น

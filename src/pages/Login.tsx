@@ -184,14 +184,26 @@ const Login = () => {
 
 
   // ผู้ปกครอง: สแกน QR บัตรนักเรียน → เข้าระบบด้วยบัญชีผู้ปกครองของนักเรียนคนนั้นทันที
-  const handleParentQrLogin = async (qr: string) => {
+  const handleParentQrLogin = async (qr: string, dob?: string) => {
     const clean = (qr || "").trim();
     if (!clean) return;
     setParentScanOpen(false);
     setPQrLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("parent-qr-login", { body: { qr: clean } });
-      const code = (data as any)?.error;
+      const { data, error } = await supabase.functions.invoke("parent-qr-login", { body: { qr: clean, dob } });
+      let code = (data as any)?.error;
+      if (!code && error && "context" in (error as any)) {
+        try { code = (await (error as any).context.json())?.error; } catch { /* ignore */ }
+      }
+      if (code === "dob_required" || code === "dob_mismatch" || code === "invalid_dob_format") {
+        setPQrLoading(false);
+        const title = code === "dob_required"
+          ? (lang === "th" ? "กรอกวันเกิดของนักเรียน (วว/ดด/ปปปป พ.ศ.)" : "Enter the student's birth date (DD/MM/YYYY)")
+          : (lang === "th" ? "วันเกิดไม่ตรง ลองอีกครั้ง (วว/ดด/ปปปป พ.ศ.)" : "Birth date did not match, try again");
+        const entered = await swal.prompt(title, { placeholder: "12/05/2553" });
+        if (entered) return handleParentQrLogin(clean, entered.trim());
+        return;
+      }
       if (error || !data?.success || !data?.access_token) {
         const msg =
           code === "not_found"
