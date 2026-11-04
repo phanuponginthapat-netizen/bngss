@@ -92,6 +92,13 @@
       "when": 1793768354820,
       "tag": "0012_private_personnel_work_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793769627928,
+      "tag": "0013_fix_workspace_cron_backend",
+      "breakpoints": true
     }
   ]
 }
