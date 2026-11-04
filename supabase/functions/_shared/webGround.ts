@@ -34,7 +34,7 @@ export async function groundWithGemini(query: string, opts?: { lang?: "th" | "en
 - ความยาวไม่เกิน 8 บูลเล็ตสั้นๆ
 คำถาม: ${query}`;
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${key}`;
     const r = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
