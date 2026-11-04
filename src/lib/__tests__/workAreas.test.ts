@@ -22,6 +22,14 @@ describe("department navigation", () => {
     expect(dailyNavigationItems([])).toEqual([]);
     expect(new Set(urls("teacher")).size).toBe(urls("teacher").length);
   });
+  it("puts the LINE file vault in the staff daily section only", () => {
+    const urls = (role: "teacher" | "admin" | "student", enabled = (_key?: string | null) => true) =>
+      dailyNavigationItems(visibleWorkAreas(buildWorkAreas(), role, enabled)).map(i => i.url);
+    expect(urls("teacher")).toContain("/dashboard/line-vault");
+    expect(urls("admin")).toContain("/dashboard/line-vault");
+    expect(urls("student")).not.toContain("/dashboard/line-vault");
+    expect(urls("teacher", key => key !== "line_vault")).not.toContain("/dashboard/line-vault");
+  });
   it("keeps PP and score tracking together", () => {
     const area = buildWorkAreas().find(a => a.key === "assessment");
     const urls = area?.groups.flatMap(g => g.items.map(i => i.url)) ?? [];
