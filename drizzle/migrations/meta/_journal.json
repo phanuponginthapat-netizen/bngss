@@ -141,6 +141,13 @@
       "when": 1793787793691,
       "tag": "0019_staff_read_user_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793788242132,
+      "tag": "0020_secrets_admin_only",
+      "breakpoints": true
     }
   ]
 }
