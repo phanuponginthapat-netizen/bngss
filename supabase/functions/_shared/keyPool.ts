@@ -31,8 +31,8 @@ const PROVIDER_CFG: Record<PoolProvider, {
 }> = {
   openai: {
     url: "https://api.openai.com/v1/chat/completions",
-    defaultModel: "gpt-4o-mini",
-    visionModel: "gpt-4o-mini",
+    defaultModel: "gpt-5-mini",
+    visionModel: "gpt-5-mini",
     buildHeaders: (key) => ({ "Content-Type": "application/json", Authorization: `Bearer ${key}` }),
     buildBody: (model, messages, opts) => {
       const body: any = { model, messages, temperature: opts.temperature ?? 0.7 };
@@ -43,8 +43,8 @@ const PROVIDER_CFG: Record<PoolProvider, {
   },
   gemini: {
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-    defaultModel: "gemini-3.6-flash",
-    visionModel: "gemini-3.6-flash",
+    defaultModel: "gemini-3.8-flash",
+    visionModel: "gemini-3.8-flash",
     buildHeaders: (key) => ({ "Content-Type": "application/json", Authorization: `Bearer ${key}` }),
     buildBody: (model, messages, opts) => {
       const body: any = { model, messages, temperature: opts.temperature ?? 0.7 };
@@ -55,7 +55,7 @@ const PROVIDER_CFG: Record<PoolProvider, {
   },
   groq: {
     url: "https://api.groq.com/openai/v1/chat/completions",
-    defaultModel: "llama-3.1-8b-instant",
+    defaultModel: "meta-llama/llama-4-scout-17b-16e-instruct",
     visionModel: "meta-llama/llama-4-scout-17b-16e-instruct",
     buildHeaders: (key) => ({ "Content-Type": "application/json", Authorization: `Bearer ${key}` }),
     buildBody: (model, messages, opts) => {
@@ -67,7 +67,7 @@ const PROVIDER_CFG: Record<PoolProvider, {
   },
   openrouter: {
     url: "https://openrouter.ai/api/v1/chat/completions",
-    defaultModel: "deepseek/deepseek-chat-v3.1:free",
+    defaultModel: "meta-llama/llama-3.3-70b-instruct:free",
     visionModel: "qwen/qwen2.5-vl-72b-instruct:free",
     buildHeaders: (key) => ({
       "Content-Type": "application/json",
@@ -88,7 +88,7 @@ const PROVIDER_CFG: Record<PoolProvider, {
   github:      mkOAI("https://models.inference.ai.azure.com/chat/completions", "gpt-4o-mini", "gpt-4o-mini"),
   sambanova:   mkOAI("https://api.sambanova.ai/v1/chat/completions", "Meta-Llama-3.3-70B-Instruct"),
   cohere:      mkOAI("https://api.cohere.ai/compatibility/v1/chat/completions", "command-r-plus-08-2024"),
-  deepseek:    mkOAI("https://api.deepseek.com/v1/chat/completions", "deepseek-chat"),
+  deepseek:    mkOAI("https://api.deepseek.com/v1/chat/completions", "deepseek-flash"),
   mistral:     mkOAI("https://api.mistral.ai/v1/chat/completions", "mistral-small-latest"),
   together:    mkOAI("https://api.together.xyz/v1/chat/completions", "meta-llama/Llama-3.3-70B-Instruct-Turbo"),
   xai:         mkOAI("https://api.x.ai/v1/chat/completions", "grok-2-1212", "grok-2-vision-1212"),

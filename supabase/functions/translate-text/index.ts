@@ -49,7 +49,7 @@ const LANG_NAMES: Record<string, string> = {
   ru: "Russian",
 };
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-3.8-flash";
 const GEMINI_URL = (key: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`;
 
@@ -152,7 +152,7 @@ async function callOpenAICompat(
 const DEEPSEEK = {
   name: "DEEPSEEK",
   url: "https://api.deepseek.com/chat/completions",
-  model: "deepseek-chat",
+  model: "deepseek-flash",
 };
 const QWEN = {
   name: "QWEN",

@@ -42,8 +42,8 @@ type PresetDef = {
 // จัดเรียงตาม tier: ฟรีถาวร → ฟรีจำกัด → ฟรีเครดิต → เสียเงิน
 const PRESETS: Record<string, PresetDef> = {
   // ---- Free tier (ฟรีถาวร / จำกัดปริมาณ) ----
-  gemini:      { label: "Google Gemini (ฟรี 1,500 req/วัน)", base_url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: "gemini-2.0-flash", type: "openai_compatible", vision: true, hint: "aistudio.google.com/apikey" },
-  groq:        { label: "Groq (ฟรี, เร็วมาก)", base_url: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.3-70b-versatile", type: "openai_compatible", hint: "console.groq.com/keys" },
+  gemini:      { label: "Google Gemini (ฟรี 1,500 req/วัน)", base_url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: "gemini-3.8-flash", type: "openai_compatible", vision: true, hint: "aistudio.google.com/apikey" },
+  groq:        { label: "Groq (ฟรี, เร็วมาก)", base_url: "https://api.groq.com/openai/v1/chat/completions", model: "meta-llama/llama-4-scout-17b-16e-instruct", type: "openai_compatible", hint: "console.groq.com/keys" },
   cerebras:    { label: "Cerebras (ฟรี, เร็วสุดใน list)", base_url: "https://api.cerebras.ai/v1/chat/completions", model: "llama-3.3-70b", type: "openai_compatible", hint: "cloud.cerebras.ai" },
   openrouter:  { label: "OpenRouter (โมเดล :free)", base_url: "https://openrouter.ai/api/v1/chat/completions", model: "deepseek/deepseek-chat-v3.1:free", type: "openrouter", hint: "openrouter.ai/keys" },
   glm:         { label: "ZhipuAI GLM-4-Flash (ฟรีถาวร)", base_url: "https://open.bigmodel.cn/api/paas/v4/chat/completions", model: "glm-4-flash", type: "openai_compatible", hint: "bigmodel.cn" },
@@ -52,7 +52,7 @@ const PRESETS: Record<string, PresetDef> = {
   sambanova:   { label: "SambaNova", base_url: "https://api.sambanova.ai/v1/chat/completions", model: "Meta-Llama-3.3-70B-Instruct", type: "openai_compatible", hint: "cloud.sambanova.ai" },
   cohere:      { label: "Cohere (trial key)", base_url: "https://api.cohere.ai/compatibility/v1/chat/completions", model: "command-r-plus-08-2024", type: "openai_compatible", hint: "dashboard.cohere.com" },
   // ---- Free credits (สมัครแล้วได้เครดิต) ----
-  deepseek:    { label: "DeepSeek (มีเครดิตแรกเข้า)", base_url: "https://api.deepseek.com/v1/chat/completions", model: "deepseek-chat", type: "deepseek", hint: "platform.deepseek.com" },
+  deepseek:    { label: "DeepSeek (มีเครดิตแรกเข้า)", base_url: "https://api.deepseek.com/v1/chat/completions", model: "deepseek-flash", type: "deepseek", hint: "platform.deepseek.com" },
   mistral:     { label: "Mistral (ฟรี tier)", base_url: "https://api.mistral.ai/v1/chat/completions", model: "mistral-small-latest", type: "openai_compatible", hint: "console.mistral.ai" },
   together:    { label: "Together AI (เครดิต $5)", base_url: "https://api.together.xyz/v1/chat/completions", model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", type: "openai_compatible", hint: "api.together.xyz" },
   xai:         { label: "xAI Grok (เครดิต $150/เดือน)", base_url: "https://api.x.ai/v1/chat/completions", model: "grok-2-1212", type: "openai_compatible", vision: true, hint: "console.x.ai" },
@@ -61,7 +61,7 @@ const PRESETS: Record<string, PresetDef> = {
   dashscope:   { label: "DashScope Qwen", base_url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions", model: "qwen-plus", type: "openai_compatible", vision: true, hint: "dashscope.console.aliyun.com" },
   perplexity:  { label: "Perplexity (Sonar)", base_url: "https://api.perplexity.ai/chat/completions", model: "sonar", type: "openai_compatible", hint: "perplexity.ai/settings/api" },
   // ---- Paid ----
-  openai:      { label: "OpenAI (เสียเงิน)", base_url: "https://api.openai.com/v1/chat/completions", model: "gpt-4o-mini", type: "openai", vision: true, hint: "platform.openai.com/api-keys" },
+  openai:      { label: "OpenAI (เสียเงิน)", base_url: "https://api.openai.com/v1/chat/completions", model: "gpt-5-mini", type: "openai", vision: true, hint: "platform.openai.com/api-keys" },
   anthropic:   { label: "Anthropic Claude", base_url: "https://api.anthropic.com/v1/messages", model: "claude-3-5-sonnet-20241022", type: "anthropic", vision: true, hint: "console.anthropic.com" },
   custom:      { label: "Custom (OpenAI-compatible)", base_url: "", model: "", type: "openai_compatible" },
 };
