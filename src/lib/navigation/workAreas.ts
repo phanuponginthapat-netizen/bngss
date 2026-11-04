@@ -421,6 +421,7 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
       return [
         mk("sys_school", L("1. ข้อมูลโรงเรียนและภาคเรียน", "1. School & terms"), SettingsIcon, [
           pick("/dashboard/admin/school-settings", L("ตั้งค่าโรงเรียน ปีการศึกษา และวันเปิด-ปิดภาคเรียน", "School, year & term dates"), L("ชื่อโรงเรียน ระดับชั้น ภาคเรียน และเปิด/ปิดเมนู", "Name, grades, terms, menus")),
+          [{ title: L("เปิด/ปิดโมดูลของระบบ", "Turn modules on/off"), url: "/dashboard/admin/modules", icon: SettingsIcon, roles: ["admin", "director"], desc: L("เลือกว่าเมนูไหนจะเปิดใช้ในโรงเรียน", "Choose which features are enabled") }],
           pick("/dashboard/admin/cms", L("แก้ไขหน้าเว็บไซต์โรงเรียน", "Edit school website"), L("ข่าว รูป และเนื้อหาที่คนภายนอกเห็น", "Public content")),
         ]),
         mk("sys_users", L("2. ผู้ใช้และสิทธิ์", "2. Users & permissions"), UserCog, [
