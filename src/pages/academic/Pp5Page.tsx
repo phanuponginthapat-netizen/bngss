@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -247,17 +248,28 @@ const ScoreEntryTab = () => {
     },
   });
 
+  const { currentAcademicYear: taYearBE, currentSemester: taSem, isReady: taTermReady } = useAcademicYear();
   const { data: myAssignments = [] } = useQuery({
-    queryKey: ["my_teacher_assignments", myPersonnel?.id, isAdmin, isDirector],
+    queryKey: ["my_teacher_assignments", myPersonnel?.id, isAdmin, isDirector, taYearBE, taSem],
     queryFn: async () => {
-      let query = supabase.from("teacher_assignments").select("*, personnel(*), subjects(*), classrooms(*)").order("created_at", { ascending: false });
+      let query = supabase.from("teacher_assignments").select("*, personnel(*), subjects(*), classrooms(*)")
+        .eq("academic_year", taYearBE - BE_OFFSET).eq("semester", taSem)
+        .order("created_at", { ascending: false });
       if (!isAdmin && !isDirector && myPersonnel?.id) {
         query = query.eq("personnel_id", myPersonnel.id);
       }
-      const { data } = await query;
-      return data || [];
+      const { data, error } = await query;
+      if (error) throw error;
+      // กันรายการซ้ำ (วิชา+ห้อง+ครู เดียวกัน)
+      const seen = new Set<string>();
+      return (data || []).filter((a: any) => {
+        const k = `${a.subject_id}|${a.classroom_id}|${a.personnel_id}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
     },
-    enabled: isAdmin || isDirector || !!myPersonnel?.id,
+    enabled: taTermReady && (isAdmin || isDirector || !!myPersonnel?.id),
   });
 
   const filteredAssignments = gradeLevel
@@ -1689,17 +1701,28 @@ const AssessmentTab = () => {
     },
   });
 
+  const { currentAcademicYear: taYearBE, currentSemester: taSem, isReady: taTermReady } = useAcademicYear();
   const { data: myAssignments = [] } = useQuery({
-    queryKey: ["assessment_teacher_assignments", myPersonnel?.id, isAdmin, isDirector],
+    queryKey: ["assessment_teacher_assignments", myPersonnel?.id, isAdmin, isDirector, taYearBE, taSem],
     queryFn: async () => {
-      let query = supabase.from("teacher_assignments").select("*, personnel(*), subjects(*), classrooms(*)").order("created_at", { ascending: false });
+      let query = supabase.from("teacher_assignments").select("*, personnel(*), subjects(*), classrooms(*)")
+        .eq("academic_year", taYearBE - BE_OFFSET).eq("semester", taSem)
+        .order("created_at", { ascending: false });
       if (!isAdmin && !isDirector && myPersonnel?.id) {
         query = query.eq("personnel_id", myPersonnel.id);
       }
-      const { data } = await query;
-      return data || [];
+      const { data, error } = await query;
+      if (error) throw error;
+      // กันรายการซ้ำ (วิชา+ห้อง+ครู เดียวกัน)
+      const seen = new Set<string>();
+      return (data || []).filter((a: any) => {
+        const k = `${a.subject_id}|${a.classroom_id}|${a.personnel_id}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
     },
-    enabled: isAdmin || isDirector || !!myPersonnel?.id,
+    enabled: taTermReady && (isAdmin || isDirector || !!myPersonnel?.id),
   });
 
   const filteredAssignments = gradeLevel
