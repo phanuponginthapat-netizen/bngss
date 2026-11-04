@@ -48,7 +48,7 @@ serve(async (req) => {
     // 1) นักเรียน active ทั้งหมด
     const { data: students, error: stuErr } = await sb
       .from("students")
-      .select("id, prefix, first_name, last_name, classroom_id, classrooms(grade_level, room_number, name)")
+      .select("id, prefix, first_name, last_name, classroom_id, classrooms!students_classroom_id_fkey(grade_level, room_number, name)")
       .eq("status", "active");
     if (stuErr) throw stuErr;
 

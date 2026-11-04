@@ -246,7 +246,7 @@ async function findLinkedUser(sb: any, lineUserId: string) {
   // Try as student in any of 3 slots
   const { data: students } = await sb
     .from("students")
-    .select("id, student_code, prefix, first_name, last_name, classroom_id, auth_user_id, line_user_id, line_user_id_2, line_user_id_3, classrooms(name)")
+    .select("id, student_code, prefix, first_name, last_name, classroom_id, auth_user_id, line_user_id, line_user_id_2, line_user_id_3, classrooms!students_classroom_id_fkey(name)")
     .or(`line_user_id.eq.${lineUserId},line_user_id_2.eq.${lineUserId},line_user_id_3.eq.${lineUserId}`)
     .eq("status", "active")
     .limit(1);
@@ -298,7 +298,7 @@ async function handleLinkCommand(sb: any, token: string, rt: string, code: strin
   // Try student
   const { data: student } = await sb
     .from("students")
-    .select("id, student_code, prefix, first_name, last_name, date_of_birth, classrooms(name)")
+    .select("id, student_code, prefix, first_name, last_name, date_of_birth, classrooms!students_classroom_id_fkey(name)")
     .eq("student_code", code.trim())
     .eq("status", "active")
     .maybeSingle();
