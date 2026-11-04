@@ -212,7 +212,7 @@ function CardTab() {
     },
   });
 
-  const { data: classStudents = [] } = useQuery({
+  const { data: classStudents = [], isError: classStudentsError } = useQuery({
     queryKey: ["students_for_cards", classroomId],
     enabled: scope === "class" && !!classroomId,
     queryFn: async () => loadStudents({ classroomId }),
@@ -378,6 +378,7 @@ function CardTab() {
           {scope === "class" ? (
             <div>
               <Label className="text-xs">เลือกห้องเรียน</Label>
+              {classStudentsError && <p role="alert" className="text-sm text-destructive mb-2">โหลดรายชื่อนักเรียนไม่สำเร็จ กรุณาลองใหม่</p>}
               <Select value={classroomId} onValueChange={setClassroomId}>
                 <SelectTrigger><SelectValue placeholder="เลือกห้อง..." /></SelectTrigger>
                 <SelectContent>
