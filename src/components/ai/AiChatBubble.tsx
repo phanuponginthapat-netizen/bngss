@@ -1024,6 +1024,17 @@ export default function AiChatBubble() {
           </form>
         </div>
       )}
+      {viewerUrl && (
+        <div className="fixed inset-0 z-[200] bg-background/95 flex flex-col" role="dialog" aria-label="ดูภาพเต็ม" onClick={() => setViewerUrl(null)}>
+          <div className="flex justify-end gap-2 p-3" onClick={(e) => e.stopPropagation()}>
+            <Button asChild variant="secondary" size="sm"><a href={viewerUrl} target="_blank" rel="noreferrer" download>บันทึกภาพ</a></Button>
+            <Button variant="secondary" size="icon" onClick={() => setViewerUrl(null)} aria-label="ปิด"><X className="w-4 h-4" /></Button>
+          </div>
+          <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
+            <img src={viewerUrl} alt="ภาพเต็ม" className="max-w-full max-h-full object-contain rounded-lg" onClick={(e) => e.stopPropagation()} />
+          </div>
+        </div>
+      )}
     </>
   );
 }
