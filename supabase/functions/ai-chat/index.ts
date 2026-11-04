@@ -3,7 +3,9 @@ import { aiCall, aiCouncil } from "../_shared/aiCall.ts";
 import { rateLimit } from "../_shared/rateLimit.ts";
 import { generateImage } from "../_shared/imageGen.ts";
 import { generateCreditImage } from "../_shared/lovableImageSettings.ts";
-import { checkDailyChatQuota } from "../_shared/aiDailyQuota.ts";
+import { checkDailyChatQuota, bangkokDayStart } from "../_shared/aiDailyQuota.ts";
+import { dailyImageLimit, isImagePromptAllowed, safeImagePrompt } from "../_shared/imagePolicy.ts";
+import { ensureFolderPath, uploadFile } from "../_shared/googleDrive.ts";
 import { DEFAULT_PERSONA, answerMode, buildCharacterPolicy, normalizeChatHistory } from "./promptPolicy.ts";
 
 import { corsHeadersPost as corsHeaders } from "../_shared/cors.ts";
@@ -108,7 +110,21 @@ Deno.serve(async (req) => {
         { user_id: identifier, role: "assistant", content: `![ภาพจาก Lovable AI](ai-image://${path})`, model: "lovable-image", created_at: new Date(now + 1).toISOString() },
       ]);
       if (logErr) return json(500, { error: "บันทึกประวัติไม่สำเร็จ" });
-      return json(200, { path });
+      // Copy to the school Google Drive; chat keeps its own copy so a Drive outage never loses the image.
+      let driveSaved = false;
+      const { data: gen } = await sb.from("ai_image_generations").select("id")
+        .eq("user_id", identifier).is("storage_path", null).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      try {
+        const now2 = new Date();
+        const month = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit" }).format(now2);
+        const folder = await ensureFolderPath(["AI Images", month]);
+        const file = await uploadFile(path.split("/").pop()!, m[1], bytes, folder);
+        driveSaved = !!file.id;
+        if (gen) await sb.from("ai_image_generations").update({ storage_path: path, drive_file_id: file.id }).eq("id", gen.id);
+      } catch (e) {
+        if (gen) await sb.from("ai_image_generations").update({ storage_path: path, drive_error: String((e as Error).message ?? e).slice(0, 500) }).eq("id", gen.id);
+      }
+      return json(200, { path, driveSaved });
     }
 
     // Explicit image requests use workspace AI credits, never a client-side key.
@@ -124,8 +140,23 @@ Deno.serve(async (req) => {
           status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      const jsonRes = (status: number, payload: unknown) => new Response(JSON.stringify(payload), {
+        status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+      if (!isImagePromptAllowed(lastUserMsg)) {
+        return jsonRes(400, { error: "ไม่สามารถสร้างภาพนี้ได้ เพราะขัดข้อกำหนด (ห้ามภาพโป๊ เปลือย หรือไม่เหมาะสม)" });
+      }
+      const sbq = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const { data: roleRows, error: roleErr } = await sbq.from("user_roles").select("role").eq("user_id", identifier);
+      if (roleErr) return jsonRes(503, { error: "ตรวจสอบสิทธิ์สร้างภาพไม่สำเร็จ กรุณาลองใหม่" });
+      const limit = dailyImageLimit((roleRows ?? []).map((r: any) => String(r.role)));
+      const { data: slot, error: slotErr } = await sbq.rpc("claim_ai_image_slot", {
+        _user_id: identifier, _prompt: lastUserMsg, _limit: limit, _day_start: bangkokDayStart(),
+      });
+      if (slotErr) return jsonRes(503, { error: "ตรวจสอบสิทธิ์สร้างภาพไม่สำเร็จ กรุณาลองใหม่" });
+      if (!slot) return jsonRes(429, { error: `วันนี้สร้างภาพครบ ${limit} รูปแล้ว กลับมาใหม่พรุ่งนี้นะ` });
       try {
-        const upstream = await generateCreditImage(apiKey, lastUserMsg, body.stream !== false);
+        const upstream = await generateCreditImage(apiKey, safeImagePrompt(lastUserMsg), body.stream !== false);
         const headers = new Headers({ ...corsHeaders,
           "Content-Type": upstream.headers.get("Content-Type") ?? "application/json",
           "Cache-Control": "no-cache",

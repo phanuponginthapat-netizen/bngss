@@ -852,6 +852,36 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_image_generations: {
+        Row: {
+          created_at: string
+          drive_error: string | null
+          drive_file_id: string | null
+          id: string
+          prompt: string
+          storage_path: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          drive_error?: string | null
+          drive_file_id?: string | null
+          id?: string
+          prompt: string
+          storage_path?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          drive_error?: string | null
+          drive_file_id?: string | null
+          id?: string
+          prompt?: string
+          storage_path?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_provider_keys: {
         Row: {
           api_key: string
@@ -16916,6 +16946,15 @@ export type Database = {
           match_student_id: string
           min_distance: number
         }[]
+      }
+      claim_ai_image_slot: {
+        Args: {
+          _day_start: string
+          _limit: number
+          _prompt: string
+          _user_id: string
+        }
+        Returns: string
       }
       cleanup_expired_line_sessions: { Args: never; Returns: undefined }
       create_next_year_periods: {

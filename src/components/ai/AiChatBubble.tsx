@@ -632,6 +632,7 @@ export default function AiChatBubble() {
             body: { mode: "save_image", image, messages: [{ role: "user", content: prompt }] },
           });
           if (saveErr || !saved?.path) throw saveErr || new Error("save failed");
+          if (saved.driveSaved === false) swal.toast.info("บันทึกภาพในแชทแล้ว แต่ยังส่งเข้า Google Drive ไม่สำเร็จ");
           const savedContent = `![ภาพจาก Lovable AI](${AI_IMAGE_PREFIX}${saved.path})`;
           setMessages((prev) => {
             const out: Msg[] = [];
