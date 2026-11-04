@@ -6,6 +6,7 @@ import { SidebarAccountFooter } from "@/components/SidebarAccountFooter";
 import { ViewModeSwitcher } from "@/components/ViewModeSwitcher";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useSystemSettings } from "@/hooks/useSystemSettings";

@@ -170,6 +170,8 @@ a[href*="lovable.dev"][href*="utm"] {
   .tone-finance { --tone: 150 68% 56%; }
   .tone-tools { --tone: 22 92% 63%; }
   .tone-system { --tone: 0 78% 67%; }
+  .tone-teacher { --tone: 152 70% 58%; }
+  .tone-parent { --tone: 168 68% 56%; }
 
   [data-sidebar] .side-chip {
     background-color: hsl(var(--tone) / 0.12);

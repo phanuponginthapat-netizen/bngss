@@ -34,10 +34,7 @@ export function ViewModeSwitcher({ collapsed = false }: { collapsed?: boolean })
         onClick={() => toggle(viewMode === "admin" ? "teacher" : "admin")}
         className={cn(
           "w-9 h-9 mx-auto rounded-xl flex items-center justify-center transition-all",
-          "ring-1 ring-border/60 shadow-[inset_0_1px_0_hsl(0_0%_100%/0.5)]",
-          viewMode === "admin"
-            ? "bg-primary/15 text-primary"
-            : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+          viewMode === "admin" ? "side-mode-admin" : "side-mode-teacher"
         )}
       >
         {viewMode === "admin" ? <ShieldCheck className="w-4 h-4" /> : <GraduationCap className="w-4 h-4" />}
@@ -46,7 +43,7 @@ export function ViewModeSwitcher({ collapsed = false }: { collapsed?: boolean })
   }
 
   return (
-    <div className="mx-1 my-1 p-0.5 rounded-lg bg-muted/60 ring-1 ring-border/60 flex items-stretch gap-1 shadow-[inset_0_1px_0_hsl(0_0%_100%/0.5)]">
+    <div className="side-mode-track mx-1 my-1 p-0.5 rounded-lg flex items-stretch gap-1">
       {(["admin", "teacher"] as const).map((m) => {
         const active = viewMode === m;
         const Icon = m === "admin" ? ShieldCheck : GraduationCap;
@@ -59,9 +56,9 @@ export function ViewModeSwitcher({ collapsed = false }: { collapsed?: boolean })
               "flex-1 flex items-center justify-center gap-1 px-1.5 py-[3px] rounded-md text-[11px] font-semibold transition-all",
               active
                 ? m === "admin"
-                  ? "bg-background text-primary shadow-sm ring-1 ring-primary/25"
-                  : "bg-background text-emerald-600 dark:text-emerald-400 shadow-sm ring-1 ring-emerald-500/30"
-                : "text-muted-foreground hover:text-foreground"
+                  ? "side-mode-admin"
+                  : "side-mode-teacher"
+                : "side-mode-idle"
             )}
           >
             <Icon className="w-3 h-3" />
