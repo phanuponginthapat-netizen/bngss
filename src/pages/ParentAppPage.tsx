@@ -178,7 +178,7 @@ export default function ParentAppPage() {
     try {
       const { data, error } = await supabase
         .from("students")
-        .select("id, student_code, prefix, first_name, last_name, classroom_id, guardian_phone, photo_url, classrooms(name)")
+        .select("id, student_code, prefix, first_name, last_name, classroom_id, guardian_phone, photo_url, classrooms!students_classroom_id_fkey(name)")
         .or(`parent_user_id.eq.${uid},parent_user_id_2.eq.${uid}`)
         .limit(20);
       if (!error && data && data.length > 0) return data as unknown as Child[];
@@ -201,7 +201,7 @@ export default function ParentAppPage() {
           const ids = rows.map((r) => r.student_id);
           const { data: studs } = await supabase
             .from("students")
-            .select("id, student_code, prefix, first_name, last_name, classroom_id, guardian_phone, photo_url, classrooms(name)")
+            .select("id, student_code, prefix, first_name, last_name, classroom_id, guardian_phone, photo_url, classrooms!students_classroom_id_fkey(name)")
             .in("id", ids);
           if (studs && (studs as unknown[]).length > 0) return studs as unknown as Child[];
         }
@@ -216,7 +216,7 @@ export default function ParentAppPage() {
           const ids = rows2.map((r) => r.student_id);
           const { data: studs } = await supabase
             .from("students")
-            .select("id, student_code, prefix, first_name, last_name, classroom_id, guardian_phone, photo_url, classrooms(name)")
+            .select("id, student_code, prefix, first_name, last_name, classroom_id, guardian_phone, photo_url, classrooms!students_classroom_id_fkey(name)")
             .in("id", ids);
           if (studs && (studs as unknown[]).length > 0) return studs as unknown as Child[];
         }
@@ -255,7 +255,7 @@ export default function ParentAppPage() {
           .join(",");
         const { data: byPhone } = await supabase
           .from("students")
-          .select("id, student_code, prefix, first_name, last_name, classroom_id, guardian_phone, photo_url, classrooms(name)")
+          .select("id, student_code, prefix, first_name, last_name, classroom_id, guardian_phone, photo_url, classrooms!students_classroom_id_fkey(name)")
           .or(orFilter)
           .limit(20);
         if (byPhone && (byPhone as unknown[]).length > 0) return byPhone as unknown as Child[];
@@ -534,7 +534,7 @@ export default function ParentAppPage() {
     }
     return (
       <div className="space-y-2">
-        <p className="text-xs text-muted-foreground flex items-center gap-1"><GraduationCap className="w-3.5 h-3.5" /> student_scores · .limit(5)</p>
+        <p className="text-xs text-muted-foreground flex items-center gap-1"><GraduationCap className="w-3.5 h-3.5" /> {L("คะแนนล่าสุด", "Latest scores")}</p>
         <div className="space-y-1.5">
           {b.scores.map((s) => (
             <div key={s.id} className="flex items-center justify-between rounded-lg border bg-card px-3 py-2">
@@ -558,8 +558,8 @@ export default function ParentAppPage() {
       return (
         <div className="text-center py-6 space-y-2">
           <BookOpen className="w-8 h-8 mx-auto text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">{L("ไม่มีการบ้านที่ใกล้กำหนด", "No upcoming homework")}</p>
-          <p className="text-xs text-muted-foreground">{L("ดึงจาก homework_assignments / task_assignments ตามห้องเรียน", "From homework_assignments / task_assignments by classroom")}</p>
+          <p className="text-sm text-muted-foreground">{L("ไม่มีการบ้านใน 30 วันล่าสุด", "No homework in the last 30 days")}</p>
+          
         </div>
       );
     }
@@ -604,13 +604,13 @@ export default function ParentAppPage() {
         <div className="text-center py-6 space-y-2">
           <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto"><ClipboardCheck className="w-5 h-5" /></div>
           <p className="text-sm font-medium text-emerald-700">{L("ไม่มีรายการติด 0 ร มส", "No pending remediation")}</p>
-          <p className="text-xs text-muted-foreground">grade_remediation · status != &#39;ผ่าน&#39; · .limit(5)</p>
+          
         </div>
       );
     }
     return (
       <div className="space-y-2">
-        <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5 text-amber-600" /> 0 ร มส · grade_remediation where student_id = {b.child.id.slice(0, 6)}… and status != &#39;ผ่าน&#39; · .limit(5)</p>
+        <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5 text-amber-600" /> {L("รายการ 0 ร มส ของบุตร", "0/R/MS items")}</p>
         <div className="space-y-1.5">
           {b.remediation.map((r) => (
             <div key={r.id} className="rounded-lg border border-amber-200 bg-amber-50/60 dark:bg-amber-950/20 px-3 py-2">
