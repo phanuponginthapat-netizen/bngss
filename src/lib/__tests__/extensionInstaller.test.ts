@@ -47,7 +47,7 @@ function readZip(buf: Buffer): Map<string, Buffer> {
 
 function walk(dir: string, base = ""): string[] {
   const out: string[] = [];
-  for (const entry of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+  for (const entry of fs.readdirSync(path.join(ROOT, dir, base), { withFileTypes: true })) {
     const rel = base ? `${base}/${entry.name}` : entry.name;
     if (entry.isDirectory()) out.push(...walk(dir, rel));
     else out.push(rel);
