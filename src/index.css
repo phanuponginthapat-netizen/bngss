@@ -134,7 +134,6 @@ a[href*="lovable.dev"][href*="utm"] {
     font-weight: 600;
   }
 
-
   /* Better touch targets on mobile */
   @media (max-width: 640px) {
     button, a, [role="button"], input, select, textarea {
@@ -149,6 +148,21 @@ a[href*="lovable.dev"][href*="utm"] {
 
 /* ── แถบเมนูข ้ างข ้ าว: พื้ น ต ้ านเข ้ มปร ่ ายส ี อ ่ น + ส ีประจำฝ ่ ่ายงาน ──
    ส ีท ุกค ่ าค ุณเป ็ น token ในไฟล ์น ี้ ไม ่ hardcode ใน component */
+/* ส ีประจำแต ่ละกล ุ่ มงาน: --tone ส ่ งต ่ อให ้ล ูกหลานในแถบเมนูใช ้ */
+/* ต ้องอย ู่ ngoài @layer: ชื่ อคลาสถ ูกต ่อแบบไดนามิก (tone-${key}) ใน TSX */
+/* ถ ้าใส ่ใน @layer จะถ ูก Tailwind ต ัดออกเพราะไม ่เจอชื่ อเต ็มในโค ้ด */
+.tone-daily { --tone: 45 95% 60%; }
+.tone-academic { --tone: 199 89% 63%; }
+.tone-assessment { --tone: 38 95% 62%; }
+.tone-teaching { --tone: 265 88% 73%; }
+.tone-student { --tone: 340 85% 69%; }
+.tone-general { --tone: 168 68% 56%; }
+.tone-hr { --tone: 228 88% 73%; }
+.tone-finance { --tone: 150 68% 56%; }
+.tone-tools { --tone: 22 92% 63%; }
+.tone-system { --tone: 0 78% 67%; }
+.tone-teacher { --tone: 152 70% 58%; }
+
 @layer components {
   [data-sidebar="sidebar"] {
     --tone: var(--sidebar-primary);
@@ -160,17 +174,6 @@ a[href*="lovable.dev"][href*="utm"] {
   }
 
   /* ส ีประจำแต ่ละกล ุ่ มงาน (ต ัวย ่ าง --tone ส ่ งต ่อให ้ลูกหลานใช ้) */
-  .tone-daily { --tone: 45 95% 60%; }
-  .tone-academic { --tone: 199 89% 63%; }
-  .tone-assessment { --tone: 38 95% 62%; }
-  .tone-teaching { --tone: 265 88% 73%; }
-  .tone-student { --tone: 340 85% 69%; }
-  .tone-general { --tone: 168 68% 56%; }
-  .tone-hr { --tone: 228 88% 73%; }
-  .tone-finance { --tone: 150 68% 56%; }
-  .tone-tools { --tone: 22 92% 63%; }
-  .tone-system { --tone: 0 78% 67%; }
-  .tone-teacher { --tone: 152 70% 58%; }
 
   [data-sidebar] .side-chip {
     background-color: hsl(var(--tone) / 0.12);
@@ -420,9 +423,6 @@ a[href*="lovable.dev"][href*="utm"] {
   .eform-preview-page {
     overflow-wrap: break-word;
   }
-
-
-
 
   .eform-editor p,
   .eform-print-page p,
@@ -816,6 +816,5 @@ html.standalone .only-standalone { display: initial; }
 .swal2-toast .swal2-title, .swal2-toast .swal2-html-container {
   overflow-wrap: anywhere;
 }
-
 
 @keyframes marquee { to { transform: translateX(-50%); } }
