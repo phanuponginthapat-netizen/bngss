@@ -11,8 +11,9 @@ import { swal } from "@/lib/swal";
 import { subscribeToPush, getCurrentPushStatus, isPwaCapable, isInIframe, isPreviewHost } from "@/lib/pushSubscribe";
 import { askFreeAI } from "@/lib/freeAI";
 import { useUserRole } from "@/hooks/useUserRole";
+import { streamImage } from "@/lib/streamImage";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Msg = { role: "user" | "assistant"; content: string; imagePartial?: boolean };
 
 type ChatLogRow = { role: "user" | "assistant"; content: string; created_at: string };
 
@@ -565,6 +566,28 @@ export default function AiChatBubble() {
     } catch { swal.info("อ่านรูปไม่สำเร็จ"); }
   };
 
+  const createCreditImage = async (prompt: string, nextDisplay: Msg[]) => {
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error || !data.session) throw new Error("กรุณาเข้าสู่ระบบก่อนสร้างภาพ");
+      await streamImage(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`,
+        { mode: "image", messages: [{ role: "user", content: prompt }] },
+        (url, isFinal) => setMessages([...nextDisplay, {
+          role: "assistant", content: `![ภาพจาก Lovable AI](${url})`, imagePartial: !isFinal,
+        }]),
+        undefined,
+        { Authorization: `Bearer ${data.session.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "สร้างภาพไม่สำเร็จ";
+      setMessages([...nextDisplay, { role: "assistant", content: message }]);
+      swal.error(message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const send = async (text?: string) => {
     const content = (text ?? input).trim();
     if ((!content && !pendingImage) || busy) return;
@@ -590,12 +613,9 @@ export default function AiChatBubble() {
     // --- Local tools (ไม่ต้องรอ AI) — สร้างรูป/ใบงาน/แผน/ข้อสอบ ได้ทันที ---
     const lower = String(content||"").toLowerCase();
     if (/(สร้างรูป|วาดรูป|generate image|create image)/i.test(lower)) {
-      try {
-        const prompt = content.replace(/.*(สร้างรูป|วาดรูป|generate image|create image)\s*/i,"").trim() || content;
-        const { data, error } = await supabase.functions.invoke("ai-chat", { body: { mode:"image", messages:[{role:"user", content: prompt}] } });
-        const reply = (data as any)?.reply || "สร้างรูปให้แล้วค่ะ";
-        setMessages([...nextDisplay, { role:"assistant", content: reply }]); speak(reply); setBusy(false); return;
-      } catch {}
+      const prompt = content.replace(/.*(สร้างรูป|วาดรูป|generate image|create image)\s*/i, "").trim() || content;
+      await createCreditImage(prompt, nextDisplay);
+      return;
     }
     if (/(สร้างใบงาน|ใบงาน|worksheet)/i.test(lower)) {
       try { const { generateFreeWorksheet } = await import("@/lib/freeAI"); const t=content.replace(/.*(สร้างใบงาน|ใบงาน)\s*/i,"").trim()||"ใบงานทั่วไป"; const html=(await generateFreeWorksheet(t)).slice(0,800); const reply=`สร้างใบงานเรื่อง "${t}" ให้แล้วค่ะ\n\n${html}\n\n_(สร้างด้วย AI ฟรี)_`; setMessages([...nextDisplay, {role:"assistant", content: reply}]); speak(reply); setBusy(false); return; } catch {}
@@ -646,18 +666,7 @@ export default function AiChatBubble() {
     setMessages(nextDisplay);
     setInput("");
     setBusy(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("ai-chat", {
-        body: { mode: "image", messages: [{ role: "user", content: prompt }] },
-      });
-      if (error) throw error;
-      const reply = (data as any)?.reply || (data as any)?.error || "สร้างรูปไม่สำเร็จ";
-      setMessages([...nextDisplay, { role: "assistant", content: reply }]);
-    } catch {
-      setMessages([...nextDisplay, { role: "assistant", content: "ขออภัยค่ะ สร้างรูปไม่สำเร็จ 🙏" }]);
-    } finally {
-      setBusy(false);
-    }
+    await createCreditImage(prompt, nextDisplay);
   };
 
 
@@ -853,7 +862,7 @@ export default function AiChatBubble() {
                     >
                       {segments.map((s, idx) =>
                         s.type === "img" ? (
-                          <img key={idx} src={s.value} alt="" className="rounded-lg max-w-full h-auto" loading="lazy" />
+                          <img key={idx} src={s.value} alt="ภาพในบทสนทนา" className={cn("rounded-lg max-w-full h-auto", m.imagePartial && "blur-lg")} loading="lazy" />
                         ) : (
                           s.value && <div key={idx}>{s.value.split(/\*{2,3}(.+?)\*{2,3}/g).map((part, j) => j % 2 ? <strong key={j}>{part}</strong> : part)}</div>
                         )
@@ -918,7 +927,7 @@ export default function AiChatBubble() {
               <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => fileInputRef.current?.click()} title="แนบรูปภาพ" disabled={busy}>
                 <ImagePlus className="w-4 h-4" />
               </Button>
-              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={generateImage} title="สร้างรูปจากข้อความ" disabled={busy || !input.trim()}>
+              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={generateImage} title="สร้างภาพด้วยเครดิต Lovable AI" disabled={busy || !input.trim()}>
                 <Sparkles className="w-4 h-4 text-amber-500" />
               </Button>
               {["teacher","admin","director"].includes(userRole||"") && <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : "สร้างใบงาน ")} title="สร้างใบงาน" disabled={busy}><FileText className="w-3.5 h-3.5 text-sky-600" /></Button>}
