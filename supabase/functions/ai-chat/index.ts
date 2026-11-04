@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { aiCall, aiCouncil } from "../_shared/aiCall.ts";
 import { rateLimit } from "../_shared/rateLimit.ts";
 import { generateImage } from "../_shared/imageGen.ts";
+import { generateCreditImage } from "../_shared/lovableImageSettings.ts";
 import { checkDailyChatQuota } from "../_shared/aiDailyQuota.ts";
 import { DEFAULT_PERSONA, answerMode, buildCharacterPolicy, normalizeChatHistory } from "./promptPolicy.ts";
 
@@ -86,17 +87,32 @@ Deno.serve(async (req) => {
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // โหมดสร้างรูปภาพ — ใช้ผู้ให้บริการของโรงเรียนเอง (Standalone, ไม่ใช้ Lovable AI)
+    // Explicit image requests use workspace AI credits, never a client-side key.
     if (mode === "image") {
-      try {
-        const img = await generateImage(lastUserMsg);
-        const imgUrl = `data:image/png;base64,${img.b64}`;
-        return new Response(JSON.stringify({ reply: `![generated](${imgUrl})`, image_url: imgUrl, provider: img.provider }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      if (!lastUserMsg.trim()) {
+        return new Response(JSON.stringify({ error: "กรุณาระบุภาพที่ต้องการสร้าง" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
-      } catch (e: any) {
-        return new Response(JSON.stringify({ error: e?.message || "image gen error" }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+      const apiKey = Deno.env.get("LOVABLE_API_KEY");
+      if (!apiKey) {
+        return new Response(JSON.stringify({ error: "ยังไม่ได้เชื่อม Lovable AI กรุณาแจ้งผู้ดูแลระบบ" }), {
+          status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      try {
+        const upstream = await generateCreditImage(apiKey, lastUserMsg, body.stream !== false);
+        const headers = new Headers({ ...corsHeaders,
+          "Content-Type": upstream.headers.get("Content-Type") ?? "application/json",
+          "Cache-Control": "no-cache",
+        });
+        upstream.headers.forEach((value, key) => {
+          if (key.toLowerCase().startsWith("x-lovable-aig-")) headers.set(key, value);
+        });
+        return new Response(upstream.body, { status: upstream.status, headers });
+      } catch (_) {
+        return new Response(JSON.stringify({ error: "เชื่อมต่อ Lovable AI ไม่สำเร็จ กรุณาลองใหม่" }), {
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
