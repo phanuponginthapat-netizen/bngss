@@ -52,6 +52,7 @@ export default function AiChatBubble() {
   const { role: userRole } = useUserRole();
   const greetingMsg: Msg = useMemo(() => ({ role: "assistant", content: bot.greeting }), [bot.greeting]);
   const [open, setOpen] = useState(false);
+  const [avatarBroken, setAvatarBroken] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([greetingMsg]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
