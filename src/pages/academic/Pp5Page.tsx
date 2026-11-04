@@ -279,7 +279,27 @@ const ScoreEntryTab = () => {
   const filteredAssignments = gradeLevel
     ? myAssignments.filter((a: any) => a.classrooms?.grade_level === gradeLevel)
     : myAssignments;
-  const currentAssignment = filteredAssignments.find((a: any) => a.id === selectedAssignment);
+  const rawAssignment: any = filteredAssignments.find((a: any) => a.id === selectedAssignment);
+  // วิทยาการคำนวณ: คะแนนรวมอยู่กับวิทยาศาสตร์ ครูวิทยาศาสตร์เป็นผู้กรอก — แสดงคะแนนวิทยาศาสตร์ (ดูอย่างเดียว)
+  const isComputing = /วิทยาการคำนวณ/.test(rawAssignment?.subjects?.name_th || "");
+  const { data: linkedScience, isLoading: linkedScienceLoading } = useQuery({
+    queryKey: ["computing_linked_science", rawAssignment?.subject_id, rawAssignment?.classrooms?.grade_level],
+    enabled: isComputing && !!rawAssignment?.classrooms?.grade_level,
+    queryFn: async () => {
+      const sub = rawAssignment.subjects;
+      let q = supabase.from("subjects").select("*")
+        .eq("grade_level", rawAssignment.classrooms.grade_level)
+        .ilike("name_th", "วิทยาศาสตร์%").like("code", "ว%");
+      if (sub?.semester) q = q.eq("semester", sub.semester);
+      const { data, error } = await q.order("code");
+      if (error) throw error;
+      return (data || []).find((x: any) => !/วิทยาการคำนวณ/.test(x.name_th)) || null;
+    },
+  });
+  const computingReadOnly = isComputing;
+  const currentAssignment: any = isComputing
+    ? (linkedScience ? { ...rawAssignment, subject_id: linkedScience.id, subjects: linkedScience } : undefined)
+    : rawAssignment;
 
   const { data: indicators = [] } = useQuery({
     queryKey: ["subject_indicators", currentAssignment?.subject_id],
@@ -653,7 +673,7 @@ const ScoreEntryTab = () => {
                 </SelectContent>
               </Select>
             </div>
-            {currentAssignment && (
+            {currentAssignment && !computingReadOnly && (
               <div className="flex gap-2 mt-5">
                 <Button variant="outline" onClick={handleAutoGrade}>
                   <Calculator className="w-4 h-4 mr-1" /> ตัดเกรดอัตโนมัติ
@@ -667,12 +687,22 @@ const ScoreEntryTab = () => {
       {!selectedAssignment ? (
         <Card><CardContent className="p-8 text-center text-muted-foreground">{gradeLevel ? "กรุณาเลือกรายวิชาที่จะบันทึกคะแนน" : "กรุณาเลือกระดับชั้นก่อน"}</CardContent></Card>
       ) : (
+<div className="space-y-3">
+        {computingReadOnly && (
+          <Card className="border-primary/40 bg-primary/5"><CardContent className="p-4 text-sm">
+            {linkedScienceLoading ? "กำลังโหลดคะแนนวิทยาศาสตร์…" : linkedScience
+              ? <>วิชาวิทยาการคำนวณไม่ต้องกรอกแยก — แสดงคะแนนของ <strong>{linkedScience.code} {linkedScience.name_th}</strong> ซึ่งครูวิทยาศาสตร์เป็นผู้รวมและกรอก (ดูอย่างเดียว)</>
+              : "ไม่พบวิชาวิทยาศาสตร์ของระดับชั้นนี้ จึงยังแสดงคะแนนไม่ได้"}
+          </CardContent></Card>
+        )}
+        {(!computingReadOnly || linkedScience) && (
         <Tabs defaultValue="scores" className="space-y-4">
           <TabsList className="w-full justify-start overflow-x-auto flex-nowrap whitespace-nowrap max-w-full">
             <TabsTrigger value="scores" className="gap-1.5"><BookOpen className="w-3.5 h-3.5" /> บันทึกคะแนน</TabsTrigger>
             <TabsTrigger value="attendance" className="gap-1.5"><CalendarClock className="w-3.5 h-3.5" /> เวลาเรียน</TabsTrigger>
             <TabsTrigger value="summary" className="gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> สรุปผล</TabsTrigger>
           </TabsList>
+          <fieldset disabled={computingReadOnly} className="min-w-0 space-y-4">
 
           {/* Score entry tab — รวมการตั้งค่าทั้งหมดไว้หน้าเดียวกัน */}
           <TabsContent value="scores" className="space-y-4">
@@ -1000,7 +1030,10 @@ const ScoreEntryTab = () => {
               </CardContent>
             </Card>
           </TabsContent>
+          </fieldset>
         </Tabs>
+        )}
+        </div>
       )}
     </div>
   );
