@@ -91,7 +91,22 @@ let broadcastMedia = [], broadcastIndex = 0, broadcastTimer = null;
 let content = {};
 let busy = false, pausedUntil = 0;
 
+let nativeCam = false;
 async function startCamera() {
+  // Direct camera: the program reads the webcam itself (no browser camera).
+  try {
+    const st = await (await fetch('/camera/status')).json();
+    if (st && st.native) {
+      nativeCam = true;
+      const img = document.createElement('img');
+      img.id = 'camImg'; img.alt = ''; img.src = '/camera/stream';
+      img.style.cssText = 'position:absolute;left:50%;top:50%;translate:-50% -50%;width:100%;height:100%;object-fit:cover';
+      img.onerror = () => setTimeout(() => { img.src = '/camera/stream?t=' + Date.now(); }, 2000);
+      const v = $('cam'); v.replaceWith(img); img.id = 'cam';
+      applyCameraLook();
+      return;
+    }
+  } catch (e) {}
   try { $('cam').srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } }); }
   catch (e) { say('ไม่พบกล้อง กรุณาตรวจสายกล้องแล้วเปิดโปรแกรมใหม่', 'bad'); }
 }
@@ -200,7 +215,9 @@ function drawRotated(v, c, w, h) {
   ctx.save(); ctx.translate(c.width / 2, c.height / 2); ctx.rotate(rot * Math.PI / 180);
   ctx.drawImage(v, -w / 2, -h / 2, w, h); ctx.restore();
 }
+function camSize(v) { return nativeCam ? [v.naturalWidth, v.naturalHeight] : [v.videoWidth, v.videoHeight]; }
 function frame() {
+  if (nativeCam) return 'native';
   const v = $('cam'); if (!v.videoWidth) return null;
   const c = document.createElement('canvas');
   drawRotated(v, c, 640, Math.round(640 * v.videoHeight / v.videoWidth));
@@ -209,6 +226,7 @@ function frame() {
 // Live view: a small preview frame for the admin page, sent from the kiosk so
 // staff can watch the queue over the school LAN. No video is stored.
 function previewFrame(wide) {
+  if (nativeCam) return null;  // the program sends its own preview while scanning
   const v = $('cam'); if (!v.videoWidth) return null;
   const w = wide ? 480 : 320;
   const c = document.createElement('canvas');
@@ -261,12 +279,13 @@ setInterval(() => {
 
 async function tick() {
   if (busy || Date.now() < pausedUntil) return;
-  const image = frame(); if (!image) return;
+  let image = frame(); if (!image) return;
   busy = true;
   try {
     const res = await fetch('/scan', { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ image }) });
+      body: JSON.stringify(image === 'native' ? { native: true, rotate: Number(display.rotate) || 0 } : { image }) });
     const d = await res.json();
+    if (image === 'native') image = d.snapshot_b64 || '';
     // Any face at the screen counts as activity, so the stats board steps
     // aside and the camera keeps scanning without a manual touch.
     if (d.result !== 'no_face') bumpActivity();

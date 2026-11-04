@@ -1455,6 +1455,7 @@ async def scan(request: Request):
                 return {"result": "no_camera", "message": "ไม่พบกล้อง กรุณาตรวจสายกล้อง"}
             ok_jpg, buf = cv2.imencode(".jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
             image = base64.b64encode(buf).decode() if ok_jpg else ""
+            push_live_frame(image)
             result = await run_in_threadpool(run_scan, image)
             remember_scan(result)
             if result.get("result") in ("ok", "duplicate", "denied"):
