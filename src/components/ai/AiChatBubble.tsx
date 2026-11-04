@@ -855,7 +855,7 @@ export default function AiChatBubble() {
                         s.type === "img" ? (
                           <img key={idx} src={s.value} alt="" className="rounded-lg max-w-full h-auto" loading="lazy" />
                         ) : (
-                          s.value && <div key={idx}>{s.value}</div>
+                          s.value && <div key={idx}>{s.value.split(/\*{2,3}(.+?)\*{2,3}/g).map((part, j) => j % 2 ? <strong key={j}>{part}</strong> : part)}</div>
                         )
                       )}
                     </div>
@@ -872,6 +872,19 @@ export default function AiChatBubble() {
                   </div>
                 );
               })}
+              {!busy && !input && messages[messages.length - 1]?.role !== "user" && (
+                <div className="flex flex-wrap gap-1.5 pt-1" aria-label="งานที่ผู้ช่วยทำได้">
+                  {(["teacher","admin","director","staff"].includes(userRole||"")
+                    ? ["ช่วยร่างหนังสือราชการเรื่อง ", "ช่วยสรุปรายงานต่อไปนี้ให้กระชับ: ", "ช่วยร่างประกาศโรงเรียนเรื่อง ", "ช่วยเขียนข้อความแจ้งผู้ปกครองทาง LINE เรื่อง "]
+                    : userRole==="parent" ? ["ลูกมีการบ้านค้างไหม", "ลูกมาเรียนครบไหมสัปดาห์นี้"] : ["ช่วยอธิบายบทเรียนเรื่อง ", "ช่วยสรุปเนื้อหาต่อไปนี้: "]
+                  ).map((p) => (
+                    <button key={p} type="button" onClick={() => setInput(p)}
+                      className="text-xs rounded-full border bg-card px-3 py-1.5 text-foreground hover:bg-muted hover:border-primary/40 transition-colors">
+                      {p.replace(/[:\s]+$/, "").replace(/เรื่อง$/, "").replace(/^ช่วย/, "")}
+                    </button>
+                  ))}
+                </div>
+              )}
               {busy && (
                 <div className="flex justify-start">
                   <div className="bg-muted rounded-2xl px-3 py-2 text-sm flex items-center gap-2">
