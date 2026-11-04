@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ClipboardList, Plus, Printer, Save, Trash2, Pencil, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,6 +16,7 @@ import { swal } from '@/lib/swal';
 import { todayBangkok } from '@/lib/dateBE';
 import { openPrintWindow } from '@/lib/printUtils';
 import { buildWorkReportHtml, canUsePersonnelWorkReport, monthBounds, parseWorkItems, thaiWorkDate, thaiWorkMonth, validWorkItems, workMonthRows, type WorkItem } from '@/lib/personnelWorkReport';
+import { thaiPublicHolidaysInRange } from '@/lib/thaiPublicHolidays';
 
 export default function DailyWorkLogPage() {
   const { userId, role, isObserver } = useUserRole();
@@ -68,7 +69,16 @@ export default function DailyWorkLogPage() {
     }
   }, [templates.data, templateId]);
   const selected = templates.data?.find(t => t.id === templateId);
-  const rows = workMonthRows(month, calendar.data ?? [], logs.data ?? []);
+  // ปฏิทินโรงเรียนมีผลกว่า ทำให้วันหยุดที่โรงเรียนกำหนดเองทับวันหยุดนักขัตฤกษ์ได้
+  const holidays = useMemo(() => {
+    const schoolDays = (calendar.data ?? []).map(h => ({ ...h, publicHoliday: false }));
+    const ranges = schoolDays.map(h => ({ start: h.event_date, end: h.end_date ?? h.event_date }));
+    const publicDays = thaiPublicHolidaysInRange(bounds.start, bounds.end)
+      .filter(p => !ranges.some(r => r.start <= p.date && r.end >= p.date))
+      .map(p => ({ title: p.title, event_date: p.date, end_date: p.date, publicHoliday: true }));
+    return [...schoolDays, ...publicDays];
+  }, [calendar.data, bounds.start, bounds.end]);
+  const rows = workMonthRows(month, holidays, logs.data ?? []);
   const loading = [templates, calendar, logs, identity].some(q => q.isPending);
   const error = templates.error || calendar.error || logs.error || identity.error;
   const ready = !loading && !error;
