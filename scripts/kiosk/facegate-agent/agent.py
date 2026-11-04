@@ -1408,13 +1408,58 @@ def decode_image(raw: bytes) -> np.ndarray | None:
     return cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
 
 
+import native_camera  # noqa: E402
+
+
+@app.get("/camera/status")
+def camera_status():
+    return native_camera.status()
+
+
+@app.get("/camera/frame.jpg")
+def camera_frame(rotate: int = 0):
+    from fastapi.responses import Response as _Resp
+    data = native_camera.jpeg(rotate, 70)
+    if data is None:
+        return _Resp(status_code=503)
+    return _Resp(content=data, media_type="image/jpeg", headers={"cache-control": "no-store"})
+
+
+@app.get("/camera/stream")
+def camera_stream():
+    """MJPEG preview of the direct camera for the scan screen."""
+    from fastapi.responses import StreamingResponse
+
+    def gen():
+        while True:
+            data = native_camera.jpeg(0, 70)
+            if data:
+                yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + data + b"\r\n"
+            time.sleep(0.066)
+
+    return StreamingResponse(gen(), media_type="multipart/x-mixed-replace; boundary=frame")
+
+
 @app.post("/scan")
 async def scan(request: Request):
     """คีออส (JSON {image}) = สแกน+บันทึกเวลา / หน้าเว็บ (raw JPEG) = ตรวจจับ+embedding."""
     ctype = (request.headers.get("content-type") or "").lower()
     body = await request.body()
     if "application/json" in ctype:
-        image = (json.loads(body or b"{}") or {}).get("image") or ""
+        payload = json.loads(body or b"{}") or {}
+        image = payload.get("image") or ""
+        if not image and payload.get("native"):
+            from starlette.concurrency import run_in_threadpool
+            img = native_camera.latest(int(payload.get("rotate") or 0))
+            if img is None:
+                return {"result": "no_camera", "message": "ไม่พบกล้อง กรุณาตรวจสายกล้อง"}
+            ok_jpg, buf = cv2.imencode(".jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+            image = base64.b64encode(buf).decode() if ok_jpg else ""
+            result = await run_in_threadpool(run_scan, image)
+            remember_scan(result)
+            if result.get("result") in ("ok", "duplicate", "denied"):
+                result["snapshot_b64"] = image
+            return result
         push_live_frame(image)
         result = run_scan(image)
         remember_scan(result)
@@ -1800,6 +1845,7 @@ if __name__ == "__main__":
     threading.Thread(target=power_loop, daemon=True).start()
     threading.Thread(target=update_loop, daemon=True).start()
     threading.Thread(target=second_camera_loop, daemon=True).start()
+    native_camera.start()
 
     def warm_engine() -> None:
         try:
@@ -1836,13 +1882,13 @@ if __name__ == "__main__":
                 print(f"[agent] saving the LAN port failed: {exc}")
         print(f"[agent] LAN ready — open http://<this-pc-ip>:{PORT}/admin")
 
-    want_window = FROZEN and os.environ.get("FACEGATE_OPEN_KIOSK", "1") not in ("0", "false", "off", "no")
+    want_window = (FROZEN or os.environ.get("FACEGATE_NATIVE_WINDOW") == "1") and os.environ.get("FACEGATE_OPEN_KIOSK", "1") not in ("0", "false", "off", "no")
     server = None
     if want_window:
         # Native full-screen window (like the original FaceGate program) — no
         # web browser. Face recognition itself always runs in this program.
         try:
-            import webview  # pywebview → Windows WebView2
+            import webview  # pywebview → Windows WebView2 / Linux WebKitGTK
 
             os.environ.setdefault(
                 "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
