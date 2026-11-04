@@ -464,7 +464,7 @@ const StaffLeavePage = () => {
 
   const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
     pending: { label: lang === "th" ? "รออนุมัติ" : "Pending", color: "bg-amber-100 text-amber-800 border-amber-200", icon: <Clock className="w-3 h-3" /> },
-    approved: { label: lang === "th" ? "อนุมัติ" : "Approved", color: "bg-emerald-100 text-emerald-800 border-emerald-200", icon: <Check className="w-3 h-3" /> },
+    approved: { label: lang === "th" ? "อนุมัติแล้ว" : "Approved", color: "bg-emerald-100 text-emerald-800 border-emerald-200", icon: <Check className="w-3 h-3" /> },
     rejected: { label: lang === "th" ? "ไม่อนุมัติ" : "Rejected", color: "bg-red-100 text-red-800 border-red-200", icon: <X className="w-3 h-3" /> },
   };
 
