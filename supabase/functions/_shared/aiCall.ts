@@ -1,3 +1,4 @@
+import { buildCouncilMessages } from "./councilPrompt.ts";
 // AI call helper — providers loaded from DB (admin-managed) + Key Pool (gemini/groq/openrouter).
 // Standalone: ทุก provider ใช้ api_key ของโรงเรียนเอง (ไม่มี Lovable AI gateway)
 // Adds aiCouncil() for multi-model parallel analysis + synthesis.
@@ -349,26 +350,7 @@ export async function aiCouncil(opts: CouncilOpts): Promise<CouncilResult> {
     return { content: best.content, provider: best.provider, model: best.model, panel: results };
   }
 
-  const userQuestion = opts.messages.map((m: any) =>
-    typeof m.content === "string" ? `[${m.role}] ${m.content}` : `[${m.role}] (multimodal)`
-  ).join("\n");
-
-  const synthMessages = [
-    {
-      role: "system",
-      content:
-        "คุณเป็นผู้สังเคราะห์คำตอบของ AI หลายตัวสำหรับระบบโรงเรียนไทย " +
-        "วิเคราะห์จุดแข็ง/จุดอ่อนของแต่ละคำตอบ ตัดข้อมูลผิด รวมข้อมูลที่ถูกต้องและครบถ้วนที่สุด " +
-        "ตอบเป็นคำตอบเดียวที่กระชับ ชัดเจน เป็นภาษาไทย เว้นแต่ผู้ใช้ถามภาษาอื่น",
-    },
-    {
-      role: "user",
-      content:
-        `คำถาม/บริบทเดิม:\n${userQuestion}\n\n` +
-        successes.map((s, i) => `--- คำตอบ AI #${i + 1} (${s.provider}) ---\n${s.content}`).join("\n\n") +
-        `\n\nสังเคราะห์คำตอบสุดท้ายที่ดีที่สุด:`,
-    },
-  ];
+  const synthMessages = buildCouncilMessages(opts.messages, successes);
 
   try {
     const merged = await callWithPool(synth, {

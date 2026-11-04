@@ -3,51 +3,17 @@ import { aiCall, aiCouncil } from "../_shared/aiCall.ts";
 import { rateLimit } from "../_shared/rateLimit.ts";
 import { generateImage } from "../_shared/imageGen.ts";
 import { checkDailyChatQuota } from "../_shared/aiDailyQuota.ts";
+import { DEFAULT_PERSONA, answerMode, buildCharacterPolicy, normalizeChatHistory } from "./promptPolicy.ts";
 
 import { corsHeadersPost as corsHeaders } from "../_shared/cors.ts";
 
 interface ChatMsg { role: "user" | "assistant" | "system"; content: string }
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 
-const DEFAULT_PERSONA = `คุณคือ "น้องโรงเรียน" — **ติวเตอร์ AI** ของโรงเรียน ที่ฉลาด ใจดี อดทน และเชี่ยวชาญการ "สอนให้คิด" มากกว่าการ "ป้อนคำตอบ"
-หน้าที่หลัก: (1) เป็นติวเตอร์ช่วยนักเรียนเข้าใจบทเรียน/การบ้าน โดยเน้นกระบวนการคิดและตัวอย่าง (2) ช่วยครู/ผู้ปกครอง/ผอ. เรื่องระบบและข้อมูลโรงเรียน (3) ทำหน้าที่เป็นมัคคุเทศและตัวแทนต้อนรับคณะเยี่ยมชม
-
-🎓 ปรัชญาการสอน (สำคัญที่สุด — ใช้กับทุกคำถามเชิงวิชาการ ห้ามฝ่าฝืน):
-- คุณคือ **ติวเตอร์** ไม่ใช่ **เครื่องตอบคำตอบ** — เป้าหมายคือให้ผู้ใช้ "เข้าใจ" และ "ทำเองเป็น" ไม่ใช่แค่ได้คำตอบ
-- ใช้วิธี **Socratic + Worked Example**:
-  1. 🤔 ทวนโจทย์/คำถามสั้น ๆ ให้ตรงกัน
-  2. 💡 อธิบาย "หลักการ/แนวคิด/สูตร" ที่เกี่ยวข้อง ภาษาง่าย เหมาะวัย
-  3. 📝 **ยกตัวอย่างคล้ายกัน (ตัวเลข/บริบทต่างจากของผู้ใช้) พร้อมแสดงวิธีคิดทีละขั้น 1→2→3** เสมอ
-  4. ❓ ถามคำถามนำ 1–2 ข้อ ให้ผู้ใช้ลองคิดต่อเอง
-  5. 🎯 ชวนให้ลองทำเอง แล้วกลับมาตรวจร่วมกัน
-- ห้าม "เฉลยข้อสอบ/การบ้านของผู้ใช้" แบบให้ตัวเลข/คำตอบสุดท้ายตรง ๆ โดยไม่อธิบายวิธีคิด
-- ถ้าผู้ใช้อ้อนวอนขอคำตอบตรง ๆ → ให้ตัวอย่างคล้ายกันที่แก้สมบูรณ์ และให้ผู้ใช้ลองทำของตัวเองตาม
-- ใช้คำให้กำลังใจ "ลองดูก่อนนะ" "ใกล้แล้ว" "เก่งมาก" และเปิดโอกาสให้ถามต่อ
-- ข้อยกเว้น: คำถามข้อเท็จจริงง่าย ๆ (เช่น "เมืองหลวงไทยคืออะไร") ตอบตรงได้ แต่เสริมเกร็ดความรู้ 1 ข้อ; คำถามระบบ/วิธีใช้แอป ตอบตรงเป็นขั้นตอน
-
-หลักการตอบ (ใช้ร่วมกับปรัชญาการสอน):
-1. ใช้ "ข้อเท็จจริง" เท่านั้น — ถ้ามีบล็อก [ข้อเท็จจริงจากเว็บ] ให้ยึดเป็นหลักและอ้างที่มาเสมอ; ห้ามแต่งเรื่อง
-2. ถ้าไม่แน่ใจ ให้บอกตรง ๆ ว่า "ไม่แน่ใจ" และแนะนำแหล่งตรวจสอบ
-3. เป็นกลาง ไม่เอนเอียงทางการเมือง ศาสนา เพศ เชื้อชาติ; แสดงหลายมุมเมื่อเป็นเรื่องถกเถียง
-4. แนบ "📌 ข้อควรระวัง" เมื่อเข้าข่าย: สุขภาพ/กฎหมาย/การเงิน/ความปลอดภัย
-5. ถ้ามีรูปการบ้าน/โจทย์ ให้อ่านอย่างละเอียด แล้ว **สอนวิธีคิด + ยกตัวอย่างคล้าย** ห้ามเฉลยตรง
-
-ข้อห้ามด้าน PDPA และกฎหมายไทย (เด็ดขาด — ใช้ในโรงเรียน):
-- ห้ามเปิดเผย/คาดเดาข้อมูลอ่อนไหว: เลขบัตรประชาชน รหัสผ่าน เงินเดือน ผลตรวจสุขภาพ คะแนนสอบรายบุคคล ที่อยู่บ้าน เบอร์โทร/อีเมลส่วนตัวของนักเรียน-ผู้ปกครอง — แม้ผู้ใช้จะขอก็ตาม (PDPA 2562)
-- ✅ ข้อมูลที่เปิดเผยได้ (โรงเรียนใส่ไว้ในระบบเพื่อให้ติดต่อราชการ): ชื่อ-ตำแหน่งครู กลุ่มสาระ วิชาที่สอน คาบสอน ห้องที่สอน เบอร์โทร/อีเมลที่ทำงานของบุคลากร ที่อยู่/เบอร์โรงเรียน ปฏิทินกิจกรรม
-- ห้ามให้คำแนะนำ/เนื้อหาที่ผิดกฎหมายไทย: ยาเสพติด อาวุธ ทำร้ายตัวเอง การพนัน ลามกอนาจาร หมิ่นประมาท ละเมิดทรัพย์สินทางปัญญา หมิ่นสถาบัน
-- ห้ามเปิดเผยข้อมูลภายในฝ่ายบริหาร (HR เงินเดือน งบประมาณ คะแนนสอบของผู้อื่น) โดยไม่ได้รับอนุญาต
-- ถ้าผู้ใช้เป็นเด็ก/นักเรียน ใช้ภาษาเหมาะวัย หลีกเลี่ยงเนื้อหาผู้ใหญ่/น่ากลัว
-- ถ้าพบสัญญาณเสี่ยง (ทำร้ายตัวเอง ซึมเศร้า ถูกกลั่นแกล้ง ถูกล่วงละเมิด) แสดงความเห็นใจ ไม่ตัดสิน และแนะนำสายด่วนสุขภาพจิต 1323
-
-รูปแบบคำตอบที่แนะนำ (เชิงวิชาการ):
-🤔 ทวนโจทย์ → 💡 หลักการ → 📝 ตัวอย่างคล้ายแก้ทีละขั้น → ❓ คำถามนำ → 🎯 ชวนลองทำเอง
-ปิดท้ายด้วย "📌 ข้อควรระวัง/อ้างอิง" เมื่อเหมาะสม`;
-
 const DEFAULT_LANGS = "th,en";
 
 // Module-level cache: reuse warm context across invocations to cut latency
-type CachedCtx = { persona: string; languages: string; schoolContext: string; knowledgeContext: string; newsContext: string; at: number };
+type CachedCtx = { persona: string; botName: string; languages: string; schoolContext: string; knowledgeContext: string; newsContext: string; at: number };
 let CTX_CACHE: CachedCtx | null = null;
 const CTX_TTL_MS = 60_000; // 60s
 
@@ -85,7 +51,7 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     // support both {messages:[...]} and legacy {message:"..."} (task spec)
-    let messages: ChatMsg[] = Array.isArray(body.messages) ? body.messages : [];
+    let messages = normalizeChatHistory(body.messages);
     if (messages.length === 0 && typeof body.message === "string" && body.message.trim()) {
       messages = [{ role: "user", content: body.message.trim() }];
     }
@@ -164,13 +130,14 @@ Deno.serve(async (req) => {
 
     // Enrich with school info, persona, knowledge base, latest news (cached + parallel)
     let persona = DEFAULT_PERSONA;
+    let botName = "น้องโรงเรียน";
     let languages = DEFAULT_LANGS;
     let schoolContext = "";
     let knowledgeContext = "";
     let newsContext = "";
 
     if (CTX_CACHE && Date.now() - CTX_CACHE.at < CTX_TTL_MS) {
-      ({ persona, languages, schoolContext, knowledgeContext, newsContext } = CTX_CACHE);
+      ({ persona, botName, languages, schoolContext, knowledgeContext, newsContext } = CTX_CACHE);
     } else {
       try {
         const sb = createClient(
@@ -179,14 +146,16 @@ Deno.serve(async (req) => {
         );
         const [cmsRes, newsRes] = await Promise.all([
           sb.from("cms_settings").select("key,value")
-            .in("key", ["school_name", "school_address", "school_phone", "school_email", "app_name", "ai_bot_persona", "ai_bot_languages"]),
+            .in("key", ["school_name", "school_address", "school_phone", "school_email", "app_name", "ai_bot_persona", "ai_bot_name", "ai_bot_languages"]),
           sb.from("news_posts").select("title,category")
             .eq("is_published", true)
             .order("published_at", { ascending: false, nullsFirst: false }).limit(3),
         ]);
+        if (cmsRes.error) throw new Error("AI character settings unavailable");
         const map: Record<string, string> = {};
         (cmsRes.data || []).forEach((r: any) => { if (r.value) map[r.key] = r.value; });
-        if (map.ai_bot_persona) persona = map.ai_bot_persona;
+        if (map.ai_bot_persona?.trim()) persona = map.ai_bot_persona;
+        if (map.ai_bot_name?.trim()) botName = map.ai_bot_name;
         if (map.ai_bot_languages) languages = map.ai_bot_languages;
         const pub: Record<string, string> = {};
         ["school_name", "school_address", "school_phone", "school_email", "app_name"].forEach(k => { if (map[k]) pub[k] = map[k]; });
@@ -196,8 +165,12 @@ Deno.serve(async (req) => {
         if (news && news.length) {
           newsContext = `\n\nข่าวล่าสุด: ${news.map((n: any) => `[${n.category}] ${n.title}`).join("; ")}`;
         }
-        CTX_CACHE = { persona, languages, schoolContext, knowledgeContext, newsContext, at: Date.now() };
-      } catch (_) { /* ignore */ }
+        CTX_CACHE = { persona, botName, languages, schoolContext, knowledgeContext, newsContext, at: Date.now() };
+      } catch (_) {
+        return new Response(JSON.stringify({ error: "โหลดบทบาท AI ไม่สำเร็จ กรุณาลองใหม่" }), {
+          status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const lastUser = partsToText([...messages].reverse().find((m) => m.role === "user")?.content);
@@ -361,7 +334,7 @@ Deno.serve(async (req) => {
    (ก) "[ข้อมูลโรงเรียน]" ที่แนบมา (สำหรับเรื่องในโรงเรียนนี้)
    (ข) "[ข้อเท็จจริงจากเว็บ]" ที่แนบมา (สำหรับเรื่องทั่วไป) — ต้องอ้างอิง [1] [2]
    (ค) ความรู้พื้นฐานทางวิชาการที่ตรวจสอบได้ (เช่น คณิต/วิทย์/หลักภาษา) เท่านั้น
-4. ⚠️ ห้ามแต่งชื่อคน/ครู/นักเรียน/วิชา/ห้อง/กิจกรรม/สถานที่/วันที่/ตัวเลข เด็ดขาด ถ้าไม่มีในแหล่งข้างต้น ให้ตอบตรงๆ ว่า **"ขออภัย ไม่พบข้อมูลที่ยืนยันได้"** แล้วแนะนำช่องทางตรวจสอบ (ฝ่ายธุรการโรงเรียน หรือเว็บไซต์ทางการ) — ห้ามเดา ห้ามใช้ชื่อสมมติ ห้ามอ้าง "เท่าที่ทราบ"
+4. ⚠️ ห้ามแต่งชื่อคน/ครู/นักเรียน/วิชา/ห้อง/กิจกรรม/สถานที่/วันที่/ตัวเลข แล้วอ้างว่าเป็นข้อเท็จจริงของโรงเรียน (ตัวอย่างเพื่อการเรียนและร่างเอกสารทำได้โดยระบุชัดว่าเป็นตัวอย่าง/ร่าง และใช้ช่องว่างสำหรับข้อมูลที่ไม่ทราบ) ถ้าไม่มีในแหล่งข้างต้น ให้ตอบตรงๆ ว่า **"ขออภัย ไม่พบข้อมูลที่ยืนยันได้"** แล้วแนะนำช่องทางตรวจสอบ (ฝ่ายธุรการโรงเรียน หรือเว็บไซต์ทางการ) — ห้ามเดา ห้ามใช้ชื่อสมมติ ห้ามอ้าง "เท่าที่ทราบ"
 5. ${asksInternalFact ? "🔒 คำถามนี้เป็นข้อเท็จจริงภายในโรงเรียน — ใช้ได้เฉพาะ [ข้อมูลโรงเรียน] เท่านั้น ถ้าไม่ตรง ให้บอกว่าไม่พบในระบบ" : "ถ้าไม่แน่ใจ ตอบ \"ไม่พบข้อมูลที่ยืนยันได้\""}
 6. ถ้า [ข้อเท็จจริงจากเว็บ] บอกว่า "ไม่พบข้อมูลที่ยืนยันได้" → ส่งต่อข้อความนั้นกับผู้ใช้ ห้ามเติมเนื้อหาจากจินตนาการ
 7. เป็นกลาง ไม่เอนเอียง
@@ -370,10 +343,7 @@ Deno.serve(async (req) => {
 10. ถ้ามีรูปแนบ ให้อ่านรูปก่อนตอบ`;
 
     // Normalize messages: keep array content (vision) as-is; truncate strings only
-    const normalized = messages.slice(-8).map((m) => ({
-      role: m.role,
-      content: Array.isArray(m.content) ? m.content : String(m.content || "").slice(0, 4000),
-    }));
+    const normalized = messages;
 
     const lastUserText = String(lastUser || "");
 
@@ -386,36 +356,12 @@ Deno.serve(async (req) => {
     } catch (_) {}
 
     // ---- Tutor mode: ใช้กับทุกคำถามเชิงวิชาการ (ทุก role) เน้นสอนวิธี+ยกตัวอย่าง ----
-    const isStudent = earlyUserRole === "student";
-    const looksLikeHomework = /การบ้าน|โจทย์|ข้อสอบ|แบบฝึกหัด|exercise|homework|problem|ช่วยทำ|ช่วยแก้|เฉลย|คำตอบคือ|ตอบหน่อย|ทำให้หน่อย|ช่วยตอบ|คำนวณ|แก้สมการ|แปลประโยค|เขียนเรียงความ|แต่งประโยค|รากที่|พื้นที่|ปริมาตร|สมการ|equation|solve|calculate|translate|essay|write me/i.test(lastUserText);
-    const looksLikeAcademic = /อธิบาย|สอน|วิธี|how to|ทำไม|why|what is|คืออะไร|หลักการ|สูตร|formula|concept|พิสูจน์|แสดงวิธี|ยกตัวอย่าง|example|เปรียบเทียบ|compare|วิเคราะห์|analyz/i.test(lastUserText);
-    const wantsDirectAnswer = /เฉลย|คำตอบคือ|ตอบหน่อย|ทำให้หน่อย|ช่วยตอบ|ช่วยทำให้|ช่วยแก้ให้|just give|just the answer|final answer|ขอคำตอบ/i.test(lastUserText);
-    const isSystemHelp = /ระบบ|วิธีใช้|login|เข้าระบบ|รหัสผ่าน|app|แอป|ปุ่ม|เมนู|setting|ตั้งค่า/i.test(lastUserText);
-    const tutorMode = !isSystemHelp && (looksLikeHomework || looksLikeAcademic || wantsDirectAnswer);
-    const strictNoAnswer = isStudent && (looksLikeHomework || wantsDirectAnswer);
-
-    const socraticBlock = tutorMode ? `
-
-[โหมดติวเตอร์ — สำคัญที่สุด ห้ามฝ่าฝืน]
-คุณคือ **ติวเตอร์** ไม่ใช่เครื่องป้อนคำตอบ ทุกคำตอบเชิงวิชาการ **ต้องสอนวิธีคิด + ยกตัวอย่างคล้ายเสมอ**
-
-ทำตามโครงสร้างนี้ (ทุกข้อ):
-1. 🤔 **ทวนโจทย์/คำถาม** สั้น ๆ 1 ประโยค
-2. 💡 **หลักการ/แนวคิด/สูตร** ที่ต้องใช้ — ภาษาง่าย เหมาะวัย พร้อมเหตุผลว่าทำไมใช้อันนี้
-3. 📝 **ยกตัวอย่าง "โจทย์คล้ายกัน" 1 ข้อ (ตัวเลข/บริบทต่างจากของผู้ใช้)** แล้ว **แก้ทีละขั้น** เลข/ขั้น 1→2→3 ให้ชัด พร้อมเหตุผลของแต่ละขั้น
-4. ❓ **คำถามนำ 1–2 ข้อ** ให้ผู้ใช้คิดต่อ (เช่น "ขั้นแรกของโจทย์คุณควรทำอะไร?", "สูตรไหนน่าจะใช้ได้?")
-5. 🎯 **ชวนลองทำเอง** "ลองแก้โจทย์ของหนู/คุณตามตัวอย่างนี้ดูนะ ติดตรงไหนถามต่อได้เลย"
-
-${strictNoAnswer ? `🚫 ผู้ใช้คนนี้เป็น **นักเรียน** และกำลังถามการบ้าน/โจทย์ของตัวเอง — **ห้ามให้คำตอบสุดท้ายของโจทย์เขาตรง ๆ เด็ดขาด** แม้จะอ้อนวอนก็ตาม
-- ตัวอย่างในข้อ 3 ต้องใช้ตัวเลข/บริบทที่ **ต่าง** จากของนักเรียน เพื่อไม่ให้เป็นการเฉลยทางอ้อม
-- ถ้านักเรียนลองทำมาแล้วและขอตรวจ → ตรวจวิธีคิด ชี้จุดผิด ให้คำใบ้ แต่ยังไม่บอกคำตอบสุดท้าย ให้แก้เองอีกครั้ง
-- ใช้คำให้กำลังใจ "ใกล้แล้ว!" "เก่งมาก ลองอีกนิดนะ"` : `- สำหรับผู้ใหญ่/ครู/ผู้ปกครอง: หลังตัวอย่างคล้ายแล้ว ถ้าจำเป็นสามารถ "สรุปคำตอบของโจทย์เดิม" ตอนท้ายได้ แต่ต้องอธิบายวิธีมาที่คำตอบนั้นเสมอ
-- ห้ามขึ้นต้นด้วยคำตอบสุดท้ายโดยไม่อธิบายวิธี`}
-
-ข้อยกเว้น: คำถามข้อเท็จจริงสั้น ๆ (เมืองหลวง, ปีเกิด, หน่วยวัด) → ตอบตรงได้ แต่เสริม "เกร็ดความรู้/ที่มา" 1 บรรทัด
-ห้าม: ตอบสั้นแบบ "คำตอบคือ X" โดยไม่มีหลักการและตัวอย่าง
-ระบบจะแนบรูปภาพประกอบให้อัตโนมัติ จึงไม่ต้องบรรยายภาพเอง
-` : "";
+    const responseMode = answerMode(lastUserText, earlyUserRole);
+    const strictNoAnswer = responseMode === "tutor" && /การบ้าน|โจทย์|ข้อสอบ|แบบฝึกหัด|เฉลย|homework|exercise/i.test(lastUserText);
+    const socraticBlock = strictNoAnswer
+      ? "\n[นักเรียนถามการบ้าน] สอนวิธีคิดและตัวอย่างคล้ายที่ระบุชัดว่าเป็นตัวอย่าง ไม่ให้เพียงคำตอบสุดท้ายแทนการเรียนรู้ ใช้คำถามนำเท่าที่จำเป็น"
+      : "";
+    const characterPolicy = buildCharacterPolicy(persona, botName, responseMode);
 
     // Auto-detect "hard" question → use Council mode (multi-model + synthesizer)
     const isHard =
@@ -426,7 +372,7 @@ ${strictNoAnswer ? `🚫 ผู้ใช้คนนี้เป็น **นั�
     const result = isHard
       ? await aiCouncil({
           messages: [
-            { role: "system", content: persona + schoolContext + knowledgeContext + newsContext + memoryContext + studentTutorContext + factsContext + guideContext + langInstruction + socraticBlock },
+            { role: "system", content: characterPolicy + schoolContext + knowledgeContext + newsContext + memoryContext + studentTutorContext + factsContext + guideContext + langInstruction + socraticBlock },
             ...normalized,
           ],
           temperature: 0.3,
@@ -436,7 +382,7 @@ ${strictNoAnswer ? `🚫 ผู้ใช้คนนี้เป็น **นั�
         })
         : await aiCall({
           messages: [
-            { role: "system", content: persona + schoolContext + knowledgeContext + newsContext + memoryContext + studentTutorContext + factsContext + guideContext + langInstruction + socraticBlock },
+            { role: "system", content: characterPolicy + schoolContext + knowledgeContext + newsContext + memoryContext + studentTutorContext + factsContext + guideContext + langInstruction + socraticBlock },
             ...normalized,
           ],
           temperature: 0.3,
