@@ -60,16 +60,16 @@ export function SidebarAccountFooter() {
     navigate("/login");
   };
 
-  const roleBadgeMap: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-    admin: { label: lang === "th" ? "ผู้ดูแลระบบ" : "Admin", variant: "destructive" },
-    director: { label: lang === "th" ? "ผู้อำนวยการ" : "Director", variant: "default" },
-    teacher: { label: lang === "th" ? "ครู" : "Teacher", variant: "secondary" },
-    student: { label: lang === "th" ? "นักเรียน" : "Student", variant: "outline" },
-    alumni: { label: lang === "th" ? "ศิษย์เก่า" : "Alumni", variant: "outline" },
+  const roleBadgeMap: Record<string, { label: string; tone: string }> = {
+    admin: { label: lang === "th" ? "ผู้ดูแลระบบ" : "Admin", tone: "system" },
+    director: { label: lang === "th" ? "ผู้อำนวยการ" : "Director", tone: "academic" },
+    teacher: { label: lang === "th" ? "ครู" : "Teacher", tone: "teacher" },
+    student: { label: lang === "th" ? "นักเรียน" : "Student", tone: "student" },
+    alumni: { label: lang === "th" ? "ศิษย์เก่า" : "Alumni", tone: "teaching" },
   };
 
   // ครูที่เป็น admin: แสดงป้ายทั้งสองบทบาท — มุมมองที่กำลังใช้เต็มสี อีกมุมมองจาง
-  const shownBadges: { label: string; variant: "default" | "secondary" | "outline" | "destructive"; active: boolean }[] = [];
+  const shownBadges: { label: string; tone: string; active: boolean }[] = [];
   if (isTeacherAdmin && (realRole === "admin" || realRole === "teacher")) {
     shownBadges.push(
       { ...roleBadgeMap.admin, active: role === "admin" },
@@ -81,14 +81,14 @@ export function SidebarAccountFooter() {
   }
 
   return (
-    <SidebarFooter className="border-t border-sidebar-border/70 bg-gradient-to-t from-sidebar-accent/25 to-transparent p-1.5 gap-1">
+    <SidebarFooter className="border-t border-sidebar-primary/20 bg-gradient-to-t from-sidebar-primary/10 via-sidebar-accent/30 to-transparent p-1.5 gap-1">
       {!collapsed ? (
         <div className="flex items-center gap-1.5 min-w-0 px-1 py-0.5 rounded-lg hover:bg-sidebar-accent/40 transition-colors md:pr-[4.5rem]">
           {avatarUrl ? (
-            <img src={avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover ring-2 ring-primary/30 flex-shrink-0" />
+            <img src={avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover ring-2 ring-sidebar-primary/45 flex-shrink-0" />
           ) : (
-            <span className="w-7 h-7 rounded-full bg-primary/10 ring-2 ring-primary/30 flex items-center justify-center flex-shrink-0">
-              <User className="w-3.5 h-3.5 text-primary" />
+            <span className="w-7 h-7 rounded-full bg-sidebar-primary/15 ring-2 ring-sidebar-primary/45 flex items-center justify-center flex-shrink-0">
+              <User className="w-3.5 h-3.5 text-sidebar-primary" />
             </span>
           )}
           <div className="min-w-0 flex-1">
@@ -98,7 +98,7 @@ export function SidebarAccountFooter() {
               {shownBadges.map((b, i) => (
                 <Badge
                   key={`${b.label}-${i}`}
-                  variant={b.variant}
+                  variant="outline"
                   title={
                     isTeacherAdmin
                       ? b.active
@@ -107,6 +107,8 @@ export function SidebarAccountFooter() {
                       : undefined
                   }
                   className={cn(
+                    "side-role-badge",
+                    `tone-${b.tone}`,
                     "text-[8px] h-3 px-1 leading-none font-medium transition-opacity",
                     !b.active && "opacity-45"
                   )}
