@@ -71,6 +71,13 @@
       "when": 1793766189492,
       "tag": "0009_parent_view_remediation",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793767251988,
+      "tag": "0010_auto_link_skip_parents",
+      "breakpoints": true
     }
   ]
 }
