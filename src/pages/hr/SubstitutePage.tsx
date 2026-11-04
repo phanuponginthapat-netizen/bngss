@@ -99,6 +99,7 @@ const SubstitutePage = () => {
         .from("staff_leaves")
         .select("*, personnel(id, prefix, first_name, last_name, employee_code)")
         .eq("status", "approved")
+        .is("revoked_at", null)
         .order("start_date", { ascending: false });
       if (error) throw error;
       return data || [];
@@ -523,12 +524,14 @@ const SubstitutePage = () => {
     confirmed: "bg-green-100 text-green-800",
     completed: "bg-blue-100 text-blue-800",
     no_substitute: "bg-gray-200 text-gray-700",
+    released: "bg-muted text-muted-foreground",
   };
   const statusLabels: Record<string, { th: string; en: string }> = {
     pending: { th: "รอดำเนินการ", en: "Pending" },
     confirmed: { th: "จัดสอนแทนแล้ว", en: "Confirmed" },
     completed: { th: "สอนแทนเสร็จสิ้น", en: "Completed" },
     no_substitute: { th: "ไม่มีการสอนแทน", en: "No substitute" },
+    released: { th: "พ้นหน้าที่สอนแทน (เจ้าของคาบมาสอนเอง)", en: "Released (teacher returned)" },
   };
 
 

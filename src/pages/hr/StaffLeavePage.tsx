@@ -430,6 +430,22 @@ const StaffLeavePage = () => {
     qc.invalidateQueries({ queryKey: ["staff_leaves"] });
   };
 
+  const handleRevoke = async (r: any) => {
+    const reason = await swal.prompt(
+      lang === "th" ? "ขอยกเลิกวันลา (มาปฏิบัติหน้าที่)" : "Revoke approved leave (returned to duty)",
+      { inputType: "textarea", placeholder: lang === "th" ? "เหตุผลที่มาปฏิบัติหน้าที่ เช่น ภารกิจถูกยกเลิก" : "Reason" } as any,
+    );
+    if (reason === null) return;
+    if (!String(reason).trim()) { swal.error(lang === "th" ? "กรุณาระบุเหตุผล" : "Reason required"); return; }
+    const { error } = await supabase.from("staff_leaves")
+      .update({ revoked_at: new Date().toISOString(), revoked_by: userId, revoke_reason: String(reason).trim() } as any)
+      .eq("id", r.id);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
+    toast.success(lang === "th" ? "บันทึกการมาปฏิบัติหน้าที่แล้ว ครูสอนแทนพ้นหน้าที่ในคาบที่เกี่ยวข้อง" : "Leave revoked");
+    qc.invalidateQueries({ queryKey: ["staff_leaves"] });
+    qc.invalidateQueries({ queryKey: ["staff_leaves_approved"] });
+  };
+
   const getPersonnelName = (pid: string) => {
     const p = personnel.find((x: any) => x.id === pid);
     return p ? `${(p as any).prefix || ""}${(p as any).first_name} ${(p as any).last_name}` : pid;
@@ -923,6 +939,11 @@ const StaffLeavePage = () => {
                               {statusConfig[r.status]?.icon}
                               {statusConfig[r.status]?.label}
                             </Badge>
+                            {r.revoked_at && (
+                              <Badge variant="outline" className="ml-1 mt-1 bg-muted text-muted-foreground" title={r.revoke_reason || ""}>
+                                {lang === "th" ? "ขอยกเลิกวันลา (มาปฏิบัติหน้าที่)" : "Revoked (returned to duty)"}
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground max-w-[200px]">
                             <div className="truncate">
@@ -930,8 +951,19 @@ const StaffLeavePage = () => {
                                 ? (r.approved_at ? new Date(r.approved_at).toLocaleString("th-TH") : "-")
                                 : (r.rejected_reason || "-")}
                             </div>
+                            {r.revoked_at && (
+                              <div className="truncate">
+                                {lang === "th" ? "มาปฏิบัติหน้าที่: " : "Returned: "}
+                                {new Date(r.revoked_at).toLocaleString("th-TH")} — {r.revoke_reason || "-"}
+                              </div>
+                            )}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {tabKey === "approved" && !r.revoked_at && (
+                              <Button variant="outline" size="sm" className="mr-1" onClick={() => handleRevoke(r)}>
+                                {lang === "th" ? "ขอยกเลิกวันลา" : "Revoke"}
+                              </Button>
+                            )}
                             <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}>
                               <Trash2 className="w-4 h-4 text-muted-foreground" />
                             </Button>
