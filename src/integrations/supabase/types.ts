@@ -13405,6 +13405,9 @@ export type Database = {
           personnel_id: string | null
           reason: string | null
           rejected_reason: string | null
+          revoke_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
           start_date: string
           status: string
           substitute_plan: Json
@@ -13423,6 +13426,9 @@ export type Database = {
           personnel_id?: string | null
           reason?: string | null
           rejected_reason?: string | null
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
           start_date: string
           status?: string
           substitute_plan?: Json
@@ -13441,6 +13447,9 @@ export type Database = {
           personnel_id?: string | null
           reason?: string | null
           rejected_reason?: string | null
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
           start_date?: string
           status?: string
           substitute_plan?: Json
