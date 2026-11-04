@@ -10768,6 +10768,47 @@ export type Database = {
         }
         Relationships: []
       }
+      personnel_daily_work_logs: {
+        Row: {
+          created_at: string
+          id: string
+          items: Json
+          position_title: string
+          template_id: string
+          updated_at: string
+          user_id: string
+          work_date: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          items: Json
+          position_title: string
+          template_id: string
+          updated_at?: string
+          user_id?: string
+          work_date: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          items?: Json
+          position_title?: string
+          template_id?: string
+          updated_at?: string
+          user_id?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personnel_daily_work_logs_template_id_user_id_fkey"
+            columns: ["template_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "personnel_work_templates"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       personnel_face_descriptors: {
         Row: {
           captured_by: string | null
@@ -10820,6 +10861,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      personnel_work_templates: {
+        Row: {
+          created_at: string
+          id: string
+          position_title: string
+          scopes: string[]
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          position_title: string
+          scopes: string[]
+          title: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          position_title?: string
+          scopes?: string[]
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       portfolio_items: {
         Row: {
