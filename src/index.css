@@ -162,6 +162,11 @@ a[href*="lovable.dev"][href*="utm"] {
 .tone-tools { --tone: 22 92% 63%; }
 .tone-system { --tone: 0 78% 67%; }
 .tone-teacher { --tone: 152 70% 58%; }
+/* ส ีของป ้ ยบทบาทใต ้ชื่ อ (Admin/ผ ู้บร ิหาร/คร ู/น ักเร ียน/ผ ู้ปกครอง/ศ ิษย์เก ่ า) */
+.tone-admin { --tone: 0 85% 72%; }
+.tone-director { --tone: 43 95% 70%; }
+.tone-parent { --tone: 265 88% 78%; }
+.tone-alumni { --tone: 25 95% 68%; }
 
 @layer components {
   [data-sidebar="sidebar"] {
@@ -272,10 +277,10 @@ a[href*="lovable.dev"][href*="utm"] {
   }
 
   [data-sidebar] .side-role-badge {
-    background-color: hsl(var(--tone) / 0.28);
-    border-color: hsl(var(--tone) / 0.5);
-    color: hsl(var(--tone));
-    font-weight: 600;
+    background-color: hsl(var(--tone) / 0.26);
+    border-color: hsl(var(--tone) / 0.55);
+    color: color-mix(in srgb, hsl(var(--tone)) 72%, white);
+    font-weight: 700;
   }
 }
 

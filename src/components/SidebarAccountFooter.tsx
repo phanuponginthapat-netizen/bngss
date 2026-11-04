@@ -109,8 +109,8 @@ export function SidebarAccountFooter() {
                   className={cn(
                     "side-role-badge",
                     `tone-${b.tone}`,
-                    "text-[9px] h-3.5 px-1.5 leading-none font-semibold transition-opacity",
-                    !b.active && "opacity-45"
+                    "text-[10px] h-4 px-2 leading-none font-bold transition-opacity",
+                    !b.active && "opacity-60"
                   )}
                 >
                   {b.label}
