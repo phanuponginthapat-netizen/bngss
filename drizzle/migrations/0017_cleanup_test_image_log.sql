@@ -1,0 +1,1 @@
+DELETE FROM public.ai_chat_logs WHERE model = 'lovable-image' AND (content = '🎨 สร้างรูป: ทดสอบระบบบันทึกภาพ' OR content LIKE '%1793783298810-279e02b7.png%');

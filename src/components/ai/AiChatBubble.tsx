@@ -13,6 +13,46 @@ import { askFreeAI } from "@/lib/freeAI";
 import { useUserRole } from "@/hooks/useUserRole";
 import { streamImage } from "@/lib/streamImage";
 
+const AI_IMAGE_PREFIX = "ai-image://";
+const signedCache = new Map<string, string>();
+
+/** Chat image: resolves saved images (ai-image://path) and opens full size on tap. */
+function ChatImage({ src, partial, onOpen }: { src: string; partial?: boolean; onOpen: (url: string) => void }) {
+  const stored = src.startsWith(AI_IMAGE_PREFIX) ? src.slice(AI_IMAGE_PREFIX.length) : null;
+  const [url, setUrl] = useState<string | null>(stored ? signedCache.get(stored) ?? null : src);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!stored) { setUrl(src); return; }
+    if (signedCache.has(stored)) { setUrl(signedCache.get(stored)!); return; }
+    let alive = true;
+    supabase.storage.from("ai-chat-images").createSignedUrl(stored, 60 * 60 * 24).then(({ data, error }) => {
+      if (!alive) return;
+      if (error || !data?.signedUrl) { setFailed(true); return; }
+      signedCache.set(stored, data.signedUrl);
+      setUrl(data.signedUrl);
+    });
+    return () => { alive = false; };
+  }, [src, stored]);
+  if (failed) return <div className="text-xs opacity-70">โหลดภาพไม่สำเร็จ</div>;
+  if (!url) return <div className="h-40 w-56 rounded-lg bg-muted animate-pulse" />;
+  return (
+    <button type="button" onClick={() => !partial && onOpen(url)} className="block" title="แตะเพื่อดูภาพเต็ม">
+      <img src={url} alt="ภาพในบทสนทนา" className={cn("rounded-lg max-w-full h-auto cursor-zoom-in", partial && "blur-lg")} loading="lazy" />
+    </button>
+  );
+}
+
+async function toDataUrl(url: string): Promise<string> {
+  if (url.startsWith("data:")) return url;
+  const blob = await (await fetch(url)).blob();
+  return await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+
 type Msg = { role: "user" | "assistant"; content: string; imagePartial?: boolean };
 
 type ChatLogRow = { role: "user" | "assistant"; content: string; created_at: string };
@@ -67,6 +107,7 @@ export default function AiChatBubble() {
   const recRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingImage, setPendingImage] = useState<string | null>(null); // data URL
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const { schoolLogo } = useSystemSettings();
 
   // ===== Voice-loop refs (shared with KioskHelloAi) =====
@@ -570,15 +611,46 @@ export default function AiChatBubble() {
     try {
       const { data, error } = await supabase.auth.getSession();
       if (error || !data.session) throw new Error("กรุณาเข้าสู่ระบบก่อนสร้างภาพ");
+      let finalUrl: string | null = null;
       await streamImage(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`,
         { mode: "image", messages: [{ role: "user", content: prompt }] },
-        (url, isFinal) => setMessages([...nextDisplay, {
-          role: "assistant", content: `![ภาพจาก Lovable AI](${url})`, imagePartial: !isFinal,
-        }]),
+        (url, isFinal) => {
+          if (isFinal) finalUrl = url;
+          setMessages([...nextDisplay, {
+            role: "assistant", content: `![ภาพจาก Lovable AI](${url})`, imagePartial: !isFinal,
+          }]);
+        },
         undefined,
         { Authorization: `Bearer ${data.session.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
       );
+      // Save to history so the image is still there after closing the chat.
+      if (finalUrl) {
+        try {
+          const image = await toDataUrl(finalUrl);
+          const { data: saved, error: saveErr } = await supabase.functions.invoke("ai-chat", {
+            body: { mode: "save_image", image, messages: [{ role: "user", content: prompt }] },
+          });
+          if (saveErr || !saved?.path) throw saveErr || new Error("save failed");
+          const savedContent = `![ภาพจาก Lovable AI](${AI_IMAGE_PREFIX}${saved.path})`;
+          setMessages((prev) => {
+            const out: Msg[] = [];
+            let replaced = false;
+            for (const m of prev) {
+              if (!replaced && m.role === "assistant" && m.content.includes(finalUrl!)) {
+                out.push({ role: "assistant", content: savedContent }); replaced = true; continue;
+              }
+              const last = out[out.length - 1];
+              if (last && last.role === m.role && last.content === m.content) continue; // realtime duplicate
+              out.push(m);
+            }
+            return out.filter((m, i, arr) => !(m.content === savedContent && arr.findIndex((x) => x.content === savedContent) !== i));
+          });
+        } catch (e) {
+          console.warn("[AiChat] save image failed", e);
+          swal.toast.info("สร้างภาพแล้ว แต่บันทึกลงประวัติไม่สำเร็จ — แตะที่ภาพแล้วกดบันทึกภาพเก็บไว้");
+        }
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "สร้างภาพไม่สำเร็จ";
       setMessages([...nextDisplay, { role: "assistant", content: message }]);
@@ -862,7 +934,7 @@ export default function AiChatBubble() {
                     >
                       {segments.map((s, idx) =>
                         s.type === "img" ? (
-                          <img key={idx} src={s.value} alt="ภาพในบทสนทนา" className={cn("rounded-lg max-w-full h-auto", m.imagePartial && "blur-lg")} loading="lazy" />
+                          <ChatImage key={idx} src={s.value} partial={m.imagePartial} onOpen={setViewerUrl} />
                         ) : (
                           s.value && <div key={idx}>{s.value.split(/\*{2,3}(.+?)\*{2,3}/g).map((part, j) => j % 2 ? <strong key={j}>{part}</strong> : part)}</div>
                         )
@@ -950,6 +1022,17 @@ export default function AiChatBubble() {
               {input.length}/2000 ตัวอักษร · ✨ รูป · 📄 ใบงาน · 📚 แผน · 📋 ข้อสอบ · 🎓 สรุปเกรด
             </div>
           </form>
+        </div>
+      )}
+      {viewerUrl && (
+        <div className="fixed inset-0 z-[200] bg-background/95 flex flex-col" role="dialog" aria-label="ดูภาพเต็ม" onClick={() => setViewerUrl(null)}>
+          <div className="flex justify-end gap-2 p-3" onClick={(e) => e.stopPropagation()}>
+            <Button asChild variant="secondary" size="sm"><a href={viewerUrl} target="_blank" rel="noreferrer" download>บันทึกภาพ</a></Button>
+            <Button variant="secondary" size="icon" onClick={() => setViewerUrl(null)} aria-label="ปิด"><X className="w-4 h-4" /></Button>
+          </div>
+          <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
+            <img src={viewerUrl} alt="ภาพเต็ม" className="max-w-full max-h-full object-contain rounded-lg" onClick={(e) => e.stopPropagation()} />
+          </div>
         </div>
       )}
     </>
