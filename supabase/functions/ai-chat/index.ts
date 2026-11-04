@@ -87,6 +87,30 @@ Deno.serve(async (req) => {
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Persist a finished generated image so it survives closing the chat.
+    if (mode === "save_image") {
+      const json = (status: number, payload: unknown) => new Response(JSON.stringify(payload), {
+        status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+      const imageData = typeof body.image === "string" ? body.image : "";
+      const m = imageData.match(/^data:(image\/(png|jpeg|webp));base64,(.+)$/);
+      if (!m || !lastUserMsg.trim()) return json(400, { error: "ข้อมูลภาพไม่ถูกต้อง" });
+      const bytes = Uint8Array.from(atob(m[3]), (c) => c.charCodeAt(0));
+      if (bytes.length > 10 * 1024 * 1024) return json(400, { error: "ภาพใหญ่เกินไป" });
+      const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const ext = m[2] === "jpeg" ? "jpg" : m[2];
+      const path = `${identifier}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+      const up = await sb.storage.from("ai-chat-images").upload(path, bytes, { contentType: m[1] });
+      if (up.error) return json(500, { error: "บันทึกภาพไม่สำเร็จ" });
+      const now = Date.now();
+      const { error: logErr } = await sb.from("ai_chat_logs").insert([
+        { user_id: identifier, role: "user", content: `🎨 สร้างรูป: ${lastUserMsg}`.slice(0, 4000), model: "lovable-image", created_at: new Date(now).toISOString() },
+        { user_id: identifier, role: "assistant", content: `![ภาพจาก Lovable AI](ai-image://${path})`, model: "lovable-image", created_at: new Date(now + 1).toISOString() },
+      ]);
+      if (logErr) return json(500, { error: "บันทึกประวัติไม่สำเร็จ" });
+      return json(200, { path });
+    }
+
     // Explicit image requests use workspace AI credits, never a client-side key.
     if (mode === "image") {
       if (!lastUserMsg.trim()) {
