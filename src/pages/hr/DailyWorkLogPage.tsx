@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ClipboardList, Plus, Printer, Save, Trash2, Pencil, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,7 +34,9 @@ export default function DailyWorkLogPage() {
   const [scopes, setScopes] = useState(['']);
   const [workDate, setWorkDate] = useState<string | null>(null);
   const [items, setItems] = useState<WorkItem[]>([]);
+  const [addScope, setAddScope] = useState('');
   const [saving, setSaving] = useState(false);
+  const itemRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const bounds = monthBounds(month);
   const identity = useQuery({ queryKey:['work-report-identity', userId], enabled: !!userId && allowed, queryFn: async () => {
     if (!userId) throw new Error('กรุณาเข้าสู่ระบบ');
@@ -107,16 +109,33 @@ export default function DailyWorkLogPage() {
     if (!ready || !row?.loggable || date > today) return;
     const log = row.log;
     if (log) {
-      setTemplateId(log.template_id); setItems(log.items.map(i => ({...i})));
+      setTemplateId(log.template_id); setItems(log.items.map(i => ({...i}))); setAddScope(log.items[0]?.scope ?? selected?.scopes[0] ?? '');
     } else {
       if (!selected) { setTab('templates'); return; }
-      setItems(selected.scopes.map(scope => ({scope,detail:''})));
+      setItems(selected.scopes.map(scope => ({scope,detail:''}))); setAddScope(selected.scopes[0] ?? '');
     }
     setWorkDate(date);
   };
   // Show alerts only after the dialog has closed, then release any leftover scroll lock.
   const releaseScroll = () => { const b=document.body; b.style.removeProperty('overflow'); b.style.removeProperty('pointer-events'); b.removeAttribute('data-scroll-locked'); document.documentElement.style.removeProperty('overflow'); };
   const noticeAfterClose = async (show: () => Promise<unknown>) => { await new Promise(r=>setTimeout(r,250)); releaseScroll(); try { await show(); } finally { releaseScroll(); } };
+  // ขอบเขตที่เลือกได้ในวันน้ัน = ของเทมเพลตปัจจุบน + ที่เคยบันทึกไว้ (เพื่ อไม่ให้งานเก่าหายเมื่ อเทมเพลตเปลี่ยน)
+  const dayScopes = useMemo(() => {
+    const log = rows.find(r => r.date === workDate)?.log;
+    return [...new Set([...(selected?.scopes ?? []), ...(log?.items.map(i => i.scope) ?? [])].filter(Boolean))];
+  }, [rows, workDate, selected]);
+  useEffect(() => { if (dayScopes.length && !dayScopes.includes(addScope)) setAddScope(dayScopes[0]); }, [dayScopes, addScope]);
+  const addWorkItem = () => {
+    const scope = dayScopes.includes(addScope) ? addScope : dayScopes[0];
+    if (!scope) return;
+    const next = [...items, { scope, detail:'' }];
+    setItems(next);
+    setTimeout(() => { const el = itemRefs.current[next.length - 1]; el?.focus(); el?.scrollIntoView({ block:'center' }); }, 0);
+  };
+  const removeItem = async (index: number) => {
+    if (items[index].detail.trim() && !await swal.confirm({ title:'ลบห้วข้อน้ี?', danger:true })) return;
+    setItems(items.filter((_,n)=>n!==index));
+  };
   const saveDay = async () => {
     if (!userId || !workDate || !selected || !ready) return;
     const clean = items.filter(i => i.detail.trim()).map(i => ({scope:i.scope,detail:i.detail.trim()}));
