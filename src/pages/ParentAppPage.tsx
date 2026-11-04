@@ -565,20 +565,33 @@ export default function ParentAppPage() {
     }
     return (
       <div className="space-y-2">
-        <p className="text-xs text-muted-foreground flex items-center gap-1"><BookOpen className="w-3.5 h-3.5" /> {L("การบ้านที่จะถึงกำหนด", "Upcoming homework")} · .limit(5)</p>
+        <p className="text-xs text-muted-foreground flex items-center gap-1"><BookOpen className="w-3.5 h-3.5" /> {L("การบ้าน 30 วันล่าสุด (ดูอย่างเดียว)", "Homework, last 30 days (view only)")}</p>
         <div className="space-y-1.5">
-          {b.homework.map((h) => (
-            <div key={h.id} className="rounded-lg border px-3 py-2 bg-amber-50/50 dark:bg-amber-950/10">
+          {b.homework.map((h) => {
+            const s = h.submission;
+            const overdue = !s && h.due_date && h.due_date < todayBangkok();
+            const label = s
+              ? s.graded_at || s.score != null ? L("ตรวจแล้ว", "Graded") : L("ส่งแล้ว", "Submitted")
+              : overdue ? L("ยังไม่ส่ง (เลยกำหนด)", "Not submitted (overdue)") : L("ยังไม่ส่ง", "Not submitted");
+            return (
+            <div key={h.id} className="rounded-lg border px-3 py-2 bg-card">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="text-sm font-medium truncate">{h.title}</div>
                   {h.description && <div className="text-xs text-muted-foreground line-clamp-2">{h.description}</div>}
                   <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
                     {h.subjects?.name_th && <span>{h.subjects.name_th}</span>}
-                    {h.due_date && <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> {h.due_date}</span>}
+                    {h.due_date && <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(h.due_date).toLocaleDateString(lang === "th" ? "th-TH" : "en-US")}</span>}
                   </div>
                 </div>
-                {h.due_date && <Badge variant="outline" className="shrink-0">{new Date(h.due_date).toLocaleDateString(lang === "th" ? "th-TH" : "en-US")}</Badge>}
+                <div className="shrink-0 text-right space-y-1">
+                  <Badge variant={s ? "secondary" : overdue ? "destructive" : "outline"}>{label}</Badge>
+                  {s?.score != null && <div className="text-xs font-semibold">{L("คะแนน", "Score")} {s.score}{h.total_score ? `/${h.total_score}` : ""}</div>}
+                </div>
+              </div>
+            </div>
+            );
+          })}
               </div>
             </div>
           ))}
