@@ -534,7 +534,7 @@ export default function ParentAppPage() {
     }
     return (
       <div className="space-y-2">
-        <p className="text-xs text-muted-foreground flex items-center gap-1"><GraduationCap className="w-3.5 h-3.5" /> student_scores · .limit(5)</p>
+        <p className="text-xs text-muted-foreground flex items-center gap-1"><GraduationCap className="w-3.5 h-3.5" /> {L("คะแนนล่าสุด", "Latest scores")}</p>
         <div className="space-y-1.5">
           {b.scores.map((s) => (
             <div key={s.id} className="flex items-center justify-between rounded-lg border bg-card px-3 py-2">
@@ -610,7 +610,7 @@ export default function ParentAppPage() {
     }
     return (
       <div className="space-y-2">
-        <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5 text-amber-600" /> 0 ร มส · grade_remediation where student_id = {b.child.id.slice(0, 6)}… and status != &#39;ผ่าน&#39; · .limit(5)</p>
+        <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5 text-amber-600" /> {L("รายการ 0 ร มส ของบุตร", "0/R/MS items")}</p>
         <div className="space-y-1.5">
           {b.remediation.map((r) => (
             <div key={r.id} className="rounded-lg border border-amber-200 bg-amber-50/60 dark:bg-amber-950/20 px-3 py-2">
