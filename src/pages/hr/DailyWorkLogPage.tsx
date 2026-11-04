@@ -21,7 +21,8 @@ export default function DailyWorkLogPage() {
   const { userId, role, isObserver } = useUserRole();
   const allowed = canUsePersonnelWorkReport(role, isObserver);
   const qc = useQueryClient();
-  const { info } = useSchoolReport();
+  const school = useSchoolReport();
+  const { info } = school;
   const today = todayBangkok();
   const [month, setMonth] = useState(today.slice(0, 7));
   const [tab, setTab] = useState('daily');
@@ -57,13 +58,22 @@ export default function DailyWorkLogPage() {
     if (error) throw error;
     return data.map(l => ({...l, items:parseWorkItems(l.items)}));
   }});
-  useEffect(() => { if (!templateId && templates.data?.[0]) setTemplateId(templates.data[0].id); }, [templates.data, templateId]);
+  useEffect(() => {
+    setTemplateId(''); setEditTemplateId(null); setTitle(''); setPosition('');
+    setScopes(['']); setItems([]); setWorkDate(null);
+  }, [userId]);
+  useEffect(() => {
+    if (templates.data && !templates.data.some(t => t.id === templateId)) {
+      setTemplateId(templates.data[0]?.id ?? '');
+    }
+  }, [templates.data, templateId]);
   const selected = templates.data?.find(t => t.id === templateId);
   const rows = workMonthRows(month, calendar.data ?? [], logs.data ?? []);
   const loading = [templates, calendar, logs, identity].some(q => q.isPending);
   const error = templates.error || calendar.error || logs.error || identity.error;
   const ready = !loading && !error;
-  const refresh = () => { void templates.refetch(); void calendar.refetch(); void logs.refetch(); void identity.refetch(); };
+  const printReady = ready && school.isReady;
+  const refresh = () => { void templates.refetch(); void calendar.refetch(); void logs.refetch(); void identity.refetch(); void school.refetch(); };
   const invalidate = async () => {
     await Promise.all([qc.invalidateQueries({queryKey:['work-report-templates',userId]}), qc.invalidateQueries({queryKey:['work-report-logs',userId]})]);
   };
@@ -85,11 +95,13 @@ export default function DailyWorkLogPage() {
   const openDay = (date: string) => {
     const row = rows.find(r => r.date === date);
     if (!ready || row?.kind !== 'work' || date > today) return;
-    if (!selected) { setTab('templates'); return; }
     const log = row.log;
     if (log) {
       setTemplateId(log.template_id); setItems(log.items.map(i => ({...i})));
-    } else setItems(selected.scopes.map(scope => ({scope,detail:''})));
+    } else {
+      if (!selected) { setTab('templates'); return; }
+      setItems(selected.scopes.map(scope => ({scope,detail:''})));
+    }
     setWorkDate(date);
   };
   const saveDay = async () => {
@@ -121,11 +133,12 @@ export default function DailyWorkLogPage() {
   if (!allowed) return <p className="p-6 text-muted-foreground">สำหรับบุคลากรโรงเรียนเท่านั้น</p>;
   return <div className="mx-auto max-w-6xl space-y-5 p-4 md:p-6">
     <header className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="flex items-center gap-2 text-xl font-semibold"><ClipboardList className="h-5 w-5 text-primary"/>รายงานการปฏิบัติหน้าที่</h1><p className="mt-1 text-sm text-muted-foreground">{identity.data?.first_name} {identity.data?.last_name}</p></div>
-      <Button variant="outline" disabled={!ready || !selected} onClick={() => {
-        if (!selected || !identity.data) return;
+      <Button variant="outline" disabled={!printReady || !selected} onClick={() => {
+        if (!printReady || !selected || !identity.data) return;
         openPrintWindow(buildWorkReportHtml(rows,{name:`${identity.data.first_name} ${identity.data.last_name}`,position:selected.position_title,school:info.school_name,month}),{title:`รายงานการปฏิบัติงาน ${thaiWorkMonth(month)}`});
       }}><Printer className="mr-2 h-4 w-4"/>พิมพ์รายเดือน</Button></header>
     {error && <div role="alert" className="flex flex-wrap items-center gap-3 border border-destructive p-3 text-destructive">โหลดข้อมูลไม่สำเร็จ ไม่สามารถบันทึกหรือพิมพ์รายงานได้<Button variant="outline" onClick={refresh}><RefreshCw className="mr-2 h-4 w-4"/>ลองใหม่</Button></div>}
+    {!school.isLoading && !school.isReady && <div role="alert" className="flex flex-wrap items-center gap-3 border border-destructive p-3 text-destructive">โหลดชื่อโรงเรียนไม่สำเร็จ ยังพิมพ์รายงานไม่ได้<Button variant="outline" onClick={() => void school.refetch()}><RefreshCw className="mr-2 h-4 w-4"/>ลองใหม่</Button></div>}
     <Tabs value={tab} onValueChange={setTab}><TabsList><TabsTrigger value="daily">บันทึกรายวัน</TabsTrigger><TabsTrigger value="templates">ขอบเขตงานของฉัน</TabsTrigger></TabsList>
       <TabsContent value="templates" className="space-y-5 pt-3">
         <div className="flex flex-wrap gap-2">{templates.data?.map(t => <Button key={t.id} variant={editTemplateId===t.id?'default':'outline'} onClick={() => {setEditTemplateId(t.id);setTitle(t.title);setPosition(t.position_title);setScopes([...t.scopes]);}}><Pencil className="mr-2 h-4 w-4"/>{t.title}</Button>)}<Button variant="ghost" onClick={resetTemplate}><Plus className="mr-2 h-4 w-4"/>เทมเพลตใหม่</Button></div>
