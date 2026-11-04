@@ -298,7 +298,7 @@ const Dashboard = () => {
       </Suspense>
     ),
     alerts: () => (
-      <div className="grid grid-cols-2 gap-3 h-full">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-3 h-full content-start">
         <AlertCard icon={FileText} value={stats?.pendingStudentLeaves || 0} label={L("ใบลานักเรียน", "Student Leaves")} tone="info" onClick={() => navigate("/dashboard/student/leave")} />
         <AlertCard icon={Clock} value={stats?.pendingStaffLeaves || 0} label={L("ใบลาบุคลากร", "Staff Leaves")} tone="info" onClick={() => navigate("/dashboard/hr/leave")} />
         <AlertCard icon={AlertTriangle} value={stats?.pendingDamage || 0} label={L("แจ้งซ่อม", "Repairs")} tone="warning" onClick={() => navigate("/dashboard/finance/assets")} />
@@ -683,16 +683,20 @@ const AlertCard = ({ icon: Icon, value, label, tone, onClick }: AlertCardProps) 
   const c = toneMap[tone];
   return (
     <Card
-      className="border-0 ring-1 ring-border/40 shadow-elevated rounded-[1.5rem] cursor-pointer hover:shadow-card-hover hover:-translate-y-1 active:scale-[0.97] transition-all duration-300 group overflow-hidden"
+      role="button"
+      tabIndex={0}
+      aria-label={`${label} ${value}`}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(); } }}
+      className="border-0 ring-1 ring-border/50 shadow-sm rounded-2xl cursor-pointer hover:shadow-card-hover hover:ring-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.98] transition-all duration-200 group overflow-hidden"
       onClick={onClick}
     >
-      <CardContent className="p-3 flex flex-col justify-between h-full min-h-[100px]">
-        <div className={`w-10 h-10 rounded-2xl ${c.bg} ${c.text} ring-4 ${c.ring} flex items-center justify-center group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300`}>
+      <CardContent className="p-3 flex items-center gap-3 min-h-[64px]">
+        <div className={`w-10 h-10 shrink-0 rounded-xl ${c.bg} ${c.text} flex items-center justify-center group-hover:scale-105 transition-transform`}>
           <Icon className="w-5 h-5" />
         </div>
-        <div className="mt-2">
-          <p className="text-2xl font-extrabold text-foreground leading-none tabular-nums">{value}</p>
-          <p className="text-[10px] text-muted-foreground mt-1 truncate font-medium">{label}</p>
+        <div className="min-w-0">
+          <p className={`text-xl font-bold leading-none tabular-nums ${value ? "text-foreground" : "text-muted-foreground"}`}>{value}</p>
+          <p className="text-xs text-muted-foreground mt-1 truncate">{label}</p>
         </div>
       </CardContent>
     </Card>

@@ -52,6 +52,7 @@ export default function AiChatBubble() {
   const { role: userRole } = useUserRole();
   const greetingMsg: Msg = useMemo(() => ({ role: "assistant", content: bot.greeting }), [bot.greeting]);
   const [open, setOpen] = useState(false);
+  const [avatarBroken, setAvatarBroken] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([greetingMsg]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -761,6 +762,7 @@ export default function AiChatBubble() {
     runVoiceLoop();
   };
 
+  // รูปจาก backend เก่าที่ปิดไปแล้วโหลดไม่ได้ — ซ่อนรูปที่เสียแทนการแสดงข้อความแตก
   return (
     <>
       {/* Floating bubble */}
@@ -776,8 +778,8 @@ export default function AiChatBubble() {
             คุยกับ {bot.name} 💬
           </span>
           <span className="relative block w-11 h-11 rounded-full bg-gradient-to-br from-pink-400 via-fuchsia-500 to-violet-500 border-2 border-white ring-2 ring-foreground/80 shadow-[3px_3px_0_hsl(var(--foreground))] flex items-center justify-center overflow-hidden hover:rotate-6 hover:scale-110 transition-transform animate-bounce-slow">
-            {bot.avatarUrl ? (
-              <img src={bot.avatarUrl} alt={bot.name} className="w-full h-full object-cover" />
+            {bot.avatarUrl && !avatarBroken ? (
+              <img src={bot.avatarUrl} alt={bot.name} className="w-full h-full object-cover" onError={() => setAvatarBroken(true)} />
             ) : (
               <MessageCircle className="w-5 h-5 text-white drop-shadow" />
             )}
@@ -800,7 +802,7 @@ export default function AiChatBubble() {
         >
           <div className="flex items-center gap-2.5 px-4 py-3 border-b border-white/50 backdrop-blur-sm" style={{ background: bot.headerGradient || "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))" }}>
             <Avatar className="w-8 h-8">
-              {bot.avatarUrl ? <AvatarImage src={bot.avatarUrl} /> : schoolLogo ? <AvatarImage src={schoolLogo} /> : null}
+              {bot.avatarUrl && !avatarBroken ? <AvatarImage src={bot.avatarUrl} /> : schoolLogo ? <AvatarImage src={schoolLogo} /> : null}
               <AvatarFallback className="gradient-primary text-primary-foreground"><Bot className="w-4 h-4" /></AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
