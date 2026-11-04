@@ -3,7 +3,7 @@ import type { AppRole } from "@/hooks/useUserRole";
 import { GraduationCap, BookOpen, Users, ClipboardList, Calendar, CalendarDays, FileText, BarChart3, Shield, ShieldCheck, IdCard, Lock, Wrench, UserX, Bell, Bot, Megaphone, Activity, Home, LayoutDashboard, UserCog, Award, Globe, User, MessageSquare, DollarSign, Package, Heart, Clock, BookOpenCheck, UtensilsCrossed, ClipboardCheck, FolderOpen, Database, Inbox, Settings as SettingsIcon, Sparkles, ScanLine, ScanFace, MapPin, History, Trophy, DoorOpen, Layers, CloudDownload, MonitorPlay, StickyNote, Eye, Boxes, Settings2, Recycle } from "lucide-react";
 import { getModuleKeyForPath } from "@/lib/moduleRegistry";
 export type NavigationItem = { title: string; url: string; icon: ComponentType<{ className?: string }>; roles?: AppRole[]; desc?: string; moduleKey?: string };
-export type NavigationGroup = { key: string; label: string; icon: NavigationItem["icon"]; roles?: AppRole[]; items: NavigationItem[] };
+export type NavigationGroup = { key: string; label: string; icon: NavigationItem["icon"]; roles?: AppRole[]; advanced?: boolean; items: NavigationItem[] };
 export type WorkArea = { key: string; label: string; icon: NavigationItem["icon"]; groups: NavigationGroup[] };
 export const areaUrl = (key: string) => `/dashboard/work/${key}`;
 export function buildWorkAreas(lang = "th"): WorkArea[] {
@@ -411,7 +411,56 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
     ] },
     { key: "finance", label: L("ฝ่ายงบประมาณและพัสดุ", "Budget & assets"), icon: DollarSign, groups: groups("finance") },
     { key: "tools", label: L("เครื่องมือและไฟล์", "Tools & files"), icon: FolderOpen, groups: groups("tools_kit") },
-    { key: "system", label: L("ผู้ดูแลระบบ", "System administration"), icon: Shield, groups: groups("admin_content", "admin_system", "admin_cloud", "admin_kiosk") },
+    { key: "system", label: L("ผู้ดูแลระบบ", "System administration"), icon: Shield, groups: (() => {
+      // Plain-language, task-first grouping; every destination keeps its original route/roles.
+      const all = groups("admin_content", "admin_system", "admin_cloud", "admin_kiosk", "academic_manage", "academic_records", "academic_teaching").flatMap(g => g.items).concat(mainItems);
+      const pick = (url: string, title: string, desc: string): NavigationItem[] => { const it = all.find(i => i.url === url); return it ? [{ ...it, title, desc }] : []; };
+      const mk = (key: string, label: string, icon: NavigationItem["icon"], items: NavigationItem[][], advanced = false): NavigationGroup => ({ key, label, icon, advanced, items: items.flat() });
+      return [
+        mk("sys_school", L("1. ข้อมูลโรงเรียนและภาคเรียน", "1. School & terms"), SettingsIcon, [
+          pick("/dashboard/admin/school-settings", L("ตั้งค่าโรงเรียน ปีการศึกษา และวันเปิด-ปิดภาคเรียน", "School, year & term dates"), L("ชื่อโรงเรียน ระดับชั้น ภาคเรียน และเปิด/ปิดเมนู", "Name, grades, terms, menus")),
+          pick("/dashboard/admin/cms", L("แก้ไขหน้าเว็บไซต์โรงเรียน", "Edit school website"), L("ข่าว รูป และเนื้อหาที่คนภายนอกเห็น", "Public content")),
+        ]),
+        mk("sys_users", L("2. ผู้ใช้และสิทธิ์", "2. Users & permissions"), UserCog, [
+          pick("/dashboard/users", L("เพิ่ม/แก้ไขผู้ใช้", "Add or edit users"), L("สร้างบัญชี รีเซ็ตรหัส ปิดบัญชี", "Create, reset password, disable")),
+          pick("/dashboard/admin/bulk-operations", L("แก้ไขผู้ใช้ทีละหลายคน", "Edit many users"), L("เลื่อนชั้น ย้ายห้อง หรือปิดบัญชีพร้อมกัน", "Promote, move or disable together")),
+          pick("/dashboard/admin/permissions", L("กำหนดว่าใครทำอะไรได้", "Who can do what"), L("สิทธิ์ของครู ผู้บริหาร นักเรียน ผู้ปกครอง", "Role permissions")),
+          pick("/dashboard/admin/departments", L("ฝ่ายงานและสมาชิก", "Departments"), L("จัดครูเข้าฝ่ายงาน", "Assign staff to departments")),
+          pick("/dashboard/admin/observation", L("บัญชีผู้ตรวจจากภายนอก", "External reviewer accounts"), L("ให้ ศน./ผู้ประเมิน ดูข้อมูลแบบจำกัด", "Limited reviewer access")),
+        ]),
+        mk("sys_academic", L("3. นักเรียน วิชา และตารางสอน", "3. Students, subjects & timetable"), BookOpen, [
+          pick("/dashboard/academic/all-students", L("รายชื่อนักเรียนทั้งหมด", "All students"), L("ดู แก้ไข และนำเข้าข้อมูลนักเรียน", "View, edit & import")),
+          pick("/dashboard/academic/management", L("ห้องเรียน รายวิชา และครูประจำชั้น", "Classes, subjects & homeroom"), L("ตั้งค่าห้อง วิชา และครูผู้สอน", "Set classes & subjects")),
+          pick("/dashboard/academic/schedule", L("ตารางสอน", "Timetable"), L("ดูและแก้ไขตารางสอนของแต่ละเทอม", "Timetable per term")),
+          pick("/dashboard/admin/data-quality", L("ตรวจข้อมูลที่ยังไม่ครบ", "Find missing data"), L("ผู้ใช้ไม่มีบทบาท นักเรียนไม่มีห้อง ครูไม่มีตาราง", "Missing roles, rooms, timetables")),
+        ]),
+        mk("sys_scores", L("4. คะแนนและเอกสาร", "4. Scores & documents"), FileText, [
+          pick("/dashboard/academic/pp5", L("นำเข้าคะแนน ปพ.5", "Import PP.5 scores"), L("อัปโหลดไฟล์คะแนน ระบบยึดคะแนนรวมจากไฟล์", "Upload score files")),
+          pick("/dashboard/academic/score-status", L("ติดตามการส่งคะแนน", "Score submission status"), L("ดูว่าวิชาไหนส่งคะแนนแล้ว", "Which subjects have submitted")),
+          pick("/dashboard/admin/print-center", L("พิมพ์บัตร เกียรติบัตร และ ปพ.", "Print cards & documents"), L("เลือกนักเรียนแล้วพิมพ์ได้ทันที", "Select and print")),
+          pick("/dashboard/admin/id-card", L("ออกแบบบัตรนักเรียน", "Design ID card"), L("โลโก้ สี และ QR บนบัตร", "Logo, colors, QR")),
+        ]),
+        mk("sys_reports", L("5. แจ้งเตือนและรายงาน", "5. Notifications & reports"), BarChart3, [
+          pick("/dashboard/hub/communications", L("ช่องทางแจ้งเตือน (LINE ฯลฯ)", "Notification channels"), L("ตั้งค่า LINE และช่องทางส่งข่าว", "LINE & channels")),
+          pick("/dashboard/admin/notifications", L("ตั้งค่าการแจ้งเตือน", "Notification rules"), L("เลือกว่าเรื่องไหนจะแจ้งใคร", "What notifies whom")),
+          pick("/dashboard/admin/early-warning", L("นักเรียนที่ต้องดูแลเป็นพิเศษ", "At-risk students"), L("ขาดเรียนบ่อย หรือผลการเรียนต่ำ", "Absence or low grades")),
+          pick("/dashboard/admin/observation-sessions", L("สังเกตการสอน", "Observation sessions"), L("นัดหมายและบันทึกผล", "Schedule & record")),
+          pick("/dashboard/hub/admin-reports", L("รายงานผู้บริหาร", "Admin reports"), L("สรุปภาพรวมและผลสอบระดับชาติ", "Overview & national tests")),
+          pick("/dashboard/admin/audit-log", L("ประวัติการใช้งาน", "Activity history"), L("ใครแก้ไขอะไร เมื่อไร", "Who changed what")),
+        ]),
+        mk("sys_advanced", L("ตั้งค่าขั้นสูง (สำหรับผู้ดูแลเทคนิค)", "Advanced (technical)"), Wrench, [
+          pick("/dashboard/admin/api-keys", L("คีย์ AI และบริการภายนอก", "AI & service keys"), L("ใช้เมื่อต้องเปลี่ยนคีย์ผู้ให้บริการ", "Provider keys")),
+          pick("/dashboard/admin/system-health", L("สถานะการทำงานของระบบ", "System status"), L("ตรวจว่าระบบทำงานปกติ", "Is everything running")),
+          pick("/dashboard/admin/data-archive", L("เก็บข้อมูลเก่าลง Google Drive", "Archive to Drive"), L("สำรองข้อมูลตามปีการศึกษา", "Backup by year")),
+          pick("/dashboard/admin/backup-center", L("สำรองและกู้คืนข้อมูล", "Backup & restore"), L("ดาวน์โหลดหรือกู้คืนไฟล์สำรอง", "Download or restore")),
+          pick("/dashboard/admin/bigdata", L("วิเคราะห์ข้อมูลเชิงลึก", "Deep analytics"), L("กราฟและสถิติขนาดใหญ่", "Large statistics")),
+          pick("/dashboard/admin/rls-audit", L("ตรวจความปลอดภัยของข้อมูล", "Data security check"), L("สำหรับผู้ดูแลเทคนิค", "Technical")),
+          pick("/dashboard/admin/database-schema", L("โครงสร้างฐานข้อมูล", "Database structure"), L("สำหรับผู้ดูแลเทคนิค", "Technical")),
+          pick("/setup", L("ตัวช่วยตั้งค่าเริ่มต้น", "Setup wizard"), L("ใช้ครั้งแรกหรือเมื่อย้ายระบบ", "First-run or migration")),
+        ], true),
+        mk("sys_devices", L("เครื่องสแกนและเครื่องนักเรียน (ขั้นสูง)", "Scanners & student PCs (advanced)"), MonitorPlay, [groups("admin_kiosk").flatMap(g => g.items)], true),
+      ];
+    })() },
     { key: "personal", label: L("ข้อมูลส่วนตัวและโรงเรียน", "My account & school"), icon: User, groups: [group("personal", L("ข้อมูลและข่าวสาร", "Account & news"), User, ["/dashboard/profile", "/dashboard/portfolio", "/dashboard/feed", "/dashboard/members", "/"])] },
   ];
   // A repeated destination belongs to one group only; parameterized tasks must be opened from their parent module.
