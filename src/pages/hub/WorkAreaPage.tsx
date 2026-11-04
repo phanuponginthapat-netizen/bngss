@@ -15,17 +15,25 @@ export default function WorkAreaPage() {
   const { role, loading } = useUserRole();
   const { isModuleEnabled } = useModuleToggles();
   const [search, setSearch] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const current = visibleWorkAreas(buildWorkAreas(lang), role, isModuleEnabled).find(a => a.key === area);
   if (loading) return <ModuleLoader />;
   if (!current) return <div className="py-12 text-center"><h1 className="text-xl font-semibold">ไม่พบงานที่เปิดใช้งานสำหรับบัญชีนี้</h1><Button asChild variant="link"><Link to="/dashboard">กลับหน้าหลัก</Link></Button></div>;
   const query = search.trim().toLowerCase();
-  const groups = current.groups.map(g => ({ ...g, items: g.items.filter(i => `${g.label} ${i.title} ${i.desc ?? ""}`.toLowerCase().includes(query)) })).filter(g => g.items.length);
+  const matched = current.groups.map(g => ({ ...g, items: g.items.filter(i => `${g.label} ${i.title} ${i.desc ?? ""}`.toLowerCase().includes(query)) })).filter(g => g.items.length);
+  const advancedCount = matched.filter(g => g.advanced).reduce((n, g) => n + g.items.length, 0);
+  const groups = matched.filter(g => !g.advanced || showAdvanced || query);
   return (
     <div className="space-y-8">
       <header className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3"><current.icon className="h-7 w-7 text-primary" /><h1 className="text-2xl font-bold">{current.label}</h1></div>
         <div className="relative w-full sm:w-72"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input aria-label="ค้นหางานในฝ่าย" placeholder="ค้นหางาน…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9" /></div>
       </header>
+      {area === "system" && !query && (
+        <p className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+          เริ่มจากข้อ 1 ไปตามลำดับ: ตั้งค่าโรงเรียนและภาคเรียน → เพิ่มผู้ใช้ → ใส่นักเรียน วิชา ตารางสอน → นำเข้าคะแนน → ตั้งค่าแจ้งเตือน ส่วนที่เป็นเรื่องเทคนิคถูกซ่อนไว้ด้านล่าง
+        </p>
+      )}
       {groups.map(g => (
         <section key={g.key} className="space-y-3">
           <h2 className="flex items-center gap-2 text-base font-semibold"><g.icon className="h-4 w-4 text-muted-foreground" />{g.label}</h2>
@@ -36,6 +44,13 @@ export default function WorkAreaPage() {
           </div>
         </section>
       ))}
+      {advancedCount > 0 && !query && (
+        <div className="flex justify-center border-t border-border pt-5">
+          <Button variant="ghost" onClick={() => setShowAdvanced(v => !v)}>
+            {showAdvanced ? "ซ่อนการตั้งค่าขั้นสูง" : `แสดงการตั้งค่าขั้นสูง (${advancedCount} รายการ)`}
+          </Button>
+        </div>
+      )}
       {!groups.length && <p className="py-10 text-center text-muted-foreground">ไม่พบงานที่ตรงกับคำค้น</p>}
     </div>
   );
