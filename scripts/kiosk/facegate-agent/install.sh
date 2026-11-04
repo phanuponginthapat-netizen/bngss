@@ -17,6 +17,8 @@ set -euo pipefail
 CLOUD_URL="${FACEGATE_CLOUD_URL:-__CLOUD_URL__}"
 DEVICE_KEY="${FACEGATE_DEVICE_KEY:-__DEVICE_KEY__}"
 ROOT="${FACEGATE_HOME:-$HOME/.facegate}"
+# FACEGATE_NATIVE=1 → ใช้กล้องโดยตรง (V4L2) + หน้าต่างโปรแกรมของตัวเอง ไม่ผ่านเบราว์เซอร์
+NATIVE="${FACEGATE_NATIVE:-0}"
 
 if [ "$DEVICE_KEY" = "__DEVICE_KEY__" ] || [ -z "$DEVICE_KEY" ] || [ "$DEVICE_KEY" = "รหัสเครื่อง" ]; then
   if [ -t 0 ]; then
@@ -105,15 +107,33 @@ fi
 
 # ---------- 3) ไลบรารี ----------
 echo "[3/5] ติดตั้งไลบรารี (ครั้งแรกใช้เวลา 5-15 นาที ประมาณ 300 MB)..."
-[ -x "$ROOT/.venv/bin/python" ] || "$PY" -m venv "$ROOT/.venv"
+if [ "$NATIVE" = "1" ] && command -v apt-get >/dev/null 2>&1; then
+  # หน้าต่างโปรแกรม (WebKitGTK) — เบากว่า Chrome มาก
+  $SUDO apt-get install -y python3-gi gir1.2-gtk-3.0 v4l-utils >/dev/null 2>&1 || true
+  $SUDO apt-get install -y gir1.2-webkit2-4.1 >/dev/null 2>&1 || $SUDO apt-get install -y gir1.2-webkit2-4.0 >/dev/null 2>&1 || true
+fi
+if [ "$NATIVE" = "1" ]; then
+  [ -x "$ROOT/.venv/bin/python" ] || "$PY" -m venv --system-site-packages "$ROOT/.venv"
+else
+  [ -x "$ROOT/.venv/bin/python" ] || "$PY" -m venv "$ROOT/.venv"
+fi
 VPY="$ROOT/.venv/bin/python"
 "$VPY" -m pip install --upgrade pip --quiet
 "$VPY" -m pip install -r "$ROOT/requirements.txt"
+if [ "$NATIVE" = "1" ]; then "$VPY" -m pip install --quiet "pywebview>=5,<6" || true; fi
 
 cat > "$ROOT/config.env" <<EOF
 FACEGATE_CLOUD_URL=$CLOUD_URL
 FACEGATE_DEVICE_KEY=$DEVICE_KEY
 EOF
+if [ "$NATIVE" = "1" ]; then
+  cat >> "$ROOT/config.env" <<EOF
+FACEGATE_NATIVE_CAMERA=1
+FACEGATE_NATIVE_WINDOW=1
+FACEGATE_CAMERA_INDEX=${FACEGATE_CAMERA_INDEX:-0}
+PYWEBVIEW_GUI=gtk
+EOF
+fi
 
 # ---------- 4) ตัวเปิดโปรแกรม ----------
 echo "[4/5] สร้างตัวเปิดโปรแกรม..."
@@ -122,6 +142,10 @@ cat > "$ROOT/facegate" <<EOF
 set -a; . "$ROOT/config.env"; set +a
 export FACEGATE_THREADS="\${FACEGATE_THREADS:-\$(nproc)}"
 cd "$ROOT"
+# โหมดใช้กล้องโดยตรง: โปรแกรมเปิดกล้องและหน้าต่างเต็มจอเอง ไม่ใช้เบราว์เซอร์
+if [ "\${FACEGATE_NATIVE_WINDOW:-0}" = "1" ]; then
+  exec "$VPY" agent.py
+fi
 # เริ่มตัวประมวลผลใบหน้า ถ้ายังไม่ทำงาน
 if ! curl -fsS --max-time 2 http://127.0.0.1:8899/health >/dev/null 2>&1; then
   nohup "$VPY" agent.py >"$ROOT/agent.log" 2>&1 &
@@ -160,7 +184,11 @@ EOF
 
 # ---------- 5) เปิดอัตโนมัติ ----------
 echo "[5/5] ตั้งให้เปิดเองเมื่อเปิดเครื่อง..."
-if command -v systemctl >/dev/null 2>&1; then
+if [ "$NATIVE" = "1" ]; then
+  # หน้าต่างโปรแกรมต้องเปิดหลังเข้าหน้าจอ → ใช้ autostart ของเดสก์ท็อป
+  mkdir -p "$HOME/.config/autostart"
+  cp "$HOME/.local/share/applications/facegate.desktop" "$HOME/.config/autostart/facegate.desktop"
+elif command -v systemctl >/dev/null 2>&1; then
   mkdir -p "$HOME/.config/systemd/user"
   cat > "$HOME/.config/systemd/user/facegate-agent.service" <<EOF
 [Unit]
