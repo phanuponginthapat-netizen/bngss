@@ -10,11 +10,11 @@ export function dailyImageLimit(roles: string[]): number {
 // Nudity, sexual, gore and other content unsuitable for a school.
 const BLOCKED = [
   "โป๊", "เปลือย", "ลามก", "อนาจาร", "ทะลึ่ง", "เซ็กซ์", "เซ็กส์", "เซ็ก", "ร่วมเพศ", "มีเพศสัมพันธ์", "อวัยวะเพศ",
-  "หัวนม", "นมโต", "หน้าอกเปลือย", "ชุดชั้นใน", "บิกินี่", "ไม่ใส่เสื้อผ้า", "ไม่สวมเสื้อผ้า", "ถอดเสื้อผ้า", "ยั่วยวน", "วาบหวิว", "เสียว",
-  "ศพ", "เลือดสาด", "ฆ่า", "ทรมาน", "ชำแหละ", "ยาเสพติด", "กัญชา", "ปืน", "ระเบิด",
-  "nude", "nudity", "naked", "nsfw", "porn", "sex", "sexy", "erotic", "hentai", "lingerie", "bikini", "topless",
-  "nipple", "boob", "breast", "genital", "penis", "vagina", "fetish", "seductive", "strip",
-  "gore", "blood", "corpse", "kill", "torture", "drug", "cocaine", "weapon", "gun",
+  "หัวนม", "นมโต", "หน้าอกเปลือย", "ชุดชั้นใน", "บิกินี่", "ไม่ใส่เสื้อผ้า", "ไม่สวมเสื้อผ้า", "ถอดเสื้อผ้า", "ยั่วยวน", "วาบหวิว",
+  "ศพ", "เลือดสาด", "ฆ่าคน", "ทรมาน", "ชำแหละ", "ยาเสพติด",
+  "nude", "nudity", "naked", "nsfw", "porn", "sexy", "sexual", "erotic", "hentai", "lingerie", "bikini", "topless",
+  "nipple", "boob", "genital", "penis", "vagina", "fetish", "seductive", "striptease",
+  "gore", "bloody", "corpse", "murder", "torture", "cocaine",
 ];
 
 export function isImagePromptAllowed(prompt: string): boolean {
