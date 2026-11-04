@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "โรงเรียนของฉัน — Safe Browser",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "เบราว์เซอร์ปลอดภัยสำหรับนักเรียน เชื่อมกับระบบโรงเรียน บันทึกการใช้งาน กรองโฆษณา/เว็บพนัน/สื่อลามก ด้วยโดเมนและคำต้องห้าม (keyword filter) จัดการ Wi-Fi ในโหมด kiosk และรัน Monitor Agent อัตโนมัติ",
   "permissions": [
     "tabs",

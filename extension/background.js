@@ -2,7 +2,7 @@
 try { importScripts("keywords.js"); } catch (e) { /* ignore */ }
 // backend ถูกกำหนดตอน runtime (ระบบเว็บส่งมาให้ผ่าน SET_SESSION) — ค่าด้านล่างเป็นค่าเริ่มต้นเท่านั้น
 const DEFAULT_SUPABASE_URL = "https://dlkyxvhnnffblerwedjz.supabase.co";
-const DEFAULT_ANON_KEY = "sb_publishable_NlRn4zzOUtHsn4swyH6F7Q_ADVmUe9v";
+const DEFAULT_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4";
 let SUPABASE_URL = DEFAULT_SUPABASE_URL;
 let ANON_KEY = DEFAULT_ANON_KEY;
 
@@ -18,7 +18,7 @@ const fnUrl = (name) => `${SUPABASE_URL}/functions/v1/${name}`;
 loadBackend();
 
 // ---- App (school system) origin — ปรับตาม deploy ได้ (lovable.app / vercel.app / โดเมนโรงเรียน)
-const DEFAULT_APP_ORIGIN = "https://bngss.vercel.app";
+const DEFAULT_APP_ORIGIN = "https://bngss.lovable.app";
 let APP_ORIGIN = DEFAULT_APP_ORIGIN;
 let DEFAULT_SYSTEM_HOME = `${APP_ORIGIN}/dashboard/browser`;
 let AGENT_URL = `${APP_ORIGIN}/dashboard/monitor/agent`;
