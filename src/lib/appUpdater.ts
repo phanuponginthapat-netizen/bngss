@@ -87,7 +87,28 @@ export async function isPlayStoreUpdateAvailable(): Promise<boolean> {
   }
 }
 
+let promptOpen = false;
+let lastCheckAt = 0;
+const RECHECK_MS = 6 * 60 * 60 * 1000;
+
+/** ตรวจตอนเปิดแอป และทุกครั้งที่กลับมาใช้แอปหลังผ่านไป 6 ชม. (แอปที่ค้างเปิดไว้ก็ยังเห็นรุ่นใหม่) */
+export function startUpdateWatcher(): void {
+  if (!isNativeAndroid()) return;
+  lastCheckAt = Date.now();
+  void checkAndPromptUpdate();
+  import("@capacitor/app").then(({ App }) => {
+    App.addListener("appStateChange", ({ isActive }) => {
+      if (isActive && Date.now() - lastCheckAt >= RECHECK_MS) {
+        lastCheckAt = Date.now();
+        void checkAndPromptUpdate();
+      }
+    });
+  }).catch(() => {});
+}
+
 export async function checkAndPromptUpdate(): Promise<void> {
+  if (promptOpen) return;
+  promptOpen = true;
   try {
     if (!isNativeAndroid()) return;
     if (await isPlayStoreUpdateAvailable()) return;
@@ -115,6 +136,8 @@ export async function checkAndPromptUpdate(): Promise<void> {
     }
   } catch (e) {
     console.warn("checkAndPromptUpdate failed", e);
+  } finally {
+    promptOpen = false;
   }
 
 }
