@@ -36,7 +36,7 @@ export function AppSidebar() {
     {
       label: L("ของฉัน", "My Account"),
       icon: User,
-      tone: "tone-academic",
+      tone: "academic",
       items: [
         { to: "/dashboard", icon: LayoutDashboard, label: L("หน้าหลัก", "Dashboard") },
         { to: "/dashboard/profile", icon: User, label: L("โปรไฟล์", "Profile") },
@@ -46,7 +46,7 @@ export function AppSidebar() {
     {
       label: L("โรงเรียน", "School"),
       icon: GraduationCap,
-      tone: "tone-general",
+      tone: "general",
       items: [
         { to: "/dashboard/feed", icon: Megaphone, label: L("ฟีดโรงเรียน", "Feed") },
         { to: "/dashboard/members", icon: Users, label: L("สมาชิกโรงเรียน", "Members") },
@@ -56,7 +56,7 @@ export function AppSidebar() {
     {
       label: L("เครื่องมือ", "Tools"),
       icon: FolderOpen,
-      tone: "tone-tools",
+      tone: "tools",
       items: [
         { to: "/dashboard/my-drive", icon: FolderOpen, label: L("Google Drive ของฉัน", "My Drive") },
         { to: "/dashboard/office", icon: FileText, label: L("ชุดเอกสาร Office", "Office Suite") },
@@ -68,7 +68,7 @@ export function AppSidebar() {
     {
       label: L("ของฉัน", "My Account"),
       icon: User,
-      tone: "tone-academic",
+      tone: "academic",
       items: [
         { to: "/dashboard", icon: LayoutDashboard, label: L("หน้าหลัก", "Dashboard") },
         { to: "/dashboard/profile", icon: User, label: L("โปรไฟล์", "Profile") },
@@ -79,7 +79,7 @@ export function AppSidebar() {
     {
       label: L("ลูกของฉัน", "My Child"),
       icon: Heart,
-      tone: "tone-student",
+      tone: "student",
       items: [
         { to: "/dashboard/student/attendance", icon: ClipboardList, label: L("การมาเรียน", "Attendance") },
         { to: "/dashboard/student/behavior", icon: Shield, label: L("พฤติกรรม", "Behavior") },
@@ -94,7 +94,7 @@ export function AppSidebar() {
     {
       label: L("โรงเรียน", "School"),
       icon: GraduationCap,
-      tone: "tone-general",
+      tone: "general",
       items: [
         { to: "/dashboard/academic/calendar", icon: CalendarDays, label: L("ปฏิทินโรงเรียน", "Calendar") },
         { to: "/dashboard/members", icon: Users, label: L("สมาชิกโรงเรียน", "Members") },
@@ -103,7 +103,7 @@ export function AppSidebar() {
     {
       label: L("เครื่องมือ", "Tools"),
       icon: FolderOpen,
-      tone: "tone-tools",
+      tone: "tools",
       items: [
         { to: "/dashboard/my-drive", icon: FolderOpen, label: L("Google Drive ของฉัน", "My Drive") },
         { to: "/dashboard/office", icon: FileText, label: L("ชุดเอกสาร Office", "Office Suite") },
