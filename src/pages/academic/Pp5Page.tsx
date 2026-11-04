@@ -260,13 +260,17 @@ const ScoreEntryTab = () => {
       }
       const { data, error } = await query;
       if (error) throw error;
-      // กันรายการซ้ำ (วิชา+ห้อง+ครู เดียวกัน)
-      const seen = new Set<string>();
-      return (data || []).filter((a: any) => {
-        const k = `${a.subject_id}|${a.classroom_id}|${a.personnel_id}`;
-        if (seen.has(k)) return false;
-        seen.add(k);
-        return true;
+      // วิชา+ห้องเดียวกัน = หนึ่งรายการ (สอนร่วม: แสดงครูหลัก + ครูร่วม)
+      const groups = new Map<string, any[]>();
+      for (const a of data || []) {
+        const k = `${a.subject_id}|${a.classroom_id}`;
+        groups.set(k, [...(groups.get(k) || []), a]);
+      }
+      return [...groups.values()].map((rows) => {
+        const main = rows.find((r: any) => r.is_primary) || rows[0];
+        const co = rows.filter((r: any) => r.id !== main.id && r.personnel_id !== main.personnel_id)
+          .map((r: any) => r.personnel?.first_name).filter(Boolean);
+        return { ...main, co_teachers: [...new Set(co)] };
       });
     },
     enabled: taTermReady && (isAdmin || isDirector || !!myPersonnel?.id),
@@ -643,7 +647,7 @@ const ScoreEntryTab = () => {
                 <SelectContent>
                   {filteredAssignments.map((a: any) => (
                     <SelectItem key={a.id} value={a.id}>
-                      {a.subjects?.code} {a.subjects?.name_th} - {a.classrooms?.name} ({a.personnel?.first_name})
+                      {a.subjects?.code} {a.subjects?.name_th} - {a.classrooms?.name} ({a.personnel?.first_name}{a.co_teachers?.length ? ` + สอนร่วม: ${a.co_teachers.join(", ")}` : ""})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1713,13 +1717,17 @@ const AssessmentTab = () => {
       }
       const { data, error } = await query;
       if (error) throw error;
-      // กันรายการซ้ำ (วิชา+ห้อง+ครู เดียวกัน)
-      const seen = new Set<string>();
-      return (data || []).filter((a: any) => {
-        const k = `${a.subject_id}|${a.classroom_id}|${a.personnel_id}`;
-        if (seen.has(k)) return false;
-        seen.add(k);
-        return true;
+      // วิชา+ห้องเดียวกัน = หนึ่งรายการ (สอนร่วม: แสดงครูหลัก + ครูร่วม)
+      const groups = new Map<string, any[]>();
+      for (const a of data || []) {
+        const k = `${a.subject_id}|${a.classroom_id}`;
+        groups.set(k, [...(groups.get(k) || []), a]);
+      }
+      return [...groups.values()].map((rows) => {
+        const main = rows.find((r: any) => r.is_primary) || rows[0];
+        const co = rows.filter((r: any) => r.id !== main.id && r.personnel_id !== main.personnel_id)
+          .map((r: any) => r.personnel?.first_name).filter(Boolean);
+        return { ...main, co_teachers: [...new Set(co)] };
       });
     },
     enabled: taTermReady && (isAdmin || isDirector || !!myPersonnel?.id),

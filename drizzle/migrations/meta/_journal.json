@@ -169,6 +169,13 @@
       "when": 1793789379846,
       "tag": "0023_substitute_ignore_released",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793794106774,
+      "tag": "0024_teacher_assignment_primary",
+      "breakpoints": true
     }
   ]
 }
