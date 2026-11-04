@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { readDigestRows, resolveDigestStatuses } from "../../../supabase/functions/_shared/attendanceDigest";
+import { markMissingAsAbsent, readDigestRows, resolveDigestStatuses } from "../../../supabase/functions/_shared/attendanceDigest";
 
 describe("LINE attendance evidence", () => {
   it("rescues a scanned student from an absent record", () => {
@@ -30,5 +30,20 @@ describe("LINE attendance evidence", () => {
   });
   it("rejects missing scan times instead of inventing the current time", () => {
     expect(() => resolveDigestStatuses([], [{ student_id: "s1", scan_time: null, scan_type: "entry" }], "08:00")).toThrow("Invalid entry scan timestamp");
+  });
+  it("counts students with no record as absent once check-in has closed", () => {
+    const st = new Map([["s1", "present" as const]]) as Map<string, any>;
+    expect(markMissingAsAbsent(st, ["s1", "s2"], "10:20", "08:30")).toBe(1);
+    expect(st.get("s2")).toBe("absent");
+    expect(st.get("s1")).toBe("present");
+  });
+  it("keeps students unrecorded before check-in closes", () => {
+    const st = new Map([["s1", "present" as const]]) as Map<string, any>;
+    expect(markMissingAsAbsent(st, ["s1", "s2"], "08:00", "08:30")).toBe(0);
+    expect(st.has("s2")).toBe(false);
+  });
+  it("never marks a whole school absent when there is no evidence at all", () => {
+    const st = new Map() as Map<string, any>;
+    expect(markMissingAsAbsent(st, ["s1", "s2"], "10:20", "08:30")).toBe(0);
   });
 });
