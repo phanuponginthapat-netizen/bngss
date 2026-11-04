@@ -277,9 +277,9 @@ a[href*="lovable.dev"][href*="utm"] {
   }
 
   [data-sidebar] .side-role-badge {
-    background-color: hsl(var(--tone) / 0.26);
-    border-color: hsl(var(--tone) / 0.55);
-    color: color-mix(in srgb, hsl(var(--tone)) 72%, white);
+    background-color: hsl(var(--tone) / 0.28);
+    border-color: hsl(var(--tone) / 0.6);
+    color: color-mix(in srgb, hsl(var(--tone)) 60%, white);
     font-weight: 700;
   }
 }
