@@ -75,7 +75,7 @@ serve(async (req) => {
     // นักเรียน active
     const { data: students } = await sb
       .from("students")
-      .select("id, gender, classrooms(grade_level, name)")
+      .select("id, gender, classrooms!students_classroom_id_fkey(grade_level, name)")
       .eq("status", "active");
 
     // logs ในช่วง

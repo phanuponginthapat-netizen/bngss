@@ -496,7 +496,7 @@ function AddStudentsPanel({ tripId, existingIds, onAdded }: { tripId: string; ex
     queryKey: ["students_search", q, grade],
     queryFn: async () => {
       let query = supabase.from("students")
-        .select("id, first_name, last_name, student_code, classrooms(grade_level, name)")
+        .select("id, first_name, last_name, student_code, classrooms!students_classroom_id_fkey(grade_level, name)")
         .eq("status", "active")
         .order("student_code")
         .limit(200);

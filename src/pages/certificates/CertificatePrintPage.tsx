@@ -61,7 +61,7 @@ export default function CertificatePrintPage() {
     queryFn: async () => {
       const { data } = await db
         .from("activity_participants")
-        .select("id, team_name, student_id, students(id, prefix, first_name, last_name, classrooms(name))")
+        .select("id, team_name, student_id, students(id, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name))")
         .eq("activity_id", activityId);
       const ids = (data || []).map((p: any) => p.id);
       let scores: any[] = [];
@@ -88,7 +88,7 @@ export default function CertificatePrintPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("students")
-        .select("id, prefix, first_name, last_name, classrooms(name)")
+        .select("id, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name)")
         .eq("classroom_id", classroomId)
         .order("first_name");
       return (data || []).map((s: any) => ({
