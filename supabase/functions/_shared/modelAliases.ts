@@ -43,15 +43,16 @@ export const MODEL_ALIASES: Record<string, string> = {
 
 /** ลำดับโมเดลสำรอง ใช้เมื่อโดน 404 / model_not_found */
 export const PROVIDER_FALLBACK_MODELS: Record<string, string[]> = {
-  gemini: ["gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"],
-  google: ["gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"],
+  gemini: ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"],
+  google: ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"],
   groq: [
-    "llama-3.1-8b-instant",
     "meta-llama/llama-4-scout-17b-16e-instruct",
     "openai/gpt-oss-20b",
+    "llama-3.1-8b-instant",
   ],
-  openai: ["gpt-4o-mini", "gpt-4.1-mini"],
-  openrouter: ["deepseek/deepseek-chat-v3.1:free", "meta-llama/llama-3.3-70b-instruct:free"],
+  openai: ["gpt-5-mini", "gpt-4.1-mini"],
+  deepseek: ["deepseek-flash", "deepseek-chat"],
+  openrouter: ["meta-llama/llama-3.3-70b-instruct:free"],
 };
 
 /** แปลงชื่อโมเดลที่ตายแล้วให้เป็นชื่อปัจจุบัน */
