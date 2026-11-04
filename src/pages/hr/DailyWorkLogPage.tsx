@@ -18,6 +18,14 @@ import { openPrintWindow } from '@/lib/printUtils';
 import { buildTimeSheetHtml, buildWorkReportHtml, canUsePersonnelWorkReport, monthBounds, parseWorkItems, thaiWorkDate, thaiWorkMonth, validWorkItems, workMonthRows, type WorkItem } from '@/lib/personnelWorkReport';
 import { thaiPublicHolidaysInRange } from '@/lib/thaiPublicHolidays';
 
+/** ตัวเลือกเดือน/ปี พ.ศ. ใช้ร่วมกันทั้งแท็บบันทึกรายวันและลงเวลาปฏิบัติงาน */
+function MonthYearPicker({ month, onChange, idPrefix }: { month: string; onChange: (m: string) => void; idPrefix: string }) {
+  return <>
+    <div className="space-y-2"><Label htmlFor={`${idPrefix}-month`}>เดือน</Label><Select value={month.slice(5)} onValueChange={value=>onChange(`${month.slice(0,4)}-${value}`)}><SelectTrigger id={`${idPrefix}-month`} className="w-44"><SelectValue/></SelectTrigger><SelectContent>{Array.from({length:12},(_,i)=>{const value=String(i+1).padStart(2,'0');return <SelectItem key={value} value={value}>{new Intl.DateTimeFormat('th-TH',{month:'long',timeZone:'Asia/Bangkok'}).format(new Date(`2000-${value}-01T00:00:00+07:00`))}</SelectItem>;})}</SelectContent></Select></div>
+    <div className="space-y-2"><Label htmlFor={`${idPrefix}-year`}>ปี พ.ศ.</Label><Input id={`${idPrefix}-year`} type="number" className="w-28" min={544} max={10542} value={Number(month.slice(0,4))+543} onChange={e=>{const year=Number(e.target.value)-543;if(Number.isInteger(year)&&year>=1&&year<=9999)onChange(`${String(year).padStart(4,'0')}-${month.slice(5)}`);}}/></div>
+  </>;
+}
+
 export default function DailyWorkLogPage() {
   const { userId, role, isObserver } = useUserRole();
   const allowed = canUsePersonnelWorkReport(role, isObserver);
@@ -179,7 +187,8 @@ export default function DailyWorkLogPage() {
         <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={()=>setScopes([...scopes,''])}><Plus className="mr-2 h-4 w-4"/>เพิ่มขอบเขตงาน</Button><Button disabled={saving || !ready} onClick={saveTemplate}><Save className="mr-2 h-4 w-4"/>บันทึกเทมเพลต</Button></div></div>
       </TabsContent>
       <TabsContent value="timesheet" className="space-y-4 pt-3">
-        <p className="text-sm text-muted-foreground">พิมพ์บัญชีลงเวลามาปฏิบัติงานประจำเดือน {thaiWorkMonth(month)} (เปลี่ยนเดือนได้ที่แท็บบันทึกรายวัน) — วันทำงานมีช่องว่างให้เซ็นชื่อและเขียนเวลามา/กลับ ส่วนวันเสาร์ อาทิตย์ และวันหยุดเป็นแถบสีเทา</p>
+        <div className="flex flex-wrap items-end gap-4"><MonthYearPicker month={month} onChange={m=>{setMonth(m);setWorkDate(null);}} idPrefix="timesheet"/></div>
+        <p className="text-sm text-muted-foreground">พิมพ์บัญชีลงเวลามาปฏิบัติงานประจำเดือน {thaiWorkMonth(month)} — วันทำงานมีช่องว่างให้เซ็นชื่อและเขียนเวลามา/กลับ ส่วนวันเสาร์ อาทิตย์ และวันหยุดเป็นแถบสีเทา</p>
         {ready && <div className="flex flex-wrap gap-5 text-sm text-muted-foreground"><span>วันทำงาน {rows.filter(r=>r.kind==='work').length} วัน</span><span>เสาร์–อาทิตย์ {rows.filter(r=>r.kind==='weekend').length} วัน</span><span>วันหยุด {rows.filter(r=>r.kind==='holiday').length} วัน</span></div>}
         <Button disabled={!printReady || !selected} onClick={() => {
           if (!printReady || !selected || !identity.data) return;
