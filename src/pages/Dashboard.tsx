@@ -686,7 +686,7 @@ const AlertCard = ({ icon: Icon, value, label, tone, onClick }: AlertCardProps) 
       role="button"
       tabIndex={0}
       aria-label={`${label} ${value}`}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(); } }}
       className="border-0 ring-1 ring-border/50 shadow-sm rounded-2xl cursor-pointer hover:shadow-card-hover hover:ring-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.98] transition-all duration-200 group overflow-hidden"
       onClick={onClick}
     >
