@@ -569,7 +569,7 @@ const HomeworkPage = () => {
                   {a.due_date && <div className="text-xs text-muted-foreground">กำหนดส่ง: {new Date(a.due_date).toLocaleDateString("th-TH")}</div>}
                 </div>
                 <div className="flex gap-1.5 shrink-0">
-                  {isStudentLike && studentRow?.id && (
+                  {isStudent && !isParent && studentRow?.id && (
                     <Button size="sm" onClick={() => { setAnswerAssignmentId(a.id); setAnswerOpen(true); }}>
                       <FileEdit className="w-3.5 h-3.5 mr-1" /> ทำใบงาน
                     </Button>
