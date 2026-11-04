@@ -66,7 +66,7 @@ a[href*="lovable.dev"][href*="utm"] {
     --popover: 0 0% 100%;
     --popover-foreground: 215 40% 18%;
 
-    --primary: 199 89% 46%;
+    --primary: 200 90% 39%;
     --primary-foreground: 0 0% 100%;
     --primary-glow: 199 100% 78%;
 
@@ -84,7 +84,7 @@ a[href*="lovable.dev"][href*="utm"] {
 
     --border: 214 32% 90%;
     --input: 214 32% 88%;
-    --ring: 199 89% 46%;
+    --ring: 200 90% 39%;
 
     --radius: 0.875rem;
 
@@ -101,7 +101,7 @@ a[href*="lovable.dev"][href*="utm"] {
     --success-foreground: 0 0% 100%;
     --warning: 32 95% 48%;
     --warning-foreground: 0 0% 100%;
-    --info: 199 89% 46%;
+    --info: 200 90% 39%;
     --info-foreground: 0 0% 100%;
   }
 
