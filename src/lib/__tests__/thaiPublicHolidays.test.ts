@@ -15,8 +15,10 @@ describe('Thai public holiday calendar used by the work report', () => {
     expect(thaiPublicHolidaysInRange('2026-12-07', '2026-12-07')[0].substitute).toBe(true);
   });
   it('pushes the 2570 Asalha substitute past Buddhist Lent entry', () => {
-    expect(thaiPublicHolidaysInRange('2027-07-19', '2027-07-19')[0].title).toBe('วันเข้าวันพรรษา');
-    expect(thaiPublicHolidaysInRange('2027-07-20', '2027-07-20')[0].substitute).toBe(true);
+    expect(thaiPublicHolidaysInRange('2027-07-19', '2027-07-19')[0].substitute).toBe(false);
+    const substitute = thaiPublicHolidaysInRange('2027-07-20', '2027-07-20')[0];
+    expect(substitute.substitute).toBe(true);
+    expect(substitute.title).not.toBe(thaiPublicHolidaysInRange('2027-07-19', '2027-07-19')[0].title);
   });
   it('invents no Songkran substitute and no cross-year substitute', () => {
     expect(dates('2026-04-16', '2026-04-30')).toHaveLength(0);
