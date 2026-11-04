@@ -167,9 +167,9 @@ a[href*="lovable.dev"][href*="utm"] {
   [data-sidebar="sidebar"] {
     --tone: var(--sidebar-primary);
     background-image:
-      radial-gradient(ellipse 300px 220px at 100% -2%, hsl(var(--sidebar-primary) / 0.22), transparent 62%),
-      radial-gradient(ellipse 260px 300px at -12% 44%, hsl(265 85% 62% / 0.13), transparent 66%),
-      radial-gradient(ellipse 240px 220px at 28% 102%, hsl(168 68% 48% / 0.11), transparent 68%),
+      radial-gradient(ellipse 300px 220px at 100% -2%, hsl(var(--sidebar-primary) / 0.28), transparent 62%),
+      radial-gradient(ellipse 260px 300px at -12% 44%, hsl(265 85% 62% / 0.17), transparent 66%),
+      radial-gradient(ellipse 240px 220px at 28% 102%, hsl(168 68% 48% / 0.15), transparent 68%),
       linear-gradient(180deg, hsl(213 56% 18%), hsl(216 60% 13%) 58%, hsl(220 64% 11%));
   }
 
@@ -208,7 +208,7 @@ a[href*="lovable.dev"][href*="utm"] {
   [data-sidebar] .side-item[data-active="true"]::before {
     content: "";
     position: absolute;
-    left: -5px;
+    left: 0;
     top: 4px;
     bottom: 4px;
     width: 3px;
@@ -272,9 +272,10 @@ a[href*="lovable.dev"][href*="utm"] {
   }
 
   [data-sidebar] .side-role-badge {
-    background-color: hsl(var(--tone) / 0.18);
-    border-color: hsl(var(--tone) / 0.4);
+    background-color: hsl(var(--tone) / 0.28);
+    border-color: hsl(var(--tone) / 0.5);
     color: hsl(var(--tone));
+    font-weight: 600;
   }
 }
 
