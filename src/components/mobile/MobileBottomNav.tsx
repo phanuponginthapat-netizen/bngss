@@ -33,7 +33,7 @@ const NavItem = ({ to, icon: Icon, label, active }: NavItemProps) => (
     >
       <Icon className={cn("w-[22px] h-[22px] transition-transform", active && "fill-primary/25 scale-105")} strokeWidth={active ? 2.2 : 1.8} />
     </span>
-    <span className={cn("text-[10px] font-medium truncate max-w-[64px]", active && "font-semibold")}>{label}</span>
+    <span className={cn("text-[11px] font-medium truncate max-w-[72px]", active && "font-semibold")}>{label}</span>
   </Link>
 );
 
@@ -54,7 +54,7 @@ export function MobileBottomNav() {
     >
       <div className="flex items-stretch h-14 max-w-2xl mx-auto px-1">
         <NavItem to="/dashboard" icon={Home} label={L("หน้าแรก", "Home")} active={pathname === "/dashboard"} />
-        <NavItem to="/dashboard/inbox" icon={Inbox} label={L("กล่องข้อความ", "Inbox")} active={isActive("/dashboard/inbox")} />
+        <NavItem to="/dashboard/inbox" icon={Inbox} label={L("ข้อความ", "Inbox")} active={isActive("/dashboard/inbox")} />
 
         <div className="flex-1 flex items-center justify-center">
           <MobileQuickActionsFab
