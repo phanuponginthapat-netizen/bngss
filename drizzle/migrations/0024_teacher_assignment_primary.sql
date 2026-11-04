@@ -1,0 +1,2 @@
+ALTER TABLE public.teacher_assignments ADD COLUMN IF NOT EXISTS is_primary boolean NOT NULL DEFAULT false;
+COMMENT ON COLUMN public.teacher_assignments.is_primary IS 'ครูผู้สอนหลักเมื่อสอนร่วม (วิชา+ห้อง+เทอมเดียวกัน)';

@@ -14929,6 +14929,7 @@ export type Database = {
           classroom_id: string | null
           created_at: string
           id: string
+          is_primary: boolean
           personnel_id: string
           semester: number | null
           subject_id: string
@@ -14938,6 +14939,7 @@ export type Database = {
           classroom_id?: string | null
           created_at?: string
           id?: string
+          is_primary?: boolean
           personnel_id: string
           semester?: number | null
           subject_id: string
@@ -14947,6 +14949,7 @@ export type Database = {
           classroom_id?: string | null
           created_at?: string
           id?: string
+          is_primary?: boolean
           personnel_id?: string
           semester?: number | null
           subject_id?: string
