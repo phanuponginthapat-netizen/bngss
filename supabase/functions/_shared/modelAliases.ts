@@ -17,20 +17,28 @@ export const MODEL_ALIASES: Record<string, string> = {
   "gemini-2.5-flash": "gemini-3.6-flash",
   "gemini-2.5-flash-lite": "gemini-3.1-flash-lite",
   "gemini-2.5-pro": "gemini-3.1-pro-preview",
-  "models/gemini-2.0-flash": "gemini-3.6-flash",
-  "models/gemini-2.5-flash": "gemini-3.6-flash",
+  "models/gemini-2.0-flash": "gemini-3.8-flash",
+  "models/gemini-2.5-flash": "gemini-3.8-flash",
+  // 3.6-flash มีรุ่นใหม่กว่าแล้ว (3.8-flash) — ชี้ไปรุ่นล่าสุดเสมอ
+  "gemini-3.6-flash": "gemini-3.8-flash",
+  "gemini-3.1-flash-lite": "gemini-3.5-flash-lite",
 
   // Groq — llama-3.3-70b-versatile ถูกปลดจากหลาย account แล้ว
-  "llama-3.3-70b-versatile": "llama-3.1-8b-instant",
-  "llama3-70b-8192": "llama-3.1-8b-instant",
+  "llama-3.3-70b-versatile": "meta-llama/llama-4-scout-17b-16e-instruct",
+  "llama3-70b-8192": "meta-llama/llama-4-scout-17b-16e-instruct",
   "llama3-8b-8192": "llama-3.1-8b-instant",
   "llama-3.2-90b-vision-preview": "meta-llama/llama-4-scout-17b-16e-instruct",
   "llama-3.2-11b-vision-preview": "meta-llama/llama-4-scout-17b-16e-instruct",
   "mixtral-8x7b-32768": "llama-3.1-8b-instant",
 
+  // DeepSeek — deepseek-chat เป็น alias ของ V3.1; รุ่นใหม่คือ V4.1 Flash
+  "deepseek-chat": "deepseek-flash",
+
   // OpenAI
-  "gpt-4-vision-preview": "gpt-4o-mini",
-  "gpt-3.5-turbo": "gpt-4o-mini",
+  "gpt-4-vision-preview": "gpt-5-mini",
+  "gpt-3.5-turbo": "gpt-5-mini",
+  "gpt-4o-mini": "gpt-5-mini",
+  "gpt-4.1-mini": "gpt-5-mini",
 };
 
 /** ลำดับโมเดลสำรอง ใช้เมื่อโดน 404 / model_not_found */
