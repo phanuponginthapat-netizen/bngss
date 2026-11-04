@@ -18,7 +18,7 @@ const fnUrl = (name) => `${SUPABASE_URL}/functions/v1/${name}`;
 loadBackend();
 
 // ---- App (school system) origin — ปรับตาม deploy ได้ (lovable.app / vercel.app / โดเมนโรงเรียน)
-const DEFAULT_APP_ORIGIN = "https://bngss.vercel.app";
+const DEFAULT_APP_ORIGIN = "https://bngss.lovable.app";
 let APP_ORIGIN = DEFAULT_APP_ORIGIN;
 let DEFAULT_SYSTEM_HOME = `${APP_ORIGIN}/dashboard/browser`;
 let AGENT_URL = `${APP_ORIGIN}/dashboard/monitor/agent`;
