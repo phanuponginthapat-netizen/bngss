@@ -638,6 +638,44 @@ const StaffLeavePage = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {leaveSlots.length > 0 && (
+                  <div className="mt-3 rounded-lg border p-3 space-y-2 bg-muted/30">
+                    <Label className="text-sm font-medium">
+                      {lang === "th" ? `เลือกครูสอนแทนรายคาบ (${leaveSlots.length} คาบที่มีสอน)` : `Substitute per period (${leaveSlots.length})`}
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {lang === "th" ? "คาบที่ไม่เลือก จะใช้ครูผู้สอนแทนด้านบน หรือระบบจัดให้อัตโนมัติ" : "Blank periods use the teacher above or auto-assign."}
+                    </p>
+                    <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                      {leaveSlots.map((slot) => (
+                        <div key={slot.key} className="grid grid-cols-1 sm:grid-cols-[1fr_1.2fr] gap-2 items-center">
+                          <span className="text-xs">
+                            <span className="font-medium">{slot.date}</span>{" "}
+                            <span className="text-muted-foreground">
+                              {lang === "th" ? `คาบ ${slot.period}` : `P.${slot.period}`}
+                              {slot.classroom ? ` • ${slot.classroom}` : ""}
+                              {slot.subject ? ` • ${slot.subject}` : ""}
+                            </span>
+                          </span>
+                          <Select
+                            value={substitutePlan[slot.key] || "auto"}
+                            onValueChange={(v) => setSubstitutePlan((prev) => ({ ...prev, [slot.key]: v }))}
+                          >
+                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="auto">{lang === "th" ? "ตามด้านบน / อัตโนมัติ" : "Same as above / auto"}</SelectItem>
+                              {personnel.filter((p: any) => p.id !== applicantId).map((p: any) => (
+                                <SelectItem key={p.id} value={`${p.prefix || ""}${p.first_name} ${p.last_name}`}>
+                                  {p.prefix || ""}{p.first_name} {p.last_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>)}
 
 
