@@ -436,7 +436,7 @@ export function dailyNavigationItems(visibleAreas: WorkArea[]): NavigationItem[]
     "/dashboard/homework", "/dashboard/padlet", "/dashboard/student/behavior",
     "/dashboard/student/leave", "/dashboard/hr/leave",
     "/dashboard/admin/staff-tasks", "/dashboard/academic/calendar",
-    "/dashboard/feed",
+    "/dashboard/line-vault", "/dashboard/feed",
   ];
   const items = visibleAreas.flatMap(a => a.groups.flatMap(g => g.items));
   return urls.flatMap(url => {
