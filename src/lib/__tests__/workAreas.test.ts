@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { buildWorkAreas, visibleWorkAreas, dailyNavigationItems, findWorkArea, areaUrl } from "../navigation/workAreas";
 
 describe("department navigation", () => {
+  it("makes daily work reports staff-only and respects its switch", () => {
+    const urls = (role: "teacher" | "admin" | "director" | "student" | "parent" | "alumni", disabled = false) => dailyNavigationItems(visibleWorkAreas(buildWorkAreas(), role, key => !disabled || key !== "daily_work_log")).map(i => i.url);
+    for (const role of ["teacher", "admin", "director"] as const) expect(urls(role)).toContain("/dashboard/hr/daily-work-log");
+    for (const role of ["student", "parent", "alumni"] as const) expect(urls(role)).not.toContain("/dashboard/hr/daily-work-log");
+    expect(urls("teacher", true)).not.toContain("/dashboard/hr/daily-work-log");
+  });
   it("limits academic affairs to submissions and preserves learning tools elsewhere", () => {
     const areas = buildWorkAreas();
     const academic = areas.find(a => a.key === "academic")?.groups.flatMap(g => g.items.map(i => i.url));
