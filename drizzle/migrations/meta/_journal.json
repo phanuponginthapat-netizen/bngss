@@ -127,6 +127,13 @@
       "when": 1793783304554,
       "tag": "0017_cleanup_test_image_log",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793783428012,
+      "tag": "0018_ai_image_daily_quota",
+      "breakpoints": true
     }
   ]
 }
