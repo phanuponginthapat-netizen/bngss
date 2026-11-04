@@ -3,7 +3,8 @@
 #  Smart School Kiosk — MX Linux Auto Setup (2 โหมด)
 # ----------------------------------------------------------------------------
 #  โหมด (KIOSK_MODE):
-#    door    — HP Pavilion x2 ตู้สแกนหน้าประตู (default URL = /kiosk)
+#    door    — ตู้สแกนหน้าประตู = โปรแกรม FaceGate ใช้กล้อง USB โดยตรง (ไม่ใช้เบราว์เซอร์)
+#              ต้องมี FACEGATE_DEVICE_KEY (หรือพิมพ์ตอนติดตั้ง)
 #              • Wake daemon (ปลุกจอด้วยกล้อง), Watchdog, Health-check
 #              • Daily reboot 03:00, Full lock (ห้ามออกจาก URL)
 #    student — คอมพิวเตอร์ห้องนักเรียน (default URL = / )
@@ -296,6 +297,108 @@ if [[ -n "$KIOSK_WIFI_SSID" ]]; then
   fi
 else
   log "▶  [1/10] ข้ามการตั้ง Wi-Fi (ไม่ระบุ SSID)"
+fi
+
+
+# ============================================================================
+#  DOOR MODE = FaceGate โปรแกรมสแกนใบหน้าแบบใช้กล้องโดยตรง (ไม่ใช้เบราว์เซอร์)
+#  - โปรแกรมเปิดกล้อง USB เองผ่าน V4L2 + ประมวลผลใบหน้าในเครื่อง
+#  - แสดงผลในหน้าต่างเต็มจอของโปรแกรมเอง (WebKitGTK) — เบากว่า Chrome มาก
+#  - เปิดเครื่อง → เข้าหน้าจออัตโนมัติ → พร้อมสแกนทันที ไม่ต้อง login
+# ============================================================================
+if [[ "$KIOSK_MODE" == "door" ]]; then
+  log "▶  [2/6] ติดตั้งส่วนประกอบสำหรับ FaceGate (กล้องโดยตรง)..."
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -y || die "apt update ล้มเหลว — ตรวจ internet"
+  apt-get install -y --no-install-recommends \
+    python3 python3-venv python3-pip python3-gi gir1.2-gtk-3.0 \
+    libgl1 libglib2.0-0 v4l-utils curl unzip ca-certificates \
+    fonts-thai-tlwg fonts-noto-color-emoji x11-xserver-utils unclutter \
+    network-manager pulseaudio alsa-utils lightdm lightdm-gtk-greeter accountsservice \
+    || die "ติดตั้ง package ไม่สำเร็จ"
+  apt-get install -y --no-install-recommends gir1.2-webkit2-4.1 2>/dev/null \
+    || apt-get install -y --no-install-recommends gir1.2-webkit2-4.0 \
+    || die "ติดตั้ง WebKitGTK ไม่สำเร็จ"
+  usermod -aG video,audio "$KIOSK_USER" 2>/dev/null || true
+
+  FG_CLOUD_URL="${FACEGATE_CLOUD_URL:-$KIOSK_ORIGIN}"
+  FG_KEY="${FACEGATE_DEVICE_KEY:-}"
+  if [[ -z "$FG_KEY" ]] && [[ -r /dev/tty ]]; then
+    printf "ใส่รหัสเครื่อง (Device Key) จากหน้าหลังบ้าน FaceGate (Enter = ข้าม): " >/dev/tty
+    read -r FG_KEY </dev/tty || FG_KEY=""
+  fi
+
+  log "▶  [3/6] ติดตั้งโปรแกรม FaceGate ให้ผู้ใช้ $KIOSK_USER ..."
+  FG_TMP=$(mktemp -d)
+  curl -fsSL "$FG_CLOUD_URL/downloads/facegate-agent-installer.zip" -o "$FG_TMP/fg.zip" \
+    || die "ดาวน์โหลดโปรแกรม FaceGate ไม่ได้ ($FG_CLOUD_URL)"
+  unzip -q -o "$FG_TMP/fg.zip" -d "$FG_TMP"
+  FG_SRC="$(dirname "$(find "$FG_TMP" -name install.sh -path '*facegate*' | head -1)")"
+  [[ -f "$FG_SRC/agent.py" ]] || die "ไฟล์โปรแกรม FaceGate ไม่ครบ"
+  chown -R "$KIOSK_USER": "$FG_TMP"
+  # ติดตั้งในชื่อผู้ใช้ kiosk (ไม่ใช่ root) — sudo ภายในถูกข้ามเพราะติดตั้ง package ไว้แล้ว
+  sudo -u "$KIOSK_USER" -H env HOME="$USER_HOME" FACEGATE_NATIVE=1 \
+    FACEGATE_CLOUD_URL="$FG_CLOUD_URL" FACEGATE_DEVICE_KEY="$FG_KEY" \
+    FACEGATE_CAMERA_INDEX="${FACEGATE_CAMERA_INDEX:-0}" \
+    bash "$FG_SRC/install.sh" </dev/null || die "ติดตั้ง FaceGate ไม่สำเร็จ — ดู $LOG_FILE"
+  rm -rf "$FG_TMP"
+
+  log "▶  [4/6] เข้าหน้าจออัตโนมัติ + ปิดการพักจอ..."
+  install -d -m 755 /etc/lightdm/lightdm.conf.d
+  FG_SESSION=$(ls /usr/share/xsessions 2>/dev/null | grep -m1 -E '^(xfce|lxqt|openbox|LXDE)' | sed 's/\.desktop$//')
+  cat >/etc/lightdm/lightdm.conf.d/60-kiosk-autologin.conf <<EOF
+[Seat:*]
+autologin-user=$KIOSK_USER
+autologin-user-timeout=0
+${FG_SESSION:+autologin-session=$FG_SESSION}
+xserver-command=X -s 0 -dpms
+EOF
+  getent group nopasswdlogin >/dev/null && usermod -aG nopasswdlogin "$KIOSK_USER" || true
+  systemctl set-default graphical.target >/dev/null 2>&1 || true
+  systemctl enable lightdm.service >/dev/null 2>&1 || true
+  install -d -m 755 "$USER_HOME/.config/autostart"
+  cat >"$USER_HOME/.config/autostart/kiosk-noblank.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Kiosk No Blank
+Exec=sh -c 'xset s off; xset -dpms; xset s noblank; unclutter -idle 2 >/dev/null 2>&1 &'
+EOF
+  # ถ้าโปรแกรมปิด/ค้าง → เปิดใหม่เองภายใน 5 วินาที
+  cat >"$USER_HOME/.config/autostart/facegate.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=FaceGate
+Exec=sh -c 'sleep 3; while true; do $USER_HOME/.facegate/facegate >>$USER_HOME/.facegate/agent.log 2>&1; sleep 5; done'
+X-GNOME-Autostart-enabled=true
+EOF
+  chown -R "$KIOSK_USER": "$USER_HOME/.config"
+
+  REBOOT_AT="${KIOSK_DAILY_REBOOT:-03:00}"
+  log "▶  [5/6] รีบูตอัตโนมัติทุกวันเวลา $REBOOT_AT ..."
+  cat >/etc/systemd/system/kiosk-daily-reboot.service <<EOF
+[Unit]
+Description=Kiosk Daily Reboot
+[Service]
+Type=oneshot
+ExecStart=/sbin/reboot
+EOF
+  cat >/etc/systemd/system/kiosk-daily-reboot.timer <<EOF
+[Unit]
+Description=Kiosk Daily Reboot Timer
+[Timer]
+OnCalendar=*-*-* ${REBOOT_AT%%:*}:${REBOOT_AT##*:}:00
+[Install]
+WantedBy=timers.target
+EOF
+  systemctl daemon-reload || true
+  systemctl enable kiosk-daily-reboot.timer >/dev/null 2>&1 || true
+  # ปิดโหมดเบราว์เซอร์เดิม (ถ้าเคยติดตั้ง) เพื่อไม่ให้เปิดซ้อนกัน
+  rm -f "$USER_HOME/.config/autostart/kiosk.desktop" "$USER_HOME/.config/autostart/kiosk-chromium.desktop" 2>/dev/null || true
+  systemctl disable --now kiosk-wake.service >/dev/null 2>&1 || true
+
+  log "▶  [6/6] เสร็จแล้ว — รีบูตเครื่อง 1 ครั้ง แล้วหน้าสแกน FaceGate จะเปิดเองเต็มจอ"
+  log "   กล้อง: $(ls /dev/video* 2>/dev/null | tr '\n' ' ' || echo 'ยังไม่พบ — เสียบเว็บแคม USB')"
+  exit 0
 fi
 
 # ---------------- 2) apt install ----------------
