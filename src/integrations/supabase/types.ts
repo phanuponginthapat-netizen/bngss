@@ -17770,6 +17770,15 @@ export type Database = {
         Args: { _student_id: string }
         Returns: boolean
       }
+      substitute_is_free: {
+        Args: {
+          _date: string
+          _exclude_leave?: string
+          _name: string
+          _period: number
+        }
+        Returns: boolean
+      }
       sync_current_academic_period: { Args: never; Returns: string }
       term_for_date: {
         Args: { _d: string }

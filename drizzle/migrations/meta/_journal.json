@@ -148,6 +148,13 @@
       "when": 1793788242132,
       "tag": "0020_secrets_admin_only",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793788812234,
+      "tag": "0021_substitute_rules_v2",
+      "breakpoints": true
     }
   ]
 }
