@@ -77,7 +77,7 @@ export function thaiPublicHolidays(): ThaiPublicHoliday[] {
     const weekday = base.getUTCDay();
     if (weekday !== 0 && weekday !== 6) continue;
     let next = new Date(base.getTime() + DAY_MS);
-    while (taken.has(isoDay(next))) next = new Date(next.getTime() + DAY_MS);
+    while (taken.has(isoDay(next)) || next.getUTCDay() === 0 || next.getUTCDay() === 6) next = new Date(next.getTime() + DAY_MS);
     const day = isoDay(next);
     if (day.slice(0, 4) !== holiday.date.slice(0, 4)) continue; // วันหยุดข้ามปีต้องประกาศแยกต่างหาก
     taken.add(day);
