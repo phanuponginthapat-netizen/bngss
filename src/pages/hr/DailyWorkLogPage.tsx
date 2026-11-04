@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ClipboardList, Plus, Printer, Save, Trash2, Pencil, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,6 +16,7 @@ import { swal } from '@/lib/swal';
 import { todayBangkok } from '@/lib/dateBE';
 import { openPrintWindow } from '@/lib/printUtils';
 import { buildWorkReportHtml, canUsePersonnelWorkReport, monthBounds, parseWorkItems, thaiWorkDate, thaiWorkMonth, validWorkItems, workMonthRows, type WorkItem } from '@/lib/personnelWorkReport';
+import { thaiPublicHolidaysInRange } from '@/lib/thaiPublicHolidays';
 
 export default function DailyWorkLogPage() {
   const { userId, role, isObserver } = useUserRole();
@@ -68,7 +69,16 @@ export default function DailyWorkLogPage() {
     }
   }, [templates.data, templateId]);
   const selected = templates.data?.find(t => t.id === templateId);
-  const rows = workMonthRows(month, calendar.data ?? [], logs.data ?? []);
+  // ปฏิทินโรงเรียนมีผลกว่า ทำให้วันหยุดที่โรงเรียนกำหนดเองทับวันหยุดนักขัตฤกษ์ได้
+  const holidays = useMemo(() => {
+    const schoolDays = (calendar.data ?? []).map(h => ({ ...h, publicHoliday: false }));
+    const ranges = schoolDays.map(h => ({ start: h.event_date, end: h.end_date ?? h.event_date }));
+    const publicDays = thaiPublicHolidaysInRange(bounds.start, bounds.end)
+      .filter(p => !ranges.some(r => r.start <= p.date && r.end >= p.date))
+      .map(p => ({ title: p.title, event_date: p.date, end_date: p.date, publicHoliday: true }));
+    return [...schoolDays, ...publicDays];
+  }, [calendar.data, bounds.start, bounds.end]);
+  const rows = workMonthRows(month, holidays, logs.data ?? []);
   const loading = [templates, calendar, logs, identity].some(q => q.isPending);
   const error = templates.error || calendar.error || logs.error || identity.error;
   const ready = !loading && !error;
@@ -94,7 +104,7 @@ export default function DailyWorkLogPage() {
   };
   const openDay = (date: string) => {
     const row = rows.find(r => r.date === date);
-    if (!ready || row?.kind !== 'work' || date > today) return;
+    if (!ready || !row?.loggable || date > today) return;
     const log = row.log;
     if (log) {
       setTemplateId(log.template_id); setItems(log.items.map(i => ({...i})));
@@ -150,7 +160,7 @@ export default function DailyWorkLogPage() {
         <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={()=>setScopes([...scopes,''])}><Plus className="mr-2 h-4 w-4"/>เพิ่มขอบเขตงาน</Button><Button disabled={saving || !ready} onClick={saveTemplate}><Save className="mr-2 h-4 w-4"/>บันทึกเทมเพลต</Button></div></div>
       </TabsContent>
       <TabsContent value="daily" className="space-y-4 pt-3"><div className="flex flex-wrap items-end gap-4"><div className="space-y-2"><Label htmlFor="work-month">เดือนรายงาน</Label><Select value={month.slice(5)} onValueChange={value=>{setMonth(`${month.slice(0,4)}-${value}`);setWorkDate(null);}}><SelectTrigger id="work-month" className="w-44"><SelectValue/></SelectTrigger><SelectContent>{Array.from({length:12},(_,i)=>{const value=String(i+1).padStart(2,'0');return <SelectItem key={value} value={value}>{new Intl.DateTimeFormat('th-TH',{month:'long',timeZone:'Asia/Bangkok'}).format(new Date(`2000-${value}-01T00:00:00+07:00`))}</SelectItem>;})}</SelectContent></Select></div><div className="space-y-2"><Label htmlFor="work-year">ปี พ.ศ.</Label><Input id="work-year" type="number" className="w-28" min={544} max={10542} value={Number(month.slice(0,4))+543} onChange={e=>{const year=Number(e.target.value)-543;if(Number.isInteger(year)&&year>=1&&year<=9999){setMonth(`${String(year).padStart(4,'0')}-${month.slice(5)}`);setWorkDate(null);}}}/></div><div className="min-w-0 w-72 space-y-2"><Label>ขอบเขตงาน</Label><Select value={templateId} onValueChange={setTemplateId}><SelectTrigger><SelectValue placeholder="เลือกเทมเพลต"/></SelectTrigger><SelectContent>{templates.data?.map(t=><SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent></Select></div></div>
-      {loading ? <p role="status" className="py-8 text-muted-foreground">กำลังโหลดรายงานและปฏิทิน…</p> : !error && !templates.data?.length ? <div className="border-y py-8"><h2 className="mb-3 font-medium">ยังไม่ได้กำหนดขอบเขตงาน</h2><Button onClick={()=>setTab('templates')}><Plus className="mr-2 h-4 w-4"/>กำหนดขอบเขตงานก่อน</Button></div> : ready && <><div className="flex flex-wrap gap-5 text-sm text-muted-foreground"><span>{thaiWorkMonth(month)}</span><span>บันทึกแล้ว {rows.filter(r=>r.log).length} วัน</span><span>วันทำงาน {rows.filter(r=>r.kind==='work').length} วัน</span></div><Table><TableHeader><TableRow><TableHead className="w-32">วันเดือนปี</TableHead><TableHead>รายการปฏิบัติงาน</TableHead><TableHead className="w-24 text-right">บันทึก</TableHead></TableRow></TableHeader><TableBody>{rows.map(row=><TableRow key={row.date} className={row.kind!=='work'?'bg-muted':''}><TableCell className="whitespace-nowrap align-top">{thaiWorkDate(row.date)}</TableCell><TableCell className="max-w-xl whitespace-pre-wrap break-words">{row.kind!=='work'?<span className="font-medium">{row.label}</span>:row.log?row.log.items.map((item,i)=><div key={i} className="mb-3"><p className="font-bold">{i+1}. {item.detail}</p><span className="font-normal">- {item.scope}</span></div>):<span className="text-muted-foreground">{row.date>today?'—':'ยังไม่ได้บันทึก'}</span>}</TableCell><TableCell className="text-right align-top">{row.kind==='work' && row.date<=today && <Button size="icon" variant="ghost" title={row.log?'แก้ไขบันทึก':'บันทึกงาน'} aria-label={`${row.log?'แก้ไข':'บันทึก'} ${row.date}`} onClick={()=>openDay(row.date)}>{row.log?<Pencil className="h-4 w-4"/>:<Plus className="h-4 w-4"/>}</Button>}</TableCell></TableRow>)}</TableBody></Table></>}
+      {loading ? <p role="status" className="py-8 text-muted-foreground">กำลังโหลดรายงานและปฏิทิน…</p> : !error && !templates.data?.length ? <div className="border-y py-8"><h2 className="mb-3 font-medium">ยังไม่ได้กำหนดขอบเขตงาน</h2><Button onClick={()=>setTab('templates')}><Plus className="mr-2 h-4 w-4"/>กำหนดขอบเขตงานก่อน</Button></div> : ready && <><div className="flex flex-wrap gap-5 text-sm text-muted-foreground"><span>{thaiWorkMonth(month)}</span><span>บันทึกแล้ว {rows.filter(r=>r.log).length} วัน</span><span>วันทำงาน {rows.filter(r=>r.kind==='work').length} วัน</span><span>วันหยุดนักขัตฤกษ์ {rows.filter(r=>r.publicHoliday).length} วัน</span></div><Table><TableHeader><TableRow><TableHead className="w-32">วันเดือนปี</TableHead><TableHead>รายการปฏิบัติงาน</TableHead><TableHead className="w-24 text-right">บันทึก</TableHead></TableRow></TableHeader><TableBody>{rows.map(row=><TableRow key={row.date} className={row.kind!=='work' && !row.log?'bg-muted':''}><TableCell className="whitespace-nowrap align-top">{thaiWorkDate(row.date)}</TableCell><TableCell className="max-w-xl whitespace-pre-wrap break-words">{row.log?row.log.items.map((item,i)=><div key={i} className="mb-3"><p className="font-bold">{i+1}. {item.detail}</p><span className="font-normal">- {item.scope}</span></div>):row.kind!=='work'?<span className="font-medium">{row.label}</span>:<span className="text-muted-foreground">{row.date>today?'—':'ยังไม่ได้บันทึก'}</span>}</TableCell><TableCell className="text-right align-top">{row.loggable && row.date<=today && <Button size="icon" variant="ghost" title={row.log?'แก้ไขบันทึก':'บันทึกงาน'} aria-label={`${row.log?'แก้ไข':'บันทึก'} ${row.date}`} onClick={()=>openDay(row.date)}>{row.log?<Pencil className="h-4 w-4"/>:<Plus className="h-4 w-4"/>}</Button>}</TableCell></TableRow>)}</TableBody></Table></>}
       </TabsContent>
     </Tabs>
     <Dialog open={!!workDate} onOpenChange={open=>{if(!open&&!saving)setWorkDate(null);}}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle>บันทึกงาน {workDate?thaiWorkDate(workDate):''}</DialogTitle></DialogHeader><p className="text-sm text-muted-foreground">{selected?.title}</p>{items.map((item,i)=><div key={i} className="space-y-2"><Textarea id={`work-item-${i}`} className="font-bold" value={item.detail} onChange={e=>setItems(items.map((v,n)=>n===i?{...v,detail:e.target.value}:v))}/><Label htmlFor={`work-item-${i}`} className="font-normal">- {item.scope}</Label></div>)}<div className="flex justify-between gap-3">{rows.find(r=>r.date===workDate)?.log?<Button variant="outline" disabled={saving} onClick={removeDay}><Trash2 className="mr-2 h-4 w-4"/>ลบบันทึก</Button>:<span/>}<Button disabled={saving||!ready} onClick={saveDay}><Save className="mr-2 h-4 w-4"/>{saving?'กำลังบันทึก…':'บันทึกงาน'}</Button></div></DialogContent></Dialog>

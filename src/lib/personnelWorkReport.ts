@@ -2,8 +2,8 @@ import type { AppRole } from '@/hooks/useUserRole';
 
 export type WorkItem = { scope: string; detail: string };
 export type WorkLog = { id: string; work_date: string; template_id: string; position_title: string; items: WorkItem[] };
-export type CalendarHoliday = { title: string; event_date: string; end_date: string | null };
-export type WorkDay = { date: string; kind: 'work' | 'weekend' | 'holiday'; label: string; log?: WorkLog };
+export type CalendarHoliday = { title: string; event_date: string; end_date: string | null; publicHoliday?: boolean };
+export type WorkDay = { date: string; kind: 'work' | 'weekend' | 'holiday'; label: string; loggable: boolean; publicHoliday: boolean; log?: WorkLog };
 
 export function canUsePersonnelWorkReport(role: AppRole | null, observer = false) {
   return !observer && (role === 'teacher' || role === 'admin' || role === 'director');
@@ -19,9 +19,16 @@ export function workMonthRows(month: string, holidays: CalendarHoliday[], logs: 
     const date = `${month}-${String(index + 1).padStart(2, '0')}`;
     const holiday = holidays.find(h => h.event_date <= date && (h.end_date ?? h.event_date) >= date);
     const day = new Date(`${date}T00:00:00Z`).getUTCDay();
-    if (holiday) return { date, kind: 'holiday', label: `วันหยุด — ${holiday.title}` };
-    if (day === 0 || day === 6) return { date, kind: 'weekend', label: day === 6 ? '— วันเสาร์ —' : '— วันอาทิตย์ —' };
-    return { date, kind: 'work', label: '', log: logs.find(l => l.work_date === date) };
+    if (holiday) {
+      const publicHoliday = !!holiday.publicHoliday;
+      return {
+        date, kind: 'holiday', loggable: publicHoliday, publicHoliday,
+        label: `วันหยุด${publicHoliday ? 'นักขัตฤกษ์' : ''} — ${holiday.title}`,
+        log: publicHoliday ? logs.find(l => l.work_date === date) : undefined,
+      };
+    }
+    if (day === 0 || day === 6) return { date, kind: 'weekend', label: day === 6 ? '— วันเสาร์ —' : '— วันอาทิตย์ —', loggable: false, publicHoliday: false };
+    return { date, kind: 'work', label: '', loggable: true, publicHoliday: false, log: logs.find(l => l.work_date === date) };
   });
 }
 export function validWorkItems(items: WorkItem[], scopes: string[]) {
@@ -45,5 +52,5 @@ export function buildWorkReportHtml(rows: WorkDay[], heading: { name: string; po
   const positions = [...new Set(rows.flatMap(r => r.log ? [r.log.position_title] : []))];
   return `<style>@page{size:A4;margin:15mm} .work-report{font-family:Sarabun,sans-serif;font-size:12pt;line-height:1.15} .work-report header{text-align:center;margin-bottom:5mm;line-height:1.3} .work-report .title{font-size:16pt;font-weight:bold} .work-report .meta{font-size:12pt} .work-report table{width:100%;border-collapse:collapse;table-layout:fixed} .work-report th,.work-report td{border:1px solid currentColor;padding:1mm 1.6mm;vertical-align:top;overflow-wrap:anywhere} .work-report th{font-size:12pt;text-align:center;font-weight:bold;padding-top:1.6mm;padding-bottom:1.6mm} .work-report tr{break-inside:avoid} .work-report thead{display:table-header-group} .work-report .date{font-size:12pt;text-align:center;vertical-align:middle;white-space:nowrap;padding-left:0.8mm;padding-right:0.8mm} .work-report tr.rest td{background:#e2e2e2} .work-report .rest{text-align:center;vertical-align:middle;font-weight:bold} .work-report .entry{margin-bottom:0.8mm} .work-report .activity{font-weight:700} .work-report .scope{font-weight:400} .work-report .empty{color:#333}</style>
   <article class="work-report"><header><div class="title">รายงานการปฏิบัติงาน ตำแหน่ง ${e(positions.join(' / ') || heading.position)}</div><div class="meta">${e(heading.school)}<br>${e(heading.name)}<br>ประจำเดือน ${e(thaiWorkMonth(heading.month))}</div></header>
-  <table><colgroup><col width="15%"><col width="51%"><col width="17%"><col width="17%"></colgroup><thead><tr><th>วันเดือนปี</th><th>รายการปฏิบัติงาน</th><th>ลายมือชื่อ<br>ผู้ปฏิบัติ</th><th>ลายมือชื่อ<br>ผู้ควบคุม</th></tr></thead><tbody>${rows.map(r => `<tr class="${r.kind === 'work' ? '' : 'rest'}"><td class="date">${e(printWorkDate(r.date))}</td><td class="${r.kind === 'work' ? '' : 'rest'}">${r.kind !== 'work' ? e(r.label) : r.log ? r.log.items.map((item, i) => `<div class="entry"><span class="activity">${i + 1}. ${e(item.detail).replace(/\n/g, '<br>')}</span><br><span class="scope">- ${e(item.scope)}</span></div>`).join('') : '<span class="empty">ยังไม่ได้บันทึก</span>'}</td><td></td><td></td></tr>`).join('')}</tbody></table></article>`;
+  <table><colgroup><col width="15%"><col width="51%"><col width="17%"><col width="17%"></colgroup><thead><tr><th>วันเดือนปี</th><th>รายการปฏิบัติงาน</th><th>ลายมือชื่อ<br>ผู้ปฏิบัติ</th><th>ลายมือชื่อ<br>ผู้ควบคุม</th></tr></thead><tbody>${rows.map(r => { const rest = r.kind !== 'work' && !r.log; return `<tr class="${rest ? 'rest' : ''}"><td class="date">${e(printWorkDate(r.date))}</td><td class="${rest ? 'rest' : ''}">${r.log ? r.log.items.map((item, i) => `<div class="entry"><span class="activity">${i + 1}. ${e(item.detail).replace(/\n/g, '<br>')}</span><br><span class="scope">- ${e(item.scope)}</span></div>`).join('') : r.kind !== 'work' ? e(r.label) : '<span class="empty">ยังไม่ได้บันทึก</span>'}</td><td></td><td></td></tr>`; }).join('')}</tbody></table></article>`;
 }
