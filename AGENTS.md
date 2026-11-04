@@ -1,5 +1,6 @@
 - LINE attendance digests resolve saved school attendance plus earliest entry evidence through the shared attendanceDigest helper; missing evidence stays unrecorded, reads fail closed, and zero scans never create a holiday.
 - The system is cloud-only (single hosted backend); standalone/self-hosted installers and the district hub were removed to keep the codebase focused on day-to-day school use.
+- Personnel work reports use owner-only staff RLS with auth-derived default ownership, composite template ownership references, immutable daily content snapshots, and shared calendar holidays; UI and print consume the same month-row calculation to prevent cross-user leaks and fabricated work.
 - Shared query defaults never retain placeholder results across changed keys, and refetch stale data on mount/focus; fetch dedup is scoped to a client and all headers, with retries limited to reads, to avoid cross-context results and duplicate writes.
 - Term-sensitive dashboard queries wait for calendar readiness and scope schedules, assignments and enrollments together; warehouse reads page deterministically and fail on source errors rather than publish incomplete success.
 - Database tables of removed modules (IoT, bus, district hub) are kept, only UI/functions removed — avoids data loss and lets features be restored later.
