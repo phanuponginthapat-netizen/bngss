@@ -592,9 +592,6 @@ export default function ParentAppPage() {
             </div>
             );
           })}
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     );
