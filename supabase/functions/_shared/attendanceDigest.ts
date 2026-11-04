@@ -43,3 +43,25 @@ export async function readDigestRows<T>(query: (start: number, end: number) => P
     if (result.data.length < 500) return rows;
   }
 }
+/**
+ * After the school's check-in window has closed, a student with no record and
+ * no entry scan is counted as absent. Before the window closes, or on a day
+ * with no attendance evidence at all (possible holiday / scanner outage), they
+ * stay unrecorded so a whole school is never marked absent by mistake.
+ */
+export function markMissingAsAbsent(
+  statuses: Map<string, DigestStatus>,
+  studentIds: string[],
+  nowClock: string,
+  checkInEnd: string,
+): number {
+  if (!/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(checkInEnd)) throw new Error("Invalid check-in end time");
+  const end = checkInEnd.length === 5 ? `${checkInEnd}:00` : checkInEnd;
+  const now = nowClock.length === 5 ? `${nowClock}:00` : nowClock;
+  if (now <= end || statuses.size === 0) return 0;
+  let marked = 0;
+  for (const id of studentIds) {
+    if ((statuses.get(id) ?? "unrecorded") === "unrecorded") { statuses.set(id, "absent"); marked++; }
+  }
+  return marked;
+}

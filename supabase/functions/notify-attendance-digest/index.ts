@@ -5,7 +5,7 @@ import { corsHeadersWithCronAndMethods } from "../_shared/cors.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { pushMessage } from "../_shared/lineApi.ts";
 import { requireCronOrAdmin } from "../_shared/requireCron.ts";
-import { readDigestRows, resolveDigestStatuses } from "../_shared/attendanceDigest.ts";
+import { markMissingAsAbsent, readDigestRows, resolveDigestStatuses } from "../_shared/attendanceDigest.ts";
 
 const cors = corsHeadersWithCronAndMethods;
 
@@ -112,6 +112,7 @@ async function getSettings(sb: any): Promise<Record<string, string>> {
       "line_digest_days",
       "line_digest_include_calendar",
       "clock_late_threshold",
+      "clock_in_end",
     ]);
   if (error) throw error;
   const map: Record<string, string> = {};
@@ -203,8 +204,11 @@ serve(async (req) => {
         .select("student_id, scan_time, created_at, scan_type").eq("scan_date", today)
         .in("scan_type", ["entry", "assembly"]).order("id").range(start, end));
       const statusByStudent = resolveDigestStatuses(attRows, scanRows, settings.clock_late_threshold || "08:30");
+      // Past the check-in window → students with no record/scan count as absent.
+      const nowClock = new Date().toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok", hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      markMissingAsAbsent(statusByStudent, ((studs as any[]) || []).map((s) => s.id), nowClock,
+        settings.clock_in_end || settings.clock_late_threshold || "08:30");
 
-      // Missing evidence is unrecorded, never a confirmed absence.
       const byGrade: Record<string, { present: number; absent: number; late: number; leave: number; unrecorded: number }> = {};
       const absentByGrade: Record<string, string[]> = {};
       for (const s of (studs as any[]) || []) {
@@ -250,7 +254,7 @@ serve(async (req) => {
 
       if (!summary) {
         const pct = totals.totalAll > 0 ? Math.round(((totals.totalPresent + totals.totalLate) / totals.totalAll) * 1000) / 10 : 0;
-        let s = `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${shortThDate(today)}\n\n✅ มา ${totals.totalPresent} คน\n⏰ สาย ${totals.totalLate} คน\n📝 ลา ${totals.totalLeave} คน\n❌ ขาด (มีบันทึกยืนยัน) ${totals.totalAbsent} คน\n❔ ยังไม่มีบันทึก ${totals.totalUnrecorded} คน\n────────\nรวม ${totals.totalAll} คน • เข้าเรียน ${pct}%`;
+        let s = `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${shortThDate(today)}\n\n✅ มา ${totals.totalPresent} คน\n⏰ สาย ${totals.totalLate} คน\n📝 ลา ${totals.totalLeave} คน\n❌ ขาด ${totals.totalAbsent} คน${totals.totalUnrecorded > 0 ? `\n❔ ยังไม่มีบันทึก ${totals.totalUnrecorded} คน` : ""}\n────────\nรวม ${totals.totalAll} คน • เข้าเรียน ${pct}%`;
         const absentGrades = Object.keys(absentByGrade).sort(sortGrade);
         if (absentGrades.length > 0) {
           s += `\n\n🚨 รายชื่อนักเรียนที่ขาด (${totals.totalAbsent} คน)`;
