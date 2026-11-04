@@ -278,7 +278,9 @@ export default function KioskSetupPage() {
     [mode, kioskUrl, kioskUser, wifiSsid, wifiPass, enableDailyReboot, rebootTime, idleLogoutMin, idleShutdownMin, powerOn, powerOff, battCritical, battChargeMax, lowMem, memMinMb, rotate, volume, schoolName, PUBLIC_ORIGIN],
   );
 
-  const oneLiner = `curl -fsSL ${PUBLIC_ORIGIN}/kiosk-setup.sh | sudo KIOSK_MODE=${mode} bash`;
+  const oneLiner = mode === "door"
+    ? `curl -fsSL ${PUBLIC_ORIGIN}/kiosk-setup.sh | sudo KIOSK_MODE=door FACEGATE_DEVICE_KEY="รหัสเครื่อง" bash`
+    : `curl -fsSL ${PUBLIC_ORIGIN}/kiosk-setup.sh | sudo KIOSK_MODE=${mode} bash`;
 
 
   const handleDownload = () => {
@@ -331,7 +333,7 @@ export default function KioskSetupPage() {
               <div>
                 <div className="font-semibold">Door — ตู้สแกนหน้าประตู</div>
                 <div className="text-xs text-muted-foreground">
-                  HP Pavilion x2 หน้าประตูโรงเรียน · Full lock · Wake daemon ปลุกจอด้วยกล้อง · รีบูตตี 3
+                  โปรแกรม FaceGate ใช้กล้อง USB โดยตรง ไม่ผ่านเบราว์เซอร์ · เปิดเครื่องแล้วพร้อมสแกน · รีบูตตี 3
                 </div>
               </div>
             </button>
