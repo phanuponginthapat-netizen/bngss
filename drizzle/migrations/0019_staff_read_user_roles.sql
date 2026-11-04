@@ -1,0 +1,2 @@
+CREATE POLICY "Staff can view all roles" ON public.user_roles FOR SELECT TO authenticated
+USING (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'director') OR public.has_role(auth.uid(),'teacher'));
