@@ -215,7 +215,6 @@ function drawRotated(v, c, w, h) {
   ctx.save(); ctx.translate(c.width / 2, c.height / 2); ctx.rotate(rot * Math.PI / 180);
   ctx.drawImage(v, -w / 2, -h / 2, w, h); ctx.restore();
 }
-function camSize(v) { return nativeCam ? [v.naturalWidth, v.naturalHeight] : [v.videoWidth, v.videoHeight]; }
 function frame() {
   if (nativeCam) return 'native';
   const v = $('cam'); if (!v.videoWidth) return null;
