@@ -104,6 +104,9 @@ export default function DailyWorkLogPage() {
     }
     setWorkDate(date);
   };
+  // Show alerts only after the dialog has closed, then release any leftover scroll lock.
+  const releaseScroll = () => { const b=document.body; b.style.removeProperty('overflow'); b.style.removeProperty('pointer-events'); b.removeAttribute('data-scroll-locked'); document.documentElement.style.removeProperty('overflow'); };
+  const noticeAfterClose = async (show: () => Promise<unknown>) => { await new Promise(r=>setTimeout(r,250)); releaseScroll(); try { await show(); } finally { releaseScroll(); } };
   const saveDay = async () => {
     if (!userId || !workDate || !selected || !ready) return;
     const clean = items.filter(i => i.detail.trim()).map(i => ({scope:i.scope,detail:i.detail.trim()}));
@@ -117,7 +120,7 @@ export default function DailyWorkLogPage() {
         ? await supabase.from('personnel_daily_work_logs').update(payload).eq('id',original.id).eq('user_id',userId).select().single()
         : await supabase.from('personnel_daily_work_logs').insert(payload).select().single();
       if (result.error) throw result.error;
-      await invalidate(); setWorkDate(null); void swal.success('บันทึกการปฏิบัติงานแล้ว');
+      await invalidate(); setWorkDate(null); void noticeAfterClose(()=>swal.success('บันทึกการปฏิบัติงานแล้ว'));
     } catch(err) { void swal.error('บันทึกงานไม่สำเร็จ',err); } finally { setSaving(false); }
   };
   const removeDay = async () => {
@@ -127,7 +130,7 @@ export default function DailyWorkLogPage() {
     try {
       const {error} = await supabase.from('personnel_daily_work_logs').delete().eq('id',log.id).eq('user_id',userId);
       if (error) throw error;
-      await invalidate(); setWorkDate(null); void swal.success('ลบบันทึกแล้ว');
+      await invalidate(); setWorkDate(null); void noticeAfterClose(()=>swal.success('ลบบันทึกแล้ว'));
     } catch(err) { void swal.error('ลบบันทึกไม่สำเร็จ',err); } finally {setSaving(false);}
   };
   if (!allowed) return <p className="p-6 text-muted-foreground">สำหรับบุคลากรโรงเรียนเท่านั้น</p>;
