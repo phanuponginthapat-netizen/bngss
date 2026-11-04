@@ -78,6 +78,13 @@
       "when": 1793767251988,
       "tag": "0010_auto_link_skip_parents",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793767271745,
+      "tag": "0011_auto_link_skip_parents_fix",
+      "breakpoints": true
     }
   ]
 }
