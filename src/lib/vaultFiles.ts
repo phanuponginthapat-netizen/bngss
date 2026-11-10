@@ -36,9 +36,12 @@ export async function getVaultFileUrl(itemId: string): Promise<string> {
   const existing = pending.get(itemId);
   if (existing) return existing;
   const request = (async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+    try {
     const response = await fetch(`${SUPABASE_RUNTIME_URL}/functions/v1/line-vault-stream?id=${encodeURIComponent(itemId)}`, {
       headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_RUNTIME_ANON_KEY },
-      signal: AbortSignal.timeout(60000),
+      signal: controller.signal,
     });
     if (!response.ok) {
       if (response.status === 404) throw new Error("ไม่พบไฟล์ต้นฉบับ รายการยังอยู่ แต่ต้องตรวจไฟล์ใน Drive หรือพื้นที่เก็บไฟล์");
@@ -50,6 +53,7 @@ export async function getVaultFileUrl(itemId: string): Promise<string> {
     const url = URL.createObjectURL(blob);
     cache.set(itemId, { url, expires: Date.now() + 50 * 60 * 1000 });
     return url;
+    } finally { clearTimeout(timeout); }
   })();
   pending.set(itemId, request);
   try { return await request; }
