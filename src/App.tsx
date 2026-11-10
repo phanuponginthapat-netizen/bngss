@@ -308,6 +308,7 @@ const queryClient = new QueryClient({
 
 
 import SystemLoader from "./components/SystemLoader";
+import StartupIntro from "./components/StartupIntro";
 import CmsBranding from "./components/CmsBranding";
 import { useEffect } from "react";
 import { installGlobalErrorHandler } from "@/lib/globalErrorHandler";
@@ -341,6 +342,7 @@ const App = () => {
         <IdleScreensaver />
         {typeof window !== "undefined" && window.innerWidth >= 768 ? <TranslationBubble /> : null}
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <StartupIntro>
           <ErrorBoundary>
             <Suspense fallback={<SystemLoader />}>
               <AnimatedRoutesWrapper>
@@ -637,6 +639,7 @@ const App = () => {
               </AnimatedRoutesWrapper>
             </Suspense>
           </ErrorBoundary>
+          </StartupIntro>
         </BrowserRouter>
         </TooltipProvider>
       </ThemeProvider>
