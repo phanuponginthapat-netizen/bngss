@@ -29,6 +29,7 @@ import { IdCardFront, IdCardBack } from "@/components/IdCardRenderer";
 import { PdpaConsentCard } from "@/components/PdpaConsentCard";
 import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
 import { useProfileImageUrl } from "@/lib/profileImageUrl";
+import { waitForIdCardImages } from "@/lib/idCardImages";
 import MyPostsTab from "@/components/profile/MyPostsTab";
 import MyMembershipsCard from "@/components/profile/MyMembershipsCard";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
@@ -565,6 +566,7 @@ const ProfilePage = () => {
     toast.info("กำลังสร้าง PDF...");
     try {
       await (document as any).fonts?.ready;
+      await Promise.all([waitForIdCardImages(frontEl), waitForIdCardImages(backEl)]);
 
       const scale = 3;
       const frontCanvas = await html2canvas(frontEl, { scale, useCORS: true, backgroundColor: "#ffffff", logging: false });
@@ -597,7 +599,7 @@ const ProfilePage = () => {
       toast.success("ดาวน์โหลด PDF สำเร็จ");
     } catch (err) {
       console.error(err);
-      toast.error("ไม่สามารถสร้าง PDF ได้");
+      toast.error(saveErrorMessage(err, "ไม่สามารถสร้าง PDF ได้"));
     }
   }, [profile]);
 
@@ -1479,7 +1481,7 @@ const ProfilePage = () => {
                 code: profile.student_code || profile.employee_code || "",
                 className: role === "student" ? ((studentRecord as any)?.classrooms?.name || "") : undefined,
                 positionTitle: profile.position_title || undefined,
-                avatarUrl: profile.avatar_url || undefined,
+                avatarUrl: profile.avatar_full_url || profile.avatar_url || undefined,
                 dateOfBirth: profile.date_of_birth || undefined,
                 bloodType: profile.blood_type || undefined,
                 qrValue: profile.student_code || profile.employee_code || profileUrl,
