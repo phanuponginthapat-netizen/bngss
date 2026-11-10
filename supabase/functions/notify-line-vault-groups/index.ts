@@ -5,6 +5,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { pushMessage } from "../_shared/lineApi.ts";
 import { buildInfoCard, BRAND } from "../_shared/lineFlex.ts";
+import { requireCronOrAdmin } from "../_shared/requireCron.ts";
 
 async function getVaultToken(sb: any): Promise<string | null> {
   const env = Deno.env.get("LINE_VAULT_CHANNEL_ACCESS_TOKEN")?.trim();
@@ -75,6 +76,8 @@ function buildCalendarCard(events: any[]) {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const denied = await requireCronOrAdmin(req, corsHeaders);
+  if (denied) return denied;
   try {
     const cronSecret = Deno.env.get("CRON_SECRET") || "";
     const header = req.headers.get("x-cron-secret") || "";
