@@ -1,8 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { createParser } from "eventsource-parser";
-export type SchoolTool = "worksheet" | "lesson" | "quiz" | "grades";
-export const schoolToolLabels = { worksheet: "สร้างใบงาน", lesson: "สร้างแผนการสอน", quiz: "สร้างข้อสอบฝึกทบทวน", grades: "สรุปผลการเรียน" };
-export async function streamSchoolTool(body: { tool: SchoolTool; topic: string; grade: string; count: number }, onText: (text: string) => void) {
+export type SchoolTool = "analyze" | "worksheet" | "lesson" | "quiz" | "grades";
+export const schoolToolLabels = { analyze: "วิเคราะห์ไฟล์", worksheet: "สร้างใบงาน", lesson: "สร้างแผนการสอน", quiz: "สร้างข้อสอบฝึกทบทวน", grades: "สรุปผลการเรียน" };
+export async function streamSchoolTool(body: { tool: SchoolTool; topic: string; grade: string; count: number; attachment?: { name: string; text: string } }, onText: (text: string) => void) {
   const { data } = await supabase.auth.getSession();
   if (!data.session) throw new Error("กรุณาเข้าสู่ระบบใหม่");
   const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-school-tools`, {
