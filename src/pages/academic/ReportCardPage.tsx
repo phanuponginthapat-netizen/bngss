@@ -4,7 +4,7 @@ import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { formatGPA } from "@/lib/gradeUtils";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -22,11 +22,13 @@ import ClassBookletDialog from "@/components/academic/ClassBookletDialog";
 
 const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
   const [studentCode, setStudentCode] = useState("");
-  const { currentSemester: _curSem } = useAcademicYear();
+  const qc = useQueryClient();
+  const { currentSemester: _curSem, currentAcademicYear, isLoading: calendarLoading, error: calendarError } = useAcademicYear();
   const [semester, setSemester] = useState(String(_curSem || 1));
   const _semSynced = useRef(false);
-  useEffect(() => { if (!_semSynced.current && _curSem) { _semSynced.current = true; setSemester(String(_curSem)); } }, [_curSem]);
-  const [academicYear] = useState(String(new Date().getFullYear() + BE_OFFSET));
+  useEffect(() => { if (!_semSynced.current && !calendarLoading && !calendarError) { _semSynced.current = true; setSemester(String(_curSem)); } }, [_curSem, calendarLoading, calendarError]);
+  const academicYear = String(currentAcademicYear);
+  const yearCE = currentAcademicYear - BE_OFFSET;
   const schoolInfo = useSchoolInfo();
 
   const { data: classrooms = [], ...classroomsRead } = useQuery({
@@ -41,43 +43,44 @@ const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
   const { data: subjects = [], ...subjectsRead } = useQuery({ queryKey: ["subjects"], queryFn: async () => { const { data, error } = await supabase.from("subjects").select("*"); if (error) throw error;
       return data || []; } });
   const { data: scores = [], ...scoresRead } = useQuery({
-    queryKey: ["report_scores", studentCode, semester],
+    queryKey: ["report_scores", studentCode, yearCE, semester],
     queryFn: async () => {
       if (!studentCode) return [];
-      let q = supabase.from("student_scores").select("*").eq("student_code", studentCode);
+      let q = supabase.from("student_scores").select("*").eq("student_code", studentCode).eq("academic_year", yearCE);
       if (semester) q = q.eq("semester", parseInt(semester));
       const { data, error } = await q;
       if (error) throw error;
       return data || [];
     },
-    enabled: !!studentCode,
+    enabled: !!studentCode && !calendarLoading && !calendarError,
   });
 
   const student = students.find((s: any) => s.student_code === studentCode);
 
   const { data: assessmentScores = [], ...assessmentsRead } = useQuery({
-    queryKey: ["report_assessments", studentCode, semester],
+    queryKey: ["report_assessments", studentCode, yearCE, semester],
     queryFn: async () => {
       if (!studentCode || !student) return [];
       const { data, error } = await supabase.from("student_assessment_scores")
         .select("*, assessment_criteria(*)")
         .eq("student_id", student.id)
+        .eq("academic_year", yearCE)
         .eq("semester", parseInt(semester));
       if (error) throw error;
       return data || [];
     },
-    enabled: !!studentCode && !!student,
+    enabled: !!studentCode && !!student && !calendarLoading && !calendarError,
   });
 
   const { data: attendance = [], ...attendanceRead } = useQuery({
-    queryKey: ["report_attendance", studentCode, semester],
+    queryKey: ["report_attendance", studentCode, yearCE, semester],
     queryFn: async () => {
       if (!studentCode || !student) return [];
-      const { data, error } = await supabase.from("attendance").select("*").eq("student_id", student.id).eq("semester", parseInt(semester));
+      const { data, error } = await supabase.from("attendance").select("*").eq("student_id", student.id).eq("academic_year", yearCE).eq("semester", parseInt(semester));
       if (error) throw error;
       return data || [];
     },
-    enabled: !!studentCode && !!student,
+    enabled: !!studentCode && !!student && !calendarLoading && !calendarError,
   });
 
   const getSubject = (sid: string) => subjects.find((s: any) => s.id === sid);
@@ -102,8 +105,8 @@ const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
     }
   };
 
-  const readState = academicReadState([classroomsRead, studentsRead, scoresRead, subjectsRead, assessmentsRead, attendanceRead]);
-  const retryReads = () => { [classroomsRead, studentsRead, scoresRead, subjectsRead, assessmentsRead, attendanceRead].forEach(read => { void read.refetch(); }); };
+  const readState = academicReadState([classroomsRead, studentsRead, scoresRead, subjectsRead, assessmentsRead, attendanceRead], calendarLoading, calendarError);
+  const retryReads = () => { void qc.refetchQueries({ type: "active" }); };
 
   const handlePrint = async () => {
     if (!student || !readState.ready) return;

@@ -4,7 +4,7 @@ import { formatGPA } from "@/lib/gradeUtils";
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import ClassBookletDialog from "@/components/academic/ClassBookletDialog";
 
 
 const TranscriptPage = () => {
+  const qc = useQueryClient();
   const { lang } = useLanguage();
   const [studentCode, setStudentCode] = useState("");
   const schoolInfo = useSchoolInfo();
@@ -84,7 +85,7 @@ const TranscriptPage = () => {
   };
 
   const readState = academicReadState([classroomsRead, studentsRead, scoresRead, subjectsRead, assessmentsRead]);
-  const retryReads = () => { [classroomsRead, studentsRead, scoresRead, subjectsRead, assessmentsRead].forEach(read => { void read.refetch(); }); };
+  const retryReads = () => { void qc.refetchQueries({ type: "active" }); };
 
   const handlePrint = async () => {
     if (!student || !readState.ready) return;

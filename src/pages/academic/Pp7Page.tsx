@@ -3,7 +3,7 @@ import { academicReadState } from "@/lib/academicReadState";
 import { formatGPA } from "@/lib/gradeUtils";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,7 @@ import { openPrintWindow, currentThaiDate } from "@/lib/printUtils";
 import { useStudentsWithClass } from "@/hooks/useStudentsWithClass";
 
 const Pp7Page = () => {
+  const qc = useQueryClient();
   const [studentCode, setStudentCode] = useState("");
   const [purpose, setPurpose] = useState("สมัครเรียนต่อ");
   const schoolInfo = useSchoolInfo();
@@ -72,7 +73,7 @@ const Pp7Page = () => {
   };
 
   const readState = academicReadState([classroomsRead, studentsRead, scoresRead, subjectsRead, assessmentsRead]);
-  const retryReads = () => { [classroomsRead, studentsRead, scoresRead, subjectsRead, assessmentsRead].forEach(read => { void read.refetch(); }); };
+  const retryReads = () => { void qc.refetchQueries({ type: "active" }); };
 
   const handlePrint = async () => {
     if (!student || !readState.ready) return;
