@@ -1,3 +1,5 @@
+import { AcademicReadNotice } from "@/components/academic/AcademicReadNotice";
+import { academicReadState } from "@/lib/academicReadState";
 import { Fragment, useState, useMemo, useEffect, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useParentChildren } from "@/hooks/useParentChildren";
@@ -44,7 +46,7 @@ const SchedulePage = () => {
   const { isAdmin: _rawAdmin, isDirector, isTeacher, isStudent, isParent, userId } = useUserRole();
   const isAdmin = _rawAdmin || isDirector;
   const qc = useQueryClient();
-  const { currentSemester, currentAcademicYear, isLoading: calendarLoading } = useAcademicYear();
+  const { currentSemester, currentAcademicYear, isLoading: calendarLoading, error: calendarError } = useAcademicYear();
   const scheduleYear = currentAcademicYear - 543;
   const semesterChosen = useRef(false);
   const [viewMode, setViewMode] = useState<"classroom" | "mySchedule">(isTeacher ? "mySchedule" : "classroom");
@@ -54,18 +56,19 @@ const SchedulePage = () => {
   const { children: parentChildren } = useParentChildren();
 
   // For students: find their classroom by auth_user_id. Parents use first linked child.
-  const { data: myStudentRecord } = useQuery({
+  const { data: myStudentRecord, ...myStudentRecordRead } = useQuery({
     queryKey: ["my_student_classroom", userId, isParent, parentChildren?.[0]?.id],
     enabled: !!userId && (isStudent || isParent),
     queryFn: async () => {
       if (isParent) {
         return parentChildren?.[0] ? { id: parentChildren[0].id, classroom_id: parentChildren[0].classroom_id } : null;
       }
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("students")
         .select("id, classroom_id")
-        .eq("auth_user_id", userId!)
+        .eq("auth_user_id", userId || "")
         .maybeSingle();
+      if (error) throw error;
       return data;
     },
   });
@@ -79,29 +82,31 @@ const SchedulePage = () => {
   const [selectedTeacherName, setSelectedTeacherName] = useState<string>("");
 
   // Fetch teacher's personnel record for "my schedule" view
-  const { data: myPersonnel } = useQuery({
+  const { data: myPersonnel, ...myPersonnelRead } = useQuery({
     queryKey: ["my_personnel", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("personnel")
         .select("id, prefix, first_name, last_name")
-        .eq("user_id", userId!)
+        .eq("user_id", userId || "")
         .maybeSingle();
+      if (error) throw error;
       return data;
     },
   });
 
   // Fetch all personnel for admin's teacher selector
-  const { data: allPersonnel = [] } = useQuery({
+  const { data: allPersonnel = [], ...allPersonnelRead } = useQuery({
     queryKey: ["all_personnel_for_schedule"],
     enabled: isAdmin,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("personnel")
         .select("id, prefix, first_name, last_name")
         .eq("status", "active")
         .order("first_name");
+      if (error) throw error;
       return data || [];
     },
   });
@@ -160,37 +165,40 @@ const SchedulePage = () => {
   const [periodMinInput, setPeriodMinInput] = useState("");
   const [lunchMinInput, setLunchMinInput] = useState("");
 
-  const { data: periodsPerDay = 8 } = useQuery({
+  const { data: periodsPerDay = 8, ...periodsPerDayRead } = useQuery({
     queryKey: ["school_settings", "periods_per_day"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("school_settings")
         .select("setting_value")
         .eq("setting_key", "periods_per_day")
         .maybeSingle();
+      if (error) throw error;
       return parseInt(data?.setting_value || "8") || 8;
     },
   });
 
-  const { data: lunchAfterPeriod = 4 } = useQuery({
+  const { data: lunchAfterPeriod = 4, ...lunchAfterPeriodRead } = useQuery({
     queryKey: ["school_settings", "lunch_after_period"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("school_settings")
         .select("setting_value")
         .eq("setting_key", "lunch_after_period")
         .maybeSingle();
+      if (error) throw error;
       return parseInt(data?.setting_value || "4") || 4;
     },
   });
 
-  const { data: scheduleTimes = { start: "08:30", periodMin: 50, lunchMin: 60 } } = useQuery({
+  const { data: scheduleTimes = { start: "08:30", periodMin: 50, lunchMin: 60 }, ...scheduleTimesRead } = useQuery({
     queryKey: ["school_settings", "schedule_times"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("school_settings")
         .select("setting_key, setting_value")
         .in("setting_key", ["period_start_time", "period_duration_min", "lunch_duration_min"]);
+      if (error) throw error;
       const m: Record<string, string> = {};
       (data || []).forEach((r: any) => { if (r.setting_value != null) m[r.setting_key] = r.setting_value; });
       return {
@@ -202,19 +210,19 @@ const SchedulePage = () => {
   });
 
   // Load saved activity locks from school_settings
-  const { data: savedActivityLocks = [] } = useQuery({
+  const { data: savedActivityLocks = [], ...savedActivityLocksRead } = useQuery({
     queryKey: ["school_settings", "activity_locks"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("school_settings")
         .select("setting_value")
         .eq("setting_key", "activity_locks")
         .maybeSingle();
-      try {
-        return data?.setting_value ? JSON.parse(data.setting_value) as ActivityLock[] : [];
-      } catch {
-        return [];
-      }
+      if (error) throw error;
+      if (!data?.setting_value) return [];
+      const locks: unknown = JSON.parse(data.setting_value);
+      if (!Array.isArray(locks)) throw new Error("Invalid activity locks");
+      return locks as ActivityLock[];
     },
   });
 
@@ -222,47 +230,51 @@ const SchedulePage = () => {
 
   const periods = Array.from({ length: periodsPerDay }, (_, i) => i + 1);
 
-  const { data: classrooms = [] } = useQuery({
+  const { data: classrooms = [], ...classroomsRead } = useQuery({
     queryKey: ["classrooms"],
     queryFn: async () => {
-      const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
+      const { data, error } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
+      if (error) throw error;
       return data || [];
     },
   });
 
-  const { data: subjects = [] } = useQuery({
+  const { data: subjects = [], ...subjectsRead } = useQuery({
     queryKey: ["subjects"],
     queryFn: async () => {
-      const { data } = await supabase.from("subjects").select("*").order("code");
+      const { data, error } = await supabase.from("subjects").select("*").order("code");
+      if (error) throw error;
       return data || [];
     },
   });
 
-  const { data: assignments = [] } = useQuery({
+  const { data: assignments = [], ...assignmentsRead } = useQuery({
     queryKey: ["teacher_assignments", scheduleYear, filterSemester],
-    enabled: !calendarLoading,
+    enabled: !calendarLoading && !calendarError,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("teacher_assignments")
         .select("*, personnel(*), subjects(*), classrooms(*)")
         .eq("academic_year", scheduleYear)
         .eq("semester", filterSemester)
         .order("created_at");
+      if (error) throw error;
       return data || [];
     },
   });
 
-  const { data: schedules = [] } = useQuery({
+  const { data: schedules = [], ...schedulesRead } = useQuery({
     queryKey: ["schedules", scheduleYear, filterSemester],
-    enabled: !calendarLoading,
+    enabled: !calendarLoading && !calendarError,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("schedules")
         .select("*")
         .eq("semester", filterSemester)
         .eq("academic_year", scheduleYear)
         .order("day_of_week")
         .order("period");
+      if (error) throw error;
       return data || [];
     },
   });
@@ -280,18 +292,27 @@ const SchedulePage = () => {
     return { start: iso(mon), end: iso(fri), mon };
   }, []);
 
-  const { data: weekRoomBookings = [] } = useQuery({
+  const { data: weekRoomBookings = [], ...weekRoomBookingsRead } = useQuery({
     queryKey: ["schedule_week_bookings", weekRange.start, weekRange.end],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("learning_center_bookings")
         .select("id, booking_date, period, teacher_id, teacher_name, classroom_id, room_id, special_rooms(name)")
         .eq("status", "confirmed")
         .gte("booking_date", weekRange.start)
         .lte("booking_date", weekRange.end);
+      if (error) throw error;
       return data || [];
     },
   });
+
+  const scheduleReads = [myStudentRecordRead, myPersonnelRead, allPersonnelRead, periodsPerDayRead, lunchAfterPeriodRead, scheduleTimesRead, savedActivityLocksRead, classroomsRead, subjectsRead, assignmentsRead, schedulesRead, weekRoomBookingsRead];
+  const readState = academicReadState(scheduleReads, calendarLoading, calendarError);
+  const retryReads = () => {
+    void qc.refetchQueries({ type: "active" });
+    void qc.invalidateQueries({ queryKey: ["semester-config"] });
+    void qc.invalidateQueries({ queryKey: ["academic-periods"] });
+  };
 
   // Realtime — keep schedule overlay in sync with new bookings
   useEffect(() => {
@@ -530,6 +551,7 @@ const SchedulePage = () => {
   };
 
   const handleCellClick = (day: number, period: number) => {
+    if (!readState.ready) return;
     if (!isAdmin) {
       toast.info(lang === "th" ? "เฉพาะ Admin เท่านั้นที่สามารถแก้ไขตารางได้" : "Only Admin can edit schedules");
       return;
@@ -559,7 +581,7 @@ const SchedulePage = () => {
   };
 
   const handleAssignToCell = async () => {
-    if (!cellDialog || !selectedSubject || savingCell) return;
+    if (!cellDialog || !selectedSubject || savingCell || !readState.ready) return;
     setSavingCell(true);
     try {
       const assignment = assignments.find(
@@ -592,6 +614,7 @@ const SchedulePage = () => {
   };
 
   const handleDelete = async (id: string) => {
+    if (!readState.ready) return;
     if (!isAdmin) {
       toast.info(lang === "th" ? "เฉพาะ Admin เท่านั้น" : "Admin only");
       return;
@@ -602,7 +625,7 @@ const SchedulePage = () => {
   };
 
   const handleAutoSchedule = async () => {
-    if (!isAdmin) return;
+    if (!isAdmin || !readState.ready) return;
 
     const targetClassroomIds = filterClass && filterClass !== "all"
       ? [filterClass]
@@ -757,6 +780,13 @@ const SchedulePage = () => {
     }
   };
 
+  if (!readState.ready) return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-foreground">ตารางเรียน-ตารางสอน</h1>
+      <AcademicReadNotice {...readState} onRetry={retryReads} />
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -811,7 +841,7 @@ const SchedulePage = () => {
               </Button>
               <Button
                 onClick={handleAutoSchedule}
-                disabled={autoScheduling}
+                disabled={autoScheduling || !readState.ready}
                 className="gap-1.5"
               >
                 <Wand2 className="w-4 h-4" />
