@@ -27,8 +27,8 @@ export type AndroidRelease = {
 };
 
 /**
- * ค่าที่ตรวจจาก GitHub แล้ว (10 พ.ย. 2569) — ใช้เป็นตวสำรองเมื่่อ API อ่านไมได้
- * เพื่่อใหหนาดาน์โหลดยังแสดงข้อมูลและดาวน์โหลดได้
+ * Values verified from GitHub on 10 Nov 2026 (BE) — used when the API cannot be read
+ * so the download page still shows release info and keeps working
  */
 export const FALLBACK_ANDROID_RELEASE: AndroidRelease = {
   version: "1.0.169",
@@ -39,7 +39,7 @@ export const FALLBACK_ANDROID_RELEASE: AndroidRelease = {
   notes: "",
 };
 
-/** ตรวจข้อมูลจาก GitHub API แล้วคืนรุ่ที่ใชได้เทา那ั้น (ไมยอน URL จาก API มาใช) */
+/** Validates GitHub API data; returns only a usable release (never the API's own URL) */
 export function parseAndroidRelease(value: unknown): AndroidRelease | null {
   if (!value || typeof value !== "object") return null;
   const r = value as Record<string, unknown>;
@@ -68,13 +68,13 @@ export function parseAndroidRelease(value: unknown): AndroidRelease | null {
     fileName: ANDROID_APK_FILE_NAME,
     sizeBytes: size,
     publishedAt,
-    // ยึดลิงก์ถาวรที่กำหนดไว้เอง ไมสราง link จาก URL ที่ API ส่งมา
+    // keep the canonical URL we define; never build a link from the API response
     downloadUrl: ANDROID_APK_DOWNLOAD_URL,
     notes: body.trim(),
   };
 }
 
-/** อ่านข้อมูลรุ่ล่าสุดจาก GitHub — คืน null เมื่่ออ่านไมได้ (เน็ตขาด/โควตาหมด) */
+/** Reads the latest release from GitHub — returns null when unreadable (offline / quota) */
 export async function fetchAndroidRelease(timeoutMs = 8000): Promise<AndroidRelease | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -93,7 +93,7 @@ export async function fetchAndroidRelease(timeoutMs = 8000): Promise<AndroidRele
   }
 }
 
-/** ขอดาน์โหลดรุ่ล่าสุด: ใชข้อมูลจริงจาก GitHub ถาอ่านได้ ไมงั้ันใชคท่ี ี่ตรวจไว */
+/** Download hook: live GitHub data when readable, otherwise the verified fallback */
 export function useAndroidRelease() {
   const query = useQuery({
     queryKey: ["github-android-release"],
@@ -118,7 +118,7 @@ export function formatReleaseSize(sizeBytes: number): string {
 }
 
 const THAI_MONTHS = [
-  "มกราคม", "กุมภาพันธ ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+  "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
   "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม",
 ];
 

@@ -29,7 +29,7 @@ const GITHUB_REPO_URL = "https://github.com/phanuponginthapat-netizen/bngss";
 
 export default function AppDownloadPage() {
   const { schoolName, schoolLogo } = useSystemSettings();
-  const { release, live, loading, refetch } = useAndroidRelease();
+  const { release, isLive: live, isFetching: loading, refetch } = useAndroidRelease();
   const { data: qrOk } = useQuery({
     queryKey: ["app-download-link-check"],
     queryFn: async () => {
