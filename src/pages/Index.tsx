@@ -355,6 +355,11 @@ const Index = () => {
               </div>
             ) : (
               <>
+                <Link to="/download-app" className="hidden sm:inline-flex">
+                  <Button size="sm" variant="outline" className="rounded-full font-semibold border-primary/30 text-primary hover:bg-primary/10">
+                    ดาวน์โหลดแอป
+                  </Button>
+                </Link>
                 <MenuDropdown menuItems={menuItems} />
                 <Link to="/login">
                   <Button size="sm" className="rounded-full font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02] transition-all">

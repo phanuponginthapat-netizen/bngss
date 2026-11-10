@@ -41,7 +41,8 @@ export default function PublicNavbar() {
       const all = (data ?? []) as NavItem[];
       const roots = all.filter((i) => !i.parent_id);
       roots.forEach((r) => (r.children = all.filter((c) => c.parent_id === r.id)));
-      setItems(roots);
+      // แถวที่ไม่มที ั้ง URL และไม่มลี ูก → เป็นลิงก์ว่างที่ชไี้ ปหน้าปัจจบุ น → แสดงเป็นรายการที่กดไมไ่ ด
+      setItems(roots.filter((r) => r.url || (r.children?.length ?? 0) > 0));
     })();
   }, []);
 
@@ -131,6 +132,12 @@ export default function PublicNavbar() {
 
         <div className="flex items-center gap-2">
           <Link
+            to="/download-app"
+            className="hidden sm:inline-flex items-center rounded-full border border-primary/30 px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/10"
+          >
+            ดาวนโ์หลดแอป
+          </Link>
+          <Link
             to="/login"
             className="hidden sm:inline-flex items-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-110"
           >
@@ -172,6 +179,9 @@ export default function PublicNavbar() {
                 ))}
               </div>
             ))}
+            <Link to="/download-app" className="flex items-center justify-center gap-2 rounded-xl border border-primary/30 px-3 py-2.5 text-sm font-semibold text-primary">
+              ดาวนโ์หลดแอป
+            </Link>
             <Link to="/login" className="mt-2 flex items-center justify-center rounded-xl bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground">
               เข้าสู่ระบบ
             </Link>
