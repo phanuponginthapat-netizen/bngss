@@ -62,6 +62,8 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
   const [posting, setPosting] = useState(false);
   const [staged, setStaged] = useState<StagedMedia[]>([]);
   const [uploading, setUploading] = useState(false);
+  const reactionLocks = useRef(new Set<string>());
+  const [reactingIds, setReactingIds] = useState<string[]>([]);
   const { isAdmin: _rawA, isDirector: _rawD } = useUserRole(); const isAdmin = _rawA || _rawD;
 
   const load = async () => {
@@ -182,6 +184,10 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
 
   const react = async (post: WallPost, type: string) => {
     if (!userId) return toast.error("กรุณาเข้าสู่ระบบ");
+    if (reactionLocks.current.has(post.id)) return;
+    reactionLocks.current.add(post.id);
+    setReactingIds(current => [...current, post.id]);
+    try {
     const wasType = post.my_reaction;
     const removing = wasType === type;
     setPosts((prev) =>
@@ -201,12 +207,17 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
         .delete()
         .eq("post_id", post.id)
         .eq("user_id", userId);
-      if (error) { toast.error(saveErrorMessage(error)); load(); }
+      if (error) throw error;
     } else {
       const { error } = await supabase
         .from("wall_post_reactions")
         .upsert({ post_id: post.id, user_id: userId, reaction_type: type }, { onConflict: "post_id,user_id" });
-      if (error) { toast.error(saveErrorMessage(error)); load(); }
+      if (error) throw error;
+    }
+    } catch (error) { toast.error(saveErrorMessage(error)); await load(); }
+    finally {
+      reactionLocks.current.delete(post.id);
+      setReactingIds(current => current.filter(id => id !== post.id));
     }
   };
 
@@ -339,6 +350,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
               <Button
                 size="sm"
                 variant={p.my_reaction === "like" ? "default" : "ghost"}
+                disabled={reactingIds.includes(p.id)}
                 onClick={() => react(p, "like")}
               >
                 <ThumbsUp className="w-4 h-4 mr-1" />ถูกใจ
@@ -346,6 +358,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
               <Button
                 size="sm"
                 variant={p.my_reaction === "heart" ? "default" : "ghost"}
+                disabled={reactingIds.includes(p.id)}
                 onClick={() => react(p, "heart")}
               >
                 <Heart className="w-4 h-4 mr-1" />หัวใจ
@@ -371,14 +384,19 @@ function CommentSection({ postId, userId, commentCount }: { postId: string; user
   const [text, setText] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [sending, setSending] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const request = useRef(0);
 
   const load = async () => {
+    const version = ++request.current;
+    setLoadError("");
+    try {
     const { data, error } = await supabase
       .from("wall_post_comments")
       .select("*")
       .eq("post_id", postId)
       .order("created_at");
-    if (error) return toast.error(saveErrorMessage(error));
+    if (error) throw error;
     const list = (data || []) as Comment[];
     const ids = Array.from(new Set(list.map((c) => c.user_id)));
     const authors = new Map<string, any>();
@@ -390,8 +408,13 @@ function CommentSection({ postId, userId, commentCount }: { postId: string; user
         if (row) authors.set(id, row);
       })
     );
-    setComments(list.map((c) => ({ ...c, author: authors.get(c.user_id) })));
-    setLoaded(true);
+    if (version === request.current) {
+      setComments(list.map((c) => ({ ...c, author: authors.get(c.user_id) })));
+      setLoaded(true);
+    }
+    } catch (error) {
+      if (version === request.current) setLoadError(saveErrorMessage(error, "โหลดความคิดเห็นไม่สำเร็จ"));
+    }
   };
 
   // Load a preview automatically (FB-style) whenever the post has comments.
@@ -410,6 +433,7 @@ function CommentSection({ postId, userId, commentCount }: { postId: string; user
       )
       .subscribe();
     return () => {
+      request.current++;
       supabase.removeChannel(ch);
     };
     // eslint-disable-next-line
@@ -418,13 +442,15 @@ function CommentSection({ postId, userId, commentCount }: { postId: string; user
   const submit = async () => {
     if (!userId || !text.trim() || sending) return;
     setSending(true);
+    try {
     const { error } = await supabase
       .from("wall_post_comments")
       .insert({ post_id: postId, user_id: userId, content: text.trim() });
-    setSending(false);
-    if (error) return toast.error(saveErrorMessage(error));
+    if (error) throw error;
     setText("");
     await load();
+    } catch (error) { toast.error(saveErrorMessage(error)); }
+    finally { setSending(false); }
   };
 
   const visible = expanded ? comments : comments.slice(-PREVIEW_LIMIT);
@@ -432,6 +458,7 @@ function CommentSection({ postId, userId, commentCount }: { postId: string; user
 
   return (
     <div className="space-y-2">
+      {loadError && <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-destructive">{loadError}<Button size="sm" variant="outline" onClick={load}>ลองโหลดความคิดเห็นใหม่</Button></div>}
       {loaded && hiddenCount > 0 && (
         <Button size="sm" variant="ghost" className="h-auto px-1 py-1 text-xs" onClick={() => setExpanded(true)}>
           <MessageCircle className="w-3.5 h-3.5 mr-1" />
