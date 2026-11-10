@@ -131,6 +131,12 @@ export default function PublicNavbar() {
 
         <div className="flex items-center gap-2">
           <Link
+            to="/download-app"
+            className="hidden sm:inline-flex items-center rounded-full border border-primary/30 px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/10"
+          >
+            ดาวนโ์หลดแอป
+          </Link>
+          <Link
             to="/login"
             className="hidden sm:inline-flex items-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-110"
           >
@@ -172,6 +178,9 @@ export default function PublicNavbar() {
                 ))}
               </div>
             ))}
+            <Link to="/download-app" className="flex items-center justify-center gap-2 rounded-xl border border-primary/30 px-3 py-2.5 text-sm font-semibold text-primary">
+              ดาวนโ์หลดแอป
+            </Link>
             <Link to="/login" className="mt-2 flex items-center justify-center rounded-xl bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground">
               เข้าสู่ระบบ
             </Link>

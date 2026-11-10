@@ -167,6 +167,7 @@ const loaders: Record<string, () => Promise<unknown>> = {
   "/dashboard/student/sdq": () => import("@/pages/student/SDQPage"),
   "/dashboard/users": () => import("@/pages/UserManagement"),
   "/downloads": () => import("@/pages/public/DownloadsPage"),
+  "/download-app": () => import("@/pages/public/AppDownloadPage"),
   "/face-kiosk": () => import("@/pages/FaceKioskPage"),
   "/faq": () => import("@/pages/public/FaqPage"),
   "/find": () => import("@/pages/FindProfilePage"),

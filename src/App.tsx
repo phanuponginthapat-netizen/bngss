@@ -24,6 +24,7 @@ const PublicSubjectGroupsPage = lazy(() => import("./pages/public/SubjectGroupsP
 const PublicNewsListPage = lazy(() => import("./pages/public/NewsListPage"));
 const PublicCalendarPage = lazy(() => import("./pages/public/PublicCalendarPage"));
 const PublicDownloadsPage = lazy(() => import("./pages/public/DownloadsPage"));
+const PublicAppDownloadPage = lazy(() => import("./pages/public/AppDownloadPage"));
 const PublicFaqPage = lazy(() => import("./pages/public/FaqPage"));
 const PublicContactPage = lazy(() => import("./pages/public/ContactPage"));
 const SchoolInfoCmsPage = lazy(() => import("./pages/admin/SchoolInfoCmsPage"));
@@ -376,6 +377,7 @@ const App = () => {
               <Route path="/news" element={<PublicNewsListPage />} />
               <Route path="/calendar" element={<PublicCalendarPage />} />
               <Route path="/downloads" element={<PublicDownloadsPage />} />
+              <Route path="/download-app" element={<PublicAppDownloadPage />} />
               <Route path="/faq" element={<PublicFaqPage />} />
               <Route path="/contact" element={<PublicContactPage />} />
               <Route path="/face-kiosk" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><FaceKioskPage /></ProtectedRoute>} />
